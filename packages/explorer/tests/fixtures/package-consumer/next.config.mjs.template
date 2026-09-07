@@ -1,0 +1,5 @@
+export default {
+  outputFileTracingRoot: process.cwd(),
+  // Keep production compilation bounded in CI; no Cloudflare/Vinext adapter.
+  experimental: { cpus: 1 },
+};

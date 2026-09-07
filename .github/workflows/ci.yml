@@ -1,0 +1,47 @@
+name: LikeX checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run check:release
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high --json > artifacts/dependency-audit-production.json
+      - name: Keep the package and verification reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: explorer-node-${{ matrix.node }}
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            artifacts/*.tgz
+            artifacts/library-build.json
+            artifacts/library-pack.json
+            artifacts/release-check.json
+            artifacts/package-consumer-report.json
+            artifacts/package-consumer-next.log
+            artifacts/copy-consumer-report.json
+            artifacts/copy-consumer-next.log
+            artifacts/dependency-audit-production.json

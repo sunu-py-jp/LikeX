@@ -1,0 +1,4 @@
+/* Maintained Tailwind input. Consumers import the generated src/styles.css. */
+@import "tailwindcss" prefix(lxe) source(none);
+@source "../src/**/*.ts";
+@source "../src/**/*.tsx";

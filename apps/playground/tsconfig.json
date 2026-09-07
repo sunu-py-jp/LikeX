@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "types": ["vite/client", "node"],
+    "paths": {
+      "@likex/explorer": ["../../packages/explorer/src/index.ts"]
+    }
+  },
+  "include": ["src", "build", "vite.config.ts"],
+  "exclude": ["dist", "node_modules"]
+}

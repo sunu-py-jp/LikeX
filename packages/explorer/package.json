@@ -1,0 +1,54 @@
+{
+  "name": "@likex/explorer",
+  "version": "0.1.0",
+  "description": "A client-side file explorer for React with host-owned storage, previews, and downloads.",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json",
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "src/README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "peerDependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "dependencies": {
+    "lucide-react": "^1.31.0",
+    "radix-ui": "^1.6.7",
+    "tailwind-merge": "^3.6.0"
+  },
+  "keywords": [
+    "react",
+    "file-explorer",
+    "nextjs",
+    "typescript",
+    "tailwindcss"
+  ],
+  "scripts": {
+    "build": "node ../../scripts/build-library.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:draft": "node --experimental-strip-types --test tests/explorer-model.test.mjs tests/explorer-draft.test.mjs",
+    "test:hook": "node --experimental-strip-types --test tests/explorer-hook.test.mjs",
+    "test:tabs": "node --test tests/explorer-tabs.test.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

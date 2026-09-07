@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.next/
+coverage/
+/artifacts/
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.keystore
+.env*
+!.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vercel/
+
+# Generated package documentation/notices; source is checked in.
+/packages/*/THIRD_PARTY_NOTICES.md

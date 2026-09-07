@@ -1,0 +1,55 @@
+{
+  "name": "likex",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Independent React interfaces inspired by familiar applications.",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "install:ci": "npm ci",
+    "dev": "npm run dev --workspace @likex/playground",
+    "build": "npm run build:library && npm run build:playground",
+    "build:playground": "npm run build --workspace @likex/playground",
+    "preview": "npm run preview --workspace @likex/playground",
+    "test": "npm run test --workspaces --if-present",
+    "test:draft": "npm run test:draft --workspace @likex/explorer",
+    "test:hook": "npm run test:hook --workspace @likex/explorer",
+    "test:tabs": "npm run test:tabs --workspace @likex/explorer",
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "benchmark:explorer": "node scripts/benchmark-explorer.mjs",
+    "build:library": "node scripts/build-library.mjs",
+    "pack:library": "node scripts/pack-library.mjs",
+    "test:package": "node scripts/test-package.mjs",
+    "test:copy": "node scripts/test-copy.mjs",
+    "check:release": "node scripts/check-release.mjs",
+    "build:styles": "node scripts/build-styles.mjs",
+    "check:styles": "node scripts/build-styles.mjs --check",
+    "test:styles": "node --test scripts/tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "esbuild": "0.28.2",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.3.4",
+    "postcss": "8.5.23",
+    "react-test-renderer": "19.2.8",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "postcss-selector-parser": "7.1.6",
+    "postcss-value-parser": "4.2.0"
+  }
+}

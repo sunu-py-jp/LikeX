@@ -1,0 +1,38 @@
+import Explorer, { ExplorerPopup, useExplorerDraft, createExplorerUploadSession,
+  type ExplorerProps, type ExplorerEntry, type ExplorerEvent,
+  type ExplorerFileReader, type ExplorerSaveHandler, type ExplorerRefreshHandler,
+  type FileReader as LegacyFileReader, type SaveHandler as LegacySaveHandler,
+  type RefreshHandler as LegacyRefreshHandler } from "__EXPLORER_IMPORT__";
+
+const entries: readonly ExplorerEntry[] = [];
+const onRefresh: ExplorerRefreshHandler = async () => entries;
+const onSave: ExplorerSaveHandler = payload => payload.entries;
+const readFile: ExplorerFileReader = async () => new Blob(['example']);
+const legacyReadFile: LegacyFileReader = readFile;
+const legacySave: LegacySaveHandler = onSave;
+const legacyRefresh: LegacyRefreshHandler = onRefresh;
+const legacyProps = { initialEntries: entries, readFile: legacyReadFile, onSave: legacySave, onRefresh: legacyRefresh } satisfies ExplorerProps;
+const valid: ExplorerProps = { initialEntries: entries, onSave, onRefresh, readFile,
+  onEvent(event: ExplorerEvent) {
+    if (event.type === "refresh" && event.status === "success") {
+      const path: string = event.entries[0]?.path ?? "/";
+      void path;
+    }
+  },
+};
+const readOnly = <Explorer initialEntries={entries} />;
+const popup = <ExplorerPopup {...valid} renderTrigger={({ close }) => <button onClick={close}>Close</button>} />;
+const rejected = <Explorer initialEntries={entries}
+  // @ts-expect-error Refresh must return an entry array, never a void save-style result.
+  onRefresh={() => {}} />;
+const wrongFeature: ExplorerProps = { initialEntries: entries,
+  // @ts-expect-error Only published feature names are accepted.
+  features: { madeUpFeature: false },
+};
+function useConsumerDraft() {
+  const draft = useExplorerDraft({ initialEntries: entries, onRefresh });
+  const result: Promise<boolean> = draft.refresh();
+  const busy: boolean = draft.refreshing;
+  return { result, busy, session: createExplorerUploadSession() };
+}
+void [readOnly, popup, rejected, wrongFeature, legacyProps, useConsumerDraft];

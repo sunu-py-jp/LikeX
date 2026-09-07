@@ -1,0 +1,24 @@
+import Explorer, { type ExplorerEntry } from "__EXPLORER_IMPORT__";
+import ClientExplorer from "./client";
+
+const entries: ExplorerEntry[] = [{
+  id: "server-file", parent: "root", name: "Server-readonly.txt", kind: "file",
+  size: 4, mime: "text/plain", favorite: 0,
+  createdAt: "2026-09-07T00:00:00.000Z", updatedAt: "2026-09-07T00:00:00.000Z",
+  source: { kind: "existing", id: "opaque-server-body" },
+}];
+
+// This remains a Server Component. The package's own directive must provide
+// the client boundary when it is imported directly into an App Router page.
+export default function Page() {
+  return <main>
+    <h1>Explorer consumer</h1>
+    <div className="host-probe flex min-h-0 h-8" data-host-style-probe>
+      Host utility styles remain independent.
+      <button type="button">Host button</button>
+      <input aria-label="Host input" defaultValue="Host input" />
+    </div>
+    <Explorer initialEntries={entries} title="Server-imported explorer" style={{ height: 320 }} />
+    <ClientExplorer />
+  </main>;
+}

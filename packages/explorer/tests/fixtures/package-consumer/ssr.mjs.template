@@ -1,0 +1,25 @@
+import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import Explorer, { Explorer as NamedExplorer, ExplorerPopup, useExplorerDraft,
+  createExplorerUploadSession, lightExplorerTheme, darkExplorerTheme } from "__EXPLORER_IMPORT__";
+
+assert.equal(Explorer, NamedExplorer);
+assert.equal(typeof ExplorerPopup, "function");
+assert.equal(typeof useExplorerDraft, "function");
+assert.ok(createExplorerUploadSession());
+assert.notDeepEqual(lightExplorerTheme, darkExplorerTheme);
+assert.equal(typeof window, "undefined");
+const markup = renderToStaticMarkup(createElement(Explorer, {
+  initialEntries: [{ id: "ssr-file", parent: "root", name: "Consumer-SSR.txt", kind: "file",
+    size: 4, mime: "text/plain", favorite: 0,
+    createdAt: "2026-09-07T00:00:00.000Z", updatedAt: "2026-09-07T00:00:00.000Z",
+    source: { kind: "existing", id: "ssr-body" } }],
+  style: { height: 320 },
+}));
+assert.match(markup, /Consumer-SSR\.txt/);
+assert.match(markup, /data-explorer-root/);
+assert.match(markup, /data-likex-explorer/);
+assert.match(markup, /lxe:flex/);
+assert.match(markup, /height:320px/);
+console.log(JSON.stringify({ resolved: import.meta.resolve("__EXPLORER_RESOLVE__"), renderedBytes: markup.length }));

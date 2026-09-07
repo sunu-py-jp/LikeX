@@ -1,0 +1,28 @@
+"use client";
+
+import { useState } from "react";
+import Explorer, { ExplorerPopup, type ExplorerEntry, type ExplorerProps } from "__EXPLORER_IMPORT__";
+
+export default function ClientExplorer() {
+  const [saved, setSaved] = useState<readonly ExplorerEntry[]>([]);
+  const props = {
+    initialEntries: saved,
+    onSave: ({ entries }) => { setSaved(entries); return entries; },
+    onRefresh: async () => saved,
+    onEditRequest: () => true,
+    onDownloadRequest: async (_request, context) => {
+      context.reportProgress({ phase: "accepted" });
+      return { status: "handed-off" };
+    },
+    onPreviewRequest: request => { void request.extension; void request.path; },
+    features: { copy: false, favorites: false },
+    warnOnUnsavedChanges: true,
+    colorMode: "system",
+    style: { height: 320 },
+  } satisfies ExplorerProps;
+  return <>
+    <Explorer {...props} />
+    <ExplorerPopup {...props} renderTrigger={({ open, isOpening }) =>
+      <button type="button" disabled={isOpening} onClick={open}>Open explorer</button>} />
+  </>;
+}
