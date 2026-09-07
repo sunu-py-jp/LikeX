@@ -22,13 +22,17 @@ export const ExplorerStatusBar = memo(function ExplorerStatusBar() {
     editMode,
     saving,
     refreshing,
-  } = useExplorerFields("visible", "selected", "selectedEntries", "saveError", "refreshError", "view", "changeView", "allowedViewModes", "selectionOptions", "readOnly", "editMode", "saving", "refreshing");
+    searchPending,
+    searchError,
+  } = useExplorerFields("visible", "selected", "selectedEntries", "saveError", "refreshError", "view", "changeView", "allowedViewModes", "selectionOptions", "readOnly", "editMode", "saving", "refreshing", "searchPending", "searchError");
   return (
     <footer
       className="lxe:flex lxe:min-h-8 lxe:shrink-0 lxe:flex-wrap lxe:items-center lxe:gap-x-3 lxe:gap-y-1 lxe:border-t lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-panel)] lxe:px-3 lxe:py-0.5 lxe:text-xs lxe:text-[var(--explorer-muted)]"
       aria-live="polite"
     >
-      <span className="lxe:whitespace-nowrap">{visible.length} 個の項目</span>
+      <span className="lxe:whitespace-nowrap">
+        {searchPending ? "検索中…" : searchError ? "検索に失敗しました" : `${visible.length} 個の項目`}
+      </span>
       {readOnly && <span className="lxe:whitespace-nowrap">読み取り専用</span>}
       {selectionOptions.mode !== "none" && selected.length > 0 && (
         <>

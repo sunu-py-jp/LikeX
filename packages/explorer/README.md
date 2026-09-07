@@ -75,7 +75,25 @@ Tailwind CSS、他のLikeXパッケージ、共通Providerは不要です。詳�
 | 最新一覧へ更新 | `onRefresh()`。認証・取得した最新一覧を返します。初回取得の関数を共用でき、初回には自動実行しません。 |
 | 既存本体の読込 | `readFile(sourceId)`。認証済みの `Blob` を返し、内蔵プレビュー・ダウンロード・サムネイルへ使います。 |
 | 外部ダウンロード・プレビュー | `onDownloadRequest` / `onPreviewRequest`。取得方法、進捗、外部ダイアログ等を利用側で実装します。 |
+| 本文・セマンティック検索 | `onSearchRequest(request, { signal })`。現在の一覧に存在する項目IDを検索順位順に返します。`search` でEnter確定や入力の待機時間を選べます。 |
 | 操作の観測 | `onEvent`。通知の戻り値や例外では保存・操作を拒否できません。保存前の検証は `onSave`、編集開始の許可は `onEditRequest` で扱います。 |
+
+## 検索を接続する
+
+省略時は、読み込んだ全項目の名前を入力と同時に検索します。Enterで確定する場合は `search={{ trigger: "submit" }}`、外部検索を入力後300 ms待って実行する場合は次のように指定します。
+
+```tsx
+<Explorer
+  initialEntries={entries}
+  search={{ trigger: "input", debounceMs: 300 }}
+  onSearchRequest={searchFiles}
+  style={{ height: 640 }}
+/>
+```
+
+`entries` と `searchFiles` は親が用意します。`searchFiles` の型は `ExplorerSearchHandler` で、`readonly string[]` またはそのPromiseを返します。未知・重複IDは無視し、返却順を維持するため外部検索中の並べ替えUIは表示しません。空の検索語では呼び出さず通常一覧へ戻り、古い検索は中断・破棄します。`features.search: false` で検索全体を無効にできます。
+
+Explorerは検索のためにファイル本体を自動取得しません。本文キャッシュや認証済み検索APIの接続、未保存ファイルとの検索結果の合成は親が担当します。[公開型・本文キャッシュ・fetchの具体例](./src/README.md#search-integration) を参照してください。
 
 ## 主な制約
 

@@ -34,6 +34,7 @@ import { useExplorerWindowTabs, type TabViewState } from "./use-explorer-tabs";
 import { getEntryIndex } from "../model/entry-index";
 import { useExplorerUpload } from "./use-explorer-upload";
 import { useExplorerListing } from "./use-explorer-listing";
+import { useExplorerSearch } from "./use-explorer-search";
 import { captureClipboardImport } from "./clipboard-import";
 import { hasKeyModifiers, isComposingKeyEvent, matchesExplorerShortcut } from "../model/keyboard";
 import {
@@ -61,6 +62,8 @@ export function useExplorerViewController({
   readFile,
   onDownloadRequest,
   onPreviewRequest,
+  onSearchRequest,
+  search: searchOptions,
   previewTrigger = "doubleClick",
   onEvent,
   renderIcon,
@@ -127,12 +130,18 @@ export function useExplorerViewController({
     selectedIds,
     anchor,
     query: storedQuery,
+    searchText: storedSearchText,
+    searchRevision,
     view: storedView,
     compact,
     sort: storedSort,
     expanded,
   } = tabState.activeTab;
-  const query = features.search ? storedQuery : "";
+  const query = features.search ? storedQuery.trim() : "";
+  const searchText = features.search ? storedSearchText : "";
+  const searchTrigger = searchOptions?.trigger ?? "input";
+  const composingSearch = useRef(false);
+  const canSort = features.sort && !(query && onSearchRequest);
   const view = allowedViewModes.includes(storedView) ? storedView : options.view.defaultMode;
   const sort = features.sort ? storedSort : DEFAULT_SORT;
   function tabSetter<K extends keyof TabViewState>(key: K) {
@@ -141,7 +150,6 @@ export function useExplorerViewController({
   }
   const updateSelected = tabSetter("selectedIds"),
     setAnchor = tabSetter("anchor"),
-    updateQuery = tabSetter("query"),
     setView = tabSetter("view"),
     setCompact = tabSetter("compact"),
     updateSort = tabSetter("sort"),
@@ -157,10 +165,33 @@ export function useExplorerViewController({
     ));
   }
   function setQuery(action: SetStateAction<string>) {
-    if (features.search) updateQuery(action);
+    if (!features.search) return;
+    const commit = searchTrigger === "input" && !composingSearch.current;
+    tabState.patchTabState(previous => {
+      const text = typeof action === "function" ? action(previous.searchText) : action;
+      const nextQuery = commit || !text.trim() ? text.trim() : previous.query;
+      return { searchText: text, query: nextQuery,
+        ...(nextQuery !== previous.query ? { selectedIds: [], anchor: null } : {}) };
+    });
+  }
+  function setSearchComposing(value: boolean) {
+    composingSearch.current = value;
+  }
+  function submitSearch() {
+    if (!features.search || composingSearch.current) return;
+    tabState.patchTabState(previous => ({ query: previous.searchText.trim(),
+      searchRevision: previous.searchRevision + 1, selectedIds: [], anchor: null }));
+  }
+  function retrySearch() {
+    if (!features.search) return;
+    tabState.patchTabState(previous => ({ searchRevision: previous.searchRevision + 1 }));
+  }
+  function clearSearch() {
+    composingSearch.current = false;
+    tabState.patchTabState({ searchText: "", query: "", selectedIds: [], anchor: null });
   }
   function setSort(action: SetStateAction<TabViewState["sort"]>) {
-    if (features.sort) updateSort(action);
+    if (canSort) updateSort(action);
   }
   function canAct(action: ExplorerAction["action"], current: typeof options) {
     return !current.readOnly && current.features[action === "create" ? "createFolder" : action === "favorite" ? "favorites" : action];
@@ -366,6 +397,7 @@ export function useExplorerViewController({
       : locationTitle(resolveLocation(tab.requestedLocation)),
   })), [features.tabs, features.search, tabState.tabs, tabState.activeTab, locationTitle, resolveLocation]);
   function clearTransientState() {
+    composingSearch.current = false;
     cancelEditRequest(windowId);
     cancelRename();
     setModal(null);
@@ -425,8 +457,18 @@ export function useExplorerViewController({
   const details = features.details ? entryIndex.byId.get(detailId ?? "") : undefined,
     preview = features.preview && !onPreviewRequest ? entryIndex.byId.get(previewId ?? "") : undefined;
   const { totalSize, fileCount } = entryIndex;
+  const locationInfo = useMemo<ExplorerLocationInfo>(() => typeof location === "string"
+    ? { kind: "folder", id: location, name: title, path: addressPath }
+    : { kind: location === FAVORITES ? "favorites" : "recent", id: null, name: title, path: null },
+  [location, title, addressPath]);
+  const { resultIds, searchPending, searchError, externalSearch } = useExplorerSearch({
+    enabled: features.search, query, entries, location: locationInfo,
+    tabId: tabState.activeTabId, windowId, onSearchRequest, trigger: searchTrigger,
+    debounceMs: searchOptions?.debounceMs, revision: searchRevision, ownerDocument,
+  });
   const { visible, visiblePositions, selected, selectedSet, selectedEntries } = useExplorerListing({
     entries, location, query, sort, selectedIds, selectionMode: selectionOptions.mode,
+    searchResultIds: resultIds,
   });
   const renamingEntryId = features.rename && !readOnly && !saving && !refreshing &&
     renameSession?.revision === editRevision &&
@@ -437,10 +479,6 @@ export function useExplorerViewController({
 
   // Observe committed UI state, never React updater functions (which can replay).
   // Keep the baseline even without a handler so attaching one does not replay history.
-  const locationInfo = useMemo<ExplorerLocationInfo>(() => typeof location === "string"
-    ? { kind: "folder", id: location, name: title, path: addressPath }
-    : { kind: location === FAVORITES ? "favorites" : "recent", id: null, name: title, path: null },
-  [location, title, addressPath]);
   const { key: displayedSortKey, asc: displayedSortAsc } = displayedSort;
   const viewInfo = useMemo(() => ({ mode: view, compact, query, sort: { key: displayedSortKey, asc: displayedSortAsc } }),
     [view, compact, query, displayedSortKey, displayedSortAsc]);
@@ -567,10 +605,11 @@ export function useExplorerViewController({
     if ((id === FAVORITES && !features.favorites) || (id === RECENT && !features.recent)) return;
     cancelEditRequest(windowId);
     cancelRename();
+    composingSearch.current = false;
     tabState.patchTabState(previous => {
       const nextHistory = record ? [...previous.history.slice(0, previous.historyIndex + 1), id] : previous.history;
       return {
-        requestedLocation: id, selectedIds: [], anchor: null, query: "",
+        requestedLocation: id, selectedIds: [], anchor: null, query: "", searchText: "",
         history: nextHistory, historyIndex: record ? nextHistory.length - 1 : previous.historyIndex,
         expanded: typeof id === "string" && id !== "root"
           ? [...new Set([...previous.expanded, ...getEntryPath(entries, id).map(entry => entry.id)])]
@@ -1185,7 +1224,17 @@ export function useExplorerViewController({
     selectedEntries,
     anchor,
     query,
+    searchText,
+    searchTrigger,
+    searchPending,
+    searchError,
+    externalSearch,
+    canSort,
     setQuery,
+    submitSearch,
+    retrySearch,
+    clearSearch,
+    setSearchComposing,
     setSelected,
     view,
     setView,

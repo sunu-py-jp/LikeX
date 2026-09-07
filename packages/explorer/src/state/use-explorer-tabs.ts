@@ -11,6 +11,8 @@ export type TabViewState = {
   selectedIds: string[];
   anchor: string | null;
   query: string;
+  searchText: string;
+  searchRevision: number;
   view: ExplorerViewMode;
   compact: boolean;
   sort: { key: "name" | "updatedAt" | "extension" | "size"; asc: boolean };
@@ -28,7 +30,7 @@ const nullSnapshot = () => null;
 
 function createTab(id: string, view: ExplorerViewMode, start: TabStart): ExplorerTab {
   return { id, requestedLocation: start.location, history: [start.location], historyIndex: 0,
-    selectedIds: [], anchor: null, query: "", view, compact: false,
+    selectedIds: [], anchor: null, query: "", searchText: "", searchRevision: 0, view, compact: false,
     sort: { key: "name", asc: true }, expanded: [...start.expanded] };
 }
 

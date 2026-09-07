@@ -1,6 +1,8 @@
 import Explorer, { ExplorerPopup, useExplorerDraft, createExplorerUploadSession,
   type ExplorerProps, type ExplorerEntry, type ExplorerEvent,
   type ExplorerFileReader, type ExplorerSaveHandler, type ExplorerRefreshHandler,
+  type ExplorerSearchOptions, type ExplorerSearchHandler, type ExplorerSearchRequest,
+  type ExplorerSearchContext,
   type FileReader as LegacyFileReader, type SaveHandler as LegacySaveHandler,
   type RefreshHandler as LegacyRefreshHandler } from "__EXPLORER_IMPORT__";
 
@@ -8,11 +10,23 @@ const entries: readonly ExplorerEntry[] = [];
 const onRefresh: ExplorerRefreshHandler = async () => entries;
 const onSave: ExplorerSaveHandler = payload => payload.entries;
 const readFile: ExplorerFileReader = async () => new Blob(['example']);
+const search = { trigger: "input", debounceMs: 300 } satisfies ExplorerSearchOptions;
+const onSearchRequest: ExplorerSearchHandler = async (request: ExplorerSearchRequest, context: ExplorerSearchContext) => {
+  const query: string = request.query;
+  const tabId: string = request.tabId;
+  const windowId: string = request.windowId;
+  const folderId: string | null = request.location.kind === "folder" ? request.location.id : null;
+  const signal: AbortSignal = context.signal;
+  if (signal.aborted || !tabId || !windowId) return [];
+  return request.entries.filter(entry => entry.name.includes(query) && (folderId === null || entry.parent === folderId))
+    .map(entry => entry.id);
+};
+const synchronousSearch: ExplorerSearchHandler = () => ["first", "second"] as const;
 const legacyReadFile: LegacyFileReader = readFile;
 const legacySave: LegacySaveHandler = onSave;
 const legacyRefresh: LegacyRefreshHandler = onRefresh;
 const legacyProps = { initialEntries: entries, readFile: legacyReadFile, onSave: legacySave, onRefresh: legacyRefresh } satisfies ExplorerProps;
-const valid: ExplorerProps = { initialEntries: entries, onSave, onRefresh, readFile,
+const valid: ExplorerProps = { initialEntries: entries, onSave, onRefresh, readFile, search, onSearchRequest,
   onEvent(event: ExplorerEvent) {
     if (event.type === "refresh" && event.status === "success") {
       const path: string = event.entries[0]?.path ?? "/";
@@ -22,6 +36,11 @@ const valid: ExplorerProps = { initialEntries: entries, onSave, onRefresh, readF
 };
 const readOnly = <Explorer initialEntries={entries} />;
 const popup = <ExplorerPopup {...valid} renderTrigger={({ close }) => <button onClick={close}>Close</button>} />;
+const submitSearch = <Explorer initialEntries={entries} search={{ trigger: "submit" }} onSearchRequest={synchronousSearch} />;
+// @ts-expect-error Published search options accept input or submit only.
+const wrongSearchTrigger = { trigger: "change" } satisfies ExplorerSearchOptions;
+// @ts-expect-error External search returns string IDs, not indices.
+const wrongSearchResult: ExplorerSearchHandler = () => [123];
 const rejected = <Explorer initialEntries={entries}
   // @ts-expect-error Refresh must return an entry array, never a void save-style result.
   onRefresh={() => {}} />;
@@ -29,10 +48,18 @@ const wrongFeature: ExplorerProps = { initialEntries: entries,
   // @ts-expect-error Only published feature names are accepted.
   features: { madeUpFeature: false },
 };
+function rejectSearchMutation(request: ExplorerSearchRequest, context: ExplorerSearchContext) {
+  // @ts-expect-error Published requests preserve their readonly query.
+  request.query = "changed";
+  // @ts-expect-error Search cannot mutate the current entry array.
+  request.entries.push(request.entries[0]);
+  // @ts-expect-error The consumer cannot replace the component's abort signal.
+  context.signal = new AbortController().signal;
+}
 function useConsumerDraft() {
   const draft = useExplorerDraft({ initialEntries: entries, onRefresh });
   const result: Promise<boolean> = draft.refresh();
   const busy: boolean = draft.refreshing;
   return { result, busy, session: createExplorerUploadSession() };
 }
-void [readOnly, popup, rejected, wrongFeature, legacyProps, useConsumerDraft];
+void [readOnly, popup, submitSearch, wrongSearchTrigger, wrongSearchResult, rejected, wrongFeature, legacyProps, rejectSearchMutation, useConsumerDraft];

@@ -468,9 +468,9 @@ test('ExplorerPopup preserves unsaved edits, uploaded File references and naviga
   await change(() => {
     hook.pane.act('rename', ['alpha'], { name: 'Renamed.txt' });
     hook.pane.addLocalFiles([file]);
-    hook.pane.setSelected(['alpha']);
     hook.pane.changeView('large');
     hook.pane.setQuery('Renamed');
+    hook.pane.setSelected(['alpha']);
   });
   const entries = hook.pane.entries;
   assert.equal(hook.pane.dirty, true);

@@ -9,6 +9,7 @@ import type { ExplorerPreviewHandler, ExplorerPreviewTrigger } from "./model/pre
 import type { ExplorerEventHandler } from "./model/events";
 import type { ExplorerUploadOptions } from "./model/upload";
 import type { ExplorerDownloadHandler } from "./model/download";
+import type { ExplorerSearchHandler, ExplorerSearchOptions } from "./model/search";
 
 export type ExplorerIconLocation = "list" | "tree" | "tab" | "destination" | "details" | "preview";
 
@@ -42,6 +43,10 @@ export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave
   onEvent?: ExplorerEventHandler;
   /** Restrictions checked before staging local files; omitted values are unrestricted. */
   upload?: ExplorerUploadOptions;
+  /** Search on input (default) or submit. Optional debounce applies to external input searches. */
+  search?: ExplorerSearchOptions;
+  /** Replace name matching with host-owned search; return existing entry IDs in result order. */
+  onSearchRequest?: ExplorerSearchHandler;
   /** Override file/folder icons. Null/undefined preserve the default icon or thumbnail. */
   renderIcon?: ExplorerIconRenderer;
   /** Optional label at the right of the tab bar. Omitted or blank values are hidden. */

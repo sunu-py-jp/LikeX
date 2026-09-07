@@ -39,6 +39,8 @@ async function mountTabs(t, defaultView = 'details', initialStart) {
 const editedState = {
   requestedLocation: 'documents', history: ['root', 'projects', 'documents'], historyIndex: 2,
   selectedIds: ['report', 'photo'], anchor: 'report', query: '議事録',
+  searchText: '議事録の続き',
+  searchRevision: 2,
   view: 'large', compact: true, sort: { key: 'updatedAt', asc: false },
   expanded: ['root', 'projects', 'documents'],
 };

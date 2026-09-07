@@ -16,13 +16,19 @@ type ListingOptions = {
   sort: TabViewState["sort"];
   selectedIds: readonly string[];
   selectionMode: ExplorerSelectionMode;
+  /** null uses the built-in listing; an array preserves host search ranking. */
+  searchResultIds?: readonly string[] | null;
 };
 
 /** Derive the current listing and effective selection without changing the draft or tab state. */
-export function useExplorerListing({ entries, location, query, sort, selectedIds, selectionMode }: ListingOptions) {
+export function useExplorerListing({ entries, location, query, sort, selectedIds, selectionMode, searchResultIds = null }: ListingOptions) {
   const entryIndex = getEntryIndex(entries);
   const { key, asc } = sort;
   const visible = useMemo(() => {
+    if (searchResultIds !== null) {
+      // The search boundary already validates and deduplicates IDs.
+      return searchResultIds.flatMap(id => entryIndex.byId.get(id) ?? []);
+    }
     const needle = query.trim().toLocaleLowerCase("ja-JP");
     const result = needle
       ? entries.filter(entry => entryIndex.searchNames.get(entry.id)!.includes(needle))
@@ -41,7 +47,7 @@ export function useExplorerListing({ entries, location, query, sort, selectedIds
           : naturalNameOrder.compare(String(a[sortKey]), String(b[sortKey])));
     });
     return result;
-  }, [entries, entryIndex, location, query, key, asc]);
+  }, [entries, entryIndex, location, query, key, asc, searchResultIds]);
 
   const visiblePositions = useMemo(() => new Map(visible.map((entry, index) => [entry.id, index])), [visible]);
   const selected = useMemo(() => {

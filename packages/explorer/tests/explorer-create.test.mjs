@@ -125,7 +125,7 @@ test('keyboard UI uses matching shortcut labels and accessible keys in header, c
   assert.ok(openItems.every(node => node.props['aria-keyshortcuts'] === 'Enter Space'));
   const refresh = ui.root.findAllByType('button').find(node => node.props['aria-label'] === '更新');
   assert.equal(refresh.props['aria-keyshortcuts'], 'F5');
-  assert.equal(ui.root.findAllByType('input').find(node => node.props['aria-label'] === 'すべてのフォルダからファイル名で検索').props['aria-keyshortcuts'],
+  assert.equal(ui.root.findAllByType('input').find(node => node.props['aria-label'] === 'ファイルを検索').props['aria-keyshortcuts'],
     'Control+F Meta+F Control+K Meta+K');
   assert.equal(ui.root.findAllByType('button').find(node => textOf(node) === '保存').props['aria-keyshortcuts'], 'Control+S Meta+S');
   await openKeyboardHelp(ui);
@@ -517,7 +517,7 @@ test('the actual view omits file-kind controls, the kind column and title bar wh
   const list = () => ui.root.findByProps({ 'aria-label': 'ファイル一覧' });
   const assertNoTitleBar = () => assert.equal(list().children.some(node => typeof node === 'object' && node.type === 'div' && node.props.className?.split(' ').includes('lxe:h-10')), false);
   assertNoTitleBar();
-  const search = () => ui.root.findByProps({ 'aria-label': 'すべてのフォルダからファイル名で検索' });
+  const search = () => ui.root.findByProps({ 'aria-label': 'ファイルを検索' });
   await change(() => search().props.onChange({ target: { value: '.txt' } }));
   assert.deepEqual(rows(), ['alpha']);
   assertNoTitleBar();
@@ -554,7 +554,7 @@ test('recent files have no folder-name subtitle while ordinary search keeps loca
   const row = () => ui.root.findAll(node => typeof node.type === 'string' && node.props['data-explorer-entry-id'] === 'alpha')[0];
   await change(() => select('最近更新した項目').props.onClick());
   assert.equal(row().findAllByType('small').length, 0);
-  const search = () => ui.root.findByProps({ 'aria-label': 'すべてのフォルダからファイル名で検索' });
+  const search = () => ui.root.findByProps({ 'aria-label': 'ファイルを検索' });
   await change(() => search().props.onChange({ target: { value: 'A.pdf' } }));
   assert.equal(row().findAllByType('small').length, 0);
   await change(() => select('ファイル').props.onClick());

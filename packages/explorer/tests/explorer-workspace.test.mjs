@@ -730,7 +730,7 @@ test('child-origin detachment opens synchronously in the source window and prese
   await change(() => hook.main.setSelected(['alpha']));
   await change(() => hook.pane(sourceId).addTab());
   await change(() => hook.pane(sourceId).navigate('folder'));
-  await change(() => { hook.pane(sourceId).setSelected(['nested']); hook.pane(sourceId).setQuery('Nested'); hook.pane(sourceId).changeView('large'); });
+  await change(() => { hook.pane(sourceId).setQuery('Nested'); hook.pane(sourceId).setSelected(['nested']); hook.pane(sourceId).changeView('large'); });
   const movingTab = hook.workspace.tabs.forWindow(sourceId).activeTab;
   const mainTab = hook.workspace.tabs.activeTab;
   const childWindow = hook.popups[0].document.defaultView;

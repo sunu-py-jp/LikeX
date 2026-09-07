@@ -19,6 +19,7 @@ import {
   FolderPlus,
   FolderOpen,
   Info,
+  Loader2,
   Pencil,
   Scissors,
   Search,
@@ -357,8 +358,8 @@ function SortHeader({
   label: string;
   field: "name" | "updatedAt" | "extension" | "size";
 }) {
-  const { location, displayedSort, sortBy, features } = useExplorerFields("location", "displayedSort", "sortBy", "features");
-  if (!features.sort) return label;
+  const { location, displayedSort, sortBy, canSort } = useExplorerFields("location", "displayedSort", "sortBy", "canSort");
+  if (!canSort) return label;
   return (
     <button
       type="button"
@@ -417,6 +418,10 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     view,
     compact,
     query,
+    searchPending,
+    searchError,
+    retrySearch,
+    canSort,
     location,
     special,
     currentParent,
@@ -445,7 +450,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     renamingEntryId,
     previewTrigger,
     canEditFavorites,
-  } = useExplorerFields("rootLabel", "entries", "visible", "selectedSet", "activeTabId", "focusEntryRef", "clipboard", "disabled", "busy", "view", "compact", "query", "location", "special", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "chooseFiles", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "showModal", "renamingEntryId", "previewTrigger", "canEditFavorites");
+  } = useExplorerFields("rootLabel", "entries", "visible", "selectedSet", "activeTabId", "focusEntryRef", "clipboard", "disabled", "busy", "view", "compact", "query", "searchPending", "searchError", "retrySearch", "canSort", "location", "special", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "chooseFiles", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "showModal", "renamingEntryId", "previewTrigger", "canEditFavorites");
   const { scheduleRename, cancelPendingRename } = useEntryRenameDelay();
   const suppressNamePreview = useRef(false);
   const horizontal = view === "small" || view === "list";
@@ -572,6 +577,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     <section
       className="lxe:flex lxe:min-h-0 lxe:min-w-0 lxe:flex-1 lxe:flex-col lxe:bg-[var(--explorer-background)]"
       aria-label="ファイル一覧"
+      aria-busy={searchPending}
       onFocusCapture={(event) => pinVirtualEntry("focus", (event.target as Element).closest<HTMLElement>("[data-explorer-entry-id]")?.dataset.explorerEntryId ?? null)}
       onBlurCapture={(event) => pinVirtualEntry("focus", (event.relatedTarget as Element | null)?.closest?.<HTMLElement>("[data-explorer-entry-id]")?.dataset.explorerEntryId ?? null)}
       onDragEndCapture={() => pinVirtualEntry("drag", null)}
@@ -628,44 +634,67 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
             </span>
           </div>
         )}
-        {!visible.length ? (
-          <div className="lxe:flex lxe:h-full lxe:min-h-52 lxe:flex-col lxe:items-center lxe:justify-center lxe:gap-3 lxe:p-6 lxe:text-center">
-            {searching ? (
+        {searchPending || searchError || !visible.length ? (
+          <div role={searchError ? "alert" : searchPending ? "status" : undefined} className="lxe:flex lxe:h-full lxe:min-h-52 lxe:flex-col lxe:items-center lxe:justify-center lxe:gap-3 lxe:p-6 lxe:text-center">
+            {searchPending ? (
+              <Loader2
+                aria-hidden="true"
+                className="lxe:size-11 lxe:animate-spin lxe:text-[var(--explorer-muted)] lxe:motion-reduce:animate-none"
+                strokeWidth={1.25}
+              />
+            ) : searching || searchError ? (
               <Search
+                aria-hidden="true"
                 className="lxe:size-11 lxe:text-[var(--explorer-muted)]"
                 strokeWidth={1.25}
               />
             ) : (
               <FolderOpen
+                aria-hidden="true"
                 className="lxe:size-11 lxe:text-[var(--explorer-muted)]"
                 strokeWidth={1.25}
               />
             )}
             <h3 className="lxe:mt-1 lxe:text-base lxe:font-normal">
-              {searching
-                ? "一致するファイルがありません"
-                : favoritesLocation
-                  ? "お気に入りはまだありません"
-                  : "このフォルダは空です"}
+              {searchPending
+                ? "検索しています…"
+                : searchError
+                  ? "検索に失敗しました"
+                  : searching
+                    ? "一致するファイルがありません"
+                    : favoritesLocation
+                      ? "お気に入りはまだありません"
+                      : "このフォルダは空です"}
             </h3>
             <p className="lxe:text-sm lxe:text-[var(--explorer-muted)]">
-              {searching
-                ? "別のファイル名で検索してください"
-                : favoritesLocation
-                  ? canEditFavorites
-                    ? "項目を選んで、メニューからお気に入りに追加できます"
-                    : "登録済みの項目がここに表示されます"
-                  : features.uploadFiles && features.uploadFolders
-                    ? "ファイルやフォルダを追加できます"
-                    : features.uploadFiles
-                      ? "ファイルを追加できます"
-                      : features.uploadFolders
-                        ? "フォルダを追加できます"
-                        : features.createFolder
-                          ? "フォルダを作成できます"
-                          : "表示できる項目はありません"}
+              {searchPending
+                ? "検索結果を取得しています"
+                : searchError
+                  ? searchError
+                  : searching
+                    ? "別の検索条件で検索してください"
+                    : favoritesLocation
+                      ? canEditFavorites
+                        ? "項目を選んで、メニューからお気に入りに追加できます"
+                        : "登録済みの項目がここに表示されます"
+                      : features.uploadFiles && features.uploadFolders
+                        ? "ファイルやフォルダを追加できます"
+                        : features.uploadFiles
+                          ? "ファイルを追加できます"
+                          : features.uploadFolders
+                            ? "フォルダを追加できます"
+                            : features.createFolder
+                              ? "フォルダを作成できます"
+                              : "表示できる項目はありません"}
             </p>
-            {!special &&
+            {!searchPending && searchError && (
+              <button type="button" className={buttonClass} onClick={retrySearch}>
+                再試行
+              </button>
+            )}
+            {!searchPending &&
+              !searchError &&
+              !special &&
               !searching &&
               (features.uploadFiles ||
                 features.uploadFolders ||
@@ -736,7 +765,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                 <th
                   className={headerCellClass}
                   aria-sort={
-                    !features.sort
+                    !canSort
                       ? undefined
                       : displayedSort.key === "name"
                         ? displayedSort.asc
@@ -750,7 +779,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                 <th
                   className={`${headerCellClass} lxe:w-32`}
                   aria-sort={
-                    !features.sort
+                    !canSort
                       ? undefined
                       : displayedSort.key === "updatedAt"
                         ? displayedSort.asc
@@ -764,7 +793,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                 <th
                   className={`${headerCellClass} lxe:w-20`}
                   aria-sort={
-                    !features.sort
+                    !canSort
                       ? undefined
                       : displayedSort.key === "extension"
                         ? displayedSort.asc ? "ascending" : "descending"
@@ -776,7 +805,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                 <th
                   className={`${headerCellClass} lxe:w-24`}
                   aria-sort={
-                    !features.sort
+                    !canSort
                       ? undefined
                       : displayedSort.key === "size"
                         ? displayedSort.asc

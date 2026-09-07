@@ -13,6 +13,12 @@ export type {
 } from "./props";
 export type { ExplorerItemInfo } from "./model/item-info";
 export type {
+  ExplorerSearchOptions,
+  ExplorerSearchRequest,
+  ExplorerSearchContext,
+  ExplorerSearchHandler,
+} from "./model/search";
+export type {
   ExplorerPreviewRequest,
   ExplorerPreviewHandler,
   ExplorerPreviewTrigger,

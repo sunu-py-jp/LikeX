@@ -1,6 +1,6 @@
 "use client";
 
-import { shortcutAriaKeys } from "../model/keyboard";
+import { isComposingKeyEvent, shortcutAriaKeys } from "../model/keyboard";
 
 import { memo, type ComponentProps, type ReactNode } from "react";
 import { DropdownMenu } from "./explorer-overlays";
@@ -135,6 +135,13 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
   const headerTitle = title?.trim();
   const {
     query,
+    searchText,
+    searchTrigger,
+    searchPending,
+    submitSearch,
+    clearSearch,
+    setSearchComposing,
+    canSort,
     travel,
     historyIndex,
     history,
@@ -183,13 +190,13 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
     canEditFavorites,
     editMode,
     cancelEditPermission,
-  } = useExplorerFields("query", "travel", "historyIndex", "history", "navigate", "folder", "location", "special", "searchInput", "setQuery", "setSelected", "disabled", "showModal", "startRename", "chooseFiles", "copyToClipboard", "selected", "paste", "displayedSort", "setSort", "view", "changeView", "compact", "changeCompact", "visible", "act", "selectedEntries", "download", "externalDownload", "busy", "saving", "refreshing", "canRefresh", "refreshEntries", "dirty", "saveChanges", "setDetailId", "mobileOpen", "setOpenMobile", "instanceId", "features", "selectionOptions", "uiOptions", "allowedViewModes", "canPaste", "readOnly", "canEditFavorites", "editMode", "cancelEditPermission");
+  } = useExplorerFields("query", "searchText", "searchTrigger", "searchPending", "submitSearch", "clearSearch", "setSearchComposing", "canSort", "travel", "historyIndex", "history", "navigate", "folder", "location", "special", "searchInput", "setQuery", "setSelected", "disabled", "showModal", "startRename", "chooseFiles", "copyToClipboard", "selected", "paste", "displayedSort", "setSort", "view", "changeView", "compact", "changeCompact", "visible", "act", "selectedEntries", "download", "externalDownload", "busy", "saving", "refreshing", "canRefresh", "refreshEntries", "dirty", "saveChanges", "setDetailId", "mobileOpen", "setOpenMobile", "instanceId", "features", "selectionOptions", "uiOptions", "allowedViewModes", "canPaste", "readOnly", "canEditFavorites", "editMode", "cancelEditPermission");
   const renameMenuFocus = useRenameMenuFocus();
 
   const hasUpload = features.uploadFiles || features.uploadFolders;
   const hasEdit =
     features.move || features.copy || features.rename || features.delete;
-  const hasView = features.sort || allowedViewModes.length > 1;
+  const hasView = canSort || allowedViewModes.length > 1;
   const hasSelectionMenu = selectionOptions.mode !== "none";
   const hasOperationMenu =
     hasEdit || canEditFavorites || features.download || features.details;
@@ -263,34 +270,67 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
         )}
         <ExplorerAddressBar />
         {features.search && (
-          <div className="lxe:flex lxe:h-8 lxe:min-w-0 lxe:basis-full lxe:items-center lxe:gap-2 lxe:rounded lxe:border lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-background)] lxe:px-2.5 lxe:focus-within:border-[var(--explorer-accent)] lxe:@[1000px]/explorer:basis-60">
+          <div role="search" aria-label="ファイル検索" className="lxe:flex lxe:h-8 lxe:min-w-0 lxe:basis-full lxe:items-center lxe:gap-2 lxe:rounded lxe:border lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-background)] lxe:px-2.5 lxe:focus-within:border-[var(--explorer-accent)] lxe:@[1000px]/explorer:basis-60">
             <input
               ref={searchInput}
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setSelected([]);
+              role="searchbox"
+              value={searchText}
+              onChange={(event) => setQuery(event.target.value)}
+              onCompositionStart={() => setSearchComposing(true)}
+              onCompositionEnd={(event) => {
+                setSearchComposing(false);
+                setQuery(event.currentTarget.value);
               }}
-              placeholder="すべてのファイルを検索"
-              aria-label="すべてのフォルダからファイル名で検索"
+              onKeyDown={(event) => {
+                if (event.defaultPrevented || isComposingKeyEvent(event)) return;
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  submitSearch();
+                }
+              }}
+              placeholder={searchTrigger === "submit" ? "検索語を入力して Enter" : "ファイルを検索"}
+              aria-label="ファイルを検索"
+              aria-describedby={`${instanceId}-search-hint`}
               aria-keyshortcuts={shortcutAriaKeys("search")}
               className="lxe:h-full lxe:w-full lxe:min-w-0 lxe:border-0 lxe:bg-transparent lxe:text-[13px] lxe:text-[var(--explorer-foreground)] lxe:outline-none lxe:placeholder:text-[var(--explorer-muted)]"
             />
-            {query ? (
+            <span id={`${instanceId}-search-hint`} className="lxe:sr-only">
+              {searchTrigger === "submit"
+                ? "Enter キーまたは検索ボタンで検索します"
+                : "入力すると検索します"}
+            </span>
+            {(searchText || query) && (
               <button
                 type="button"
                 className={mergeExplorerClasses(iconButtonClass, "lxe:size-6")}
                 aria-label="検索をクリア"
-                onClick={() => setQuery("")}
+                onClick={clearSearch}
               >
-                <X size={16} />
+                <X size={16} aria-hidden="true" />
               </button>
-            ) : (
+            )}
+            {searchPending && (
+              <span role="status" aria-label="検索中" className="lxe:inline-flex lxe:shrink-0 lxe:text-[var(--explorer-muted)]">
+                <Loader2 size={16} aria-hidden="true" className="lxe:animate-spin lxe:motion-reduce:animate-none" />
+              </span>
+            )}
+            {searchTrigger === "submit" ? (
+              <button
+                type="button"
+                className={mergeExplorerClasses(iconButtonClass, "lxe:size-6")}
+                aria-label="検索を実行"
+                onClick={submitSearch}
+              >
+                <Search size={16} aria-hidden="true" />
+              </button>
+            ) : !searchPending && !searchText && !query ? (
               <Search
                 size={16}
+                aria-hidden="true"
                 className="lxe:shrink-0 lxe:text-[var(--explorer-muted)]"
               />
-            )}
+            ) : null}
           </div>
         )}
       </div>
@@ -382,7 +422,7 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
               </ExplorerIconButton>
             )}
             {(hasUpload || hasEdit) && hasView && <Divider />}
-            {features.sort && (
+            {canSort && (
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                   <Command>
