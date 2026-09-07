@@ -21,6 +21,7 @@
     "dist",
     "README.md",
     "src/README.md",
+    "src/docs/*.md",
     "THIRD_PARTY_NOTICES.md",
     "LICENSE"
   ],

@@ -24,7 +24,7 @@ CIでは `npm run check:release -- --online` を実行し、パッケージ・�
 | 成果物 | 内容 |
 | --- | --- |
 | `packages/explorer/dist/` | ESM・型宣言・CSS・source map |
-| `packages/explorer/src/README.md` | コピー・パッケージ共通のガイド。配布物にも同梱 |
+| `packages/explorer/src/README.md` / `src/docs/` | コピー・パッケージ共通の利用ガイド。配布物にも同じ配置で同梱 |
 | `packages/explorer/THIRD_PARTY_NOTICES.md` | 実際の依存から生成する第三者通知 |
 | `artifacts/likex-explorer-0.1.0.tgz` | 現在の名前・バージョンでの配布物 |
 | `artifacts/*-report.json` / `release-check.json` | 検証結果。Git管理せず再生成します。 |

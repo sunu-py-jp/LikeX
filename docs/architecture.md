@@ -17,7 +17,7 @@ Explorerの `model` はReactの表示状態に依存しないデータ・検証�
 
 ## パッケージとコピーで原本を共用する
 
-配布用にもう一つ実装を持ちません。`src/` から `dist/` のESMと型宣言を生成し、ソースのREADMEを同じ `src/README.md` の配置で配布物へ同梱します。
+配布用にもう一つ実装を持ちません。`src/` から `dist/` のESMと型宣言を生成し、`src/README.md` と `src/docs/` の利用ガイドを同じ配置で配布物へ同梱します。READMEは導入と詳細への入口、`docs/` は責務ごとの詳細です。
 
 コピー導入では `src/` 全体を利用先へ配置します。他のLikeXモジュール、リポジトリのパスエイリアス、必須の共通Providerには依存させません。Reactなどの外部依存は明示します。更新時は取得元バージョンと利用側での変更差分を管理します。
 
@@ -33,8 +33,32 @@ Explorerの `model` はReactの表示状態に依存しないデータ・検証�
 
 `theme`、`colorMode`、`style` による動的カスタマイズには再生成は不要です。コピー後に内部クラスを変更した場合のみ、CSSの再生成が必要です。
 
-## 今回削除した旧構成
-
-UIが使っていなかったD1 / R2のAPI、DBスキーマ・マイグレーション、Cloudflare Worker、Vinext、旧ホスティング用設定、ルートの互換ブリッジを削除しました。デモはVite + Reactに統一し、認証と永続ストレージを内蔵しません。
-
 Next.jsへの対応は、独立した利用先の本番ビルドで検証します。Next.jsはこのリポジトリの検証用依存であり、Explorerの実行時依存ではありません。
+
+## フォルダ構成
+
+```text
+LikeX/
+├── packages/explorer/
+│   ├── src/
+│   │   ├── index.ts       # 公開入口
+│   │   ├── props.ts       # コンポーネントの引数
+│   │   ├── model/         # 型、検証、データ操作
+│   │   ├── state/         # Reactの状態・操作管理
+│   │   ├── ui/            # 表示、テーマ、共通コントロール
+│   │   ├── styles.css     # 自動生成CSS（コピー導入にも同梱）
+│   │   ├── docs/          # API・組み込み・運用例
+│   │   └── README.md      # コピー導入と利用ガイドの入口
+│   ├── styles/input.css   # 維持するCSS生成入力
+│   ├── tests/             # モジュールのテストと導入検証fixture
+│   ├── dist/              # 生成されるESM・型宣言・CSS
+│   ├── package.json
+│   └── README.md          # パッケージ導入と利用ガイドの入口
+├── apps/playground/       # Vite + Reactのメモリ保存デモ
+├── scripts/               # ビルド・配布・導入検証
+├── docs/                  # 開発方針・公開手順・レビュー
+├── package.json           # 非公開のnpm workspacesルート
+└── LICENSE
+```
+
+デモは認証や永続ストレージを内蔵しません。旧API等を削除した経緯は [レビュー記録](release-review.md) にあります。Spreadsheetの空フォルダは作らず、実装時に `packages/spreadsheet/` を追加します。

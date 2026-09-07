@@ -22,7 +22,32 @@ assert.equal(`sha512-${createHash('sha512').update(bytes).digest('base64')}`, pa
 const archiveFiles = (await run('tar', ['-tzf', tarball], { capture: true })).trim().split('\n');
 for (const file of archiveFiles) {
   assert.ok(file.startsWith('package/') && !file.includes('\\') && !file.split('/').includes('..'), `Unsafe packed path: ${file}`);
-  assert.match(file, /^package\/(?:(?:package\.json|README\.md|src\/README\.md|THIRD_PARTY_NOTICES\.md|LICENSE)$|dist(?:\/|$))/);
+  assert.match(file, /^package\/(?:(?:package\.json|README\.md|src\/README\.md|src\/docs\/[^/]+\.md|THIRD_PARTY_NOTICES\.md|LICENSE)$|dist(?:\/|$))/);
+}
+
+// Check the packaged documents, not the checkout: relative links must still
+// work after installation. Code examples are not document navigation links.
+const documentFiles = archiveFiles.filter(file => /^package\/(?:README\.md|src\/README\.md|src\/docs\/[^/]+\.md)$/.test(file));
+const documents = await Promise.all(documentFiles.map(async file => ({ file,
+  markdown: await run('tar', ['-xOzf', tarball, file], { capture: true }),
+})));
+const archived = new Set(archiveFiles);
+let documentationLinks = 0;
+for (const { file, markdown } of documents) {
+  const prose = markdown.replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, '').replace(/`[^`\n]*`/g, '');
+  const links = [...prose.matchAll(/\[[^\]\n]*\]\(\s*(?:<([^>\n]+)>|([^\s)]+))(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/g),
+    ...prose.matchAll(/^\s{0,3}\[[^\]\n]+\]:\s*(?:<([^>\n]+)>|(\S+))/gm)];
+  for (const match of links) {
+    const href = match[1] ?? match[2];
+    if (/^(?:[a-z][a-z\d+.-]*:|\/|#)/i.test(href)) continue;
+    const pathname = decodeURIComponent(href.split(/[?#]/, 1)[0]);
+    if (!pathname) continue;
+    const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), pathname)).replace(/\/$/, '');
+    assert.ok(target === 'package' || target.startsWith('package/'), `Documentation link leaves the package: ${file}: ${href}`);
+    assert.ok(archived.has(target) || archiveFiles.some(item => item.startsWith(target + '/')),
+      `Documentation link is missing from the tarball: ${file}: ${href}`);
+    documentationLinks++;
+  }
 }
 
 await rm(consumer, { recursive: true, force: true });
@@ -76,6 +101,7 @@ const nextStyles = withNext ? await checkConsumerNext(consumer, {
   tsconfig, testedVersions, reportPrefix: 'package-consumer', dependencies: { [packageName]: `file:${tarball}` },
 }) : undefined;
 const report = { packageName, tarball: packed.filename, integrity: packed.integrity, installMode, linkedDependencies, testedVersions, dependencyLocations,
+  documentationFiles: documentFiles.length, documentationLinks,
   source: 'unpacked tarball', networkInstallationTested: online,
   typeResolution: 'NodeNext, strict, skipLibCheck=false', ssrBytes: ssr.renderedBytes,
   stylesheetImport: `${packageName}/styles.css`, ...styles, ...nextStyles,

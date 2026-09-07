@@ -1,6 +1,8 @@
-# LikeXの公開前レビュー
+# LikeXの構成・CSS配布レビュー
 
 2026年9月7日、LikeXのworkspace構成への移行と、生成済みCSSの配布対応後に実施した検証です。デモ・テスト・配布の担当を分け、代表が依存境界・生成物・README・ブラウザ表示の整合性を確認しました。
+
+この文書はその時点の記録です。後から追加した機能を含む現在の配布可否は、[配布手順](releasing.md) に従った検証結果とGitHub Actionsで確認してください。
 
 ## 今回の対応範囲
 
@@ -73,4 +75,4 @@ macOS / Node.js 24.2.0 / npm 11.3.0で、一括検証 npm run check:release が�
 
 検証結果は artifacts/release-check.json、library-build.json、library-pack.json、package-consumer-report.json、copy-consumer-report.json、dependency-audit.json、dependency-audit-production.json に保存します。配布物は artifacts/likex-explorer-0.1.0.tgz です。これらはGit管理せず再生成する成果物です。
 
-導入は [ExplorerのREADME](../packages/explorer/README.md)、構成の方針は [ARCHITECTURE.md](./ARCHITECTURE.md)、公開手順は [RELEASING.md](./RELEASING.md) を参照してください。
+導入は [ExplorerのREADME](../packages/explorer/README.md)、構成の方針は [モジュール構成](architecture.md)、公開手順は [配布と公開](releasing.md) を参照してください。

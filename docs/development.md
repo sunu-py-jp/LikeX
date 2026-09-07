@@ -1,0 +1,32 @@
+# LikeXの開発と検証
+
+Node.js 22.13以上とnpmを使います。リポジトリのルートで実行してください。
+
+```bash
+npm ci
+npm run dev
+```
+
+デモは `http://127.0.0.1:5173/` で起動します。デモの保存先はブラウザタブ内メモリで、ページ全体を再読み込みすると初期状態へ戻ります。ルートの `icons` フォルダに全拡張子のアイコン確認用サンプルがあります。サンプル本体は表示確認用のテキストです。
+
+デモの親コンポーネント、初期データ、機能設定、単独ビルドは [playgroundのREADME](../apps/playground/README.md) を参照してください。
+
+## コマンド
+
+| コマンド | 用途 |
+| --- | --- |
+| `npm test` | 各パッケージのテスト |
+| `npm run lint` / `npm run typecheck` | リポジトリのLint・各workspaceの型チェック |
+| `npm run build` | Explorerの配布ビルドとデモの本番ビルド |
+| `npm run build:styles` / `npm run check:styles` | CSSの生成・原本との一致確認 |
+| `npm run pack:library` | Explorerのtarballを `artifacts/` に生成 |
+| `npm run test:package -- --next` | tarballを別プロジェクトに導入してNext.jsで検証 |
+| `npm run test:copy -- --next` | ソースフォルダのコピー導入をNext.jsで検証 |
+| `npm run check:release` | テストから配布・コピー・デモの検証まで実行 |
+| `npm run check:release -- --online` | CIと同じく、依存の独立インストールを必須にして全検証を実行 |
+| `npm run test:scripts` | CSS生成・配布スクリプトの回帰テスト |
+| `npm run benchmark:explorer` | データ処理のベンチマーク |
+
+`src/styles.css` はコピー導入のためGit管理する生成物です。手編集せず、TSXまたは `packages/explorer/styles/input.css` を変更して再生成します。デモ起動中もExplorerのソース変更に合わせて再生成します。設計の理由は [モジュール構成](architecture.md#tailwindとデザイン) にあります。
+
+`dist/` と `artifacts/` はGit管理しない生成物です。配布検証の方式・レポート・公開手順は [配布と公開](releasing.md) を参照してください。
