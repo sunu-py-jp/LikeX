@@ -2,14 +2,17 @@ import path from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { artifactRoot, packageRoot, runNpm } from './lib/run.mjs';
 
-const checks = ['check:styles', 'test:styles', 'test', 'lint', 'typecheck', 'pack:library', 'test:package', 'test:copy', 'build:playground'];
+const online = process.argv.includes('--online');
+const checks = ['check:styles', 'test:scripts', 'test', 'lint', 'typecheck', 'pack:library', 'test:package', 'test:copy', 'build:playground'];
 const completed = [];
 await mkdir(artifactRoot, { recursive: true });
 const reportFile = path.join(artifactRoot, 'release-check.json');
 try {
   for (const check of checks) {
     console.log(`\nRelease check: ${check}`);
-    await runNpm(['run', check, ...(['test:package', 'test:copy'].includes(check) ? ['--', '--next'] : [])], { timeout: 300_000 });
+    const consumerOptions = ['test:package', 'test:copy'].includes(check)
+      ? ['--', '--next', ...(online ? ['--online'] : [])] : [];
+    await runNpm(['run', check, ...consumerOptions], { timeout: 300_000 });
     completed.push(check);
   }
   const metadata = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8'));

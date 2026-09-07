@@ -32,7 +32,8 @@
     "check:release": "node scripts/check-release.mjs",
     "build:styles": "node scripts/build-styles.mjs",
     "check:styles": "node scripts/build-styles.mjs --check",
-    "test:styles": "node --test scripts/tests/*.test.mjs"
+    "test:styles": "node --test scripts/tests/build-styles.test.mjs",
+    "test:scripts": "node --test scripts/tests/*.test.mjs"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",

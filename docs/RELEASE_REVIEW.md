@@ -46,13 +46,19 @@
 
 Tailwind未導入のNext本番アプリに、28pxの文字・24pxの余白・赤い枠のbutton/inputルールや、異なる意味の.flex/.h-8を追加して確認しました。外側のスタイルを維持し、Explorer内は14px・独自の配色と寸法を保持しています。ライト／ダークの同時配置、Portalメニュー、新規フォルダのダイアログも確認しました。デモでは切り取りのopacity 0.45と選択背景、メニューのテーマを実際の算出スタイルで確認しました。任意の高詳細度や!importantを持つCSSから完全に隔離する保証ではありません。
 
+## CIの導入検証の修正
+
+初回のGitHub Actionsでは、npmキャッシュが揃っていない環境で導入検証がworkspace依存へのフォールバックに入り、実行入口を持たない `@types/node` の解決に失敗しました。型定義パッケージは `package.json` を先に解決し、非公開の場合だけ実行入口から探索するよう修正しました。型のみのパッケージ、公開・非公開のmanifest、未インストール、不正なmanifestを独立したfixtureで検証します。
+
+CIは `check:release -- --online` で依存を独立してインストールする方式に統一しました。インストール失敗をworkspaceの依存で補わず、そのまま失敗として報告します。ローカルで使うオフライン検証は維持しています。
+
 ## 最終検証結果
 
 macOS / Node.js 24.2.0 / npm 11.3.0で、一括検証 npm run check:release が成功しました。
 
 | 検証 | 結果 |
 | --- | --- |
-| 自動テスト | Explorerの715件とCSS生成の8件、計723件成功。失敗・スキップ0件。クラスの上書き、全8表示形式の選択・切り取り・ドラッグ表示、CSSの適用範囲・名前空間・生成結果の一致を含みます。 |
+| 自動テスト | Explorerの715件、CSS生成の8件、パッケージ解決の5件、計728件成功。失敗・スキップ0件。クラスの上書き、全8表示形式の選択・切り取り・ドラッグ表示、CSSの適用範囲・名前空間・生成結果の一致を含みます。 |
 | Lint・型チェック | ESLintエラー・警告0件。Explorerとplaygroundの型チェック成功。 |
 | パッケージ | @likex/explorer 0.1.0のtarballを生成。ESMのuse client、59個の型宣言、依存・含有ファイル・SHA-512整合性を検証。JS 431,865 B、gzip 91,566 B（外部依存・CSSを除く）。CSSは76,928 B、gzip 9,615 B。 |
 | パッケージの独立導入 | npmキャッシュから別プロジェクトへインストールし、作業用依存へのsymlink 0件。strict / NodeNext / skipLibCheck:falseで型検証、SSR、CSSの明示import、Next.js本番ビルドが成功。利用先にTailwind・プラグインを導入せず、本番HTMLが参照するCSSにExplorerのルールが残ることを確認。 |
@@ -60,8 +66,8 @@ macOS / Node.js 24.2.0 / npm 11.3.0で、一括検証 npm run check:release が�
 | Next.jsの検証構成 | Next.js 16.3.4、React / React DOM 19.2.8、TypeScript 5.9.3。利用先はTailwind未導入（ライブラリの生成用は4.3.3）。Server Componentからの利用と、Client Componentからコールバックを渡す例を確認。Next本番段階は標準のskipLibCheck:true、公開型は事前に厳密検証。 |
 | デモ | Vite本番ビルド成功。5173で起動し、暗色テーマ・アイコン一覧・タブ追加・ルート移動・名前変更・保存・再取得を実ブラウザで確認。未保存ダイアログの中心と表示領域の中心の一致、Esc・背景クリックによる取消しも確認。検証用の名前変更を戻し、1タブのicons一覧へ復帰。 |
 | 依存監査 | npm auditの全依存・本番依存とも検出0件。旧Vinext / Drizzle由来の監査項目は、その依存経路ごとの削除で解消しました。監査結果は検証時点の情報です。 |
-| CI | Node.js 22 / 24のnpm ci、一括検証、本番依存監査、tarballと両導入レポート保存を定義。GitHub上のCI自体は未実行。 |
-| 公開 | GitHub / npmへの公開は未実施。scope・公開先・ライセンスを確定するまでprivate / UNLICENSEDを維持。 |
+| CI | Node.js 22 / 24でnpm ci、オンラインでの一括検証、本番依存監査、tarballと両導入レポート保存を実行します。実行結果は[GitHub Actions](https://github.com/sunu-py-jp/LikeX/actions)で確認できます。 |
+| 公開 | [GitHubリポジトリ](https://github.com/sunu-py-jp/LikeX)を公開。npm・Releasesへのパッケージ公開は未実施で、manifestのprivate / UNLICENSEDを維持。 |
 
 デモの単一JSは約574 kB（gzip約175 kB）で、Vite標準の500 kB超の注意表示が残ります。ビルドは成功しています。これはReact等を含むデモ全体の値です。警告を隠す設定変更や、この構成整理だけを理由にしたコード分割は行っていません。
 

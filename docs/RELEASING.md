@@ -19,6 +19,8 @@ npm run test:package -- --next --online
 npm run test:copy -- --next --online
 ```
 
+CIでは `npm run check:release -- --online` を実行し、パッケージ・コピー導入とも依存を独立してインストールします。ローカルのnpmキャッシュやworkspaceへのリンクで成功した結果を、CIの導入検証に代用しません。インストールに失敗した場合はCIを失敗させ、ログを成果物に残します。配布スクリプトの回帰テストは `npm run test:scripts` でも実行できます。
+
 | 成果物 | 内容 |
 | --- | --- |
 | `packages/explorer/dist/` | ESM・型宣言・CSS・source map |

@@ -25,7 +25,7 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - run: npm run check:release
+      - run: npm run check:release -- --online
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high --json > artifacts/dependency-audit-production.json
       - name: Keep the package and verification reports
@@ -44,4 +44,5 @@ jobs:
             artifacts/package-consumer-next.log
             artifacts/copy-consumer-report.json
             artifacts/copy-consumer-next.log
+            artifacts/*-install-*.log
             artifacts/dependency-audit-production.json

@@ -66,6 +66,8 @@ npm run dev
 | `npm run test:package -- --next` | tarballを別プロジェクトに導入してNext.jsで検証 |
 | `npm run test:copy -- --next` | ソースフォルダのコピー導入をNext.jsで検証 |
 | `npm run check:release` | テストから配布・コピー・デモの検証まで実行 |
+| `npm run check:release -- --online` | CIと同じく、依存の独立インストールを必須にして全検証を実行 |
+| `npm run test:scripts` | CSS生成・配布スクリプトの回帰テスト |
 | `npm run benchmark:explorer` | データ処理のベンチマーク |
 
 ## 開発・配布の方針
