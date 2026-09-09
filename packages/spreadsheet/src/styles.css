@@ -111,9 +111,13 @@
 .lxs-drawing img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 .lxs-shape { display: block; pointer-events: none; }
 .lxs-text-box { width: 100%; height: 100%; padding: 8px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
+.lxs-shape-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 8px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; text-align: center; line-height: 1.4; pointer-events: none; }
+.lxs-shape-text > span { min-width: 0; max-width: 100%; max-height: 100%; overflow: hidden; }
 .lxs-image-missing { display: flex; height: 100%; align-items: center; justify-content: center; background: var(--lxs-panel); color: var(--lxs-muted); font-size: 12px; }
 .lxs-root .lxs-drawing-resize { position: absolute; right: -5px; bottom: -5px; width: 10px; height: 10px; border: 1px solid var(--lxs-background); background: var(--lxs-accent); cursor: nwse-resize; touch-action: none; }
 .lxs-root .lxs-drawing-text-editor { display: block; width: 100%; height: 100%; margin: 0; padding: 8px; border: 0; outline: none; resize: none; border-radius: 0; font-family: inherit; line-height: 1.4; user-select: text; }
+.lxs-shape-text-edit-frame { position: absolute; inset: 0; display: flex; align-items: center; padding: 8px; }
+.lxs-root .lxs-shape-text-editor { height: auto; max-height: 100%; padding: 0; text-align: center; overflow-wrap: anywhere; }
 .lxs-drawing-inspector { position: absolute; z-index: 8; top: 38px; right: 12px; width: 256px; max-width: calc(100% - 24px); max-height: calc(100% - 50px); overflow: auto; padding: 12px; border: 1px solid var(--lxs-border); border-radius: 7px; background: var(--lxs-background); color: var(--lxs-foreground); box-shadow: 0 4px 18px #0002; }
 .lxs-object-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
 .lxs-object-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }

@@ -86,6 +86,53 @@ test('text box Ctrl+S commits its pending text before saving; Escape discards it
   assert.equal(ui.c.pendingObjectEdit, false);
 });
 
+test('shape text is edited as one drawing, saved, undone and redone independently of text-box features', async t => {
+  const ui = await mount(t, { features: { textBoxes: false } });
+  await act(async () => ui.c.selectDrawing('shape'));
+  await act(async () => ui.drawing('shape').props.onDoubleClick());
+  assert.equal(ui.textarea().props['aria-label'], '図形の文字');
+  await act(async () => ui.textarea().props.onChange(event({ target: { value: '内容確認\n担当：総務' } })));
+  assert.equal(ui.c.pendingObjectEdit, true);
+  await act(async () => ui.textarea().props.onBlur());
+  assert.equal(ui.c.pendingObjectEdit, false);
+  assert.equal(ui.c.activeSheet.drawings[0].text, '内容確認\n担当：総務');
+  assert.equal(ui.c.activeSheet.drawings.length, 2, 'text stays in the original shape');
+  await act(async () => ui.c.undo());
+  assert.equal(ui.c.activeSheet.drawings[0].text, undefined);
+  await act(async () => ui.c.redo());
+  assert.equal(ui.c.activeSheet.drawings[0].text, '内容確認\n担当：総務');
+  await act(async () => ui.c.selectDrawing('shape'));
+  await act(async () => ui.property('文字色').props.onChange(event({ target: { value: '#1e3a5f' } })));
+  await act(async () => ui.property('文字色').props.onBlur());
+  await act(async () => ui.drawing('shape').props.onKeyDown(event({ key: 'Enter' })));
+  await act(async () => ui.textarea().props.onChange(event({ target: { value: '保存するラベル' } })));
+  await act(async () => ui.textarea().props.onKeyDown(event({ key: 's', ctrlKey: true })));
+  assert.equal(ui.saves[0].sheets[0].drawings[0].text, '保存するラベル');
+  assert.equal(ui.saves[0].sheets[0].drawings[0].color, '#1e3a5f');
+});
+
+test('shape text cancellation, readonly and shape feature removal cannot mutate the drawing', async t => {
+  const ui = await mount(t);
+  const original = ui.c.workbook;
+  await act(async () => ui.c.selectDrawing('shape'));
+  await act(async () => ui.drawing('shape').props.onKeyDown(event({ key: 'Enter' })));
+  await act(async () => ui.textarea().props.onChange(event({ target: { value: '取り消す文字' } })));
+  await act(async () => ui.textarea().props.onKeyDown(event({ key: 'Escape' })));
+  assert.equal(ui.c.workbook, original);
+  assert.equal(ui.c.pendingObjectEdit, false);
+  await act(async () => ui.drawing('shape').props.onDoubleClick());
+  await act(async () => ui.textarea().props.onChange(event({ target: { value: '未確定' } })));
+  await ui.update({ features: { shapes: false } });
+  assert.equal(ui.drawing('shape'), undefined);
+  assert.equal(ui.c.pendingObjectEdit, false);
+  assert.equal(ui.c.workbook, original);
+  await ui.update({ features: {}, readOnly: true });
+  await act(async () => ui.c.selectDrawing('shape'));
+  await act(async () => ui.drawing('shape').props.onDoubleClick());
+  assert.equal(ui.root.findAllByType('textarea').length, 0);
+  assert.equal(ui.property('文字色').props.disabled, true);
+});
+
 test('drawing drag previews do not mutate the workbook and one completed gesture is one undo step', async t => {
   const ui = await mount(t);
   const pointerTarget = { ownerDocument: { activeElement: null }, closest: () => null, focus() {}, setPointerCapture() {}, hasPointerCapture: () => false, releasePointerCapture() {} };

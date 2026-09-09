@@ -9,11 +9,13 @@
 | 対象 | 操作 |
 | --- | --- |
 | 画像 | PNG・JPEG・WebP・GIFをローカルから選択し、選択セルの位置に挿入。ドラッグで移動し、現在の表示枠の縦横比を保ってサイズ変更。 |
-| 図形 | 長方形・楕円・直線・矢印を挿入。位置・サイズ・塗り・線を編集。 |
+| 図形 | 長方形・楕円・直線・矢印を挿入。位置・サイズ・塗り・線と、図形内の文字を編集。 |
 | テキストボックス | セルと独立した複数行テキストを挿入。文字色・背景・文字サイズ・太字を編集。 |
 | コメント | 選択セルに追加。セルの印から開き、内容の編集・削除が可能。1セルにつき1件。 |
 
 選択したオブジェクトはDelete / Backspaceで削除できます。ドラッグ中のEscapeで移動・サイズ変更を取り消します。コメントは返信スレッドやユーザー認証を持たないセルの注記です。`author` は必要に応じて親側で指定できます。
+
+図形・テキストボックスはダブルクリック、または選択後のEnterで文章を編集します。改行も入力でき、外側をクリックすると確定、Escapeで取り消します。図形の文字は中央に配置し、設定パネルで文字サイズ・文字色・太字を変更できます。図形と文字は1つのオブジェクトとして移動・保存・Undo／Redo・Excel出力されます。図形の文字は `features.shapes` に従い、`features.textBoxes` とは独立しています。
 
 画像は角のハンドルのドラッグ、サイズ変更ハンドルの矢印キー、設定パネルの幅・高さの入力で、もう一辺も連動して変更します。維持するのは現在の表示枠の比率です。画像本体は比率を崩さず枠内に収めるため、明示した枠と画像の比率が違う場合は余白ができます。図形・テキストボックスは幅と高さを独立して変更できます。
 
@@ -63,6 +65,7 @@ const snapshot: SpreadsheetWorkbook = {
       { id: "image-1", type: "image", resourceId: "logo", alt: "サンプル画像",
         anchor: { row: 1, column: 1, offsetX: 0, offsetY: 0 }, width: 40, height: 40 },
       { id: "shape-1", type: "shape", shape: "rectangle", fill: "#e8f3ec", stroke: "#217346", strokeWidth: 2,
+        text: "確認中\n担当者レビュー", fontSize: 16, color: "#24563a", bold: true,
         anchor: { row: 4, column: 1, offsetX: 0, offsetY: 0 }, width: 160, height: 100 },
       { id: "text-1", type: "text", text: "確認用のメモ\n2行目", fontSize: 16, color: "currentColor", background: "transparent",
         anchor: { row: 1, column: 4, offsetX: 8, offsetY: 0 }, width: 220, height: 100 },
@@ -72,6 +75,8 @@ const snapshot: SpreadsheetWorkbook = {
 ```
 
 この画像は構造を示すための1ピクセルのサンプルです。実際の画像は「挿入 → 画像」で読み込めます。テキストの `currentColor` はテーマの文字色を使い、明示した色・背景色はそのまま保持します。
+
+図形の `text`・`fontSize`・`color`・`bold` は任意です。未指定なら文字なし・16px・濃いグレー（`#1f2937`）・通常の太さとなり、従来のJSONも変更せず読み込めます。図形の既定の塗りは淡色のため、ダークモードでも文字が読める既定色にしています。外部APIの `shapes.insert` に同じ項目を渡すか、`shapes.update` の `patch` で変更できます。
 
 ## 保存と復元
 

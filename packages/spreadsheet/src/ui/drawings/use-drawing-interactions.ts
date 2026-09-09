@@ -89,7 +89,7 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); if (gesture.current) cancelGesture(); else { setEditingText(null); c.selectDrawing(null); c.requestGridFocus(); } return; }
     if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); event.stopPropagation(); remove(drawing); return; }
-    if (event.key === "Enter" && drawing.type === "text" && !c.disabled) { event.preventDefault(); event.stopPropagation(); c.selectDrawing(drawing.id); setEditingText(drawing.id); return; }
+    if (event.key === "Enter" && drawing.type !== "image" && !c.disabled) { event.preventDefault(); event.stopPropagation(); c.selectDrawing(drawing.id); setEditingText(drawing.id); return; }
     const directions: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
     if (directions[event.key] && !c.disabled) {
       event.preventDefault(); event.stopPropagation();

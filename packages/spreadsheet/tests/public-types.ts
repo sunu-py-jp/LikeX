@@ -8,6 +8,7 @@ import type {
   SpreadsheetSelectionRange,
   SpreadsheetWorkbook,
   SpreadsheetDrawing,
+  SpreadsheetShapeDrawing,
   SpreadsheetDrawingPatch,
   SpreadsheetImageResource,
   SpreadsheetMergedRange,
@@ -50,13 +51,16 @@ void [props, invalidFeature, invalidFormat, invalidCell, invalidSave, invalidMod
 
 const drawing: SpreadsheetDrawing = { id: "box", type: "text", text: "メモ", fontSize: 16, color: "#333333", background: "transparent", anchor: { row: 1, column: 2, offsetX: 0, offsetY: 8 }, width: 220, height: 100 };
 const drawingPatch: SpreadsheetDrawingPatch = { width: 240, text: "修正" };
+const shapeWithText: SpreadsheetShapeDrawing = { id: "approval", type: "shape", shape: "rectangle", text: "承認済み",
+  fontSize: 18, color: "#217346", bold: true, fill: "transparent", stroke: "#217346", strokeWidth: 2,
+  anchor: { row: 1, column: 2, offsetX: 0, offsetY: 0 }, width: 180, height: 90 };
 // @ts-expect-error The stable identity cannot be changed by a drawing patch.
 const invalidDrawingPatch: SpreadsheetDrawingPatch = { id: "replacement" };
 // @ts-expect-error Images cannot hold active SVG content.
 const invalidImageType: SpreadsheetImageResource["mimeType"] = "image/svg+xml";
 // @ts-expect-error Known format versions are explicit.
 const invalidVersion: SpreadsheetWorkbook = { schemaVersion: 2, sheets: [] };
-void [drawing, drawingPatch, invalidDrawingPatch, invalidImageType, invalidVersion];
+void [drawing, shapeWithText, drawingPatch, invalidDrawingPatch, invalidImageType, invalidVersion];
 
 const range: SpreadsheetSelectionRange = { anchor: { row: 0, column: 0 }, focus: { row: 1, column: 1 } };
 const legacySelection: SpreadsheetSelection = { sheetId: "main", ...range };
@@ -86,6 +90,9 @@ const commands: readonly SpreadsheetCommand[] = [
   { type: "cells.set", sheetId: "main", values: { A1: "1200", B1: "=A1*2" } },
   { type: "rows.insert", sheetId: "main", index: 4, count: 2 },
   { type: "shapes.insert", sheetId: "main", shape: "rectangle", anchor: { row: 4, column: 1 } },
+  { type: "shapes.insert", sheetId: "main", shape: "ellipse", anchor: { row: 5, column: 1 },
+    text: "承認済み", fontSize: 18, color: "#217346", bold: true },
+  { type: "shapes.update", sheetId: "main", drawingId: "approval", patch: { text: "差し戻し", fontSize: 16, color: "currentColor", bold: false } },
 ];
 function inspectApi(api: SpreadsheetHandle) {
   const result: SpreadsheetCommandResult = api.batch(commands);
@@ -106,6 +113,12 @@ function inspectApi(api: SpreadsheetHandle) {
   api.execute({ type: "images.update", sheetId: "main", drawingId: "logo", patch: { text: "wrong" } });
   // @ts-expect-error Stable object IDs cannot be changed by a patch.
   api.execute({ type: "shapes.update", sheetId: "main", drawingId: "box", patch: { id: "other" } });
+  // @ts-expect-error Shape text must remain a string.
+  api.execute({ type: "shapes.insert", sheetId: "main", shape: "rectangle", anchor: { row: 0, column: 0 }, text: 123 });
+  // @ts-expect-error Shape typography uses a boolean, not a CSS font-weight string.
+  api.execute({ type: "shapes.update", sheetId: "main", drawingId: "box", patch: { bold: "bold" } });
+  // @ts-expect-error Shape backgrounds use fill, not the textbox-only background field.
+  api.execute({ type: "shapes.update", sheetId: "main", drawingId: "box", patch: { background: "#ffffff" } });
 }
 const prepareBlob = (blob: Blob, signal: AbortSignal): Promise<SpreadsheetImageResource> => prepareSpreadsheetImage(blob, { name: "logo.png", signal });
 // @ts-expect-error Image retrieval and authentication belong to the host, not a URL-taking helper.

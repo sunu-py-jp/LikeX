@@ -24,6 +24,8 @@ function cellXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, address
   const label = `${sheet.name}!${address}`, value = cell.value;
   checkText(value, label);
   const attributes = `r="${xml(address)}" s="${styles.styleId(cell.format)}"`;
+  // Empty model values are blank cells, which Excel must not count as empty text.
+  if (value === "") return `<c ${attributes}/>`;
   if (value.startsWith("=")) {
     const formula = xlsxFormula(value, workbook, sheet), result = calculated[sheet.id]?.[address];
     let cache = "", type = "";

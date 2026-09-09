@@ -1,6 +1,11 @@
 import type { SpreadsheetDrawing } from "../../model";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 
+/** Shapes use a fixed light fill by default; keep their labels readable in dark UI themes. */
+export function drawingTextColor(drawing: Exclude<SpreadsheetDrawing, { type: "image" }>): string {
+  return drawing.color ?? (drawing.type === "shape" ? "#1f2937" : "currentColor");
+}
+
 export function visibleDrawing(drawing: SpreadsheetDrawing, c: SpreadsheetController) {
   return drawing.type === "image" ? c.features.images : drawing.type === "shape" ? c.features.shapes : c.features.textBoxes;
 }

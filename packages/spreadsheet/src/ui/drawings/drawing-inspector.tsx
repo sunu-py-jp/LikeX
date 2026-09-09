@@ -6,7 +6,7 @@ import { cellAddress, type SpreadsheetDrawing, type SpreadsheetDrawingPatch } fr
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 import { useObjectEditPending } from "../../state/use-object-edit-pending";
 import { Command, Icon } from "../spreadsheet-controls";
-import { drawingLabel, visibleDrawing } from "./drawing-helpers";
+import { drawingLabel, drawingTextColor, visibleDrawing } from "./drawing-helpers";
 import { updateDrawingFromUI } from "./drawing-commands";
 
 function PropertyField({ label, value, onCommit, controller: c, type = "text" }: { label: string; value: string | number; onCommit: (value: string) => MaybePromise<boolean>; controller: SpreadsheetController; type?: "text" | "number" }) {
@@ -49,10 +49,10 @@ function DrawingInspectorSession({ controller: c, drawing }: { controller: Sprea
       <PropertyField label="線の色" value={drawing.stroke} controller={c} onCommit={stroke => update({ stroke })} />
       <PropertyField label="線の太さ" type="number" value={drawing.strokeWidth} controller={c} onCommit={value => update({ strokeWidth: Number(value) })} />
     </>}
-    {drawing.type === "text" && <>
-      <PropertyField label="文字サイズ" type="number" value={drawing.fontSize} controller={c} onCommit={value => update({ fontSize: Number(value) })} />
-      <PropertyField label="文字色" value={drawing.color} controller={c} onCommit={color => update({ color })} />
-      <PropertyField label="背景色" value={drawing.background} controller={c} onCommit={background => update({ background })} />
+    {drawing.type !== "image" && <>
+      <PropertyField label="文字サイズ" type="number" value={drawing.fontSize ?? 16} controller={c} onCommit={value => update({ fontSize: Number(value) })} />
+      <PropertyField label="文字色" value={drawingTextColor(drawing)} controller={c} onCommit={color => update({ color })} />
+      {drawing.type === "text" && <PropertyField label="背景色" value={drawing.background} controller={c} onCommit={background => update({ background })} />}
       <label className="lxs-object-bold"><input type="checkbox" checked={!!drawing.bold} disabled={c.disabled} onChange={event => update({ bold: event.target.checked })} />太字</label>
       <p className="lxs-object-hint">ダブルクリックまたは Enter で文章を編集</p>
     </>}

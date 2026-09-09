@@ -41,7 +41,9 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       const line = command.shape === "line" || command.shape === "arrow";
       return receipt(addDrawing(workbook, sheet.id, { id: drawingId, type: "shape", shape: command.shape, anchor,
         width: command.width ?? 160, height: command.height ?? (line ? 72 : 100),
-        fill: command.fill ?? (line ? "transparent" : "#e8f3ec"), stroke: command.stroke ?? "#217346", strokeWidth: command.strokeWidth ?? 2 }), drawingId);
+        fill: command.fill ?? (line ? "transparent" : "#e8f3ec"), stroke: command.stroke ?? "#217346", strokeWidth: command.strokeWidth ?? 2,
+        ...(command.text !== undefined ? { text: command.text } : {}), ...(command.fontSize !== undefined ? { fontSize: command.fontSize } : {}),
+        ...(command.color !== undefined ? { color: command.color } : {}), ...(command.bold !== undefined ? { bold: command.bold } : {}) }), drawingId);
     }
     case "textBoxes.insert": {
       requireCommandFeature(features, "textBoxes");
@@ -62,7 +64,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       if ((command.type === "images.update" && drawing.type !== "image") || (command.type === "shapes.update" && drawing.type !== "shape") ||
         (command.type === "textBoxes.update" && drawing.type !== "text")) return rejectCommand("INVALID_TARGET", "描画オブジェクトの種類がコマンドと一致しません");
       const patch = commandRecord(command.patch, "更新内容");
-      const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape" ? ["shape", "fill", "stroke", "strokeWidth"]
+      const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape" ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold"]
         : ["text", "fontSize", "color", "background", "bold"];
       commandKeys(patch, ["anchor", "width", "height", ...specific], "更新内容");
       if ((patch.width !== undefined && patch.width !== drawing.width) || (patch.height !== undefined && patch.height !== drawing.height))

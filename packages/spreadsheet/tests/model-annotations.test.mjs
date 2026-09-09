@@ -66,6 +66,57 @@ test('drawing updates preserve identity/type, ordering, immutable snapshots and 
   assert.throws(() => addDrawing(wb, id, shape()));
 });
 
+test('shape text and formatting roundtrip for every shape without changing older drawings', () => {
+  const original = populated(), id = first(original), content = {
+    text: '<script>literal text</script>\n承認 & 確認 📌', fontSize: 22.5, color: '#13579b', bold: true,
+  };
+  let workbook = original;
+  for (const kind of ['rectangle', 'ellipse', 'line', 'arrow'])
+    workbook = addDrawing(workbook, id, { ...shape(kind), shape: kind, ...content });
+  const restored = parseWorkbook(serializeWorkbook(workbook));
+  assert.equal(workbooksEqual(workbook, restored), true);
+  for (const drawing of restored.sheets[0].drawings.slice(3)) {
+    for (const [key, value] of Object.entries(content)) assert.equal(drawing[key], value);
+    assert.ok(Object.isFrozen(drawing));
+  }
+  const oldShape = restored.sheets[0].drawings[1];
+  assert.deepEqual(oldShape, shape());
+  for (const key of ['text', 'fontSize', 'color', 'bold']) assert.equal(Object.hasOwn(oldShape, key), false);
+  assert.deepEqual(original.sheets[0].drawings[1], shape());
+});
+
+test('shape text changes are immutable and defaults compare as no-ops', () => {
+  const workbook = populated(), id = first(workbook), defaults = { text: '', fontSize: 16, color: '#1f2937', bold: false };
+  assert.equal(updateDrawing(workbook, id, 'shape', defaults), workbook);
+  const explicitDefaults = normalizeWorkbook({ ...workbook, sheets: [{ ...workbook.sheets[0],
+    drawings: workbook.sheets[0].drawings.map(drawing => drawing.id === 'shape' ? { ...drawing, ...defaults } : drawing) }] });
+  assert.equal(workbooksEqual(workbook, explicitDefaults), true);
+  for (const patch of [{ text: '承認' }, { fontSize: 20 }, { color: '#123' }, { bold: true }]) {
+    const changed = updateDrawing(workbook, id, 'shape', patch);
+    assert.equal(workbooksEqual(workbook, changed), false);
+    assert.equal(updateDrawing(changed, id, 'shape', patch), changed);
+    assert.equal(updateDrawing(changed, id, 'shape', defaults).sheets[0].drawings[1].text, '');
+    assert.equal(workbooksEqual(workbook, updateDrawing(changed, id, 'shape', defaults)), true);
+    assert.equal(changed.sheets[0].drawings[0], workbook.sheets[0].drawings[0]);
+  }
+});
+
+test('shape and textbox text share bounded validation and reject malformed optional fields', () => {
+  const workbook = createWorkbook(), id = first(workbook);
+  for (const makeDrawing of [shape, textbox]) {
+    for (const patch of [{ text: null }, { text: 123 }, { text: 'x'.repeat(SPREADSHEET_LIMITS.drawingTextLength + 1) },
+      { fontSize: null }, { fontSize: '16' }, { fontSize: 0 }, { fontSize: 401 }, { fontSize: NaN }, { fontSize: Infinity },
+      { color: null }, { color: 123 }, { color: '' }, { color: 'url(https://example.com/paint)' }, { color: 'var(--paint)' },
+      { bold: null }, { bold: 'yes' }, { bold: 1 }]) {
+      assert.throws(() => addDrawing(workbook, id, { ...makeDrawing(), ...patch }), JSON.stringify(patch));
+    }
+    const maximum = addDrawing(workbook, id, { ...makeDrawing(), text: 'x'.repeat(SPREADSHEET_LIMITS.drawingTextLength),
+      fontSize: 400, color: 'currentColor', bold: false });
+    assert.equal(maximum.sheets[0].drawings[0].text.length, SPREADSHEET_LIMITS.drawingTextLength);
+    assert.equal(maximum.sheets[0].drawings[0].bold, false);
+  }
+});
+
 test('image frames permit positive subpixel dimensions without changing old explicit frames or other drawing bounds', () => {
   const original = populated(), id = first(original);
   const fractional = updateDrawing(original, id, 'picture', { width: 0.032, height: 320 });

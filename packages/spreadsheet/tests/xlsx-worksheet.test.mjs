@@ -10,7 +10,7 @@ const { worksheetXml, createXlsxStyles, commentParts, xml, xlsxText, xlsxColor, 
 const sheet = (id = 'one', name = 'Sheet 1', cells = {}) => ({ id, name, rowCount: 10, columnCount: 10, cells });
 const book = (cells = {}, extra = {}) => normalizeWorkbook({ sheets: [{ ...sheet('one', 'Sheet 1', cells), ...extra }] });
 const render = workbook => worksheetXml(workbook, workbook.sheets[0], createXlsxStyles(workbook), calculateWorkbook(workbook));
-const cell = (document, address) => document.match(new RegExp(`<c r="${address}"[^>]*>[\\s\\S]*?</c>`))?.[0];
+const cell = (document, address) => document.match(new RegExp(`<c r="${address}"[^>]*?(?:/>|>[\\s\\S]*?</c>)`))?.[0];
 
 test('XML escaping preserves Japanese, emoji and spreadsheet escape literals and rejects invalid text', () => {
   assert.equal(xml('<>&"\'日本語😀'), '&lt;&gt;&amp;&quot;&apos;日本語😀');
@@ -49,6 +49,16 @@ test('numeric underflow preserves the original value as text while exact zero re
   assert.match(cell(contents, 'A1'), />1e-400<\/t>/);
   assert.match(cell(contents, 'B1'), />-1e-400<\/t>/);
   assert.match(cell(contents, 'C1'), /<v>0<\/v>/);
+});
+
+test('blank cells retain formatting without becoming text while explicit and formula empty strings remain text', () => {
+  const workbook = book({ A1: { value: '', format: { background: '#fef3c7', numberFormat: 'currency' } },
+    A2: { value: 'present' }, B1: { value: "'" }, C1: { value: '=IF(TRUE,"",0)' }, D1: { value: '=COUNTA(A1:A2)' } });
+  const contents = render(workbook), styles = createXlsxStyles(workbook);
+  assert.equal(cell(contents, 'A1'), `<c r="A1" s="${styles.styleId(workbook.sheets[0].cells.A1.format)}"/>`);
+  assert.match(cell(contents, 'B1'), /t="inlineStr"><is><t xml:space="preserve"><\/t><\/is><\/c>/);
+  assert.match(cell(contents, 'C1'), /t="str"><f>IF\(TRUE,&quot;&quot;,0\)<\/f><v><\/v><\/c>/);
+  assert.match(cell(contents, 'D1'), /<f>COUNTA\(A1:A2\)<\/f><v>1<\/v>/);
 });
 
 test('formulas use the existing grammar with local references, invariant separators and cached result types', () => {

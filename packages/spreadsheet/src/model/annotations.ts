@@ -1,6 +1,6 @@
 import { cellAddress, parseCellAddress } from "./address";
 import { validateObjectId } from "./image-resources";
-import { SPREADSHEET_LIMITS, type SpreadsheetComment, type SpreadsheetDrawing, type SpreadsheetSheet, type SpreadsheetWorkbook } from "./types";
+import { SPREADSHEET_LIMITS, type SpreadsheetComment, type SpreadsheetDrawing, type SpreadsheetSheet, type SpreadsheetTextDrawing, type SpreadsheetWorkbook } from "./types";
 
 const fail = (message: string): never => { throw new Error(message); };
 function text(value: string, limit: number, label: string): string {
@@ -17,6 +17,12 @@ function color(value: string): string {
     !/^(?:#[\da-f]{3}|#[\da-f]{4}|#[\da-f]{6}|#[\da-f]{8}|[a-z]+|(?:rgb|rgba|hsl|hsla|oklch|oklab)\([\d.%+\-,/\s]+\))$/i.test(value))
     return fail("描画オブジェクトの色が正しくありません");
   return value;
+}
+function drawingText(input: Pick<SpreadsheetTextDrawing, "text" | "fontSize" | "color" | "bold">, label: string) {
+  if (input.bold !== undefined && typeof input.bold !== "boolean") return fail(`${label}の書式が正しくありません`);
+  return { text: text(input.text, SPREADSHEET_LIMITS.drawingTextLength, label),
+    fontSize: number(input.fontSize, 1, 400), color: color(input.color),
+    ...(input.bold !== undefined ? { bold: input.bold } : {}) };
 }
 
 export function normalizeDrawing(input: SpreadsheetDrawing, sheet: Pick<SpreadsheetSheet, "rowCount" | "columnCount">,
@@ -36,14 +42,18 @@ export function normalizeDrawing(input: SpreadsheetDrawing, sheet: Pick<Spreadsh
   }
   if (input.type === "shape") {
     if (!["rectangle", "ellipse", "line", "arrow"].includes(input.shape)) return fail("図形の種類が正しくありません");
+    const content = drawingText({ text: input.text === undefined ? "" : input.text,
+      fontSize: input.fontSize === undefined ? 16 : input.fontSize,
+      color: input.color === undefined ? "#1f2937" : input.color, bold: input.bold }, "図形のテキスト");
     return Object.freeze({ ...common, type: "shape", shape: input.shape, fill: color(input.fill), stroke: color(input.stroke),
-      strokeWidth: number(input.strokeWidth, 0, 100) });
+      strokeWidth: number(input.strokeWidth, 0, 100),
+      ...(input.text !== undefined ? { text: content.text } : {}),
+      ...(input.fontSize !== undefined ? { fontSize: content.fontSize } : {}),
+      ...(input.color !== undefined ? { color: content.color } : {}),
+      ...(content.bold !== undefined ? { bold: content.bold } : {}) });
   }
   if (input.type === "text") {
-    if (input.bold !== undefined && typeof input.bold !== "boolean") return fail("テキストボックスの書式が正しくありません");
-    return Object.freeze({ ...common, type: "text", text: text(input.text, SPREADSHEET_LIMITS.drawingTextLength, "テキストボックス"),
-      fontSize: number(input.fontSize, 1, 400), color: color(input.color), background: color(input.background),
-      ...(input.bold !== undefined ? { bold: input.bold } : {}) });
+    return Object.freeze({ ...common, type: "text", ...drawingText(input, "テキストボックス"), background: color(input.background) });
   }
   return fail("描画オブジェクトの種類が正しくありません");
 }
@@ -91,7 +101,9 @@ export function drawingsEqual(left: SpreadsheetDrawing, right: SpreadsheetDrawin
     left.anchor.row !== right.anchor.row || left.anchor.column !== right.anchor.column ||
     left.anchor.offsetX !== right.anchor.offsetX || left.anchor.offsetY !== right.anchor.offsetY) return false;
   if (left.type === "image" && right.type === "image") return left.resourceId === right.resourceId && left.alt === right.alt;
-  if (left.type === "shape" && right.type === "shape") return left.shape === right.shape && left.fill === right.fill && left.stroke === right.stroke && left.strokeWidth === right.strokeWidth;
+  if (left.type === "shape" && right.type === "shape") return left.shape === right.shape && left.fill === right.fill && left.stroke === right.stroke &&
+    left.strokeWidth === right.strokeWidth && (left.text ?? "") === (right.text ?? "") && (left.fontSize ?? 16) === (right.fontSize ?? 16) &&
+    (left.color ?? "#1f2937") === (right.color ?? "#1f2937") && !!left.bold === !!right.bold;
   return left.type === "text" && right.type === "text" && left.text === right.text && left.fontSize === right.fontSize &&
     left.color === right.color && left.background === right.background && !!left.bold === !!right.bold;
 }

@@ -24,7 +24,7 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "columns.insert": ["index", "count"], "columns.delete": ["index", "count"], "columns.resize": ["column", "width"],
   "cells.merge": ["range", "discardContent"], "cells.unmerge": ["range"],
   "images.insert": ["resource", "anchor", "width", "height", "alt"],
-  "shapes.insert": ["shape", "anchor", "width", "height", "fill", "stroke", "strokeWidth"],
+  "shapes.insert": ["shape", "anchor", "width", "height", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold"],
   "textBoxes.insert": ["anchor", "text", "width", "height", "fontSize", "color", "background", "bold"],
   "drawings.delete": ["drawingId"], "images.update": ["drawingId", "patch"],
   "shapes.update": ["drawingId", "patch"], "textBoxes.update": ["drawingId", "patch"],

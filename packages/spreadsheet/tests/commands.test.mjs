@@ -161,6 +161,60 @@ test('explicit drawing sizes, appearance and offset positions are retained witho
   assert.equal(drawing.anchor.row, 2); assert.equal(drawing.text, '外部から追加');
 });
 
+test('shape insertion and updates retain text in every shape kind independently of textboxes and resizing', () => {
+  const commands = ['rectangle', 'ellipse', 'line', 'arrow'].map(shape => ({ type: 'shapes.insert', sheetId: 'sheet-1', shape, anchor,
+    text: '申請\n承認待ち', fontSize: 22.5, color: '#123456', bold: true }));
+  const inserted = run(createWorkbook(), commands, { textBoxes: false, resize: false });
+  assert.equal(inserted.ok, true);
+  for (const drawing of first(inserted).drawings) {
+    assert.equal(drawing.text, '申請\n承認待ち'); assert.equal(drawing.fontSize, 22.5);
+    assert.equal(drawing.color, '#123456'); assert.equal(drawing.bold, true);
+  }
+  const patch = { text: '承認済み', fontSize: 18, color: 'currentColor', bold: false };
+  const updated = run(inserted.workbook, inserted.results.map(result => ({ type: 'shapes.update', sheetId: 'sheet-1',
+    drawingId: result.drawingId, patch })), { textBoxes: false, resize: false });
+  assert.equal(updated.ok, true); assert.equal(updated.changed, true);
+  for (const drawing of first(updated).drawings) {
+    for (const [key, value] of Object.entries(patch)) assert.equal(drawing[key], value);
+    assert.equal(drawing.width, 160);
+  }
+  assert.equal(first(inserted).drawings[0].text, '申請\n承認待ち');
+  assert.equal(workbooksEqual(updated.workbook, parseWorkbook(serializeWorkbook(updated.workbook))), true);
+  const same = run(updated.workbook, [{ type: 'shapes.update', sheetId: 'sheet-1', drawingId: 'command-1', patch }]);
+  assert.equal(same.ok, true); assert.equal(same.changed, false); assert.equal(same.workbook, updated.workbook);
+  assert.equal(run(createWorkbook(), [commands[0]], { shapes: false }).code, 'FEATURE_DISABLED');
+  assert.equal(run(inserted.workbook, [{ type: 'shapes.update', sheetId: 'sheet-1', drawingId: 'command-1', patch }],
+    { shapes: false }).code, 'FEATURE_DISABLED');
+});
+
+test('shape text defaults stay absent and setting or clearing text reports changes only when needed', () => {
+  const inserted = run(createWorkbook(), [{ type: 'shapes.insert', sheetId: 'sheet-1', shape: 'rectangle', anchor }]);
+  const update = patch => ({ type: 'shapes.update', sheetId: 'sheet-1', drawingId: 'command-1', patch });
+  const defaults = run(inserted.workbook, [update({ text: '', fontSize: 16, color: '#1f2937', bold: false })]);
+  assert.equal(defaults.changed, false); assert.equal(defaults.workbook, inserted.workbook);
+  for (const key of ['text', 'fontSize', 'color', 'bold']) assert.equal(Object.hasOwn(first(defaults).drawings[0], key), false);
+  const text = run(inserted.workbook, [update({ text: '内容' })]);
+  assert.equal(text.changed, true); assert.equal(first(text).drawings[0].text, '内容');
+  const cleared = run(text.workbook, [update({ text: '' })]);
+  assert.equal(cleared.changed, true); assert.equal(workbooksEqual(cleared.workbook, inserted.workbook), true);
+});
+
+test('invalid shape text insertions and patches fail atomically without accepting textbox background', () => {
+  const inserted = run(createWorkbook(), [{ type: 'shapes.insert', sheetId: 'sheet-1', shape: 'rectangle', anchor }]);
+  const workbook = inserted.workbook;
+  for (const patch of [{ text: null }, { text: 123 }, { text: 'x'.repeat(100_001) }, { fontSize: null },
+    { fontSize: '16' }, { fontSize: 0 }, { fontSize: 401 }, { fontSize: NaN }, { color: null },
+    { color: 'url(https://example.com/paint)' }, { bold: 'yes' }, { bold: null }, { background: '#fff' }]) {
+    for (const command of [{ type: 'shapes.insert', sheetId: 'sheet-1', shape: 'rectangle', anchor, ...patch },
+      { type: 'shapes.update', sheetId: 'sheet-1', drawingId: 'command-1', patch }]) {
+      const result = run(workbook, [{ type: 'cells.set', sheetId: 'sheet-1', values: { A1: 'must not commit' } }, command], undefined, () => 'new-shape');
+      assert.equal(result.ok, false, JSON.stringify(command)); assert.equal(result.commandIndex, 1);
+      assert.equal(workbook.sheets[0].cells.A1, undefined); assert.equal(workbook.sheets[0].drawings.length, 1);
+      assert.equal(workbook.sheets[0].drawings[0].text, undefined);
+    }
+  }
+});
+
 test('each typed drawing update supports only its drawing kind and retains identity', () => {
   const inserted = run(createWorkbook(), [
     { type: 'shapes.insert', sheetId: 'sheet-1', shape: 'rectangle', anchor },

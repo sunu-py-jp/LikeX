@@ -103,6 +103,51 @@ test('all native shapes and multiline text boxes retain style, alpha and literal
   assert.equal(result.parts.some(part => part.path.endsWith('.rels')), false);
 });
 
+test('shape labels stay inside each native shape with centered multiline styled text', async () => {
+  const base = { anchor: { row: 0, column: 0, offsetX: 0, offsetY: 0 }, width: 160, height: 100,
+    type: 'shape', fill: '#ffeecc', stroke: '#112233', strokeWidth: 2, text: ' 中央 < & "ラベル"\r\n\r\n二行目 ',
+    fontSize: 24, color: '#44556680', bold: true };
+  const result = await prepareWorksheetDrawings(sheet(['rectangle', 'ellipse', 'line', 'arrow'].map(shape => ({ ...base, id: shape, shape }))), undefined, { sheetIndex: 1 });
+  const drawing = await xmlPart(result), shapes = [...drawing.matchAll(/<xdr:sp>([\s\S]*?)<\/xdr:sp>/g)].map(match => match[1]);
+  assert.equal(shapes.length, 4);
+  assert.equal((drawing.match(/<xdr:oneCellAnchor>/g) ?? []).length, 4);
+  assert.doesNotMatch(drawing, /txBox="1"/, 'labels are not separate text boxes');
+  for (const shape of shapes) {
+    assert.equal((shape.match(/<xdr:txBody>/g) ?? []).length, 1);
+    assert.match(shape, /<a:bodyPr[^>]*anchor="ctr" upright="1"/);
+    assert.equal((shape.match(/<a:pPr algn="ctr">/g) ?? []).length, 3);
+    assert.match(shape, /sz="1800" b="1"/);
+    assert.match(shape, /<a:srgbClr val="445566"><a:alpha val="50196"\/>/);
+    assert.match(shape, /<a:t xml:space="preserve"> 中央 &lt; &amp; &quot;ラベル&quot;<\/a:t>/);
+    assert.match(shape, /<a:t xml:space="preserve"><\/a:t>/);
+    assert.match(shape, /<a:t xml:space="preserve">二行目 <\/a:t>/);
+    assert.match(shape, /<a:ln w="19050"><a:solidFill><a:srgbClr val="112233">/);
+  }
+  assert.match(shapes[0], /prst="rect"/);
+  assert.match(shapes[1], /prst="ellipse"/);
+  assert.match(shapes[2], /prst="line"/);
+  assert.match(shapes[3], /<a:tailEnd type="triangle"/);
+});
+
+test('shape text defaults do not alter geometry and text boxes keep their top-left alignment', async () => {
+  const base = { id: 'shape', anchor: { row: 0, column: 0, offsetX: 0, offsetY: 0 }, width: 120, height: 80 };
+  const drawings = [
+    { ...base, type: 'shape', shape: 'rectangle', fill: '#fff', stroke: '#000', strokeWidth: 0, text: 'Default' },
+    { ...base, id: 'empty-shape', type: 'shape', shape: 'ellipse', fill: 'transparent', stroke: '#000', strokeWidth: 0 },
+    { ...base, id: 'textbox', type: 'text', text: 'Text box', fontSize: 20, color: '#00f', background: 'transparent' },
+  ];
+  const drawing = await xmlPart(await prepareWorksheetDrawings(sheet(drawings), undefined, { sheetIndex: 1 }));
+  const shapes = [...drawing.matchAll(/<xdr:sp>([\s\S]*?)<\/xdr:sp>/g)].map(match => match[1]);
+  assert.match(shapes[0], /sz="1200" b="0"/);
+  assert.match(shapes[0], /<a:rPr sz="1200" b="0"><a:solidFill><a:srgbClr val="1F2937">/);
+  assert.match(shapes[0], /<a:ext cx="1143000" cy="762000"\/>/);
+  assert.match(shapes[1], /<a:t xml:space="preserve"><\/a:t>/);
+  assert.match(shapes[2], /<xdr:cNvSpPr txBox="1"\/>/);
+  assert.match(shapes[2], /<a:bodyPr[^>]*anchor="t"/);
+  assert.match(shapes[2], /<a:pPr algn="l">/);
+  assert.match(shapes[2], /sz="1500" b="0"/);
+});
+
 test('rotation-aware JPEG and GIF conversion requires Canvas rather than dropping the picture', async () => {
   await assert.rejects(prepareXlsxImage(resource(jpegHeader({ orientation: 6 }), 'image/jpeg', 2, 3)), /Canvas.*ブラウザー/);
   await assert.rejects(prepareXlsxImage(gif), /Canvas.*ブラウザー/);

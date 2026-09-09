@@ -25,7 +25,8 @@ export type SpreadsheetCommand = DeepReadonly<
   | { type: "cells.unmerge"; sheetId: string; range: SpreadsheetMergedRange }
   | { type: "images.insert"; sheetId: string; resource: SpreadsheetImageResource; anchor: SpreadsheetCommandAnchor; width?: number; height?: number; alt?: string }
   | { type: "shapes.insert"; sheetId: string; shape: SpreadsheetShapeDrawing["shape"]; anchor: SpreadsheetCommandAnchor;
-      width?: number; height?: number; fill?: string; stroke?: string; strokeWidth?: number }
+      width?: number; height?: number; fill?: string; stroke?: string; strokeWidth?: number;
+      text?: string; fontSize?: number; color?: string; bold?: boolean }
   | { type: "textBoxes.insert"; sheetId: string; anchor: SpreadsheetCommandAnchor; text?: string; width?: number; height?: number;
       fontSize?: number; color?: string; background?: string; bold?: boolean }
   | { type: "drawings.delete"; sheetId: string; drawingId: string }

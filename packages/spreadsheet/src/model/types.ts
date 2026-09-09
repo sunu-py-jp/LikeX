@@ -21,6 +21,8 @@ type SpreadsheetDrawingBase = { id: string; anchor: SpreadsheetDrawingAnchor; wi
 export type SpreadsheetImageDrawing = SpreadsheetDrawingBase & { type: "image"; resourceId: string; alt: string };
 export type SpreadsheetShapeDrawing = SpreadsheetDrawingBase & {
   type: "shape"; shape: "rectangle" | "ellipse" | "line" | "arrow"; fill: string; stroke: string; strokeWidth: number;
+  /** Optional shape text; omitted formatting uses 16 px, #1f2937 and normal weight. */
+  text?: string; fontSize?: number; color?: string; bold?: boolean;
 };
 export type SpreadsheetTextDrawing = SpreadsheetDrawingBase & {
   type: "text"; text: string; fontSize: number; color: string; background: string; bold?: boolean;

@@ -90,14 +90,20 @@ function shape(drawing: Extract<SpreadsheetDrawing, { type: "shape" }>, id: numb
     adjusted = { x: rectangle.x + stroke / 2, y: rectangle.y + stroke / 2, width: Math.max(0, rectangle.width - stroke), height: Math.max(0, rectangle.height - stroke) };
   }
   const outline = stroke === 0 ? "<a:ln><a:noFill/></a:ln>" : `<a:ln w="${emu(stroke)}">${fill(drawing.stroke, "000000")}${drawing.shape === "arrow" ? '<a:tailEnd type="triangle" w="lg" len="lg"/>' : ""}</a:ln>`;
-  const content = `<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="${id}" name="${xml(drawing.id)}"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr>${transform(adjusted, flip)}<a:prstGeom prst="${line ? "line" : drawing.shape === "ellipse" ? "ellipse" : "rect"}"><a:avLst/></a:prstGeom>${line ? "<a:noFill/>" : fill(drawing.fill, "FFFFFF")}${outline}</xdr:spPr></xdr:sp>`;
+  const content = `<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="${id}" name="${xml(drawing.id)}"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr>${transform(adjusted, flip)}<a:prstGeom prst="${line ? "line" : drawing.shape === "ellipse" ? "ellipse" : "rect"}"><a:avLst/></a:prstGeom>${line ? "<a:noFill/>" : fill(drawing.fill, "FFFFFF")}${outline}</xdr:spPr>${drawingTextBody(drawing.text ?? "", { ...drawing, color: drawing.color ?? "#1f2937" }, "center")}</xdr:sp>`;
   return { rectangle: adjusted, content };
 }
 
+/** DrawingML uses one text body inside either a native shape or a text box. */
+function drawingTextBody(text: string, style: { fontSize?: number; color?: string; bold?: boolean }, alignment: "center" | "top-left") {
+  const centered = alignment === "center";
+  const properties = `sz="${Math.max(100, Math.round((style.fontSize ?? 16) * 75))}" b="${style.bold ? 1 : 0}"`;
+  const paragraphs = text.split(/\r\n|\r|\n/).map(line => `<a:p><a:pPr algn="${centered ? "ctr" : "l"}"><a:lnSpc><a:spcPct val="140000"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft></a:pPr><a:r><a:rPr ${properties}>${fill(style.color ?? "currentColor", "000000")}<a:latin typeface="Segoe UI"/><a:ea typeface="Noto Sans JP"/></a:rPr><a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr ${properties}/></a:p>`).join("");
+  return `<xdr:txBody><a:bodyPr wrap="square" lIns="${emu(8)}" tIns="${emu(8)}" rIns="${emu(8)}" bIns="${emu(8)}" anchor="${centered ? "ctr" : "t"}"${centered ? ' upright="1"' : ""} vertOverflow="clip" horzOverflow="clip"><a:noAutofit/></a:bodyPr><a:lstStyle/>${paragraphs}</xdr:txBody>`;
+}
+
 function textBox(drawing: Extract<SpreadsheetDrawing, { type: "text" }>, id: number, rectangle: Rectangle) {
-  const properties = `sz="${Math.max(100, Math.round(drawing.fontSize * 75))}" b="${drawing.bold ? 1 : 0}"`;
-  const paragraphs = drawing.text.split(/\r\n|\r|\n/).map(line => `<a:p><a:pPr algn="l"><a:lnSpc><a:spcPct val="140000"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft></a:pPr><a:r><a:rPr ${properties}>${fill(drawing.color, "000000")}<a:latin typeface="Segoe UI"/><a:ea typeface="Noto Sans JP"/></a:rPr><a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr ${properties}/></a:p>`).join("");
-  return `<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="${id}" name="${xml(drawing.id)}"/><xdr:cNvSpPr txBox="1"/></xdr:nvSpPr><xdr:spPr>${transform(rectangle)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${fill(drawing.background, "FFFFFF")}<a:ln><a:noFill/></a:ln></xdr:spPr><xdr:txBody><a:bodyPr wrap="square" lIns="${emu(8)}" tIns="${emu(8)}" rIns="${emu(8)}" bIns="${emu(8)}" anchor="t" vertOverflow="clip" horzOverflow="clip"><a:noAutofit/></a:bodyPr><a:lstStyle/>${paragraphs}</xdr:txBody></xdr:sp>`;
+  return `<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="${id}" name="${xml(drawing.id)}"/><xdr:cNvSpPr txBox="1"/></xdr:nvSpPr><xdr:spPr>${transform(rectangle)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${fill(drawing.background, "FFFFFF")}<a:ln><a:noFill/></a:ln></xdr:spPr>${drawingTextBody(drawing.text, drawing, "top-left")}</xdr:sp>`;
 }
 
 /** Build native DrawingML parts. sheetIndex is the one-based OOXML sheet number. */

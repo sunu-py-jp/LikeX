@@ -13,8 +13,8 @@ export const insertionDemoSheet: SpreadsheetSheet = {
   drawings: [
     { id: "demo-image", type: "image", resourceId: "demo-bars", alt: "棒グラフのサンプル画像", anchor: { row: 2, column: 1, offsetX: 0, offsetY: 0 }, width: 260, height: 128 },
     { id: "demo-text", type: "text", text: "シートにメモを追加\n\n画像と図形はドラッグで移動。\nハンドルでサイズを変更できます。", fontSize: 16, color: "#24563a", background: "#eef7f0", anchor: { row: 2, column: 5, offsetX: 0, offsetY: 0 }, width: 290, height: 150 },
-    { id: "demo-rectangle", type: "shape", shape: "rectangle", fill: "#d9eadf", stroke: "#217346", strokeWidth: 2, anchor: { row: 8, column: 1, offsetX: 0, offsetY: 0 }, width: 140, height: 60 },
-    { id: "demo-ellipse", type: "shape", shape: "ellipse", fill: "#e1edf8", stroke: "#4b79a1", strokeWidth: 2, anchor: { row: 8, column: 3, offsetX: 0, offsetY: 0 }, width: 140, height: 60 },
+    { id: "demo-rectangle", type: "shape", shape: "rectangle", fill: "#d9eadf", stroke: "#217346", strokeWidth: 2, text: "内容を確認", fontSize: 16, color: "#24563a", bold: true, anchor: { row: 8, column: 1, offsetX: 0, offsetY: 0 }, width: 140, height: 60 },
+    { id: "demo-ellipse", type: "shape", shape: "ellipse", fill: "#e1edf8", stroke: "#4b79a1", strokeWidth: 2, text: "承認済み", fontSize: 16, color: "#264866", anchor: { row: 8, column: 3, offsetX: 0, offsetY: 0 }, width: 140, height: 60 },
     { id: "demo-arrow", type: "shape", shape: "arrow", fill: "transparent", stroke: "#cc9142", strokeWidth: 3, anchor: { row: 8, column: 5, offsetX: 0, offsetY: 10 }, width: 140, height: 40 },
     { id: "demo-line", type: "shape", shape: "line", fill: "transparent", stroke: "#8e73b5", strokeWidth: 3, anchor: { row: 8, column: 7, offsetX: 0, offsetY: 10 }, width: 140, height: 40 },
   ],
