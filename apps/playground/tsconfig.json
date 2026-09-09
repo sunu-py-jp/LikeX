@@ -6,7 +6,8 @@
     "jsx": "react-jsx",
     "types": ["vite/client", "node"],
     "paths": {
-      "@likex/explorer": ["../../packages/explorer/src/index.ts"]
+      "@likex/explorer": ["../../packages/explorer/src/index.ts"],
+      "@likex/spreadsheet": ["../../packages/spreadsheet/src/index.ts"]
     }
   },
   "include": ["src", "build", "vite.config.ts"],

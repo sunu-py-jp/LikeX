@@ -1,8 +1,13 @@
 # LikeX
 
-身近なアプリケーションのように操作できるReact UIを集めるリポジトリです。最初のモジュールは、Windows Explorer風の **`@likex/explorer`** です。
+身近なアプリケーションのように操作できるReact UIを集めるリポジトリです。
 
 各モジュールはパッケージとして導入でき、ソースフォルダをコピーして使うこともできます。ほかのLikeXモジュールや共通Providerには依存しません。
+
+| モジュール | 用途 | ガイド |
+| --- | --- | --- |
+| `@likex/explorer` | ファイル・フォルダの表示と編集 | [Explorer](packages/explorer/README.md) |
+| `@likex/spreadsheet` | Excel風のセル編集・基本数式・複数シート | [Spreadsheet](packages/spreadsheet/README.md) |
 
 ## Explorerを使う
 
@@ -28,10 +33,11 @@ npm ci
 npm run dev
 ```
 
-デモは `http://127.0.0.1:5173/` で起動します。保存先はタブ内メモリです。
+デモは `http://127.0.0.1:5173/`（Explorer）、`http://127.0.0.1:5173/spreadsheet`（Spreadsheet）で起動します。保存先はタブ内メモリです。Spreadsheetは基本操作から実装する初版で、Excel全機能・ファイル形式との互換を保証するものではありません。
 
 ```text
 packages/explorer/  # 独立して配布・コピーできるExplorer
+packages/spreadsheet/ # 独立して配布・コピーできるSpreadsheet
 apps/playground/    # Vite + Reactのデモ
 scripts/            # ビルド・配布・導入検証
 docs/               # 開発・構成・公開手順
@@ -39,4 +45,4 @@ docs/               # 開発・構成・公開手順
 
 [開発ドキュメント](docs/README.md) にコマンド一覧、構成、配布手順、レビュー記録をまとめています。将来のモジュールは `packages/<module>/` に追加します。
 
-GitHubリポジトリは公開しています。npm・GitHub Releasesへのパッケージ公開は未実施で、ルートとExplorerは現在 `private: true` / `UNLICENSED` です。
+GitHubリポジトリは公開しています。npm・GitHub Releasesへのパッケージ公開は未実施で、ルートと各パッケージは現在 `private: true` / `UNLICENSED` です。

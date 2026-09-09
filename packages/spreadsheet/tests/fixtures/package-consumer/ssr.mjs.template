@@ -1,0 +1,25 @@
+import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import Spreadsheet, { Spreadsheet as NamedSpreadsheet, createWorkbook, setCellValue,
+  calculateWorkbook, parseTsv, stringifyTsv } from "__LIBRARY_IMPORT__";
+
+assert.equal(Spreadsheet, NamedSpreadsheet);
+assert.equal(typeof window, "undefined");
+const workbook = { sheets: [{ id: "sheet-consumer", name: "Consumer sheet", rowCount: 6, columnCount: 4,
+  cells: { A1: { value: "Spreadsheet consumer cell" }, B1: { value: "4" }, C1: { value: "=SUM(B1,6)" } } }] };
+assert.equal(calculateWorkbook(workbook)["sheet-consumer"].C1, 10);
+const blank = createWorkbook();
+assert.equal(setCellValue(blank, blank.sheets[0].id, "A1", "7").sheets[0].cells.A1.value, "7");
+assert.deepEqual(parseTsv(stringifyTsv([["one", "two"], ["three", "four"]])), [["one", "two"], ["three", "four"]]);
+const markup = renderToStaticMarkup(createElement(Spreadsheet, {
+  initialWorkbook: workbook, title: "Consumer spreadsheet", style: { height: 360 },
+}));
+assert.match(markup, /Spreadsheet consumer cell/);
+assert.match(markup, /Consumer sheet/);
+assert.match(markup, /data-likex-spreadsheet/);
+assert.match(markup, /role="grid"/);
+assert.match(markup, /aria-label="C1 10"[^>]*><span>10<\/span>/, "The rendered formula cell must show its calculated value");
+assert.match(markup, /height:360px/);
+assert.match(markup, /readonly/i);
+console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

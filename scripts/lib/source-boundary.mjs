@@ -43,6 +43,6 @@ export async function assertSourceBoundary(directory, manifest) {
     }
   }
   await visitDirectory(directory);
-  assert.ok(sourceFiles > 0, 'The explorer source directory is empty.');
+  assert.ok(sourceFiles > 0, 'The library source directory is empty.');
   return sourceFiles;
 }

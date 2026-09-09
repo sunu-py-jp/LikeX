@@ -1,4 +1,1 @@
-/* Consume the generated library stylesheet, just like an app without Tailwind. */
-@import "../../../packages/explorer/src/styles.css";
-
 body { margin: 0; }

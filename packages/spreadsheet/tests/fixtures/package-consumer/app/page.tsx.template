@@ -1,0 +1,15 @@
+import Spreadsheet, { type SpreadsheetWorkbook } from "__LIBRARY_IMPORT__";
+import ClientSpreadsheet from "./client";
+
+const workbook: SpreadsheetWorkbook = { sheets: [{ id: "server-sheet", name: "Server sheet", rowCount: 6, columnCount: 4,
+  cells: { A1: { value: "Spreadsheet consumer cell" }, B1: { value: "4" }, C1: { value: "=SUM(B1,6)" } } }] };
+
+// A Server Component imports the library entry directly. Its own use-client
+// boundary must allow a serializable workbook to cross into the component.
+export default function Page() {
+  return <main>
+    <h1>Spreadsheet package consumer</h1>
+    <Spreadsheet initialWorkbook={workbook} title="Server spreadsheet" style={{ height: 360 }} />
+    <ClientSpreadsheet />
+  </main>;
+}

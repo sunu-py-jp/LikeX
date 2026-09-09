@@ -32,7 +32,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: explorer-node-${{ matrix.node }}
+          name: likex-node-${{ matrix.node }}
           if-no-files-found: ignore
           retention-days: 14
           path: |
@@ -46,3 +46,9 @@ jobs:
             artifacts/copy-consumer-next.log
             artifacts/*-install-*.log
             artifacts/dependency-audit-production.json
+            artifacts/spreadsheet/*.tgz
+            artifacts/spreadsheet/library-build.json
+            artifacts/spreadsheet/library-pack.json
+            artifacts/spreadsheet/*-report.json
+            artifacts/spreadsheet/*-next.log
+            artifacts/spreadsheet/*-install-*.log

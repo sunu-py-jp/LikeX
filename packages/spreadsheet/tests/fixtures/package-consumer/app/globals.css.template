@@ -1,0 +1,6 @@
+/* Plain host CSS: no Tailwind, PostCSS plugin, or shared LikeX stylesheet. */
+body { margin: 0; font-family: system-ui, sans-serif; }
+main > h1 { margin: 1rem; }
+.grid { display: block; }
+.cell { background: coral; }
+button, input { font: 24px Georgia, serif; padding: 20px; border: 4px dotted crimson; color: crimson; }

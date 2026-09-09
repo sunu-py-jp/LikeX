@@ -1,0 +1,49 @@
+import Spreadsheet, {
+  createWorkbook, setCellValue, calculateWorkbook, parseTsv, stringifyTsv,
+  type SpreadsheetWorkbook, type SpreadsheetSheet, type SpreadsheetCell,
+  type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps,
+  type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSaveHandler,
+} from "__LIBRARY_IMPORT__";
+
+const workbook: SpreadsheetWorkbook = createWorkbook();
+const sheet: SpreadsheetSheet = workbook.sheets[0];
+const cell: SpreadsheetCell = { value: "=SUM(A1:A3)", format: { bold: true, numberFormat: "number" } };
+const format: SpreadsheetCellFormat = { align: "right", color: "#123456" };
+const position: SpreadsheetCellPosition = { row: 0, column: 1 };
+const populated = setCellValue(workbook, sheet.id, "A1", "42");
+const calculated = calculateWorkbook(populated);
+const save: SpreadsheetSaveHandler = next => next;
+const asyncSave: SpreadsheetSaveHandler = async next => next;
+const notifySave: SpreadsheetSaveHandler = () => {};
+const props = {
+  initialWorkbook: populated,
+  onSave: save,
+  onChange(next: SpreadsheetWorkbook) { void next.sheets; },
+  onSelectionChange(selection: SpreadsheetSelection) {
+    const selectedSheet: string = selection.sheetId;
+    const row: number = selection.focus.row;
+    void [selectedSheet, row];
+  },
+  features: { formulas: true, clipboard: false, formatting: false, sheets: true },
+  colorMode: "system",
+  style: { height: 400 },
+} satisfies SpreadsheetProps;
+const editable = <Spreadsheet {...props} />;
+const readOnly = <Spreadsheet initialWorkbook={populated} />;
+const empty = <Spreadsheet />;
+// @ts-expect-error Cell input is a string, including numeric and formula input.
+const numericCell = { value: 123 } satisfies SpreadsheetCell;
+// @ts-expect-error The feature set is closed; unsupported Excel features are not props.
+const unsupported = { pivotTables: true } satisfies SpreadsheetFeatures;
+// @ts-expect-error A saved result must be a workbook or void.
+const invalidSave: SpreadsheetSaveHandler = async () => 123;
+// @ts-expect-error Alignment is a defined union.
+const invalidFormat = { align: "justify" } satisfies SpreadsheetCellFormat;
+function rejectMutation(next: SpreadsheetWorkbook, selection: SpreadsheetSelection) {
+  // @ts-expect-error Sheet collections are readonly snapshots.
+  next.sheets.push(sheet);
+  // @ts-expect-error Selection identity cannot be replaced by the host callback.
+  selection.sheetId = "other";
+}
+void [cell, format, position, calculated, asyncSave, notifySave, editable, readOnly, empty,
+  numericCell, unsupported, invalidSave, invalidFormat, rejectMutation, stringifyTsv(parseTsv("a\tb"))];

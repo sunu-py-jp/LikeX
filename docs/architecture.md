@@ -1,6 +1,6 @@
 # LikeXのモジュール構成
 
-npm workspacesで開発環境を共有し、UIの配布単位はパッケージごとに分けます。最初は `@likex/explorer`、Spreadsheetを作る場合は `@likex/spreadsheet` を追加する想定です。リポジトリの名前はLikeX、npmの名前は小文字のscope付きにします。scopeの取得・公開先の設定は公開時に確認します。
+npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explorer` と `@likex/spreadsheet` に分けます。リポジトリの名前はLikeX、npmの名前は小文字のscope付きにします。scopeの取得・公開先の設定は公開時に確認します。
 
 ## 責務
 
@@ -13,7 +13,7 @@ npm workspacesで開発環境を共有し、UIの配布単位はパッケージ�
 | `scripts` | ビルド・型生成・配布物検査・導入検証をまとめます。 |
 | `docs` | リポジトリ全体の方針、公開手順、レビュー記録を置きます。 |
 
-Explorerの `model` はReactの表示状態に依存しないデータ・検証・操作を担当し、`state` はReactの状態と親へのコールバックをつなぎ、`ui` は表示を担当します。公開入口の `index.ts` から利用し、内部ファイルのパスを利用側の契約にしません。
+各モジュールの `model` はReactの表示状態に依存しないデータ・検証・操作を担当し、`state` はReactの状態と親へのコールバックをつなぎ、`ui` は表示を担当します。公開入口の `index.ts` から利用し、内部ファイルのパスを利用側の契約にしません。Spreadsheetの数式はモデル内の限定した構文解析器で評価し、JavaScriptとして実行しません。
 
 ## パッケージとコピーで原本を共用する
 
@@ -25,7 +25,7 @@ Explorerの `model` はReactの表示状態に依存しないデータ・検証�
 
 ## Tailwindとデザイン
 
-開発ではTailwind CSS v4を使い、TSXの専用クラスとテーマ設定から生成したCSSを同梱します。利用側は `@likex/explorer/styles.css`、コピー導入ではコピーした `styles.css` を読み込みます。利用側へのTailwind導入や専用PostCSS設定は不要です。
+Explorerの開発ではTailwind CSS v4を使い、TSXの専用クラスとテーマ設定から生成したCSSを同梱します。Spreadsheetは専用の `lxs-` クラスに限定したCSSを同梱します。利用側は各パッケージの `styles.css`、コピー導入ではコピーした `styles.css` を読み込みます。どちらも利用側へのTailwind導入や専用PostCSS設定は不要です。
 
 `packages/explorer/styles/input.css` とTSXが原本で、`src/styles.css` は自動生成します。コピー導入のため生成済みCSSをGit管理しますが、手編集しません。配布時は同じ内容を `dist/styles.css` へ配置します。`check:styles` が原本との不一致を検出し、配布ビルドとplaygroundのソース編集時にも再生成します。
 
@@ -33,7 +33,7 @@ Explorerの `model` はReactの表示状態に依存しないデータ・検証�
 
 `theme`、`colorMode`、`style` による動的カスタマイズには再生成は不要です。コピー後に内部クラスを変更した場合のみ、CSSの再生成が必要です。
 
-Next.jsへの対応は、独立した利用先の本番ビルドで検証します。Next.jsはこのリポジトリの検証用依存であり、Explorerの実行時依存ではありません。
+Next.jsへの対応は、独立した利用先の本番ビルドで検証します。Next.jsはこのリポジトリの検証用依存であり、各モジュールの実行時依存ではありません。
 
 ## フォルダ構成
 
@@ -54,6 +54,7 @@ LikeX/
 │   ├── dist/              # 生成されるESM・型宣言・CSS
 │   ├── package.json
 │   └── README.md          # パッケージ導入と利用ガイドの入口
+├── packages/spreadsheet/  # 同じ責務分担の独立モジュール（Reactのみ依存）
 ├── apps/playground/       # Vite + Reactのメモリ保存デモ
 ├── scripts/               # ビルド・配布・導入検証
 ├── docs/                  # 開発方針・公開手順・レビュー
@@ -61,4 +62,4 @@ LikeX/
 └── LICENSE
 ```
 
-デモは認証や永続ストレージを内蔵しません。旧API等を削除した経緯は [レビュー記録](release-review.md) にあります。Spreadsheetの空フォルダは作らず、実装時に `packages/spreadsheet/` を追加します。
+デモは認証や永続ストレージを内蔵しません。旧API等を削除した経緯は [レビュー記録](release-review.md) にあります。Spreadsheetの保存・検索サービスやExcelファイル変換等は、利用側で必要に応じて接続します。

@@ -4,8 +4,9 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, realpath, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import postcss from 'postcss';
-import { artifactRoot, packageRoot, projectRoot, run } from './run.mjs';
+import { projectRoot, run } from './run.mjs';
 import { installedPackage } from './packages.mjs';
+import { libraryModule } from './modules.mjs';
 
 // The host uses standard Next CSS support. Tailwind and PostCSS plugins belong
 // only to the library build, never to either consumer's setup.
@@ -44,8 +45,8 @@ export async function consumerDependencies(consumer, declared, { fallback, onlin
 }
 
 /** One fixture exercises the same public API from the tarball and copied source. */
-export async function copyConsumerFixtures(consumer, { packageName, sourceDirectory }) {
-  const fixtures = path.join(packageRoot, 'tests/fixtures/package-consumer');
+export async function copyConsumerFixtures(consumer, { module = 'explorer', packageName, sourceDirectory }) {
+  const fixtures = path.join(libraryModule(module).packageRoot, 'tests/fixtures/package-consumer');
   async function copy(source, target) {
     await mkdir(target, { recursive: true });
     for (const item of await readdir(source, { withFileTypes: true })) {
@@ -57,22 +58,25 @@ export async function copyConsumerFixtures(consumer, { packageName, sourceDirect
         if (!imported.startsWith('.')) imported = `./${imported}`;
       }
       const contents = (await readFile(path.join(source, item.name), 'utf8'))
+        .replaceAll('__LIBRARY_IMPORT__', imported)
+        .replaceAll('__LIBRARY_RESOLVE__', sourceDirectory ? `${imported}/index.ts` : packageName)
+        .replaceAll('__LIBRARY_STYLES__', `${imported}/styles.css`)
         .replaceAll('__EXPLORER_IMPORT__', imported)
         .replaceAll('__EXPLORER_RESOLVE__', sourceDirectory ? `${imported}/index.ts` : packageName)
         .replaceAll('__EXPLORER_STYLES__', `${imported}/styles.css`);
-      assert.doesNotMatch(contents, /__EXPLORER_\w+__/, `Unresolved fixture placeholder in ${destination}`);
+      assert.doesNotMatch(contents, /__(?:EXPLORER|LIBRARY)_\w+__/, `Unresolved fixture placeholder in ${destination}`);
       await writeFile(destination, contents);
     }
   }
   await copy(fixtures, consumer);
 }
 
-export async function checkConsumerTypes(consumer, { source = false } = {}) {
+export async function checkConsumerTypes(consumer, { source = false, module = 'explorer' } = {}) {
   const tsconfig = { compilerOptions: {
     target: 'ES2022', lib: ['DOM', 'DOM.Iterable', 'ES2022'],
     module: source ? 'ESNext' : 'NodeNext', moduleResolution: source ? 'Bundler' : 'NodeNext',
     jsx: 'react-jsx', strict: true, noEmit: true, skipLibCheck: false, esModuleInterop: true, types: ['node', 'react'],
-  }, include: ['types.tsx', 'app/client.tsx', ...(source ? ['components/explorer/**/*.ts', 'components/explorer/**/*.tsx'] : [])] };
+  }, include: ['types.tsx', 'app/client.tsx', ...(source ? [`components/${module}/**/*.ts`, `components/${module}/**/*.tsx`] : [])] };
   await writeFile(path.join(consumer, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2));
   await run(process.execPath, [path.join(consumer, 'node_modules/typescript/bin/tsc'), '--project', path.join(consumer, 'tsconfig.json')], { cwd: consumer, capture: true });
   return tsconfig;
@@ -95,8 +99,10 @@ function selectorBranches(selector) {
 }
 
 /** Parse with the repository's verification tool only; the consumer never runs
- * Tailwind or a PostCSS plugin to produce Explorer styles. */
-export async function checkConsumerStyles(consumer, { cssFile, originCss, reportPrefix }) {
+ * Tailwind or a PostCSS plugin to produce component styles. */
+export async function checkConsumerStyles(consumer, { cssFile, originCss, reportPrefix, module = 'explorer' }) {
+  const profile = libraryModule(module);
+  const { artifactRoot } = profile;
   const manifest = JSON.parse(await readFile(path.join(consumer, 'package.json'), 'utf8'));
   for (const name of Object.keys({ ...manifest.dependencies, ...manifest.devDependencies }))
     assert.ok(!/^(?:tailwindcss|postcss|@tailwindcss\/)/.test(name), `Consumer requires a CSS build dependency: ${name}`);
@@ -109,8 +115,8 @@ export async function checkConsumerStyles(consumer, { cssFile, originCss, report
   const selectors = [], declarations = [];
   parsed.walkAtRules(rule => {
     assert.ok(!['import', 'tailwind', 'source', 'apply', 'reference'].includes(rule.name), `Styles require an unresolved build directive: @${rule.name}`);
-    if (rule.name === 'property') assert.match(rule.params, /^--lxe-/, `A registered CSS property is not namespaced: ${rule.params}`);
-    if (rule.name.endsWith('keyframes')) assert.match(rule.params, /^lxe[-_]/, `A keyframe is not namespaced: ${rule.params}`);
+    if (rule.name === 'property') assert.ok(rule.params.startsWith(profile.propertyPrefix), `A registered CSS property is not namespaced: ${rule.params}`);
+    if (rule.name.endsWith('keyframes')) assert.ok(rule.params.startsWith(profile.keyframePrefix + '-') || rule.params.startsWith(profile.keyframePrefix + '_'), `A keyframe is not namespaced: ${rule.params}`);
   });
   parsed.walkRules(rule => {
     const ancestors = [];
@@ -120,23 +126,25 @@ export async function checkConsumerStyles(consumer, { cssFile, originCss, report
     // Nested selectors inherit their containing rule's already-checked scope.
     if (ancestors.some(parent => parent.type === 'rule')) return;
     for (const selector of selectorBranches(rule.selector)) assert.ok(
-      selector.includes('[data-likex-explorer') || selector.includes('.lxe\\:'),
-      `A generated selector escapes the Explorer scope: ${selector}`,
+      selector.includes(`[${profile.marker}`) || selector.includes(profile.classPrefix),
+      `A selector escapes the ${module} scope: ${selector}`,
     );
   });
   parsed.walkDecls(declaration => { declarations.push([declaration.prop, declaration.value]); });
-  for (const selector of ['.lxe\\:flex', '.lxe\\:min-h-0', '.lxe\\:h-8', '.lxe\\:resize-none'])
-    assert.ok(selectors.some(value => value.includes(selector)), `Missing precompiled Explorer class: ${selector}`);
-  assert.ok(selectors.some(selector => selector.includes('[data-likex-explorer')), 'The stylesheet has no scoped foundation');
-  assert.ok(declarations.some(([name, value]) => name === 'background-color' && value === 'var(--explorer-background)'));
-  assert.ok(declarations.some(([name, value]) => name === 'color' && value === 'var(--explorer-foreground)'));
+  for (const selector of profile.requiredClasses)
+    assert.ok(selectors.some(value => value.includes(selector)), `Missing ${module} stylesheet class: ${selector}`);
+  assert.ok(selectors.some(selector => selector.includes(`[${profile.marker}`)), 'The stylesheet has no scoped foundation');
+  assert.ok(declarations.some(([name, value]) => /^background(?:-color)?$/.test(name) && value.includes(`var(${profile.background})`)));
+  assert.ok(declarations.some(([name, value]) => name === 'color' && value.includes(`var(${profile.foreground})`)));
   assert.doesNotMatch(css, /--tw-/, 'Tailwind internal properties must not collide with the host');
   await writeFile(path.join(artifactRoot, `${reportPrefix}.css`), css);
   return { stylesheetBytes: Buffer.byteLength(css), stylesheetSha256: createHash('sha256').update(css).digest('hex'),
     cssBuildRequired: false, scopedStylesheet: true };
 }
 
-export async function checkConsumerNext(consumer, { tsconfig, testedVersions, reportPrefix, dependencies = {} }) {
+export async function checkConsumerNext(consumer, { tsconfig, testedVersions, reportPrefix, dependencies = {}, module = 'explorer' }) {
+  const profile = libraryModule(module);
+  const { artifactRoot } = profile;
   // Run the standard App Router build from the consumer's own toolchain.
   Object.assign(tsconfig.compilerOptions, {
     module: 'ESNext', moduleResolution: 'Bundler', lib: ['DOM', 'DOM.Iterable', 'ESNext'],
@@ -162,12 +170,12 @@ export async function checkConsumerNext(consumer, { tsconfig, testedVersions, re
   } catch (error) { await writeFile(nextLog, String(error) + '\n'); throw error; }
   assert.ok(existsSync(path.join(consumer, '.next/BUILD_ID')));
   const html = await readFile(path.join(consumer, '.next/server/app/index.html'), 'utf8');
-  assert.match(html, /Server-readonly\.txt/);
+  assert.ok(html.includes(profile.serverText), `Server-imported ${module} content was not rendered`);
   const stylesheets = [...new Set([...html.matchAll(/href="(\/_next\/static\/css\/[^"?]+\.css)(?:\?[^\"]*)?"/g)].map(match => match[1]))];
   assert.ok(stylesheets.length, 'The production page does not load any stylesheet');
   const emittedCss = (await Promise.all(stylesheets.map(url => readFile(path.join(consumer, '.next', url.slice('/_next/'.length)), 'utf8')))).join('\n');
-  assert.match(emittedCss, /\.lxe\\:flex/, 'The production CSS lost the Explorer utilities');
-  assert.match(emittedCss, /data-likex-explorer/, 'The production CSS lost the Explorer foundation');
-  assert.match(emittedCss, /--explorer-background/, 'The production CSS lost the Explorer theme');
+  assert.ok(emittedCss.includes(profile.requiredClasses[0]), 'The production CSS lost the component classes');
+  assert.ok(emittedCss.includes(profile.marker), 'The production CSS lost the component foundation');
+  assert.ok(emittedCss.includes(profile.background), 'The production CSS lost the component theme');
   return { loadedStylesheets: stylesheets.length, productionCssBytes: Buffer.byteLength(emittedCss) };
 }

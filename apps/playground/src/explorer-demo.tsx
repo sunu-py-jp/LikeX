@@ -5,6 +5,7 @@ import Explorer, {
 } from "@likex/explorer";
 import { seedEntries } from "./demo/seed";
 import { createExplorerIconSamples } from "./demo/icon-samples";
+import "../../../packages/explorer/src/styles.css";
 
 const iconSamplesFolderId = "demo-icon-samples";
 const iconSamplesFolderName = "icons";

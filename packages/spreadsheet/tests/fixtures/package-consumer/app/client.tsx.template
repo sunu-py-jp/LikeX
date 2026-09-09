@@ -1,0 +1,18 @@
+"use client";
+
+import { useState } from "react";
+import Spreadsheet, { createWorkbook, type SpreadsheetWorkbook, type SpreadsheetProps } from "__LIBRARY_IMPORT__";
+
+export default function ClientSpreadsheet() {
+  const [saved, setSaved] = useState<SpreadsheetWorkbook>(() => createWorkbook());
+  const props = {
+    initialWorkbook: saved,
+    onSave: async workbook => { setSaved(workbook); return workbook; },
+    onSelectionChange: selection => { void selection.focus.row; },
+    features: { clipboard: false, formatting: true, undoRedo: true },
+    colorMode: "system",
+    title: "Editable spreadsheet",
+    style: { height: 360 },
+  } satisfies SpreadsheetProps;
+  return <Spreadsheet {...props} />;
+}

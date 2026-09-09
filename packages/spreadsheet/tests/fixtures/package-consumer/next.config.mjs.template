@@ -1,0 +1,4 @@
+export default {
+  outputFileTracingRoot: process.cwd(),
+  experimental: { cpus: 1 },
+};

@@ -1,24 +1,32 @@
 import path from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { artifactRoot, packageRoot, runNpm } from './lib/run.mjs';
+import { artifactRoot, runNpm } from './lib/run.mjs';
+import { libraryModule, moduleNames } from './lib/modules.mjs';
 
 const online = process.argv.includes('--online');
-const checks = ['check:styles', 'test:scripts', 'test', 'lint', 'typecheck', 'pack:library', 'test:package', 'test:copy', 'build:playground'];
+const checks = [
+  ...['check:styles', 'test:scripts', 'test', 'lint', 'typecheck'].map(name => ({ name })),
+  ...moduleNames.flatMap(module => ['pack:library', 'test:package', 'test:copy'].map(name => ({ name, module }))),
+  { name: 'build:playground' },
+];
 const completed = [];
 await mkdir(artifactRoot, { recursive: true });
 const reportFile = path.join(artifactRoot, 'release-check.json');
 try {
   for (const check of checks) {
-    console.log(`\nRelease check: ${check}`);
-    const consumerOptions = ['test:package', 'test:copy'].includes(check)
-      ? ['--', '--next', ...(online ? ['--online'] : [])] : [];
-    await runNpm(['run', check, ...consumerOptions], { timeout: 300_000 });
-    completed.push(check);
+    const label = check.module ? `${check.name}:${check.module}` : check.name;
+    console.log(`\nRelease check: ${label}`);
+    const options = check.module ? ['--module', check.module] : [];
+    if (['test:package', 'test:copy'].includes(check.name)) options.push('--next', ...(online ? ['--online'] : []));
+    await runNpm(['run', check.name, ...(options.length ? ['--', ...options] : [])], { timeout: 300_000 });
+    completed.push(label);
   }
-  const metadata = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8'));
   const pending = [];
-  if (metadata.private) pending.push('Confirm the public registry and remove packages/explorer/package.json private only when ready.');
-  if (metadata.license === 'UNLICENSED') pending.push('Choose the distribution license and replace the UNLICENSED notice in packages/explorer/LICENSE.');
+  for (const moduleName of moduleNames) {
+    const metadata = JSON.parse(await readFile(path.join(libraryModule(moduleName).packageRoot, 'package.json'), 'utf8'));
+    if (metadata.private) pending.push(`Confirm the public registry and remove packages/${moduleName}/package.json private only when ready.`);
+    if (metadata.license === 'UNLICENSED') pending.push(`Choose the distribution license and replace the UNLICENSED notice in packages/${moduleName}/LICENSE.`);
+  }
   const report = { checkedAt: new Date().toISOString(), technicalChecks: 'passed', completed, publicationPending: pending };
   await writeFile(reportFile, JSON.stringify(report, null, 2) + '\n');
   console.log('All technical release checks passed. No publishing was performed.');

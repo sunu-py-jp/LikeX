@@ -5,10 +5,10 @@ import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
-import { artifactRoot, packageRoot, projectRoot, sourceRoot } from './lib/run.mjs';
+import { projectRoot } from './lib/run.mjs';
 import { installedPackage } from './lib/packages.mjs';
 import { assertSourceBoundary } from './lib/source-boundary.mjs';
-import { buildStyles } from './build-styles.mjs';
+import { libraryModule, requestedModules } from './lib/modules.mjs';
 
 async function declarationFiles(directory) {
   const files = [];
@@ -20,13 +20,17 @@ async function declarationFiles(directory) {
   return files;
 }
 
-export async function buildLibrary() {
+export async function buildLibrary({ module = 'explorer' } = {}) {
+  const profile = libraryModule(module);
+  const { artifactRoot, packageRoot, sourceRoot } = profile;
   const manifest = JSON.parse(await readFile(path.join(packageRoot, 'package.json'), 'utf8'));
   await assertSourceBoundary(sourceRoot, manifest);
   const licensePath = path.join(packageRoot, 'LICENSE');
   if (!manifest.private && (manifest.license === 'UNLICENSED' || !existsSync(licensePath)))
-    throw new Error('Choose the distribution license and add packages/explorer/LICENSE before enabling public publishing.');
-  const { css } = await buildStyles();
+    throw new Error(`Choose the distribution license and add packages/${module}/LICENSE before enabling public publishing.`);
+  const css = profile.generatedStyles
+    ? (await (await import('./build-styles.mjs')).buildStyles()).css
+    : await readFile(path.join(sourceRoot, 'styles.css'), 'utf8');
   // The package directory contains maintained source/docs: replace only dist.
   await rm(path.join(packageRoot, 'dist'), { recursive: true, force: true });
   await mkdir(path.join(packageRoot, 'dist'), { recursive: true });
@@ -44,7 +48,7 @@ export async function buildLibrary() {
   });
   for (const input of Object.keys(result.metafile.inputs)) {
     if (!path.resolve(projectRoot, input).startsWith(sourceRoot + path.sep))
-      throw new Error(`Library imports a file outside packages/explorer/src: ${input}`);
+      throw new Error(`Library imports a file outside packages/${module}/src: ${input}`);
   }
   const declared = new Set([...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})]);
   for (const output of Object.values(result.metafile.outputs)) for (const imported of output.imports) {
@@ -83,12 +87,12 @@ export async function buildLibrary() {
     }));
   }
   const notices = ['# Third-party dependencies', '',
-    'Runtime dependencies are external imports. Their own distributions carry notices for transitive dependencies.', '',
-    'The distributed styles.css includes compiled Tailwind CSS utilities and Preflight. Its MIT license is also retained in styles.css for source-copy consumers.', ''];
-  for (const name of [...new Set([...declared, 'tailwindcss'])].sort()) {
+    'Runtime dependencies are external imports. Their own distributions carry notices for transitive dependencies.', ''];
+  if (profile.generatedStyles) notices.push('The distributed styles.css includes compiled Tailwind CSS utilities and Preflight. Its MIT license is also retained in styles.css for source-copy consumers.', '');
+  for (const name of [...new Set([...declared, ...profile.bundledDependencies])].sort()) {
     const { directory: root, manifest: metadata } = await installedPackage(name);
     notices.push(`## ${name} ${metadata.version}`, '',
-      name === 'tailwindcss' ? 'Bundled CSS generated at build time; consumers do not install Tailwind CSS.' : 'External runtime dependency.', '',
+      profile.bundledDependencies.includes(name) ? 'Bundled CSS generated at build time; consumers do not install its compiler.' : 'External runtime dependency.', '',
       `Declared license: ${metadata.license}`, '');
     for (const file of await readdir(root, { withFileTypes: true })) {
       if (file.isFile() && /^(licen[sc]e|notice|copyright)([.-]|$)/i.test(file.name))
@@ -106,4 +110,5 @@ export async function buildLibrary() {
   return report;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await buildLibrary();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+  for (const moduleName of requestedModules()) await buildLibrary({ module: moduleName });

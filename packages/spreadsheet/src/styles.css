@@ -1,0 +1,73 @@
+/* LikeX Spreadsheet — scoped, hand-maintained CSS. Import once in the host app. */
+.lxs-root[data-likex-spreadsheet] {
+  --lxs-background: #ffffff; --lxs-foreground: #252a29; --lxs-panel: #f5f7f6;
+  --lxs-border: #dce2df; --lxs-muted: #68736e; --lxs-accent: #217346;
+  --lxs-selection: #e8f3ec; --lxs-hover: #edf1ee; --lxs-error: #b42318;
+  color-scheme: light; display: flex; flex-direction: column; isolation: isolate;
+  min-width: 280px; min-height: 260px; overflow: hidden; border: 1px solid var(--lxs-border);
+  border-radius: 7px; background: var(--lxs-background); color: var(--lxs-foreground);
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif;
+}
+.lxs-root[data-color-mode="dark"] {
+  --lxs-background: #1e2421; --lxs-foreground: #e9efeb; --lxs-panel: #272f2a;
+  --lxs-border: #3a453e; --lxs-muted: #a8b6ad; --lxs-accent: #64bb8a;
+  --lxs-selection: #284d38; --lxs-hover: #333f37; --lxs-error: #ffaaa2; color-scheme: dark;
+}
+.lxs-root *, .lxs-root *::before, .lxs-root *::after { box-sizing: border-box; }
+.lxs-root button, .lxs-root input, .lxs-root select {
+  font: inherit; color: inherit; margin: 0; letter-spacing: normal; text-transform: none;
+}
+.lxs-root button { cursor: pointer; border: 0; border-radius: 0; background: transparent; padding: 0; }
+.lxs-root button:disabled, .lxs-root input:disabled, .lxs-root select:disabled { cursor: default; opacity: .45; }
+.lxs-root button:focus-visible, .lxs-root select:focus-visible, .lxs-root input:focus-visible, .lxs-root [role="separator"]:focus-visible { outline: 2px solid var(--lxs-accent); outline-offset: -2px; }
+.lxs-root svg { flex-shrink: 0; vertical-align: middle; }
+.lxs-title-bar { height: 42px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 0 16px; background: #206b43; color: #fff; }
+.lxs-app-mark { font-size: 24px; opacity: .9; }
+.lxs-title { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lxs-title-context { margin-left: auto; color: #cce5d6; font-size: 11px; }
+.lxs-ribbon { min-height: 56px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding: 8px 10px; border-bottom: 1px solid var(--lxs-border); background: var(--lxs-panel); overflow-x: auto; }
+.lxs-tool-group { display: flex; gap: 3px; align-items: center; flex-shrink: 0; padding-right: 9px; border-right: 1px solid var(--lxs-border); }
+.lxs-root .lxs-command { display: inline-flex; align-items: center; justify-content: center; min-width: 29px; height: 29px; padding: 4px; border: 1px solid transparent; border-radius: 4px; background: transparent; flex-shrink: 0; }
+.lxs-root .lxs-command:hover:enabled, .lxs-root .lxs-command[aria-pressed="true"] { background: var(--lxs-hover); border-color: var(--lxs-border); }
+.lxs-root .lxs-command[aria-pressed="true"] { color: var(--lxs-accent); }
+.lxs-root .lxs-select, .lxs-root .lxs-sheet-menu { border: 1px solid var(--lxs-border); border-radius: 4px; padding: 4px 6px; height: 29px; background: var(--lxs-background); max-width: 130px; }
+.lxs-color-control { width: 28px; height: 29px; position: relative; text-align: center; cursor: pointer; font-weight: 600; }
+.lxs-color-control input { position: absolute; bottom: 0; left: 3px; width: 23px; height: 9px; padding: 0; border: 0; cursor: pointer; }
+.lxs-ribbon-spacer { flex: 1; }
+.lxs-readonly { color: var(--lxs-muted); white-space: nowrap; font-size: 12px; }
+.lxs-root .lxs-save { display: inline-flex; gap: 7px; align-items: center; padding: 6px 12px; border-radius: 4px; color: #fff; background: #217346; white-space: nowrap; }
+.lxs-root .lxs-save:hover:enabled { background: #195d38; }
+.lxs-formula-bar { height: 37px; flex-shrink: 0; display: flex; align-items: center; gap: 7px; padding: 4px 9px; border-bottom: 1px solid var(--lxs-border); background: var(--lxs-background); }
+.lxs-root .lxs-name-box, .lxs-root .lxs-formula-input, .lxs-root .lxs-sheet-name-input { min-width: 0; border: 1px solid var(--lxs-border); border-radius: 3px; padding: 3px 7px; height: 27px; background: var(--lxs-background); }
+.lxs-root .lxs-name-box { width: 78px; text-align: center; flex-shrink: 0; }
+.lxs-formula-symbol { color: var(--lxs-muted); font: italic 17px Georgia, serif; width: 26px; text-align: center; }
+.lxs-root .lxs-formula-input { flex: 1; border-color: transparent; border-left-color: var(--lxs-border); border-radius: 0; }
+.lxs-grid-scroll { position: relative; min-height: 0; flex: 1; overflow: auto; scrollbar-width: thin; outline: none; background: var(--lxs-background); overscroll-behavior: contain; }
+.lxs-grid { position: relative; user-select: none; }
+.lxs-column-headers { position: sticky; top: 0; z-index: 4; display: flex; background: var(--lxs-panel); }
+.lxs-corner { position: sticky; left: 0; z-index: 5; border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); background: var(--lxs-panel); flex-shrink: 0; }
+.lxs-column-header { position: relative; flex-shrink: 0; height: 28px; border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); color: var(--lxs-muted); }
+.lxs-root .lxs-header-button { width: 100%; height: 100%; font-size: 11px; font-weight: 400; }
+.lxs-root .lxs-header-button:hover { background: var(--lxs-hover); }
+.lxs-column-resize { position: absolute; right: -3px; top: 0; bottom: 0; z-index: 6; width: 7px; cursor: col-resize; touch-action: none; }
+.lxs-row { position: absolute; left: 0; display: flex; }
+.lxs-row-header { position: sticky; left: 0; z-index: 3; width: 48px; flex-shrink: 0; background: var(--lxs-panel); color: var(--lxs-muted); border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); }
+.lxs-header-selected { color: var(--lxs-accent); background: var(--lxs-selection); }
+.lxs-cell { position: relative; flex-shrink: 0; height: 100%; line-height: 27px; padding: 0 7px; border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; touch-action: pan-y; }
+.lxs-cell-selected { background: var(--lxs-selection); }
+.lxs-cell-active { overflow: visible; z-index: 2; outline: 2px solid var(--lxs-accent); outline-offset: -2px; }
+.lxs-cell-active::after { content: ""; position: absolute; bottom: -2px; right: -2px; width: 5px; height: 5px; background: var(--lxs-accent); border: 1px solid var(--lxs-background); pointer-events: none; }
+.lxs-cell-error { color: var(--lxs-error); }
+.lxs-root .lxs-cell-input { display: block; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; outline: none; background: transparent; color: inherit; font: inherit; line-height: inherit; text-align: inherit; text-decoration: inherit; user-select: text; }
+.lxs-root .lxs-cell-input:focus-visible { outline: none; }
+.lxs-footer { min-height: 38px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--lxs-border); padding: 0 10px; background: var(--lxs-panel); }
+.lxs-sheet-tabs { display: flex; align-items: center; min-width: 0; gap: 3px; overflow-x: auto; scrollbar-width: thin; }
+.lxs-root .lxs-sheet-tab { height: 36px; padding: 0 14px; border-bottom: 3px solid transparent; white-space: nowrap; color: var(--lxs-muted); }
+.lxs-root .lxs-sheet-tab:hover { background: var(--lxs-hover); }
+.lxs-root .lxs-sheet-tab-active { background: var(--lxs-background); color: var(--lxs-accent); border-bottom-color: var(--lxs-accent); font-weight: 600; }
+.lxs-root .lxs-sheet-name-input { width: 120px; flex-shrink: 0; }
+.lxs-root .lxs-sheet-menu { font-size: 11px; width: 86px; border-color: transparent; background: transparent; }
+.lxs-sheet-label { color: var(--lxs-muted); font-size: 12px; }
+.lxs-selection-stats { margin-left: auto; color: var(--lxs-muted); font-size: 11px; white-space: nowrap; }
+.lxs-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 12px; background: var(--lxs-panel); border-top: 1px solid var(--lxs-border); color: var(--lxs-error); font-size: 12px; }
+@media (max-width: 600px) { .lxs-selection-stats { display: none; } .lxs-ribbon { gap: 4px; } .lxs-title-context { display: none; } }
