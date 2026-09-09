@@ -14,7 +14,8 @@ const output = await build({
     builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
-const { useSpreadsheet, useSpreadsheetClipboard, setCellValue, deleteRows, deleteColumns } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { useSpreadsheet, useSpreadsheetClipboard, setCellValue, deleteRows, deleteColumns,
+  addDrawing, updateDrawing, insertImage, setCellComment, serializeWorkbook, parseWorkbook } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const book = () => ({ sheets: [{ id: 'one', name: 'Sheet1', rowCount: 20, columnCount: 10, cells: { A1: { value: '2' }, B1: { value: '=A1*3' } } }] });
 const deferred = () => {
   let resolve, reject;
@@ -264,4 +265,99 @@ test('an awaited paste cannot notify or modify after unmount', async t => {
   await hook.unmount();
   await act(async () => { pending.resolve('99'); await paste; });
   assert.equal(changes, 0);
+});
+
+const note = () => ({ id: 'note', type: 'text', text: 'JSONのメモ', fontSize: 16, color: '#333333', background: 'transparent',
+  anchor: { row: 2, column: 2, offsetX: 5, offsetY: 10 }, width: 200, height: 80 });
+
+test('drawing edits use the shared history and cell selection clears object selection', async t => {
+  const hook = await mount(t);
+  await act(async () => { hook.current.apply(wb => addDrawing(wb, 'one', note())); hook.current.selectDrawing('note'); });
+  assert.equal(hook.current.selectedDrawingId, 'note');
+  assert.equal(hook.current.dirty, true);
+  await act(async () => hook.current.apply(wb => updateDrawing(wb, 'one', 'note', { text: '変更済み' })));
+  await act(async () => hook.current.undo());
+  assert.equal(hook.current.activeSheet.drawings[0].text, 'JSONのメモ');
+  await act(async () => hook.current.undo());
+  assert.equal(hook.current.activeSheet.drawings, undefined);
+  assert.equal(hook.current.dirty, false);
+  await act(async () => { hook.current.redo(); hook.current.selectDrawing('note'); });
+  await act(async () => hook.current.select({ row: 0, column: 1 }));
+  assert.equal(hook.current.selectedDrawingId, null);
+});
+
+test('save round trips embedded image data, comments, text, and cell formulas as one JSON snapshot', async t => {
+  let json;
+  const hook = await mount(t, { onSave: value => { json = serializeWorkbook(value); return parseWorkbook(json); } });
+  const resource = { name: 'pixel.png', mimeType: 'image/png', width: 1, height: 1,
+    dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' };
+  await act(async () => hook.current.apply(wb => insertImage(addDrawing(wb, 'one', note()), 'one', 'pixel', resource,
+    { id: 'picture', type: 'image', resourceId: 'pixel', alt: '画像', anchor: { row: 1, column: 1, offsetX: 0, offsetY: 0 }, width: 40, height: 40 })));
+  await act(async () => hook.current.apply(wb => setCellComment(wb, 'one', 'A1', { id: 'review', text: '要確認' })));
+  await act(async () => hook.current.save());
+  const restored = JSON.parse(json);
+  assert.equal(restored.schemaVersion, 1);
+  assert.equal(restored.resources.images.pixel.dataUrl, resource.dataUrl);
+  assert.equal(restored.sheets[0].drawings.length, 2);
+  assert.equal(restored.sheets[0].comments.A1.text, '要確認');
+  assert.equal(restored.sheets[0].cells.B1.value, '=A1*3');
+  assert.equal(hook.current.dirty, false);
+  assert.equal(hook.current.canUndo, false);
+});
+
+test('uncommitted object editors prevent a misleading successful save', async t => {
+  let calls = 0;
+  const hook = await mount(t, { onSave() { calls++; } });
+  await act(async () => { hook.current.writeValues({ A1: '9' }); hook.current.setPendingObjectEdit(true); });
+  await act(async () => hook.current.save());
+  assert.equal(calls, 0);
+  assert.equal(hook.current.dirty, true);
+  assert.match(hook.current.error, /確定/);
+  await act(async () => { hook.current.setPendingObjectEdit(false); await hook.current.save(); });
+  assert.equal(calls, 1);
+});
+
+test('object selection never copies, cuts or overwrites the underlying cells', async t => {
+  const hook = await mount(t);
+  await act(async () => { hook.current.apply(wb => addDrawing(wb, 'one', note())); hook.current.selectDrawing('note'); });
+  const copied = clipboardEvent();
+  await act(async () => hook.current.clipboard.onCut(copied));
+  assert.equal(copied.clipboardData.getData('text/plain'), '');
+  await act(async () => hook.current.clipboard.onPaste(clipboardEvent({ 'text/plain': 'overwrite' })));
+  assert.equal(hook.current.activeSheet.cells.A1.value, '2');
+});
+
+test('cell copy duplicates comments with a new identity; cut keeps the original identity', async t => {
+  const hook = await mount(t);
+  await act(async () => hook.current.apply(wb => setCellComment(wb, 'one', 'A1', { id: 'comment-one', text: 'review', author: 'Team' })));
+  const copied = clipboardEvent();
+  await act(async () => hook.current.clipboard.onCopy(copied));
+  await act(async () => hook.current.select({ row: 1, column: 0 }));
+  await act(async () => hook.current.clipboard.onPaste(copied));
+  assert.equal(hook.current.activeSheet.comments.A2.text, 'review');
+  assert.notEqual(hook.current.activeSheet.comments.A2.id, 'comment-one');
+  await act(async () => hook.current.select({ row: 0, column: 0 }));
+  const cut = clipboardEvent();
+  await act(async () => hook.current.clipboard.onCut(cut));
+  await act(async () => hook.current.select({ row: 2, column: 0 }));
+  await act(async () => hook.current.clipboard.onPaste(cut));
+  assert.equal(hook.current.activeSheet.comments.A1, undefined);
+  assert.equal(hook.current.activeSheet.comments.A3.id, 'comment-one');
+});
+
+test('disabled annotations are not selected or copied, but remain in the saved workbook', async t => {
+  const hook = await mount(t);
+  await act(async () => hook.current.apply(wb => setCellComment(addDrawing(wb, 'one', note()), 'one', 'A1', { id: 'c1', text: 'hidden' })));
+  await hook.update({ features: { textBoxes: false, comments: false } });
+  await act(async () => { hook.current.selectDrawing('note'); hook.current.setCommentOpen(true); });
+  assert.equal(hook.current.selectedDrawingId, null);
+  assert.equal(hook.current.commentOpen, false);
+  const copied = clipboardEvent();
+  await act(async () => hook.current.clipboard.onCopy(copied));
+  await act(async () => hook.current.select({ row: 1, column: 0 }));
+  await act(async () => hook.current.clipboard.onPaste(copied));
+  assert.equal(hook.current.activeSheet.comments.A1.text, 'hidden');
+  assert.equal(hook.current.activeSheet.comments.A2, undefined);
+  await act(async () => hook.current.save());
+  assert.equal(hook.current.activeSheet.drawings[0].text, 'JSONのメモ');
 });

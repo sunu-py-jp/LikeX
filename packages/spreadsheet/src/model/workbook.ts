@@ -1,7 +1,10 @@
 import { cellAddress, parseCellAddress } from "./address";
 import { moveFormulaReference, rewriteFormulaReferences, type FormulaReference } from "./formula";
+import { commentsEqual, drawingsEqual, normalizeComment, normalizeComments, normalizeDrawing, normalizeDrawings } from "./annotations";
+import { normalizeResources, pruneImageResources, validateObjectId } from "./image-resources";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, type SpreadsheetMoveSource, type SpreadsheetMoveTarget,
-  type SpreadsheetSheet, type SpreadsheetWorkbook } from "./types";
+  type SpreadsheetSheet, type SpreadsheetWorkbook, type SpreadsheetDrawing, type SpreadsheetDrawingPatch,
+  type SpreadsheetComment, type SpreadsheetImageDrawing, type SpreadsheetImageResource } from "./types";
 
 const fail = (message: string): never => { throw new Error(message); };
 function dimension(value: number, maximum: number) {
@@ -58,13 +61,18 @@ function sizes(input: Readonly<Record<number, number>> | undefined, count: numbe
 function freezeCell(value: string, format?: SpreadsheetCellFormat): SpreadsheetCell {
   return Object.freeze(format ? { value, format } : { value });
 }
-function finish(sheets: readonly SpreadsheetSheet[]): SpreadsheetWorkbook {
+function finish(sheets: readonly SpreadsheetSheet[], workbook?: SpreadsheetWorkbook,
+  resources = workbook?.resources): SpreadsheetWorkbook {
   if (sheets.reduce((count, sheet) => count + Object.keys(sheet.cells).length, 0) > SPREADSHEET_LIMITS.cells)
     fail("保存できるセル数の上限を超えています");
-  return Object.freeze({ sheets: Object.freeze([...sheets]) });
+  if (sheets.reduce((count, sheet) => count + (sheet.drawings?.length ?? 0), 0) > SPREADSHEET_LIMITS.drawings)
+    fail("描画オブジェクトの数が上限を超えています");
+  if (sheets.reduce((count, sheet) => count + Object.keys(sheet.comments ?? {}).length, 0) > SPREADSHEET_LIMITS.comments)
+    fail("コメントの数が上限を超えています");
+  return Object.freeze({ schemaVersion: 1, sheets: Object.freeze([...sheets]), ...(resources ? { resources } : {}) });
 }
 function withSheet(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet): SpreadsheetWorkbook {
-  return finish(workbook.sheets.map(item => item.id === sheet.id ? Object.freeze(sheet) : item));
+  return finish(workbook.sheets.map(item => item.id === sheet.id ? Object.freeze(sheet) : item), workbook);
 }
 function getSheet(workbook: SpreadsheetWorkbook, id: string): SpreadsheetSheet {
   return workbook.sheets.find(sheet => sheet.id === id) ?? fail("シートが見つかりません");
@@ -80,6 +88,8 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
   if (input === undefined) return createWorkbook();
   if (!input || !Array.isArray(input.sheets) || input.sheets.length < 1 || input.sheets.length > SPREADSHEET_LIMITS.sheets)
     return fail("ブックには1〜100枚のシートが必要です");
+  if (input.schemaVersion !== undefined && input.schemaVersion !== 1) return fail("未対応のブック形式です");
+  const resources = normalizeResources(input.resources);
   const ids = new Set<string>(), names = new Set<string>();
   let cellCount = 0;
   const sheets = input.sheets.map(sheet => {
@@ -102,10 +112,13 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
       if (value || format) cells[canonical] = freezeCell(value, format);
     }
     const columnWidths = sizes(sheet.columnWidths, columnCount), rowHeights = sizes(sheet.rowHeights, rowCount, true);
+    const drawings = normalizeDrawings(sheet.drawings, { rowCount, columnCount }, resources);
+    const comments = normalizeComments(sheet.comments, { rowCount, columnCount });
     return Object.freeze({ id: sheet.id, name, cells: Object.freeze(cells), rowCount, columnCount,
-      ...(columnWidths ? { columnWidths } : {}), ...(rowHeights ? { rowHeights } : {}) });
+      ...(columnWidths ? { columnWidths } : {}), ...(rowHeights ? { rowHeights } : {}),
+      ...(drawings ? { drawings } : {}), ...(comments ? { comments } : {}) });
   });
-  return finish(sheets);
+  return finish(sheets, undefined, resources);
 }
 
 export function createWorkbook(): SpreadsheetWorkbook {
@@ -194,6 +207,19 @@ function shiftSizes(input: Readonly<Record<number, number>> | undefined, index: 
   }
   return Object.freeze(result);
 }
+function shiftAnnotations(sheet: SpreadsheetSheet, axis: "row" | "column", index: number, count: number, remove: boolean, total: number) {
+  const comments: Record<string, SpreadsheetComment> = Object.create(null);
+  for (const [address, comment] of Object.entries(sheet.comments ?? {})) {
+    const position = parseCellAddress(address)!, next = coordinateAfter(position[axis], index, count, remove);
+    if (next !== null) comments[cellAddress(axis === "row" ? next : position.row, axis === "column" ? next : position.column)] = comment;
+  }
+  const drawings = sheet.drawings?.map(drawing => {
+    const next = coordinateAfter(drawing.anchor[axis], index, count, remove) ?? Math.min(index, total - 1);
+    if (next === drawing.anchor[axis]) return drawing;
+    return Object.freeze({ ...drawing, anchor: Object.freeze({ ...drawing.anchor, [axis]: next }) });
+  });
+  return { ...(sheet.comments ? { comments: Object.freeze(comments) } : {}), ...(drawings ? { drawings: Object.freeze(drawings) } : {}) };
+}
 
 function changeAxis(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" | "column", index: number, count: number, remove: boolean): SpreadsheetWorkbook {
   const target = getSheet(workbook, sheetId), limit = axis === "row" ? target.rowCount : target.columnCount;
@@ -216,10 +242,11 @@ function changeAxis(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" 
       cells[nextAddress] = value === cell.value ? cell : freezeCell(value, cell.format);
     }
     if (!changed) return sheet;
-    return Object.freeze({ ...sheet, cells: Object.freeze(cells), ...(sheet.id === sheetId ? axis === "row"
+    return Object.freeze({ ...sheet, cells: Object.freeze(cells),
+      ...(sheet.id === sheetId ? shiftAnnotations(sheet, axis, index, count, remove, total) : {}), ...(sheet.id === sheetId ? axis === "row"
       ? { rowCount: total, rowHeights: shiftSizes(sheet.rowHeights, index, count, remove) }
       : { columnCount: total, columnWidths: shiftSizes(sheet.columnWidths, index, count, remove) } : {}) });
-  }));
+  }), workbook);
 }
 export function insertRows(workbook: SpreadsheetWorkbook, id: string, index: number, count = 1) { return changeAxis(workbook, id, "row", index, count, false); }
 export function deleteRows(workbook: SpreadsheetWorkbook, id: string, index: number, count = 1) { return changeAxis(workbook, id, "row", index, count, true); }
@@ -244,18 +271,30 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
   const qualifier = (name: string) => `'${name.replaceAll("'", "''")}'!`;
   const staged = workbook.sheets.map(sheet => {
     if (sheet.id !== from.id && sheet.id !== to.id) return sheet;
-    const cells = { ...sheet.cells };
+    const cells = { ...sheet.cells }, comments = { ...sheet.comments };
     if (sheet.id === from.id) for (const address of Object.keys(cells)) {
       const position = parseCellAddress(address)!;
       if (inSource(position.row, position.column)) delete cells[address];
+    }
+    if (sheet.id === from.id) for (const address of Object.keys(comments)) {
+      const position = parseCellAddress(address)!;
+      if (inSource(position.row, position.column)) delete comments[address];
     }
     if (sheet.id === to.id) for (let row = 0; row < height; row++) for (let column = 0; column < width; column++) {
       const cell = from.cells[cellAddress(source.top + row, source.left + column)];
       const target = cellAddress(destination.row + row, destination.column + column);
       if (cell) cells[target] = cell;
       else delete cells[target];
+      const comment = from.comments?.[cellAddress(source.top + row, source.left + column)];
+      if (comment) comments[target] = comment;
+      else delete comments[target];
     }
-    return { ...sheet, cells };
+    const ids = new Set<string>();
+    for (const comment of Object.values(comments)) {
+      if (ids.has(comment.id)) return fail("移動先に同じ ID のコメントがあります");
+      ids.add(comment.id);
+    }
+    return { ...sheet, cells, ...(sheet.comments || Object.keys(comments).length ? { comments: Object.freeze(comments) } : {}) };
   });
   const result = staged.map(sheet => {
     let changed = sheet.id === from.id || sheet.id === to.id;
@@ -294,7 +333,7 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
     }
     return changed ? Object.freeze({ ...sheet, cells: Object.freeze(cells) }) : sheet;
   });
-  return finish(result);
+  return finish(result, workbook);
 }
 
 let nextId = 1;
@@ -306,7 +345,7 @@ export function addSheet(workbook: SpreadsheetWorkbook, suppliedName?: string): 
   ensureUniqueName(workbook, name);
   let id: string;
   do { id = `sheet-${++nextId}`; } while (workbook.sheets.some(sheet => sheet.id === id));
-  return finish([...workbook.sheets, Object.freeze({ id, name, cells: Object.freeze({}), rowCount: 100, columnCount: 26 })]);
+  return finish([...workbook.sheets, Object.freeze({ id, name, cells: Object.freeze({}), rowCount: 100, columnCount: 26 })], workbook);
 }
 function replaceSheetReferences(workbook: SpreadsheetWorkbook, name: string, replacement?: string): readonly SpreadsheetSheet[] {
   return workbook.sheets.map(sheet => {
@@ -326,10 +365,81 @@ export function renameSheet(workbook: SpreadsheetWorkbook, sheetId: string, valu
   const sheet = getSheet(workbook, sheetId), name = sheetName(value);
   ensureUniqueName(workbook, name, sheetId);
   if (name === sheet.name) return workbook;
-  return finish(replaceSheetReferences(workbook, sheet.name, name).map(item => item.id === sheetId ? Object.freeze({ ...item, name }) : item));
+  return finish(replaceSheetReferences(workbook, sheet.name, name).map(item => item.id === sheetId ? Object.freeze({ ...item, name }) : item), workbook);
 }
 export function deleteSheet(workbook: SpreadsheetWorkbook, sheetId: string): SpreadsheetWorkbook {
   const sheet = getSheet(workbook, sheetId);
   if (workbook.sheets.length <= 1) return fail("最後のシートは削除できません");
-  return finish(replaceSheetReferences(workbook, sheet.name).filter(item => item.id !== sheetId));
+  const sheets = replaceSheetReferences(workbook, sheet.name).filter(item => item.id !== sheetId);
+  return finish(sheets, undefined, pruneImageResources(workbook.resources, sheets));
+}
+
+export function addDrawing(workbook: SpreadsheetWorkbook, sheetId: string, drawing: SpreadsheetDrawing): SpreadsheetWorkbook {
+  const sheet = getSheet(workbook, sheetId), next = normalizeDrawing(drawing, sheet, workbook.resources);
+  if (sheet.drawings?.some(item => item.id === next.id)) return fail("同じ ID の描画オブジェクトがあります");
+  return withSheet(workbook, { ...sheet, drawings: Object.freeze([...(sheet.drawings ?? []), next]) });
+}
+
+export function updateDrawing(workbook: SpreadsheetWorkbook, sheetId: string, drawingId: string, patch: SpreadsheetDrawingPatch): SpreadsheetWorkbook {
+  const sheet = getSheet(workbook, sheetId), current = sheet.drawings?.find(item => item.id === drawingId);
+  if (!current) return fail("描画オブジェクトが見つかりません");
+  if (!patch || typeof patch !== "object" || Array.isArray(patch) || Object.hasOwn(patch, "id") || Object.hasOwn(patch, "type"))
+    return fail("描画オブジェクトの ID と種類は変更できません");
+  const next = normalizeDrawing({ ...current, ...patch } as SpreadsheetDrawing, sheet, workbook.resources);
+  if (drawingsEqual(current, next)) return workbook;
+  const sheets = workbook.sheets.map(item => item.id === sheetId
+    ? Object.freeze({ ...sheet, drawings: Object.freeze(sheet.drawings!.map(drawing => drawing.id === drawingId ? next : drawing)) }) : item);
+  return finish(sheets, undefined, current.type === "image" && next.type === "image" && current.resourceId !== next.resourceId
+    ? pruneImageResources(workbook.resources, sheets) : workbook.resources);
+}
+
+export function deleteDrawing(workbook: SpreadsheetWorkbook, sheetId: string, drawingId: string): SpreadsheetWorkbook {
+  const sheet = getSheet(workbook, sheetId);
+  if (!sheet.drawings?.some(item => item.id === drawingId)) return workbook;
+  const sheets = workbook.sheets.map(item => item.id === sheetId
+    ? Object.freeze({ ...sheet, drawings: Object.freeze(sheet.drawings!.filter(drawing => drawing.id !== drawingId)) }) : item);
+  return finish(sheets, undefined, pruneImageResources(workbook.resources, sheets));
+}
+
+/** Add an embedded resource and its drawing atomically; a referenced ID cannot be silently replaced. */
+export function insertImage(workbook: SpreadsheetWorkbook, sheetId: string, resourceId: string,
+  resource: SpreadsheetImageResource, drawing: SpreadsheetImageDrawing): SpreadsheetWorkbook {
+  const sheet = getSheet(workbook, sheetId);
+  validateObjectId(resourceId);
+  if (!drawing || drawing.type !== "image" || drawing.resourceId !== resourceId) return fail("画像のリソース ID が一致していません");
+  const resources = normalizeResources({ images: { ...workbook.resources?.images, [resourceId]: resource } });
+  const previous = workbook.resources?.images?.[resourceId], next = resources!.images![resourceId];
+  if (previous && (previous.dataUrl !== next.dataUrl || previous.name !== next.name || previous.mimeType !== next.mimeType ||
+    previous.width !== next.width || previous.height !== next.height)) return fail("同じ ID の画像リソースを別の画像に置き換えることはできません");
+  const normalized = normalizeDrawing(drawing, sheet, resources);
+  if (sheet.drawings?.some(item => item.id === normalized.id)) return fail("同じ ID の描画オブジェクトがあります");
+  return finish(workbook.sheets.map(item => item.id === sheetId
+    ? Object.freeze({ ...sheet, drawings: Object.freeze([...(sheet.drawings ?? []), normalized]) }) : item), undefined, resources);
+}
+
+export function setCellComments(workbook: SpreadsheetWorkbook, sheetId: string,
+  input: Readonly<Record<string, SpreadsheetComment | null>>): SpreadsheetWorkbook {
+  const sheet = getSheet(workbook, sheetId);
+  if (!input || typeof input !== "object" || Array.isArray(input)) return fail("コメント一覧が正しくありません");
+  const comments = { ...sheet.comments };
+  let changed = false;
+  for (const [address, value] of Object.entries(input)) {
+    const key = addressFor(sheet, address), next = value === null ? undefined : normalizeComment(value);
+    if (commentsEqual(comments[key], next)) continue;
+    changed = true;
+    if (next) comments[key] = next;
+    else delete comments[key];
+  }
+  if (!changed) return workbook;
+  const ids = new Set<string>();
+  for (const comment of Object.values(comments)) {
+    if (ids.has(comment.id)) return fail("同じ ID のコメントがあります");
+    ids.add(comment.id);
+  }
+  return withSheet(workbook, { ...sheet, comments: Object.freeze(comments) });
+}
+
+export function setCellComment(workbook: SpreadsheetWorkbook, sheetId: string, address: string,
+  comment: SpreadsheetComment | null): SpreadsheetWorkbook {
+  return setCellComments(workbook, sheetId, { [address]: comment });
 }

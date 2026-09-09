@@ -1,4 +1,5 @@
 import type { SpreadsheetCell, SpreadsheetCellFormat, SpreadsheetWorkbook } from "./types";
+import { commentsEqual, drawingsEqual } from "./annotations";
 
 const emptySizes: Readonly<Record<number, number>> = Object.freeze({});
 function formatsEqual(left: SpreadsheetCellFormat | undefined, right: SpreadsheetCellFormat | undefined): boolean {
@@ -23,16 +24,37 @@ function sizesEqual(left: Readonly<Record<number, number>> = emptySizes,
   for (const key of Object.keys(right)) if (right[Number(key)] !== (left[Number(key)] ?? defaultSize)) return false;
   return true;
 }
+function resourcesEqual(left: SpreadsheetWorkbook["resources"], right: SpreadsheetWorkbook["resources"]): boolean {
+  if (left === right || left?.images === right?.images) return true;
+  const a = left?.images ?? {}, b = right?.images ?? {}, keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  return keys.every(key => {
+    const first = a[key], second = b[key];
+    return first === second || (!!second && first.name === second.name && first.mimeType === second.mimeType &&
+      first.dataUrl === second.dataUrl && first.width === second.width && first.height === second.height);
+  });
+}
+function annotationsEqual(left: SpreadsheetWorkbook["sheets"][number], right: SpreadsheetWorkbook["sheets"][number]): boolean {
+  if (left.drawings !== right.drawings) {
+    const a = left.drawings ?? [], b = right.drawings ?? [];
+    if (a.length !== b.length || a.some((drawing, index) => !drawingsEqual(drawing, b[index]))) return false;
+  }
+  if (left.comments !== right.comments) {
+    const a = left.comments ?? {}, b = right.comments ?? {}, keys = Object.keys(a);
+    if (keys.length !== Object.keys(b).length || keys.some(key => !commentsEqual(a[key], b[key]))) return false;
+  }
+  return true;
+}
 
 /** Compare normalized workbook content in O(populated cells), independent of record insertion order.
  * Sheet order matters. Explicit default sizes and false/general styles equal their omitted defaults. */
 export function workbooksEqual(left: SpreadsheetWorkbook, right: SpreadsheetWorkbook): boolean {
   if (left === right) return true;
-  if (left.sheets.length !== right.sheets.length) return false;
+  if ((left.schemaVersion ?? 1) !== (right.schemaVersion ?? 1) || left.sheets.length !== right.sheets.length || !resourcesEqual(left.resources, right.resources)) return false;
   return left.sheets.every((sheet, index) => {
     const other = right.sheets[index];
     return sheet === other || (sheet.id === other.id && sheet.name === other.name && sheet.rowCount === other.rowCount &&
       sheet.columnCount === other.columnCount && cellMapsEqual(sheet.cells, other.cells) &&
-      sizesEqual(sheet.columnWidths, other.columnWidths, 100) && sizesEqual(sheet.rowHeights, other.rowHeights, 28));
+      sizesEqual(sheet.columnWidths, other.columnWidths, 100) && sizesEqual(sheet.rowHeights, other.rowHeights, 28) && annotationsEqual(sheet, other));
   });
 }

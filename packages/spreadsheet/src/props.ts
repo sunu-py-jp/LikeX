@@ -12,6 +12,10 @@ export type SpreadsheetFeatures = Readonly<{
   sheets?: boolean;
   resize?: boolean;
   undoRedo?: boolean;
+  images?: boolean;
+  shapes?: boolean;
+  textBoxes?: boolean;
+  comments?: boolean;
 }>;
 
 export type SpreadsheetSelection = Readonly<{

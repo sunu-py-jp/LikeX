@@ -1,14 +1,14 @@
 import { useCallback, useRef, useState } from "react";
-import Spreadsheet, { type SpreadsheetWorkbook } from "@likex/spreadsheet";
+import Spreadsheet, { parseWorkbook, serializeWorkbook, type SpreadsheetWorkbook } from "@likex/spreadsheet";
 import "../../../packages/spreadsheet/src/styles.css";
 import { createDemoWorkbook } from "./demo/spreadsheet-workbook";
 
 export default function SpreadsheetDemo() {
   const [initialWorkbook] = useState(createDemoWorkbook);
-  const savedWorkbook = useRef(initialWorkbook);
+  const savedJson = useRef<string | null>(null);
   const save = useCallback((workbook: SpreadsheetWorkbook) => {
-    savedWorkbook.current = workbook;
-    return workbook;
+    savedJson.current = serializeWorkbook(workbook);
+    return parseWorkbook(savedJson.current);
   }, []);
   return <Spreadsheet
     title="下期 売上計画"

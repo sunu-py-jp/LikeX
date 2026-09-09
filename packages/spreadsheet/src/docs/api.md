@@ -26,6 +26,8 @@ const workbook: SpreadsheetWorkbook = {
 
 `cells` はA1形式のアドレスをキーにした疎なオブジェクトです。空セルをすべて列挙する必要はありません。値は数値・数式も含めて文字列で指定します。シートには一意な `id` と名前が必要です。`columnWidths` / `rowHeights` は0始まりの位置をキーとするサイズ情報です。どちらも画面に反映されますが、画面上で変更できるのは列幅です。
 
+画像の実体は `resources.images`、配置と図形・テキストはシートの `drawings`、セルの注記は `comments` に保持します。`schemaVersion: 1` を持つJSONへ保存でき、旧形式も読み込めます。[挿入機能とJSON保存](./insertions-and-json.md) に構造・公開型・`serializeWorkbook` / `parseWorkbook` の例をまとめています。
+
 `createWorkbook()` は100行×26列のブックを作ります。`normalizeWorkbook(input)` は入力を検証し、コピーしたブックを返します。`setCellValue`、`setCellValues`、`moveCells`、`formatCells`、`resizeColumn`、`insertRows`、`deleteRows`、`insertColumns`、`deleteColumns`、`addSheet`、`renameSheet`、`deleteSheet` は元のブックを書き換えず、結果のブックを返します。アドレス変換は `cellAddress` / `parseCellAddress`、計算は `calculateWorkbook`、数式の参照移動は `translateFormula`、TSVは `parseTsv` / `stringifyTsv` を使えます。引数と戻り値の詳細は同梱の公開型で確認できます。
 
 `workbooksEqual(a, b)` はセルのキー順に依存せず、ブックの内容・書式・寸法を比較します。既定書式や元の値・幅へ戻した場合、保存が必要な変更として扱わないためにも利用しています。ブックとセルは変更用関数から新しい値を作り、受け取った下書きを直接書き換えないでください。
@@ -81,3 +83,5 @@ const workbook: SpreadsheetWorkbook = {
 ```
 
 `formulas`、`clipboard`、`formatting`、`rowColumnOperations`、`sheets`、`resize`、`undoRedo` を個別に無効化できます。`formulas: false` は数式入力を止めますが、初期ブックにある数式の計算結果は引き続き表示します。`sheets: false` はシート切り替え・管理の操作を隠します。設定はアプリの操作範囲を制限するものであり、保存先の入力検証は別に必要です。
+
+挿入機能には `images`、`shapes`、`textBoxes`、`comments` があります。既定はすべてONで、OFFにすると該当メニューと表示・編集を隠します。非表示にしたデータも保存スナップショットには残ります。

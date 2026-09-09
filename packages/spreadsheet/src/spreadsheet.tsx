@@ -7,6 +7,7 @@ import { useSpreadsheetClipboard } from "./state/use-spreadsheet-clipboard";
 import { SpreadsheetGrid } from "./ui/spreadsheet-grid";
 import { SpreadsheetFormulaBar, SpreadsheetToolbar } from "./ui/spreadsheet-toolbar";
 import { SpreadsheetFooter } from "./ui/spreadsheet-footer";
+import { SpreadsheetComments } from "./ui/spreadsheet-comments";
 
 export default function Spreadsheet(props: SpreadsheetProps) {
   const c = useSpreadsheet(props);
@@ -36,7 +37,10 @@ export default function Spreadsheet(props: SpreadsheetProps) {
     <header className="lxs-title-bar"><span className="lxs-app-mark" aria-hidden="true">▦</span><span className="lxs-title">{props.title?.trim() || "スプレッドシート"}</span><span className="lxs-title-context">LikeX</span></header>
     <SpreadsheetToolbar controller={c} clipboard={clipboard} />
     <SpreadsheetFormulaBar controller={c} />
-    <SpreadsheetGrid controller={c} />
+    <div className="lxs-sheet-workspace">
+      <SpreadsheetGrid controller={c} />
+      <SpreadsheetComments controller={c} />
+    </div>
     <SpreadsheetFooter controller={c} />
   </section>;
 }

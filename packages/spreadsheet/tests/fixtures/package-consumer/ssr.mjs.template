@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import Spreadsheet, { Spreadsheet as NamedSpreadsheet, createWorkbook, setCellValue,
-  calculateWorkbook, parseTsv, stringifyTsv } from "__LIBRARY_IMPORT__";
+  calculateWorkbook, parseTsv, stringifyTsv, addDrawing, setCellComment, serializeWorkbook, parseWorkbook } from "__LIBRARY_IMPORT__";
 
 assert.equal(Spreadsheet, NamedSpreadsheet);
 assert.equal(typeof window, "undefined");
@@ -22,4 +22,14 @@ assert.match(markup, /role="grid"/);
 assert.match(markup, /aria-label="C1 10"[^>]*><span>10<\/span>/, "The rendered formula cell must show its calculated value");
 assert.match(markup, /height:360px/);
 assert.match(markup, /readonly/i);
+const annotated = setCellComment(addDrawing(workbook, "sheet-consumer", {
+  id: "note", type: "text", text: "JSON persisted note", fontSize: 14, color: "#333333", background: "transparent",
+  anchor: { row: 1, column: 1, offsetX: 4, offsetY: 8 }, width: 180, height: 90,
+}), "sheet-consumer", "A1", { id: "review", text: "Reviewed comment" });
+const restored = parseWorkbook(serializeWorkbook(annotated));
+assert.equal(restored.schemaVersion, 1);
+assert.equal(restored.sheets[0].drawings[0].text, "JSON persisted note");
+assert.equal(restored.sheets[0].comments.A1.text, "Reviewed comment");
+const restoredMarkup = renderToStaticMarkup(createElement(Spreadsheet, { initialWorkbook: restored, style: { height: 360 } }));
+assert.match(restoredMarkup, /JSON persisted note/);
 console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

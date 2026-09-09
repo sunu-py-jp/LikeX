@@ -16,6 +16,9 @@ const paths = {
   plus: "M12 5v14M5 12h14",
   close: "m6 6 12 12M6 18 18 6",
   check: "m4 12 5 5L20 6",
+  image: "M3 3h18v18H3zM3 17l6-6 4 4 3-3 5 5M7 7h.01",
+  text: "M4 4h16M12 4v16M8 20h8",
+  comment: "M4 3h16v14H9l-5 4V3ZM8 7h8M8 11h6",
 } as const;
 
 export function Icon({ name }: { name: keyof typeof paths }) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, type ClipboardEvent } from "react";
-import { cellAddress, formatCells, moveCells, parseTsv, setCellValues, SPREADSHEET_LIMITS, stringifyTsv, translateFormula } from "../model";
+import { cellAddress, formatCells, moveCells, parseTsv, setCellComments, setCellValues, SPREADSHEET_LIMITS, stringifyTsv, translateFormula, type SpreadsheetComment } from "../model";
 import { MAX_SELECTION_CELLS, selectionBounds, type SpreadsheetController, type Workbook, type CellFormat } from "./use-spreadsheet";
 
 function isOtherTextControl(target: EventTarget | null) {
@@ -17,30 +17,34 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
   const latestPaste = useRef<(text: string, token?: string) => void>(() => {});
   const cancelPending = useCallback(() => { requestId.current++; }, []);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; cancelPending(); }; }, [cancelPending]);
-  const copied = useRef<{ token: string; text: string; values: string[][]; formats: (CellFormat | undefined)[][]; sheetId: string; top: number; left: number; cut: boolean; workbook: Workbook } | null>(null);
+  const copied = useRef<{ token: string; text: string; values: string[][]; formats: (CellFormat | undefined)[][]; comments: (SpreadsheetComment | undefined)[][]; sheetId: string; top: number; left: number; cut: boolean; workbook: Workbook } | null>(null);
   const clipboardType = "application/x-likex-spreadsheet";
   const htmlToken = (html: string) => /data-likex-spreadsheet="([a-zA-Z0-9-]+)"/.exec(html)?.[1] ?? "";
   const prepare = (cut: boolean) => {
-    if (!controller.features.clipboard || (cut && controller.disabled)) return null;
+    if (!controller.features.clipboard || controller.selectedDrawingId || (cut && controller.disabled)) return null;
     const bounds = selectionBounds(controller.selection);
     if ((bounds.bottom - bounds.top + 1) * (bounds.right - bounds.left + 1) > MAX_SELECTION_CELLS) throw new Error("コピーできる範囲は 10,000 セルまでです");
     const values: string[][] = [], displayed: string[][] = [], formats: (CellFormat | undefined)[][] = [];
+    const comments: (SpreadsheetComment | undefined)[][] = [];
     for (let row = bounds.top; row <= bounds.bottom; row++) {
       const raw: string[] = [], rendered: string[] = [], rowFormats: (CellFormat | undefined)[] = [];
+      const rowComments: (SpreadsheetComment | undefined)[] = [];
       for (let column = bounds.left; column <= bounds.right; column++) {
         const address = cellAddress(row, column);
         raw.push(controller.activeSheet.cells[address]?.value ?? "");
         const format = controller.activeSheet.cells[address]?.format;
         rowFormats.push(format ? { ...format } : undefined);
+        rowComments.push(controller.features.comments ? controller.activeSheet.comments?.[address] : undefined);
         rendered.push(String(controller.calculated[controller.activeSheet.id]?.[address] ?? ""));
       }
       values.push(raw); displayed.push(rendered); formats.push(rowFormats);
+      comments.push(rowComments);
     }
     const text = stringifyTsv(displayed);
-    return { token: crypto.randomUUID(), text, values, formats, sheetId: controller.activeSheet.id, top: bounds.top, left: bounds.left, cut, workbook: controller.workbook };
+    return { token: crypto.randomUUID(), text, values, formats, comments, sheetId: controller.activeSheet.id, top: bounds.top, left: bounds.left, cut, workbook: controller.workbook };
   };
   const pasteText = (text: string, token = "") => {
-    if (controller.disabled || !controller.features.clipboard) return;
+    if (controller.disabled || !controller.features.clipboard || controller.selectedDrawingId) return;
     try {
       if (text.length > SPREADSHEET_LIMITS.clipboardCharacters) throw new Error("貼り付けるテキストが上限を超えています");
       const matched = token && copied.current?.token === token && copied.current.text === text ? copied.current : null;
@@ -73,6 +77,13 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
           }));
           for (const { addresses, format } of groups.values()) next = formatCells(next, controller.activeSheet.id, addresses,
             { bold: undefined, italic: undefined, underline: undefined, align: undefined, color: undefined, background: undefined, numberFormat: undefined, ...format });
+        }
+        if (internal && controller.features.comments) {
+          const comments: Record<string, SpreadsheetComment | null> = {};
+          internal.comments.forEach((row, r) => row.forEach((comment, column) => {
+            comments[cellAddress(top + r, left + column)] = comment ? { ...comment, id: crypto.randomUUID() } : null;
+          }));
+          next = setCellComments(next, controller.activeSheet.id, comments);
         }
         return next;
       });
@@ -115,7 +126,7 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
     } catch (cause) { controller.reportError(cause); }
   };
   const paste = async () => {
-    if (controller.disabled || !controller.features.clipboard) return;
+    if (controller.disabled || !controller.features.clipboard || controller.selectedDrawingId) return;
     const request = ++requestId.current;
     try {
       if (!navigator.clipboard?.readText) throw new Error("このブラウザでは貼り付けのショートカットを使用してください");
@@ -128,14 +139,14 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
         }
       } else { text = await navigator.clipboard.readText(); hasText = true; }
       const current = latest.current;
-      if (!mounted.current || request !== requestId.current || !hasText || current.editing || current.disabled || !current.features.clipboard || current.workbook !== controller.workbook || current.selection !== controller.selection) return;
+      if (!mounted.current || request !== requestId.current || !hasText || current.editing || current.disabled || !current.features.clipboard || current.selectedDrawingId || current.workbook !== controller.workbook || current.selection !== controller.selection) return;
       latestPaste.current(text, token);
     } catch (cause) { if (mounted.current && request === requestId.current) latest.current.reportError(cause); }
   };
   useLayoutEffect(() => { latestPaste.current = pasteText; });
   return { copy, paste, onCopy, onCut: (event: ClipboardEvent) => onCopy(event, true), onPaste: (event: ClipboardEvent) => {
     if (isOtherTextControl(event.target) || controller.editing) return;
-    if (!controller.features.clipboard) { event.preventDefault(); return; }
+    if (!controller.features.clipboard || controller.selectedDrawingId) { event.preventDefault(); return; }
     if (event.clipboardData.types && !Array.from(event.clipboardData.types).includes("text/plain")) return;
     requestId.current++;
     event.preventDefault(); pasteText(event.clipboardData.getData("text/plain"), event.clipboardData.getData(clipboardType) || htmlToken(event.clipboardData.getData("text/html")));

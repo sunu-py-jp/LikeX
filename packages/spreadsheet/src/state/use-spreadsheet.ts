@@ -47,6 +47,19 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const [saved, setSaved] = useState(workbook);
   const [selection, setSelection] = useState<SpreadsheetSelection>(() => ({ sheetId: workbook.sheets[0].id, anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } }));
   const [gridFocusRequest, setGridFocusRequest] = useState(0);
+  const [drawingSelection, setDrawingSelection] = useState<{ sheetId: string; id: string } | null>(null);
+  const [commentOpen, setCommentOpen] = useState(false);
+  const [pendingObjectEdit, setPendingObjectEditState] = useState(false);
+  const pendingObjectEditRef = useRef(false);
+  const pendingEditOwners = useRef(new Set<object>());
+  const defaultEditOwner = useRef({});
+  const setPendingObjectEdit = useCallback((value: boolean, owner = defaultEditOwner.current) => {
+    if (value) pendingEditOwners.current.add(owner);
+    else pendingEditOwners.current.delete(owner);
+    const pending = pendingEditOwners.current.size > 0;
+    pendingObjectEditRef.current = pending;
+    setPendingObjectEditState(pending);
+  }, []);
   const [editing, setEditing] = useState<{ position: Position; value: string } | null>(null);
   const editingRef = useRef(editing);
   const [saving, setSaving] = useState(false);
@@ -59,8 +72,15 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const disabled = readOnly || saving;
   const features = { formulas: props.features?.formulas !== false, clipboard: props.features?.clipboard !== false,
     formatting: props.features?.formatting !== false, rowColumnOperations: props.features?.rowColumnOperations !== false,
-    sheets: props.features?.sheets !== false, resize: props.features?.resize !== false, undoRedo: props.features?.undoRedo !== false };
+    sheets: props.features?.sheets !== false, resize: props.features?.resize !== false, undoRedo: props.features?.undoRedo !== false,
+    images: props.features?.images !== false, shapes: props.features?.shapes !== false,
+    textBoxes: props.features?.textBoxes !== false, comments: props.features?.comments !== false };
   const activeSheet = workbook.sheets.find(sheet => sheet.id === selection.sheetId) ?? workbook.sheets[0];
+  const selectedDrawing = drawingSelection?.sheetId === activeSheet.id
+    ? activeSheet.drawings?.find(drawing => drawing.id === drawingSelection.id &&
+      (drawing.type === "image" ? features.images : drawing.type === "shape" ? features.shapes : features.textBoxes))
+    : undefined;
+  const selectedDrawingId = selectedDrawing?.id ?? null;
   const calculated = useMemo(() => calculateWorkbook(workbook), [workbook]);
   const dirty = useMemo(() => !workbooksEqual(workbook, saved), [workbook, saved]);
   const reportError = useCallback((cause: unknown) => setError(cause instanceof Error ? cause.message : "操作に失敗しました"), []);
@@ -96,6 +116,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   });
   const beginEdit = (position = selection.focus, value = activeSheet.cells[cellAddress(position.row, position.column)]?.value ?? "") => {
     if (disabled) return;
+    setDrawingSelection(null);
     const next = { position, value };
     editingRef.current = next;
     setEditing(next);
@@ -112,12 +133,24 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     return accepted;
   };
   const select = (position: Position, extend = false) => {
+    setDrawingSelection(null);
     const next = { row: Math.max(0, Math.min(activeSheet.rowCount - 1, position.row)), column: Math.max(0, Math.min(activeSheet.columnCount - 1, position.column)) };
     setSelection(old => ({ sheetId: activeSheet.id, anchor: extend ? old.anchor : next, focus: next }));
   };
-  const selectRange = (anchor: Position, focus: Position) => setSelection({ sheetId: activeSheet.id, anchor, focus });
+  const selectRange = (anchor: Position, focus: Position) => {
+    setDrawingSelection(null);
+    setSelection({ sheetId: activeSheet.id, anchor, focus });
+  };
+  const selectDrawing = (id: string | null) => {
+    if (!commitEdit()) return false;
+    setDrawingSelection(id ? { sheetId: activeSheet.id, id } : null);
+    if (id) setCommentOpen(false);
+    return true;
+  };
   const switchSheet = (id: string) => {
     if (!commitEdit()) return;
+    setDrawingSelection(null);
+    setCommentOpen(false);
     setSelection({ sheetId: id, anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } });
   };
   const changeHistory = (direction: "past" | "future") => {
@@ -132,6 +165,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     workbookRef.current = next;
     setWorkbook(next);
     cancelEdit();
+    setDrawingSelection(null);
     setError(null);
     const sheet = next.sheets.find(item => item.id === selection.sheetId) ?? next.sheets[0];
     setSelection({ sheetId: sheet.id, anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } });
@@ -139,6 +173,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   };
   const save = async () => {
     if (propsRef.current.readOnly || !propsRef.current.onSave || savingRef.current || !commitEdit()) return;
+    if (pendingObjectEditRef.current) { reportError(new Error("編集中の内容を確定してください")); return; }
     const snapshot = workbookRef.current;
     if (workbooksEqual(snapshot, saved)) return;
     savingRef.current = true;
@@ -151,6 +186,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
       workbookRef.current = accepted;
       setWorkbook(accepted);
       setSaved(accepted);
+      setDrawingSelection(null);
       history.current = { past: [], future: [] };
       setHistoryStatus({ canUndo: false, canRedo: false });
       const sheet = accepted.sheets.find(item => item.id === selection.sheetId) ?? accepted.sheets[0];
@@ -164,6 +200,8 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   };
 
   return { workbook, activeSheet, selection, select, selectRange, switchSheet, calculated, editing, beginEdit, cancelEdit, commitEdit,
+    selectedDrawingId, selectedDrawing, selectDrawing, commentOpen: features.comments && commentOpen, setCommentOpen,
+    pendingObjectEdit, setPendingObjectEdit,
     gridFocusRequest, requestGridFocus: () => setGridFocusRequest(value => value + 1),
     features, readOnly, disabled, dirty, saving, error, setError, reportError, apply, writeValues, clearCells, save,
     undo: () => changeHistory("past"), redo: () => changeHistory("future"), ...historyStatus };

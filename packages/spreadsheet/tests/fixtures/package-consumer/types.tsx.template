@@ -1,8 +1,10 @@
 import Spreadsheet, {
   createWorkbook, setCellValue, calculateWorkbook, parseTsv, stringifyTsv,
+  serializeWorkbook, parseWorkbook, addDrawing, setCellComment,
   type SpreadsheetWorkbook, type SpreadsheetSheet, type SpreadsheetCell,
   type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps,
   type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSaveHandler,
+  type SpreadsheetDrawing,
 } from "__LIBRARY_IMPORT__";
 
 const workbook: SpreadsheetWorkbook = createWorkbook();
@@ -24,7 +26,7 @@ const props = {
     const row: number = selection.focus.row;
     void [selectedSheet, row];
   },
-  features: { formulas: true, clipboard: false, formatting: false, sheets: true },
+  features: { formulas: true, clipboard: false, formatting: false, sheets: true, images: true, shapes: false, comments: true, textBoxes: true },
   colorMode: "system",
   style: { height: 400 },
 } satisfies SpreadsheetProps;
@@ -47,3 +49,10 @@ function rejectMutation(next: SpreadsheetWorkbook, selection: SpreadsheetSelecti
 }
 void [cell, format, position, calculated, asyncSave, notifySave, editable, readOnly, empty,
   numericCell, unsupported, invalidSave, invalidFormat, rejectMutation, stringifyTsv(parseTsv("a\tb"))];
+
+const drawing: SpreadsheetDrawing = { id: "note", type: "text", text: "JSONメモ", fontSize: 16,
+  color: "#333333", background: "transparent", anchor: { row: 1, column: 1, offsetX: 0, offsetY: 0 }, width: 200, height: 100 };
+const annotated = setCellComment(addDrawing(populated, sheet.id, drawing), sheet.id, "A1", { id: "comment", text: "確認済み" });
+const serialized: string = serializeWorkbook(annotated);
+const restored: SpreadsheetWorkbook = parseWorkbook(serialized);
+void restored;
