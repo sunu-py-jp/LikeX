@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, type FocusEvent, type InputEvent, type KeyboardEvent, type RefObject } from "react";
+import { cellAddress } from "../../model/address";
 import { getMergedRange, mergedCellPosition } from "../../model/merges";
 import type { SpreadsheetCellPosition, SpreadsheetSheet } from "../../model/types";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
@@ -9,7 +10,7 @@ import { ROW_HEIGHT, ROW_HEADER_WIDTH } from "./grid-geometry";
 
 export type GridFocusRefs = {
   scrollerRef: RefObject<HTMLDivElement | null>;
-  activeInputRef: RefObject<HTMLInputElement | null>;
+  activeInputRef: RefObject<HTMLTextAreaElement | null>;
   focusIntentRef: RefObject<boolean>;
 };
 
@@ -23,9 +24,10 @@ export function nextCellPosition(sheet: SpreadsheetSheet, position: Readonly<Spr
 
 /** Coordinates the active input, scrolling and cell keyboard navigation. */
 export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRefs["scrollerRef"], widths: readonly number[], rowOffsets: readonly number[]) {
-  const activeInput = useRef<HTMLInputElement>(null);
+  const activeInput = useRef<HTMLTextAreaElement>(null);
   const focusIntent = useRef(false);
   const editAtEnd = useRef(false);
+  const editCaret = useRef<number | null>(null);
   const lastFocusRequest = useRef(c.gridFocusRequest);
   useLayoutEffect(() => {
     if (!scrollerRef.current) return;
@@ -48,7 +50,9 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [c.selection.sheetId, c.selection.focus.row, c.selection.focus.column, c.gridFocusRequest]);
   useLayoutEffect(() => {
-    if (!c.editing || !editAtEnd.current) return;
+    if (!c.editing) return;
+    if (editCaret.current !== null) { activeInput.current?.setSelectionRange(editCaret.current, editCaret.current); editCaret.current = null; return; }
+    if (!editAtEnd.current) return;
     const input = activeInput.current;
     input?.setSelectionRange(input.value.length, input.value.length);
     editAtEnd.current = false;
@@ -58,10 +62,18 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
     editAtEnd.current = true;
     c.beginEdit(undefined, value);
   };
-  const keyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (event.key === "Escape") { event.preventDefault(); c.cancelEdit(); activeInput.current?.setSelectionRange(0, 0); return; }
     if (event.key === "F2") { event.preventDefault(); if (!c.editing) beginTextEdit(); return; }
+    if (event.key === "Enter" && event.altKey) {
+      event.preventDefault(); if (c.disabled || c.requesting) return;
+      const input = event.currentTarget, value = c.editing?.value ?? c.activeSheet.cells[cellAddress(c.selection.focus.row, c.selection.focus.column)]?.value ?? "";
+      const start = c.editing ? input.selectionStart : value.length, end = c.editing ? input.selectionEnd : value.length;
+      editCaret.current = start + 1;
+      c.beginEdit(undefined, value.slice(0, start) + "\n" + value.slice(end));
+      return;
+    }
     if (event.key === "Enter" || event.key === "Tab") {
       event.preventDefault();
       c.afterCommit(() => {
@@ -102,7 +114,7 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
     }
   };
   const onCompositionStart = () => { if (!c.editing) beginTextEdit(""); };
-  const onBeforeInput = (event: InputEvent<HTMLInputElement>) => {
+  const onBeforeInput = (event: InputEvent<HTMLTextAreaElement>) => {
     // Option/AltGraph and software keyboards can insert text without a plain
     // character keydown. They must replace a selected cell in the same way.
     if (!c.editing && event.data && !event.nativeEvent.isComposing) {

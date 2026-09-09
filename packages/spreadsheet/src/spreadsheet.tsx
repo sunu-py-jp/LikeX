@@ -50,6 +50,11 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
       const primary = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey);
       if (!primary) return;
       const key = event.key.toLowerCase();
+      if ((key === "f" && c.features.search) || (key === "h" && c.features.replace && !c.readOnly)) {
+        const trigger = root.current?.querySelector<HTMLButtonElement>(key === "f" ? "[data-lxs-find]" : "[data-lxs-replace]");
+        if (trigger && !trigger.disabled) { event.preventDefault(); trigger.click(); }
+        return;
+      }
       if (key === "s" && !c.readOnly && c.features.save) { event.preventDefault(); void c.save(); }
       const textControl = (event.target as HTMLElement).closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
       if (textControl && !textControl.classList.contains("lxs-cell-input")) return;

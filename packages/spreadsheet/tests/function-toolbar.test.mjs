@@ -12,7 +12,7 @@ const bundled = await build({ stdin: { contents: `
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'function-toolbar-test.ts' },
 bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
 plugins: [{ name: 'same-react', setup(builder) {
-  builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+  builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
 } }] });
 const { SpreadsheetToolbar, SpreadsheetFormulaBar, useSpreadsheet, SUPPORTED_SPREADSHEET_FUNCTIONS } =
   await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`);

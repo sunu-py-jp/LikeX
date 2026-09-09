@@ -6,13 +6,14 @@ import { chainResult } from "../core";
 import { createSelection, isMultiRangeSelection, selectionRanges } from "./selection";
 import { assertSingleClipboardRange, captureCopiedCells, prepareCellPaste, SINGLE_RANGE_CLIPBOARD_MESSAGE, type CopiedCells } from "./clipboard/cell-transfer";
 import { CLIPBOARD_MIME_TYPE, clipboardTokenFromHtml, isOtherTextControl, readBrowserClipboard, writeBrowserClipboard } from "./clipboard/browser-clipboard";
+import type { SpreadsheetPasteMode } from "../api/editing-commands";
 
 export function useSpreadsheetClipboard(controller: SpreadsheetController) {
   const latest = useRef(controller);
   useLayoutEffect(() => { latest.current = controller; });
   const mounted = useRef(true);
   const requestId = useRef(0);
-  const latestPaste = useRef<(text: string, token?: string) => void>(() => {});
+  const latestPaste = useRef<(text: string, token?: string, mode?: SpreadsheetPasteMode) => void>(() => {});
   const cancelPending = useCallback(() => { requestId.current++; }, []);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; cancelPending(); }; }, [cancelPending]);
   const copied = useRef<CopiedCells | null>(null);
@@ -28,7 +29,7 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
     if (copied.current?.cut && (!controller.features.cut || !controller.features.paste || controller.readOnly)) {
       copied.current = null;
     }
-  }, [controller.features.copy, controller.features.cut, controller.features.paste, controller.readOnly]);
+  }, [controller.features.copy, controller.features.cut, controller.features.paste, controller.features.pasteSpecial, controller.readOnly]);
   const emitClipboard = (action: "copy" | "cut" | "paste") => controller.emitEvent({
     type: "clipboard", action, sheetId: controller.activeSheet.id,
     selection: createSelection(controller.selection.sheetId, selectionRanges(controller.selection), controller.selection.focus),
@@ -44,22 +45,23 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
     const snapshot = captureCopiedCells(controller, cut);
     return { ...snapshot, token: crypto.randomUUID() };
   };
-  const pasteText = (text: string, token = "") => {
-    if (controller.disabled || !controller.features.paste || controller.selectedDrawingId) return;
+  const pasteText = (text: string, token = "", mode: SpreadsheetPasteMode = "all") => {
+    if (controller.disabled || !controller.features.paste || (mode !== "all" && !controller.features.pasteSpecial) || controller.selectedDrawingId) return;
     try {
       requireSingleRange(controller.selection);
       const matched = token && copied.current?.token === token && copied.current.text === text ? copied.current : null;
       // An intervening edit invalidates a pending cut; never clear a newer source.
       const internal = matched?.cut && matched.workbook !== controller.getWorkbook() ? null : matched;
-      const paste = prepareCellPaste(controller, text, internal);
+      const paste = prepareCellPaste(controller, text, internal, mode);
       if (!paste) return;
       const request = requestId.current;
       void chainResult(controller.apply(current => {
         // Permissions can resolve after feature settings change. Rebuild from live rules.
-        const prepared = prepareCellPaste({ ...latest.current, workbook: current }, text, internal);
+        const prepared = prepareCellPaste({ ...latest.current, workbook: current }, text, internal, mode);
         return prepared ? prepared.applyTo(current, () => crypto.randomUUID()) : current;
       }, { source: "ui", action: "paste", sheetId: controller.activeSheet.id,
         isCurrent: () => mounted.current && request === requestId.current && latest.current.features.paste &&
+          (mode === "all" || latest.current.features.pasteSpecial) &&
           (!internal?.cut || (latest.current.features.cut && copied.current === internal)) &&
           latest.current.selection === controller.selection && !latest.current.editing && !latest.current.selectedDrawingId,
       }), accepted => {
@@ -106,17 +108,17 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
       }
     } catch (cause) { if (mounted.current && request === requestId.current) latest.current.reportError(cause); }
   };
-  const paste = async () => {
-    if (controller.disabled || !controller.features.paste || controller.selectedDrawingId) return;
+  const paste = async (mode: SpreadsheetPasteMode = "all") => {
+    if (controller.disabled || !controller.features.paste || (mode !== "all" && !controller.features.pasteSpecial) || controller.selectedDrawingId) return;
     const request = ++requestId.current;
     try {
       requireSingleRange(controller.selection);
       const { text, token, hasText } = await readBrowserClipboard();
       const current = latest.current;
-      if (!mounted.current || request !== requestId.current || !hasText || current.editing || current.disabled || !current.features.paste || current.selectedDrawingId) return;
+      if (!mounted.current || request !== requestId.current || !hasText || current.editing || current.disabled || !current.features.paste || (mode !== "all" && !current.features.pasteSpecial) || current.selectedDrawingId) return;
       requireSingleRange(current.selection);
       if (current.workbook !== controller.workbook || current.selection !== controller.selection) return;
-      latestPaste.current(text, token);
+      latestPaste.current(text, token, mode);
     } catch (cause) { if (mounted.current && request === requestId.current) latest.current.reportError(cause); }
   };
   useLayoutEffect(() => { latestPaste.current = pasteText; });

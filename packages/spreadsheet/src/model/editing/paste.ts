@@ -1,0 +1,56 @@
+import type { SpreadsheetPasteMode, SpreadsheetPastePayload } from "../../api/editing-commands";
+import { cellAddress } from "../address";
+import { translateFormula } from "../formula";
+import { normalizeDataValidation } from "../data-validation";
+import { getMergedRange } from "../merges";
+import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetWorkbook } from "../types";
+import { getWorkbookSheet, replaceWorkbookSheet } from "../workbook/snapshot";
+import { normalizeCellFormat, validateCellValue } from "../workbook/validation";
+
+export type PastePolicy = Readonly<{ formulas: boolean; formatting: boolean; dataValidation?: boolean; checkboxes?: boolean }>;
+
+/** Values, formats and validation rules are published together so no invalid intermediate cell is exposed. */
+export function pasteSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: string, target: SpreadsheetCellPosition,
+  payload: SpreadsheetPastePayload, mode: SpreadsheetPasteMode = "all", policy: PastePolicy = { formulas: true, formatting: true, dataValidation: true }): SpreadsheetWorkbook {
+  if (!["all", "values", "formulas", "formats"].includes(mode)) throw new Error("貼り付け形式が正しくありません");
+  if (!payload || !Array.isArray(payload.values) || payload.values.length > SPREADSHEET_LIMITS.clipboardCells || Array.from(payload.values).some(row => !Array.isArray(row) || Array.from(row).some(value => typeof value !== "string"))) throw new Error("貼り付ける値は文字列の二次元配列で指定してください");
+  if (payload.values.reduce((total: number, row: readonly string[]) => total + row.reduce((size, value) => size + value.length, 0), 0) > SPREADSHEET_LIMITS.clipboardCharacters) throw new Error("貼り付ける文字数が上限を超えています");
+  const height = payload.values.length, width = Math.max(0, ...payload.values.map(row => row.length));
+  if (!height || !width) return workbook;
+  if (height * width > SPREADSHEET_LIMITS.clipboardCells) throw new Error("一度に貼り付けできる範囲は10,000セルまでです");
+  const sheet = getWorkbookSheet(workbook, sheetId);
+  for (const matrix of [payload.displayedValues, payload.valueTypes, payload.formats, payload.validations])
+    if (matrix !== undefined && (!Array.isArray(matrix) || matrix.length !== height || Array.from(matrix).some(row => !Array.isArray(row) || row.length > width))) throw new Error("貼り付けデータの行列の形が一致していません");
+  if (payload.displayedValues?.some(row => Array.from(row).some(value => typeof value !== "string"))) throw new Error("計算結果は文字列で指定してください");
+  if (payload.valueTypes?.some(row => Array.from(row).some(value => !["string", "number", "boolean"].includes(value)))) throw new Error("計算結果の型が正しくありません");
+  if (payload.source && (!Number.isInteger(payload.source.row) || !Number.isInteger(payload.source.column) || payload.source.row < 0 || payload.source.column < 0 || typeof payload.source.sheetId !== "string")) throw new Error("コピー元の位置が正しくありません");
+  if (!target || !Number.isInteger(target.row) || !Number.isInteger(target.column) || target.row < 0 || target.column < 0 ||
+    target.row + height > sheet.rowCount || target.column + width > sheet.columnCount) throw new Error("貼り付け先がシートの範囲外です");
+  if (mode === "formats" && (!policy.formatting || !payload.formats)) throw new Error("書式の貼り付けには、このスプレッドシートでコピーした書式が必要です");
+  const cells = { ...sheet.cells };
+  for (let row = 0; row < height; row++) for (let column = 0; column < width; column++) {
+    const position = { row: target.row + row, column: target.column + column }, address = cellAddress(position.row, position.column);
+    const merge = getMergedRange(sheet, position);
+    if (merge && (merge.top !== position.row || merge.left !== position.column)) throw new Error("結合されたセルの一部には貼り付けできません");
+    const previous = cells[address];
+    let value = previous?.value ?? "";
+    if (mode !== "formats") {
+      value = (mode === "values" ? payload.displayedValues ?? payload.values : payload.values)[row]?.[column] ?? "";
+      if (mode === "values") {
+        if (payload.valueTypes?.[row]?.[column] === "string" || value.startsWith("=") || value.startsWith("'")) value = value ? `'${value}` : "";
+      } else if (value.startsWith("=")) {
+        if (!policy.formulas) throw new Error("数式の入力は無効です");
+        if (payload.source) value = translateFormula(value, target.row - payload.source.row, target.column - payload.source.column);
+      }
+      value = validateCellValue(value);
+    }
+    let format: SpreadsheetCellFormat | undefined = previous?.format;
+    if ((mode === "all" || mode === "formats") && policy.formatting && payload.formats) format = normalizeCellFormat(payload.formats[row]?.[column] ?? {});
+    const suppliedValidation = payload.validations?.[row]?.[column];
+    const ruleTransferEnabled = policy.dataValidation !== false && !(policy.checkboxes === false && (suppliedValidation?.type === "checkbox" || previous?.validation?.type === "checkbox"));
+    const validation = mode === "all" && ruleTransferEnabled && payload.validations ? normalizeDataValidation(suppliedValidation) : previous?.validation;
+    if (!value && !format && !validation) delete cells[address];
+    else cells[address] = Object.freeze({ value, ...(format ? { format } : {}), ...(validation ? { validation } : {}) }) as SpreadsheetCell;
+  }
+  return replaceWorkbookSheet(workbook, { ...sheet, cells: Object.freeze(cells) });
+}

@@ -11,7 +11,7 @@ const output = await build({
     resolveDir: fileURLToPath(new URL('../', import.meta.url)), sourcefile: 'history-grid-test.tsx' },
   bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'same-react', setup(builder) {
-    builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
 const { Spreadsheet } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
@@ -22,7 +22,7 @@ async function mount(t, options = {}) {
     defaultView: { addEventListener() {}, removeEventListener() {} } };
   const node = element => {
     const inGrid = ['lxs-cell-input', 'lxs-grid-scroll'].includes(element.props.className);
-    const result = { ownerDocument: document, label: element.props['aria-label'], insideSpreadsheet: true,
+    const result = { ownerDocument: document, style: {}, scrollHeight: 18, label: element.props['aria-label'], insideSpreadsheet: true,
       focus() {
         if (document.activeElement !== this) {
           sectionProps?.onBlurCapture?.({ currentTarget: section, relatedTarget: this });
@@ -54,7 +54,7 @@ async function mount(t, options = {}) {
     },
     async key(key, modifiers) {
       let prevented = false;
-      await act(async () => renderer.root.findAllByType('input').find(input => input.props.className === 'lxs-cell-input')
+      await act(async () => renderer.root.findAllByType('textarea').find(input => input.props.className === 'lxs-cell-input')
         .props.onKeyDown({ key, nativeEvent: {}, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false,
           preventDefault() { prevented = true; }, ...modifiers }));
       assert.equal(prevented, true);

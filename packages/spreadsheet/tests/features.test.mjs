@@ -9,7 +9,7 @@ const output = await build({ stdin: { contents: 'export { default as Spreadsheet
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'feature-test.tsx' },
   bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
   plugins: [{ name: 'shared-react', setup(builder) {
-    builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
 const { Spreadsheet, resolveSpreadsheetFeatures, stageSpreadsheetCommands, normalizeWorkbook } =
@@ -66,7 +66,7 @@ test('every fine-grained structure feature hides its GUI action and rejects the 
     } else if (feature === 'deleteSheet') {
       const tab = { dataset: { lxsSheetId: 'main' }, closest: selector => selector === '[data-lxs-sheet-id]' ? tab : null };
       await act(async () => view.root.findByType('section').props.onContextMenu({ target: tab, clientX: 0, clientY: 0, preventDefault() {} }));
-      assert.equal(view.root.findAllByProps({ role: 'menuitem' }).length, 0);
+      assert.equal(view.root.findAllByProps({ role: 'menuitem' }).some(item => item.children[0] === '削除'), false);
     }
     else {
       const select = view.root.findByProps({ 'aria-label': '行と列の操作' });

@@ -9,7 +9,7 @@ const bundled = await build({ stdin: { contents: 'export {SpreadsheetToolbar} fr
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'insert-test.ts' },
 bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
 plugins: [{ name: 'same-react', setup(builder) {
-  builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+  builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
 } }] });
 const { SpreadsheetToolbar, useSpreadsheet } = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`);
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVZkAAAAASUVORK5CYII=', 'base64');
@@ -50,7 +50,7 @@ async function upload(hook) {
 test('home and insert switch with one shared save action, and shapes anchor at the selected cell', async t => {
   const hook = await mount(t);
   const tabs = hook.root.findAllByProps({ role: 'tab' });
-  assert.deepEqual(tabs.map(tab => tab.children[0]), ['ホーム', '挿入']);
+  assert.deepEqual(tabs.map(tab => tab.children[0]), ['ホーム', '挿入', 'データ']);
   await act(async () => tabs[1].props.onClick());
   assert.equal(hook.root.findAllByProps({ role: 'tab' })[1].props['aria-selected'], true);
   assert.equal(hook.root.findAllByProps({ className: 'lxs-save' }).length, 1);
@@ -66,7 +66,7 @@ test('home and insert switch with one shared save action, and shapes anchor at t
 
 test('insert controls disappear in readonly mode and respect individual feature switches', async t => {
   const hook = await mount(t, { features: { images: false, shapes: false, textBoxes: false, comments: false } });
-  assert.equal(hook.root.findAllByProps({ role: 'tab' }).length, 1);
+  assert.deepEqual(hook.root.findAllByProps({ role: 'tab' }).map(tab => tab.children[0]), ['ホーム', 'データ']);
   await hook.update({ features: { images: false }, readOnly: false });
   assert.equal(hook.root.findAllByProps({ 'aria-label': '画像を挿入' }).length, 0);
   assert.equal(hook.root.findAllByProps({ 'aria-label': '図形を挿入' }).length, 1);

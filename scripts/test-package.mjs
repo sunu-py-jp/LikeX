@@ -9,7 +9,7 @@ import { consumerDevDependencies, consumerDependencies, copyConsumerFixtures,
   checkConsumerTypes, checkConsumerStyles, checkConsumerNext } from './lib/consumer.mjs';
 
 async function testConsumer(module) {
-  const { artifactRoot, sourceRoot, npmCacheRoot, ui } = libraryModule(module);
+  const { artifactRoot, packageRoot, npmCacheRoot, ui } = libraryModule(module);
   const consumer = path.join(artifactRoot, 'package-consumer');
   const withNext = ui && process.argv.includes('--next');
   const online = process.argv.includes('--online');
@@ -131,7 +131,7 @@ async function testConsumer(module) {
   const cssFile = path.join(installed, 'dist/styles.css');
   if (ui) assert.equal(await readFile(cssFile, 'utf8'), await run('tar', ['-xOzf', tarball, 'package/dist/styles.css'], { capture: true }));
   const styles = ui ? await checkConsumerStyles(consumer, { module, cssFile,
-    originCss: await readFile(path.join(sourceRoot, 'styles.css'), 'utf8'), reportPrefix: 'package-consumer' }) : {};
+    originCss: await readFile(path.join(packageRoot, 'dist/styles.css'), 'utf8'), reportPrefix: 'package-consumer' }) : {};
   const nextStyles = withNext ? await checkConsumerNext(consumer, { module,
     tsconfig, testedVersions, reportPrefix: 'package-consumer', dependencies: { [packageName]: `file:${tarball}` },
   }) : undefined;

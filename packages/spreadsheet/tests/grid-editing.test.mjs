@@ -9,7 +9,7 @@ const bundle = await build({ stdin: { contents: 'export { SpreadsheetGrid } from
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'grid-editing-test.tsx' },
   bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
   plugins: [{ name: 'shared-react', setup(builder) {
-    builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
 const { SpreadsheetGrid, useSpreadsheet } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
@@ -24,15 +24,15 @@ async function mount(t, options = {}) {
     removeEventListener: name => listeners.delete(name), defaultView: { addEventListener() {}, removeEventListener() {} } };
   function node(element) {
     const label = element?.props?.['aria-label'];
-    if (element?.type === 'input' && inputs.has(label)) return inputs.get(label);
-    const result = { ownerDocument: document, closest: () => null, scrollTop: 0, scrollLeft: 0, clientHeight: 480, clientWidth: 1000,
+    if (element?.type === 'textarea' && inputs.has(label)) return inputs.get(label);
+    const result = { ownerDocument: document, style: {}, scrollHeight: 18, closest: () => null, scrollTop: 0, scrollLeft: 0, clientHeight: 480, clientWidth: 1000,
       focus() { document.activeElement = this; }, contains: target => target?.ownerDocument === document,
       selectCalls: 0, ranges: [], selectionStart: 0, selectionEnd: 0,
       select() { this.selectCalls++; this.selectionStart = 0; this.selectionEnd = this.value.length; },
       setSelectionRange(start, end) { this.ranges.push([start, end]); this.selectionStart = start; this.selectionEnd = end; },
       get value() { return c.editing?.value ?? element?.props?.value ?? ''; },
     };
-    if (element?.type === 'input') inputs.set(label, result);
+    if (element?.type === 'textarea') inputs.set(label, result);
     return result;
   }
   const target = node();

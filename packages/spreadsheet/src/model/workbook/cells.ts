@@ -17,8 +17,8 @@ export function setCellValues(workbook: SpreadsheetWorkbook, sheetId: string, va
     if (value && merge && key !== cellAddress(merge.top, merge.left)) return fail("結合セルの値は左上のセルにだけ入力してください");
     if ((previous?.value ?? "") === value) continue;
     changed = true;
-    if (!value && !previous?.format) delete cells[key];
-    else cells[key] = freezeCell(value, previous?.format);
+    if (!value && !previous?.format && !previous?.validation) delete cells[key];
+    else cells[key] = freezeCell(value, previous?.format, previous?.validation);
   }
   return changed ? replaceWorkbookSheet(workbook, { ...sheet, cells: Object.freeze(cells) }) : workbook;
 }
@@ -32,8 +32,8 @@ export function formatCells(workbook: SpreadsheetWorkbook, sheetId: string, addr
     const key = canonicalCellAddress(sheet, address), previous = cells[key], next = normalizeCellFormat({ ...previous?.format, ...format });
     if (JSON.stringify(previous?.format) === JSON.stringify(next)) continue;
     changed = true;
-    if (!previous?.value && !next) delete cells[key];
-    else cells[key] = freezeCell(previous?.value ?? "", next);
+    if (!previous?.value && !next && !previous?.validation) delete cells[key];
+    else cells[key] = freezeCell(previous?.value ?? "", next, previous?.validation);
   }
   return changed ? replaceWorkbookSheet(workbook, { ...sheet, cells: Object.freeze(cells) }) : workbook;
 }

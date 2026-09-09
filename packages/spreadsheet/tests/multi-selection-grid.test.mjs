@@ -10,7 +10,7 @@ const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const output = await build({
   stdin: { contents: 'export * from "./src/state/use-spreadsheet"; export * from "./src/ui/spreadsheet-grid";', resolveDir: packageRoot, sourcefile: 'multi-selection-grid-test.tsx' },
   bundle: true, platform: 'node', format: 'esm', write: false,
-  plugins: [{ name: 'same-react', setup(builder) { builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true })); } }],
+  plugins: [{ name: 'same-react', setup(builder) { builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true })); } }],
 });
 const { useSpreadsheet, SpreadsheetGrid } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 function event(overrides = {}) { return { button: 0, buttons: 1, pointerId: 1, detail: 1, shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, nativeEvent: {}, preventDefault() {}, stopPropagation() {}, ...overrides }; }
@@ -23,7 +23,7 @@ async function mount(t, options = {}) {
     removeEventListener: name => documentListeners.delete(name),
     defaultView: { addEventListener: (name, handler) => windowListeners.set(name, handler), removeEventListener: name => windowListeners.delete(name) },
   };
-  function node() { return { ownerDocument: document, closest: () => null, focus() { document.activeElement = this; }, select() {}, setSelectionRange() {}, contains: element => element?.ownerDocument === document, scrollTop: 0, scrollLeft: 0, clientHeight: 480, clientWidth: 1000 }; }
+  function node() { return { ownerDocument: document, style: {}, scrollHeight: 18, closest: () => null, focus() { document.activeElement = this; }, select() {}, setSelectionRange() {}, contains: element => element?.ownerDocument === document, scrollTop: 0, scrollLeft: 0, clientHeight: 480, clientWidth: 1000 }; }
   const target = node();
   function Probe() {
     c = useSpreadsheet({ initialWorkbook: { sheets: [{ id: 'one', name: 'Sheet1', rowCount: 8, columnCount: 8, cells: { B2: { value: 'kept' } } }] }, onSave() {}, ...options });
@@ -44,7 +44,7 @@ async function mount(t, options = {}) {
     async blur() { await act(async () => windowListeners.get('blur')?.()); },
     async click(address, modifiers = {}) { await this.down(cell(address), modifiers); await this.up(); },
     async headerClick(kind, name, modifiers = {}) { await this.down(header(kind, name), modifiers); await this.up(); },
-    async key(key, modifiers = {}) { await act(async () => renderer.root.findAllByType('input').find(input => input.props.className === 'lxs-cell-input').props.onKeyDown(event({ key, ...modifiers }))); },
+    async key(key, modifiers = {}) { await act(async () => renderer.root.findAllByType('textarea').find(input => input.props.className === 'lxs-cell-input').props.onKeyDown(event({ key, ...modifiers }))); },
   };
 }
 

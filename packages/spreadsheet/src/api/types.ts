@@ -3,9 +3,12 @@ import type { SpreadsheetCellFormat, SpreadsheetImageDrawing, SpreadsheetImageRe
 import type { MaybePromise } from "../core";
 import type { SpreadsheetDiscardOptions, SpreadsheetEditIntent, SpreadsheetEditState } from "./lifecycle";
 import type { SpreadsheetExcelExportOptions } from "../export/types";
+import type { SpreadsheetFormattingCommand } from "./formatting-commands";
+import type { SpreadsheetEditingCommand } from "./editing-commands";
+import type { SpreadsheetDataValidationCommand } from "./data-validation-commands";
 
-type DeepReadonly<T> = T extends readonly (infer Item)[] ? readonly DeepReadonly<Item>[]
-  : T extends object ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> } : T;
+// A mapped type preserves tuple lengths as well as making ordinary arrays readonly.
+type DeepReadonly<T> = T extends object ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> } : T;
 
 /** The immutable, committed local draft; unfinished editor text is not included. */
 export type SpreadsheetWorkbookSnapshot = DeepReadonly<SpreadsheetWorkbook>;
@@ -17,6 +20,7 @@ export type SpreadsheetTextBoxCommandPatch = DeepReadonly<Partial<Omit<Spreadshe
 
 /** Explicit targets make commands independent of the currently selected sheet or cells. */
 export type SpreadsheetCommand = DeepReadonly<
+  | SpreadsheetFormattingCommand | SpreadsheetEditingCommand | SpreadsheetDataValidationCommand
   | { type: "cells.set"; sheetId: string; values: Record<string, string> }
   | { type: "cells.format"; sheetId: string; addresses: readonly string[]; format: SpreadsheetCellFormat }
   | { type: "rows.insert" | "rows.delete" | "columns.insert" | "columns.delete"; sheetId: string; index: number; count?: number }

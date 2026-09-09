@@ -20,6 +20,13 @@ export function commandKeys(value: Record<string, unknown>, allowed: readonly st
 
 const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "cells.set": ["values"], "cells.format": ["addresses", "format"],
+  "cells.replace": ["query", "replacement", "addresses"],
+  "cells.fill": ["source", "target", "mode"],
+  "cells.paste": ["target", "payload", "mode"],
+  "cells.validation": ["addresses", "validation"],
+  "conditionalFormats.set": ["rules"],
+  "rows.resize": ["row", "height"],
+  "dimensions.resize": ["rowHeights", "columnWidths"],
   "rows.insert": ["index", "count"], "rows.delete": ["index", "count"],
   "columns.insert": ["index", "count"], "columns.delete": ["index", "count"], "columns.resize": ["column", "width"],
   "cells.merge": ["range", "discardContent"], "cells.unmerge": ["range"],
@@ -29,6 +36,7 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "drawings.delete": ["drawingId"], "images.update": ["drawingId", "patch"],
   "shapes.update": ["drawingId", "patch"], "textBoxes.update": ["drawingId", "patch"],
   "comments.set": ["address", "comment"], "sheets.add": ["name"], "sheets.rename": ["name"], "sheets.delete": [], "sheets.move": ["index"],
+  "sheets.duplicate": ["name"],
 };
 
 export function validateCommand(value: unknown): SpreadsheetCommand {
@@ -38,7 +46,7 @@ export function validateCommand(value: unknown): SpreadsheetCommand {
   commandKeys(input, ["type", ...(type === "sheets.add" ? [] : ["sheetId"]), ...commandFields[type]], "コマンド");
   if (type !== "sheets.add" && (typeof input.sheetId !== "string" || !input.sheetId)) return rejectCommand("INVALID_COMMAND", "sheetIdを指定してください");
   if (type === "sheets.move" && typeof input.index !== "number") return rejectCommand("INVALID_COMMAND", "indexは数値で指定してください");
-  for (const key of ["index", "count", "column", "width", "height", "fontSize", "strokeWidth"])
+  for (const key of ["index", "count", "row", "column", "width", "height", "fontSize", "strokeWidth"])
     if (input[key] !== undefined && typeof input[key] !== "number") return rejectCommand("INVALID_COMMAND", `${key}は数値で指定してください`);
   for (const key of ["name", "text", "alt", "fill", "stroke", "color", "background"])
     if (input[key] !== undefined && typeof input[key] !== "string") return rejectCommand("INVALID_COMMAND", `${key}は文字列で指定してください`);

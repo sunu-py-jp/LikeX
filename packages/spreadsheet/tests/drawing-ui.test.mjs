@@ -10,7 +10,7 @@ const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const output = await build({
   stdin: { contents: 'export * from "./src/state/use-spreadsheet"; export * from "./src/ui/spreadsheet-comments"; export * from "./src/ui/spreadsheet-drawings";', resolveDir: packageRoot, sourcefile: 'drawing-test.tsx' },
   bundle: true, platform: 'node', format: 'esm', write: false,
-  plugins: [{ name: 'same-react', setup(builder) { builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true })); } }],
+  plugins: [{ name: 'same-react', setup(builder) { builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true })); } }],
 });
 const { useSpreadsheet, SpreadsheetComments, SpreadsheetDrawings, SpreadsheetDrawingInspector } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const shape = { id: 'shape', type: 'shape', shape: 'rectangle', anchor: { row: 0, column: 0, offsetX: 10, offsetY: 10 }, width: 100, height: 60, fill: '#ffffff', stroke: '#217346', strokeWidth: 2 };

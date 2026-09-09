@@ -9,7 +9,7 @@ const output = await build({ stdin: { contents: 'export { useSpreadsheet } from 
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'clipboard-features.ts' },
   bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'shared-react', setup(builder) {
-    builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
 const { useSpreadsheet, useSpreadsheetClipboard } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);

@@ -30,15 +30,23 @@ const features = {
 | `copy` | セルのコピー。 |
 | `cut` | セルの切り取り。 |
 | `paste` | セルへの貼り付け。 |
+| `pasteSpecial` | 値・数式・書式のみの貼り付け。`clipboard` と `paste` も有効である必要があります。 |
+| `search` | セルの検索。読み取り専用でも利用できます。無効にすると置換も無効です。 |
+| `replace` | 検索結果の置換。`search` も有効である必要があります。 |
+| `autoFill` | セル範囲のハンドルによる連番・値・数式の展開と `cells.fill`。 |
 | `formatting` | セルの書式変更。既存の書式は表示します。 |
+| `conditionalFormatting` | 条件付き書式の設定・解除。`formatting` も有効である必要があります。既存の規則は表示します。 |
+| `dataValidation` | 入力規則の設定・解除、セル内のプルダウン・チェックボックス操作。既存の規則は保存・検証し続けます。[詳細](./input-validation.md) |
+| `checkboxes` | チェックボックスの設定・操作。既存セルは `TRUE` / `FALSE` の値として表示し、規則は維持します。規則の解除には `dataValidation` を使います。 |
 | `mergeCells` | セルの結合・解除。既存の結合配置は表示します。 |
 | `rowColumnOperations` | 行・列の挿入・削除全体。 |
 | `insertRows` / `deleteRows` | 行の挿入／削除。 |
 | `insertColumns` / `deleteColumns` | 列の挿入／削除。 |
 | `sheets` | シートタブ、シート切り替え、シート管理。 |
 | `createSheet` / `renameSheet` / `deleteSheet` | シートの追加／改名／削除。既存シートの閲覧は維持します。 |
+| `duplicateSheet` | シートの複製。`sheets` と `createSheet` も有効である必要があります。 |
 | `reorderSheets` | タブのドラッグや `sheets.move` によるシートの並べ替え。 |
-| `resize` | 列幅、画像・図形・テキストボックスのサイズ変更。挿入時のサイズ指定は可能です。 |
+| `resize` | 行高・列幅とその自動調整、画像・図形・テキストボックスのサイズ変更。挿入時のサイズ指定は可能です。 |
 | `undoRedo` | 元に戻す・やり直す、変更履歴の記録。 |
 | `images` / `shapes` / `textBoxes` | 画像／図形／テキストボックスの挿入・表示・編集・削除。 |
 | `comments` | コメントの挿入・表示・編集・削除。 |
@@ -67,6 +75,8 @@ const features = {
 `features.save: false` は保存操作だけを止めます。`onSave` があれば編集は可能で、変更は `onChange` で受け取れます。値の入力を含むすべての編集を止めたい場合は `readOnly` を使ってください。
 
 非表示にした画像やコメントなども、ブックから削除せず保持します。保存データには含まれます。数式・書式・結合は、変更を禁止しても既存の表示を維持します。
+
+入力規則もOFFにして削除されることはありません。`dataValidation: false` でも通常のセル入力・貼り付け・外部APIからの値変更は既存の規則で検証します。チェックボックスの設定・操作には `dataValidation` と `checkboxes` の両方が必要です。
 
 セル編集中の入力欄やコメントのテキスト欄では、ブラウザ標準の文字列コピー・切り取り・貼り付けを利用できます。`copy` / `cut` / `paste` はシートのセル範囲を操作する機能を制御します。
 

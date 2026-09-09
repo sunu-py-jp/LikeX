@@ -25,7 +25,7 @@ export function mergeCells(workbook: SpreadsheetWorkbook, sheetId: string, range
     return row >= range.top && row <= range.bottom && column >= range.left && column <= range.right;
   };
   for (const [address, cell] of Object.entries(cells)) if (covered(address) && cell.value) {
-    if (cell.format) cells[address] = freezeCell("", cell.format);
+    if (cell.format || cell.validation) cells[address] = freezeCell("", cell.format, cell.validation);
     else delete cells[address];
   }
   for (const address of Object.keys(comments)) if (covered(address)) {

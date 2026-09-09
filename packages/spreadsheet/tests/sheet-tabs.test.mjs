@@ -9,7 +9,7 @@ const bundle = await build({ stdin: { contents: 'export { SpreadsheetFooter } fr
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'sheet-tabs-test.tsx' },
   bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
   plugins: [{ name: 'shared-react', setup(builder) {
-    builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
 const { SpreadsheetFooter, useSpreadsheet } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);

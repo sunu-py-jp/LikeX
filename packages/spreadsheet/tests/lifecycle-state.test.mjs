@@ -11,7 +11,7 @@ const output = await build({
     resolveDir: fileURLToPath(new URL('../', import.meta.url)), sourcefile: 'lifecycle-state-test.ts' },
   bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'same-react', setup(builder) {
-    builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
 const { useSpreadsheet, useSpreadsheetHandle } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);

@@ -2,6 +2,9 @@
 
 import { useMemo } from "react";
 import { cellAddress } from "../model";
+import { effectiveCellFormat } from "../model/formatting";
+import { getMergedRange } from "../model/merges";
+import { useGridEditorSize } from "./grid/use-grid-editor-size";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { rangeBounds, selectionRanges } from "../state/selection";
 import { blurObjectEditor } from "../state/blur-object-editor";
@@ -12,6 +15,11 @@ import { useGridLayout } from "./grid/use-grid-layout";
 import { useGridFocus } from "./grid/use-grid-focus";
 import { useGridSelection } from "./grid/use-grid-selection";
 import { useColumnResize } from "./grid/use-column-resize";
+import { useGridResize } from "./grid/use-grid-resize";
+import { useGridAutofill } from "./grid/use-grid-autofill";
+import { CellDataControl } from "./grid/cell-data-control";
+import { cellFormatStyle } from "./grid/cell-style";
+import { createConditionalFormatter } from "../model/conditional-formatting";
 
 export { displayCell } from "./grid/cell-display";
 export { nextCellPosition } from "./grid/use-grid-focus";
@@ -20,10 +28,19 @@ export { nextCellPosition } from "./grid/use-grid-focus";
 export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetController }) {
   const resize = useColumnResize(c);
   const { resizing } = resize;
-  const layout = useGridLayout(c.activeSheet, c.selection.focus.row, resizing);
+  const rowResize = useGridResize(c, "row");
+  const layout = useGridLayout(c.activeSheet, c.selection.focus.row, resizing, rowResize.resizing);
   const { scroller, widths, columnOffsets, rowOffsets, gridWidth, virtualRows, renderedMerges } = layout;
+  const autofill = useGridAutofill(c, scroller, { columnOffsets, rowOffsets });
+  const conditional = useMemo(() => createConditionalFormatter(c.activeSheet, c.calculated[c.activeSheet.id]), [c.activeSheet, c.calculated]);
   const focus = useGridFocus(c, scroller, widths, rowOffsets);
   const { activeInputRef: activeInput, keyDown } = focus;
+  const activeMerge = getMergedRange(c.activeSheet, c.selection.focus);
+  const activeHeight = rowOffsets[(activeMerge?.bottom ?? c.selection.focus.row) + 1] - rowOffsets[activeMerge?.top ?? c.selection.focus.row];
+  const activeAddress = cellAddress(c.selection.focus.row, c.selection.focus.column);
+  const activeValue = c.calculated[c.activeSheet.id]?.[activeAddress];
+  const activeFormat = conditional(c.selection.focus.row, c.selection.focus.column, activeValue, effectiveCellFormat(c.activeSheet.cells[activeAddress])).format;
+  useGridEditorSize(activeInput, JSON.stringify({ focus: c.selection.focus, sheet: c.activeSheet.id, value: activeValue, editing: c.editing?.value, format: activeFormat, width: columnOffsets[(activeMerge?.right ?? c.selection.focus.column) + 1] - columnOffsets[activeMerge?.left ?? c.selection.focus.column] }), activeHeight, !!c.editing);
   const { startSelection, extendSelection, selectHeaderWithKeyboard } = useGridSelection(c, focus);
   const selectedBounds = useMemo(() => selectionRanges(c.selection).map(rangeBounds), [c.selection]);
 
@@ -37,8 +54,10 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
             {...resize.handlers(column, width)} />}
         </div>)}
       </div>
-      {virtualRows.map(row => <div key={row} role="row" aria-rowindex={row + 2} className="lxs-row" style={{ top: rowOffsets[row], height: c.activeSheet.rowHeights?.[row] ?? ROW_HEIGHT, width: gridWidth }}>
-        <div role="rowheader" className={`lxs-row-header ${selectedBounds.some(bounds => row >= bounds.top && row <= bounds.bottom) ? "lxs-header-selected" : ""}`}><button type="button" className="lxs-header-button" onPointerDown={event => startSelection(event, { row, column: 0 }, "row")} onPointerEnter={event => extendSelection(event, { row, column: 0 })} onClick={event => selectHeaderWithKeyboard(event, { row, column: 0 }, "row")}>{row + 1}</button></div>
+      {virtualRows.map(row => <div key={row} role="row" aria-rowindex={row + 2} className="lxs-row" style={{ top: rowOffsets[row], height: rowOffsets[row + 1] - rowOffsets[row], width: gridWidth }}>
+        <div role="rowheader" className={`lxs-row-header ${selectedBounds.some(bounds => row >= bounds.top && row <= bounds.bottom) ? "lxs-header-selected" : ""}`}><button type="button" className="lxs-header-button" onPointerDown={event => startSelection(event, { row, column: 0 }, "row")} onPointerEnter={event => extendSelection(event, { row, column: 0 })} onClick={event => selectHeaderWithKeyboard(event, { row, column: 0 }, "row")}>{row + 1}</button>
+          {c.features.resize && <span role="separator" aria-label={`${row + 1}行の高さ`} aria-orientation="horizontal" aria-valuemin={16} aria-valuemax={1000} aria-valuenow={rowOffsets[row + 1] - rowOffsets[row]} tabIndex={c.disabled ? -1 : 0} className="lxs-row-resize" {...rowResize.handlers(row, rowOffsets[row + 1] - rowOffsets[row])} />}
+        </div>
         {widths.map((width, column) => {
           const merge = renderedMerges.get(row * c.activeSheet.columnCount + column);
           if (merge && (merge.top !== row || merge.left !== column)) {
@@ -48,13 +67,18 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
           const cell = c.activeSheet.cells[address];
           const comment = c.features.comments ? c.activeSheet.comments?.[address] : undefined;
           const value = c.calculated[c.activeSheet.id]?.[address];
-          const text = displayCell(value, cell?.format);
+          const baseFormat = effectiveCellFormat(cell);
+          const appearance = conditional(row, column, value, baseFormat), format = appearance.format;
+          const text = displayCell(value, format);
+          const cellWidth = merge ? columnOffsets[merge.right + 1] - columnOffsets[merge.left] : width;
+          const cellHeight = rowOffsets[(merge?.bottom ?? row) + 1] - rowOffsets[merge?.top ?? row];
+          const checkbox = c.features.dataValidation && c.features.checkboxes && cell?.validation?.type === "checkbox";
           const selected = selectedBounds.some(bounds => row >= bounds.top && row <= bounds.bottom && column >= bounds.left && column <= bounds.right);
           const focused = row === c.selection.focus.row && column === c.selection.focus.column;
           const editing = focused && !!c.editing;
           const rendered = <div key={column} role="gridcell" data-lxs-row={row} data-lxs-column={column} aria-colindex={column + 2} aria-colspan={merge ? merge.right - merge.left + 1 : undefined} aria-rowspan={merge ? merge.bottom - merge.top + 1 : undefined} aria-selected={selected} aria-label={`${address}${text ? ` ${text}` : ""}${comment ? ", コメントあり" : ""}`} title={typeof value === "string" && value.startsWith("#") ? value : undefined}
-            className={`lxs-cell ${merge ? "lxs-cell-merged" : ""} ${cell?.format?.background ? "lxs-cell-filled" : ""} ${selected ? "lxs-cell-selected" : ""} ${focused ? "lxs-cell-active" : ""} ${typeof value === "string" && value.startsWith("#") ? "lxs-cell-error" : ""}`}
-            style={{ width: merge ? columnOffsets[merge.right + 1] - columnOffsets[merge.left] : width, height: merge ? rowOffsets[merge.bottom + 1] - rowOffsets[merge.top] : undefined, fontWeight: cell?.format?.bold ? 700 : undefined, fontStyle: cell?.format?.italic ? "italic" : undefined, textDecoration: cell?.format?.underline ? "underline" : undefined, textAlign: cell?.format?.align ?? (typeof value === "number" ? "right" : "left"), color: cell?.format?.color, backgroundColor: cell?.format?.background }}
+            className={`lxs-cell ${merge ? "lxs-cell-merged" : ""} ${format?.background ? "lxs-cell-filled" : ""} ${format?.wrap ? "lxs-cell-wrap" : ""} ${checkbox ? "lxs-cell-has-checkbox" : ""} ${selected ? "lxs-cell-selected" : ""} ${focused ? "lxs-cell-active" : ""} ${typeof value === "string" && value.startsWith("#") ? "lxs-cell-error" : ""}`}
+            style={{ width: cellWidth, height: merge ? cellHeight : undefined, ...cellFormatStyle(format, value) }}
             onPointerDown={event => {
               if (event.button !== 0 || (focused && c.editing)) return;
               // A later click in the selected input uses native caret placement.
@@ -71,14 +95,16 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
             }}
             onPointerEnter={event => extendSelection(event, { row, column })}
             onDoubleClick={() => { if (!c.editing) c.beginEdit({ row, column }); }}>
-            {focused ? <input ref={activeInput} className="lxs-cell-input" data-editing={editing || undefined} aria-label={`${address}の値`} value={editing ? c.editing!.value : text} readOnly={c.disabled || c.requesting}
+            {appearance.dataBar && <span aria-hidden="true" className="lxs-cell-data-bar" style={{ left: `${appearance.dataBar.start}%`, width: `${appearance.dataBar.width}%`, backgroundColor: appearance.dataBar.color }} />}
+            {focused ? <textarea rows={1} ref={activeInput} className="lxs-cell-input" data-editing={editing || undefined} aria-label={`${address}の値`}  value={editing ? c.editing!.value : text} readOnly={c.disabled || c.requesting}
               onFocus={event => { if (!c.editing) event.currentTarget.setSelectionRange(0, 0); }}
               onChange={event => c.beginEdit({ row, column }, event.target.value)}
               onKeyDown={keyDown}
               onCompositionStart={focus.onCompositionStart}
               onBeforeInput={focus.onBeforeInput}
               onBlur={event => { if (!event.relatedTarget || !(event.relatedTarget as HTMLElement).closest("[data-lxs-formula]")) c.commitEdit(); }}
-            /> : <span>{text}</span>}
+            /> : <span className="lxs-cell-text">{text}</span>}
+            <CellDataControl controller={c} cell={cell} address={address} position={{ row, column }} focused={focused} editing={editing} />
             {comment && <button type="button" className="lxs-comment-marker" aria-label={`${address} のコメントを表示`} title={comment.text.slice(0, 200)}
               onPointerDown={event => { blurObjectEditor(event.currentTarget); event.preventDefault(); event.stopPropagation(); }}
               onClick={event => { event.stopPropagation(); c.afterCommit(() => { c.select({ row, column }); c.setCommentOpen(true); }); }}
@@ -87,6 +113,6 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
           return merge ? <div key={column} className="lxs-cell-placeholder" style={{ width }}>{rendered}</div> : rendered;
         })}
       </div>)}
-    </div><SpreadsheetDrawings controller={c} geometry={{ columnOffsets, rowOffsets }} /></div>
+    </div><SpreadsheetDrawings controller={c} geometry={{ columnOffsets, rowOffsets }} />{autofill.preview}{autofill.handle}</div>
   </div></div>;
 }

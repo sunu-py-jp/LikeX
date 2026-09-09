@@ -11,7 +11,7 @@ const output = await build({
   stdin: { contents: 'export * from "./src/state/use-spreadsheet"; export * from "./src/state/use-spreadsheet-clipboard"; export * from "./src/model";', resolveDir: packageRoot, sourcefile: 'state-test.ts' },
   bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'same-react', setup(builder) {
-    builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
 const { useSpreadsheet, useSpreadsheetClipboard, setCellValue, deleteRows, deleteColumns,

@@ -37,7 +37,7 @@ function replaceSheetReferences(workbook: SpreadsheetWorkbook, name: string, rep
       const value = rewriteFormulaReferences(cell.value, reference => matches(reference)
         ? replacement === undefined ? "#REF!" : `'${replacement.replaceAll("'", "''")}'!${reference.address}` : undefined,
       replacement === undefined ? (first, last) => matches(first) || matches(last) ? "#REF!" : undefined : undefined);
-      if (value !== cell.value) { changed = true; cells[address] = freezeCell(value, cell.format); }
+      if (value !== cell.value) { changed = true; cells[address] = freezeCell(value, cell.format, cell.validation); }
     }
     return changed ? Object.freeze({ ...sheet, cells: Object.freeze(cells) }) : sheet;
   });
@@ -65,4 +65,37 @@ export function moveSheet(workbook: SpreadsheetWorkbook, sheetId: string, index:
   sheets.splice(previousIndex, 1);
   sheets.splice(index, 0, sheet);
   return finishWorkbook(sheets, workbook);
+}
+
+/** Duplicate content with fresh identities; qualified self references follow the new sheet. */
+export function duplicateSheetWithIds(workbook: SpreadsheetWorkbook, sheetId: string, suppliedName: string | undefined,
+  nextIdentity: () => string): { workbook: SpreadsheetWorkbook; sheetId: string } {
+  if (workbook.sheets.length >= SPREADSHEET_LIMITS.sheets) return fail("シート数の上限に達しています");
+  const source = getWorkbookSheet(workbook, sheetId);
+  let name: string;
+  if (suppliedName !== undefined) { name = normalizeSheetName(suppliedName); ensureUniqueSheetName(workbook, name); }
+  else {
+    let index = 2;
+    do { const suffix = ` (${index++})`; name = `${source.name.slice(0, 31 - suffix.length)}${suffix}`; }
+    while (workbook.sheets.some(sheet => sheet.name.toLocaleLowerCase("en-US") === name.toLocaleLowerCase("en-US")));
+  }
+  const occupied = new Set(workbook.sheets.flatMap(sheet => [sheet.id, ...(sheet.drawings?.map(drawing => drawing.id) ?? []),
+    ...Object.values(sheet.comments ?? {}).map(comment => comment.id)]));
+  const identity = () => {
+    const id = nextIdentity();
+    if (typeof id !== "string" || !id || id.length > 200 || /\0/.test(id) || occupied.has(id)) return fail("複製用の ID が空、重複、または不正です");
+    occupied.add(id); return id;
+  };
+  const id = identity();
+  const cells = Object.fromEntries(Object.entries(source.cells).map(([address, cell]) => [address, Object.freeze({ ...cell,
+    value: rewriteFormulaReferences(cell.value, reference => reference.sheet?.toLocaleLowerCase("en-US") === source.name.toLocaleLowerCase("en-US")
+      ? `'${name.replaceAll("'", "''")}'!${reference.address}` : undefined),
+  })]));
+  const duplicated: SpreadsheetSheet = Object.freeze({ ...source, id, name, cells: Object.freeze(cells),
+    ...(source.drawings ? { drawings: Object.freeze(source.drawings.map(drawing => Object.freeze({ ...drawing, id: identity(), anchor: Object.freeze({ ...drawing.anchor }) }))) } : {}),
+    ...(source.comments ? { comments: Object.freeze(Object.fromEntries(Object.entries(source.comments).map(([address, comment]) => [address, Object.freeze({ ...comment, id: identity() })]))) } : {}),
+  });
+  const sheets = [...workbook.sheets];
+  sheets.splice(sheets.indexOf(source) + 1, 0, duplicated);
+  return { workbook: finishWorkbook(sheets, workbook), sheetId: id };
 }

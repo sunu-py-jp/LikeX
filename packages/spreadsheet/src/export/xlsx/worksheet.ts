@@ -1,12 +1,15 @@
 import { cellAddress, parseCellAddress } from "../../model/address";
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "../../model/sheet-dimensions";
+import { excelDateSerial } from "../../model/formatting";
 import type { SpreadsheetCalculatedValue, SpreadsheetCell, SpreadsheetSheet, SpreadsheetWorkbook } from "../../model/types";
 import { EXCEL_ERRORS, xlsxFormula } from "./formula";
-import type { XlsxStyles } from "./styles";
+import { xlsxCellFormat, type XlsxStyles } from "./styles";
+import { conditionalFormattingXml } from "./conditional-formatting";
+import { dataValidationsXml } from "./data-validation";
 import { xml, xlsxText } from "./xml";
 
 type Calculated = Record<string, Record<string, SpreadsheetCalculatedValue>>;
-type Links = { drawingId?: string; commentsDrawingId?: string };
+type Links = { drawingId?: string; commentsDrawingId?: string; formulaForList?: (values: readonly string[]) => string };
 const numeric = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 function numericValue(value: string): number | undefined {
   if (!numeric.test(value) || /^[+-]?0\d/.test(value)) return;
@@ -23,7 +26,8 @@ function checkText(value: string, label: string) {
 function cellXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, address: string, cell: SpreadsheetCell, styles: XlsxStyles, calculated: Calculated): string {
   const label = `${sheet.name}!${address}`, value = cell.value;
   checkText(value, label);
-  const attributes = `r="${xml(address)}" s="${styles.styleId(cell.format)}"`;
+  const format = xlsxCellFormat(cell);
+  const attributes = `r="${xml(address)}" s="${styles.styleId(format)}"`;
   // Empty model values are blank cells, which Excel must not count as empty text.
   if (value === "") return `<c ${attributes}/>`;
   if (value.startsWith("=")) {
@@ -37,6 +41,12 @@ function cellXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, address
     return `<c ${attributes}${type}><f>${xml(formula)}</f>${cache}</c>`;
   }
   if (value.startsWith("'")) return `<c ${attributes} t="inlineStr"><is><t xml:space="preserve">${xlsxText(value.slice(1))}</t></is></c>`;
+  const kind = format?.numberFormat;
+  if (kind === "date" || kind === "time" || kind === "datetime") {
+    const serial = excelDateSerial(value, kind);
+    if (serial !== undefined) return `<c ${attributes}><v>${xml(serial)}</v></c>`;
+    if (cell.validation?.type === "date") throw new Error(`Excelへ出力できる日付は1900年以降のISO日付です（${label}）`);
+  }
   const number = numericValue(value);
   if (number !== undefined) return `<c ${attributes}><v>${xml(number)}</v></c>`;
   if (/^(true|false)$/i.test(value)) return `<c ${attributes} t="b"><v>${value.toLowerCase() === "true" ? 1 : 0}</v></c>`;
@@ -61,5 +71,5 @@ export function worksheetXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSh
   const columns = Object.entries(sheet.columnWidths ?? {}).sort(([left], [right]) => Number(left) - Number(right)).map(([column, width]) =>
     `<col min="${Number(column) + 1}" max="${Number(column) + 1}" width="${xml(columnWidth(width))}" customWidth="1"/>`).join("");
   const merges = (sheet.merges ?? []).map(range => `<mergeCell ref="${cellAddress(range.top, range.left)}:${cellAddress(range.bottom, range.right)}"/>`).join("");
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:${cellAddress(sheet.rowCount - 1, sheet.columnCount - 1)}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultColWidth="${columnWidth(DEFAULT_COLUMN_WIDTH)}" defaultRowHeight="${DEFAULT_ROW_HEIGHT * 0.75}"/>${columns ? `<cols>${columns}</cols>` : ""}<sheetData>${rowXml}</sheetData>${merges ? `<mergeCells count="${sheet.merges!.length}">${merges}</mergeCells>` : ""}${links.drawingId ? `<drawing r:id="${xml(links.drawingId)}"/>` : ""}${links.commentsDrawingId ? `<legacyDrawing r:id="${xml(links.commentsDrawingId)}"/>` : ""}</worksheet>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:${cellAddress(sheet.rowCount - 1, sheet.columnCount - 1)}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultColWidth="${columnWidth(DEFAULT_COLUMN_WIDTH)}" defaultRowHeight="${DEFAULT_ROW_HEIGHT * 0.75}"/>${columns ? `<cols>${columns}</cols>` : ""}<sheetData>${rowXml}</sheetData>${merges ? `<mergeCells count="${sheet.merges!.length}">${merges}</mergeCells>` : ""}${conditionalFormattingXml(sheet, styles)}${dataValidationsXml(sheet, { formulaForList: links.formulaForList })}${links.drawingId ? `<drawing r:id="${xml(links.drawingId)}"/>` : ""}${links.commentsDrawingId ? `<legacyDrawing r:id="${xml(links.commentsDrawingId)}"/>` : ""}</worksheet>`;
 }

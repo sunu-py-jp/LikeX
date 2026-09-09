@@ -73,6 +73,17 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
     const sheet = currentWorkbook.sheets.find(item => item.id === id);
     if (sheet) setSelection(initialSheetSelection(sheet));
   };
+  const selectCellInSheet = (sheetId: string, position: Position): boolean => {
+    const sheet = workbook.sheets.find(item => item.id === sheetId);
+    if (!sheet || (!features.sheets && sheet.id !== activeSheet.id)) return false;
+    try {
+      const target = clampPosition(position, sheet);
+      setSelection(selectionForSheet(sheet, [{ anchor: target, focus: target }], false, target));
+      clearDrawingSelection();
+      setCommentOpen(false);
+      return true;
+    } catch (cause) { reportError(cause); return false; }
+  };
   const resetForWorkbook = (next: Workbook) => {
     clearDrawingSelection();
     setCommentOpen(false);
@@ -82,7 +93,7 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
   };
 
   return { activeSheet, selection, selectionRef, setSelection, select, selectRange, toggleSelection, toggleSelectionRange, viewRevision,
-    selectedDrawing, selectedDrawingId, selectDrawing, clearDrawingSelection, switchSheet, resetForWorkbook,
+    selectedDrawing, selectedDrawingId, selectDrawing, clearDrawingSelection, switchSheet, selectCellInSheet, resetForWorkbook,
     commentOpen: features.comments && commentOpen, setCommentOpen,
     gridFocusRequest, requestGridFocus: () => setGridFocusRequest(value => value + 1) };
 }

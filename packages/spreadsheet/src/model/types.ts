@@ -1,3 +1,7 @@
+import type { SpreadsheetConditionalFormatRule } from "./conditional-formatting";
+import type { SpreadsheetCellBorders } from "./formatting/types";
+import type { SpreadsheetDataValidation } from "./data-validation";
+
 export type SpreadsheetCellFormat = {
   bold?: boolean;
   italic?: boolean;
@@ -5,10 +9,19 @@ export type SpreadsheetCellFormat = {
   align?: "left" | "center" | "right";
   color?: string;
   background?: string;
-  numberFormat?: "general" | "number" | "currency" | "percent";
+  fontFamily?: string;
+  /** Font size in CSS pixels. XLSX converts pixels to points. */
+  fontSize?: number;
+  wrap?: boolean;
+  verticalAlign?: "top" | "middle" | "bottom";
+  borders?: SpreadsheetCellBorders;
+  numberFormat?: "general" | "number" | "currency" | "percent" | "date" | "time" | "datetime";
+  decimalPlaces?: number;
+  useGrouping?: boolean;
+  negativeFormat?: "minus" | "parentheses" | "red" | "red-parentheses";
 };
 
-export type SpreadsheetCell = { value: string; format?: SpreadsheetCellFormat };
+export type SpreadsheetCell = { value: string; format?: SpreadsheetCellFormat; validation?: SpreadsheetDataValidation };
 export type SpreadsheetImageResource = {
   name: string;
   mimeType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
@@ -47,6 +60,7 @@ export type SpreadsheetSheet = {
   drawings?: readonly SpreadsheetDrawing[];
   comments?: Readonly<Record<string, SpreadsheetComment>>;
   merges?: readonly SpreadsheetMergedRange[];
+  conditionalFormats?: readonly SpreadsheetConditionalFormatRule[];
 };
 export type SpreadsheetWorkbook = {
   schemaVersion?: 1;

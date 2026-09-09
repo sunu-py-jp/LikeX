@@ -1,0 +1,16 @@
+.lxs-edit-tools { gap: 5px; }
+.lxs-edit-tools .lxs-command { padding-inline: 7px; }
+.lxs-paste-special { max-width: 175px; min-height: 29px; border: 1px solid var(--lxs-border); border-radius: 4px; background: var(--lxs-background); color: var(--lxs-foreground); }
+.lxs-search-dialog { width: min(560px, calc(100% - 24px)); }
+.lxs-search-fields { display: grid; gap: 10px; }
+.lxs-search-fields > label { display: grid; grid-template-columns: 135px minmax(0, 1fr); align-items: center; gap: 8px; }
+.lxs-search-fields input:not([type="checkbox"]), .lxs-search-fields select { min-width: 0; padding: 6px 8px; border: 1px solid var(--lxs-border); border-radius: 4px; background: var(--lxs-background); color: var(--lxs-foreground); }
+.lxs-search-options { display: flex; gap: 16px; flex-wrap: wrap; }
+.lxs-search-options label { display: flex; align-items: center; gap: 8px; }
+.lxs-search-fields > .lxs-search-checkbox { display: flex; gap: 8px; }
+.lxs-search-results { max-height: 200px; overflow: auto; border: 1px solid var(--lxs-border); border-radius: 4px; }
+.lxs-search-results > button { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; width: 100%; padding: 7px 8px; text-align: left; }
+.lxs-search-results > button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lxs-search-results > button:hover, .lxs-search-results > button[aria-current="true"] { background: var(--lxs-selection); }
+.lxs-fill-handle { position: absolute; z-index: 17; width: 8px; height: 8px; background: var(--lxs-accent) !important; border: 1px solid var(--lxs-background) !important; cursor: crosshair !important; touch-action: none; }
+.lxs-fill-preview { position: absolute; z-index: 16; border: 2px dashed var(--lxs-accent); pointer-events: none; }

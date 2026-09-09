@@ -8,7 +8,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = await build({ entryPoints: [new URL('../src/index.ts', import.meta.url).pathname],
   bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
   plugins: [{ name: 'shared-react', setup(builder) {
-    builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
 const { default: Spreadsheet, prepareSpreadsheetImage, serializeWorkbook, parseWorkbook, workbooksEqual } =

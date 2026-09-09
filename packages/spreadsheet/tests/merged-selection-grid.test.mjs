@@ -10,7 +10,7 @@ const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const output = await build({
   stdin: { contents: 'export * from "./src/state/use-spreadsheet"; export * from "./src/ui/spreadsheet-grid"; export { setCellValue, mergeCells, unmergeCells } from "./src/model";', resolveDir: packageRoot, sourcefile: 'merged-selection-grid-test.tsx' },
   bundle: true, platform: 'node', format: 'esm', write: false,
-  plugins: [{ name: 'same-react', setup(builder) { builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true })); } }],
+  plugins: [{ name: 'same-react', setup(builder) { builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true })); } }],
 });
 const { useSpreadsheet, SpreadsheetGrid, selectedAddresses, selectionBounds, isCellSelected, setCellValue, mergeCells, unmergeCells } =
   await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
@@ -23,7 +23,7 @@ async function mount(t, options = {}) {
   const listeners = new Map();
   const document = { activeElement: null, addEventListener: (name, handler) => listeners.set(name, handler),
     removeEventListener: name => listeners.delete(name), defaultView: { addEventListener() {}, removeEventListener() {} } };
-  const node = () => ({ ownerDocument: document, closest: () => null, focus() { document.activeElement = this; }, select() {}, setSelectionRange() {},
+  const node = () => ({ ownerDocument: document, style: {}, scrollHeight: 18, closest: () => null, focus() { document.activeElement = this; }, select() {}, setSelectionRange() {},
     contains: element => element?.ownerDocument === document, scrollTop: 0, scrollLeft: 0, clientHeight: 480, clientWidth: 1000 });
   const target = node();
   const sheet = { id: 'one', name: 'Sheet1', rowCount: 8, columnCount: 8, cells: { B2: { value: 'Merged value' } }, merges: [merged], ...options.sheet };
@@ -41,7 +41,7 @@ async function mount(t, options = {}) {
     async enter(address, modifiers = {}) { await act(async () => cell(address).props.onPointerEnter(event({ currentTarget: target, ...modifiers }))); },
     async up() { await act(async () => listeners.get('pointerup')?.(event({ buttons: 0 }))); },
     async click(address, modifiers = {}) { await this.down(address, modifiers); await this.up(); },
-    async key(key, modifiers = {}) { await act(async () => renderer.root.findAllByType('input').find(input => input.props.className === 'lxs-cell-input').props.onKeyDown(event({ key, ...modifiers }))); },
+    async key(key, modifiers = {}) { await act(async () => renderer.root.findAllByType('textarea').find(input => input.props.className === 'lxs-cell-input').props.onKeyDown(event({ key, ...modifiers }))); },
   };
 }
 

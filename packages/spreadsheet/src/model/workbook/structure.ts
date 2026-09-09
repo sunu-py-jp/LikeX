@@ -1,3 +1,4 @@
+import { shiftConditionalFormats } from "../conditional-formatting";
 import { cellAddress, parseCellAddress } from "../address";
 import { moveFormulaReference, rewriteFormulaReferences, type FormulaReference } from "../formula";
 import { normalizeMerges } from "../merges";
@@ -103,10 +104,11 @@ function changeAxis(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" 
       }
       const value = transformReferences(cell.value, sheet.name, target.name, axis, index, count, remove);
       if (value !== cell.value) changed = true;
-      cells[nextAddress] = value === cell.value ? cell : freezeCell(value, cell.format);
+      cells[nextAddress] = value === cell.value ? cell : freezeCell(value, cell.format, cell.validation);
     }
     if (!changed) return sheet;
     return Object.freeze({ ...sheet, cells: Object.freeze(cells),
+      ...(sheet.id === sheetId && sheet.conditionalFormats ? { conditionalFormats: shiftConditionalFormats(sheet.conditionalFormats, axis, index, count, remove) } : {}),
       ...(sheet.id === sheetId && sheet.merges ? { merges: shiftMerges(sheet, axis, index, count, remove, total) } : {}),
       ...(sheet.id === sheetId ? shiftAnnotations(sheet, axis, index, count, remove, total) : {}), ...(sheet.id === sheetId ? axis === "row"
       ? { rowCount: total, rowHeights: shiftSizes(sheet.rowHeights, index, count, remove) }

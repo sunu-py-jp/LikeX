@@ -6,7 +6,21 @@ export type SpreadsheetFeatures = Readonly<{
   copy?: boolean;
   cut?: boolean;
   paste?: boolean;
+  /** Values, formulas, or formats only; also requires clipboard and paste. */
+  pasteSpecial?: boolean;
+  /** Find cells in a sheet or across the workbook, including in read-only mode. */
+  search?: boolean;
+  /** Replace matching cell content; also requires search. */
+  replace?: boolean;
+  /** Drag the selection handle to extend values, sequences, and formulas. */
+  autoFill?: boolean;
   formatting?: boolean;
+  /** Allows changing rules; existing conditional formatting still renders. */
+  conditionalFormatting?: boolean;
+  /** Allows configuring input rules. Existing rules remain enforced when disabled. */
+  dataValidation?: boolean;
+  /** Shows checkbox controls for cells with a checkbox rule. */
+  checkboxes?: boolean;
   /** Existing merged cells still render when merging/unmerging is disabled. */
   mergeCells?: boolean;
   /** Master switch for row and column insertion/deletion. */
@@ -18,11 +32,13 @@ export type SpreadsheetFeatures = Readonly<{
   /** Shows sheet tabs and enables sheet operations. */
   sheets?: boolean;
   createSheet?: boolean;
+  /** Also requires sheets and createSheet. */
+  duplicateSheet?: boolean;
   renameSheet?: boolean;
   deleteSheet?: boolean;
   /** Allows dragging sheet tabs to change their order. */
   reorderSheets?: boolean;
-  /** Allows resizing columns and drawing objects. */
+  /** Allows resizing rows, columns and drawing objects, including automatic sizing. */
   resize?: boolean;
   undoRedo?: boolean;
   images?: boolean;

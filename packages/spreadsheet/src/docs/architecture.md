@@ -38,6 +38,11 @@ flowchart TD
 | `model/workbook/structure.ts`・`sheets.ts`・`move-cells.ts` | 行列・シート構造、セル移動と参照の整合性 |
 | `model/workbook/annotations.ts` | 描画オブジェクト・画像・コメントのブックへの反映 |
 | `model/formula.ts`・`function-definitions.ts` | 数式の評価と参照の変換、対応関数の定義 |
+| `model/formatting/`・`model/conditional-formatting.ts` | 書式検証・表示文字列・日付変換と条件付き書式の評価。画面・検索・自動調整・Excel出力で共用 |
+| `model/editing/` | 検索、貼り付け、連続データと数式参照の展開 |
+| `model/data-validation.ts`・`model/workbook/data-validation.ts` | 入力規則の検証と変更後ブック全体の検査 |
+| `ui/spreadsheet-dialog.tsx` | 表示領域に収まるフォームダイアログ、フォーカス制御・キャンセル |
+| `styles.css`・`ui/*.css` | CSSの単一入口と画面機能ごとのスタイル。パッケージはビルド時に1ファイルへ結合 |
 | `model/serialization.ts` | JSONの読み書き |
 | `state/use-spreadsheet.ts` | 下記の状態を組み合わせ、UI用のコントローラーを提供 |
 | `state/commands/`・`state/use-spreadsheet-commands.ts` | GUIと外部APIで共有するコマンドの検証・準備と、1回のトランザクションへの反映 |
@@ -54,7 +59,7 @@ flowchart TD
 | `state/clipboard/browser-clipboard.ts` | ブラウザのクリップボードの読み書き |
 | `state/use-spreadsheet-clipboard.ts` | 上記の連携、切り取り状態、古くなった非同期操作の取り消し |
 | `ui/spreadsheet-grid.tsx` | グリッドの描画と操作hookの組み立て |
-| `ui/grid/` | 表示範囲と座標、セルの表示書式、キーボードとフォーカス、ポインター選択、列幅変更 |
+| `ui/grid/` | 表示範囲と座標、セルの表示書式、キーボードとフォーカス、ポインター選択、行列サイズ・自動調整・オートフィル |
 | `ui/spreadsheet-drawings.tsx`・`ui/drawings/` | 描画レイヤー、移動・サイズ変更、描画内容、プロパティ編集 |
 | その他の `ui/` | ツールバー、数式バー、コメントパネルなどの画面部品 |
 

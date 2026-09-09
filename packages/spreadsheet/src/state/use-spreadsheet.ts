@@ -81,7 +81,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
 
   return { workbook: draft.workbook, activeSheet: view.activeSheet, selection: view.selection,
     select: view.select, selectRange: view.selectRange, toggleSelection: view.toggleSelection, toggleSelectionRange: view.toggleSelectionRange,
-    switchSheet, calculated, editing: cellEdit.editing, beginEdit: cellEdit.beginEdit, cancelEdit: cellEdit.cancelEdit, commitEdit: cellEdit.commitEdit,
+    switchSheet, selectCellInSheet: view.selectCellInSheet, calculated, editing: cellEdit.editing, beginEdit: cellEdit.beginEdit, cancelEdit: cellEdit.cancelEdit, commitEdit: cellEdit.commitEdit,
     selectedDrawingId: view.selectedDrawingId, selectedDrawing: view.selectedDrawing, selectDrawing,
     commentOpen: view.commentOpen, setCommentOpen: view.setCommentOpen,
     pendingObjectEdit: pending.pendingObjectEdit, setPendingObjectEdit: pending.setPendingObjectEdit,

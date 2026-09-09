@@ -88,6 +88,12 @@ if (result.ok) {
 | `cells.format` | `addresses: ["A1", "B1"]`, `format: { bold: true, ... }` |
 | `rows.insert` / `rows.delete` | `index`, `count?`（既定1） |
 | `columns.insert` / `columns.delete` | `index`, `count?`（既定1） |
+| `rows.resize` | `row`, `height`（px） |
+| `dimensions.resize` | `rowHeights`, `columnWidths`。0始まりのインデックスをキーにした寸法マップ。一括変更用 |
+| `cells.replace` / `cells.fill` / `cells.paste` | [編集操作](./editing-tools.md)の型と例を参照 |
+| `cells.validation` | `addresses`, `validation`。[入力規則](./input-validation.md)を設定／解除 |
+| `conditionalFormats.set` | `rules`。[条件付き書式](./formatting.md)をシート単位で置換 |
+| `sheets.duplicate` | `sheetId`, `name?`。元シートの直後へ複製し、新しいIDを返す |
 | `columns.resize` | `column`, `width`（px） |
 | `cells.merge` | `range: { top, left, bottom, right }`, `discardContent?` |
 | `cells.unmerge` | `range: { top, left, bottom, right }` |

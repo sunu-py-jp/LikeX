@@ -9,7 +9,7 @@ const output = await build({ stdin: { contents: 'export * from "./src/model"; ex
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'sheet-order-test.ts' },
   bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'shared-react', setup(builder) {
-    builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
 const { normalizeWorkbook, moveSheet, calculateWorkbook, serializeWorkbook, parseWorkbook, workbooksEqual,

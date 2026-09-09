@@ -21,7 +21,7 @@ assert.match(markup, /Spreadsheet consumer cell/);
 assert.match(markup, /Consumer sheet/);
 assert.match(markup, /data-likex-spreadsheet/);
 assert.match(markup, /role="grid"/);
-assert.match(markup, /aria-label="C1 10"[^>]*><span>10<\/span>/, "The rendered formula cell must show its calculated value");
+assert.match(markup, /aria-label="C1 10"[^>]*><span[^>]*>10<\/span>/, "The rendered formula cell must show its calculated value");
 assert.match(markup, /height:360px/);
 assert.match(markup, /readonly/i);
 const annotated = setCellComment(addDrawing(workbook, "sheet-consumer", {

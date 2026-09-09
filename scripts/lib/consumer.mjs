@@ -7,6 +7,7 @@ import postcss from 'postcss';
 import { projectRoot, run } from './run.mjs';
 import { installedPackage } from './packages.mjs';
 import { libraryModule } from './modules.mjs';
+import { bundlePlainStyles } from './plain-styles.mjs';
 
 // The host uses standard Next CSS support. Tailwind and PostCSS plugins belong
 // only to the library build, never to either consumer's setup.
@@ -110,8 +111,11 @@ export async function checkConsumerStyles(consumer, { cssFile, originCss, report
   assert.ok(!existsSync(path.join(consumer, 'postcss.config.mjs')), 'The host must not configure a PostCSS plugin');
   assert.ok(!existsSync(path.join(consumer, 'node_modules/tailwindcss')), 'The consumer installed Tailwind unnecessarily');
   assert.ok(!existsSync(path.join(consumer, 'node_modules/@tailwindcss/postcss')), 'The consumer installed the Tailwind PostCSS plugin unnecessarily');
-  const css = await readFile(cssFile, 'utf8');
-  assert.equal(css, originCss, 'The consumer stylesheet must be identical to the generated distribution source');
+  const sourceCss = await readFile(cssFile, 'utf8');
+  assert.equal(sourceCss, originCss, 'The consumer stylesheet must be identical to its source or packaged stylesheet');
+  // Source copies may use native local CSS imports. Resolve them only for inspection;
+  // the copied application still imports its original CSS through normal Next support.
+  const css = !profile.generatedStyles && /@import\s/.test(sourceCss) ? await bundlePlainStyles(cssFile) : sourceCss;
   const parsed = postcss.parse(css, { from: cssFile });
   const selectors = [], declarations = [];
   parsed.walkAtRules(rule => {

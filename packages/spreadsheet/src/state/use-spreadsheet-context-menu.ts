@@ -11,6 +11,7 @@ type CapturedContext = SpreadsheetContextMenuContext & { readonly structureRevis
 export type SpreadsheetOpenContextMenu = {
   context: CapturedContext; items: readonly SpreadsheetContextMenuItem[];
   deleteSheet: { disabled: boolean } | null;
+  duplicateSheet: { disabled: boolean } | null;
   x: number; y: number; returnFocus: HTMLElement | null;
 };
 
@@ -60,16 +61,16 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
     };
   }, []);
   const policy = useRef({ mode: props.contextMenuExecutionMode, enabled: !!props.getContextMenuItems, readOnly: c.readOnly,
-    sheets: c.features.sheets, deleteSheet: c.features.deleteSheet });
+    sheets: c.features.sheets, deleteSheet: c.features.deleteSheet, duplicateSheet: c.features.duplicateSheet });
   useLayoutEffect(() => {
     const before = policy.current;
     if (before.mode !== props.contextMenuExecutionMode || (before.enabled && !props.getContextMenuItems) || before.readOnly !== c.readOnly) {
       executorRef.current?.cancel(); setMenu(null);
     }
-    if (before.sheets !== c.features.sheets || before.deleteSheet !== c.features.deleteSheet) setMenu(null);
+    if (before.sheets !== c.features.sheets || before.deleteSheet !== c.features.deleteSheet || before.duplicateSheet !== c.features.duplicateSheet) setMenu(null);
     policy.current = { mode: props.contextMenuExecutionMode, enabled: !!props.getContextMenuItems, readOnly: c.readOnly,
-      sheets: c.features.sheets, deleteSheet: c.features.deleteSheet };
-  }, [props.contextMenuExecutionMode, props.getContextMenuItems, c.readOnly, c.features.sheets, c.features.deleteSheet]);
+      sheets: c.features.sheets, deleteSheet: c.features.deleteSheet, duplicateSheet: c.features.duplicateSheet };
+  }, [props.contextMenuExecutionMode, props.getContextMenuItems, c.readOnly, c.features.sheets, c.features.deleteSheet, c.features.duplicateSheet]);
 
   const closeMenu = () => setMenu(null);
   const eligibleTarget = (target: EventTarget | null): HTMLElement | null => {
@@ -105,7 +106,9 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
       const items = resolveContextMenuItems<SpreadsheetContextMenuContext, SpreadsheetContextMenuChange, ReactNode>(props.getContextMenuItems, context);
       const deleteSheet = target.kind === "sheet" && c.features.deleteSheet && !c.readOnly ?
         { disabled: c.disabled || workbook.sheets.length < 2 } : null;
-      if (items.length || deleteSheet) setMenu({ context, items, deleteSheet, x, y,
+      const duplicateSheet = target.kind === "sheet" && c.features.duplicateSheet && !c.readOnly ?
+        { disabled: c.disabled || workbook.sheets.length >= 100 } : null;
+      if (items.length || deleteSheet || duplicateSheet) setMenu({ context, items, deleteSheet, duplicateSheet, x, y,
         returnFocus: root.current?.ownerDocument.activeElement as HTMLElement | null });
     } catch (error) { c.reportError(error); }
   };
@@ -141,8 +144,18 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
       current.getWorkbook().sheets.length < 2 || !current.getWorkbook().sheets.some(sheet => sheet.id === sheetId)) return;
     current.afterCommit(() => latest.current.c.afterCommand({ type: "sheets.delete", sheetId }));
   };
+  const duplicateSheet = () => {
+    if (!menu?.duplicateSheet || menu.duplicateSheet.disabled || menu.context.target.kind !== "sheet") return;
+    const current = latest.current.c, sheetId = menu.context.target.sheetId;
+    closeMenu();
+    if (!current.features.duplicateSheet || current.readOnly || current.disabled || current.requesting || current.pendingObjectEdit) return;
+    current.afterCommit(() => latest.current.c.afterCommand({ type: "sheets.duplicate", sheetId }, result => {
+      const copied = result.results[0]?.sheetId;
+      if (copied) latest.current.c.switchSheet(copied);
+    }));
+  };
   const visibleMenu = menu?.context.target.kind === "sheet" ? (c.features.sheets ? menu : null) : (props.getContextMenuItems ? menu : null);
-  return { menu: visibleMenu, state, closeMenu, selectItem, deleteSheet, cancel: () => executorRef.current?.cancel(), confirm: () => { void executorRef.current?.confirm(); },
+  return { menu: visibleMenu, state, closeMenu, selectItem, deleteSheet, duplicateSheet, cancel: () => executorRef.current?.cancel(), confirm: () => { void executorRef.current?.confirm(); },
     onContextMenu, onPointerDownCapture, onKeyDownCapture };
 }
 

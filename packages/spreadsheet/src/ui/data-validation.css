@@ -1,0 +1,13 @@
+.lxs-cell-checkbox { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.lxs-cell-checkbox input { width: 16px; height: 16px; margin: 0; accent-color: var(--lxs-accent); pointer-events: auto; }
+.lxs-cell:has(> .lxs-cell-checkbox) > span:not(.lxs-cell-checkbox) { visibility: hidden; }
+.lxs-cell:has(> .lxs-cell-checkbox) > .lxs-cell-input:not([data-editing]) { color: transparent; }
+.lxs-root .lxs-cell-list { position: absolute; right: 2px; top: 3px; width: 24px; max-height: calc(100% - 6px); min-height: 20px; padding: 0; color: var(--lxs-foreground); background: var(--lxs-background); border: 1px solid var(--lxs-border); border-radius: 3px; }
+.lxs-validation-fields { display: grid; gap: 12px; }
+.lxs-validation-fields label { display: grid; gap: 5px; }
+.lxs-root .lxs-validation-fields input:not([type="checkbox"]), .lxs-root .lxs-validation-fields textarea, .lxs-root .lxs-validation-fields select { width: 100%; padding: 7px 9px; border: 1px solid var(--lxs-border); border-radius: 4px; background: var(--lxs-background); color: var(--lxs-foreground); }
+.lxs-validation-fields textarea { min-height: 100px; resize: vertical; }
+.lxs-validation-fields .lxs-validation-check { display: flex; align-items: center; gap: 8px; }
+.lxs-validation-bounds { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lxs-validation-hint { margin: 0; font-size: 12px; color: var(--lxs-muted); }
+.lxs-validation-error { color: var(--lxs-error); margin: 0; }

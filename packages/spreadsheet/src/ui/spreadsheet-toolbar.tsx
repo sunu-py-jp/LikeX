@@ -1,8 +1,8 @@
 "use client";
 
-import { cellAddress, parseCellAddress, type SpreadsheetCellFormat } from "../model";
+import { cellAddress, parseCellAddress } from "../model";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
-import { selectedAddresses, selectionBounds } from "../state/selection";
+import { selectionBounds } from "../state/selection";
 import { isMultiRangeSelection } from "../state/selection";
 import type { useSpreadsheetClipboard } from "../state/use-spreadsheet-clipboard";
 import { Command, Icon } from "./spreadsheet-controls";
@@ -11,27 +11,38 @@ import { SpreadsheetInsertToolbar } from "./spreadsheet-insert-toolbar";
 import { SpreadsheetFunctionPicker } from "./spreadsheet-function-picker";
 import { SpreadsheetMergeToolbar } from "./spreadsheet-merge-toolbar";
 import { SpreadsheetPersistenceControls } from "./spreadsheet-persistence-controls";
+import { SpreadsheetFormatToolbar } from "./spreadsheet-format-toolbar";
+import { SpreadsheetEditToolbar } from "./spreadsheet-edit-toolbar";
+import { SpreadsheetDataToolbar } from "./spreadsheet-data-toolbar";
 
 type ToolbarProps = { controller: SpreadsheetController; clipboard: ReturnType<typeof useSpreadsheetClipboard> };
 
 export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
-  const [tab, setTab] = useState<"home" | "insert">("home");
+  type Tab = "home" | "insert" | "data";
+  const [tab, setTab] = useState<Tab>("home");
   const id = useId();
-  const home = useRef<HTMLButtonElement>(null), insert = useRef<HTMLButtonElement>(null);
+  const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
   const canInsert = !c.readOnly && (c.features.images || c.features.shapes || c.features.textBoxes || c.features.comments);
-  const active = canInsert ? tab : "home";
-  const changeTab = (next: "home" | "insert") => { setTab(next); (next === "home" ? home : insert).current?.focus(); };
+  const canData = !c.readOnly && c.features.dataValidation;
+  const tabs: { key: Tab; label: string }[] = [{ key: "home", label: "ホーム" },
+    ...(canInsert ? [{ key: "insert" as const, label: "挿入" }] : []), ...(canData ? [{ key: "data" as const, label: "データ" }] : [])];
+  const active = tabs.some(item => item.key === tab) ? tab : "home";
+  const changeTab = (next: Tab) => { setTab(next); refs.current[next]?.focus(); };
   return <div className="lxs-ribbon-container">
     <div className="lxs-ribbon-header">
       <div className="lxs-ribbon-tabs" role="tablist" aria-label="リボンのタブ" onKeyDown={event => {
-        if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing || !canInsert) return;
+        if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing) return;
         if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
           event.preventDefault();
-          changeTab(event.key === "Home" ? "home" : event.key === "End" ? "insert" : active === "home" ? "insert" : "home");
+          const current = tabs.findIndex(item => item.key === active);
+          const index = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
+            : (current + (event.key === "ArrowLeft" ? -1 : 1) + tabs.length) % tabs.length;
+          changeTab(tabs[index].key);
         }
       }}>
-        <button ref={home} type="button" role="tab" id={`${id}-home`} aria-controls={`${id}-home-panel`} aria-selected={active === "home"} tabIndex={active === "home" ? 0 : -1} className="lxs-ribbon-tab" onClick={() => setTab("home")}>ホーム</button>
-        {canInsert && <button ref={insert} type="button" role="tab" id={`${id}-insert`} aria-controls={`${id}-insert-panel`} aria-selected={active === "insert"} tabIndex={active === "insert" ? 0 : -1} className="lxs-ribbon-tab" onClick={() => setTab("insert")}>挿入</button>}
+        {tabs.map(item => <button key={item.key} ref={element => { refs.current[item.key] = element; }} type="button" role="tab"
+          id={`${id}-${item.key}`} aria-controls={`${id}-${item.key}-panel`} aria-selected={active === item.key}
+          tabIndex={active === item.key ? 0 : -1} className="lxs-ribbon-tab" onClick={() => setTab(item.key)}>{item.label}</button>)}
       </div>
       <SpreadsheetPersistenceControls controller={c} />
     </div>
@@ -41,6 +52,9 @@ export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
     {canInsert && <div role="tabpanel" id={`${id}-insert-panel`} aria-labelledby={`${id}-insert`} hidden={active !== "insert"}>
       <SpreadsheetInsertToolbar controller={c} />
     </div>}
+    {canData && <div role="tabpanel" id={`${id}-data-panel`} aria-labelledby={`${id}-data`} hidden={active !== "data"}>
+      <div className="lxs-ribbon" role="toolbar" aria-label="データの操作"><SpreadsheetDataToolbar controller={c} /></div>
+    </div>}
   </div>;
 }
 
@@ -48,12 +62,6 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
   const cellDisabled = c.disabled || c.requesting || !!c.selectedDrawingId;
   const multiple = isMultiRangeSelection(c.selection);
   const singleRangeHint = multiple ? "1つの連続した範囲を選択してください" : undefined;
-  const format = c.activeSheet.cells[cellAddress(c.selection.focus.row, c.selection.focus.column)]?.format;
-  const formatSelection = (value: Partial<SpreadsheetCellFormat>) => {
-    if (cellDisabled) return;
-    try { c.afterCommit(() => c.afterCommand({ type: "cells.format", sheetId: c.activeSheet.id, addresses: selectedAddresses(c.selection), format: value })); }
-    catch (cause) { c.reportError(cause); }
-  };
   const structural = (action: string) => {
     if (cellDisabled) return;
     if (multiple) { c.reportError(new Error("行・列の挿入や削除は、1つの連続した範囲を選択してください")); return; }
@@ -75,23 +83,8 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
       <Command label="やり直す" disabled={c.disabled || !c.canRedo} onClick={c.redo}><Icon name="redo" /></Command>
     </div>}
     <SpreadsheetFunctionPicker controller={c} />
-    {c.features.formatting && !c.readOnly && <>
-      <div className="lxs-tool-group">
-        <Command label="太字" aria-pressed={!!format?.bold} disabled={cellDisabled} onClick={() => formatSelection({ bold: !format?.bold })}><strong>B</strong></Command>
-        <Command label="斜体" aria-pressed={!!format?.italic} disabled={cellDisabled} onClick={() => formatSelection({ italic: !format?.italic })}><i>I</i></Command>
-        <Command label="下線" aria-pressed={!!format?.underline} disabled={cellDisabled} onClick={() => formatSelection({ underline: !format?.underline })}><u>U</u></Command>
-        <label className="lxs-color-control" title="文字色"><span aria-hidden="true">A</span><input aria-label="文字色" type="color" disabled={cellDisabled} value={format?.color ?? "#202124"} onChange={event => formatSelection({ color: event.target.value })} /></label>
-        <label className="lxs-color-control" title="背景色"><span aria-hidden="true">▧</span><input aria-label="背景色" type="color" disabled={cellDisabled} value={format?.background ?? "#ffffff"} onChange={event => formatSelection({ background: event.target.value })} /></label>
-      </div>
-      <div className="lxs-tool-group">
-        <select aria-label="文字の配置" className="lxs-select" value={format?.align ?? "left"} disabled={cellDisabled} onChange={event => formatSelection({ align: event.target.value as "left" | "center" | "right" })}>
-          <option value="left">左揃え</option><option value="center">中央揃え</option><option value="right">右揃え</option>
-        </select>
-        <select aria-label="数値の表示形式" className="lxs-select" value={format?.numberFormat ?? "general"} disabled={cellDisabled} onChange={event => formatSelection({ numberFormat: event.target.value as "general" | "number" | "currency" | "percent" })}>
-          <option value="general">標準</option><option value="number">数値</option><option value="currency">通貨</option><option value="percent">パーセント</option>
-        </select>
-      </div>
-    </>}
+    <SpreadsheetFormatToolbar controller={c} />
+    <SpreadsheetEditToolbar controller={c} clipboard={clipboard} />
     <SpreadsheetMergeToolbar controller={c} />
     {(c.features.insertRows || c.features.deleteRows || c.features.insertColumns || c.features.deleteColumns) && !c.readOnly && <div className="lxs-tool-group">
       <select aria-label="行と列の操作" className="lxs-select" value="" title={singleRangeHint} disabled={cellDisabled || multiple} onChange={event => { if (event.target.value) structural(event.target.value); }}>

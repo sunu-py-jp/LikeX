@@ -1,5 +1,7 @@
+import { normalizeConditionalFormats } from "../conditional-formatting";
 import { normalizeComments, normalizeDrawings } from "../annotations";
 import { normalizeResources } from "../image-resources";
+import { normalizeDataValidation } from "../data-validation";
 import { normalizeMerges, validateMergedContents } from "../merges";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetWorkbook } from "../types";
 import { finishWorkbook, freezeCell } from "./snapshot";
@@ -30,17 +32,18 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
       if (Object.hasOwn(cells, canonical)) return fail("同じ位置のセルが重複しています");
       if (!cell || typeof cell !== "object") return fail("セルの値が正しくありません");
       const item = cell as SpreadsheetCell;
-      const value = validateCellValue(item.value), format = normalizeCellFormat(item.format);
-      if (value || format) cells[canonical] = freezeCell(value, format);
+      const value = validateCellValue(item.value), format = normalizeCellFormat(item.format), validation = normalizeDataValidation(item.validation);
+      if (value || format || validation) cells[canonical] = freezeCell(value, format, validation);
     }
     const columnWidths = normalizeSizes(sheet.columnWidths, columnCount), rowHeights = normalizeSizes(sheet.rowHeights, rowCount, true);
     const drawings = normalizeDrawings(sheet.drawings, { rowCount, columnCount }, resources);
     const comments = normalizeComments(sheet.comments, { rowCount, columnCount });
     const merges = normalizeMerges(sheet.merges, { rowCount, columnCount });
+    const conditionalFormats = normalizeConditionalFormats(sheet.conditionalFormats, { rowCount, columnCount });
     validateMergedContents({ cells, comments, merges });
     return Object.freeze({ id: sheet.id, name, cells: Object.freeze(cells), rowCount, columnCount,
       ...(columnWidths ? { columnWidths } : {}), ...(rowHeights ? { rowHeights } : {}),
-      ...(drawings ? { drawings } : {}), ...(comments ? { comments } : {}), ...(merges ? { merges } : {}) });
+      ...(drawings ? { drawings } : {}), ...(comments ? { comments } : {}), ...(merges ? { merges } : {}), ...(conditionalFormats ? { conditionalFormats } : {}) });
   });
   return finishWorkbook(sheets, undefined, resources);
 }

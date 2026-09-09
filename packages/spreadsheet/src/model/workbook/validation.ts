@@ -1,5 +1,5 @@
 import { cellAddress, parseCellAddress } from "../address";
-import { SPREADSHEET_LIMITS, type SpreadsheetCellFormat, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
+import { SPREADSHEET_LIMITS, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
 
 export const fail = (message: string): never => { throw new Error(message); };
 export function validateDimension(value: number, maximum: number) {
@@ -15,28 +15,7 @@ export function ensureUniqueSheetName(workbook: SpreadsheetWorkbook, name: strin
   if (workbook.sheets.some(sheet => sheet.id !== except && sheet.name.toLocaleLowerCase("en-US") === name.toLocaleLowerCase("en-US")))
     fail("同じ名前のシートがあります");
 }
-export function normalizeCellFormat(value: SpreadsheetCellFormat | undefined): SpreadsheetCellFormat | undefined {
-  if (value === undefined) return undefined;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return fail("セルの書式が正しくありません");
-  const result: SpreadsheetCellFormat = {};
-  for (const key of ["bold", "italic", "underline"] as const) if (value[key] !== undefined) {
-    if (typeof value[key] !== "boolean") fail("セルの書式が正しくありません");
-    result[key] = value[key];
-  }
-  for (const key of ["color", "background"] as const) if (value[key] !== undefined) {
-    if (typeof value[key] !== "string" || value[key].length > 100 || /[;{}<>]/.test(value[key])) fail("セルの色が正しくありません");
-    if (value[key]) result[key] = value[key];
-  }
-  if (value.align !== undefined) {
-    if (!["left", "center", "right"].includes(value.align)) fail("文字の配置が正しくありません");
-    result.align = value.align;
-  }
-  if (value.numberFormat !== undefined) {
-    if (!["general", "number", "currency", "percent"].includes(value.numberFormat)) fail("数値の書式が正しくありません");
-    result.numberFormat = value.numberFormat;
-  }
-  return Object.keys(result).length ? Object.freeze(result) : undefined;
-}
+export { normalizeCellFormat } from "../formatting";
 export function validateCellValue(value: string) {
   if (typeof value !== "string" || value.length > SPREADSHEET_LIMITS.cellLength) fail("セルの値は100,000文字以内の文字列で指定してください");
   return value;

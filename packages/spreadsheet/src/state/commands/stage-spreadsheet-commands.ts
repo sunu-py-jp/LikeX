@@ -8,6 +8,9 @@ import { addSheetWithId } from "../../model/workbook/sheets";
 import type { SpreadsheetWorkbook } from "../../model/types";
 import type { SpreadsheetFeatureSettings } from "../features";
 import { applyDrawingCommand } from "./drawings";
+import { applyDataValidationCommand } from "./data-validation";
+import { stageFormattingCommand } from "./formatting";
+import { stageEditingCommand } from "./editing";
 import { commandKeys, commandRecord, rejectCommand, requireCommandAddress, requireCommandFeature, requireCommandSheet,
   SpreadsheetCommandError, validateCommand } from "./validation";
 
@@ -25,6 +28,20 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
   const result = (next: SpreadsheetWorkbook, extra: Partial<SpreadsheetCommandReceipt> = {}) =>
     ({ workbook: next, receipt: { type: command.type, sheetId: sheet.id, ...extra } });
   switch (command.type) {
+    case "cells.validation":
+      return applyDataValidationCommand(workbook, command, features);
+    case "rows.resize":
+    case "dimensions.resize":
+      requireCommandFeature(features, "resize");
+      return result(stageFormattingCommand(workbook, command));
+    case "conditionalFormats.set":
+      requireCommandFeature(features, "conditionalFormatting");
+      return result(stageFormattingCommand(workbook, command));
+    case "cells.replace":
+    case "cells.fill":
+    case "cells.paste":
+    case "sheets.duplicate":
+      return stageEditingCommand(workbook, command, features, nextId) ?? rejectCommand("INVALID_COMMAND", "編集コマンドを実行できませんでした");
     case "cells.set": {
       const values = commandRecord(command.values, "セルの値");
       for (const [address, value] of Object.entries(values)) {
@@ -38,7 +55,8 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
       requireCommandFeature(features, "formatting");
       if (!Array.isArray(command.addresses)) return rejectCommand("INVALID_COMMAND", "セルのアドレスは配列で指定してください");
       for (const address of command.addresses) requireCommandAddress(sheet, address);
-      commandKeys(commandRecord(command.format, "セル書式"), ["bold", "italic", "underline", "align", "color", "background", "numberFormat"], "セル書式");
+      commandKeys(commandRecord(command.format, "セル書式"), ["bold", "italic", "underline", "align", "color", "background", "numberFormat",
+        "fontFamily", "fontSize", "wrap", "verticalAlign", "borders", "decimalPlaces", "useGrouping", "negativeFormat"], "セル書式");
       return result(formatCells(workbook, sheet.id, command.addresses, command.format));
     case "rows.insert":
       requireCommandFeature(features, "insertRows");

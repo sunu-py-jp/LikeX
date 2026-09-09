@@ -9,6 +9,7 @@ import { projectRoot } from './lib/run.mjs';
 import { installedPackage } from './lib/packages.mjs';
 import { assertSourceBoundary } from './lib/source-boundary.mjs';
 import { dependencyOrder, libraryModule, requestedModules } from './lib/modules.mjs';
+import { bundlePlainStyles } from './lib/plain-styles.mjs';
 
 async function declarationFiles(directory) {
   const files = [];
@@ -30,7 +31,7 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
     throw new Error(`Choose the distribution license and add packages/${module}/LICENSE before enabling public publishing.`);
   const css = !profile.ui ? '' : profile.generatedStyles
     ? (await (await import('./build-styles.mjs')).buildStyles()).css
-    : await readFile(path.join(sourceRoot, 'styles.css'), 'utf8');
+    : await bundlePlainStyles(path.join(sourceRoot, 'styles.css'));
   // The package directory contains maintained source/docs: replace only dist.
   await rm(path.join(packageRoot, 'dist'), { recursive: true, force: true });
   await mkdir(path.join(packageRoot, 'dist'), { recursive: true });

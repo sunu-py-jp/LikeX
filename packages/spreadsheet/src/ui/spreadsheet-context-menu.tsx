@@ -57,11 +57,12 @@ function Menu({ c, root }: { c: SpreadsheetContextMenuController; root: RefObjec
         }
       }
     }}>
+    {captured.duplicateSheet && <button type="button" role="menuitem" disabled={captured.duplicateSheet.disabled} onClick={c.duplicateSheet}>複製</button>}
     {captured.items.map(item => <button key={item.id} type="button" role="menuitem" disabled={item.disabled} onClick={() => c.selectItem(item)}>
       {item.icon != null && <span aria-hidden="true">{item.icon}</span>}<span>{item.label}</span>
     </button>)}
     {captured.deleteSheet && <>
-      {captured.items.length > 0 && <div role="separator" className="lxs-context-menu-separator" />}
+      {(captured.items.length > 0 || captured.duplicateSheet) && <div role="separator" className="lxs-context-menu-separator" />}
       <button type="button" role="menuitem" disabled={captured.deleteSheet.disabled} onClick={c.deleteSheet}>削除</button>
     </>}
   </div>;

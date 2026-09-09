@@ -1,0 +1,18 @@
+.lxs-root .lxs-cell { display: flex; flex-direction: column; line-height: 1.4; }
+.lxs-root .lxs-cell-text { position: relative; z-index: 1; flex: 0 1 auto; width: 100%; min-height: 0; overflow: hidden; text-overflow: ellipsis; white-space: inherit; overflow-wrap: inherit; pointer-events: none; }
+.lxs-root textarea.lxs-cell-input { position: relative; z-index: 1; flex: 0 1 auto; min-height: 0; min-width: 0; resize: none; overflow: hidden; white-space: pre; border-radius: 0; box-sizing: border-box; }
+.lxs-root .lxs-cell-wrap textarea.lxs-cell-input { white-space: pre-wrap; overflow-wrap: anywhere; }
+.lxs-root textarea.lxs-cell-input[data-editing] { overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lxs-root .lxs-cell-data-bar { position: absolute; top: 3px; bottom: 3px; opacity: .3; pointer-events: none; }
+.lxs-root .lxs-cell-has-checkbox .lxs-cell-text, .lxs-root .lxs-cell-has-checkbox textarea.lxs-cell-input:not([data-editing]) { color: transparent; }
+.lxs-root .lxs-row-header { position: sticky; }
+.lxs-root .lxs-row-resize { position: absolute; height: 7px; bottom: -3px; left: 0; right: 0; z-index: 5; cursor: row-resize; touch-action: none; }
+.lxs-root .lxs-row-resize:focus-visible { outline: 2px solid var(--lxs-accent); outline-offset: -2px; }
+.lxs-root .lxs-format-controls { display: flex; gap: 5px; align-items: center; }
+.lxs-root .lxs-format-size { width: 58px; }
+.lxs-root .lxs-format-dialog-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.lxs-root .lxs-format-dialog-fields label { display: flex; gap: 5px; flex-direction: column; min-width: 0; }
+.lxs-root .lxs-format-dialog-fields input, .lxs-root .lxs-format-dialog-fields select { min-width: 0; width: 100%; }
+.lxs-root .lxs-format-dialog-fields .lxs-field-full { grid-column: 1 / -1; }
+.lxs-root .lxs-cf-list { list-style: none; padding: 0; max-height: 160px; overflow: auto; }
+.lxs-root .lxs-cf-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }

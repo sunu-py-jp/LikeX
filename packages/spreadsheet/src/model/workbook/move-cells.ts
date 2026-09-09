@@ -98,7 +98,7 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
         }
         return `${rewrite(first)}:${rewrite(last, firstName)}`;
       });
-      if (value !== cell.value) { changed = true; cells[address] = freezeCell(value, cell.format); }
+      if (value !== cell.value) { changed = true; cells[address] = freezeCell(value, cell.format, cell.validation); }
     }
     return changed ? Object.freeze({ ...sheet, cells: Object.freeze(cells) }) : sheet;
   });

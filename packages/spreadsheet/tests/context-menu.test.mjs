@@ -8,7 +8,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const bundle = await build({ entryPoints: [new URL('../src/index.ts', import.meta.url).pathname],
   bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
   plugins: [{ name: 'shared-react', setup(builder) {
-    builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
 const { default: Spreadsheet } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
@@ -92,7 +92,7 @@ test('block preserves selected ranges and applies a prepared result at the indep
   assert.equal(ui.value('A1'), '1');
 });
 
-test('sheet tabs offer only delete without a provider and delete the right-clicked inactive sheet through the undoable command pipeline', async t => {
+test('sheet tabs offer duplicate and delete without a provider and delete the right-clicked inactive sheet through the undoable command pipeline', async t => {
   const ui = await mount(t, { initialWorkbook: multipleSheets });
   await ui.selectRange();
   assert.equal(await ui.open(), false, 'cells keep their native menu without a provider');
@@ -100,8 +100,9 @@ test('sheet tabs offer only delete without a provider and delete the right-click
   await ui.openSheet();
   const menu = ui.root.findByProps({ role: 'menu' });
   assert.equal(menu.props['aria-label'], 'シートの操作');
-  const item = ui.root.findByProps({ role: 'menuitem' });
-  assert.deepEqual(item.children, ['削除']);
+  const items = ui.root.findAllByProps({ role: 'menuitem' });
+  assert.deepEqual(items.map(item => item.children), [['複製'], ['削除']]);
+  const item = items[1];
   assert.equal(item.props.disabled, false);
   assert.equal(ui.root.findByProps({ role: 'grid' }).props['aria-label'], 'Main');
   const selection = ui.root.findAll(node => node.props.controller?.selection)[0].props.controller.selection;
@@ -126,20 +127,21 @@ test('sheet custom entries precede delete and capture the clicked tab independen
   assert.equal(captured.selection.sheetId, 'main');
   assert.deepEqual(captured.selection.ranges[0], { anchor: { row: 0, column: 0 }, focus: { row: 2, column: 0 } });
   const items = ui.root.findAllByProps({ role: 'menuitem' });
-  assert.deepEqual(items[0].findByType('span').children, ['シートを確認']);
-  assert.deepEqual(items[1].children, ['削除']);
+  assert.deepEqual(items[0].children, ['複製']);
+  assert.deepEqual(items[1].findByType('span').children, ['シートを確認']);
+  assert.deepEqual(items[2].children, ['削除']);
   assert.equal(ui.root.findByProps({ className: 'lxs-context-menu-separator' }).props.role, 'separator');
-  await act(async () => items[0].props.onClick());
+  await act(async () => items[1].props.onClick());
   assert.ok(ui.events.some(event => event.type === 'context-menu' && event.status === 'success'));
 });
 
 test('sheet delete is disabled for the last sheet and hidden for readonly or a disabled feature', async t => {
   const ui = await mount(t);
   await ui.openSheet('main');
-  assert.equal(ui.root.findByProps({ role: 'menuitem' }).props.disabled, true);
+  assert.equal(ui.root.findAllByProps({ role: 'menuitem' }).find(item => item.children[0] === '削除').props.disabled, true);
   await ui.update({ features: { deleteSheet: false } });
   await ui.openSheet('main');
-  assert.equal(ui.root.findAllByProps({ role: 'menuitem' }).length, 0);
+  assert.deepEqual(ui.root.findAllByProps({ role: 'menuitem' }).map(item => item.children), [['複製']]);
   await ui.update({ features: {}, onSave: undefined, getContextMenuItems: () => [{ id: 'view', label: '表示', onSelect() {} }] });
   await ui.openSheet('main');
   assert.equal(ui.root.findAllByProps({ role: 'menuitem' }).length, 1);
@@ -151,7 +153,7 @@ test('sheet deletion requests editing permission for the clicked sheet and prese
   const ui = await mount(t, { initialWorkbook: multipleSheets, contextMenuExecutionMode: 'confirm',
     onEditRequest: intent => { request = intent; return false; } });
   await ui.openSheet();
-  await act(async () => ui.root.findByProps({ role: 'menuitem' }).props.onClick());
+  await act(async () => ui.root.findAllByProps({ role: 'menuitem' }).find(item => item.children[0] === '削除').props.onClick());
   assert.equal(request.action, 'sheets.delete');
   assert.equal(request.sheetId, 'other');
   assert.deepEqual(ui.ref.current.getWorkbook().sheets.map(sheet => sheet.id), ['main', 'other']);
@@ -164,7 +166,7 @@ test('confirmed sheet results follow the captured ID after reordering and reject
     { id: 'rename', label: '名前を生成', onSelect: () => pending.promise },
   ] });
   await ui.openSheet();
-  await act(async () => ui.root.findAllByProps({ role: 'menuitem' })[0].props.onClick());
+  await act(async () => ui.root.findAllByProps({ role: 'menuitem' }).find(item => item.findAllByType('span').some(span => span.children[0] === '名前を生成')).props.onClick());
   await act(async () => ui.ref.current.execute({ type: 'sheets.move', sheetId: 'other', index: 0 }));
   await act(async () => pending.resolve({ change: [{ type: 'sheets.rename', sheetId: 'other', name: 'Generated' }] }));
   await ui.confirm();
@@ -173,7 +175,7 @@ test('confirmed sheet results follow the captured ID after reordering and reject
   const removed = deferred();
   await ui.update({ getContextMenuItems: () => [{ id: 'rename', label: '名前を生成', onSelect: () => removed.promise }] });
   await ui.openSheet();
-  await act(async () => ui.root.findAllByProps({ role: 'menuitem' })[0].props.onClick());
+  await act(async () => ui.root.findAllByProps({ role: 'menuitem' }).find(item => item.findAllByType('span').some(span => span.children[0] === '名前を生成')).props.onClick());
   await act(async () => ui.ref.current.execute({ type: 'sheets.delete', sheetId: 'other' }));
   await act(async () => removed.resolve({ change: [{ type: 'sheets.rename', sheetId: 'other', name: 'Late' }] }));
   assert.deepEqual(ui.ref.current.getWorkbook().sheets.map(sheet => sheet.id), ['main']);
@@ -277,4 +279,23 @@ test('feature changes are enforced at result application; unfinished cell editin
   await act(async () => pending.resolve(result('=SUM(A1:A3)')));
   assert.equal(ui.value('B3'), undefined);
   assert.ok(ui.events.some(event => event.type === 'context-menu' && event.status === 'error'));
+});
+
+test('sheet duplication selects a new identity and supports undo, disabled features, and denied permission', async t => {
+  const ui = await mount(t, { initialWorkbook: multipleSheets });
+  await ui.openSheet('other');
+  await act(async () => ui.root.findAllByProps({ role: 'menuitem' }).find(item => item.children[0] === '複製').props.onClick());
+  const sheets = ui.ref.current.getWorkbook().sheets;
+  assert.equal(sheets.length, 3);
+  assert.notEqual(sheets[2].id, 'other');
+  assert.equal(ui.root.findByProps({ role: 'grid' }).props['aria-label'], sheets[2].name);
+  await act(async () => ui.root.findByProps({ 'aria-label': '元に戻す' }).props.onClick());
+  assert.deepEqual(ui.ref.current.getWorkbook().sheets.map(sheet => sheet.id), ['main', 'other']);
+  await ui.update({ features: { duplicateSheet: false } });
+  await ui.openSheet('other');
+  assert.deepEqual(ui.root.findAllByProps({ role: 'menuitem' }).map(item => item.children), [['削除']]);
+  const denied = await mount(t, { initialWorkbook: multipleSheets, onEditRequest: () => false });
+  await denied.openSheet('other');
+  await act(async () => denied.root.findAllByProps({ role: 'menuitem' }).find(item => item.children[0] === '複製').props.onClick());
+  assert.equal(denied.ref.current.getWorkbook().sheets.length, 2);
 });
