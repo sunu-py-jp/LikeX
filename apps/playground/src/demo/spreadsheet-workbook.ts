@@ -2,6 +2,7 @@ import type { SpreadsheetCell, SpreadsheetWorkbook } from "@likex/spreadsheet";
 import { insertionDemoImage, insertionDemoSheet } from "./spreadsheet-insertions";
 import { functionDemoSheet } from "./spreadsheet-functions";
 import { mergeDemoSheet } from "./spreadsheet-merges";
+import { withExportSamples } from "./spreadsheet-export-samples";
 
 /** A fictional, memory-only workbook for exercising the spreadsheet UI. */
 export function createDemoWorkbook(): SpreadsheetWorkbook {
@@ -46,7 +47,7 @@ export function createDemoWorkbook(): SpreadsheetWorkbook {
   cells.B16 = { value: "='経費'!C8", format: currency };
   cells.D16 = { value: "営業利益", format: { bold: true } };
   cells.E16 = { value: "=F11-B16", format: currency };
-  return { schemaVersion: 1, resources: { images: { "demo-bars": insertionDemoImage } }, sheets: [
+  return withExportSamples({ schemaVersion: 1, resources: { images: { "demo-bars": insertionDemoImage } }, sheets: [
     { id: "sales-plan", name: "売上計画", rowCount: 500, columnCount: 26, cells,
       columnWidths: { 0: 186, 1: 88, 2: 116, 3: 124, 4: 120, 5: 124, 6: 98, 7: 90, 8: 106 } },
     { id: "expenses", name: "経費", rowCount: 100, columnCount: 26, columnWidths: { 0: 180, 1: 110, 2: 130 }, cells: {
@@ -60,5 +61,5 @@ export function createDemoWorkbook(): SpreadsheetWorkbook {
     insertionDemoSheet,
     functionDemoSheet,
     mergeDemoSheet,
-  ] };
+  ] });
 }

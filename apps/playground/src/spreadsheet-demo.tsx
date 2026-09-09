@@ -30,12 +30,13 @@ export default function SpreadsheetDemo() {
     return parseWorkbook(savedJson.current);
   }, []);
   return <Spreadsheet
-    title="下期 売上計画"
+    title="LikeX サンプルブック"
+    exportFileName="LikeX_Excel出力サンプル.xlsx"
     initialWorkbook={initialWorkbook}
     onSave={save}
     getContextMenuItems={contextMenuItems}
     contextMenuExecutionMode={contextMenuMode}
     style={{ height: "100dvh", width: "100%" }}
-    aria-label="売上計画スプレッドシート"
+    aria-label="サンプルスプレッドシート"
   />;
 }
