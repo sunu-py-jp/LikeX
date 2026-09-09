@@ -29,7 +29,10 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `renderIcon` | `ExplorerIconRenderer`。項目情報・描画箇所・選択状態等から独自アイコンを返します。`null` / `undefined` は既定表示、`false` は枠だけを残します。 |
 | `title` | 任意の `string`。`title="資料管理"` のようにタブバー右上の表示名を指定します。前後の空白を除去し、省略・空文字・空白のみなら非表示です。 |
 | `rootLabel` | ルートの表示名。省略時・空白のみの場合は「ファイル」。タブ、パンくず、サイドバー、保存場所表示へ適用します。 |
-| `defaultPath` | 最初のタブと「＋」の新規タブで開く仮想フォルダのパス。省略・空白のみなら `/`。初回に解決したフォルダIDを保持します。 |
+| `defaultPath` | 「＋」の新規タブで開く仮想フォルダのパス。初期位置の指定がなければ最初のタブにも使います。省略・空白のみなら `/`。初回に解決したフォルダIDを保持します。 |
+| `initialPath` | 任意の `string`。最初のタブだけで開く仮想フォルダのパス。明示した場合は `defaultPath` より優先し、空白のみなら `/`。新規タブには再適用しません。 |
+| `selectedFile` | 任意の `string`。初回に選択するファイルの `ExplorerEntry.id`。`initialPath` 未指定なら対象の親フォルダを開き、指定時はその直下にあるファイルだけを選択します。ファイル名や `source.id` ではありません。 |
+| `selectedFileMode` | `ExplorerSelectedFileMode`。`"select"`（既定）または `"preview"`。後者は初期選択に加え、内蔵プレビューまたは `onPreviewRequest` を一度起動します。 |
 | `features` | `ExplorerFeatures`。機能ごとに `false` を指定すると、関連UIとその実行経路を無効にします。 |
 | `upload` | `ExplorerUploadOptions`。許可する拡張子・1ファイルの最大サイズ・違反時の扱いを指定します。制限は省略可能で、違反時は既定でその回の追加をすべて中止します。 |
 | `selection` | `ExplorerSelectionOptions`。選択方式（`none` / `single` / `multiple`）とチェックボックス表示。 |
@@ -43,6 +46,8 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `aria-label` | Explorer領域のアクセシブルな名前。複数配置する場合は識別できる名前を指定します。 |
 
 `title` はマウント後の変更にも追従し、子・孫ウィンドウにも同じ表示名を使います。現在地のタブ名、`rootLabel`、ブラウザの `document.title`、`aria-label` とは独立しています。タブバーを非表示にした場合や表示幅が狭い場合は表示しません。[指定例](./getting-started.md#右上のタイトルを指定する) を参照してください。
+
+`initialPath`・`selectedFile`・`selectedFileMode` は初回マウント時のみ評価します。初期表示を変えて開き直すにはReactの `key` を変えます。無効なパスはルート表示と通知、無効なファイルID・フォルダID・指定先にないファイルIDは無選択と通知になります。`features.preview: false` なら初期プレビューを行わず、`selection.mode: "none"` なら初期選択を行いません。選択を無効にしていてもプレビューは有効にできます。[優先順位と指定例](./getting-started.md#initial-file)
 
 保存成功時は、返された一覧を次の編集の基準にします。戻り値を省略した場合は、送信した一覧を基準にします。新しく保存したファイルは `source` を既存ファイル参照に正規化した一覧を返すと、次の保存でローカルファイルとして再送する必要がなくなります。保存コールバックが例外を投げる・Promiseをrejectする場合、下書きと選択したローカルファイルを保持して再試行できます。
 

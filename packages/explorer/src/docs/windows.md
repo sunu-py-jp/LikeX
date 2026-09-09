@@ -95,7 +95,7 @@ export default function FileManagerPopup({
 | 最初のポップアップを再読み込み、別ページへ移動 | 表示を閉じて子ウィンドウも終了します。親画面に保持した下書きは、再度開いて利用できます。 |
 | `ExplorerPopup` をアンマウント、または親画面を終了・再読み込み | すべての表示を閉じます。マウント中のメモリ保持は終了するため、次回は利用先の保存先から読み込みます。 |
 
-閉じる・開き直す操作では自動保存や下書きの破棄を行いません。`initialEntries` と `defaultPath` は `ExplorerPopup` の初回マウント時にだけ読み、毎回の `open()` では読み直しません。別のワークスペースへ切り替える場合は、上の例の `key` を変更して再マウントします。
+閉じる・開き直す操作では自動保存や下書きの破棄を行いません。`initialEntries`・`defaultPath`・`initialPath`・`selectedFile`・`selectedFileMode` は `ExplorerPopup` の初回マウント時にだけ読み、毎回の `open()` では読み直しません。`selectedFileMode="preview"` による初期プレビューは最初の表示で起動し、開き直しやタブの切り離しでは再要求しません。別のワークスペースや別の初期ファイルへ切り替える場合は、上の例の `key` を変更して再マウントします。[初期パス・選択の指定](./getting-started.md#initial-file)
 
 `warnOnUnsavedChanges` は共通の `ExplorerProps` に含まれ、既定は `true` です。起動済みの `close()` では、未保存の変更がある場合に `window.confirm` で「未保存の変更があります。このウィンドウを閉じますか？」と「変更は親画面に保持されます。」を改行して表示します。取り消した場合はウィンドウ・タブ・下書きと `isOpen` を維持し、`onOpenChange(false)` は通知しません。許可された場合に閉じて開閉状態を更新します。`close()` の戻り値は従来どおり `void` です。
 

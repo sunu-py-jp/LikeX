@@ -10,7 +10,7 @@
 
 | ガイド | 内容 |
 | --- | --- |
-| [導入と初期表示](./getting-started.md) | 依存関係、CSS、Next.js、タイトル、ルート名、開始フォルダ |
+| [導入と初期表示](./getting-started.md) | 依存関係、CSS、Next.js、タイトル、開始フォルダ、初期選択・プレビュー |
 | [公開API](./api-reference.md) | props一覧、公開型、コールバックの基本契約 |
 | [機能・表示設定](./configuration.md) | 読み取り専用、機能ON/OFF、選択、表示形式、ショートカット |
 | [見た目のカスタマイズ](./appearance.md) | アイコン、外枠サイズ、配色、動的ダークモード |

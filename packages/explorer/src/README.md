@@ -23,7 +23,7 @@ import "@/components/explorer/styles.css";
 ## 重要事項
 
 - `onSave` を省略すると読み取り専用です。下書きとローカル `File` はメモリで保持し、自動で永続化しません。
-- `initialEntries` は初回のみ反映します。最新一覧の取得には `onRefresh` を使います。
+- `initialEntries` は初回のみ反映します。`initialPath`・`selectedFile` で最初の表示先と選択ファイルを指定でき、`selectedFileMode="preview"` ならプレビューも開きます。[初期表示](./docs/getting-started.md#initial-file)と、最新一覧の取得に使う `onRefresh` は別の設定です。
 - `onEvent` は通知専用です。保存前検証、認証・認可、複数人の競合解決は親とサーバーが担当します。
 - Officeファイルは親のプレビューUIへ委譲できます。内蔵ZIPは4 GiB未満・65,534項目までで、端末メモリに収まる規模が前提です。内蔵ダウンロードの成功はブラウザへの引渡しを表します。
 - ポップアップ・OS貼り付けはブラウザやOSに依存します。SPA遷移やアンマウント前の未保存確認は親が行います。

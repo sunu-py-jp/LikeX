@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ExplorerProps } from "../props";
 import { resolveExplorerOptions } from "../model/config";
-import { getEntryPath } from "../model/entries";
-import { DEFAULT_ROOT_LABEL, resolveExplorerPath } from "../model/path";
+import { resolveInitialExplorerLocation } from "../model/initial-location";
 import { dispatchExplorerEvent } from "../model/events";
 import { useExplorerDraft } from "./use-explorer-draft";
 import { useExplorerTabs } from "./use-explorer-tabs";
@@ -86,15 +85,29 @@ export function useExplorerWorkspace(props: ExplorerProps) {
   useLayoutEffect(() => {
     if (!options.features.download) downloads.cancelAll("disabled");
   }, [downloads, options.features.download]);
-  const [defaultStart] = useState(() => {
-    try {
-      const location = resolveExplorerPath(draft.entries, props.defaultPath?.trim() || "/", "root", props.rootLabel?.trim() || DEFAULT_ROOT_LABEL);
-      return { location, expanded: ["root", ...getEntryPath(draft.entries, location).map(entry => entry.id)], error: null };
-    } catch (error) {
-      return { location: "root", expanded: ["root"], error: error instanceof Error ? error.message : "フォルダのパスを確認してください" };
-    }
+  const [starts] = useState(() => {
+    const common = { initialEntries: draft.entries, defaultPath: props.defaultPath, rootLabel: props.rootLabel };
+    const initial = resolveInitialExplorerLocation({ ...common, initialPath: props.initialPath, selectedFile: props.selectedFile });
+    return {
+      defaultStart: resolveInitialExplorerLocation(common),
+      initialStart: { ...initial, selectedIds: initial.selectedFileId && options.selection.mode !== "none" ? [initial.selectedFileId] : [] },
+      previewFileId: props.selectedFileMode === "preview" ? initial.selectedFileId : null,
+    };
   });
-  const tabs = useExplorerTabs(options.view.defaultMode, defaultStart, false);
+  const { defaultStart, initialStart } = starts;
+  const tabs = useExplorerTabs(options.view.defaultMode, initialStart, false, defaultStart);
+  const [takeInitialPreview] = useState(() => {
+    const firstTabId = tabs.activeTabId;
+    let pending = starts.previewFileId;
+    // The workspace survives popup close/reopen. Claim before invoking host code
+    // so remounts, StrictMode and reentrant callbacks cannot replay the request.
+    return (tabId: string) => {
+      if (tabId !== firstTabId) return null;
+      const id = pending;
+      pending = null;
+      return id;
+    };
+  });
   const { getWindowTabIds, restoreWindow: returnWindowTabs, closeWindow: closeWindowTabs } = tabs;
   const [clipboard, updateClipboard] = useState<ExplorerClipboardState>(null);
   const clipboardRef = useRef<{ value: ExplorerClipboardState; revision: number }>({ value: null, revision: draft.editRevision });
@@ -307,7 +320,7 @@ export function useExplorerWorkspace(props: ExplorerProps) {
       hostDocument.current = null;
     };
   }, []);
-  return { draft: { ...draft, save, refresh, discard, endEdit }, registerImport, tabs, defaultStart, clipboard, setClipboard, getClipboard, draggedIds, workspaceId, windows, detachTab, reattachWindow, closeDetachedWindows, mediaCache, downloads, unsavedChangesGuard };
+  return { draft: { ...draft, save, refresh, discard, endEdit }, registerImport, tabs, defaultStart, initialStart, takeInitialPreview, clipboard, setClipboard, getClipboard, draggedIds, workspaceId, windows, detachTab, reattachWindow, closeDetachedWindows, mediaCache, downloads, unsavedChangesGuard };
 }
 
 export type ExplorerWorkspace = ReturnType<typeof useExplorerWorkspace>;

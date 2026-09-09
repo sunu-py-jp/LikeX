@@ -78,7 +78,7 @@ export function useExplorerViewController({
 }: ExplorerProps, workspace: ExplorerWorkspace, windowId = "main",
   ownerDocument: Document | null = typeof document === "undefined" ? null : document,
 ) {
-  const { defaultStart, clipboard: storedClipboard, setClipboard, draggedIds: draggedIdsRef, workspaceId } = workspace;
+  const { defaultStart, initialStart, clipboard: storedClipboard, setClipboard, draggedIds: draggedIdsRef, workspaceId } = workspace;
   const rootLabel = label?.trim() || DEFAULT_ROOT_LABEL;
   const readOnly = workspace.draft.readOnly;
   const options = useMemo(() => resolveExplorerOptions({
@@ -306,10 +306,10 @@ export function useExplorerViewController({
       folder?.removeEventListener?.("cancel", cancelFolder);
     };
   }, [features.uploadFiles, features.uploadFolders, cancelFilePicker]);
-  const [notification, setNotification] = useState<ExplorerNotification | null>(() => windowId === "main" && defaultStart.error ? {
+  const [notification, setNotification] = useState<ExplorerNotification | null>(() => windowId === "main" && initialStart.error ? {
     kind: "error",
-    message: "初期フォルダを開けませんでした",
-    description: defaultStart.error,
+    message: "初期フォルダ・ファイルの指定を確認してください",
+    description: initialStart.error,
   } : null);
   function notify(
     kind: "success" | "error" | "info",
@@ -853,6 +853,14 @@ export function useExplorerViewController({
       failed(error);
     }
   }
+  useEffect(() => {
+    const id = workspace.takeInitialPreview(tabState.activeTabId);
+    if (!id || !features.preview) return;
+    const entry = entryIndex.byId.get(id);
+    // Dispatch once after the view mounts, through the same UI/host boundary as a user preview.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (entry?.kind === "file" && entry.parent === currentParent) openEntry(entry);
+  });
   function rowKey(event: React.KeyboardEvent, entry: Entry) {
     if (event.defaultPrevented || isComposingKeyEvent(event) || event.target !== event.currentTarget) return;
     if (matchesExplorerShortcut(event, "open")) {

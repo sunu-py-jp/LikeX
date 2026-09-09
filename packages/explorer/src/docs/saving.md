@@ -7,7 +7,7 @@
 ## データと保存の契約
 
 - `initialEntries` は必須で、初回マウント時だけ読みます。別のワークスペースを開く場合はReactの `key` を変更します。`onSave` は任意で、省略すると読み取り専用になります。`readOnly: true` でも編集を禁止できます。
-- `defaultPath` も初回マウント時に読み、最初のタブと新規タブの開始フォルダを決めます。省略時はルートです。表示場所の指定であり、保存対象の一覧や操作範囲を絞るものではありません。
+- `defaultPath` は新規タブの開始フォルダを決め、初期位置の指定がなければ最初のタブにも使います。`initialPath`・`selectedFile`・`selectedFileMode` は最初のタブの表示先・選択・プレビューを指定します。いずれも初回マウント時のみ読み、再取得では再適用しません。表示状態の指定であり、保存対象や操作範囲を絞るものではなく、未保存の変更にもなりません。[初期表示の優先順位](./getting-started.md#initial-file)
 - 追加・移動・コピー・名前変更・削除はクライアント内の下書きを変更します。「保存」で `onSave` に最終一覧 `entries` と比較元からの差分 `changes: { created, updated, deleted }` を渡します。
 - `onSave` は `void` または保存後の `readonly ExplorerEntry[]` を返せます。Promiseも使えます。返した一覧を次の編集基準にし、戻り値が `undefined` の場合は保存に渡した一覧を基準にします。例外やPromiseのrejectでは下書きを保持します。
 - `onRefresh?: () => readonly ExplorerEntry[] | Promise<readonly ExplorerEntry[]>` は最新一覧の取得処理です。成功時に下書きと比較元へ反映します。`initialEntries` のprop変更を反映する機能ではなく、初回マウント時に自動実行もしません。

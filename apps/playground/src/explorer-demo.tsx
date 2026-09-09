@@ -3,6 +3,7 @@ import Explorer, {
   type ExplorerEntry,
   type ExplorerSavePayload,
   type ExplorerContextMenuProvider,
+  type ExplorerSelectedFileMode,
 } from "@likex/explorer";
 import { seedEntries } from "./demo/seed";
 import { createExplorerIconSamples } from "./demo/icon-samples";
@@ -84,6 +85,14 @@ export default function ExplorerDemo() {
   const savedWorkspace = useRef(initialWorkspace);
   const refresh = useCallback(() => savedWorkspace.current.entries, []);
   const [contextMenuMode] = useState(getDemoContextMenuMode);
+  const [initialView] = useState(() => {
+    const query = new URLSearchParams(window.location.search);
+    return {
+      initialPath: query.get("initialPath") ?? undefined,
+      selectedFile: query.get("selectedFile") ?? undefined,
+      selectedFileMode: (query.get("selectedFileMode") === "preview" ? "preview" : "select") as ExplorerSelectedFileMode,
+    };
+  });
   const { generate, dialog } = useExplorerAiDialog();
   const contextMenuItems = useCallback<ExplorerContextMenuProvider>(context => {
     if (context.target.kind !== "entry" || context.target.entry.kind !== "file" || context.readOnly || !context.features.uploadFiles) return [];
@@ -145,6 +154,7 @@ export default function ExplorerDemo() {
     <div style={{ height: "100dvh", minHeight: 0, minWidth: 0 }}>
       <Explorer
         initialEntries={initialWorkspace.entries}
+        {...initialView}
         onSave={save}
         onRefresh={refresh}
         readFile={readFile}

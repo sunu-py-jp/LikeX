@@ -30,6 +30,8 @@ export type ExplorerIconRenderer = (
   context: ExplorerIconContext,
 ) => Exclude<ReactNode, Promise<unknown>>;
 
+export type ExplorerSelectedFileMode = "select" | "preview";
+
 export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave" | "onRefresh" | "onEditRequest"> & {
   /** Read on mount only. Change the React key to open another workspace. */
   initialEntries: readonly Entry[];
@@ -61,6 +63,12 @@ export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave
   rootLabel?: string;
   /** Folder path resolved on mount for the first and new tabs. Defaults to "/". */
   defaultPath?: string;
+  /** First tab's folder path. Takes precedence over defaultPath; read on mount only. */
+  initialPath?: string;
+  /** File entry ID to select on mount. Without initialPath, opens the file's parent folder. */
+  selectedFile?: string;
+  /** Select only (default), or also request the built-in/host preview on first display. */
+  selectedFileMode?: ExplorerSelectedFileMode;
   onDirtyChange?: (dirty: boolean) => void;
   /** Warn before document unload or explicit popup close while dirty. Defaults to true.
    * SPA navigation and unmount must be guarded by the host using onDirtyChange. */

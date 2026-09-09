@@ -91,7 +91,7 @@ export default function FileManager() {
 
 ### 最初に開くフォルダを指定する
 
-`defaultPath?: string` は、最初のタブと「＋」で追加するタブで開くフォルダを指定します。省略または空白のみなら `/`（ルート）です。例えば、親から渡す `savedEntries` に `/記事/画像` が存在する場合は、次のように設定します。`save` は親の保存関数です。
+`defaultPath?: string` は、「＋」で追加するタブで開くフォルダを指定します。後述する `initialPath`・`selectedFile` による初期位置の指定がなければ、最初のタブにも使います。省略または空白のみなら `/`（ルート）です。例えば、親から渡す `savedEntries` に `/記事/画像` が存在する場合は、次のように設定します。`save` は親の保存関数です。
 
 ```tsx
 <Explorer
@@ -106,3 +106,44 @@ export default function FileManager() {
 `defaultPath` は初回マウント時にだけ読み、解決したフォルダIDを保持します。マウント後にpropを変えても現在位置や新規タブの開始位置は変更しません。別の設定で開き直す場合はExplorerのReact `key` を変えてください。指定したフォルダを改名・移動しても同じIDを追い、新規タブもそのフォルダから開きます。削除して存在しなくなった場合はルートから開きます。
 
 不正なパス、存在しない場所、ファイル本体のパスを指定した場合はルートを表示し、初回にエラー通知を出します。`features.pathInput: false` や `features.tabs: false` でも開始位置の指定は有効です。指定したフォルダを新しいルートとして扱う設定ではなく、親や別のフォルダへの通常の移動もできます。
+
+<a id="initial-file"></a>
+
+### 最初に開くパスとファイルを指定する
+
+`initialPath` は最初のタブだけの開始フォルダ、`selectedFile` は初期選択するファイルの `ExplorerEntry.id` です。次の例は `/記事/画像` を開き、その直下にあるID `file-cover` のファイルを選択します。「＋」の新規タブは `defaultPath` の `/記事` から開きます。
+
+```tsx
+<Explorer
+  initialEntries={savedEntries}
+  onSave={save}
+  defaultPath="/記事"
+  initialPath="/記事/画像"
+  selectedFile="file-cover"
+  selectedFileMode="select"
+/>
+```
+
+| 初期指定 | 最初に開く場所と動作 |
+| --- | --- |
+| `initialPath` のみ | 指定フォルダを開きます。 |
+| `selectedFile` のみ | ファイルの親フォルダを開いて選択します。`defaultPath` があっても対象の親を優先します。 |
+| 両方 | 指定フォルダを開き、その直下の対象ファイルを選択します。別フォルダにあるIDなら無選択で通知します。 |
+| どちらも省略 | 従来どおり `defaultPath`、省略時はルートを開きます。 |
+
+`initialPath` は `defaultPath` と同じ仮想パスの規則です。空文字・空白のみを明示した場合はルートを指定した扱いになります。不正なパス・存在しないフォルダ・ファイル本体のパスならルートへ戻して通知します。`selectedFile` に存在しないIDやフォルダIDを渡した場合は選択せず通知します。`selectedFile` はファイル名・ファイルパス・本体参照の `source.id` ではありません。
+
+`selectedFileMode` の既定は `"select"` です。`"preview"` にするとファイルを選択したうえで、クライアントでの初期表示時にプレビューも開きます。`onPreviewRequest` があれば親へ要求を渡し、なければ内蔵プレビューを使います。`previewTrigger` のクリック設定とは独立しています。[プレビューの連携](./previews.md#initial-preview)
+
+```tsx
+<Explorer
+  initialEntries={savedEntries}
+  selectedFile="file-cover"
+  selectedFileMode="preview"
+  readFile={readFile}
+/>
+```
+
+初期選択・プレビューは読み取り専用でも使え、保存対象の変更にはなりません。`features.preview: false` ならプレビューせず選択だけ行います。`selection.mode: "none"` なら選択を行いませんが、プレビューを有効にしていれば開けます。
+
+これらのpropsは初回マウント時だけ読みます。後からのprop変更、再取得、「＋」の新規タブで初期選択・プレビューを繰り返しません。別のファイルを指定して開き直す場合は `<Explorer key={fileId} selectedFile={fileId} ... />` のように再マウントします。未保存の変更がある場合は、親が `key` を変える前に確認してください。

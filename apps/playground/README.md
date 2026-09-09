@@ -32,6 +32,8 @@ npm run preview --workspace @likex/playground
 
 デモは `icons` フォルダの中アイコン表示から開始します。お気に入り・コピー・新しいファイルの作成・チェックボックスは非表示で、追加できる拡張子は `csv, md, txt, json, xlsx, xls, docx, doc, pptx, ppt` です。`txt` は以下の右クリックデモの生成結果も、通常のアップロード検証を通すために許可しています。
 
+初期表示はURLの `initialPath`・`selectedFile`・`selectedFileMode` をコンポーネントの同名propsへ渡して確認できます。例えば `/?selectedFile=erp-spec` は「ERPリニューアル」を開いて「要件定義メモ.md」を選択し、`/?selectedFile=erp-spec&selectedFileMode=preview` はそのプレビューも開きます。`selectedFile` はファイル名ではなくデータのIDです。明示的にフォルダも指定する場合は `/?initialPath=/プロジェクト/ERPリニューアル&selectedFile=erp-spec` とします。「＋」の新規タブは引き続き `defaultPath` の `icons` から開きます。
+
 ## 利用側が追加する右クリックメニュー
 
 Explorerではファイルの右クリックに「AIに指示」を追加しています。ダイアログへ指示を入力して実行すると、約1.5秒のモック処理の後、元のファイルと同じフォルダへ `元の名前-AI指示結果.txt` を追加します。同名があれば連番を付けます。処理中の表示、キャンセル、Escape、背景のクリックに対応し、別ウィンドウから実行した場合もそのExplorer内にダイアログを表示します。AIサービスへの送信や元ファイルの本文解析は行いません。生成したファイルは保存するまで下書きです。

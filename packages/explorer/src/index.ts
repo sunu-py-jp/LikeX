@@ -4,6 +4,7 @@ export { default, default as Explorer } from "./explorer";
 export { ExplorerPopup } from "./explorer-popup";
 export type {
   ExplorerProps,
+  ExplorerSelectedFileMode,
   ExplorerPopupProps,
   ExplorerPopupControls,
   ExplorerPopupOptions,

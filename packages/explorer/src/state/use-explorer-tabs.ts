@@ -20,7 +20,7 @@ export type TabViewState = {
 };
 
 type ExplorerTab = TabViewState & { id: string };
-type TabStart = { location: ExplorerLocation; expanded: readonly string[] };
+type TabStart = { location: ExplorerLocation; expanded: readonly string[]; selectedIds?: readonly string[] };
 type TabPatch = Partial<TabViewState> | ((previous: TabViewState) => Partial<TabViewState>);
 const ROOT_START: TabStart = { location: "root", expanded: ["root"] };
 const EMPTY_IDS: string[] = [];
@@ -30,7 +30,7 @@ const nullSnapshot = () => null;
 
 function createTab(id: string, view: ExplorerViewMode, start: TabStart): ExplorerTab {
   return { id, requestedLocation: start.location, history: [start.location], historyIndex: 0,
-    selectedIds: [], anchor: null, query: "", searchText: "", searchRevision: 0, view, compact: false,
+    selectedIds: [...(start.selectedIds ?? [])], anchor: start.selectedIds?.[0] ?? null, query: "", searchText: "", searchRevision: 0, view, compact: false,
     sort: { key: "name", asc: true }, expanded: [...start.expanded] };
 }
 
@@ -59,7 +59,7 @@ type WindowBucket = { id: string; tabs: ExplorerTab[]; ids: string[]; activeId: 
   snapshot: WindowSnapshot; listeners: Set<() => void> };
 
 /** Indexed tab state; each window subscribes only to its own immutable snapshot. */
-function createTabsStore(defaultView: ExplorerViewMode, initialStart: TabStart) {
+function createTabsStore(defaultView: ExplorerViewMode, initialStart: TabStart, newTabStart: TabStart) {
   let nextId = 1;
   const first = createTab("tab-1", defaultView, initialStart);
   const records = new Map([[first.id, first]]);
@@ -71,7 +71,7 @@ function createTabsStore(defaultView: ExplorerViewMode, initialStart: TabStart) 
   let allTabs: ExplorerTab[] | null = [first];
   let version = 0;
   let batching = 0;
-  let settings = { defaultView, initialStart };
+  let settings = { defaultView, initialStart: newTabStart };
 
   function getBucket(windowId: string): WindowBucket {
     const existing = windows.get(windowId);
@@ -217,9 +217,9 @@ function createTabsStore(defaultView: ExplorerViewMode, initialStart: TabStart) 
 export type ExplorerTabs = ReturnType<typeof createTabsStore>;
 
 /** Standalone callers observe all tabs; workspaces let panes subscribe separately. */
-export function useExplorerTabs(defaultView: ExplorerViewMode = "details", initialStart: TabStart = ROOT_START, subscribe = true) {
-  const [store] = useState(() => createTabsStore(defaultView, initialStart));
-  useLayoutEffect(() => { store.configure(defaultView, initialStart); }, [store, defaultView, initialStart]);
+export function useExplorerTabs(defaultView: ExplorerViewMode = "details", initialStart: TabStart = ROOT_START, subscribe = true, newTabStart: TabStart = initialStart) {
+  const [store] = useState(() => createTabsStore(defaultView, initialStart, newTabStart));
+  useLayoutEffect(() => { store.configure(defaultView, newTabStart); }, [store, defaultView, newTabStart]);
   useSyncExternalStore(subscribe ? store.subscribe : noSubscription, subscribe ? store.getSnapshot : zeroSnapshot, zeroSnapshot);
   return store;
 }
