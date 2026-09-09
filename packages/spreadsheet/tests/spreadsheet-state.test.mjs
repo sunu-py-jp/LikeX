@@ -129,6 +129,23 @@ test('formula feature rejects formulas atomically while allowing plain text', as
   assert.equal(hook.current.workbook.sheets[0].cells.C1.value, 'plain text');
 });
 
+test('basic functions recalculate through editing, undo and JSON save without replacing the formula', async t => {
+  let json;
+  const hook = await mount(t, { onSave: wb => { json = serializeWorkbook(wb); return parseWorkbook(json); } });
+  await act(async () => hook.current.writeValues({ C1: '=ROUND(A1/3,2)', D1: '=IFERROR(C1/A1,"未入力")' }));
+  assert.equal(hook.current.calculated.one.C1, 0.67);
+  await act(async () => hook.current.beginEdit({ row: 0, column: 0 }, '0'));
+  await act(async () => hook.current.commitEdit());
+  assert.equal(hook.current.calculated.one.D1, '未入力');
+  await act(async () => hook.current.undo());
+  assert.equal(hook.current.calculated.one.C1, 0.67);
+  await act(async () => hook.current.redo());
+  await act(async () => hook.current.save());
+  assert.equal(JSON.parse(json).sheets[0].cells.D1.value, '=IFERROR(C1/A1,"未入力")');
+  assert.equal(hook.current.calculated.one.D1, '未入力');
+  assert.equal(hook.current.dirty, false);
+});
+
 test('row and column deletion keep the active selection inside the grid', async t => {
   const hook = await mount(t);
   await act(async () => hook.current.select({ row: 19, column: 9 }));

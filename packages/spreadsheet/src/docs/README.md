@@ -27,7 +27,8 @@ Next.js App Routerでは `app/layout.tsx` にCSSのimportを置きます。コ�
 ## 詳細
 
 - [公開API・保存と機能設定](./api.md)
-- [数式・操作と初版の制約](./capabilities.md)
+- [操作と初版の制約](./capabilities.md)
+- [基本15関数・数式とJSON保存](./functions.md)
 - [画像・図形・コメント・テキストボックスとJSON保存](./insertions-and-json.md)
 
 スタイルは `.lxs-*`、`--lxs-*`、`data-likex-spreadsheet` の名前空間を使います。`colorMode="light" | "dark" | "system"` と `className` / `style` で表示を調整できます。必要ならコンポーネントのルートに `--lxs-background`、`--lxs-foreground`、`--lxs-panel`、`--lxs-border`、`--lxs-muted`、`--lxs-accent` を上書きします。

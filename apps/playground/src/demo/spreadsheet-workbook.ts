@@ -1,5 +1,6 @@
 import type { SpreadsheetCell, SpreadsheetWorkbook } from "@likex/spreadsheet";
 import { insertionDemoImage, insertionDemoSheet } from "./spreadsheet-insertions";
+import { functionDemoSheet } from "./spreadsheet-functions";
 
 /** A fictional, memory-only workbook for exercising the spreadsheet UI. */
 export function createDemoWorkbook(): SpreadsheetWorkbook {
@@ -56,5 +57,6 @@ export function createDemoWorkbook(): SpreadsheetWorkbook {
       A8: { value: "合計", format: total }, C8: { value: "=SUM(C4:C6)", format: { ...total, ...currency } },
     } },
     insertionDemoSheet,
+    functionDemoSheet,
   ] };
 }

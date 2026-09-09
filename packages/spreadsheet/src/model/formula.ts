@@ -1,4 +1,5 @@
 import { cellAddress, parseCellAddress } from "./address";
+import { SUPPORTED_SPREADSHEET_FUNCTIONS } from "./function-definitions";
 import { SPREADSHEET_LIMITS, type SpreadsheetCalculatedValue as Value, type SpreadsheetWorkbook } from "./types";
 
 export type FormulaReference = { sheet?: string; address: string; prefix: string };
@@ -7,6 +8,8 @@ export type FormulaToken = { kind: "number" | "string" | "reference" | "name" | 
 class FormulaError extends Error { constructor(readonly code: string) { super(code); } }
 const fail = (code = "#ERROR!"): never => { throw new FormulaError(code); };
 const errorPattern = /^#(?:REF!|DIV\/0!|VALUE!|NAME\?|NUM!|N\/A|CYCLE!|LIMIT!|ERROR!)/;
+const recoverableErrors = new Set(["#REF!", "#DIV/0!", "#VALUE!", "#NAME?", "#NUM!", "#N/A"]);
+const functionNames = new Set<string>(SUPPORTED_SPREADSHEET_FUNCTIONS.map(definition => definition.name));
 
 /** A bounded tokenizer shared by evaluation and reference rewriting. Never executes source text. */
 export function tokenizeFormula(formula: string): FormulaToken[] {
@@ -83,8 +86,8 @@ function parseFormula(formula: string): Node {
     else if (token.text === "(") { node = expression(0, depth + 1); expect(")"); }
     else if (token.kind === "name") {
       if (!is("(")) {
-        if (token.text !== "TRUE" && token.text !== "FALSE") return fail("#NAME?");
-        node = { type: "value", value: token.text === "TRUE" };
+        node = token.text === "TRUE" || token.text === "FALSE"
+          ? { type: "value", value: token.text === "TRUE" } : { type: "error", code: "#NAME?" };
       } else {
         take(); const args: Node[] = [];
         if (!is(")")) {
@@ -127,6 +130,28 @@ function literal(value: string): Value {
   return value;
 }
 
+function logical(value: Value): boolean {
+  if (typeof value === "string" && /^(true|false)$/i.test(value.trim())) return value.trim().toUpperCase() === "TRUE";
+  return number(value) !== 0;
+}
+function text(value: Value): string { return typeof value === "boolean" ? (value ? "TRUE" : "FALSE") : String(value); }
+
+/** Round decimal digits, avoiding binary multiplication's 1.005 * 100 boundary error. */
+function round(value: number, places: number): number {
+  const digits = Math.trunc(places);
+  const [coefficient, power = "0"] = Math.abs(value).toString().split("e");
+  const fraction = coefficient.split(".")[1]?.length ?? 0;
+  const significant = coefficient.replace(".", "");
+  const remove = fraction - Number(power) - digits;
+  if (remove <= 0 || value === 0) return value === 0 ? 0 : value;
+  if (remove > significant.length) return 0;
+  const boundary = significant.length - remove;
+  let rounded = BigInt(significant.slice(0, boundary) || "0");
+  if (significant[boundary] >= "5") rounded++;
+  if (!rounded) return 0;
+  return finite(Math.sign(value) * Number(`${rounded}e${-digits}`));
+}
+
 /** Calculate only populated cells. Empty references are zero; absent display cells remain absent. */
 export function calculateWorkbook(workbook: SpreadsheetWorkbook): Record<string, Record<string, Value>> {
   const result: Record<string, Record<string, Value>> = Object.create(null);
@@ -162,12 +187,40 @@ export function calculateWorkbook(workbook: SpreadsheetWorkbook): Record<string,
   function scalar(node: Node, sheet: string, depth: number): Value {
     const value = evaluate(node, sheet, depth); return Array.isArray(value) ? fail("#VALUE!") : checked(value);
   }
-  function evaluate(node: Node, current: string, depth: number): Value | Value[] {
+  function blankReference(node: Node, current: string): boolean {
+    if (node.type !== "reference") return false;
+    const sheet = target(node.reference, current), position = parseCellAddress(node.reference.address);
+    return !!sheet && !!position && position.row < sheet.rowCount && position.column < sheet.columnCount &&
+      !sheet.cells[cellAddress(position.row, position.column)]?.value;
+  }
+  function textScalar(node: Node, current: string, depth: number): Value {
+    return blankReference(node, current) ? "" : scalar(node, current, depth);
+  }
+  // COUNTA may count ordinary error values, but it cannot hide cycles or resource limits.
+  function argumentValues(node: Node, current: string, depth: number, countErrors = false): Value[] {
+    if (blankReference(node, current)) return [];
+    try {
+      const value = evaluate(node, current, depth, countErrors);
+      return Array.isArray(value) ? value : [countErrors ? countable(value) : checked(value)];
+    } catch (error) {
+      if (countErrors && error instanceof FormulaError && recoverableErrors.has(error.code)) return [error.code];
+      throw error;
+    }
+  }
+  function countable(value: Value): Value {
+    return typeof value === "string" && recoverableErrors.has(value) ? value : checked(value);
+  }
+  function evaluate(node: Node, current: string, depth: number, countErrors = false): Value | Value[] {
     if (++steps > SPREADSHEET_LIMITS.evaluationSteps || depth > SPREADSHEET_LIMITS.referenceDepth) return fail("#LIMIT!");
     switch (node.type) {
       case "value": return node.value;
       case "error": return fail(node.code);
-      case "reference": { const sheet = target(node.reference, current); return sheet ? checked(get(sheet.id, node.reference.address, depth)) : fail("#REF!"); }
+      case "reference": {
+        const sheet = target(node.reference, current);
+        if (!sheet) return fail("#REF!");
+        const value = get(sheet.id, node.reference.address, depth);
+        return countErrors ? countable(value) : checked(value);
+      }
       case "range": {
         const sheet = target(node.first, current), endSheet = target(node.last, sheet?.id ?? current);
         const first = parseCellAddress(node.first.address), last = parseCellAddress(node.last.address);
@@ -181,7 +234,10 @@ export function calculateWorkbook(workbook: SpreadsheetWorkbook): Record<string,
           if (++steps > SPREADSHEET_LIMITS.evaluationSteps) return fail("#LIMIT!");
           const address = cellAddress(row, column);
           // Blank cells do not contribute to COUNT or the denominator of AVERAGE.
-          if (sheet.cells[address]?.value) values.push(checked(get(sheet.id, address, depth)));
+          if (sheet.cells[address]?.value) {
+            const value = get(sheet.id, address, depth);
+            values.push(countErrors ? countable(value) : checked(value));
+          }
         }
         return values;
       }
@@ -209,22 +265,57 @@ export function calculateWorkbook(workbook: SpreadsheetWorkbook): Record<string,
           node.operator === "*" ? a * b : node.operator === "/" ? a / b : a ** b);
       }
       case "call": {
+        if (!functionNames.has(node.name)) return fail("#NAME?");
         if (node.name === "IF") {
           if (node.args.length < 2 || node.args.length > 3) return fail("#VALUE!");
           const condition = scalar(node.args[0], current, depth + 1);
           const branch = number(condition) ? node.args[1] : node.args[2];
           return branch ? scalar(branch, current, depth + 1) : false;
         }
-        if (!["SUM", "AVERAGE", "MIN", "MAX", "COUNT"].includes(node.name)) return fail("#NAME?");
-        const values = node.args.flatMap(arg => {
-          if (arg.type === "reference") {
-            const sheet = target(arg.reference, current), position = parseCellAddress(arg.reference.address);
-            if (sheet && position && position.row < sheet.rowCount && position.column < sheet.columnCount &&
-              !sheet.cells[cellAddress(position.row, position.column)]?.value) return [];
+        if (node.name === "IFERROR") {
+          if (node.args.length !== 2) return fail("#VALUE!");
+          try { return textScalar(node.args[0], current, depth + 1); }
+          catch (error) {
+            if (!(error instanceof FormulaError) || !recoverableErrors.has(error.code)) throw error;
+            return textScalar(node.args[1], current, depth + 1);
           }
-          return evaluate(arg, current, depth + 1);
-        });
-        values.forEach(checked);
+        }
+        if (["ROUND", "ABS", "NOT", "LEN"].includes(node.name)) {
+          if (node.args.length !== (node.name === "ROUND" ? 2 : 1)) return fail("#VALUE!");
+          if (node.name === "LEN") {
+            const value = text(textScalar(node.args[0], current, depth + 1));
+            let length = 0;
+            for (let index = 0; index < value.length; length++) index += value.codePointAt(index)! > 0xffff ? 2 : 1;
+            return length;
+          }
+          const value = scalar(node.args[0], current, depth + 1);
+          if (node.name === "NOT") return !logical(value);
+          const numericValue = number(value);
+          return node.name === "ABS" ? Math.abs(numericValue) : round(numericValue, number(scalar(node.args[1], current, depth + 1)));
+        }
+        if (["COUNTA", "AND", "OR", "CONCAT"].includes(node.name)) {
+          if (!node.args.length) return fail("#VALUE!");
+          let count = 0, truth = node.name === "AND", joined = "";
+          for (const argument of node.args) {
+            const referenced = argument.type === "reference" || argument.type === "range";
+            for (const value of argumentValues(argument, current, depth + 1, node.name === "COUNTA")) {
+              if (node.name === "COUNTA") { count++; continue; }
+              if (node.name === "CONCAT") {
+                const next = text(value);
+                if (joined.length + next.length > SPREADSHEET_LIMITS.cellLength) return fail("#LIMIT!");
+                joined += next;
+              } else if (!referenced || typeof value !== "string") {
+                const condition = logical(value);
+                truth = node.name === "AND" ? truth && condition : truth || condition;
+                count++;
+              }
+            }
+          }
+          if (node.name === "COUNTA") return count;
+          if (node.name === "CONCAT") return joined;
+          return count ? truth : fail("#VALUE!");
+        }
+        const values = node.args.flatMap(arg => argumentValues(arg, current, depth + 1));
         const numbers = values.filter((value): value is number => typeof value === "number");
         if (node.name === "COUNT") return numbers.length;
         if (node.name === "AVERAGE" && !numbers.length) return fail("#DIV/0!");

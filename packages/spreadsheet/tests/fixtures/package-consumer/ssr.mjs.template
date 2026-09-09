@@ -7,7 +7,9 @@ import Spreadsheet, { Spreadsheet as NamedSpreadsheet, createWorkbook, setCellVa
 assert.equal(Spreadsheet, NamedSpreadsheet);
 assert.equal(typeof window, "undefined");
 const workbook = { sheets: [{ id: "sheet-consumer", name: "Consumer sheet", rowCount: 6, columnCount: 4,
-  cells: { A1: { value: "Spreadsheet consumer cell" }, B1: { value: "4" }, C1: { value: "=SUM(B1,6)" } } }] };
+  cells: { A1: { value: "Spreadsheet consumer cell" }, B1: { value: "4" }, C1: { value: "=SUM(B1,6)" },
+    A2: { value: '=ROUND(1.005,2)' }, B2: { value: '=IFERROR(1/0,"Ready")' },
+    C2: { value: '=CONCAT("Like", "X")' } } }] };
 assert.equal(calculateWorkbook(workbook)["sheet-consumer"].C1, 10);
 const blank = createWorkbook();
 assert.equal(setCellValue(blank, blank.sheets[0].id, "A1", "7").sheets[0].cells.A1.value, "7");
@@ -30,6 +32,11 @@ const restored = parseWorkbook(serializeWorkbook(annotated));
 assert.equal(restored.schemaVersion, 1);
 assert.equal(restored.sheets[0].drawings[0].text, "JSON persisted note");
 assert.equal(restored.sheets[0].comments.A1.text, "Reviewed comment");
+assert.equal(restored.sheets[0].cells.A2.value, '=ROUND(1.005,2)');
+assert.equal(calculateWorkbook(restored)["sheet-consumer"].A2, 1.01);
 const restoredMarkup = renderToStaticMarkup(createElement(Spreadsheet, { initialWorkbook: restored, style: { height: 360 } }));
 assert.match(restoredMarkup, /JSON persisted note/);
+assert.match(restoredMarkup, /aria-label="A2 1\.01"/);
+assert.match(restoredMarkup, /aria-label="B2 Ready"/);
+assert.match(restoredMarkup, /aria-label="C2 LikeX"/);
 console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

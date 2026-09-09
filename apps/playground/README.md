@@ -5,7 +5,7 @@ ExplorerとSpreadsheetの操作・見た目を確認するVite + Reactのデモ�
 | パス | デモ |
 | --- | --- |
 | `/` | Explorer |
-| `/spreadsheet` | Spreadsheet。売上計画と経費の2シートで編集・数式・書式を確認できます。 |
+| `/spreadsheet` | Spreadsheet。売上計画・経費・挿入サンプル・関数サンプルの4シートで編集・数式・書式・挿入を確認できます。 |
 
 リポジトリのルートで依存関係をインストールした後、次のコマンドで起動します。
 

@@ -6,6 +6,7 @@ import type { useSpreadsheetClipboard } from "../state/use-spreadsheet-clipboard
 import { Command, Icon } from "./spreadsheet-controls";
 import { useId, useRef, useState } from "react";
 import { SpreadsheetInsertToolbar } from "./spreadsheet-insert-toolbar";
+import { SpreadsheetFunctionPicker } from "./spreadsheet-function-picker";
 
 type ToolbarProps = { controller: SpreadsheetController; clipboard: ReturnType<typeof useSpreadsheetClipboard> };
 
@@ -64,6 +65,7 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
       <Command label="元に戻す" disabled={c.disabled || !c.canUndo} onClick={c.undo}><Icon name="undo" /></Command>
       <Command label="やり直す" disabled={c.disabled || !c.canRedo} onClick={c.redo}><Icon name="redo" /></Command>
     </div>}
+    <SpreadsheetFunctionPicker controller={c} />
     {c.features.formatting && !c.readOnly && <>
       <div className="lxs-tool-group">
         <Command label="太字" aria-pressed={!!format?.bold} disabled={cellDisabled} onClick={() => formatSelection({ bold: !format?.bold })}><strong>B</strong></Command>
