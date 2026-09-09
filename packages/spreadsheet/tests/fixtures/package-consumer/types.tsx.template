@@ -5,7 +5,9 @@ import Spreadsheet, {
   type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps,
   type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSelectionRange, type SpreadsheetSaveHandler,
   type SpreadsheetDrawing, type SpreadsheetMergedRange,
+  prepareSpreadsheetImage, type SpreadsheetHandle, type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot,
 } from "__LIBRARY_IMPORT__";
+import { createRef } from "react";
 
 const workbook: SpreadsheetWorkbook = createWorkbook();
 const sheet: SpreadsheetSheet = workbook.sheets[0];
@@ -72,3 +74,23 @@ mergedRange.bottom = 5;
 // @ts-expect-error Merge collections are readonly.
 merged.sheets[0].merges?.push(mergedRange);
 void separated;
+
+const apiRef = createRef<SpreadsheetHandle>();
+const apiView = <Spreadsheet ref={apiRef} initialWorkbook={workbook} onSave={save} />;
+function usePublicCommands(api: SpreadsheetHandle, source: Blob) {
+  const commands: readonly SpreadsheetCommand[] = [
+    { type: "cells.set", sheetId: sheet.id, values: { A1: "10" } },
+    { type: "shapes.insert", sheetId: sheet.id, shape: "ellipse", anchor: { row: 2, column: 1 }, width: 160, height: 80 },
+  ];
+  const result = api.batch(commands);
+  if (!result.ok) { const code: string = result.code; void code; }
+  const snapshot: SpreadsheetWorkbookSnapshot = api.getWorkbook();
+  // @ts-expect-error The returned draft cannot be mutated through the handle.
+  snapshot.sheets[0].cells.A1.value = "changed";
+  // @ts-expect-error A command's sheet target is required.
+  api.execute({ type: "cells.set", values: { A1: "10" } });
+  // @ts-expect-error Shape patches cannot change their identity.
+  api.execute({ type: "shapes.update", sheetId: sheet.id, drawingId: "box", patch: { id: "wrong" } });
+  return prepareSpreadsheetImage(source, { name: "image.png" });
+}
+void [apiView, usePublicCommands];

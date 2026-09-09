@@ -36,6 +36,22 @@ test('image reader returns a JSON resource with exact bytes and releases its tem
   assert.ok(!Object.values(resource).some(value => value instanceof Blob));
 });
 
+test('Blob input supports an explicit name and File input keeps or overrides its name', async t => {
+  const dom = browser(t);
+  const blob = new Blob([png], { type: 'image/png' });
+  assert.equal((await readImageResource(blob)).name, 'image');
+  assert.equal((await readImageResource(blob, { name: 'downloaded.png' })).name, 'downloaded.png');
+  assert.equal((await readImageResource(imageFile(), { name: 'renamed.png' })).name, 'renamed.png');
+  assert.deepEqual(dom.revoked, dom.created);
+});
+
+test('invalid sources and names fail before decoding', async t => {
+  const dom = browser(t);
+  for (const source of [null, undefined, 'https://example.invalid/image.png', {}]) await assert.rejects(readImageResource(source), /File または Blob/);
+  await assert.rejects(readImageResource(imageFile(), { name: 'x'.repeat(1001) }), /名前/);
+  assert.equal(dom.created.length, 0);
+});
+
 test('empty, oversized, unsupported, and mismatched input is rejected before browser decode', async t => {
   const dom = browser(t);
   for (const file of [imageFile(new Uint8Array()), imageFile(new Uint8Array(5 * 1024 * 1024 + 1)),

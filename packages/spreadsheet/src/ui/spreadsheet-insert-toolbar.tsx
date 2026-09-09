@@ -1,7 +1,8 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
-import { addDrawing, insertImage, type SpreadsheetDrawing, type SpreadsheetShapeDrawing } from "../model";
+import type { SpreadsheetShapeDrawing } from "../model";
+import type { SpreadsheetCommand } from "../api/types";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { readImageResource } from "../state/read-image";
 import { Command, Icon } from "./spreadsheet-controls";
@@ -9,8 +10,9 @@ import { Command, Icon } from "./spreadsheet-controls";
 type ImageRequest = { abort: AbortController; workbook: SpreadsheetController["workbook"]; selection: SpreadsheetController["selection"]; sheetId: string };
 function acceptsImage(c: SpreadsheetController, request: ImageRequest) {
   // Completion selects the image, so it must not close a newer unsaved editor.
-  return !c.disabled && !c.editing && !c.pendingObjectEdit && c.features.images && c.workbook === request.workbook && c.selection === request.selection &&
-    c.activeSheet.id === request.sheetId && c.workbook.sheets.some(sheet => sheet.id === request.sheetId);
+  const workbook = c.getWorkbook();
+  return !c.disabled && !c.editing && !c.pendingObjectEdit && c.features.images && workbook === request.workbook && c.selection === request.selection &&
+    c.activeSheet.id === request.sheetId && workbook.sheets.some(sheet => sheet.id === request.sheetId);
 }
 
 export function SpreadsheetInsertToolbar({ controller: c }: { controller: SpreadsheetController }) {
@@ -26,39 +28,29 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
     return () => { mounted.current = false; pending.current?.abort.abort(); };
   }, []);
   const anchor = () => ({ ...latest.current.selection.focus, offsetX: 0, offsetY: 0 });
-  const insert = (drawing: SpreadsheetDrawing, feature: "shapes" | "textBoxes") => {
+  const insert = (command: Extract<SpreadsheetCommand, { type: "shapes.insert" | "textBoxes.insert" }>, feature: "shapes" | "textBoxes") => {
     const current = latest.current;
     if (current.disabled || !current.features[feature] || !current.commitEdit()) return;
-    if (current.apply(workbook => addDrawing(workbook, current.activeSheet.id, drawing))) current.selectDrawing(drawing.id);
+    const result = current.executeCommand(command);
+    if (result.ok && result.results[0]?.drawingId) current.selectDrawing(result.results[0].drawingId);
   };
-  const shape = (kind: SpreadsheetShapeDrawing["shape"]) => insert({ id: crypto.randomUUID(), type: "shape", shape: kind,
-    anchor: anchor(), width: 160, height: kind === "line" || kind === "arrow" ? 72 : 100,
-    fill: kind === "line" || kind === "arrow" ? "transparent" : "#e8f3ec", stroke: "#217346", strokeWidth: 2 }, "shapes");
+  const shape = (kind: SpreadsheetShapeDrawing["shape"]) => insert({ type: "shapes.insert", sheetId: latest.current.activeSheet.id, shape: kind,
+    anchor: anchor() }, "shapes");
   const upload = async (file: File) => {
     const current = latest.current;
     if (current.disabled || !current.features.images || !current.commitEdit()) return;
     pending.current?.abort.abort();
-    const request: ImageRequest = { abort: new AbortController(), workbook: current.workbook, selection: current.selection, sheetId: current.activeSheet.id };
+    const request: ImageRequest = { abort: new AbortController(), workbook: current.getWorkbook(), selection: current.selection, sheetId: current.activeSheet.id };
     pending.current = request;
     setLoading(true);
     try {
       const resource = await readImageResource(file, { signal: request.abort.signal });
       const live = latest.current;
+      // acceptsImage reads the synchronous draft, including edits before the next React render.
       if (!mounted.current || request.abort.signal.aborted || !acceptsImage(live, request)) return;
-      const resourceId = crypto.randomUUID(), id = crypto.randomUUID();
-      const scale = Math.min(1, 320 / resource.width, 240 / resource.height);
-      const drawing = { id, type: "image" as const, resourceId, alt: resource.name,
-        anchor: { ...request.selection.focus, offsetX: 0, offsetY: 0 }, width: Math.max(1, Math.round(resource.width * scale)), height: Math.max(1, Math.round(resource.height * scale)) };
-      let inserted = false;
-      live.apply(workbook => {
-        // apply checks the live save/read-only guard; this identity check also
-        // rejects a same-tick edit before the next React render reaches the ref.
-        if (workbook !== request.workbook || !acceptsImage(latest.current, request)) return workbook;
-        const result = insertImage(workbook, request.sheetId, resourceId, resource, drawing);
-        inserted = true;
-        return result;
-      });
-      if (inserted) live.selectDrawing(id);
+      const result = live.executeCommand({ type: "images.insert", sheetId: request.sheetId, resource,
+        anchor: { ...request.selection.focus, offsetX: 0, offsetY: 0 } });
+      if (result.ok && result.results[0]?.drawingId) live.selectDrawing(result.results[0].drawingId);
     } catch (cause) {
       if (mounted.current && !request.abort.signal.aborted && acceptsImage(latest.current, request)) latest.current.reportError(cause);
     } finally {
@@ -82,8 +74,7 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
       }}><option value="" disabled>図形</option><option value="rectangle">長方形</option><option value="ellipse">楕円</option><option value="line">直線</option><option value="arrow">矢印</option></select>
     </div>}
     {!c.readOnly && c.features.textBoxes && <div className="lxs-tool-group">
-      <Command label="テキストボックスを挿入" className="lxs-insert-command" disabled={c.disabled} onClick={() => insert({ id: crypto.randomUUID(), type: "text", anchor: anchor(),
-        width: 200, height: 80, text: "テキスト", fontSize: 16, color: "currentColor", background: "transparent" }, "textBoxes")}><Icon name="text" /><span>テキストボックス</span></Command>
+      <Command label="テキストボックスを挿入" className="lxs-insert-command" disabled={c.disabled} onClick={() => insert({ type: "textBoxes.insert", sheetId: latest.current.activeSheet.id, anchor: anchor() }, "textBoxes")}><Icon name="text" /><span>テキストボックス</span></Command>
     </div>}
     {!c.readOnly && c.features.comments && <div className="lxs-tool-group">
       <Command label="コメントを挿入" className="lxs-insert-command" disabled={c.disabled} onClick={() => {

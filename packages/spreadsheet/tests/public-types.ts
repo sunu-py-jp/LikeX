@@ -11,7 +11,10 @@ import type {
   SpreadsheetDrawingPatch,
   SpreadsheetImageResource,
   SpreadsheetMergedRange,
+  SpreadsheetCommand, SpreadsheetHandle, SpreadsheetCommandResult, SpreadsheetWorkbookSnapshot,
 } from "../src";
+import { createRef } from "react";
+import { prepareSpreadsheetImage } from "../src";
 
 const cell: SpreadsheetCell = { value: "=SUM(A1:A10)", format: { numberFormat: "currency", bold: true } };
 const workbook: SpreadsheetWorkbook = { sheets: [{ id: "main", name: "Sheet1", rowCount: 100, columnCount: 26, cells: { B1: cell } }] };
@@ -67,3 +70,35 @@ mergedWorkbook.sheets[0].merges?.push(mergedRange);
 // @ts-expect-error Feature flags are strict booleans.
 const invalidMergeFeature: SpreadsheetFeatures = { mergeCells: "yes" };
 void [mergedWorkbook, invalidMergeFeature];
+
+const apiRef = createRef<SpreadsheetHandle>();
+const apiProps: SpreadsheetProps = { ref: apiRef, onSave: save };
+const commands: readonly SpreadsheetCommand[] = [
+  { type: "cells.set", sheetId: "main", values: { A1: "1200", B1: "=A1*2" } },
+  { type: "rows.insert", sheetId: "main", index: 4, count: 2 },
+  { type: "shapes.insert", sheetId: "main", shape: "rectangle", anchor: { row: 4, column: 1 } },
+];
+function inspectApi(api: SpreadsheetHandle) {
+  const result: SpreadsheetCommandResult = api.batch(commands);
+  if (result.ok) { void result.changed; void result.results[0]?.drawingId; }
+  else { void result.code; void result.commandIndex; }
+  const snapshot: SpreadsheetWorkbookSnapshot = api.getWorkbook();
+  // @ts-expect-error Snapshot cells are deeply readonly.
+  snapshot.sheets[0].cells.A1.value = "changed";
+  // @ts-expect-error Host operations cannot mutate sheet metadata through a snapshot.
+  snapshot.sheets[0].name = "changed";
+  // @ts-expect-error Each command requires its own target and payload.
+  api.execute({ type: "cells.set", values: { A1: "1" } });
+  // @ts-expect-error Commands are data, not arbitrary workbook updater functions.
+  api.batch(() => []);
+  // @ts-expect-error Numeric cell input must use the existing string representation.
+  api.execute({ type: "cells.set", sheetId: "main", values: { A1: 42 } });
+  // @ts-expect-error Image patches cannot accept text-box fields.
+  api.execute({ type: "images.update", sheetId: "main", drawingId: "logo", patch: { text: "wrong" } });
+  // @ts-expect-error Stable object IDs cannot be changed by a patch.
+  api.execute({ type: "shapes.update", sheetId: "main", drawingId: "box", patch: { id: "other" } });
+}
+const prepareBlob = (blob: Blob, signal: AbortSignal): Promise<SpreadsheetImageResource> => prepareSpreadsheetImage(blob, { name: "logo.png", signal });
+// @ts-expect-error Image retrieval and authentication belong to the host, not a URL-taking helper.
+const invalidImageSource = () => prepareSpreadsheetImage("https://example.invalid/logo.png");
+void [apiProps, inspectApi, prepareBlob, invalidImageSource];

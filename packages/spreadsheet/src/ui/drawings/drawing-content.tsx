@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useLayoutEffect, useRef, useState } from "react";
-import { updateDrawing, SPREADSHEET_LIMITS, type SpreadsheetDrawing } from "../../model";
+import { SPREADSHEET_LIMITS, type SpreadsheetDrawing } from "../../model";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 import { useObjectEditPending } from "../../state/use-object-edit-pending";
 
@@ -26,7 +26,7 @@ export function DrawingTextEditor({ drawing, controller: c, onDone }: { drawing:
   const commit = () => {
     if (cancelled.current) return true;
     if (c.disabled || !c.features.textBoxes || drawing !== starting.current) { onDone(); return false; }
-    const accepted = text === drawing.text || c.apply(wb => updateDrawing(wb, c.activeSheet.id, drawing.id, { text }));
+    const accepted = text === drawing.text || c.executeCommand({ type: "textBoxes.update", sheetId: c.activeSheet.id, drawingId: drawing.id, patch: { text } }).ok;
     if (accepted) { markPending(false); onDone(); }
     return accepted;
   };

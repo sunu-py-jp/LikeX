@@ -1,5 +1,6 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, Ref } from "react";
 import type { SpreadsheetCellPosition, SpreadsheetWorkbook } from "./model/types";
+import type { SpreadsheetHandle } from "./api/types";
 
 export type SpreadsheetColorMode = "light" | "dark" | "system";
 
@@ -40,6 +41,8 @@ export type SpreadsheetSaveHandler = (
 ) => void | SpreadsheetWorkbook | Promise<void | SpreadsheetWorkbook>;
 
 export type SpreadsheetProps = {
+  /** Typed operations on the mounted draft. Does not trigger persistence. */
+  ref?: Ref<SpreadsheetHandle>;
   /** Read once at mount. Change the React key to open another workbook. */
   initialWorkbook?: SpreadsheetWorkbook;
   /** Observes draft changes. This notification does not perform persistence. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { cellAddress, deleteColumns, deleteRows, formatCells, insertColumns, insertRows, parseCellAddress } from "../model";
+import { cellAddress, parseCellAddress, type SpreadsheetCellFormat } from "../model";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { selectedAddresses, selectionBounds } from "../state/selection";
 import { isMultiRangeSelection } from "../state/selection";
@@ -48,19 +48,21 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
   const multiple = isMultiRangeSelection(c.selection);
   const singleRangeHint = multiple ? "1つの連続した範囲を選択してください" : undefined;
   const format = c.activeSheet.cells[cellAddress(c.selection.focus.row, c.selection.focus.column)]?.format;
-  const formatSelection = (value: Parameters<typeof formatCells>[3]) => {
+  const formatSelection = (value: Partial<SpreadsheetCellFormat>) => {
     if (cellDisabled || !c.commitEdit()) return;
-    c.apply(wb => formatCells(wb, c.activeSheet.id, selectedAddresses(c.selection), value));
+    try { c.executeCommand({ type: "cells.format", sheetId: c.activeSheet.id, addresses: selectedAddresses(c.selection), format: value }); }
+    catch (cause) { c.reportError(cause); }
   };
   const structural = (action: string) => {
     if (cellDisabled) return;
     if (multiple) { c.reportError(new Error("行・列の挿入や削除は、1つの連続した範囲を選択してください")); return; }
     if (!c.commitEdit()) return;
     const { top, left, bottom, right } = selectionBounds(c.selection);
-    c.apply(wb => action === "insert-row" ? insertRows(wb, c.activeSheet.id, top)
-      : action === "insert-column" ? insertColumns(wb, c.activeSheet.id, left)
-        : action === "delete-row" ? deleteRows(wb, c.activeSheet.id, top, bottom - top + 1)
-          : deleteColumns(wb, c.activeSheet.id, left, right - left + 1));
+    const sheetId = c.activeSheet.id;
+    c.executeCommand(action === "insert-row" ? { type: "rows.insert", sheetId, index: top }
+      : action === "insert-column" ? { type: "columns.insert", sheetId, index: left }
+        : action === "delete-row" ? { type: "rows.delete", sheetId, index: top, count: bottom - top + 1 }
+          : { type: "columns.delete", sheetId, index: left, count: right - left + 1 });
   };
   return <div className="lxs-ribbon" role="toolbar" aria-label="シートの編集">
     {c.features.clipboard && <div className="lxs-tool-group">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useLayoutEffect, useRef, useState } from "react";
-import { cellAddress, setCellComment, SPREADSHEET_LIMITS, type SpreadsheetComment } from "../model";
+import { cellAddress, SPREADSHEET_LIMITS, type SpreadsheetComment } from "../model";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { useObjectEditPending } from "../state/use-object-edit-pending";
 import { Command, Icon } from "./spreadsheet-controls";
@@ -26,15 +26,14 @@ function CommentsPanel({ controller: c }: { controller: SpreadsheetController })
 function CommentEditor({ controller: c, address, comment }: { controller: SpreadsheetController; address: string; comment?: SpreadsheetComment }) {
   const inputId = useId();
   const [text, setText] = useState(comment?.text ?? "");
-  const [identity] = useState(() => comment?.id ?? globalThis.crypto.randomUUID());
   const starting = useRef(comment);
   const cancelled = useRef(false);
   const markPending = useObjectEditPending(c);
   const commit = () => {
     if (cancelled.current) return true;
     if (c.disabled || !c.features.comments || comment !== starting.current) return false;
-    const accepted = text === (comment?.text ?? "") || c.apply(wb => setCellComment(wb, c.activeSheet.id, address,
-      text.trim() ? { id: identity, text, ...(comment?.author ? { author: comment.author } : {}) } : null));
+    const accepted = text === (comment?.text ?? "") || c.executeCommand({ type: "comments.set", sheetId: c.activeSheet.id, address,
+      comment: text.trim() ? { text, ...(comment?.author ? { author: comment.author } : {}) } : null }).ok;
     if (accepted) markPending(false);
     return accepted;
   };
@@ -52,7 +51,7 @@ function CommentEditor({ controller: c, address, comment }: { controller: Spread
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") { event.preventDefault(); if (commit()) void c.save(); }
       }} />
     <div className="lxs-comment-actions"><button type="button" className="lxs-comment-apply" onClick={commit}>適用</button>
-      {comment && <button type="button" className="lxs-object-delete" onClick={() => { cancelled.current = true; if (c.apply(wb => setCellComment(wb, c.activeSheet.id, address, null))) { markPending(false); setText(""); } }}>削除</button>}
+      {comment && <button type="button" className="lxs-object-delete" onClick={() => { cancelled.current = true; if (c.executeCommand({ type: "comments.set", sheetId: c.activeSheet.id, address, comment: null }).ok) { markPending(false); setText(""); } }}>削除</button>}
     </div>
     <p className="lxs-object-hint">セルを選択すると、そのセルのコメントを表示します。変更はブックの保存時に保存されます。</p>
   </>;

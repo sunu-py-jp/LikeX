@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cellAddress, mergeCells, mergedContentWouldBeDiscarded, rangesIntersect, unmergeCells, type SpreadsheetMergedRange } from "../model";
+import { cellAddress, mergedContentWouldBeDiscarded, rangesIntersect, type SpreadsheetMergedRange } from "../model";
 import type { SpreadsheetController, Workbook } from "../state/use-spreadsheet";
 import { MAX_SELECTION_CELLS, selectionBounds } from "../state/selection";
 import { isMultiRangeSelection } from "../state/selection";
@@ -21,23 +21,22 @@ export function SpreadsheetMergeToolbar({ controller: c }: { controller: Spreads
   const requestMerge = () => {
     if (!c.features.mergeCells || mergeDisabled || !c.commitEdit()) return;
     // Read the latest draft after committing an in-progress cell edit.
-    c.apply(workbook => {
-      const sheet = workbook.sheets.find(item => item.id === c.activeSheet.id)!;
-      if (mergedContentWouldBeDiscarded(sheet, bounds)) {
-        setPending({ workbook, sheetId: sheet.id, range: bounds });
-        return workbook;
-      }
-      return mergeCells(workbook, sheet.id, bounds);
-    });
+    const workbook = c.getWorkbook();
+    const sheet = workbook.sheets.find(item => item.id === c.activeSheet.id);
+    if (!sheet) return;
+    if (mergedContentWouldBeDiscarded(sheet, bounds)) setPending({ workbook, sheetId: sheet.id, range: bounds });
+    else c.executeCommand({ type: "cells.merge", sheetId: sheet.id, range: bounds });
   };
   const confirmMerge = () => {
     if (!pending || !c.features.mergeCells || c.disabled) return;
-    const accepted = c.apply(workbook => {
-      if (workbook !== pending.workbook) throw new Error("確認中にブックが変更されました。範囲を選択してもう一度結合してください");
-      return mergeCells(workbook, pending.sheetId, pending.range, { discardValues: true });
-    });
+    if (c.getWorkbook() !== pending.workbook) {
+      c.reportError(new Error("確認中にブックが変更されました。範囲を選択してもう一度結合してください"));
+      setPending(null);
+      return;
+    }
+    const result = c.executeCommand({ type: "cells.merge", sheetId: pending.sheetId, range: pending.range, discardContent: true });
     setPending(null);
-    if (accepted) c.requestGridFocus();
+    if (result.ok) c.requestGridFocus();
   };
   if (!c.features.mergeCells || c.readOnly) return null;
   return <>
@@ -45,7 +44,7 @@ export function SpreadsheetMergeToolbar({ controller: c }: { controller: Spreads
       <Command label="セルを結合" title={hint} disabled={mergeDisabled} onClick={requestMerge}><Icon name="merge" /></Command>
       <Command label="結合を解除" title={multiple ? hint : undefined} disabled={disabled || !intersects} onClick={() => {
         if (!c.features.mergeCells || disabled || !intersects || !c.commitEdit()) return;
-        if (c.apply(workbook => unmergeCells(workbook, c.activeSheet.id, bounds))) c.requestGridFocus();
+        if (c.executeCommand({ type: "cells.unmerge", sheetId: c.activeSheet.id, range: bounds }).ok) c.requestGridFocus();
       }}><Icon name="unmerge" /></Command>
     </div>
     {pending && <SpreadsheetConfirmDialog title="セルを結合しますか？" confirmLabel="結合する" disabled={c.disabled} onConfirm={confirmMerge} onCancel={() => setPending(null)}>

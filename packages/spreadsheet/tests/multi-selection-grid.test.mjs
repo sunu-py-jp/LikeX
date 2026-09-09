@@ -215,3 +215,65 @@ test('selection commands report rejection without replacing the previous selecti
   await act(async () => { assert.equal(ui.c.select({ row: 7, column: 7 }), true); });
   assert.deepEqual(ui.selected(), ['H8']);
 });
+
+function resizePointer(clientX) {
+  return event({ clientX, currentTarget: { setPointerCapture() {}, releasePointerCapture() {} } });
+}
+
+test('column resize previews commit once, and cancellation leaves the workbook unchanged', async t => {
+  const ui = await mount(t);
+  const handle = () => ui.root.findByProps({ role: 'separator', 'aria-label': 'B列の幅' });
+  const before = ui.c.getWorkbook();
+  await act(async () => handle().props.onPointerDown(resizePointer(200)));
+  await act(async () => handle().props.onPointerMove(resizePointer(250)));
+  assert.equal(ui.c.getWorkbook(), before);
+  assert.equal(handle().props['aria-valuenow'], 150);
+  await act(async () => {
+    handle().props.onPointerMove(resizePointer(270));
+    handle().props.onPointerUp(resizePointer(270));
+  });
+  assert.equal(ui.c.activeSheet.columnWidths[1], 170, 'release uses the latest preview even in the same tick');
+  await act(async () => ui.c.undo());
+  assert.equal(ui.c.getWorkbook(), before);
+  await act(async () => handle().props.onPointerDown(resizePointer(200)));
+  await act(async () => handle().props.onPointerMove(resizePointer(250)));
+  await act(async () => handle().props.onPointerCancel());
+  await act(async () => handle().props.onPointerUp(resizePointer(250)));
+  assert.equal(ui.c.getWorkbook(), before);
+});
+
+test('external column insertions and deletions invalidate a pending resize in the same tick', async t => {
+  for (const type of ['columns.insert', 'columns.delete']) {
+    const ui = await mount(t);
+    const handle = () => ui.root.findByProps({ role: 'separator', 'aria-label': 'B列の幅' });
+    const before = ui.c.getWorkbook();
+    await act(async () => handle().props.onPointerDown(resizePointer(200)));
+    await act(async () => handle().props.onPointerMove(resizePointer(260)));
+    let externalSnapshot;
+    await act(async () => {
+      assert.equal(ui.c.externalExecute({ type, sheetId: 'one', index: 0 }).ok, true);
+      externalSnapshot = ui.c.getWorkbook();
+      handle().props.onPointerUp(resizePointer(260));
+      assert.equal(ui.c.getWorkbook(), externalSnapshot, type);
+    });
+    assert.equal(ui.c.activeSheet.columnWidths?.[1], undefined);
+    assert.equal(handle().props['aria-valuenow'], 100, 'stale preview is removed');
+    await act(async () => ui.c.undo());
+    assert.equal(ui.c.getWorkbook(), before, 'cancelled resize does not add an undo entry');
+  }
+});
+
+test('switching sheets discards the previous sheet column resize preview', async t => {
+  const ui = await mount(t, { initialWorkbook: { sheets: [
+    { id: 'one', name: 'Sheet1', rowCount: 8, columnCount: 8, cells: {} },
+    { id: 'two', name: 'Sheet2', rowCount: 8, columnCount: 8, cells: {}, columnWidths: { 1: 120 } },
+  ] } });
+  const handle = () => ui.root.findByProps({ role: 'separator', 'aria-label': 'B列の幅' });
+  const before = ui.c.getWorkbook();
+  await act(async () => handle().props.onPointerDown(resizePointer(200)));
+  await act(async () => handle().props.onPointerMove(resizePointer(260)));
+  await act(async () => ui.c.switchSheet('two'));
+  assert.equal(handle().props['aria-valuenow'], 120);
+  await act(async () => handle().props.onPointerUp(resizePointer(260)));
+  assert.equal(ui.c.getWorkbook(), before);
+});

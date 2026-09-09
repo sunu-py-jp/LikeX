@@ -38,6 +38,8 @@ export default function Budget() {
 
 ## 詳細ガイド
 
+`ref` 経由の `execute` / `batch` で、セル・行列・画像・図形などを外側から操作できます。[外部操作API](./src/docs/external-operations.md) に型、具体例、一括処理と保存のルールをまとめています。
+
 [利用ガイド](./src/docs/README.md) に、コピー導入、公開型、保存、機能設定と制約をまとめています。[基本15関数と数式](./src/docs/functions.md)、[挿入機能とJSONの具体例](./src/docs/insertions-and-json.md) も参照できます。コピー導入ではリポジトリの `packages/spreadsheet/src/` 全体を持ち出します。
 
 初版はExcelの完全互換ではありません。`.xlsx` 入出力、グラフ、ピボットテーブル、マクロは含みません。認証・認可・保存先との競合解決は利用側の責務です。現在は `private: true` / `UNLICENSED` であり、tarball作成は公開やライセンス付与を意味しません。

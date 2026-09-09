@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { cellAddress, deleteDrawing, updateDrawing, type SpreadsheetDrawing, type SpreadsheetDrawingPatch } from "../../model";
+import { cellAddress, type SpreadsheetDrawing, type SpreadsheetDrawingPatch } from "../../model";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 import { useObjectEditPending } from "../../state/use-object-edit-pending";
 import { Command, Icon } from "../spreadsheet-controls";
 import { drawingLabel, visibleDrawing } from "./drawing-helpers";
+import { updateDrawingFromUI } from "./drawing-commands";
 
 function PropertyField({ label, value, onCommit, controller: c, type = "text" }: { label: string; value: string | number; onCommit: (value: string) => boolean; controller: SpreadsheetController; type?: "text" | "number" }) {
   const [draft, setDraft] = useState<string | null>(null);
@@ -32,7 +33,7 @@ export function SpreadsheetDrawingInspector({ controller: c }: { controller: Spr
 }
 
 function DrawingInspectorSession({ controller: c, drawing }: { controller: SpreadsheetController; drawing: SpreadsheetDrawing }) {
-  const update = (patch: SpreadsheetDrawingPatch) => !c.disabled && c.apply(wb => updateDrawing(wb, c.activeSheet.id, drawing.id, patch));
+  const update = (patch: SpreadsheetDrawingPatch) => !c.disabled && updateDrawingFromUI(c, c.activeSheet.id, drawing, patch);
   return <aside className="lxs-drawing-inspector" aria-label="オブジェクトの設定" onCopy={event => event.stopPropagation()} onCut={event => event.stopPropagation()} onPaste={event => event.stopPropagation()} onKeyDown={event => { if ((event.target as HTMLElement).closest("input,textarea,select")) return; if (event.key === "Escape") { event.preventDefault(); c.selectDrawing(null); c.requestGridFocus(); } }}>
     <div className="lxs-object-heading"><strong>{drawingLabel(drawing)}</strong><Command label="オブジェクトの選択を解除" onClick={() => { c.selectDrawing(null); c.requestGridFocus(); }}><Icon name="close" /></Command></div>
     <p className="lxs-object-position">{cellAddress(drawing.anchor.row, drawing.anchor.column)} に配置</p>
@@ -50,6 +51,6 @@ function DrawingInspectorSession({ controller: c, drawing }: { controller: Sprea
       <label className="lxs-object-bold"><input type="checkbox" checked={!!drawing.bold} disabled={c.disabled} onChange={event => update({ bold: event.target.checked })} />太字</label>
       <p className="lxs-object-hint">ダブルクリックまたは Enter で文章を編集</p>
     </>}
-    {!c.readOnly && <button type="button" className="lxs-object-delete" disabled={c.disabled} onClick={() => { if (c.apply(wb => deleteDrawing(wb, c.activeSheet.id, drawing.id))) { c.selectDrawing(null); c.requestGridFocus(); } }}>オブジェクトを削除</button>}
+    {!c.readOnly && <button type="button" className="lxs-object-delete" disabled={c.disabled} onClick={() => { if (c.executeCommand({ type: "drawings.delete", sheetId: c.activeSheet.id, drawingId: drawing.id }).ok) { c.selectDrawing(null); c.requestGridFocus(); } }}>オブジェクトを削除</button>}
   </aside>;
 }

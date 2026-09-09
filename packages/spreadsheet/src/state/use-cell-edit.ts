@@ -49,5 +49,5 @@ export function useCellEdit({ activeSheet, selection, disabled, features, apply,
     catch (cause) { reportError(cause); }
   };
 
-  return { editing, beginEdit, cancelEdit, commitEdit, writeValues, clearCells };
+  return { editing, editingRef, beginEdit, cancelEdit, commitEdit, writeValues, clearCells };
 }

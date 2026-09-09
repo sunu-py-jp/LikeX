@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { addSheet, deleteSheet, renameSheet } from "../model";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { MAX_SELECTION_CELLS, selectedAddresses } from "../state/selection";
 import { selectionCellCount, selectionRanges } from "../state/selection";
@@ -24,7 +23,7 @@ export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetCo
   }, [c.selection, c.calculated, c.activeSheet.id]);
   const commitName = () => {
     if (!renaming) return;
-    if (c.apply(wb => renameSheet(wb, renaming.id, renaming.value))) setRenaming(null);
+    if (c.executeCommand({ type: "sheets.rename", sheetId: renaming.id, name: renaming.value }).ok) setRenaming(null);
   };
   return <>
     <footer className="lxs-footer">
@@ -37,12 +36,12 @@ export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetCo
         {!c.readOnly && <>
           <Command label="シートを追加" disabled={c.disabled} onClick={() => {
             if (!c.commitEdit()) return;
-            let id: string | undefined;
-            if (c.apply(wb => { const next = addSheet(wb); id = next.sheets.at(-1)?.id; return next; }) && id) c.switchSheet(id);
+            const result = c.executeCommand({ type: "sheets.add" });
+            if (result.ok && result.results[0]?.sheetId) c.switchSheet(result.results[0].sheetId);
           }}><Icon name="plus" /></Command>
           <select aria-label="シートの操作" className="lxs-sheet-menu" value="" disabled={c.disabled} onChange={event => {
             if (event.target.value === "rename") setRenaming({ id: c.activeSheet.id, value: c.activeSheet.name });
-            if (event.target.value === "delete" && c.commitEdit()) c.apply(wb => deleteSheet(wb, c.activeSheet.id));
+            if (event.target.value === "delete" && c.commitEdit()) c.executeCommand({ type: "sheets.delete", sheetId: c.activeSheet.id });
           }}><option value="" disabled>シート操作</option><option value="rename">名前を変更</option><option value="delete" disabled={c.workbook.sheets.length < 2}>{c.features.undoRedo ? "削除（元に戻す可）" : "削除"}</option></select>
         </>}
       </div> : <span className="lxs-sheet-label">{c.activeSheet.name}</span>}

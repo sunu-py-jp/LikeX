@@ -8,6 +8,7 @@ import type { Workbook, WorkbookOperation } from "./types";
 import { useCellEdit } from "./use-cell-edit";
 import { usePendingObjectEdits } from "./use-pending-object-edits";
 import { useSpreadsheetSelection } from "./use-spreadsheet-selection";
+import { useSpreadsheetCommands } from "./use-spreadsheet-commands";
 import { useWorkbookDraft } from "./use-workbook-draft";
 
 export { MAX_SELECTION_CELLS, MAX_SELECTION_RANGES, selectedAddresses, selectionBounds, selectionRanges, rangeBounds,
@@ -18,7 +19,7 @@ export { DEFAULT_ROW_HEIGHT as ROW_HEIGHT, DEFAULT_COLUMN_WIDTH as COLUMN_WIDTH 
 /** Coordinates independent draft, view selection, and edit sessions behind the stable controller API. */
 export function useSpreadsheet(props: SpreadsheetProps) {
   const features = resolveSpreadsheetFeatures(props.features);
-  const draft = useWorkbookDraft(props, features);
+  const draft = useWorkbookDraft(props);
   const view = useSpreadsheetSelection(draft.workbook, features, draft.reportError, draft.propsRef);
   const { selectionRef, setSelection } = view;
   const applyDraft = draft.apply;
@@ -27,6 +28,8 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const cellEdit = useCellEdit({ activeSheet: view.activeSheet, selection: view.selection, disabled: draft.disabled,
     features, apply, clearDrawingSelection: view.clearDrawingSelection, reportError: draft.reportError });
   const pending = usePendingObjectEdits();
+  const commands = useSpreadsheetCommands(draft, { selectionRef, setSelection,
+    editingRef: cellEdit.editingRef, pendingObjectEditRef: pending.pendingObjectEditRef });
   const calculated = useMemo(() => calculateWorkbook(draft.workbook), [draft.workbook]);
 
   const selectDrawing = (id: string | null) => {
@@ -54,6 +57,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     features, readOnly: draft.readOnly, disabled: draft.disabled, dirty: draft.dirty, saving: draft.saving,
     error: draft.error, setError: draft.setError, reportError: draft.reportError, apply,
     writeValues: cellEdit.writeValues, clearCells: cellEdit.clearCells, save,
+    ...commands,
     undo: () => draft.changeHistory("past", restoreHistoryView), redo: () => draft.changeHistory("future", restoreHistoryView),
     canUndo: draft.canUndo, canRedo: draft.canRedo };
 }

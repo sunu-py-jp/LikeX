@@ -32,10 +32,19 @@ function dimensions(blob: Blob, signal?: AbortSignal): Promise<{ width: number; 
   });
 }
 
+export type SpreadsheetImagePreparationOptions = Readonly<{
+  signal?: AbortSignal;
+  /** Defaults to the File's name, or "image" when reading a Blob. */
+  name?: string;
+}>;
+
 /** Only the returned JSON resource is stored in a workbook; the temporary object
  * URL is revoked on success, decode failure, and cancellation. */
-export async function readImageResource(file: File, { signal }: { signal?: AbortSignal } = {}): Promise<SpreadsheetImageResource> {
+export async function readImageResource(file: Blob, { signal, name }: SpreadsheetImagePreparationOptions = {}): Promise<SpreadsheetImageResource> {
   aborted(signal);
+  if (!file || typeof file.arrayBuffer !== "function" || !Number.isFinite(file.size)) throw new Error("画像の File または Blob を指定してください");
+  const resourceName = name ?? ("name" in file && typeof file.name === "string" ? file.name : "image");
+  if (typeof resourceName !== "string" || resourceName.length > 1000) throw new Error("画像の名前は1,000文字以内で指定してください");
   if (!file.size || file.size > SPREADSHEET_LIMITS.imageBytes) throw new Error("画像は空でない5 MiB以下のファイルを選んでください");
   if (file.type && !allowed.has(file.type)) throw new Error("PNG・JPEG・WebP・GIFの画像を選んでください");
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -56,5 +65,5 @@ export async function readImageResource(file: File, { signal }: { signal?: Abort
     throw new Error("画像の寸法とファイル内容が一致しません");
   let binary = "";
   for (let index = 0; index < bytes.length; index += 32_768) binary += String.fromCharCode(...bytes.subarray(index, index + 32_768));
-  return { name: file.name, mimeType, dataUrl: `data:${mimeType};base64,${btoa(binary)}`, width, height };
+  return { name: resourceName, mimeType, dataUrl: `data:${mimeType};base64,${btoa(binary)}`, width, height };
 }

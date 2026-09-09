@@ -9,6 +9,8 @@ Spreadsheetは、ブックを変更する純粋な処理、React上の編集状�
 ```mermaid
 flowchart TD
   Host[利用側: props・保存処理] --> Component[Spreadsheet: 組み立て]
+  Host --> Handle[api: 型付き外部操作]
+  Handle --> State
   Component --> UI[ui: 表示・入力イベント]
   Component --> State[state: 編集状態・操作の調整]
   UI --> State
@@ -25,6 +27,7 @@ flowchart TD
 
 | 場所 | 責務 |
 | --- | --- |
+| `api/types.ts`・`api/use-spreadsheet-handle.ts` | 公開コマンド型・結果型・読み取り専用snapshotと、安定したrefの接続 |
 | `model/types.ts` | 保存できるJSONの型と上限 |
 | `model/workbook.ts` | ブック操作の公開用export。実装は下記に分離 |
 | `model/workbook/normalize.ts`・`validation.ts`・`snapshot.ts` | 外部データの正規化、入力検証、不変なスナップショットの生成 |
@@ -34,6 +37,8 @@ flowchart TD
 | `model/formula.ts`・`function-definitions.ts` | 数式の評価と参照の変換、対応関数の定義 |
 | `model/serialization.ts` | JSONの読み書き |
 | `state/use-spreadsheet.ts` | 下記の状態を組み合わせ、UI用のコントローラーを提供 |
+| `state/commands/`・`state/use-spreadsheet-commands.ts` | GUIと外部APIで共有するコマンドの検証・準備と、1回のトランザクションへの反映 |
+| `state/read-image.ts` | File / Blobの画像検証とJSONリソースへの変換。`prepareSpreadsheetImage` として公開 |
 | `state/use-workbook-draft.ts` | 下書き、変更履歴、読み取り専用、保存と非同期応答 |
 | `state/use-spreadsheet-selection.ts`・`selection.ts` | 選択状態と、範囲の計算・検証 |
 | `state/use-cell-edit.ts` | 入力中の文字列、確定・キャンセル |
@@ -59,6 +64,8 @@ flowchart TD
 4. 成功した場合だけ履歴・ブック・選択を更新し、`onChange` で親へ通知する。
 
 途中で失敗した場合、ブックと履歴を部分的に更新しません。複数セルへの貼り付けや結合も、1つの操作として渡します。Undo/Redoはこの単位になります。
+
+外部APIとツールバーなどの明示コマンドは、`state/commands/` で全操作を準備し、同じ下書きトランザクションへ一度だけ渡します。外部APIは同期の最新参照を使って読み取り専用・保存中・未確定入力・再入を検証します。ブラウザでの画像準備はトランザクションの外で行い、コマンド自体は同期処理です。[外部操作API](./external-operations.md)に契約をまとめています。
 
 保存時はセル入力を先に確定し、コメントや図形に未確定の入力がないことを確認してから `onSave` を呼びます。通信・認証・競合解決は引き続き利用側が実装します。選択、入力途中の文字列、スクロール位置、コピー状態は保存するブックJSONに追加しません。
 

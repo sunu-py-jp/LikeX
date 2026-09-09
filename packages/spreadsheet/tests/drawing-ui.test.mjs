@@ -132,3 +132,30 @@ test('pointer selection flushes a focused comment before its editor is replaced'
   assert.equal(ui.c.activeSheet.comments.A1.text, 'kept on selection');
   assert.equal(ui.c.pendingObjectEdit, false);
 });
+
+test('external drawing updates invalidate move and resize previews before the next React render', async t => {
+  for (const kind of ['move', 'resize']) {
+    const ui = await mount(t);
+    await act(async () => ui.c.selectDrawing('shape'));
+    const pointerTarget = { ownerDocument: { activeElement: null }, closest: () => null, focus() {}, setPointerCapture() {}, hasPointerCapture: () => false, releasePointerCapture() {} };
+    const pointer = (x, y) => event({ button: 0, pointerId: 1, currentTarget: pointerTarget, clientX: x, clientY: y });
+    const target = () => kind === 'move' ? ui.drawing('shape') : ui.drawing('shape').findByProps({ className: 'lxs-drawing-resize' });
+    const before = ui.c.getWorkbook();
+    await act(async () => target().props.onPointerDown(pointer(70, 50)));
+    await act(async () => target().props.onPointerMove(pointer(160, 90)));
+    assert.equal(ui.c.getWorkbook(), before);
+    let externalSnapshot;
+    await act(async () => {
+      assert.equal(ui.c.externalExecute({ type: 'shapes.update', sheetId: 'one', drawingId: 'shape', patch: { anchor: { row: 4, column: 3 }, width: 240, height: 120 } }).ok, true);
+      externalSnapshot = ui.c.getWorkbook();
+      // Pointer release can share a tick with a host command, before props refresh.
+      target().props.onPointerUp(pointer(160, 90));
+      assert.equal(ui.c.getWorkbook(), externalSnapshot, kind);
+    });
+    assert.deepEqual(ui.c.activeSheet.drawings[0].anchor, { row: 4, column: 3, offsetX: 0, offsetY: 0 });
+    assert.equal(ui.c.activeSheet.drawings[0].width, 240);
+    assert.equal(ui.c.activeSheet.drawings[0].height, 120);
+    await act(async () => ui.c.undo());
+    assert.equal(ui.c.getWorkbook(), before, 'cancelled preview does not add an undo entry');
+  }
+});

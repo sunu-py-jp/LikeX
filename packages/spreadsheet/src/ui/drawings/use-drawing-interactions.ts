@@ -1,11 +1,12 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from "react";
-import { deleteDrawing, updateDrawing, type SpreadsheetDrawing } from "../../model";
+import type { SpreadsheetDrawing } from "../../model";
 import type { SpreadsheetController, Workbook } from "../../state/use-spreadsheet";
 import { boundedDrawingRectangle, drawingAnchor, drawingRectangle, type DrawingGeometry, type DrawingRectangle } from "../../state/drawing-geometry";
 import { blurObjectEditor } from "../../state/blur-object-editor";
 import { visibleDrawing } from "./drawing-helpers";
+import { updateDrawingFromUI } from "./drawing-commands";
 
 type Gesture = { id: string; sheetId: string; workbook: Workbook; kind: "move" | "resize"; start: { x: number; y: number }; initial: DrawingRectangle; preview: DrawingRectangle; pointerId: number; target: HTMLElement };
 
@@ -20,7 +21,7 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
   const eligible = (session: Gesture) => {
     const current = latest.current.c;
     const drawing = current.activeSheet.drawings?.find(item => item.id === session.id);
-    return !!drawing && !current.disabled && (session.kind !== "resize" || current.features.resize) && visibleDrawing(drawing, current) && current.workbook === session.workbook && current.activeSheet.id === session.sheetId && current.selectedDrawingId === session.id;
+    return !!drawing && !current.disabled && (session.kind !== "resize" || current.features.resize) && visibleDrawing(drawing, current) && current.getWorkbook() === session.workbook && current.activeSheet.id === session.sheetId && current.selectedDrawingId === session.id;
   };
   const point = (event: PointerEvent) => {
     const rect = layer.current!.getBoundingClientRect();
@@ -62,12 +63,14 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     if (!valid) return;
     const { preview: rectangle, initial } = session;
     if (rectangle.left === initial.left && rectangle.top === initial.top && rectangle.width === initial.width && rectangle.height === initial.height) return;
-    latest.current.c.apply(wb => updateDrawing(wb, session.sheetId, session.id,
-      session.kind === "move" ? { anchor: drawingAnchor(rectangle.left, rectangle.top, latest.current.geometry) } : { width: Math.round(rectangle.width), height: Math.round(rectangle.height) }));
+    const current = latest.current.c;
+    const drawing = current.activeSheet.drawings?.find(item => item.id === session.id);
+    if (drawing) updateDrawingFromUI(current, session.sheetId, drawing,
+      session.kind === "move" ? { anchor: drawingAnchor(rectangle.left, rectangle.top, latest.current.geometry) } : { width: Math.round(rectangle.width), height: Math.round(rectangle.height) });
   };
   const remove = (drawing: SpreadsheetDrawing) => {
     if (c.disabled || !visibleDrawing(drawing, c)) return;
-    if (c.apply(wb => deleteDrawing(wb, c.activeSheet.id, drawing.id))) { c.selectDrawing(null); c.requestGridFocus(); }
+    if (c.executeCommand({ type: "drawings.delete", sheetId: c.activeSheet.id, drawingId: drawing.id }).ok) { c.selectDrawing(null); c.requestGridFocus(); }
   };
   const keyDown = (event: KeyboardEvent, drawing: SpreadsheetDrawing) => {
     if ((event.target as HTMLElement).closest("textarea,input,select")) return;
@@ -79,7 +82,7 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     if (directions[event.key] && !c.disabled) {
       event.preventDefault(); event.stopPropagation();
       const [dx, dy] = directions[event.key], multiplier = event.shiftKey ? 10 : 1, rect = drawingRectangle(drawing, geometry);
-      c.apply(wb => updateDrawing(wb, c.activeSheet.id, drawing.id, { anchor: drawingAnchor(rect.left + dx * multiplier, rect.top + dy * multiplier, geometry) }));
+      updateDrawingFromUI(c, c.activeSheet.id, drawing, { anchor: drawingAnchor(rect.left + dx * multiplier, rect.top + dy * multiplier, geometry) });
     }
   };
   const resizeKeyDown = (event: KeyboardEvent, drawing: SpreadsheetDrawing) => {
@@ -87,7 +90,7 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     event.preventDefault(); event.stopPropagation();
     const delta = (event.shiftKey ? 10 : 1) * (["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 1);
     const patch = ["ArrowLeft", "ArrowRight"].includes(event.key) ? { width: Math.min(10000, Math.max(16, drawing.width + delta)) } : { height: Math.min(10000, Math.max(16, drawing.height + delta)) };
-    c.apply(wb => updateDrawing(wb, c.activeSheet.id, drawing.id, patch));
+    updateDrawingFromUI(c, c.activeSheet.id, drawing, patch);
   };
   const lostPointerCapture = (id: string) => { if (gesture.current?.id === id) cancelGesture(); };
   return { layer, preview, editingText, setEditingText, start, move, finish, cancelGesture, lostPointerCapture, keyDown, resizeKeyDown };

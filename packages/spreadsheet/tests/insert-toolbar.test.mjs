@@ -126,3 +126,26 @@ for (const change of ['feature', 'readonly', 'sheet', 'selection', 'workbook', '
     if (change === 'object edit') assert.equal(hook.current.pendingObjectEdit, true);
     assert.ok(dom.revoked.length >= 1);
   });
+
+test('image insertion tracks the synchronous draft after committing the current cell editor', async t => {
+  const dom = decode(t), hook = await mount(t);
+  await act(async () => hook.current.beginEdit({ row: 0, column: 0 }, 'committed before upload'));
+  await upload(hook);
+  assert.equal(hook.current.workbook.sheets[0].cells.A1.value, 'committed before upload');
+  await act(async () => { dom.images[0].onload(); await tick(); });
+  assert.equal(hook.current.workbook.sheets[0].drawings[0].type, 'image');
+  assert.equal(hook.current.workbook.sheets[0].cells.A1.value, 'committed before upload');
+});
+
+test('an image completing beside a same-tick draft change cannot overwrite the newer context', async t => {
+  const dom = decode(t), hook = await mount(t);
+  await upload(hook);
+  await act(async () => {
+    dom.images[0].onload();
+    hook.current.writeValues({ A1: 'newer synchronous draft' });
+    await tick();
+  });
+  assert.equal(hook.current.workbook.sheets[0].cells.A1.value, 'newer synchronous draft');
+  assert.equal(hook.current.workbook.resources, undefined);
+  assert.equal(hook.current.workbook.sheets[0].drawings, undefined);
+});

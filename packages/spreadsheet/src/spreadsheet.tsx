@@ -8,9 +8,11 @@ import { SpreadsheetGrid } from "./ui/spreadsheet-grid";
 import { SpreadsheetFormulaBar, SpreadsheetToolbar } from "./ui/spreadsheet-toolbar";
 import { SpreadsheetFooter } from "./ui/spreadsheet-footer";
 import { SpreadsheetComments } from "./ui/spreadsheet-comments";
+import { useSpreadsheetHandle } from "./api/use-spreadsheet-handle";
 
-export default function Spreadsheet(props: SpreadsheetProps) {
+export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetProps) {
   const c = useSpreadsheet(props);
+  useSpreadsheetHandle(handleRef, c);
   const clipboard = useSpreadsheetClipboard(c);
   const [systemDark, setSystemDark] = useState(false);
   useEffect(() => {

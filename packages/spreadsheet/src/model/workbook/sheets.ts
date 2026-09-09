@@ -5,15 +5,28 @@ import { finishWorkbook, freezeCell, getWorkbookSheet } from "./snapshot";
 import { ensureUniqueSheetName, fail, normalizeSheetName } from "./validation";
 
 let nextId = 1;
-export function addSheet(workbook: SpreadsheetWorkbook, suppliedName?: string): SpreadsheetWorkbook {
+function addedSheetName(workbook: SpreadsheetWorkbook, suppliedName?: string): string {
   if (workbook.sheets.length >= SPREADSHEET_LIMITS.sheets) return fail("シート数の上限に達しています");
   let index = 1;
   while (workbook.sheets.some(sheet => sheet.name.toLowerCase() === `sheet${index}`)) index++;
   const name = normalizeSheetName(suppliedName ?? `Sheet${index}`);
   ensureUniqueSheetName(workbook, name);
+  return name;
+}
+function appendSheet(workbook: SpreadsheetWorkbook, name: string, id: string): SpreadsheetWorkbook {
+  if (typeof id !== "string" || !id || id.length > 200 || /\0/.test(id) || workbook.sheets.some(sheet => sheet.id === id))
+    return fail("シートの ID が空、重複、または不正です");
+  return finishWorkbook([...workbook.sheets, Object.freeze({ id, name, cells: Object.freeze({}), rowCount: 100, columnCount: 26 })], workbook);
+}
+/** Internal command boundary: callers supply identity without consuming the legacy model sequence. */
+export function addSheetWithId(workbook: SpreadsheetWorkbook, suppliedName: string | undefined, id: string): SpreadsheetWorkbook {
+  return appendSheet(workbook, addedSheetName(workbook, suppliedName), id);
+}
+export function addSheet(workbook: SpreadsheetWorkbook, suppliedName?: string): SpreadsheetWorkbook {
+  const name = addedSheetName(workbook, suppliedName);
   let id: string;
   do { id = `sheet-${++nextId}`; } while (workbook.sheets.some(sheet => sheet.id === id));
-  return finishWorkbook([...workbook.sheets, Object.freeze({ id, name, cells: Object.freeze({}), rowCount: 100, columnCount: 26 })], workbook);
+  return appendSheet(workbook, name, id);
 }
 function replaceSheetReferences(workbook: SpreadsheetWorkbook, name: string, replacement?: string): readonly SpreadsheetSheet[] {
   return workbook.sheets.map(sheet => {

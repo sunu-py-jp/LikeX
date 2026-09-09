@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import Spreadsheet, { createWorkbook, type SpreadsheetWorkbook, type SpreadsheetProps } from "__LIBRARY_IMPORT__";
+import { useRef, useState } from "react";
+import Spreadsheet, { createWorkbook, type SpreadsheetWorkbook, type SpreadsheetProps, type SpreadsheetHandle } from "__LIBRARY_IMPORT__";
 
 export default function ClientSpreadsheet() {
   const [saved, setSaved] = useState<SpreadsheetWorkbook>(() => createWorkbook());
+  const spreadsheet = useRef<SpreadsheetHandle>(null);
   const props = {
     initialWorkbook: saved,
     onSave: async workbook => { setSaved(workbook); return workbook; },
@@ -14,5 +15,8 @@ export default function ClientSpreadsheet() {
     title: "Editable spreadsheet",
     style: { height: 360 },
   } satisfies SpreadsheetProps;
-  return <Spreadsheet {...props} />;
+  return <><button onClick={() => {
+    const api = spreadsheet.current;
+    if (api) api.execute({ type: "cells.set", sheetId: api.getWorkbook().sheets[0].id, values: { A1: "External API" } });
+  }}>Set sample value</button><Spreadsheet ref={spreadsheet} {...props} /></>;
 }

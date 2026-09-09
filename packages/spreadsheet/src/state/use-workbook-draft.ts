@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { normalizeWorkbook, workbooksEqual } from "../model";
+import type { SpreadsheetCommandFailure } from "../api/types";
 import type { SpreadsheetProps } from "../props";
-import type { SpreadsheetFeatureSettings } from "./features";
 import { notifySpreadsheetHost } from "./notifications";
 import { clampSelection } from "./selection";
 import type { DraftSelection, Workbook, WorkbookOperation } from "./types";
@@ -14,17 +14,21 @@ type SaveSession = {
   hasPendingEdits: () => boolean;
   resetView: (workbook: Workbook) => void;
 };
+type DraftCommitResult = { ok: true; changed: boolean } | SpreadsheetCommandFailure;
 
 /** Owns immutable draft snapshots, bounded history, host persistence, and their synchronous guards. */
-export function useWorkbookDraft(props: SpreadsheetProps, features: SpreadsheetFeatureSettings) {
+export function useWorkbookDraft(props: SpreadsheetProps) {
   const [workbook, setWorkbook] = useState(() => normalizeWorkbook(props.initialWorkbook));
   const workbookRef = useRef(workbook);
   const propsRef = useRef(props);
   useLayoutEffect(() => { propsRef.current = props; });
   const [saved, setSaved] = useState(workbook);
+  const savedRef = useRef(saved);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
-  const mounted = useRef(true);
+  const mounted = useRef(false);
+  const transactionRef = useRef(false);
+  const saveStartingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const reportError = useCallback((cause: unknown) => setError(cause instanceof Error ? cause.message : "操作に失敗しました"), []);
   const history = useRef<{ past: Workbook[]; future: Workbook[] }>({ past: [], future: [] });
@@ -33,14 +37,24 @@ export function useWorkbookDraft(props: SpreadsheetProps, features: SpreadsheetF
   const disabled = readOnly || saving;
   const dirty = useMemo(() => !workbooksEqual(workbook, saved), [workbook, saved]);
 
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
-  const apply = useCallback((operation: WorkbookOperation, selection: DraftSelection): boolean => {
-    if (!mounted.current || propsRef.current.readOnly || !propsRef.current.onSave || savingRef.current) return false;
+  const getMutationFailure = useCallback((allowSaveStarting = false): SpreadsheetCommandFailure | null => {
+    if (!mounted.current) return { ok: false, code: "NOT_MOUNTED", message: "スプレッドシートは表示されていません" };
+    if (propsRef.current.readOnly || !propsRef.current.onSave) return { ok: false, code: "READ_ONLY", message: "読み取り専用のため変更できません" };
+    if (savingRef.current) return { ok: false, code: "SAVING", message: "保存中のため変更できません" };
+    if (transactionRef.current || (!allowSaveStarting && saveStartingRef.current)) return { ok: false, code: "BUSY", message: "ほかの操作を処理しています" };
+    return null;
+  }, []);
+
+  const applyTransaction = useCallback((operation: WorkbookOperation, selection: DraftSelection, allowSaveStarting = false): DraftCommitResult => {
+    const failure = getMutationFailure(allowSaveStarting);
+    if (failure) return failure;
+    transactionRef.current = true;
     try {
       const before = workbookRef.current;
       const next = operation(before);
-      if (next === before) return true;
+      if (next === before) return { ok: true, changed: false };
       // Selection normalization may reject a structural change. Nothing has been published yet.
       const nextSelection = clampSelection(selection.selectionRef.current, next);
       if (propsRef.current.features?.undoRedo !== false) {
@@ -53,39 +67,56 @@ export function useWorkbookDraft(props: SpreadsheetProps, features: SpreadsheetF
       selection.setSelection(nextSelection);
       setError(null);
       notifySpreadsheetHost(propsRef.current.onChange, next);
-      return true;
-    } catch (cause) { reportError(cause); return false; }
-  }, [reportError]);
+      return { ok: true, changed: true };
+    } catch (cause) { return { ok: false, code: "VALIDATION_FAILED", message: cause instanceof Error ? cause.message : "操作に失敗しました" }; }
+    finally { transactionRef.current = false; }
+  }, [getMutationFailure]);
+
+  const apply = useCallback((operation: WorkbookOperation, selection: DraftSelection): boolean => {
+    // The save workflow is allowed to commit its own cell editor before entering the saving phase.
+    const result = applyTransaction(operation, selection, true);
+    if (!result.ok && result.code === "VALIDATION_FAILED") reportError(new Error(result.message));
+    return result.ok;
+  }, [applyTransaction, reportError]);
 
   const changeHistory = (direction: HistoryDirection, resetView: (workbook: Workbook) => void) => {
-    if (disabled || !features.undoRedo) return;
+    if (getMutationFailure() || propsRef.current.features?.undoRedo === false) return;
     const next = history.current[direction].at(-1);
     if (!next) return;
-    const opposite = direction === "past" ? "future" : "past";
-    history.current[opposite] = [...history.current[opposite].slice(-49), workbookRef.current];
-    history.current[direction] = history.current[direction].slice(0, -1);
-    setHistoryStatus({ canUndo: history.current.past.length > 0, canRedo: history.current.future.length > 0 });
-    workbookRef.current = next;
-    setWorkbook(next);
-    setError(null);
-    resetView(next);
-    notifySpreadsheetHost(propsRef.current.onChange, next);
+    transactionRef.current = true;
+    try {
+      const opposite = direction === "past" ? "future" : "past";
+      history.current[opposite] = [...history.current[opposite].slice(-49), workbookRef.current];
+      history.current[direction] = history.current[direction].slice(0, -1);
+      setHistoryStatus({ canUndo: history.current.past.length > 0, canRedo: history.current.future.length > 0 });
+      workbookRef.current = next;
+      setWorkbook(next);
+      setError(null);
+      resetView(next);
+      notifySpreadsheetHost(propsRef.current.onChange, next);
+    } finally { transactionRef.current = false; }
   };
 
   const save = async (session: SaveSession) => {
-    if (propsRef.current.readOnly || !propsRef.current.onSave || savingRef.current || !session.commitEdit()) return;
-    if (session.hasPendingEdits()) { reportError(new Error("編集中の内容を確定してください")); return; }
-    const snapshot = workbookRef.current;
-    if (workbooksEqual(snapshot, saved)) return;
-    savingRef.current = true;
-    setSaving(true);
-    setError(null);
+    if (getMutationFailure()) return;
+    saveStartingRef.current = true;
+    let snapshot: Workbook;
     try {
-      const response = await propsRef.current.onSave(snapshot);
+      if (!session.commitEdit() || getMutationFailure(true)) return;
+      if (session.hasPendingEdits()) { reportError(new Error("編集中の内容を確定してください")); return; }
+      snapshot = workbookRef.current;
+      if (workbooksEqual(snapshot, savedRef.current)) return;
+      savingRef.current = true;
+      setSaving(true);
+      setError(null);
+    } finally { saveStartingRef.current = false; }
+    try {
+      const response = await propsRef.current.onSave!(snapshot);
       const accepted = normalizeWorkbook(response ?? snapshot);
       if (!mounted.current) return;
       workbookRef.current = accepted;
       setWorkbook(accepted);
+      savedRef.current = accepted;
       setSaved(accepted);
       history.current = { past: [], future: [] };
       setHistoryStatus({ canUndo: false, canRedo: false });
@@ -95,5 +126,5 @@ export function useWorkbookDraft(props: SpreadsheetProps, features: SpreadsheetF
   };
 
   return { workbook, workbookRef, propsRef, readOnly, disabled, dirty, saving, error, setError, reportError,
-    apply, changeHistory, save, ...historyStatus };
+    apply, applyTransaction, getMutationFailure, changeHistory, save, ...historyStatus };
 }

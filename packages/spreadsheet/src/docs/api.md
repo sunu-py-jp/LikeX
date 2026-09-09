@@ -38,6 +38,7 @@ const workbook: SpreadsheetWorkbook = {
 
 | Prop | 役割・既定値 |
 | --- | --- |
+| `ref` | `SpreadsheetHandle`。表示中の下書きへ `execute` / `batch` で操作し、`getWorkbook` で取得。[外部操作API](./external-operations.md) |
 | `initialWorkbook` | マウント時の初期ブック。省略時は空の100行×26列。再代入で下書きは置き換わりません。 |
 | `onChange` | 下書きの変更通知。永続化は行いません。 |
 | `onSave` | 保存処理。省略すると読み取り専用。 |
@@ -50,6 +51,8 @@ const workbook: SpreadsheetWorkbook = {
 | `aria-label` | 領域の読み上げ名。省略時は「スプレッドシート」。 |
 
 `initialWorkbook` は最初だけ読み込むため、別のブックへの切り替えや保存先の再読み込みには `key={bookIdOrRevision}` などで再マウントします。未保存の下書きも破棄されるため、切り替え前の確認は親で扱ってください。
+
+セル・行列・画像・図形の操作を外側から呼ぶ場合は `SpreadsheetHandle` を使います。公開型とバッチ、エラー、画像の準備関数 `prepareSpreadsheetImage` は[外部操作API](./external-operations.md)にまとめています。
 
 ## 保存
 
