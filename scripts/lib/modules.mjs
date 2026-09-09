@@ -4,13 +4,18 @@ import { artifactRoot, projectRoot } from './run.mjs';
 
 // Distribution differences live here; build/pack/consumer checks are shared.
 const modules = {
+  core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [] },
   explorer: {
+    ui: true,
+    moduleDependencies: ['core'],
     generatedStyles: true, bundledDependencies: ['tailwindcss'],
     marker: 'data-likex-explorer', classPrefix: '.lxe\\:', propertyPrefix: '--lxe-', keyframePrefix: 'lxe',
     requiredClasses: ['.lxe\\:flex', '.lxe\\:min-h-0', '.lxe\\:h-8', '.lxe\\:resize-none'],
     background: '--explorer-background', foreground: '--explorer-foreground', serverText: 'Server-readonly.txt',
   },
   spreadsheet: {
+    ui: true,
+    moduleDependencies: ['core'],
     generatedStyles: false, bundledDependencies: [],
     marker: 'data-likex-spreadsheet', classPrefix: '.lxs-', propertyPrefix: '--lxs-', keyframePrefix: 'lxs',
     requiredClasses: ['.lxs-root', '.lxs-grid', '.lxs-cell'],
@@ -42,4 +47,20 @@ export function requestedModules(args = process.argv.slice(2)) {
   const names = args.includes('--all') ? moduleNames : selected.length ? selected : ['explorer'];
   names.forEach(name => libraryModule(name));
   return names;
+}
+
+/** Build and pack ordinary workspace dependencies before their dependants. */
+export function dependencyOrder(names) {
+  const ordered = new Set();
+  const visiting = new Set();
+  function visit(name) {
+    if (ordered.has(name)) return;
+    assert.ok(!visiting.has(name), `Circular module dependency: ${name}`);
+    visiting.add(name);
+    libraryModule(name).moduleDependencies.forEach(visit);
+    visiting.delete(name);
+    ordered.add(name);
+  }
+  names.forEach(visit);
+  return [...ordered];
 }

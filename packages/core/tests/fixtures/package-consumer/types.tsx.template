@@ -1,0 +1,16 @@
+import { notifyHost, resolveFeatureFlags, chainResult } from '__LIBRARY_IMPORT__';
+import type { EditRequestHandler, EventHandler, SaveHandler, RequestHandler, MaybePromise } from '__LIBRARY_IMPORT__';
+
+const permission: EditRequestHandler<{ action: string }, readonly string[], 'entries'> =
+  (_request, context) => context.signal.aborted ? false : { allowed: true, entries: [] };
+const save: SaveHandler<{ id: string }> = async payload => payload;
+const request: RequestHandler<{ id: string }, boolean> = (payload, context) => !!payload.id && !context.signal.aborted;
+const event: EventHandler<{ type: 'saved' }> = () => {};
+notifyHost(event, { type: 'saved' });
+const result: MaybePromise<number> = chainResult(1, value => value + 1);
+resolveFeatureFlags({ edit: true }, { edit: false });
+// @ts-expect-error undeclared feature names must be rejected
+resolveFeatureFlags<'edit'>({ edit: true }, { typo: false });
+// @ts-expect-error host event payloads stay strict
+notifyHost(event, { type: 'unknown' });
+void [permission, save, request, result];

@@ -1,0 +1,22 @@
+{
+  "name": "@likex/core",
+  "version": "0.1.0",
+  "description": "Shared host contracts and dependency-free helpers for LikeX interfaces.",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/types/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "THIRD_PARTY_NOTICES.md", "LICENSE"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "node ../../scripts/build-library.mjs --module core",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

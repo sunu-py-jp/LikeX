@@ -12,18 +12,18 @@ import { libraryModule } from './modules.mjs';
 // only to the library build, never to either consumer's setup.
 export const development = ['next', 'typescript', '@types/node', '@types/react', '@types/react-dom'];
 
-export async function consumerDevDependencies() {
+export async function consumerDevDependencies({ ui = true } = {}) {
   const workspace = JSON.parse(await readFile(path.join(projectRoot, 'package.json'), 'utf8'));
   const dependencies = {};
-  for (const name of development) {
+  for (const name of ui ? development : ['typescript']) {
     dependencies[name] = workspace.dependencies?.[name] ?? workspace.devDependencies?.[name] ?? (await installedPackage(name)).manifest.version;
   }
   return dependencies;
 }
 
 /** Keep the offline fallback explicit; a real installation must be independent. */
-export async function consumerDependencies(consumer, declared, { fallback, online }) {
-  const dependencies = new Set([...Object.keys(declared), ...development]);
+export async function consumerDependencies(consumer, declared, { fallback, online, ui = true }) {
+  const dependencies = new Set([...Object.keys(declared), ...(ui ? development : ['typescript'])]);
   const linkedDependencies = [];
   const testedVersions = {};
   const dependencyLocations = {};
@@ -72,10 +72,11 @@ export async function copyConsumerFixtures(consumer, { module = 'explorer', pack
 }
 
 export async function checkConsumerTypes(consumer, { source = false, module = 'explorer' } = {}) {
+  const { ui } = libraryModule(module);
   const tsconfig = { compilerOptions: {
     target: 'ES2022', lib: ['DOM', 'DOM.Iterable', 'ES2022'],
     module: source ? 'ESNext' : 'NodeNext', moduleResolution: source ? 'Bundler' : 'NodeNext',
-    jsx: 'react-jsx', strict: true, noEmit: true, skipLibCheck: false, esModuleInterop: true, types: ['node', 'react'],
+    jsx: 'react-jsx', strict: true, noEmit: true, skipLibCheck: false, esModuleInterop: true, types: ui ? ['node', 'react'] : [],
   }, include: ['types.tsx', 'app/client.tsx', ...(source ? [`components/${module}/**/*.ts`, `components/${module}/**/*.tsx`] : [])] };
   await writeFile(path.join(consumer, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2));
   await run(process.execPath, [path.join(consumer, 'node_modules/typescript/bin/tsc'), '--project', path.join(consumer, 'tsconfig.json')], { cwd: consumer, capture: true });

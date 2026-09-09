@@ -4,7 +4,7 @@ React向けのファイルエクスプローラーです。表示・クライア
 
 ## 導入
 
-このフォルダの中身を利用先の `components/explorer/` へコピーします。React / React DOM 19.2.6以降の19系と実行時依存を用意し、生成済みCSSをアプリの入口で1回読み込んでください。Tailwind CSSの導入・専用設定は不要です。
+このフォルダを `components/explorer/`、リポジトリの `packages/core/src/` を `components/core/` へコピーします。`components/explorer/core.ts` の1行を `export * from "../core";` に変更してください。React / React DOM 19.2.6以降の19系と実行時依存を用意し、生成済みCSSをアプリの入口で1回読み込んでください。Tailwind CSSの導入・専用設定は不要です。
 
 ```bash
 npm install radix-ui@1.6.7 lucide-react@1.31.0 tailwind-merge@3.6.0

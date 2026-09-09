@@ -17,7 +17,7 @@ export type StagedSpreadsheetCommands = (SpreadsheetCommandSuccess & { readonly 
 function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand, features: SpreadsheetFeatureSettings,
   nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandReceipt } {
   if (command.type === "sheets.add") {
-    requireCommandFeature(features, "sheets");
+    requireCommandFeature(features, "createSheet");
     const sheetId = nextId();
     return { workbook: addSheetWithId(workbook, command.name, sheetId), receipt: { type: command.type, sheetId } };
   }
@@ -41,16 +41,16 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
       commandKeys(commandRecord(command.format, "セル書式"), ["bold", "italic", "underline", "align", "color", "background", "numberFormat"], "セル書式");
       return result(formatCells(workbook, sheet.id, command.addresses, command.format));
     case "rows.insert":
-      requireCommandFeature(features, "rowColumnOperations");
+      requireCommandFeature(features, "insertRows");
       return result(insertRows(workbook, sheet.id, command.index, command.count));
     case "rows.delete":
-      requireCommandFeature(features, "rowColumnOperations");
+      requireCommandFeature(features, "deleteRows");
       return result(deleteRows(workbook, sheet.id, command.index, command.count));
     case "columns.insert":
-      requireCommandFeature(features, "rowColumnOperations");
+      requireCommandFeature(features, "insertColumns");
       return result(insertColumns(workbook, sheet.id, command.index, command.count));
     case "columns.delete":
-      requireCommandFeature(features, "rowColumnOperations");
+      requireCommandFeature(features, "deleteColumns");
       return result(deleteColumns(workbook, sheet.id, command.index, command.count));
     case "columns.resize":
       requireCommandFeature(features, "resize");
@@ -73,10 +73,10 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
       return result(setCellComment(workbook, sheet.id, command.address, { ...command.comment, id: commentId }), { commentId });
     }
     case "sheets.rename":
-      requireCommandFeature(features, "sheets");
+      requireCommandFeature(features, "renameSheet");
       return result(renameSheet(workbook, sheet.id, command.name));
     case "sheets.delete":
-      requireCommandFeature(features, "sheets");
+      requireCommandFeature(features, "deleteSheet");
       return result(deleteSheet(workbook, sheet.id));
     default:
       return applyDrawingCommand(workbook, command, features, nextId);

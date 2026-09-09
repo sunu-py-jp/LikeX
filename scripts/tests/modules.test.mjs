@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { libraryModule, moduleNames, requestedModules } from '../lib/modules.mjs';
+import { dependencyOrder, libraryModule, moduleNames, requestedModules } from '../lib/modules.mjs';
 
 test('existing commands still select Explorer and --all covers every registered library', () => {
   assert.deepEqual(requestedModules([]), ['explorer']);
@@ -21,4 +21,20 @@ test('artifacts for separate libraries cannot overwrite each other', () => {
   assert.notEqual(explorer.sourceRoot, spreadsheet.sourceRoot);
   assert.notEqual(explorer.artifactRoot, spreadsheet.artifactRoot);
   assert.ok(spreadsheet.artifactRoot.endsWith('/artifacts/spreadsheet'));
+});
+
+test('the core profile is headless and still participates in every distribution check', () => {
+  const core = libraryModule('core');
+  assert.equal(core.ui, false);
+  assert.deepEqual(core.bundledDependencies, []);
+  assert.ok(core.artifactRoot.endsWith('/artifacts/core'));
+  assert.ok(requestedModules(['--all']).includes('core'));
+  assert.equal(libraryModule('explorer').ui, true);
+  assert.equal(libraryModule('spreadsheet').ui, true);
+});
+
+test('core builds first for a single UI package and is deduplicated for all modules', () => {
+  assert.deepEqual(dependencyOrder(['explorer']), ['core', 'explorer']);
+  assert.deepEqual(dependencyOrder(['spreadsheet', 'explorer']), ['core', 'spreadsheet', 'explorer']);
+  assert.deepEqual(dependencyOrder(moduleNames), moduleNames);
 });

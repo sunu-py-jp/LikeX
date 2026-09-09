@@ -1,5 +1,7 @@
 import type { SpreadsheetCellFormat, SpreadsheetImageDrawing, SpreadsheetImageResource, SpreadsheetMergedRange,
   SpreadsheetShapeDrawing, SpreadsheetTextDrawing, SpreadsheetWorkbook } from "../model/types";
+import type { MaybePromise } from "../core";
+import type { SpreadsheetDiscardOptions, SpreadsheetEditIntent, SpreadsheetEditState } from "./lifecycle";
 
 type DeepReadonly<T> = T extends readonly (infer Item)[] ? readonly DeepReadonly<Item>[]
   : T extends object ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> } : T;
@@ -43,7 +45,8 @@ export type SpreadsheetCommandReceipt = Readonly<{
   commentId?: string;
 }>;
 export type SpreadsheetCommandErrorCode = "NOT_MOUNTED" | "READ_ONLY" | "SAVING" | "PENDING_EDIT" | "BUSY"
-  | "FEATURE_DISABLED" | "INVALID_COMMAND" | "INVALID_TARGET" | "VALIDATION_FAILED";
+  | "FEATURE_DISABLED" | "INVALID_COMMAND" | "INVALID_TARGET" | "VALIDATION_FAILED"
+  | "REFRESHING" | "EDIT_REQUIRED" | "EDIT_PENDING" | "EDIT_DENIED" | "EDIT_CANCELLED" | "STALE_TARGET";
 export type SpreadsheetCommandFailure = Readonly<{
   ok: false;
   code: SpreadsheetCommandErrorCode;
@@ -61,5 +64,14 @@ export type SpreadsheetCommandResult = SpreadsheetCommandSuccess | SpreadsheetCo
 export type SpreadsheetHandle = Readonly<{
   execute(command: SpreadsheetCommand): SpreadsheetCommandResult;
   batch(commands: readonly SpreadsheetCommand[]): SpreadsheetCommandResult;
+  executeAsync(command: SpreadsheetCommand): Promise<SpreadsheetCommandResult>;
+  batchAsync(commands: readonly SpreadsheetCommand[]): Promise<SpreadsheetCommandResult>;
   getWorkbook(): SpreadsheetWorkbookSnapshot;
+  getEditState(): SpreadsheetEditState;
+  requestEdit(intent?: SpreadsheetEditIntent): MaybePromise<boolean>;
+  cancelEditRequest(): void;
+  endEdit(): boolean;
+  save(): Promise<boolean>;
+  refresh(options?: SpreadsheetDiscardOptions): Promise<boolean>;
+  discard(options?: SpreadsheetDiscardOptions): boolean;
 }>;

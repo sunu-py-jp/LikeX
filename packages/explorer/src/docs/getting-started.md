@@ -14,7 +14,7 @@ React / React DOM 19を前提としています。ソースをコピーする場
 npm install radix-ui@1.6.7 lucide-react@1.31.0 tailwind-merge@3.6.0
 ```
 
-`packages/explorer/src/` の中身（この `docs/` の親フォルダ）を `components/explorer/` へコピーし、`styles.css` をアプリの入口で1回読み込みます。Next.js App Routerでは `app/layout.tsx` に書けます。CSSをimportする親と、コールバックを渡すClient Componentは別ファイルでも構いません。
+`packages/explorer/src/` の中身（この `docs/` の親フォルダ）を `components/explorer/`、`packages/core/src/` を `components/core/` へコピーします。`components/explorer/core.ts` の1行を `export * from "../core";` に変更し、`styles.css` をアプリの入口で1回読み込みます。Next.js App Routerでは `app/layout.tsx` に書けます。CSSをimportする親と、コールバックを渡すClient Componentは別ファイルでも構いません。
 
 ```tsx
 // ソースコピーの場合

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useLayoutEffect, useRef, useState } from "react";
+import { chainResult } from "../../core";
 import { SPREADSHEET_LIMITS, type SpreadsheetDrawing } from "../../model";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 import { useObjectEditPending } from "../../state/use-object-edit-pending";
@@ -26,15 +27,17 @@ export function DrawingTextEditor({ drawing, controller: c, onDone }: { drawing:
   const commit = () => {
     if (cancelled.current) return true;
     if (c.disabled || !c.features.textBoxes || drawing !== starting.current) { onDone(); return false; }
-    const accepted = text === drawing.text || c.executeCommand({ type: "textBoxes.update", sheetId: c.activeSheet.id, drawingId: drawing.id, patch: { text } }).ok;
-    if (accepted) { markPending(false); onDone(); }
-    return accepted;
+    const result = text === drawing.text ? true : chainResult(c.executeCommand({ type: "textBoxes.update", sheetId: c.activeSheet.id, drawingId: drawing.id, patch: { text } }), result => result.ok);
+    return chainResult(result, accepted => {
+      if (accepted && !cancelled.current) { markPending(false); onDone(); }
+      return accepted;
+    });
   };
-  return <textarea ref={textarea} aria-label="テキストボックスの内容" className="lxs-drawing-text-editor" maxLength={SPREADSHEET_LIMITS.drawingTextLength} value={text} style={{ fontSize: drawing.fontSize, color: drawing.color, background: drawing.background, fontWeight: drawing.bold ? 700 : 400 }}
+  return <textarea ref={textarea} aria-label="テキストボックスの内容" className="lxs-drawing-text-editor" maxLength={SPREADSHEET_LIMITS.drawingTextLength} readOnly={c.disabled || c.requesting} value={text} style={{ fontSize: drawing.fontSize, color: drawing.color, background: drawing.background, fontWeight: drawing.bold ? 700 : 400 }}
     onChange={event => { setText(event.target.value); markPending(event.target.value !== drawing.text); }} onBlur={commit} onPointerDown={event => event.stopPropagation()}
     onKeyDown={event => {
       event.stopPropagation(); if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-      if (event.key === "Escape") { event.preventDefault(); cancelled.current = true; markPending(false); onDone(); }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") { event.preventDefault(); if (commit()) void c.save(); }
+      if (event.key === "Escape") { event.preventDefault(); cancelled.current = true; c.cancelEditRequest(); markPending(false); onDone(); }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") { event.preventDefault(); void chainResult(commit(), accepted => { if (accepted) void c.save(); }); }
     }} />;
 }

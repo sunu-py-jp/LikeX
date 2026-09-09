@@ -102,3 +102,39 @@ const prepareBlob = (blob: Blob, signal: AbortSignal): Promise<SpreadsheetImageR
 // @ts-expect-error Image retrieval and authentication belong to the host, not a URL-taking helper.
 const invalidImageSource = () => prepareSpreadsheetImage("https://example.invalid/logo.png");
 void [apiProps, inspectApi, prepareBlob, invalidImageSource];
+
+
+const injected: SpreadsheetProps = {
+  initialWorkbook: workbook,
+  features: { copy: false, cut: true, paste: true, createSheet: false, deleteColumns: false, save: true, refresh: true },
+  onBeforeSave: async (next, context) => { void context.signal; return next.sheets.length > 0; },
+  onSave: async (next, context) => { void context.requestId; return next; },
+  onRefresh: async context => { void context.signal; return workbook; },
+  onEditRequest: async (request, context) => { void request.workbook; void request.action; void context.requestId; return { allowed: true, workbook }; },
+  onEvent(event) {
+    if (event.type === "save" && event.status === "error") { const message: string = event.message; void message; }
+    if (event.type === "change") { const source: "ui" | "api" | "undo" | "redo" = event.source; void source; }
+    if (event.type === "edit-mode") void event.requestId;
+  },
+  onDirtyChange: dirty => { const flag: boolean = dirty; void flag; },
+  onUnsavedChangesChange: dirty => { const flag: boolean = dirty; void flag; },
+};
+async function controlledLifecycle(api: SpreadsheetHandle) {
+  const result: SpreadsheetCommandResult = await api.batchAsync(commands);
+  const permission: boolean = await api.requestEdit({ action: "edit", source: "api" });
+  const saved: boolean = await api.save();
+  const refreshed: boolean = await api.refresh({ discardChanges: true });
+  const discarded: boolean = api.discard({ discardChanges: true });
+  api.cancelEditRequest();
+  const ended: boolean = api.endEdit();
+  // @ts-expect-error Published edit-state snapshots are readonly.
+  api.getEditState().mode = "edit";
+  void [result, permission, saved, refreshed, discarded, ended];
+}
+// @ts-expect-error A permissive-looking object is not the edit permission contract.
+const invalidPermission: SpreadsheetProps = { onEditRequest: async () => ({ success: true }) };
+// @ts-expect-error Preflight accepts true/false/void, not arbitrary success messages.
+const invalidPreflight: SpreadsheetProps = { onBeforeSave: () => "yes" };
+// @ts-expect-error Refresh returns a complete workbook.
+const invalidRefresh: SpreadsheetProps = { onRefresh: () => [] };
+void [injected, controlledLifecycle, invalidPermission, invalidPreflight, invalidRefresh];

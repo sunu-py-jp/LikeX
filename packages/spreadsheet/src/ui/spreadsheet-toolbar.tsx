@@ -10,6 +10,7 @@ import { useId, useRef, useState } from "react";
 import { SpreadsheetInsertToolbar } from "./spreadsheet-insert-toolbar";
 import { SpreadsheetFunctionPicker } from "./spreadsheet-function-picker";
 import { SpreadsheetMergeToolbar } from "./spreadsheet-merge-toolbar";
+import { SpreadsheetPersistenceControls } from "./spreadsheet-persistence-controls";
 
 type ToolbarProps = { controller: SpreadsheetController; clipboard: ReturnType<typeof useSpreadsheetClipboard> };
 
@@ -32,7 +33,7 @@ export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
         <button ref={home} type="button" role="tab" id={`${id}-home`} aria-controls={`${id}-home-panel`} aria-selected={active === "home"} tabIndex={active === "home" ? 0 : -1} className="lxs-ribbon-tab" onClick={() => setTab("home")}>ホーム</button>
         {canInsert && <button ref={insert} type="button" role="tab" id={`${id}-insert`} aria-controls={`${id}-insert-panel`} aria-selected={active === "insert"} tabIndex={active === "insert" ? 0 : -1} className="lxs-ribbon-tab" onClick={() => setTab("insert")}>挿入</button>}
       </div>
-      {c.readOnly ? <span className="lxs-readonly">読み取り専用</span> : <button type="button" className="lxs-save" disabled={c.saving || (!c.dirty && !c.editing && !c.pendingObjectEdit)} onClick={() => void c.save()}><Icon name="save" />{c.saving ? "保存中…" : "保存"}</button>}
+      <SpreadsheetPersistenceControls controller={c} />
     </div>
     <div role="tabpanel" id={`${id}-home-panel`} aria-labelledby={`${id}-home`} hidden={active !== "home"}>
       <SpreadsheetHomeToolbar controller={c} clipboard={clipboard} />
@@ -44,31 +45,30 @@ export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
 }
 
 function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
-  const cellDisabled = c.disabled || !!c.selectedDrawingId;
+  const cellDisabled = c.disabled || c.requesting || !!c.selectedDrawingId;
   const multiple = isMultiRangeSelection(c.selection);
   const singleRangeHint = multiple ? "1つの連続した範囲を選択してください" : undefined;
   const format = c.activeSheet.cells[cellAddress(c.selection.focus.row, c.selection.focus.column)]?.format;
   const formatSelection = (value: Partial<SpreadsheetCellFormat>) => {
-    if (cellDisabled || !c.commitEdit()) return;
-    try { c.executeCommand({ type: "cells.format", sheetId: c.activeSheet.id, addresses: selectedAddresses(c.selection), format: value }); }
+    if (cellDisabled) return;
+    try { c.afterCommit(() => c.afterCommand({ type: "cells.format", sheetId: c.activeSheet.id, addresses: selectedAddresses(c.selection), format: value })); }
     catch (cause) { c.reportError(cause); }
   };
   const structural = (action: string) => {
     if (cellDisabled) return;
     if (multiple) { c.reportError(new Error("行・列の挿入や削除は、1つの連続した範囲を選択してください")); return; }
-    if (!c.commitEdit()) return;
     const { top, left, bottom, right } = selectionBounds(c.selection);
     const sheetId = c.activeSheet.id;
-    c.executeCommand(action === "insert-row" ? { type: "rows.insert", sheetId, index: top }
+    c.afterCommit(() => c.afterCommand(action === "insert-row" ? { type: "rows.insert", sheetId, index: top }
       : action === "insert-column" ? { type: "columns.insert", sheetId, index: left }
         : action === "delete-row" ? { type: "rows.delete", sheetId, index: top, count: bottom - top + 1 }
-          : { type: "columns.delete", sheetId, index: left, count: right - left + 1 });
+          : { type: "columns.delete", sheetId, index: left, count: right - left + 1 }));
   };
   return <div className="lxs-ribbon" role="toolbar" aria-label="シートの編集">
-    {c.features.clipboard && <div className="lxs-tool-group">
-      <Command label="コピー" title={singleRangeHint} disabled={!!c.selectedDrawingId || multiple} onClick={() => { if (!multiple && !c.selectedDrawingId && c.commitEdit()) void clipboard.copy(); }}><Icon name="copy" /></Command>
-      {!c.readOnly && <><Command label="切り取り" title={singleRangeHint} disabled={cellDisabled || multiple} onClick={() => { if (!multiple && !cellDisabled && c.commitEdit()) void clipboard.copy(true); }}><Icon name="cut" /></Command>
-        <Command label="貼り付け" title={singleRangeHint} disabled={cellDisabled || multiple} onClick={() => { if (!multiple && !cellDisabled && c.commitEdit()) void clipboard.paste(); }}><Icon name="paste" /></Command></>}
+    {(c.features.copy || (!c.readOnly && (c.features.cut || c.features.paste))) && <div className="lxs-tool-group">
+      {c.features.copy && <Command label="コピー" title={singleRangeHint} disabled={!!c.selectedDrawingId || multiple} onClick={() => { if (!multiple && !c.selectedDrawingId) c.afterCommit(() => void clipboard.copy()); }}><Icon name="copy" /></Command>}
+      {!c.readOnly && <>{c.features.cut && <Command label="切り取り" title={singleRangeHint} disabled={cellDisabled || multiple} onClick={() => { if (!multiple && !cellDisabled) c.afterCommit(() => void clipboard.copy(true)); }}><Icon name="cut" /></Command>}
+        {c.features.paste && <Command label="貼り付け" title={singleRangeHint} disabled={cellDisabled || multiple} onClick={() => { if (!multiple && !cellDisabled) c.afterCommit(() => void clipboard.paste()); }}><Icon name="paste" /></Command>}</>}
     </div>}
     {c.features.undoRedo && !c.readOnly && <div className="lxs-tool-group">
       <Command label="元に戻す" disabled={c.disabled || !c.canUndo} onClick={c.undo}><Icon name="undo" /></Command>
@@ -93,9 +93,9 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
       </div>
     </>}
     <SpreadsheetMergeToolbar controller={c} />
-    {c.features.rowColumnOperations && !c.readOnly && <div className="lxs-tool-group">
+    {(c.features.insertRows || c.features.deleteRows || c.features.insertColumns || c.features.deleteColumns) && !c.readOnly && <div className="lxs-tool-group">
       <select aria-label="行と列の操作" className="lxs-select" value="" title={singleRangeHint} disabled={cellDisabled || multiple} onChange={event => { if (event.target.value) structural(event.target.value); }}>
-        <option value="" disabled>行・列</option><option value="insert-row">上に行を挿入</option><option value="insert-column">左に列を挿入</option><option value="delete-row">選択した行を削除</option><option value="delete-column">選択した列を削除</option>
+        <option value="" disabled>行・列</option>{c.features.insertRows && <option value="insert-row">上に行を挿入</option>}{c.features.insertColumns && <option value="insert-column">左に列を挿入</option>}{c.features.deleteRows && <option value="delete-row">選択した行を削除</option>}{c.features.deleteColumns && <option value="delete-column">選択した列を削除</option>}
       </select>
     </div>}
     {c.selectedDrawingId && <span className="lxs-ribbon-hint">描画を選択中</span>}
@@ -113,20 +113,20 @@ export function SpreadsheetFormulaBar({ controller: c }: { controller: Spreadshe
       if (event.key === "Escape") { event.preventDefault(); setName(address); }
       if (event.key === "Enter") {
         event.preventDefault();
-        try { const position = parseCellAddress(name.trim()); if (!position) throw new Error("A1のようなセル位置を入力してください"); if (position.row >= c.activeSheet.rowCount || position.column >= c.activeSheet.columnCount) throw new Error("シートの範囲外です"); if (c.commitEdit()) { c.select(position); c.requestGridFocus(); } }
+        try { const position = parseCellAddress(name.trim()); if (!position) throw new Error("A1のようなセル位置を入力してください"); if (position.row >= c.activeSheet.rowCount || position.column >= c.activeSheet.columnCount) throw new Error("シートの範囲外です"); c.afterCommit(() => { c.select(position); c.requestGridFocus(); }); }
         catch (cause) { c.reportError(cause); setName(address); }
       }
     }} />
     {c.features.formulas && <>
       <span className="lxs-formula-symbol" aria-hidden="true">ƒx</span>
-      <input data-lxs-formula aria-label="セルの値・数式" className="lxs-formula-input" value={c.editing?.value ?? c.activeSheet.cells[address]?.value ?? ""} readOnly={c.disabled || !!c.selectedDrawingId}
+      <input data-lxs-formula aria-label="セルの値・数式" className="lxs-formula-input" value={c.editing?.value ?? c.activeSheet.cells[address]?.value ?? ""} readOnly={c.disabled || c.requesting || !!c.selectedDrawingId}
         onChange={event => c.beginEdit(c.selection.focus, event.target.value)} onBlur={() => c.commitEdit()}
         onKeyDown={event => {
           if (event.nativeEvent.isComposing || event.keyCode === 229) return;
           if (event.key === "Enter") { event.preventDefault(); c.commitEdit(); }
           if (event.key === "Escape") { event.preventDefault(); c.cancelEdit(); }
         }} />
-      {c.editing && <><Command label="入力を取り消す" onMouseDown={event => event.preventDefault()} onClick={c.cancelEdit}><Icon name="close" /></Command><Command label="入力を確定" onMouseDown={event => event.preventDefault()} onClick={c.commitEdit}><Icon name="check" /></Command></>}
+      {c.editing && <><Command label="入力を取り消す" disabled={c.disabled || c.requesting} onMouseDown={event => event.preventDefault()} onClick={c.cancelEdit}><Icon name="close" /></Command><Command label="入力を確定" disabled={c.disabled || c.requesting} onMouseDown={event => event.preventDefault()} onClick={() => void c.commitEdit()}><Icon name="check" /></Command></>}
     </>}
   </div>;
 }

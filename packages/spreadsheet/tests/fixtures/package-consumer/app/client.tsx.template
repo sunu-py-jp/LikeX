@@ -8,7 +8,11 @@ export default function ClientSpreadsheet() {
   const spreadsheet = useRef<SpreadsheetHandle>(null);
   const props = {
     initialWorkbook: saved,
-    onSave: async workbook => { setSaved(workbook); return workbook; },
+    onSave: async (workbook, context) => { void context.signal; setSaved(workbook); return workbook; },
+    onBeforeSave: workbook => workbook.sheets.length > 0,
+    onEditRequest: async (_request, context) => !context.signal.aborted,
+    onRefresh: async () => saved,
+    onEvent: event => { if (event.type === "save" && event.status === "success") void event.requestId; },
     onSelectionChange: selection => { void selection.focus.row; },
     features: { clipboard: false, formatting: true, undoRedo: true },
     colorMode: "system",
@@ -17,6 +21,6 @@ export default function ClientSpreadsheet() {
   } satisfies SpreadsheetProps;
   return <><button onClick={() => {
     const api = spreadsheet.current;
-    if (api) api.execute({ type: "cells.set", sheetId: api.getWorkbook().sheets[0].id, values: { A1: "External API" } });
+    if (api) void api.executeAsync({ type: "cells.set", sheetId: api.getWorkbook().sheets[0].id, values: { A1: "External API" } });
   }}>Set sample value</button><Spreadsheet ref={spreadsheet} {...props} /></>;
 }

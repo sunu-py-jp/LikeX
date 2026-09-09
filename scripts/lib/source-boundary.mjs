@@ -4,7 +4,7 @@ import path from 'node:path';
 import ts from 'typescript';
 
 /** Include type-only and otherwise unbundled modules in the copyability check. */
-export async function assertSourceBoundary(directory, manifest) {
+export async function assertSourceBoundary(directory, manifest, { allowedSourceRoots = [] } = {}) {
   const declared = new Set([...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})]);
   let sourceFiles = 0;
   async function visitDirectory(current) {
@@ -20,7 +20,8 @@ export async function assertSourceBoundary(directory, manifest) {
         const imported = specifier.text;
         if (imported.startsWith('.')) {
           const target = path.resolve(path.dirname(filename), imported);
-          assert.ok(target.startsWith(directory + path.sep), `Source import escapes its directory: ${filename}: ${imported}`);
+          assert.ok([directory, ...allowedSourceRoots].some(root => target === root || target.startsWith(root + path.sep)),
+            `Source import escapes its declared source directories: ${filename}: ${imported}`);
         } else {
           const parts = imported.split('/');
           const dependency = imported.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];

@@ -8,7 +8,7 @@ import type { SpreadsheetController } from "../state/use-spreadsheet";
 export function SpreadsheetFunctionPicker({ controller: c }: { controller: SpreadsheetController }) {
   const select = useRef<HTMLSelectElement>(null);
   const pendingFocus = useRef<string | null>(null);
-  const disabled = c.disabled || !!c.selectedDrawingId;
+  const disabled = c.disabled || c.requesting || !!c.selectedDrawingId;
 
   useLayoutEffect(() => {
     const example = pendingFocus.current;

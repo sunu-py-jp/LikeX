@@ -22,13 +22,12 @@ import { formatExplorerPath } from "../model/path";
 import type { ExplorerOptions } from "../model/config";
 import { cloneUploadRejections, ExplorerUploadValidationError, formatUploadRejections, resolveUploadOptions, type ExplorerUploadDecision, type ExplorerUploadSession, createExplorerUploadSession, type ExplorerUploadOptions, type ExplorerUploadResult } from "../model/upload";
 import { cloneEditRequest, createEditRequest, type ExplorerEditHandler, type ExplorerEditIntent, type ExplorerEditModeEvent, type ExplorerEditRequest, type ExplorerEditResult, type ExplorerEditState } from "../model/edit-session";
+import type { SaveHandler as CoreSaveHandler, RefreshHandler as CoreRefreshHandler } from "../core";
 
-export type ExplorerSaveHandler = (
-  payload: ExplorerSavePayload,
-) => void | readonly ExplorerEntry[] | Promise<void | readonly ExplorerEntry[]>;
+export type ExplorerSaveHandler = CoreSaveHandler<ExplorerSavePayload, readonly ExplorerEntry[]>;
 
 /** Retrieve the authoritative complete listing. Invoked only by an explicit refresh. */
-export type ExplorerRefreshHandler = () => readonly ExplorerEntry[] | Promise<readonly ExplorerEntry[]>;
+export type ExplorerRefreshHandler = CoreRefreshHandler<readonly ExplorerEntry[]>;
 
 /** @deprecated Use ExplorerSaveHandler. */
 export type SaveHandler = ExplorerSaveHandler;

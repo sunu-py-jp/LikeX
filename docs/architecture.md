@@ -6,9 +6,11 @@ npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explore
 
 | 場所 | 責務 |
 | --- | --- |
-| `packages/<module>/src` | コピーだけでも持ち出せるモジュールの原本。公開入口、型、UI、状態管理、データ処理、利用ガイドを含みます。 |
+| `packages/<module>/src` | パッケージ配布・ソースコピーに使うモジュールの原本。公開入口、型、UI、状態管理、データ処理、利用ガイドを含みます。 |
 | `packages/<module>/tests` | モジュールの振る舞いと公開型を検証します。利用先へは配布しません。 |
 | `packages/<module>/package.json` | 配布する名前・公開入口・依存・バージョン・ライセンスを宣言します。 |
+| `packages/core/src` | 保存・編集許可・通知・機能設定などの共通契約とヘルパーの唯一の編集元。 |
+| `packages/{explorer,spreadsheet}/src/core.ts` | `@likex/core` の公開入口を再export。コピー導入時はこの1行だけ相対importに変更します。 |
 | `apps/playground` | サンプルデータとデモの保存先を持つ利用者側の例です。ライブラリには含めません。 |
 | `scripts` | ビルド・型生成・配布物検査・導入検証をまとめます。 |
 | `docs` | リポジトリ全体の方針、公開手順、レビュー記録を置きます。 |
@@ -19,9 +21,9 @@ npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explore
 
 配布用にもう一つ実装を持ちません。`src/` から `dist/` のESMと型宣言を生成し、`src/README.md` と `src/docs/` の利用ガイドを同じ配置で配布物へ同梱します。READMEは導入と詳細への入口、`docs/` は責務ごとの詳細です。
 
-コピー導入では `src/` 全体を利用先へ配置します。他のLikeXモジュール、リポジトリのパスエイリアス、必須の共通Providerには依存させません。Reactなどの外部依存は明示します。更新時は取得元バージョンと利用側での変更差分を管理します。
+コピー導入ではUIの `src/` 全体と `packages/core/src/` を隣接フォルダへ配置し、UI側の `core.ts` 1行だけimport先を変更します。リポジトリ固有のパスエイリアスや共通Providerは不要です。Reactなどの外部依存は明示します。更新時は取得元バージョンと利用側での変更差分を管理します。
 
-共通化はビルド・検証・設計ルールから行います。将来、複数モジュールのUIに似た処理が増えても、コピー単位の独立性を失う共通ランタイムを先に作ることはしません。
+共通のホスト契約と小さなヘルパーは `@likex/core` で管理します。各UIは通常のnpm依存として利用し、生成コピーは作りません。coreの詳細とコピー導入手順は [共通基盤](core.md) を参照してください。React状態や個別の保存データは各コンポーネントが管理します。
 
 ## Tailwindとデザイン
 
@@ -39,9 +41,11 @@ Next.jsへの対応は、独立した利用先の本番ビルドで検証しま�
 
 ```text
 LikeX/
+├── packages/core/         # 共通契約・ヘルパー（React依存なし）
 ├── packages/explorer/
 │   ├── src/
 │   │   ├── index.ts       # 公開入口
+│   │   ├── core.ts        # 共通パッケージへの入口（コピー時は1行変更）
 │   │   ├── props.ts       # コンポーネントの引数
 │   │   ├── model/         # 型、検証、データ操作
 │   │   ├── state/         # Reactの状態・操作管理
@@ -54,7 +58,7 @@ LikeX/
 │   ├── dist/              # 生成されるESM・型宣言・CSS
 │   ├── package.json
 │   └── README.md          # パッケージ導入と利用ガイドの入口
-├── packages/spreadsheet/  # 同じ責務分担の独立モジュール（Reactのみ依存）
+├── packages/spreadsheet/  # 同じ責務分担のUIモジュール（Reactとcoreに依存）
 ├── apps/playground/       # Vite + Reactのメモリ保存デモ
 ├── scripts/               # ビルド・配布・導入検証
 ├── docs/                  # 開発方針・公開手順・レビュー

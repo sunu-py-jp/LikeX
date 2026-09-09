@@ -38,12 +38,18 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     if (event.button !== 0 || (event.target as HTMLElement).closest("textarea,input,select")) return;
     blurObjectEditor(event.currentTarget);
     event.stopPropagation(); event.preventDefault();
-    if (!c.commitEdit()) return;
-    c.selectDrawing(drawing.id); event.currentTarget.focus({ preventScroll: true });
+    // A permission wait can outlive pointerup; only start a drag during this pointer event.
+    const target = event.currentTarget;
+    let synchronous = true;
+    c.afterCommit(() => {
+    c.selectDrawing(drawing.id); target.focus({ preventScroll: true });
+    if (!synchronous) return;
     if (c.disabled || !visibleDrawing(drawing, c) || c.editing || (kind === "resize" && !c.features.resize)) return;
     const initial = drawingRectangle(drawing, geometry);
     const session: Gesture = { id: drawing.id, sheetId: c.activeSheet.id, workbook: c.workbook, kind, start: point(event), initial, preview: initial, pointerId: event.pointerId, target: event.currentTarget };
-    event.currentTarget.setPointerCapture(event.pointerId); gesture.current = session; setPreview(session);
+    target.setPointerCapture(event.pointerId); gesture.current = session; setPreview(session);
+    });
+    synchronous = false;
   };
   const move = (event: PointerEvent) => {
     const session = gesture.current;
@@ -70,7 +76,7 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
   };
   const remove = (drawing: SpreadsheetDrawing) => {
     if (c.disabled || !visibleDrawing(drawing, c)) return;
-    if (c.executeCommand({ type: "drawings.delete", sheetId: c.activeSheet.id, drawingId: drawing.id }).ok) { c.selectDrawing(null); c.requestGridFocus(); }
+    c.afterCommand({ type: "drawings.delete", sheetId: c.activeSheet.id, drawingId: drawing.id }, () => { c.selectDrawing(null); c.requestGridFocus(); });
   };
   const keyDown = (event: KeyboardEvent, drawing: SpreadsheetDrawing) => {
     if ((event.target as HTMLElement).closest("textarea,input,select")) return;

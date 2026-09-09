@@ -30,15 +30,22 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
   const anchor = () => ({ ...latest.current.selection.focus, offsetX: 0, offsetY: 0 });
   const insert = (command: Extract<SpreadsheetCommand, { type: "shapes.insert" | "textBoxes.insert" }>, feature: "shapes" | "textBoxes") => {
     const current = latest.current;
-    if (current.disabled || !current.features[feature] || !current.commitEdit()) return;
-    const result = current.executeCommand(command);
-    if (result.ok && result.results[0]?.drawingId) current.selectDrawing(result.results[0].drawingId);
+    if (current.disabled || !current.features[feature]) return;
+    current.afterCommit(() => latest.current.afterCommand(command, result => {
+      if (result.results[0]?.drawingId) latest.current.selectDrawing(result.results[0].drawingId);
+    }));
   };
   const shape = (kind: SpreadsheetShapeDrawing["shape"]) => insert({ type: "shapes.insert", sheetId: latest.current.activeSheet.id, shape: kind,
     anchor: anchor() }, "shapes");
-  const upload = async (file: File) => {
+  const upload = (file: File) => {
     const current = latest.current;
-    if (current.disabled || !current.features.images || !current.commitEdit()) return;
+    if (current.disabled || !current.features.images) return;
+    current.afterCommit(() => { if (mounted.current) void prepareImage(file); });
+  };
+  const prepareImage = async (file: File) => {
+    const current = latest.current;
+    // afterCommit may complete before React renders the cleared permission state.
+    if (!current.features.images || current.readOnly) return;
     pending.current?.abort.abort();
     const request: ImageRequest = { abort: new AbortController(), workbook: current.getWorkbook(), selection: current.selection, sheetId: current.activeSheet.id };
     pending.current = request;
@@ -48,9 +55,10 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
       const live = latest.current;
       // acceptsImage reads the synchronous draft, including edits before the next React render.
       if (!mounted.current || request.abort.signal.aborted || !acceptsImage(live, request)) return;
-      const result = live.executeCommand({ type: "images.insert", sheetId: request.sheetId, resource,
-        anchor: { ...request.selection.focus, offsetX: 0, offsetY: 0 } });
-      if (result.ok && result.results[0]?.drawingId) live.selectDrawing(result.results[0].drawingId);
+      live.afterCommand({ type: "images.insert", sheetId: request.sheetId, resource,
+        anchor: { ...request.selection.focus, offsetX: 0, offsetY: 0 } }, result => {
+        if (mounted.current && result.results[0]?.drawingId) latest.current.selectDrawing(result.results[0].drawingId);
+      });
     } catch (cause) {
       if (mounted.current && !request.abort.signal.aborted && acceptsImage(latest.current, request)) latest.current.reportError(cause);
     } finally {
@@ -59,27 +67,27 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
   };
   return <div className="lxs-ribbon" role="toolbar" aria-label="シートへの挿入">
     {!c.readOnly && c.features.images && <div className="lxs-tool-group">
-      <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden aria-label="挿入する画像ファイル" disabled={c.disabled || loading} onChange={event => {
+      <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden aria-label="挿入する画像ファイル" disabled={c.disabled || c.requesting || loading} onChange={event => {
         const file = event.target.files?.[0]; event.target.value = "";
         if (file) void upload(file);
       }} />
-      <Command label="画像を挿入" className="lxs-insert-command" disabled={c.disabled || loading} onClick={() => {
-        if (!latest.current.disabled && latest.current.features.images && latest.current.commitEdit()) input.current?.click();
+      <Command label="画像を挿入" className="lxs-insert-command" disabled={c.disabled || c.requesting || loading} onClick={() => {
+        if (!latest.current.disabled && latest.current.features.images) latest.current.afterCommit(() => input.current?.click());
       }}><Icon name="image" /><span>画像</span></Command>
     </div>}
     {!c.readOnly && c.features.shapes && <div className="lxs-tool-group">
-      <select className="lxs-select lxs-insert-select" aria-label="図形を挿入" value="" disabled={c.disabled} onChange={event => {
+      <select className="lxs-select lxs-insert-select" aria-label="図形を挿入" value="" disabled={c.disabled || c.requesting} onChange={event => {
         const value = event.target.value;
         if (value === "rectangle" || value === "ellipse" || value === "line" || value === "arrow") shape(value);
       }}><option value="" disabled>図形</option><option value="rectangle">長方形</option><option value="ellipse">楕円</option><option value="line">直線</option><option value="arrow">矢印</option></select>
     </div>}
     {!c.readOnly && c.features.textBoxes && <div className="lxs-tool-group">
-      <Command label="テキストボックスを挿入" className="lxs-insert-command" disabled={c.disabled} onClick={() => insert({ type: "textBoxes.insert", sheetId: latest.current.activeSheet.id, anchor: anchor() }, "textBoxes")}><Icon name="text" /><span>テキストボックス</span></Command>
+      <Command label="テキストボックスを挿入" className="lxs-insert-command" disabled={c.disabled || c.requesting} onClick={() => insert({ type: "textBoxes.insert", sheetId: latest.current.activeSheet.id, anchor: anchor() }, "textBoxes")}><Icon name="text" /><span>テキストボックス</span></Command>
     </div>}
     {!c.readOnly && c.features.comments && <div className="lxs-tool-group">
-      <Command label="コメントを挿入" className="lxs-insert-command" disabled={c.disabled} onClick={() => {
+      <Command label="コメントを挿入" className="lxs-insert-command" disabled={c.disabled || c.requesting} onClick={() => {
         const live = latest.current;
-        if (!live.disabled && live.features.comments && live.commitEdit()) { live.selectDrawing(null); live.setCommentOpen(true); }
+        if (!live.disabled && live.features.comments) live.afterCommit(() => { latest.current.selectDrawing(null); latest.current.setCommentOpen(true); });
       }}><Icon name="comment" /><span>コメント</span></Command>
     </div>}
     {loading && <span className="lxs-ribbon-hint" role="status">画像を読み込み中…</span>}

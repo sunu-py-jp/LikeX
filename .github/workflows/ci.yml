@@ -46,6 +46,11 @@ jobs:
             artifacts/copy-consumer-next.log
             artifacts/*-install-*.log
             artifacts/dependency-audit-production.json
+            artifacts/core/*.tgz
+            artifacts/core/library-build.json
+            artifacts/core/library-pack.json
+            artifacts/core/*-report.json
+            artifacts/core/*-install-*.log
             artifacts/spreadsheet/*.tgz
             artifacts/spreadsheet/library-build.json
             artifacts/spreadsheet/library-pack.json

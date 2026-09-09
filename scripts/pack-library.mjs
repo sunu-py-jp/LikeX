@@ -2,9 +2,9 @@ import path from 'node:path';
 import { writeFile } from 'node:fs/promises';
 import { buildLibrary } from './build-library.mjs';
 import { runNpm } from './lib/run.mjs';
-import { libraryModule, requestedModules } from './lib/modules.mjs';
+import { dependencyOrder, libraryModule, requestedModules } from './lib/modules.mjs';
 
-for (const moduleName of requestedModules()) {
+for (const moduleName of dependencyOrder(requestedModules())) {
   const { artifactRoot, packageRoot, npmCacheRoot } = libraryModule(moduleName);
   await buildLibrary({ module: moduleName });
   const output = await runNpm(['pack', packageRoot, '--json', '--ignore-scripts', '--pack-destination', artifactRoot,

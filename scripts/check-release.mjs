@@ -17,7 +17,10 @@ try {
     const label = check.module ? `${check.name}:${check.module}` : check.name;
     console.log(`\nRelease check: ${label}`);
     const options = check.module ? ['--module', check.module] : [];
-    if (['test:package', 'test:copy'].includes(check.name)) options.push('--next', ...(online ? ['--online'] : []));
+    if (['test:package', 'test:copy'].includes(check.name)) {
+      if (libraryModule(check.module).ui) options.push('--next');
+      if (online) options.push('--online');
+    }
     await runNpm(['run', check.name, ...(options.length ? ['--', ...options] : [])], { timeout: 300_000 });
     completed.push(label);
   }

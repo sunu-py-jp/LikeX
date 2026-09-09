@@ -16,12 +16,14 @@ type SelectionDrag = {
 /** Owns pointer gesture lifetime and header activation, including additive selection. */
 export function useGridSelection(c: SpreadsheetController, { scrollerRef, activeInputRef, focusIntentRef }: GridFocusRefs) {
   const dragging = useRef<SelectionDrag | null>(null);
+  const pendingPointer = useRef<{ id: number; down: boolean } | null>(null);
   const latest = useRef(c);
   useLayoutEffect(() => { latest.current = c; });
   useEffect(() => {
     const document = scrollerRef.current?.ownerDocument;
     if (!document) return;
     const finish = (event: globalThis.PointerEvent) => {
+      if (pendingPointer.current?.id === event.pointerId) pendingPointer.current.down = false;
       const drag = dragging.current;
       if (!drag || drag.pointerId !== event.pointerId) return;
       dragging.current = null;
@@ -31,7 +33,7 @@ export function useGridSelection(c: SpreadsheetController, { scrollerRef, active
         latest.current.requestGridFocus();
       }
     };
-    const cancel = () => { dragging.current = null; };
+    const cancel = () => { dragging.current = null; pendingPointer.current = null; };
     document.addEventListener("pointerup", finish);
     document.addEventListener("pointercancel", cancel);
     document.defaultView?.addEventListener("blur", cancel);
@@ -41,16 +43,20 @@ export function useGridSelection(c: SpreadsheetController, { scrollerRef, active
       document.defaultView?.removeEventListener("blur", cancel);
     };
   }, [scrollerRef]);
-  useEffect(() => { dragging.current = null; }, [c.activeSheet.id]);
+  useEffect(() => { dragging.current = null; pendingPointer.current = null; }, [c.activeSheet.id]);
 
   const startSelection = (event: PointerEvent<HTMLElement>, position: Position, kind: SelectionDrag["kind"]) => {
     if (event.button !== 0) return;
     dragging.current = null;
     blurObjectEditor(event.currentTarget);
-    if (!c.commitEdit()) return;
     event.preventDefault();
-    const additive = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
-    const origin = event.shiftKey ? c.selection.anchor : position;
+    const pointer = { id: event.pointerId, down: true };
+    pendingPointer.current = pointer;
+    const { shiftKey, ctrlKey, metaKey, altKey } = event;
+    c.afterCommit(() => {
+    if (pendingPointer.current !== pointer || latest.current.activeSheet.id !== c.activeSheet.id) return;
+    const additive = (ctrlKey || metaKey) && !altKey && !shiftKey;
+    const origin = shiftKey ? c.selection.anchor : position;
     const range = kind === "row"
       ? { anchor: { row: origin.row, column: c.activeSheet.columnCount - 1 }, focus: { row: position.row, column: 0 } }
       : kind === "column"
@@ -59,17 +65,22 @@ export function useGridSelection(c: SpreadsheetController, { scrollerRef, active
     const alreadySelected = kind === "cell" ? isCellSelected(c.selection, position) : isRangeSelected(c.selection, range);
     const toggleOnClick = additive && alreadySelected ? range : undefined;
     if (!toggleOnClick) {
-      const accepted = kind === "cell" ? c.select(position, event.shiftKey, additive)
-        : c.selectRange(range.anchor, range.focus, additive, event.shiftKey);
+      const accepted = kind === "cell" ? c.select(position, shiftKey, additive)
+        : c.selectRange(range.anchor, range.focus, additive, shiftKey);
       if (!accepted) return;
     }
-    dragging.current = { kind, pointerId: event.pointerId, origin, toggleOnClick };
+    dragging.current = pointer.down ? { kind, pointerId: pointer.id, origin, toggleOnClick } : null;
+    if (!pointer.down && toggleOnClick) {
+      if (kind === "cell") c.toggleSelection(toggleOnClick.focus);
+      else c.toggleSelectionRange(toggleOnClick.anchor, toggleOnClick.focus);
+    }
     focusIntentRef.current = true;
     c.requestGridFocus();
     scrollerRef.current?.focus({ preventScroll: true });
     if (position.row === c.selection.focus.row && position.column === c.selection.focus.column) {
       activeInputRef.current?.focus({ preventScroll: true }); activeInputRef.current?.select(); focusIntentRef.current = false;
     }
+    });
   };
   const extendSelection = (event: PointerEvent<HTMLElement>, position: Position) => {
     const drag = dragging.current;
@@ -93,7 +104,9 @@ export function useGridSelection(c: SpreadsheetController, { scrollerRef, active
   };
   const selectHeaderWithKeyboard = (event: { detail: number; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean }, position: Position, kind: "row" | "column") => {
     // Pointer selection is handled on pointerdown; detail=0 covers keyboard/AT activation.
-    if (event.detail !== 0 || !c.commitEdit()) return;
+    if (event.detail !== 0) return;
+    pendingPointer.current = null;
+    c.afterCommit(() => {
     focusIntentRef.current = true;
     const additive = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
     const origin = event.shiftKey ? c.selection.anchor : position;
@@ -102,6 +115,7 @@ export function useGridSelection(c: SpreadsheetController, { scrollerRef, active
     if (additive) c.toggleSelectionRange(anchor, focus);
     else c.selectRange(anchor, focus, false, event.shiftKey);
     c.requestGridFocus();
+    });
   };
 
   return { startSelection, extendSelection, selectHeaderWithKeyboard };

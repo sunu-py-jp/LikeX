@@ -5,6 +5,7 @@ import type { ExplorerPreviewRequest } from "./preview";
 import type { ExplorerUploadRejection } from "./upload";
 import type { ExplorerDownloadProgress } from "./download";
 import type { ExplorerEditModeEvent } from "./edit-session";
+import { notifyHost, type EventHandler } from "../core";
 
 export type ExplorerLocationInfo =
   | Readonly<{ kind: "folder"; id: string; name: string; path: string }>
@@ -93,17 +94,12 @@ export type ExplorerViewEvent =
 /** Child-window UI events include their window ID; draft/save events are workspace-wide. */
 export type ExplorerEvent = ExplorerDraftEvent | (ExplorerViewEvent & Readonly<{ windowId?: string }>);
 
-export type ExplorerEventHandler = (event: ExplorerEvent) => void | Promise<void>;
+export type ExplorerEventHandler = EventHandler<ExplorerEvent>;
 
 /** Observer failures never roll back an edit or turn a successful save into a failure. */
 export function dispatchExplorerEvent(
   handler: ExplorerEventHandler | undefined,
   event: ExplorerEvent,
 ) {
-  if (!handler) return;
-  try {
-    void Promise.resolve(handler(event)).catch(() => {});
-  } catch {
-    // Observers do not participate in the action or persistence transaction.
-  }
+  notifyHost(handler, event);
 }

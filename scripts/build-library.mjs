@@ -8,7 +8,7 @@ import { gzipSync } from 'node:zlib';
 import { projectRoot } from './lib/run.mjs';
 import { installedPackage } from './lib/packages.mjs';
 import { assertSourceBoundary } from './lib/source-boundary.mjs';
-import { libraryModule, requestedModules } from './lib/modules.mjs';
+import { dependencyOrder, libraryModule, requestedModules } from './lib/modules.mjs';
 
 async function declarationFiles(directory) {
   const files = [];
@@ -28,13 +28,13 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
   const licensePath = path.join(packageRoot, 'LICENSE');
   if (!manifest.private && (manifest.license === 'UNLICENSED' || !existsSync(licensePath)))
     throw new Error(`Choose the distribution license and add packages/${module}/LICENSE before enabling public publishing.`);
-  const css = profile.generatedStyles
+  const css = !profile.ui ? '' : profile.generatedStyles
     ? (await (await import('./build-styles.mjs')).buildStyles()).css
     : await readFile(path.join(sourceRoot, 'styles.css'), 'utf8');
   // The package directory contains maintained source/docs: replace only dist.
   await rm(path.join(packageRoot, 'dist'), { recursive: true, force: true });
   await mkdir(path.join(packageRoot, 'dist'), { recursive: true });
-  await writeFile(path.join(packageRoot, 'dist/styles.css'), css);
+  if (profile.ui) await writeFile(path.join(packageRoot, 'dist/styles.css'), css);
   await mkdir(artifactRoot, { recursive: true });
   const result = await build({
     absWorkingDir: projectRoot,
@@ -58,7 +58,8 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
     if (!declared.has(dependency)) throw new Error(`Undeclared runtime dependency: ${imported.path}`);
   }
   const javascript = await readFile(path.join(packageRoot, 'dist/index.js'), 'utf8');
-  if (!/^['"]use client['"];/.test(javascript)) throw new Error('The distributed entry lost its use client directive.');
+  if (profile.ui && !/^['"]use client['"];/.test(javascript)) throw new Error('The distributed entry lost its use client directive.');
+  if (!profile.ui && /^['"]use client['"];/.test(javascript)) throw new Error('The core entry must remain usable outside React clients.');
 
   const declarationRoot = path.join(packageRoot, 'dist/types');
   const program = ts.createProgram([path.join(sourceRoot, 'index.ts')], {
@@ -66,7 +67,7 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
     moduleResolution: ts.ModuleResolutionKind.Bundler, jsx: ts.JsxEmit.ReactJSX,
     strict: true, skipLibCheck: true, esModuleInterop: true,
     declaration: true, emitDeclarationOnly: true, noEmitOnError: true,
-    rootDir: sourceRoot, outDir: declarationRoot, types: ['react', 'react-dom'],
+    rootDir: sourceRoot, outDir: declarationRoot, types: profile.ui ? ['react', 'react-dom'] : [],
     lib: ['lib.es2022.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts'],
   });
   const diagnostics = ts.getPreEmitDiagnostics(program);
@@ -102,7 +103,7 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
   await writeFile(path.join(packageRoot, 'THIRD_PARTY_NOTICES.md'), notices.join('\n'));
   const report = { name: manifest.name, version: manifest.version, javascriptBytes: Buffer.byteLength(javascript),
     gzipBytes: gzipSync(javascript).length, declarationFiles: (await declarationFiles(declarationRoot)).length,
-    stylesheetBytes: Buffer.byteLength(css), stylesheetGzipBytes: gzipSync(css).length,
+    stylesheetBytes: Buffer.byteLength(css), stylesheetGzipBytes: profile.ui ? gzipSync(css).length : 0,
     publishBlocked: manifest.private === true, license: manifest.license, dependencies: [...declared].sort(),
     sourceFiles: Object.keys(result.metafile.inputs).length };
   await writeFile(path.join(artifactRoot, 'library-build.json'), JSON.stringify(report, null, 2) + '\n');
@@ -111,4 +112,4 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
-  for (const moduleName of requestedModules()) await buildLibrary({ module: moduleName });
+  for (const moduleName of dependencyOrder(requestedModules())) await buildLibrary({ module: moduleName });

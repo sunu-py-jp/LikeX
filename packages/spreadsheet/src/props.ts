@@ -1,25 +1,12 @@
 import type { CSSProperties, Ref } from "react";
 import type { SpreadsheetCellPosition, SpreadsheetWorkbook } from "./model/types";
 import type { SpreadsheetHandle } from "./api/types";
+import type { SpreadsheetFeatures } from "./api/features";
+import type { SpreadsheetBeforeSaveHandler, SpreadsheetEditHandler, SpreadsheetEventHandler, SpreadsheetRefreshHandler, SpreadsheetSaveHandler } from "./api/lifecycle";
+export type { SpreadsheetFeatures } from "./api/features";
+export type { SpreadsheetSaveHandler } from "./api/lifecycle";
 
 export type SpreadsheetColorMode = "light" | "dark" | "system";
-
-/** Omitted features are enabled. False hides their controls and disables their actions. */
-export type SpreadsheetFeatures = Readonly<{
-  formulas?: boolean;
-  clipboard?: boolean;
-  formatting?: boolean;
-  /** Allows merging/unmerging. Existing merged cells still render when disabled. */
-  mergeCells?: boolean;
-  rowColumnOperations?: boolean;
-  sheets?: boolean;
-  resize?: boolean;
-  undoRedo?: boolean;
-  images?: boolean;
-  shapes?: boolean;
-  textBoxes?: boolean;
-  comments?: boolean;
-}>;
 
 export type SpreadsheetSelectionRange = Readonly<{
   anchor: Readonly<SpreadsheetCellPosition>;
@@ -36,10 +23,6 @@ export type SpreadsheetSelection = Readonly<{
   ranges?: readonly SpreadsheetSelectionRange[];
 }>;
 
-export type SpreadsheetSaveHandler = (
-  workbook: SpreadsheetWorkbook,
-) => void | SpreadsheetWorkbook | Promise<void | SpreadsheetWorkbook>;
-
 export type SpreadsheetProps = {
   /** Typed operations on the mounted draft. Does not trigger persistence. */
   ref?: Ref<SpreadsheetHandle>;
@@ -49,6 +32,20 @@ export type SpreadsheetProps = {
   onChange?: (workbook: SpreadsheetWorkbook) => void;
   /** Owns persistence. Omit this callback for read-only viewing. */
   onSave?: SpreadsheetSaveHandler;
+  /** Async validation before persistence. False cancels; throw reports a validation error. */
+  onBeforeSave?: SpreadsheetBeforeSaveHandler;
+  /** Acquire a host-owned editing lease before the first actual change. */
+  onEditRequest?: SpreadsheetEditHandler;
+  /** Read an authoritative complete workbook on explicit refresh. */
+  onRefresh?: SpreadsheetRefreshHandler;
+  /** Observe operations; these notifications cannot veto or roll back an operation. */
+  onEvent?: SpreadsheetEventHandler;
+  /** Committed draft differs from the last accepted baseline. */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Includes unfinished editor input, for host-owned SPA navigation guards. */
+  onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void;
+  /** Warn before document unload while unsaved. Defaults to true. SPA navigation belongs to the host. */
+  warnOnUnsavedChanges?: boolean;
   readOnly?: boolean;
   features?: SpreadsheetFeatures;
   onSelectionChange?: (selection: SpreadsheetSelection) => void;

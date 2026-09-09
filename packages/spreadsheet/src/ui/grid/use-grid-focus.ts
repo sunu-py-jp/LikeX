@@ -52,7 +52,7 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
     if (event.key === "F2") { event.preventDefault(); c.beginEdit(); return; }
     if (event.key === "Enter" || event.key === "Tab") {
       event.preventDefault();
-      if (c.commitEdit()) {
+      c.afterCommit(() => {
         focusIntent.current = true;
         const position = nextCellPosition(c.activeSheet, c.selection.focus, event.key === "Enter" ? (event.shiftKey ? -1 : 1) : 0,
           event.key === "Tab" ? (event.shiftKey ? -1 : 1) : 0);
@@ -65,7 +65,7 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
           if (merge && merge.bottom < c.activeSheet.rowCount - 1) { row = merge.bottom + 1; column = 0; }
         }
         c.select({ row, column });
-      }
+      });
       return;
     }
     if (c.editing) return;
@@ -90,11 +90,11 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
     if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) focusIntent.current = false;
   };
   const selectAll = () => {
-    if (c.commitEdit()) {
+    c.afterCommit(() => {
       focusIntent.current = true;
       c.selectRange({ row: c.activeSheet.rowCount - 1, column: c.activeSheet.columnCount - 1 }, { row: 0, column: 0 });
       c.requestGridFocus();
-    }
+    });
   };
   return { scrollerRef, activeInputRef: activeInput, focusIntentRef: focusIntent, keyDown, onBlurCapture, selectAll };
 }

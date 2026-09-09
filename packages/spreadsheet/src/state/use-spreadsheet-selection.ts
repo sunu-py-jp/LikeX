@@ -18,6 +18,7 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
     setSelectionState(next);
   }, []);
   const [gridFocusRequest, setGridFocusRequest] = useState(0);
+  const [viewRevision, setViewRevision] = useState(0);
   const [drawingSelection, setDrawingSelection] = useState<{ sheetId: string; id: string } | null>(null);
   const [commentOpen, setCommentOpen] = useState(false);
   const activeSheet = workbook.sheets.find(sheet => sheet.id === selection.sheetId) ?? workbook.sheets[0];
@@ -28,8 +29,15 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
   const selectedDrawingId = selectedDrawing?.id ?? null;
   const clearDrawingSelection = useCallback(() => setDrawingSelection(null), []);
 
-  useEffect(() => notifySpreadsheetHost(propsRef.current.onSelectionChange,
-    createSelection(selection.sheetId, selectionRanges(selection), selection.focus)), [selection, propsRef]);
+  useEffect(() => {
+    notifySpreadsheetHost(propsRef.current.onSelectionChange,
+      createSelection(selection.sheetId, selectionRanges(selection), selection.focus));
+    notifySpreadsheetHost(propsRef.current.onEvent, { type: "selection",
+      selection: createSelection(selection.sheetId, selectionRanges(selection), selection.focus) });
+  }, [selection, propsRef]);
+  useEffect(() => {
+    notifySpreadsheetHost(propsRef.current.onEvent, { type: "drawing-selection", sheetId: activeSheet.id, drawingId: selectedDrawingId });
+  }, [activeSheet.id, selectedDrawingId, propsRef]);
 
   const select = (position: Position, extend = false, additive = false): boolean => {
     const next = clampPosition(position, activeSheet);
@@ -67,11 +75,13 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
   };
   const resetForWorkbook = (next: Workbook) => {
     clearDrawingSelection();
+    setCommentOpen(false);
+    setViewRevision(value => value + 1);
     const sheet = next.sheets.find(item => item.id === selection.sheetId) ?? next.sheets[0];
     setSelection(initialSheetSelection(sheet));
   };
 
-  return { activeSheet, selection, selectionRef, setSelection, select, selectRange, toggleSelection, toggleSelectionRange,
+  return { activeSheet, selection, selectionRef, setSelection, select, selectRange, toggleSelection, toggleSelectionRange, viewRevision,
     selectedDrawing, selectedDrawingId, selectDrawing, clearDrawingSelection, switchSheet, resetForWorkbook,
     commentOpen: features.comments && commentOpen, setCommentOpen,
     gridFocusRequest, requestGridFocus: () => setGridFocusRequest(value => value + 1) };

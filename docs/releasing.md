@@ -1,6 +1,6 @@
 # LikeXの配布と公開
 
-ExplorerとSpreadsheetは独立したパッケージです。各配布設定は `packages/<module>/package.json`、実装の原本は `packages/<module>/src/` です。ビルドは同じパッケージ内の `dist/` に生成します。デモとテスト、`src/` のTypeScriptファイルは配布一覧から除外します。デバッグ用source mapにはソース内容を含みます。コピー用の原本はリポジトリから取得します。
+Explorer、Spreadsheet、coreは独立したパッケージです。各配布設定は `packages/<module>/package.json`、実装の原本は `packages/<module>/src/` です。ビルドは同じパッケージ内の `dist/` に生成します。デモとテスト、`src/` のTypeScriptファイルは配布一覧から除外します。デバッグ用source mapにはソース内容を含みます。コピー用の原本はリポジトリから取得します。
 
 ## 配布物を検証する
 
@@ -11,7 +11,7 @@ npm ci
 npm run check:release
 ```
 
-Explorerの生成CSSの一致確認と隔離の検証、テスト、Lint、型チェック、両パッケージのビルドとtarball生成、パッケージとソースコピーそれぞれの導入検証、Next.js本番ビルド、デモの本番ビルドを行います。導入検証ではstrictな型解決、SSR、CSSの同一性・隔離、パッケージ内の文書リンクも確認します。検証用プロジェクトへの依存インストールは既定でnpmキャッシュを使います。キャッシュ不足で作業用依存にリンクした場合はレポートで区別されます。独立インストールを必須にする場合はオンライン検証を使います。
+Explorerの生成CSSの一致確認と隔離の検証、テスト、Lint、型チェック、全パッケージのビルドとtarball生成、パッケージとソースコピーそれぞれの導入検証、Next.js本番ビルド、デモの本番ビルドを行います。導入検証ではstrictな型解決、SSR、CSSの同一性・隔離、パッケージ内の文書リンクも確認します。coreはReactやCSSを持たないため、Next.jsの代わりにブラウザグローバルのないNode.jsでインポートを検証します。検証用プロジェクトへの依存インストールは既定でnpmキャッシュを使います。キャッシュ不足で作業用依存にリンクした場合はレポートで区別されます。独立インストールを必須にする場合はオンライン検証を使います。
 
 ```bash
 npm run pack:library -- --all
@@ -30,14 +30,15 @@ CIでは `npm run check:release -- --online` を実行し、パッケージ・�
 | `packages/<module>/THIRD_PARTY_NOTICES.md` | 実際の依存から生成する第三者通知 |
 | `artifacts/likex-explorer-0.1.0.tgz` | 現在の名前・バージョンでの配布物 |
 | `artifacts/spreadsheet/likex-spreadsheet-0.1.0.tgz` | Spreadsheetの配布物 |
+| `artifacts/core/likex-core-0.1.0.tgz` | coreの配布物 |
 | `artifacts/*-report.json` / `artifacts/spreadsheet/*-report.json` | 各モジュールの導入検証結果 |
 | `artifacts/release-check.json` | 全検証の実行結果。成果物はGit管理せず再生成します。 |
 
-ソースコピーは `styles.css` を含む `packages/<module>/src/` の中身を持ち出します。利用側はパッケージの `@likex/<module>/styles.css` またはコピーした `styles.css` を読み込みます。両方とも利用先でTailwindの導入・専用設定は不要です。[Explorerの導入手順](../packages/explorer/README.md) または [Spreadsheetの導入手順](../packages/spreadsheet/README.md) を参照してください。
+ソースコピーはUIの `styles.css` を含む `packages/<module>/src/` と `packages/core/src/` を隣接フォルダへ持ち出し、UIの `core.ts` 1行だけ相対importへ変更します。利用側はパッケージの `@likex/<module>/styles.css` またはコピーした `styles.css` を読み込みます。両方とも利用先でTailwindの導入・専用設定は不要です。[Explorerの導入手順](../packages/explorer/README.md) または [Spreadsheetの導入手順](../packages/spreadsheet/README.md) を参照してください。
 
 ## 公開前に決めるもの
 
-ルートの `package.json` は常に非公開です。Explorer・Spreadsheetも現在は `private: true` / `UNLICENSED` で、tarballの作成は公開の実行を意味しません。
+ルートの `package.json` は常に非公開です。core・Explorer・Spreadsheetも現在は `private: true` / `UNLICENSED` で、tarballの作成は公開の実行を意味しません。
 
 1. `@likex` scopeの利用権と公開先、パッケージ名を確定します。
 2. 権利者がライセンスを選び、ルートとパッケージのLICENSE・manifestを整えます。
@@ -51,14 +52,15 @@ CIでは `npm run check:release -- --online` を実行し、パッケージ・�
 検証したtarballをGitHub Releasesに添付します。タグは `explorer-v0.1.0`、`spreadsheet-v0.1.0` のようにモジュール名を含めると区別できます。利用側はダウンロードしたtarball、またはその配布URLをnpmへ渡します。
 
 ```bash
-npm install ./likex-explorer-0.1.0.tgz
+npm install ./likex-core-0.1.0.tgz ./likex-explorer-0.1.0.tgz
 ```
 
-URL指定は `npm install https://github.com/OWNER/LikeX/releases/download/explorer-v0.1.0/likex-explorer-0.1.0.tgz` の形です。OWNER等は実際の公開先へ置き換えます。これはURLの形式例で、公開済みのリンクではありません。リポジトリのルートをGit依存としてインストールする方式ではありません。
+URL指定もcoreとUIの両方を `npm install` に渡します（例: `https://github.com/OWNER/LikeX/releases/download/core-v0.1.0/likex-core-0.1.0.tgz` と `https://github.com/OWNER/LikeX/releases/download/explorer-v0.1.0/likex-explorer-0.1.0.tgz`）。OWNER等は実際の公開先へ置き換えます。これはURLの形式例で、公開済みのリンクではありません。リポジトリのルートをGit依存としてインストールする方式ではありません。
 
 npmレジストリにも公開する場合は、アカウント・ライセンス・公開内容を確認した後に、同じ検証済みtarballを指定します。
 
 ```bash
+npm publish artifacts/core/likex-core-0.1.0.tgz --access public
 npm publish artifacts/likex-explorer-0.1.0.tgz --access public
 ```
 

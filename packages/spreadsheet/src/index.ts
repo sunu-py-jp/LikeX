@@ -18,3 +18,10 @@ export type {
 } from "./api/types";
 export { readImageResource as prepareSpreadsheetImage } from "./state/read-image";
 export type { SpreadsheetImagePreparationOptions } from "./state/read-image";
+export type {
+  SpreadsheetBeforeSaveHandler, SpreadsheetRefreshHandler,
+  SpreadsheetEditHandler, SpreadsheetEditIntent, SpreadsheetEditRequest, SpreadsheetEditResult,
+  SpreadsheetEditState, SpreadsheetDiscardOptions, SpreadsheetEvent, SpreadsheetEventHandler,
+  SpreadsheetChangeSource,
+} from "./api/lifecycle";
+export type { OperationContext as SpreadsheetOperationContext, EditMode as SpreadsheetEditMode } from "./core";

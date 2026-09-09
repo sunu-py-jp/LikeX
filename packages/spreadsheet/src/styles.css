@@ -135,3 +135,6 @@
 .lxs-root .lxs-dialog-actions button:hover:enabled { background: var(--lxs-hover); }
 .lxs-root .lxs-dialog-actions .lxs-dialog-confirm { background: #217346; color: #fff; }
 .lxs-root .lxs-dialog-actions .lxs-dialog-confirm:hover:enabled { background: #195d38; }
+
+.lxs-persistence-controls { display: flex; align-items: center; gap: 8px; }
+.lxs-operation-status { color: var(--lxs-muted); font-size: 11px; }

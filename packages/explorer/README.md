@@ -7,7 +7,7 @@ Windows Explorer風のReact / TypeScriptコンポーネントです。ファイ�
 検証用または配布されたtarballをインストールします。npmレジストリへの公開はまだ行っていません。
 
 ```bash
-npm install ./likex-explorer-0.1.0.tgz
+npm install ./likex-core-0.1.0.tgz ./likex-explorer-0.1.0.tgz
 ```
 
 React / React DOM `^19.2.6` が必要です。その他の実行時依存はパッケージから導入されます。**利用先へのTailwind CSS・専用PostCSS設定は不要です。**
@@ -42,7 +42,7 @@ CSSはアプリの入口で1回読み込みます。Next.js App Routerでは `ap
 ## 導入時の要点
 
 - `onSave` 未指定なら読み取り専用です。`initialEntries` はマウント時だけ読み、最新一覧への更新には `onRefresh` を使います。
-- コピー導入はリポジトリの `packages/explorer/src/` 全体を持ち出し、実行時依存とCSSのimportを用意します。詳細な手順は [利用ガイド](./src/docs/README.md) にあります。
+- コピー導入はリポジトリの `packages/core/src/` と `packages/explorer/src/` をそれぞれ `components/core/` と `components/explorer/` へコピーし、`explorer/core.ts` の1行を `export * from "../core";` へ変更します。そのうえで実行時依存とCSSのimportを用意します。詳細な手順は [利用ガイド](./src/docs/README.md) にあります。
 - 下書きはメモリ内です。SPA遷移やアンマウント前の未保存確認は親が `onDirtyChange` で扱います。UIの制限はサーバーの認証・認可に代わるものではありません。
 - Office文書の内蔵プレビューはありません。プレビュー、認証付きダウンロード、本文・セマンティック検索は親から処理を渡せます。
 - 内蔵ZIPはメモリ内で生成します。大きなダウンロードは親の処理へ委譲してください。ウィンドウ・クリップボード等の動作はブラウザとOSにも依存します。

@@ -28,7 +28,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   const selectedBounds = useMemo(() => selectionRanges(c.selection).map(rangeBounds), [c.selection]);
 
   return <div className="lxs-grid-surface"><SpreadsheetDrawingInspector controller={c} /><div ref={scroller} tabIndex={-1} className="lxs-grid-scroll" onBlurCapture={focus.onBlurCapture} onScroll={layout.onScroll}>
-    <div className="lxs-grid-canvas" style={{ width: gridWidth, height: rowOffsets.at(-1) }}><div role="grid" aria-label={c.activeSheet.name} aria-readonly={c.disabled} aria-rowcount={c.activeSheet.rowCount + 1} aria-colcount={c.activeSheet.columnCount + 1} aria-multiselectable="true" className="lxs-grid" style={{ width: gridWidth, height: rowOffsets.at(-1) }}>
+    <div className="lxs-grid-canvas" style={{ width: gridWidth, height: rowOffsets.at(-1) }}><div role="grid" aria-label={c.activeSheet.name} aria-readonly={c.disabled || c.requesting} aria-rowcount={c.activeSheet.rowCount + 1} aria-colcount={c.activeSheet.columnCount + 1} aria-multiselectable="true" className="lxs-grid" style={{ width: gridWidth, height: rowOffsets.at(-1) }}>
       <div role="row" aria-rowindex={1} className="lxs-column-headers" style={{ width: gridWidth, height: ROW_HEIGHT }}>
         <div role="columnheader" className="lxs-corner" style={{ width: ROW_HEADER_WIDTH }} aria-label="行と列"><button type="button" className="lxs-header-button" aria-label="すべてのセルを選択" onClick={focus.selectAll}>◢</button></div>
         {widths.map((width, column) => <div role="columnheader" aria-colindex={column + 2} key={column} className={`lxs-column-header ${selectedBounds.some(bounds => column >= bounds.left && column <= bounds.right) ? "lxs-header-selected" : ""}`} style={{ width: resizing?.column === column ? resizing.value : width }}>
@@ -61,7 +61,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
             }}
             onPointerEnter={event => extendSelection(event, { row, column })}
             onDoubleClick={() => c.beginEdit({ row, column })}>
-            {focused ? <input ref={activeInput} className="lxs-cell-input" aria-label={`${address}の値`} value={editing ? c.editing!.value : text} readOnly={c.disabled}
+            {focused ? <input ref={activeInput} className="lxs-cell-input" aria-label={`${address}の値`} value={editing ? c.editing!.value : text} readOnly={c.disabled || c.requesting}
               onFocus={event => { if (!c.editing) event.currentTarget.select(); }}
               onChange={event => c.beginEdit({ row, column }, event.target.value)}
               onKeyDown={keyDown}
@@ -69,7 +69,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
             /> : <span>{text}</span>}
             {comment && <button type="button" className="lxs-comment-marker" aria-label={`${address} のコメントを表示`} title={comment.text.slice(0, 200)}
               onPointerDown={event => { blurObjectEditor(event.currentTarget); event.preventDefault(); event.stopPropagation(); }}
-              onClick={event => { event.stopPropagation(); if (c.commitEdit()) { c.select({ row, column }); c.setCommentOpen(true); } }}
+              onClick={event => { event.stopPropagation(); c.afterCommit(() => { c.select({ row, column }); c.setCommentOpen(true); }); }}
               onDoubleClick={event => event.stopPropagation()} /> }
           </div>;
           return merge ? <div key={column} className="lxs-cell-placeholder" style={{ width }}>{rendered}</div> : rendered;

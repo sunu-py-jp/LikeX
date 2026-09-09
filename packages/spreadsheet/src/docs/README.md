@@ -4,7 +4,7 @@
 
 ## コピー導入
 
-リポジトリの `packages/spreadsheet/src/` 全体を、利用先の `components/spreadsheet/` にコピーします。`model/`・`state/`・`ui/`・CSSを含めてください。React / React DOM `^19.2.6` と、TypeScript環境では対応する型定義が必要です。
+リポジトリの `packages/spreadsheet/src/` 全体を `components/spreadsheet/`、`packages/core/src/` 全体を `components/core/` にコピーします。`components/spreadsheet/core.ts` の1行を `export * from "../core";` に変更します。`model/`・`state/`・`ui/`・CSSを含めてください。React / React DOM `^19.2.6` と、TypeScript環境では対応する型定義が必要です。
 
 ```tsx
 "use client";
@@ -27,6 +27,8 @@ Next.js App Routerでは `app/layout.tsx` にCSSのimportを置きます。コ�
 ## 詳細
 
 - [公開API・保存と機能設定](./api.md)
+- [保存・編集許可・イベントの注入](./lifecycle.md)
+- [機能のON/OFF](./features.md)
 - [外部からセル・行列・画像・図形を操作する](./external-operations.md)
 - [操作と初版の制約](./capabilities.md)
 - [セル・範囲・行列の複数選択](./selection.md)

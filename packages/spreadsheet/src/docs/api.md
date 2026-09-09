@@ -42,6 +42,13 @@ const workbook: SpreadsheetWorkbook = {
 | `initialWorkbook` | マウント時の初期ブック。省略時は空の100行×26列。再代入で下書きは置き換わりません。 |
 | `onChange` | 下書きの変更通知。永続化は行いません。 |
 | `onSave` | 保存処理。省略すると読み取り専用。 |
+| `onBeforeSave` | 保存前チェック。`false`で中止。 |
+| `onEditRequest` | 初回の実変更前に編集許可を要求。未指定なら即時許可。 |
+| `onRefresh` | 最新ブックの再取得。未指定なら更新ボタンは非表示。 |
+| `onEvent` | 保存・編集モード・操作等の型付き通知。 |
+| `onDirtyChange` | 保存済み状態との差の通知。 |
+| `onUnsavedChangesChange` | 未確定入力も含む変更状態。親の画面遷移ガード向け。 |
+| `warnOnUnsavedChanges` | 未保存時のブラウザ標準離脱確認。既定`true`。 |
 | `readOnly` | `true` なら `onSave` があっても変更操作を無効化。 |
 | `features` | 下記の機能設定。省略した項目は `true`。 |
 | `onSelectionChange` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。`ranges` は全範囲、`focus` は編集先セル（結合内なら左上）。[複数選択](./selection.md) |
@@ -50,7 +57,9 @@ const workbook: SpreadsheetWorkbook = {
 | `className` / `style` | ルート要素のクラス・CSS。高さは利用先で指定。 |
 | `aria-label` | 領域の読み上げ名。省略時は「スプレッドシート」。 |
 
-`initialWorkbook` は最初だけ読み込むため、別のブックへの切り替えや保存先の再読み込みには `key={bookIdOrRevision}` などで再マウントします。未保存の下書きも破棄されるため、切り替え前の確認は親で扱ってください。
+`initialWorkbook` は最初だけ読み込みます。同じブックの再取得には `onRefresh`、別ブックへの切り替えには `key={bookId}` などで再マウントします。未保存の下書きも破棄されるため、切り替え前の確認は親で扱ってください。
+
+保存前後の処理、楽観・悲観ロック、Handleからの保存・更新・破棄、イベント一覧は[保存・編集許可・イベント](./lifecycle.md)を参照してください。
 
 セル・行列・画像・図形の操作を外側から呼ぶ場合は `SpreadsheetHandle` を使います。公開型とバッチ、エラー、画像の準備関数 `prepareSpreadsheetImage` は[外部操作API](./external-operations.md)にまとめています。
 
@@ -87,6 +96,6 @@ const workbook: SpreadsheetWorkbook = {
 />
 ```
 
-`formulas`、`clipboard`、`formatting`、`mergeCells`、`rowColumnOperations`、`sheets`、`resize`、`undoRedo` を個別に無効化できます。`formulas: false` は数式入力を止めますが、初期ブックにある数式の計算結果は引き続き表示します。`mergeCells: false` は結合配置の変更を止め、保存済みの結合は表示・保持します。`sheets: false` はシート切り替え・管理の操作を隠します。設定はアプリの操作範囲を制限するものであり、保存先の入力検証は別に必要です。
+コピー・切り取り・貼り付け、行列の挿入・削除、シートの追加・改名・削除を独立に指定できます。書式・数式・結合・画像・図形・コメント・保存・更新も制御できます。親設定 `clipboard` / `rowColumnOperations` / `sheets` の一括OFFも従来どおり利用できます。
 
-挿入機能には `images`、`shapes`、`textBoxes`、`comments` があります。既定はすべてONで、OFFにすると該当メニューと表示・編集を隠します。非表示にしたデータも保存スナップショットには残ります。
+全設定と組み合わせ、既存データの表示、読み取り専用との違いは[機能のON/OFF](./features.md)を参照してください。

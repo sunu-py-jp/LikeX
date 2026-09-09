@@ -1,3 +1,5 @@
+import { resolveFeatureFlags, type FeatureFlags } from "../core";
+
 export type ExplorerFeature =
   | "favorites"
   | "recent"
@@ -20,7 +22,7 @@ export type ExplorerFeature =
   | "pathInput";
 
 /** Omitted features remain enabled; false removes their UI and operations. */
-export type ExplorerFeatures = Partial<Record<ExplorerFeature, boolean>>;
+export type ExplorerFeatures = FeatureFlags<ExplorerFeature>;
 export type ExplorerSelectionMode = "none" | "single" | "multiple";
 export type ExplorerSelectionOptions = {
   mode?: ExplorerSelectionMode;
@@ -85,10 +87,7 @@ const featureDefaults: Required<ExplorerFeatures> = {
 /** Resolve per-instance options without storing or mutating host configuration. */
 export function resolveExplorerOptions(options: ExplorerOptions = {}): ResolvedExplorerOptions {
   const readOnly = options.readOnly === true;
-  const features = { ...featureDefaults };
-  for (const key of Object.keys(features) as ExplorerFeature[]) {
-    features[key] = options.features?.[key] ?? featureDefaults[key];
-  }
+  const features = resolveFeatureFlags(featureDefaults, options.features);
   if (readOnly) {
     for (const feature of ["createFolder", "createFile", "uploadFiles", "uploadFolders", "copy", "move", "rename", "delete"] as const)
       features[feature] = false;

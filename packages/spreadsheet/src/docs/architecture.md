@@ -2,13 +2,13 @@
 
 Spreadsheetは、ブックを変更する純粋な処理、React上の編集状態、画面とブラウザ操作を分けています。機能を追加するときも、UIからブックを直接書き換えず、この境界に沿って実装します。
 
-公開入口は `index.ts`、利用側への契約は `props.ts` と `model/types.ts` です。パッケージからは公開入口をimportしてください。内部ファイルの配置は公開APIではなく、将来変更できます。コピー導入の場合も `src/` 全体をコピーする方式は変わりません。
+公開入口は `index.ts`、利用側への契約は `props.ts`・`api/`・`model/types.ts` です。パッケージからは公開入口をimportしてください。内部ファイルの配置は公開APIではなく、将来変更できます。コピー導入ではSpreadsheetの `src/` 全体とcoreの `src/` を隣接フォルダに配置し、`core.ts` のimport先1か所を変更します。
 
 ## 依存の方向
 
 ```mermaid
 flowchart TD
-  Host[利用側: props・保存処理] --> Component[Spreadsheet: 組み立て]
+  Host[利用側: 保存・編集許可・再読込・通知] --> Component[Spreadsheet: 組み立て]
   Host --> Handle[api: 型付き外部操作]
   Handle --> State
   Component --> UI[ui: 表示・入力イベント]
@@ -17,9 +17,10 @@ flowchart TD
   State --> Model[model: データ検証・不変なブックの変更]
   UI --> Model
   State --> Clipboard[clipboard/browser-clipboard: ブラウザAPI]
+  State --> Core[core: 共通契約・通知・非同期・離脱確認]
 ```
 
-矢印は利用・依存の方向です。`model/` はReact・DOM・`state/`・`ui/` に依存しません。`state/` から `ui/` も参照しません。表示上の寸法の既定値を含め、モデルと画面で共通の値は `model/sheet-dimensions.ts` に置きます。
+矢印は利用・依存の方向です。`model/` はReact・DOM・`state/`・`ui/` に依存しません。`state/` から `ui/` も参照しません。coreにもReactやSpreadsheet固有のブック型・状態は持たせません。表示上の寸法の既定値を含め、モデルと画面で共通の値は `model/sheet-dimensions.ts` に置きます。
 
 ## ファイルの役割
 
@@ -28,6 +29,8 @@ flowchart TD
 | 場所 | 責務 |
 | --- | --- |
 | `api/types.ts`・`api/use-spreadsheet-handle.ts` | 公開コマンド型・結果型・読み取り専用snapshotと、安定したrefの接続 |
+| `api/lifecycle.ts`・`api/features.ts` | 注入する処理・イベント・編集許可・機能設定の公開型 |
+| `core.ts` | `@likex/core` への入口。コピー導入時の参照先変更もここだけで行う |
 | `model/types.ts` | 保存できるJSONの型と上限 |
 | `model/workbook.ts` | ブック操作の公開用export。実装は下記に分離 |
 | `model/workbook/normalize.ts`・`validation.ts`・`snapshot.ts` | 外部データの正規化、入力検証、不変なスナップショットの生成 |
@@ -39,7 +42,10 @@ flowchart TD
 | `state/use-spreadsheet.ts` | 下記の状態を組み合わせ、UI用のコントローラーを提供 |
 | `state/commands/`・`state/use-spreadsheet-commands.ts` | GUIと外部APIで共有するコマンドの検証・準備と、1回のトランザクションへの反映 |
 | `state/read-image.ts` | File / Blobの画像検証とJSONリソースへの変換。`prepareSpreadsheetImage` として公開 |
-| `state/use-workbook-draft.ts` | 下書き、変更履歴、読み取り専用、保存と非同期応答 |
+| `state/use-workbook-draft.ts` | 下書き、変更履歴、変更の準備と反映、編集許可・保存処理の接続 |
+| `state/use-spreadsheet-edit-session.ts` | 編集許可の取得、キャンセル、セッションとAbortSignalの寿命 |
+| `state/use-workbook-persistence.ts` | 保存前検証、保存、再読み込み、破棄と古い非同期応答の無効化 |
+| `state/use-unsaved-changes-guard.ts` | 未確定入力を含む未保存状態と、表示先ウィンドウの離脱確認の接続 |
 | `state/use-spreadsheet-selection.ts`・`selection.ts` | 選択状態と、範囲の計算・検証 |
 | `state/use-cell-edit.ts` | 入力中の文字列、確定・キャンセル |
 | `state/use-pending-object-edits.ts` | コメントや図形など、未確定の入力があるかの管理 |
@@ -58,16 +64,17 @@ flowchart TD
 
 セルや図形を変更する操作は、コントローラーの `apply(operation)` を通します。
 
-1. 読み取り専用・保存中などのガードを確認する。
-2. モデルの操作から、変更後のブックを得る。元のブックは変更しない。
-3. 変更後の構造に合わせた選択範囲を検証する。
-4. 成功した場合だけ履歴・ブック・選択を更新し、`onChange` で親へ通知する。
+1. 読み取り専用・保存中・機能設定などのガードを確認する。
+2. モデルの操作から変更後のブックを準備し、選択範囲も検証する。元のブックは変更せず、実変更がなければ終了する。
+3. 編集セッションがなければ親の編集許可を得る。待機中は下書きを変更しない。
+4. 許可後に現在のブック・権限・操作対象が有効か再確認する。
+5. 成功した場合だけ履歴・ブック・選択を更新し、`onChange` と変更イベントで親へ通知する。
 
 途中で失敗した場合、ブックと履歴を部分的に更新しません。複数セルへの貼り付けや結合も、1つの操作として渡します。Undo/Redoはこの単位になります。
 
-外部APIとツールバーなどの明示コマンドは、`state/commands/` で全操作を準備し、同じ下書きトランザクションへ一度だけ渡します。外部APIは同期の最新参照を使って読み取り専用・保存中・未確定入力・再入を検証します。ブラウザでの画像準備はトランザクションの外で行い、コマンド自体は同期処理です。[外部操作API](./external-operations.md)に契約をまとめています。
+外部APIとツールバーなどの明示コマンドは、`state/commands/` で全操作を準備し、同じ下書きトランザクションへ一度だけ渡します。外部APIは最新参照を使って読み取り専用・保存中・未確定入力・再入を検証します。モデルのコマンド処理は同期ですが、`executeAsync` / `batchAsync` は必要な編集許可を待ちます。同期の `execute` / `batch` は未取得の外部許可が必要なら `EDIT_REQUIRED` を返します。ブラウザでの画像準備はトランザクションの外で行います。[外部操作API](./external-operations.md)に契約をまとめています。
 
-保存時はセル入力を先に確定し、コメントや図形に未確定の入力がないことを確認してから `onSave` を呼びます。通信・認証・競合解決は引き続き利用側が実装します。選択、入力途中の文字列、スクロール位置、コピー状態は保存するブックJSONに追加しません。
+画面の保存操作ではセル入力を先に確定し、コメントや図形に未確定の入力がないことを確認します。Handleの `save()` は未確定入力がある場合に拒否します。その後 `onBeforeSave`、`onSave`、保存済みの基準更新、成功通知の順で進めます。通信・認証・競合解決は利用側が実装します。選択、入力途中の文字列、スクロール位置、コピー状態は保存するブックJSONに追加しません。失敗・キャンセル・ロックの契約は[ライフサイクル](./lifecycle.md)にまとめています。
 
 ## 機能を追加する場所
 

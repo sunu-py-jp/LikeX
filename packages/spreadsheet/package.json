@@ -17,8 +17,17 @@
     "./styles.css": "./dist/styles.css",
     "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md", "src/README.md", "src/docs/*.md", "THIRD_PARTY_NOTICES.md", "LICENSE"],
-  "sideEffects": ["**/*.css"],
+  "files": [
+    "dist",
+    "README.md",
+    "src/README.md",
+    "src/docs/*.md",
+    "THIRD_PARTY_NOTICES.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "peerDependencies": {
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
@@ -26,7 +35,17 @@
   "scripts": {
     "build": "node ../../scripts/build-library.mjs --module spreadsheet",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "node ../../scripts/build-library.mjs --module core",
+    "pretypecheck": "node ../../scripts/build-library.mjs --module core"
   },
-  "keywords": ["react", "spreadsheet", "typescript", "formulas"]
+  "keywords": [
+    "react",
+    "spreadsheet",
+    "typescript",
+    "formulas"
+  ],
+  "dependencies": {
+    "@likex/core": "0.1.0"
+  }
 }

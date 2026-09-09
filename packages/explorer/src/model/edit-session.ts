@@ -2,8 +2,9 @@ import type { ExplorerAction, ExplorerEntry } from "./draft";
 import { getEntryIndex } from "./entry-index";
 import { describeEntry, type ExplorerItemInfo } from "./item-info";
 import { formatExplorerPath } from "./path";
+import type { EditMode, OperationContext, EditPermission, EditRequestHandler, EditEndReason } from "../core";
 
-export type ExplorerEditMode = "view" | "requesting" | "edit";
+export type ExplorerEditMode = EditMode;
 export type ExplorerEditIntent = Readonly<{
   action: ExplorerAction["action"] | "upload" | "save";
   ids?: readonly string[];
@@ -19,21 +20,11 @@ export type ExplorerEditRequest = Readonly<{
   destinationId?: string;
   destinationPath?: string;
 }>;
-export type ExplorerEditContext = Readonly<{
-  requestId: string;
-  /** Remains live after permission is granted; aborts when the session ends. */
-  signal: AbortSignal;
-}>;
-export type ExplorerEditResult = boolean | Readonly<{
-  allowed: true;
-  /** An authoritative fresh baseline, accepted only while the draft is clean. */
-  entries?: readonly ExplorerEntry[];
-}>;
-export type ExplorerEditHandler = (
-  request: ExplorerEditRequest,
-  context: ExplorerEditContext,
-) => ExplorerEditResult | Promise<ExplorerEditResult>;
-export type ExplorerEditEndReason = "saved" | "discarded" | "refreshed" | "ended" | "cancelled" | "read-only" | "unmounted";
+export type ExplorerEditContext = OperationContext;
+/** An authoritative fresh baseline is accepted only while the draft is clean. */
+export type ExplorerEditResult = EditPermission<readonly ExplorerEntry[], "entries">;
+export type ExplorerEditHandler = EditRequestHandler<ExplorerEditRequest, readonly ExplorerEntry[], "entries">;
+export type ExplorerEditEndReason = EditEndReason;
 export type ExplorerEditModeEvent = Readonly<{
   type: "edit-mode";
   mode: ExplorerEditMode;

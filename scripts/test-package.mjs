@@ -4,14 +4,14 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run, runNpm } from './lib/run.mjs';
-import { libraryModule, requestedModules } from './lib/modules.mjs';
+import { dependencyOrder, libraryModule, requestedModules } from './lib/modules.mjs';
 import { consumerDevDependencies, consumerDependencies, copyConsumerFixtures,
   checkConsumerTypes, checkConsumerStyles, checkConsumerNext } from './lib/consumer.mjs';
 
 async function testConsumer(module) {
-  const { artifactRoot, sourceRoot, npmCacheRoot } = libraryModule(module);
+  const { artifactRoot, sourceRoot, npmCacheRoot, ui } = libraryModule(module);
   const consumer = path.join(artifactRoot, 'package-consumer');
-  const withNext = process.argv.includes('--next');
+  const withNext = ui && process.argv.includes('--next');
   const online = process.argv.includes('--online');
   const packed = JSON.parse(await readFile(path.join(artifactRoot, 'library-pack.json'), 'utf8'));
   const packageName = packed.name;
@@ -26,6 +26,20 @@ async function testConsumer(module) {
   for (const file of archiveFiles) {
     assert.ok(file.startsWith('package/') && !file.includes('\\') && !file.split('/').includes('..'), `Unsafe packed path: ${file}`);
     assert.match(file, /^package\/(?:(?:package\.json|README\.md|src\/README\.md|src\/docs\/[^/]+\.md|THIRD_PARTY_NOTICES\.md|LICENSE)$|dist(?:\/|$))/);
+  }
+  const dependenciesToInstall = [];
+  for (const dependencyName of dependencyOrder([module]).filter(name => name !== module)) {
+    const dependency = libraryModule(dependencyName);
+    const metadata = JSON.parse(await readFile(path.join(dependency.artifactRoot, 'library-pack.json'), 'utf8'));
+    assert.equal(path.basename(metadata.filename), metadata.filename, 'Dependency tarball filename must stay inside artifacts');
+    const dependencyTarball = path.join(dependency.artifactRoot, metadata.filename);
+    assert.equal(`sha512-${createHash('sha512').update(await readFile(dependencyTarball)).digest('base64')}`, metadata.integrity);
+    const files = (await run('tar', ['-tzf', dependencyTarball], { capture: true })).trim().split('\n');
+    for (const file of files) assert.ok(file.startsWith('package/') && !file.includes('\\') && !file.split('/').includes('..'), `Unsafe dependency path: ${file}`);
+    const dependencyManifest = JSON.parse(await run('tar', ['-xOzf', dependencyTarball, 'package/package.json'], { capture: true }));
+    assert.equal(dependencyManifest.name, `@likex/${dependencyName}`);
+    dependenciesToInstall.push({ name: dependencyManifest.name, tarball: dependencyTarball,
+      installed: path.join(consumer, 'node_modules', ...dependencyManifest.name.split('/')) });
   }
 
   // Check the packaged documents, not the checkout: relative links must still
@@ -56,12 +70,12 @@ async function testConsumer(module) {
   await rm(consumer, { recursive: true, force: true });
   await mkdir(consumer, { recursive: true });
   const consumerManifest = { name: 'likex-packed-consumer', private: true, type: 'module',
-    devDependencies: await consumerDevDependencies() };
+    devDependencies: await consumerDevDependencies({ ui }) };
   await writeFile(path.join(consumer, 'package.json'), JSON.stringify(consumerManifest, null, 2));
   let installMode = online ? 'npm-online' : 'npm-offline';
   try {
     await runNpm(['install', ...(online ? ['--offline=false', '--prefer-online'] : ['--offline']), '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false',
-      '--cache', npmCacheRoot, tarball], { cwd: consumer, capture: true, timeout: online ? 180_000 : 45_000 });
+      '--cache', npmCacheRoot, ...dependenciesToInstall.map(dependency => dependency.tarball), tarball], { cwd: consumer, capture: true, timeout: online ? 180_000 : 45_000 });
   } catch (error) {
     await writeFile(path.join(artifactRoot, `package-install-${online ? 'online' : 'offline'}.log`), String(error) + '\n');
     if (online) throw error;
@@ -71,6 +85,11 @@ async function testConsumer(module) {
     await run('tar', ['-xzf', tarball, '-C', path.join(consumer, 'node_modules')]);
     await mkdir(path.dirname(installed), { recursive: true });
     await rename(path.join(consumer, 'node_modules/package'), installed);
+    for (const dependency of dependenciesToInstall) {
+      await run('tar', ['-xzf', dependency.tarball, '-C', path.join(consumer, 'node_modules')]);
+      await mkdir(path.dirname(dependency.installed), { recursive: true });
+      await rename(path.join(consumer, 'node_modules/package'), dependency.installed);
+    }
   }
   const manifest = JSON.parse(await readFile(path.join(installed, 'package.json'), 'utf8'));
   assert.equal(manifest.name, packed.name);
@@ -79,17 +98,30 @@ async function testConsumer(module) {
     assert.ok(!/(?:^next$|vinext|vite|wrangler|cloudflare|drizzle|worker)/i.test(dependency), `Demo-only dependency leaked: ${dependency}`);
     assert.ok(!/^(?:tailwindcss|postcss|@tailwindcss\/)/.test(dependency), `A CSS build dependency leaked into the runtime package: ${dependency}`);
   }
-  assert.equal(manifest.exports['./styles.css'], './dist/styles.css');
-  assert.ok(Array.isArray(manifest.sideEffects) && manifest.sideEffects.includes('**/*.css'), 'Bundlers must retain imported styles');
+  if (ui) {
+    assert.equal(manifest.exports['./styles.css'], './dist/styles.css');
+    assert.ok(Array.isArray(manifest.sideEffects) && manifest.sideEffects.includes('**/*.css'), 'Bundlers must retain imported styles');
+  } else {
+    assert.equal(manifest.exports['./styles.css'], undefined);
+    assert.equal(manifest.sideEffects, false);
+    assert.deepEqual(declared, {}, 'Core must not require React or any other runtime dependency');
+  }
   const { linkedDependencies, testedVersions, dependencyLocations } = await consumerDependencies(consumer, declared, {
-    fallback: installMode === 'tarball-with-workspace-dependencies', online,
+    fallback: installMode === 'tarball-with-workspace-dependencies', online, ui,
   });
   // Verify that the runtime came from this exact tarball, not a source checkout.
   const main = path.join(installed, manifest.main);
   const javascript = await readFile(main, 'utf8');
   const packedMain = await run('tar', ['-xOzf', tarball, `package/${manifest.main.replace(/^\.\//, '')}`], { capture: true });
   assert.equal(javascript, packedMain);
-  assert.match(javascript, /^['"]use client['"];/);
+  for (const dependency of dependenciesToInstall) {
+    const dependencyManifest = JSON.parse(await readFile(path.join(dependency.installed, 'package.json'), 'utf8'));
+    assert.equal(await readFile(path.join(dependency.installed, dependencyManifest.main), 'utf8'),
+      await run('tar', ['-xOzf', dependency.tarball, `package/${dependencyManifest.main.replace(/^\.\//, '')}`], { capture: true }),
+      'Runtime dependencies must also come from the corresponding tarball');
+  }
+  if (ui) assert.match(javascript, /^['"]use client['"];/);
+  else assert.doesNotMatch(javascript, /^['"]use client['"];/);
   assert.doesNotMatch(javascript, /from\s*["'](?:next(?:\/|["'])|vinext|wrangler|@cloudflare|drizzle-orm)/);
 
   await copyConsumerFixtures(consumer, { module, packageName });
@@ -97,18 +129,18 @@ async function testConsumer(module) {
   const ssr = JSON.parse((await run(process.execPath, ['ssr.mjs'], { cwd: consumer, capture: true })).trim());
   assert.equal(fileURLToPath(ssr.resolved), main);
   const cssFile = path.join(installed, 'dist/styles.css');
-  assert.equal(await readFile(cssFile, 'utf8'), await run('tar', ['-xOzf', tarball, 'package/dist/styles.css'], { capture: true }));
-  const styles = await checkConsumerStyles(consumer, { module, cssFile,
-    originCss: await readFile(path.join(sourceRoot, 'styles.css'), 'utf8'), reportPrefix: 'package-consumer' });
+  if (ui) assert.equal(await readFile(cssFile, 'utf8'), await run('tar', ['-xOzf', tarball, 'package/dist/styles.css'], { capture: true }));
+  const styles = ui ? await checkConsumerStyles(consumer, { module, cssFile,
+    originCss: await readFile(path.join(sourceRoot, 'styles.css'), 'utf8'), reportPrefix: 'package-consumer' }) : {};
   const nextStyles = withNext ? await checkConsumerNext(consumer, { module,
     tsconfig, testedVersions, reportPrefix: 'package-consumer', dependencies: { [packageName]: `file:${tarball}` },
   }) : undefined;
   const report = { packageName, tarball: packed.filename, integrity: packed.integrity, installMode, linkedDependencies, testedVersions, dependencyLocations,
     documentationFiles: documentFiles.length, documentationLinks,
-    source: 'unpacked tarball', networkInstallationTested: online,
-    typeResolution: 'NodeNext, strict, skipLibCheck=false', ssrBytes: ssr.renderedBytes,
-    stylesheetImport: `${packageName}/styles.css`, ...styles, ...nextStyles,
-    nextProductionBuild: withNext ? 'passed (standard Next App Router, webpack, Next default skipLibCheck=true)' : 'not requested; add --next',
+    source: 'unpacked tarball', dependencyTarballs: dependenciesToInstall.map(dependency => dependency.name), networkInstallationTested: online,
+    typeResolution: 'NodeNext, strict, skipLibCheck=false',
+    ...(ui ? { ssrBytes: ssr.renderedBytes, stylesheetImport: `${packageName}/styles.css` } : { nodeImport: 'passed without React or browser globals' }), ...styles, ...nextStyles,
+    nextProductionBuild: !ui ? 'not applicable (headless core)' : withNext ? 'passed (standard Next App Router, webpack, Next default skipLibCheck=true)' : 'not requested; add --next',
   };
   await writeFile(path.join(artifactRoot, 'package-consumer-report.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify(report, null, 2));

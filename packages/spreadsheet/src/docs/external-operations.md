@@ -54,8 +54,11 @@ export default function Report() {
 | `execute(command)` | 1件のコマンドを同期実行し、`SpreadsheetCommandResult` を返す |
 | `batch(commands)` | 配列の順番でまとめて同期実行。同じ結果型を返す |
 | `getWorkbook()` | 現在の下書きの `SpreadsheetWorkbookSnapshot`。深い読み取り専用のスナップショット |
+| `executeAsync(command)` / `batchAsync(commands)` | 外部の編集許可を待てる操作。結果をPromiseで返す |
 
 `execute` / `batch` はPromiseを返しません。成功直後の `getWorkbook()` には、Reactの再描画を待たず変更が反映されています。スナップショットは凍結されており、直接書き換えずコマンドを使います。入力中でまだ確定していない文字列は含まれません。
+
+`onEditRequest` を設定した場合は、許可を取得済みでなければ同期操作は `EDIT_REQUIRED` です。通常は `await api.executeAsync(command)` / `batchAsync(commands)` を使います。保存・更新・編集セッションのHandle APIは[保存・編集許可・イベント](./lifecycle.md)を参照してください。
 
 ```ts
 const result = api.execute({ type: "shapes.insert", sheetId,
@@ -159,6 +162,11 @@ if (!result.ok) console.error(result.message);
 | `NOT_MOUNTED` | 対象インスタンスが表示されていない |
 | `READ_ONLY` | `readOnly: true`、または `onSave` が未指定 |
 | `SAVING` | 保存処理中 |
+| `REFRESHING` | 再読み込み中 |
+| `EDIT_REQUIRED` | 同期操作の前に編集許可の取得が必要 |
+| `EDIT_PENDING` | 編集許可を確認中 |
+| `EDIT_DENIED` / `EDIT_CANCELLED` | 編集を許可されなかった、または要求を取り消した |
+| `STALE_TARGET` | 待機中に操作対象が変わり、再操作が必要 |
 | `PENDING_EDIT` | セル・コメント・図形などに未確定の入力がある |
 | `BUSY` | 別の変更処理・通知などの実行中に再入した |
 | `FEATURE_DISABLED` | 対応する `features` がOFF |
