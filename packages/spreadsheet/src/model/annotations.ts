@@ -27,7 +27,8 @@ export function normalizeDrawing(input: SpreadsheetDrawing, sheet: Pick<Spreadsh
     anchor.column < 0 || anchor.column >= sheet.columnCount) return fail("描画オブジェクトの位置がシートの範囲外です");
   const common = { id, anchor: Object.freeze({ row: anchor.row, column: anchor.column,
     offsetX: number(anchor.offsetX, 0, 10_000), offsetY: number(anchor.offsetY, 0, 10_000) }),
-  width: number(input.width, 1, 10_000), height: number(input.height, 1, 10_000) };
+  width: number(input.width, input.type === "image" ? Number.MIN_VALUE : 1, 10_000),
+  height: number(input.height, input.type === "image" ? Number.MIN_VALUE : 1, 10_000) };
   if (input.type === "image") {
     const resourceId = validateObjectId(input.resourceId);
     if (!resources?.images || !Object.hasOwn(resources.images, resourceId)) return fail("画像のリソースが見つかりません");

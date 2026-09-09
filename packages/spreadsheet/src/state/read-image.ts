@@ -1,5 +1,5 @@
 import { SPREADSHEET_LIMITS, type SpreadsheetImageResource } from "../model/types";
-import { imageDimensions } from "../model/image-resources";
+import { imageMetadata } from "../model/image-resources";
 
 const allowed = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 function aborted(signal?: AbortSignal) {
@@ -53,15 +53,13 @@ export async function readImageResource(file: Blob, { signal, name }: Spreadshee
   const mimeType = imageType(bytes);
   if (!mimeType || (file.type && file.type !== mimeType)) throw new Error("画像の形式とファイル内容が一致しません");
   // Reject oversized headers before asking the browser to allocate pixels.
-  const [width, height] = imageDimensions(bytes, mimeType);
+  const { width, height, displayWidth, displayHeight } = imageMetadata(bytes, mimeType);
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 ||
     width > SPREADSHEET_LIMITS.imageDimension || height > SPREADSHEET_LIMITS.imageDimension || width * height > SPREADSHEET_LIMITS.imagePixels)
     throw new Error("画像は各辺10,000ピクセル以下、合計1,600万画素以下にしてください");
   const decoded = await dimensions(new Blob([bytes], { type: mimeType }), signal);
   aborted(signal);
-  // JPEG EXIF orientation may exchange the browser's natural dimensions.
-  if (!(decoded.width === width && decoded.height === height) &&
-    !(mimeType === "image/jpeg" && decoded.width === height && decoded.height === width))
+  if (decoded.width !== displayWidth || decoded.height !== displayHeight)
     throw new Error("画像の寸法とファイル内容が一致しません");
   let binary = "";
   for (let index = 0; index < bytes.length; index += 32_768) binary += String.fromCharCode(...bytes.subarray(index, index + 32_768));

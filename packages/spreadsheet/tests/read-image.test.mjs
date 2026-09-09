@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
+import { jpegHeader } from './image-fixtures.mjs';
 
 const bundled = await build({ entryPoints: [new URL('../src/state/read-image.ts', import.meta.url).pathname],
   bundle: true, platform: 'node', format: 'esm', write: false });
@@ -108,11 +109,33 @@ test('an absent MIME is detected from a supported image header', async t => {
   assert.equal((await readImageResource(imageFile(png, ''))).mimeType, 'image/png');
 });
 
-test('JPEG orientation can swap decode dimensions while preserving the header resource dimensions', async t => {
+test('JPEG EXIF orientation determines decoded dimensions while encoded dimensions remain JSON compatible', async t => {
+  for (const littleEndian of [true, false]) {
+    for (let orientation = 1; orientation <= 8; orientation++) {
+      await t.test(`${littleEndian ? 'II' : 'MM'} orientation ${orientation}`, async t => {
+        const swap = orientation >= 5, dom = browser(t, { width: swap ? 3 : 2, height: swap ? 2 : 3 });
+        const resource = await readImageResource(imageFile(jpegHeader({ orientation, littleEndian }), 'image/jpeg'));
+        assert.equal(resource.width, 2);
+        assert.equal(resource.height, 3);
+        assert.deepEqual(JSON.parse(JSON.stringify(resource)), resource);
+        assert.deepEqual(dom.revoked, dom.created);
+      });
+    }
+  }
+});
+
+test('swapped JPEG decode dimensions require a matching EXIF orientation', async t => {
   const dom = browser(t, { width: 3, height: 2 });
-  const header = new Uint8Array([255, 216, 255, 192, 0, 8, 8, 0, 3, 0, 2, 1]);
-  const resource = await readImageResource(imageFile(header, 'image/jpeg'));
-  assert.equal(resource.width, 2);
-  assert.equal(resource.height, 3);
+  for (const orientation of [undefined, 1, 4, 9])
+    await assert.rejects(readImageResource(imageFile(jpegHeader({ orientation }), 'image/jpeg')), /寸法/);
+  const invalidOffset = jpegHeader({ orientation: 6 });
+  invalidOffset.writeUInt32LE(0xffffffff, 16);
+  await assert.rejects(readImageResource(imageFile(invalidOffset, 'image/jpeg')), /寸法/);
+  assert.deepEqual(dom.revoked, dom.created);
+});
+
+test('a decoder that ignores a rotated EXIF orientation is rejected instead of creating the wrong aspect ratio', async t => {
+  const dom = browser(t, { width: 2, height: 3 });
+  await assert.rejects(readImageResource(imageFile(jpegHeader({ orientation: 6 }), 'image/jpeg')), /寸法/);
   assert.deepEqual(dom.revoked, dom.created);
 });

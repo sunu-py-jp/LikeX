@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
+import { jpegHeader, pngHeader } from './image-fixtures.mjs';
 
 const output = await build({ stdin: { contents: 'export * from "./src/state/commands/stage-spreadsheet-commands"; export * from "./src/state/features"; export * from "./src/model";',
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'commands-entry.ts' }, bundle: true, platform: 'node', format: 'esm', write: false });
@@ -15,6 +16,60 @@ const range = { top: 2, left: 2, bottom: 3, right: 3 };
 const anchor = { row: 2, column: 3 };
 const imageResource = { name: 'sample.png', mimeType: 'image/png', width: 1, height: 1,
   dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVZkAAAAASUVORK5CYII=' };
+
+function imageWithDimensions(width, height, orientation) {
+  const mimeType = orientation === undefined ? 'image/png' : 'image/jpeg';
+  const bytes = orientation === undefined ? pngHeader(width, height) : jpegHeader({ width, height, orientation });
+  return { name: 'image', mimeType, width, height, dataUrl: `data:${mimeType};base64,${bytes.toString('base64')}` };
+}
+
+test('image insertion derives omitted dimensions with a uniform unrounded scale including very narrow images', () => {
+  for (const [width, height] of [[800, 600], [333, 200], [10000, 1], [1, 10000], [2, 3]]) {
+    const resource = imageWithDimensions(width, height);
+    for (const dimensions of [{}, { width: 100 }, { height: 100 }]) {
+      const result = run(createWorkbook(), [{ type: 'images.insert', sheetId: 'sheet-1', anchor, resource, ...dimensions }]);
+      const scale = dimensions.width !== undefined ? dimensions.width / width
+        : dimensions.height !== undefined ? dimensions.height / height : Math.min(1, 320 / width, 240 / height);
+      if (width * scale > 10000 || height * scale > 10000) {
+        assert.equal(result.ok, false, 'proportional sizing keeps the existing 10000px upper bound');
+        continue;
+      }
+      assert.equal(result.ok, true);
+      const drawing = first(result).drawings[0];
+      assert.equal(drawing.width, width * scale); assert.equal(drawing.height, height * scale);
+      assert.ok(Math.abs(drawing.width / drawing.height / (width / height) - 1) < 1e-12);
+      const restored = parseWorkbook(serializeWorkbook(result.workbook));
+      assert.deepEqual(restored.sheets[0].drawings[0], drawing);
+      assert.equal(restored.resources.images[drawing.resourceId].width, width);
+      assert.equal(restored.resources.images[drawing.resourceId].height, height);
+    }
+  }
+});
+
+test('JPEG insertion sizes the drawing using EXIF display orientation while keeping encoded resource dimensions', () => {
+  const resource = imageWithDimensions(800, 600, 6);
+  for (const [dimensions, expected] of [[{}, [180, 240]], [{ width: 150 }, [150, 200]], [{ height: 160 }, [120, 160]],
+    [{ width: 250, height: 80 }, [250, 80]]]) {
+    const result = run(createWorkbook(), [{ type: 'images.insert', sheetId: 'sheet-1', anchor, resource, ...dimensions }]);
+    assert.equal(result.ok, true);
+    const restored = parseWorkbook(serializeWorkbook(result.workbook));
+    const drawing = restored.sheets[0].drawings[0];
+    assert.deepEqual([drawing.width, drawing.height], expected);
+    assert.equal(restored.resources.images[drawing.resourceId].width, 800);
+    assert.equal(restored.resources.images[drawing.resourceId].height, 600);
+  }
+});
+
+test('explicit image frames and one-axis image updates keep their existing independent-size contract', () => {
+  const result = run(createWorkbook(), [{ type: 'images.insert', sheetId: 'sheet-1', anchor,
+    resource: imageWithDimensions(800, 600), width: 200, height: 100 }]);
+  assert.equal(result.ok, true);
+  const drawing = first(result).drawings[0];
+  const update = run(result.workbook, [{ type: 'images.update', sheetId: 'sheet-1', drawingId: drawing.id, patch: { width: 0.5 } }]);
+  assert.equal(update.ok, true);
+  assert.equal(first(update).drawings[0].width, 0.5);
+  assert.equal(first(update).drawings[0].height, 100);
+});
 
 test('commands stage in order without mutating the source or caller payload and freeze all output boundaries', () => {
   const workbook = initial(), values = { A2: '30' }, format = { bold: true };

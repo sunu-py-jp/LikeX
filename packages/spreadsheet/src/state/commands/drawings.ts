@@ -1,6 +1,7 @@
 import type { SpreadsheetCommand, SpreadsheetCommandAnchor, SpreadsheetCommandReceipt } from "../../api/types";
 import { addDrawing, deleteDrawing, insertImage, updateDrawing } from "../../model/workbook";
 import type { SpreadsheetDrawingAnchor, SpreadsheetDrawingPatch, SpreadsheetWorkbook } from "../../model/types";
+import { getImageDisplaySize, normalizeImageResource } from "../../model/image-resources";
 import type { SpreadsheetFeatureSettings } from "../features";
 import { commandKeys, commandRecord, rejectCommand, requireCommandFeature, requireCommandSheet } from "./validation";
 
@@ -25,12 +26,14 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
     case "images.insert": {
       requireCommandFeature(features, "images");
       commandRecord(command.resource, "画像リソース");
+      const resource = normalizeImageResource(command.resource), size = getImageDisplaySize(resource);
       const anchor = drawingAnchor(command.anchor), resourceId = nextId(), drawingId = nextId();
-      const scale = Math.min(1, 320 / command.resource.width, 240 / command.resource.height);
-      const width = command.width ?? Math.max(1, Math.round(command.resource.width * scale));
-      const height = command.height ?? Math.max(1, Math.round(command.resource.height * scale));
-      return receipt(insertImage(workbook, sheet.id, resourceId, command.resource,
-        { id: drawingId, type: "image", resourceId, anchor, width, height, alt: command.alt ?? command.resource.name }), drawingId, resourceId);
+      const scale = command.width !== undefined ? command.width / size.width
+        : command.height !== undefined ? command.height / size.height : Math.min(1, 320 / size.width, 240 / size.height);
+      const width = command.width ?? size.width * scale;
+      const height = command.height ?? size.height * scale;
+      return receipt(insertImage(workbook, sheet.id, resourceId, resource,
+        { id: drawingId, type: "image", resourceId, anchor, width, height, alt: command.alt ?? resource.name }), drawingId, resourceId);
     }
     case "shapes.insert": {
       requireCommandFeature(features, "shapes");

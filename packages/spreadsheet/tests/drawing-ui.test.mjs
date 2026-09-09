@@ -159,3 +159,119 @@ test('external drawing updates invalidate move and resize previews before the ne
     assert.equal(ui.c.getWorkbook(), before, 'cancelled preview does not add an undo entry');
   }
 });
+
+function imageBook(width = 333, height = 200) {
+  const workbook = book();
+  workbook.resources = { images: { pixel: { name: 'pixel.png', mimeType: 'image/png', width: 1, height: 1,
+    dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVZkAAAAASUVORK5CYII=' } } };
+  // An explicitly sized frame remains valid even if it differs from the source image.
+  workbook.sheets[0].drawings.push({ id: 'picture', type: 'image', resourceId: 'pixel', alt: 'Image',
+    anchor: { row: 0, column: 0, offsetX: 0, offsetY: 0 }, width, height });
+  return workbook;
+}
+const picture = ui => ui.c.activeSheet.drawings.find(item => item.id === 'picture');
+const sameRatio = (dimensions, expected) => assert.ok(Math.abs(dimensions.width / dimensions.height - expected) < 1e-9);
+function imagePointer() {
+  const target = { ownerDocument: { activeElement: null }, closest: () => null, focus() {},
+    setPointerCapture() {}, hasPointerCapture: () => false, releasePointerCapture() {} };
+  return (x, y) => event({ button: 0, pointerId: 1, currentTarget: target, clientX: x, clientY: y });
+}
+
+test('image corner resizing preserves frame ratio in preview, release, undo/redo and saved JSON', async t => {
+  const ui = await mount(t, { initialWorkbook: imageBook() });
+  await act(async () => ui.c.selectDrawing('picture'));
+  const handle = () => ui.drawing('picture').findByProps({ className: 'lxs-drawing-resize' });
+  const pointer = imagePointer(), original = ui.c.workbook;
+  await act(async () => handle().props.onPointerDown(pointer(400, 250)));
+  await act(async () => handle().props.onPointerMove(pointer(500, 267)));
+  sameRatio(ui.drawing('picture').props.style, 333 / 200);
+  assert.equal(ui.c.workbook, original, 'preview does not create a draft change');
+  const previewWidth = ui.drawing('picture').props.style.width;
+  await act(async () => handle().props.onPointerUp(pointer(530, 272)));
+  sameRatio(picture(ui), 333 / 200);
+  assert.ok(picture(ui).width > previewWidth, 'release uses the final pointer coordinates');
+  const resized = ui.c.workbook;
+  await act(async () => ui.c.undo());
+  assert.equal(ui.c.workbook, original, 'one gesture is one undo step');
+  await act(async () => ui.c.redo());
+  assert.equal(ui.c.workbook, resized);
+  await act(async () => ui.c.save());
+  const saved = JSON.parse(JSON.stringify(ui.saves[0]));
+  const reopened = await mount(t, { initialWorkbook: saved });
+  assert.deepEqual(picture(reopened), picture(ui));
+  sameRatio(picture(reopened), 333 / 200);
+});
+
+test('image dimension fields and resize arrow keys update both dimensions while retaining fractional values', async t => {
+  const ui = await mount(t, { initialWorkbook: imageBook() });
+  await act(async () => ui.c.selectDrawing('picture'));
+  await act(async () => ui.property('幅').props.onChange(event({ target: { value: '166.5' } })));
+  await act(async () => ui.property('幅').props.onBlur());
+  assert.equal(picture(ui).width, 166.5);
+  assert.equal(picture(ui).height, 100);
+  assert.equal(ui.c.pendingObjectEdit, false);
+  await act(async () => ui.property('高さ').props.onChange(event({ target: { value: '33.3' } })));
+  await act(async () => ui.property('高さ').props.onBlur());
+  sameRatio(picture(ui), 333 / 200);
+  const handle = () => ui.drawing('picture').findByProps({ className: 'lxs-drawing-resize' });
+  for (const key of ['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown']) {
+    await act(async () => handle().props.onKeyDown(event({ key })));
+    sameRatio(picture(ui), 333 / 200);
+  }
+  const beforeBlur = ui.c.workbook;
+  await act(async () => ui.property('高さ').props.onBlur());
+  assert.equal(ui.c.workbook, beforeBlur, 'formatted inspector text does not round stored dimensions on blur');
+});
+
+test('image resize limits scale both axes, and an unmoved or cancelled handle adds no history', async t => {
+  const ui = await mount(t, { initialWorkbook: imageBook(320, 0.032) });
+  await act(async () => ui.c.selectDrawing('picture'));
+  const handle = () => ui.drawing('picture').findByProps({ className: 'lxs-drawing-resize' });
+  const pointer = imagePointer(), original = ui.c.workbook;
+  await act(async () => handle().props.onPointerDown(pointer(400, 30)));
+  await act(async () => handle().props.onPointerUp(pointer(400, 30)));
+  assert.equal(ui.c.workbook, original);
+  await act(async () => handle().props.onPointerDown(pointer(400, 30)));
+  await act(async () => handle().props.onPointerMove(pointer(100000, 100000)));
+  sameRatio(ui.drawing('picture').props.style, 10000);
+  assert.ok(ui.drawing('picture').props.style.width <= 10000);
+  await act(async () => handle().props.onPointerCancel());
+  assert.equal(ui.c.workbook, original);
+  await act(async () => handle().props.onPointerDown(pointer(400, 30)));
+  await act(async () => handle().props.onPointerUp(pointer(-1000, -1000)));
+  sameRatio(picture(ui), 10000);
+  assert.ok(picture(ui).height > 0 && picture(ui).height < 1);
+});
+
+test('explicit external image frame updates remain independent and shape resizing remains unconstrained', async t => {
+  const ui = await mount(t, { initialWorkbook: imageBook() });
+  await act(async () => {
+    assert.equal(ui.c.externalExecute({ type: 'images.update', sheetId: 'one', drawingId: 'picture', patch: { width: 600 } }).ok, true);
+  });
+  assert.equal(picture(ui).height, 200);
+  await act(async () => ui.c.selectDrawing('shape'));
+  const handle = () => ui.drawing('shape').findByProps({ className: 'lxs-drawing-resize' });
+  const pointer = imagePointer();
+  await act(async () => handle().props.onPointerDown(pointer(170, 110)));
+  await act(async () => handle().props.onPointerUp(pointer(200, 110)));
+  assert.equal(ui.c.activeSheet.drawings[0].width, 130);
+  assert.equal(ui.c.activeSheet.drawings[0].height, 60);
+});
+
+test('image resize can reach the dimension limit without floating point overflow rejection', async t => {
+  const ui = await mount(t, { initialWorkbook: imageBook(145, 87) });
+  await act(async () => ui.c.selectDrawing('picture'));
+  const handle = () => ui.drawing('picture').findByProps({ className: 'lxs-drawing-resize' });
+  const pointer = imagePointer();
+  await act(async () => handle().props.onPointerDown(pointer(200, 120)));
+  await act(async () => handle().props.onPointerUp(pointer(100000, 100000)));
+  assert.equal(picture(ui).width, 10000);
+  assert.equal(picture(ui).height, 6000);
+  assert.equal(ui.c.error, null);
+  await act(async () => ui.c.undo());
+  await act(async () => ui.c.selectDrawing('picture'));
+  await act(async () => ui.property('幅').props.onChange(event({ target: { value: '10000' } })));
+  await act(async () => ui.property('幅').props.onBlur());
+  assert.equal(picture(ui).width, 10000);
+  assert.equal(picture(ui).height, 6000);
+});

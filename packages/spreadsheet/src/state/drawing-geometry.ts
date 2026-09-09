@@ -2,6 +2,26 @@ import type { SpreadsheetDrawing, SpreadsheetDrawingAnchor } from "../model";
 
 export type DrawingGeometry = { columnOffsets: readonly number[]; rowOffsets: readonly number[] };
 export type DrawingRectangle = { left: number; top: number; width: number; height: number };
+type DrawingSize = Pick<DrawingRectangle, "width" | "height">;
+
+/** Keep an image's display-frame ratio. Corner drags project onto its diagonal;
+ * property fields supply one dimension. GUI bounds apply to the longest side. */
+export function resizeImageDimensions(initial: DrawingSize, requested: Partial<DrawingSize>, constrain = false): DrawingSize {
+  const { width, height } = initial;
+  if ((requested.width === undefined || requested.width === width) &&
+    (requested.height === undefined || requested.height === height)) return { width, height };
+  if (!constrain && requested.height === undefined && requested.width !== undefined)
+    return { width: requested.width, height: requested.width * (height / width) };
+  if (!constrain && requested.width === undefined && requested.height !== undefined)
+    return { width: requested.height * (width / height), height: requested.height };
+  const longest = Math.max(width, height), unitWidth = width / longest, unitHeight = height / longest;
+  const proposed = requested.width !== undefined && requested.height !== undefined
+    ? (requested.width * unitWidth + requested.height * unitHeight) / (unitWidth * unitWidth + unitHeight * unitHeight)
+    : requested.width !== undefined ? requested.width / unitWidth : requested.height! / unitHeight;
+  const next = constrain ? Math.max(16, Math.min(10_000, proposed)) : proposed;
+  // Assign the bounded side directly: repeated scaling can otherwise exceed 10,000 by epsilon.
+  return width >= height ? { width: next, height: next * unitHeight } : { width: next * unitWidth, height: next };
+}
 
 export function drawingRectangle(drawing: SpreadsheetDrawing, geometry: DrawingGeometry): DrawingRectangle {
   return { left: (geometry.columnOffsets[drawing.anchor.column] ?? 48) + drawing.anchor.offsetX,

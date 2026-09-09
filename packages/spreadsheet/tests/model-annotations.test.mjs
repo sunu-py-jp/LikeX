@@ -66,6 +66,25 @@ test('drawing updates preserve identity/type, ordering, immutable snapshots and 
   assert.throws(() => addDrawing(wb, id, shape()));
 });
 
+test('image frames permit positive subpixel dimensions without changing old explicit frames or other drawing bounds', () => {
+  const original = populated(), id = first(original);
+  const fractional = updateDrawing(original, id, 'picture', { width: 0.032, height: 320 });
+  assert.equal(fractional.sheets[0].drawings[0].width, 0.032);
+  const restored = parseWorkbook(serializeWorkbook(fractional));
+  assert.equal(workbooksEqual(restored, fractional), true);
+  assert.deepEqual(restored.sheets[0].drawings, fractional.sheets[0].drawings);
+  assert.equal(original.sheets[0].drawings[0].width, 160);
+  assert.equal(original.sheets[0].drawings[0].height, 120);
+  for (const value of [0, -1, NaN, Infinity, 10001]) {
+    assert.throws(() => updateDrawing(original, id, 'picture', { width: value }));
+    assert.throws(() => updateDrawing(original, id, 'picture', { height: value }));
+  }
+  for (const drawingId of ['shape', 'text']) {
+    assert.throws(() => updateDrawing(original, id, drawingId, { width: 0.5 }));
+    assert.throws(() => updateDrawing(original, id, drawingId, { height: 0.5 }));
+  }
+});
+
 test('image resources survive while referenced and are removed after their last drawing or sheet disappears', () => {
   let wb = addSheet(populated()); const id = first(wb), second = wb.sheets[1].id;
   wb = addDrawing(wb, second, picture('shared'));

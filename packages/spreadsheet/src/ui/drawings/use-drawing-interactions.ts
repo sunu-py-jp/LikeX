@@ -3,12 +3,12 @@
 import { useLayoutEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from "react";
 import type { SpreadsheetDrawing } from "../../model";
 import type { SpreadsheetController, Workbook } from "../../state/use-spreadsheet";
-import { boundedDrawingRectangle, drawingAnchor, drawingRectangle, type DrawingGeometry, type DrawingRectangle } from "../../state/drawing-geometry";
+import { boundedDrawingRectangle, drawingAnchor, drawingRectangle, resizeImageDimensions, type DrawingGeometry, type DrawingRectangle } from "../../state/drawing-geometry";
 import { blurObjectEditor } from "../../state/blur-object-editor";
 import { visibleDrawing } from "./drawing-helpers";
 import { updateDrawingFromUI } from "./drawing-commands";
 
-type Gesture = { id: string; sheetId: string; workbook: Workbook; kind: "move" | "resize"; start: { x: number; y: number }; initial: DrawingRectangle; preview: DrawingRectangle; pointerId: number; target: HTMLElement };
+type Gesture = { id: string; sheetId: string; workbook: Workbook; kind: "move" | "resize"; image: boolean; start: { x: number; y: number }; initial: DrawingRectangle; preview: DrawingRectangle; pointerId: number; target: HTMLElement };
 
 /** Owns drag previews, keyboard movement, resizing and drawing edit sessions. */
 export function useDrawingInteractions(c: SpreadsheetController, geometry: DrawingGeometry) {
@@ -46,7 +46,7 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     if (!synchronous) return;
     if (c.disabled || !visibleDrawing(drawing, c) || c.editing || (kind === "resize" && !c.features.resize)) return;
     const initial = drawingRectangle(drawing, geometry);
-    const session: Gesture = { id: drawing.id, sheetId: c.activeSheet.id, workbook: c.workbook, kind, start: point(event), initial, preview: initial, pointerId: event.pointerId, target: event.currentTarget };
+    const session: Gesture = { id: drawing.id, sheetId: c.activeSheet.id, workbook: c.workbook, kind, image: drawing.type === "image", start: point(event), initial, preview: initial, pointerId: event.pointerId, target: event.currentTarget };
     target.setPointerCapture(event.pointerId); gesture.current = session; setPreview(session);
     });
     synchronous = false;
@@ -56,12 +56,16 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     if (!session || session.pointerId !== event.pointerId) return;
     if (!eligible(session)) { cancelGesture(); return; }
     const next = point(event), dx = next.x - session.start.x, dy = next.y - session.start.y;
-    const bounded = boundedDrawingRectangle(session.kind === "move" ? { ...session.initial, left: session.initial.left + dx, top: session.initial.top + dy }
-      : { ...session.initial, width: session.initial.width + dx, height: session.initial.height + dy }, latest.current.geometry);
-    const rectangle = session.kind === "move" ? { ...bounded, width: session.initial.width, height: session.initial.height } : bounded;
+    const proposed = session.kind === "move" ? { ...session.initial, left: session.initial.left + dx, top: session.initial.top + dy }
+      : { ...session.initial, width: session.initial.width + dx, height: session.initial.height + dy };
+    const bounded = boundedDrawingRectangle(proposed, latest.current.geometry);
+    const rectangle = session.kind === "move" ? { ...bounded, width: session.initial.width, height: session.initial.height }
+      : session.image ? { ...bounded, ...resizeImageDimensions(session.initial, proposed, true) } : bounded;
     const changed = { ...session, preview: rectangle }; gesture.current = changed; setPreview(changed);
   };
   const finish = (event: PointerEvent) => {
+    // Use the release coordinates even when the last pointermove was coalesced.
+    move(event);
     const session = gesture.current;
     if (!session || session.pointerId !== event.pointerId) return;
     const valid = eligible(session);
@@ -72,7 +76,9 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     const current = latest.current.c;
     const drawing = current.activeSheet.drawings?.find(item => item.id === session.id);
     if (drawing) updateDrawingFromUI(current, session.sheetId, drawing,
-      session.kind === "move" ? { anchor: drawingAnchor(rectangle.left, rectangle.top, latest.current.geometry) } : { width: Math.round(rectangle.width), height: Math.round(rectangle.height) });
+      session.kind === "move" ? { anchor: drawingAnchor(rectangle.left, rectangle.top, latest.current.geometry) }
+        : session.image ? { width: rectangle.width, height: rectangle.height }
+        : { width: Math.round(rectangle.width), height: Math.round(rectangle.height) });
   };
   const remove = (drawing: SpreadsheetDrawing) => {
     if (c.disabled || !visibleDrawing(drawing, c)) return;
@@ -95,7 +101,10 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     if (event.nativeEvent.isComposing || event.keyCode === 229 || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
     event.preventDefault(); event.stopPropagation();
     const delta = (event.shiftKey ? 10 : 1) * (["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 1);
-    const patch = ["ArrowLeft", "ArrowRight"].includes(event.key) ? { width: Math.min(10000, Math.max(16, drawing.width + delta)) } : { height: Math.min(10000, Math.max(16, drawing.height + delta)) };
+    const requested = ["ArrowLeft", "ArrowRight"].includes(event.key) ? { width: drawing.width + delta } : { height: drawing.height + delta };
+    const patch = drawing.type === "image" ? resizeImageDimensions(drawing, requested, true)
+      : requested.width !== undefined ? { width: Math.min(10000, Math.max(16, requested.width)) }
+      : { height: Math.min(10000, Math.max(16, requested.height!)) };
     updateDrawingFromUI(c, c.activeSheet.id, drawing, patch);
   };
   const lostPointerCapture = (id: string) => { if (gesture.current?.id === id) cancelGesture(); };

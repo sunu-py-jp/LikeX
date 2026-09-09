@@ -13,7 +13,8 @@ function PropertyField({ label, value, onCommit, controller: c, type = "text" }:
   const [draft, setDraft] = useState<string | null>(null);
   const generation = useRef(0);
   const markPending = useObjectEditPending(c);
-  const base = String(value), text = draft ?? base;
+  // Display useful precision without rounding the stored proportional dimensions.
+  const base = typeof value === "number" ? String(Number(value.toPrecision(6))) : String(value), text = draft ?? base;
   const commit = () => {
     const version = generation.current;
     return chainResult(text === base || (!c.disabled && onCommit(text)), accepted => {
@@ -21,7 +22,7 @@ function PropertyField({ label, value, onCommit, controller: c, type = "text" }:
       return accepted;
     });
   };
-  return <label className="lxs-object-property"><span>{label}</span><input type={type} value={text} disabled={c.disabled || c.requesting} aria-label={label} onChange={event => { generation.current++; setDraft(event.target.value); markPending(event.target.value !== base); }} onBlur={commit} onKeyDown={event => {
+  return <label className="lxs-object-property"><span>{label}</span><input type={type} step={type === "number" ? "any" : undefined} value={text} disabled={c.disabled || c.requesting} aria-label={label} onChange={event => { generation.current++; setDraft(event.target.value); markPending(event.target.value !== base); }} onBlur={commit} onKeyDown={event => {
     event.stopPropagation();
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (event.key === "Enter") { event.preventDefault(); commit(); }

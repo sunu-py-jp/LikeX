@@ -1,7 +1,8 @@
 import { SPREADSHEET_LIMITS, type SpreadsheetImageResource, type SpreadsheetSheet, type SpreadsheetWorkbook } from "./types";
+import { jpegOrientation } from "./image-orientation";
 
 const fail = (): never => { throw new Error("画像は有効な PNG / JPEG / WebP / GIF を指定し、サイズと寸法の上限を守ってください"); };
-const verifiedImages = new WeakMap<SpreadsheetImageResource, number>();
+const verifiedImages = new WeakMap<SpreadsheetImageResource, { byteLength: number; displayWidth: number; displayHeight: number }>();
 const verifiedResources = new WeakSet<NonNullable<SpreadsheetWorkbook["resources"]>>();
 const be32 = (bytes: Uint8Array, start: number) => ((bytes[start] * 0x1000000) + (bytes[start + 1] << 16) + (bytes[start + 2] << 8) + bytes[start + 3]);
 const le16 = (bytes: Uint8Array, start: number) => bytes[start] + (bytes[start + 1] << 8);
@@ -63,6 +64,19 @@ export function imageDimensions(bytes: Uint8Array, mimeType: SpreadsheetImageRes
   return fail();
 }
 
+/** Encoded dimensions remain the persisted contract; display dimensions include JPEG EXIF orientation. */
+export function imageMetadata(bytes: Uint8Array, mimeType: SpreadsheetImageResource["mimeType"]) {
+  const [width, height] = imageDimensions(bytes, mimeType);
+  const swap = mimeType === "image/jpeg" && jpegOrientation(bytes) >= 5;
+  return { width, height, displayWidth: swap ? height : width, displayHeight: swap ? width : height };
+}
+
+/** Resolve the natural displayed aspect ratio from the same bytes used during resource validation. */
+export function getImageDisplaySize(input: SpreadsheetImageResource): { width: number; height: number } {
+  const resource = normalizeImageResource(input), metadata = verifiedImages.get(resource)!;
+  return { width: metadata.displayWidth, height: metadata.displayHeight };
+}
+
 export function validateObjectId(value: string): string {
   if (typeof value !== "string" || !value.trim() || value.length > 200 || /[\u0000-\u001f]/.test(value))
     throw new Error("オブジェクトの ID が正しくありません");
@@ -84,12 +98,12 @@ export function normalizeImageResource(input: SpreadsheetImageResource): Spreads
   if (btoa(binary) !== payload) return fail();
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
-  const [width, height] = imageDimensions(bytes, input.mimeType);
+  const { width, height, displayWidth, displayHeight } = imageMetadata(bytes, input.mimeType);
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 ||
     width > SPREADSHEET_LIMITS.imageDimension || height > SPREADSHEET_LIMITS.imageDimension ||
     width * height > SPREADSHEET_LIMITS.imagePixels || input.width !== width || input.height !== height) return fail();
   const resource = Object.freeze({ name: input.name, mimeType: input.mimeType, dataUrl: input.dataUrl, width, height });
-  verifiedImages.set(resource, byteLength);
+  verifiedImages.set(resource, { byteLength, displayWidth, displayHeight });
   return resource;
 }
 
@@ -106,7 +120,7 @@ export function normalizeResources(input: SpreadsheetWorkbook["resources"]): Spr
   for (const [id, inputImage] of entries) {
     validateObjectId(id);
     const image = normalizeImageResource(inputImage);
-    bytes += verifiedImages.get(image)!;
+    bytes += verifiedImages.get(image)!.byteLength;
     if (bytes > SPREADSHEET_LIMITS.totalImageBytes) throw new Error("ブック全体の画像サイズは20 MiB以内にしてください");
     images[id] = image;
   }
