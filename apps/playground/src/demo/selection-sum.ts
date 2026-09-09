@@ -34,6 +34,7 @@ function subtract(range: Rectangle, excluded: Rectangle): Rectangle[] {
 /** The destination is excluded, and overlapping selections are only counted once. */
 export function createSelectionSum(context: SpreadsheetContextMenuContext): string {
   const { target, selection, workbook } = context;
+  if (target.kind !== "cell") throw new Error("数式を入れるセルを右クリックしてください。");
   const sheet = workbook.sheets.find(candidate => candidate.id === target.sheetId);
   if (!sheet || selection.sheetId !== target.sheetId) throw new Error("同じシートの集計範囲を選択してください。");
   const destination = getMergedRange(sheet, target) ?? {

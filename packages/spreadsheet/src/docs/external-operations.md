@@ -99,8 +99,11 @@ if (result.ok) {
 | `comments.set` | `address`, `comment: { text, author? }`。`null` で削除 |
 | `sheets.add` | `name?`。生成した `sheetId` は結果から取得 |
 | `sheets.rename` / `sheets.delete` | `sheetId`。名前変更では `name` も指定 |
+| `sheets.move` | `sheetId`, `index`。移動後の0始まりの位置（`0` 〜 `sheets.length - 1`） |
 
 `shape` は `rectangle` / `ellipse` / `line` / `arrow` です。更新ではIDやオブジェクトの種類は変更できません。別の種類のIDを渡した場合も失敗します。画像の `patch.resourceId` は、同じブック内にある既存画像リソースを参照します。
+
+`sheets.move` はシートIDや数式の参照、選択中のシート・セルを維持して順番だけを変えます。同じ位置への移動は変更・編集要求・履歴を発生させません。
 
 行・列・範囲の数値はすべて0始まり、範囲の末尾は含みます。行・列の挿入は `index` の直前に入り、既存行・列の数と同じ `index` なら末尾への追加です。画像・図形の位置は以下のように指定します。
 

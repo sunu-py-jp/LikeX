@@ -28,7 +28,7 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "textBoxes.insert": ["anchor", "text", "width", "height", "fontSize", "color", "background", "bold"],
   "drawings.delete": ["drawingId"], "images.update": ["drawingId", "patch"],
   "shapes.update": ["drawingId", "patch"], "textBoxes.update": ["drawingId", "patch"],
-  "comments.set": ["address", "comment"], "sheets.add": ["name"], "sheets.rename": ["name"], "sheets.delete": [],
+  "comments.set": ["address", "comment"], "sheets.add": ["name"], "sheets.rename": ["name"], "sheets.delete": [], "sheets.move": ["index"],
 };
 
 export function validateCommand(value: unknown): SpreadsheetCommand {
@@ -37,6 +37,7 @@ export function validateCommand(value: unknown): SpreadsheetCommand {
   const type = input.type as SpreadsheetCommand["type"];
   commandKeys(input, ["type", ...(type === "sheets.add" ? [] : ["sheetId"]), ...commandFields[type]], "コマンド");
   if (type !== "sheets.add" && (typeof input.sheetId !== "string" || !input.sheetId)) return rejectCommand("INVALID_COMMAND", "sheetIdを指定してください");
+  if (type === "sheets.move" && typeof input.index !== "number") return rejectCommand("INVALID_COMMAND", "indexは数値で指定してください");
   for (const key of ["index", "count", "column", "width", "height", "fontSize", "strokeWidth"])
     if (input[key] !== undefined && typeof input[key] !== "number") return rejectCommand("INVALID_COMMAND", `${key}は数値で指定してください`);
   for (const key of ["name", "text", "alt", "fill", "stroke", "color", "background"])

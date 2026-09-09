@@ -20,6 +20,7 @@ export function resolveSpreadsheetFeatures(features: SpreadsheetFeatures | undef
     createSheet: features?.sheets !== false && features?.createSheet !== false,
     renameSheet: features?.sheets !== false && features?.renameSheet !== false,
     deleteSheet: features?.sheets !== false && features?.deleteSheet !== false,
+    reorderSheets: features?.sheets !== false && features?.reorderSheets !== false,
     resize: features?.resize !== false,
     undoRedo: features?.undoRedo !== false,
     images: features?.images !== false,

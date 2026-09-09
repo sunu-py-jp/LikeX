@@ -20,6 +20,8 @@ export type SpreadsheetFeatures = Readonly<{
   createSheet?: boolean;
   renameSheet?: boolean;
   deleteSheet?: boolean;
+  /** Allows dragging sheet tabs to change their order. */
+  reorderSheets?: boolean;
   /** Allows resizing columns and drawing objects. */
   resize?: boolean;
   undoRedo?: boolean;

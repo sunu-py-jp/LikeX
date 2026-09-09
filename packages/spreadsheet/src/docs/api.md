@@ -30,7 +30,7 @@ const workbook: SpreadsheetWorkbook = {
 
 結合セルはシートの `merges` に保持します。[セルの結合・解除](./merged-cells.md) に `SpreadsheetMergedRange`、`mergeCells` / `unmergeCells` の例とデータ保持のルールをまとめています。
 
-`createWorkbook()` は100行×26列のブックを作ります。`normalizeWorkbook(input)` は入力を検証し、コピーしたブックを返します。`setCellValue`、`setCellValues`、`moveCells`、`formatCells`、`resizeColumn`、`insertRows`、`deleteRows`、`insertColumns`、`deleteColumns`、`addSheet`、`renameSheet`、`deleteSheet` は元のブックを書き換えず、結果のブックを返します。アドレス変換は `cellAddress` / `parseCellAddress`、計算は `calculateWorkbook`、数式の参照移動は `translateFormula`、TSVは `parseTsv` / `stringifyTsv` を使えます。引数と戻り値の詳細は同梱の公開型で確認できます。
+`createWorkbook()` は100行×26列のブックを作ります。`normalizeWorkbook(input)` は入力を検証し、コピーしたブックを返します。`setCellValue`、`setCellValues`、`moveCells`、`formatCells`、`resizeColumn`、`insertRows`、`deleteRows`、`insertColumns`、`deleteColumns`、`addSheet`、`renameSheet`、`deleteSheet`、`moveSheet` は元のブックを書き換えず、結果のブックを返します。`moveSheet(workbook, sheetId, index)` の `index` は移動後の0始まりの位置です。アドレス変換は `cellAddress` / `parseCellAddress`、計算は `calculateWorkbook`、数式の参照移動は `translateFormula`、TSVは `parseTsv` / `stringifyTsv` を使えます。引数と戻り値の詳細は同梱の公開型で確認できます。
 
 `workbooksEqual(a, b)` はセルのキー順に依存せず、ブックの内容・書式・寸法を比較します。既定書式や元の値・幅へ戻した場合、保存が必要な変更として扱わないためにも利用しています。ブックとセルは変更用関数から新しい値を作り、受け取った下書きを直接書き換えないでください。
 
@@ -51,7 +51,7 @@ const workbook: SpreadsheetWorkbook = {
 | `warnOnUnsavedChanges` | 未保存時のブラウザ標準離脱確認。既定`true`。 |
 | `readOnly` | `true` なら `onSave` があっても変更操作を無効化。 |
 | `features` | 下記の機能設定。省略した項目は `true`。 |
-| `getContextMenuItems` | セルの対象・選択・下書きに応じた追加メニュー。[右クリックメニュー](./context-menu.md) |
+| `getContextMenuItems` | セル／シートの対象・選択・下書きに応じた追加メニュー。[右クリックメニュー](./context-menu.md) |
 | `contextMenuExecutionMode` | `block`（既定）・`confirm`・`reject-if-changed`。メニュー処理中の変更と反映を制御。 |
 | `onSelectionChange` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。`ranges` は全範囲、`focus` は編集先セル（結合内なら左上）。[複数選択](./selection.md) |
 | `colorMode` | `"light"`（既定）・`"dark"`・`"system"`。 |

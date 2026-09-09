@@ -54,3 +54,15 @@ export function deleteSheet(workbook: SpreadsheetWorkbook, sheetId: string): Spr
   const sheets = replaceSheetReferences(workbook, sheet.name).filter(item => item.id !== sheetId);
   return finishWorkbook(sheets, undefined, pruneImageResources(workbook.resources, sheets));
 }
+/** Move an existing sheet to its final zero-based position without changing its contents or identity. */
+export function moveSheet(workbook: SpreadsheetWorkbook, sheetId: string, index: number): SpreadsheetWorkbook {
+  const sheet = getWorkbookSheet(workbook, sheetId);
+  if (!Number.isInteger(index) || index < 0 || index >= workbook.sheets.length)
+    return fail("移動先はシート数の範囲内の0始まりの整数で指定してください");
+  const previousIndex = workbook.sheets.indexOf(sheet);
+  if (previousIndex === index) return workbook;
+  const sheets = [...workbook.sheets];
+  sheets.splice(previousIndex, 1);
+  sheets.splice(index, 0, sheet);
+  return finishWorkbook(sheets, workbook);
+}

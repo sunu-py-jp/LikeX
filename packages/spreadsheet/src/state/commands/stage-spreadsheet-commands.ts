@@ -2,7 +2,7 @@ import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandR
 import { cellAddress, parseCellAddress } from "../../model/address";
 import { workbooksEqual } from "../../model/equality";
 import { mergedCellPosition } from "../../model/merges";
-import { deleteColumns, deleteRows, deleteSheet, formatCells, insertColumns, insertRows, mergeCells, renameSheet,
+import { deleteColumns, deleteRows, deleteSheet, formatCells, insertColumns, insertRows, mergeCells, moveSheet, renameSheet,
   resizeColumn, setCellComment, setCellValues, unmergeCells } from "../../model/workbook";
 import { addSheetWithId } from "../../model/workbook/sheets";
 import type { SpreadsheetWorkbook } from "../../model/types";
@@ -78,6 +78,9 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
     case "sheets.delete":
       requireCommandFeature(features, "deleteSheet");
       return result(deleteSheet(workbook, sheet.id));
+    case "sheets.move":
+      requireCommandFeature(features, "reorderSheets");
+      return result(moveSheet(workbook, sheet.id, command.index));
     default:
       return applyDrawingCommand(workbook, command, features, nextId);
   }

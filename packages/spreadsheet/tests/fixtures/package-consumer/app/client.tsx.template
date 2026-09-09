@@ -15,9 +15,9 @@ export default function ClientSpreadsheet() {
     onEvent: event => { if (event.type === "save" && event.status === "success") void event.requestId; },
     onSelectionChange: selection => { void selection.focus.row; },
     contextMenuExecutionMode: "reject-if-changed",
-    getContextMenuItems: context => [{ id: "sample-menu", label: "Set formula",
+    getContextMenuItems: context => context.target.kind !== "cell" ? [] : [{ id: "sample-menu", label: "Set formula",
       onSelect: async (_captured, { signal }) => {
-        if (signal.aborted) return;
+        if (signal.aborted || context.target.kind !== "cell") return;
         return { description: "Set a formula", change: [{ type: "cells.set",
           sheetId: context.target.sheetId, values: { [context.target.address]: "=SUM(1,2)" } }] };
       },

@@ -60,8 +60,16 @@ test('every fine-grained structure feature hides its GUI action and rejects the 
     assert.equal(result.code, 'FEATURE_DISABLED', feature);
     assert.strictEqual(view.ref.current.getWorkbook(), before, feature);
     if (feature === 'createSheet') assert.equal(labels(view.root).includes('シートを追加'), false);
+    else if (feature === 'renameSheet') {
+      await act(async () => view.root.findByProps({ 'data-lxs-sheet-id': 'main' }).props.onDoubleClick());
+      assert.equal(labels(view.root).includes('シート名'), false);
+    } else if (feature === 'deleteSheet') {
+      const tab = { dataset: { lxsSheetId: 'main' }, closest: selector => selector === '[data-lxs-sheet-id]' ? tab : null };
+      await act(async () => view.root.findByType('section').props.onContextMenu({ target: tab, clientX: 0, clientY: 0, preventDefault() {} }));
+      assert.equal(view.root.findAllByProps({ role: 'menuitem' }).length, 0);
+    }
     else {
-      const select = view.root.findByProps({ 'aria-label': type.startsWith('sheets.') ? 'シートの操作' : '行と列の操作' });
+      const select = view.root.findByProps({ 'aria-label': '行と列の操作' });
       assert.equal(optionValues(select).includes(option), false, feature);
       assert.ok(optionValues(select).length > 1, 'independent sibling actions remain');
     }

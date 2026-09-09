@@ -88,10 +88,12 @@ function EntryMenuItems({
   entry,
   context = false,
   onRename,
+  customItems,
 }: {
   entry: Entry;
   context?: boolean;
   onRename: (ids: string[]) => void;
+  customItems?: ReactElement;
 }) {
   const {
     selected,
@@ -224,6 +226,7 @@ function EntryMenuItems({
         </Item>
       ),
     ],
+    [customItems],
     [
       features.delete && (
         <Item
@@ -292,8 +295,10 @@ function EntryContext({
             entry={entry}
             context
             onRename={renameMenuFocus.startRename}
+            customItems={customMenu?.items.length ? (
+              <ExplorerCustomMenuItems key="custom" menu={customMenu} defer={actionHandoff.defer} />
+            ) : undefined}
           />
-          <ExplorerCustomMenuItems menu={customMenu} separate={hasBuiltins} defer={actionHandoff.defer} />
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

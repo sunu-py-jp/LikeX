@@ -14,27 +14,31 @@ function Menu({ c, root }: { c: SpreadsheetContextMenuController; root: RefObjec
     if (!menu || !region) return;
     const bounds = region.getBoundingClientRect();
     const viewport = region.ownerDocument.defaultView;
-    const left = Math.max(0, bounds.left), top = Math.max(0, bounds.top);
-    const right = Math.min(bounds.right, viewport?.innerWidth ?? bounds.right);
-    const bottom = Math.min(bounds.bottom, viewport?.innerHeight ?? bounds.bottom);
-    menu.style.left = `${Math.max(left, Math.min(captured.x, right - menu.offsetWidth)) - bounds.left}px`;
-    menu.style.top = `${Math.max(top, Math.min(captured.y, bottom - menu.offsetHeight)) - bounds.top}px`;
-    menu.style.maxHeight = `${Math.max(80, bottom - top)}px`;
-    menu.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+    const originX = bounds.left + region.clientLeft, originY = bounds.top + region.clientTop;
+    const left = Math.max(0, originX) + 4, top = Math.max(0, originY) + 4;
+    const right = Math.min(originX + region.clientWidth, viewport?.innerWidth ?? bounds.right) - 4;
+    const bottom = Math.min(originY + region.clientHeight, viewport?.innerHeight ?? bounds.bottom) - 4;
+    menu.style.maxWidth = `${Math.min(360, Math.max(0, right - left))}px`;
+    menu.style.minWidth = `${Math.min(180, Math.max(0, right - left))}px`;
+    menu.style.maxHeight = `${Math.max(0, bottom - top)}px`;
+    menu.style.left = `${Math.max(left, Math.min(captured.x, right - menu.offsetWidth)) - originX + region.scrollLeft}px`;
+    menu.style.top = `${Math.max(top, Math.min(captured.y, bottom - menu.offsetHeight)) - originY + region.scrollTop}px`;
+    (menu.querySelector<HTMLButtonElement>("button:not(:disabled)") ?? menu).focus({ preventScroll: true });
     const outside = (event: Event) => { if (!menu.contains(event.target as Node)) latest.current.closeMenu(); };
     const document = region.ownerDocument;
     document.addEventListener("pointerdown", outside, true);
     const close = () => latest.current.closeMenu();
+    const scroll = (event: Event) => { if (!menu.contains(event.target as Node)) close(); };
     viewport?.addEventListener("resize", close);
-    document.addEventListener("scroll", close, true);
+    document.addEventListener("scroll", scroll, true);
     return () => {
       document.removeEventListener("pointerdown", outside, true);
       viewport?.removeEventListener("resize", close);
-      document.removeEventListener("scroll", close, true);
+      document.removeEventListener("scroll", scroll, true);
       if (captured.returnFocus?.isConnected && (!document.activeElement || document.activeElement === document.body || menu.contains(document.activeElement))) captured.returnFocus.focus({ preventScroll: true });
     };
   }, [captured, root]);
-  return <div ref={element} className="lxs-context-menu" role="menu" aria-label="セルの操作" onContextMenu={event => event.preventDefault()}
+  return <div ref={element} className="lxs-context-menu" role="menu" tabIndex={-1} aria-label={captured.context.target.kind === "sheet" ? "シートの操作" : "セルの操作"} onContextMenu={event => event.preventDefault()}
     onKeyDown={event => {
       event.stopPropagation();
       if (event.key === "Escape" || event.key === "Tab") { event.preventDefault(); c.closeMenu(); return; }
@@ -44,12 +48,22 @@ function Menu({ c, root }: { c: SpreadsheetContextMenuController; root: RefObjec
         event.preventDefault();
         const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 :
           (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
-        buttons[next]?.focus();
+        const button = buttons[next], menu = element.current;
+        button?.focus({ preventScroll: true });
+        if (button && menu) {
+          if (button.offsetTop < menu.scrollTop) menu.scrollTop = button.offsetTop;
+          else if (button.offsetTop + button.offsetHeight > menu.scrollTop + menu.clientHeight)
+            menu.scrollTop = button.offsetTop + button.offsetHeight - menu.clientHeight;
+        }
       }
     }}>
     {captured.items.map(item => <button key={item.id} type="button" role="menuitem" disabled={item.disabled} onClick={() => c.selectItem(item)}>
       {item.icon != null && <span aria-hidden="true">{item.icon}</span>}<span>{item.label}</span>
     </button>)}
+    {captured.deleteSheet && <>
+      {captured.items.length > 0 && <div role="separator" className="lxs-context-menu-separator" />}
+      <button type="button" role="menuitem" disabled={captured.deleteSheet.disabled} onClick={c.deleteSheet}>削除</button>
+    </>}
   </div>;
 }
 

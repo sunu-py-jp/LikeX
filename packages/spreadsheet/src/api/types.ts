@@ -35,6 +35,8 @@ export type SpreadsheetCommand = DeepReadonly<
   | { type: "sheets.add"; name?: string }
   | { type: "sheets.rename"; sheetId: string; name: string }
   | { type: "sheets.delete"; sheetId: string }
+  /** Move a sheet to its final zero-based position within the workbook. */
+  | { type: "sheets.move"; sheetId: string; index: number }
 >;
 
 export type SpreadsheetCommandReceipt = Readonly<{

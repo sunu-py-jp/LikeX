@@ -1,4 +1,6 @@
-.likex-demo-ai-backdrop {
+/* This host-owned dialog lives inside Explorer. Keep its spacing stronger than
+   Explorer's scoped reset, regardless of stylesheet loading order. */
+[data-likex-explorer] .likex-demo-ai-backdrop {
   position: absolute;
   inset: 0;
   z-index: 1000;
@@ -7,7 +9,7 @@
   padding: 20px;
   background: rgb(0 0 0 / 36%);
 }
-.likex-demo-ai-dialog {
+.likex-demo-ai-backdrop .likex-demo-ai-dialog {
   box-sizing: border-box;
   width: min(480px, 100%);
   max-height: 100%;

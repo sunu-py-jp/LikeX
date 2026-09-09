@@ -141,9 +141,10 @@ void [injected, controlledLifecycle, invalidPermission, invalidPreflight, invali
 
 const contextMenus: SpreadsheetProps = {
   contextMenuExecutionMode: "confirm",
-  getContextMenuItems: context => context.readOnly ? [] : [{
+  getContextMenuItems: context => context.target.kind !== "cell" || context.readOnly ? [] : [{
     id: "formula", label: "数式を挿入",
     async onSelect(context, operation) {
+      if (context.target.kind !== "cell") return;
       const address: string = context.target.address;
       const signal: AbortSignal = operation.signal;
       void [signal, context.selection.ranges, context.workbook.sheets, context.features.formulas];
@@ -154,8 +155,24 @@ const contextMenus: SpreadsheetProps = {
   }],
   onEvent(event) { if (event.type === "context-menu") { const id: string = event.itemId; void id; } },
 };
+const sheetContextMenus: SpreadsheetProps = {
+  getContextMenuItems: context => {
+    if (context.target.kind !== "sheet") return [];
+    const index: number = context.target.index;
+    const name: string = context.target.name;
+    // @ts-expect-error Sheet targets do not have cell coordinates.
+    void context.target.address;
+    // @ts-expect-error Captured sheet targets are readonly.
+    context.target.index = 1;
+    void [index, name];
+    return [{ id: "rename-sheet", label: "シート名を変更", onSelect: captured => {
+      if (captured.target.kind !== "sheet") return;
+      return { change: [{ type: "sheets.rename", sheetId: captured.target.sheetId, name: "Renamed" }] };
+    } }];
+  },
+};
 // @ts-expect-error Execution policies use the three explicit common modes.
 const invalidMenuMode: SpreadsheetProps = { contextMenuExecutionMode: "concurrent" };
 // @ts-expect-error Menu handlers return proposed commands, not an entire workbook.
 const invalidMenuResult: SpreadsheetProps = { getContextMenuItems: () => [{ id: "wrong", label: "wrong", onSelect: () => ({ change: workbook }) }] };
-void [contextMenus, invalidMenuMode, invalidMenuResult];
+void [contextMenus, sheetContextMenus, invalidMenuMode, invalidMenuResult];

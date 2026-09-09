@@ -31,6 +31,12 @@ test("SUM uses captured selection and the independently right-clicked destinatio
   assert.deepEqual(result(context()), { formula: "=SUM(A1:B2)", value: 10 });
 });
 
+test("SUM requires a cell target when opened from a worksheet tab", () => {
+  const c = context();
+  c.target = { kind: "sheet", sheetId: "data", name: "Data", index: 0 };
+  assert.throws(() => createSelectionSum(c), /セルを右クリック/);
+});
+
 test("a destination inside the range is excluded without creating a circular reference", () => {
   assert.deepEqual(result(context({ target: { row: 0, column: 0, address: "A1" } })), { formula: "=SUM(A2:B2,B1)", value: 9 });
 });

@@ -6,11 +6,12 @@ import { createSelectionSum } from "./demo/selection-sum";
 import { getDemoContextMenuMode } from "./demo/context-menu-mode";
 
 const contextMenuItems: SpreadsheetContextMenuProvider = context => {
-  if (context.readOnly || !context.features.formulas) return [];
+  if (context.target.kind !== "cell" || context.readOnly || !context.features.formulas) return [];
   return [{
     id: "demo-selection-sum",
     label: "選択範囲のSUMを挿入",
     onSelect: captured => {
+      if (captured.target.kind !== "cell") return;
       const formula = createSelectionSum(captured);
       return {
         change: [{ type: "cells.set", sheetId: captured.target.sheetId, values: { [captured.target.address]: formula } }],

@@ -37,6 +37,7 @@ const features = {
 | `insertColumns` / `deleteColumns` | 列の挿入／削除。 |
 | `sheets` | シートタブ、シート切り替え、シート管理。 |
 | `createSheet` / `renameSheet` / `deleteSheet` | シートの追加／改名／削除。既存シートの閲覧は維持します。 |
+| `reorderSheets` | タブのドラッグや `sheets.move` によるシートの並べ替え。 |
 | `resize` | 列幅、画像・図形・テキストボックスのサイズ変更。挿入時のサイズ指定は可能です。 |
 | `undoRedo` | 元に戻す・やり直す、変更履歴の記録。 |
 | `images` / `shapes` / `textBoxes` | 画像／図形／テキストボックスの挿入・表示・編集・削除。 |
@@ -54,7 +55,7 @@ const features = {
 <Spreadsheet
   initialWorkbook={workbook}
   onSave={saveWorkbook}
-  features={{ createSheet: false, renameSheet: false, deleteSheet: false }}
+  features={{ createSheet: false, renameSheet: false, deleteSheet: false, reorderSheets: false }}
 />;
 ```
 

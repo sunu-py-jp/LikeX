@@ -2,7 +2,7 @@
 
 [ドキュメント一覧](./README.md)
 
-`getContextMenuItems` で、ファイル・フォルダ・一覧の空白に条件付きのメニューを追加できます。既存項目の後に区切って表示します。`ui={{ contextMenu: false }}` は追加項目も非表示にします。
+`getContextMenuItems` で、ファイル・フォルダ・一覧の空白に条件付きのメニューを追加できます。ファイル・フォルダでは「削除」の直前に、削除が非表示の場合や一覧の空白では既存項目の後に区切って表示します。`ui={{ contextMenu: false }}` は追加項目も非表示にします。
 
 ```tsx
 import { Explorer, type ExplorerContextMenuProvider } from "@likex/explorer";
@@ -73,6 +73,8 @@ const getContextMenuItems: ExplorerContextMenuProvider = context => {
 | `container` | 実行元のExplorerのDOM要素。親の入力ダイアログを `createPortal` で表示する際に使えます。別ウィンドウでは `container?.ownerDocument` がその文書です。 |
 
 メニューを組み立てる関数は同期です。条件に合わなければ `[]` を返します。項目は一意な `id`、表示する `label`、任意のReact `icon`、`disabled`、処理本体の `onSelect` を持ちます。通信・入力ダイアログなどは `onSelect` で行います。
+
+利用側が開く入力ダイアログの見た目と余白は利用側で指定します。`container` 内に表示するとExplorerのスコープ付きCSSリセットの対象になるため、デモのようにダイアログの親クラスも含めたセレクタで余白を指定してください。処理結果を反映する組み込みの確認ダイアログはExplorerが描画します。
 
 ## 処理と反映を分ける
 
