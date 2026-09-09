@@ -1,10 +1,10 @@
 import Spreadsheet, {
   createWorkbook, setCellValue, calculateWorkbook, parseTsv, stringifyTsv,
-  serializeWorkbook, parseWorkbook, addDrawing, setCellComment,
+  serializeWorkbook, parseWorkbook, addDrawing, setCellComment, mergeCells, unmergeCells,
   type SpreadsheetWorkbook, type SpreadsheetSheet, type SpreadsheetCell,
   type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps,
   type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSelectionRange, type SpreadsheetSaveHandler,
-  type SpreadsheetDrawing,
+  type SpreadsheetDrawing, type SpreadsheetMergedRange,
 } from "__LIBRARY_IMPORT__";
 
 const workbook: SpreadsheetWorkbook = createWorkbook();
@@ -27,7 +27,7 @@ const props = {
     const ranges: readonly SpreadsheetSelectionRange[] = selection.ranges ?? [selection];
     void [selectedSheet, row, ranges];
   },
-  features: { formulas: true, clipboard: false, formatting: false, sheets: true, images: true, shapes: false, comments: true, textBoxes: true },
+  features: { formulas: true, clipboard: false, formatting: false, sheets: true, images: true, shapes: false, comments: true, textBoxes: true, mergeCells: true },
   colorMode: "system",
   style: { height: 400 },
 } satisfies SpreadsheetProps;
@@ -63,3 +63,12 @@ const annotated = setCellComment(addDrawing(populated, sheet.id, drawing), sheet
 const serialized: string = serializeWorkbook(annotated);
 const restored: SpreadsheetWorkbook = parseWorkbook(serialized);
 void restored;
+
+const mergedRange: SpreadsheetMergedRange = { top: 2, left: 0, bottom: 3, right: 2 };
+const merged: SpreadsheetWorkbook = mergeCells(restored, sheet.id, mergedRange);
+const separated: SpreadsheetWorkbook = unmergeCells(merged, sheet.id, mergedRange);
+// @ts-expect-error Merged positions cannot be changed through public snapshots.
+mergedRange.bottom = 5;
+// @ts-expect-error Merge collections are readonly.
+merged.sheets[0].merges?.push(mergedRange);
+void separated;

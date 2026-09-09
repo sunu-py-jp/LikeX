@@ -1,6 +1,7 @@
 import type { SpreadsheetCell, SpreadsheetWorkbook } from "@likex/spreadsheet";
 import { insertionDemoImage, insertionDemoSheet } from "./spreadsheet-insertions";
 import { functionDemoSheet } from "./spreadsheet-functions";
+import { mergeDemoSheet } from "./spreadsheet-merges";
 
 /** A fictional, memory-only workbook for exercising the spreadsheet UI. */
 export function createDemoWorkbook(): SpreadsheetWorkbook {
@@ -58,5 +59,6 @@ export function createDemoWorkbook(): SpreadsheetWorkbook {
     } },
     insertionDemoSheet,
     functionDemoSheet,
+    mergeDemoSheet,
   ] };
 }

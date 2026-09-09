@@ -32,6 +32,8 @@ export type SpreadsheetDrawingPatch = Partial<Omit<SpreadsheetDrawingBase, "id">
   strokeWidth: number; text: string; fontSize: number; color: string; background: string; bold: boolean;
 }>;
 export type SpreadsheetComment = { id: string; text: string; author?: string };
+/** Inclusive, zero-based rectangle. The top-left cell stores the merged value and comment. */
+export type SpreadsheetMergedRange = Readonly<{ top: number; left: number; bottom: number; right: number }>;
 export type SpreadsheetSheet = {
   id: string;
   name: string;
@@ -42,6 +44,7 @@ export type SpreadsheetSheet = {
   rowHeights?: Readonly<Record<number, number>>;
   drawings?: readonly SpreadsheetDrawing[];
   comments?: Readonly<Record<string, SpreadsheetComment>>;
+  merges?: readonly SpreadsheetMergedRange[];
 };
 export type SpreadsheetWorkbook = {
   schemaVersion?: 1;
@@ -60,5 +63,5 @@ export const SPREADSHEET_LIMITS = Object.freeze({ rows: 10_000, columns: 1_000, 
   clipboardCharacters: 10 * 1024 * 1024, clipboardCells: 10_000,
   imageBytes: 5 * 1024 * 1024, totalImageBytes: 20 * 1024 * 1024,
   imageDimension: 10_000, imagePixels: 16_000_000, images: 1_000,
-  drawings: 1_000, comments: 10_000, commentLength: 10_000, drawingTextLength: 100_000,
+  drawings: 1_000, comments: 10_000, merges: 1_000, commentLength: 10_000, drawingTextLength: 100_000,
   serializedCharacters: 64 * 1024 * 1024 });

@@ -2,7 +2,7 @@
 
 [利用ガイドへ戻る](./README.md)
 
-`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetSelection`、`SpreadsheetSelectionRange`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode` を公開しています。
+`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetMergedRange`、`SpreadsheetSelection`、`SpreadsheetSelectionRange`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode` を公開しています。
 
 ## ブックの形式
 
@@ -28,6 +28,8 @@ const workbook: SpreadsheetWorkbook = {
 
 画像の実体は `resources.images`、配置と図形・テキストはシートの `drawings`、セルの注記は `comments` に保持します。`schemaVersion: 1` を持つJSONへ保存でき、旧形式も読み込めます。[挿入機能とJSON保存](./insertions-and-json.md) に構造・公開型・`serializeWorkbook` / `parseWorkbook` の例をまとめています。
 
+結合セルはシートの `merges` に保持します。[セルの結合・解除](./merged-cells.md) に `SpreadsheetMergedRange`、`mergeCells` / `unmergeCells` の例とデータ保持のルールをまとめています。
+
 `createWorkbook()` は100行×26列のブックを作ります。`normalizeWorkbook(input)` は入力を検証し、コピーしたブックを返します。`setCellValue`、`setCellValues`、`moveCells`、`formatCells`、`resizeColumn`、`insertRows`、`deleteRows`、`insertColumns`、`deleteColumns`、`addSheet`、`renameSheet`、`deleteSheet` は元のブックを書き換えず、結果のブックを返します。アドレス変換は `cellAddress` / `parseCellAddress`、計算は `calculateWorkbook`、数式の参照移動は `translateFormula`、TSVは `parseTsv` / `stringifyTsv` を使えます。引数と戻り値の詳細は同梱の公開型で確認できます。
 
 `workbooksEqual(a, b)` はセルのキー順に依存せず、ブックの内容・書式・寸法を比較します。既定書式や元の値・幅へ戻した場合、保存が必要な変更として扱わないためにも利用しています。ブックとセルは変更用関数から新しい値を作り、受け取った下書きを直接書き換えないでください。
@@ -41,7 +43,7 @@ const workbook: SpreadsheetWorkbook = {
 | `onSave` | 保存処理。省略すると読み取り専用。 |
 | `readOnly` | `true` なら `onSave` があっても変更操作を無効化。 |
 | `features` | 下記の機能設定。省略した項目は `true`。 |
-| `onSelectionChange` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。`ranges` は全範囲、`anchor` / `focus` は最後に操作した範囲。[複数選択](./selection.md) |
+| `onSelectionChange` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。`ranges` は全範囲、`focus` は編集先セル（結合内なら左上）。[複数選択](./selection.md) |
 | `colorMode` | `"light"`（既定）・`"dark"`・`"system"`。 |
 | `title` | 表示タイトル。省略時は「スプレッドシート」。 |
 | `className` / `style` | ルート要素のクラス・CSS。高さは利用先で指定。 |
@@ -82,6 +84,6 @@ const workbook: SpreadsheetWorkbook = {
 />
 ```
 
-`formulas`、`clipboard`、`formatting`、`rowColumnOperations`、`sheets`、`resize`、`undoRedo` を個別に無効化できます。`formulas: false` は数式入力を止めますが、初期ブックにある数式の計算結果は引き続き表示します。`sheets: false` はシート切り替え・管理の操作を隠します。設定はアプリの操作範囲を制限するものであり、保存先の入力検証は別に必要です。
+`formulas`、`clipboard`、`formatting`、`mergeCells`、`rowColumnOperations`、`sheets`、`resize`、`undoRedo` を個別に無効化できます。`formulas: false` は数式入力を止めますが、初期ブックにある数式の計算結果は引き続き表示します。`mergeCells: false` は結合配置の変更を止め、保存済みの結合は表示・保持します。`sheets: false` はシート切り替え・管理の操作を隠します。設定はアプリの操作範囲を制限するものであり、保存先の入力検証は別に必要です。
 
 挿入機能には `images`、`shapes`、`textBoxes`、`comments` があります。既定はすべてONで、OFFにすると該当メニューと表示・編集を隠します。非表示にしたデータも保存スナップショットには残ります。

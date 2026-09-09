@@ -42,7 +42,7 @@ import Spreadsheet, {
 function selectionChanged(selection: SpreadsheetSelection) {
   const ranges: readonly SpreadsheetSelectionRange[] = selection.ranges ?? [selection];
   console.log(selection.sheetId, ranges);
-  // anchor / focus は最後に操作した範囲。focus がアクティブセル。
+  // focus が編集先のアクティブセル。結合内なら左上のセル。
   console.log(selection.focus.row, selection.focus.column);
 }
 
@@ -63,7 +63,9 @@ function selectionChanged(selection: SpreadsheetSelection) {
 }
 ```
 
-従来の `sheetId`・`anchor`・`focus` はそのまま利用できます。`ranges` は以前の選択型を組み立てるコードとの互換のため型上は省略可能ですが、コンポーネントからの通知には全範囲が入ります。複数範囲を扱う親は `anchor` / `focus` だけで全体を判断せず、`ranges` を参照してください。通知データを書き換えてもコンポーネントの選択は変更されません。
+従来の `sheetId`・`anchor`・`focus` はそのまま利用できます。`ranges` は以前の選択型を組み立てるコードとの互換のため型上は省略可能ですが、コンポーネントからの通知には全範囲が入ります。`anchor` は最後の範囲を伸ばす起点、`focus` は編集先セルです。結合セルでは `focus` を左上へ解決するため、最後の範囲の `focus` と一致しない場合があります。全体の選択は `ranges` の和集合で判断してください。通知データを書き換えてもコンポーネントの選択は変更されません。
+
+結合セルに触れた範囲は、その結合全体を含めて選択します。[結合セルの操作](./merged-cells.md) も参照してください。
 
 選択状態は画面上の一時状態で、ブックの保存JSONには含めません。シート切り替え・保存成功・Undo／Redoでは選択を1つに戻します。
 

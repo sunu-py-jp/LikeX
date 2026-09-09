@@ -8,6 +8,7 @@ import { Command, Icon } from "./spreadsheet-controls";
 import { useId, useRef, useState } from "react";
 import { SpreadsheetInsertToolbar } from "./spreadsheet-insert-toolbar";
 import { SpreadsheetFunctionPicker } from "./spreadsheet-function-picker";
+import { SpreadsheetMergeToolbar } from "./spreadsheet-merge-toolbar";
 
 type ToolbarProps = { controller: SpreadsheetController; clipboard: ReturnType<typeof useSpreadsheetClipboard> };
 
@@ -88,6 +89,7 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
         </select>
       </div>
     </>}
+    <SpreadsheetMergeToolbar controller={c} />
     {c.features.rowColumnOperations && !c.readOnly && <div className="lxs-tool-group">
       <select aria-label="行と列の操作" className="lxs-select" value="" title={singleRangeHint} disabled={cellDisabled || multiple} onChange={event => { if (event.target.value) structural(event.target.value); }}>
         <option value="" disabled>行・列</option><option value="insert-row">上に行を挿入</option><option value="insert-column">左に列を挿入</option><option value="delete-row">選択した行を削除</option><option value="delete-column">選択した列を削除</option>

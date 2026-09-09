@@ -2,9 +2,10 @@ import { cellAddress, parseCellAddress } from "./address";
 import { moveFormulaReference, rewriteFormulaReferences, type FormulaReference } from "./formula";
 import { commentsEqual, drawingsEqual, normalizeComment, normalizeComments, normalizeDrawing, normalizeDrawings } from "./annotations";
 import { normalizeResources, pruneImageResources, validateObjectId } from "./image-resources";
+import { getMergedRange, mergedCellPosition, mergedContentWouldBeDiscarded, normalizeMerges, rangeContains, rangesIntersect, validateMergedContents, validateMergedRange } from "./merges";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, type SpreadsheetMoveSource, type SpreadsheetMoveTarget,
   type SpreadsheetSheet, type SpreadsheetWorkbook, type SpreadsheetDrawing, type SpreadsheetDrawingPatch,
-  type SpreadsheetComment, type SpreadsheetImageDrawing, type SpreadsheetImageResource } from "./types";
+  type SpreadsheetComment, type SpreadsheetImageDrawing, type SpreadsheetImageResource, type SpreadsheetMergedRange } from "./types";
 
 const fail = (message: string): never => { throw new Error(message); };
 function dimension(value: number, maximum: number) {
@@ -69,6 +70,8 @@ function finish(sheets: readonly SpreadsheetSheet[], workbook?: SpreadsheetWorkb
     fail("描画オブジェクトの数が上限を超えています");
   if (sheets.reduce((count, sheet) => count + Object.keys(sheet.comments ?? {}).length, 0) > SPREADSHEET_LIMITS.comments)
     fail("コメントの数が上限を超えています");
+  if (sheets.reduce((count, sheet) => count + (sheet.merges?.length ?? 0), 0) > SPREADSHEET_LIMITS.merges)
+    fail("結合範囲の数が上限を超えています");
   return Object.freeze({ schemaVersion: 1, sheets: Object.freeze([...sheets]), ...(resources ? { resources } : {}) });
 }
 function withSheet(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet): SpreadsheetWorkbook {
@@ -114,9 +117,11 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
     const columnWidths = sizes(sheet.columnWidths, columnCount), rowHeights = sizes(sheet.rowHeights, rowCount, true);
     const drawings = normalizeDrawings(sheet.drawings, { rowCount, columnCount }, resources);
     const comments = normalizeComments(sheet.comments, { rowCount, columnCount });
+    const merges = normalizeMerges(sheet.merges, { rowCount, columnCount });
+    validateMergedContents({ cells, comments, merges });
     return Object.freeze({ id: sheet.id, name, cells: Object.freeze(cells), rowCount, columnCount,
       ...(columnWidths ? { columnWidths } : {}), ...(rowHeights ? { rowHeights } : {}),
-      ...(drawings ? { drawings } : {}), ...(comments ? { comments } : {}) });
+      ...(drawings ? { drawings } : {}), ...(comments ? { comments } : {}), ...(merges ? { merges } : {}) });
   });
   return finish(sheets, undefined, resources);
 }
@@ -126,19 +131,63 @@ export function createWorkbook(): SpreadsheetWorkbook {
 }
 
 export function setCellValue(workbook: SpreadsheetWorkbook, sheetId: string, address: string, value: string): SpreadsheetWorkbook {
-  return setCellValues(workbook, sheetId, { [address]: value });
+  const sheet = getSheet(workbook, sheetId), position = mergedCellPosition(sheet, parseCellAddress(addressFor(sheet, address))!);
+  return setCellValues(workbook, sheetId, { [cellAddress(position.row, position.column)]: value });
 }
 export function setCellValues(workbook: SpreadsheetWorkbook, sheetId: string, values: Readonly<Record<string, string>>): SpreadsheetWorkbook {
   const sheet = getSheet(workbook, sheetId), cells = { ...sheet.cells };
   let changed = false;
   for (const [address, raw] of Object.entries(values)) {
     const key = addressFor(sheet, address), value = cellValue(raw), previous = cells[key];
+    const merge = getMergedRange(sheet, parseCellAddress(key)!);
+    if (value && merge && key !== cellAddress(merge.top, merge.left)) return fail("結合セルの値は左上のセルにだけ入力してください");
     if ((previous?.value ?? "") === value) continue;
     changed = true;
     if (!value && !previous?.format) delete cells[key];
     else cells[key] = freezeCell(value, previous?.format);
   }
   return changed ? withSheet(workbook, { ...sheet, cells: Object.freeze(cells) }) : workbook;
+}
+
+/** Merge a rectangle. Discarding covered values/comments requires an explicit caller decision. */
+export function mergeCells(workbook: SpreadsheetWorkbook, sheetId: string, range: SpreadsheetMergedRange,
+  options: { discardValues?: boolean } = {}): SpreadsheetWorkbook {
+  const sheet = getSheet(workbook, sheetId);
+  validateMergedRange(range, sheet);
+  if (!options || typeof options !== "object" || Array.isArray(options) ||
+    (options.discardValues !== undefined && typeof options.discardValues !== "boolean"))
+    return fail("結合時の値の破棄は true または false で指定してください");
+  const existing = sheet.merges ?? [];
+  for (const merge of existing) if (rangesIntersect(range, merge) && !rangeContains(range, merge))
+    return fail("結合セルの一部分だけを結合できません。結合範囲全体を選択してください");
+  if (existing.some(merge => rangeContains(range, merge) && rangeContains(merge, range))) return workbook;
+  if (!options.discardValues && mergedContentWouldBeDiscarded(sheet, range))
+    return fail("結合すると左上以外のセルの値とコメントが失われます");
+  const cells = { ...sheet.cells }, comments = { ...sheet.comments }, anchor = cellAddress(range.top, range.left);
+  const covered = (address: string) => {
+    if (address === anchor) return false;
+    const { row, column } = parseCellAddress(address)!;
+    return row >= range.top && row <= range.bottom && column >= range.left && column <= range.right;
+  };
+  for (const [address, cell] of Object.entries(cells)) if (covered(address) && cell.value) {
+    if (cell.format) cells[address] = freezeCell("", cell.format);
+    else delete cells[address];
+  }
+  for (const address of Object.keys(comments)) if (covered(address)) {
+    delete comments[address];
+  }
+  const merges = normalizeMerges([...existing.filter(merge => !rangesIntersect(range, merge)), range], sheet);
+  return withSheet(workbook, { ...sheet, cells: Object.freeze(cells), merges,
+    ...(sheet.comments ? { comments: Object.freeze(comments) } : {}) });
+}
+
+/** Unmerge every intersected range; deleted covered values are not reconstructed. */
+export function unmergeCells(workbook: SpreadsheetWorkbook, sheetId: string, range: SpreadsheetMergedRange): SpreadsheetWorkbook {
+  const sheet = getSheet(workbook, sheetId);
+  validateMergedRange(range, sheet, true);
+  const merges = sheet.merges?.filter(merge => !rangesIntersect(range, merge));
+  if (!merges || merges.length === sheet.merges?.length) return workbook;
+  return withSheet(workbook, { ...sheet, merges: merges.length ? Object.freeze(merges) : undefined });
 }
 
 export function formatCells(workbook: SpreadsheetWorkbook, sheetId: string, addresses: readonly string[], format: Partial<SpreadsheetCellFormat>): SpreadsheetWorkbook {
@@ -207,6 +256,20 @@ function shiftSizes(input: Readonly<Record<number, number>> | undefined, index: 
   }
   return Object.freeze(result);
 }
+function shiftMerges(sheet: SpreadsheetSheet, axis: "row" | "column", index: number, count: number, remove: boolean, total: number) {
+  if (!sheet.merges?.length) return sheet.merges;
+  const ranges: SpreadsheetMergedRange[] = [];
+  for (const merge of sheet.merges) {
+    const interval = intervalAfter(axis === "row" ? merge.top : merge.left,
+      axis === "row" ? merge.bottom : merge.right, index, count, remove);
+    if (!interval) continue;
+    const next = axis === "row" ? { ...merge, top: interval[0], bottom: interval[1] }
+      : { ...merge, left: interval[0], right: interval[1] };
+    if (next.top !== next.bottom || next.left !== next.right) ranges.push(next);
+  }
+  return normalizeMerges(ranges, { rowCount: axis === "row" ? total : sheet.rowCount,
+    columnCount: axis === "column" ? total : sheet.columnCount });
+}
 function shiftAnnotations(sheet: SpreadsheetSheet, axis: "row" | "column", index: number, count: number, remove: boolean, total: number) {
   const comments: Record<string, SpreadsheetComment> = Object.create(null);
   for (const [address, comment] of Object.entries(sheet.comments ?? {})) {
@@ -243,6 +306,7 @@ function changeAxis(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" 
     }
     if (!changed) return sheet;
     return Object.freeze({ ...sheet, cells: Object.freeze(cells),
+      ...(sheet.id === sheetId && sheet.merges ? { merges: shiftMerges(sheet, axis, index, count, remove, total) } : {}),
       ...(sheet.id === sheetId ? shiftAnnotations(sheet, axis, index, count, remove, total) : {}), ...(sheet.id === sheetId ? axis === "row"
       ? { rowCount: total, rowHeights: shiftSizes(sheet.rowHeights, index, count, remove) }
       : { columnCount: total, columnWidths: shiftSizes(sheet.columnWidths, index, count, remove) } : {}) });
@@ -264,6 +328,16 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
   const height = source.bottom - source.top + 1, width = source.right - source.left + 1;
   if (height * width > SPREADSHEET_LIMITS.clipboardCells) return fail("一度に移動できるのは10,000セルまでです");
   if (destination.row + height > to.rowCount || destination.column + width > to.columnCount) return fail("貼り付け先がシートの範囲外です");
+  const destinationRange = { top: destination.row, left: destination.column,
+    bottom: destination.row + height - 1, right: destination.column + width - 1 };
+  const sourceMerges = (from.merges ?? []).filter(merge => rangesIntersect(source, merge));
+  if (sourceMerges.some(merge => !rangeContains(source, merge)))
+    return fail("結合セルの一部分だけは移動できません。結合範囲全体を選択してください");
+  for (const merge of to.merges ?? []) {
+    if (from.id === to.id && rangeContains(source, merge)) continue;
+    if (rangesIntersect(destinationRange, merge) && !rangeContains(destinationRange, merge))
+      return fail("貼り付け先に結合セルの一部分が含まれています。結合範囲全体を選択してください");
+  }
   if (source.sheetId === destination.sheetId && source.top === destination.row && source.left === destination.column) return workbook;
   const inSource = (row: number, column: number) => row >= source.top && row <= source.bottom && column >= source.left && column <= source.right;
   const inDestination = (row: number, column: number) => row >= destination.row && row < destination.row + height && column >= destination.column && column < destination.column + width;
@@ -294,7 +368,14 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
       if (ids.has(comment.id)) return fail("移動先に同じ ID のコメントがあります");
       ids.add(comment.id);
     }
-    return { ...sheet, cells, ...(sheet.comments || Object.keys(comments).length ? { comments: Object.freeze(comments) } : {}) };
+    const retainedMerges = (sheet.merges ?? []).filter(merge =>
+      !(sheet.id === from.id && rangeContains(source, merge)) && !(sheet.id === to.id && rangeContains(destinationRange, merge)));
+    const movedMerges = sheet.id === to.id ? sourceMerges.map(merge => ({
+      top: merge.top + destination.row - source.top, bottom: merge.bottom + destination.row - source.top,
+      left: merge.left + destination.column - source.left, right: merge.right + destination.column - source.left,
+    })) : [];
+    return { ...sheet, cells, ...(sheet.merges || movedMerges.length ? { merges: normalizeMerges([...retainedMerges, ...movedMerges], sheet) } : {}),
+      ...(sheet.comments || Object.keys(comments).length ? { comments: Object.freeze(comments) } : {}) };
   });
   const result = staged.map(sheet => {
     let changed = sheet.id === from.id || sheet.id === to.id;
@@ -425,6 +506,8 @@ export function setCellComments(workbook: SpreadsheetWorkbook, sheetId: string,
   let changed = false;
   for (const [address, value] of Object.entries(input)) {
     const key = addressFor(sheet, address), next = value === null ? undefined : normalizeComment(value);
+    const merge = getMergedRange(sheet, parseCellAddress(key)!);
+    if (next && merge && key !== cellAddress(merge.top, merge.left)) return fail("結合セルのコメントは左上のセルにだけ保存してください");
     if (commentsEqual(comments[key], next)) continue;
     changed = true;
     if (next) comments[key] = next;
@@ -441,5 +524,6 @@ export function setCellComments(workbook: SpreadsheetWorkbook, sheetId: string,
 
 export function setCellComment(workbook: SpreadsheetWorkbook, sheetId: string, address: string,
   comment: SpreadsheetComment | null): SpreadsheetWorkbook {
-  return setCellComments(workbook, sheetId, { [address]: comment });
+  const sheet = getSheet(workbook, sheetId), position = mergedCellPosition(sheet, parseCellAddress(addressFor(sheet, address))!);
+  return setCellComments(workbook, sheetId, { [cellAddress(position.row, position.column)]: comment });
 }

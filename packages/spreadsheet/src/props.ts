@@ -8,6 +8,8 @@ export type SpreadsheetFeatures = Readonly<{
   formulas?: boolean;
   clipboard?: boolean;
   formatting?: boolean;
+  /** Allows merging/unmerging. Existing merged cells still render when disabled. */
+  mergeCells?: boolean;
   rowColumnOperations?: boolean;
   sheets?: boolean;
   resize?: boolean;
@@ -25,8 +27,9 @@ export type SpreadsheetSelectionRange = Readonly<{
 
 export type SpreadsheetSelection = Readonly<{
   sheetId: string;
-  /** Anchor and focus of the active (last) range. */
+  /** Origin used to extend the active range. See ranges for the complete geometry. */
   anchor: Readonly<SpreadsheetCellPosition>;
+  /** Editable active cell; merged positions resolve to the top-left cell. */
   focus: Readonly<SpreadsheetCellPosition>;
   /** All selected ranges, including the active range last. Always supplied by onSelectionChange. */
   ranges?: readonly SpreadsheetSelectionRange[];

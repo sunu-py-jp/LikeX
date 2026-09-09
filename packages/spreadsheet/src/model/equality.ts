@@ -1,5 +1,6 @@
 import type { SpreadsheetCell, SpreadsheetCellFormat, SpreadsheetWorkbook } from "./types";
 import { commentsEqual, drawingsEqual } from "./annotations";
+import { mergesEqual } from "./merges";
 
 const emptySizes: Readonly<Record<number, number>> = Object.freeze({});
 function formatsEqual(left: SpreadsheetCellFormat | undefined, right: SpreadsheetCellFormat | undefined): boolean {
@@ -55,6 +56,7 @@ export function workbooksEqual(left: SpreadsheetWorkbook, right: SpreadsheetWork
     const other = right.sheets[index];
     return sheet === other || (sheet.id === other.id && sheet.name === other.name && sheet.rowCount === other.rowCount &&
       sheet.columnCount === other.columnCount && cellMapsEqual(sheet.cells, other.cells) &&
-      sizesEqual(sheet.columnWidths, other.columnWidths, 100) && sizesEqual(sheet.rowHeights, other.rowHeights, 28) && annotationsEqual(sheet, other));
+      sizesEqual(sheet.columnWidths, other.columnWidths, 100) && sizesEqual(sheet.rowHeights, other.rowHeights, 28) &&
+      mergesEqual(sheet.merges, other.merges) && annotationsEqual(sheet, other));
   });
 }

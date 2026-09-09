@@ -19,6 +19,8 @@ const paths = {
   image: "M3 3h18v18H3zM3 17l6-6 4 4 3-3 5 5M7 7h.01",
   text: "M4 4h16M12 4v16M8 20h8",
   comment: "M4 3h16v14H9l-5 4V3ZM8 7h8M8 11h6",
+  merge: "M3 3h18v18H3zM12 3v4M12 17v4M5 12h5m-2-2 2 2-2 2m11-2h-5m2-2-2 2 2 2",
+  unmerge: "M3 3h18v18H3zM12 3v18M10 12H5m2-2-2 2 2 2m7-2h5m-2-2 2 2-2 2",
 } as const;
 
 export function Icon({ name }: { name: keyof typeof paths }) {

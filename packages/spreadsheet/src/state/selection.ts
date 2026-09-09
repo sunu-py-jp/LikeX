@@ -1,6 +1,7 @@
 import type { SpreadsheetSelection, SpreadsheetSelectionRange } from "../props";
 import { cellAddress } from "../model/address";
-import { SPREADSHEET_LIMITS, type SpreadsheetCellPosition } from "../model/types";
+import { SPREADSHEET_LIMITS, type SpreadsheetCellPosition, type SpreadsheetSheet } from "../model/types";
+import { expandRangeForMerges, mergedCellPosition } from "../model/merges";
 
 export const MAX_SELECTION_CELLS = SPREADSHEET_LIMITS.clipboardCells;
 export const MAX_SELECTION_RANGES = 128;
@@ -16,7 +17,7 @@ export function rangeBounds(range: SpreadsheetSelectionRange) {
 
 /** The active range only. Never combine disjoint ranges into a bounding rectangle. */
 export function selectionBounds(selection: SpreadsheetSelection) {
-  return rangeBounds(selection);
+  return rangeBounds(selectionRanges(selection).at(-1)!);
 }
 
 export function isMultiRangeSelection(selection: SpreadsheetSelection) {
@@ -67,12 +68,24 @@ export function selectedAddresses(selection: SpreadsheetSelection) {
 }
 
 /** Copies positions so external callback payloads and event arguments cannot mutate internal state. */
-export function createSelection(sheetId: string, ranges: readonly SpreadsheetSelectionRange[]): SpreadsheetSelection {
+export function createSelection(sheetId: string, ranges: readonly SpreadsheetSelectionRange[], focus?: SpreadsheetCellPosition): SpreadsheetSelection {
   if (!ranges.length) throw new Error("少なくとも1つのセルを選択してください");
   if (ranges.length > MAX_SELECTION_RANGES) throw new Error(`一度に選択できる範囲は ${MAX_SELECTION_RANGES} 個までです`);
   const copies = ranges.map(range => ({ anchor: { ...range.anchor }, focus: { ...range.focus } }));
   const active = copies[copies.length - 1];
-  return { sheetId, anchor: { ...active.anchor }, focus: { ...active.focus }, ranges: copies };
+  return { sheetId, anchor: { ...active.anchor }, focus: { ...(focus ?? active.focus) }, ranges: copies };
+}
+
+/** Merge geometry stays in ranges; the editable focus always points to a visible anchor cell. */
+export function selectionForSheet(sheet: SpreadsheetSheet, ranges: readonly SpreadsheetSelectionRange[], expand = true,
+  focus = ranges.at(-1)?.focus): SpreadsheetSelection {
+  const expanded = expand ? ranges.map(range => {
+    const bounds = expandRangeForMerges(sheet, rangeBounds(range));
+    const down = range.anchor.row <= range.focus.row, right = range.anchor.column <= range.focus.column;
+    return { anchor: { row: down ? bounds.top : bounds.bottom, column: right ? bounds.left : bounds.right },
+      focus: { row: down ? bounds.bottom : bounds.top, column: right ? bounds.right : bounds.left } };
+  }) : ranges;
+  return createSelection(sheet.id, expanded, focus && mergedCellPosition(sheet, focus));
 }
 
 export function isRangeSelected(selection: SpreadsheetSelection, range: SpreadsheetSelectionRange): boolean {
@@ -80,6 +93,7 @@ export function isRangeSelected(selection: SpreadsheetSelection, range: Spreadsh
   const intersections: SpreadsheetSelectionRange[] = [];
   for (const selected of selectionRanges(selection)) {
     const bounds = rangeBounds(selected);
+    if (bounds.top <= target.top && bounds.bottom >= target.bottom && bounds.left <= target.left && bounds.right >= target.right) return true;
     const top = Math.max(target.top, bounds.top), bottom = Math.min(target.bottom, bounds.bottom);
     const left = Math.max(target.left, bounds.left), right = Math.min(target.right, bounds.right);
     if (top <= bottom && left <= right) intersections.push({ anchor: { row: top, column: left }, focus: { row: bottom, column: right } });

@@ -10,12 +10,13 @@ import type {
   SpreadsheetDrawing,
   SpreadsheetDrawingPatch,
   SpreadsheetImageResource,
+  SpreadsheetMergedRange,
 } from "../src";
 
 const cell: SpreadsheetCell = { value: "=SUM(A1:A10)", format: { numberFormat: "currency", bold: true } };
 const workbook: SpreadsheetWorkbook = { sheets: [{ id: "main", name: "Sheet1", rowCount: 100, columnCount: 26, cells: { B1: cell } }] };
 const save: SpreadsheetSaveHandler = async (value) => value;
-const features = { sheets: false, formulas: false, clipboard: true, images: true, shapes: false, textBoxes: true, comments: true } satisfies SpreadsheetFeatures;
+const features = { sheets: false, formulas: false, clipboard: true, images: true, shapes: false, textBoxes: true, comments: true, mergeCells: false } satisfies SpreadsheetFeatures;
 const props: SpreadsheetProps = {
   initialWorkbook: workbook, onSave: save, features, colorMode: "system", title: "資料",
   onChange(value) { void value.sheets[0].cells.A1?.value; },
@@ -56,3 +57,13 @@ function inspectSelection(selection: SpreadsheetSelection) {
   ranges[0].anchor.row = 3;
 }
 void [multipleSelection, inspectSelection];
+
+const mergedRange: SpreadsheetMergedRange = { top: 0, left: 0, bottom: 1, right: 2 };
+const mergedWorkbook: SpreadsheetWorkbook = { sheets: [{ ...workbook.sheets[0], cells: {}, merges: [mergedRange] }] };
+// @ts-expect-error Merged geometry is a readonly snapshot.
+mergedRange.right = 3;
+// @ts-expect-error Merged-range collections cannot be mutated through the workbook.
+mergedWorkbook.sheets[0].merges?.push(mergedRange);
+// @ts-expect-error Feature flags are strict booleans.
+const invalidMergeFeature: SpreadsheetFeatures = { mergeCells: "yes" };
+void [mergedWorkbook, invalidMergeFeature];

@@ -2,9 +2,11 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { cellAddress, resizeColumn } from "../model";
+import { getMergedRange, mergedCellPosition } from "../model/merges";
+import type { SpreadsheetMergedRange } from "../model/types";
 import { SpreadsheetDrawings, SpreadsheetDrawingInspector } from "./spreadsheet-drawings";
 import { blurObjectEditor } from "../state/blur-object-editor";
-import { COLUMN_WIDTH, ROW_HEIGHT, type SpreadsheetController, type CellFormat, type Position } from "../state/use-spreadsheet";
+import { COLUMN_WIDTH, ROW_HEIGHT, type SpreadsheetController, type CellFormat, type Position, type Sheet } from "../state/use-spreadsheet";
 import { isCellSelected, isRangeSelected, rangeBounds, selectionRanges } from "../state/selection";
 
 export function displayCell(value: string | number | boolean | undefined, format?: CellFormat) {
@@ -22,6 +24,14 @@ type SelectionDrag = {
   origin: Position;
   toggleOnClick?: { anchor: Position; focus: Position };
 };
+
+/** A merged cell occupies one keyboard stop, regardless of its row/column span. */
+export function nextCellPosition(sheet: Sheet, position: Position, rows: number, columns: number): Position {
+  const merge = getMergedRange(sheet, position);
+  const anchor = mergedCellPosition(sheet, position);
+  return { row: (rows > 0 ? merge?.bottom ?? anchor.row : merge?.top ?? anchor.row) + rows,
+    column: (columns > 0 ? merge?.right ?? anchor.column : merge?.left ?? anchor.column) + columns };
+}
 
 export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetController }) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -53,7 +63,16 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   const virtualRows = Array.from({ length: end - start }, (_, i) => start + i);
   // Pin the active input while scrolling, preserving focus and IME composition.
   if (!virtualRows.includes(c.selection.focus.row)) virtualRows.push(c.selection.focus.row);
+  // A merge may begin above the visible window and continue through it.
+  for (const merge of c.activeSheet.merges ?? []) {
+    if (merge.top < start && merge.bottom >= start && !virtualRows.includes(merge.top)) virtualRows.push(merge.top);
+  }
   virtualRows.sort((a, b) => a - b);
+  const renderedMerges = new Map<number, SpreadsheetMergedRange>();
+  for (const merge of c.activeSheet.merges ?? []) for (const row of virtualRows) {
+    if (row < merge.top || row > merge.bottom) continue;
+    for (let column = merge.left; column <= merge.right; column++) renderedMerges.set(row * c.activeSheet.columnCount + column, merge);
+  }
 
   useEffect(() => {
     const element = scroller.current;
@@ -178,10 +197,16 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
       event.preventDefault();
       if (c.commitEdit()) {
         focusIntent.current = true;
-        let row = c.selection.focus.row + (event.key === "Enter" ? (event.shiftKey ? -1 : 1) : 0);
-        let column = c.selection.focus.column + (event.key === "Tab" ? (event.shiftKey ? -1 : 1) : 0);
+        const position = nextCellPosition(c.activeSheet, c.selection.focus, event.key === "Enter" ? (event.shiftKey ? -1 : 1) : 0,
+          event.key === "Tab" ? (event.shiftKey ? -1 : 1) : 0);
+        let { row, column } = position;
         if (column >= c.activeSheet.columnCount && row < c.activeSheet.rowCount - 1) { column = 0; row++; }
         if (column < 0 && row > 0) { column = c.activeSheet.columnCount - 1; row--; }
+        const target = mergedCellPosition(c.activeSheet, { row, column });
+        if (event.key === "Tab" && !event.shiftKey && target.row === c.selection.focus.row && target.column === c.selection.focus.column) {
+          const merge = getMergedRange(c.activeSheet, target);
+          if (merge && merge.bottom < c.activeSheet.rowCount - 1) { row = merge.bottom + 1; column = 0; }
+        }
         c.select({ row, column });
       }
       return;
@@ -197,7 +222,8 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
       event.preventDefault();
       const [r, col] = directions[event.key];
       focusIntent.current = true;
-      c.select({ row: c.selection.focus.row + r, column: c.selection.focus.column + col }, event.shiftKey);
+      const position = event.shiftKey ? selectionRanges(c.selection).at(-1)!.focus : c.selection.focus;
+      c.select(nextCellPosition(c.activeSheet, position, r, col), event.shiftKey);
     } else if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); c.clearCells(); }
     else if (event.key === "Home") { event.preventDefault(); focusIntent.current = true; c.select({ row: event.ctrlKey || event.metaKey ? 0 : c.selection.focus.row, column: 0 }, event.shiftKey); }
     else if (event.key === "End") { event.preventDefault(); focusIntent.current = true; c.select({ row: c.selection.focus.row, column: c.activeSheet.columnCount - 1 }, event.shiftKey); }
@@ -220,6 +246,10 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
       {virtualRows.map(row => <div key={row} role="row" aria-rowindex={row + 2} className="lxs-row" style={{ top: rowOffsets[row], height: c.activeSheet.rowHeights?.[row] ?? ROW_HEIGHT, width: gridWidth }}>
         <div role="rowheader" className={`lxs-row-header ${selectedBounds.some(bounds => row >= bounds.top && row <= bounds.bottom) ? "lxs-header-selected" : ""}`}><button type="button" className="lxs-header-button" onPointerDown={event => startSelection(event, { row, column: 0 }, "row")} onPointerEnter={event => extendSelection(event, { row, column: 0 })} onClick={event => selectHeaderWithKeyboard(event, { row, column: 0 }, "row")}>{row + 1}</button></div>
         {widths.map((width, column) => {
+          const merge = renderedMerges.get(row * c.activeSheet.columnCount + column);
+          if (merge && (merge.top !== row || merge.left !== column)) {
+            return <div key={column} className="lxs-cell-placeholder" aria-hidden="true" style={{ width }} />;
+          }
           const address = cellAddress(row, column);
           const cell = c.activeSheet.cells[address];
           const comment = c.features.comments ? c.activeSheet.comments?.[address] : undefined;
@@ -228,9 +258,9 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
           const selected = selectedBounds.some(bounds => row >= bounds.top && row <= bounds.bottom && column >= bounds.left && column <= bounds.right);
           const focused = row === c.selection.focus.row && column === c.selection.focus.column;
           const editing = focused && !!c.editing;
-          return <div key={column} role="gridcell" aria-colindex={column + 2} aria-selected={selected} aria-label={`${address}${text ? ` ${text}` : ""}${comment ? ", コメントあり" : ""}`} title={typeof value === "string" && value.startsWith("#") ? value : undefined}
-            className={`lxs-cell ${cell?.format?.background ? "lxs-cell-filled" : ""} ${selected ? "lxs-cell-selected" : ""} ${focused ? "lxs-cell-active" : ""} ${typeof value === "string" && value.startsWith("#") ? "lxs-cell-error" : ""}`}
-            style={{ width: resizing?.column === column ? resizing.value : width, fontWeight: cell?.format?.bold ? 700 : undefined, fontStyle: cell?.format?.italic ? "italic" : undefined, textDecoration: cell?.format?.underline ? "underline" : undefined, textAlign: cell?.format?.align ?? (typeof value === "number" ? "right" : "left"), color: cell?.format?.color, backgroundColor: cell?.format?.background }}
+          const rendered = <div key={column} role="gridcell" aria-colindex={column + 2} aria-colspan={merge ? merge.right - merge.left + 1 : undefined} aria-rowspan={merge ? merge.bottom - merge.top + 1 : undefined} aria-selected={selected} aria-label={`${address}${text ? ` ${text}` : ""}${comment ? ", コメントあり" : ""}`} title={typeof value === "string" && value.startsWith("#") ? value : undefined}
+            className={`lxs-cell ${merge ? "lxs-cell-merged" : ""} ${cell?.format?.background ? "lxs-cell-filled" : ""} ${selected ? "lxs-cell-selected" : ""} ${focused ? "lxs-cell-active" : ""} ${typeof value === "string" && value.startsWith("#") ? "lxs-cell-error" : ""}`}
+            style={{ width: merge ? columnOffsets[merge.right + 1] - columnOffsets[merge.left] : width, height: merge ? rowOffsets[merge.bottom + 1] - rowOffsets[merge.top] : undefined, fontWeight: cell?.format?.bold ? 700 : undefined, fontStyle: cell?.format?.italic ? "italic" : undefined, textDecoration: cell?.format?.underline ? "underline" : undefined, textAlign: cell?.format?.align ?? (typeof value === "number" ? "right" : "left"), color: cell?.format?.color, backgroundColor: cell?.format?.background }}
             onPointerDown={event => {
               if (event.button !== 0 || (focused && c.editing)) return;
               startSelection(event, { row, column }, "cell");
@@ -248,6 +278,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
               onClick={event => { event.stopPropagation(); if (c.commitEdit()) { c.select({ row, column }); c.setCommentOpen(true); } }}
               onDoubleClick={event => event.stopPropagation()} /> }
           </div>;
+          return merge ? <div key={column} className="lxs-cell-placeholder" style={{ width }}>{rendered}</div> : rendered;
         })}
       </div>)}
     </div><SpreadsheetDrawings controller={c} geometry={{ columnOffsets, rowOffsets }} /></div>

@@ -3,7 +3,7 @@
   --lxs-background: #ffffff; --lxs-foreground: #252a29; --lxs-panel: #f5f7f6;
   --lxs-border: #dce2df; --lxs-muted: #68736e; --lxs-accent: #217346;
   --lxs-selection: #e8f3ec; --lxs-hover: #edf1ee; --lxs-error: #b42318;
-  color-scheme: light; display: flex; flex-direction: column; isolation: isolate;
+  color-scheme: light; display: flex; flex-direction: column; isolation: isolate; position: relative;
   min-width: 280px; min-height: 260px; overflow: hidden; border: 1px solid var(--lxs-border);
   border-radius: 7px; background: var(--lxs-background); color: var(--lxs-foreground);
   font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif;
@@ -54,6 +54,9 @@
 .lxs-row-header { position: sticky; left: 0; z-index: 3; width: 48px; flex-shrink: 0; background: var(--lxs-panel); color: var(--lxs-muted); border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); }
 .lxs-header-selected { color: var(--lxs-accent); background: var(--lxs-selection); }
 .lxs-cell { position: relative; flex-shrink: 0; height: 100%; line-height: 27px; padding: 0 7px; border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; touch-action: pan-y; }
+.lxs-cell-placeholder { position: relative; flex-shrink: 0; height: 100%; }
+.lxs-cell-merged { position: absolute; left: 0; top: 0; z-index: 1; display: flex; align-items: center; background: var(--lxs-background); }
+.lxs-cell-merged > span { min-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .lxs-cell-selected { background: var(--lxs-selection); }
 /* Inset paint remains visible above a cell's inline fill, beneath its text. */
 .lxs-cell-selected.lxs-cell-filled { box-shadow: inset 0 0 0 1px var(--lxs-accent), inset 0 0 0 9999px color-mix(in srgb, var(--lxs-foreground) 22%, transparent); }
@@ -122,3 +125,13 @@
 .lxs-root .lxs-comment-apply { padding: 5px 14px; border-radius: 4px; background: #217346; color: #fff; font-size: 12px; }
 .lxs-root .lxs-comment-apply:hover { background: #195d38; }
 .lxs-comment-content { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.lxs-dialog-backdrop { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 18px; background: #0006; }
+.lxs-dialog { width: 410px; max-width: 100%; max-height: 100%; overflow: auto; padding: 22px; border: 1px solid var(--lxs-border); border-radius: 9px; background: var(--lxs-background); color: var(--lxs-foreground); box-shadow: 0 12px 36px #0004; white-space: normal; }
+.lxs-dialog h2 { margin: 0 0 12px; font-size: 16px; }
+.lxs-dialog p { margin: 8px 0; line-height: 1.7; }
+.lxs-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.lxs-root .lxs-dialog-actions button { padding: 7px 14px; border: 1px solid var(--lxs-border); border-radius: 5px; background: var(--lxs-panel); }
+.lxs-root .lxs-dialog-actions button:hover:enabled { background: var(--lxs-hover); }
+.lxs-root .lxs-dialog-actions .lxs-dialog-confirm { background: #217346; color: #fff; }
+.lxs-root .lxs-dialog-actions .lxs-dialog-confirm:hover:enabled { background: #195d38; }
