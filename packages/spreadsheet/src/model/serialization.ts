@@ -1,4 +1,4 @@
-import { normalizeWorkbook } from "./workbook";
+import { normalizeWorkbook } from "./workbook/normalize";
 import { SPREADSHEET_LIMITS, type SpreadsheetWorkbook } from "./types";
 
 const tooLarge = (): never => { throw new Error("ブックの JSON は64 Mi文字以内にしてください"); };

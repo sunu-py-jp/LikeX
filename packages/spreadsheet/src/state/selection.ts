@@ -1,7 +1,7 @@
 import type { SpreadsheetSelection, SpreadsheetSelectionRange } from "../props";
 import { cellAddress } from "../model/address";
-import { SPREADSHEET_LIMITS, type SpreadsheetCellPosition, type SpreadsheetSheet } from "../model/types";
-import { expandRangeForMerges, mergedCellPosition } from "../model/merges";
+import { SPREADSHEET_LIMITS, type SpreadsheetCellPosition, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../model/types";
+import { expandRangeForMerges, mergedCellPosition, rangesIntersect } from "../model/merges";
 
 export const MAX_SELECTION_CELLS = SPREADSHEET_LIMITS.clipboardCells;
 export const MAX_SELECTION_RANGES = 128;
@@ -86,6 +86,36 @@ export function selectionForSheet(sheet: SpreadsheetSheet, ranges: readonly Spre
       focus: { row: down ? bounds.bottom : bounds.top, column: right ? bounds.right : bounds.left } };
   }) : ranges;
   return createSelection(sheet.id, expanded, focus && mergedCellPosition(sheet, focus));
+}
+
+export function initialSheetSelection(sheet: SpreadsheetSheet): SpreadsheetSelection {
+  return selectionForSheet(sheet, [{ anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } }]);
+}
+
+export function clampPosition(position: SpreadsheetCellPosition, sheet: SpreadsheetSheet): SpreadsheetCellPosition {
+  const index = (value: number, limit: number) => Math.max(0, Math.min(limit - 1, Number.isFinite(value) ? Math.trunc(value) : 0));
+  return { row: index(position.row, sheet.rowCount), column: index(position.column, sheet.columnCount) };
+}
+
+/** Preflight all selected ranges against the next workbook, preserving holes and complete merged cells. */
+export function clampSelection(selection: SpreadsheetSelection, workbook: SpreadsheetWorkbook): SpreadsheetSelection {
+  const sheet = workbook.sheets.find(item => item.id === selection.sheetId) ?? workbook.sheets[0];
+  if (sheet.id !== selection.sheetId) return initialSheetSelection(sheet);
+  const clamp = (position: SpreadsheetCellPosition) => clampPosition(position, sheet);
+  const previous = selectionRanges(selection);
+  let next = selectionForSheet(sheet, previous.map(range => ({ anchor: clamp(range.anchor), focus: clamp(range.focus) })), false);
+  for (const merge of sheet.merges ?? []) {
+    const range = { anchor: { row: merge.top, column: merge.left }, focus: { row: merge.bottom, column: merge.right } };
+    if (selectionRanges(next).some(selected => rangesIntersect(rangeBounds(selected), merge)) && !isRangeSelected(next, range)) {
+      next = selectionForSheet(sheet, [...selectionRanges(next), range], false);
+    }
+  }
+  const focus = mergedCellPosition(sheet, clamp(selection.focus));
+  if (isCellSelected(next, focus)) next = createSelection(sheet.id, selectionRanges(next), focus);
+  if (selection.ranges && selectionRanges(next).length === previous.length && next.focus.row === selection.focus.row && next.focus.column === selection.focus.column &&
+    selectionRanges(next).every((range, index) => range.anchor.row === previous[index].anchor.row &&
+      range.anchor.column === previous[index].anchor.column && range.focus.row === previous[index].focus.row && range.focus.column === previous[index].focus.column)) return selection;
+  return next;
 }
 
 export function isRangeSelected(selection: SpreadsheetSelection, range: SpreadsheetSelectionRange): boolean {

@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { addSheet, deleteSheet, renameSheet } from "../model";
-import { MAX_SELECTION_CELLS, selectedAddresses, type SpreadsheetController } from "../state/use-spreadsheet";
+import type { SpreadsheetController } from "../state/use-spreadsheet";
+import { MAX_SELECTION_CELLS, selectedAddresses } from "../state/selection";
 import { selectionCellCount, selectionRanges } from "../state/selection";
 import { Command, Icon } from "./spreadsheet-controls";
 

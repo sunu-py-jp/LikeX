@@ -1,23 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, type ClipboardEvent } from "react";
-import { cellAddress, formatCells, getMergedRange, mergeCells, moveCells, parseTsv, rangeContains, rangesIntersect, setCellComments, setCellValues, SPREADSHEET_LIMITS, stringifyTsv, translateFormula, unmergeCells, type SpreadsheetComment } from "../model";
-import { MAX_SELECTION_CELLS, selectionBounds, type SpreadsheetController, type Workbook, type CellFormat } from "./use-spreadsheet";
+import type { SpreadsheetController } from "./use-spreadsheet";
 import { isMultiRangeSelection } from "./selection";
-
-const SINGLE_RANGE_CLIPBOARD_MESSAGE = "コピー・切り取り・貼り付けは、1つの連続した範囲を選択してください";
-const PARTIAL_MERGE_CLIPBOARD_MESSAGE = "結合されたセルの一部には貼り付けできません。結合を解除するか、結合全体を選択してください";
-type MergedRange = NonNullable<Workbook["sheets"][number]["merges"]>[number];
-type CopiedCells = {
-  token: string; text: string; values: string[][]; formats: (CellFormat | undefined)[][];
-  comments: (SpreadsheetComment | undefined)[][]; merges: MergedRange[];
-  sheetId: string; top: number; left: number; cut: boolean; workbook: Workbook;
-};
-
-function isOtherTextControl(target: EventTarget | null) {
-  const control = (target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
-  return !!control && !control.classList.contains("lxs-cell-input");
-}
+import { assertSingleClipboardRange, captureCopiedCells, prepareCellPaste, SINGLE_RANGE_CLIPBOARD_MESSAGE, type CopiedCells } from "./clipboard/cell-transfer";
+import { CLIPBOARD_MIME_TYPE, clipboardTokenFromHtml, isOtherTextControl, readBrowserClipboard, writeBrowserClipboard } from "./clipboard/browser-clipboard";
 
 export function useSpreadsheetClipboard(controller: SpreadsheetController) {
   const latest = useRef(controller);
@@ -36,104 +23,27 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
   const requireSingleRange = (selection: SpreadsheetController["selection"]) => {
     if (!isMultiRangeSelection(selection)) return;
     copied.current = null;
-    throw new Error(SINGLE_RANGE_CLIPBOARD_MESSAGE);
+    assertSingleClipboardRange(selection);
   };
-  const clipboardType = "application/x-likex-spreadsheet";
-  const htmlToken = (html: string) => /data-likex-spreadsheet="([a-zA-Z0-9-]+)"/.exec(html)?.[1] ?? "";
   const prepare = (cut: boolean) => {
     if (!controller.features.clipboard || controller.selectedDrawingId || (cut && controller.disabled)) return null;
     requireSingleRange(controller.selection);
-    const bounds = selectionBounds(controller.selection);
-    const merges = (controller.activeSheet.merges ?? []).filter(merge => rangesIntersect(bounds, merge));
-    if (merges.some(merge => !rangeContains(bounds, merge))) throw new Error("結合されたセルの一部はコピー・切り取りできません。結合全体を選択してください");
-    if (cut && merges.length && !controller.features.mergeCells) throw new Error("セルの結合の変更は無効です");
-    if ((bounds.bottom - bounds.top + 1) * (bounds.right - bounds.left + 1) > MAX_SELECTION_CELLS) throw new Error("コピーできる範囲は 10,000 セルまでです");
-    const values: string[][] = [], displayed: string[][] = [], formats: (CellFormat | undefined)[][] = [];
-    const comments: (SpreadsheetComment | undefined)[][] = [];
-    for (let row = bounds.top; row <= bounds.bottom; row++) {
-      const raw: string[] = [], rendered: string[] = [], rowFormats: (CellFormat | undefined)[] = [];
-      const rowComments: (SpreadsheetComment | undefined)[] = [];
-      for (let column = bounds.left; column <= bounds.right; column++) {
-        const address = cellAddress(row, column);
-        raw.push(controller.activeSheet.cells[address]?.value ?? "");
-        const format = controller.activeSheet.cells[address]?.format;
-        rowFormats.push(format ? { ...format } : undefined);
-        rowComments.push(controller.features.comments ? controller.activeSheet.comments?.[address] : undefined);
-        rendered.push(String(controller.calculated[controller.activeSheet.id]?.[address] ?? ""));
-      }
-      values.push(raw); displayed.push(rendered); formats.push(rowFormats);
-      comments.push(rowComments);
-    }
-    const text = stringifyTsv(displayed);
-    return { token: crypto.randomUUID(), text, values, formats, comments, merges: merges.map(merge => ({ ...merge })), sheetId: controller.activeSheet.id, top: bounds.top, left: bounds.left, cut, workbook: controller.workbook };
+    const snapshot = captureCopiedCells(controller, cut);
+    return { ...snapshot, token: crypto.randomUUID() };
   };
   const pasteText = (text: string, token = "") => {
     if (controller.disabled || !controller.features.clipboard || controller.selectedDrawingId) return;
     try {
       requireSingleRange(controller.selection);
-      if (text.length > SPREADSHEET_LIMITS.clipboardCharacters) throw new Error("貼り付けるテキストが上限を超えています");
       const matched = token && copied.current?.token === token && copied.current.text === text ? copied.current : null;
       // An intervening edit invalidates a pending cut; never clear a newer source.
       const internal = matched?.cut && matched.workbook !== controller.workbook ? null : matched;
-      const values = internal?.values ?? parseTsv(text);
-      let { top, left } = selectionBounds(controller.selection);
-      const width = Math.max(0, ...values.map(row => row.length));
-      if (!values.length || !width) return;
-      if (values.length * width > MAX_SELECTION_CELLS) throw new Error("一度に貼り付けできる範囲は 10,000 セルまでです");
-      if (top + values.length > controller.activeSheet.rowCount || left + width > controller.activeSheet.columnCount)
-        throw new Error("貼り付け先の行・列が足りません。先に行や列を追加してください");
-      const scalarMerge = values.length === 1 && width === 1 && (!internal || (!internal.cut && !internal.merges.length))
-        ? getMergedRange(controller.activeSheet, { row: top, column: left }) : undefined;
-      if (scalarMerge) { top = scalarMerge.top; left = scalarMerge.left; }
-      const destination = { top, left, bottom: top + values.length - 1, right: left + width - 1 };
-      const destinationMerges = (controller.activeSheet.merges ?? []).filter(merge => rangesIntersect(destination, merge));
-      if (!scalarMerge) {
-        // A cut removes its own source merges first, including when the destination overlaps them.
-        const source = internal?.cut && internal.sheetId === controller.activeSheet.id
-          ? { top: internal.top, left: internal.left, bottom: internal.top + values.length - 1, right: internal.left + width - 1 } : null;
-        if (destinationMerges.some(merge => !rangeContains(destination, merge) && !(source && rangeContains(source, merge))))
-          throw new Error(PARTIAL_MERGE_CLIPBOARD_MESSAGE);
-        if (!internal && destinationMerges.length) throw new Error("結合されたセルを含む範囲への貼り付けには、先に結合を解除してください");
-        if (internal && !controller.features.mergeCells && (internal.merges.length || destinationMerges.length))
-          throw new Error("セルの結合の変更は無効です");
-      }
-      const updates: Record<string, string> = {};
-      for (let row = 0; row < values.length; row++) for (let column = 0; column < width; column++) {
-        const value = values[row]?.[column] ?? "";
-        updates[cellAddress(top + row, left + column)] = internal && value.startsWith("=") && !internal.cut
-          ? translateFormula(value, top - internal.top, left - internal.left) : value;
-      }
-      const accepted = controller.apply(current => {
-        if (!controller.features.formulas && Object.values(updates).some(value => value.startsWith("="))) throw new Error("数式の入力は無効です");
-        if (internal?.cut && internal.workbook === current) {
-          return moveCells(current, { sheetId: internal.sheetId, top: internal.top, left: internal.left, bottom: internal.top + values.length - 1, right: internal.left + width - 1 }, { sheetId: controller.activeSheet.id, row: top, column: left });
-        }
-        let next = internal && !scalarMerge && destinationMerges.length ? unmergeCells(current, controller.activeSheet.id, destination) : current;
-        next = setCellValues(next, controller.activeSheet.id, updates);
-        if (internal && controller.features.formatting) {
-          const groups = new Map<string, { addresses: string[]; format: CellFormat | undefined }>();
-          internal.formats.forEach((row, r) => row.forEach((format, column) => {
-            const key = JSON.stringify(format ?? {}), group = groups.get(key) ?? { addresses: [], format };
-            group.addresses.push(cellAddress(top + r, left + column)); groups.set(key, group);
-          }));
-          for (const { addresses, format } of groups.values()) next = formatCells(next, controller.activeSheet.id, addresses,
-            { bold: undefined, italic: undefined, underline: undefined, align: undefined, color: undefined, background: undefined, numberFormat: undefined, ...format });
-        }
-        if (internal && controller.features.comments) {
-          const comments: Record<string, SpreadsheetComment | null> = {};
-          internal.comments.forEach((row, r) => row.forEach((comment, column) => {
-            comments[cellAddress(top + r, left + column)] = comment ? { ...comment, id: crypto.randomUUID() } : null;
-          }));
-          next = setCellComments(next, controller.activeSheet.id, comments);
-        }
-        if (internal) for (const merge of internal.merges) next = mergeCells(next, controller.activeSheet.id, {
-          top: top + merge.top - internal.top, left: left + merge.left - internal.left,
-          bottom: top + merge.bottom - internal.top, right: left + merge.right - internal.left,
-        });
-        return next;
-      });
+      const paste = prepareCellPaste(controller, text, internal);
+      if (!paste) return;
+      const accepted = controller.apply(current => paste.applyTo(current, () => crypto.randomUUID()));
       if (accepted) {
-        controller.selectRange({ row: top, column: left }, { row: top + values.length - 1, column: left + width - 1 });
+        const { top, left, bottom, right } = paste.destination;
+        controller.selectRange({ row: top, column: left }, { row: bottom, column: right });
         if (internal?.cut) copied.current = null;
       }
     } catch (cause) { controller.reportError(cause); }
@@ -147,7 +57,7 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
       const value = prepare(cut);
       if (value) {
         event.clipboardData.setData("text/plain", value.text);
-        event.clipboardData.setData(clipboardType, value.token);
+        event.clipboardData.setData(CLIPBOARD_MIME_TYPE, value.token);
         copied.current = value;
       }
     } catch (cause) { controller.reportError(cause); }
@@ -158,17 +68,12 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
     try {
       const value = prepare(cut);
       if (!value) return;
-      if (!navigator.clipboard?.writeText) throw new Error("このブラウザではコピーのショートカットを使用してください");
-      if (navigator.clipboard.write && typeof ClipboardItem !== "undefined") {
-        const escape = (text: string) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-        const rows = parseTsv(value.text).map(row => `<tr>${row.map(text => `<td>${escape(text)}</td>`).join("")}</tr>`).join("");
-        await navigator.clipboard.write([new ClipboardItem({ "text/plain": new Blob([value.text], { type: "text/plain" }), "text/html": new Blob([`<table data-likex-spreadsheet="${value.token}"><tbody>${rows}</tbody></table>`], { type: "text/html" }) })]);
+      if (await writeBrowserClipboard(value)) {
         const current = latest.current;
         if (mounted.current && request === requestId.current && current.features.clipboard && !current.selectedDrawingId &&
           generation === copyGeneration.current && !isMultiRangeSelection(current.selection) &&
           (!cut || (!current.disabled && current.workbook === controller.workbook))) copied.current = value;
       } else {
-        await navigator.clipboard.writeText(value.text);
         if (mounted.current && request === requestId.current) {
           copied.current = null;
           if (cut) latest.current.reportError(new Error("このブラウザでは値のみコピーしました。切り取りにはキーボードショートカットを使用してください"));
@@ -181,15 +86,7 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
     const request = ++requestId.current;
     try {
       requireSingleRange(controller.selection);
-      if (!navigator.clipboard?.readText) throw new Error("このブラウザでは貼り付けのショートカットを使用してください");
-      let text = "", token = "", hasText = false;
-      if (navigator.clipboard.read) {
-        const items = await navigator.clipboard.read();
-        for (const item of items) {
-          if (item.types.includes("text/plain")) { text = await (await item.getType("text/plain")).text(); hasText = true; }
-          if (item.types.includes("text/html")) token = htmlToken(await (await item.getType("text/html")).text());
-        }
-      } else { text = await navigator.clipboard.readText(); hasText = true; }
+      const { text, token, hasText } = await readBrowserClipboard();
       const current = latest.current;
       if (!mounted.current || request !== requestId.current || !hasText || current.editing || current.disabled || !current.features.clipboard || current.selectedDrawingId) return;
       requireSingleRange(current.selection);
@@ -207,6 +104,6 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
     }
     if (event.clipboardData.types && !Array.from(event.clipboardData.types).includes("text/plain")) return;
     requestId.current++;
-    event.preventDefault(); pasteText(event.clipboardData.getData("text/plain"), event.clipboardData.getData(clipboardType) || htmlToken(event.clipboardData.getData("text/html")));
+    event.preventDefault(); pasteText(event.clipboardData.getData("text/plain"), event.clipboardData.getData(CLIPBOARD_MIME_TYPE) || clipboardTokenFromHtml(event.clipboardData.getData("text/html")));
   } };
 }

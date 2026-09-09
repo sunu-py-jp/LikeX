@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { cellAddress, mergeCells, mergedContentWouldBeDiscarded, rangesIntersect, unmergeCells, type SpreadsheetMergedRange } from "../model";
-import { MAX_SELECTION_CELLS, selectionBounds, type SpreadsheetController, type Workbook } from "../state/use-spreadsheet";
+import type { SpreadsheetController, Workbook } from "../state/use-spreadsheet";
+import { MAX_SELECTION_CELLS, selectionBounds } from "../state/selection";
 import { isMultiRangeSelection } from "../state/selection";
 import { Command, Icon } from "./spreadsheet-controls";
 import { SpreadsheetConfirmDialog } from "./spreadsheet-confirm-dialog";

@@ -1,7 +1,8 @@
 "use client";
 
 import { cellAddress, deleteColumns, deleteRows, formatCells, insertColumns, insertRows, parseCellAddress } from "../model";
-import { selectedAddresses, selectionBounds, type SpreadsheetController } from "../state/use-spreadsheet";
+import type { SpreadsheetController } from "../state/use-spreadsheet";
+import { selectedAddresses, selectionBounds } from "../state/selection";
 import { isMultiRangeSelection } from "../state/selection";
 import type { useSpreadsheetClipboard } from "../state/use-spreadsheet-clipboard";
 import { Command, Icon } from "./spreadsheet-controls";
