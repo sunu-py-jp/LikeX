@@ -31,6 +31,10 @@ export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetCo
     if (!renaming || c.requesting) return;
     c.afterCommand({ type: "sheets.rename", sheetId: renaming.id, name: renaming.value }, () => { markPending(false); setRenaming(null); });
   };
+  const beginRename = (sheet: { id: string; name: string }) => {
+    if (c.readOnly || c.disabled || c.requesting || !c.features.renameSheet) return;
+    c.afterCommit(() => setRenaming({ id: sheet.id, value: sheet.name }));
+  };
   return <>
     <footer className="lxs-footer">
       {c.features.sheets ? <div className="lxs-sheet-tabs" role="tablist" aria-label="ワークシート">
@@ -38,7 +42,10 @@ export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetCo
           if (event.nativeEvent.isComposing || event.keyCode === 229) return;
           if (event.key === "Enter") { event.preventDefault(); commitName(); }
           if (event.key === "Escape") { event.preventDefault(); c.cancelEditRequest(); markPending(false); setRenaming(null); }
-        }} /> : <button key={sheet.id} type="button" role="tab" aria-selected={sheet.id === c.activeSheet.id} className={`lxs-sheet-tab ${sheet.id === c.activeSheet.id ? "lxs-sheet-tab-active" : ""}`} onClick={() => c.switchSheet(sheet.id)} onDoubleClick={() => { if (!c.disabled && !c.requesting && c.features.renameSheet) setRenaming({ id: sheet.id, value: sheet.name }); }}>{sheet.name}</button>)}
+        }} /> : <button key={sheet.id} type="button" role="tab" aria-selected={sheet.id === c.activeSheet.id} className={`lxs-sheet-tab ${sheet.id === c.activeSheet.id ? "lxs-sheet-tab-active" : ""}`} onClick={() => {
+          if (sheet.id === c.activeSheet.id) beginRename(sheet);
+          else c.switchSheet(sheet.id);
+        }} onDoubleClick={() => beginRename(sheet)}>{sheet.name}</button>)}
         {!c.readOnly && <>
           {c.features.createSheet && <Command label="シートを追加" disabled={c.disabled || c.requesting} onClick={() => {
             c.afterCommit(() => c.afterCommand({ type: "sheets.add" }, result => {
@@ -46,7 +53,7 @@ export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetCo
             }));
           }}><Icon name="plus" /></Command>}
           {(c.features.renameSheet || c.features.deleteSheet) && <select aria-label="シートの操作" className="lxs-sheet-menu" value="" disabled={c.disabled || c.requesting} onChange={event => {
-            if (event.target.value === "rename" && c.features.renameSheet) setRenaming({ id: c.activeSheet.id, value: c.activeSheet.name });
+            if (event.target.value === "rename") beginRename(c.activeSheet);
             if (event.target.value === "delete" && c.features.deleteSheet) c.afterCommit(() => c.afterCommand({ type: "sheets.delete", sheetId: c.activeSheet.id }));
           }}><option value="" disabled>シート操作</option>{c.features.renameSheet && <option value="rename">名前を変更</option>}{c.features.deleteSheet && <option value="delete" disabled={c.workbook.sheets.length < 2}>{c.features.undoRedo ? "削除（元に戻す可）" : "削除"}</option>}</select>}
         </>}

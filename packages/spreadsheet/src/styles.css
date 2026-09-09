@@ -71,6 +71,7 @@
 .lxs-cell-error { color: var(--lxs-error); }
 .lxs-root .lxs-cell-input { display: block; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; outline: none; background: transparent; color: inherit; font: inherit; line-height: inherit; text-align: inherit; text-decoration: inherit; user-select: text; }
 .lxs-root .lxs-cell-input:focus-visible { outline: none; }
+.lxs-root .lxs-cell-input:not([data-editing]) { caret-color: transparent; cursor: cell; }
 .lxs-footer { min-height: 38px; flex-shrink: 0; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--lxs-border); padding: 0 10px; background: var(--lxs-panel); }
 .lxs-sheet-tabs { display: flex; align-items: center; min-width: 0; gap: 3px; overflow-x: auto; scrollbar-width: thin; }
 .lxs-root .lxs-sheet-tab { height: 36px; padding: 0 14px; border-bottom: 3px solid transparent; white-space: nowrap; color: var(--lxs-muted); }

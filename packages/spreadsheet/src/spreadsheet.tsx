@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { SpreadsheetProps } from "./props";
 import { useSpreadsheet } from "./state/use-spreadsheet";
 import { useSpreadsheetClipboard } from "./state/use-spreadsheet-clipboard";
@@ -17,6 +17,12 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
   const c = useSpreadsheet(props);
   useSpreadsheetHandle(handleRef, c);
   const root = useRef<HTMLElement>(null);
+  const gridHadFocus = useRef(false);
+  useLayoutEffect(() => {
+    // History replaces the keyed grid to cancel stale gestures and editors.
+    // Keep keyboard focus through that replacement so shortcuts can repeat.
+    if (gridHadFocus.current) root.current?.querySelector<HTMLInputElement>(".lxs-cell-input")?.focus({ preventScroll: true });
+  }, [c.viewRevision]);
   const contextMenu = useSpreadsheetContextMenu(c, props, root);
   useUnsavedChangesGuard(root, props.warnOnUnsavedChanges !== false && c.hasUnsavedChanges);
   const clipboard = useSpreadsheetClipboard(c);
@@ -31,6 +37,11 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
   const dark = props.colorMode === "dark" || (props.colorMode === "system" && systemDark);
   return <section ref={root} data-likex-spreadsheet data-color-mode={dark ? "dark" : "light"} className={`lxs-root ${props.className ?? ""}`} style={props.style} role="region" aria-label={props["aria-label"] ?? "スプレッドシート"} aria-busy={c.saving || c.refreshing || c.requesting || contextMenu.state.phase !== "idle"}
     onContextMenu={contextMenu.onContextMenu} onPointerDownCapture={contextMenu.onPointerDownCapture} onKeyDownCapture={contextMenu.onKeyDownCapture}
+    onFocusCapture={event => { gridHadFocus.current = !!(event.target as HTMLElement).closest(".lxs-grid-scroll"); }}
+    onBlurCapture={event => {
+      if (!event.relatedTarget || !event.currentTarget.contains(event.relatedTarget as Node) ||
+        !(event.relatedTarget as HTMLElement).closest(".lxs-grid-scroll")) gridHadFocus.current = false;
+    }}
     onCopy={clipboard.onCopy} onCut={clipboard.onCut} onPaste={clipboard.onPaste}
     onKeyDown={event => {
       if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229 || event.altKey) return;

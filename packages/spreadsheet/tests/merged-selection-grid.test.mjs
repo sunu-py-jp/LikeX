@@ -23,7 +23,7 @@ async function mount(t, options = {}) {
   const listeners = new Map();
   const document = { activeElement: null, addEventListener: (name, handler) => listeners.set(name, handler),
     removeEventListener: name => listeners.delete(name), defaultView: { addEventListener() {}, removeEventListener() {} } };
-  const node = () => ({ ownerDocument: document, closest: () => null, focus() { document.activeElement = this; }, select() {},
+  const node = () => ({ ownerDocument: document, closest: () => null, focus() { document.activeElement = this; }, select() {}, setSelectionRange() {},
     contains: element => element?.ownerDocument === document, scrollTop: 0, scrollLeft: 0, clientHeight: 480, clientWidth: 1000 });
   const target = node();
   const sheet = { id: 'one', name: 'Sheet1', rowCount: 8, columnCount: 8, cells: { B2: { value: 'Merged value' } }, merges: [merged], ...options.sheet };

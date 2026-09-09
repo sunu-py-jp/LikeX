@@ -23,7 +23,7 @@ async function mount(t, options = {}) {
     removeEventListener: name => documentListeners.delete(name),
     defaultView: { addEventListener: (name, handler) => windowListeners.set(name, handler), removeEventListener: name => windowListeners.delete(name) },
   };
-  function node() { return { ownerDocument: document, closest: () => null, focus() { document.activeElement = this; }, select() {}, contains: element => element?.ownerDocument === document, scrollTop: 0, scrollLeft: 0, clientHeight: 480, clientWidth: 1000 }; }
+  function node() { return { ownerDocument: document, closest: () => null, focus() { document.activeElement = this; }, select() {}, setSelectionRange() {}, contains: element => element?.ownerDocument === document, scrollTop: 0, scrollLeft: 0, clientHeight: 480, clientWidth: 1000 }; }
   const target = node();
   function Probe() {
     c = useSpreadsheet({ initialWorkbook: { sheets: [{ id: 'one', name: 'Sheet1', rowCount: 8, columnCount: 8, cells: { B2: { value: 'kept' } } }] }, onSave() {}, ...options });

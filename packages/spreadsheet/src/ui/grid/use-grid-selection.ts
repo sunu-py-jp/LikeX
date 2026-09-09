@@ -78,7 +78,7 @@ export function useGridSelection(c: SpreadsheetController, { scrollerRef, active
     c.requestGridFocus();
     scrollerRef.current?.focus({ preventScroll: true });
     if (position.row === c.selection.focus.row && position.column === c.selection.focus.column) {
-      activeInputRef.current?.focus({ preventScroll: true }); activeInputRef.current?.select(); focusIntentRef.current = false;
+      activeInputRef.current?.focus({ preventScroll: true }); activeInputRef.current?.setSelectionRange(0, 0); focusIntentRef.current = false;
     }
     });
   };

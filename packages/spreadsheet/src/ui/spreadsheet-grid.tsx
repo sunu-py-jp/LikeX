@@ -57,14 +57,26 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
             style={{ width: merge ? columnOffsets[merge.right + 1] - columnOffsets[merge.left] : width, height: merge ? rowOffsets[merge.bottom + 1] - rowOffsets[merge.top] : undefined, fontWeight: cell?.format?.bold ? 700 : undefined, fontStyle: cell?.format?.italic ? "italic" : undefined, textDecoration: cell?.format?.underline ? "underline" : undefined, textAlign: cell?.format?.align ?? (typeof value === "number" ? "right" : "left"), color: cell?.format?.color, backgroundColor: cell?.format?.background }}
             onPointerDown={event => {
               if (event.button !== 0 || (focused && c.editing)) return;
+              // A later click in the selected input uses native caret placement.
+              const input = activeInput.current;
+              const singleCell = selectedBounds.length === 1 && selectedBounds[0].top === (merge?.top ?? row) &&
+                selectedBounds[0].bottom === (merge?.bottom ?? row) && selectedBounds[0].left === (merge?.left ?? column) &&
+                selectedBounds[0].right === (merge?.right ?? column);
+              if (focused && singleCell && !c.disabled && !c.requesting && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey &&
+                input && event.target === input && input.ownerDocument.activeElement === input) {
+                c.beginEdit({ row, column });
+                return;
+              }
               startSelection(event, { row, column }, "cell");
             }}
             onPointerEnter={event => extendSelection(event, { row, column })}
-            onDoubleClick={() => c.beginEdit({ row, column })}>
-            {focused ? <input ref={activeInput} className="lxs-cell-input" aria-label={`${address}の値`} value={editing ? c.editing!.value : text} readOnly={c.disabled || c.requesting}
-              onFocus={event => { if (!c.editing) event.currentTarget.select(); }}
+            onDoubleClick={() => { if (!c.editing) c.beginEdit({ row, column }); }}>
+            {focused ? <input ref={activeInput} className="lxs-cell-input" data-editing={editing || undefined} aria-label={`${address}の値`} value={editing ? c.editing!.value : text} readOnly={c.disabled || c.requesting}
+              onFocus={event => { if (!c.editing) event.currentTarget.setSelectionRange(0, 0); }}
               onChange={event => c.beginEdit({ row, column }, event.target.value)}
               onKeyDown={keyDown}
+              onCompositionStart={focus.onCompositionStart}
+              onBeforeInput={focus.onBeforeInput}
               onBlur={event => { if (!event.relatedTarget || !(event.relatedTarget as HTMLElement).closest("[data-lxs-formula]")) c.commitEdit(); }}
             /> : <span>{text}</span>}
             {comment && <button type="button" className="lxs-comment-marker" aria-label={`${address} のコメントを表示`} title={comment.text.slice(0, 200)}
