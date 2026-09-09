@@ -2,7 +2,7 @@
 
 [利用ガイドへ戻る](./README.md)
 
-`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetSelection`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode` を公開しています。
+`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetSelection`、`SpreadsheetSelectionRange`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode` を公開しています。
 
 ## ブックの形式
 
@@ -41,7 +41,7 @@ const workbook: SpreadsheetWorkbook = {
 | `onSave` | 保存処理。省略すると読み取り専用。 |
 | `readOnly` | `true` なら `onSave` があっても変更操作を無効化。 |
 | `features` | 下記の機能設定。省略した項目は `true`。 |
-| `onSelectionChange` | `{ sheetId, anchor, focus }` の通知。行・列は0始まり。 |
+| `onSelectionChange` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。`ranges` は全範囲、`anchor` / `focus` は最後に操作した範囲。[複数選択](./selection.md) |
 | `colorMode` | `"light"`（既定）・`"dark"`・`"system"`。 |
 | `title` | 表示タイトル。省略時は「スプレッドシート」。 |
 | `className` / `style` | ルート要素のクラス・CSS。高さは利用先で指定。 |

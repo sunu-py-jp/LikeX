@@ -28,6 +28,7 @@ Next.js App Routerでは `app/layout.tsx` にCSSのimportを置きます。コ�
 
 - [公開API・保存と機能設定](./api.md)
 - [操作と初版の制約](./capabilities.md)
+- [セル・範囲・行列の複数選択](./selection.md)
 - [基本15関数・数式とJSON保存](./functions.md)
 - [画像・図形・コメント・テキストボックスとJSON保存](./insertions-and-json.md)
 

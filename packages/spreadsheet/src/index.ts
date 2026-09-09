@@ -6,6 +6,7 @@ export type {
   SpreadsheetFeatures,
   SpreadsheetColorMode,
   SpreadsheetSelection,
+  SpreadsheetSelectionRange,
   SpreadsheetSaveHandler,
 } from "./props";
 export * from "./model";

@@ -1,23 +1,25 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { addSheet, cellAddress, deleteSheet, renameSheet } from "../model";
-import { MAX_SELECTION_CELLS, selectionBounds, type SpreadsheetController } from "../state/use-spreadsheet";
+import { addSheet, deleteSheet, renameSheet } from "../model";
+import { MAX_SELECTION_CELLS, selectedAddresses, type SpreadsheetController } from "../state/use-spreadsheet";
+import { selectionCellCount, selectionRanges } from "../state/selection";
 import { Command, Icon } from "./spreadsheet-controls";
 
 export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetController }) {
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const stats = useMemo(() => {
-    const { top, bottom, left, right } = selectionBounds(c.selection);
-    const count = (bottom - top + 1) * (right - left + 1);
-    if (count > MAX_SELECTION_CELLS) return `${count.toLocaleString()} セルを選択`;
+    const count = selectionCellCount(c.selection);
+    const ranges = selectionRanges(c.selection).length;
+    const prefix = ranges > 1 ? `${ranges} 範囲・` : "";
+    if (count > MAX_SELECTION_CELLS) return `${prefix}${count.toLocaleString()} セルを選択`;
     let filled = 0, numeric = 0, sum = 0;
-    for (let row = top; row <= bottom; row++) for (let column = left; column <= right; column++) {
-      const value = c.calculated[c.activeSheet.id]?.[cellAddress(row, column)];
+    for (const address of selectedAddresses(c.selection)) {
+      const value = c.calculated[c.activeSheet.id]?.[address];
       if (value !== undefined && value !== "") filled++;
       if (typeof value === "number" && Number.isFinite(value)) { numeric++; sum += value; }
     }
-    return numeric > 1 ? `平均: ${Number((sum / numeric).toFixed(4)).toLocaleString()}　データ数: ${filled}　合計: ${Number(sum.toFixed(4)).toLocaleString()}` : `${count.toLocaleString()} セルを選択`;
+    return numeric > 1 ? `${prefix}平均: ${Number((sum / numeric).toFixed(4)).toLocaleString()}　データ数: ${filled}　合計: ${Number(sum.toFixed(4)).toLocaleString()}` : `${prefix}${count.toLocaleString()} セルを選択`;
   }, [c.selection, c.calculated, c.activeSheet.id]);
   const commitName = () => {
     if (!renaming) return;

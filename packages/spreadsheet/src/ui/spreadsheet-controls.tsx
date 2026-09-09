@@ -3,7 +3,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 export function Command({ children, label, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { children: ReactNode; label: string }) {
-  return <button type="button" {...props} className={`lxs-command ${props.className ?? ""}`} aria-label={label} title={label}>{children}</button>;
+  return <button type="button" {...props} className={`lxs-command ${props.className ?? ""}`} aria-label={label} title={props.title ?? label}>{children}</button>;
 }
 
 const paths = {

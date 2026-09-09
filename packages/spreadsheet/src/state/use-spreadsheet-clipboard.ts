@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type ClipboardEvent } from "react";
 import { cellAddress, formatCells, moveCells, parseTsv, setCellComments, setCellValues, SPREADSHEET_LIMITS, stringifyTsv, translateFormula, type SpreadsheetComment } from "../model";
 import { MAX_SELECTION_CELLS, selectionBounds, type SpreadsheetController, type Workbook, type CellFormat } from "./use-spreadsheet";
+import { isMultiRangeSelection } from "./selection";
+
+const SINGLE_RANGE_CLIPBOARD_MESSAGE = "コピー・切り取り・貼り付けは、1つの連続した範囲を選択してください";
 
 function isOtherTextControl(target: EventTarget | null) {
   const control = (target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
@@ -18,10 +21,21 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
   const cancelPending = useCallback(() => { requestId.current++; }, []);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; cancelPending(); }; }, [cancelPending]);
   const copied = useRef<{ token: string; text: string; values: string[][]; formats: (CellFormat | undefined)[][]; comments: (SpreadsheetComment | undefined)[][]; sheetId: string; top: number; left: number; cut: boolean; workbook: Workbook } | null>(null);
+  const copyGeneration = useRef(0);
+  useLayoutEffect(() => {
+    // A rejected multi-range operation must not leave a previous cut armed.
+    if (isMultiRangeSelection(controller.selection)) { copied.current = null; copyGeneration.current++; }
+  }, [controller.selection]);
+  const requireSingleRange = (selection: SpreadsheetController["selection"]) => {
+    if (!isMultiRangeSelection(selection)) return;
+    copied.current = null;
+    throw new Error(SINGLE_RANGE_CLIPBOARD_MESSAGE);
+  };
   const clipboardType = "application/x-likex-spreadsheet";
   const htmlToken = (html: string) => /data-likex-spreadsheet="([a-zA-Z0-9-]+)"/.exec(html)?.[1] ?? "";
   const prepare = (cut: boolean) => {
     if (!controller.features.clipboard || controller.selectedDrawingId || (cut && controller.disabled)) return null;
+    requireSingleRange(controller.selection);
     const bounds = selectionBounds(controller.selection);
     if ((bounds.bottom - bounds.top + 1) * (bounds.right - bounds.left + 1) > MAX_SELECTION_CELLS) throw new Error("コピーできる範囲は 10,000 セルまでです");
     const values: string[][] = [], displayed: string[][] = [], formats: (CellFormat | undefined)[][] = [];
@@ -46,6 +60,7 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
   const pasteText = (text: string, token = "") => {
     if (controller.disabled || !controller.features.clipboard || controller.selectedDrawingId) return;
     try {
+      requireSingleRange(controller.selection);
       if (text.length > SPREADSHEET_LIMITS.clipboardCharacters) throw new Error("貼り付けるテキストが上限を超えています");
       const matched = token && copied.current?.token === token && copied.current.text === text ? copied.current : null;
       // An intervening edit invalidates a pending cut; never clear a newer source.
@@ -108,7 +123,8 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
     } catch (cause) { controller.reportError(cause); }
   };
   const copy = async (cut = false) => {
-    requestId.current++;
+    const request = ++requestId.current;
+    const generation = copyGeneration.current;
     try {
       const value = prepare(cut);
       if (!value) return;
@@ -117,18 +133,24 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
         const escape = (text: string) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
         const rows = parseTsv(value.text).map(row => `<tr>${row.map(text => `<td>${escape(text)}</td>`).join("")}</tr>`).join("");
         await navigator.clipboard.write([new ClipboardItem({ "text/plain": new Blob([value.text], { type: "text/plain" }), "text/html": new Blob([`<table data-likex-spreadsheet="${value.token}"><tbody>${rows}</tbody></table>`], { type: "text/html" }) })]);
-        copied.current = value;
+        const current = latest.current;
+        if (mounted.current && request === requestId.current && current.features.clipboard && !current.selectedDrawingId &&
+          generation === copyGeneration.current && !isMultiRangeSelection(current.selection) &&
+          (!cut || (!current.disabled && current.workbook === controller.workbook))) copied.current = value;
       } else {
         await navigator.clipboard.writeText(value.text);
-        copied.current = null;
-        if (cut) controller.reportError(new Error("このブラウザでは値のみコピーしました。切り取りにはキーボードショートカットを使用してください"));
+        if (mounted.current && request === requestId.current) {
+          copied.current = null;
+          if (cut) latest.current.reportError(new Error("このブラウザでは値のみコピーしました。切り取りにはキーボードショートカットを使用してください"));
+        }
       }
-    } catch (cause) { controller.reportError(cause); }
+    } catch (cause) { if (mounted.current && request === requestId.current) latest.current.reportError(cause); }
   };
   const paste = async () => {
     if (controller.disabled || !controller.features.clipboard || controller.selectedDrawingId) return;
     const request = ++requestId.current;
     try {
+      requireSingleRange(controller.selection);
       if (!navigator.clipboard?.readText) throw new Error("このブラウザでは貼り付けのショートカットを使用してください");
       let text = "", token = "", hasText = false;
       if (navigator.clipboard.read) {
@@ -139,7 +161,9 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
         }
       } else { text = await navigator.clipboard.readText(); hasText = true; }
       const current = latest.current;
-      if (!mounted.current || request !== requestId.current || !hasText || current.editing || current.disabled || !current.features.clipboard || current.selectedDrawingId || current.workbook !== controller.workbook || current.selection !== controller.selection) return;
+      if (!mounted.current || request !== requestId.current || !hasText || current.editing || current.disabled || !current.features.clipboard || current.selectedDrawingId) return;
+      requireSingleRange(current.selection);
+      if (current.workbook !== controller.workbook || current.selection !== controller.selection) return;
       latestPaste.current(text, token);
     } catch (cause) { if (mounted.current && request === requestId.current) latest.current.reportError(cause); }
   };
@@ -147,6 +171,10 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
   return { copy, paste, onCopy, onCut: (event: ClipboardEvent) => onCopy(event, true), onPaste: (event: ClipboardEvent) => {
     if (isOtherTextControl(event.target) || controller.editing) return;
     if (!controller.features.clipboard || controller.selectedDrawingId) { event.preventDefault(); return; }
+    if (isMultiRangeSelection(controller.selection)) {
+      event.preventDefault(); requestId.current++; copied.current = null;
+      controller.reportError(new Error(SINGLE_RANGE_CLIPBOARD_MESSAGE)); return;
+    }
     if (event.clipboardData.types && !Array.from(event.clipboardData.types).includes("text/plain")) return;
     requestId.current++;
     event.preventDefault(); pasteText(event.clipboardData.getData("text/plain"), event.clipboardData.getData(clipboardType) || htmlToken(event.clipboardData.getData("text/html")));

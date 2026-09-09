@@ -2,29 +2,18 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { SpreadsheetProps, SpreadsheetSelection } from "../props";
-import { calculateWorkbook, cellAddress, normalizeWorkbook, setCellValue, setCellValues, SPREADSHEET_LIMITS, workbooksEqual } from "../model";
+import { calculateWorkbook, cellAddress, normalizeWorkbook, setCellValue, setCellValues, workbooksEqual } from "../model";
+import { createSelection, selectedAddresses, selectionRanges, toggleRangeSelection } from "./selection";
+
+export { MAX_SELECTION_CELLS, MAX_SELECTION_RANGES, selectedAddresses, selectionBounds, selectionRanges, rangeBounds,
+  isCellSelected, isRangeSelected, isMultiRangeSelection, selectionCellCount } from "./selection";
 
 export type Workbook = NonNullable<SpreadsheetProps["initialWorkbook"]>;
 export type Sheet = Workbook["sheets"][number];
 export type Position = SpreadsheetSelection["focus"];
 export type CellFormat = NonNullable<Sheet["cells"][string]["format"]>;
-export const MAX_SELECTION_CELLS = SPREADSHEET_LIMITS.clipboardCells;
 export const ROW_HEIGHT = 28;
 export const COLUMN_WIDTH = 100;
-
-export function selectionBounds(selection: SpreadsheetSelection) {
-  return { top: Math.min(selection.anchor.row, selection.focus.row), bottom: Math.max(selection.anchor.row, selection.focus.row),
-    left: Math.min(selection.anchor.column, selection.focus.column), right: Math.max(selection.anchor.column, selection.focus.column) };
-}
-
-export function selectedAddresses(selection: SpreadsheetSelection) {
-  const { top, bottom, left, right } = selectionBounds(selection);
-  if ((bottom - top + 1) * (right - left + 1) > MAX_SELECTION_CELLS)
-    throw new Error(`一度に操作できる範囲は ${MAX_SELECTION_CELLS.toLocaleString()} セルまでです`);
-  const addresses: string[] = [];
-  for (let row = top; row <= bottom; row++) for (let column = left; column <= right; column++) addresses.push(cellAddress(row, column));
-  return addresses;
-}
 
 function notify<T>(callback: ((value: T) => void) | undefined, value: T) {
   const failed = (cause: unknown) => console.error("[LikeX Spreadsheet] Notification callback failed", cause);
@@ -33,10 +22,18 @@ function notify<T>(callback: ((value: T) => void) | undefined, value: T) {
 
 function clampSelection(selection: SpreadsheetSelection, workbook: Workbook): SpreadsheetSelection {
   const sheet = workbook.sheets.find(item => item.id === selection.sheetId) ?? workbook.sheets[0];
-  const clamp = (position: Position) => ({ row: Math.max(0, Math.min(sheet.rowCount - 1, position.row)), column: Math.max(0, Math.min(sheet.columnCount - 1, position.column)) });
-  const anchor = clamp(selection.anchor), focus = clamp(selection.focus);
-  if (sheet.id === selection.sheetId && anchor.row === selection.anchor.row && anchor.column === selection.anchor.column && focus.row === selection.focus.row && focus.column === selection.focus.column) return selection;
-  return { sheetId: sheet.id, anchor, focus };
+  if (sheet.id !== selection.sheetId) return createSelection(sheet.id, [{ anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } }]);
+  const clamp = (position: Position) => clampPosition(position, sheet);
+  const previous = selectionRanges(selection);
+  const ranges = previous.map(range => ({ anchor: clamp(range.anchor), focus: clamp(range.focus) }));
+  if (selection.ranges && ranges.every((range, index) => range.anchor.row === previous[index].anchor.row &&
+    range.anchor.column === previous[index].anchor.column && range.focus.row === previous[index].focus.row && range.focus.column === previous[index].focus.column)) return selection;
+  return createSelection(sheet.id, ranges);
+}
+
+function clampPosition(position: Position, sheet: Sheet): Position {
+  const index = (value: number, limit: number) => Math.max(0, Math.min(limit - 1, Number.isFinite(value) ? Math.trunc(value) : 0));
+  return { row: index(position.row, sheet.rowCount), column: index(position.column, sheet.columnCount) };
 }
 
 export function useSpreadsheet(props: SpreadsheetProps) {
@@ -45,7 +42,14 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const propsRef = useRef(props);
   useLayoutEffect(() => { propsRef.current = props; });
   const [saved, setSaved] = useState(workbook);
-  const [selection, setSelection] = useState<SpreadsheetSelection>(() => ({ sheetId: workbook.sheets[0].id, anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } }));
+  const [selection, setSelectionState] = useState<SpreadsheetSelection>(() => createSelection(workbook.sheets[0].id,
+    [{ anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } }]));
+  const selectionRef = useRef(selection);
+  const setSelection = useCallback((update: SpreadsheetSelection | ((previous: SpreadsheetSelection) => SpreadsheetSelection)) => {
+    const next = typeof update === "function" ? update(selectionRef.current) : update;
+    selectionRef.current = next;
+    setSelectionState(next);
+  }, []);
   const [gridFocusRequest, setGridFocusRequest] = useState(0);
   const [drawingSelection, setDrawingSelection] = useState<{ sheetId: string; id: string } | null>(null);
   const [commentOpen, setCommentOpen] = useState(false);
@@ -86,9 +90,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const reportError = useCallback((cause: unknown) => setError(cause instanceof Error ? cause.message : "操作に失敗しました"), []);
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  useEffect(() => notify(propsRef.current.onSelectionChange, {
-    ...selection, anchor: { ...selection.anchor }, focus: { ...selection.focus },
-  }), [selection]);
+  useEffect(() => notify(propsRef.current.onSelectionChange, createSelection(selection.sheetId, selectionRanges(selection))), [selection]);
 
   const apply = useCallback((operation: (current: Workbook) => Workbook): boolean => {
     if (!mounted.current || propsRef.current.readOnly || !propsRef.current.onSave || savingRef.current) return false;
@@ -108,7 +110,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
       notify(propsRef.current.onChange, next);
       return true;
     } catch (cause) { reportError(cause); return false; }
-  }, [reportError]);
+  }, [reportError, setSelection]);
 
   const writeValues = (values: Record<string, string>) => apply(current => {
     if (!features.formulas && Object.values(values).some(value => value.startsWith("="))) throw new Error("数式の入力は無効です");
@@ -132,15 +134,26 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     if (accepted) cancelEdit();
     return accepted;
   };
-  const select = (position: Position, extend = false) => {
-    setDrawingSelection(null);
-    const next = { row: Math.max(0, Math.min(activeSheet.rowCount - 1, position.row)), column: Math.max(0, Math.min(activeSheet.columnCount - 1, position.column)) };
-    setSelection(old => ({ sheetId: activeSheet.id, anchor: extend ? old.anchor : next, focus: next }));
+  const select = (position: Position, extend = false, additive = false): boolean => {
+    const next = clampPosition(position, activeSheet);
+    try { setSelection(old => {
+      const previous = selectionRanges(old);
+      const range = { anchor: extend ? old.anchor : next, focus: next };
+      return createSelection(activeSheet.id, extend ? [...previous.slice(0, -1), range] : additive ? [...previous, range] : [range]);
+    }); setDrawingSelection(null); return true; } catch (cause) { reportError(cause); return false; }
   };
-  const selectRange = (anchor: Position, focus: Position) => {
-    setDrawingSelection(null);
-    setSelection({ sheetId: activeSheet.id, anchor, focus });
+  const selectRange = (anchor: Position, focus: Position, additive = false, extend = false): boolean => {
+    const range = { anchor: clampPosition(anchor, activeSheet), focus: clampPosition(focus, activeSheet) };
+    try { setSelection(old => createSelection(activeSheet.id,
+      extend ? [...selectionRanges(old).slice(0, -1), range] : additive ? [...selectionRanges(old), range] : [range])); setDrawingSelection(null); return true; }
+    catch (cause) { reportError(cause); return false; }
   };
+  const toggleSelectionRange = (anchor: Position, focus: Position): boolean => {
+    const range = { anchor: clampPosition(anchor, activeSheet), focus: clampPosition(focus, activeSheet) };
+    try { setSelection(old => toggleRangeSelection(old, range)); setDrawingSelection(null); return true; }
+    catch (cause) { reportError(cause); return false; }
+  };
+  const toggleSelection = (position: Position) => toggleSelectionRange(position, position);
   const selectDrawing = (id: string | null) => {
     if (!commitEdit()) return false;
     setDrawingSelection(id ? { sheetId: activeSheet.id, id } : null);
@@ -151,7 +164,9 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     if (!commitEdit()) return;
     setDrawingSelection(null);
     setCommentOpen(false);
-    setSelection({ sheetId: id, anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } });
+    const sheet = workbookRef.current.sheets.find(item => item.id === id);
+    if (!sheet) return;
+    setSelection(createSelection(id, [{ anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } }]));
   };
   const changeHistory = (direction: "past" | "future") => {
     if (disabled || !features.undoRedo) return;
@@ -168,7 +183,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     setDrawingSelection(null);
     setError(null);
     const sheet = next.sheets.find(item => item.id === selection.sheetId) ?? next.sheets[0];
-    setSelection({ sheetId: sheet.id, anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } });
+    setSelection(createSelection(sheet.id, [{ anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } }]));
     notify(propsRef.current.onChange, next);
   };
   const save = async () => {
@@ -190,7 +205,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
       history.current = { past: [], future: [] };
       setHistoryStatus({ canUndo: false, canRedo: false });
       const sheet = accepted.sheets.find(item => item.id === selection.sheetId) ?? accepted.sheets[0];
-      setSelection({ sheetId: sheet.id, anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } });
+      setSelection(createSelection(sheet.id, [{ anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } }]));
     } catch (cause) { if (mounted.current) reportError(cause); }
     finally { savingRef.current = false; if (mounted.current) setSaving(false); }
   };
@@ -199,7 +214,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     catch (cause) { reportError(cause); }
   };
 
-  return { workbook, activeSheet, selection, select, selectRange, switchSheet, calculated, editing, beginEdit, cancelEdit, commitEdit,
+  return { workbook, activeSheet, selection, select, selectRange, toggleSelection, toggleSelectionRange, switchSheet, calculated, editing, beginEdit, cancelEdit, commitEdit,
     selectedDrawingId, selectedDrawing, selectDrawing, commentOpen: features.comments && commentOpen, setCommentOpen,
     pendingObjectEdit, setPendingObjectEdit,
     gridFocusRequest, requestGridFocus: () => setGridFocusRequest(value => value + 1),

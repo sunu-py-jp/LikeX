@@ -3,7 +3,7 @@ import Spreadsheet, {
   serializeWorkbook, parseWorkbook, addDrawing, setCellComment,
   type SpreadsheetWorkbook, type SpreadsheetSheet, type SpreadsheetCell,
   type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps,
-  type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSaveHandler,
+  type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSelectionRange, type SpreadsheetSaveHandler,
   type SpreadsheetDrawing,
 } from "__LIBRARY_IMPORT__";
 
@@ -24,7 +24,8 @@ const props = {
   onSelectionChange(selection: SpreadsheetSelection) {
     const selectedSheet: string = selection.sheetId;
     const row: number = selection.focus.row;
-    void [selectedSheet, row];
+    const ranges: readonly SpreadsheetSelectionRange[] = selection.ranges ?? [selection];
+    void [selectedSheet, row, ranges];
   },
   features: { formulas: true, clipboard: false, formatting: false, sheets: true, images: true, shapes: false, comments: true, textBoxes: true },
   colorMode: "system",
@@ -46,6 +47,12 @@ function rejectMutation(next: SpreadsheetWorkbook, selection: SpreadsheetSelecti
   next.sheets.push(sheet);
   // @ts-expect-error Selection identity cannot be replaced by the host callback.
   selection.sheetId = "other";
+  // @ts-expect-error Selection range collections are readonly.
+  selection.ranges?.push({ anchor: position, focus: position });
+  if (selection.ranges?.[0]) {
+    // @ts-expect-error Nested positions are readonly too.
+    selection.ranges[0].focus.row = 2;
+  }
 }
 void [cell, format, position, calculated, asyncSave, notifySave, editable, readOnly, empty,
   numericCell, unsupported, invalidSave, invalidFormat, rejectMutation, stringifyTsv(parseTsv("a\tb"))];

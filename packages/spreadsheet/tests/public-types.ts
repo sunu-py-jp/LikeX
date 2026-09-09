@@ -5,6 +5,7 @@ import type {
   SpreadsheetProps,
   SpreadsheetSaveHandler,
   SpreadsheetSelection,
+  SpreadsheetSelectionRange,
   SpreadsheetWorkbook,
   SpreadsheetDrawing,
   SpreadsheetDrawingPatch,
@@ -43,3 +44,15 @@ const invalidImageType: SpreadsheetImageResource["mimeType"] = "image/svg+xml";
 // @ts-expect-error Known format versions are explicit.
 const invalidVersion: SpreadsheetWorkbook = { schemaVersion: 2, sheets: [] };
 void [drawing, drawingPatch, invalidDrawingPatch, invalidImageType, invalidVersion];
+
+const range: SpreadsheetSelectionRange = { anchor: { row: 0, column: 0 }, focus: { row: 1, column: 1 } };
+const legacySelection: SpreadsheetSelection = { sheetId: "main", ...range };
+const multipleSelection: SpreadsheetSelection = { ...legacySelection, ranges: [range] };
+function inspectSelection(selection: SpreadsheetSelection) {
+  const ranges: readonly SpreadsheetSelectionRange[] = selection.ranges ?? [selection];
+  // @ts-expect-error Selection ranges are readonly snapshots.
+  ranges.push(range);
+  // @ts-expect-error Range positions cannot be changed through callbacks.
+  ranges[0].anchor.row = 3;
+}
+void [multipleSelection, inspectSelection];

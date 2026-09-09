@@ -2,6 +2,7 @@
 
 import { cellAddress, deleteColumns, deleteRows, formatCells, insertColumns, insertRows, parseCellAddress } from "../model";
 import { selectedAddresses, selectionBounds, type SpreadsheetController } from "../state/use-spreadsheet";
+import { isMultiRangeSelection } from "../state/selection";
 import type { useSpreadsheetClipboard } from "../state/use-spreadsheet-clipboard";
 import { Command, Icon } from "./spreadsheet-controls";
 import { useId, useRef, useState } from "react";
@@ -42,13 +43,17 @@ export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
 
 function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
   const cellDisabled = c.disabled || !!c.selectedDrawingId;
+  const multiple = isMultiRangeSelection(c.selection);
+  const singleRangeHint = multiple ? "1つの連続した範囲を選択してください" : undefined;
   const format = c.activeSheet.cells[cellAddress(c.selection.focus.row, c.selection.focus.column)]?.format;
   const formatSelection = (value: Parameters<typeof formatCells>[3]) => {
     if (cellDisabled || !c.commitEdit()) return;
     c.apply(wb => formatCells(wb, c.activeSheet.id, selectedAddresses(c.selection), value));
   };
   const structural = (action: string) => {
-    if (cellDisabled || !c.commitEdit()) return;
+    if (cellDisabled) return;
+    if (multiple) { c.reportError(new Error("行・列の挿入や削除は、1つの連続した範囲を選択してください")); return; }
+    if (!c.commitEdit()) return;
     const { top, left, bottom, right } = selectionBounds(c.selection);
     c.apply(wb => action === "insert-row" ? insertRows(wb, c.activeSheet.id, top)
       : action === "insert-column" ? insertColumns(wb, c.activeSheet.id, left)
@@ -57,9 +62,9 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
   };
   return <div className="lxs-ribbon" role="toolbar" aria-label="シートの編集">
     {c.features.clipboard && <div className="lxs-tool-group">
-      <Command label="コピー" disabled={!!c.selectedDrawingId} onClick={() => { if (c.commitEdit()) void clipboard.copy(); }}><Icon name="copy" /></Command>
-      {!c.readOnly && <><Command label="切り取り" disabled={cellDisabled} onClick={() => { if (c.commitEdit()) void clipboard.copy(true); }}><Icon name="cut" /></Command>
-        <Command label="貼り付け" disabled={cellDisabled} onClick={() => { if (c.commitEdit()) void clipboard.paste(); }}><Icon name="paste" /></Command></>}
+      <Command label="コピー" title={singleRangeHint} disabled={!!c.selectedDrawingId || multiple} onClick={() => { if (!multiple && !c.selectedDrawingId && c.commitEdit()) void clipboard.copy(); }}><Icon name="copy" /></Command>
+      {!c.readOnly && <><Command label="切り取り" title={singleRangeHint} disabled={cellDisabled || multiple} onClick={() => { if (!multiple && !cellDisabled && c.commitEdit()) void clipboard.copy(true); }}><Icon name="cut" /></Command>
+        <Command label="貼り付け" title={singleRangeHint} disabled={cellDisabled || multiple} onClick={() => { if (!multiple && !cellDisabled && c.commitEdit()) void clipboard.paste(); }}><Icon name="paste" /></Command></>}
     </div>}
     {c.features.undoRedo && !c.readOnly && <div className="lxs-tool-group">
       <Command label="元に戻す" disabled={c.disabled || !c.canUndo} onClick={c.undo}><Icon name="undo" /></Command>
@@ -84,7 +89,7 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
       </div>
     </>}
     {c.features.rowColumnOperations && !c.readOnly && <div className="lxs-tool-group">
-      <select aria-label="行と列の操作" className="lxs-select" value="" disabled={cellDisabled} onChange={event => { if (event.target.value) structural(event.target.value); }}>
+      <select aria-label="行と列の操作" className="lxs-select" value="" title={singleRangeHint} disabled={cellDisabled || multiple} onChange={event => { if (event.target.value) structural(event.target.value); }}>
         <option value="" disabled>行・列</option><option value="insert-row">上に行を挿入</option><option value="insert-column">左に列を挿入</option><option value="delete-row">選択した行を削除</option><option value="delete-column">選択した列を削除</option>
       </select>
     </div>}

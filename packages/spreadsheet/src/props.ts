@@ -18,10 +18,18 @@ export type SpreadsheetFeatures = Readonly<{
   comments?: boolean;
 }>;
 
+export type SpreadsheetSelectionRange = Readonly<{
+  anchor: Readonly<SpreadsheetCellPosition>;
+  focus: Readonly<SpreadsheetCellPosition>;
+}>;
+
 export type SpreadsheetSelection = Readonly<{
   sheetId: string;
-  anchor: SpreadsheetCellPosition;
-  focus: SpreadsheetCellPosition;
+  /** Anchor and focus of the active (last) range. */
+  anchor: Readonly<SpreadsheetCellPosition>;
+  focus: Readonly<SpreadsheetCellPosition>;
+  /** All selected ranges, including the active range last. Always supplied by onSelectionChange. */
+  ranges?: readonly SpreadsheetSelectionRange[];
 }>;
 
 export type SpreadsheetSaveHandler = (

@@ -55,6 +55,8 @@
 .lxs-header-selected { color: var(--lxs-accent); background: var(--lxs-selection); }
 .lxs-cell { position: relative; flex-shrink: 0; height: 100%; line-height: 27px; padding: 0 7px; border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; touch-action: pan-y; }
 .lxs-cell-selected { background: var(--lxs-selection); }
+/* Inset paint remains visible above a cell's inline fill, beneath its text. */
+.lxs-cell-selected.lxs-cell-filled { box-shadow: inset 0 0 0 1px var(--lxs-accent), inset 0 0 0 9999px color-mix(in srgb, var(--lxs-foreground) 22%, transparent); }
 .lxs-cell-active { overflow: visible; z-index: 2; outline: 2px solid var(--lxs-accent); outline-offset: -2px; }
 .lxs-cell-active::after { content: ""; position: absolute; bottom: -2px; right: -2px; width: 5px; height: 5px; background: var(--lxs-accent); border: 1px solid var(--lxs-background); pointer-events: none; }
 .lxs-cell-error { color: var(--lxs-error); }
