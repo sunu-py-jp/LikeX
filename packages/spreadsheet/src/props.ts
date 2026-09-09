@@ -57,6 +57,8 @@ export type SpreadsheetProps = {
   onSelectionChange?: (selection: SpreadsheetSelection) => void;
   colorMode?: SpreadsheetColorMode;
   title?: string;
+  /** Suggested Excel download name. Defaults to title, then spreadsheet.xlsx. */
+  exportFileName?: string;
   className?: string;
   style?: CSSProperties;
   "aria-label"?: string;

@@ -29,5 +29,6 @@ export function resolveSpreadsheetFeatures(features: SpreadsheetFeatures | undef
     comments: features?.comments !== false,
     save: features?.save !== false,
     refresh: features?.refresh !== false,
+    exportExcel: features?.exportExcel !== false,
   };
 }

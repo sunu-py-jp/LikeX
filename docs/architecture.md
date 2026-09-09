@@ -66,4 +66,4 @@ LikeX/
 └── LICENSE
 ```
 
-デモは認証や永続ストレージを内蔵しません。旧API等を削除した経緯は [レビュー記録](release-review.md) にあります。Spreadsheetの保存・検索サービスやExcelファイル変換等は、利用側で必要に応じて接続します。
+デモは認証や永続ストレージを内蔵しません。旧API等を削除した経緯は [レビュー記録](release-review.md) にあります。Spreadsheetの保存・検索サービスは、利用側で必要に応じて接続します。Excel出力は `spreadsheet/export/` が担当し、ZIPの組み立てはExplorerとCoreで共有します。

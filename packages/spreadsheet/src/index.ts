@@ -18,6 +18,8 @@ export type {
 } from "./api/types";
 export { readImageResource as prepareSpreadsheetImage } from "./state/read-image";
 export type { SpreadsheetImagePreparationOptions } from "./state/read-image";
+export { exportSpreadsheetXlsx } from "./export/export-xlsx";
+export type { SpreadsheetExcelExportOptions } from "./export/types";
 export type {
   SpreadsheetBeforeSaveHandler, SpreadsheetRefreshHandler,
   SpreadsheetEditHandler, SpreadsheetEditIntent, SpreadsheetEditRequest, SpreadsheetEditResult,

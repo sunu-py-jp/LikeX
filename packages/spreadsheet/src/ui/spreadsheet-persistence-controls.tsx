@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { SpreadsheetConfirmDialog } from "./spreadsheet-confirm-dialog";
 import { Command, Icon } from "./spreadsheet-controls";
+import { SpreadsheetExportControls } from "./spreadsheet-export-controls";
 
 /** Persistence remains host-owned; only the user confirmation belongs to the view. */
 export function SpreadsheetPersistenceControls({ controller: c }: { controller: SpreadsheetController }) {
@@ -15,6 +16,7 @@ export function SpreadsheetPersistenceControls({ controller: c }: { controller: 
     else void c.refresh();
   };
   return <div className="lxs-persistence-controls">
+    <SpreadsheetExportControls controller={c} />
     {c.requesting && <><span role="status" className="lxs-operation-status">編集許可を確認しています…</span>
       <Command label="編集許可の確認をキャンセル" onClick={c.cancelEditRequest}><Icon name="close" /></Command></>}
     {c.canRefresh && <Command label="再読み込み" disabled={busy} onClick={refresh}>

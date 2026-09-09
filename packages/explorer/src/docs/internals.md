@@ -26,7 +26,7 @@ explorer/
 │   ├── keyboard.ts             ショートカットの判定・表示とIME保護
 │   ├── file-content.ts         File/Blob読込とreader型
 │   ├── file-icon-style.ts      拡張子別の標準アイコン配色・ラベル
-│   ├── archive.ts              フォルダから無圧縮ZIPを生成
+│   ├── archive.ts              フォルダを列挙しCoreのZIP生成へ渡す
 │   ├── download.ts             外部ダウンロードの型・対象階層の情報
 │   ├── sidebar-size.ts         サイドバー幅の上限・下限
 │   ├── window-placement.ts     切り離したウィンドウの表示位置

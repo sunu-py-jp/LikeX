@@ -191,6 +191,8 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   }, [edit, getMutationFailure]);
 
   return { workbook, workbookRef, propsRef, readOnly, disabled: readOnly || persistence.saving || persistence.refreshing || contextMenuLocked,
+    isOperationPending: () => !!(savingRef.current || refreshingRef.current || saveStartingRef.current || transactionRef.current ||
+      contextMenuOwnerRef.current || edit.getEditState().mode === "requesting" || edit.isEndingEdit()),
     setContextMenuLock, contextMenuLocked, revisionRef, structureRevisionRef,
     dirty, error, setError, reportError, apply, applyTransaction, getMutationFailure, changeHistory, ...historyStatus,
     ...persistence, ...edit, endEdit, emitEvent, resetViewRef };

@@ -19,6 +19,7 @@ export function useSpreadsheetHandle(ref: Ref<SpreadsheetHandle> | undefined, co
     cancelEditRequest: () => latest.current.cancelEditRequest(),
     endEdit: () => latest.current.endEdit(),
     save: () => latest.current.externalSave(),
+    exportExcel: options => latest.current.exportExcel(options),
     refresh: options => latest.current.refresh(options),
     discard: options => latest.current.discard(options),
   }), []);

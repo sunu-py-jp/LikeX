@@ -11,3 +11,5 @@ export type { ContextMenuExecutionMode, ContextMenuResult, ContextMenuItem, Cont
   ContextMenuExecutionState, ContextMenuExecutionEvent, ContextMenuExecutionOutcome } from "./context-menu";
 export { createContextMenuExecutor } from "./context-menu-executor";
 export type { ContextMenuExecutor, ContextMenuExecutorOptions, ContextMenuApplyGuard } from "./context-menu-executor";
+export { createZipArchive } from "./zip";
+export type { ZipArchiveContent, ZipArchiveEntry, ZipArchiveOptions } from "./zip";

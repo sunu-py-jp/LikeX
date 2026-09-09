@@ -33,4 +33,6 @@ export type SpreadsheetFeatures = Readonly<{
   save?: boolean;
   /** Refresh also requires onRefresh. */
   refresh?: boolean;
+  /** Excel output is available even in read-only mode. */
+  exportExcel?: boolean;
 }>;

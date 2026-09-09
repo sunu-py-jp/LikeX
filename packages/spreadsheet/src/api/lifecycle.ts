@@ -40,6 +40,11 @@ export type SpreadsheetEvent =
   | Readonly<{ type: "refresh"; status: "error"; requestId: string; message: string }>
   | Readonly<{ type: "refresh"; status: "cancelled"; requestId: string }>
   | Readonly<{ type: "discard"; workbook: SpreadsheetWorkbookSnapshot }>
+  | Readonly<{ type: "export"; format: "xlsx"; status: "start"; requestId: string; workbook: SpreadsheetWorkbookSnapshot }>
+  /** Success means file generation finished, not that the browser wrote a download to disk. */
+  | Readonly<{ type: "export"; format: "xlsx"; status: "success"; requestId: string; size: number }>
+  | Readonly<{ type: "export"; format: "xlsx"; status: "error"; requestId: string; message: string }>
+  | Readonly<{ type: "export"; format: "xlsx"; status: "cancelled"; requestId: string }>
   | Readonly<{ type: "edit-mode"; mode: EditMode; reason: "request" | "granted" | "denied" | "error" | EditEndReason; requestId: string; request: SpreadsheetEditRequest; message?: string }>
   | Readonly<{ type: "selection"; selection: SpreadsheetSelection }>
   | Readonly<{ type: "drawing-selection"; sheetId: string; drawingId: string | null }>

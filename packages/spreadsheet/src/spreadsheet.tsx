@@ -35,7 +35,7 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
     return () => media.removeEventListener("change", update);
   }, [props.colorMode]);
   const dark = props.colorMode === "dark" || (props.colorMode === "system" && systemDark);
-  return <section ref={root} data-likex-spreadsheet data-color-mode={dark ? "dark" : "light"} className={`lxs-root ${props.className ?? ""}`} style={props.style} role="region" aria-label={props["aria-label"] ?? "スプレッドシート"} aria-busy={c.saving || c.refreshing || c.requesting || contextMenu.state.phase !== "idle"}
+  return <section ref={root} data-likex-spreadsheet data-color-mode={dark ? "dark" : "light"} className={`lxs-root ${props.className ?? ""}`} style={props.style} role="region" aria-label={props["aria-label"] ?? "スプレッドシート"} aria-busy={c.exporting || c.saving || c.refreshing || c.requesting || contextMenu.state.phase !== "idle"}
     onContextMenu={contextMenu.onContextMenu} onPointerDownCapture={contextMenu.onPointerDownCapture} onKeyDownCapture={contextMenu.onKeyDownCapture}
     onFocusCapture={event => { gridHadFocus.current = !!(event.target as HTMLElement).closest(".lxs-grid-scroll"); }}
     onBlurCapture={event => {

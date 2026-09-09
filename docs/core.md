@@ -10,6 +10,7 @@
 | `FeatureFlags` / `resolveFeatureFlags` | 指定されない設定はデフォルトを使い、`false` は機能を無効化 |
 | `chainResult` / `isPromiseLike` | 同期処理の即時性を保ち、必要なときだけPromiseを待つ |
 | `createUnsavedChangesGuard` | dirty時だけウィンドウのネイティブ離脱確認を登録 |
+| `createZipArchive` | パス検証・CRC32・UTF-8・無圧縮ZIPの組み立て。ファイル取得・ツリー列挙・ファイル形式の生成は各利用側が担当 |
 | `ContextMenuProvider` / `ContextMenuItem` / `ContextMenuResult` | 条件付きのメニュー項目と、親が準備する変更計画 |
 | `createContextMenuExecutor` | 変更計画の準備・確認・反映・キャンセルを管理する。データ変更と描画は各UIへ委譲 |
 

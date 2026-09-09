@@ -10,6 +10,7 @@ import { resolveSpreadsheetFeatures } from "./features";
 import type { Workbook, WorkbookOperation } from "./types";
 import { useCellEdit } from "./use-cell-edit";
 import { usePendingObjectEdits } from "./use-pending-object-edits";
+import { useSpreadsheetExport } from "./use-spreadsheet-export";
 import { useSpreadsheetSelection } from "./use-spreadsheet-selection";
 import { useSpreadsheetCommands } from "./use-spreadsheet-commands";
 import { useWorkbookDraft, type DraftOperationOptions } from "./use-workbook-draft";
@@ -68,6 +69,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const refresh = (options?: SpreadsheetDiscardOptions) => draft.refresh(viewSession, options);
   const discard = (options?: SpreadsheetDiscardOptions) => draft.discard(viewSession, options);
   const endEdit = () => !viewSession.hasPendingEdits() && draft.endEdit();
+  const excelExport = useSpreadsheetExport(draft, viewSession.hasPendingEdits);
   const changedCellInput = cellEdit.editing !== null && cellEdit.editing.value !==
     (draft.workbook.sheets.find(sheet => sheet.id === cellEdit.editing?.sheetId)?.cells[cellAddress(cellEdit.editing.position.row, cellEdit.editing.position.column)]?.value ?? "");
   const hasUnsavedChanges = draft.dirty || changedCellInput || pending.pendingObjectEdit;
@@ -87,6 +89,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     features, readOnly: draft.readOnly, disabled: draft.disabled, dirty: draft.dirty, saving: draft.saving,
     refreshing: draft.refreshing, requesting: draft.editState.mode === "requesting", editMode: draft.editState.mode,
     canRefresh: !!props.onRefresh && features.refresh, hasUnsavedChanges,
+    ...excelExport, exportFileName: props.exportFileName ?? props.title ?? "spreadsheet",
     viewRevision: view.viewRevision,
     setContextMenuLock: draft.setContextMenuLock, contextMenuLocked: draft.contextMenuLocked,
     getRevision: () => draft.revisionRef.current, getStructureRevision: () => draft.structureRevisionRef.current,

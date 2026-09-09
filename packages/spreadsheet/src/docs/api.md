@@ -56,6 +56,7 @@ const workbook: SpreadsheetWorkbook = {
 | `onSelectionChange` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。`ranges` は全範囲、`focus` は編集先セル（結合内なら左上）。[複数選択](./selection.md) |
 | `colorMode` | `"light"`（既定）・`"dark"`・`"system"`。 |
 | `title` | 表示タイトル。省略時は「スプレッドシート」。 |
+| `exportFileName` | Excel出力のファイル名。省略時は `title`、未指定なら `spreadsheet.xlsx`。[Excel出力](./excel-export.md) |
 | `className` / `style` | ルート要素のクラス・CSS。高さは利用先で指定。 |
 | `aria-label` | 領域の読み上げ名。省略時は「スプレッドシート」。 |
 

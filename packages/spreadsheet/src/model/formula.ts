@@ -61,7 +61,8 @@ type Node = { type: "value"; value: Value } | { type: "error"; code: string } |
 const precedence: Record<string, number> = { "=": 1, "<>": 1, "<": 1, ">": 1, "<=": 1, ">=": 1,
   "&": 2, "+": 3, "-": 3, "*": 4, "/": 4, "^": 6 };
 
-function parseFormula(formula: string): Node {
+/** Internal bounded parser shared by evaluation and export; not part of the package API. */
+export function parseFormula(formula: string): Node {
   const tokens = tokenizeFormula(formula);
   let cursor = 0;
   const take = () => tokens[cursor++];

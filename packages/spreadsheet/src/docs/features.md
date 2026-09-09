@@ -44,6 +44,7 @@ const features = {
 | `comments` | コメントの挿入・表示・編集・削除。 |
 | `save` | 保存ボタン、保存ショートカット、`ref.current.save()`。編集は引き続き可能です。 |
 | `refresh` | 更新操作。更新ボタンは `onRefresh` が指定されている場合だけ表示します。 |
+| `exportExcel` | Excel出力ボタンと `ref.current.exportExcel()`。既定ONで、読み取り専用でも利用できます。[詳細](./excel-export.md) |
 
 `clipboard`、`rowColumnOperations`、`sheets` は関連機能全体の設定です。親設定が `false` なら、子設定に `true` を指定しても有効になりません。従来の親設定だけを使ったコードも同じ動作を維持します。
 

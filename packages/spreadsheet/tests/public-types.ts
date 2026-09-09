@@ -14,7 +14,16 @@ import type {
   SpreadsheetCommand, SpreadsheetHandle, SpreadsheetCommandResult, SpreadsheetWorkbookSnapshot,
 } from "../src";
 import { createRef } from "react";
-import { prepareSpreadsheetImage } from "../src";
+import { prepareSpreadsheetImage, exportSpreadsheetXlsx, type SpreadsheetExcelExportOptions } from "../src";
+
+const excelOptions = { signal: new AbortController().signal } satisfies SpreadsheetExcelExportOptions;
+const excelProps = { features: { exportExcel: false }, exportFileName: "売上.xlsx" } satisfies SpreadsheetProps;
+function exportWorkbook(handle: SpreadsheetHandle, workbook: SpreadsheetWorkbook): [Promise<Blob>, Promise<Blob>] {
+  return [handle.exportExcel(excelOptions), exportSpreadsheetXlsx(workbook, excelOptions)];
+}
+// @ts-expect-error Only XLSX export is currently available; arbitrary format selectors are rejected.
+const invalidExcelOptions: SpreadsheetExcelExportOptions = { format: "csv" };
+void [excelProps, exportWorkbook, invalidExcelOptions];
 
 const cell: SpreadsheetCell = { value: "=SUM(A1:A10)", format: { numberFormat: "currency", bold: true } };
 const workbook: SpreadsheetWorkbook = { sheets: [{ id: "main", name: "Sheet1", rowCount: 100, columnCount: 26, cells: { B1: cell } }] };

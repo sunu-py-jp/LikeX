@@ -2,6 +2,7 @@ import type { SpreadsheetCellFormat, SpreadsheetImageDrawing, SpreadsheetImageRe
   SpreadsheetShapeDrawing, SpreadsheetTextDrawing, SpreadsheetWorkbook } from "../model/types";
 import type { MaybePromise } from "../core";
 import type { SpreadsheetDiscardOptions, SpreadsheetEditIntent, SpreadsheetEditState } from "./lifecycle";
+import type { SpreadsheetExcelExportOptions } from "../export/types";
 
 type DeepReadonly<T> = T extends readonly (infer Item)[] ? readonly DeepReadonly<Item>[]
   : T extends object ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> } : T;
@@ -74,6 +75,8 @@ export type SpreadsheetHandle = Readonly<{
   cancelEditRequest(): void;
   endEdit(): boolean;
   save(): Promise<boolean>;
+  /** Generates an XLSX Blob from the committed draft without saving or downloading it. Rejects unfinished edits. */
+  exportExcel(options?: SpreadsheetExcelExportOptions): Promise<Blob>;
   refresh(options?: SpreadsheetDiscardOptions): Promise<boolean>;
   discard(options?: SpreadsheetDiscardOptions): boolean;
 }>;
