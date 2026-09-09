@@ -1390,6 +1390,12 @@ SOFTWARE.
     --lxe-tw-numeric-spacing: tabular-nums;
     font-variant-numeric: var(--lxe-tw-ordinal,) var(--lxe-tw-slashed-zero,) var(--lxe-tw-numeric-figure,) var(--lxe-tw-numeric-spacing,) var(--lxe-tw-numeric-fraction,);
   }
+  .lxe\:underline:where([data-likex-explorer], [data-likex-explorer] *) {
+    text-decoration-line: underline;
+  }
+  .lxe\:underline-offset-2:where([data-likex-explorer], [data-likex-explorer] *) {
+    text-underline-offset: 2px;
+  }
   .lxe\:accent-\[var\(--explorer-accent\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     accent-color: var(--explorer-accent);
   }

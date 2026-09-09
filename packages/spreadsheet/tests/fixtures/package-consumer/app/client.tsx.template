@@ -14,6 +14,14 @@ export default function ClientSpreadsheet() {
     onRefresh: async () => saved,
     onEvent: event => { if (event.type === "save" && event.status === "success") void event.requestId; },
     onSelectionChange: selection => { void selection.focus.row; },
+    contextMenuExecutionMode: "reject-if-changed",
+    getContextMenuItems: context => [{ id: "sample-menu", label: "Set formula",
+      onSelect: async (_captured, { signal }) => {
+        if (signal.aborted) return;
+        return { description: "Set a formula", change: [{ type: "cells.set",
+          sheetId: context.target.sheetId, values: { [context.target.address]: "=SUM(1,2)" } }] };
+      },
+    }],
     features: { clipboard: false, formatting: true, undoRedo: true },
     colorMode: "system",
     title: "Editable spreadsheet",

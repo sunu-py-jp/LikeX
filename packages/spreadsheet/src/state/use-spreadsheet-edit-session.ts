@@ -13,7 +13,7 @@ type Options = {
   readOnly: boolean;
   propsRef: RefObject<SpreadsheetProps>;
   workbookRef: RefObject<Workbook>;
-  unavailable: () => SpreadsheetCommandFailure | null;
+  unavailable: (owner?: object) => SpreadsheetCommandFailure | null;
   acceptBaseline: (workbook: Workbook) => void;
   emitEvent: (event: SpreadsheetEvent) => void;
 };
@@ -56,8 +56,8 @@ export function useSpreadsheetEditSession({ propsRef, workbookRef, unavailable, 
     return { ...stateRef.current };
   }, [propsRef]);
 
-  const requestEdit = useCallback((intent: SpreadsheetEditIntent = {}): MaybePromise<boolean> => {
-    if (unavailable() || ending.current || !mounted.current) return false;
+  const requestEdit = useCallback((intent: SpreadsheetEditIntent = {}, owner?: object): MaybePromise<boolean> => {
+    if (unavailable(owner) || ending.current || !mounted.current) return false;
     if (record.current) return record.current.phase === "edit";
     const handler = propsRef.current.onEditRequest;
     const request: SpreadsheetEditRequest = Object.freeze({ source: intent.source ?? "api", action: intent.action ?? "edit",
@@ -65,7 +65,7 @@ export function useSpreadsheetEditSession({ propsRef, workbookRef, unavailable, 
       ...(intent.commands ? { commands: Object.freeze([...intent.commands]) } : {}), workbook: workbookRef.current });
     const current: EditSession = { requestId: crypto.randomUUID(), request, controller: new AbortController(), phase: "requesting" };
     record.current = current;
-    const isCurrent = () => mounted.current && !unavailable() && record.current === current && !current.controller.signal.aborted;
+    const isCurrent = () => mounted.current && !unavailable(owner) && record.current === current && !current.controller.signal.aborted;
     const reject = (cause: unknown): false => {
       if (!isCurrent()) return false;
       if (cause instanceof Error && cause.name === "AbortError") finishEdit("cancelled", undefined, current);

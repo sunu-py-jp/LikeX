@@ -25,3 +25,5 @@ export type {
   SpreadsheetChangeSource,
 } from "./api/lifecycle";
 export type { OperationContext as SpreadsheetOperationContext, EditMode as SpreadsheetEditMode } from "./core";
+export type { ContextMenuExecutionMode } from "./core";
+export type { SpreadsheetContextMenuContext, SpreadsheetContextMenuChange, SpreadsheetContextMenuItem, SpreadsheetContextMenuProvider } from "./api/context-menu";

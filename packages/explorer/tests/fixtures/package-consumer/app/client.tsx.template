@@ -15,6 +15,14 @@ export default function ClientExplorer() {
       return { status: "handed-off" };
     },
     onPreviewRequest: request => { void request.extension; void request.path; },
+    contextMenuExecutionMode: "confirm",
+    getContextMenuItems: context => context.target.kind === "entry" ? [{
+      id: "sample-menu", label: "Create note", onSelect: async (captured, { signal }) => {
+        if (signal.aborted || captured.target.kind !== "entry") return;
+        return { change: { type: "upload", parentId: captured.target.entry.parent,
+          files: [new File([captured.target.entry.name], "note.txt", { type: "text/plain" })] } };
+      },
+    }] : [],
     features: { copy: false, favorites: false },
     warnOnUnsavedChanges: true,
     colorMode: "system",

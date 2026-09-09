@@ -2,9 +2,12 @@ import { useCallback, useRef, useState } from "react";
 import Explorer, {
   type ExplorerEntry,
   type ExplorerSavePayload,
+  type ExplorerContextMenuProvider,
 } from "@likex/explorer";
 import { seedEntries } from "./demo/seed";
 import { createExplorerIconSamples } from "./demo/icon-samples";
+import { useExplorerAiDialog } from "./demo/explorer-ai-dialog";
+import { getDemoContextMenuMode } from "./demo/context-menu-mode";
 import "../../../packages/explorer/src/styles.css";
 
 const iconSamplesFolderId = "demo-icon-samples";
@@ -80,6 +83,24 @@ export default function ExplorerDemo() {
   const [initialWorkspace] = useState(createDemoWorkspace);
   const savedWorkspace = useRef(initialWorkspace);
   const refresh = useCallback(() => savedWorkspace.current.entries, []);
+  const [contextMenuMode] = useState(getDemoContextMenuMode);
+  const { generate, dialog } = useExplorerAiDialog();
+  const contextMenuItems = useCallback<ExplorerContextMenuProvider>(context => {
+    if (context.target.kind !== "entry" || context.target.entry.kind !== "file" || context.readOnly || !context.features.uploadFiles) return [];
+    return [{
+      id: "demo-ai-instruction",
+      label: "AIに指示",
+      onSelect: async (captured, { signal }) => {
+        if (captured.target.kind !== "entry") return;
+        const file = await generate(captured, signal);
+        if (!file || signal.aborted) throw new DOMException("指示をキャンセルしました", "AbortError");
+        return {
+          change: { type: "upload", files: [file], parentId: captured.target.entry.parent },
+          description: `「${file.name}」を元のファイルと同じフォルダへ追加します。`,
+        };
+      },
+    }];
+  }, [generate]);
 
   const readFile = useCallback(async (sourceId: string): Promise<Blob> => {
     const blob = savedWorkspace.current.files.get(sourceId);
@@ -132,11 +153,14 @@ export default function ExplorerDemo() {
         view={{ defaultMode: "medium" }}
         features={{ favorites: false, copy: false, createFile: false }}
         upload={{
-          allowedExtensions: [".csv", ".md", ".json", ".xlsx", ".xls", ".docx", ".doc", ".pptx", ".ppt"],
+          allowedExtensions: [".csv", ".md", ".txt", ".json", ".xlsx", ".xls", ".docx", ".doc", ".pptx", ".ppt"],
         }}
         selection={{ checkboxes: false }}
+        getContextMenuItems={contextMenuItems}
+        contextMenuExecutionMode={contextMenuMode}
         style={{ borderRadius: 0, borderWidth: 0 }}
       />
+      {dialog}
     </div>
   );
 }

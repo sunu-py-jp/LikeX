@@ -37,6 +37,11 @@ type Batch = {
   applyAll: ExplorerUploadDecision["action"] | null;
   observedEntries: readonly ExplorerEntry[];
   applying: boolean;
+  owner?: symbol;
+  runEdit?: UploadOptions["runEdit"];
+  complete?: (changed: boolean) => void;
+  reject?: (error: unknown) => void;
+  onCancel?: () => void;
 };
 export type ExplorerUploadPrompt = {
   conflict: ExplorerUploadConflict;
@@ -59,11 +64,13 @@ export function useExplorerUpload(options: UploadOptions) {
   function alive(batch: Batch) {
     const latest = current.current;
     return mounted.current && pending.current === batch && !batch.controller.signal.aborted &&
+      latest.draft.canMutate(batch.owner) &&
       !latest.draft.readOnly && !latest.draft.saving && !latest.draft.refreshing && !latest.ownerDocument?.defaultView?.closed &&
       (!batch.directory || latest.uploadFolders) && (!batch.requiresFiles || latest.uploadFiles);
   }
-  function release(batch: Batch) {
+  function release(batch: Batch, changed = false) {
     batch.unregister();
+    batch.complete?.(changed);
     if (pending.current !== batch) return;
     pending.current = null;
     if (mounted.current) { setPrompt(null); setApplying(false); }
@@ -118,6 +125,7 @@ export function useExplorerUpload(options: UploadOptions) {
       showConflict(batch, error);
       return;
     }
+    batch.reject?.(error);
     release(batch);
     if (error instanceof ExplorerUploadValidationError) {
       current.current.notify("error", `${error.rejections.length}ファイルが条件に合わないため、追加を中止しました`, {
@@ -137,7 +145,7 @@ export function useExplorerUpload(options: UploadOptions) {
     // from a partially answered batch is published to the shared workspace.
     for (;;) {
       try {
-        prepared = draft.prepareAdd(batch.files, batch.parent, batch.decisions, batch.session);
+        prepared = draft.prepareAdd(batch.files, batch.parent, batch.decisions, batch.session, batch.owner);
         break;
       } catch (error) {
         if (error instanceof ExplorerUploadConflictError && batch.applyAll) {
@@ -154,7 +162,7 @@ export function useExplorerUpload(options: UploadOptions) {
       if (!alive(batch)) { release(batch); return false; }
       const result = prepared.commit();
       if (!result) { release(batch); return false; }
-      release(batch);
+      release(batch, result.addedCount + result.overwrittenCount > 0);
       report(result);
       return result.addedCount + result.overwrittenCount > 0;
     };
@@ -162,7 +170,7 @@ export function useExplorerUpload(options: UploadOptions) {
       if (!prepared.changed) return commit();
       batch.applying = true;
       setApplying(true);
-      const result = current.current.runEdit({ action: "upload", parent: batch.parent }, commit, error => fail(batch, error));
+      const result = (batch.runEdit ?? current.current.runEdit)({ action: "upload", parent: batch.parent }, commit, error => fail(batch, error));
       const finish = (changed: boolean) => {
         // Navigation or cancellation can invalidate authorization without an error.
         if (pending.current === batch && batch.applying) release(batch);
@@ -171,24 +179,46 @@ export function useExplorerUpload(options: UploadOptions) {
       return typeof result === "boolean" ? finish(result) : result.then(finish);
     } catch (error) { fail(batch, error); return false; }
   }
-  function start(files: readonly File[], parent: string, directory: boolean) {
+  function start(files: readonly File[], parent: string, directory: boolean, execution?: {
+    owner: symbol; signal: AbortSignal; runEdit: UploadOptions["runEdit"];
+    complete: (changed: boolean) => void; reject: (error: unknown) => void;
+    onCancel?: () => void;
+  }) {
     const latest = current.current;
-    if (!files.length || pending.current || !mounted.current || latest.draft.readOnly || latest.draft.saving || latest.draft.refreshing ||
-      latest.draft.editMode === "requesting" || !(directory ? latest.uploadFolders : latest.uploadFiles)) return false;
+    if (!files.length || pending.current || !mounted.current || !latest.draft.canMutate(execution?.owner) || execution?.signal.aborted || latest.draft.readOnly || latest.draft.saving || latest.draft.refreshing ||
+      latest.draft.editMode === "requesting" || !(directory ? latest.uploadFolders : latest.uploadFiles)) { execution?.complete(false); return false; }
     const requiresFiles = !directory || (files.some(file => !!file.webkitRelativePath) && files.some(file => !file.webkitRelativePath));
-    if (requiresFiles && !latest.uploadFiles) return false;
+    if (requiresFiles && !latest.uploadFiles) { execution?.complete(false); return false; }
     const controller = new AbortController();
     const batch: Batch = {
       files: [...files], parent, directory, requiresFiles, controller,
       unregister: latest.registerImport(controller), session: createExplorerUploadSession(),
       decisions: [], applyAll: null, observedEntries: latest.draft.getEntries(), applying: false,
+      owner: execution?.owner, runEdit: execution?.runEdit, complete: execution?.complete, reject: execution?.reject,
+      onCancel: execution?.onCancel,
     };
+    if (execution) {
+      const abort = () => controller.abort();
+      const unregister = batch.unregister;
+      execution.signal.addEventListener("abort", abort, { once: true });
+      batch.unregister = () => { unregister(); execution.signal.removeEventListener("abort", abort); };
+    }
     pending.current = batch;
     controller.signal.addEventListener("abort", () => {
       release(batch);
       current.current.cancelEditRequest();
+      batch.onCancel?.();
     }, { once: true });
     return process(batch);
+  }
+  function startAsync(files: readonly File[], parent: string, directory: boolean, execution: {
+    owner: symbol; signal: AbortSignal; runEdit: UploadOptions["runEdit"];
+    onCancel?: () => void;
+  }): Promise<boolean> {
+    return new Promise((complete, reject) => {
+      try { void start(files, parent, directory, { ...execution, complete, reject }); }
+      catch (error) { reject(error); }
+    });
   }
   function answer(action: ExplorerUploadDecision["action"], applyToAll: boolean) {
     const batch = pending.current;
@@ -199,5 +229,5 @@ export function useExplorerUpload(options: UploadOptions) {
     batch.applyAll = applyToAll ? action : null;
     return process(batch);
   }
-  return { start, prompt, applying, answer, cancel };
+  return { start, startAsync, prompt, applying, answer, cancel };
 }

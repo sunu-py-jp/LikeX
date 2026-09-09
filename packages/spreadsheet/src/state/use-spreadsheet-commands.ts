@@ -7,6 +7,7 @@ import { stageSpreadsheetCommands } from "./commands/stage-spreadsheet-commands"
 import { resolveSpreadsheetFeatures } from "./features";
 import type { DraftSelection } from "./types";
 import type { useWorkbookDraft } from "./use-workbook-draft";
+import type { DraftOperationOptions } from "./use-workbook-draft";
 
 type CommandSession = DraftSelection & {
   editingRef: RefObject<unknown>;
@@ -17,10 +18,11 @@ type CommandSession = DraftSelection & {
 export function useSpreadsheetCommands(draft: ReturnType<typeof useWorkbookDraft>, session: CommandSession) {
   const { workbookRef, propsRef, applyTransaction, getMutationFailure, reportError } = draft;
   const { selectionRef, setSelection, editingRef, pendingObjectEditRef } = session;
-  const run = useCallback((commands: readonly SpreadsheetCommand[], external: boolean, synchronous = false): MaybePromise<SpreadsheetCommandResult> => {
-    const unavailable = getMutationFailure();
+  const run = useCallback((commands: readonly SpreadsheetCommand[], external: boolean, synchronous = false,
+    contextMenu?: Pick<DraftOperationOptions, "mutationOwner" | "isCurrent">): MaybePromise<SpreadsheetCommandResult> => {
+    const unavailable = getMutationFailure(false, contextMenu?.mutationOwner);
     if (unavailable) return unavailable;
-    if (external && (editingRef.current || pendingObjectEditRef.current))
+    if ((external || contextMenu) && (editingRef.current || pendingObjectEditRef.current))
       return { ok: false, code: "PENDING_EDIT", message: "編集中の内容を確定してから操作してください" };
     let captured: readonly SpreadsheetCommand[];
     if (!Array.isArray(commands)) return { ok: false, code: "INVALID_COMMAND", message: "コマンドを配列で指定してください" };
@@ -36,7 +38,8 @@ export function useSpreadsheetCommands(draft: ReturnType<typeof useWorkbookDraft
     }, { selectionRef, setSelection }, { source: external ? "api" : "ui", synchronous,
       ...(sheetId ? { sheetId } : {}),
       action: captured.length === 1 ? captured[0]?.type : "batch", commands: captured.map(command => command?.type),
-      ...(external ? { isCurrent: () => !editingRef.current && !pendingObjectEditRef.current } : {}) });
+      ...(contextMenu ? { mutationOwner: contextMenu.mutationOwner } : {}),
+      ...((external || contextMenu) ? { isCurrent: () => !editingRef.current && !pendingObjectEditRef.current && (!contextMenu?.isCurrent || contextMenu.isCurrent()) } : {}) });
     const finish = (value: Awaited<typeof committed>): SpreadsheetCommandResult => {
       if (!value.ok) return value;
       const staged = attempt.staged;
@@ -61,6 +64,8 @@ export function useSpreadsheetCommands(draft: ReturnType<typeof useWorkbookDraft
   const externalBatchAsync = useCallback(async (commands: readonly SpreadsheetCommand[]) => run(commands, true), [run]);
   const externalExecuteAsync = useCallback((command: SpreadsheetCommand) => externalBatchAsync([command]), [externalBatchAsync]);
   const getWorkbook = useCallback(() => workbookRef.current, [workbookRef]);
+  const applyContextMenuCommands = useCallback((commands: readonly SpreadsheetCommand[], owner: object, isCurrent: () => boolean) =>
+    run(commands, false, false, { mutationOwner: owner, isCurrent }), [run]);
 
-  return { executeCommand, executeCommands, externalExecute, externalBatch, externalExecuteAsync, externalBatchAsync, getWorkbook };
+  return { executeCommand, executeCommands, externalExecute, externalBatch, externalExecuteAsync, externalBatchAsync, getWorkbook, applyContextMenuCommands };
 }

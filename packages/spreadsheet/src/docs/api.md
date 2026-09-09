@@ -51,6 +51,8 @@ const workbook: SpreadsheetWorkbook = {
 | `warnOnUnsavedChanges` | 未保存時のブラウザ標準離脱確認。既定`true`。 |
 | `readOnly` | `true` なら `onSave` があっても変更操作を無効化。 |
 | `features` | 下記の機能設定。省略した項目は `true`。 |
+| `getContextMenuItems` | セルの対象・選択・下書きに応じた追加メニュー。[右クリックメニュー](./context-menu.md) |
+| `contextMenuExecutionMode` | `block`（既定）・`confirm`・`reject-if-changed`。メニュー処理中の変更と反映を制御。 |
 | `onSelectionChange` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。`ranges` は全範囲、`focus` は編集先セル（結合内なら左上）。[複数選択](./selection.md) |
 | `colorMode` | `"light"`（既定）・`"dark"`・`"system"`。 |
 | `title` | 表示タイトル。省略時は「スプレッドシート」。 |

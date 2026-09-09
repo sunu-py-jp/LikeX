@@ -5,6 +5,7 @@ import { explorerStyles } from "./build/explorer-styles.ts";
 import { licenseInventory } from "./build/license-inventory.ts";
 
 const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url));
+const coreSource = fileURLToPath(new URL("../../packages/core/src/index.ts", import.meta.url));
 const explorerSource = fileURLToPath(new URL("../../packages/explorer/src/index.ts", import.meta.url));
 const spreadsheetSource = fileURLToPath(new URL("../../packages/spreadsheet/src/index.ts", import.meta.url));
 
@@ -13,6 +14,7 @@ export default defineConfig({
   resolve: {
     // Develop the library directly without a separate dist build or watcher.
     alias: [
+      { find: /^@likex\/core$/, replacement: coreSource },
       { find: /^@likex\/explorer$/, replacement: explorerSource },
       { find: /^@likex\/spreadsheet$/, replacement: spreadsheetSource },
     ],

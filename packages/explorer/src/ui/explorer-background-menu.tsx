@@ -1,25 +1,38 @@
 "use client";
 
-import type { ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 import { FilePlus, FolderPlus, FolderUp, Upload } from "lucide-react";
 import { useExplorerFields } from "../state/explorer-context";
 import { ContextMenu } from "./explorer-overlays";
 import { useExplorerTheme } from "./explorer-theme";
 import { useExplorerDom } from "./explorer-dom-context";
 import { menuContentClass, menuItemClass, menuSeparatorClass } from "./explorer-controls";
+import { ExplorerCustomMenuItems } from "./explorer-custom-menu-items";
+import type { ExplorerCustomMenu } from "../state/use-explorer-context-menu";
+import { useMenuActionHandoff } from "./use-menu-action-handoff";
 
 /** Add to the displayed folder, only from the list's empty space. */
 export function ExplorerBackgroundMenu({ children }: { children: ReactElement }) {
-  const { features, uiOptions, special, query, busy, showModal, chooseFiles, setSelected, instanceId } =
-    useExplorerFields("features", "uiOptions", "special", "query", "busy", "showModal", "chooseFiles", "setSelected", "instanceId");
+  const { features, uiOptions, special, query, busy, showModal, chooseFiles, setSelected, instanceId, hasCustomContextMenu, getCustomContextMenu } =
+    useExplorerFields("features", "uiOptions", "special", "query", "busy", "showModal", "chooseFiles", "setSelected", "instanceId", "hasCustomContextMenu", "getCustomContextMenu");
+  const [customMenu, setCustomMenu] = useState<ExplorerCustomMenu | null>(null);
+  const [open, setOpen] = useState(false);
+  const actionHandoff = useMenuActionHandoff();
   const theme = useExplorerTheme();
   const { portalContainer } = useExplorerDom();
-  const hasCreate = features.createFile || features.createFolder;
-  const hasUpload = features.uploadFiles || features.uploadFolders;
-  if (!uiOptions.contextMenu || special || query.trim() || (!hasCreate && !hasUpload)) return children;
+  const allowBuiltins = !special && !query.trim();
+  const hasCreate = allowBuiltins && (features.createFile || features.createFolder);
+  const hasUpload = allowBuiltins && (features.uploadFiles || features.uploadFolders);
+  if (!uiOptions.contextMenu || (!hasCreate && !hasUpload && !hasCustomContextMenu)) return children;
 
   return (
-    <ContextMenu.Root>
+    <ContextMenu.Root open={open} onOpenChange={nextOpen => {
+      const menu = nextOpen ? getCustomContextMenu() : customMenu;
+      if (nextOpen) setCustomMenu(menu);
+      const allowed = nextOpen && (hasCreate || hasUpload || !!menu?.items.length);
+      actionHandoff.onOpenChange(allowed);
+      setOpen(allowed);
+    }}>
       <ContextMenu.Trigger
         asChild
         onContextMenu={(event) => {
@@ -40,28 +53,30 @@ export function ExplorerBackgroundMenu({ children }: { children: ReactElement })
           style={theme}
           className={`${menuContentClass} lxe:min-w-56`}
           collisionPadding={8}
+          onCloseAutoFocus={actionHandoff.onCloseAutoFocus}
         >
-          {features.createFile && (
+          {allowBuiltins && features.createFile && (
             <ContextMenu.Item className={menuItemClass} disabled={busy} onSelect={() => showModal("createFile")}>
               <FilePlus />新しいファイル
             </ContextMenu.Item>
           )}
-          {features.createFolder && (
+          {allowBuiltins && features.createFolder && (
             <ContextMenu.Item className={menuItemClass} disabled={busy} onSelect={() => showModal("create")}>
               <FolderPlus />新しいフォルダ
             </ContextMenu.Item>
           )}
           {hasCreate && hasUpload && <ContextMenu.Separator className={menuSeparatorClass} />}
-          {features.uploadFiles && (
+          {allowBuiltins && features.uploadFiles && (
             <ContextMenu.Item className={menuItemClass} disabled={busy} onSelect={() => chooseFiles()}>
               <Upload />ファイルをアップロード
             </ContextMenu.Item>
           )}
-          {features.uploadFolders && (
+          {allowBuiltins && features.uploadFolders && (
             <ContextMenu.Item className={menuItemClass} disabled={busy} onSelect={() => chooseFiles(true)}>
               <FolderUp />フォルダをアップロード
             </ContextMenu.Item>
           )}
+          <ExplorerCustomMenuItems menu={customMenu} separate={hasCreate || hasUpload} defer={actionHandoff.defer} />
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

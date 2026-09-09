@@ -1,5 +1,5 @@
-import { notifyHost, resolveFeatureFlags, chainResult } from '__LIBRARY_IMPORT__';
-import type { EditRequestHandler, EventHandler, SaveHandler, RequestHandler, MaybePromise } from '__LIBRARY_IMPORT__';
+import { notifyHost, resolveFeatureFlags, chainResult, createContextMenuExecutor, resolveContextMenuItems } from '__LIBRARY_IMPORT__';
+import type { EditRequestHandler, EventHandler, SaveHandler, RequestHandler, MaybePromise, ContextMenuProvider, ContextMenuExecutionMode } from '__LIBRARY_IMPORT__';
 
 const permission: EditRequestHandler<{ action: string }, readonly string[], 'entries'> =
   (_request, context) => context.signal.aborted ? false : { allowed: true, entries: [] };
@@ -14,3 +14,22 @@ resolveFeatureFlags<'edit'>({ edit: true }, { typo: false });
 // @ts-expect-error host event payloads stay strict
 notifyHost(event, { type: 'unknown' });
 void [permission, save, request, result];
+
+const menus: ContextMenuProvider<{ id: string }, { text: string }> = context => [{
+  id: 'generate', label: 'Generate', onSelect: async (_context, operation) => {
+    if (operation.signal.aborted) return;
+    return { change: { text: context.id }, description: 'Update text' };
+  },
+}];
+const items = resolveContextMenuItems(menus, { id: 'file' });
+const executor = createContextMenuExecutor<{ id: string }, { text: string }>({
+  getRevision: () => 1, prepareChange: change => ({ ...change }),
+  apply: (_change, _context, _operation, guard) => { if (!guard.isCurrent()) throw new Error('stale'); },
+});
+const mode: ContextMenuExecutionMode = 'confirm';
+void executor.run(items[0], { id: 'file' }, mode);
+// @ts-expect-error component change plans retain their domain type
+const invalidMenu: ContextMenuProvider<{ id: string }, { text: string }> = () => [{ id: 'bad', label: 'Bad', onSelect: () => ({ change: 1 }) }];
+// @ts-expect-error concurrent execution policy is a closed set
+const invalidMode: ContextMenuExecutionMode = 'automatic';
+void [invalidMenu, invalidMode];

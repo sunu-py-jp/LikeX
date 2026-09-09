@@ -138,3 +138,24 @@ const invalidPreflight: SpreadsheetProps = { onBeforeSave: () => "yes" };
 // @ts-expect-error Refresh returns a complete workbook.
 const invalidRefresh: SpreadsheetProps = { onRefresh: () => [] };
 void [injected, controlledLifecycle, invalidPermission, invalidPreflight, invalidRefresh];
+
+const contextMenus: SpreadsheetProps = {
+  contextMenuExecutionMode: "confirm",
+  getContextMenuItems: context => context.readOnly ? [] : [{
+    id: "formula", label: "数式を挿入",
+    async onSelect(context, operation) {
+      const address: string = context.target.address;
+      const signal: AbortSignal = operation.signal;
+      void [signal, context.selection.ranges, context.workbook.sheets, context.features.formulas];
+      // @ts-expect-error Captured targets are readonly.
+      context.target.row = 99;
+      return { change: [{ type: "cells.set", sheetId: context.target.sheetId, values: { [address]: "=SUM(A1:A3)" } }], description: "合計を設定" };
+    },
+  }],
+  onEvent(event) { if (event.type === "context-menu") { const id: string = event.itemId; void id; } },
+};
+// @ts-expect-error Execution policies use the three explicit common modes.
+const invalidMenuMode: SpreadsheetProps = { contextMenuExecutionMode: "concurrent" };
+// @ts-expect-error Menu handlers return proposed commands, not an entire workbook.
+const invalidMenuResult: SpreadsheetProps = { getContextMenuItems: () => [{ id: "wrong", label: "wrong", onSelect: () => ({ change: workbook }) }] };
+void [contextMenus, invalidMenuMode, invalidMenuResult];

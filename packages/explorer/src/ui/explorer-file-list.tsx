@@ -5,6 +5,7 @@ import {
   memo,
   useMemo,
   useRef,
+  useState,
   type DragEvent,
   type KeyboardEvent,
   type MouseEvent,
@@ -42,6 +43,9 @@ import {
 import { useExplorerTheme } from "./explorer-theme";
 import { useExplorerDom } from "./explorer-dom-context";
 import { ExplorerBackgroundMenu } from "./explorer-background-menu";
+import { ExplorerCustomMenuItems } from "./explorer-custom-menu-items";
+import type { ExplorerCustomMenu } from "../state/use-explorer-context-menu";
+import { useMenuActionHandoff } from "./use-menu-action-handoff";
 import {
   formatSize,
   getEntryPath,
@@ -257,10 +261,21 @@ function EntryContext({
   const theme = useExplorerTheme();
   const { portalContainer } = useExplorerDom();
   const renameMenuFocus = useRenameMenuFocus();
-  const { instanceId, features, uiOptions, canEditFavorites } = useExplorerFields("instanceId", "features", "uiOptions", "canEditFavorites");
-  if (!uiOptions.contextMenu || !hasEntryMenu(entry, features, canEditFavorites)) return children;
+  const actionHandoff = useMenuActionHandoff();
+  const { instanceId, features, uiOptions, canEditFavorites, hasCustomContextMenu, getCustomContextMenu } = useExplorerFields("instanceId", "features", "uiOptions", "canEditFavorites", "hasCustomContextMenu", "getCustomContextMenu");
+  const [customMenu, setCustomMenu] = useState<ExplorerCustomMenu | null>(null);
+  const [open, setOpen] = useState(false);
+  const hasBuiltins = hasEntryMenu(entry, features, canEditFavorites);
+  if (!uiOptions.contextMenu || (!hasBuiltins && !hasCustomContextMenu)) return children;
   return (
-    <ContextMenu.Root onOpenChange={onOpenChange}>
+    <ContextMenu.Root open={open} onOpenChange={nextOpen => {
+      const menu = nextOpen ? getCustomContextMenu(entry) : customMenu;
+      if (nextOpen) setCustomMenu(menu);
+      const allowed = nextOpen && (hasBuiltins || !!menu?.items.length);
+      actionHandoff.onOpenChange(allowed);
+      setOpen(allowed);
+      onOpenChange?.(allowed);
+    }}>
       <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal container={portalContainer}>
         <ContextMenu.Content
@@ -268,13 +283,17 @@ function EntryContext({
           style={theme}
           className={`${menuContentClass} lxe:min-w-60`}
           collisionPadding={8}
-          onCloseAutoFocus={renameMenuFocus.onCloseAutoFocus}
+          onCloseAutoFocus={event => {
+            actionHandoff.onCloseAutoFocus(event);
+            if (!event.defaultPrevented) renameMenuFocus.onCloseAutoFocus(event);
+          }}
         >
           <EntryMenuItems
             entry={entry}
             context
             onRename={renameMenuFocus.startRename}
           />
+          <ExplorerCustomMenuItems menu={customMenu} separate={hasBuiltins} defer={actionHandoff.defer} />
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>
@@ -529,7 +548,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
       if (entry.kind === "folder" || features.preview) openEntry(entry);
     },
     onContextMenu:
-      uiOptions.contextMenu && hasEntryMenu(entry, features, canEditFavorites) && canSelect
+      uiOptions.contextMenu && canSelect
         ? () => {
             cancelPendingRename();
             if (!checked(entry)) setSelected([entry.id]);

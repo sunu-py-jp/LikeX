@@ -51,25 +51,29 @@ export function useExplorerWorkspace(props: ExplorerProps) {
   }, []);
   useEffect(() => cancelImports, [cancelImports]);
   const saveDraft = draft.save, refreshDraft = draft.refresh, discardDraft = draft.discard, endDraftEdit = draft.endEdit;
+  const canMutate = draft.canMutate;
   const save = useCallback((windowId?: string) => {
+    if (!canMutate()) return Promise.resolve(false);
     cancelImports();
     return saveDraft(windowId);
-  }, [cancelImports, saveDraft]);
+  }, [cancelImports, saveDraft, canMutate]);
   const { canRefresh, saving, refreshing, getEditState } = draft;
   const refresh = useCallback(() => {
-    if (!canRefresh || saving || refreshing || getEditState().mode === "requesting")
+    if (!canMutate() || !canRefresh || saving || refreshing || getEditState().mode === "requesting")
       return Promise.resolve(false);
     cancelImports();
     return refreshDraft();
-  }, [canRefresh, saving, refreshing, getEditState, cancelImports, refreshDraft]);
+  }, [canRefresh, saving, refreshing, getEditState, cancelImports, refreshDraft, canMutate]);
   const discard = useCallback(() => {
+    if (!canMutate()) return;
     cancelImports();
     discardDraft();
-  }, [cancelImports, discardDraft]);
+  }, [cancelImports, discardDraft, canMutate]);
   const endEdit = useCallback(() => {
+    if (!canMutate()) return false;
     cancelImports();
     return endDraftEdit();
-  }, [cancelImports, endDraftEdit]);
+  }, [cancelImports, endDraftEdit, canMutate]);
   const [mediaCache] = useState(createMediaCache);
   useEffect(() => () => mediaCache.dispose(), [mediaCache]);
   useEffect(() => {

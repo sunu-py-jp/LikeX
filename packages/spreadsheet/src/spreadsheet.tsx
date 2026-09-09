@@ -10,11 +10,14 @@ import { SpreadsheetFooter } from "./ui/spreadsheet-footer";
 import { SpreadsheetComments } from "./ui/spreadsheet-comments";
 import { useSpreadsheetHandle } from "./api/use-spreadsheet-handle";
 import { useUnsavedChangesGuard } from "./state/use-unsaved-changes-guard";
+import { useSpreadsheetContextMenu } from "./state/use-spreadsheet-context-menu";
+import { SpreadsheetContextMenu } from "./ui/spreadsheet-context-menu";
 
 export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetProps) {
   const c = useSpreadsheet(props);
   useSpreadsheetHandle(handleRef, c);
   const root = useRef<HTMLElement>(null);
+  const contextMenu = useSpreadsheetContextMenu(c, props, root);
   useUnsavedChangesGuard(root, props.warnOnUnsavedChanges !== false && c.hasUnsavedChanges);
   const clipboard = useSpreadsheetClipboard(c);
   const [systemDark, setSystemDark] = useState(false);
@@ -26,10 +29,12 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
     return () => media.removeEventListener("change", update);
   }, [props.colorMode]);
   const dark = props.colorMode === "dark" || (props.colorMode === "system" && systemDark);
-  return <section ref={root} data-likex-spreadsheet data-color-mode={dark ? "dark" : "light"} className={`lxs-root ${props.className ?? ""}`} style={props.style} role="region" aria-label={props["aria-label"] ?? "スプレッドシート"} aria-busy={c.saving || c.refreshing || c.requesting}
+  return <section ref={root} data-likex-spreadsheet data-color-mode={dark ? "dark" : "light"} className={`lxs-root ${props.className ?? ""}`} style={props.style} role="region" aria-label={props["aria-label"] ?? "スプレッドシート"} aria-busy={c.saving || c.refreshing || c.requesting || contextMenu.state.phase !== "idle"}
+    onContextMenu={contextMenu.onContextMenu} onPointerDownCapture={contextMenu.onPointerDownCapture} onKeyDownCapture={contextMenu.onKeyDownCapture}
     onCopy={clipboard.onCopy} onCut={clipboard.onCut} onPaste={clipboard.onPaste}
     onKeyDown={event => {
       if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229 || event.altKey) return;
+      if (event.key === "Escape" && contextMenu.state.phase !== "idle") { event.preventDefault(); contextMenu.cancel(); return; }
       if (event.key === "Escape" && c.requesting) { event.preventDefault(); c.cancelEditRequest(); return; }
       const primary = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey);
       if (!primary) return;
@@ -48,5 +53,6 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
       <SpreadsheetComments key={`comments-${c.viewRevision}`} controller={c} />
     </div>
     <SpreadsheetFooter key={`footer-${c.viewRevision}`} controller={c} />
+    <SpreadsheetContextMenu controller={contextMenu} root={root} />
   </section>;
 }

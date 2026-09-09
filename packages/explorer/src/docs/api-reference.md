@@ -21,6 +21,8 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `onPreviewRequest` | `ExplorerPreviewHandler`。指定時は内蔵プレビューの代わりにファイル情報を親へ渡します。未指定なら内蔵プレビューを使います。 |
 | `onDownloadRequest` | `ExplorerDownloadHandler`。指定時はファイル・フォルダのダウンロードを親へ委譲します。要求情報と進捗通知・取消し用contextを受け取り、結果を明示して返します。未指定なら内蔵処理です。 |
 | `onSearchRequest` | `ExplorerSearchHandler`。指定時は検索を親へ委譲し、現在の下書きにある項目のIDを順位順に受け取ります。未指定なら全項目の名前を内蔵検索します。 |
+| `getContextMenuItems` | `ExplorerContextMenuProvider`。ファイル・フォルダ・空白の右クリック時の情報から、条件付きの追加メニューを返します。ハンドラーは変更プランを返し、反映はExplorerが担当します。[使い方](./context-menu.md) |
+| `contextMenuExecutionMode` | Core共通の `"block"`（既定） / `"confirm"` / `"reject-if-changed"`。処理中の変更禁止・完了時の反映確認・データ変更時の中止を選べます。 |
 | `search` | `ExplorerSearchOptions`。`trigger` は `"input"`（既定）または `"submit"`。`debounceMs` は外部の入力検索だけに適用する待機時間で、既定は `0`。 |
 | `previewTrigger` | `ExplorerPreviewTrigger`。`"doubleClick"`（既定）または `"click"`。後者はファイル名の単クリックでプレビューします。 |
 | `onEvent` | `ExplorerEventHandler`。ローカル操作・選択・移動・表示状態・保存等を親へ通知します。通知の戻り値や例外は操作の成否を変えません。 |

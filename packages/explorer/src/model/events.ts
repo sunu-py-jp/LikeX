@@ -5,7 +5,7 @@ import type { ExplorerPreviewRequest } from "./preview";
 import type { ExplorerUploadRejection } from "./upload";
 import type { ExplorerDownloadProgress } from "./download";
 import type { ExplorerEditModeEvent } from "./edit-session";
-import { notifyHost, type EventHandler } from "../core";
+import { notifyHost, type EventHandler, type ContextMenuExecutionEvent } from "../core";
 
 export type ExplorerLocationInfo =
   | Readonly<{ kind: "folder"; id: string; name: string; path: string }>
@@ -67,6 +67,7 @@ export type ExplorerDownloadRequest = ExplorerItemInfo;
 type DownloadEventContext = Readonly<{ requestId?: string; external?: boolean }>;
 
 export type ExplorerViewEvent =
+  | ContextMenuExecutionEvent
   | Readonly<{ type: "window"; action: "detach" | "reattach" | "close" | "blocked"; windowId: string; tabIds: readonly string[]; sourceWindowId?: string; message?: string }>
   | Readonly<{ type: "navigate"; location: ExplorerLocationInfo }>
   | Readonly<{ type: "selection"; ids: readonly string[]; entries: readonly ExplorerItemInfo[] }>

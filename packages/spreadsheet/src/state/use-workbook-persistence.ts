@@ -18,6 +18,7 @@ type Options = {
   workbookRef: RefObject<Workbook>; savedRef: RefObject<Workbook>; propsRef: RefObject<SpreadsheetProps>;
   lifetimeRef: RefObject<object | null>; savingRef: RefObject<boolean>; refreshingRef: RefObject<boolean>;
   saveStartingRef: RefObject<boolean>; transactionRef: RefObject<boolean>;
+  contextMenuOwnerRef?: RefObject<object | null>;
   getMutationFailure: (allowSaveStarting?: boolean) => SpreadsheetCommandFailure | null;
   replaceBaseline: (workbook: Workbook) => void;
   reportError: (cause: unknown) => void;
@@ -130,7 +131,7 @@ export function useWorkbookPersistence(options: Options) {
   };
   const refresh = async (session: WorkbookViewSession, consent: SpreadsheetDiscardOptions = {}): Promise<boolean> => {
     const handler = propsRef.current.onRefresh;
-    if (!lifetimeRef.current || !handler || propsRef.current.features?.refresh === false || active.current ||
+    if (options.contextMenuOwnerRef?.current || !lifetimeRef.current || !handler || propsRef.current.features?.refresh === false || active.current ||
       saveStartingRef.current || transactionRef.current || edit.getEditState().mode === "requesting" || edit.isEndingEdit()) return false;
     if (!consent.discardChanges && (session.hasPendingEdits() || !workbooksEqual(workbookRef.current, savedRef.current))) return false;
     const request = begin("refresh");
@@ -162,7 +163,7 @@ export function useWorkbookPersistence(options: Options) {
     } finally { finish(request); }
   };
   const discard = (session: WorkbookViewSession, consent: SpreadsheetDiscardOptions = {}): boolean => {
-    if (!lifetimeRef.current || active.current || transactionRef.current || saveStartingRef.current || edit.isEndingEdit()) return false;
+    if (options.contextMenuOwnerRef?.current || !lifetimeRef.current || active.current || transactionRef.current || saveStartingRef.current || edit.isEndingEdit()) return false;
     const changed = !workbooksEqual(workbookRef.current, savedRef.current);
     if (!consent.discardChanges && (changed || session.hasPendingEdits())) return false;
     transactionRef.current = true;

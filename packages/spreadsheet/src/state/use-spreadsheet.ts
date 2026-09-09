@@ -88,6 +88,8 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     refreshing: draft.refreshing, requesting: draft.editState.mode === "requesting", editMode: draft.editState.mode,
     canRefresh: !!props.onRefresh && features.refresh, hasUnsavedChanges,
     viewRevision: view.viewRevision,
+    setContextMenuLock: draft.setContextMenuLock, contextMenuLocked: draft.contextMenuLocked,
+    getRevision: () => draft.revisionRef.current, getStructureRevision: () => draft.structureRevisionRef.current,
     emitEvent: draft.emitEvent, getEditState: draft.getEditState, requestEdit: draft.requestEdit,
     cancelEditRequest: draft.cancelEditRequest, endEdit, refresh, discard, externalSave, afterCommit, afterCommand,
     error: draft.error, setError: draft.setError, reportError: draft.reportError, apply,

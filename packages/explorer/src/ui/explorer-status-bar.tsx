@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { Grid2X2, List } from "lucide-react";
+import { Grid2X2, List, Loader2 } from "lucide-react";
 import { mergeExplorerClasses } from "./explorer-classnames";
 import { useExplorerFields } from "../state/explorer-context";
 import { formatSize } from "../model/entries";
@@ -24,7 +24,10 @@ export const ExplorerStatusBar = memo(function ExplorerStatusBar() {
     refreshing,
     searchPending,
     searchError,
-  } = useExplorerFields("visible", "selected", "selectedEntries", "saveError", "refreshError", "view", "changeView", "allowedViewModes", "selectionOptions", "readOnly", "editMode", "saving", "refreshing", "searchPending", "searchError");
+    customContextMenuState,
+    customContextMenuBusy,
+    cancelCustomContextMenu,
+  } = useExplorerFields("visible", "selected", "selectedEntries", "saveError", "refreshError", "view", "changeView", "allowedViewModes", "selectionOptions", "readOnly", "editMode", "saving", "refreshing", "searchPending", "searchError", "customContextMenuState", "customContextMenuBusy", "cancelCustomContextMenu");
   return (
     <footer
       className="lxe:flex lxe:min-h-8 lxe:shrink-0 lxe:flex-wrap lxe:items-center lxe:gap-x-3 lxe:gap-y-1 lxe:border-t lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-panel)] lxe:px-3 lxe:py-0.5 lxe:text-xs lxe:text-[var(--explorer-muted)]"
@@ -34,6 +37,11 @@ export const ExplorerStatusBar = memo(function ExplorerStatusBar() {
         {searchPending ? "検索中…" : searchError ? "検索に失敗しました" : `${visible.length} 個の項目`}
       </span>
       {readOnly && <span className="lxe:whitespace-nowrap">読み取り専用</span>}
+      {customContextMenuState.phase !== "idle" ? <span className="lxe:flex lxe:items-center lxe:gap-2">
+        <Loader2 size={14} className="lxe:animate-spin" aria-hidden="true" />
+        {customContextMenuState.label}：{customContextMenuState.phase === "confirming" ? "確認待ち" : "処理中…"}
+        <button type="button" className="lxe:underline lxe:underline-offset-2" onClick={cancelCustomContextMenu}>処理をキャンセル</button>
+      </span> : customContextMenuBusy ? <span>別のウィンドウでメニューを処理しています…</span> : null}
       {selectionOptions.mode !== "none" && selected.length > 0 && (
         <>
           <span

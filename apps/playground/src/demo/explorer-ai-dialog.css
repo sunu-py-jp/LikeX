@@ -1,0 +1,57 @@
+.likex-demo-ai-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(0 0 0 / 36%);
+}
+.likex-demo-ai-dialog {
+  box-sizing: border-box;
+  width: min(480px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  border: 1px solid var(--explorer-border, #d5d8dd);
+  border-radius: 10px;
+  padding: 24px;
+  background: var(--explorer-background, #fff);
+  color: var(--explorer-foreground, #24282e);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 24%);
+  font: 14px/1.6 system-ui, sans-serif;
+}
+.likex-demo-ai-dialog h2 { margin: 0 0 8px; font-size: 18px; font-weight: 600; }
+.likex-demo-ai-dialog p { margin: 0 0 16px; overflow-wrap: anywhere; }
+.likex-demo-ai-dialog label { display: block; margin-bottom: 6px; }
+.likex-demo-ai-dialog textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100px;
+  border: 1px solid var(--explorer-border, #d5d8dd);
+  border-radius: 5px;
+  padding: 10px;
+  background: var(--explorer-panel, #fafafa);
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+.likex-demo-ai-dialog textarea:focus { outline: 2px solid var(--explorer-accent, #176fc1); outline-offset: 1px; }
+.likex-demo-ai-dialog .likex-demo-ai-status { margin: 8px 0 16px; color: var(--explorer-muted, #69717c); font-size: 12px; }
+.likex-demo-ai-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.likex-demo-ai-actions button {
+  border: 1px solid var(--explorer-border, #d5d8dd);
+  border-radius: 5px;
+  padding: 6px 16px;
+  background: var(--explorer-panel, #fafafa);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.likex-demo-ai-actions button:hover { filter: brightness(.94); }
+.likex-demo-ai-actions .likex-demo-ai-execute {
+  background: var(--explorer-accent, #176fc1);
+  border-color: var(--explorer-accent, #176fc1);
+  color: var(--explorer-accent-foreground, #fff);
+}
+.likex-demo-ai-actions button:disabled { opacity: .5; cursor: default; }

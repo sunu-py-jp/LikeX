@@ -24,6 +24,12 @@ const features = resolveFeatureFlags({ download: true, edit: true }, { edit: fal
 
 `createUnsavedChangesGuard()` は登録されたWindowの `beforeunload` をdirty時だけ有効にします。ネイティブ確認文言はブラウザが決めます。SPA内の遷移確認・サーバーロック・認証・永続化自体は扱いません。
 
+`ContextMenuProvider<Context, Change, Icon>` と `ContextMenuItem` は、条件付きの右クリックメニューを定義します。項目の `onSelect(context, { signal, requestId })` は `{ change, description? }` を返し、実際の書き込みはコンポーネントに委譲します。`undefined` を返すとローカル変更なしで終了します。CoreはReactやファイル・セル固有の型に依存しません。
+
+親の入力ダイアログをキャンセルした場合は `throw new DOMException("キャンセル", "AbortError")` で中止を通知できます。通常のエラー・成功と区別して `cancelled` イベントが発火します。
+
+`createContextMenuExecutor()` は準備・確認・反映を管理します。`block` は準備中の変更を禁止、`confirm` は変更を許可して結果反映前に確認、`reject-if-changed` は開始後にデータが変わっていれば中止します。表示と変更ガード、計画の隔離、対象検証、反映処理は各UIが接続します。非同期の編集許可を待った場合も、コミット直前に `apply` の `guard.isCurrent()` を確認します。キャンセル後の応答は破棄します。
+
 ExplorerとSpreadsheetは通常のnpm依存として `@likex/core` を利用します。tarballで導入する際はcoreとUIの両tarballをnpmに渡してください。コピー導入では `core/src/` とUIの `src/` を隣接フォルダへ置き、UI側の `core.ts` 1行を `export * from "../core";` へ変更します。自動生成や特殊な解決設定はありません。core単体も `src/` のコピーで利用できます。
 
 npm公開は未実施です。現在は `private: true` / `UNLICENSED` です。

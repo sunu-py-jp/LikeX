@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
     "predev": "node ../../scripts/build-library.mjs --module core",
     "prebuild": "node ../../scripts/build-library.mjs --module core",
     "pretypecheck": "node ../../scripts/build-library.mjs --module core"

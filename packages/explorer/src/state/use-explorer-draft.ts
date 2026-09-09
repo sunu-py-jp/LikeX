@@ -100,6 +100,29 @@ export function useExplorerDraft({
   const currentEditState = useRef(editState);
   const [editRevision, setEditRevision] = useState(0);
   const currentEditRevision = useRef(0);
+  // Shared across every tab and detached window. Only the applying menu owns
+  // the capability; other retained commands cannot bypass a temporary lock.
+  const menuOperation = useRef<{ owner: symbol; blocking: boolean } | null>(null);
+  const [contextMenuBusy, setContextMenuBusy] = useState(false);
+  const [mutationBlocked, setMutationBlocked] = useState(false);
+  const canMutate = useCallback((owner?: symbol) => !menuOperation.current?.blocking || menuOperation.current.owner === owner, []);
+  const beginContextMenuOperation = useCallback((owner: symbol, blocking: boolean) => {
+    if (!mounted.current || menuOperation.current || current.current.saving || current.current.refreshing || session.current?.phase === "requesting") return false;
+    menuOperation.current = { owner, blocking };
+    setContextMenuBusy(true);
+    setMutationBlocked(blocking);
+    return true;
+  }, []);
+  const setContextMenuBlocking = useCallback((owner: symbol, blocking: boolean) => {
+    if (menuOperation.current?.owner !== owner) return;
+    menuOperation.current.blocking = blocking;
+    if (mounted.current) setMutationBlocked(blocking);
+  }, []);
+  const endContextMenuOperation = useCallback((owner: symbol) => {
+    if (menuOperation.current?.owner !== owner) return;
+    menuOperation.current = null;
+    if (mounted.current) { setMutationBlocked(false); setContextMenuBusy(false); }
+  }, []);
 
   // Publish committed options before descendant layout effects can call retained
   // commands. This updates refs only; abandoned renders never change live policy.
@@ -144,6 +167,8 @@ export function useExplorerDraft({
     publishEdit(currentEditState.current);
     setEditRevision(currentEditRevision.current);
     setState(current.current);
+    setContextMenuBusy(menuOperation.current !== null);
+    setMutationBlocked(menuOperation.current?.blocking ?? false);
     return () => {
       mounted.current = false;
       persistenceRequest.current = null;
@@ -210,9 +235,9 @@ export function useExplorerDraft({
       return { ...latest, mode: "view", requestId: null };
     return { ...latest };
   }, []);
-  const requestEdit = useCallback((intent: ExplorerEditIntent): boolean | Promise<boolean> => {
+  const requestEdit = useCallback((intent: ExplorerEditIntent, owner?: symbol): boolean | Promise<boolean> => {
     const policy = currentPolicy.current;
-    if (!mounted.current || policy.readOnly || current.current.saving || current.current.refreshing || endingEdit.current) return false;
+    if (!mounted.current || !canMutate(owner) || policy.readOnly || current.current.saving || current.current.refreshing || endingEdit.current) return false;
     if (session.current) return session.current.phase === "edit";
     let request: ExplorerEditRequest;
     try {
@@ -274,7 +299,7 @@ export function useExplorerDraft({
     } catch (error) {
       return reject(error);
     }
-  }, [commit, publishEdit, emitEdit, finishEdit]);
+  }, [commit, publishEdit, emitEdit, finishEdit, canMutate]);
 
   const cancelEditRequest = useCallback((windowId?: string) => {
     const pending = session.current;
@@ -283,21 +308,23 @@ export function useExplorerDraft({
   }, [finishEdit]);
   const endEdit = useCallback(() => {
     if (!mounted.current || endingEdit.current) return false;
+    if (!canMutate()) throw new Error("メニューの処理が完了するまで変更できません");
     if (current.current.saving) throw new Error("保存が完了するまで操作をお待ちください");
     if (current.current.refreshing) throw new Error("再読み込みが完了するまで操作をお待ちください");
     if (hasChanges(current.current.baseline, current.current.draft))
       throw new Error("未保存の変更を保存または破棄してください");
     return finishEdit("ended");
-  }, [finishEdit]);
-  const requireEdit = useCallback((intent: ExplorerEditIntent) => {
+  }, [finishEdit, canMutate]);
+  const requireEdit = useCallback((intent: ExplorerEditIntent, owner?: symbol) => {
     if (endingEdit.current) throw new Error("編集を開始してから変更してください");
     if (session.current?.phase === "edit") return;
-    if (currentPolicy.current.onEditRequest || requestEdit(intent) !== true)
+    if (currentPolicy.current.onEditRequest || requestEdit(intent, owner) !== true)
       throw new Error("編集を開始してから変更してください");
   }, [requestEdit]);
 
-  const checkWritable = useCallback(() => {
+  const checkWritable = useCallback((owner?: symbol) => {
     if (!mounted.current) return false;
+    if (!canMutate(owner)) throw new Error("メニューの処理が完了するまで変更できません");
     if (currentPolicy.current.readOnly)
       throw new Error("読み取り専用のため変更できません");
     if (current.current.saving)
@@ -305,11 +332,11 @@ export function useExplorerDraft({
     if (current.current.refreshing)
       throw new Error("再読み込みが完了するまで操作をお待ちください");
     return true;
-  }, []);
+  }, [canMutate]);
 
   /** Validate without acquiring permission; commit rechecks any refreshed baseline. */
-  const prepareAction = useCallback((action: ExplorerAction): null | (() => boolean) => {
-    if (!checkWritable()) return null;
+  const prepareAction = useCallback((action: ExplorerAction, owner?: symbol): null | (() => boolean) => {
+    if (!checkWritable(owner)) return null;
     const command = { ...action, ...(action.ids ? { ids: [...action.ids] } : {}) };
     let source = current.current.draft;
     let options = currentUploadOptions.current;
@@ -328,16 +355,16 @@ export function useExplorerDraft({
     let completed = false;
     let committing = false;
     return () => {
-      if (completed || committing || !checkWritable()) return false;
+      if (completed || committing || !checkWritable(owner)) return false;
       committing = true;
       try {
         if (!refresh()) {
           completed = true;
           return false;
         }
-        requireEdit(command);
+        requireEdit(command, owner);
         // A synchronous permission observer can also change the current draft.
-        if (!checkWritable()) return false;
+        if (!checkWritable(owner)) return false;
         if (!refresh()) {
           completed = true;
           return false;
@@ -354,12 +381,12 @@ export function useExplorerDraft({
   }, [checkWritable, requireEdit, commit, emitChange]);
 
   /** Classify first; rejected/empty batches never need an edit session. */
-  const prepareAdd = useCallback((files: readonly File[], parent: string, decisions: readonly ExplorerUploadDecision[] = [], uploadSession: ExplorerUploadSession = createExplorerUploadSession()): {
+  const prepareAdd = useCallback((files: readonly File[], parent: string, decisions: readonly ExplorerUploadDecision[] = [], uploadSession: ExplorerUploadSession = createExplorerUploadSession(), owner?: symbol): {
     result: ExplorerUploadResult;
     changed: boolean;
     commit: () => ExplorerUploadResult | undefined;
   } | undefined => {
-    if (!checkWritable()) return;
+    if (!checkWritable(owner)) return;
     const captured = [...files];
     const answers = decisions.map(decision => ({ ...decision, existing: { ...decision.existing, source: decision.existing.source ? { ...decision.existing.source } : null } }));
     let source = current.current.draft;
@@ -395,13 +422,13 @@ export function useExplorerDraft({
       changed: hasChanges(source, candidate.snapshot),
       result: { ...candidate.result, rejections: cloneUploadRejections(candidate.result.rejections) },
       commit: () => {
-        if (completed || committing || !checkWritable()) return;
+        if (completed || committing || !checkWritable(owner)) return;
         committing = true;
         try {
           refresh();
           if (hasChanges(source, candidate.snapshot)) {
-            requireEdit({ action: "upload", parent });
-            if (!checkWritable()) return;
+            requireEdit({ action: "upload", parent }, owner);
+            if (!checkWritable(owner)) return;
             refresh();
           }
           const { snapshot, result } = candidate;
@@ -438,6 +465,7 @@ export function useExplorerDraft({
 
   const discard = useCallback(() => {
     if (!mounted.current) return;
+    if (!canMutate()) throw new Error("メニューの処理が完了するまで変更できません");
     if (currentPolicy.current.readOnly)
       throw new Error("読み取り専用のため変更できません");
     const previous = current.current;
@@ -457,10 +485,10 @@ export function useExplorerDraft({
     } finally {
       endingEdit.current--;
     }
-  }, [commit, emit, finishEdit]);
+  }, [commit, emit, finishEdit, canMutate]);
 
   const save = useCallback(async (windowId = "main"): Promise<boolean> => {
-    if (!mounted.current) return false;
+    if (!mounted.current || !canMutate()) return false;
     if (currentPolicy.current.readOnly || currentPolicy.current.onSave === undefined ||
       current.current.saving || current.current.refreshing || endingEdit.current) return false;
     if (!hasChanges(current.current.baseline, current.current.draft)) {
@@ -474,7 +502,7 @@ export function useExplorerDraft({
       if (!allowed || !requestedId || session.current?.requestId !== requestedId) return false;
     }
     const { readOnly, onSave: saveHandler } = currentPolicy.current;
-    if (!mounted.current || readOnly || !saveHandler || endingEdit.current || current.current.saving || current.current.refreshing ||
+    if (!mounted.current || !canMutate() || readOnly || !saveHandler || endingEdit.current || current.current.saving || current.current.refreshing ||
       session.current?.phase !== "edit") return false;
     const previous = current.current;
     const savingSession = session.current;
@@ -530,11 +558,11 @@ export function useExplorerDraft({
     } finally {
       if (persistenceRequest.current === request) persistenceRequest.current = null;
     }
-  }, [commit, emit, finishEdit, requestEdit]);
+  }, [commit, emit, finishEdit, requestEdit, canMutate]);
 
   const refresh = useCallback(async (): Promise<boolean> => {
     const refreshHandler = currentPolicy.current.onRefresh;
-    if (!mounted.current || typeof refreshHandler !== "function" || current.current.saving || current.current.refreshing ||
+    if (!mounted.current || !canMutate() || typeof refreshHandler !== "function" || current.current.saving || current.current.refreshing ||
       session.current?.phase === "requesting" || endingEdit.current) return false;
     const previous = current.current;
     const previousSession = session.current;
@@ -581,7 +609,7 @@ export function useExplorerDraft({
     } finally {
       if (persistenceRequest.current === request) persistenceRequest.current = null;
     }
-  }, [commit, emit, finishEdit]);
+  }, [commit, emit, finishEdit, canMutate]);
 
   return {
     readOnly,
@@ -604,6 +632,12 @@ export function useExplorerDraft({
     getEditState,
     getEditRevision,
     getEntries,
+    contextMenuBusy,
+    mutationBlocked,
+    canMutate,
+    beginContextMenuOperation,
+    setContextMenuBlocking,
+    endContextMenuOperation,
     prepareAction,
     prepareAdd,
     apply,

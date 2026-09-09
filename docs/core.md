@@ -10,10 +10,32 @@
 | `FeatureFlags` / `resolveFeatureFlags` | 指定されない設定はデフォルトを使い、`false` は機能を無効化 |
 | `chainResult` / `isPromiseLike` | 同期処理の即時性を保ち、必要なときだけPromiseを待つ |
 | `createUnsavedChangesGuard` | dirty時だけウィンドウのネイティブ離脱確認を登録 |
+| `ContextMenuProvider` / `ContextMenuItem` / `ContextMenuResult` | 条件付きのメニュー項目と、親が準備する変更計画 |
+| `createContextMenuExecutor` | 変更計画の準備・確認・反映・キャンセルを管理する。データ変更と描画は各UIへ委譲 |
 
 固有の型はコンポーネント側に残します。ExplorerはファイルID・一覧・差分、Spreadsheetはシート・セル・ワークブックを受け渡します。保存や操作イベントを巨大な共通unionにまとめません。例えば編集許可後の新しい初期データは `EditPermission<Entries, "entries">` と `EditPermission<Workbook, "workbook">` で同じ規則を使います。
 
 観測用の `onEvent` と、結果を待つ `onSave` / `onEditRequest` は役割が異なります。前者の例外は操作を失敗させません。後者の結果やエラーはコンポーネントが検証・反映します。ライフサイクルの詳細と各イベントは各モジュールのガイドを参照してください。
+
+## 条件付きメニューの実行
+
+メニュー定義は `ContextMenuProvider<TContext, TChange, TIcon>` です。Coreはファイル・セル・Reactの型を知らず、各UIが型引数を具体化します。条件判定はメニューを開く際の同期処理、時間がかかる処理は利用者が項目を選んだ後に行います。
+
+ホストの `onSelect(context, operation)` は変更済みデータではなく `{ change, description? }` を返します。Executorはその計画を `prepareChange` で隔離し、対象の妥当性を検証してからUIの反映処理に渡します。`undefined` は外部処理だけでローカル変更がないことを表します。親の入力ダイアログを中止した場合は `DOMException` の `AbortError` をthrowすると `cancelled` として終了します。メニューを閉じたこと自体では、開始した処理をキャンセルしません。
+
+| `contextMenuExecutionMode` | 準備中のローカル変更 | 結果の反映 |
+| --- | --- | --- |
+| `block`（既定） | 禁止。閲覧は可能 | 開始時のデータと対象が維持されていれば反映 |
+| `confirm` | 許可 | 反映内容を確認してから反映。消失・構造変更で対象を特定できない場合は中止 |
+| `reject-if-changed` | 許可 | データが開始時から変わっていたら中止 |
+
+反映中はどのモードでも他の変更を禁止します。Coreの `blocksChanges` を、各UIが共有ドラフト・操作APIのガードへ接続します。反映を開始した処理にだけ内部の所有者トークンを渡すため、結果の反映まで自分でブロックすることはありません。
+
+`apply` に渡す `isCurrent()` は、非同期の編集許可や上書き確認の後、実際にコミットする直前にも確認します。`confirm` では確認時の基準、他のモードでは開始時の基準と比較します。座標などの固有の妥当性は `validateTarget` で検証します。`getRevision` は不変スナップショットの同一参照または単調増加する番号を返し、毎回作り直すコピーを渡してはいけません。
+
+Executorはコンポーネントのデータもサーバーのロックも管理しません。別ユーザーの競合は親の保存処理・バージョン条件・編集許可で扱います。実行終了・キャンセル時には `AbortSignal` をabortし、キャンセルされた処理の遅い応答は適用しません。`onEvent` には `type: "context-menu"` と `start / confirmation-required / success / cancelled / error` を通知します。
+
+組み込み側はアンマウント時に `cancel()` を呼び、アンマウント後の `canRun` をfalseにします。`dispose()` は再使用できない終了処理なので、React StrictModeなどで再接続されるインスタンスには使いません。メニューの表示・フォーカス・確認ダイアログは各UIの責務です。
 
 ## パッケージとコピー導入
 

@@ -17,6 +17,8 @@ export type DraftOperationOptions = SpreadsheetEditIntent & {
   allowSaveStarting?: boolean;
   /** A captured editor or async action may have been cancelled while permission was pending. */
   isCurrent?: () => boolean;
+  /** Private capability used only when publishing a prepared context-menu result. */
+  mutationOwner?: object;
 };
 type HistoryDirection = "past" | "future";
 
@@ -33,6 +35,14 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   const saveStartingRef = useRef(false);
   const savingRef = useRef(false);
   const refreshingRef = useRef(false);
+  const contextMenuOwnerRef = useRef<object | null>(null);
+  const [contextMenuLocked, setContextMenuLocked] = useState(false);
+  const revisionRef = useRef(0);
+  const structureRevisionRef = useRef(0);
+  const setContextMenuLock = useCallback((owner: object | null) => {
+    contextMenuOwnerRef.current = owner;
+    setContextMenuLocked(owner !== null);
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const reportError = useCallback((cause: unknown) => {
     if (lifetimeRef.current) setError(cause instanceof Error ? cause.message : "操作に失敗しました");
@@ -48,11 +58,12 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   }, []);
   const emitEvent = useCallback((event: SpreadsheetEvent) => notifyHost(propsRef.current.onEvent, event), []);
   useEffect(() => { notifyHost(props.onDirtyChange, dirty); }, [props.onDirtyChange, dirty]);
-  const getMutationFailure = useCallback((allowSaveStarting = false): SpreadsheetCommandFailure | null => {
+  const getMutationFailure = useCallback((allowSaveStarting = false, mutationOwner?: object): SpreadsheetCommandFailure | null => {
     if (!lifetimeRef.current) return { ok: false, code: "NOT_MOUNTED", message: "スプレッドシートは表示されていません" };
     if (propsRef.current.readOnly || !propsRef.current.onSave) return { ok: false, code: "READ_ONLY", message: "読み取り専用のため変更できません" };
     if (savingRef.current) return { ok: false, code: "SAVING", message: "保存中のため変更できません" };
     if (refreshingRef.current) return { ok: false, code: "REFRESHING", message: "再読み込み中のため変更できません" };
+    if (contextMenuOwnerRef.current && contextMenuOwnerRef.current !== mutationOwner) return { ok: false, code: "BUSY", message: "右クリックメニューの処理が完了するまで変更できません" };
     if (transactionRef.current || (!allowSaveStarting && saveStartingRef.current)) return { ok: false, code: "BUSY", message: "ほかの操作を処理しています" };
     return null;
   }, []);
@@ -61,6 +72,8 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     setHistoryStatus({ canUndo: false, canRedo: false });
   }, []);
   const replaceBaseline = useCallback((next: Workbook) => {
+    revisionRef.current++;
+    structureRevisionRef.current++;
     workbookRef.current = next;
     savedRef.current = next;
     setWorkbook(next);
@@ -74,11 +87,18 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     const accepted = normalizeWorkbook(next);
     if (!workbooksEqual(accepted, workbookRef.current)) replaceBaseline(accepted);
   }, [replaceBaseline]);
-  const editUnavailable = useCallback(() => getMutationFailure(true), [getMutationFailure]);
+  const editUnavailable = useCallback((owner?: object) => getMutationFailure(true, owner), [getMutationFailure]);
   const edit = useSpreadsheetEditSession({ propsRef, workbookRef, unavailable: editUnavailable,
     acceptBaseline: acceptEditBaseline, emitEvent, readOnly });
 
   const publishChange = useCallback((next: Workbook, source: SpreadsheetChangeSource, commands?: SpreadsheetEditIntent["commands"]) => {
+    const before = workbookRef.current;
+    revisionRef.current++;
+    if (source === "undo" || source === "redo" || commands?.some(command => /^(rows\.|columns\.(insert|delete)|sheets\.(add|delete)|cells\.(merge|unmerge))/.test(command)) ||
+      before.sheets.length !== next.sheets.length || before.sheets.some((sheet, index) => {
+        const current = next.sheets[index];
+        return !current || current.id !== sheet.id || current.rowCount !== sheet.rowCount || current.columnCount !== sheet.columnCount || current.merges !== sheet.merges;
+      })) structureRevisionRef.current++;
     workbookRef.current = next;
     setWorkbook(next);
     setError(null);
@@ -87,7 +107,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   }, [emitEvent]);
   const applyTransaction = useCallback((operation: WorkbookOperation, selection: DraftSelection,
     options: DraftOperationOptions = {}): MaybePromise<DraftCommitResult> => {
-    const unavailable = getMutationFailure(options.allowSaveStarting);
+    const unavailable = getMutationFailure(options.allowSaveStarting, options.mutationOwner);
     if (unavailable) return unavailable;
     if (edit.isEndingEdit()) return { ok: false, code: "BUSY", message: "編集セッションを終了しています" };
     if (edit.getEditState().mode === "requesting") return { ok: false, code: "EDIT_PENDING", message: "編集の許可を確認しています" };
@@ -101,10 +121,10 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     finally { transactionRef.current = false; }
     if (options.synchronous && propsRef.current.onEditRequest && edit.getEditState().mode !== "edit")
       return { ok: false, code: "EDIT_REQUIRED", message: "executeAsync または requestEdit で編集の許可を取得してください" };
-    const permission = edit.requestEdit(options);
+    const permission = edit.requestEdit(options, options.mutationOwner);
     const requestedId = edit.getEditState().requestId;
     const commit = (allowed: boolean): DraftCommitResult => {
-      const failure = getMutationFailure(options.allowSaveStarting);
+      const failure = getMutationFailure(options.allowSaveStarting, options.mutationOwner);
       if (failure) return failure;
       const currentEdit = edit.getEditState();
       if (!allowed || !requestedId || currentEdit.mode !== "edit" || currentEdit.requestId !== requestedId)
@@ -164,13 +184,14 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     return typeof permission === "boolean" ? finish(permission) : permission.then(finish);
   };
   const persistence = useWorkbookPersistence({ workbookRef, savedRef, propsRef, lifetimeRef, savingRef, refreshingRef,
-    saveStartingRef, transactionRef, getMutationFailure, replaceBaseline, reportError, emitEvent, edit });
+    saveStartingRef, transactionRef, contextMenuOwnerRef, getMutationFailure, replaceBaseline, reportError, emitEvent, edit });
   const endEdit = useCallback(() => {
     if (getMutationFailure() || !workbooksEqual(workbookRef.current, savedRef.current)) return false;
     return edit.finishEdit("ended");
   }, [edit, getMutationFailure]);
 
-  return { workbook, workbookRef, propsRef, readOnly, disabled: readOnly || persistence.saving || persistence.refreshing,
+  return { workbook, workbookRef, propsRef, readOnly, disabled: readOnly || persistence.saving || persistence.refreshing || contextMenuLocked,
+    setContextMenuLock, contextMenuLocked, revisionRef, structureRevisionRef,
     dirty, error, setError, reportError, apply, applyTransaction, getMutationFailure, changeHistory, ...historyStatus,
     ...persistence, ...edit, endEdit, emitEvent, resetViewRef };
 }

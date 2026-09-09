@@ -107,6 +107,26 @@ function UploadConflictDialog() {
   );
 }
 
+function ContextMenuConfirmation() {
+  const { customContextMenuState: state, confirmCustomContextMenu, cancelCustomContextMenu } = useExplorerFields(
+    "customContextMenuState", "confirmCustomContextMenu", "cancelCustomContextMenu",
+  );
+  return <Dialog.Root open={state.phase === "confirming"} onOpenChange={open => { if (!open) cancelCustomContextMenu(); }}>
+    <DialogSurface>
+      <div>
+        <Dialog.Title className={titleClass}>処理結果を反映しますか？</Dialog.Title>
+        <Dialog.Description className={descriptionClass}>
+          {state.description || `${state.label}の処理結果を、開始時に指定した対象へ反映します。`}
+        </Dialog.Description>
+      </div>
+      <div className={footerClass}>
+        <button type="button" className={buttonClass} onClick={cancelCustomContextMenu}>キャンセル</button>
+        <button type="button" className={primaryClass} onClick={() => { void confirmCustomContextMenu(); }}>反映する</button>
+      </div>
+    </DialogSurface>
+  </Dialog.Root>;
+}
+
 function UploadConflictContent({ prompt, applying, answer }: {
   prompt: ExplorerUploadPrompt;
   applying: boolean;
@@ -243,6 +263,7 @@ export const ExplorerDialogs = memo(function ExplorerDialogs() {
   return (
     <>
       <UploadConflictDialog />
+      <ContextMenuConfirmation />
       <Dialog.Root
         open={
           !!modalAllowed &&

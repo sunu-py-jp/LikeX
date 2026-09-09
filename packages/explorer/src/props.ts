@@ -10,6 +10,8 @@ import type { ExplorerEventHandler } from "./model/events";
 import type { ExplorerUploadOptions } from "./model/upload";
 import type { ExplorerDownloadHandler } from "./model/download";
 import type { ExplorerSearchHandler, ExplorerSearchOptions } from "./model/search";
+import type { ContextMenuExecutionMode } from "./core";
+import type { ExplorerContextMenuProvider } from "./model/context-menu";
 
 export type ExplorerIconLocation = "list" | "tree" | "tab" | "destination" | "details" | "preview";
 
@@ -47,6 +49,10 @@ export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave
   search?: ExplorerSearchOptions;
   /** Replace name matching with host-owned search; return existing entry IDs in result order. */
   onSearchRequest?: ExplorerSearchHandler;
+  /** Append conditional items to entry/background context menus. Prepare changes; do not mutate in the handler. */
+  getContextMenuItems?: ExplorerContextMenuProvider;
+  /** Defaults to block. Confirm permits concurrent edits and asks before applying; reject-if-changed rejects stale results. */
+  contextMenuExecutionMode?: ContextMenuExecutionMode;
   /** Override file/folder icons. Null/undefined preserve the default icon or thumbnail. */
   renderIcon?: ExplorerIconRenderer;
   /** Optional label at the right of the tab bar. Omitted or blank values are hidden. */

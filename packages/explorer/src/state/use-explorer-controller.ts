@@ -33,6 +33,7 @@ import { dispatchExplorerEvent, type ExplorerViewEvent, type ExplorerLocationInf
 import { useExplorerWindowTabs, type TabViewState } from "./use-explorer-tabs";
 import { getEntryIndex } from "../model/entry-index";
 import { useExplorerUpload } from "./use-explorer-upload";
+import { useExplorerContextMenu } from "./use-explorer-context-menu";
 import { useExplorerListing } from "./use-explorer-listing";
 import { useExplorerSearch } from "./use-explorer-search";
 import { captureClipboardImport } from "./clipboard-import";
@@ -63,6 +64,8 @@ export function useExplorerViewController({
   onDownloadRequest,
   onPreviewRequest,
   onSearchRequest,
+  getContextMenuItems,
+  contextMenuExecutionMode,
   search: searchOptions,
   previewTrigger = "doubleClick",
   onEvent,
@@ -107,10 +110,14 @@ export function useExplorerViewController({
     save,
     discard,
   } = workspace.draft;
-  const busy = saving || refreshing || editMode === "requesting";
+  const busy = saving || refreshing || editMode === "requesting" || workspace.draft.mutationBlocked;
   const currentDraft = useRef(workspace.draft);
   useInsertionEffect(() => { currentDraft.current = workspace.draft; }, [workspace.draft]);
-  const cancelEditRequest = workspace.draft.cancelEditRequest;
+  const cancelEditRequest = useCallback((sourceWindowId?: string) => {
+    // Browsing may continue while a custom action owns its captured target.
+    // Its own AbortSignal handles cancellation of its permission request.
+    if (!currentDraft.current.contextMenuBusy) currentDraft.current.cancelEditRequest(sourceWindowId);
+  }, []);
   useLayoutEffect(() => {
     mounted.current = true;
     const cancelPending = () => cancelEditRequest(windowId);
@@ -317,7 +324,7 @@ export function useExplorerViewController({
   /** Preserve the gesture's targets across authorization; never replay a stale view. */
   function runEdit(intent: ExplorerEditIntent, operation: () => boolean, onError?: (error: unknown) => void): boolean | Promise<boolean> {
     const draft = currentDraft.current;
-    if (!mounted.current || draft.saving || draft.refreshing || currentOptions.current.readOnly) return false;
+    if (!mounted.current || !draft.canMutate() || draft.saving || draft.refreshing || currentOptions.current.readOnly) return false;
     if (intent.action !== "upload" && intent.action !== "save" && !canAct(intent.action, currentOptions.current)) return false;
     const origin = workspace.tabs.forWindow(windowId);
     const tabId = origin.activeTabId;
@@ -327,7 +334,7 @@ export function useExplorerViewController({
     const result = draft.requestEdit({ ...intent, windowId });
     const requestId = draft.getEditState().requestId;
     const finish = (allowed: boolean) => {
-      if (!mounted.current || currentOptions.current.readOnly || ownerDocument?.defaultView?.closed) return false;
+      if (!mounted.current || !draft.canMutate() || currentOptions.current.readOnly || ownerDocument?.defaultView?.closed) return false;
       const session = draft.getEditState();
       if (!allowed) {
         if (session.error && (typeof result === "boolean" || session.errorRequestId === requestId)) {
@@ -985,6 +992,10 @@ export function useExplorerViewController({
     runEdit,
     notify,
   });
+  const customMenu = useExplorerContextMenu({ workspace, options, provider: getContextMenuItems,
+    mode: contextMenuExecutionMode, readFile, windowId, ownerDocument,
+    tabId: tabState.activeTabId, selected, location: locationInfo,
+    container: workspaceRef, upload: uploadImport, notify, emitEvent });
   function addLocalFiles(files: File[], source: "file" | "folder" = "file", parent = currentParent) {
     return uploadImport.start(files, parent, source === "folder" || files.some(file => !!file.webkitRelativePath));
   }
@@ -1315,6 +1326,13 @@ export function useExplorerViewController({
     drop,
     addLocalFiles,
     uploadPrompt: uploadImport.prompt,
+    hasCustomContextMenu: !!getContextMenuItems,
+    getCustomContextMenu: customMenu.getMenu,
+    runCustomContextMenu: customMenu.run,
+    customContextMenuState: customMenu.state,
+    customContextMenuBusy: workspace.draft.contextMenuBusy,
+    confirmCustomContextMenu: customMenu.confirm,
+    cancelCustomContextMenu: customMenu.cancel,
     uploadApplying: uploadImport.applying,
     answerUploadConflict: uploadImport.answer,
     cancelUpload: uploadImport.cancel,

@@ -1,6 +1,8 @@
 import type { CSSProperties, Ref } from "react";
 import type { SpreadsheetCellPosition, SpreadsheetWorkbook } from "./model/types";
 import type { SpreadsheetHandle } from "./api/types";
+import type { ContextMenuExecutionMode } from "./core";
+import type { SpreadsheetContextMenuProvider } from "./api/context-menu";
 import type { SpreadsheetFeatures } from "./api/features";
 import type { SpreadsheetBeforeSaveHandler, SpreadsheetEditHandler, SpreadsheetEventHandler, SpreadsheetRefreshHandler, SpreadsheetSaveHandler } from "./api/lifecycle";
 export type { SpreadsheetFeatures } from "./api/features";
@@ -48,6 +50,10 @@ export type SpreadsheetProps = {
   warnOnUnsavedChanges?: boolean;
   readOnly?: boolean;
   features?: SpreadsheetFeatures;
+  /** Additional cell menu items. Return an empty array to hide them for a target. */
+  getContextMenuItems?: SpreadsheetContextMenuProvider;
+  /** Defaults to block. Handlers return proposed changes, which are applied after this policy. */
+  contextMenuExecutionMode?: ContextMenuExecutionMode;
   onSelectionChange?: (selection: SpreadsheetSelection) => void;
   colorMode?: SpreadsheetColorMode;
   title?: string;

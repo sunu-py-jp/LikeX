@@ -12,6 +12,8 @@ export type {
   ExplorerIconRenderer,
 } from "./props";
 export type { ExplorerItemInfo } from "./model/item-info";
+export type { ExplorerContextMenuContext, ExplorerContextMenuChange, ExplorerContextMenuItem, ExplorerContextMenuProvider } from "./model/context-menu";
+export type { ContextMenuExecutionMode } from "./core";
 export type {
   ExplorerSearchOptions,
   ExplorerSearchRequest,

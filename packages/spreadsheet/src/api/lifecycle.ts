@@ -1,4 +1,4 @@
-import type { EditEndReason, EditMode, EditRequestHandler, EventHandler, MaybePromise, OperationContext, RequestHandler } from "../core";
+import type { ContextMenuExecutionEvent, EditEndReason, EditMode, EditRequestHandler, EventHandler, MaybePromise, OperationContext, RequestHandler } from "../core";
 import type { SpreadsheetWorkbook } from "../model/types";
 import type { SpreadsheetSelection } from "../props";
 import type { SpreadsheetCommand, SpreadsheetWorkbookSnapshot } from "./types";
@@ -30,6 +30,7 @@ export type SpreadsheetRefreshHandler = (context: OperationContext) => MaybeProm
 /** Explicit consent to replace both committed changes and unfinished input. */
 export type SpreadsheetDiscardOptions = Readonly<{ discardChanges?: boolean }>;
 export type SpreadsheetEvent =
+  | ContextMenuExecutionEvent
   | Readonly<{ type: "change"; source: SpreadsheetChangeSource; workbook: SpreadsheetWorkbookSnapshot; commands?: readonly SpreadsheetCommand["type"][] }>
   | Readonly<{ type: "save"; status: "start" | "success"; requestId: string; workbook: SpreadsheetWorkbookSnapshot }>
   | Readonly<{ type: "save"; status: "error"; requestId: string; message: string }>
