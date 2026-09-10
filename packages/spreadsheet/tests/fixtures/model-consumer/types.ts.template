@@ -1,0 +1,27 @@
+import {
+  applySpreadsheetCommands, createWorkbook, parseWorkbook, serializeWorkbook,
+  type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot,
+} from '__MODEL_IMPORT__';
+
+const commands: readonly SpreadsheetCommand[] = [
+  { type: 'rows.insert', sheetId: 'sheet-1', index: 1, count: 2 },
+  { type: 'cells.set', sheetId: 'sheet-1', values: { A2: '100', A3: '=SUM(B1:B2)' } },
+];
+const snapshot: SpreadsheetWorkbookSnapshot = createWorkbook();
+const result = applySpreadsheetCommands(snapshot, commands, { features: { shapes: false } });
+if (result.ok) {
+  const changed: boolean = result.changed;
+  const json: string = serializeWorkbook(result.workbook);
+  void [changed, parseWorkbook(json), result.results];
+} else {
+  const index: number | undefined = result.commandIndex;
+  // @ts-expect-error Failed batches do not return a partial workbook.
+  void result.workbook;
+  void index;
+}
+// @ts-expect-error Cell inputs are strings, including numbers and formulas.
+applySpreadsheetCommands(snapshot, [{ type: 'cells.set', sheetId: 'sheet-1', values: { A1: 42 } }]);
+// @ts-expect-error A target sheet is required.
+applySpreadsheetCommands(snapshot, [{ type: 'rows.insert', index: 0 }]);
+// @ts-expect-error Feature names are checked.
+applySpreadsheetCommands(snapshot, commands, { features: { magic: true } });

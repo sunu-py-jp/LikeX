@@ -1,7 +1,7 @@
-import type { SpreadsheetCommand, SpreadsheetCommandErrorCode } from "../../api/types";
-import { parseCellAddress } from "../../model/address";
-import type { SpreadsheetSheet, SpreadsheetWorkbook } from "../../model/types";
-import type { SpreadsheetFeatureSettings } from "../features";
+import type { SpreadsheetCommand, SpreadsheetCommandErrorCode } from "./types";
+import { parseCellAddress } from "../model/address";
+import type { SpreadsheetSheet, SpreadsheetWorkbook } from "../model/types";
+import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 
 export class SpreadsheetCommandError extends Error {
   constructor(readonly code: SpreadsheetCommandErrorCode, message: string) { super(message); }

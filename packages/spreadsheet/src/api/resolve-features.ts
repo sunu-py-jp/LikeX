@@ -1,4 +1,4 @@
-import type { SpreadsheetFeatures } from "../api/features";
+import type { SpreadsheetFeatures } from "./features";
 
 export type SpreadsheetFeatureSettings = Required<SpreadsheetFeatures>;
 

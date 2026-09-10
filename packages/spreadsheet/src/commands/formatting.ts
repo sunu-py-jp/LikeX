@@ -1,8 +1,8 @@
-import type { SpreadsheetFormattingCommand } from "../../api/formatting-commands";
-import { conditionalFormatsEqual, normalizeConditionalFormats } from "../../model/conditional-formatting";
-import { normalizeSizes } from "../../model/workbook/validation";
-import type { SpreadsheetWorkbook } from "../../model/types";
-import { getWorkbookSheet, replaceWorkbookSheet } from "../../model/workbook/snapshot";
+import type { SpreadsheetFormattingCommand } from "../api/formatting-commands";
+import { conditionalFormatsEqual, normalizeConditionalFormats } from "../model/conditional-formatting";
+import { normalizeSizes } from "../model/workbook/validation";
+import type { SpreadsheetWorkbook } from "../model/types";
+import { getWorkbookSheet, replaceWorkbookSheet } from "../model/workbook/snapshot";
 export function stageFormattingCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetFormattingCommand): SpreadsheetWorkbook {
   const sheet = getWorkbookSheet(workbook, command.sheetId);
   if (command.type === "dimensions.resize") {

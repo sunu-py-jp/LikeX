@@ -5,7 +5,7 @@ import { act, createElement, createRef } from 'react';
 import { create } from 'react-test-renderer';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-const output = await build({ stdin: { contents: 'export { default as Spreadsheet } from "./src"; export * from "./src/state/features"; export * from "./src/state/commands/stage-spreadsheet-commands"; export { normalizeWorkbook } from "./src/model";',
+const output = await build({ stdin: { contents: 'export { default as Spreadsheet } from "./src"; export * from "./src/api/resolve-features"; export * from "./src/commands/stage-spreadsheet-commands"; export { normalizeWorkbook } from "./src/model";',
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'feature-test.tsx' },
   bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
   plugins: [{ name: 'shared-react', setup(builder) {

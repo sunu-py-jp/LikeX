@@ -37,22 +37,38 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
   await mkdir(path.join(packageRoot, 'dist'), { recursive: true });
   if (profile.ui) await writeFile(path.join(packageRoot, 'dist/styles.css'), css);
   await mkdir(artifactRoot, { recursive: true });
-  const result = await build({
+  const buildOptions = {
     absWorkingDir: projectRoot,
-    entryPoints: [path.join(sourceRoot, 'index.ts')],
-    outfile: path.join(packageRoot, 'dist/index.js'),
     bundle: true, format: 'esm', platform: 'browser', target: 'es2022',
     packages: 'external', jsx: 'automatic', metafile: true,
     sourcemap: true, sourcesContent: true, minify: false,
     // The source entry begins with "use client"; esbuild preserves that boundary.
     legalComments: 'eof',
+  };
+  const result = await build({ ...buildOptions,
+    entryPoints: [path.join(sourceRoot, 'index.ts')], outfile: path.join(packageRoot, 'dist/index.js'),
   });
-  for (const input of Object.keys(result.metafile.inputs)) {
+  const headlessEntries = {};
+  const headlessResults = [];
+  for (const [name, source] of Object.entries(profile.headlessEntries ?? {})) {
+    const built = await build({ ...buildOptions, platform: 'neutral',
+      entryPoints: [path.join(sourceRoot, source)], outfile: path.join(packageRoot, `dist/${name}.js`),
+    });
+    const code = await readFile(path.join(packageRoot, `dist/${name}.js`), 'utf8');
+    if (/^['"]use client['"];/.test(code)) throw new Error(`Headless entry ${name} must not be a client boundary.`);
+    for (const output of Object.values(built.metafile.outputs))
+      if (output.imports.length) throw new Error(`Headless entry ${name} must not load runtime dependencies.`);
+    headlessEntries[name] = { source, javascriptBytes: Buffer.byteLength(code), gzipBytes: gzipSync(code).length };
+    headlessResults.push(built);
+  }
+  const buildResults = [result, ...headlessResults];
+  const sourceFiles = new Set(buildResults.flatMap(built => Object.keys(built.metafile.inputs)));
+  for (const input of sourceFiles) {
     if (!path.resolve(projectRoot, input).startsWith(sourceRoot + path.sep))
       throw new Error(`Library imports a file outside packages/${module}/src: ${input}`);
   }
   const declared = new Set([...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})]);
-  for (const output of Object.values(result.metafile.outputs)) for (const imported of output.imports) {
+  for (const built of buildResults) for (const output of Object.values(built.metafile.outputs)) for (const imported of output.imports) {
     if (!imported.external) continue;
     const parts = imported.path.split('/');
     const dependency = imported.path.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
@@ -63,7 +79,7 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
   if (!profile.ui && /^['"]use client['"];/.test(javascript)) throw new Error('The core entry must remain usable outside React clients.');
 
   const declarationRoot = path.join(packageRoot, 'dist/types');
-  const program = ts.createProgram([path.join(sourceRoot, 'index.ts')], {
+  const program = ts.createProgram(['index.ts', ...Object.values(profile.headlessEntries ?? {})].map(source => path.join(sourceRoot, source)), {
     target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler, jsx: ts.JsxEmit.ReactJSX,
     strict: true, skipLibCheck: true, esModuleInterop: true,
@@ -106,7 +122,7 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
     gzipBytes: gzipSync(javascript).length, declarationFiles: (await declarationFiles(declarationRoot)).length,
     stylesheetBytes: Buffer.byteLength(css), stylesheetGzipBytes: profile.ui ? gzipSync(css).length : 0,
     publishBlocked: manifest.private === true, license: manifest.license, dependencies: [...declared].sort(),
-    sourceFiles: Object.keys(result.metafile.inputs).length };
+    sourceFiles: sourceFiles.size, ...(headlessResults.length ? { headlessEntries } : {}) };
   await writeFile(path.join(artifactRoot, 'library-build.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify(report, null, 2));
   return report;

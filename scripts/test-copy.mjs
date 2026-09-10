@@ -10,6 +10,7 @@ import { dependencyOrder, libraryModule, requestedModules } from './lib/modules.
 import { assertSourceBoundary } from './lib/source-boundary.mjs';
 import { consumerDevDependencies, consumerDependencies, copyConsumerFixtures,
   checkConsumerTypes, checkConsumerStyles, checkConsumerNext } from './lib/consumer.mjs';
+import { checkSpreadsheetModelConsumer } from './lib/spreadsheet-model-consumer.mjs';
 
 async function testConsumer(module) {
   const { artifactRoot, packageRoot, sourceRoot, npmCacheRoot, ui } = libraryModule(module);
@@ -81,11 +82,12 @@ async function testConsumer(module) {
     const styles = ui ? await checkConsumerStyles(consumer, { module, cssFile: path.join(copiedSource, 'styles.css'),
       originCss: await readFile(path.join(sourceRoot, 'styles.css'), 'utf8'), reportPrefix: 'copy-consumer' }) : {};
     const nextStyles = withNext ? await checkConsumerNext(consumer, { module, tsconfig, testedVersions, reportPrefix: 'copy-consumer' }) : undefined;
+    const headlessModel = module === 'spreadsheet' ? await checkSpreadsheetModelConsumer({ sourceDirectory: copiedSource }) : undefined;
     const report = {
       source: `packages/${module}/src copied to components/${module} in a temporary project outside the repository`,
       ...(ui ? { coreSource: 'packages/core/src copied unchanged to components/core', adapterChange: 'core.ts: export * from "../core";' } : {}),
       copiedSourceFiles, packageImportAvailable: false, installMode, linkedDependencies, testedVersions, dependencyLocations,
-      networkInstallationTested: online, typeResolution: 'Bundler, strict, skipLibCheck=false; no aliases',
+      networkInstallationTested: online, typeResolution: 'Bundler, strict, skipLibCheck=false; no aliases', ...(headlessModel ? { headlessModel } : {}),
       ...(ui ? { ssrBytes: ssr.renderedBytes, stylesheetImport: `components/${module}/styles.css` } : { nodeImport: 'passed without React or browser globals' }), ...styles, ...nextStyles,
       nextProductionBuild: !ui ? 'not applicable (headless core)' : withNext ? 'passed (standard Next App Router, webpack, Next default skipLibCheck=true)' : 'not requested; add --next',
     };

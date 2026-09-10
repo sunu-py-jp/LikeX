@@ -7,6 +7,7 @@ import { run, runNpm } from './lib/run.mjs';
 import { dependencyOrder, libraryModule, requestedModules } from './lib/modules.mjs';
 import { consumerDevDependencies, consumerDependencies, copyConsumerFixtures,
   checkConsumerTypes, checkConsumerStyles, checkConsumerNext } from './lib/consumer.mjs';
+import { checkSpreadsheetModelConsumer } from './lib/spreadsheet-model-consumer.mjs';
 
 async function testConsumer(module) {
   const { artifactRoot, packageRoot, npmCacheRoot, ui } = libraryModule(module);
@@ -135,10 +136,11 @@ async function testConsumer(module) {
   const nextStyles = withNext ? await checkConsumerNext(consumer, { module,
     tsconfig, testedVersions, reportPrefix: 'package-consumer', dependencies: { [packageName]: `file:${tarball}` },
   }) : undefined;
+  const headlessModel = module === 'spreadsheet' ? await checkSpreadsheetModelConsumer({ installed }) : undefined;
   const report = { packageName, tarball: packed.filename, integrity: packed.integrity, installMode, linkedDependencies, testedVersions, dependencyLocations,
     documentationFiles: documentFiles.length, documentationLinks,
     source: 'unpacked tarball', dependencyTarballs: dependenciesToInstall.map(dependency => dependency.name), networkInstallationTested: online,
-    typeResolution: 'NodeNext, strict, skipLibCheck=false',
+    typeResolution: 'NodeNext, strict, skipLibCheck=false', ...(headlessModel ? { headlessModel } : {}),
     ...(ui ? { ssrBytes: ssr.renderedBytes, stylesheetImport: `${packageName}/styles.css` } : { nodeImport: 'passed without React or browser globals' }), ...styles, ...nextStyles,
     nextProductionBuild: !ui ? 'not applicable (headless core)' : withNext ? 'passed (standard Next App Router, webpack, Next default skipLibCheck=true)' : 'not requested; add --next',
   };

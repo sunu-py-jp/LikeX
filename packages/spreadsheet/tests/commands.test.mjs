@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { jpegHeader, pngHeader } from './image-fixtures.mjs';
 
-const output = await build({ stdin: { contents: 'export * from "./src/state/commands/stage-spreadsheet-commands"; export * from "./src/state/features"; export * from "./src/model";',
+const output = await build({ stdin: { contents: 'export * from "./src/commands/stage-spreadsheet-commands"; export * from "./src/api/resolve-features"; export * from "./src/model";',
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'commands-entry.ts' }, bundle: true, platform: 'node', format: 'esm', write: false });
 const { stageSpreadsheetCommands, MAX_SPREADSHEET_COMMANDS, resolveSpreadsheetFeatures, createWorkbook, normalizeWorkbook,
   serializeWorkbook, parseWorkbook, setCellValues, addSheet, workbooksEqual } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);

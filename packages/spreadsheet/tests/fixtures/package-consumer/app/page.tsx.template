@@ -1,5 +1,6 @@
 import Spreadsheet, { type SpreadsheetWorkbook } from "__LIBRARY_IMPORT__";
 import ClientSpreadsheet from "./client";
+import { applySpreadsheetCommands } from "__LIBRARY_MODEL__";
 
 const workbook: SpreadsheetWorkbook = { sheets: [{ id: "server-sheet", name: "Server sheet", rowCount: 6, columnCount: 4,
   cells: { A1: { value: "Spreadsheet consumer cell" }, B1: { value: "4" }, C1: { value: "=SUM(B1,6)" } } }] };
@@ -7,9 +8,15 @@ const workbook: SpreadsheetWorkbook = { sheets: [{ id: "server-sheet", name: "Se
 // A Server Component imports the library entry directly. Its own use-client
 // boundary must allow a serializable workbook to cross into the component.
 export default function Page() {
+  // This runs on the server, before any Spreadsheet component is created.
+  const result = applySpreadsheetCommands(workbook, [
+    { type: "rows.insert", sheetId: "server-sheet", index: 1 },
+    { type: "cells.set", sheetId: "server-sheet", values: { A2: "Server model command cell" } },
+  ]);
+  if (!result.ok) throw new Error(result.message);
   return <main>
     <h1>Spreadsheet package consumer</h1>
-    <Spreadsheet initialWorkbook={workbook} title="Server spreadsheet" style={{ height: 360 }} />
+    <Spreadsheet initialWorkbook={result.workbook} title="Server spreadsheet" style={{ height: 360 }} />
     <ClientSpreadsheet />
   </main>;
 }

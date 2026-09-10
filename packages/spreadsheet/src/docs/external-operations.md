@@ -4,6 +4,8 @@
 
 `Spreadsheet` に `ref` を渡すと、GUIを操作せずに表示中の下書きを変更できます。コマンドはシートIDと位置を明示し、現在選択されているシートやセルに依存しません。変更は内部の履歴・再計算・`onChange` の対象となり、保存は従来どおり `onSave` が担当します。
 
+コンポーネント自体を表示しない場合は、[画面なしでJSONを編集する](./headless.md)の `applySpreadsheetCommands` を使います。同じコマンド形式で、Node.jsやAIエージェントの処理から保存JSONを編集できます。
+
 ## 最小例
 
 ```tsx
@@ -197,6 +199,6 @@ if (!result.ok) console.error(result.message);
 
 ## 初期データ作成との使い分け
 
-`createWorkbook` / `setCellValues` / `insertRows` / `addDrawing` などの公開モデル関数は、表示前のブック作成や、表示と独立した加工に引き続き使えます。これらは結果のブックを返すだけで、表示中の下書きを置き換えません。表示中の変更にはhandleを使います。
+`@likex/spreadsheet/model` の `applySpreadsheetCommands` と、`createWorkbook` / `setCellValues` / `insertRows` / `addDrawing` などの公開モデル関数は、表示前のブック作成や、表示と独立した加工に使えます。これらは結果のブックを返すだけで、表示中の下書きを置き換えません。表示中の変更にはhandleを使います。JSONの読み込みから出力までの具体例は[画面なしでJSONを編集する](./headless.md)にまとめています。
 
 任意のブック更新関数や内部のstateを外へ公開せず、追加する操作は `SpreadsheetCommand`、共通の実行処理、モデル操作へ分けて実装します。[内部構成と拡張の方針](./architecture.md)も参照してください。

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 
 const output = await build({ stdin: { contents: `export * from './src/model'; export * from './src/model/data-validation';
-export * from './src/model/workbook/data-validation'; export * from './src/state/commands/stage-spreadsheet-commands';
-export * from './src/state/features'; export * from './src/export/xlsx/data-validation';
+export * from './src/model/workbook/data-validation'; export * from './src/commands/stage-spreadsheet-commands';
+export * from './src/api/resolve-features'; export * from './src/export/xlsx/data-validation';
 export * from './src/state/clipboard/cell-transfer';`,
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'data-validation-entry.ts' }, bundle: true, platform: 'node', format: 'esm', write: false });
 const { createWorkbook, normalizeWorkbook, parseWorkbook, serializeWorkbook, setCellValues, formatCells, workbooksEqual,

@@ -1,8 +1,8 @@
-import type { SpreadsheetDataValidationCommand } from "../../api/data-validation-commands";
-import type { SpreadsheetCommandReceipt } from "../../api/types";
-import { setCellDataValidation } from "../../model/workbook/data-validation";
-import type { SpreadsheetWorkbook } from "../../model/types";
-import type { SpreadsheetFeatureSettings } from "../features";
+import type { SpreadsheetDataValidationCommand } from "../api/data-validation-commands";
+import type { SpreadsheetCommandReceipt } from "./types";
+import { setCellDataValidation } from "../model/workbook/data-validation";
+import type { SpreadsheetWorkbook } from "../model/types";
+import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { rejectCommand, requireCommandAddress, requireCommandFeature, requireCommandSheet } from "./validation";
 
 export function applyDataValidationCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetDataValidationCommand,

@@ -1,12 +1,12 @@
-import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandReceipt, SpreadsheetCommandSuccess } from "../../api/types";
-import { cellAddress, parseCellAddress } from "../../model/address";
-import { workbooksEqual } from "../../model/equality";
-import { mergedCellPosition } from "../../model/merges";
+import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandReceipt, SpreadsheetCommandSuccess } from "./types";
+import { cellAddress, parseCellAddress } from "../model/address";
+import { workbooksEqual } from "../model/equality";
+import { mergedCellPosition } from "../model/merges";
 import { deleteColumns, deleteRows, deleteSheet, formatCells, insertColumns, insertRows, mergeCells, moveSheet, renameSheet,
-  resizeColumn, setCellComment, setCellValues, unmergeCells } from "../../model/workbook";
-import { addSheetWithId } from "../../model/workbook/sheets";
-import type { SpreadsheetWorkbook } from "../../model/types";
-import type { SpreadsheetFeatureSettings } from "../features";
+  resizeColumn, setCellComment, setCellValues, unmergeCells } from "../model/workbook";
+import { addSheetWithId } from "../model/workbook/sheets";
+import type { SpreadsheetWorkbook } from "../model/types";
+import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { applyDrawingCommand } from "./drawings";
 import { applyDataValidationCommand } from "./data-validation";
 import { stageFormattingCommand } from "./formatting";

@@ -6,7 +6,7 @@ import { notifyHost, type MaybePromise } from "../core";
 import type { SpreadsheetCommand, SpreadsheetCommandSuccess } from "../api/types";
 import type { SpreadsheetDiscardOptions } from "../api/lifecycle";
 import type { SpreadsheetProps } from "../props";
-import { resolveSpreadsheetFeatures } from "./features";
+import { resolveSpreadsheetFeatures } from "../api/resolve-features";
 import type { Workbook, WorkbookOperation } from "./types";
 import { useCellEdit } from "./use-cell-edit";
 import { usePendingObjectEdits } from "./use-pending-object-edits";

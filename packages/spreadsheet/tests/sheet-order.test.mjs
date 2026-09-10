@@ -5,7 +5,7 @@ import { act, createElement, createRef } from 'react';
 import { create } from 'react-test-renderer';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-const output = await build({ stdin: { contents: 'export * from "./src/model"; export * from "./src/state/features"; export * from "./src/state/commands/stage-spreadsheet-commands"; export * from "./src/state/use-spreadsheet"; export * from "./src/api/use-spreadsheet-handle";',
+const output = await build({ stdin: { contents: 'export * from "./src/model"; export * from "./src/api/resolve-features"; export * from "./src/commands/stage-spreadsheet-commands"; export * from "./src/state/use-spreadsheet"; export * from "./src/api/use-spreadsheet-handle";',
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'sheet-order-test.ts' },
   bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'shared-react', setup(builder) {

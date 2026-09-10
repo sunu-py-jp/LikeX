@@ -60,6 +60,7 @@ export async function copyConsumerFixtures(consumer, { module = 'explorer', pack
       }
       const contents = (await readFile(path.join(source, item.name), 'utf8'))
         .replaceAll('__LIBRARY_IMPORT__', imported)
+        .replaceAll('__LIBRARY_MODEL__', sourceDirectory ? `${imported}/model-entry` : `${packageName}/model`)
         .replaceAll('__LIBRARY_RESOLVE__', sourceDirectory ? `${imported}/index.ts` : packageName)
         .replaceAll('__LIBRARY_STYLES__', `${imported}/styles.css`)
         .replaceAll('__EXPLORER_IMPORT__', imported)
@@ -176,6 +177,7 @@ export async function checkConsumerNext(consumer, { tsconfig, testedVersions, re
   assert.ok(existsSync(path.join(consumer, '.next/BUILD_ID')));
   const html = await readFile(path.join(consumer, '.next/server/app/index.html'), 'utf8');
   assert.ok(html.includes(profile.serverText), `Server-imported ${module} content was not rendered`);
+  if (module === 'spreadsheet') assert.ok(html.includes('Server model command cell'), 'Server-side model commands were not rendered');
   const stylesheets = [...new Set([...html.matchAll(/href="(\/_next\/static\/css\/[^"?]+\.css)(?:\?[^\"]*)?"/g)].map(match => match[1]))];
   assert.ok(stylesheets.length, 'The production page does not load any stylesheet');
   const emittedCss = (await Promise.all(stylesheets.map(url => readFile(path.join(consumer, '.next', url.slice('/_next/'.length)), 'utf8')))).join('\n');

@@ -5,7 +5,7 @@ import { build } from 'esbuild';
 const output = await build({ stdin: { contents: `export * from './src/model';
 export * from './src/model/editing/search'; export * from './src/model/editing/paste'; export * from './src/model/editing/fill';
 export { formatCellValue } from './src/model/formatting'; export { duplicateSheetWithIds } from './src/model/workbook/sheets';
-export { stageSpreadsheetCommands } from './src/state/commands/stage-spreadsheet-commands'; export { resolveSpreadsheetFeatures } from './src/state/features';
+export { stageSpreadsheetCommands } from './src/commands/stage-spreadsheet-commands'; export { resolveSpreadsheetFeatures } from './src/api/resolve-features';
 export { captureCopiedCells, prepareCellPaste } from './src/state/clipboard/cell-transfer';`,
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'editing-model.ts' }, bundle: true, platform: 'node', format: 'esm', write: false });
 const m = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);

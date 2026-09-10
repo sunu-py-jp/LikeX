@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { SpreadsheetProps, SpreadsheetSelection } from "../props";
-import type { SpreadsheetFeatureSettings } from "./features";
+import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { notifySpreadsheetHost } from "./notifications";
 import { clampPosition, createSelection, initialSheetSelection, selectionForSheet, selectionRanges, toggleRangeSelection } from "./selection";
 import type { Position, ReportError, SelectionUpdate, Workbook } from "./types";

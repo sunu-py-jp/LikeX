@@ -2,7 +2,7 @@
 
 Spreadsheetは、ブックを変更する純粋な処理、React上の編集状態、画面とブラウザ操作を分けています。機能を追加するときも、UIからブックを直接書き換えず、この境界に沿って実装します。
 
-公開入口は `index.ts`、利用側への契約は `props.ts`・`api/`・`model/types.ts` です。パッケージからは公開入口をimportしてください。内部ファイルの配置は公開APIではなく、将来変更できます。コピー導入ではSpreadsheetの `src/` 全体とcoreの `src/` を隣接フォルダに配置し、`core.ts` のimport先1か所を変更します。
+公開入口はUI用の `index.ts` と、画面なしでJSONを加工する `model-entry.ts` です。パッケージではそれぞれ `@likex/spreadsheet` と `@likex/spreadsheet/model` からimportします。利用側への契約は `props.ts`・`api/`・`model/types.ts`・`commands/` の公開型に定義します。内部ファイルの配置は公開APIではなく、将来変更できます。コピー導入ではSpreadsheetの `src/` 全体とcoreの `src/` を隣接フォルダに配置し、`core.ts` のimport先1か所を変更します。
 
 ## 依存の方向
 
@@ -10,17 +10,21 @@ Spreadsheetは、ブックを変更する純粋な処理、React上の編集状�
 flowchart TD
   Host[利用側: 保存・編集許可・再読込・通知] --> Component[Spreadsheet: 組み立て]
   Host --> Handle[api: 型付き外部操作]
+  Host --> Headless[model-entry: 画面なしの操作]
+  Headless --> Commands[commands: コマンド検証・一括準備]
   Handle --> State
   Component --> UI[ui: 表示・入力イベント]
   Component --> State[state: 編集状態・操作の調整]
   UI --> State
   State --> Model[model: データ検証・不変なブックの変更]
+  State --> Commands
+  Commands --> Model
   UI --> Model
   State --> Clipboard[clipboard/browser-clipboard: ブラウザAPI]
   State --> Core[core: 共通契約・通知・非同期・離脱確認]
 ```
 
-矢印は利用・依存の方向です。`model/` はReact・DOM・`state/`・`ui/` に依存しません。`state/` から `ui/` も参照しません。coreにもReactやSpreadsheet固有のブック型・状態は持たせません。表示上の寸法の既定値を含め、モデルと画面で共通の値は `model/sheet-dimensions.ts` に置きます。
+矢印は利用・依存の方向です。`model/` と `commands/` はReact・DOM・`state/`・`ui/` に依存しません。`state/` から `ui/` も参照しません。coreにもReactやSpreadsheet固有のブック型・状態は持たせません。表示上の寸法の既定値を含め、モデルと画面で共通の値は `model/sheet-dimensions.ts` に置きます。
 
 ## ファイルの役割
 
@@ -28,6 +32,7 @@ flowchart TD
 
 | 場所 | 責務 |
 | --- | --- |
+| `model-entry.ts` | ReactやDOMを読み込まない公開入口。モデル関数、コマンド型、一括適用関数を公開 |
 | `api/types.ts`・`api/use-spreadsheet-handle.ts` | 公開コマンド型・結果型・読み取り専用snapshotと、安定したrefの接続 |
 | `api/lifecycle.ts`・`api/features.ts` | 注入する処理・イベント・編集許可・機能設定の公開型 |
 | `core.ts` | `@likex/core` への入口。コピー導入時の参照先変更もここだけで行う |
@@ -45,7 +50,8 @@ flowchart TD
 | `styles.css`・`ui/*.css` | CSSの単一入口と画面機能ごとのスタイル。パッケージはビルド時に1ファイルへ結合 |
 | `model/serialization.ts` | JSONの読み書き |
 | `state/use-spreadsheet.ts` | 下記の状態を組み合わせ、UI用のコントローラーを提供 |
-| `state/commands/`・`state/use-spreadsheet-commands.ts` | GUIと外部APIで共有するコマンドの検証・準備と、1回のトランザクションへの反映 |
+| `commands/` | GUI・ref・画面なしの操作で共用するコマンドの検証・準備と、ブックへ一括適用する公開API |
+| `state/use-spreadsheet-commands.ts` | 共有コマンド処理を、表示中の下書き・選択・編集許可・履歴へ接続 |
 | `state/read-image.ts` | File / Blobの画像検証とJSONリソースへの変換。`prepareSpreadsheetImage` として公開 |
 | `state/use-workbook-draft.ts` | 下書き、変更履歴、変更の準備と反映、編集許可・保存処理の接続 |
 | `state/use-spreadsheet-edit-session.ts` | 編集許可の取得、キャンセル、セッションとAbortSignalの寿命 |
@@ -54,7 +60,8 @@ flowchart TD
 | `state/use-spreadsheet-selection.ts`・`selection.ts` | 選択状態と、範囲の計算・検証 |
 | `state/use-cell-edit.ts` | 入力中の文字列、確定・キャンセル |
 | `state/use-pending-object-edits.ts` | コメントや図形など、未確定の入力があるかの管理 |
-| `state/features.ts`・`types.ts`・`notifications.ts` | 機能設定の解決、内部の連携型、親への通知 |
+| `api/resolve-features.ts` | GUIと画面なしの操作で共用する機能設定の解決 |
+| `state/types.ts`・`notifications.ts` | 内部の連携型、親への通知 |
 | `state/clipboard/cell-transfer.ts` | コピーするデータの抽出、貼り付けの検証とブック変更。React・ブラウザAPIは使わない |
 | `state/clipboard/browser-clipboard.ts` | ブラウザのクリップボードの読み書き |
 | `state/use-spreadsheet-clipboard.ts` | 上記の連携、切り取り状態、古くなった非同期操作の取り消し |
@@ -77,7 +84,9 @@ flowchart TD
 
 途中で失敗した場合、ブックと履歴を部分的に更新しません。複数セルへの貼り付けや結合も、1つの操作として渡します。Undo/Redoはこの単位になります。
 
-外部APIとツールバーなどの明示コマンドは、`state/commands/` で全操作を準備し、同じ下書きトランザクションへ一度だけ渡します。外部APIは最新参照を使って読み取り専用・保存中・未確定入力・再入を検証します。モデルのコマンド処理は同期ですが、`executeAsync` / `batchAsync` は必要な編集許可を待ちます。同期の `execute` / `batch` は未取得の外部許可が必要なら `EDIT_REQUIRED` を返します。ブラウザでの画像準備はトランザクションの外で行います。[外部操作API](./external-operations.md)に契約をまとめています。
+外部APIとツールバーなどの明示コマンドは、`commands/` で全操作を準備し、同じ下書きトランザクションへ一度だけ渡します。外部APIは最新参照を使って読み取り専用・保存中・未確定入力・再入を検証します。モデルのコマンド処理は同期ですが、`executeAsync` / `batchAsync` は必要な編集許可を待ちます。同期の `execute` / `batch` は未取得の外部許可が必要なら `EDIT_REQUIRED` を返します。ブラウザでの画像準備はトランザクションの外で行います。[外部操作API](./external-operations.md)に契約をまとめています。
+
+`applySpreadsheetCommands` は同じ `commands/` を利用し、元のブックを変更せず、成功した場合だけ変更後のブックを返します。画面の選択・履歴・編集セッション・イベントには接続しません。保存や同時更新の確認は呼び出し側が行います。[画面なしの操作](./headless.md)に利用例をまとめています。
 
 画面の保存操作ではセル入力を先に確定し、コメントや図形に未確定の入力がないことを確認します。Handleの `save()` は未確定入力がある場合に拒否します。その後 `onBeforeSave`、`onSave`、保存済みの基準更新、成功通知の順で進めます。通信・認証・競合解決は利用側が実装します。選択、入力途中の文字列、スクロール位置、コピー状態は保存するブックJSONに追加しません。失敗・キャンセル・ロックの契約は[ライフサイクル](./lifecycle.md)にまとめています。
 

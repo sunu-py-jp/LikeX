@@ -15,6 +15,7 @@ const modules = {
   },
   spreadsheet: {
     ui: true,
+    headlessEntries: { model: 'model-entry.ts' },
     moduleDependencies: ['core'],
     generatedStyles: false, bundledDependencies: [],
     marker: 'data-likex-spreadsheet', classPrefix: '.lxs-', propertyPrefix: '--lxs-', keyframePrefix: 'lxs',

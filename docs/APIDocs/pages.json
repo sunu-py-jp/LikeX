@@ -1357,6 +1357,68 @@
     ]
   },
   {
+    "id": "spreadsheet/headless",
+    "title": "画面なしでJSONを編集",
+    "component": "spreadsheet",
+    "section": "親アプリとの連携",
+    "output": "spreadsheet/headless/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/headless.md"
+    ],
+    "keywords": [
+      "applySpreadsheetCommands",
+      "SpreadsheetApplyCommandsOptions",
+      "SpreadsheetApplyCommandsResult",
+      "SpreadsheetCommand",
+      "parseWorkbook",
+      "serializeWorkbook",
+      "model-entry",
+      "headless",
+      "Node.js",
+      "AI",
+      "JSON",
+      "rows.insert",
+      "cells.set"
+    ],
+    "headings": [
+      {
+        "id": "セルに値を入れる",
+        "title": "セルに値を入れる",
+        "depth": 2
+      },
+      {
+        "id": "行を挿入しその行の値をまとめて設定する",
+        "title": "行を挿入し、その行の値をまとめて設定する",
+        "depth": 2
+      },
+      {
+        "id": "apiと結果",
+        "title": "APIと結果",
+        "depth": 2
+      },
+      {
+        "id": "機能を制限する",
+        "title": "機能を制限する",
+        "depth": 2
+      },
+      {
+        "id": "aiが返した操作jsonを使う",
+        "title": "AIが返した操作JSONを使う",
+        "depth": 2
+      },
+      {
+        "id": "モデル関数を直接呼ぶ場合",
+        "title": "モデル関数を直接呼ぶ場合",
+        "depth": 2
+      },
+      {
+        "id": "表示中の操作との使い分け",
+        "title": "表示中の操作との使い分け",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/context-menu",
     "title": "右クリックメニュー",
     "component": "spreadsheet",

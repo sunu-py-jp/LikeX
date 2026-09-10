@@ -4,7 +4,7 @@ import { useInsertionEffect, useRef, useState } from "react";
 import type { MaybePromise } from "../core";
 import { cellAddress, mergedCellPosition, setCellValue, setCellValues } from "../model";
 import type { SpreadsheetSelection } from "../props";
-import type { SpreadsheetFeatureSettings } from "./features";
+import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { clampPosition, selectedAddresses } from "./selection";
 import type { Position, ReportError, Sheet, WorkbookOperation } from "./types";
 import type { DraftOperationOptions } from "./use-workbook-draft";

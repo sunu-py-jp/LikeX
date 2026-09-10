@@ -3,8 +3,8 @@
 import { useCallback, type RefObject } from "react";
 import type { MaybePromise } from "../core";
 import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandResult } from "../api/types";
-import { stageSpreadsheetCommands } from "./commands/stage-spreadsheet-commands";
-import { resolveSpreadsheetFeatures } from "./features";
+import { stageSpreadsheetCommands } from "../commands/stage-spreadsheet-commands";
+import { resolveSpreadsheetFeatures } from "../api/resolve-features";
 import type { DraftSelection } from "./types";
 import type { useWorkbookDraft } from "./use-workbook-draft";
 import type { DraftOperationOptions } from "./use-workbook-draft";

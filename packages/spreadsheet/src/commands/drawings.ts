@@ -1,8 +1,8 @@
-import type { SpreadsheetCommand, SpreadsheetCommandAnchor, SpreadsheetCommandReceipt } from "../../api/types";
-import { addDrawing, deleteDrawing, insertImage, updateDrawing } from "../../model/workbook";
-import type { SpreadsheetDrawingAnchor, SpreadsheetDrawingPatch, SpreadsheetWorkbook } from "../../model/types";
-import { getImageDisplaySize, normalizeImageResource } from "../../model/image-resources";
-import type { SpreadsheetFeatureSettings } from "../features";
+import type { SpreadsheetCommand, SpreadsheetCommandAnchor, SpreadsheetCommandReceipt } from "./types";
+import { addDrawing, deleteDrawing, insertImage, updateDrawing } from "../model/workbook";
+import type { SpreadsheetDrawingAnchor, SpreadsheetDrawingPatch, SpreadsheetWorkbook } from "../model/types";
+import { getImageDisplaySize, normalizeImageResource } from "../model/image-resources";
+import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { commandKeys, commandRecord, rejectCommand, requireCommandFeature, requireCommandSheet } from "./validation";
 
 type DrawingCommand = Extract<SpreadsheetCommand, { type: "images.insert" | "shapes.insert" | "textBoxes.insert" |
