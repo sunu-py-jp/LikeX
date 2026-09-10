@@ -2,7 +2,7 @@
 
 [利用ガイドへ戻る](./README.md)
 
-`getContextMenuItems(context)` でセルやシートタブのメニューを追加できます。条件に合わなければ `[]` を返します。シートタブには既定で「削除」があり、追加項目はその上に表示します。削除は `getContextMenuItems` を指定しなくても利用でき、最後の1シートでは無効、読み取り専用や `features.deleteSheet: false` では非表示です。
+`getContextMenuItems(context)` でセルやシートタブのメニューを追加できます。条件に合わなければ `[]` を返します。シートタブには既定で「複製」「削除」があり、追加項目は「削除」の上に表示します。既定の項目は `getContextMenuItems` を指定しなくても利用できます。最後の1シートは削除できません。読み取り専用、または対応する `features.duplicateSheet` / `features.deleteSheet` が `false` の場合は、その項目を非表示にします。
 
 メニュー生成は同期処理です。AI通信などの時間がかかる処理は、項目を選んだ後の `onSelect` で実行します。
 

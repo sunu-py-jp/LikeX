@@ -1,0 +1,27 @@
+{
+  "title": "書式・サイズ・条件付き書式",
+  "summary": "文字・罫線・表示形式、行高・列幅、条件に応じた色やデータバーを設定します。",
+  "source": "packages/spreadsheet/src/docs/formatting.md",
+  "order": 120,
+  "section": "表示と挿入",
+  "keywords": [
+    "SpreadsheetCellFormat",
+    "cells.format",
+    "dimensions.resize",
+    "rows.resize",
+    "conditionalFormats.set",
+    "SpreadsheetConditionalFormatRule"
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/spreadsheet-formatting.png",
+      "alt": "罫線と数値の書式を設定するダイアログ",
+      "caption": "罫線の辺・線種・太さ・色、小数桁数や負数の表示を指定できます。"
+    },
+    {
+      "src": "assets/screenshots/spreadsheet-conditional-formatting.png",
+      "alt": "数値に応じて背景色とデータバーが変わったシート",
+      "caption": "比較ルール、データバー、2色・3色スケールの表示例です。"
+    }
+  ]
+}

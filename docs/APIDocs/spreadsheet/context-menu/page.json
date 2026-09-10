@@ -1,0 +1,16 @@
+{
+  "title": "右クリックメニュー",
+  "summary": "対象セル・シートと下書きの内容に応じて項目を追加し、非同期処理の結果を反映します。",
+  "source": "packages/spreadsheet/src/docs/context-menu.md",
+  "order": 160,
+  "section": "親アプリとの連携",
+  "keywords": [
+    "getContextMenuItems",
+    "SpreadsheetContextMenuProvider",
+    "SpreadsheetContextMenuContext",
+    "contextMenuExecutionMode",
+    "onSelect",
+    "ContextMenuExecutionMode"
+  ],
+  "screenshots": []
+}

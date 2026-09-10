@@ -98,7 +98,7 @@ if (result.ok) {
 | `cells.merge` | `range: { top, left, bottom, right }`, `discardContent?` |
 | `cells.unmerge` | `range: { top, left, bottom, right }` |
 | `images.insert` | `resource`, `anchor`, `width?`, `height?`, `alt?` |
-| `shapes.insert` | `shape`, `anchor`, `width?`, `height?`, `fill?`, `stroke?`, `strokeWidth?` |
+| `shapes.insert` | `shape`, `anchor`, `width?`, `height?`, `fill?`, `stroke?`, `strokeWidth?`, `text?`, `fontSize?`, `color?`, `bold?` |
 | `textBoxes.insert` | `anchor`, `text?`, `width?`, `height?`, `fontSize?`, `color?`, `background?`, `bold?` |
 | `images.update` / `shapes.update` / `textBoxes.update` | `drawingId`, `patch`。対応する種類のプロパティだけを指定 |
 | `drawings.delete` | `drawingId` |

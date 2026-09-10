@@ -1,0 +1,23 @@
+{
+  "title": "検索",
+  "summary": "名前検索は入力時に実行します。Enterでの実行や親の検索処理への委譲も選べます。",
+  "source": "packages/explorer/src/docs/search.md",
+  "order": 60,
+  "keywords": [
+    "ExplorerSearchOptions",
+    "ExplorerSearchRequest",
+    "ExplorerSearchContext",
+    "ExplorerSearchHandler",
+    "onSearchRequest",
+    "trigger",
+    "debounceMs"
+  ],
+  "section": "ファイル操作",
+  "screenshots": [
+    {
+      "src": "assets/screenshots/explorer-search.png",
+      "alt": "検索語に一致するファイルを一覧に表示したExplorer",
+      "caption": "「プロジェクト」を名前で検索した結果です。内蔵検索は、現在の下書き全体から一致するファイルとフォルダを表示します。"
+    }
+  ]
+}

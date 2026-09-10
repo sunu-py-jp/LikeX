@@ -1,0 +1,7 @@
+{
+  "title": "導入",
+  "summary": "Coreの役割、インポート、ソースコピーの手順。",
+  "source": "packages/core/docs/getting-started.md",
+  "order": 10,
+  "keywords": ["core", "共通基盤", "インポート", "コピー導入", "依存"]
+}

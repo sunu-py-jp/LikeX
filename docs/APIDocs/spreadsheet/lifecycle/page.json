@@ -1,0 +1,20 @@
+{
+  "title": "保存・編集許可・イベント",
+  "summary": "保存前チェック、保存・更新処理、編集ロック、未保存の変更通知を親アプリに接続します。",
+  "source": "packages/spreadsheet/src/docs/lifecycle.md",
+  "order": 140,
+  "section": "親アプリとの連携",
+  "keywords": [
+    "onSave",
+    "onBeforeSave",
+    "onEditRequest",
+    "onRefresh",
+    "onEvent",
+    "onUnsavedChangesChange",
+    "SpreadsheetOperationContext",
+    "save",
+    "refresh",
+    "discard"
+  ],
+  "screenshots": []
+}

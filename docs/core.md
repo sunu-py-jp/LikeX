@@ -2,6 +2,8 @@
 
 `@likex/core` はコンポーネントと親アプリの接続に使う型・ヘルパーの共通基盤です。保存先、認証、サーバーロック、データモデル、Reactの状態は持ちません。Providerの追加や抽象クラスの継承も不要です。
 
+機能別のAPIと利用例は、[Coreの導入](../packages/core/docs/getting-started.md)、[保存・編集許可](../packages/core/docs/host-contracts.md)、[通知・機能設定](../packages/core/docs/events-and-features.md)、[右クリックの非同期処理](../packages/core/docs/context-menu.md)、[離脱確認](../packages/core/docs/unsaved-changes.md)、[ZIPの生成](../packages/core/docs/zip.md)を参照してください。
+
 | 共通部分 | 役割 |
 | --- | --- |
 | `MaybePromise` / `SaveHandler` / `RefreshHandler` / `RequestHandler` | 同期・非同期のホスト処理と、必要に応じた `requestId` / `AbortSignal` |

@@ -1,0 +1,15 @@
+{
+  "title": "操作と対応範囲",
+  "summary": "キーボード操作、扱えるデータ量、Excelとの互換範囲を確認します。",
+  "source": "packages/spreadsheet/src/docs/capabilities.md",
+  "order": 40,
+  "section": "基本",
+  "keywords": [
+    "SPREADSHEET_LIMITS",
+    "Undo",
+    "Redo",
+    "ショートカット",
+    "上限"
+  ],
+  "screenshots": []
+}

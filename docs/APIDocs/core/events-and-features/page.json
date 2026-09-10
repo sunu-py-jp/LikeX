@@ -1,0 +1,7 @@
+{
+  "title": "通知・機能設定",
+  "summary": "観測用イベントの呼び出しと、機能設定の既定値の解決。",
+  "source": "packages/core/docs/events-and-features.md",
+  "order": 30,
+  "keywords": ["notifyHost", "EventHandler", "FeatureFlags", "resolveFeatureFlags", "onEvent", "features", "無効化"]
+}

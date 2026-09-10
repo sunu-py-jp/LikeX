@@ -1,0 +1,24 @@
+{
+  "title": "プレビュー",
+  "summary": "内蔵プレビューを使うか、onPreviewRequestでファイル情報を親のビューへ渡します。",
+  "source": "packages/explorer/src/docs/previews.md",
+  "order": 70,
+  "keywords": [
+    "ExplorerPreviewHandler",
+    "ExplorerPreviewRequest",
+    "ExplorerPreviewTrigger",
+    "ExplorerItemInfo",
+    "onPreviewRequest",
+    "previewTrigger",
+    "selectedFileMode",
+    "readFile"
+  ],
+  "section": "ファイル操作",
+  "screenshots": [
+    {
+      "src": "assets/screenshots/explorer-preview.png",
+      "alt": "ファイルの内容を表示した内蔵プレビューダイアログ",
+      "caption": "内蔵プレビューの表示。親のビューに任せる場合はonPreviewRequestを渡します。"
+    }
+  ]
+}

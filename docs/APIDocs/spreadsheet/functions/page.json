@@ -1,0 +1,17 @@
+{
+  "title": "数式と関数",
+  "summary": "セル参照と15種類の関数で計算し、入力した数式をJSONに保持します。",
+  "source": "packages/spreadsheet/src/docs/functions.md",
+  "order": 70,
+  "section": "セルとシート",
+  "keywords": [
+    "calculateWorkbook",
+    "translateFormula",
+    "SUM",
+    "AVERAGE",
+    "IF",
+    "IFERROR",
+    "formulas"
+  ],
+  "screenshots": []
+}

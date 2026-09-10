@@ -4,7 +4,6 @@ import { memo, useCallback, useEffect, useMemo, useState, type InputHTMLAttribut
 import { createPortal } from "react-dom";
 import { Tooltip } from "radix-ui";
 import { mergeExplorerRootClasses } from "./ui/explorer-classnames";
-import { Check, CircleAlert, Info, X } from "lucide-react";
 import { ExplorerProvider } from "./state/explorer-context";
 import { MediaCacheContext } from "./state/media-context";
 import { ExplorerThemeContext, explorerThemeStyle, useExplorerColorScheme } from "./ui/explorer-theme";
@@ -16,7 +15,7 @@ import { ExplorerHeader } from "./ui/explorer-header";
 import { ExplorerStatusBar } from "./ui/explorer-status-bar";
 import { ExplorerFileList } from "./ui/explorer-file-list";
 import { ExplorerDialogs } from "./ui/explorer-dialogs";
-import { iconButtonClass } from "./ui/explorer-controls";
+import { ExplorerNotifications } from "./ui/explorer-notifications";
 import type { ExplorerProps } from "./props";
 
 export type { ExplorerProps } from "./props";
@@ -106,12 +105,6 @@ const ExplorerPane = memo(function ExplorerPane({ props, workspace, windowId, ow
       else bodyStyle.removeProperty(key);
     });
   }, [ownerDocument, updateWindowTitle, windowId, themeStyle]);
-  const NoticeIcon =
-    notification?.kind === "error"
-      ? CircleAlert
-      : notification?.kind === "success"
-        ? Check
-        : Info;
 
   return (
     <ExplorerDomContext.Provider value={environment}>
@@ -203,36 +196,13 @@ const ExplorerPane = memo(function ExplorerPane({ props, workspace, windowId, ow
                   }}
                 />
               )}
-              <div
-                className="lxe:pointer-events-none lxe:absolute lxe:right-3 lxe:bottom-12 lxe:z-30 lxe:max-w-[calc(100%-1.5rem)]"
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                {notification && (
-                  <div className="lxe:pointer-events-auto lxe:flex lxe:w-80 lxe:max-w-full lxe:items-start lxe:gap-2 lxe:rounded-lg lxe:border lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-background)] lxe:p-3 lxe:shadow-lg">
-                    <NoticeIcon
-                      size={18}
-                      className={`lxe:mt-0.5 lxe:shrink-0 ${notification.kind === "error" ? "lxe:text-[var(--explorer-danger)]" : "lxe:text-[var(--explorer-accent)]"}`}
-                    />
-                    <div className="lxe:min-w-0 lxe:flex-1 lxe:text-sm lxe:wrap-anywhere">
-                      <p>{notification.message}</p>
-                      {notification.description && (
-                        <p className="lxe:mt-1 lxe:max-h-[min(16rem,40dvh)] lxe:overflow-y-auto lxe:text-xs lxe:whitespace-pre-line lxe:text-[var(--explorer-muted)]">
-                          {notification.description}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className={iconButtonClass}
-                      aria-label="通知を閉じる"
-                      onClick={() => setNotification(null)}
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                )}
-              </div>
+              <ExplorerNotifications
+                notification={notification}
+                onDismissNotification={() => setNotification(null)}
+                messages={workspace.notifications.messages}
+                onDismissMessage={workspace.notifications.dismiss}
+                onClearMessages={workspace.notifications.clear}
+              />
               <ExplorerDialogs />
             </div>
           </Tooltip.Provider>

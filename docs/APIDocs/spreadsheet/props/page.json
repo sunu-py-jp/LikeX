@@ -1,0 +1,17 @@
+{
+  "title": "Propsとブックの型",
+  "summary": "初期データ、コールバック、テーマなどのPropsと、JSONで保存するブックの形を確認します。",
+  "source": "packages/spreadsheet/src/docs/api.md",
+  "order": 20,
+  "section": "基本",
+  "keywords": [
+    "SpreadsheetProps",
+    "SpreadsheetWorkbook",
+    "SpreadsheetCell",
+    "SpreadsheetSheet",
+    "colorMode",
+    "title",
+    "onSave"
+  ],
+  "screenshots": []
+}

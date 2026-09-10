@@ -1,0 +1,7 @@
+{
+  "title": "ZIPの生成",
+  "summary": "Blobと相対パスからZIPを生成するAPIと制約。",
+  "source": "packages/core/docs/zip.md",
+  "order": 60,
+  "keywords": ["createZipArchive", "ZipArchiveEntry", "ZipArchiveOptions", "Blob", "ZIP", "ダウンロード", "フォルダ"]
+}

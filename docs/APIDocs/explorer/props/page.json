@@ -1,0 +1,14 @@
+{
+  "title": "Props一覧",
+  "summary": "必須項目はinitialEntriesだけです。onSaveを省略すると読み取り専用になります。",
+  "source": "packages/explorer/src/docs/api-reference.md",
+  "order": 20,
+  "keywords": [
+    "ExplorerProps",
+    "ExplorerPopupProps",
+    "readOnly",
+    "initialEntries",
+    "onSave"
+  ],
+  "section": "基本"
+}

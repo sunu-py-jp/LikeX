@@ -1,0 +1,25 @@
+{
+  "title": "導入と初期表示",
+  "summary": "Explorerを配置し、最初に開くフォルダとファイルを指定します。",
+  "source": "packages/explorer/src/docs/getting-started.md",
+  "order": 10,
+  "keywords": [
+    "Explorer",
+    "ExplorerPopup",
+    "initialEntries",
+    "initialPath",
+    "defaultPath",
+    "selectedFile",
+    "selectedFileMode",
+    "rootLabel",
+    "title"
+  ],
+  "section": "基本",
+  "screenshots": [
+    {
+      "src": "assets/screenshots/explorer-overview.png",
+      "alt": "フォルダツリーとファイル一覧を表示したExplorer",
+      "caption": "Explorerの詳細表示。フォルダの階層とファイルを同じ画面で確認できます。"
+    }
+  ]
+}

@@ -75,6 +75,7 @@ SOFTWARE.
       "Segoe UI Symbol", "Noto Color Emoji";
     --lxe-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
       "Courier New", monospace;
+    --lxe-color-emerald-600: oklch(59.6% 0.145 163.225);
     --lxe-color-black: #000;
     --lxe-spacing: 0.25rem;
     --lxe-text-xs: 0.75rem;
@@ -249,9 +250,6 @@ SOFTWARE.
   .lxe\:\@container\/explorer:where([data-likex-explorer], [data-likex-explorer] *) {
     container-type: inline-size;
     container-name: explorer;
-  }
-  .lxe\:pointer-events-auto:where([data-likex-explorer], [data-likex-explorer] *) {
-    pointer-events: auto;
   }
   .lxe\:pointer-events-none:where([data-likex-explorer], [data-likex-explorer] *) {
     pointer-events: none;
@@ -518,6 +516,9 @@ SOFTWARE.
     width: 100%;
     height: 100%;
   }
+  .lxe\:h-1:where([data-likex-explorer], [data-likex-explorer] *) {
+    height: var(--lxe-spacing);
+  }
   .lxe\:h-3:where([data-likex-explorer], [data-likex-explorer] *) {
     height: calc(var(--lxe-spacing) * 3);
   }
@@ -593,8 +594,11 @@ SOFTWARE.
   .lxe\:max-h-\[calc\(100\%-2rem\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     max-height: calc(100% - 2rem);
   }
-  .lxe\:max-h-\[min\(16rem\,40dvh\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
-    max-height: min(16rem, 40dvh);
+  .lxe\:max-h-\[min\(12rem\,var\(--radix-popper-available-height\)\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    max-height: min(12rem, var(--radix-popper-available-height));
+  }
+  .lxe\:max-h-\[min\(20rem\,calc\(100\%-4\.5rem\)\,50dvh\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    max-height: min(20rem, calc(100% - 4.5rem), 50dvh);
   }
   .lxe\:max-h-\[var\(--radix-popper-available-height\,70dvh\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     max-height: var(--radix-popper-available-height,70dvh);
@@ -668,8 +672,8 @@ SOFTWARE.
   .lxe\:w-52:where([data-likex-explorer], [data-likex-explorer] *) {
     width: calc(var(--lxe-spacing) * 52);
   }
-  .lxe\:w-80:where([data-likex-explorer], [data-likex-explorer] *) {
-    width: calc(var(--lxe-spacing) * 80);
+  .lxe\:w-90:where([data-likex-explorer], [data-likex-explorer] *) {
+    width: calc(var(--lxe-spacing) * 90);
   }
   .lxe\:w-\[15ch\]:where([data-likex-explorer], [data-likex-explorer] *) {
     width: 15ch;
@@ -718,6 +722,9 @@ SOFTWARE.
   }
   .lxe\:max-w-\[calc\(100\%-2\.5rem\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     max-width: calc(100% - 2.5rem);
+  }
+  .lxe\:max-w-\[min\(20rem\,calc\(100vw-1\.5rem\)\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    max-width: min(20rem, calc(100vw - 1.5rem));
   }
   .lxe\:max-w-full:where([data-likex-explorer], [data-likex-explorer] *) {
     max-width: 100%;
@@ -914,6 +921,11 @@ SOFTWARE.
     margin-block-start: calc(calc(var(--lxe-spacing) * 0.5) * var(--lxe-tw-space-y-reverse));
     margin-block-end: calc(calc(var(--lxe-spacing) * 0.5) * calc(1 - var(--lxe-tw-space-y-reverse)));
   }
+  :where(.lxe\:space-y-2>:not(:last-child)):where([data-likex-explorer], [data-likex-explorer] *) {
+    --lxe-tw-space-y-reverse: 0;
+    margin-block-start: calc(calc(var(--lxe-spacing) * 2) * var(--lxe-tw-space-y-reverse));
+    margin-block-end: calc(calc(var(--lxe-spacing) * 2) * calc(1 - var(--lxe-tw-space-y-reverse)));
+  }
   .lxe\:gap-x-2\.5:where([data-likex-explorer], [data-likex-explorer] *) {
     column-gap: calc(var(--lxe-spacing) * 2.5);
   }
@@ -949,11 +961,17 @@ SOFTWARE.
   .lxe\:overflow-x-auto:where([data-likex-explorer], [data-likex-explorer] *) {
     overflow-x: auto;
   }
+  .lxe\:overflow-x-hidden:where([data-likex-explorer], [data-likex-explorer] *) {
+    overflow-x: hidden;
+  }
   .lxe\:overflow-y-auto:where([data-likex-explorer], [data-likex-explorer] *) {
     overflow-y: auto;
   }
   .lxe\:overflow-y-hidden:where([data-likex-explorer], [data-likex-explorer] *) {
     overflow-y: hidden;
+  }
+  .lxe\:overscroll-contain:where([data-likex-explorer], [data-likex-explorer] *) {
+    overscroll-behavior: contain;
   }
   .lxe\:rounded:where([data-likex-explorer], [data-likex-explorer] *) {
     border-radius: 0.25rem;
@@ -1173,6 +1191,9 @@ SOFTWARE.
   .lxe\:py-2:where([data-likex-explorer], [data-likex-explorer] *) {
     padding-block: calc(var(--lxe-spacing) * 2);
   }
+  .lxe\:py-2\.5:where([data-likex-explorer], [data-likex-explorer] *) {
+    padding-block: calc(var(--lxe-spacing) * 2.5);
+  }
   .lxe\:py-3:where([data-likex-explorer], [data-likex-explorer] *) {
     padding-block: calc(var(--lxe-spacing) * 3);
   }
@@ -1221,6 +1242,9 @@ SOFTWARE.
   .lxe\:pb-2:where([data-likex-explorer], [data-likex-explorer] *) {
     padding-bottom: calc(var(--lxe-spacing) * 2);
   }
+  .lxe\:pb-2\.5:where([data-likex-explorer], [data-likex-explorer] *) {
+    padding-bottom: calc(var(--lxe-spacing) * 2.5);
+  }
   .lxe\:pb-3:where([data-likex-explorer], [data-likex-explorer] *) {
     padding-bottom: calc(var(--lxe-spacing) * 3);
   }
@@ -1238,6 +1262,9 @@ SOFTWARE.
   }
   .lxe\:pl-8:where([data-likex-explorer], [data-likex-explorer] *) {
     padding-left: calc(var(--lxe-spacing) * 8);
+  }
+  .lxe\:pl-9:where([data-likex-explorer], [data-likex-explorer] *) {
+    padding-left: calc(var(--lxe-spacing) * 9);
   }
   .lxe\:pl-\[45px\]:where([data-likex-explorer], [data-likex-explorer] *) {
     padding-left: 45px;
@@ -1386,6 +1413,9 @@ SOFTWARE.
   .lxe\:text-\[var\(--explorer-muted\,\#718799\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     color: var(--explorer-muted,#718799);
   }
+  .lxe\:text-emerald-600:where([data-likex-explorer], [data-likex-explorer] *) {
+    color: var(--lxe-color-emerald-600);
+  }
   .lxe\:tabular-nums:where([data-likex-explorer], [data-likex-explorer] *) {
     --lxe-tw-numeric-spacing: tabular-nums;
     font-variant-numeric: var(--lxe-tw-ordinal,) var(--lxe-tw-slashed-zero,) var(--lxe-tw-numeric-figure,) var(--lxe-tw-numeric-spacing,) var(--lxe-tw-numeric-fraction,);
@@ -1464,6 +1494,12 @@ SOFTWARE.
   .lxe\:ring-inset:where([data-likex-explorer], [data-likex-explorer] *) {
     --lxe-tw-ring-inset: inset;
   }
+  .lxe\:not-first\:mt-1\.5:not(:first-child):where([data-likex-explorer], [data-likex-explorer] *) {
+    margin-top: calc(var(--lxe-spacing) * 1.5);
+  }
+  .lxe\:not-first\:mt-2:not(:first-child):where([data-likex-explorer], [data-likex-explorer] *) {
+    margin-top: calc(var(--lxe-spacing) * 2);
+  }
   .lxe\:group-focus-within\:opacity-100:is(:where(.lxe\:group):focus-within *):where([data-likex-explorer], [data-likex-explorer] *) {
     opacity: 100%;
   }
@@ -1484,6 +1520,10 @@ SOFTWARE.
   .lxe\:placeholder\:text-\[var\(--explorer-muted\)\]:where([data-likex-explorer], [data-likex-explorer] *)::placeholder {
     color: var(--explorer-muted);
   }
+  .lxe\:last\:border-b-0:last-child:where([data-likex-explorer], [data-likex-explorer] *) {
+    border-bottom-style: var(--lxe-tw-border-style);
+    border-bottom-width: 0px;
+  }
   .lxe\:focus-within\:border-\[var\(--explorer-accent\)\]:focus-within:where([data-likex-explorer], [data-likex-explorer] *) {
     border-color: var(--explorer-accent);
   }
@@ -1502,6 +1542,9 @@ SOFTWARE.
     }
     .lxe\:hover\:bg-\[var\(--explorer-selection\)\]:hover:where([data-likex-explorer], [data-likex-explorer] *) {
       background-color: var(--explorer-selection);
+    }
+    .lxe\:hover\:text-\[var\(--explorer-foreground\)\]:hover:where([data-likex-explorer], [data-likex-explorer] *) {
+      color: var(--explorer-foreground);
     }
     .lxe\:hover\:opacity-90:hover:where([data-likex-explorer], [data-likex-explorer] *) {
       opacity: 90%;
@@ -1530,6 +1573,9 @@ SOFTWARE.
   .lxe\:focus-visible\:outline-2:focus-visible:where([data-likex-explorer], [data-likex-explorer] *) {
     outline-style: var(--lxe-tw-outline-style);
     outline-width: 2px;
+  }
+  .lxe\:focus-visible\:-outline-offset-2:focus-visible:where([data-likex-explorer], [data-likex-explorer] *) {
+    outline-offset: calc(2px * -1);
   }
   .lxe\:focus-visible\:outline-offset-2:focus-visible:where([data-likex-explorer], [data-likex-explorer] *) {
     outline-offset: 2px;

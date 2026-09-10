@@ -2,7 +2,7 @@
 
 [ドキュメント一覧](./README.md)
 
-onEventで操作・状態を観測するための型と利用例です。保存前後の処理は[保存ガイド](./saving.md#save-lifecycle)を参照してください。
+onEventで操作・状態を観測するための型と利用例です。保存前後の処理は[保存ガイド](./saving.md#save-lifecycle)、親から画面にメッセージを出す場合は[通知の表示](./notifications.md)を参照してください。
 
 ## 操作や状態変化を親画面で受け取る
 
@@ -32,6 +32,7 @@ type ExplorerEventHandler = (event: ExplorerEvent) => void | Promise<void>;
 | `download` | 従来どおり `status: "start"` / `"success"` / `"error"` と `request: ExplorerDownloadRequest`。成功時は `result`、失敗時は `message`。`result.status: "handed-off"` はブラウザーへの引渡し、`"completed"` は親が保存完了を確認した場合です。内蔵処理の成功は `handed-off`。 |
 | `download-progress` | ダウンロード処理途中の `progress: ExplorerDownloadProgress` と対象の `request`。この通知では処理は終了しません。 |
 | `download-cancelled` | ダウンロードを取り消したときの `reason`・`message` と対象の `request`。失敗通知とは分けます。 |
+| `context-menu` | 追加メニューの `status: "start" \| "confirmation-required" \| "success" \| "cancelled" \| "error"`。実行を識別する `requestId`、項目の `itemId`・`label`、必要に応じて `message` を持ちます。[メニューの実行と反映](./context-menu.md)を参照してください。 |
 | `window` | `action: "detach"` / `"reattach"` / `"close"` / `"blocked"` と `windowId`・`tabIds`。起動確認後の切り離し・明示的な復帰・子のタブ終了・ポップアップのブロックや起動失敗を通知します。`detach` / `blocked` には `sourceWindowId` も含み、説明用の `message` を含む場合があります。 |
 
 `navigate`・`selection`・`tabs`・`view`・`details` は初回マウント時には通知せず、その後の状態変化を通知します。操作に伴って複数のイベントが届く場合があります。イベント内の項目情報は `ExplorerItemInfo` で、要求時点の表示パスと本体参照を含みます。フォルダの `extension` は空文字です。`save` の `start.payload` は通常の `ExplorerSavePayload` です。
@@ -143,6 +144,7 @@ export default function ExplorerWithEvents(props: Props) {
 | `onRefresh` | 認証等を含む親の取得処理から最新の `readonly ExplorerEntry[]` を返します。取得失敗はthrow/rejectします。 |
 | `onEditRequest` | 最初の有効な変更を適用する直前に許可を取得します。ロックの取得・解放は親の実装に接続します。 |
 | `onPreviewRequest` | 内蔵プレビューの代わりに親の表示を開きます。 |
+| `onSearchRequest` | 名前検索を置き換え、親の検索結果から現在の項目IDを順位順に返します。 |
 | `onDownloadRequest` | ダウンロードの実処理。進捗を報告し、引渡し・保存完了・取消しを返します。失敗はthrow/rejectします。 |
 | `onEvent` | 操作や状態を観測する通知。編集・保存・プレビュー・ダウンロードの実装を置き換えません。 |
 

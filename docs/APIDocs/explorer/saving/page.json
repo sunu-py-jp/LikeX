@@ -1,0 +1,17 @@
+{
+  "title": "保存・再取得・未保存確認",
+  "summary": "onSaveへ最終一覧と差分を渡します。onRefreshを渡すと更新ボタンを表示します。",
+  "source": "packages/explorer/src/docs/saving.md",
+  "order": 120,
+  "keywords": [
+    "ExplorerSaveHandler",
+    "ExplorerRefreshHandler",
+    "ExplorerSavePayload",
+    "onSave",
+    "onRefresh",
+    "onDirtyChange",
+    "warnOnUnsavedChanges",
+    "beforeunload"
+  ],
+  "section": "親アプリとの連携"
+}

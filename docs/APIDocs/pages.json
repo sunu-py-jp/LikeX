@@ -1,0 +1,1662 @@
+[
+  {
+    "id": "index",
+    "title": "LikeXを組み込む",
+    "component": null,
+    "output": "index.html",
+    "sources": [
+      "docs/APIDocs/overview.md"
+    ],
+    "keywords": [
+      "導入",
+      "コピー",
+      "React",
+      "Next.js"
+    ],
+    "headings": [
+      {
+        "id": "コンポーネントを選ぶ",
+        "title": "コンポーネントを選ぶ",
+        "depth": 2
+      },
+      {
+        "id": "まず読み取り専用で表示する",
+        "title": "まず読み取り専用で表示する",
+        "depth": 2
+      },
+      {
+        "id": "必要な機能へ進む",
+        "title": "必要な機能へ進む",
+        "depth": 2
+      },
+      {
+        "id": "導入方法",
+        "title": "導入方法",
+        "depth": 2
+      },
+      {
+        "id": "apiと利用例の読み方",
+        "title": "APIと利用例の読み方",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "explorer/getting-started",
+    "title": "導入と初期表示",
+    "component": "explorer",
+    "section": "基本",
+    "output": "explorer/getting-started/index.html",
+    "sources": [
+      "packages/explorer/src/docs/getting-started.md"
+    ],
+    "keywords": [
+      "Explorer",
+      "ExplorerPopup",
+      "initialEntries",
+      "initialPath",
+      "defaultPath",
+      "selectedFile",
+      "selectedFileMode",
+      "rootLabel",
+      "title"
+    ],
+    "headings": [
+      {
+        "id": "依存関係とcss",
+        "title": "依存関係とCSS",
+        "depth": 2
+      },
+      {
+        "id": "cssを二重管理しないための開発手順",
+        "title": "CSSを二重管理しないための開発手順",
+        "depth": 3
+      },
+      {
+        "id": "app-routerで使う最小例",
+        "title": "App Routerで使う最小例",
+        "depth": 2
+      },
+      {
+        "id": "右上のタイトルを指定する",
+        "title": "右上のタイトルを指定する",
+        "depth": 3
+      },
+      {
+        "id": "最初に開くフォルダを指定する",
+        "title": "最初に開くフォルダを指定する",
+        "depth": 3
+      },
+      {
+        "id": "最初に開くパスとファイルを指定する",
+        "title": "最初に開くパスとファイルを指定する",
+        "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/props",
+    "title": "Props一覧",
+    "component": "explorer",
+    "section": "基本",
+    "output": "explorer/props/index.html",
+    "sources": [
+      "packages/explorer/src/docs/api-reference.md"
+    ],
+    "keywords": [
+      "ExplorerProps",
+      "ExplorerPopupProps",
+      "readOnly",
+      "initialEntries",
+      "onSave"
+    ],
+    "headings": [
+      {
+        "id": "公開props一覧",
+        "title": "公開props一覧",
+        "depth": 2
+      },
+      {
+        "id": "読み込み保存更新の公開型名",
+        "title": "読み込み・保存・更新の公開型名",
+        "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/data-model",
+    "title": "ファイルとフォルダのデータ",
+    "component": "explorer",
+    "section": "基本",
+    "output": "explorer/data-model/index.html",
+    "sources": [
+      "packages/explorer/src/docs/data-model.md"
+    ],
+    "keywords": [
+      "ExplorerEntry",
+      "ExplorerItemInfo",
+      "ExplorerSnapshot",
+      "ExplorerSavePayload",
+      "source",
+      "parent",
+      "extension"
+    ],
+    "headings": [
+      {
+        "id": "explorerentry",
+        "title": "ExplorerEntry",
+        "depth": 2
+      },
+      {
+        "id": "フォルダ1つとファイル1つを表示する",
+        "title": "フォルダ1つとファイル1つを表示する",
+        "depth": 2
+      },
+      {
+        "id": "idパス本体参照の違い",
+        "title": "ID・パス・本体参照の違い",
+        "depth": 2
+      },
+      {
+        "id": "コールバックで受け取る情報",
+        "title": "コールバックで受け取る情報",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "explorer/uploads",
+    "title": "作成・アップロード",
+    "component": "explorer",
+    "section": "ファイル操作",
+    "output": "explorer/uploads/index.html",
+    "sources": [
+      "packages/explorer/src/docs/uploads.md"
+    ],
+    "keywords": [
+      "ExplorerUploadOptions",
+      "ExplorerUploadResult",
+      "ExplorerUploadValidationError",
+      "ExplorerUploadConflictError",
+      "ExplorerUploadSession",
+      "createExplorerUploadSession",
+      "allowedExtensions",
+      "maxFileSizeBytes",
+      "invalidFileBehavior"
+    ],
+    "headings": [
+      {
+        "id": "一覧の空白からファイルフォルダを作成する",
+        "title": "一覧の空白からファイル・フォルダを作成する",
+        "depth": 2
+      },
+      {
+        "id": "コピーしたファイルフォルダの貼り付け",
+        "title": "コピーしたファイル・フォルダの貼り付け",
+        "depth": 2
+      },
+      {
+        "id": "アップロードの拡張子とサイズを制限する",
+        "title": "アップロードの拡張子とサイズを制限する",
+        "depth": 2
+      },
+      {
+        "id": "同名ファイルの上書き確認",
+        "title": "同名ファイルの上書き確認",
+        "depth": 2
+      },
+      {
+        "id": "独自uiからuseexplorerdraftで確認する",
+        "title": "独自UIからuseExplorerDraftで確認する",
+        "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/clipboard",
+    "title": "コピー・切り取り・貼り付け",
+    "component": "explorer",
+    "section": "ファイル操作",
+    "output": "explorer/clipboard/index.html",
+    "sources": [
+      "packages/explorer/src/docs/clipboard.md"
+    ],
+    "keywords": [
+      "copy",
+      "move",
+      "uploadFiles",
+      "uploadFolders",
+      "clipboard",
+      "paste",
+      "cut"
+    ],
+    "headings": [
+      {
+        "id": "explorer内でコピー移動する",
+        "title": "Explorer内でコピー・移動する",
+        "depth": 2
+      },
+      {
+        "id": "コピーだけを無効にする",
+        "title": "コピーだけを無効にする",
+        "depth": 3
+      },
+      {
+        "id": "osでコピーしたファイルフォルダを貼り付ける",
+        "title": "OSでコピーしたファイル・フォルダを貼り付ける",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "explorer/search",
+    "title": "検索",
+    "component": "explorer",
+    "section": "ファイル操作",
+    "output": "explorer/search/index.html",
+    "sources": [
+      "packages/explorer/src/docs/search.md"
+    ],
+    "keywords": [
+      "ExplorerSearchOptions",
+      "ExplorerSearchRequest",
+      "ExplorerSearchContext",
+      "ExplorerSearchHandler",
+      "onSearchRequest",
+      "trigger",
+      "debounceMs"
+    ],
+    "headings": [
+      {
+        "id": "検索の実行タイミングと外部検索",
+        "title": "検索の実行タイミングと外部検索",
+        "depth": 2
+      },
+      {
+        "id": "入力時enter確定時を選ぶ",
+        "title": "入力時・Enter確定時を選ぶ",
+        "depth": 3
+      },
+      {
+        "id": "公開型と結果の契約",
+        "title": "公開型と結果の契約",
+        "depth": 3
+      },
+      {
+        "id": "親の本文キャッシュを検索する",
+        "title": "親の本文キャッシュを検索する",
+        "depth": 3
+      },
+      {
+        "id": "セマンティック検索apiへ接続する",
+        "title": "セマンティック検索APIへ接続する",
+        "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/preview",
+    "title": "プレビュー",
+    "component": "explorer",
+    "section": "ファイル操作",
+    "output": "explorer/preview/index.html",
+    "sources": [
+      "packages/explorer/src/docs/previews.md"
+    ],
+    "keywords": [
+      "ExplorerPreviewHandler",
+      "ExplorerPreviewRequest",
+      "ExplorerPreviewTrigger",
+      "ExplorerItemInfo",
+      "onPreviewRequest",
+      "previewTrigger",
+      "selectedFileMode",
+      "readFile"
+    ],
+    "headings": [
+      {
+        "id": "プレビューを親画面へ渡す",
+        "title": "プレビューを親画面へ渡す",
+        "depth": 2
+      },
+      {
+        "id": "指定ファイルのプレビューを最初から開く",
+        "title": "指定ファイルのプレビューを最初から開く",
+        "depth": 3
+      },
+      {
+        "id": "親stateで受け取り横にカードを表示する",
+        "title": "親stateで受け取り、横にカードを表示する",
+        "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/download",
+    "title": "ダウンロード",
+    "component": "explorer",
+    "section": "ファイル操作",
+    "output": "explorer/download/index.html",
+    "sources": [
+      "packages/explorer/src/docs/downloads.md"
+    ],
+    "keywords": [
+      "ExplorerDownloadHandler",
+      "ExplorerDownloadContext",
+      "ExplorerDownloadProgress",
+      "ExplorerDownloadResult",
+      "ExplorerDownloadRequest",
+      "ExplorerDownloadItem",
+      "onDownloadRequest",
+      "reportProgress"
+    ],
+    "headings": [
+      {
+        "id": "フォルダをzipでダウンロードする",
+        "title": "フォルダをZIPでダウンロードする",
+        "depth": 2
+      },
+      {
+        "id": "ダウンロードを親へ委譲して進捗を受け取る",
+        "title": "ダウンロードを親へ委譲して進捗を受け取る",
+        "depth": 2
+      },
+      {
+        "id": "nextjsの認証apiで取得先urlを用意する",
+        "title": "Next.jsの認証APIで取得先URLを用意する",
+        "depth": 3
+      },
+      {
+        "id": "azure-functionの準備ジョブを待つ",
+        "title": "Azure Functionの準備ジョブを待つ",
+        "depth": 3
+      },
+      {
+        "id": "多重実行ウィンドウ取消し",
+        "title": "多重実行・ウィンドウ・取消し",
+        "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/configuration",
+    "title": "機能・選択・表示設定",
+    "component": "explorer",
+    "section": "表示と操作設定",
+    "output": "explorer/configuration/index.html",
+    "sources": [
+      "packages/explorer/src/docs/configuration.md"
+    ],
+    "keywords": [
+      "ExplorerOptions",
+      "ExplorerFeature",
+      "ExplorerFeatures",
+      "ExplorerSelectionOptions",
+      "ExplorerUIOptions",
+      "ExplorerViewOptions",
+      "readOnly",
+      "features",
+      "selection",
+      "view"
+    ],
+    "headings": [
+      {
+        "id": "読み取り専用で使う",
+        "title": "読み取り専用で使う",
+        "depth": 2
+      },
+      {
+        "id": "機能選択表示の設定",
+        "title": "機能・選択・表示の設定",
+        "depth": 2
+      },
+      {
+        "id": "サイドバーの幅を変える",
+        "title": "サイドバーの幅を変える",
+        "depth": 2
+      },
+      {
+        "id": "キーボードショートカット",
+        "title": "キーボードショートカット",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "explorer/appearance",
+    "title": "配色・アイコン",
+    "component": "explorer",
+    "section": "表示と操作設定",
+    "output": "explorer/appearance/index.html",
+    "sources": [
+      "packages/explorer/src/docs/appearance.md"
+    ],
+    "keywords": [
+      "ExplorerTheme",
+      "ExplorerThemeOptions",
+      "ExplorerColorMode",
+      "ExplorerIconRenderer",
+      "ExplorerIconContext",
+      "colorMode",
+      "theme",
+      "renderIcon"
+    ],
+    "headings": [
+      {
+        "id": "ファイルとフォルダのアイコンを差し替える",
+        "title": "ファイルとフォルダのアイコンを差し替える",
+        "depth": 2
+      },
+      {
+        "id": "idフォルダ拡張子で使い分ける",
+        "title": "ID・フォルダ・拡張子で使い分ける",
+        "depth": 3
+      },
+      {
+        "id": "既定アイコンにバッジを重ねる",
+        "title": "既定アイコンにバッジを重ねる",
+        "depth": 3
+      },
+      {
+        "id": "サイズとスタイルの前提",
+        "title": "サイズとスタイルの前提",
+        "depth": 2
+      },
+      {
+        "id": "配色とダークモード",
+        "title": "配色とダークモード",
+        "depth": 2
+      },
+      {
+        "id": "ベースカラーと個別の上書き",
+        "title": "ベースカラーと個別の上書き",
+        "depth": 3
+      },
+      {
+        "id": "親に切替ボタンを置く",
+        "title": "親に切替ボタンを置く",
+        "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/tabs",
+    "title": "タブ・別ウィンドウ",
+    "component": "explorer",
+    "section": "表示と操作設定",
+    "output": "explorer/tabs/index.html",
+    "sources": [
+      "packages/explorer/src/docs/windows.md"
+    ],
+    "keywords": [
+      "ExplorerPopup",
+      "ExplorerPopupControls",
+      "ExplorerPopupOptions",
+      "renderTrigger",
+      "onOpenChange",
+      "windowOptions",
+      "tabs",
+      "detachTabs"
+    ],
+    "headings": [
+      {
+        "id": "タブを追加切り替え閉じる",
+        "title": "タブを追加・切り替え・閉じる",
+        "depth": 2
+      },
+      {
+        "id": "最初から別ウィンドウで開く",
+        "title": "最初から別ウィンドウで開く",
+        "depth": 2
+      },
+      {
+        "id": "タブを別ウィンドウで開く",
+        "title": "タブを別ウィンドウで開く",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "explorer/saving",
+    "title": "保存・再取得・未保存確認",
+    "component": "explorer",
+    "section": "親アプリとの連携",
+    "output": "explorer/saving/index.html",
+    "sources": [
+      "packages/explorer/src/docs/saving.md"
+    ],
+    "keywords": [
+      "ExplorerSaveHandler",
+      "ExplorerRefreshHandler",
+      "ExplorerSavePayload",
+      "onSave",
+      "onRefresh",
+      "onDirtyChange",
+      "warnOnUnsavedChanges",
+      "beforeunload"
+    ],
+    "headings": [
+      {
+        "id": "データと保存の契約",
+        "title": "データと保存の契約",
+        "depth": 2
+      },
+      {
+        "id": "保存前の検証と保存後の通知",
+        "title": "保存前の検証と保存後の通知",
+        "depth": 3
+      },
+      {
+        "id": "最新一覧を親から再取得する",
+        "title": "最新一覧を親から再取得する",
+        "depth": 3
+      },
+      {
+        "id": "未保存の変更がある状態で画面を離れる",
+        "title": "未保存の変更がある状態で画面を離れる",
+        "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/events",
+    "title": "操作・状態イベント",
+    "component": "explorer",
+    "section": "親アプリとの連携",
+    "output": "explorer/events/index.html",
+    "sources": [
+      "packages/explorer/src/docs/events.md"
+    ],
+    "keywords": [
+      "ExplorerEvent",
+      "ExplorerEventHandler",
+      "ExplorerDraftEvent",
+      "ExplorerChangeInfo",
+      "ExplorerLocationInfo",
+      "onEvent",
+      "change",
+      "save",
+      "context-menu"
+    ],
+    "headings": [
+      {
+        "id": "操作や状態変化を親画面で受け取る",
+        "title": "操作や状態変化を親画面で受け取る",
+        "depth": 2
+      },
+      {
+        "id": "型付きswitchで親の状態を更新する",
+        "title": "型付きswitchで親の状態を更新する",
+        "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/notifications",
+    "title": "通知の表示",
+    "component": "explorer",
+    "section": "親アプリとの連携",
+    "output": "explorer/notifications/index.html",
+    "sources": [
+      "packages/explorer/src/docs/notifications.md"
+    ],
+    "keywords": [
+      "ExplorerHandle",
+      "ExplorerNotification",
+      "ref",
+      "notify",
+      "dismissNotification",
+      "clearNotifications",
+      "progress",
+      "details",
+      "hint",
+      "persistent",
+      "アップロード完了",
+      "進捗"
+    ],
+    "headings": [
+      {
+        "id": "通知を送る",
+        "title": "通知を送る",
+        "depth": 2
+      },
+      {
+        "id": "api",
+        "title": "API",
+        "depth": 2
+      },
+      {
+        "id": "表示件数と閉じ方",
+        "title": "表示件数と閉じ方",
+        "depth": 3
+      },
+      {
+        "id": "保存結果をファイル一覧にまとめる",
+        "title": "保存結果をファイル一覧にまとめる",
+        "depth": 2
+      },
+      {
+        "id": "進捗は同じ通知を更新する",
+        "title": "進捗は同じ通知を更新する",
+        "depth": 2
+      },
+      {
+        "id": "失敗理由と共通の補足を分ける",
+        "title": "失敗理由と共通の補足を分ける",
+        "depth": 2
+      },
+      {
+        "id": "ウィンドウとイベントの関係",
+        "title": "ウィンドウとイベントの関係",
+        "depth": 2
+      },
+      {
+        "id": "デモで確認する",
+        "title": "デモで確認する",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "explorer/edit-permission",
+    "title": "編集許可・同時編集",
+    "component": "explorer",
+    "section": "親アプリとの連携",
+    "output": "explorer/edit-permission/index.html",
+    "sources": [
+      "packages/explorer/src/docs/concurrency.md"
+    ],
+    "keywords": [
+      "ExplorerEditHandler",
+      "ExplorerEditRequest",
+      "ExplorerEditResult",
+      "ExplorerEditContext",
+      "ExplorerEditModeEvent",
+      "onEditRequest",
+      "useExplorerDraft",
+      "requestEdit",
+      "endEdit"
+    ],
+    "headings": [
+      {
+        "id": "楽観ロック悲観ロックを選ぶ",
+        "title": "楽観ロック・悲観ロックを選ぶ",
+        "depth": 2
+      },
+      {
+        "id": "楽観ロックonsaveでバージョンを検証する例",
+        "title": "楽観ロック：onSaveでバージョンを検証する例",
+        "depth": 3
+      },
+      {
+        "id": "blobと複数ファイルを保存する場合",
+        "title": "Blobと複数ファイルを保存する場合",
+        "depth": 3
+      },
+      {
+        "id": "編集開始の許可とセッションを親で管理する",
+        "title": "編集開始の許可とセッションを親で管理する",
+        "depth": 2
+      },
+      {
+        "id": "保存終了複数ウィンドウの扱い",
+        "title": "保存・終了・複数ウィンドウの扱い",
+        "depth": 3
+      },
+      {
+        "id": "悲観ロックサーバーロックとonsaveをつなぐ例",
+        "title": "悲観ロック：サーバーロックとonSaveをつなぐ例",
+        "depth": 3
+      },
+      {
+        "id": "useexplorerdraftから直接操作する",
+        "title": "useExplorerDraftから直接操作する",
+        "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/context-menu",
+    "title": "右クリックメニュー",
+    "component": "explorer",
+    "section": "親アプリとの連携",
+    "output": "explorer/context-menu/index.html",
+    "sources": [
+      "packages/explorer/src/docs/context-menu.md"
+    ],
+    "keywords": [
+      "ExplorerContextMenuProvider",
+      "ExplorerContextMenuContext",
+      "ExplorerContextMenuChange",
+      "ExplorerContextMenuItem",
+      "getContextMenuItems",
+      "contextMenuExecutionMode",
+      "block",
+      "confirm",
+      "reject-if-changed"
+    ],
+    "headings": [
+      {
+        "id": "共通の実行モード",
+        "title": "共通の実行モード",
+        "depth": 2
+      },
+      {
+        "id": "contextの情報",
+        "title": "contextの情報",
+        "depth": 2
+      },
+      {
+        "id": "処理と反映を分ける",
+        "title": "処理と反映を分ける",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/getting-started",
+    "title": "はじめに",
+    "component": "spreadsheet",
+    "section": "基本",
+    "output": "spreadsheet/getting-started/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/README.md"
+    ],
+    "keywords": [
+      "Spreadsheet",
+      "initialWorkbook",
+      "styles.css",
+      "Next.js",
+      "コピー導入"
+    ],
+    "headings": [
+      {
+        "id": "コピー導入",
+        "title": "コピー導入",
+        "depth": 2
+      },
+      {
+        "id": "詳細",
+        "title": "詳細",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/props",
+    "title": "Propsとブックの型",
+    "component": "spreadsheet",
+    "section": "基本",
+    "output": "spreadsheet/props/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/api.md"
+    ],
+    "keywords": [
+      "SpreadsheetProps",
+      "SpreadsheetWorkbook",
+      "SpreadsheetCell",
+      "SpreadsheetSheet",
+      "colorMode",
+      "title",
+      "onSave"
+    ],
+    "headings": [
+      {
+        "id": "ブックの形式",
+        "title": "ブックの形式",
+        "depth": 2
+      },
+      {
+        "id": "props",
+        "title": "Props",
+        "depth": 2
+      },
+      {
+        "id": "保存",
+        "title": "保存",
+        "depth": 2
+      },
+      {
+        "id": "機能設定",
+        "title": "機能設定",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/features",
+    "title": "機能のON・OFF",
+    "component": "spreadsheet",
+    "section": "基本",
+    "output": "spreadsheet/features/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/features.md"
+    ],
+    "keywords": [
+      "SpreadsheetFeatures",
+      "features",
+      "readOnly",
+      "formulas",
+      "clipboard",
+      "exportExcel"
+    ],
+    "headings": [
+      {
+        "id": "設定一覧",
+        "title": "設定一覧",
+        "depth": 2
+      },
+      {
+        "id": "読み取り専用との違い",
+        "title": "読み取り専用との違い",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/capabilities",
+    "title": "操作と対応範囲",
+    "component": "spreadsheet",
+    "section": "基本",
+    "output": "spreadsheet/capabilities/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/capabilities.md"
+    ],
+    "keywords": [
+      "SPREADSHEET_LIMITS",
+      "Undo",
+      "Redo",
+      "ショートカット",
+      "上限"
+    ],
+    "headings": [
+      {
+        "id": "操作",
+        "title": "操作",
+        "depth": 2
+      },
+      {
+        "id": "数式",
+        "title": "数式",
+        "depth": 2
+      },
+      {
+        "id": "制約",
+        "title": "制約",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/selection",
+    "title": "セルと範囲の選択",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/selection/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/selection.md"
+    ],
+    "keywords": [
+      "onSelectionChange",
+      "SpreadsheetSelection",
+      "SpreadsheetSelectionRange",
+      "anchor",
+      "focus",
+      "ranges"
+    ],
+    "headings": [
+      {
+        "id": "複数範囲に対する操作",
+        "title": "複数範囲に対する操作",
+        "depth": 2
+      },
+      {
+        "id": "親への通知",
+        "title": "親への通知",
+        "depth": 2
+      },
+      {
+        "id": "上限",
+        "title": "上限",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/merged-cells",
+    "title": "セル結合",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/merged-cells/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/merged-cells.md"
+    ],
+    "keywords": [
+      "cells.merge",
+      "cells.unmerge",
+      "merges",
+      "SpreadsheetMergedRange",
+      "mergeCells",
+      "unmergeCells"
+    ],
+    "headings": [
+      {
+        "id": "値と操作",
+        "title": "値と操作",
+        "depth": 2
+      },
+      {
+        "id": "コピー貼り付け",
+        "title": "コピー・貼り付け",
+        "depth": 2
+      },
+      {
+        "id": "jsonと公開型",
+        "title": "JSONと公開型",
+        "depth": 2
+      },
+      {
+        "id": "機能設定と上限",
+        "title": "機能設定と上限",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/functions",
+    "title": "数式と関数",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/functions/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/functions.md"
+    ],
+    "keywords": [
+      "calculateWorkbook",
+      "translateFormula",
+      "SUM",
+      "AVERAGE",
+      "IF",
+      "IFERROR",
+      "formulas"
+    ],
+    "headings": [
+      {
+        "id": "対応関数",
+        "title": "対応関数",
+        "depth": 2
+      },
+      {
+        "id": "引数と空セルの扱い",
+        "title": "引数と空セルの扱い",
+        "depth": 3
+      },
+      {
+        "id": "参照と演算子",
+        "title": "参照と演算子",
+        "depth": 2
+      },
+      {
+        "id": "jsonへの保存",
+        "title": "JSONへの保存",
+        "depth": 2
+      },
+      {
+        "id": "機能設定と対応範囲",
+        "title": "機能設定と対応範囲",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/search",
+    "title": "検索・置換",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/search/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/editing-tools.md"
+    ],
+    "keywords": [
+      "findSpreadsheetCells",
+      "SpreadsheetSearchQuery",
+      "SpreadsheetSearchMatch",
+      "cells.replace",
+      "search",
+      "replace"
+    ],
+    "headings": [
+      {
+        "id": "検索と置換",
+        "title": "検索と置換",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/clipboard-and-fill",
+    "title": "コピー・貼り付け・オートフィル",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/clipboard-and-fill/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/editing-tools.md"
+    ],
+    "keywords": [
+      "cells.paste",
+      "cells.fill",
+      "SpreadsheetPasteMode",
+      "SpreadsheetPastePayload",
+      "copy",
+      "cut",
+      "paste",
+      "autoFill"
+    ],
+    "headings": [
+      {
+        "id": "形式を選択して貼り付け",
+        "title": "形式を選択して貼り付け",
+        "depth": 2
+      },
+      {
+        "id": "ドラッグによるオートフィル",
+        "title": "ドラッグによるオートフィル",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/sheets",
+    "title": "シートの操作",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/sheets/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/sheets.md"
+    ],
+    "keywords": [
+      "sheets.add",
+      "sheets.rename",
+      "sheets.duplicate",
+      "sheets.delete",
+      "sheets.move",
+      "reorderSheets"
+    ],
+    "headings": [
+      {
+        "id": "画面からの操作",
+        "title": "画面からの操作",
+        "depth": 2
+      },
+      {
+        "id": "外部api",
+        "title": "外部API",
+        "depth": 2
+      },
+      {
+        "id": "複製",
+        "title": "複製",
+        "depth": 2
+      },
+      {
+        "id": "保存履歴選択",
+        "title": "保存・履歴・選択",
+        "depth": 2
+      },
+      {
+        "id": "機能のonoff",
+        "title": "機能のON・OFF",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/input-validation",
+    "title": "入力規則",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/input-validation/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/input-validation.md"
+    ],
+    "keywords": [
+      "SpreadsheetDataValidation",
+      "cells.validation",
+      "setCellDataValidation",
+      "validation",
+      "checkboxes",
+      "dataValidation"
+    ],
+    "headings": [
+      {
+        "id": "jsonと公開型",
+        "title": "JSONと公開型",
+        "depth": 2
+      },
+      {
+        "id": "gui",
+        "title": "GUI",
+        "depth": 2
+      },
+      {
+        "id": "外部api",
+        "title": "外部API",
+        "depth": 2
+      },
+      {
+        "id": "不正な入力とデータ保持",
+        "title": "不正な入力とデータ保持",
+        "depth": 2
+      },
+      {
+        "id": "機能のonoff",
+        "title": "機能のON/OFF",
+        "depth": 2
+      },
+      {
+        "id": "xlsx出力と制限",
+        "title": "XLSX出力と制限",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/formatting",
+    "title": "書式・サイズ・条件付き書式",
+    "component": "spreadsheet",
+    "section": "表示と挿入",
+    "output": "spreadsheet/formatting/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/formatting.md"
+    ],
+    "keywords": [
+      "SpreadsheetCellFormat",
+      "cells.format",
+      "dimensions.resize",
+      "rows.resize",
+      "conditionalFormats.set",
+      "SpreadsheetConditionalFormatRule"
+    ],
+    "headings": [
+      {
+        "id": "画面からの操作",
+        "title": "画面からの操作",
+        "depth": 2
+      },
+      {
+        "id": "データとapiの例",
+        "title": "データとAPIの例",
+        "depth": 2
+      },
+      {
+        "id": "条件付き書式の例",
+        "title": "条件付き書式の例",
+        "depth": 2
+      },
+      {
+        "id": "機能を無効にする場合",
+        "title": "機能を無効にする場合",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/insertions",
+    "title": "画像・図形・コメント",
+    "component": "spreadsheet",
+    "section": "表示と挿入",
+    "output": "spreadsheet/insertions/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/insertions-and-json.md"
+    ],
+    "keywords": [
+      "SpreadsheetDrawing",
+      "SpreadsheetImageResource",
+      "SpreadsheetComment",
+      "prepareSpreadsheetImage",
+      "images.insert",
+      "shapes.insert",
+      "textBoxes.insert",
+      "comments.set",
+      "serializeWorkbook",
+      "parseWorkbook"
+    ],
+    "headings": [
+      {
+        "id": "画面の操作",
+        "title": "画面の操作",
+        "depth": 2
+      },
+      {
+        "id": "保存データの構成",
+        "title": "保存データの構成",
+        "depth": 2
+      },
+      {
+        "id": "保存と復元",
+        "title": "保存と復元",
+        "depth": 2
+      },
+      {
+        "id": "apiと機能のoff指定",
+        "title": "APIと機能のOFF指定",
+        "depth": 2
+      },
+      {
+        "id": "サイズと画像の制約",
+        "title": "サイズと画像の制約",
+        "depth": 2
+      },
+      {
+        "id": "univerを参考にした点",
+        "title": "Univerを参考にした点",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/lifecycle",
+    "title": "保存・編集許可・イベント",
+    "component": "spreadsheet",
+    "section": "親アプリとの連携",
+    "output": "spreadsheet/lifecycle/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/lifecycle.md"
+    ],
+    "keywords": [
+      "onSave",
+      "onBeforeSave",
+      "onEditRequest",
+      "onRefresh",
+      "onEvent",
+      "onUnsavedChangesChange",
+      "SpreadsheetOperationContext",
+      "save",
+      "refresh",
+      "discard"
+    ],
+    "headings": [
+      {
+        "id": "保存と再読み込みの例",
+        "title": "保存と再読み込みの例",
+        "depth": 2
+      },
+      {
+        "id": "編集許可とロック",
+        "title": "編集許可とロック",
+        "depth": 2
+      },
+      {
+        "id": "外部apiからの操作",
+        "title": "外部APIからの操作",
+        "depth": 2
+      },
+      {
+        "id": "イベントと離脱防止",
+        "title": "イベントと離脱防止",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/commands",
+    "title": "外部コマンド",
+    "component": "spreadsheet",
+    "section": "親アプリとの連携",
+    "output": "spreadsheet/commands/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/external-operations.md"
+    ],
+    "keywords": [
+      "SpreadsheetHandle",
+      "SpreadsheetCommand",
+      "SpreadsheetCommandResult",
+      "executeAsync",
+      "batchAsync",
+      "execute",
+      "batch",
+      "getWorkbook",
+      "prepareSpreadsheetImage"
+    ],
+    "headings": [
+      {
+        "id": "最小例",
+        "title": "最小例",
+        "depth": 2
+      },
+      {
+        "id": "handleと結果",
+        "title": "Handleと結果",
+        "depth": 2
+      },
+      {
+        "id": "コマンド一覧",
+        "title": "コマンド一覧",
+        "depth": 2
+      },
+      {
+        "id": "画像の準備と一括挿入",
+        "title": "画像の準備と一括挿入",
+        "depth": 2
+      },
+      {
+        "id": "一括処理履歴保存のルール",
+        "title": "一括処理・履歴・保存のルール",
+        "depth": 2
+      },
+      {
+        "id": "実行できない場合",
+        "title": "実行できない場合",
+        "depth": 2
+      },
+      {
+        "id": "初期データ作成との使い分け",
+        "title": "初期データ作成との使い分け",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/context-menu",
+    "title": "右クリックメニュー",
+    "component": "spreadsheet",
+    "section": "親アプリとの連携",
+    "output": "spreadsheet/context-menu/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/context-menu.md"
+    ],
+    "keywords": [
+      "getContextMenuItems",
+      "SpreadsheetContextMenuProvider",
+      "SpreadsheetContextMenuContext",
+      "contextMenuExecutionMode",
+      "onSelect",
+      "ContextMenuExecutionMode"
+    ],
+    "headings": [
+      {
+        "id": "渡される情報",
+        "title": "渡される情報",
+        "depth": 2
+      },
+      {
+        "id": "処理中の変更と反映",
+        "title": "処理中の変更と反映",
+        "depth": 2
+      },
+      {
+        "id": "イベントと操作",
+        "title": "イベントと操作",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/excel-export",
+    "title": "Excel出力",
+    "component": "spreadsheet",
+    "section": "親アプリとの連携",
+    "output": "spreadsheet/excel-export/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/excel-export.md"
+    ],
+    "keywords": [
+      "exportSpreadsheetXlsx",
+      "exportExcel",
+      "SpreadsheetExcelExportOptions",
+      "exportFileName",
+      "Blob",
+      "xlsx"
+    ],
+    "headings": [
+      {
+        "id": "コンポーネントで使う",
+        "title": "コンポーネントで使う",
+        "depth": 2
+      },
+      {
+        "id": "利用側からblobを取得する",
+        "title": "利用側からBlobを取得する",
+        "depth": 2
+      },
+      {
+        "id": "出力する内容",
+        "title": "出力する内容",
+        "depth": 2
+      },
+      {
+        "id": "互換性と実行環境",
+        "title": "互換性と実行環境",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "core/getting-started",
+    "title": "導入",
+    "component": "core",
+    "output": "core/getting-started/index.html",
+    "sources": [
+      "packages/core/docs/getting-started.md"
+    ],
+    "keywords": [
+      "core",
+      "共通基盤",
+      "インポート",
+      "コピー導入",
+      "依存"
+    ],
+    "headings": [
+      {
+        "id": "インポート",
+        "title": "インポート",
+        "depth": 2
+      },
+      {
+        "id": "ソースをコピーして使う",
+        "title": "ソースをコピーして使う",
+        "depth": 2
+      },
+      {
+        "id": "どのページを読むか",
+        "title": "どのページを読むか",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "core/host-contracts",
+    "title": "保存・編集許可",
+    "component": "core",
+    "output": "core/host-contracts/index.html",
+    "sources": [
+      "packages/core/docs/host-contracts.md"
+    ],
+    "keywords": [
+      "SaveHandler",
+      "RefreshHandler",
+      "EditPermission",
+      "EditRequestHandler",
+      "OperationContext",
+      "RequestHandler",
+      "MaybePromise",
+      "chainResult",
+      "isPromiseLike",
+      "ロック"
+    ],
+    "headings": [
+      {
+        "id": "型",
+        "title": "型",
+        "depth": 2
+      },
+      {
+        "id": "保存の例",
+        "title": "保存の例",
+        "depth": 2
+      },
+      {
+        "id": "編集許可",
+        "title": "編集許可",
+        "depth": 2
+      },
+      {
+        "id": "同期処理をそのまま返す",
+        "title": "同期処理をそのまま返す",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "core/events-and-features",
+    "title": "通知・機能設定",
+    "component": "core",
+    "output": "core/events-and-features/index.html",
+    "sources": [
+      "packages/core/docs/events-and-features.md"
+    ],
+    "keywords": [
+      "notifyHost",
+      "EventHandler",
+      "FeatureFlags",
+      "resolveFeatureFlags",
+      "onEvent",
+      "features",
+      "無効化"
+    ],
+    "headings": [
+      {
+        "id": "観測用の通知",
+        "title": "観測用の通知",
+        "depth": 2
+      },
+      {
+        "id": "機能の初期値",
+        "title": "機能の初期値",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "core/context-menu",
+    "title": "右クリックの非同期処理",
+    "component": "core",
+    "output": "core/context-menu/index.html",
+    "sources": [
+      "packages/core/docs/context-menu.md"
+    ],
+    "keywords": [
+      "ContextMenuProvider",
+      "ContextMenuItem",
+      "createContextMenuExecutor",
+      "resolveContextMenuItems",
+      "getContextMenuItems",
+      "block",
+      "confirm",
+      "reject-if-changed",
+      "AbortSignal"
+    ],
+    "headings": [
+      {
+        "id": "メニュー項目",
+        "title": "メニュー項目",
+        "depth": 2
+      },
+      {
+        "id": "対象によって項目を出す",
+        "title": "対象によって項目を出す",
+        "depth": 2
+      },
+      {
+        "id": "待っている間の変更",
+        "title": "待っている間の変更",
+        "depth": 2
+      },
+      {
+        "id": "自作uiへ接続する",
+        "title": "自作UIへ接続する",
+        "depth": 2
+      },
+      {
+        "id": "状態結果終了処理",
+        "title": "状態・結果・終了処理",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "core/unsaved-changes",
+    "title": "未保存データの離脱確認",
+    "component": "core",
+    "output": "core/unsaved-changes/index.html",
+    "sources": [
+      "packages/core/docs/unsaved-changes.md"
+    ],
+    "keywords": [
+      "createUnsavedChangesGuard",
+      "UnsavedChangesGuard",
+      "beforeunload",
+      "confirmClose",
+      "未保存",
+      "離脱",
+      "SPA"
+    ],
+    "headings": [
+      {
+        "id": "api",
+        "title": "API",
+        "depth": 2
+      },
+      {
+        "id": "接続の例",
+        "title": "接続の例",
+        "depth": 2
+      },
+      {
+        "id": "spaの画面遷移",
+        "title": "SPAの画面遷移",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "core/zip",
+    "title": "ZIPの生成",
+    "component": "core",
+    "output": "core/zip/index.html",
+    "sources": [
+      "packages/core/docs/zip.md"
+    ],
+    "keywords": [
+      "createZipArchive",
+      "ZipArchiveEntry",
+      "ZipArchiveOptions",
+      "Blob",
+      "ZIP",
+      "ダウンロード",
+      "フォルダ"
+    ],
+    "headings": [
+      {
+        "id": "api",
+        "title": "API",
+        "depth": 2
+      },
+      {
+        "id": "ファイルとフォルダをまとめる",
+        "title": "ファイルとフォルダをまとめる",
+        "depth": 2
+      },
+      {
+        "id": "必要になった順に読み込む",
+        "title": "必要になった順に読み込む",
+        "depth": 2
+      },
+      {
+        "id": "制約とエラー",
+        "title": "制約とエラー",
+        "depth": 2
+      }
+    ]
+  }
+]

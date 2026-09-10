@@ -5,7 +5,6 @@ import {
   createExplorerUploadSession,
   ExplorerUploadConflictError,
   ExplorerUploadValidationError,
-  formatUploadRejections,
   type ExplorerUploadConflict,
   type ExplorerUploadDecision,
   type ExplorerUploadResult,
@@ -14,6 +13,8 @@ import {
 import type { ExplorerEntry } from "../model/draft";
 import type { ExplorerEditIntent } from "../model/edit-session";
 import type { useExplorerDraft } from "./use-explorer-draft";
+import { describeUploadRejections } from "../model/upload-notification";
+import type { ExplorerNotification } from "../model/notifications";
 
 type UploadOptions = {
   draft: ReturnType<typeof useExplorerDraft>;
@@ -23,7 +24,7 @@ type UploadOptions = {
   cancelEditRequest: () => void;
   ownerDocument: Document | null;
   runEdit: (intent: ExplorerEditIntent, operation: () => boolean, onError: (error: unknown) => void) => boolean | Promise<boolean>;
-  notify: (kind: "success" | "error" | "info", message: string, options?: { description?: string; persistent?: boolean }) => unknown;
+  notify: (kind: "success" | "error" | "info", message: string, options?: Pick<ExplorerNotification, "description" | "details" | "hint" | "persistent">) => unknown;
 };
 type Batch = {
   files: File[];
@@ -110,8 +111,9 @@ export function useExplorerUpload(options: UploadOptions) {
     ].filter(Boolean);
     if (!parts.length) return;
     current.current.notify(result.skippedCount || result.rejections.length ? "info" : "success", `${parts.join("、")}しました`, {
-      description: result.rejections.length ? formatUploadRejections(result.rejections)
-        : result.addedCount || result.overwrittenCount ? "保存するまで、変更はこの画面で保持されます" : undefined,
+      ...describeUploadRejections(result.rejections),
+      description: !result.rejections.length && (result.addedCount || result.overwrittenCount)
+        ? "保存するまで、変更はこの画面で保持されます" : undefined,
       persistent: result.rejections.length > 0,
     });
   }
@@ -129,7 +131,7 @@ export function useExplorerUpload(options: UploadOptions) {
     release(batch);
     if (error instanceof ExplorerUploadValidationError) {
       current.current.notify("error", `${error.rejections.length}ファイルが条件に合わないため、追加を中止しました`, {
-        description: error.message, persistent: true,
+        ...describeUploadRejections(error.rejections), persistent: true,
       });
     } else current.current.notify("error", error instanceof Error ? error.message : "ファイルを追加できませんでした");
   }

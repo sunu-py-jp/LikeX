@@ -1,0 +1,16 @@
+{
+  "title": "コピー・切り取り・貼り付け",
+  "summary": "Explorer内の項目をコピー・移動し、PCでコピーしたファイルやフォルダを追加します。",
+  "source": "packages/explorer/src/docs/clipboard.md",
+  "order": 50,
+  "keywords": [
+    "copy",
+    "move",
+    "uploadFiles",
+    "uploadFolders",
+    "clipboard",
+    "paste",
+    "cut"
+  ],
+  "section": "ファイル操作"
+}

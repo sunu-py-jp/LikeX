@@ -1,0 +1,18 @@
+{
+  "title": "操作・状態イベント",
+  "summary": "onEventで選択や変更、保存などを受け取ります。通知から操作の許可・拒否はできません。",
+  "source": "packages/explorer/src/docs/events.md",
+  "order": 130,
+  "keywords": [
+    "ExplorerEvent",
+    "ExplorerEventHandler",
+    "ExplorerDraftEvent",
+    "ExplorerChangeInfo",
+    "ExplorerLocationInfo",
+    "onEvent",
+    "change",
+    "save",
+    "context-menu"
+  ],
+  "section": "親アプリとの連携"
+}

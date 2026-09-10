@@ -1,0 +1,24 @@
+{
+  "title": "配色・アイコン",
+  "summary": "colorModeとthemeで配色を変え、renderIconでファイルやフォルダのアイコンを差し替えます。",
+  "source": "packages/explorer/src/docs/appearance.md",
+  "order": 100,
+  "keywords": [
+    "ExplorerTheme",
+    "ExplorerThemeOptions",
+    "ExplorerColorMode",
+    "ExplorerIconRenderer",
+    "ExplorerIconContext",
+    "colorMode",
+    "theme",
+    "renderIcon"
+  ],
+  "section": "表示と操作設定",
+  "screenshots": [
+    {
+      "src": "assets/screenshots/explorer-overview.png",
+      "alt": "OSの配色設定に従いダークモードで表示したExplorer",
+      "caption": "colorMode=\"system\"で、OSの設定に合わせてダークモードになった表示です。"
+    }
+  ]
+}

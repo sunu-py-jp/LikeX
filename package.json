@@ -34,7 +34,9 @@
     "check:styles": "node scripts/build-styles.mjs --check",
     "test:styles": "node --test scripts/tests/build-styles.test.mjs",
     "test:scripts": "node --test scripts/tests/*.test.mjs",
-    "prebenchmark:explorer": "npm run build --workspace @likex/core"
+    "prebenchmark:explorer": "npm run build --workspace @likex/core",
+    "docs:build": "node scripts/build-api-docs.mjs",
+    "docs:check": "node scripts/build-api-docs.mjs --check"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",
@@ -44,14 +46,15 @@
     "esbuild": "0.28.2",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.4",
-    "postcss": "8.5.23",
-    "react-test-renderer": "19.2.8",
-    "tailwindcss": "4.3.3",
-    "typescript": "5.9.3",
+    "marked": "18.0.12",
     "next": "16.3.4",
+    "postcss": "8.5.23",
+    "postcss-selector-parser": "7.1.6",
+    "postcss-value-parser": "4.2.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "postcss-selector-parser": "7.1.6",
-    "postcss-value-parser": "4.2.0"
+    "react-test-renderer": "19.2.8",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
   }
 }

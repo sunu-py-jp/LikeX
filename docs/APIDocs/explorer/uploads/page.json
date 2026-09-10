@@ -1,0 +1,30 @@
+{
+  "title": "作成・アップロード",
+  "summary": "ファイル・フォルダの作成とアップロードに対応します。拡張子・サイズ制限と同名上書きを設定できます。",
+  "source": "packages/explorer/src/docs/uploads.md",
+  "order": 40,
+  "keywords": [
+    "ExplorerUploadOptions",
+    "ExplorerUploadResult",
+    "ExplorerUploadValidationError",
+    "ExplorerUploadConflictError",
+    "ExplorerUploadSession",
+    "createExplorerUploadSession",
+    "allowedExtensions",
+    "maxFileSizeBytes",
+    "invalidFileBehavior"
+  ],
+  "section": "ファイル操作",
+  "screenshots": [
+    {
+      "src": "assets/screenshots/explorer-upload.png",
+      "alt": "同名ファイルの上書きを選ぶ確認ダイアログ",
+      "caption": "同名ファイル2件のうち1件目の確認です。競合が複数ある場合は、上書き・スキップの回答を残りすべてに適用できます。"
+    },
+    {
+      "src": "assets/screenshots/explorer-upload-error.png",
+      "alt": "複数ファイルの追加を中止し、条件に合わないファイルを右下の通知に表示したExplorer",
+      "caption": "5ファイルのうち3ファイルが許可外の拡張子だった場合。デフォルト設定では全体の追加を中止し、該当ファイルと理由を右下にまとめて表示します。"
+    }
+  ]
+}

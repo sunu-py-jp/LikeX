@@ -324,7 +324,10 @@ test('actual Explorer panes resolve each owner window preference and propagate t
   const childBody = child.document.body.style;
   mainBody.setProperty('background-color', '#dddddd');
   childBody.setProperty('background-color', '#999999', 'important');
-  const workspace = { windows: [{ id: 'child', container: { ownerDocument: child.document } }] };
+  const workspace = {
+    windows: [{ id: 'child', container: { ownerDocument: child.document } }],
+    notifications: { messages: [], dismiss() {}, clear() {} },
+  };
   let props = {
     initialEntries: [], onSave() {}, colorMode: 'system',
     theme: { accent: '#226688', light: { baseColor: '#f7f4ee' }, dark: { baseColor: '#17212b' } },

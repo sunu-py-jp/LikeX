@@ -1,0 +1,16 @@
+{
+  "title": "セル結合",
+  "summary": "結合範囲の作成・解除と、値・書式・コピー時の扱いを確認します。",
+  "source": "packages/spreadsheet/src/docs/merged-cells.md",
+  "order": 60,
+  "section": "セルとシート",
+  "keywords": [
+    "cells.merge",
+    "cells.unmerge",
+    "merges",
+    "SpreadsheetMergedRange",
+    "mergeCells",
+    "unmergeCells"
+  ],
+  "screenshots": []
+}

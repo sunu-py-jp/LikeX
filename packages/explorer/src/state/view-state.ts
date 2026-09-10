@@ -7,10 +7,6 @@ export type ExplorerDialogState = {
   ids?: string[];
 };
 export type ExplorerClipboardState = { ids: string[]; action: "move" | "copy" } | null;
-export type ExplorerNotification = {
-  kind: "success" | "error" | "info";
-  message: string;
-  description?: string;
-  persistent?: boolean;
+export type ExplorerNotification = import("../model/notifications").ExplorerNotification & {
   downloadRequestId?: string;
 };

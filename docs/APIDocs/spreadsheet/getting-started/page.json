@@ -1,0 +1,21 @@
+{
+  "title": "はじめに",
+  "summary": "パッケージまたはソースコピーで導入し、初期ブックと表示領域の高さを指定します。",
+  "source": "packages/spreadsheet/src/docs/README.md",
+  "order": 10,
+  "section": "基本",
+  "keywords": [
+    "Spreadsheet",
+    "initialWorkbook",
+    "styles.css",
+    "Next.js",
+    "コピー導入"
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/spreadsheet-overview.png",
+      "alt": "書式と入力規則を設定したスプレッドシートの全体画面",
+      "caption": "デモの「書式と入力」シート。リボン、数式バー、セル、シートタブを一つの表示領域に配置します。"
+    }
+  ]
+}

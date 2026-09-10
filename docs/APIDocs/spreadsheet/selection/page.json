@@ -1,0 +1,16 @@
+{
+  "title": "セルと範囲の選択",
+  "summary": "連続範囲、離れたセル、行・列の選択を扱い、選択範囲を親に通知します。",
+  "source": "packages/spreadsheet/src/docs/selection.md",
+  "order": 50,
+  "section": "セルとシート",
+  "keywords": [
+    "onSelectionChange",
+    "SpreadsheetSelection",
+    "SpreadsheetSelectionRange",
+    "anchor",
+    "focus",
+    "ranges"
+  ],
+  "screenshots": []
+}

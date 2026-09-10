@@ -1,0 +1,18 @@
+{
+  "title": "編集許可・同時編集",
+  "summary": "onEditRequestで最初の変更を許可し、保存時の競合検証は親のonSaveで行います。",
+  "source": "packages/explorer/src/docs/concurrency.md",
+  "order": 140,
+  "keywords": [
+    "ExplorerEditHandler",
+    "ExplorerEditRequest",
+    "ExplorerEditResult",
+    "ExplorerEditContext",
+    "ExplorerEditModeEvent",
+    "onEditRequest",
+    "useExplorerDraft",
+    "requestEdit",
+    "endEdit"
+  ],
+  "section": "親アプリとの連携"
+}

@@ -32,6 +32,8 @@
 
 完了後の親画面更新などは `onEvent={event => { if (event.type === "save" && event.status === "success") afterSave(event.entries); }}` で受け取れます。`validateBeforeSave`・`persist`・`afterSave` は利用先が実装する関数の例です。`save` の `status: "start"` は観測通知であり、非同期処理を待たせたり、戻り値・throwで保存を拒否したりできません。成功通知側の例外も完了済みの保存を取り消しません。
 
+親が転送したファイルの完了一覧や処理の進捗をExplorer内に表示する場合は、`ref` の `notify()` を使えます。複数ファイルは1つの通知にまとめます。[通知の表示と保存処理の例](./notifications.md#保存結果をファイル一覧にまとめる)
+
 <a id="refresh-entries"></a>
 
 ### 最新一覧を親から再取得する

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ExplorerProps } from "../props";
 import { resolveExplorerOptions } from "../model/config";
 import { resolveInitialExplorerLocation } from "../model/initial-location";
@@ -14,6 +14,7 @@ import type { ExplorerClipboardState } from "./view-state";
 import { createMediaCache } from "./media-cache";
 import { createDownloadManager } from "./download-manager";
 import { createUnsavedChangesGuard } from "../model/unsaved-changes";
+import { useExplorerNotifications } from "./use-explorer-notifications";
 
 type DetachedView = {
   id: string; window: Window; container: HTMLElement; dispose: () => void; position?: WindowPosition;
@@ -31,6 +32,9 @@ function closeDetachedView(view: DetachedView) {
 
 /** One workspace owns all file data, saves, clipboard and tab identities. */
 export function useExplorerWorkspace(props: ExplorerProps) {
+  const notifications = useExplorerNotifications();
+  const { notify, dismiss, clear } = notifications;
+  useImperativeHandle(props.ref, () => ({ notify, dismissNotification: dismiss, clearNotifications: clear }), [notify, dismiss, clear]);
   const draft = useExplorerDraft(props);
   const [unsavedChangesGuard] = useState(createUnsavedChangesGuard);
   useLayoutEffect(() => {
@@ -320,7 +324,7 @@ export function useExplorerWorkspace(props: ExplorerProps) {
       hostDocument.current = null;
     };
   }, []);
-  return { draft: { ...draft, save, refresh, discard, endEdit }, registerImport, tabs, defaultStart, initialStart, takeInitialPreview, clipboard, setClipboard, getClipboard, draggedIds, workspaceId, windows, detachTab, reattachWindow, closeDetachedWindows, mediaCache, downloads, unsavedChangesGuard };
+  return { draft: { ...draft, save, refresh, discard, endEdit }, registerImport, tabs, defaultStart, initialStart, takeInitialPreview, clipboard, setClipboard, getClipboard, draggedIds, workspaceId, windows, detachTab, reattachWindow, closeDetachedWindows, mediaCache, downloads, unsavedChangesGuard, notifications };
 }
 
 export type ExplorerWorkspace = ReturnType<typeof useExplorerWorkspace>;

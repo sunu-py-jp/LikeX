@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement, ReactNode } from "react";
+import type { CSSProperties, ReactElement, ReactNode, Ref } from "react";
 import type { ExplorerEntry as Entry } from "./model/draft";
 import type { ExplorerDraftOptions } from "./state/use-explorer-draft";
 import type { ExplorerFileReader } from "./model/file-content";
@@ -12,6 +12,7 @@ import type { ExplorerDownloadHandler } from "./model/download";
 import type { ExplorerSearchHandler, ExplorerSearchOptions } from "./model/search";
 import type { ContextMenuExecutionMode } from "./core";
 import type { ExplorerContextMenuProvider } from "./model/context-menu";
+import type { ExplorerHandle } from "./model/notifications";
 
 export type ExplorerIconLocation = "list" | "tree" | "tab" | "destination" | "details" | "preview";
 
@@ -33,6 +34,8 @@ export type ExplorerIconRenderer = (
 export type ExplorerSelectedFileMode = "select" | "preview";
 
 export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave" | "onRefresh" | "onEditRequest"> & {
+  /** Push or dismiss host messages in the Explorer's notification area. */
+  ref?: Ref<ExplorerHandle>;
   /** Read on mount only. Change the React key to open another workspace. */
   initialEntries: readonly Entry[];
   /** Resolve an opaque content ID for previews and downloads. */

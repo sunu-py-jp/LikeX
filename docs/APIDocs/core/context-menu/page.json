@@ -1,0 +1,7 @@
+{
+  "title": "右クリックの非同期処理",
+  "summary": "条件付きメニュー、結果の確認、処理中の変更とキャンセル。",
+  "source": "packages/core/docs/context-menu.md",
+  "order": 40,
+  "keywords": ["ContextMenuProvider", "ContextMenuItem", "createContextMenuExecutor", "resolveContextMenuItems", "getContextMenuItems", "block", "confirm", "reject-if-changed", "AbortSignal"]
+}

@@ -1,0 +1,7 @@
+{
+  "title": "保存・編集許可",
+  "summary": "保存、再読み込み、編集許可の共通型と同期・非同期処理。",
+  "source": "packages/core/docs/host-contracts.md",
+  "order": 20,
+  "keywords": ["SaveHandler", "RefreshHandler", "EditPermission", "EditRequestHandler", "OperationContext", "RequestHandler", "MaybePromise", "chainResult", "isPromiseLike", "ロック"]
+}

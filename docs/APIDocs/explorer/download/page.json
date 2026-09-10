@@ -1,0 +1,17 @@
+{
+  "title": "ダウンロード",
+  "summary": "単体ファイルとフォルダZIPの取得を、内蔵処理または親のハンドラーで実行します。",
+  "source": "packages/explorer/src/docs/downloads.md",
+  "order": 80,
+  "keywords": [
+    "ExplorerDownloadHandler",
+    "ExplorerDownloadContext",
+    "ExplorerDownloadProgress",
+    "ExplorerDownloadResult",
+    "ExplorerDownloadRequest",
+    "ExplorerDownloadItem",
+    "onDownloadRequest",
+    "reportProgress"
+  ],
+  "section": "ファイル操作"
+}

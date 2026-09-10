@@ -1,0 +1,25 @@
+{
+  "title": "検索・置換",
+  "summary": "表示値または数式・入力値を検索し、一件ずつ、またはまとめて置換します。",
+  "source": "packages/spreadsheet/src/docs/editing-tools.md",
+  "order": 80,
+  "section": "セルとシート",
+  "keywords": [
+    "findSpreadsheetCells",
+    "SpreadsheetSearchQuery",
+    "SpreadsheetSearchMatch",
+    "cells.replace",
+    "search",
+    "replace"
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/spreadsheet-search.png",
+      "alt": "検索ダイアログに「サンプル」の一致セルが3件表示された画面",
+      "caption": "表示値と数式・入力値を切り替えて検索できます。一覧から対象のセルへ移動します。"
+    }
+  ],
+  "sections": [
+    "検索と置換"
+  ]
+}

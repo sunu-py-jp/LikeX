@@ -1,0 +1,19 @@
+{
+  "title": "外部コマンド",
+  "summary": "refからセル・行列・描画を操作し、バッチ結果とエラーを受け取ります。",
+  "source": "packages/spreadsheet/src/docs/external-operations.md",
+  "order": 150,
+  "section": "親アプリとの連携",
+  "keywords": [
+    "SpreadsheetHandle",
+    "SpreadsheetCommand",
+    "SpreadsheetCommandResult",
+    "executeAsync",
+    "batchAsync",
+    "execute",
+    "batch",
+    "getWorkbook",
+    "prepareSpreadsheetImage"
+  ],
+  "screenshots": []
+}

@@ -5,7 +5,7 @@ import { libraryModule, moduleNames } from './lib/modules.mjs';
 
 const online = process.argv.includes('--online');
 const checks = [
-  ...['check:styles', 'test:scripts', 'test', 'lint', 'typecheck'].map(name => ({ name })),
+  ...['check:styles', 'docs:check', 'test:scripts', 'test', 'lint', 'typecheck'].map(name => ({ name })),
   ...moduleNames.flatMap(module => ['pack:library', 'test:package', 'test:copy'].map(name => ({ name, module }))),
   { name: 'build:playground' },
 ];

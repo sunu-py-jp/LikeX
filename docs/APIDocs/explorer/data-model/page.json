@@ -1,0 +1,16 @@
+{
+  "title": "ファイルとフォルダのデータ",
+  "summary": "ExplorerEntryのIDと親IDで階層を表し、ファイル本体はsourceで参照します。",
+  "source": "packages/explorer/src/docs/data-model.md",
+  "order": 30,
+  "keywords": [
+    "ExplorerEntry",
+    "ExplorerItemInfo",
+    "ExplorerSnapshot",
+    "ExplorerSavePayload",
+    "source",
+    "parent",
+    "extension"
+  ],
+  "section": "基本"
+}

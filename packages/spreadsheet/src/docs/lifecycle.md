@@ -157,6 +157,7 @@ if (!result.ok) showMessage(result.message);
 | `selection` | セル・範囲の選択 |
 | `drawing-selection` | 選択した描画のID、解除時は`null` |
 | `clipboard` | `copy` / `cut` / `paste`、対象シートと操作開始時の選択範囲 |
+| `context-menu` | カスタムメニュー処理の開始・確認待ち・成功・キャンセル・失敗。[右クリックメニュー](./context-menu.md) |
 | `unsaved-changes` | 確定変更 `dirty`、未確定入力 `pending`、両者を含む `hasUnsavedChanges` |
 
 ブラウザの再読み込み・タブやウィンドウを閉じる操作は、未保存時に標準の確認を表示します。`warnOnUnsavedChanges: false` でOFFにできます。文言や確認が表示される条件はブラウザが管理します。SPA内の画面遷移や親によるアンマウントは、`onUnsavedChangesChange` を使って親が確認してください。

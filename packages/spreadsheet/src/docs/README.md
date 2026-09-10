@@ -20,6 +20,8 @@ export default function SheetView() {
 }
 ```
 
+この例は閲覧用です。編集・保存を有効にする場合は、`onSave` に利用側の保存処理を渡します。[保存とイベント](./lifecycle.md)に接続例があります。
+
 `@/` は利用先で設定するパスエイリアスです。設定しない場合は相対パスでimportしてください。パッケージ導入では入口を `@likex/spreadsheet`、CSSを `@likex/spreadsheet/styles.css` に読み替えます。どちらもCSSを明示的に1回読み込み、ホストから高さを指定します。Tailwind CSSの設定は不要です。
 
 Next.js App Routerでは `app/layout.tsx` にCSSのimportを置きます。コールバックのない読み取り専用ビューはServer Componentから呼び出せます。`onSave` 等を渡す親はClient Componentにしてください。
@@ -32,9 +34,10 @@ Next.js App Routerでは `app/layout.tsx` にCSSのimportを置きます。コ�
 - [条件付きの右クリックメニュー](./context-menu.md)
 - [外部からセル・行列・画像・図形を操作する](./external-operations.md)
 - [書式・表示形式・条件付き書式](./formatting.md)
-- [検索・置換・貼り付け・オートフィル・シート複製](./editing-tools.md)
+- [検索・置換・貼り付け・オートフィル](./editing-tools.md)
+- [シートの追加・名前変更・複製・並べ替え](./sheets.md)
 - [入力規則・プルダウン・チェックボックス](./input-validation.md)
-- [操作と初版の制約](./capabilities.md)
+- [操作と対応範囲](./capabilities.md)
 - [セル・範囲・行列の複数選択](./selection.md)
 - [セルの結合・解除とJSON保存](./merged-cells.md)
 - [基本15関数・数式とJSON保存](./functions.md)

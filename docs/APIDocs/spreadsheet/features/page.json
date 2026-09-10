@@ -1,0 +1,16 @@
+{
+  "title": "機能のON・OFF",
+  "summary": "featuresで必要な操作を選び、readOnlyで変更操作をまとめて禁止できます。",
+  "source": "packages/spreadsheet/src/docs/features.md",
+  "order": 30,
+  "section": "基本",
+  "keywords": [
+    "SpreadsheetFeatures",
+    "features",
+    "readOnly",
+    "formulas",
+    "clipboard",
+    "exportExcel"
+  ],
+  "screenshots": []
+}

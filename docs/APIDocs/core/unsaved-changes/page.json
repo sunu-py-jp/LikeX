@@ -1,0 +1,7 @@
+{
+  "title": "未保存データの離脱確認",
+  "summary": "未保存のときだけウィンドウの離脱確認を有効にする。",
+  "source": "packages/core/docs/unsaved-changes.md",
+  "order": 50,
+  "keywords": ["createUnsavedChangesGuard", "UnsavedChangesGuard", "beforeunload", "confirmClose", "未保存", "離脱", "SPA"]
+}

@@ -10,6 +10,8 @@
 | `@likex/explorer` | ファイル・フォルダの表示と編集 | [Explorer](packages/explorer/README.md) |
 | `@likex/spreadsheet` | Excel風のセル編集・基本数式・複数シート | [Spreadsheet](packages/spreadsheet/README.md) |
 
+[機能別APIリファレンス](docs/APIDocs/index.html) · [ドキュメントの開き方](docs/APIDocs/README.md)
+
 ## Explorerを使う
 
 ```tsx

@@ -1,0 +1,19 @@
+{
+  "title": "機能・選択・表示設定",
+  "summary": "featuresで操作を無効にし、selection・ui・viewで表示と選択方法を設定します。",
+  "source": "packages/explorer/src/docs/configuration.md",
+  "order": 90,
+  "keywords": [
+    "ExplorerOptions",
+    "ExplorerFeature",
+    "ExplorerFeatures",
+    "ExplorerSelectionOptions",
+    "ExplorerUIOptions",
+    "ExplorerViewOptions",
+    "readOnly",
+    "features",
+    "selection",
+    "view"
+  ],
+  "section": "表示と操作設定"
+}

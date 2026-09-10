@@ -4,6 +4,7 @@ import Explorer, {
   type ExplorerSavePayload,
   type ExplorerContextMenuProvider,
   type ExplorerSelectedFileMode,
+  type ExplorerHandle,
 } from "@likex/explorer";
 import { seedEntries } from "./demo/seed";
 import { createExplorerIconSamples } from "./demo/icon-samples";
@@ -81,6 +82,9 @@ function createDemoWorkspace(): DemoWorkspace {
 }
 
 export default function ExplorerDemo() {
+  const explorerRef = useRef<ExplorerHandle>(null);
+  // An opt-in, memory-only example of notifications sent by the host while saving.
+  const [notificationDemo] = useState(() => new URLSearchParams(window.location.search).has("notificationDemo"));
   const [initialWorkspace] = useState(createDemoWorkspace);
   const savedWorkspace = useRef(initialWorkspace);
   const refresh = useCallback(() => savedWorkspace.current.entries, []);
@@ -117,7 +121,7 @@ export default function ExplorerDemo() {
     return blob;
   }, []);
 
-  const save = useCallback((payload: ExplorerSavePayload): ExplorerEntry[] => {
+  const save = useCallback(async (payload: ExplorerSavePayload): Promise<ExplorerEntry[]> => {
     const files = new Map<string, Blob>();
     const localIds = new Map<File, string>();
     const entries = payload.entries.map((entry): ExplorerEntry => {
@@ -145,14 +149,31 @@ export default function ExplorerDemo() {
       return { ...entry, source: { kind: "existing", id: sourceId } };
     });
 
+    const localFiles = payload.entries.filter(entry => entry.source?.kind === "local");
+    let noticeId: string | undefined;
+    if (notificationDemo && localFiles.length) {
+      noticeId = explorerRef.current?.notify({ kind: "progress", message: `${localFiles.length}ファイルを保存しています`,
+        description: "デモの保存処理です。サーバーには送信しません。" });
+      for (const progress of [20, 40, 60, 80, 100]) {
+        await new Promise(resolve => setTimeout(resolve, 1600));
+        if (!explorerRef.current) throw new DOMException("表示を終了しました", "AbortError");
+        explorerRef.current.notify({ id: noticeId, kind: "progress", progress,
+          message: `${localFiles.length}ファイルを保存しています`,
+          description: "デモの保存処理です。サーバーには送信しません。" });
+      }
+    }
     // Publish the whole result only after every reference has been resolved.
     savedWorkspace.current = { entries, files };
+    if (noticeId) explorerRef.current?.notify({ id: noticeId, kind: "success",
+      message: `${localFiles.length}ファイルを保存しました`, persistent: true,
+      details: localFiles.map(entry => ({ kind: "success", message: entry.name })) });
     return entries;
-  }, []);
+  }, [notificationDemo]);
 
   return (
     <div style={{ height: "100dvh", minHeight: 0, minWidth: 0 }}>
       <Explorer
+        ref={explorerRef}
         initialEntries={initialWorkspace.entries}
         {...initialView}
         onSave={save}

@@ -1,0 +1,7 @@
+{
+  "title": "LikeXを組み込む",
+  "summary": "Explorer、Spreadsheet、Coreの公開APIと使い方をまとめています。用途に近い機能を左のメニューから選んでください。",
+  "source": "docs/APIDocs/overview.md",
+  "order": 0,
+  "keywords": ["導入", "コピー", "React", "Next.js"]
+}

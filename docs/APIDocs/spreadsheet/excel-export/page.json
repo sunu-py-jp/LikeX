@@ -1,0 +1,16 @@
+{
+  "title": "Excel出力",
+  "summary": "確定済みの下書きをXLSXへ変換し、ダウンロードまたは親アプリでのBlob利用につなげます。",
+  "source": "packages/spreadsheet/src/docs/excel-export.md",
+  "order": 170,
+  "section": "親アプリとの連携",
+  "keywords": [
+    "exportSpreadsheetXlsx",
+    "exportExcel",
+    "SpreadsheetExcelExportOptions",
+    "exportFileName",
+    "Blob",
+    "xlsx"
+  ],
+  "screenshots": []
+}

@@ -1,0 +1,17 @@
+{
+  "title": "タブ・別ウィンドウ",
+  "summary": "タブの切り離しと、ExplorerPopupによる別ウィンドウからの起動を設定します。",
+  "source": "packages/explorer/src/docs/windows.md",
+  "order": 110,
+  "keywords": [
+    "ExplorerPopup",
+    "ExplorerPopupControls",
+    "ExplorerPopupOptions",
+    "renderTrigger",
+    "onOpenChange",
+    "windowOptions",
+    "tabs",
+    "detachTabs"
+  ],
+  "section": "表示と操作設定"
+}

@@ -1,0 +1,22 @@
+{
+  "title": "シートの操作",
+  "summary": "シートの追加・名前変更・複製・削除・並べ替えを、画面と外部APIから行います。",
+  "source": "packages/spreadsheet/src/docs/sheets.md",
+  "order": 100,
+  "section": "セルとシート",
+  "keywords": [
+    "sheets.add",
+    "sheets.rename",
+    "sheets.duplicate",
+    "sheets.delete",
+    "sheets.move",
+    "reorderSheets"
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/spreadsheet-sheets.png",
+      "alt": "書式と入力シートを複製し、隣に書式と入力 (2) タブが追加された画面",
+      "caption": "シートの複製後も、書式・入力規則・チェックボックスを引き継ぎます。"
+    }
+  ]
+}

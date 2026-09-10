@@ -314,9 +314,10 @@ export function useExplorerViewController({
   function notify(
     kind: "success" | "error" | "info",
     message: string,
-    options?: { description?: string; persistent?: boolean },
+    options?: Pick<ExplorerNotification, "description" | "details" | "hint" | "persistent">,
   ) {
     const next = { kind, message, description: options?.description,
+      details: options?.details, hint: options?.hint,
       ...(options?.persistent ? { persistent: true } : {}) };
     setNotification(next);
     return next;
@@ -727,11 +728,17 @@ export function useExplorerViewController({
 
   async function saveChanges() {
     if (currentOptions.current.readOnly) return;
+    const notificationRevision = workspace.notifications.getRevision();
+    setNotification(null);
     const completion = save(windowId);
     const request = currentDraft.current.getEditState();
     const saved = await completion;
     if (!mounted.current) return;
-    if (saved) notify("success", "保存しました");
+    if (saved) {
+      // A host can report its own progress/results while saving. Do not repeat
+      // that result with a second generic completion notice.
+      if (workspace.notifications.getRevision() === notificationRevision) notify("success", "保存しました");
+    }
     else {
       const failure = currentDraft.current.getEditState();
       if (failure.error && failure.errorRequestId === (request.requestId ?? request.errorRequestId))

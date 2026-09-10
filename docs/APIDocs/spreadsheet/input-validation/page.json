@@ -1,0 +1,27 @@
+{
+  "title": "入力規則",
+  "summary": "数値・日付・文字数を制限し、リスト選択やチェックボックスをセル内に表示します。",
+  "source": "packages/spreadsheet/src/docs/input-validation.md",
+  "order": 110,
+  "section": "セルとシート",
+  "keywords": [
+    "SpreadsheetDataValidation",
+    "cells.validation",
+    "setCellDataValidation",
+    "validation",
+    "checkboxes",
+    "dataValidation"
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/spreadsheet-validation.png",
+      "alt": "入力規則ダイアログで数値の最小値と最大値を設定している画面",
+      "caption": "範囲内の値だけを受け付ける規則を設定します。既存の値に違反があれば、設定を適用せず知らせます。"
+    },
+    {
+      "src": "assets/screenshots/spreadsheet-data-controls.png",
+      "alt": "セルにリスト選択とチェックボックスを作成した画面",
+      "caption": "リスト選択とチェックボックスも、通常のセル変更と同じ保存・履歴・編集許可の対象です。"
+    }
+  ]
+}

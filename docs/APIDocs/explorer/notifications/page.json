@@ -1,0 +1,43 @@
+{
+  "title": "通知の表示",
+  "summary": "親から処理結果を表示します。ファイル一覧をまとめ、進捗から完了まで同じ通知を更新できます。",
+  "source": "packages/explorer/src/docs/notifications.md",
+  "order": 135,
+  "keywords": [
+    "ExplorerHandle",
+    "ExplorerNotification",
+    "ref",
+    "notify",
+    "dismissNotification",
+    "clearNotifications",
+    "progress",
+    "details",
+    "hint",
+    "persistent",
+    "アップロード完了",
+    "進捗"
+  ],
+  "section": "親アプリとの連携",
+  "screenshots": [
+    {
+      "src": "assets/screenshots/explorer-notification-progress.png",
+      "alt": "20ファイルの保存処理をスピナーと20パーセントの進捗バーで表示したExplorer",
+      "caption": "親のonSaveから送った進捗です。デモでは待機時間を加えたメモリ保存を行い、サーバーには送信していません。"
+    },
+    {
+      "src": "assets/screenshots/explorer-notification-success.png",
+      "alt": "保存した20ファイルをチェック付きの一覧で表示したExplorer",
+      "caption": "同じ通知IDを完了の表示へ更新しています。ファイルごとに通知を増やさず、1つの結果一覧にまとめます。"
+    },
+    {
+      "src": "assets/screenshots/explorer-notification-hint.png",
+      "alt": "ファイルごとの拒否理由を一覧にし、許可拡張子を情報アイコンの補足に表示したExplorer",
+      "caption": "理由はファイルごとに表示し、共通の許可拡張子は補足へまとめます。情報アイコンへのホバー・フォーカス・クリックで確認できます。"
+    },
+    {
+      "src": "assets/screenshots/explorer-notifications-many.png",
+      "alt": "100ファイルの拒否理由を右下の高さを制限した通知パネルに表示したExplorer",
+      "caption": "100ファイルが条件に合わない場合。長い名前は折り返し、パネル内をスクロールして残りの理由を確認できます。"
+    }
+  ]
+}

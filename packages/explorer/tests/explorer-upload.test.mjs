@@ -24,7 +24,10 @@ const result = await build({ absWorkingDir: packageRoot,
     builder.onLoad({ filter: /.*/, namespace: 'upload-test' }, ({ path }) => ({
       resolveDir: packageRoot, loader: 'tsx', contents: {
         portal: 'export const createPortal = children => children;',
-        radix: 'export const Tooltip = { Provider: ({children}) => children };',
+        radix: `import { cloneElement } from 'react';
+          const Passthrough = ({children}) => children;
+          export const Tooltip = { Provider: Passthrough, Root: Passthrough, Portal: Passthrough,
+            Content: Passthrough, Trigger: ({children, ...props}) => cloneElement(children, props) };`,
         ui: `export const ExplorerSidebar = () => null; export const ExplorerHeader = () => null;
           export const ExplorerStatusBar = () => null; export const ExplorerFileList = () => null; export const ExplorerDialogs = () => null;`,
       }[path],
@@ -479,6 +482,9 @@ test('parent and popup controller imports and external drops use accepted counts
   await change(() => hook.current.main.drop(dropEvent([file('next.txt'), file('bad.exe'), file('large.txt', 5)]), 'root'));
   assert.match(hook.current.main.notification.message, /1.*追加/);
   assert.match(hook.current.main.notification.message + hook.current.main.notification.description, /2.*(?:除外|スキップ)/);
+  assert.deepEqual(hook.current.main.notification.details.map(detail => detail.message), ['bad.exe', 'large.txt']);
+  assert.equal(hook.current.main.notification.hint, '許可されている拡張子: .txt');
+  assert.equal(hook.current.main.notification.description, undefined);
   const before = hook.current.main.entries;
   await change(() => hook.current.child.addLocalFiles([file('none.exe')]));
   assert.equal(hook.current.main.entries, before);
@@ -487,6 +493,43 @@ test('parent and popup controller imports and external drops use accepted counts
   assert.deepEqual(hook.events.filter(event => event.type === 'upload').map(event => event.addedCount), [1, 1, 0]);
   assert.equal(hook.events.filter(event => event.type === 'change').length, 2);
   assert.deepEqual(hook.reads, []); assert.deepEqual(hook.saves, []);
+});
+
+test('validation notices keep every rejected filename with a single extension hint and no partial additions', async t => {
+  const hook = await mountSharedViews(t, { upload: { allowedExtensions: ['.txt', '.md'] } });
+  const original = hook.current.main.entries;
+  await change(() => hook.current.main.addLocalFiles([file('good.txt'), file('bad.png'), file('bad.pdf')]));
+  assert.equal(hook.current.main.entries, original);
+  const notification = hook.current.main.notification;
+  assert.equal(notification.kind, 'error');
+  assert.equal(notification.persistent, true);
+  assert.deepEqual(notification.details.map(detail => [detail.message, detail.description]), [
+    ['bad.png', '許可されていない拡張子です'],
+    ['bad.pdf', '許可されていない拡張子です'],
+  ]);
+  assert.equal(notification.hint, '許可されている拡張子: .txt、 .md');
+  const rejectedEvent = hook.events.find(event => event.type === 'upload');
+  assert.equal(rejectedEvent.status, 'rejected');
+  assert.deepEqual(rejectedEvent.rejections[0].reasons[0].allowedExtensions, ['.txt', '.md']);
+});
+
+test('host save notifications replace progress without a duplicate built-in completion', async t => {
+  const ref = { current: null };
+  const hook = await mountSharedViews(t, { ref, onSave: async () => {
+    const id = ref.current.notify({ kind: 'progress', message: 'ファイルを送信中', progress: 30 });
+    await Promise.resolve();
+    ref.current.notify({ id, kind: 'success', message: '送信しました',
+      details: [{ kind: 'success', message: 'added.txt' }] });
+  } });
+  await change(() => hook.current.main.addLocalFiles([file('added.txt')]));
+  assert.equal(hook.current.main.notification.kind, 'success');
+  await change(() => hook.current.main.saveChanges());
+  assert.equal(hook.current.main.dirty, false);
+  assert.equal(hook.current.main.notification, null);
+  assert.equal(hook.current.workspace.notifications.messages.length, 1);
+  assert.equal(hook.current.workspace.notifications.messages[0].kind, 'success');
+  assert.deepEqual(hook.current.workspace.notifications.messages[0].details,
+    [{ kind: 'success', message: 'added.txt', description: undefined }]);
 });
 
 test('all-skipped or empty imports preserve an existing save error as well as the staged draft', async t => {

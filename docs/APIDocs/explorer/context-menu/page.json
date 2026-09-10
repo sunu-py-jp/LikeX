@@ -1,0 +1,25 @@
+{
+  "title": "右クリックメニュー",
+  "summary": "条件に合うメニューを追加し、非同期処理の結果を下書きへ反映できます。",
+  "source": "packages/explorer/src/docs/context-menu.md",
+  "order": 150,
+  "keywords": [
+    "ExplorerContextMenuProvider",
+    "ExplorerContextMenuContext",
+    "ExplorerContextMenuChange",
+    "ExplorerContextMenuItem",
+    "getContextMenuItems",
+    "contextMenuExecutionMode",
+    "block",
+    "confirm",
+    "reject-if-changed"
+  ],
+  "section": "親アプリとの連携",
+  "screenshots": [
+    {
+      "src": "assets/screenshots/explorer-context-menu.png",
+      "alt": "追加したカスタム項目を含むファイルの右クリックメニュー",
+      "caption": "getContextMenuItemsで追加した項目は、ファイルの削除操作の前に表示します。"
+    }
+  ]
+}

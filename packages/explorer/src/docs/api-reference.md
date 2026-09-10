@@ -13,6 +13,7 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | prop | 契約 |
 | --- | --- |
 | `initialEntries` | 初回マウント時の保存済み一覧。`readonly ExplorerEntry[]`。後からのprop変更で編集中の内容を上書きしません。別のワークスペースへ切り替える場合は `key` を変えて再マウントします。 |
+| `ref` | 任意の `React.Ref<ExplorerHandle>`。`notify()` で親の処理結果・進捗を通知領域へ表示し、`dismissNotification(id)` / `clearNotifications()` で閉じます。同じIDで通知を更新できます。[通知の表示](./notifications.md) |
 | `onSave` | 保存時に `ExplorerSavePayload` を受け取る任意のコールバック。省略すると読み取り専用になります。`void` または保存後の `readonly ExplorerEntry[]` を返します。どちらもPromiseにできます。 |
 | `onRefresh` | 任意の `() => readonly ExplorerEntry[] \| Promise<readonly ExplorerEntry[]>`。アドレスバー直前の更新ボタンから最新一覧を取得します。未指定ならボタンを隠します。初回の自動読込は行わず、読み取り専用でも利用できます。 |
 | `onEditRequest` | `ExplorerEditHandler`。最初の有効な変更を適用する直前に親へ許可を求めます。入力欄やダイアログを開くだけでは呼びません。許可後は保存・破棄等までセッションを共有し、未指定なら同期で許可します。 |

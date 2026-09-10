@@ -23,7 +23,7 @@
 
 画像のサムネイルや、対応形式に応じた内蔵プレビューは引き続き利用できます。
 
-`renderIcon?: ExplorerIconRenderer` で、ファイルやフォルダのアイコンを外側から指定できます。現在使える描画用APIで、未実装の `Explorer<T>` やアダプターpropsとは別です。Explorerはアプリ固有のアイコンや外部データ型を直接importせず、親から渡された関数を呼びます。
+`renderIcon?: ExplorerIconRenderer` で、ファイルやフォルダのアイコンを外側から指定できます。Explorerは親から渡された関数を呼び、戻り値をアイコンの位置に描画します。
 
 ```ts
 type ExplorerIconRenderer = (

@@ -1,0 +1,26 @@
+{
+  "title": "画像・図形・コメント",
+  "summary": "画像、文字入り図形、テキストボックス、セルコメントを挿入し、JSONに保存します。",
+  "source": "packages/spreadsheet/src/docs/insertions-and-json.md",
+  "order": 130,
+  "section": "表示と挿入",
+  "keywords": [
+    "SpreadsheetDrawing",
+    "SpreadsheetImageResource",
+    "SpreadsheetComment",
+    "prepareSpreadsheetImage",
+    "images.insert",
+    "shapes.insert",
+    "textBoxes.insert",
+    "comments.set",
+    "serializeWorkbook",
+    "parseWorkbook"
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/spreadsheet-insertions.png",
+      "alt": "挿入リボンと、画像・文字入り図形・テキストボックス・コメントを配置したシート",
+      "caption": "「挿入サンプル」シートの表示。画像、文字入り図形、テキストボックスとセルコメントを同じシートに配置できます。"
+    }
+  ]
+}

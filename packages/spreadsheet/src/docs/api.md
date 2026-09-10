@@ -24,7 +24,7 @@ const workbook: SpreadsheetWorkbook = {
 };
 ```
 
-`cells` はA1形式のアドレスをキーにした疎なオブジェクトです。空セルをすべて列挙する必要はありません。値は数値・数式も含めて文字列で指定します。シートには一意な `id` と名前が必要です。`columnWidths` / `rowHeights` は0始まりの位置をキーとするサイズ情報です。どちらも画面に反映されますが、画面上で変更できるのは列幅です。
+`cells` はA1形式のアドレスをキーにした疎なオブジェクトです。空セルをすべて列挙する必要はありません。値は数値・数式も含めて文字列で指定します。シートには一意な `id` と名前が必要です。`columnWidths` / `rowHeights` は0始まりの位置をキーとするサイズ情報です。列幅・行高とも、画面上のグリップや外部コマンドで変更できます。内容に合わせた自動調整も使えます。[書式・行列サイズ](./formatting.md)に指定値と操作をまとめています。
 
 画像の実体は `resources.images`、配置と図形・テキストはシートの `drawings`、セルの注記は `comments` に保持します。`schemaVersion: 1` を持つJSONへ保存でき、旧形式も読み込めます。[挿入機能とJSON保存](./insertions-and-json.md) に構造・公開型・`serializeWorkbook` / `parseWorkbook` の例をまとめています。
 
@@ -36,29 +36,32 @@ const workbook: SpreadsheetWorkbook = {
 
 ## Props
 
-| Prop | 役割・既定値 |
-| --- | --- |
-| `ref` | `SpreadsheetHandle`。表示中の下書きへ `execute` / `batch` で操作し、`getWorkbook` で取得。[外部操作API](./external-operations.md) |
-| `initialWorkbook` | マウント時の初期ブック。省略時は空の100行×26列。再代入で下書きは置き換わりません。 |
-| `onChange` | 下書きの変更通知。永続化は行いません。 |
-| `onSave` | 保存処理。省略すると読み取り専用。 |
-| `onBeforeSave` | 保存前チェック。`false`で中止。 |
-| `onEditRequest` | 初回の実変更前に編集許可を要求。未指定なら即時許可。 |
-| `onRefresh` | 最新ブックの再取得。未指定なら更新ボタンは非表示。 |
-| `onEvent` | 保存・編集モード・操作等の型付き通知。 |
-| `onDirtyChange` | 保存済み状態との差の通知。 |
-| `onUnsavedChangesChange` | 未確定入力も含む変更状態。親の画面遷移ガード向け。 |
-| `warnOnUnsavedChanges` | 未保存時のブラウザ標準離脱確認。既定`true`。 |
-| `readOnly` | `true` なら `onSave` があっても変更操作を無効化。 |
-| `features` | 下記の機能設定。省略した項目は `true`。 |
-| `getContextMenuItems` | セル／シートの対象・選択・下書きに応じた追加メニュー。[右クリックメニュー](./context-menu.md) |
-| `contextMenuExecutionMode` | `block`（既定）・`confirm`・`reject-if-changed`。メニュー処理中の変更と反映を制御。 |
-| `onSelectionChange` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。`ranges` は全範囲、`focus` は編集先セル（結合内なら左上）。[複数選択](./selection.md) |
-| `colorMode` | `"light"`（既定）・`"dark"`・`"system"`。 |
-| `title` | 表示タイトル。省略時は「スプレッドシート」。 |
-| `exportFileName` | Excel出力のファイル名。省略時は `title`、未指定なら `spreadsheet.xlsx`。[Excel出力](./excel-export.md) |
-| `className` / `style` | ルート要素のクラス・CSS。高さは利用先で指定。 |
-| `aria-label` | 領域の読み上げ名。省略時は「スプレッドシート」。 |
+すべてのPropは省略可能です。コールバック型の引数・戻り値は[保存・編集許可・イベント](./lifecycle.md)、Handleは[外部コマンド](./external-operations.md)で確認できます。
+
+| Prop | 型 | 役割・既定値 |
+| --- | --- | --- |
+| `ref` | `Ref<SpreadsheetHandle>` | `SpreadsheetHandle`。表示中の下書きへ `execute` / `batch` で操作し、`getWorkbook` で取得。[外部操作API](./external-operations.md) |
+| `initialWorkbook` | `SpreadsheetWorkbook` | マウント時の初期ブック。省略時は空の100行×26列。再代入で下書きは置き換わりません。 |
+| `onChange` | `(workbook: SpreadsheetWorkbook) => void` | 下書きの変更通知。永続化は行いません。 |
+| `onSave` | `SpreadsheetSaveHandler` | 保存処理。省略すると読み取り専用。 |
+| `onBeforeSave` | `SpreadsheetBeforeSaveHandler` | 保存前チェック。`false`で中止。 |
+| `onEditRequest` | `SpreadsheetEditHandler` | 初回の実変更前に編集許可を要求。未指定なら即時許可。 |
+| `onRefresh` | `SpreadsheetRefreshHandler` | 最新ブックの再取得。未指定なら更新ボタンは非表示。 |
+| `onEvent` | `SpreadsheetEventHandler` | 保存・編集モード・操作等の型付き通知。 |
+| `onDirtyChange` | `(dirty: boolean) => void` | 保存済み状態との差の通知。 |
+| `onUnsavedChangesChange` | `(hasUnsavedChanges: boolean) => void` | 未確定入力も含む変更状態。親の画面遷移ガード向け。 |
+| `warnOnUnsavedChanges` | `boolean` | 未保存時のブラウザ標準離脱確認。既定`true`。 |
+| `readOnly` | `boolean` | `true` なら `onSave` があっても変更操作を無効化。 |
+| `features` | `SpreadsheetFeatures` | 下記の機能設定。省略した項目は `true`。 |
+| `getContextMenuItems` | `SpreadsheetContextMenuProvider` | セル／シートの対象・選択・下書きに応じた追加メニュー。[右クリックメニュー](./context-menu.md) |
+| `contextMenuExecutionMode` | `ContextMenuExecutionMode` | `block`（既定）・`confirm`・`reject-if-changed`。メニュー処理中の変更と反映を制御。 |
+| `onSelectionChange` | `(selection: SpreadsheetSelection) => void` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。`ranges` は全範囲、`focus` は編集先セル（結合内なら左上）。[複数選択](./selection.md) |
+| `colorMode` | `SpreadsheetColorMode` | `"light"`（既定）・`"dark"`・`"system"`。 |
+| `title` | `string` | 表示タイトル。省略時は「スプレッドシート」。 |
+| `exportFileName` | `string` | Excel出力のファイル名。省略時は `title`、未指定なら `spreadsheet.xlsx`。[Excel出力](./excel-export.md) |
+| `className` | `string` | ルート要素に追加するCSSクラス。 |
+| `style` | `CSSProperties` | ルート要素のインラインCSS。高さは利用先で指定。 |
+| `aria-label` | `string` | 領域の読み上げ名。省略時は「スプレッドシート」。 |
 
 `initialWorkbook` は最初だけ読み込みます。同じブックの再取得には `onRefresh`、別ブックへの切り替えには `key={bookId}` などで再マウントします。未保存の下書きも破棄されるため、切り替え前の確認は親で扱ってください。
 
