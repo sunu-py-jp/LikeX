@@ -58,12 +58,16 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const switchSheet = (id: string) => {
     afterCommit(() => view.switchSheet(id, draft.workbookRef.current));
   };
-  const restoreHistoryView = (workbook: Workbook) => {
+  const resetWorkbookView = (workbook: Workbook) => {
     cellEdit.cancelEdit();
     view.resetForWorkbook(workbook);
   };
+  const restoreHistoryView = (workbook: Workbook) => {
+    cellEdit.cancelEdit();
+    view.resetForWorkbook(workbook, { preserveFocus: true });
+  };
   const viewSession = { commitEdit: cellEdit.commitEdit,
-    hasPendingEdits: () => !!cellEdit.editingRef.current || pending.pendingObjectEditRef.current, resetView: restoreHistoryView };
+    hasPendingEdits: () => !!cellEdit.editingRef.current || pending.pendingObjectEditRef.current, resetView: resetWorkbookView };
   const save = () => draft.save(viewSession);
   const externalSave = () => viewSession.hasPendingEdits() ? Promise.resolve(false) : draft.save(viewSession);
   const refresh = (options?: SpreadsheetDiscardOptions) => draft.refresh(viewSession, options);

@@ -128,6 +128,83 @@ test('history does not take focus from a control outside the grid', async t => {
   assert.equal(ui.activeElement(), outside);
 });
 
+test('paste Undo and Redo retain the active cell and collapse multiple ranges to its focus', async t => {
+  const ui = await mount(t);
+  const focus = { row: 4, column: 5 };
+  await act(async () => {
+    ui.c.select(focus);
+    assert.equal((await ui.c.executeCommand({ type: 'cells.paste', sheetId: 'one', target: focus,
+      mode: 'values', payload: { values: [['pasted']] } })).ok, true);
+  });
+  assert.equal(ui.value('F5'), 'pasted');
+  for (const direction of ['undo', 'redo']) {
+    await act(async () => assert.equal(await ui.c[direction](), true));
+    assert.deepEqual(ui.c.selection.focus, focus);
+    assert.deepEqual(ui.c.selection.ranges, [{ anchor: focus, focus }]);
+    assert.equal(ui.value('F5'), direction === 'undo' ? undefined : 'pasted');
+  }
+  const nextFocus = { row: 6, column: 7 };
+  await act(async () => {
+    ui.c.selectRange({ row: 1, column: 1 }, focus);
+    ui.c.selectRange({ row: 5, column: 6 }, nextFocus, true);
+  });
+  assert.equal(ui.c.selection.ranges.length, 2);
+  await act(async () => assert.equal(await ui.c.undo(), true));
+  assert.deepEqual(ui.c.selection.focus, nextFocus);
+  assert.deepEqual(ui.c.selection.ranges, [{ anchor: nextFocus, focus: nextFocus }]);
+});
+
+test('history clamps the active cell when Undo or Redo shrinks rows and columns', async t => {
+  const ui = await mount(t);
+  await act(async () => assert.equal((await ui.c.executeCommands([
+    { type: 'rows.delete', sheetId: 'one', index: 4, count: 4 },
+    { type: 'columns.delete', sheetId: 'one', index: 4, count: 4 },
+  ])).ok, true));
+  await act(async () => assert.equal(await ui.c.undo(), true));
+  await act(async () => ui.c.select({ row: 7, column: 7 }));
+  await act(async () => assert.equal(await ui.c.redo(), true));
+  assert.deepEqual(ui.c.selection.focus, { row: 3, column: 3 });
+  await act(async () => assert.equal((await ui.c.executeCommands([
+    { type: 'rows.insert', sheetId: 'one', index: 4, count: 4 },
+    { type: 'columns.insert', sheetId: 'one', index: 4, count: 4 },
+  ])).ok, true));
+  await act(async () => ui.c.select({ row: 7, column: 7 }));
+  await act(async () => assert.equal(await ui.c.undo(), true));
+  const focus = { row: 3, column: 3 };
+  assert.deepEqual(ui.c.selection.ranges, [{ anchor: focus, focus }]);
+});
+
+test('history selects a valid fallback cell when Undo or Redo removes the active sheet', async t => {
+  const ui = await mount(t);
+  let copiedId;
+  await act(async () => {
+    const result = await ui.c.executeCommand({ type: 'sheets.duplicate', sheetId: 'one' });
+    assert.equal(result.ok, true);
+    copiedId = result.results[0].sheetId;
+  });
+  await act(async () => ui.c.selectCellInSheet(copiedId, { row: 4, column: 5 }));
+  await act(async () => assert.equal(await ui.c.undo(), true));
+  assert.equal(ui.c.selection.sheetId, 'one');
+  assert.deepEqual(ui.c.selection.focus, { row: 0, column: 0 });
+  await act(async () => assert.equal(await ui.c.redo(), true));
+  await act(async () => assert.equal((await ui.c.executeCommand({ type: 'sheets.delete', sheetId: copiedId })).ok, true));
+  await act(async () => assert.equal(await ui.c.undo(), true));
+  await act(async () => ui.c.selectCellInSheet(copiedId, { row: 4, column: 5 }));
+  await act(async () => assert.equal(await ui.c.redo(), true));
+  assert.equal(ui.c.selection.sheetId, 'one');
+  assert.deepEqual(ui.c.selection.focus, { row: 0, column: 0 });
+});
+
+test('saving still resets the selected cell after history keeps its position', async t => {
+  const ui = await mount(t);
+  await ui.edit(4, 5, 'changed');
+  await act(async () => assert.equal(await ui.c.undo(), true));
+  await act(async () => assert.equal(await ui.c.redo(), true));
+  assert.deepEqual(ui.c.selection.focus, { row: 4, column: 5 });
+  await act(async () => assert.equal(await ui.c.save(), true));
+  assert.deepEqual(ui.c.selection.focus, { row: 0, column: 0 });
+});
+
 test('history shortcuts retain their entries while a context-menu operation blocks mutations', async t => {
   const ui = await mount(t);
   await ui.edit(0, 0, 'first');

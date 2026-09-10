@@ -84,12 +84,17 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
       return true;
     } catch (cause) { reportError(cause); return false; }
   };
-  const resetForWorkbook = (next: Workbook) => {
+  const resetForWorkbook = (next: Workbook, options?: { preserveFocus?: boolean }) => {
     clearDrawingSelection();
     setCommentOpen(false);
     setViewRevision(value => value + 1);
-    const sheet = next.sheets.find(item => item.id === selection.sheetId) ?? next.sheets[0];
-    setSelection(initialSheetSelection(sheet));
+    const previous = selectionRef.current;
+    const sheet = next.sheets.find(item => item.id === previous.sheetId) ?? next.sheets[0];
+    if (!options?.preserveFocus || sheet.id !== previous.sheetId) setSelection(initialSheetSelection(sheet));
+    else {
+      const focus = clampPosition(previous.focus, sheet);
+      setSelection(selectionForSheet(sheet, [{ anchor: focus, focus }]));
+    }
   };
 
   return { activeSheet, selection, selectionRef, setSelection, select, selectRange, toggleSelection, toggleSelectionRange, viewRevision,
