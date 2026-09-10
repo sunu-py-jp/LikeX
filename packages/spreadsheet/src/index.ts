@@ -13,7 +13,7 @@ export * from "./model";
 export type {
   SpreadsheetHandle, SpreadsheetCommand, SpreadsheetCommandAnchor,
   SpreadsheetCommandResult, SpreadsheetCommandSuccess, SpreadsheetCommandFailure,
-  SpreadsheetCommandErrorCode, SpreadsheetCommandReceipt, SpreadsheetWorkbookSnapshot,
+  SpreadsheetCommandErrorCode, SpreadsheetCommandReceipt, SpreadsheetCommandPlacement, SpreadsheetWorkbookSnapshot,
   SpreadsheetImageCommandPatch, SpreadsheetShapeCommandPatch, SpreadsheetTextBoxCommandPatch,
 } from "./api/types";
 export { readImageResource as prepareSpreadsheetImage } from "./state/read-image";

@@ -78,6 +78,8 @@ if (result.ok) {
 
 成功時の `results` はコマンド順の `SpreadsheetCommandReceipt[]` です。各要素に `type` / `sheetId` と、対象に応じた `drawingId` / `resourceId` / `commentId` が入ります。`execute` も1要素の配列です。新規IDはライブラリが生成し、既存オブジェクトやコメントの更新ではIDを維持します。
 
+画像などの挿入・更新、セル設定・貼り付け・オートフィル、行列の挿入では、結果に `placement` が付きます。`nextRow` / `nextColumn` で対象の直後へ内容を続けて配置できます。空のセル設定・貼り付けでは省略します。[配置位置と次の行・列](./drawing-placement.md)にコマンドごとの返却内容と、画像の配置IDから再計算するヘルパーをまとめています。
+
 `ref.current` はマウント前・アンマウント後には `null` です。同じインスタンスのhandleは再描画後も同じオブジェクトです。以前取得したhandleでアンマウント後に変更しようとすると `NOT_MOUNTED` を返します。ブック切り替えで `key` を変えた場合、新しいhandleを利用してください。
 
 ## コマンド一覧

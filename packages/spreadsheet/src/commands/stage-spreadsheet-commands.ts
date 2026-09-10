@@ -1,4 +1,6 @@
 import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandReceipt, SpreadsheetCommandSuccess } from "./types";
+import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
+import { completeCommandReceipt } from "./receipt-placement";
 import { cellAddress, parseCellAddress } from "../model/address";
 import { workbooksEqual } from "../model/equality";
 import { mergedCellPosition } from "../model/merges";
@@ -18,14 +20,14 @@ export const MAX_SPREADSHEET_COMMANDS = 1_000;
 export type StagedSpreadsheetCommands = (SpreadsheetCommandSuccess & { readonly workbook: SpreadsheetWorkbook }) | SpreadsheetCommandFailure;
 
 function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand, features: SpreadsheetFeatureSettings,
-  nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandReceipt } {
+  nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandBaseReceipt } {
   if (command.type === "sheets.add") {
     requireCommandFeature(features, "createSheet");
     const sheetId = nextId();
     return { workbook: addSheetWithId(workbook, command.name, sheetId), receipt: { type: command.type, sheetId } };
   }
   const sheet = requireCommandSheet(workbook, command.sheetId);
-  const result = (next: SpreadsheetWorkbook, extra: Partial<SpreadsheetCommandReceipt> = {}) =>
+  const result = (next: SpreadsheetWorkbook, extra: Partial<SpreadsheetCommandBaseReceipt> = {}) =>
     ({ workbook: next, receipt: { type: command.type, sheetId: sheet.id, ...extra } });
   switch (command.type) {
     case "cells.validation":
@@ -118,7 +120,7 @@ export function stageSpreadsheetCommands(workbook: SpreadsheetWorkbook, commands
       const command = validateCommand(commands[index]);
       const applied = applyCommand(staged, command, features, nextId);
       staged = applied.workbook;
-      results.push(Object.freeze(applied.receipt));
+      results.push(completeCommandReceipt(staged, command, applied.receipt));
     }
     const changed = !workbooksEqual(workbook, staged);
     return Object.freeze({ ok: true, changed, workbook: changed ? staged : workbook, results: Object.freeze(results) });

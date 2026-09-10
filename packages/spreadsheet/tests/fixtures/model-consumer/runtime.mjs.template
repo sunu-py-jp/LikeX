@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { applySpreadsheetCommands, parseWorkbook, serializeWorkbook, createWorkbook, setCellValues } from '__MODEL_IMPORT__';
+import { applySpreadsheetCommands, parseWorkbook, serializeWorkbook, createWorkbook, setCellValues,
+  getDrawingBounds, getDrawingPlacement } from '__MODEL_IMPORT__';
 
 const require = createRequire(import.meta.url);
 assert.throws(() => require.resolve('react'), { code: 'MODULE_NOT_FOUND' });
@@ -17,6 +18,8 @@ assert.equal(result.workbook.sheets[0].cells.A2.value, '商品A');
 assert.equal(result.workbook.sheets[0].cells.B3.value, '200');
 assert.equal(result.workbook.sheets[0].cells.B4.value, '10');
 assert.equal(result.workbook.sheets[0].cells.C1.value, '=B4*2');
+assert.deepEqual(result.results[0].placement, { nextRow: 3 });
+assert.deepEqual(result.results[1].placement, { nextRow: 3, nextColumn: 2 });
 assert.equal(serializeWorkbook(original), before);
 assert.equal(parseWorkbook(serializeWorkbook(result.workbook)).sheets[0].rowCount, 102);
 const failed = applySpreadsheetCommands(original, [commands[0], { type: 'cells.set', sheetId: 'missing', values: { A1: 'bad' } }]);
@@ -27,4 +30,21 @@ assert.equal(serializeWorkbook(original), before);
 const disabled = applySpreadsheetCommands(original, commands, { features: { insertRows: false } });
 assert.equal(disabled.ok, false);
 assert.equal(disabled.code, 'FEATURE_DISABLED');
-console.log(JSON.stringify({ operations: 'passed', atomicFailure: 'passed', features: 'passed', reactInstalled: false, browserGlobals: false }));
+const withImage = applySpreadsheetCommands(original, [{ type: 'images.insert', sheetId: 'sheet-1',
+  anchor: { row: 0, column: 0 }, width: 280, alt: '説明画像',
+  resource: { name: 'sample.png', mimeType: 'image/png', width: 1, height: 1,
+    dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVZkAAAAASUVORK5CYII=' } }]);
+assert.equal(withImage.ok, true);
+const image = withImage.results[0];
+assert.deepEqual(image.placement, { nextRow: 10, nextColumn: 3 });
+const bounds = getDrawingBounds(withImage.workbook, 'sheet-1', image.drawingId);
+assert.equal(bounds.bottom, 280);
+const placement = getDrawingPlacement(withImage.workbook, 'sheet-1', image.drawingId, { gap: 12 });
+assert.equal(placement.nextRow, 11);
+assert.equal(placement.nextColumn, 3);
+assert.deepEqual(placement.bounds, bounds);
+const table = applySpreadsheetCommands(withImage.workbook, [{ type: 'cells.set', sheetId: 'sheet-1', values: { A12: '画像の下の表' } }]);
+assert.equal(table.ok, true);
+assert.equal(table.workbook.sheets[0].cells.A12.value, '画像の下の表');
+assert.equal(parseWorkbook(serializeWorkbook(table.workbook)).sheets[0].drawings[0].alt, '説明画像');
+console.log(JSON.stringify({ operations: 'passed', atomicFailure: 'passed', features: 'passed', drawingPlacement: 'passed', reactInstalled: false, browserGlobals: false }));

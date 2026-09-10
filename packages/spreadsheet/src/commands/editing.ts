@@ -1,4 +1,5 @@
-import type { SpreadsheetCommand, SpreadsheetCommandReceipt } from "./types";
+import type { SpreadsheetCommand } from "./types";
+import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { fillSpreadsheetCells } from "../model/editing/fill";
 import { pasteSpreadsheetCells } from "../model/editing/paste";
 import { findSpreadsheetCells, replaceSpreadsheetCells, replaceSpreadsheetText } from "../model/editing/search";
@@ -8,7 +9,7 @@ import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { commandKeys, commandRecord, rejectCommand, requireCommandAddress, requireCommandFeature, requireCommandSheet } from "./validation";
 
 export function stageEditingCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand, features: SpreadsheetFeatureSettings,
-  nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandReceipt } | null {
+  nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandBaseReceipt } | null {
   if (command.type !== "cells.replace" && command.type !== "cells.fill" && command.type !== "cells.paste" && command.type !== "sheets.duplicate") return null;
   const sheet = requireCommandSheet(workbook, command.sheetId);
   const finish = (next: SpreadsheetWorkbook, sheetId = sheet.id) => ({ workbook: next, receipt: { type: command.type, sheetId } });

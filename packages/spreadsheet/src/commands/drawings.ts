@@ -1,4 +1,5 @@
-import type { SpreadsheetCommand, SpreadsheetCommandAnchor, SpreadsheetCommandReceipt } from "./types";
+import type { SpreadsheetCommand, SpreadsheetCommandAnchor } from "./types";
+import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { addDrawing, deleteDrawing, insertImage, updateDrawing } from "../model/workbook";
 import type { SpreadsheetDrawingAnchor, SpreadsheetDrawingPatch, SpreadsheetWorkbook } from "../model/types";
 import { getImageDisplaySize, normalizeImageResource } from "../model/image-resources";
@@ -18,7 +19,7 @@ function drawingAnchor(input: SpreadsheetCommandAnchor): SpreadsheetDrawingAncho
 
 /** Construct typed drawing operations without coupling their defaults or ID creation to a toolbar. */
 export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: DrawingCommand,
-  features: SpreadsheetFeatureSettings, nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandReceipt } {
+  features: SpreadsheetFeatureSettings, nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandBaseReceipt } {
   const sheet = requireCommandSheet(workbook, command.sheetId);
   const receipt = (next: SpreadsheetWorkbook, drawingId: string, resourceId?: string) => ({ workbook: next,
     receipt: { type: command.type, sheetId: sheet.id, drawingId, ...(resourceId ? { resourceId } : {}) } });

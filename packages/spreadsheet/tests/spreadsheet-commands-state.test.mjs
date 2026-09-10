@@ -95,7 +95,8 @@ test('a no-op and a batch whose net effect is unchanged do not create history or
   const before = ui.api.getWorkbook();
   let result;
   await act(async () => {
-    assert.deepEqual(ui.api.execute(set('2')), { ok: true, changed: false, results: [{ type: 'cells.set', sheetId: 'one' }] });
+    assert.deepEqual(ui.api.execute(set('2')), { ok: true, changed: false,
+      results: [{ type: 'cells.set', sheetId: 'one', placement: { nextRow: 1, nextColumn: 1 } }] });
     result = ui.api.batch([set('9'), set('2')]);
   });
   assert.equal(result.ok, true);

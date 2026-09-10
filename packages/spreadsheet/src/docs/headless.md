@@ -99,6 +99,8 @@ applySpreadsheetCommands(workbook, commands, options?)
 
 コマンドの引数と対応操作は、[外部コマンド一覧](./external-operations.md#コマンド一覧)と共通です。画像はJSONの `SpreadsheetImageResource` を用意すれば挿入できます。ブラウザ用の `prepareSpreadsheetImage(File / Blob)` は、この入口には含まれません。
 
+挿入やセル設定の結果には、次に続けて配置するための `placement.nextRow` / `nextColumn` が入ります。対象コマンド、画像の下に表を作る例、IDから位置を再計算するヘルパーは[配置位置と次の行・列](./drawing-placement.md)を参照してください。
+
 ## 機能を制限する
 
 ```ts

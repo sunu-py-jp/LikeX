@@ -49,6 +49,7 @@ flowchart TD
 | `ui/spreadsheet-dialog.tsx` | 表示領域に収まるフォームダイアログ、フォーカス制御・キャンセル |
 | `styles.css`・`ui/*.css` | CSSの単一入口と画面機能ごとのスタイル。パッケージはビルド時に1ファイルへ結合 |
 | `model/serialization.ts` | JSONの読み書き |
+| `model/drawing-placement.ts` | セル領域を基準に画像・図形の範囲と次の配置位置を計算。コマンド結果と公開ヘルパーで共用 |
 | `state/use-spreadsheet.ts` | 下記の状態を組み合わせ、UI用のコントローラーを提供 |
 | `commands/` | GUI・ref・画面なしの操作で共用するコマンドの検証・準備と、ブックへ一括適用する公開API |
 | `state/use-spreadsheet-commands.ts` | 共有コマンド処理を、表示中の下書き・選択・編集許可・履歴へ接続 |

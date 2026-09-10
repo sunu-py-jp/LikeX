@@ -1419,6 +1419,63 @@
     ]
   },
   {
+    "id": "spreadsheet/drawing-placement",
+    "title": "配置位置と次の行・列",
+    "component": "spreadsheet",
+    "section": "親アプリとの連携",
+    "output": "spreadsheet/drawing-placement/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/drawing-placement.md"
+    ],
+    "keywords": [
+      "placement",
+      "nextRow",
+      "nextColumn",
+      "getDrawingBounds",
+      "getDrawingPlacement",
+      "SpreadsheetDrawingBounds",
+      "SpreadsheetDrawingPlacement",
+      "SpreadsheetDrawingPlacementOptions",
+      "SpreadsheetCommandReceipt",
+      "画像",
+      "図形",
+      "余白",
+      "alt"
+    ],
+    "headings": [
+      {
+        "id": "画像の下に表を作る",
+        "title": "画像の下に表を作る",
+        "depth": 2
+      },
+      {
+        "id": "コマンドごとの返却内容",
+        "title": "コマンドごとの返却内容",
+        "depth": 2
+      },
+      {
+        "id": "idから位置を取得再計算する",
+        "title": "IDから位置を取得・再計算する",
+        "depth": 2
+      },
+      {
+        "id": "配置位置を使うときの注意",
+        "title": "配置位置を使うときの注意",
+        "depth": 2
+      },
+      {
+        "id": "空き領域を探す処理ではない",
+        "title": "空き領域を探す処理ではない",
+        "depth": 3
+      },
+      {
+        "id": "結果は各コマンド実行直後の位置",
+        "title": "結果は各コマンド実行直後の位置",
+        "depth": 3
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/context-menu",
     "title": "右クリックメニュー",
     "component": "spreadsheet",

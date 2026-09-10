@@ -42,13 +42,32 @@ export type SpreadsheetCommand = DeepReadonly<
   | { type: "sheets.move"; sheetId: string; index: number }
 >;
 
-export type SpreadsheetCommandReceipt = Readonly<{
-  type: SpreadsheetCommand["type"];
-  sheetId: string;
-  drawingId?: string;
-  resourceId?: string;
-  commentId?: string;
-}>;
+/** Zero-based positions immediately below/right of the command target, not an empty-cell search. */
+export type SpreadsheetCommandPlacement = Readonly<{ nextRow: number; nextColumn: number }>;
+
+type DrawingPlacementCommand = "images.insert" | "images.update" | "shapes.insert" | "shapes.update" | "textBoxes.insert" | "textBoxes.update";
+type CommandReceiptPlacement<Type extends SpreadsheetCommand["type"]> =
+  Type extends DrawingPlacementCommand | "cells.fill" ? { placement: SpreadsheetCommandPlacement }
+    : Type extends "cells.set" | "cells.paste" ? { placement?: SpreadsheetCommandPlacement }
+      : Type extends "rows.insert" ? { placement: Readonly<{ nextRow: number; nextColumn?: never }> }
+        : Type extends "columns.insert" ? { placement: Readonly<{ nextRow?: never; nextColumn: number }> }
+          : { placement?: never };
+
+/**
+ * Coordinates describe the state immediately after this command. Later commands do not revise them.
+ * Empty cells.set/cells.paste targets have no placement; non-positional commands omit it entirely.
+ */
+export type SpreadsheetCommandReceipt = {
+  [Type in SpreadsheetCommand["type"]]: Readonly<{
+    type: Type;
+    sheetId: string;
+    drawingId?: string;
+    resourceId?: string;
+    commentId?: string;
+  } & CommandReceiptPlacement<Type> & (Type extends DrawingPlacementCommand ? { drawingId: string } : object)
+    & (Type extends "images.insert" | "images.update" ? { resourceId: string } : object)>;
+}[SpreadsheetCommand["type"]];
+
 export type SpreadsheetCommandErrorCode = "NOT_MOUNTED" | "READ_ONLY" | "SAVING" | "PENDING_EDIT" | "BUSY"
   | "FEATURE_DISABLED" | "INVALID_COMMAND" | "INVALID_TARGET" | "VALIDATION_FAILED"
   | "REFRESHING" | "EDIT_REQUIRED" | "EDIT_PENDING" | "EDIT_DENIED" | "EDIT_CANCELLED" | "STALE_TARGET";

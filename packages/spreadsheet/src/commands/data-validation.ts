@@ -1,12 +1,12 @@
 import type { SpreadsheetDataValidationCommand } from "../api/data-validation-commands";
-import type { SpreadsheetCommandReceipt } from "./types";
+import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { setCellDataValidation } from "../model/workbook/data-validation";
 import type { SpreadsheetWorkbook } from "../model/types";
 import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { rejectCommand, requireCommandAddress, requireCommandFeature, requireCommandSheet } from "./validation";
 
 export function applyDataValidationCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetDataValidationCommand,
-  features: SpreadsheetFeatureSettings): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandReceipt } {
+  features: SpreadsheetFeatureSettings): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandBaseReceipt } {
   requireCommandFeature(features, "dataValidation");
   if (command.validation?.type === "checkbox") requireCommandFeature(features, "checkboxes");
   const sheet = requireCommandSheet(workbook, command.sheetId);

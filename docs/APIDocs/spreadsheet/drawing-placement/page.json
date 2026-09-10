@@ -1,0 +1,9 @@
+{
+  "title": "配置位置と次の行・列",
+  "summary": "コマンド結果の次の配置位置を使い、画像の下や右に表を並べます。IDから位置を再計算するヘルパーも利用できます。",
+  "source": "packages/spreadsheet/src/docs/drawing-placement.md",
+  "order": 156,
+  "section": "親アプリとの連携",
+  "keywords": ["placement", "nextRow", "nextColumn", "getDrawingBounds", "getDrawingPlacement", "SpreadsheetDrawingBounds", "SpreadsheetDrawingPlacement", "SpreadsheetDrawingPlacementOptions", "SpreadsheetCommandReceipt", "画像", "図形", "余白", "alt"],
+  "screenshots": []
+}

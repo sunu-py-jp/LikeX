@@ -1,5 +1,6 @@
 import {
   applySpreadsheetCommands, createWorkbook, parseWorkbook, serializeWorkbook,
+  getDrawingBounds, getDrawingPlacement,
   type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot,
 } from '__MODEL_IMPORT__';
 
@@ -13,6 +14,18 @@ if (result.ok) {
   const changed: boolean = result.changed;
   const json: string = serializeWorkbook(result.workbook);
   void [changed, parseWorkbook(json), result.results];
+  for (const receipt of result.results) {
+    if (receipt.type === 'rows.insert') {
+      const nextRow: number = receipt.placement.nextRow;
+      // @ts-expect-error Row insertion does not return a usable column position.
+      const nextColumn: number = receipt.placement.nextColumn;
+      void [nextRow, nextColumn];
+    }
+    if (receipt.type === 'cells.set' && receipt.placement) {
+      const nextColumn: number = receipt.placement.nextColumn;
+      void nextColumn;
+    }
+  }
 } else {
   const index: number | undefined = result.commandIndex;
   // @ts-expect-error Failed batches do not return a partial workbook.
@@ -25,3 +38,12 @@ applySpreadsheetCommands(snapshot, [{ type: 'cells.set', sheetId: 'sheet-1', val
 applySpreadsheetCommands(snapshot, [{ type: 'rows.insert', index: 0 }]);
 // @ts-expect-error Feature names are checked.
 applySpreadsheetCommands(snapshot, commands, { features: { magic: true } });
+
+function drawingPosition(workbook: SpreadsheetWorkbookSnapshot, sheetId: string, drawingId: string) {
+  const placement = getDrawingPlacement(workbook, sheetId, drawingId, { gap: 12 });
+  const bottom: number = getDrawingBounds(workbook, sheetId, drawingId).bottom;
+  // @ts-expect-error Computed bounds cannot be mutated.
+  placement.bounds.top = 0;
+  return { row: placement.nextRow, column: placement.nextColumn, bottom };
+}
+void drawingPosition;
