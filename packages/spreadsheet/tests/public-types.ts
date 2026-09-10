@@ -99,6 +99,18 @@ function inspectApi(api: SpreadsheetHandle) {
   if (result.ok) { void result.changed; void result.results[0]?.drawingId; }
   else { void result.code; void result.commandIndex; }
   const snapshot: SpreadsheetWorkbookSnapshot = api.getWorkbook();
+  const historyResult: boolean | Promise<boolean> = api.undo();
+  const redoResult: boolean | Promise<boolean> = api.redo();
+  const count: number = api.getHistoryState().undoCount;
+  const raw: string | undefined = api.getCell("main", "A1")?.value;
+  const imageResourceId: string | undefined = api.getImage("main", "logo")?.resourceId;
+  api.getRange("main", "A1:C3");
+  if (imageResourceId) api.getImageResource(imageResourceId);
+  // @ts-expect-error Read APIs return deeply readonly data.
+  api.getRange("main", "A1:C3")[0].push(null);
+  // @ts-expect-error History counters cannot be rewritten through the handle.
+  api.getHistoryState().undoCount = 0;
+  void [historyResult, redoResult, count, raw];
   // @ts-expect-error Snapshot cells are deeply readonly.
   snapshot.sheets[0].cells.A1.value = "changed";
   // @ts-expect-error Host operations cannot mutate sheet metadata through a snapshot.

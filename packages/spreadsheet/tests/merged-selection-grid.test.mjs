@@ -8,11 +8,11 @@ import { create } from 'react-test-renderer';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const output = await build({
-  stdin: { contents: 'export * from "./src/state/use-spreadsheet"; export * from "./src/ui/spreadsheet-grid"; export { setCellValue, mergeCells, unmergeCells } from "./src/model";', resolveDir: packageRoot, sourcefile: 'merged-selection-grid-test.tsx' },
+  stdin: { contents: 'export * from "./src/state/use-spreadsheet"; export * from "./src/ui/spreadsheet-grid";', resolveDir: packageRoot, sourcefile: 'merged-selection-grid-test.tsx' },
   bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'same-react', setup(builder) { builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true })); } }],
 });
-const { useSpreadsheet, SpreadsheetGrid, selectedAddresses, selectionBounds, isCellSelected, setCellValue, mergeCells, unmergeCells } =
+const { useSpreadsheet, SpreadsheetGrid, selectedAddresses, selectionBounds, isCellSelected } =
   await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const merged = { top: 1, left: 1, bottom: 2, right: 3 };
 const position = (row, column) => ({ row, column });
@@ -113,7 +113,7 @@ test('subtracting another cell never reselects it when selection fragments cross
   assert.equal(isCellSelected(ui.c.selection, position(2, 4)), false);
   await ui.click('H8', { ctrlKey: true });
   assert.equal(selectedAddresses(ui.c.selection).length, 36);
-  await ui.run(c => c.apply(wb => setCellValue(wb, 'one', 'F6', 'changed')));
+  await ui.run(c => c.executeCommand({ type: 'cells.set', sheetId: 'one', values: { F6: 'changed' } }));
   assert.equal(selectedAddresses(ui.c.selection).length, 36);
   assert.equal(isCellSelected(ui.c.selection, position(2, 4)), false);
 });
@@ -175,7 +175,7 @@ test('initial, switch, history and saved selection normalize to visible merged a
   await ui.run(c => c.switchSheet('two'));
   assert.deepEqual(selectionBounds(ui.c.selection), { top: 0, left: 0, bottom: 1, right: 1 });
   await ui.run(c => c.switchSheet('one'));
-  await ui.run(c => c.apply(wb => setCellValue(wb, 'one', 'A1', 'changed')));
+  await ui.run(c => c.executeCommand({ type: 'cells.set', sheetId: 'one', values: { A1: 'changed' } }));
   await ui.run(c => c.undo());
   assert.deepEqual(selectionBounds(ui.c.selection), originMerge);
   await ui.run(c => c.redo());
@@ -199,7 +199,7 @@ test('read-only and merge feature off keep existing merged cells visible without
 test('applying a new merge expands a partly selected range before publishing workbook changes', async t => {
   const ui = await mount(t, { sheet: { cells: {}, merges: [] } });
   await ui.run(c => c.select(position(2, 2)));
-  await ui.run(c => c.apply(wb => mergeCells(wb, 'one', merged)));
+  await ui.run(c => c.executeCommand({ type: 'cells.merge', sheetId: 'one', range: merged }));
   for (let row = 1; row <= 2; row++) for (let column = 1; column <= 3; column++) assert.equal(isCellSelected(ui.c.selection, position(row, column)), true);
   assert.deepEqual(ui.c.selection.focus, position(1, 1));
 });
@@ -208,11 +208,11 @@ test('applying a new merge expands a partly selected range before publishing wor
 test('unmerge and subsequent edits retain the visible active anchor inside the selected rectangle', async t => {
   const ui = await mount(t);
   await ui.click('B2');
-  await ui.run(c => c.apply(wb => unmergeCells(wb, 'one', merged)));
+  await ui.run(c => c.executeCommand({ type: 'cells.unmerge', sheetId: 'one', range: merged }));
   assert.deepEqual(ui.c.selection.focus, position(1, 1));
   assert.deepEqual(selectionBounds(ui.c.selection), merged);
   assert.ok(ui.cell('D3'));
-  await ui.run(c => c.apply(wb => setCellValue(wb, 'one', 'B2', 'Still active')));
+  await ui.run(c => c.executeCommand({ type: 'cells.set', sheetId: 'one', values: { B2: 'Still active' } }));
   assert.deepEqual(ui.c.selection.focus, position(1, 1));
   assert.equal(ui.root.findByProps({ 'aria-label': 'B2の値' }).props.value, 'Still active');
 });

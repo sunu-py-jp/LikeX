@@ -65,10 +65,10 @@ const dependencies = new Map(await Promise.all(files.map(async path => {
 const display = path => relative(sourceRoot, path).split(sep).join('/');
 const layer = path => path && localFiles.has(path) ? display(path).split('/')[0] : null;
 
-test('the model remains independent of view state, UI, React and component props, including type imports', () => {
+test('data, commands, history and sessions remain independent of view state, UI, React and component props', () => {
   const violations = [];
   for (const [path, edges] of dependencies) {
-    if (layer(path) !== 'model') continue;
+    if (!['model', 'commands', 'history', 'session'].includes(layer(path))) continue;
     for (const edge of edges) {
       if (['state', 'ui'].includes(layer(edge.target)) || edge.target === join(sourceRoot, 'props.ts') ||
         /^(?:react|react-dom)(?:\/|$)/.test(edge.specifier)) {
@@ -77,6 +77,28 @@ test('the model remains independent of view state, UI, React and component props
     }
   }
   assert.deepEqual(violations, [], `Model dependencies must point toward domain code:\n${violations.join('\n')}`);
+});
+
+test('GUI adapters never call low-level workbook mutators instead of the command API', async () => {
+  const mutators = new Set(['setCellValue', 'setCellValues', 'formatCells', 'resizeColumn', 'insertRows', 'deleteRows',
+    'insertColumns', 'deleteColumns', 'moveCells', 'addSheet', 'renameSheet', 'deleteSheet', 'moveSheet',
+    'addDrawing', 'updateDrawing', 'deleteDrawing', 'insertImage', 'setCellComment', 'setCellComments',
+    'mergeCells', 'unmergeCells', 'setCellDataValidation', 'pasteCells', 'fillCells', 'replaceCellText']);
+  const violations = [];
+  for (const path of files) {
+    if (!['state', 'ui'].includes(layer(path))) continue;
+    const source = ts.createSourceFile(path, await readFile(path, 'utf8'), ts.ScriptTarget.Latest, true);
+    for (const statement of source.statements) {
+      if (!ts.isImportDeclaration(statement) || statement.importClause?.isTypeOnly) continue;
+      const bindings = statement.importClause?.namedBindings;
+      if (!bindings || !ts.isNamedImports(bindings)) continue;
+      for (const imported of bindings.elements) {
+        const name = imported.propertyName?.text ?? imported.name.text;
+        if (!imported.isTypeOnly && mutators.has(name)) violations.push(`${display(path)} → ${name}`);
+      }
+    }
+  }
+  assert.deepEqual(violations, [], 'GUI data writes must use the shared command boundary');
 });
 
 test('state never imports or re-exports UI modules, including type dependencies', () => {

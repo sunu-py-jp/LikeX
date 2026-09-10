@@ -5,6 +5,7 @@ import { normalizeWorkbook, workbooksEqual } from "../model";
 import { notifyHost, type MaybePromise } from "../core";
 import type { SpreadsheetCommandFailure } from "../api/types";
 import type { SpreadsheetChangeSource, SpreadsheetEditIntent, SpreadsheetEvent } from "../api/lifecycle";
+import { createWorkbookHistory, type WorkbookHistoryDirection } from "../history/workbook-history";
 import type { SpreadsheetProps } from "../props";
 import { clampSelection } from "./selection";
 import type { DraftSelection, Workbook, WorkbookOperation } from "./types";
@@ -20,7 +21,11 @@ export type DraftOperationOptions = SpreadsheetEditIntent & {
   /** Private capability used only when publishing a prepared context-menu result. */
   mutationOwner?: object;
 };
-type HistoryDirection = "past" | "future";
+export type DraftHistoryOptions = {
+  source?: "ui" | "api";
+  /** Recheck a caller's pending-editor guard after asynchronous permission. */
+  isCurrent?: () => boolean;
+};
 
 /** Immutable snapshots, bounded history, and the single publication boundary for every mutation. */
 export function useWorkbookDraft(props: SpreadsheetProps) {
@@ -47,8 +52,8 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   const reportError = useCallback((cause: unknown) => {
     if (lifetimeRef.current) setError(cause instanceof Error ? cause.message : "操作に失敗しました");
   }, []);
-  const history = useRef<{ past: Workbook[]; future: Workbook[] }>({ past: [], future: [] });
-  const [historyStatus, setHistoryStatus] = useState({ canUndo: false, canRedo: false });
+  const [history] = useState(() => createWorkbookHistory());
+  const [historyStatus, setHistoryStatus] = useState(history.getState);
   const resetViewRef = useRef<((next: Workbook) => void) | null>(null);
   const readOnly = props.readOnly === true || !props.onSave;
   const dirty = useMemo(() => !workbooksEqual(workbook, saved), [workbook, saved]);
@@ -68,9 +73,9 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     return null;
   }, []);
   const clearHistory = useCallback(() => {
-    history.current = { past: [], future: [] };
-    setHistoryStatus({ canUndo: false, canRedo: false });
-  }, []);
+    history.clear();
+    setHistoryStatus(history.getState());
+  }, [history]);
   const replaceBaseline = useCallback((next: Workbook) => {
     revisionRef.current++;
     structureRevisionRef.current++;
@@ -138,11 +143,8 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
         const next = operation(before);
         if (next === before || workbooksEqual(next, before)) return { ok: true, changed: false };
         const nextSelection = clampSelection(selection.selectionRef.current, next);
-        if (propsRef.current.features?.undoRedo !== false) {
-          history.current.past = [...history.current.past.slice(-49), before];
-          history.current.future = [];
-        } else history.current = { past: [], future: [] };
-        setHistoryStatus({ canUndo: history.current.past.length > 0, canRedo: false });
+        history.record(before, propsRef.current.features?.undoRedo !== false);
+        setHistoryStatus(history.getState());
         selection.setSelection(nextSelection);
         publishChange(next, options.source ?? "ui", options.commands);
         return { ok: true, changed: true };
@@ -150,32 +152,23 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
       finally { transactionRef.current = false; }
     };
     return typeof permission === "boolean" ? commit(permission) : permission.then(commit);
-  }, [getMutationFailure, edit, publishChange]);
-  const apply = useCallback((operation: WorkbookOperation, selection: DraftSelection,
-    options: DraftOperationOptions = {}): MaybePromise<boolean> => {
-    const result = applyTransaction(operation, selection, { ...options, allowSaveStarting: true });
-    const finish = (value: DraftCommitResult) => {
-      if (!value.ok && value.code !== "NOT_MOUNTED" && value.code !== "EDIT_CANCELLED") reportError(new Error(value.message));
-      return value.ok;
-    };
-    return result instanceof Promise ? result.then(finish) : finish(result);
-  }, [applyTransaction, reportError]);
-  const changeHistory = (direction: HistoryDirection, resetView: (workbook: Workbook) => void): MaybePromise<boolean> => {
-    if (getMutationFailure() || propsRef.current.features?.undoRedo === false) return false;
-    const next = history.current[direction].at(-1);
+  }, [getMutationFailure, edit, publishChange, history]);
+  const changeHistory = (direction: WorkbookHistoryDirection, resetView: (workbook: Workbook) => void,
+    options: DraftHistoryOptions = {}): MaybePromise<boolean> => {
+    if (getMutationFailure() || propsRef.current.features?.undoRedo === false || (options.isCurrent && !options.isCurrent())) return false;
+    const next = history.peek(direction);
     if (!next) return false;
     const before = workbookRef.current;
-    const permission = edit.requestEdit({ action: direction === "past" ? "undo" : "redo", source: "ui" });
+    const permission = edit.requestEdit({ action: direction === "past" ? "undo" : "redo", source: options.source ?? "ui" });
     const requestedId = edit.getEditState().requestId;
     const finish = (allowed: boolean) => {
       if (!allowed || getMutationFailure() || edit.getEditState().requestId !== requestedId ||
-        propsRef.current.features?.undoRedo === false || workbookRef.current !== before || history.current[direction].at(-1) !== next) return false;
+        propsRef.current.features?.undoRedo === false || workbookRef.current !== before || history.peek(direction) !== next ||
+        (options.isCurrent && !options.isCurrent())) return false;
       transactionRef.current = true;
       try {
-        const opposite = direction === "past" ? "future" : "past";
-        history.current[opposite] = [...history.current[opposite].slice(-49), before];
-        history.current[direction] = history.current[direction].slice(0, -1);
-        setHistoryStatus({ canUndo: history.current.past.length > 0, canRedo: history.current.future.length > 0 });
+        history.step(direction, before);
+        setHistoryStatus(history.getState());
         resetView(next);
         publishChange(next, direction === "past" ? "undo" : "redo");
         return true;
@@ -194,6 +187,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     isOperationPending: () => !!(savingRef.current || refreshingRef.current || saveStartingRef.current || transactionRef.current ||
       contextMenuOwnerRef.current || edit.getEditState().mode === "requesting" || edit.isEndingEdit()),
     setContextMenuLock, contextMenuLocked, revisionRef, structureRevisionRef,
-    dirty, error, setError, reportError, apply, applyTransaction, getMutationFailure, changeHistory, ...historyStatus,
+    dirty, error, setError, reportError, applyTransaction, getMutationFailure, changeHistory,
+    getHistoryState: history.getState, ...historyStatus,
     ...persistence, ...edit, endEdit, emitEvent, resetViewRef };
 }

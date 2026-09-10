@@ -1,0 +1,9 @@
+{
+  "title": "編集セッションとUndo／Redo",
+  "summary": "GUIなしで編集を続け、Undo／Redoを実行します。コピー・貼り付け・移動も共通APIで扱います。",
+  "source": "packages/spreadsheet/src/docs/history-session.md",
+  "order": 158,
+  "section": "親アプリとの連携",
+  "keywords": ["createSpreadsheetSession", "SpreadsheetSession", "SpreadsheetHistoryState", "undo", "redo", "getHistoryState", "historyLimit", "copySpreadsheetCells", "cells.move", "cells.paste"],
+  "screenshots": []
+}

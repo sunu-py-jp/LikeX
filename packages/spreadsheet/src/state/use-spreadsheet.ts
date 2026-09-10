@@ -1,19 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import { calculateWorkbook, cellAddress } from "../model";
 import { notifyHost, type MaybePromise } from "../core";
-import type { SpreadsheetCommand, SpreadsheetCommandSuccess } from "../api/types";
+import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetCommandSuccess } from "../api/types";
 import type { SpreadsheetDiscardOptions } from "../api/lifecycle";
 import type { SpreadsheetProps } from "../props";
 import { resolveSpreadsheetFeatures } from "../api/resolve-features";
-import type { Workbook, WorkbookOperation } from "./types";
+import type { Workbook } from "./types";
 import { useCellEdit } from "./use-cell-edit";
 import { usePendingObjectEdits } from "./use-pending-object-edits";
 import { useSpreadsheetExport } from "./use-spreadsheet-export";
 import { useSpreadsheetSelection } from "./use-spreadsheet-selection";
-import { useSpreadsheetCommands } from "./use-spreadsheet-commands";
-import { useWorkbookDraft, type DraftOperationOptions } from "./use-workbook-draft";
+import { useSpreadsheetCommands, type SpreadsheetGuiCommandOptions } from "./use-spreadsheet-commands";
+import { useWorkbookDraft } from "./use-workbook-draft";
 
 export { MAX_SELECTION_CELLS, MAX_SELECTION_RANGES, selectedAddresses, selectionBounds, selectionRanges, rangeBounds,
   isCellSelected, isRangeSelected, isMultiRangeSelection, selectionCellCount } from "./selection";
@@ -26,11 +26,12 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const draft = useWorkbookDraft(props);
   const view = useSpreadsheetSelection(draft.workbook, features, draft.reportError, draft.propsRef);
   const { selectionRef, setSelection } = view;
-  const applyDraft = draft.apply;
-  const apply = useCallback((operation: WorkbookOperation, options?: DraftOperationOptions): MaybePromise<boolean> => applyDraft(operation, { selectionRef, setSelection }, options),
-    [applyDraft, selectionRef, setSelection]);
+  // The editor only calls this after initialization; command guards can then inspect its live ref.
+  const executeGuiCommands = (items: readonly SpreadsheetCommand[], options?: SpreadsheetGuiCommandOptions): MaybePromise<SpreadsheetCommandResult> =>
+    commands.executeCommands(items, options);
   const cellEdit = useCellEdit({ activeSheet: view.activeSheet, selection: view.selection, disabled: draft.disabled,
-    features, apply, cancelEditRequest: draft.cancelEditRequest, clearDrawingSelection: view.clearDrawingSelection, reportError: draft.reportError });
+    executeCommands: executeGuiCommands, cancelEditRequest: draft.cancelEditRequest,
+    clearDrawingSelection: view.clearDrawingSelection, reportError: draft.reportError });
   const pending = usePendingObjectEdits();
   const commands = useSpreadsheetCommands(draft, { selectionRef, setSelection,
     editingRef: cellEdit.editingRef, pendingObjectEditRef: pending.pendingObjectEditRef });
@@ -68,6 +69,8 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   };
   const viewSession = { commitEdit: cellEdit.commitEdit,
     hasPendingEdits: () => !!cellEdit.editingRef.current || pending.pendingObjectEditRef.current, resetView: resetWorkbookView };
+  const externalHistory = (direction: "past" | "future") => viewSession.hasPendingEdits() ? false :
+    draft.changeHistory(direction, restoreHistoryView, { source: "api", isCurrent: () => !viewSession.hasPendingEdits() });
   const save = () => draft.save(viewSession);
   const externalSave = () => viewSession.hasPendingEdits() ? Promise.resolve(false) : draft.save(viewSession);
   const refresh = (options?: SpreadsheetDiscardOptions) => draft.refresh(viewSession, options);
@@ -99,10 +102,11 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     getRevision: () => draft.revisionRef.current, getStructureRevision: () => draft.structureRevisionRef.current,
     emitEvent: draft.emitEvent, getEditState: draft.getEditState, requestEdit: draft.requestEdit,
     cancelEditRequest: draft.cancelEditRequest, endEdit, refresh, discard, externalSave, afterCommit, afterCommand,
-    error: draft.error, setError: draft.setError, reportError: draft.reportError, apply,
+    error: draft.error, setError: draft.setError, reportError: draft.reportError,
     writeValues: cellEdit.writeValues, clearCells: cellEdit.clearCells, save,
     ...commands,
     undo: () => draft.changeHistory("past", restoreHistoryView), redo: () => draft.changeHistory("future", restoreHistoryView),
+    externalUndo: () => externalHistory("past"), externalRedo: () => externalHistory("future"), getHistoryState: draft.getHistoryState,
     canUndo: draft.canUndo, canRedo: draft.canRedo };
 }
 

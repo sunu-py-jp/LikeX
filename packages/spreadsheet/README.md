@@ -44,6 +44,8 @@ export default function Budget() {
 
 画像の下に表を続ける場合は、コマンド結果の `placement` と[配置位置のヘルパー](./src/docs/drawing-placement.md)を利用できます。
 
+[セル・範囲・画像の取得](./src/docs/data-access.md)には `getCell` / `getRange` / `getImage`、画面なしでUndo／Redoを使う場合には[編集セッション](./src/docs/history-session.md)の `createSpreadsheetSession` を使えます。GUIも同じコマンド処理と履歴エンジンを使用します。
+
 [利用ガイド](./src/docs/README.md) に、コピー導入、公開型、保存、機能設定と制約をまとめています。[基本15関数と数式](./src/docs/functions.md)、[挿入機能とJSONの具体例](./src/docs/insertions-and-json.md) も参照できます。コピー導入では `packages/core/src/` と `packages/spreadsheet/src/` をそれぞれ `components/core/` と `components/spreadsheet/` へコピーし、`spreadsheet/core.ts` の1行を `export * from "../core";` へ変更します。
 
 `.xlsx` への[Excel出力](./src/docs/excel-export.md)に対応します。保存・復元の基本形式はJSONです。Excelの完全互換ではなく、`.xlsx` インポート、グラフ、ピボットテーブル、マクロは含みません。認証・認可・保存先との競合解決は利用側の責務です。現在は `private: true` / `UNLICENSED` であり、tarball作成は公開やライセンス付与を意味しません。

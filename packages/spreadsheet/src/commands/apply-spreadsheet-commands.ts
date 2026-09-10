@@ -1,5 +1,6 @@
 import type { SpreadsheetFeatures } from "../api/features";
 import { resolveSpreadsheetFeatures } from "../api/resolve-features";
+import { validateSpreadsheetFeatures } from "../api/validate-features";
 import { normalizeWorkbook } from "../model/workbook/normalize";
 import type { SpreadsheetWorkbook } from "../model/types";
 import { stageSpreadsheetCommands } from "./stage-spreadsheet-commands";
@@ -27,10 +28,8 @@ export function applySpreadsheetCommands(workbook: SpreadsheetWorkbookSnapshot, 
     if (options !== undefined) {
       commandKeys(commandRecord(options, "コマンドの設定"), ["features"], "コマンドの設定");
       if (options.features !== undefined) {
-        const features = commandRecord(options.features, "機能の設定");
-        commandKeys(features, Object.keys(resolveSpreadsheetFeatures(undefined)), "機能の設定");
-        if (Object.values(features).some(value => value !== undefined && typeof value !== "boolean"))
-          rejectCommand("INVALID_COMMAND", "機能の設定はtrueまたはfalseで指定してください");
+        try { validateSpreadsheetFeatures(options.features); }
+        catch (cause) { rejectCommand("INVALID_COMMAND", cause instanceof Error ? cause.message : "機能の設定が正しくありません"); }
       }
     }
     if (workbook === undefined) return rejectCommand("VALIDATION_FAILED", "操作するブックを指定してください");

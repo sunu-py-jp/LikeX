@@ -55,17 +55,13 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
       const paste = prepareCellPaste(controller, text, internal, mode);
       if (!paste) return;
       const request = requestId.current;
-      void chainResult(controller.apply(current => {
-        // Permissions can resolve after feature settings change. Rebuild from live rules.
-        const prepared = prepareCellPaste({ ...latest.current, workbook: current }, text, internal, mode);
-        return prepared ? prepared.applyTo(current, () => crypto.randomUUID()) : current;
-      }, { source: "ui", action: "paste", sheetId: controller.activeSheet.id,
+      void chainResult(controller.executeCommands(paste.commands, {
         isCurrent: () => mounted.current && request === requestId.current && latest.current.features.paste &&
           (mode === "all" || latest.current.features.pasteSpecial) &&
           (!internal?.cut || (latest.current.features.cut && copied.current === internal)) &&
           latest.current.selection === controller.selection && !latest.current.editing && !latest.current.selectedDrawingId,
       }), accepted => {
-        if (accepted && mounted.current) {
+        if (accepted.ok && mounted.current) {
           const { top, left, bottom, right } = paste.destination;
           controller.selectRange({ row: top, column: left }, { row: bottom, column: right });
           if (internal?.cut) copied.current = null;

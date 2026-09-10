@@ -4,7 +4,7 @@ import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 
 const output = await build({
-  stdin: { contents: 'export * from "./model"; export * from "./state/clipboard/cell-transfer";',
+  stdin: { contents: 'export * from "./model"; export * from "./state/clipboard/cell-transfer"; export * from "./commands/stage-spreadsheet-commands"; export * from "./api/resolve-features";',
     resolveDir: fileURLToPath(new URL('../src/', import.meta.url)), loader: 'ts' },
   bundle: true, platform: 'node', format: 'esm', write: false, metafile: true,
 });
@@ -14,6 +14,11 @@ const context = (workbook, anchor, focus = anchor) => ({
   selection: { sheetId: workbook.sheets[0].id, anchor, focus },
   features: { mergeCells: true, formulas: true, formatting: true, comments: true },
 });
+const applyPaste = (paste, workbook, nextId, features) => {
+  const result = core.stageSpreadsheetCommands(workbook, paste.commands, core.resolveSpreadsheetFeatures(features), nextId);
+  if (!result.ok) throw new Error(result.message);
+  return result.workbook;
+};
 
 test('cell transfer works without React or browser adapters, including formulas, formatting, comments and merges', () => {
   assert.equal(typeof window, 'undefined');
@@ -27,7 +32,7 @@ test('cell transfer works without React or browser adapters, including formulas,
   const copied = { ...core.captureCopiedCells(context(workbook, { row: 0, column: 0 }, { row: 0, column: 1 }), false), token: 'test-copy' };
   assert.equal(copied.text, '6\t');
   const paste = core.prepareCellPaste(context(workbook, { row: 2, column: 0 }), copied.text, copied);
-  const next = paste.applyTo(workbook, () => 'copied-comment');
+  const next = applyPaste(paste, workbook, () => 'copied-comment');
   assert.equal(next.sheets[0].cells.A3.value, '=C3+1');
   assert.deepEqual(next.sheets[0].cells.A3.format, { bold: true });
   assert.equal(next.sheets[0].comments.A3.id, 'copied-comment');
@@ -43,7 +48,7 @@ test('transfer validation fails before publishing any workbook changes', () => {
   const source = context(workbook, { row: 0, column: 0 });
   source.features.formulas = false;
   const paste = core.prepareCellPaste(source, '=1+2', null);
-  assert.throws(() => paste.applyTo(workbook, () => assert.fail('no identity should be allocated')), /数式/);
+  assert.throws(() => applyPaste(paste, workbook, () => assert.fail('no identity should be allocated'), { formulas: false }), /formulas|数式/);
   assert.deepEqual(workbook.sheets[0].cells, {});
   assert.throws(() => core.prepareCellPaste(context(workbook, { row: 99, column: 25 }), 'a\tb', null), /行・列/);
   const merged = core.mergeCells(workbook, workbook.sheets[0].id, { top: 0, left: 0, bottom: 1, right: 1 });

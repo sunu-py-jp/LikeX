@@ -47,7 +47,7 @@ export type SpreadsheetCommandPlacement = Readonly<{ nextRow: number; nextColumn
 
 type DrawingPlacementCommand = "images.insert" | "images.update" | "shapes.insert" | "shapes.update" | "textBoxes.insert" | "textBoxes.update";
 type CommandReceiptPlacement<Type extends SpreadsheetCommand["type"]> =
-  Type extends DrawingPlacementCommand | "cells.fill" ? { placement: SpreadsheetCommandPlacement }
+  Type extends DrawingPlacementCommand | "cells.fill" | "cells.move" ? { placement: SpreadsheetCommandPlacement }
     : Type extends "cells.set" | "cells.paste" ? { placement?: SpreadsheetCommandPlacement }
       : Type extends "rows.insert" ? { placement: Readonly<{ nextRow: number; nextColumn?: never }> }
         : Type extends "columns.insert" ? { placement: Readonly<{ nextRow?: never; nextColumn: number }> }

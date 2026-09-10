@@ -56,6 +56,9 @@ export default function Report() {
 | `execute(command)` | 1件のコマンドを同期実行し、`SpreadsheetCommandResult` を返す |
 | `batch(commands)` | 配列の順番でまとめて同期実行。同じ結果型を返す |
 | `getWorkbook()` | 現在の下書きの `SpreadsheetWorkbookSnapshot`。深い読み取り専用のスナップショット |
+| `getCell(sheetId, address)` / `getRange(sheetId, range)` など | セルやIDで対象を取得。[読み取りAPI](./data-access.md)を参照 |
+| `undo()` / `redo()` | 編集許可を待って履歴を移動。`boolean` または `Promise<boolean>` を返す |
+| `getHistoryState()` | `canUndo` / `canRedo` / `undoCount` / `redoCount` |
 | `executeAsync(command)` / `batchAsync(commands)` | 外部の編集許可を待てる操作。結果をPromiseで返す |
 
 `execute` / `batch` はPromiseを返しません。成功直後の `getWorkbook()` には、Reactの再描画を待たず変更が反映されています。スナップショットは凍結されており、直接書き換えずコマンドを使います。入力中でまだ確定していない文字列は含まれません。
@@ -95,6 +98,7 @@ if (result.ok) {
 | `rows.resize` | `row`, `height`（px） |
 | `dimensions.resize` | `rowHeights`, `columnWidths`。0始まりのインデックスをキーにした寸法マップ。一括変更用 |
 | `cells.replace` / `cells.fill` / `cells.paste` | [編集操作](./editing-tools.md)の型と例を参照 |
+| `cells.move` | `source: { sheetId, top, left, bottom, right }`, `target: { row, column }`。外側の `sheetId` は移動先。値・参照・コメント・結合を一括で移動 |
 | `cells.validation` | `addresses`, `validation`。[入力規則](./input-validation.md)を設定／解除 |
 | `conditionalFormats.set` | `rules`。[条件付き書式](./formatting.md)をシート単位で置換 |
 | `sheets.duplicate` | `sheetId`, `name?`。元シートの直後へ複製し、新しいIDを返す |

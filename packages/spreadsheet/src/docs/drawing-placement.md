@@ -70,6 +70,7 @@ const json = serializeWorkbook(table.workbook);
 | `cells.set` | 指定したセル群の最終行＋1、最終列＋1。空の `values` では省略 |
 | `cells.paste` | 貼り付け先の最終行＋1、最終列＋1。空の貼り付けでは省略 |
 | `cells.fill` | 展開先範囲の最終行＋1、最終列＋1 |
+| `cells.move` | 移動先範囲の最終行＋1、最終列＋1 |
 | `rows.insert` | `nextRow` のみ。`index + count`。`count` の既定値は1 |
 | `columns.insert` | `nextColumn` のみ。`index + count` |
 | `rows.delete` / `columns.delete` | 省略 |

@@ -245,3 +245,71 @@ test('a retained handle refuses mutations after unmount and still exposes only t
   assert.equal(handle.getWorkbook(), before);
   assert.equal(changes, 0);
 });
+
+test('bound read APIs follow synchronous commands and history while older results remain unchanged', async t => {
+  const ui = await mount(t);
+  const api = ui.api, read = api.getCell, range = api.getRange;
+  const before = read('one', 'A1');
+  let image, shape, text;
+  await act(async () => {
+    const result = api.batch([set('9'), set('=A1*2', 'B1'),
+      { type: 'images.insert', sheetId: 'one', anchor: { row: 0, column: 0 }, alt: '説明画像',
+        resource: { name: 'sample.png', mimeType: 'image/png', width: 1, height: 1,
+          dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVZkAAAAASUVORK5CYII=' } },
+      { type: 'shapes.insert', sheetId: 'one', anchor: { row: 1, column: 1 }, shape: 'rectangle', text: 'Shape' },
+      { type: 'textBoxes.insert', sheetId: 'one', anchor: { row: 2, column: 1 }, text: 'Note' },
+      { type: 'comments.set', sheetId: 'one', address: 'A1', comment: { text: 'Check' } }]);
+    assert.equal(result.ok, true);
+    [image, shape, text] = result.results.slice(2, 5);
+    assert.equal(read('one', 'A1').value, '9');
+    assert.equal(read('one', 'B1').value, '=A1*2');
+    assert.deepEqual(range('one', 'A1:C1').map(row => row.map(cell => cell?.value ?? null)), [['9', '=A1*2', null]]);
+    assert.equal(api.getHistoryState().undoCount, 1);
+  });
+  const placed = api.getImage('one', image.drawingId);
+  assert.equal(placed.alt, '説明画像');
+  assert.equal(api.getImageResource(placed.resourceId).name, 'sample.png');
+  assert.equal(api.getDrawing('one', shape.drawingId).type, 'shape');
+  assert.equal(api.getShape('one', shape.drawingId).text, 'Shape');
+  assert.equal(api.getTextBox('one', text.drawingId).text, 'Note');
+  assert.equal(api.getCellComment('one', 'A1').text, 'Check');
+  assert.equal(api.getImage('one', shape.drawingId), undefined);
+  assert.equal(api.getSheet('one').cells.A1.value, '9');
+  assert.throws(() => { placed.anchor.row = 99; }, TypeError);
+  assert.equal(before.value, '2');
+  await act(async () => { assert.equal(await api.undo(), true); });
+  assert.equal(read('one', 'A1').value, '2');
+  assert.equal(api.getImage('one', image.drawingId), undefined);
+  assert.equal(api.getHistoryState().redoCount, 1);
+  await act(async () => { assert.equal(await api.redo(), true); });
+  assert.equal(api.getImage('one', image.drawingId).alt, '説明画像');
+  assert.equal(ui.api.getCell, read);
+  assert.equal(ui.api.getRange, range);
+  await ui.unmount();
+  assert.equal(read('one', 'A1').value, '9');
+  assert.equal(await api.undo(), false);
+});
+
+test('external history preserves pending editor input and rechecks it after host permission', async t => {
+  const requests = [], permission = deferred();
+  let wait = false;
+  const ui = await mount(t, { onEditRequest: request => { requests.push(request); return wait ? permission.promise : true; } });
+  const api = ui.api;
+  await act(async () => { await api.executeAsync(set('9')); await api.executeAsync(set('2')); });
+  await act(async () => { assert.equal(api.endEdit(), true); ui.c.beginEdit({ row: 0, column: 0 }, 'unfinished'); });
+  const beforeRequests = requests.length;
+  await act(async () => { assert.equal(await api.undo(), false); });
+  assert.equal(requests.length, beforeRequests);
+  assert.equal(ui.c.editing.value, 'unfinished');
+  await act(async () => ui.c.cancelEdit());
+  wait = true;
+  let undo;
+  await act(async () => { undo = api.undo(); });
+  assert.equal(requests.at(-1).source, 'api');
+  assert.equal(requests.at(-1).action, 'undo');
+  await act(async () => ui.c.beginEdit({ row: 0, column: 0 }, 'new input'));
+  await act(async () => { permission.resolve(true); assert.equal(await undo, false); });
+  assert.equal(api.getCell('one', 'A1').value, '2');
+  assert.equal(api.getHistoryState().undoCount, 2);
+  assert.equal(ui.c.editing.value, 'new input');
+});

@@ -1476,6 +1476,96 @@
     ]
   },
   {
+    "id": "spreadsheet/data-access",
+    "title": "セル・範囲・画像の取得",
+    "component": "spreadsheet",
+    "section": "親アプリとの連携",
+    "output": "spreadsheet/data-access/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/data-access.md"
+    ],
+    "keywords": [
+      "getCell",
+      "getRange",
+      "getImage",
+      "getImageResource",
+      "getSheet",
+      "getDrawing",
+      "getShape",
+      "getTextBox",
+      "getCellComment",
+      "SpreadsheetReadApi",
+      "drawingId",
+      "resourceId"
+    ],
+    "headings": [
+      {
+        "id": "セルと範囲",
+        "title": "セルと範囲",
+        "depth": 2
+      },
+      {
+        "id": "idで画像図形を取得する",
+        "title": "IDで画像・図形を取得する",
+        "depth": 2
+      },
+      {
+        "id": "api一覧",
+        "title": "API一覧",
+        "depth": 2
+      },
+      {
+        "id": "表示中の下書きやセッションから取得する",
+        "title": "表示中の下書きやセッションから取得する",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/history-session",
+    "title": "編集セッションとUndo／Redo",
+    "component": "spreadsheet",
+    "section": "親アプリとの連携",
+    "output": "spreadsheet/history-session/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/history-session.md"
+    ],
+    "keywords": [
+      "createSpreadsheetSession",
+      "SpreadsheetSession",
+      "SpreadsheetHistoryState",
+      "undo",
+      "redo",
+      "getHistoryState",
+      "historyLimit",
+      "copySpreadsheetCells",
+      "cells.move",
+      "cells.paste"
+    ],
+    "headings": [
+      {
+        "id": "セルを編集し元に戻す",
+        "title": "セルを編集し、元に戻す",
+        "depth": 2
+      },
+      {
+        "id": "api一覧",
+        "title": "API一覧",
+        "depth": 2
+      },
+      {
+        "id": "コピー貼り付け移動",
+        "title": "コピー・貼り付け・移動",
+        "depth": 2
+      },
+      {
+        "id": "guiとの境界",
+        "title": "GUIとの境界",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/context-menu",
     "title": "右クリックメニュー",
     "component": "spreadsheet",

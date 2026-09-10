@@ -23,6 +23,7 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "cells.replace": ["query", "replacement", "addresses"],
   "cells.fill": ["source", "target", "mode"],
   "cells.paste": ["target", "payload", "mode"],
+  "cells.move": ["source", "target"],
   "cells.validation": ["addresses", "validation"],
   "conditionalFormats.set": ["rules"],
   "rows.resize": ["row", "height"],

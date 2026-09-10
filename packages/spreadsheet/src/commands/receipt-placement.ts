@@ -1,5 +1,6 @@
 import { parseCellAddress } from "../model/address";
 import { getDrawingPlacement } from "../model/drawing-placement";
+import { getCellPasteRange } from "../model/editing/paste";
 import type { SpreadsheetWorkbook } from "../model/types";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import type { SpreadsheetCommand, SpreadsheetCommandPlacement, SpreadsheetCommandReceipt } from "./types";
@@ -26,10 +27,12 @@ function getCommandPlacement(workbook: SpreadsheetWorkbook, command: Spreadsheet
       return nextRow ? { nextRow, nextColumn } : undefined;
     }
     case "cells.paste": {
-      const height = command.payload.values.length;
-      const width = command.payload.values.reduce((max, row) => Math.max(max, row.length), 0);
-      return height && width ? { nextRow: command.target.row + height, nextColumn: command.target.column + width } : undefined;
+      const destination = getCellPasteRange(workbook.sheets.find(sheet => sheet.id === command.sheetId)!, command.target, command.payload);
+      return destination ? { nextRow: destination.bottom + 1, nextColumn: destination.right + 1 } : undefined;
     }
+    case "cells.move":
+      return { nextRow: command.target.row + command.source.bottom - command.source.top + 1,
+        nextColumn: command.target.column + command.source.right - command.source.left + 1 };
     case "cells.fill":
       return { nextRow: command.target.bottom + 1, nextColumn: command.target.right + 1 };
     case "rows.insert":

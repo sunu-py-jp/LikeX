@@ -15,6 +15,11 @@ const rule = { type: 'list', values: ['未着手', '進行中', '完了'] };
 const sheet = workbook => workbook.sheets[0];
 const applyRule = (workbook, addresses, input = rule) => setCellDataValidation(workbook, sheet(workbook).id, addresses, input);
 const write = (workbook, values) => setCellValues(workbook, sheet(workbook).id, values);
+const applyPaste = (paste, workbook) => {
+  const result = stageSpreadsheetCommands(workbook, paste.commands, resolveSpreadsheetFeatures(), () => 'note');
+  if (!result.ok) throw new Error(result.message);
+  return result.workbook;
+};
 
 test('rule normalization is strict, bounded, immutable and backward-compatible', () => {
   const input = { ...rule, values: [...rule.values] }, normalized = normalizeDataValidation(input);
@@ -156,11 +161,11 @@ test('clipboard all copies a rule with its value atomically while values-only ob
     selection: { sheetId: sheet(workbook).id, anchor: { row: 0, column }, focus: { row: 0, column } }, features: resolveSpreadsheetFeatures() });
   const captured = { ...captureCopiedCells(context(0), false), token: 'copy' };
   assert.deepEqual(captured.validations, [[rule]]);
-  const pasted = prepareCellPaste(context(1), captured.text, captured).applyTo(workbook, () => 'note');
+  const pasted = applyPaste(prepareCellPaste(context(1), captured.text, captured), workbook);
   assert.equal(sheet(pasted).cells.B1.value, '完了'); assert.deepEqual(sheet(pasted).cells.B1.validation, rule);
-  assert.throws(() => prepareCellPaste(context(1), captured.text, captured, 'values').applyTo(workbook, () => 'note'), /B1/);
-  assert.throws(() => prepareCellPaste(context(1), 'bad', null).applyTo(workbook, () => 'note'), /B1/);
+  assert.throws(() => applyPaste(prepareCellPaste(context(1), captured.text, captured, 'values'), workbook), /B1/);
+  assert.throws(() => applyPaste(prepareCellPaste(context(1), 'bad', null), workbook), /B1/);
   assert.equal(sheet(workbook).cells.B1.value, '5');
-  const formatted = prepareCellPaste(context(1), captured.text, captured, 'formats').applyTo(workbook, () => 'note');
+  const formatted = applyPaste(prepareCellPaste(context(1), captured.text, captured, 'formats'), workbook);
   assert.equal(sheet(formatted).cells.B1.value, '5'); assert.deepEqual(sheet(formatted).cells.B1.validation, { type: 'number', min: 0, max: 10 });
 });

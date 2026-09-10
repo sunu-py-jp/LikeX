@@ -4,6 +4,7 @@ import { useCallback, type RefObject } from "react";
 import type { MaybePromise } from "../core";
 import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandResult } from "../api/types";
 import { stageSpreadsheetCommands } from "../commands/stage-spreadsheet-commands";
+import { captureSpreadsheetCommands } from "../commands/capture-spreadsheet-commands";
 import { resolveSpreadsheetFeatures } from "../api/resolve-features";
 import type { DraftSelection } from "./types";
 import type { useWorkbookDraft } from "./use-workbook-draft";
@@ -13,21 +14,29 @@ type CommandSession = DraftSelection & {
   editingRef: RefObject<unknown>;
   pendingObjectEditRef: RefObject<boolean>;
 };
+/** GUI adapters can guard captured editor/clipboard targets without bypassing command validation. */
+export type SpreadsheetGuiCommandOptions = Readonly<{
+  isCurrent?: () => boolean;
+  allowSaveStarting?: boolean;
+  allowPendingCellEdit?: boolean;
+}>;
 
 /** Shared command validation and one-transaction publication for GUI and imperative callers. */
 export function useSpreadsheetCommands(draft: ReturnType<typeof useWorkbookDraft>, session: CommandSession) {
   const { workbookRef, propsRef, applyTransaction, getMutationFailure, reportError } = draft;
   const { selectionRef, setSelection, editingRef, pendingObjectEditRef } = session;
   const run = useCallback((commands: readonly SpreadsheetCommand[], external: boolean, synchronous = false,
-    contextMenu?: Pick<DraftOperationOptions, "mutationOwner" | "isCurrent">): MaybePromise<SpreadsheetCommandResult> => {
-    const unavailable = getMutationFailure(false, contextMenu?.mutationOwner);
+    contextMenu?: Pick<DraftOperationOptions, "mutationOwner" | "isCurrent">,
+    gui?: SpreadsheetGuiCommandOptions): MaybePromise<SpreadsheetCommandResult> => {
+    const unavailable = getMutationFailure(gui?.allowSaveStarting, contextMenu?.mutationOwner);
     if (unavailable) return unavailable;
-    if ((external || contextMenu) && (editingRef.current || pendingObjectEditRef.current))
+    const guarded = external || !!contextMenu || !!gui?.isCurrent;
+    const editorAvailable = () => (gui?.allowPendingCellEdit || !editingRef.current) && !pendingObjectEditRef.current;
+    if (guarded && !editorAvailable())
       return { ok: false, code: "PENDING_EDIT", message: "編集中の内容を確定してから操作してください" };
-    let captured: readonly SpreadsheetCommand[];
-    if (!Array.isArray(commands)) return { ok: false, code: "INVALID_COMMAND", message: "コマンドを配列で指定してください" };
-    try { captured = structuredClone(commands); }
-    catch { return { ok: false, code: "INVALID_COMMAND", message: "コマンドはシリアライズ可能なデータで指定してください" }; }
+    const capture = captureSpreadsheetCommands(commands);
+    if (!capture.ok) return capture;
+    const captured = capture.commands;
     const sheetIds = new Set(captured.flatMap(command => command && typeof command === "object" && "sheetId" in command && typeof command.sheetId === "string" ? [command.sheetId] : []));
     const sheetId = sheetIds.size === 1 ? [...sheetIds][0] : undefined;
     const attempt: { staged?: ReturnType<typeof stageSpreadsheetCommands> } = {};
@@ -36,10 +45,11 @@ export function useSpreadsheetCommands(draft: ReturnType<typeof useWorkbookDraft
       attempt.staged = staged;
       return staged.ok && staged.changed ? staged.workbook : workbook;
     }, { selectionRef, setSelection }, { source: external ? "api" : "ui", synchronous,
+      ...(gui?.allowSaveStarting ? { allowSaveStarting: true } : {}),
       ...(sheetId ? { sheetId } : {}),
       action: captured.length === 1 ? captured[0]?.type : "batch", commands: captured.map(command => command?.type),
       ...(contextMenu ? { mutationOwner: contextMenu.mutationOwner } : {}),
-      ...((external || contextMenu) ? { isCurrent: () => !editingRef.current && !pendingObjectEditRef.current && (!contextMenu?.isCurrent || contextMenu.isCurrent()) } : {}) });
+      ...(guarded ? { isCurrent: () => editorAvailable() && (!contextMenu?.isCurrent || contextMenu.isCurrent()) && (!gui?.isCurrent || gui.isCurrent()) } : {}) });
     const finish = (value: Awaited<typeof committed>): SpreadsheetCommandResult => {
       if (!value.ok) return value;
       const staged = attempt.staged;
@@ -52,8 +62,8 @@ export function useSpreadsheetCommands(draft: ReturnType<typeof useWorkbookDraft
   const showFailure = useCallback((failure: SpreadsheetCommandFailure) => {
     if (failure.code !== "NOT_MOUNTED" && failure.code !== "EDIT_CANCELLED") reportError(new Error(failure.message));
   }, [reportError]);
-  const executeCommands = useCallback((commands: readonly SpreadsheetCommand[]): MaybePromise<SpreadsheetCommandResult> => {
-    const result = run(commands, false);
+  const executeCommands = useCallback((commands: readonly SpreadsheetCommand[], options?: SpreadsheetGuiCommandOptions): MaybePromise<SpreadsheetCommandResult> => {
+    const result = run(commands, false, false, undefined, options);
     const finish = (value: SpreadsheetCommandResult) => { if (!value.ok) showFailure(value); return value; };
     return result instanceof Promise ? result.then(finish) : finish(result);
   }, [run, showFailure]);

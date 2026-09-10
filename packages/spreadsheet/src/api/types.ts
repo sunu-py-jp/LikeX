@@ -2,15 +2,21 @@ import type { MaybePromise } from "../core";
 import type { SpreadsheetDiscardOptions, SpreadsheetEditIntent, SpreadsheetEditState } from "./lifecycle";
 import type { SpreadsheetExcelExportOptions } from "../export/types";
 import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetWorkbookSnapshot } from "../commands/types";
+import type { SpreadsheetReadApi } from "../model/query-reader";
+import type { SpreadsheetHistoryState } from "../history/workbook-history";
 
 export type * from "../commands/types";
 
-export type SpreadsheetHandle = Readonly<{
+export type SpreadsheetHandle = SpreadsheetReadApi & Readonly<{
   execute(command: SpreadsheetCommand): SpreadsheetCommandResult;
   batch(commands: readonly SpreadsheetCommand[]): SpreadsheetCommandResult;
   executeAsync(command: SpreadsheetCommand): Promise<SpreadsheetCommandResult>;
   batchAsync(commands: readonly SpreadsheetCommand[]): Promise<SpreadsheetCommandResult>;
   getWorkbook(): SpreadsheetWorkbookSnapshot;
+  /** Uses the same edit permission and history as GUI actions. Unfinished input is not discarded. */
+  undo(): MaybePromise<boolean>;
+  redo(): MaybePromise<boolean>;
+  getHistoryState(): SpreadsheetHistoryState;
   getEditState(): SpreadsheetEditState;
   requestEdit(intent?: SpreadsheetEditIntent): MaybePromise<boolean>;
   cancelEditRequest(): void;

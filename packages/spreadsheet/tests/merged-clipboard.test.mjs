@@ -14,7 +14,7 @@ const output = await build({
     builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
-const { useSpreadsheet, useSpreadsheetClipboard, mergeCells, serializeWorkbook, parseWorkbook } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { useSpreadsheet, useSpreadsheetClipboard, serializeWorkbook, parseWorkbook } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const position = (row, column) => ({ row, column });
 const merge = (top, left, bottom, right) => ({ top, left, bottom, right });
 const sourceMerge = merge(0, 2, 1, 3);
@@ -286,7 +286,7 @@ test('awaited external paste ignores a stale destination after merge geometry ch
   await ui.select(3, 5);
   let pasted;
   await act(async () => { pasted = ui.c.clipboard.paste(); });
-  await act(async () => ui.c.apply(wb => mergeCells(wb, 'one', pastedMerge)));
+  await act(async () => ui.c.executeCommand({ type: 'cells.merge', sheetId: 'one', range: pastedMerge }));
   await act(async () => { pending.resolve('stale'); await pasted; });
   assert.equal(ui.c.activeSheet.cells.F4, undefined);
   assert.deepEqual(ui.c.activeSheet.merges, [sourceMerge, pastedMerge]);

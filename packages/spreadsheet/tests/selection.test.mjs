@@ -15,8 +15,7 @@ const output = await build({
   } }],
 });
 const { createSelection, selectionRanges, selectionBounds, selectedAddresses, selectionCellCount, isCellSelected,
-  isRangeSelected, toggleRangeSelection, toggleSelectionCell, MAX_SELECTION_RANGES, useSpreadsheet,
-  deleteRows, deleteColumns, setCellValue, formatCells } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+  isRangeSelected, toggleRangeSelection, toggleSelectionCell, MAX_SELECTION_RANGES, useSpreadsheet } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const p = (row, column) => ({ row, column });
 const range = (row, column, endRow = row, endColumn = column) => ({ anchor: p(row, column), focus: p(endRow, endColumn) });
 const selection = (...ranges) => createSelection('one', ranges);
@@ -181,7 +180,7 @@ test('clearing and formatting disjoint areas preserve gaps and form one undo ent
   assert.equal(hook.current.activeSheet.cells.C1.value, 'three');
   assert.equal(hook.current.selection.ranges.length, 1);
   await act(async () => { hook.current.select(p(0, 0)); hook.current.select(p(0, 2), false, true); });
-  await act(async () => hook.current.apply(wb => formatCells(wb, 'one', selectedAddresses(hook.current.selection), { bold: true })));
+  await act(async () => hook.current.executeCommand({ type: 'cells.format', sheetId: 'one', addresses: selectedAddresses(hook.current.selection), format: { bold: true } }));
   assert.equal(hook.current.activeSheet.cells.A1.format.bold, true);
   assert.equal(hook.current.activeSheet.cells.C1.format.bold, true);
   assert.equal(hook.current.activeSheet.cells.B1.format, undefined);
@@ -216,13 +215,14 @@ test('a subtraction that exceeds the range limit is rejected atomically', async 
 test('clamping covers all ranges after structural changes, and sheet switch and save reset selection', async t => {
   const hook = await mount(t);
   await act(async () => { hook.current.selectRange(p(98, 98), p(99, 99)); hook.current.select(p(1, 1), false, true); });
-  await act(async () => hook.current.apply(wb => deleteColumns(deleteRows(wb, 'one', 10, 90), 'one', 10, 90)));
+  await act(async () => hook.current.executeCommands([{ type: 'rows.delete', sheetId: 'one', index: 10, count: 90 },
+    { type: 'columns.delete', sheetId: 'one', index: 10, count: 90 }]));
   assert.deepEqual(hook.current.selection.ranges[0], range(9, 9));
   assert.deepEqual(hook.current.selection.focus, p(1, 1));
   await act(async () => hook.current.switchSheet('two'));
   assert.equal(hook.current.selection.sheetId, 'two');
   assert.deepEqual(hook.current.selection.ranges, [range(0, 0)]);
-  await act(async () => { hook.current.select(p(4, 4), false, true); hook.current.apply(wb => setCellValue(wb, 'two', 'A1', 'saved')); });
+  await act(async () => { hook.current.select(p(4, 4), false, true); hook.current.executeCommand({ type: 'cells.set', sheetId: 'two', values: { A1: 'saved' } }); });
   await act(async () => hook.current.save());
   assert.deepEqual(hook.current.selection.ranges, [range(0, 0)]);
 });

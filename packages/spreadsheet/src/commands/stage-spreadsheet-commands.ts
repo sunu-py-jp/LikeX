@@ -42,6 +42,7 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
     case "cells.replace":
     case "cells.fill":
     case "cells.paste":
+    case "cells.move":
     case "sheets.duplicate":
       return stageEditingCommand(workbook, command, features, nextId) ?? rejectCommand("INVALID_COMMAND", "編集コマンドを実行できませんでした");
     case "cells.set": {

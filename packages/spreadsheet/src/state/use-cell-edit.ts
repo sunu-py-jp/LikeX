@@ -1,31 +1,28 @@
 "use client";
 
-import { useInsertionEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { MaybePromise } from "../core";
-import { cellAddress, mergedCellPosition, setCellValue, setCellValues } from "../model";
+import { cellAddress, mergedCellPosition } from "../model";
 import type { SpreadsheetSelection } from "../props";
-import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
+import type { SpreadsheetCommand, SpreadsheetCommandResult } from "../api/types";
 import { clampPosition, selectedAddresses } from "./selection";
-import type { Position, ReportError, Sheet, WorkbookOperation } from "./types";
-import type { DraftOperationOptions } from "./use-workbook-draft";
+import type { Position, ReportError, Sheet } from "./types";
+import type { SpreadsheetGuiCommandOptions } from "./use-spreadsheet-commands";
 
 type CellEditOptions = {
   activeSheet: Sheet;
   selection: SpreadsheetSelection;
   disabled: boolean;
-  features: SpreadsheetFeatureSettings;
-  apply: (operation: WorkbookOperation, options?: DraftOperationOptions) => MaybePromise<boolean>;
+  executeCommands: (commands: readonly SpreadsheetCommand[], options?: SpreadsheetGuiCommandOptions) => MaybePromise<SpreadsheetCommandResult>;
   cancelEditRequest: () => void;
   clearDrawingSelection: () => void;
   reportError: ReportError;
 };
 
 /** Keeps typed text separate from the draft until a successful commit. */
-export function useCellEdit({ activeSheet, selection, disabled, features, apply, cancelEditRequest, clearDrawingSelection, reportError }: CellEditOptions) {
+export function useCellEdit({ activeSheet, selection, disabled, executeCommands, cancelEditRequest, clearDrawingSelection, reportError }: CellEditOptions) {
   const [editing, setEditing] = useState<{ position: Position; value: string; sheetId: string } | null>(null);
   const editingRef = useRef(editing);
-  const currentFeatures = useRef(features);
-  useInsertionEffect(() => { currentFeatures.current = features; }, [features]);
   const beginEdit = (position = selection.focus, value?: string) => {
     if (disabled) return;
     clearDrawingSelection();
@@ -39,22 +36,20 @@ export function useCellEdit({ activeSheet, selection, disabled, features, apply,
   const commitEdit = (): MaybePromise<boolean> => {
     const current = editingRef.current;
     if (!current) return true;
-    const result = apply(workbook => {
-      if (!currentFeatures.current.formulas && current.value.startsWith("=")) throw new Error("数式の入力は無効です");
-      return setCellValue(workbook, current.sheetId, cellAddress(current.position.row, current.position.column), current.value);
-    }, { source: "ui", action: "cells.set", commands: ["cells.set"], sheetId: current.sheetId,
-      isCurrent: () => editingRef.current === current });
-    const finish = (accepted: boolean) => {
-      if (!accepted || editingRef.current !== current) return false;
+    const result = executeCommands([{ type: "cells.set", sheetId: current.sheetId,
+      values: { [cellAddress(current.position.row, current.position.column)]: current.value } }],
+    { allowSaveStarting: true, allowPendingCellEdit: true, isCurrent: () => editingRef.current === current });
+    const finish = (accepted: SpreadsheetCommandResult) => {
+      if (!accepted.ok || editingRef.current !== current) return false;
       cancelEdit();
       return true;
     };
-    return typeof result === "boolean" ? finish(result) : result.then(finish);
+    return result instanceof Promise ? result.then(finish) : finish(result);
   };
-  const writeValues = (values: Record<string, string>) => apply(workbook => {
-    if (!currentFeatures.current.formulas && Object.values(values).some(value => value.startsWith("="))) throw new Error("数式の入力は無効です");
-    return setCellValues(workbook, activeSheet.id, values);
-  }, { source: "ui", action: "cells.set", commands: ["cells.set"], sheetId: activeSheet.id });
+  const writeValues = (values: Record<string, string>): MaybePromise<boolean> => {
+    const result = executeCommands([{ type: "cells.set", sheetId: activeSheet.id, values }]);
+    return result instanceof Promise ? result.then(value => value.ok) : result.ok;
+  };
   const clearCells = () => {
     try { writeValues(Object.fromEntries(selectedAddresses(selection).map(address => [address, ""]))); }
     catch (cause) { reportError(cause); }

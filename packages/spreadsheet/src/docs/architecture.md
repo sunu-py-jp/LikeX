@@ -12,19 +12,23 @@ flowchart TD
   Host --> Handle[api: 型付き外部操作]
   Host --> Headless[model-entry: 画面なしの操作]
   Headless --> Commands[commands: コマンド検証・一括準備]
+  Headless --> Session[session: 画面なしの編集セッション]
+  Session --> Commands
+  Session --> History[history: 共通Undo・Redo]
   Handle --> State
   Component --> UI[ui: 表示・入力イベント]
   Component --> State[state: 編集状態・操作の調整]
   UI --> State
   State --> Model[model: データ検証・不変なブックの変更]
   State --> Commands
+  State --> History
   Commands --> Model
   UI --> Model
   State --> Clipboard[clipboard/browser-clipboard: ブラウザAPI]
   State --> Core[core: 共通契約・通知・非同期・離脱確認]
 ```
 
-矢印は利用・依存の方向です。`model/` と `commands/` はReact・DOM・`state/`・`ui/` に依存しません。`state/` から `ui/` も参照しません。coreにもReactやSpreadsheet固有のブック型・状態は持たせません。表示上の寸法の既定値を含め、モデルと画面で共通の値は `model/sheet-dimensions.ts` に置きます。
+矢印は利用・依存の方向です。`model/`・`commands/`・`history/`・`session/` はReact・DOM・`state/`・`ui/` に依存しません。`state/` から `ui/` も参照しません。coreにもReactやSpreadsheet固有のブック型・状態は持たせません。表示上の寸法の既定値を含め、モデルと画面で共通の値は `model/sheet-dimensions.ts` に置きます。
 
 ## ファイルの役割
 
@@ -32,7 +36,10 @@ flowchart TD
 
 | 場所 | 責務 |
 | --- | --- |
-| `model-entry.ts` | ReactやDOMを読み込まない公開入口。モデル関数、コマンド型、一括適用関数を公開 |
+| `model-entry.ts` | ReactやDOMを読み込まない公開入口。取得・変更APIと履歴付きセッションを公開 |
+| `session/create-spreadsheet-session.ts` | 画面なしのコマンド実行・履歴・最新データ取得を組み合わせる |
+| `history/workbook-history.ts` | GUIとセッションで共用する上限付きのUndo／Redo履歴 |
+| `model/query.ts`・`query-reader.ts` | 番地やIDによる読み取りと、最新ブックを参照するメソッドの接続 |
 | `api/types.ts`・`api/use-spreadsheet-handle.ts` | 公開コマンド型・結果型・読み取り専用snapshotと、安定したrefの接続 |
 | `api/lifecycle.ts`・`api/features.ts` | 注入する処理・イベント・編集許可・機能設定の公開型 |
 | `core.ts` | `@likex/core` への入口。コピー導入時の参照先変更もここだけで行う |
@@ -63,7 +70,7 @@ flowchart TD
 | `state/use-pending-object-edits.ts` | コメントや図形など、未確定の入力があるかの管理 |
 | `api/resolve-features.ts` | GUIと画面なしの操作で共用する機能設定の解決 |
 | `state/types.ts`・`notifications.ts` | 内部の連携型、親への通知 |
-| `state/clipboard/cell-transfer.ts` | コピーするデータの抽出、貼り付けの検証とブック変更。React・ブラウザAPIは使わない |
+| `state/clipboard/cell-transfer.ts` | GUIの選択・コピー状態を公開コピーAPIと貼り付け／移動コマンドへ変換。ブックは変更しない |
 | `state/clipboard/browser-clipboard.ts` | ブラウザのクリップボードの読み書き |
 | `state/use-spreadsheet-clipboard.ts` | 上記の連携、切り取り状態、古くなった非同期操作の取り消し |
 | `ui/spreadsheet-grid.tsx` | グリッドの描画と操作hookの組み立て |
@@ -75,7 +82,7 @@ flowchart TD
 
 ## 変更を反映する経路
 
-セルや図形を変更する操作は、コントローラーの `apply(operation)` を通します。
+セルや図形を変更するGUI操作は、コントローラーの `executeCommand` / `executeCommands` で共通コマンド処理へ渡します。セル入力の確定や削除、コピー後の貼り付け、切り取りによる移動も同じ経路です。
 
 1. 読み取り専用・保存中・機能設定などのガードを確認する。
 2. モデルの操作から変更後のブックを準備し、選択範囲も検証する。元のブックは変更せず、実変更がなければ終了する。
@@ -85,9 +92,9 @@ flowchart TD
 
 途中で失敗した場合、ブックと履歴を部分的に更新しません。複数セルへの貼り付けや結合も、1つの操作として渡します。Undo/Redoはこの単位になります。
 
-外部APIとツールバーなどの明示コマンドは、`commands/` で全操作を準備し、同じ下書きトランザクションへ一度だけ渡します。外部APIは最新参照を使って読み取り専用・保存中・未確定入力・再入を検証します。モデルのコマンド処理は同期ですが、`executeAsync` / `batchAsync` は必要な編集許可を待ちます。同期の `execute` / `batch` は未取得の外部許可が必要なら `EDIT_REQUIRED` を返します。ブラウザでの画像準備はトランザクションの外で行います。[外部操作API](./external-operations.md)に契約をまとめています。
+GUI・ref・画面なしのAPIは、`commands/` で全操作を準備します。GUIとrefでは同じ下書きトランザクションへ一度だけ渡します。外部APIは最新参照を使って読み取り専用・保存中・未確定入力・再入を検証します。モデルのコマンド処理は同期ですが、`executeAsync` / `batchAsync` は必要な編集許可を待ちます。同期の `execute` / `batch` は未取得の外部許可が必要なら `EDIT_REQUIRED` を返します。ブラウザでの画像準備はトランザクションの外で行います。[外部操作API](./external-operations.md)に契約をまとめています。
 
-`applySpreadsheetCommands` は同じ `commands/` を利用し、元のブックを変更せず、成功した場合だけ変更後のブックを返します。画面の選択・履歴・編集セッション・イベントには接続しません。保存や同時更新の確認は呼び出し側が行います。[画面なしの操作](./headless.md)に利用例をまとめています。
+`applySpreadsheetCommands` は同じ `commands/` を利用し、元のブックを変更せず、成功した場合だけ変更後のブックを返します。画面の選択・履歴・編集セッション・イベントには接続しません。保存や同時更新の確認は呼び出し側が行います。履歴が必要な場合は `createSpreadsheetSession` を使うと、GUIと同じ履歴エンジンでUndo／Redoを扱えます。[画面なしの操作](./headless.md)と[履歴付きセッション](./history-session.md)に利用例をまとめています。
 
 画面の保存操作ではセル入力を先に確定し、コメントや図形に未確定の入力がないことを確認します。Handleの `save()` は未確定入力がある場合に拒否します。その後 `onBeforeSave`、`onSave`、保存済みの基準更新、成功通知の順で進めます。通信・認証・競合解決は利用側が実装します。選択、入力途中の文字列、スクロール位置、コピー状態は保存するブックJSONに追加しません。失敗・キャンセル・ロックの契約は[ライフサイクル](./lifecycle.md)にまとめています。
 
@@ -95,11 +102,11 @@ flowchart TD
 
 | 追加する内容 | 実装の入口と確認点 |
 | --- | --- |
-| 新しいセル操作 | `model/workbook/` に純粋な操作を追加し、UIから `apply` を呼ぶ。無変更時と失敗時に元のブックを維持できるか検証 |
+| 新しいセル操作 | `model/` に操作を実装し、`SpreadsheetCommand` から呼ぶ。GUIは同じコマンドを発行する。無変更・失敗時のブックと履歴を検証 |
 | 数式・関数 | `model/` の数式エンジンへ追加。UIとは別に値・参照・エラー・計算上限をテスト |
 | 選択やショートカット | 範囲の意味は `state/selection.ts`、入力ジェスチャーは `ui/grid/` に置く。セル編集中・IME中・結合セルも確認 |
 | 描画オブジェクト | JSON型と検証、ブック操作、描画・編集UIをそれぞれ追加。履歴とJSON往復も確認 |
-| コピー形式や貼り付け規則 | データ変換は `cell-transfer.ts`、ブラウザとの通信は `browser-clipboard.ts`、非同期の有効性判定はhookへ追加 |
+| コピー形式や貼り付け規則 | データの抽出・変更は `model/editing/` と `commands/`、GUIのコマンド作成は `cell-transfer.ts`、OS入出力は `browser-clipboard.ts` |
 | 利用側への設定やコールバック | `props.ts` に公開型を定義し、state側で処理。既定値、読み取り専用時の動作、利用ガイドを揃える |
 
 共通化は、複数の処理が同じルールを共有するときに行います。関係のない処理をまとめた `utils` や、用途のない汎用プラグイン基盤は設けません。

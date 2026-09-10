@@ -2,6 +2,7 @@ import type { SpreadsheetCommand } from "./types";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { fillSpreadsheetCells } from "../model/editing/fill";
 import { pasteSpreadsheetCells } from "../model/editing/paste";
+import { moveSpreadsheetCells } from "../model/editing/move";
 import { findSpreadsheetCells, replaceSpreadsheetCells, replaceSpreadsheetText } from "../model/editing/search";
 import { duplicateSheetWithIds } from "../model/workbook/sheets";
 import type { SpreadsheetWorkbook } from "../model/types";
@@ -10,7 +11,7 @@ import { commandKeys, commandRecord, rejectCommand, requireCommandAddress, requi
 
 export function stageEditingCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand, features: SpreadsheetFeatureSettings,
   nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandBaseReceipt } | null {
-  if (command.type !== "cells.replace" && command.type !== "cells.fill" && command.type !== "cells.paste" && command.type !== "sheets.duplicate") return null;
+  if (command.type !== "cells.replace" && command.type !== "cells.fill" && command.type !== "cells.paste" && command.type !== "cells.move" && command.type !== "sheets.duplicate") return null;
   const sheet = requireCommandSheet(workbook, command.sheetId);
   const finish = (next: SpreadsheetWorkbook, sheetId = sheet.id) => ({ workbook: next, receipt: { type: command.type, sheetId } });
   switch (command.type) {
@@ -35,9 +36,18 @@ export function stageEditingCommand(workbook: SpreadsheetWorkbook, command: Spre
       requireCommandFeature(features, "paste");
       if (command.mode && command.mode !== "all") requireCommandFeature(features, "pasteSpecial");
       commandKeys(commandRecord(command.target, "貼り付け先"), ["row", "column"], "貼り付け先");
-      commandKeys(commandRecord(command.payload, "コピー内容"), ["values", "displayedValues", "valueTypes", "formats", "validations", "source"], "コピー内容");
+      commandKeys(commandRecord(command.payload, "コピー内容"), ["values", "displayedValues", "valueTypes", "formats", "validations", "comments", "merges", "source"], "コピー内容");
+      if (command.payload.source !== undefined) commandKeys(commandRecord(command.payload.source, "コピー元"), ["sheetId", "row", "column"], "コピー元");
       return finish(pasteSpreadsheetCells(workbook, sheet.id, command.target, command.payload, command.mode,
-        { formulas: features.formulas, formatting: features.formatting, dataValidation: features.dataValidation, checkboxes: features.checkboxes }));
+        { formulas: features.formulas, formatting: features.formatting, dataValidation: features.dataValidation, checkboxes: features.checkboxes,
+          comments: features.comments, mergeCells: features.mergeCells }, nextId));
+    case "cells.move":
+      requireCommandFeature(features, "cut");
+      requireCommandFeature(features, "paste");
+      commandKeys(commandRecord(command.source, "移動元"), ["sheetId", "top", "left", "bottom", "right"], "移動元");
+      commandKeys(commandRecord(command.target, "移動先"), ["row", "column"], "移動先");
+      requireCommandSheet(workbook, command.source.sheetId);
+      return finish(moveSpreadsheetCells(workbook, command.source, { ...command.target, sheetId: sheet.id }, features));
     case "sheets.duplicate": {
       requireCommandFeature(features, "duplicateSheet");
       const copied = duplicateSheetWithIds(workbook, sheet.id, command.name, nextId);

@@ -10,6 +10,9 @@ export type {
   SpreadsheetSaveHandler,
 } from "./props";
 export * from "./model";
+export { createSpreadsheetSession } from "./session/create-spreadsheet-session";
+export type { SpreadsheetSession, SpreadsheetSessionOptions } from "./session/create-spreadsheet-session";
+export type { SpreadsheetHistoryState } from "./history/workbook-history";
 export type {
   SpreadsheetHandle, SpreadsheetCommand, SpreadsheetCommandAnchor,
   SpreadsheetCommandResult, SpreadsheetCommandSuccess, SpreadsheetCommandFailure,

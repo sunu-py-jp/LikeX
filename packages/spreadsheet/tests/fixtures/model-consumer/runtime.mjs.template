@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { applySpreadsheetCommands, parseWorkbook, serializeWorkbook, createWorkbook, setCellValues,
-  getDrawingBounds, getDrawingPlacement } from '__MODEL_IMPORT__';
+  getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
+  createSpreadsheetSession, copySpreadsheetCells } from '__MODEL_IMPORT__';
 
 const require = createRequire(import.meta.url);
 assert.throws(() => require.resolve('react'), { code: 'MODULE_NOT_FOUND' });
@@ -47,4 +48,56 @@ const table = applySpreadsheetCommands(withImage.workbook, [{ type: 'cells.set',
 assert.equal(table.ok, true);
 assert.equal(table.workbook.sheets[0].cells.A12.value, '画像の下の表');
 assert.equal(parseWorkbook(serializeWorkbook(table.workbook)).sheets[0].drawings[0].alt, '説明画像');
-console.log(JSON.stringify({ operations: 'passed', atomicFailure: 'passed', features: 'passed', drawingPlacement: 'passed', reactInstalled: false, browserGlobals: false }));
+
+// Read-only queries expose raw cell values and distinguish a placed image from its stored bytes.
+const readCell = getCell(table.workbook, 'sheet-1', '$a$12');
+assert.equal(readCell.value, '画像の下の表');
+assert.equal(Object.isFrozen(readCell), true);
+assert.throws(() => { readCell.value = 'cannot change the workbook through a query'; }, TypeError);
+const readRange = getRange(table.workbook, 'sheet-1', 'A1:C2');
+assert.deepEqual(readRange.map(row => row.map(cell => cell?.value ?? null)), [['既存', null, '=B2*2'], [null, '10', null]]);
+assert.equal(Object.isFrozen(readRange), true);
+assert.equal(Object.isFrozen(readRange[0]), true);
+const placedImage = getImage(table.workbook, 'sheet-1', image.drawingId);
+assert.equal(placedImage.resourceId, image.resourceId);
+assert.equal(placedImage.alt, '説明画像');
+assert.equal(Object.isFrozen(placedImage.anchor), true);
+const storedImage = getImageResource(table.workbook, placedImage.resourceId);
+assert.equal(storedImage.mimeType, 'image/png');
+assert.equal(storedImage.width, 1);
+assert.equal(storedImage.dataUrl.startsWith('data:image/png;base64,'), true);
+assert.equal(getImage(table.workbook, 'sheet-1', 'missing'), undefined);
+assert.equal(getImageResource(table.workbook, 'missing'), undefined);
+
+// A headless session applies the same commands and records one Undo entry per changed batch.
+const session = createSpreadsheetSession(original, { historyLimit: 3 });
+assert.equal(session.execute({ type: 'cells.set', sheetId: 'sheet-1', values: { A1: 'セッション内で更新' } }).ok, true);
+const copied = copySpreadsheetCells(session.getWorkbook(), 'sheet-1', { top: 0, left: 0, bottom: 1, right: 2 });
+assert.deepEqual(copied.values, [['セッション内で更新', '', '=B2*2'], ['', '10', '']]);
+assert.equal(Object.isFrozen(copied.values[0]), true);
+const transferred = session.batch([
+  { type: 'cells.paste', sheetId: 'sheet-1', target: { row: 5, column: 3 }, payload: copied },
+  { type: 'cells.move', sheetId: 'sheet-1', source: { sheetId: 'sheet-1', top: 5, left: 3, bottom: 6, right: 5 },
+    target: { row: 9, column: 0 } },
+]);
+assert.equal(transferred.ok, true);
+assert.equal(session.getCell('sheet-1', 'A10').value, 'セッション内で更新');
+assert.equal(session.getCell('sheet-1', 'B11').value, '10');
+assert.equal(session.getCell('sheet-1', 'C10').value, '=B11*2');
+assert.equal(session.getCell('sheet-1', 'D6'), undefined, 'moving cells clears the copied source rectangle');
+assert.equal(session.getHistoryState().undoCount, 2);
+assert.equal(session.undo(), true);
+assert.equal(session.getCell('sheet-1', 'A10'), undefined);
+assert.equal(session.getCell('sheet-1', 'A1').value, 'セッション内で更新');
+assert.equal(session.undo(), true);
+assert.equal(session.getCell('sheet-1', 'A1').value, '既存');
+assert.equal(session.undo(), false);
+assert.equal(session.redo(), true);
+assert.equal(session.redo(), true);
+assert.equal(session.getRange('sheet-1', 'A10:C11')[0][2].value, '=B11*2');
+assert.equal(session.redo(), false);
+assert.equal(serializeWorkbook(original), before, 'headless session history never changes its input workbook');
+session.clearHistory();
+assert.deepEqual(session.getHistoryState(), { canUndo: false, canRedo: false, undoCount: 0, redoCount: 0 });
+console.log(JSON.stringify({ operations: 'passed', atomicFailure: 'passed', features: 'passed', drawingPlacement: 'passed',
+  queries: 'passed', sessionHistory: 'passed', clipboardCommands: 'passed', reactInstalled: false, browserGlobals: false }));

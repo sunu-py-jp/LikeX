@@ -1,7 +1,9 @@
 import {
   applySpreadsheetCommands, createWorkbook, parseWorkbook, serializeWorkbook,
-  getDrawingBounds, getDrawingPlacement,
-  type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot,
+  getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
+  createSpreadsheetSession, copySpreadsheetCells,
+  type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot, type SpreadsheetReadApi, type SpreadsheetReadRange,
+  type SpreadsheetSession, type SpreadsheetSessionOptions, type SpreadsheetHistoryState, type SpreadsheetPastePayload,
 } from '__MODEL_IMPORT__';
 
 const commands: readonly SpreadsheetCommand[] = [
@@ -47,3 +49,52 @@ function drawingPosition(workbook: SpreadsheetWorkbookSnapshot, sheetId: string,
   return { row: placement.nextRow, column: placement.nextColumn, bottom };
 }
 void drawingPosition;
+
+const readRange: SpreadsheetReadRange = getRange(snapshot, 'sheet-1', 'A1:C5');
+getRange(snapshot, 'sheet-1', { top: 0, left: 0, bottom: 4, right: 2 });
+const readCell = getCell(snapshot, 'sheet-1', '$a$1');
+if (readCell) {
+  const rawValue: string = readCell.value;
+  // @ts-expect-error Query results cannot modify the workbook.
+  readCell.value = 'changed';
+  void rawValue;
+}
+// @ts-expect-error Query matrices are deeply readonly.
+readRange[0].push(null);
+const readImage = getImage(snapshot, 'sheet-1', 'drawing-id');
+if (readImage) {
+  const imageType: 'image' = readImage.type;
+  const imageData = getImageResource(snapshot, readImage.resourceId);
+  const dataUrl: string | undefined = imageData?.dataUrl;
+  // @ts-expect-error Returned drawing anchors are readonly.
+  readImage.anchor.row = 4;
+  void [imageType, dataUrl];
+}
+
+const sessionOptions: SpreadsheetSessionOptions = { historyLimit: 20, features: { copy: true, cut: true, paste: true } };
+const session: SpreadsheetSession = createSpreadsheetSession(snapshot, sessionOptions);
+const readApi: SpreadsheetReadApi = session;
+const payload: SpreadsheetPastePayload = copySpreadsheetCells(session.getWorkbook(), 'sheet-1',
+  { top: 0, left: 0, bottom: 1, right: 2 });
+const transferCommands: readonly SpreadsheetCommand[] = [
+  { type: 'cells.paste', sheetId: 'sheet-1', target: { row: 5, column: 3 }, payload },
+  { type: 'cells.move', sheetId: 'sheet-1', source: { sheetId: 'sheet-1', top: 5, left: 3, bottom: 6, right: 5 },
+    target: { row: 9, column: 0 } },
+];
+session.batch(transferCommands);
+const didUndo: boolean = session.undo();
+const didRedo: boolean = session.redo();
+const history: SpreadsheetHistoryState = session.getHistoryState();
+const latest: SpreadsheetWorkbookSnapshot = session.getWorkbook();
+readApi.getCell('sheet-1', 'A1');
+readApi.getImage('sheet-1', 'drawing-id');
+readApi.getImageResource('resource-id');
+// @ts-expect-error Session snapshots are deeply readonly.
+latest.sheets[0].cells.A1.value = 'changed';
+// @ts-expect-error History flags are readonly.
+history.canUndo = false;
+// @ts-expect-error A move source requires its sheetId.
+session.execute({ type: 'cells.move', sheetId: 'sheet-1', source: { top: 0, left: 0, bottom: 1, right: 1 }, target: { row: 3, column: 3 } });
+// @ts-expect-error History limit is numeric.
+createSpreadsheetSession(snapshot, { historyLimit: '20' });
+void [didUndo, didRedo, history, latest];
