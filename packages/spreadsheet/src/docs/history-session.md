@@ -51,6 +51,31 @@ const json = serializeWorkbook(session.getWorkbook());
 
 履歴はセッションのメモリ上にだけ保持し、ブックJSONへ追加しません。保存JSONだけから過去のUndo履歴を復元することはできません。セッションを作り直すか `replaceWorkbook` を呼ぶと、新しいブックが履歴の起点になります。
 
+## `getHistoryState()` の戻り値
+
+`session.getHistoryState()` と表示中コンポーネントの `SpreadsheetHandle.getHistoryState()` は、同じ `SpreadsheetHistoryState` を同期的に返します。すべて必須フィールドで、`null` / `undefined` はありません。
+
+```ts
+type SpreadsheetHistoryState = Readonly<{
+  canUndo: boolean;  // 戻せる履歴が1件以上ある
+  canRedo: boolean;  // やり直せる履歴が1件以上ある
+  undoCount: number; // 戻せる操作単位の件数（0以上の整数）
+  redoCount: number; // やり直せる操作単位の件数（0以上の整数）
+}>;
+
+// 冒頭の例で、1バッチを実行してUndo→Redoした後。
+const history = session.getHistoryState();
+// { canUndo: true, canRedo: false, undoCount: 1, redoCount: 0 }
+
+session.undo();
+const afterUndo = session.getHistoryState();
+// { canUndo: false, canRedo: true, undoCount: 0, redoCount: 1 }
+```
+
+件数はセル数やバッチ内のコマンド数ではなく、Undo／Redoの操作単位です。結果は凍結されたスナップショットなので、後で操作しても取得済みの `history` は変わりません。
+
+`canUndo` / `canRedo` は履歴の有無を表します。GUIが読み取り専用、保存中、機能OFFなどの場合は、履歴があっても実行できないことがあります。実際の操作結果は `await api.undo()` / `await api.redo()` の `boolean` で確認してください。
+
 ## コピー・貼り付け・移動
 
 コピー用データの作成もGUIなしで行えます。

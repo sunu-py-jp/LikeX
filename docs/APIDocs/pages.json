@@ -1292,6 +1292,11 @@
         "depth": 2
       },
       {
+        "id": "geteditstate-の戻り値",
+        "title": "getEditState() の戻り値",
+        "depth": 3
+      },
+      {
         "id": "イベントと離脱防止",
         "title": "イベントと離脱防止",
         "depth": 2
@@ -1515,6 +1520,61 @@
         "depth": 2
       },
       {
+        "id": "戻り値の形式",
+        "title": "戻り値の形式",
+        "depth": 2
+      },
+      {
+        "id": "getcell",
+        "title": "getCell",
+        "depth": 3
+      },
+      {
+        "id": "getrange",
+        "title": "getRange",
+        "depth": 3
+      },
+      {
+        "id": "getsheet",
+        "title": "getSheet",
+        "depth": 3
+      },
+      {
+        "id": "getdrawing",
+        "title": "getDrawing",
+        "depth": 3
+      },
+      {
+        "id": "getimage",
+        "title": "getImage",
+        "depth": 3
+      },
+      {
+        "id": "getshape",
+        "title": "getShape",
+        "depth": 3
+      },
+      {
+        "id": "gettextbox",
+        "title": "getTextBox",
+        "depth": 3
+      },
+      {
+        "id": "getimageresource",
+        "title": "getImageResource",
+        "depth": 3
+      },
+      {
+        "id": "getcellcomment",
+        "title": "getCellComment",
+        "depth": 3
+      },
+      {
+        "id": "getworkbook",
+        "title": "getWorkbook",
+        "depth": 3
+      },
+      {
         "id": "表示中の下書きやセッションから取得する",
         "title": "表示中の下書きやセッションから取得する",
         "depth": 2
@@ -1551,6 +1611,11 @@
       {
         "id": "api一覧",
         "title": "API一覧",
+        "depth": 2
+      },
+      {
+        "id": "gethistorystate-の戻り値",
+        "title": "getHistoryState() の戻り値",
         "depth": 2
       },
       {

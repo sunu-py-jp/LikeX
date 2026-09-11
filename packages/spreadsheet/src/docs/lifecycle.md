@@ -142,6 +142,29 @@ if (!result.ok) showMessage(result.message);
 
 `refresh` / `discard` は未保存の変更がある場合、既定で拒否します。親側で利用者の確認を済ませた場合だけ `{ discardChanges: true }` を指定してください。Handleは確認ダイアログを自動表示しません。`features.save: false` / `refresh: false` はHandleでの実行も無効にします。
 
+### `getEditState()` の戻り値
+
+表示中コンポーネントの `SpreadsheetHandle` から呼び、`SpreadsheetEditState` を同期的に取得します。画面なしの `createSpreadsheetSession` は編集許可を管理しないため、このメソッドを持ちません。
+
+```ts
+type SpreadsheetEditState = Readonly<{
+  mode: "view" | "requesting" | "edit";
+  requestId: string | null; // 現在の編集許可要求のID。許可後も同じIDを保持
+  error: string | null;     // 編集許可の拒否・失敗理由。理由がなければnull
+}>;
+
+// api は SpreadsheetHandle（Reactのrefなら apiRef.current）。
+const state = api.getEditState();
+// 初期状態: { mode: "view", requestId: null, error: null }
+// 許可待ち: { mode: "requesting", requestId: "550e8400-e29b-41d4-a716-446655440000", error: null }
+// 許可後:   { mode: "edit", requestId: "550e8400-e29b-41d4-a716-446655440000", error: null }
+// 拒否後:   { mode: "view", requestId: null, error: "他のユーザーが編集中のため変更できません" }
+```
+
+3フィールドとも必須です。`requestId` と `error` の空値は省略や `undefined` ではなく `null` です。読み取り専用（`readOnly: true` または `onSave` 省略）では `mode: "view"`、`requestId: null` を返します。
+
+戻り値は型上読み取り専用の独立したコピーで、後からモードが変わっても取得済みの値は変わりません。`mode` はコンポーネントの編集許可状態を表し、未保存変更の有無やサーバー側のロックの有効性そのものではありません。`error` も保存・再読み込みなどの全エラーをまとめた値ではなく、編集許可に関する理由です。
+
 ## イベントと離脱防止
 
 `SpreadsheetEvent` は `type` に応じて内容が絞り込めるunion型です。

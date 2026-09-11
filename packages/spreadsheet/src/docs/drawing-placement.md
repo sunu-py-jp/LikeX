@@ -94,21 +94,45 @@ const json = serializeWorkbook(table.workbook);
 | `getDrawingPlacement(workbook, sheetId, drawingId, options?)` | `SpreadsheetDrawingPlacement`。上記の `bounds` と `nextRow` / `nextColumn` |
 | `SpreadsheetDrawingPlacementOptions` | `gap?: number`。下・右に確保する余白（px）。既定値は0 |
 
+戻り値の型は次のとおりです。すべてのフィールドが必須で、成功時に `null` / `undefined` は返しません。戻り値と内側の `bounds` は凍結された読み取り専用オブジェクトです。
+
+```ts
+type SpreadsheetDrawingBounds = Readonly<{
+  left: number;   // 左端（px）
+  top: number;    // 上端（px）
+  right: number;  // left + width（px）
+  bottom: number; // top + height（px）
+  width: number;  // 配置枠の幅（px）
+  height: number; // 配置枠の高さ（px）
+}>;
+
+type SpreadsheetDrawingPlacement = Readonly<{
+  bounds: SpreadsheetDrawingBounds;
+  nextRow: number;    // 下へ配置する候補行。0始まりの整数
+  nextColumn: number; // 右へ配置する候補列。0始まりの整数
+}>;
+```
+
 `drawingId` はシート上の配置IDです。画像データ本体を指す `resourceId` ではありません。画像・図形・テキストボックスに共通で使えます。読み取り専用のスナップショットも渡せます。
 
-座標は、行番号・列見出しを除いたセル領域の左上（A1の左上）を原点とするpxです。スクロール位置や画面上の拡大率には依存しません。画像については、実際の絵柄や透明部分ではなく表示枠を計測します。
+座標は、行番号・列見出しを除いたセル領域の左上（A1の左上）を原点とするCSS pxで、小数になる場合もあります。スクロール位置や画面上の拡大率には依存しません。画像については、実際の絵柄や透明部分ではなく表示枠を計測します。
 
 ```ts
 import { getDrawingBounds, getDrawingPlacement } from "@likex/spreadsheet/model";
 
-// workbookは現在のブック、drawingIdは画像挿入時に受け取ったID。
-const bounds = getDrawingBounds(workbook, sheetId, drawingId);
-console.log(bounds.bottom); // セル領域の上端から画像下端までのpx
+// 冒頭の例：A1の左上に280×280pxの画像。行高28px、列幅100px。
+const bounds = getDrawingBounds(inserted.workbook, sheetId, image.drawingId);
+// { left: 0, top: 0, right: 280, bottom: 280, width: 280, height: 280 }
 
-const placement = getDrawingPlacement(workbook, sheetId, drawingId, { gap: 12 });
-const tableRow = placement.nextRow;
-const columnOnRight = placement.nextColumn;
+const placement = getDrawingPlacement(inserted.workbook, sheetId, image.drawingId, { gap: 12 });
+// {
+//   bounds: { left: 0, top: 0, right: 280, bottom: 280, width: 280, height: 280 },
+//   nextRow: 11,   // 画面の12行目。上端は308px
+//   nextColumn: 3 // D列。左端は300px
+// }
 ```
+
+これらはブックを引数に取る独立関数です。表示中コンポーネントの `SpreadsheetHandle` やセッションを使う場合は、`getDrawingPlacement(api.getWorkbook(), sheetId, drawingId)` のように現在のブックを渡します。
 
 余白を指定しても `bounds` 自体は画像の位置を表します。`nextRow` / `nextColumn` の計算だけに余白を加えます。変更済みの行高・列幅と、画像の `offsetX` / `offsetY` も考慮します。下端がちょうど行の境界に来る場合、その境界から始まる行を返し、余分な空行は挟みません。
 
