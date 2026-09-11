@@ -1,6 +1,7 @@
 import { cellWriteReport } from "./cell-write-report";
 import { filterCellValueWrites } from "../model/workbook/write-conflicts";
 import { cellAddress, parseCellAddress } from "../model/address";
+import { isFormulaValue } from "../model/cell-value";
 import type { SpreadsheetCommand } from "./types";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { fillSpreadsheetCells } from "../model/editing/fill";
@@ -35,7 +36,7 @@ export function stageEditingCommand(workbook: SpreadsheetWorkbook, command: Spre
       const addresses = command.addresses?.map(address => { const position = parseCellAddress(address)!; return cellAddress(position.row, position.column); });
       if (typeof command.replacement !== "string") return rejectCommand("INVALID_COMMAND", "置換後の文字列を指定してください");
       if (!features.formulas && command.query.lookIn === "formulas") for (const match of findSpreadsheetCells(workbook, command.query, { sheetId: sheet.id })) {
-        if ((!addresses || addresses.includes(match.address)) && replaceSpreadsheetText(match.matchedText, command.query, command.replacement).startsWith("=")) requireCommandFeature(features, "formulas");
+        if ((!addresses || addresses.includes(match.address)) && isFormulaValue(replaceSpreadsheetText(match.matchedText, command.query, command.replacement), sheet.cells[match.address]?.format)) requireCommandFeature(features, "formulas");
       }
       return finish(replaceSpreadsheetCells(workbook, sheet.id, command.query, command.replacement, addresses, { onConflict: command.onConflict, skippedAddresses }));
     }

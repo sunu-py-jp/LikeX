@@ -1,7 +1,8 @@
 import { cellAddress } from "../address";
+import { cellTextValue, isFormulaValue } from "../cell-value";
 import { rangesIntersect } from "../merges";
 import { normalizeNamedRangeRectangle, normalizeRangeName } from "../named-ranges";
-import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
+import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
 import type { SpreadsheetTable, SpreadsheetTableColumn } from "./types";
 
 export const MAX_SPREADSHEET_TABLES = SPREADSHEET_LIMITS.tables;
@@ -11,10 +12,10 @@ function validId(value: unknown): value is string {
   return typeof value === "string" && !!value && value.length <= 200 && !/\0/.test(value);
 }
 
-/** Header labels must be plain text. A leading apostrophe is the model's literal marker. */
-export function tableHeaderLabel(value: string): string {
-  if (typeof value !== "string" || value.startsWith("=")) throw new Error("テーブルのヘッダには数式ではなく文字列を指定してください");
-  const label = value.startsWith("'") ? value.slice(1) : value;
+/** Header labels accept literal values, including cells with stored text format. */
+export function tableHeaderLabel(value: string, format?: SpreadsheetCellFormat): string {
+  if (typeof value !== "string" || isFormulaValue(value, format)) throw new Error("テーブルのヘッダには数式ではなく文字列を指定してください");
+  const label = cellTextValue(value);
   if (!label.trim() || label.length > 255 || /[\r\n\0]/.test(label))
     throw new Error("テーブルのヘッダは改行のない1〜255文字の文字列で指定してください");
   return label;
@@ -31,7 +32,10 @@ export function validateTableHeaderLabels(headers: readonly string[]): void {
 }
 
 function headerNames(table: SpreadsheetTable, cells: Readonly<Record<string, SpreadsheetCell>>): string[] {
-  return table.columns.map((_, index) => tableHeaderLabel(cells[cellAddress(table.range.top, table.range.left + index)]?.value ?? ""));
+  return table.columns.map((_, index) => {
+    const cell = cells[cellAddress(table.range.top, table.range.left + index)];
+    return tableHeaderLabel(cell?.value ?? "", cell?.format);
+  });
 }
 
 export function normalizeTables(input: readonly SpreadsheetTable[] | undefined, sheet: TableSheet): readonly SpreadsheetTable[] | undefined {

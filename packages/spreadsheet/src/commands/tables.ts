@@ -1,6 +1,7 @@
 import type { SpreadsheetTableCommand } from "../api/table-commands";
 import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import type { SpreadsheetWorkbook } from "../model/types";
+import { isFormulaValue } from "../model/cell-value";
 import { deleteSpreadsheetTable, prepareSpreadsheetTableWrite, writeSpreadsheetTable } from "../model/tables/write";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { clearCommandCells } from "./clear-cells";
@@ -30,7 +31,7 @@ export function stageTableCommand(workbook: SpreadsheetWorkbook, command: Spread
     commandKeys(commandRecord(command.rowNumbers, "連番列の設定"), ["header", "start"], "連番列の設定");
   if (command.type === "tables.insert" && typeof command.name !== "string") return rejectCommand("INVALID_COMMAND", "テーブル名を指定してください");
   const plan = prepareSpreadsheetTableWrite(sheet, command, command.type === "tables.insert");
-  if (Object.values(plan.values).some(value => value.startsWith("="))) requireCommandFeature(features, "formulas");
+  if (Object.entries(plan.values).some(([address, value]) => isFormulaValue(value, sheet.cells[address]?.format))) requireCommandFeature(features, "formulas");
   const result = writeSpreadsheetTable(workbook, command,
     command.type === "tables.insert" ? { id: nextId(), name: command.name } : undefined);
   return { workbook: result.workbook, receipt: { type: command.type, sheetId: sheet.id,

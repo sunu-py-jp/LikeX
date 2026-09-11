@@ -18,7 +18,7 @@ export function normalizeCellFormat(value: SpreadsheetCellFormat | undefined): S
     const color = validateFormatColor(value[key]); if (color) result[key] = color;
   }
   const choices = { align: ["left", "center", "right"], verticalAlign: ["top", "middle", "bottom"],
-    numberFormat: ["general", "number", "currency", "percent", "date", "time", "datetime"],
+    numberFormat: ["general", "text", "number", "currency", "percent", "date", "time", "datetime"],
     negativeFormat: ["minus", "parentheses", "red", "red-parentheses"] } as const;
   for (const key of Object.keys(choices) as (keyof typeof choices)[]) if (value[key] !== undefined) {
     if (!(choices[key] as readonly unknown[]).includes(value[key])) return fail("セルの書式が正しくありません");

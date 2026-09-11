@@ -16,7 +16,7 @@ export type SpreadsheetCellFormat = {
   wrap?: boolean;
   verticalAlign?: "top" | "middle" | "bottom";
   borders?: SpreadsheetCellBorders;
-  numberFormat?: "general" | "number" | "currency" | "percent" | "date" | "time" | "datetime";
+  numberFormat?: "general" | "text" | "number" | "currency" | "percent" | "date" | "time" | "datetime";
   decimalPlaces?: number;
   useGrouping?: boolean;
   negativeFormat?: "minus" | "parentheses" | "red" | "red-parentheses";

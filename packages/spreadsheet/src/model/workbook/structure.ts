@@ -1,3 +1,4 @@
+import { isFormulaCell } from "../cell-value";
 import { shiftConditionalFormats } from "../conditional-formatting";
 import { cellAddress, parseCellAddress } from "../address";
 import { moveFormulaReference, rewriteFormulaReferences, type FormulaReference } from "../formula";
@@ -104,7 +105,7 @@ function changeAxis(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" 
         if (next === null) continue;
         nextAddress = cellAddress(axis === "row" ? next : position.row, axis === "column" ? next : position.column);
       }
-      const value = transformReferences(cell.value, sheet.name, target.name, axis, index, count, remove);
+      const value = isFormulaCell(cell) ? transformReferences(cell.value, sheet.name, target.name, axis, index, count, remove) : cell.value;
       if (value !== cell.value) changed = true;
       cells[nextAddress] = value === cell.value ? cell : freezeCell(value, cell.format, cell.validation);
     }

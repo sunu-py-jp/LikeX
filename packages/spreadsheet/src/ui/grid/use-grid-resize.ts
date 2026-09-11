@@ -17,10 +17,10 @@ export function useGridResize(c: SpreadsheetController, axis: "row" | "column") 
   const handlers = (index: number, size: number): HTMLAttributes<HTMLSpanElement> => ({
     onDoubleClick: event => {
       event.preventDefault(); event.stopPropagation(); if (c.disabled || c.requesting || !c.features.resize) return;
-      const ownerDocument = event.currentTarget.ownerDocument;
+      const target = event.currentTarget, ownerDocument = target.ownerDocument;
       c.afterCommit(() => {
         const workbook = c.getWorkbook(), sheet = workbook.sheets.find(sheet => sheet.id === c.activeSheet.id); if (!sheet) return;
-        const values = (workbook === c.workbook ? c.calculated : calculateWorkbook(workbook))[sheet.id] ?? {}, measure = createTextMeasurer(ownerDocument);
+        const values = (workbook === c.workbook ? c.calculated : calculateWorkbook(workbook))[sheet.id] ?? {}, measure = createTextMeasurer(ownerDocument, target);
         resize(sheet.id, index, axis === "row" ? autoFitRowHeight(sheet, index, values, measure) : autoFitColumnWidth(sheet, index, values, measure)); });
     },
     onKeyDown: event => {

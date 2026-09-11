@@ -1,3 +1,4 @@
+import { cellTextValue, isFormulaCell } from "../../model/cell-value";
 import { cellAddress, parseCellAddress } from "../../model/address";
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "../../model/sheet-dimensions";
 import { excelDateSerial } from "../../model/formatting";
@@ -33,7 +34,8 @@ function cellXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, address
   if (headerText !== undefined) return `<c ${attributes} t="inlineStr"><is><t xml:space="preserve">${xlsxText(headerText)}</t></is></c>`;
   // Empty model values are blank cells, which Excel must not count as empty text.
   if (value === "") return `<c ${attributes}/>`;
-  if (value.startsWith("=")) {
+  if (format?.numberFormat === "text") return `<c ${attributes} t="inlineStr"><is><t xml:space="preserve">${xlsxText(cellTextValue(value))}</t></is></c>`;
+  if (isFormulaCell(cell)) {
     const formula = xlsxFormula(value, workbook, sheet), result = calculated[sheet.id]?.[address];
     let cache = "", type = "";
     if (typeof result === "number" && Number.isFinite(result)) cache = `<v>${xml(result)}</v>`;

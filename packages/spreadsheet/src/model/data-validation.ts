@@ -1,5 +1,6 @@
 import { calculateWorkbook } from "./formula";
-import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCalculatedValue, type SpreadsheetWorkbook } from "./types";
+import { cellTextValue, isFormulaCell, isFormulaValue } from "./cell-value";
+import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, type SpreadsheetCalculatedValue, type SpreadsheetWorkbook } from "./types";
 
 type ValidationOptions = { /** Empty cells are allowed unless explicitly false. */ allowBlank?: boolean; message?: string };
 /** Persisted cell rules. Values remain strings; date rules accept ISO calendar dates. */
@@ -70,8 +71,8 @@ export function dataValidationsEqual(a: SpreadsheetDataValidation | undefined, b
 
 const stringValue = (value: SpreadsheetCalculatedValue) => typeof value === "boolean" ? (value ? "TRUE" : "FALSE") : String(value);
 /** Returns a human-readable rejection, without changing the draft or coercing user input. */
-export function dataValidationError(rule: SpreadsheetDataValidation, raw: string, calculated?: SpreadsheetCalculatedValue): string | null {
-  const value = raw.startsWith("=") ? calculated : raw.startsWith("'") ? raw.slice(1) : raw;
+export function dataValidationError(rule: SpreadsheetDataValidation, raw: string, calculated?: SpreadsheetCalculatedValue, format?: SpreadsheetCellFormat): string | null {
+  const value = isFormulaValue(raw, format) ? calculated : cellTextValue(raw);
   const display = value === undefined ? "" : stringValue(value);
   if (display === "") return rule.allowBlank !== false ? null : rule.message || "空白は許可されていません";
   let valid = false;
@@ -102,13 +103,13 @@ export function assertWorkbookDataValidation(workbook: SpreadsheetWorkbook): voi
     return cells.map(([address, cell]) => ({ sheet, address, cell }));
   });
   if (!entries.length) return;
-  const calculated = entries.some(({ cell }) => cell.value.startsWith("=")) ? calculateWorkbook(workbook) : undefined;
+  const calculated = entries.some(({ cell }) => isFormulaCell(cell)) ? calculateWorkbook(workbook) : undefined;
   for (const { sheet, address, cell } of entries) {
     const rule = normalizeDataValidation(cell.validation)!;
     const computed = calculated?.[sheet.id]?.[address];
-    if (cell.value.startsWith("=") && (computed === undefined || (typeof computed === "string" && /^#(?:LIMIT|CYCLE|ERROR|REF|VALUE|DIV\/0|NAME|N\/A|NUM|NULL)/.test(computed))))
+    if (isFormulaCell(cell) && (computed === undefined || (typeof computed === "string" && /^#(?:LIMIT|CYCLE|ERROR|REF|VALUE|DIV\/0|NAME|N\/A|NUM|NULL)/.test(computed))))
       return fail(`${sheet.name}!${address}: 計算結果を入力規則で検証できません`);
-    const error = dataValidationError(rule, cell.value, computed);
+    const error = dataValidationError(rule, cell.value, computed, cell.format);
     if (error) return fail(`${sheet.name}!${address}: ${error}`);
   }
 }

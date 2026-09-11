@@ -88,6 +88,36 @@ test('format styling is rendered independently of editing permissions', async t 
   await ui.key('Enter', { altKey: true }); assert.equal(ui.c.editing, null);
 });
 
+test('the Text ribbon format preserves literal display, formula-like text and error-like strings through Undo', async t => {
+  const raw = { A1: '00123', B1: '12345678901234567890', C1: '=1+1', D1: 'TRUE', E1: '#REF!' };
+  const ui = await mount(t, { initialWorkbook: { sheets: [{ id: 's', name: 'Sheet1', rowCount: 8, columnCount: 6,
+    cells: Object.fromEntries(Object.entries(raw).map(([address, value]) => [address, { value }])) }] } });
+  await act(async () => ui.c.selectRange({ row: 0, column: 0 }, { row: 0, column: 4 }));
+  const selector = ui.renderer.root.findByProps({ 'aria-label': '数値の表示形式' });
+  assert.equal(selector.findAllByType('option').some(option => option.props.value === 'text' && option.children[0] === '文字列'), true);
+  await act(async () => selector.props.onChange({ currentTarget: { value: 'text' } }));
+  for (const [address, value] of Object.entries(raw)) {
+    assert.equal(ui.c.calculated.s[address], value);
+    const cell = ui.renderer.root.findByProps({ 'aria-label': `${address} ${value}` });
+    assert.equal(cell.props.className.includes('lxs-cell-error'), false);
+    assert.equal(cell.props.style.textAlign, 'left');
+  }
+  await act(async () => ui.c.undo());
+  assert.equal(ui.c.calculated.s.C1, 2);
+  await act(async () => ui.c.redo());
+  assert.equal(ui.c.calculated.s.C1, '=1+1');
+});
+
+test('typing a formula-like literal into a Text cell does not require the formulas feature', async t => {
+  const ui = await mount(t, { features: { formulas: false }, initialWorkbook: { sheets: [{ id: 's', name: 'Sheet1', rowCount: 4, columnCount: 4,
+    cells: { A1: { value: '', format: { numberFormat: 'text' } } } }] } });
+  await act(async () => ui.c.beginEdit({ row: 0, column: 0 }, '=1+1'));
+  await ui.key('Enter');
+  assert.equal(ui.c.activeSheet.cells.A1.value, '=1+1');
+  assert.equal(ui.c.calculated.s.A1, '=1+1');
+  assert.equal(ui.c.error, null);
+});
+
 
 for (const [label, title, commitLabel] of [['罫線と数値の書式', 'セルの書式', '適用'], ['条件付き書式', '条件付き書式', 'ルールを追加']]) {
   const dialog = ui => ui.renderer.root.find(instance => typeof instance.type === 'function' && instance.type.name === 'SpreadsheetDialog' && instance.props.title === title);

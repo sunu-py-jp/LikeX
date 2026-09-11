@@ -195,7 +195,7 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
       }
       if (action === "autofit" && target.kind !== "cell") {
         const doc = root.current?.ownerDocument;
-        if (doc) execute([autoFitCommand(current.getWorkbook(), sheetId, target.kind, selectionAxisIndices(selection, target.kind), doc, current.getWorkbook() === current.workbook ? current.calculated[sheetId] : undefined)]); return;
+        if (doc) execute([autoFitCommand(current.getWorkbook(), sheetId, target.kind, selectionAxisIndices(selection, target.kind), doc, current.getWorkbook() === current.workbook ? current.calculated[sheetId] : undefined, root.current ?? undefined)]); return;
       }
       if ((action === "comment" || action === "delete-comment") && target.kind === "cell") {
         if (action === "delete-comment") execute([{type: "comments.set", sheetId, address: target.address, comment: null}]);

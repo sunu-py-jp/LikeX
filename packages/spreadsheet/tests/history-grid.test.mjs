@@ -21,6 +21,7 @@ async function mount(t, options = {}) {
   const drawings = new Map();
   const nodes = new WeakMap();
   const document = { activeElement: null, addEventListener() {}, removeEventListener() {},
+    createElement: () => ({ getContext: () => ({ font: '', measureText: text => ({ width: text.length * 10 }) }) }),
     defaultView: { addEventListener() {}, removeEventListener() {} } };
   const node = element => {
     if (nodes.has(element.props)) return nodes.get(element.props);
@@ -57,6 +58,22 @@ async function mount(t, options = {}) {
   const controller = () => renderer.root.findAll(instance => instance.props.controller?.undo)[0].props.controller;
   return {
     get c() { return controller(); },
+    get root() { return renderer.root; },
+    async settingKey(key, modifiers = {}, kind = 'select') {
+      let prevented = false;
+      const target = { ownerDocument: document, tagName: kind === 'select' ? 'SELECT' : 'INPUT', classList: { contains: () => false },
+        matches: selector => kind === 'color' && selector.includes("type='color'"),
+        closest(selector) { if (selector === '.lxs-ribbon-container') return kind === 'outside' ? null : section;
+          if (selector.startsWith('input,')) return this; return null; } };
+      sectionProps.onFocusCapture({ target }); document.activeElement = target;
+      await act(async () => renderer.root.findByProps({ role: 'region' }).props.onKeyDown({ key, target, nativeEvent: {},
+        ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, preventDefault() { prevented = true; }, ...modifiers }));
+      return { prevented, target };
+    },
+    async autoFit(axis) {
+      const menu = renderer.root.findByProps({ 'aria-label': '行列サイズの自動調整' });
+      await act(async () => menu.props.onChange({ currentTarget: { ownerDocument: document, value: axis, closest: () => null } }));
+    },
     value(address) { return controller().activeSheet.cells[address]?.value; },
     async edit(row, column, value) {
       await act(async () => { controller().select({ row, column }); controller().beginEdit({ row, column }, value); });
@@ -109,8 +126,45 @@ async function mount(t, options = {}) {
       return outside;
     },
     activeElement: () => document.activeElement,
-  };
+};
 }
+
+for (const primary of ['ctrlKey', 'metaKey']) test(`${primary}: successive Undo/Redo works from ribbon sizing selectors without another cell click`, async t => {
+  const ui = await mount(t, { initialWorkbook: { sheets: [{ id: 'one', name: 'Sheet1', rowCount: 8, columnCount: 8,
+    cells: { A1: { value: 'one\ntwo\nthree' } } }] } });
+  const original = ui.c.getWorkbook();
+  await ui.autoFit('column');
+  const columnFit = ui.c.getWorkbook();
+  assert.notDeepEqual(columnFit, original);
+  await ui.autoFit('row');
+  const rowFit = ui.c.getWorkbook();
+  assert.notDeepEqual(rowFit, columnFit);
+  for (const [key, modifiers, expected] of [['z', {}, columnFit], ['z', {}, original],
+    ['z', { shiftKey: true }, columnFit], ['y', {}, rowFit]]) {
+    const { prevented, target } = await ui.settingKey(key, { [primary]: true, ...modifiers });
+    assert.equal(prevented, true);
+    assert.deepEqual(ui.c.getWorkbook(), expected);
+    assert.equal(ui.activeElement(), target, 'keyboard operation does not forcibly move focus away from the ribbon');
+  }
+  assert.equal((await ui.settingKey('z', { [primary]: true }, 'color')).prevented, true, 'color pickers also permit workbook Undo');
+  assert.deepEqual(ui.c.getWorkbook(), columnFit);
+});
+
+test('workbook shortcuts still leave native text editors, outside controls and IME composition alone', async t => {
+  const ui = await mount(t);
+  await ui.edit(0, 0, 'changed');
+  const workbook = ui.c.getWorkbook();
+  for (const kind of ['text', 'outside']) {
+    assert.equal((await ui.settingKey('z', { ctrlKey: true }, kind)).prevented, false);
+    assert.equal(ui.c.getWorkbook(), workbook);
+  }
+  assert.equal((await ui.settingKey('z', { ctrlKey: true, nativeEvent: { isComposing: true } })).prevented, false);
+  assert.equal((await ui.settingKey('z', { ctrlKey: true, defaultPrevented: true })).prevented, false);
+  assert.equal(ui.c.getWorkbook(), workbook);
+  await act(async () => ui.c.beginEdit({ row: 0, column: 0 }, 'in progress'));
+  assert.equal((await ui.settingKey('z', { ctrlKey: true })).prevented, false);
+  assert.equal(ui.c.getWorkbook(), workbook);
+});
 
 test('successive keyboard Undo and Redo move selection and actual DOM focus to each changed cell', async t => {
   const ui = await mount(t);

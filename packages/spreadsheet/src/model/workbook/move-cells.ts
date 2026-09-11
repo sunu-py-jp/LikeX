@@ -1,3 +1,4 @@
+import { isFormulaCell } from "../cell-value";
 import { cellAddress, parseCellAddress } from "../address";
 import { moveFormulaReference, rewriteFormulaReferences, type FormulaReference } from "../formula";
 import { normalizeMerges, rangeContains, rangesIntersect } from "../merges";
@@ -74,7 +75,7 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
     let changed = sheet.id === from.id || sheet.id === to.id;
     const cells = { ...sheet.cells };
     for (const [address, cell] of Object.entries(cells)) {
-      if (!cell.value.startsWith("=")) continue;
+      if (!isFormulaCell(cell)) continue;
       const position = parseCellAddress(address)!;
       const origin = sheet.id === to.id && inDestination(position.row, position.column) ? from.name : sheet.name;
       const resolve = (reference: FormulaReference, inherited = origin) => reference.sheet ?? inherited;

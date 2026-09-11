@@ -8,6 +8,7 @@ import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandR
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { completeCommandReceipt } from "./receipt-placement";
 import { cellAddress, parseCellAddress } from "../model/address";
+import { isFormulaCell, isFormulaValue } from "../model/cell-value";
 import { workbooksEqual } from "../model/equality";
 import { mergedCellPosition } from "../model/merges";
 import { deleteColumns, deleteRows, deleteSheet, formatCells, insertColumns, insertRows, mergeCells, moveSheet, renameSheet,
@@ -65,19 +66,26 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
       for (const [address, value] of Object.entries(values)) {
         requireCommandAddress(sheet, address);
         if (typeof value !== "string") return rejectCommand("INVALID_COMMAND", "セルの値は文字列で指定してください");
-        if (value.startsWith("=")) requireCommandFeature(features, "formulas");
+        const position = parseCellAddress(address)!;
+        if (isFormulaValue(value, sheet.cells[cellAddress(position.row, position.column)]?.format)) requireCommandFeature(features, "formulas");
       }
       const filtered = filterCellValueWrites(sheet, command.values, command.onConflict);
       const next = setCellValues(workbook, sheet.id, filtered.values);
       return result(next, { write: cellWriteReport(workbook, next, filtered.skippedAddresses) });
     }
-    case "cells.format":
+    case "cells.format": {
       requireCommandFeature(features, "formatting");
       if (!Array.isArray(command.addresses)) return rejectCommand("INVALID_COMMAND", "セルのアドレスは配列で指定してください");
       for (const address of command.addresses) requireCommandAddress(sheet, address);
       commandKeys(commandRecord(command.format, "セル書式"), ["bold", "italic", "underline", "align", "color", "background", "numberFormat",
         "fontFamily", "fontSize", "wrap", "verticalAlign", "borders", "decimalPlaces", "useGrouping", "negativeFormat"], "セル書式");
-      return result(formatCells(workbook, sheet.id, command.addresses, command.format));
+      const next = formatCells(workbook, sheet.id, command.addresses, command.format);
+      if (!features.formulas) for (const address of command.addresses) {
+        const position = parseCellAddress(address)!, key = cellAddress(position.row, position.column);
+        if (isFormulaCell(next.sheets.find(item => item.id === sheet.id)!.cells[key]) && !isFormulaCell(sheet.cells[key])) requireCommandFeature(features, "formulas");
+      }
+      return result(next);
+    }
     case "rows.insert":
       requireCommandFeature(features, "insertRows");
       return result(insertRows(workbook, sheet.id, command.index, command.count));

@@ -2,6 +2,7 @@ import { filterCellValueWrites, type SpreadsheetWriteConflictPolicy } from "../w
 import { cellAddress } from "../address";
 import { rangeContains, rangesIntersect } from "../merges";
 import { translateFormula } from "../formula";
+import { cellTextValue, isFormulaCell, isFormulaValue } from "../cell-value";
 import { SPREADSHEET_LIMITS, type SpreadsheetMergedRange, type SpreadsheetWorkbook } from "../types";
 import { getWorkbookSheet, replaceWorkbookSheet } from "../workbook/snapshot";
 import { validateCellValue } from "../workbook/validation";
@@ -67,23 +68,25 @@ export function fillSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: str
     if (row >= source.top && row <= source.bottom && column >= source.left && column <= source.right) continue;
     const fromRow = source.top + modulo(row - source.top, height), fromColumn = source.left + modulo(column - source.left, width);
     const original = sheet.cells[cellAddress(fromRow, fromColumn)], address = cellAddress(row, column), previous = sheet.cells[address];
+    const format = policy.formatting ? original?.format : previous?.format;
     let value = original?.value ?? "";
-    if (value.startsWith("=")) {
-      if (!policy.formulas) throw new Error("数式の入力は無効です");
-      value = translateFormula(value, row - fromRow, column - fromColumn);
-    } else {
+    if (isFormulaCell(original)) {
+      if (isFormulaValue(value, format)) value = translateFormula(value, row - fromRow, column - fromColumn);
+    } else if (original?.format?.numberFormat !== "text") {
       const lane = vertical ? fromColumn : fromRow;
       if (!generators.has(lane)) {
-        const values = vertical ? Array.from({ length: height }, (_, i) => sheet.cells[cellAddress(source.top + i, fromColumn)]?.value ?? "") :
-          Array.from({ length: width }, (_, i) => sheet.cells[cellAddress(fromRow, source.left + i)]?.value ?? "");
+        const sourceCells = vertical ? Array.from({ length: height }, (_, i) => sheet.cells[cellAddress(source.top + i, fromColumn)]) :
+          Array.from({ length: width }, (_, i) => sheet.cells[cellAddress(fromRow, source.left + i)]);
+        const values = sourceCells.map(cell => cell?.value ?? "");
         const seriesMode = mode === "auto" && ["date", "datetime"].includes(original?.format?.numberFormat ?? "") ? "series" : mode;
-        generators.set(lane, sequence(values, seriesMode));
+        generators.set(lane, sourceCells.some(cell => cell?.format?.numberFormat === "text") ? null : sequence(values, seriesMode));
       }
       value = generators.get(lane)?.(vertical ? row - source.top : column - source.left) ?? value;
     }
+    if (original?.format?.numberFormat === "text" && format?.numberFormat !== "text" && value) value = `'${cellTextValue(value)}`;
+    if (!policy.formulas && isFormulaValue(value, format)) throw new Error("数式の入力は無効です");
     validateCellValue(value);
     proposed[address] = value;
-    const format = policy.formatting ? original?.format : previous?.format;
     const ruleTransferEnabled = policy.dataValidation && !(policy.checkboxes === false && (original?.validation?.type === "checkbox" || previous?.validation?.type === "checkbox"));
     const validation = ruleTransferEnabled ? original?.validation : previous?.validation;
     if (!value && !format && !validation) delete cells[address];

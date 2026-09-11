@@ -73,14 +73,15 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
           const baseFormat = effectiveCellFormat(cell);
           const appearance = conditional(row, column, value, baseFormat), format = appearance.format;
           const text = displayCell(value, format);
+          const error = baseFormat?.numberFormat !== "text" && typeof value === "string" && value.startsWith("#");
           const cellWidth = merge ? columnOffsets[merge.right + 1] - columnOffsets[merge.left] : width;
           const cellHeight = rowOffsets[(merge?.bottom ?? row) + 1] - rowOffsets[merge?.top ?? row];
           const checkbox = c.features.dataValidation && c.features.checkboxes && cell?.validation?.type === "checkbox";
           const selected = selectedBounds.some(bounds => row >= bounds.top && row <= bounds.bottom && column >= bounds.left && column <= bounds.right);
           const focused = row === c.selection.focus.row && column === c.selection.focus.column;
           const editing = focused && !!c.editing;
-          const rendered = <div key={column} role="gridcell" data-lxs-row={row} data-lxs-column={column} aria-colindex={column + 2} aria-colspan={merge ? merge.right - merge.left + 1 : undefined} aria-rowspan={merge ? merge.bottom - merge.top + 1 : undefined} aria-selected={selected} aria-label={`${address}${text ? ` ${text}` : ""}${comment ? ", コメントあり" : ""}`} title={typeof value === "string" && value.startsWith("#") ? value : undefined}
-            className={`lxs-cell ${merge ? "lxs-cell-merged" : ""} ${format?.background ? "lxs-cell-filled" : ""} ${format?.wrap ? "lxs-cell-wrap" : ""} ${checkbox ? "lxs-cell-has-checkbox" : ""} ${selected ? "lxs-cell-selected" : ""} ${focused ? "lxs-cell-active" : ""} ${typeof value === "string" && value.startsWith("#") ? "lxs-cell-error" : ""}`}
+          const rendered = <div key={column} role="gridcell" data-lxs-row={row} data-lxs-column={column} aria-colindex={column + 2} aria-colspan={merge ? merge.right - merge.left + 1 : undefined} aria-rowspan={merge ? merge.bottom - merge.top + 1 : undefined} aria-selected={selected} aria-label={`${address}${text ? ` ${text}` : ""}${comment ? ", コメントあり" : ""}`} title={error ? value : undefined}
+            className={`lxs-cell ${merge ? "lxs-cell-merged" : ""} ${format?.background ? "lxs-cell-filled" : ""} ${format?.wrap ? "lxs-cell-wrap" : ""} ${checkbox ? "lxs-cell-has-checkbox" : ""} ${selected ? "lxs-cell-selected" : ""} ${focused ? "lxs-cell-active" : ""} ${error ? "lxs-cell-error" : ""}`}
             style={{ width: cellWidth, height: merge ? cellHeight : undefined, ...cellFormatStyle(format, value) }}
             onPointerDown={event => {
               if (event.button !== 0 || (focused && c.editing)) return;

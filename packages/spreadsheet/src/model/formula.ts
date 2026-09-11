@@ -1,3 +1,4 @@
+import { cellTextValue, isFormulaCell } from "./cell-value";
 import { cellAddress, parseCellAddress } from "./address";
 import { SUPPORTED_SPREADSHEET_FUNCTIONS } from "./function-definitions";
 import { SPREADSHEET_LIMITS, type SpreadsheetCalculatedValue as Value, type SpreadsheetWorkbook } from "./types";
@@ -169,7 +170,8 @@ export function calculateWorkbook(workbook: SpreadsheetWorkbook): Record<string,
     if (Object.hasOwn(cache, canonical)) return cache[canonical];
     const cell = sheet.cells[canonical];
     if (!cell || !cell.value) return 0;
-    if (!cell.value.startsWith("=")) return cache[canonical] = literal(cell.value);
+    if (cell.format?.numberFormat === "text") return cache[canonical] = cellTextValue(cell.value);
+    if (!isFormulaCell(cell)) return cache[canonical] = literal(cell.value);
     const key = `${sheetId}\0${canonical}`;
     if (active.has(key)) return "#CYCLE!";
     active.add(key);

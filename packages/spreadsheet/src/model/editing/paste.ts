@@ -2,6 +2,7 @@ import { filterCellValueWrites, type SpreadsheetWriteConflictPolicy } from "../w
 import type { SpreadsheetPasteMode, SpreadsheetPastePayload, SpreadsheetPartialMergePolicy } from "../../api/editing-commands";
 import { cellAddress } from "../address";
 import { translateFormula } from "../formula";
+import { cellTextValue, isFormulaCell, isFormulaValue } from "../cell-value";
 import { normalizeDataValidation } from "../data-validation";
 import { getMergedRange, normalizeMerges, rangeContains, rangesIntersect } from "../merges";
 import { mergeCells } from "../workbook/merges";
@@ -122,20 +123,22 @@ function pasteCellMatrix(workbook: SpreadsheetWorkbook, sheetId: string, target:
     const merge = getMergedRange(sheet, position);
     if (merge && (merge.top !== position.row || merge.left !== position.column)) throw new Error("結合されたセルの一部には貼り付けできません");
     const previous = cells[address];
+    let format: SpreadsheetCellFormat | undefined = previous?.format;
+    if ((mode === "all" || mode === "formats") && policy.formatting && payload.formats) format = normalizeCellFormat(payload.formats[row]?.[column] ?? {});
     let value = previous?.value ?? "";
     if (mode !== "formats") {
       value = (mode === "values" ? payload.displayedValues ?? payload.values : payload.values)[row]?.[column] ?? "";
       if (mode === "values") {
         if (payload.valueTypes?.[row]?.[column] === "string" || value.startsWith("=") || value.startsWith("'")) value = value ? `'${value}` : "";
-      } else if (value.startsWith("=")) {
-        if (!policy.formulas) throw new Error("数式の入力は無効です");
+      } else if (payload.formats?.[row]?.[column]?.numberFormat === "text") {
+        if (format?.numberFormat !== "text" && value) value = `'${cellTextValue(value)}`;
+      } else if (isFormulaValue(value, format)) {
         if (payload.source) value = translateFormula(value, target.row - payload.source.row, target.column - payload.source.column);
       }
       value = validateCellValue(value);
       proposed[address] = value;
     }
-    let format: SpreadsheetCellFormat | undefined = previous?.format;
-    if ((mode === "all" || mode === "formats") && policy.formatting && payload.formats) format = normalizeCellFormat(payload.formats[row]?.[column] ?? {});
+    if (!policy.formulas && isFormulaValue(value, format) && (mode !== "formats" || !isFormulaCell(previous))) throw new Error("数式の入力は無効です");
     const suppliedValidation = payload.validations?.[row]?.[column];
     const ruleTransferEnabled = policy.dataValidation !== false && !(policy.checkboxes === false && (suppliedValidation?.type === "checkbox" || previous?.validation?.type === "checkbox"));
     const validation = mode === "all" && ruleTransferEnabled && payload.validations ? normalizeDataValidation(suppliedValidation ?? undefined) : previous?.validation;

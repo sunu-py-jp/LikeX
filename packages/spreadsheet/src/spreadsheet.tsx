@@ -64,7 +64,11 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
       }
       if (key === "s" && !c.readOnly && c.features.save) { event.preventDefault(); void c.save(); }
       const textControl = (event.target as HTMLElement).closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
-      if (textControl && !textControl.classList.contains("lxs-cell-input")) return;
+      // Ribbon selectors change the workbook; they have no native text-edit history.
+      // Genuine text editors (including dialogs and the formula bar) retain native Undo.
+      const ribbonSetting = textControl?.closest(".lxs-ribbon-container") &&
+        (textControl.tagName === "SELECT" || textControl.matches("input[type='color'], input[type='checkbox'], input[type='radio'], input[type='range']"));
+      if (textControl && !textControl.classList.contains("lxs-cell-input") && !ribbonSetting) return;
       if (c.features.undoRedo && !c.readOnly && !c.editing && (key === "z" || key === "y")) { event.preventDefault(); if (key === "y" || event.shiftKey) c.redo(); else c.undo(); }
       if (key === "a" && !c.editing && (event.target as HTMLElement).closest(".lxs-grid")) { event.preventDefault(); c.selectRange({ row: c.activeSheet.rowCount - 1, column: c.activeSheet.columnCount - 1 }, { row: 0, column: 0 }); }
     }}>

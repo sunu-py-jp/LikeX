@@ -13,6 +13,9 @@ import { Command, Icon } from "./spreadsheet-controls";
 import { SpreadsheetMergeToolbar } from "./spreadsheet-merge-toolbar";
 import { RibbonGroup } from "./spreadsheet-ribbon-group";
 
+const NUMBER_FORMAT_OPTIONS = [["general", "標準"], ["text", "文字列"], ["number", "数値"], ["currency", "通貨"],
+  ["percent", "パーセント"], ["date", "日付"], ["time", "時刻"], ["datetime", "日時"]] as const;
+
 export function SpreadsheetFormatToolbar({ controller: c }: { controller: SpreadsheetController }) {
   const [dialog, setDialog] = useState<"format" | "conditional" | null>(null);
   const disabled = c.disabled || c.requesting || !!c.selectedDrawingId;
@@ -67,7 +70,7 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
     </RibbonGroup>}
     {c.features.formatting && <RibbonGroup label="表示形式">
       <div className="lxs-ribbon-stack">
-        <select className="lxs-select" aria-label="数値の表示形式" title="数値の表示形式" value={format?.numberFormat ?? "general"} disabled={disabled} onChange={event => patch({ numberFormat: event.currentTarget.value as SpreadsheetCellFormat["numberFormat"] })}>{[["general", "標準"], ["number", "数値"], ["currency", "通貨"], ["percent", "パーセント"], ["date", "日付"], ["time", "時刻"], ["datetime", "日時"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+        <select className="lxs-select" aria-label="数値の表示形式" title="表示形式" value={format?.numberFormat ?? "general"} disabled={disabled} onChange={event => patch({ numberFormat: event.currentTarget.value as SpreadsheetCellFormat["numberFormat"] })}>{NUMBER_FORMAT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
         <Command className="lxs-ribbon-command-label" label="罫線と数値の書式" disabled={disabled} onClick={() => c.afterCommit(() => setDialog("format"))}><Icon name="borders" /><span>書式…</span></Command>
       </div>
     </RibbonGroup>}
@@ -81,17 +84,17 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
 
 export function SpreadsheetAutoFitControl({ controller: c }: { controller: SpreadsheetController }) {
   const disabled = c.disabled || c.requesting || !!c.selectedDrawingId;
-  const fit = (axis: "row" | "column", ownerDocument: Document) => {
+  const fit = (axis: "row" | "column", element: HTMLElement) => {
     if (disabled) return;
     c.afterCommit(() => {
       const indices = new Set<number>();
       for (const selection of selectionRanges(c.selection)) { const bounds = rangeBounds(selection); for (let index = axis === "row" ? bounds.top : bounds.left; index <= (axis === "row" ? bounds.bottom : bounds.right); index++) indices.add(index); }
       const workbook = c.getWorkbook();
-      c.afterCommand(autoFitCommand(workbook, c.activeSheet.id, axis, indices, ownerDocument, workbook === c.workbook ? c.calculated[c.activeSheet.id] : undefined));
+      c.afterCommand(autoFitCommand(workbook, c.activeSheet.id, axis, indices, element.ownerDocument, workbook === c.workbook ? c.calculated[c.activeSheet.id] : undefined, element));
     });
   };
   if (c.readOnly || !c.features.resize) return null;
-  return <select className="lxs-select" aria-label="行列サイズの自動調整" title="行列サイズの自動調整" disabled={disabled} value="" onChange={event => { const value = event.currentTarget.value, doc = event.currentTarget.ownerDocument; if (value) fit(value as "row" | "column", doc); }}>
+  return <select className="lxs-select" aria-label="行列サイズの自動調整" title="行列サイズの自動調整" disabled={disabled} value="" onChange={event => { const value = event.currentTarget.value; if (value) fit(value as "row" | "column", event.currentTarget); }}>
     <option value="" disabled>サイズ調整</option><option value="row">行の高さを自動調整</option><option value="column">列の幅を自動調整</option>
   </select>;
 }
@@ -118,12 +121,14 @@ export function CellFormatDialog({ controller: c, onClose, target }: { controlle
   return <SpreadsheetDialog title="セルの書式" onClose={onClose} actions={<><button type="button" onClick={onClose}>キャンセル</button><button type="button" disabled={disabled} onClick={apply}>適用</button></>}>
     {stale && <p role="alert">データが変更されました。閉じて選択し直してください。</p>}
     <div className="lxs-format-dialog-fields">
-      <label className="lxs-field-full">設定する書式<select disabled={disabled} value={borderEnabled ? "border" : "number"} onChange={event => setBorderEnabled(event.currentTarget.value === "border")}><option value="number">数値・日付・時刻</option><option value="border">罫線</option></select></label>
+      <label className="lxs-field-full">設定する書式<select disabled={disabled} value={borderEnabled ? "border" : "number"} onChange={event => setBorderEnabled(event.currentTarget.value === "border")}><option value="number">表示形式</option><option value="border">罫線</option></select></label>
       {!borderEnabled ? <>
-        <label>表示形式<select disabled={disabled} value={format.numberFormat} onChange={event => setFormat({ ...format, numberFormat: event.currentTarget.value as SpreadsheetCellFormat["numberFormat"] })}>{[["general", "標準"], ["number", "数値"], ["currency", "通貨"], ["percent", "パーセント"], ["date", "日付"], ["time", "時刻"], ["datetime", "日時"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>表示形式<select disabled={disabled} value={format.numberFormat} onChange={event => setFormat({ ...format, numberFormat: event.currentTarget.value as SpreadsheetCellFormat["numberFormat"] })}>{NUMBER_FORMAT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        {format.numberFormat === "text" ? <p className="lxs-field-full">先頭のゼロや「=」で始まる内容を、文字列として表示します。</p> : <>
         <label>小数点以下の桁数<input disabled={disabled} type="number" min="0" max="10" value={format.decimalPlaces} onChange={event => setFormat({ ...format, decimalPlaces: Number(event.currentTarget.value) })} /></label>
         <label>桁区切り<select disabled={disabled} value={format.useGrouping ? "yes" : "no"} onChange={event => setFormat({ ...format, useGrouping: event.currentTarget.value === "yes" })}><option value="yes">あり（1,000）</option><option value="no">なし（1000）</option></select></label>
         <label>負数<select disabled={disabled} value={format.negativeFormat} onChange={event => setFormat({ ...format, negativeFormat: event.currentTarget.value as SpreadsheetCellFormat["negativeFormat"] })}><option value="minus">-123</option><option value="parentheses">(123)</option><option value="red">赤 -123</option><option value="red-parentheses">赤 (123)</option></select></label>
+        </>}
       </> : <>
         <label>線の色<input disabled={disabled} type="color" value={color} onChange={event => setColor(event.currentTarget.value)} /></label>
         <label>線の太さ<select disabled={disabled} value={width} onChange={event => setWidth(Number(event.currentTarget.value) as 1 | 2 | 3)}><option value="1">細い</option><option value="2">中</option><option value="3">太い</option></select></label>

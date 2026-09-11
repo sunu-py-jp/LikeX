@@ -49,6 +49,7 @@ export function formatCellValue(value: SpreadsheetCalculatedValue | undefined, f
   if (value === undefined) return "";
   if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
   const kind = format?.numberFormat ?? "general";
+  if (kind === "text") return String(value);
   if (kind === "date" || kind === "time" || kind === "datetime") return dateDisplay(value, kind);
   if (typeof value !== "number") return String(value);
   if (kind === "general") return value < 0 && format?.negativeFormat?.includes("parentheses") ? `(${Math.abs(value)})` : String(value);
@@ -63,6 +64,7 @@ export function formatCellValue(value: SpreadsheetCalculatedValue | undefined, f
 }
 export function cellNumberFormatCode(format?: SpreadsheetCellFormat): string | undefined {
   const kind = format?.numberFormat ?? "general";
+  if (kind === "text") return "@";
   if (kind === "general") {
     if (!format?.negativeFormat || format.negativeFormat === "minus") return undefined;
     return `General;${format.negativeFormat.includes("red") ? "[Red]" : ""}${format.negativeFormat.includes("parentheses") ? "(General)" : "-General"}`;

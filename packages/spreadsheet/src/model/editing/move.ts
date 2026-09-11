@@ -1,3 +1,4 @@
+import { isFormulaCell } from "../cell-value";
 import { parseCellAddress } from "../address";
 import { rangesIntersect } from "../merges";
 import { moveCells } from "../workbook/move-cells";
@@ -29,7 +30,7 @@ export function moveSpreadsheetCells(workbook: SpreadsheetWorkbook, source: Spre
   if (!policy.formulas && Object.entries(from.cells).some(([address, cell]) => {
     const position = parseCellAddress(address)!;
     return position.row >= source.top && position.row <= source.bottom && position.column >= source.left &&
-      position.column <= source.right && cell.value.startsWith("=");
+      position.column <= source.right && isFormulaCell(cell);
   })) throw new Error("数式の入力は無効です");
   if (!policy.mergeCells && ((from.merges ?? []).some(merge => rangesIntersect(source, merge)) ||
     (to.merges ?? []).some(merge => rangesIntersect(destination, merge)))) throw new Error("セルの結合の変更は無効です");
