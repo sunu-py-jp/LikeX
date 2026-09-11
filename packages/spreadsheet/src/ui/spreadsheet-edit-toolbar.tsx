@@ -18,7 +18,7 @@ export function SpreadsheetEditToolbar({ controller: c, clipboard }: { controlle
     {(c.features.search || c.features.replace && !c.readOnly || c.features.pasteSpecial && !c.readOnly) && <div className="lxs-tool-group lxs-edit-tools">
       {c.features.search && <button type="button" className="lxs-command" data-lxs-find title="検索 (Ctrl+F)" disabled={blocked} onClick={() => open("find")}>検索</button>}
       {c.features.replace && !c.readOnly && <button type="button" className="lxs-command" data-lxs-replace title="置換 (Ctrl+H)" disabled={blocked || c.disabled} onClick={() => open("replace")}>置換</button>}
-      {c.features.pasteSpecial && !c.readOnly && <select className="lxs-paste-special" aria-label="形式を選択して貼り付け" disabled={blocked || c.disabled} value="" onChange={event => {
+      {c.features.pasteSpecial && !c.readOnly && <select className="lxs-paste-special" aria-label="形式を選択して貼り付け" disabled={blocked || c.disabled || !!c.selectedDrawingId} value="" onChange={event => {
         const mode = event.target.value as SpreadsheetPasteMode;
         c.afterCommit(() => { void clipboard.paste(mode); });
       }}><option value="" disabled>形式を選択して貼り付け</option>{modes.filter(mode => mode.enabled).map(mode => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select>}

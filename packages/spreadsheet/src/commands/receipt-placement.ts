@@ -8,6 +8,7 @@ import type { SpreadsheetCommand, SpreadsheetCommandPlacement, SpreadsheetComman
 function getCommandPlacement(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand,
   receipt: SpreadsheetCommandBaseReceipt): Partial<SpreadsheetCommandPlacement> | undefined {
   switch (command.type) {
+    case "drawings.paste":
     case "images.insert":
     case "images.update":
     case "shapes.insert":

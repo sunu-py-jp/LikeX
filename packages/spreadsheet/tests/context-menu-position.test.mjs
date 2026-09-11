@@ -32,7 +32,7 @@ async function mount(t, { height = 80, disabled = false } = {}) {
     contains: node => node === menu || buttons.includes(node),
     focus(options) { focusCalls.push({ index: 'menu', options }); document.activeElement = this; },
   };
-  const controller = { menu: { context: { target: { kind: 'sheet', sheetId: 'main' } }, items: [], deleteSheet: { disabled },
+  const controller = { menu: { context: { target: { kind: 'sheet', sheetId: 'main' } }, items: [], builtIns: [], deleteSheet: { disabled },
     x: 499, y: 319, returnFocus: null }, state: { phase: 'idle', error: null }, closeMenu() { closed++; }, deleteSheet() {} };
   await act(async () => { renderer = create(createElement(SpreadsheetContextMenu, { controller, root: { current: region } }), {
     createNodeMock: element => element.props.className === 'lxs-context-menu' ? menu : null,

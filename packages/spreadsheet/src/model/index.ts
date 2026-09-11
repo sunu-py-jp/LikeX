@@ -21,3 +21,6 @@ export { normalizeWorkbook, createWorkbook, setCellValue, setCellValues, formatC
   insertRows, deleteRows, insertColumns, deleteColumns, moveCells, addSheet, renameSheet, deleteSheet, moveSheet,
   addDrawing, updateDrawing, deleteDrawing, insertImage, setCellComment, setCellComments, mergeCells, unmergeCells } from "./workbook";
 export type { SpreadsheetTable, SpreadsheetTableColumn } from "./tables/types";
+
+export { copySpreadsheetDrawing } from "./editing/copy-drawing";
+export type { SpreadsheetDrawingPastePayload, SpreadsheetDrawingCopyOptions } from "./editing/copy-drawing";

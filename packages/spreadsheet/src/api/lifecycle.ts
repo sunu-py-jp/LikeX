@@ -48,6 +48,6 @@ export type SpreadsheetEvent =
   | Readonly<{ type: "edit-mode"; mode: EditMode; reason: "request" | "granted" | "denied" | "error" | EditEndReason; requestId: string; request: SpreadsheetEditRequest; message?: string }>
   | Readonly<{ type: "selection"; selection: SpreadsheetSelection }>
   | Readonly<{ type: "drawing-selection"; sheetId: string; drawingId: string | null }>
-  | Readonly<{ type: "clipboard"; action: "copy" | "cut" | "paste"; sheetId: string; selection?: SpreadsheetSelection }>
+  | Readonly<{ type: "clipboard"; action: "copy" | "cut" | "paste"; sheetId: string; drawingId?: string; selection?: SpreadsheetSelection }>
   | Readonly<{ type: "unsaved-changes"; dirty: boolean; pending: boolean; hasUnsavedChanges: boolean }>;
 export type SpreadsheetEventHandler = EventHandler<SpreadsheetEvent>;

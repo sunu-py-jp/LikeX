@@ -1,3 +1,4 @@
+import type { SpreadsheetDrawingPastePayload } from "../model/editing/copy-drawing";
 import type { SpreadsheetCellFormat, SpreadsheetImageDrawing, SpreadsheetImageResource, SpreadsheetMergedRange,
   SpreadsheetShapeDrawing, SpreadsheetTextDrawing, SpreadsheetWorkbook } from "../model/types";
 import type { SpreadsheetFormattingCommand } from "../api/formatting-commands";
@@ -36,6 +37,7 @@ export type SpreadsheetCommand = DeepReadonly<
       text?: string; fontSize?: number; color?: string; bold?: boolean }
   | { type: "textBoxes.insert"; sheetId: string; anchor: SpreadsheetCommandAnchor; text?: string; width?: number; height?: number;
       fontSize?: number; color?: string; background?: string; bold?: boolean }
+  | { type: "drawings.paste"; sheetId: string; payload: SpreadsheetDrawingPastePayload; anchor?: SpreadsheetCommandAnchor }
   | { type: "drawings.delete"; sheetId: string; drawingId: string }
   | { type: "images.update"; sheetId: string; drawingId: string; patch: SpreadsheetImageCommandPatch }
   | { type: "shapes.update"; sheetId: string; drawingId: string; patch: SpreadsheetShapeCommandPatch }
@@ -51,7 +53,7 @@ export type SpreadsheetCommand = DeepReadonly<
 /** Zero-based positions immediately below/right of the command target, not an empty-cell search. */
 export type SpreadsheetCommandPlacement = Readonly<{ nextRow: number; nextColumn: number }>;
 
-type DrawingPlacementCommand = "images.insert" | "images.update" | "shapes.insert" | "shapes.update" | "textBoxes.insert" | "textBoxes.update";
+type DrawingPlacementCommand = "drawings.paste" | "images.insert" | "images.update" | "shapes.insert" | "shapes.update" | "textBoxes.insert" | "textBoxes.update";
 /** Actual raw-value changes across affected sheets; skipped addresses belong to the destination sheet. */
 export type SpreadsheetWriteReport = Readonly<{ changedCount: number; skippedCount: number; skippedAddresses: readonly string[] }>;
 

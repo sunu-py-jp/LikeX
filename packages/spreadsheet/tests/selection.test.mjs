@@ -178,8 +178,8 @@ test('clearing and formatting disjoint areas preserve gaps and form one undo ent
   await act(async () => hook.current.undo());
   assert.equal(hook.current.activeSheet.cells.A1.value, 'one');
   assert.equal(hook.current.activeSheet.cells.C1.value, 'three');
-  assert.equal(hook.current.selection.ranges.length, 1);
-  await act(async () => { hook.current.select(p(0, 0)); hook.current.select(p(0, 2), false, true); });
+  assert.equal(hook.current.selection.ranges.length, 2);
+  assert.deepEqual(selectedAddresses(hook.current.selection), ['A1', 'C1']);
   await act(async () => hook.current.executeCommand({ type: 'cells.format', sheetId: 'one', addresses: selectedAddresses(hook.current.selection), format: { bold: true } }));
   assert.equal(hook.current.activeSheet.cells.A1.format.bold, true);
   assert.equal(hook.current.activeSheet.cells.C1.format.bold, true);

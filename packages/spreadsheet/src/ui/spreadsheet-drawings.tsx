@@ -4,6 +4,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import type { SpreadsheetController } from "../state/use-spreadsheet";
+import { useLayoutEffect } from "react";
+import { isOtherTextControl } from "../state/clipboard/browser-clipboard";
 import { drawingRectangle, type DrawingGeometry } from "../state/drawing-geometry";
 import { drawingLabel, visibleDrawing } from "./drawings/drawing-helpers";
 import { Shape, DrawingText, DrawingTextEditor } from "./drawings/drawing-content";
@@ -15,8 +17,18 @@ export { SpreadsheetDrawingInspector } from "./drawings/drawing-inspector";
 /** Presents drawing content and composes the interaction handlers for each object. */
 export function SpreadsheetDrawings({ controller: c, geometry }: { controller: SpreadsheetController; geometry: DrawingGeometry }) {
   const { layer, preview, editingText, setEditingText, start, move, finish, cancelGesture, lostPointerCapture, keyDown, resizeKeyDown } = useDrawingInteractions(c, geometry);
+  useLayoutEffect(() => {
+    const element = layer.current, selectedId = c.selectedDrawingId;
+    if (!element || !selectedId) return;
+    const active = element.ownerDocument?.activeElement;
+    // Pasting selects a new object. Move keyboard focus with it, without taking
+    // focus from a text/property editor or a different component on the page.
+    if (!active || isOtherTextControl(active) || !element.closest?.("[data-likex-spreadsheet]")?.contains(active)) return;
+    Array.from(element.querySelectorAll<HTMLElement>("[data-lxs-drawing]"))
+      .find(drawing => drawing.dataset.lxsDrawing === selectedId)?.focus({ preventScroll: true });
+  }, [c.selectedDrawingId, layer]);
   const currentDrawings = (c.activeSheet.drawings ?? []).filter(drawing => visibleDrawing(drawing, c));
-  return <div ref={layer} className="lxs-drawing-layer" role="group" aria-label="シート上のオブジェクト" onCopy={event => event.stopPropagation()} onCut={event => event.stopPropagation()} onPaste={event => event.stopPropagation()}>
+  return <div ref={layer} className="lxs-drawing-layer" role="group" aria-label="シート上のオブジェクト">
     {currentDrawings.map(drawing => {
       const rectangle = preview?.id === drawing.id && preview.workbook === c.workbook && !c.disabled ? preview.preview : drawingRectangle(drawing, geometry);
       const selected = c.selectedDrawingId === drawing.id;

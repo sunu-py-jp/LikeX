@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-const output = await build({ stdin: { contents: `export * from './src/model'; export * from './src/model/formatting'; export * from './src/model/conditional-formatting'; export * from './src/ui/grid/auto-fit'; export * from './src/ui/grid/cell-style'; export * from './src/commands/formatting'; export * from './src/commands/stage-spreadsheet-commands'; export * from './src/api/resolve-features'; export * from './src/export/xlsx/styles'; export * from './src/export/xlsx/conditional-formatting';`, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
+const output = await build({ stdin: { contents: `export * from './src/model'; export * from './src/model/formatting'; export * from './src/model/conditional-formatting'; export * from './src/state/sizing/auto-fit'; export * from './src/ui/grid/cell-style'; export * from './src/commands/formatting'; export * from './src/commands/stage-spreadsheet-commands'; export * from './src/api/resolve-features'; export * from './src/export/xlsx/styles'; export * from './src/export/xlsx/conditional-formatting';`, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
 const m = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const range = { top: 0, left: 0, bottom: 4, right: 1 };
 const book = (cells = {}, extra = {}) => m.normalizeWorkbook({ sheets: [{ id: 's', name: 'Sheet1', rowCount: 10, columnCount: 5, cells, ...extra }] });

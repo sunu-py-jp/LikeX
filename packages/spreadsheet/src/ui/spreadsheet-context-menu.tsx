@@ -1,8 +1,10 @@
 "use client";
 
-import { useLayoutEffect, useRef, type RefObject } from "react";
+import { Fragment, useLayoutEffect, useRef, type RefObject } from "react";
 import type { SpreadsheetContextMenuController } from "../state/use-spreadsheet-context-menu";
 import { SpreadsheetConfirmDialog } from "./spreadsheet-confirm-dialog";
+import { CellFormatDialog } from "./spreadsheet-format-toolbar";
+import { SpreadsheetDimensionDialog } from "./spreadsheet-dimension-dialog";
 
 function Menu({ c, root }: { c: SpreadsheetContextMenuController; root: RefObject<HTMLElement | null> }) {
   const element = useRef<HTMLDivElement>(null);
@@ -38,7 +40,9 @@ function Menu({ c, root }: { c: SpreadsheetContextMenuController; root: RefObjec
       if (captured.returnFocus?.isConnected && (!document.activeElement || document.activeElement === document.body || menu.contains(document.activeElement))) captured.returnFocus.focus({ preventScroll: true });
     };
   }, [captured, root]);
-  return <div ref={element} className="lxs-context-menu" role="menu" tabIndex={-1} aria-label={captured.context.target.kind === "sheet" ? "シートの操作" : "セルの操作"} onContextMenu={event => event.preventDefault()}
+  const ordinary = captured.builtIns.filter(item => !item.destructive), destructive = captured.builtIns.filter(item => item.destructive);
+  const kind = captured.context.target.kind;
+  return <div ref={element} className="lxs-context-menu" role="menu" tabIndex={-1} aria-label={kind === "sheet" ? "シートの操作" : kind === "row" ? "行の操作" : kind === "column" ? "列の操作" : "セルの操作"} onContextMenu={event => event.preventDefault()}
     onKeyDown={event => {
       event.stopPropagation();
       if (event.key === "Escape" || event.key === "Tab") { event.preventDefault(); c.closeMenu(); return; }
@@ -58,6 +62,11 @@ function Menu({ c, root }: { c: SpreadsheetContextMenuController; root: RefObjec
       }
     }}>
     {captured.duplicateSheet && <button type="button" role="menuitem" disabled={captured.duplicateSheet.disabled} onClick={c.duplicateSheet}>複製</button>}
+    {ordinary.map((item, index) => <Fragment key={item.id}>
+      {index > 0 && ordinary[index - 1].group !== item.group && <div role="separator" className="lxs-context-menu-separator" />}
+      <button type="button" role="menuitem" disabled={item.disabled} onClick={() => c.selectBuiltin(item.id)}>{item.label}</button>
+    </Fragment>)}
+    {ordinary.length > 0 && captured.items.length > 0 && <div role="separator" className="lxs-context-menu-separator" />}
     {captured.items.map(item => <button key={item.id} type="button" role="menuitem" disabled={item.disabled} onClick={() => c.selectItem(item)}>
       {item.icon != null && <span aria-hidden="true">{item.icon}</span>}<span>{item.label}</span>
     </button>)}
@@ -65,12 +74,18 @@ function Menu({ c, root }: { c: SpreadsheetContextMenuController; root: RefObjec
       {(captured.items.length > 0 || captured.duplicateSheet) && <div role="separator" className="lxs-context-menu-separator" />}
       <button type="button" role="menuitem" disabled={captured.deleteSheet.disabled} onClick={c.deleteSheet}>削除</button>
     </>}
+    {destructive.length > 0 && <>
+      {(ordinary.length > 0 || captured.items.length > 0) && <div role="separator" className="lxs-context-menu-separator" />}
+      {destructive.map(item => <button key={item.id} type="button" role="menuitem" disabled={item.disabled} onClick={() => c.selectBuiltin(item.id)}>{item.label}</button>)}
+    </>}
   </div>;
 }
 
 export function SpreadsheetContextMenu({ controller: c, root }: { controller: SpreadsheetContextMenuController; root: RefObject<HTMLElement | null> }) {
   return <>
     {c.menu && <Menu c={c} root={root} />}
+    {c.dialog?.kind === "format" && c.spreadsheet.features.formatting && <CellFormatDialog controller={c.spreadsheet} target={c.dialog} onClose={c.closeDialog} />}
+    {c.dialog?.kind === "dimension" && c.spreadsheet.features.resize && <SpreadsheetDimensionDialog controller={c.spreadsheet} target={c.dialog} onClose={c.closeDialog} />}
     {c.state.phase !== "idle" && c.state.phase !== "confirming" && <div className="lxs-context-menu-progress" role="status">
       <span>{c.state.label}を処理しています…</span><button type="button" onClick={c.cancel}>キャンセル</button>
     </div>}

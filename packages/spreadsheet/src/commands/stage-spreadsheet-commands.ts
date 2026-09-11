@@ -1,3 +1,4 @@
+import { applyDrawingPasteCommand } from "./drawing-paste";
 import { stageNamedRangeCommand } from "./named-ranges";
 import { stageTableCommand } from "./tables";
 import { clearCommandCells } from "./clear-cells";
@@ -35,6 +36,7 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
   const result = (next: SpreadsheetWorkbook, extra: Partial<SpreadsheetCommandBaseReceipt> = {}) =>
     ({ workbook: next, receipt: { type: command.type, sheetId: sheet.id, ...extra } });
   switch (command.type) {
+    case "drawings.paste": return applyDrawingPasteCommand(workbook, command, features, nextId);
     case "namedRanges.add": case "namedRanges.update": case "namedRanges.delete": case "namedRanges.clear":
       return stageNamedRangeCommand(workbook, command, features, nextId);
     case "tables.insert": case "cells.writeTable": case "tables.delete":

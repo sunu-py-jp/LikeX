@@ -1,6 +1,6 @@
 {
   "title": "コピー・貼り付け・オートフィル",
-  "summary": "セルをコピー・切り取りして貼り付け、値・数式・書式の選択や連番の展開を行います。",
+  "summary": "セルや画像・図形・テキストボックスをコピーして貼り付け、書式の選択や連番の展開を行います。",
   "source": "packages/spreadsheet/src/docs/editing-tools.md",
   "order": 90,
   "section": "セルとシート",
@@ -12,7 +12,9 @@
     "copy",
     "cut",
     "paste",
-    "autoFill"
+    "autoFill",
+    "copySpreadsheetDrawing",
+    "drawings.paste"
   ],
   "screenshots": [
     {
@@ -23,6 +25,7 @@
   ],
   "sections": [
     "形式を選択して貼り付け",
+    "画像・図形・テキストボックスのコピー",
     "ドラッグによるオートフィル"
   ]
 }

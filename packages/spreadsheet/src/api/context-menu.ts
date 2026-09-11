@@ -7,6 +7,8 @@ import type { SpreadsheetFeatures } from "./features";
 /** The right-click target is independent of the preserved selection, including disjoint ranges. */
 export type SpreadsheetContextMenuContext = Readonly<{
   target: Readonly<{ kind: "cell"; sheetId: string; row: number; column: number; address: string }> |
+    Readonly<{ kind: "row"; sheetId: string; row: number }> |
+    Readonly<{ kind: "column"; sheetId: string; column: number }> |
     Readonly<{ kind: "sheet"; sheetId: string; name: string; index: number }>;
   selection: SpreadsheetSelection;
   workbook: SpreadsheetWorkbookSnapshot;

@@ -112,6 +112,7 @@ if (result.ok) {
 | `shapes.insert` | `shape`, `anchor`, `width?`, `height?`, `fill?`, `stroke?`, `strokeWidth?`, `text?`, `fontSize?`, `color?`, `bold?` |
 | `textBoxes.insert` | `anchor`, `text?`, `width?`, `height?`, `fontSize?`, `color?`, `background?`, `bold?` |
 | `images.update` / `shapes.update` / `textBoxes.update` | `drawingId`, `patch`。対応する種類のプロパティだけを指定 |
+| `drawings.paste` | `payload`, `anchor?`。画像・図形・テキストボックスを新しいIDで複製 |
 | `drawings.delete` | `drawingId` |
 | `comments.set` | `address`, `comment: { text, author? }`。`null` で削除 |
 | `sheets.add` | `name?`。生成した `sheetId` は結果から取得 |
@@ -170,6 +171,46 @@ if (!result.ok) console.error(result.message);
 画像の表示サイズには正の小数ピクセルも使えます。`images.update` の寸法patch、低レベルのモデル関数、読み込んだJSONには、この挿入時の自動計算を適用しません。例えば `images.update` に `patch: { width: 240 }` を渡した場合は、幅だけを変更して既存の高さを維持します。GUIの画像リサイズでは現在の表示枠の比率を保ちますが、外部APIは明示された寸法を尊重します。図形とテキストの省略値はGUIで挿入した場合と同じです。
 
 準備中はシートをロックしません。コマンドの対象は実行時点のブックです。通信中に行列が変わった場合も、指定した数値座標を実行時点で解釈します。呼び出し前の画面との一致が必要なら、親で変更通知や `getWorkbook()` を用いて確認してください。
+
+## 図形・画像・テキストボックスの複製
+
+`copySpreadsheetDrawing(workbook, sheetId, drawingId, options?)` は、描画オブジェクト1つを `SpreadsheetDrawingPastePayload` として取得します。ブックとOSクリップボードは変更しません。返すデータは読み取り専用の `drawing` と、画像の場合に必要な `resource` を含むJSON形式です。元の画像が削除された後や、別のブックへの貼り付けにも使えます。
+
+```ts
+import {
+  createWorkbook, createSpreadsheetSession, copySpreadsheetDrawing,
+} from "@likex/spreadsheet/model";
+
+const session = createSpreadsheetSession(createWorkbook());
+const sheetId = session.getWorkbook().sheets[0].id;
+const inserted = session.execute({ type: "shapes.insert", sheetId,
+  shape: "rectangle", anchor: { row: 1, column: 1 }, text: "確認中" });
+if (!inserted.ok) throw new Error(inserted.message);
+const drawingId = inserted.results[0].drawingId;
+if (!drawingId) throw new Error("図形のIDを取得できませんでした");
+
+const payload = copySpreadsheetDrawing(session.getWorkbook(), sheetId, drawingId);
+const pasted = session.execute({ type: "drawings.paste", sheetId, payload,
+  anchor: { row: 4, column: 1, offsetX: 0, offsetY: 0 } });
+if (!pasted.ok) throw new Error(pasted.message);
+console.log(pasted.results[0].drawingId); // 複製した新しいID
+console.log(pasted.results[0].placement); // 配置位置・次の行と列
+```
+
+表示中のコンポーネントでは `session.execute` の代わりに `await api.executeAsync` を使います。`drawings.paste` は通常のコマンドなので、編集許可・入力検証・履歴・変更通知を通ります。OSクリップボードを読む権限は不要です。
+
+| 項目 | 契約 |
+| --- | --- |
+| コピーの `options` | `SpreadsheetDrawingCopyOptions`。`{ features?: SpreadsheetFeatures }` を渡せます。`copy` と対象の `images` / `shapes` / `textBoxes` を確認します。 |
+| `payload` | `SpreadsheetDrawingPastePayload`。`drawing` は必須、画像では `resource` も必須です。コピー関数が検証して取得します。 |
+| 貼り付け先 | `sheetId` と任意の `anchor`。位置を指定した場合、`offsetX` / `offsetY` の省略値は0です。 |
+| 位置の省略 | コピー元の行・列を保ち、元の `offsetX` / `offsetY` に16pxずつ加えます。オフセットの上限は10,000pxです。 |
+| 形状・内容 | 幅・高さ、塗り・線・文字、画像の内容を保持します。 |
+| ID | `drawingId` は毎回新規です。画像リソースは同じID・内容のものが貼り付け先にある場合に共有し、ない場合は新しい `resourceId` を付けます。 |
+| 結果 | `drawingId` と `placement` を返し、画像では `resourceId` も返します。 |
+| 機能設定 | 貼り付けは `paste` と対象の `images` / `shapes` / `textBoxes` が必要です。`mode` や切り取り指定はありません。 |
+
+`copySpreadsheetDrawing`、`SpreadsheetDrawingPastePayload`、`SpreadsheetDrawingCopyOptions` は `@likex/spreadsheet` と `@likex/spreadsheet/model` から公開しています。画面なしのコピー関数には、必要な機能設定を呼び出し側で渡してください。
 
 ## 一括処理・履歴・保存のルール
 

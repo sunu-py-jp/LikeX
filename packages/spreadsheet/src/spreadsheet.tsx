@@ -18,14 +18,21 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
   useSpreadsheetHandle(handleRef, c);
   const root = useRef<HTMLElement>(null);
   const gridHadFocus = useRef(false);
+  const focusedViewRevision = useRef(c.viewRevision);
   useLayoutEffect(() => {
     // History replaces the keyed grid to cancel stale gestures and editors.
-    // Keep keyboard focus through that replacement so shortcuts can repeat.
-    if (gridHadFocus.current) root.current?.querySelector<HTMLInputElement>(".lxs-cell-input")?.focus({ preventScroll: true });
-  }, [c.viewRevision]);
-  const contextMenu = useSpreadsheetContextMenu(c, props, root);
-  useUnsavedChangesGuard(root, props.warnOnUnsavedChanges !== false && c.hasUnsavedChanges);
+    // Keep focus on the selected object, or the active cell, so shortcuts repeat
+    // without redirecting a drawing operation to the cells underneath it.
+    if (focusedViewRevision.current === c.viewRevision) return;
+    focusedViewRevision.current = c.viewRevision;
+    if (!gridHadFocus.current || !root.current) return;
+    const drawing = c.selectedDrawingId ? Array.from(root.current.querySelectorAll<HTMLElement>("[data-lxs-drawing]"))
+      .find(element => element.dataset.lxsDrawing === c.selectedDrawingId) : undefined;
+    (drawing ?? root.current.querySelector<HTMLTextAreaElement>(".lxs-cell-input"))?.focus({ preventScroll: true });
+  }, [c.viewRevision, c.selectedDrawingId]);
   const clipboard = useSpreadsheetClipboard(c);
+  const contextMenu = useSpreadsheetContextMenu(c, props, root, clipboard);
+  useUnsavedChangesGuard(root, props.warnOnUnsavedChanges !== false && c.hasUnsavedChanges);
   const [systemDark, setSystemDark] = useState(false);
   useEffect(() => {
     if (props.colorMode !== "system") return;

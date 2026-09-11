@@ -7,9 +7,19 @@ import type { SpreadsheetController } from "../state/use-spreadsheet";
 /** Keeps a form's captured target valid while an editing-permission request is pending. */
 export function useSpreadsheetDialogCommand(controller: SpreadsheetController, revision: number) {
   const mounted = useRef(false), running = useRef(false);
+  const cancelEditRequest = useRef(controller.cancelEditRequest);
+  useLayoutEffect(() => { cancelEditRequest.current = controller.cancelEditRequest; });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  useLayoutEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      // Feature changes can remove the form without invoking its close button.
+      // Cancel only a request this form is waiting for, not unrelated edits.
+      if (running.current) cancelEditRequest.current();
+    };
+  }, []);
 
   const run = async (command: SpreadsheetCommand, onSuccess: (result: SpreadsheetCommandSuccess) => void) => {
     if (running.current || controller.disabled || controller.requesting) return;

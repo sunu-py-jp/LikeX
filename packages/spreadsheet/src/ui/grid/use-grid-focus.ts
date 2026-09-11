@@ -40,7 +40,9 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
     else if (bottom > element.scrollTop + element.clientHeight) element.scrollTop = bottom - element.clientHeight;
     if (left < element.scrollLeft + ROW_HEADER_WIDTH) element.scrollLeft = left - ROW_HEADER_WIDTH;
     else if (right > element.scrollLeft + element.clientWidth) element.scrollLeft = right - element.clientWidth;
-    if (focusIntent.current || lastFocusRequest.current !== c.gridFocusRequest || element.contains(element.ownerDocument.activeElement)) {
+    // A drawing lives inside this scroller too. A repeated mount effect (such
+    // as StrictMode history restoration) must not take its focus back to a cell.
+    if (!c.selectedDrawingId && (focusIntent.current || lastFocusRequest.current !== c.gridFocusRequest || element.contains(element.ownerDocument.activeElement))) {
       activeInput.current?.focus({ preventScroll: true });
       activeInput.current?.setSelectionRange(0, 0);
     }

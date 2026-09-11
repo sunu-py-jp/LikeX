@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import type { SpreadsheetProps, SpreadsheetSelection } from "../props";
 import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { notifySpreadsheetHost } from "./notifications";
-import { clampPosition, createSelection, initialSheetSelection, selectionForSheet, selectionRanges, toggleRangeSelection } from "./selection";
+import { clampPosition, clampSelection, createSelection, initialSheetSelection, selectionForSheet, selectionRanges, toggleRangeSelection } from "./selection";
 import type { Position, ReportError, SelectionUpdate, Workbook } from "./types";
 
 /** Owns cell and object selection plus view focus; editing and persistence are coordinated by the caller. */
@@ -86,15 +86,27 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
   };
   const selectCellInSheet = (sheetId: string, position: Position): boolean => selectRangeInSheet(sheetId, position, position);
   const resetForWorkbook = (next: Workbook, options?: { preserveFocus?: boolean }) => {
-    clearDrawingSelection();
     setCommentOpen(false);
     setViewRevision(value => value + 1);
     const previous = selectionRef.current;
     const sheet = next.sheets.find(item => item.id === previous.sheetId) ?? next.sheets[0];
-    if (!options?.preserveFocus || sheet.id !== previous.sheetId) setSelection(initialSheetSelection(sheet));
+    if (!options?.preserveFocus || sheet.id !== previous.sheetId) {
+      clearDrawingSelection();
+      setSelection(initialSheetSelection(sheet));
+    }
     else {
-      const focus = clampPosition(previous.focus, sheet);
-      setSelection(selectionForSheet(sheet, [{ anchor: focus, focus }]));
+      // History replaces data, not the user's selection. Retain every range and
+      // object that still exists, while clamping deleted rows, columns and merges.
+      setDrawingSelection(current => current?.sheetId === sheet.id && sheet.drawings?.some(drawing => drawing.id === current.id &&
+        (drawing.type === "image" ? features.images : drawing.type === "shape" ? features.shapes : features.textBoxes)) ? current : null);
+      try { setSelection(clampSelection(previous, next)); }
+      catch {
+        // Restored merges can exhaust the range limit when clampSelection adds
+        // fragments. Expanding the original ranges keeps their count bounded.
+        setSelection(selectionForSheet(sheet, selectionRanges(previous).map(range => ({
+          anchor: clampPosition(range.anchor, sheet), focus: clampPosition(range.focus, sheet),
+        })), true, clampPosition(previous.focus, sheet)));
+      }
     }
   };
 

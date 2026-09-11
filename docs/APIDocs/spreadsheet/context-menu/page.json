@@ -1,6 +1,6 @@
 {
   "title": "右クリックメニュー",
-  "summary": "対象セル・シートと下書きの内容に応じて項目を追加し、非同期処理の結果を反映します。",
+  "summary": "セル・行・列・シートの基本操作と、条件に応じた独自項目の追加、非同期処理の反映を説明します。",
   "source": "packages/spreadsheet/src/docs/context-menu.md",
   "order": 160,
   "section": "親アプリとの連携",
@@ -10,7 +10,12 @@
     "SpreadsheetContextMenuContext",
     "contextMenuExecutionMode",
     "onSelect",
-    "ContextMenuExecutionMode"
+    "ContextMenuExecutionMode",
+    "行を削除",
+    "列を削除",
+    "値をクリア",
+    "行の高さ",
+    "列の幅"
   ],
   "screenshots": []
 }

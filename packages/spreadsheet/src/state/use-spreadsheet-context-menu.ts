@@ -3,25 +3,32 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type RefObject, type ReactNode } from "react";
 import { createContextMenuExecutor, resolveContextMenuItems, type ContextMenuExecutor, type ContextMenuExecutionState } from "../core";
 import { cellAddress } from "../model";
-import type { SpreadsheetProps } from "../props";
+import type { SpreadsheetProps, SpreadsheetSelection } from "../props";
 import type { SpreadsheetContextMenuChange, SpreadsheetContextMenuContext, SpreadsheetContextMenuItem } from "../api/context-menu";
 import type { SpreadsheetController } from "./use-spreadsheet";
+import type { useSpreadsheetClipboard } from "./use-spreadsheet-clipboard";
+import type { SpreadsheetCommand } from "../api/types";
+import { rangeBounds, selectionRanges } from "./selection";
+import { cellMenuItems, contextStructureCommands, selectionAxisIndices, selectionForContextTarget, type CellMenuAction, type CellMenuItem } from "./context-menu/builtin-items";
+import { autoFitCommand } from "./sizing/auto-fit-command";
 
 type CapturedContext = SpreadsheetContextMenuContext & { readonly structureRevision: number };
 export type SpreadsheetOpenContextMenu = {
   context: CapturedContext; items: readonly SpreadsheetContextMenuItem[];
+  actionSelection: SpreadsheetSelection; builtIns: readonly CellMenuItem[]; revision: number;
   deleteSheet: { disabled: boolean } | null;
   duplicateSheet: { disabled: boolean } | null;
   x: number; y: number; returnFocus: HTMLElement | null;
 };
 
 /** Captures targets separately from selection and sends only proposed commands to the shared executor. */
-export function useSpreadsheetContextMenu(c: SpreadsheetController, props: SpreadsheetProps, root: RefObject<HTMLElement | null>) {
-  const latest = useRef({ c, props });
-  useLayoutEffect(() => { latest.current = { c, props }; });
+export function useSpreadsheetContextMenu(c: SpreadsheetController, props: SpreadsheetProps, root: RefObject<HTMLElement | null>, clipboard: ReturnType<typeof useSpreadsheetClipboard>) {
+  const latest = useRef({ c, props, clipboard });
+  useLayoutEffect(() => { latest.current = { c, props, clipboard }; });
   const mounted = useRef(false);
   const owner = useRef({});
   const [menu, setMenu] = useState<SpreadsheetOpenContextMenu | null>(null);
+  const [dialog, setDialog] = useState<{kind: "format" | "dimension"; axis: "row" | "column"; sheetId: string; selection: SpreadsheetSelection; revision: number} | null>(null);
   const [state, setState] = useState<ContextMenuExecutionState>({ phase: "idle", mode: "block", requestId: null,
     itemId: null, label: "", description: "", error: null, blocksChanges: false });
   const executorRef = useRef<ContextMenuExecutor<CapturedContext, SpreadsheetContextMenuChange> | null>(null);
@@ -34,8 +41,8 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
     validateTarget: context => {
       const current = latest.current.c;
       const sheet = current.getWorkbook().sheets.find(sheet => sheet.id === context.target.sheetId);
-      if (!sheet || (context.target.kind === "cell" && (current.getStructureRevision() !== context.structureRevision ||
-        context.target.row >= sheet.rowCount || context.target.column >= sheet.columnCount)))
+      if (!sheet || (context.target.kind !== "sheet" && (current.getStructureRevision() !== context.structureRevision ||
+        ("row" in context.target && context.target.row >= sheet.rowCount) || ("column" in context.target && context.target.column >= sheet.columnCount))))
         throw new Error("シートや行・列の構成が変わりました。対象を確認して操作し直してください");
     },
     apply: async (change, _context, operation, guard) => {
@@ -60,26 +67,28 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
       latest.current.c.setContextMenuLock(null); setState(executor.getState()); setMenu(null);
     };
   }, []);
+  const featureKey = JSON.stringify(c.features);
   const policy = useRef({ mode: props.contextMenuExecutionMode, enabled: !!props.getContextMenuItems, readOnly: c.readOnly,
-    sheets: c.features.sheets, deleteSheet: c.features.deleteSheet, duplicateSheet: c.features.duplicateSheet });
+    features: featureKey });
   useLayoutEffect(() => {
     const before = policy.current;
     if (before.mode !== props.contextMenuExecutionMode || (before.enabled && !props.getContextMenuItems) || before.readOnly !== c.readOnly) {
-      executorRef.current?.cancel(); setMenu(null);
+      executorRef.current?.cancel(); setMenu(null); setDialog(null);
     }
-    if (before.sheets !== c.features.sheets || before.deleteSheet !== c.features.deleteSheet || before.duplicateSheet !== c.features.duplicateSheet) setMenu(null);
+    if (before.features !== featureKey) { setMenu(null); setDialog(null); }
     policy.current = { mode: props.contextMenuExecutionMode, enabled: !!props.getContextMenuItems, readOnly: c.readOnly,
-      sheets: c.features.sheets, deleteSheet: c.features.deleteSheet, duplicateSheet: c.features.duplicateSheet };
-  }, [props.contextMenuExecutionMode, props.getContextMenuItems, c.readOnly, c.features.sheets, c.features.deleteSheet, c.features.duplicateSheet]);
+      features: featureKey };
+  }, [props.contextMenuExecutionMode, props.getContextMenuItems, c.readOnly, featureKey]);
 
   const closeMenu = () => setMenu(null);
   const eligibleTarget = (target: EventTarget | null): HTMLElement | null => {
     const element = target as HTMLElement | null;
-    if (!element?.closest || c.editing || c.pendingObjectEdit) return null;
+    if (!element?.closest || c.editing || c.pendingObjectEdit || dialog || element.closest("[role='separator']")) return null;
     const editor = element.closest("input,textarea,select,[contenteditable='true']");
     if (editor && !editor.classList.contains("lxs-cell-input")) return null;
     const tab = c.features.sheets ? element.closest<HTMLElement>("[data-lxs-sheet-id]") : null;
-    return tab ?? (props.getContextMenuItems ? element.closest<HTMLElement>("[data-lxs-row][data-lxs-column]") : null);
+    return tab ?? element.closest<HTMLElement>("[data-lxs-row][data-lxs-column]") ??
+      element.closest<HTMLElement>("[data-lxs-row-header]") ?? element.closest<HTMLElement>("[data-lxs-column-header]");
   };
   const open = (element: HTMLElement, x: number, y: number) => {
     if (executorRef.current?.getState().phase !== "idle" || c.saving || c.refreshing || c.requesting) return;
@@ -90,6 +99,11 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
       if (index < 0) return;
       const sheet = workbook.sheets[index];
       target = { kind: "sheet", sheetId: sheet.id, name: sheet.name, index };
+    } else if (element.dataset.lxsRowHeader !== undefined || element.dataset.lxsColumnHeader !== undefined) {
+      const row = element.dataset.lxsRowHeader !== undefined;
+      const index = Number(row ? element.dataset.lxsRowHeader : element.dataset.lxsColumnHeader);
+      if (!Number.isInteger(index) || index < 0 || index >= (row ? c.activeSheet.rowCount : c.activeSheet.columnCount)) return;
+      target = row ? {kind: "row", sheetId: c.activeSheet.id, row: index} : {kind: "column", sheetId: c.activeSheet.id, column: index};
     } else {
       const row = Number(element.dataset.lxsRow), column = Number(element.dataset.lxsColumn);
       if (!Number.isInteger(row) || !Number.isInteger(column) || row < 0 || column < 0 ||
@@ -108,7 +122,9 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
         { disabled: c.disabled || workbook.sheets.length < 2 } : null;
       const duplicateSheet = target.kind === "sheet" && c.features.duplicateSheet && !c.readOnly ?
         { disabled: c.disabled || workbook.sheets.length >= 100 } : null;
-      if (items.length || deleteSheet || duplicateSheet) setMenu({ context, items, deleteSheet, duplicateSheet, x, y,
+      const actionSelection = selectionForContextTarget(context);
+      const builtIns = target.kind === "sheet" ? [] : cellMenuItems(c, target, actionSelection);
+      if (items.length || deleteSheet || duplicateSheet || builtIns.length) setMenu({ context, items, deleteSheet, duplicateSheet, actionSelection, builtIns, revision: c.getRevision(), x, y,
         returnFocus: root.current?.ownerDocument.activeElement as HTMLElement | null });
     } catch (error) { c.reportError(error); }
   };
@@ -154,8 +170,46 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
       if (copied) latest.current.c.switchSheet(copied);
     }));
   };
-  const visibleMenu = menu?.context.target.kind === "sheet" ? (c.features.sheets ? menu : null) : (props.getContextMenuItems ? menu : null);
-  return { menu: visibleMenu, state, closeMenu, selectItem, deleteSheet, duplicateSheet, cancel: () => executorRef.current?.cancel(), confirm: () => { void executorRef.current?.confirm(); },
+  const selectBuiltin = (action: CellMenuAction) => {
+    if (!menu || menu.context.target.kind === "sheet") return;
+    const captured = menu, target = captured.context.target, current = latest.current.c, selection = captured.actionSelection;
+    if (target.kind === "sheet") return;
+    const item = cellMenuItems(current, target, selection).find(item => item.id === action);
+    closeMenu();
+    if (!item || item.disabled || current.getRevision() !== captured.revision || current.getStructureRevision() !== captured.context.structureRevision) return;
+    const sheetId = target.sheetId;
+    const execute = (commands: readonly SpreadsheetCommand[]) => void current.executeCommands(commands, {
+      isCurrent: () => mounted.current && latest.current.c.getRevision() === captured.revision &&
+        latest.current.c.getStructureRevision() === captured.context.structureRevision,
+    });
+    try {
+      if (action === "copy" || action === "cut") { void latest.current.clipboard.copy(action === "cut", selection); return; }
+      if (action === "paste" || action === "paste-values" || action === "paste-formats") {
+        void latest.current.clipboard.paste(action === "paste-values" ? "values" : action === "paste-formats" ? "formats" : "all", selection); return;
+      }
+      if (action === "clear" || action === "delete-cells") {
+        execute(selectionRanges(selection).map(range => ({type: "cells.clear", sheetId, range: rangeBounds(range), mode: action === "clear" ? "values" : "all"}))); return;
+      }
+      if (action === "format" || action === "resize") {
+        setDialog({kind: action === "format" ? "format" : "dimension", axis: target.kind === "row" ? "row" : "column", sheetId, selection, revision: captured.revision}); return;
+      }
+      if (action === "autofit" && target.kind !== "cell") {
+        const doc = root.current?.ownerDocument;
+        if (doc) execute([autoFitCommand(current.getWorkbook(), sheetId, target.kind, selectionAxisIndices(selection, target.kind), doc, current.getWorkbook() === current.workbook ? current.calculated[sheetId] : undefined)]); return;
+      }
+      if ((action === "comment" || action === "delete-comment") && target.kind === "cell") {
+        if (action === "delete-comment") execute([{type: "comments.set", sheetId, address: target.address, comment: null}]);
+        else { current.selectCellInSheet(sheetId, target); current.setCommentOpen(true); }
+        return;
+      }
+      if (action === "insert-rows" || action === "delete-rows" || action === "insert-columns" || action === "delete-columns")
+        execute(contextStructureCommands(sheetId, selection, action.endsWith("rows") ? "row" : "column", action.startsWith("insert")));
+    } catch (cause) { current.reportError(cause); }
+  };
+  const visibleMenu = menu?.context.target.kind === "sheet" ? (c.features.sheets ? menu : null) : menu;
+  return { menu: visibleMenu, state, closeMenu, selectItem, selectBuiltin, deleteSheet, duplicateSheet, spreadsheet: c,
+    dialog: c.readOnly ? null : dialog, closeDialog: () => { c.cancelEditRequest(); setDialog(null); },
+    cancel: () => executorRef.current?.cancel(), confirm: () => { void executorRef.current?.confirm(); },
     onContextMenu, onPointerDownCapture, onKeyDownCapture };
 }
 

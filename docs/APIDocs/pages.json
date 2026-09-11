@@ -1133,12 +1133,19 @@
       "copy",
       "cut",
       "paste",
-      "autoFill"
+      "autoFill",
+      "copySpreadsheetDrawing",
+      "drawings.paste"
     ],
     "headings": [
       {
         "id": "形式を選択して貼り付け",
         "title": "形式を選択して貼り付け",
+        "depth": 2
+      },
+      {
+        "id": "画像図形テキストボックスのコピー",
+        "title": "画像・図形・テキストボックスのコピー",
         "depth": 2
       },
       {
@@ -1451,7 +1458,10 @@
       "execute",
       "batch",
       "getWorkbook",
-      "prepareSpreadsheetImage"
+      "prepareSpreadsheetImage",
+      "copySpreadsheetDrawing",
+      "drawings.paste",
+      "SpreadsheetDrawingPastePayload"
     ],
     "headings": [
       {
@@ -1472,6 +1482,11 @@
       {
         "id": "画像の準備と一括挿入",
         "title": "画像の準備と一括挿入",
+        "depth": 2
+      },
+      {
+        "id": "図形画像テキストボックスの複製",
+        "title": "図形・画像・テキストボックスの複製",
         "depth": 2
       },
       {
@@ -1795,9 +1810,24 @@
       "SpreadsheetContextMenuContext",
       "contextMenuExecutionMode",
       "onSelect",
-      "ContextMenuExecutionMode"
+      "ContextMenuExecutionMode",
+      "行を削除",
+      "列を削除",
+      "値をクリア",
+      "行の高さ",
+      "列の幅"
     ],
     "headings": [
+      {
+        "id": "既定の操作",
+        "title": "既定の操作",
+        "depth": 2
+      },
+      {
+        "id": "独自の項目を追加する",
+        "title": "独自の項目を追加する",
+        "depth": 2
+      },
       {
         "id": "渡される情報",
         "title": "渡される情報",

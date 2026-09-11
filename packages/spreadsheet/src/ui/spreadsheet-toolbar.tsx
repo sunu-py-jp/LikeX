@@ -63,6 +63,8 @@ export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
 function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
   const cellDisabled = c.disabled || c.requesting || !!c.selectedDrawingId;
   const multiple = isMultiRangeSelection(c.selection);
+  const drawingSelected = !!c.selectedDrawingId;
+  const clipboardDisabled = c.disabled || c.requesting || c.pendingObjectEdit || (!drawingSelected && multiple);
   const singleRangeHint = multiple ? "1つの連続した範囲を選択してください" : undefined;
   const structural = (action: string) => {
     if (cellDisabled) return;
@@ -76,9 +78,9 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
   };
   return <div className="lxs-ribbon" role="toolbar" aria-label="シートの編集">
     {(c.features.copy || (!c.readOnly && (c.features.cut || c.features.paste))) && <div className="lxs-tool-group">
-      {c.features.copy && <Command label="コピー" title={singleRangeHint} disabled={!!c.selectedDrawingId || multiple} onClick={() => { if (!multiple && !c.selectedDrawingId) c.afterCommit(() => void clipboard.copy()); }}><Icon name="copy" /></Command>}
+      {c.features.copy && <Command label="コピー" title={singleRangeHint} disabled={c.pendingObjectEdit || (!drawingSelected && multiple)} onClick={() => { if (drawingSelected || !multiple) c.afterCommit(() => void clipboard.copy()); }}><Icon name="copy" /></Command>}
       {!c.readOnly && <>{c.features.cut && <Command label="切り取り" title={singleRangeHint} disabled={cellDisabled || multiple} onClick={() => { if (!multiple && !cellDisabled) c.afterCommit(() => void clipboard.copy(true)); }}><Icon name="cut" /></Command>}
-        {c.features.paste && <Command label="貼り付け" title={singleRangeHint} disabled={cellDisabled || multiple} onClick={() => { if (!multiple && !cellDisabled) c.afterCommit(() => void clipboard.paste()); }}><Icon name="paste" /></Command>}</>}
+        {c.features.paste && <Command label="貼り付け" title={singleRangeHint} disabled={clipboardDisabled} onClick={() => { if (!clipboardDisabled) c.afterCommit(() => void clipboard.paste()); }}><Icon name="paste" /></Command>}</>}
     </div>}
     {c.features.undoRedo && !c.readOnly && <div className="lxs-tool-group">
       <Command label="元に戻す" disabled={c.disabled || !c.canUndo} onClick={c.undo}><Icon name="undo" /></Command>

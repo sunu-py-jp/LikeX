@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { calculateWorkbook } from "../model";
 import { cellAddress } from "../model/address";
 import type { SpreadsheetCellFormat, SpreadsheetMergedRange } from "../model/types";
 import type { SpreadsheetConditionalFormatRule } from "../model/conditional-formatting";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { rangeBounds, selectedAddresses, selectionRanges } from "../state/selection";
-import { autoFitDimensions, createTextMeasurer } from "./grid/auto-fit";
+import { autoFitCommand } from "../state/sizing/auto-fit-command";
+import type { SpreadsheetSelection } from "../props";
 import { SpreadsheetDialog } from "./spreadsheet-dialog";
 import { Command } from "./spreadsheet-controls";
 
@@ -26,11 +26,8 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
     c.afterCommit(() => {
       const indices = new Set<number>();
       for (const selection of selectionRanges(c.selection)) { const bounds = rangeBounds(selection); for (let index = axis === "row" ? bounds.top : bounds.left; index <= (axis === "row" ? bounds.bottom : bounds.right); index++) indices.add(index); }
-      const workbook = c.getWorkbook(), sheet = workbook.sheets.find(sheet => sheet.id === c.activeSheet.id); if (!sheet) return;
-      const measure = createTextMeasurer(ownerDocument), values = (workbook === c.workbook ? c.calculated : calculateWorkbook(workbook))[sheet.id] ?? {};
-      const sizes = autoFitDimensions(sheet, axis, indices, values, measure);
-      const sizesRecord = Object.fromEntries(sizes);
-      c.afterCommand({ type: "dimensions.resize", sheetId: c.activeSheet.id, ...(axis === "row" ? { rowHeights: sizesRecord } : { columnWidths: sizesRecord }) });
+      const workbook = c.getWorkbook();
+      c.afterCommand(autoFitCommand(workbook, c.activeSheet.id, axis, indices, ownerDocument, workbook === c.workbook ? c.calculated[c.activeSheet.id] : undefined));
     });
   };
   if (c.readOnly) return null;
@@ -64,12 +61,13 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
     {dialog === "conditional" && c.features.formatting && c.features.conditionalFormatting && <ConditionalFormatDialog controller={c} onClose={closeDialog} />}
   </>;
 }
-function CellFormatDialog({ controller: c, onClose }: { controller: SpreadsheetController; onClose: () => void }) {
-  const [snapshot] = useState(() => ({ workbook: c.getWorkbook(), sheetId: c.activeSheet.id, selection: c.selection }));
+export function CellFormatDialog({ controller: c, onClose, target }: { controller: SpreadsheetController; onClose: () => void;
+  target?: {sheetId: string; selection: SpreadsheetSelection} }) {
+  const [snapshot] = useState(() => ({ workbook: c.getWorkbook(), sheetId: target?.sheetId ?? c.activeSheet.id, selection: target?.selection ?? c.selection }));
   const stale = c.workbook !== snapshot.workbook;
   const { cancelEditRequest } = c;
   useEffect(() => cancelEditRequest, [cancelEditRequest]);
-  const initial = c.activeSheet.cells[cellAddress(c.selection.focus.row, c.selection.focus.column)]?.format;
+  const initial = snapshot.workbook.sheets.find(sheet => sheet.id === snapshot.sheetId)?.cells[cellAddress(snapshot.selection.focus.row, snapshot.selection.focus.column)]?.format;
   const [format, setFormat] = useState<SpreadsheetCellFormat>({ numberFormat: initial?.numberFormat ?? "number", decimalPlaces: initial?.decimalPlaces ?? 2, useGrouping: initial?.useGrouping ?? true, negativeFormat: initial?.negativeFormat ?? "minus" });
   const [borderEnabled, setBorderEnabled] = useState(false), [edges, setEdges] = useState<string[]>(["top", "right", "bottom", "left"]);
   const [color, setColor] = useState("#808080"), [width, setWidth] = useState<1 | 2 | 3>(1), [style, setStyle] = useState<"solid" | "dashed" | "dotted" | "double" | "none">("solid");
@@ -78,23 +76,24 @@ function CellFormatDialog({ controller: c, onClose }: { controller: SpreadsheetC
     if (disabled || c.getWorkbook() !== snapshot.workbook) return;
     try { const addresses = selectedAddresses(snapshot.selection);
       const patch: SpreadsheetCellFormat = borderEnabled ? { borders: Object.fromEntries(edges.map(edge => [edge, { color, width, style }])) } : format;
-      c.afterCommand({ type: "cells.format", sheetId: snapshot.sheetId, addresses, format: patch }, onClose);
+      void Promise.resolve(c.executeCommands([{ type: "cells.format", sheetId: snapshot.sheetId, addresses, format: patch }],
+        {isCurrent: () => c.getWorkbook() === snapshot.workbook})).then(result => { if (result.ok) onClose(); }, c.reportError);
     } catch (cause) { c.reportError(cause); }
   };
   return <SpreadsheetDialog title="セルの書式" onClose={onClose} actions={<><button type="button" onClick={onClose}>キャンセル</button><button type="button" disabled={disabled} onClick={apply}>適用</button></>}>
     {stale && <p role="alert">データが変更されました。閉じて選択し直してください。</p>}
     <div className="lxs-format-dialog-fields">
-      <label className="lxs-field-full">設定する書式<select value={borderEnabled ? "border" : "number"} onChange={event => setBorderEnabled(event.currentTarget.value === "border")}><option value="number">数値・日付・時刻</option><option value="border">罫線</option></select></label>
+      <label className="lxs-field-full">設定する書式<select disabled={disabled} value={borderEnabled ? "border" : "number"} onChange={event => setBorderEnabled(event.currentTarget.value === "border")}><option value="number">数値・日付・時刻</option><option value="border">罫線</option></select></label>
       {!borderEnabled ? <>
-        <label>表示形式<select value={format.numberFormat} onChange={event => setFormat({ ...format, numberFormat: event.currentTarget.value as SpreadsheetCellFormat["numberFormat"] })}>{[["general", "標準"], ["number", "数値"], ["currency", "通貨"], ["percent", "パーセント"], ["date", "日付"], ["time", "時刻"], ["datetime", "日時"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label>小数点以下の桁数<input type="number" min="0" max="10" value={format.decimalPlaces} onChange={event => setFormat({ ...format, decimalPlaces: Number(event.currentTarget.value) })} /></label>
-        <label>桁区切り<select value={format.useGrouping ? "yes" : "no"} onChange={event => setFormat({ ...format, useGrouping: event.currentTarget.value === "yes" })}><option value="yes">あり（1,000）</option><option value="no">なし（1000）</option></select></label>
-        <label>負数<select value={format.negativeFormat} onChange={event => setFormat({ ...format, negativeFormat: event.currentTarget.value as SpreadsheetCellFormat["negativeFormat"] })}><option value="minus">-123</option><option value="parentheses">(123)</option><option value="red">赤 -123</option><option value="red-parentheses">赤 (123)</option></select></label>
+        <label>表示形式<select disabled={disabled} value={format.numberFormat} onChange={event => setFormat({ ...format, numberFormat: event.currentTarget.value as SpreadsheetCellFormat["numberFormat"] })}>{[["general", "標準"], ["number", "数値"], ["currency", "通貨"], ["percent", "パーセント"], ["date", "日付"], ["time", "時刻"], ["datetime", "日時"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>小数点以下の桁数<input disabled={disabled} type="number" min="0" max="10" value={format.decimalPlaces} onChange={event => setFormat({ ...format, decimalPlaces: Number(event.currentTarget.value) })} /></label>
+        <label>桁区切り<select disabled={disabled} value={format.useGrouping ? "yes" : "no"} onChange={event => setFormat({ ...format, useGrouping: event.currentTarget.value === "yes" })}><option value="yes">あり（1,000）</option><option value="no">なし（1000）</option></select></label>
+        <label>負数<select disabled={disabled} value={format.negativeFormat} onChange={event => setFormat({ ...format, negativeFormat: event.currentTarget.value as SpreadsheetCellFormat["negativeFormat"] })}><option value="minus">-123</option><option value="parentheses">(123)</option><option value="red">赤 -123</option><option value="red-parentheses">赤 (123)</option></select></label>
       </> : <>
-        <label>線の色<input type="color" value={color} onChange={event => setColor(event.currentTarget.value)} /></label>
-        <label>線の太さ<select value={width} onChange={event => setWidth(Number(event.currentTarget.value) as 1 | 2 | 3)}><option value="1">細い</option><option value="2">中</option><option value="3">太い</option></select></label>
-        <label>線の種類<select value={style} onChange={event => setStyle(event.currentTarget.value as typeof style)}><option value="solid">実線</option><option value="dashed">破線</option><option value="dotted">点線</option><option value="double">二重線</option><option value="none">罫線なし</option></select></label>
-        <fieldset><legend>各セルに適用する辺</legend>{[["top", "上"], ["right", "右"], ["bottom", "下"], ["left", "左"]].map(([value, label]) => <label key={value}><span><input type="checkbox" checked={edges.includes(value)} onChange={event => setEdges(event.currentTarget.checked ? [...edges, value] : edges.filter(edge => edge !== value))} />{label}</span></label>)}</fieldset>
+        <label>線の色<input disabled={disabled} type="color" value={color} onChange={event => setColor(event.currentTarget.value)} /></label>
+        <label>線の太さ<select disabled={disabled} value={width} onChange={event => setWidth(Number(event.currentTarget.value) as 1 | 2 | 3)}><option value="1">細い</option><option value="2">中</option><option value="3">太い</option></select></label>
+        <label>線の種類<select disabled={disabled} value={style} onChange={event => setStyle(event.currentTarget.value as typeof style)}><option value="solid">実線</option><option value="dashed">破線</option><option value="dotted">点線</option><option value="double">二重線</option><option value="none">罫線なし</option></select></label>
+        <fieldset><legend>各セルに適用する辺</legend>{[["top", "上"], ["right", "右"], ["bottom", "下"], ["left", "左"]].map(([value, label]) => <label key={value}><span><input disabled={disabled} type="checkbox" checked={edges.includes(value)} onChange={event => setEdges(event.currentTarget.checked ? [...edges, value] : edges.filter(edge => edge !== value))} />{label}</span></label>)}</fieldset>
       </>}
     </div>
   </SpreadsheetDialog>;

@@ -29,6 +29,7 @@ async function mount(t, overrides = {}) {
   }); });
   t.after(async () => { await act(async () => renderer.unmount()); });
   return { ref, events, get root() { return renderer.root; },
+    get controller() { return renderer.root.findAll(node => node.props.controller?.selection)[0].props.controller; },
     value(address) { return ref.current.getWorkbook().sheets[0].cells[address]?.value; },
     async update(patch) { props = { ...props, ...patch }; await act(async () => renderer.update(createElement(Spreadsheet, props))); },
     async open(row = 2, column = 1) {
@@ -36,6 +37,21 @@ async function mount(t, overrides = {}) {
       const cell = { dataset: { lxsRow: String(row), lxsColumn: String(column) }, closest: selector => selector.startsWith('[data-lxs-row]') ? cell : null };
       await act(async () => renderer.root.findByType('section').props.onContextMenu({ target: cell, clientX: 100, clientY: 100, preventDefault() { prevented = true; } }));
       return prevented;
+    },
+    async openHeader(axis, index) {
+      const selector = axis === 'row' ? '[data-lxs-row-header]' : '[data-lxs-column-header]';
+      const header = { dataset: { [axis === 'row' ? 'lxsRowHeader' : 'lxsColumnHeader']: String(index) },
+        closest: value => value === selector ? header : null };
+      let prevented = false;
+      await act(async () => renderer.root.findByType('section').props.onContextMenu({ target: header, clientX: 80, clientY: 100,
+        preventDefault() { prevented = true; } }));
+      return prevented;
+    },
+    async choose(label) {
+      const item = renderer.root.findAllByProps({ role: 'menuitem' }).find(item => item.children[0] === label);
+      assert.ok(item, `missing menu item: ${label}`);
+      assert.equal(item.props.disabled, false);
+      await act(async () => item.props.onClick());
     },
     async openSheet(sheetId = 'other', keyboard = false) {
       let prevented = false, stopped = false;
@@ -53,7 +69,7 @@ async function mount(t, overrides = {}) {
       assert.equal(prevented, true);
       if (keyboard) assert.equal(stopped, true);
     },
-    async run() { await this.open(); await act(async () => renderer.root.findByProps({ role: 'menuitem' }).props.onClick()); },
+    async run() { await this.open(); await act(async () => renderer.root.findAllByProps({ role: 'menuitem' }).find(item => item.findAllByType('span').length).props.onClick()); },
     async confirm() { await act(async () => renderer.root.findByProps({ className: 'lxs-dialog-confirm' }).props.onClick()); },
     async cancel() { const controller = renderer.root.findAll(node => node.props.controller?.state?.phase && node.props.controller?.cancel)[0].props.controller;
       await act(async () => controller.cancel()); },
@@ -95,7 +111,7 @@ test('block preserves selected ranges and applies a prepared result at the indep
 test('sheet tabs offer duplicate and delete without a provider and delete the right-clicked inactive sheet through the undoable command pipeline', async t => {
   const ui = await mount(t, { initialWorkbook: multipleSheets });
   await ui.selectRange();
-  assert.equal(await ui.open(), false, 'cells keep their native menu without a provider');
+  assert.equal(await ui.open(), true, 'cells offer built-in actions without a provider');
   assert.equal(ui.root.findAllByType('select').some(select => select.props['aria-label'] === 'シートの操作'), false);
   await ui.openSheet();
   const menu = ui.root.findByProps({ role: 'menu' });
@@ -298,4 +314,127 @@ test('sheet duplication selects a new identity and supports undo, disabled featu
   await denied.openSheet('other');
   await act(async () => denied.root.findAllByProps({ role: 'menuitem' }).find(item => item.children[0] === '複製').props.onClick());
   assert.equal(denied.ref.current.getWorkbook().sheets.length, 2);
+});
+
+test('built-in cell clear targets the clicked cell without erasing an independent selection and preserves its format', async t => {
+  const book = structuredClone(initialWorkbook);
+  book.sheets[0].cells.B3 = { value: 'target', format: { bold: true } };
+  const ui = await mount(t, { initialWorkbook: book });
+  await ui.selectRange();
+  await ui.open();
+  await ui.choose('値をクリア');
+  assert.equal(ui.value('A1'), '1');
+  assert.equal(ui.value('A3'), '3');
+  assert.equal(ui.value('B3'), '');
+  assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.B3.format.bold, true);
+  assert.deepEqual(ui.controller.selection.ranges[0], { anchor: { row: 0, column: 0 }, focus: { row: 2, column: 0 } });
+  await act(async () => ui.controller.undo());
+  assert.equal(ui.value('B3'), 'target');
+  await ui.open();
+  await ui.choose('すべてクリア（書式も削除）');
+  assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.B3, undefined);
+});
+
+test('built-in clear applies to all selected ranges when right clicking inside a selection', async t => {
+  const ui = await mount(t);
+  await act(async () => ui.controller.selectRange({row: 0, column: 0}, {row: 0, column: 0}));
+  await act(async () => ui.controller.selectRange({row: 2, column: 0}, {row: 2, column: 0}, true));
+  await ui.open(2, 0);
+  assert.equal(ui.root.findAllByProps({role: 'menuitem'}).find(item => item.children[0] === 'コピー').props.disabled, true);
+  await ui.choose('値をクリア');
+  assert.equal(ui.value('A1'), undefined);
+  assert.equal(ui.value('A2'), '2');
+  assert.equal(ui.value('A3'), undefined);
+  await act(async () => ui.controller.undo());
+  assert.equal(ui.value('A1'), '1');
+  assert.equal(ui.value('A3'), '3');
+  assert.equal(ui.controller.selection.ranges.length, 2);
+});
+
+test('row and column header menus use undoable structural commands for the clicked header', async t => {
+  const ui = await mount(t);
+  await ui.openHeader('row', 1);
+  assert.equal(ui.root.findByProps({role: 'menu'}).props['aria-label'], '行の操作');
+  await ui.choose('上に行を挿入');
+  assert.equal(ui.value('A1'), '1');
+  assert.equal(ui.value('A2'), undefined);
+  assert.equal(ui.value('A3'), '2');
+  await act(async () => ui.controller.undo());
+  assert.equal(ui.value('A2'), '2');
+  await ui.openHeader('column', 0);
+  assert.equal(ui.root.findByProps({role: 'menu'}).props['aria-label'], '列の操作');
+  await ui.choose('左に列を挿入');
+  assert.equal(ui.value('A1'), undefined);
+  assert.equal(ui.value('B1'), '1');
+  await ui.openHeader('column', 1);
+  await ui.choose('列を削除');
+  assert.equal(ui.value('B1'), undefined);
+  await act(async () => ui.controller.undo());
+  assert.equal(ui.value('B1'), '1');
+});
+
+test('disjoint row deletion does not remove intervening rows and is a single undo entry', async t => {
+  const ui = await mount(t);
+  await act(async () => ui.controller.selectRange({row: 0, column: 0}, {row: 0, column: 4}));
+  await act(async () => ui.controller.selectRange({row: 2, column: 0}, {row: 2, column: 4}, true));
+  await ui.openHeader('row', 2);
+  await ui.choose('行を削除');
+  assert.equal(ui.value('A1'), '2');
+  assert.equal(ui.ref.current.getWorkbook().sheets[0].rowCount, 8);
+  await act(async () => ui.controller.undo());
+  assert.equal(ui.ref.current.getWorkbook().sheets[0].rowCount, 10);
+  assert.equal(ui.value('A1'), '1');
+  assert.equal(ui.value('A3'), '3');
+});
+
+test('header custom items receive typed targets and stay above destructive actions', async t => {
+  let captured;
+  const ui = await mount(t, {getContextMenuItems(context) {
+    captured = context;
+    return [{id: 'inspect', label: '詳細', onSelect() {}}];
+  }});
+  await ui.openHeader('column', 2);
+  assert.deepEqual(captured.target, {kind: 'column', sheetId: 'main', column: 2});
+  const items = ui.root.findAllByProps({role: 'menuitem'});
+  assert.deepEqual(items.at(-2).findByType('span').children, ['詳細']);
+  assert.deepEqual(items.at(-1).children, ['列を削除']);
+});
+
+test('built-in menu actions respect feature flags and readonly hides mutations', async t => {
+  const ui = await mount(t, {features: {copy: false, cut: false, paste: false, insertRows: false, insertColumns: false,
+    deleteRows: false, deleteColumns: false, formatting: false, resize: false, comments: false}});
+  await ui.openHeader('row', 0);
+  assert.deepEqual(ui.root.findAllByProps({role: 'menuitem'}).map(item => item.children), [['値をクリア']]);
+  await ui.update({features: {}, readOnly: true});
+  await ui.open();
+  assert.deepEqual(ui.root.findAllByProps({role: 'menuitem'}).map(item => item.children), [['コピー']]);
+});
+
+test('built-in clear waits for edit permission and leaves data intact on denial', async t => {
+  const permission = deferred(); let intent;
+  const ui = await mount(t, {onEditRequest(request) { intent = request; return permission.promise; }});
+  await ui.open(1, 0);
+  await ui.choose('値をクリア');
+  assert.equal(intent.action, 'cells.clear');
+  assert.equal(ui.value('A2'), '2');
+  await act(async () => permission.resolve(false));
+  assert.equal(ui.value('A2'), '2');
+});
+
+test('menu captured before a programmatic edit cannot clear stale target data', async t => {
+  const ui = await mount(t);
+  await ui.open(1, 0);
+  await act(async () => ui.ref.current.execute(command('A2', 'new value')));
+  await ui.choose('値をクリア');
+  assert.equal(ui.value('A2'), 'new value');
+});
+
+
+test('right clicking a merged cell expands the built-in target to the whole merge', async t => {
+  const book = structuredClone(initialWorkbook);
+  book.sheets[0].merges = [{top: 1, left: 1, bottom: 2, right: 2}];
+  const ui = await mount(t, {initialWorkbook: book});
+  await ui.open(1, 1);
+  const context = ui.root.findAll(node => node.props.controller?.selectBuiltin)[0].props.controller;
+  assert.deepEqual(context.menu.actionSelection.ranges[0], {anchor: {row: 1, column: 1}, focus: {row: 2, column: 2}});
 });

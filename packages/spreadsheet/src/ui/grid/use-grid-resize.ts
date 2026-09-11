@@ -2,7 +2,7 @@
 import { useRef, useState, type HTMLAttributes } from "react";
 import { calculateWorkbook } from "../../model";
 import type { SpreadsheetController, Workbook } from "../../state/use-spreadsheet";
-import { autoFitColumnWidth, autoFitRowHeight, createTextMeasurer } from "./auto-fit";
+import { autoFitColumnWidth, autoFitRowHeight, createTextMeasurer } from "../../state/sizing/auto-fit";
 
 type Session = { index: number; start: number; size: number; value: number; workbook: Workbook; sheetId: string; pointerId: number };
 /** Both axes share cancellation, keyboard and optimistic preview behavior. */
