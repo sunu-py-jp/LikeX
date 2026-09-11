@@ -69,6 +69,11 @@ async function mount(t, options = {}) {
           preventDefault() { prevented = true; }, ...modifiers }));
       assert.equal(prevented, true);
     },
+    async pasteText(text) {
+      await act(async () => renderer.root.findByType('section').props.onPaste({ target: activeInput, preventDefault() {}, clipboardData: {
+        types: ['text/plain'], getData: type => type === 'text/plain' ? text : '',
+      } }));
+    },
     assertGridFocus(address) {
       assert.equal(document.activeElement === activeInput, true, 'keyboard focus must belong to the replacement grid input');
       if (address) {
@@ -170,10 +175,10 @@ test('history does not take focus from a control outside the grid', async t => {
   assert.deepEqual(ui.c.selection.focus, { row: 1, column: 1 });
 });
 
-test('paste history selects its changed cell instead of subsequently selected disjoint ranges', async t => {
+test('imperative paste history selects its changed cell instead of subsequently selected disjoint ranges', async t => {
   const ui = await mount(t);
   const focus = { row: 4, column: 5 };
-  await act(async () => assert.equal((await ui.c.executeCommand({ type: 'cells.paste', sheetId: 'one', target: focus,
+  await act(async () => assert.equal((await ui.c.externalExecute({ type: 'cells.paste', sheetId: 'one', target: focus,
     mode: 'values', payload: { values: [['pasted']] } })).ok, true));
   assert.equal(ui.value('F5'), 'pasted');
   for (const direction of ['undo', 'redo']) {
@@ -204,9 +209,9 @@ function selectedCells(selection) {
   return [...cells].sort();
 }
 
-test('multi-cell history selects only cells changed by the transaction, with the first changed cell active', async t => {
+test('imperative multi-cell history selects changed cells when no GUI selection was captured', async t => {
   const ui = await mount(t);
-  await act(async () => assert.equal((await ui.c.executeCommand({ type: 'cells.set', sheetId: 'one',
+  await act(async () => assert.equal((await ui.c.externalExecute({ type: 'cells.set', sheetId: 'one',
     values: { F6: 'third', B2: 'first', D4: 'second', A1: 'baseline' } })).ok, true));
   for (const direction of ['undo', 'redo']) {
     await ui.focusCell(7, 7);
@@ -220,6 +225,182 @@ test('multi-cell history selects only cells changed by the transaction, with the
     assert.equal(ui.value('A1'), 'baseline', 'an unchanged command entry must not become a history target');
     ui.assertGridFocus('B2');
   }
+});
+
+const historyWorkbook = cells => ({ sheets: [{ id: 'one', name: 'Sheet1', rowCount: 8, columnCount: 8,
+  cells: Object.fromEntries(Object.entries(cells).map(([address, value]) => [address, { value }])) }] });
+
+test('GUI Delete history restores the original rectangle including unchanged blanks and its active cursor', async t => {
+  const ui = await mount(t, { initialWorkbook: historyWorkbook({ B2: 'first', D4: 'second' }) });
+  await ui.focusCell(1, 1);
+  await act(async () => { ui.c.selectRange({ row: 1, column: 1 }, { row: 5, column: 5 }); ui.c.requestGridFocus(); });
+  const original = structuredClone(ui.c.selection);
+  await ui.key('Delete');
+  assert.equal(ui.c.getHistoryState().undoCount, 1);
+  for (let cycle = 0; cycle < 2; cycle++) for (const [key, restored] of [['z', true], ['y', false]]) {
+    await ui.focusCell(7, 7);
+    await ui.key(key, { ctrlKey: true });
+    assert.deepEqual(ui.c.selection, original, 'history keeps the full user-selected range rather than sparse changed cells');
+    assert.equal(selectedCells(ui.c.selection).length, 25);
+    assert.equal(ui.value('B2'), restored ? 'first' : undefined);
+    assert.equal(ui.value('D4'), restored ? 'second' : undefined);
+    assert.equal(ui.value('F6'), undefined, 'an unchanged blank remains part of the restored selection');
+    ui.assertGridFocus('F6');
+  }
+});
+
+test('GUI multi-range history preserves each range, orientation and active range without selecting the gaps', async t => {
+  const ui = await mount(t, { initialWorkbook: historyWorkbook({ B2: 'first', G7: 'second', E5: 'untouched gap' }) });
+  await ui.focusCell(1, 1);
+  await act(async () => {
+    ui.c.selectRange({ row: 1, column: 1 }, { row: 3, column: 3 });
+    ui.c.selectRange({ row: 6, column: 6 }, { row: 5, column: 5 }, true);
+    ui.c.requestGridFocus();
+  });
+  const original = structuredClone(ui.c.selection);
+  await ui.key('Delete');
+  for (const key of ['z', 'y']) {
+    await ui.focusCell(0, 7);
+    await ui.key(key, { ctrlKey: true });
+    assert.deepEqual(ui.c.selection, original);
+    assert.equal(selectedCells(ui.c.selection).length, 13);
+    assert.equal(selectedCells(ui.c.selection).includes('4:4'), false);
+    assert.equal(ui.value('E5'), 'untouched gap');
+    ui.assertGridFocus('F6');
+  }
+});
+
+test('GUI column history retains header kind and all selected rows even when only two values changed', async t => {
+  const ui = await mount(t, { initialWorkbook: historyWorkbook({ C2: 'first', D7: 'second' }) });
+  await ui.focusCell(0, 2);
+  await act(async () => { ui.c.selectAxisRange('column', 2, 3); ui.c.requestGridFocus(); });
+  const original = structuredClone(ui.c.selection);
+  assert.equal(original.ranges[0].kind, 'column');
+  await ui.key('Delete');
+  for (const key of ['z', 'y']) {
+    await ui.focusCell(7, 7);
+    await ui.key(key, { ctrlKey: true });
+    assert.deepEqual(ui.c.selection, original);
+    assert.equal(selectedCells(ui.c.selection).length, 16);
+    ui.assertGridFocus('D1');
+  }
+});
+
+test('GUI paste history restores the complete transfer rectangle including blank cells, not the previous destination selection', async t => {
+  const ui = await mount(t, { initialWorkbook: historyWorkbook({}) });
+  await ui.focusCell(3, 3);
+  await act(async () => { ui.c.selectRange({ row: 3, column: 3 }, { row: 5, column: 5 }); ui.c.requestGridFocus(); });
+  await ui.pasteText('first\t\r\n\tlast');
+  assert.equal(ui.c.error, null);
+  const transferred = structuredClone(ui.c.selection);
+  assert.deepEqual(transferred.ranges, [{ anchor: { row: 3, column: 3 }, focus: { row: 4, column: 4 } }]);
+  assert.deepEqual(transferred.focus, { row: 3, column: 3 });
+  for (const key of ['z', 'y']) {
+    await ui.focusCell(7, 7);
+    await ui.key(key, { ctrlKey: true });
+    assert.deepEqual(ui.c.selection, transferred);
+    assert.equal(selectedCells(ui.c.selection).length, 4);
+    assert.equal(ui.value('D4'), key === 'z' ? undefined : 'first');
+    assert.equal(ui.value('E5'), key === 'z' ? undefined : 'last');
+    ui.assertGridFocus('D4');
+  }
+});
+
+test('GUI paste expansion history clamps its restored cursor temporarily without shrinking the saved transfer range', async t => {
+  const ui = await mount(t, { initialWorkbook: historyWorkbook({}) });
+  await ui.focusCell(7, 7);
+  await ui.pasteText('first\t\r\n\tlast');
+  assert.equal(ui.c.error, null);
+  const transferred = structuredClone(ui.c.selection);
+  assert.deepEqual(transferred.ranges, [{ anchor: { row: 7, column: 7 }, focus: { row: 8, column: 8 } }]);
+  assert.equal(ui.c.activeSheet.rowCount, 9);
+  assert.equal(ui.c.activeSheet.columnCount, 9);
+  for (let cycle = 0; cycle < 2; cycle++) {
+    await ui.focusCell(0, 0);
+    await ui.key('z', { ctrlKey: true });
+    assert.equal(ui.c.activeSheet.rowCount, 8);
+    assert.equal(ui.c.activeSheet.columnCount, 8);
+    assert.deepEqual(ui.c.selection.ranges, [{ anchor: { row: 7, column: 7 }, focus: { row: 7, column: 7 } }]);
+    assert.deepEqual(ui.c.selection.focus, { row: 7, column: 7 });
+    assert.equal(ui.value('H8'), undefined);
+    ui.assertGridFocus('H8');
+    await ui.focusCell(1, 1);
+    await ui.key('y', { ctrlKey: true });
+    assert.equal(ui.c.activeSheet.rowCount, 9);
+    assert.equal(ui.c.activeSheet.columnCount, 9);
+    assert.deepEqual(ui.c.selection, transferred, 'Redo restores the original 2×2 metadata after Undo clamped the visible range');
+    assert.equal(ui.value('H8'), 'first');
+    assert.equal(ui.value('I9'), 'last');
+    ui.assertGridFocus('H8');
+  }
+});
+
+test('GUI history ignores no-op selections and keeps operation ranges paired through Redo and a new branch', async t => {
+  const ui = await mount(t, { initialWorkbook: historyWorkbook({ B2: 'first', F6: 'second', H8: 'branch' }) });
+  const originals = [];
+  for (const [start, end] of [[{ row: 1, column: 1 }, { row: 3, column: 3 }], [{ row: 4, column: 4 }, { row: 6, column: 6 }]]) {
+    await act(async () => { ui.c.selectRange(start, end); ui.c.requestGridFocus(); });
+    originals.push(structuredClone(ui.c.selection));
+    await ui.key('Delete');
+  }
+  await ui.focusCell(7, 0);
+  await ui.key('Delete');
+  assert.equal(ui.c.getHistoryState().undoCount, 2, 'clearing a blank cell does not record its selection');
+  await ui.key('z', { ctrlKey: true });
+  assert.deepEqual(ui.c.selection, originals[1]);
+  await ui.focusCell(7, 0);
+  await ui.key('Delete');
+  assert.equal(ui.c.getHistoryState().redoCount, 1, 'a no-op must not clear the Redo branch');
+  await ui.key('y', { ctrlKey: true });
+  assert.deepEqual(ui.c.selection, originals[1]);
+  await ui.key('z', { ctrlKey: true });
+  await ui.focusCell(7, 7);
+  const branch = structuredClone(ui.c.selection);
+  await ui.key('Delete');
+  assert.equal(ui.c.getHistoryState().redoCount, 0);
+  await ui.focusCell(0, 0);
+  await ui.key('z', { ctrlKey: true });
+  assert.deepEqual(ui.c.selection, branch);
+  await ui.focusCell(0, 7);
+  await ui.key('z', { ctrlKey: true });
+  assert.deepEqual(ui.c.selection, originals[0]);
+  assert.equal(ui.value('B2'), 'first');
+  assert.equal(ui.value('F6'), 'second');
+  assert.equal(ui.value('H8'), 'branch');
+});
+
+test('GUI structural history restores its selected rows on Undo and safely clamps them on Redo', async t => {
+  const ui = await mount(t);
+  await act(async () => ui.c.selectAxisRange('row', 4, 7));
+  const original = structuredClone(ui.c.selection);
+  await act(async () => assert.equal((await ui.c.executeCommand({ type: 'rows.delete', sheetId: 'one', index: 4, count: 4 })).ok, true));
+  await ui.focusCell(0, 0);
+  await ui.key('z', { ctrlKey: true });
+  assert.deepEqual(ui.c.selection, original);
+  await ui.focusCell(1, 1);
+  await ui.key('y', { ctrlKey: true });
+  assert.deepEqual(ui.c.selection.ranges, [{ kind: 'row', anchor: { row: 3, column: 7 }, focus: { row: 3, column: 0 } }]);
+  assert.deepEqual(ui.c.selection.focus, { row: 3, column: 0 });
+  assert.equal(ui.c.activeSheet.rowCount, 4);
+});
+
+test('GUI history captures selection before asynchronous editing permission and subsequent navigation', async t => {
+  let grant;
+  const permission = new Promise(resolve => { grant = resolve; });
+  const ui = await mount(t, { initialWorkbook: historyWorkbook({ B2: 'original' }), onEditRequest: () => permission });
+  await act(async () => { ui.c.selectRange({ row: 1, column: 1 }, { row: 3, column: 3 }); ui.c.requestGridFocus(); });
+  const original = structuredClone(ui.c.selection);
+  await ui.key('Delete');
+  assert.equal(ui.c.requesting, true);
+  await ui.focusCell(7, 7);
+  await act(async () => grant(true));
+  assert.equal(ui.value('B2'), undefined);
+  await ui.key('z', { ctrlKey: true });
+  assert.deepEqual(ui.c.selection, original);
+  ui.assertGridFocus('D4');
+  await ui.focusCell(0, 0);
+  await ui.key('y', { ctrlKey: true });
+  assert.deepEqual(ui.c.selection, original);
 });
 
 test('history of a cell edited on an inactive sheet navigates to that sheet and focuses its changed cell', async t => {
@@ -246,7 +427,7 @@ test('drawing history targets the changed object, its anchor on removal, and the
   const ui = await mount(t);
   let drawingId;
   await act(async () => {
-    const result = await ui.c.executeCommand({ type: 'shapes.insert', sheetId: 'one', shape: 'rectangle',
+    const result = await ui.c.externalExecute({ type: 'shapes.insert', sheetId: 'one', shape: 'rectangle',
       anchor: { row: 1, column: 1 }, width: 120, height: 60 });
     assert.equal(result.ok, true);
     drawingId = result.results[0].drawingId;
@@ -278,9 +459,9 @@ test('drawing history targets the changed object, its anchor on removal, and the
   ui.assertDrawingFocus(drawingId);
 });
 
-test('history clamps the active cell when Undo or Redo shrinks rows and columns', async t => {
+test('imperative structural history clamps the current active cell when Undo or Redo shrinks rows and columns', async t => {
   const ui = await mount(t);
-  await act(async () => assert.equal((await ui.c.executeCommands([
+  await act(async () => assert.equal((await ui.c.externalBatch([
     { type: 'rows.delete', sheetId: 'one', index: 4, count: 4 },
     { type: 'columns.delete', sheetId: 'one', index: 4, count: 4 },
   ])).ok, true));
@@ -288,7 +469,7 @@ test('history clamps the active cell when Undo or Redo shrinks rows and columns'
   await act(async () => ui.c.select({ row: 7, column: 7 }));
   await act(async () => assert.equal(await ui.c.redo(), true));
   assert.deepEqual(ui.c.selection.focus, { row: 3, column: 3 });
-  await act(async () => assert.equal((await ui.c.executeCommands([
+  await act(async () => assert.equal((await ui.c.externalBatch([
     { type: 'rows.insert', sheetId: 'one', index: 4, count: 4 },
     { type: 'columns.insert', sheetId: 'one', index: 4, count: 4 },
   ])).ok, true));
@@ -298,9 +479,9 @@ test('history clamps the active cell when Undo or Redo shrinks rows and columns'
   assert.deepEqual(ui.c.selection.ranges, [{ anchor: focus, focus }]);
 });
 
-test('history clamps every disjoint range without losing its valid selected cells', async t => {
+test('imperative structural history clamps current disjoint ranges without losing valid cells', async t => {
   const ui = await mount(t);
-  await act(async () => assert.equal((await ui.c.executeCommands([
+  await act(async () => assert.equal((await ui.c.externalBatch([
     { type: 'rows.delete', sheetId: 'one', index: 4, count: 4 },
     { type: 'columns.delete', sheetId: 'one', index: 4, count: 4 },
   ])).ok, true));
@@ -320,7 +501,7 @@ test('history clamps every disjoint range without losing its valid selected cell
 test('Undo can restore merged cells with the maximum number of disjoint ranges', async t => {
   const merges = Array.from({ length: 128 }, (_, row) => ({ top: row, bottom: row, left: 0, right: 1 }));
   const ui = await mount(t, { initialWorkbook: { sheets: [{ id: 'one', name: 'Sheet1', rowCount: 128, columnCount: 4, cells: {}, merges }] } });
-  await act(async () => assert.equal((await ui.c.executeCommand({ type: 'cells.unmerge', sheetId: 'one',
+  await act(async () => assert.equal((await ui.c.externalExecute({ type: 'cells.unmerge', sheetId: 'one',
     range: { top: 0, bottom: 127, left: 0, right: 3 } })).ok, true));
   await act(async () => {
     for (let row = 0; row < 128; row++) assert.equal(ui.c.select({ row, column: 0 }, false, row !== 0), true);
@@ -339,7 +520,7 @@ test('history selects a valid fallback cell when Undo or Redo removes the active
   const ui = await mount(t);
   let copiedId;
   await act(async () => {
-    const result = await ui.c.executeCommand({ type: 'sheets.duplicate', sheetId: 'one' });
+    const result = await ui.c.externalExecute({ type: 'sheets.duplicate', sheetId: 'one' });
     assert.equal(result.ok, true);
     copiedId = result.results[0].sheetId;
   });
@@ -348,12 +529,40 @@ test('history selects a valid fallback cell when Undo or Redo removes the active
   assert.equal(ui.c.selection.sheetId, 'one');
   assert.deepEqual(ui.c.selection.focus, { row: 0, column: 0 });
   await act(async () => assert.equal(await ui.c.redo(), true));
-  await act(async () => assert.equal((await ui.c.executeCommand({ type: 'sheets.delete', sheetId: copiedId })).ok, true));
+  await act(async () => assert.equal((await ui.c.externalExecute({ type: 'sheets.delete', sheetId: copiedId })).ok, true));
   await act(async () => assert.equal(await ui.c.undo(), true));
   await act(async () => ui.c.selectCellInSheet(copiedId, { row: 4, column: 5 }));
   await act(async () => assert.equal(await ui.c.redo(), true));
   assert.equal(ui.c.selection.sheetId, 'one');
   assert.deepEqual(ui.c.selection.focus, { row: 0, column: 0 });
+});
+
+test('GUI sheet deletion restores its saved selection on Undo and falls back to the first sheet when Redo removes that target', async t => {
+  const ui = await mount(t, { initialWorkbook: { sheets: ['one', 'two', 'three'].map(id => ({
+    id, name: id, rowCount: 8, columnCount: 8, cells: {},
+  })) } });
+  await act(async () => ui.c.switchSheet('two'));
+  await ui.focusCell(2, 2);
+  await act(async () => { ui.c.selectRange({ row: 2, column: 2 }, { row: 5, column: 5 }); ui.c.requestGridFocus(); });
+  const original = structuredClone(ui.c.selection);
+  await act(async () => assert.equal((await ui.c.executeCommand({ type: 'sheets.delete', sheetId: 'two' })).ok, true));
+  assert.equal(ui.c.workbook.sheets.some(sheet => sheet.id === 'two'), false);
+  for (let cycle = 0; cycle < 2; cycle++) {
+    await act(async () => ui.c.switchSheet('three'));
+    await ui.focusCell(7, 7);
+    await ui.key('z', { ctrlKey: true });
+    assert.equal(ui.c.activeSheet.id, 'two');
+    assert.deepEqual(ui.c.selection, original);
+    ui.assertGridFocus('F6');
+    await act(async () => ui.c.switchSheet('three'));
+    await ui.focusCell(6, 6);
+    await ui.key('y', { ctrlKey: true });
+    assert.equal(ui.c.workbook.sheets.some(sheet => sheet.id === 'two'), false);
+    assert.equal(ui.c.activeSheet.id, 'one');
+    assert.deepEqual(ui.c.selection, { sheetId: 'one', anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 },
+      ranges: [{ anchor: { row: 0, column: 0 }, focus: { row: 0, column: 0 } }] });
+    ui.assertGridFocus('A1');
+  }
 });
 
 test('saving still resets the selected cell after history keeps its position', async t => {

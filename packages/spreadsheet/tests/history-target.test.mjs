@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 
 const output = await build({ stdin: {
-  contents: 'export { findHistoryTarget } from "./src/state/history-target"; export { cellAddress } from "./src/model/address"; export { selectedAddresses } from "./src/state/selection";',
+  contents: 'export { findHistoryTarget, captureHistorySelection } from "./src/state/history-target"; export { cellAddress } from "./src/model/address"; export { selectedAddresses } from "./src/state/selection";',
   resolveDir: new URL('../', import.meta.url).pathname,
 }, bundle: true, platform: 'node', format: 'esm', write: false });
-const { findHistoryTarget, cellAddress, selectedAddresses } = await import(
+const { findHistoryTarget, captureHistorySelection, cellAddress, selectedAddresses } = await import(
   `data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const p = (row, column) => ({ row, column });
 const range = (top, left, bottom = top, right = left) => ({ anchor: p(top, left), focus: p(bottom, right) });
@@ -14,6 +14,19 @@ const sheet = (id = 'one', cells = {}, extra = {}) => ({ id, name: id, rowCount:
 const book = (...sheets) => ({ schemaVersion: 1, sheets });
 const addresses = target => selectedAddresses({ sheetId: target.sheetId, ranges: target.ranges,
   anchor: target.ranges.at(-1).anchor, focus: target.focus });
+
+test('captured history selection owns immutable copies of all ranges and its independent active cell', () => {
+  const ranges = [range(1, 1, 4, 4), { ...range(299, 6, 0, 6), kind: 'column' }];
+  const selection = { sheetId: 'one', anchor: ranges[1].anchor, focus: p(7, 6), ranges };
+  const target = captureHistorySelection(selection);
+  assert.deepEqual(target, { sheetId: 'one', focus: p(7, 6), ranges });
+  assert.notEqual(target.ranges, ranges);
+  selection.focus.row = 20; ranges[0].anchor.column = 5; ranges[1].kind = 'row';
+  assert.equal(target.focus.row, 7); assert.equal(target.ranges[0].anchor.column, 1); assert.equal(target.ranges[1].kind, 'column');
+  for (const value of [target, target.focus, target.ranges, ...target.ranges, ...target.ranges.flatMap(range => [range.anchor, range.focus])]) {
+    assert.equal(Object.isFrozen(value), true);
+  }
+});
 
 test('cell history selects the changed value and ignores unchanged dependent formulas', () => {
   const before = book(sheet('one', { C4: { value: 'first' }, D4: { value: '=C4' } }));

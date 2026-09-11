@@ -4,8 +4,8 @@ import { dataValidationsEqual } from "../model/data-validation";
 import { formatsEqual } from "../model/formatting";
 import { mergesEqual } from "../model/merges";
 import type { SpreadsheetCell, SpreadsheetCellPosition, SpreadsheetImageResource, SpreadsheetSheet, SpreadsheetWorkbook } from "../model/types";
-import type { SpreadsheetSelectionRange } from "../props";
-import { clampPosition, MAX_SELECTION_RANGES, selectionForSheet } from "./selection";
+import type { SpreadsheetSelection, SpreadsheetSelectionRange } from "../props";
+import { clampPosition, MAX_SELECTION_RANGES, selectionForSheet, selectionRanges } from "./selection";
 
 export type SpreadsheetHistoryTarget = Readonly<{
   sheetId: string;
@@ -13,6 +13,15 @@ export type SpreadsheetHistoryTarget = Readonly<{
   ranges?: readonly SpreadsheetSelectionRange[];
   drawingId?: string;
 }>;
+
+/** Retain the user's complete selection, including blanks, direction and header provenance. */
+export function captureHistorySelection(selection: SpreadsheetSelection): SpreadsheetHistoryTarget {
+  return Object.freeze({ sheetId: selection.sheetId, focus: Object.freeze({ ...selection.focus }),
+    ranges: Object.freeze(selectionRanges(selection).map(range => Object.freeze({
+      anchor: Object.freeze({ ...range.anchor }), focus: Object.freeze({ ...range.focus }),
+      ...(range.kind ? { kind: range.kind } : {}),
+    }))) });
+}
 
 function sameCell(left: SpreadsheetCell | undefined, right: SpreadsheetCell | undefined): boolean {
   return left === right || ((left?.value ?? "") === (right?.value ?? "") &&
@@ -85,7 +94,7 @@ function drawingTarget(before: SpreadsheetWorkbook, next: SpreadsheetWorkbook, o
   return { sheetId: sheet.id, focus: selection.focus, ranges: selection.ranges };
 }
 
-/** Infer a navigation target from immutable history snapshots, without storing view metadata. */
+/** Fallback for external commands and drawing operations without a captured cell selection. */
 export function findHistoryTarget(before: SpreadsheetWorkbook, next: SpreadsheetWorkbook, preferredSheetId: string): SpreadsheetHistoryTarget | null {
   if (before === next || before.sheets.length !== next.sheets.length) return null;
   // Structural edits can rewrite thousands of coordinates/formulas as a side

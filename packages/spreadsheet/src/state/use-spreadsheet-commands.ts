@@ -9,6 +9,7 @@ import { resolveSpreadsheetFeatures } from "../api/resolve-features";
 import type { DraftSelection } from "./types";
 import type { useWorkbookDraft } from "./use-workbook-draft";
 import type { DraftOperationOptions } from "./use-workbook-draft";
+import type { SpreadsheetSelection } from "../props";
 
 type CommandSession = DraftSelection & {
   editingRef: RefObject<unknown>;
@@ -19,6 +20,8 @@ export type SpreadsheetGuiCommandOptions = Readonly<{
   isCurrent?: () => boolean;
   allowSaveStarting?: boolean;
   allowPendingCellEdit?: boolean;
+  /** The complete operation range to restore on Undo/Redo, before UI callbacks run. */
+  historySelection?: SpreadsheetSelection;
 }>;
 
 /** Shared command validation and one-transaction publication for GUI and imperative callers. */
@@ -46,6 +49,7 @@ export function useSpreadsheetCommands(draft: ReturnType<typeof useWorkbookDraft
       return staged.ok && staged.changed ? staged.workbook : workbook;
     }, { selectionRef, setSelection }, { source: external ? "api" : "ui", synchronous,
       ...(gui?.allowSaveStarting ? { allowSaveStarting: true } : {}),
+      ...(gui?.historySelection ? { historySelection: gui.historySelection } : {}),
       ...(sheetId ? { sheetId } : {}),
       action: captured.length === 1 ? captured[0]?.type : "batch", commands: captured.map(command => command?.type),
       ...(contextMenu ? { mutationOwner: contextMenu.mutationOwner } : {}),

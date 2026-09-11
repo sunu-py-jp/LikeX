@@ -113,9 +113,17 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
     const previous = selectionRef.current;
     const target = options?.historyTarget;
     const targetSheet = target && next.sheets.find(sheet => sheet.id === target.sheetId);
+    if (target && !targetSheet) {
+      clearDrawingSelection();
+      setSelection(initialSheetSelection(next.sheets[0]));
+      return;
+    }
     if (target && targetSheet && (features.sheets || targetSheet.id === previous.sheetId)) {
       const focus = clampPosition(target.focus, targetSheet);
-      setSelection(selectionForSheet(targetSheet, target.ranges ?? [{ anchor: focus, focus }], true, focus));
+      const ranges = (target.ranges ?? [{ anchor: focus, focus }]).map(range => ({ ...range,
+        anchor: clampPosition(range.anchor, targetSheet), focus: clampPosition(range.focus, targetSheet),
+      }));
+      setSelection(selectionForSheet(targetSheet, ranges, true, focus));
       const drawing = target.drawingId && targetSheet.drawings?.find(item => item.id === target.drawingId &&
         (item.type === "image" ? features.images : item.type === "shape" ? features.shapes : features.textBoxes));
       setDrawingSelection(drawing ? { sheetId: targetSheet.id, id: drawing.id } : null);

@@ -6,8 +6,9 @@ import { notifyHost, type MaybePromise } from "../core";
 import type { SpreadsheetCommandFailure } from "../api/types";
 import type { SpreadsheetChangeSource, SpreadsheetEditIntent, SpreadsheetEvent } from "../api/lifecycle";
 import { createWorkbookHistory, type WorkbookHistoryDirection } from "../history/workbook-history";
-import type { SpreadsheetProps } from "../props";
+import type { SpreadsheetProps, SpreadsheetSelection } from "../props";
 import { clampSelection } from "./selection";
+import { captureHistorySelection, type SpreadsheetHistoryTarget } from "./history-target";
 import type { DraftSelection, Workbook, WorkbookOperation } from "./types";
 import { useSpreadsheetEditSession } from "./use-spreadsheet-edit-session";
 import { useWorkbookPersistence } from "./use-workbook-persistence";
@@ -20,6 +21,8 @@ export type DraftOperationOptions = SpreadsheetEditIntent & {
   isCurrent?: () => boolean;
   /** Private capability used only when publishing a prepared context-menu result. */
   mutationOwner?: object;
+  /** An operation such as paste can provide its full transfer range before publication. */
+  historySelection?: SpreadsheetSelection;
 };
 export type DraftHistoryOptions = {
   source?: "ui" | "api";
@@ -52,7 +55,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   const reportError = useCallback((cause: unknown) => {
     if (lifetimeRef.current) setError(cause instanceof Error ? cause.message : "操作に失敗しました");
   }, []);
-  const [history] = useState(() => createWorkbookHistory());
+  const [history] = useState(() => createWorkbookHistory<SpreadsheetHistoryTarget>());
   const [historyStatus, setHistoryStatus] = useState(history.getState);
   const resetViewRef = useRef<((next: Workbook) => void) | null>(null);
   const readOnly = props.readOnly === true || !props.onSave;
@@ -117,8 +120,13 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     if (edit.isEndingEdit()) return { ok: false, code: "BUSY", message: "編集セッションを終了しています" };
     if (edit.getEditState().mode === "requesting") return { ok: false, code: "EDIT_PENDING", message: "編集の許可を確認しています" };
     const source = workbookRef.current;
+    let historyTarget: SpreadsheetHistoryTarget | undefined;
     try {
       transactionRef.current = true;
+      // Capture before permission callbacks or subsequent navigation can change the view.
+      // Object operations keep their existing changed-object/anchor fallback.
+      if (options.source !== "api" && !options.commands?.every(command => /^(images|shapes|textBoxes|drawings)\./.test(command)))
+        historyTarget = captureHistorySelection(options.historySelection ?? selection.selectionRef.current);
       const candidate = operation(source);
       if (candidate === source || workbooksEqual(source, candidate)) return { ok: true, changed: false };
       clampSelection(selection.selectionRef.current, candidate);
@@ -143,7 +151,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
         const next = operation(before);
         if (next === before || workbooksEqual(next, before)) return { ok: true, changed: false };
         const nextSelection = clampSelection(selection.selectionRef.current, next);
-        history.record(before, propsRef.current.features?.undoRedo !== false);
+        history.record(before, propsRef.current.features?.undoRedo !== false, historyTarget);
         setHistoryStatus(history.getState());
         selection.setSelection(nextSelection);
         publishChange(next, options.source ?? "ui", options.commands);
@@ -153,11 +161,12 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     };
     return typeof permission === "boolean" ? commit(permission) : permission.then(commit);
   }, [getMutationFailure, edit, publishChange, history]);
-  const changeHistory = (direction: WorkbookHistoryDirection, resetView: (workbook: Workbook, previous: Workbook) => void,
+  const changeHistory = (direction: WorkbookHistoryDirection, resetView: (workbook: Workbook, previous: Workbook, target?: SpreadsheetHistoryTarget) => void,
     options: DraftHistoryOptions = {}): MaybePromise<boolean> => {
     if (getMutationFailure() || propsRef.current.features?.undoRedo === false || (options.isCurrent && !options.isCurrent())) return false;
     const next = history.peek(direction);
     if (!next) return false;
+    const historyTarget = history.peekMetadata(direction);
     const before = workbookRef.current;
     const permission = edit.requestEdit({ action: direction === "past" ? "undo" : "redo", source: options.source ?? "ui" });
     const requestedId = edit.getEditState().requestId;
@@ -169,7 +178,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
       try {
         history.step(direction, before);
         setHistoryStatus(history.getState());
-        resetView(next, before);
+        resetView(next, before, historyTarget);
         publishChange(next, direction === "past" ? "undo" : "redo");
         return true;
       } finally { transactionRef.current = false; }

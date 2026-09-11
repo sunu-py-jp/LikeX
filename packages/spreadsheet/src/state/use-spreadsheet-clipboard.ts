@@ -81,11 +81,14 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
       const internal = matched?.cut && matched.workbook !== controller.getWorkbook() ? null : matched;
       const paste = prepareCellPaste(context, text, internal, mode);
       if (!paste) return;
+      const { top, left, bottom, right } = paste.destination;
+      const historySelection = createSelection(context.activeSheet.id, [{ anchor: { row: top, column: left },
+        focus: { row: bottom, column: right }, ...(paste.axis ? { kind: paste.axis } : {}) }], cellPasteFocus(paste.destination, context.selection.focus));
       void chainResult(controller.executeCommands(paste.commands, {
+        historySelection,
         isCurrent: () => isCurrent() && (!internal?.cut || (latest.current.features.cut && copied.current === internal)),
       }), accepted => {
         if (accepted.ok && mounted.current) {
-          const { top, left, bottom, right } = paste.destination;
           controller.selectRangeInSheet(context.activeSheet.id, { row: top, column: left }, { row: bottom, column: right },
             cellPasteFocus(paste.destination, context.selection.focus), paste.axis);
           if (internal?.cut) copied.current = null;

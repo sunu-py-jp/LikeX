@@ -14,7 +14,7 @@ import { useSpreadsheetExport } from "./use-spreadsheet-export";
 import { useSpreadsheetSelection } from "./use-spreadsheet-selection";
 import { useSpreadsheetCommands, type SpreadsheetGuiCommandOptions } from "./use-spreadsheet-commands";
 import { useWorkbookDraft } from "./use-workbook-draft";
-import { findHistoryTarget } from "./history-target";
+import { findHistoryTarget, type SpreadsheetHistoryTarget } from "./history-target";
 import { useSpreadsheetZoom } from "./use-spreadsheet-zoom";
 
 export { MAX_SELECTION_CELLS, MAX_SELECTION_RANGES, selectedAddresses, selectionBounds, selectionRanges, rangeBounds,
@@ -66,10 +66,10 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     cellEdit.cancelEdit();
     view.resetForWorkbook(workbook);
   };
-  const restoreHistoryView = (workbook: Workbook, previous: Workbook) => {
+  const restoreHistoryView = (workbook: Workbook, previous: Workbook, target?: SpreadsheetHistoryTarget) => {
     cellEdit.cancelEdit();
     view.resetForWorkbook(workbook, { preserveFocus: true,
-      historyTarget: findHistoryTarget(previous, workbook, view.selectionRef.current.sheetId) });
+      historyTarget: target ?? findHistoryTarget(previous, workbook, view.selectionRef.current.sheetId) });
   };
   const viewSession = { commitEdit: cellEdit.commitEdit,
     hasPendingEdits: () => !!cellEdit.editingRef.current || pending.pendingObjectEditRef.current, resetView: resetWorkbookView };
