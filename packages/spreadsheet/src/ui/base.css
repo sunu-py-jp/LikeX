@@ -68,7 +68,7 @@
 .lxs-cell-selected { background: var(--lxs-selection); }
 /* Inset paint remains visible above a cell's inline fill, beneath its text. */
 .lxs-cell-selected.lxs-cell-filled { box-shadow: inset 0 0 0 1px var(--lxs-accent), inset 0 0 0 9999px color-mix(in srgb, var(--lxs-foreground) 22%, transparent); }
-.lxs-cell-active { overflow: visible; z-index: 2; outline: 1px solid var(--lxs-accent); outline-offset: -1px; }
+.lxs-cell-active { overflow: visible; z-index: 2; }
 .lxs-selection-outline { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; fill: none; stroke: var(--lxs-accent); stroke-width: 2px; stroke-linecap: square; }
 .lxs-cell-error { color: var(--lxs-error); }
 .lxs-root .lxs-cell-input { display: block; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; outline: none; background: transparent; color: inherit; font: inherit; line-height: inherit; text-align: inherit; text-decoration: inherit; user-select: text; }

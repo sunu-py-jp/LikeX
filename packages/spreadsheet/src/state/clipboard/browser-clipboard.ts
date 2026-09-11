@@ -6,6 +6,15 @@ export const clipboardTokenFromHtml = (html: string) => /data-likex-spreadsheet=
 export const clipboardTextMatches = (copied: string, pasted: string) => copied === pasted || copied.replaceAll("\r\n", "\n") === pasted.replaceAll("\r\n", "\n");
 type BrowserClipboardValue = { text: string; token: string; kind?: "cells" | "drawing" };
 
+/** Keep browser permission errors actionable without disguising model validation errors. */
+export function browserClipboardError(cause: unknown, action: "copy" | "cut" | "paste"): unknown {
+  const name = cause && typeof cause === "object" && "name" in cause ? cause.name : undefined;
+  if (name !== "NotAllowedError" && name !== "SecurityError") return cause;
+  if (action === "paste") return new Error("ブラウザがクリップボードの読み取りを許可していないため、この貼り付け操作は実行できません。通常の貼り付けはCtrl+V（Macは⌘+V）を使用してください");
+  const key = action === "cut" ? "X" : "C", label = action === "cut" ? "切り取り" : "コピー";
+  return new Error(`ブラウザがクリップボードへの書き込みを許可していません。セルを選択してCtrl+${key}（Macは⌘+${key}）で${label}してください`);
+}
+
 export function isOtherTextControl(target: EventTarget | null) {
   const control = (target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
   return !!control && !control.classList.contains("lxs-cell-input");

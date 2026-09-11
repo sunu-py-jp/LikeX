@@ -104,6 +104,8 @@ test('virtual scrolling and zoom preserve the full logical outline while separat
   await ui.run(c => c.selectRange({ row: 0, column: 1 }, { row: 299, column: 2 }));
   const path = ui.path();
   assert.ok(path.includes('8428'));
+  assert.deepEqual(ui.root.findByProps({ className: 'lxs-fill-handle' }).props.style, { left: 344, top: 8424 }, 'autofill stays at the outer range corner');
+  assert.equal(ui.root.findAllByType('textarea').find(input => input.props.className === 'lxs-cell-input').props['aria-label'], 'C300の値');
   const initialRows = ui.root.findAllByProps({ role: 'row' }).length;
   await act(async () => ui.root.findByProps({ className: 'lxs-grid-scroll' }).props.onScroll({ currentTarget: { scrollTop: 4000, clientHeight: 300 } }));
   assert.equal(ui.path(), path);
@@ -114,6 +116,10 @@ test('virtual scrolling and zoom preserve the full logical outline while separat
   await ui.run(c => c.selectRange({ row: 0, column: 0 }, { row: 1, column: 1 }));
   await ui.run(c => c.selectRange({ row: 4, column: 4 }, { row: 5, column: 5 }, true));
   assert.equal(ui.path().split('M').length - 1, 8);
+  await ui.run(c => c.select({ row: 1, column: 1 }));
+  assert.equal(ui.path(), 'M148,56H248V56 M148,84H248V84 M148,56H148V84 M248,56H248V84', 'a single cell keeps its selection outline');
+  assert.equal(ui.root.findAllByType('textarea').find(input => input.props.className === 'lxs-cell-input').props['aria-label'], 'B2の値');
+  assert.deepEqual(ui.root.findByProps({ className: 'lxs-fill-handle' }).props.style, { left: 244, top: 80 });
 });
 
 test('selecting a drawing hides the cell outline and returning to a cell restores it', async t => {

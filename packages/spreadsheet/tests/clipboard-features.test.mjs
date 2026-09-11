@@ -42,6 +42,106 @@ async function mount(t, overrides = {}) {
 }
 const clipboardActions = events => events.filter(event => event.type === 'clipboard').map(event => event.action);
 
+function denyClipboardRead(t, name = 'NotAllowedError') {
+  let reads = 0;
+  const denied = async () => { reads++; throw Object.assign(new Error('Permission denied'), { name }); };
+  globalValue(t, 'navigator', { clipboard: { readText: denied, read: denied } });
+  return () => reads;
+}
+async function copySource(hook, cut = false) {
+  await hook.select(0, 1);
+  const copied = clipboardEvent();
+  await act(async () => hook.current.clipboard[cut ? 'onCut' : 'onCopy'](copied));
+  await hook.select(0, 0);
+  return copied;
+}
+
+test('formats paste uses the copied cell snapshot without OS read, keeps values and comments, and undoes once', async t => {
+  const reads = denyClipboardRead(t), events = [], hook = await mount(t, { onEvent: event => events.push(event) });
+  const before = hook.current.workbook;
+  await copySource(hook);
+  await act(async () => hook.current.clipboard.paste('formats'));
+  assert.equal(reads(), 0); assert.equal(hook.current.error, null);
+  assert.equal(hook.current.activeSheet.cells.A1.value, '2'); assert.equal(hook.current.activeSheet.cells.A1.format.bold, true);
+  assert.equal(hook.current.activeSheet.comments.A1, undefined); assert.equal(hook.current.activeSheet.comments.B1.id, 'comment-source');
+  assert.deepEqual(clipboardActions(events), ['copy', 'paste']);
+  await act(async () => hook.current.undo());
+  assert.equal(hook.current.workbook, before); assert.equal(hook.current.dirty, false); assert.equal(hook.current.canUndo, false);
+});
+
+test('formats paste without an internal cell copy gives copy instructions without reading OS data or requesting edit', async t => {
+  const reads = denyClipboardRead(t); let requests = 0;
+  const hook = await mount(t, { onEditRequest: () => { requests++; return true; } }), before = hook.current.workbook;
+  await act(async () => hook.current.clipboard.paste('formats'));
+  assert.equal(reads(), 0); assert.equal(requests, 0); assert.equal(hook.current.workbook, before);
+  assert.match(hook.current.error, /コピー/); assert.match(hook.current.error, /Ctrl|⌘|ショートカット/);
+});
+
+test('formats paste rejects a cut snapshot and leaves that cut available for ordinary paste', async t => {
+  const reads = denyClipboardRead(t), hook = await mount(t), before = hook.current.workbook;
+  const copied = await copySource(hook, true);
+  await act(async () => hook.current.clipboard.paste('formats'));
+  assert.equal(reads(), 0); assert.equal(hook.current.workbook, before);
+  assert.match(hook.current.error, /通常/);
+  await act(async () => hook.current.clipboard.onPaste(copied));
+  assert.equal(hook.current.activeSheet.cells.A1.value, 'source'); assert.equal(hook.current.activeSheet.cells.B1, undefined);
+});
+
+test('formats paste rejects a copied drawing without OS reads or cell changes', async t => {
+  const reads = denyClipboardRead(t), initial = workbook();
+  initial.sheets[0].drawings = [{ id: 'shape', type: 'shape', shape: 'ellipse', anchor: { row: 1, column: 1, offsetX: 0, offsetY: 0 },
+    width: 100, height: 70, fill: '#ffffff', stroke: '#217346', strokeWidth: 2, text: 'shape' }];
+  const hook = await mount(t, { initialWorkbook: initial }), before = hook.current.workbook;
+  await act(async () => hook.current.selectDrawing('shape'));
+  await act(async () => hook.current.clipboard.onCopy(clipboardEvent()));
+  await hook.select(0, 0);
+  await act(async () => hook.current.clipboard.paste('formats'));
+  assert.equal(reads(), 0); assert.equal(hook.current.workbook, before); assert.match(hook.current.error, /通常/);
+});
+
+for (const change of ['copy', 'formatting-cycle', 'multi-range', 'readOnly']) test(`pending formats paste is cancelled after ${change}`, async t => {
+  const reads = denyClipboardRead(t), permission = deferred(), events = [];
+  let requests = 0;
+  const hook = await mount(t, { onEditRequest: () => { requests++; return permission.promise; }, onEvent: event => events.push(event) });
+  const before = hook.current.workbook;
+  await copySource(hook);
+  await act(async () => hook.current.clipboard.paste('formats'));
+  assert.equal(requests, 1); assert.equal(hook.current.workbook, before);
+  if (change === 'copy') await act(async () => hook.current.clipboard.onCopy(clipboardEvent()));
+  else if (change === 'formatting-cycle') { await hook.update({ features: { formatting: false } }); await hook.update({ features: {} }); }
+  else if (change === 'multi-range') await act(async () => hook.current.select({ row: 2, column: 2 }, false, true));
+  else await hook.update({ readOnly: true });
+  await act(async () => permission.resolve(true));
+  assert.equal(reads(), 0); assert.equal(hook.current.workbook, before); assert.equal(hook.current.canUndo, false);
+  assert.equal(clipboardActions(events).includes('paste'), false);
+});
+
+for (const mode of ['all', 'values', 'formulas']) for (const name of ['NotAllowedError', 'SecurityError'])
+  test(`${mode} paste rejected with ${name} never applies the old internal snapshot`, async t => {
+    const reads = denyClipboardRead(t, name), hook = await mount(t), before = hook.current.workbook;
+    await copySource(hook);
+    await act(async () => hook.current.clipboard.paste(mode));
+    assert.equal(reads(), 1); assert.equal(hook.current.workbook, before); assert.equal(hook.current.canUndo, false);
+    assert.match(hook.current.error, /貼り付け/); assert.match(hook.current.error, /Ctrl\+V/);
+    assert.doesNotMatch(hook.current.error, /Permission denied/);
+    if (mode !== 'all') assert.match(hook.current.error, /通常の貼り付け/);
+  });
+
+for (const feature of ['clipboard', 'paste', 'pasteSpecial', 'formatting']) test(`${feature} off prevents local formats paste without OS read`, async t => {
+  const reads = denyClipboardRead(t), hook = await mount(t), before = hook.current.workbook;
+  await copySource(hook);
+  await hook.update({ features: { [feature]: false } });
+  await act(async () => hook.current.clipboard.paste('formats'));
+  assert.equal(reads(), 0); assert.equal(hook.current.workbook, before); assert.equal(hook.current.canUndo, false);
+});
+
+test('readonly mode permits copy but cannot apply its stored formatting', async t => {
+  const reads = denyClipboardRead(t), hook = await mount(t, { readOnly: true }), before = hook.current.workbook;
+  await copySource(hook);
+  await act(async () => hook.current.clipboard.paste('formats'));
+  assert.equal(reads(), 0); assert.equal(hook.current.workbook, before); assert.equal(hook.current.canUndo, false);
+});
+
 test('copy off still permits native cut and applies an authorized paste as one undoable change', async t => {
   const permission = deferred(), events = [], changes = [];
   let requests = 0;

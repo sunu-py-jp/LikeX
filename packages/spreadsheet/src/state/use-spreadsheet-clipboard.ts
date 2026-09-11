@@ -5,7 +5,7 @@ import type { SpreadsheetController } from "./use-spreadsheet";
 import { chainResult } from "../core";
 import { createSelection, isMultiRangeSelection, selectionRanges } from "./selection";
 import { assertSingleClipboardRange, captureCopiedCells, cellPasteFocus, prepareCellPaste, type CopiedCells } from "./clipboard/cell-transfer";
-import { CLIPBOARD_MIME_TYPE, clipboardTextMatches, clipboardTokenFromHtml, isOtherTextControl, readBrowserClipboard, spreadsheetClipboardHtml, writeBrowserClipboard } from "./clipboard/browser-clipboard";
+import { CLIPBOARD_MIME_TYPE, browserClipboardError, clipboardTextMatches, clipboardTokenFromHtml, isOtherTextControl, readBrowserClipboard, spreadsheetClipboardHtml, writeBrowserClipboard } from "./clipboard/browser-clipboard";
 import { captureCopiedDrawing, prepareDrawingPaste, type CopiedDrawing } from "./clipboard/drawing-transfer";
 import type { SpreadsheetSelection } from "../props";
 import type { SpreadsheetPasteMode } from "../api/editing-commands";
@@ -31,7 +31,7 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
     if (copied.current?.kind === "cells" && copied.current.cut && (!controller.features.cut || !controller.features.paste || controller.readOnly)) {
       copied.current = null;
     }
-  }, [controller.features.copy, controller.features.cut, controller.features.paste, controller.features.pasteSpecial, controller.features.images, controller.features.shapes, controller.features.textBoxes, controller.readOnly]);
+  }, [controller.features.copy, controller.features.cut, controller.features.paste, controller.features.pasteSpecial, controller.features.formatting, controller.features.images, controller.features.shapes, controller.features.textBoxes, controller.readOnly]);
   const emitClipboard = (action: "copy" | "cut" | "paste", drawingId?: string, selection = controller.selection) => controller.emitEvent({
     type: "clipboard", action, sheetId: selection.sheetId, ...(drawingId ? { drawingId } : {}),
     selection: createSelection(selection.sheetId, selectionRanges(selection), selection.focus),
@@ -63,7 +63,8 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
       const request = requestId.current;
       const isCurrent = () => mounted.current && request === requestId.current && latest.current.features.paste &&
         (mode === "all" || latest.current.features.pasteSpecial) && latest.current.selection === controller.selection &&
-        latest.current.selectedDrawingId === controller.selectedDrawingId && !latest.current.editing && !latest.current.pendingObjectEdit;
+        latest.current.selectedDrawingId === controller.selectedDrawingId && !latest.current.editing && !latest.current.pendingObjectEdit &&
+        (mode !== "formats" || copied.current === matched);
       if (matched?.kind === "drawing") {
         if (mode !== "all") throw new Error("図形には通常の貼り付けを使用してください");
         const command = prepareDrawingPaste(context, matched, selection);
@@ -126,20 +127,30 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
           if (cut || value.kind === "drawing") latest.current.reportError(new Error("このブラウザでは文字だけをコピーしました。図形のコピー・切り取りにはキーボードショートカットを使用してください"));
         }
       }
-    } catch (cause) { if (mounted.current && request === requestId.current) latest.current.reportError(cause); }
+    } catch (cause) { if (mounted.current && request === requestId.current) latest.current.reportError(browserClipboardError(cause, cut ? "cut" : "copy")); }
   };
   const paste = async (mode: SpreadsheetPasteMode = "all", selection?: SpreadsheetSelection) => {
-    if (controller.disabled || !controller.features.paste || (mode !== "all" && !controller.features.pasteSpecial) || controller.pendingObjectEdit) return;
+    if (controller.editing || controller.disabled || !controller.features.paste || (mode !== "all" && !controller.features.pasteSpecial) || controller.pendingObjectEdit) return;
     const request = ++requestId.current;
     try {
       if (copied.current?.kind !== "drawing" && !(selection ? false : controller.selectedDrawingId)) requireSingleRange(selection ?? controller.selection);
+      if (mode === "formats") {
+        // Formatting exists in our copied snapshot, not in the OS text/HTML payload.
+        // This explicit local operation must not depend on clipboard-read permission.
+        const source = copied.current;
+        if (!source) throw new Error("先にこのスプレッドシート内のセルを選択し、Ctrl+C（Macは⌘+C）でコピーしてください");
+        if (source.kind === "drawing") throw new Error("図形には通常の貼り付けを使用してください");
+        if (source.cut) throw new Error("切り取りした範囲には通常の貼り付けを使用してください");
+        latestPaste.current(source.text, source.token, mode, selection);
+        return;
+      }
       const { text, token, hasText } = await readBrowserClipboard();
       const current = latest.current;
       if (!mounted.current || request !== requestId.current || !hasText || current.editing || current.disabled || !current.features.paste || (mode !== "all" && !current.features.pasteSpecial) || current.pendingObjectEdit) return;
       if (copied.current?.kind !== "drawing" && !(selection ? false : current.selectedDrawingId)) requireSingleRange(selection ?? current.selection);
       if (current.workbook !== controller.workbook || current.selection !== controller.selection || current.selectedDrawingId !== controller.selectedDrawingId) return;
       latestPaste.current(text, token, mode, selection);
-    } catch (cause) { if (mounted.current && request === requestId.current) latest.current.reportError(cause); }
+    } catch (cause) { if (mounted.current && request === requestId.current) latest.current.reportError(browserClipboardError(cause, "paste")); }
   };
   useLayoutEffect(() => { latestPaste.current = pasteText; });
   return { copy, paste, onCopy, onCut: (event: ClipboardEvent) => onCopy(event, true), onPaste: (event: ClipboardEvent) => {
