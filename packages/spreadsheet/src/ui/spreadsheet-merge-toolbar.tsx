@@ -43,7 +43,7 @@ export function SpreadsheetMergeToolbar({ controller: c }: { controller: Spreads
   };
   if (!c.features.mergeCells || c.readOnly) return null;
   return <>
-    <div className="lxs-tool-group">
+    <div className="lxs-ribbon-row">
       <Command label="セルを結合" title={hint} disabled={mergeDisabled} onClick={requestMerge}><Icon name="merge" /></Command>
       <Command label="結合を解除" title={multiple ? hint : undefined} disabled={disabled || !intersects} onClick={() => {
         if (!c.features.mergeCells || disabled || !intersects) return;

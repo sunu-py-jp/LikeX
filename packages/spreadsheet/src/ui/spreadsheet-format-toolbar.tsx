@@ -9,7 +9,9 @@ import { rangeBounds, selectedAddresses, selectionRanges } from "../state/select
 import { autoFitCommand } from "../state/sizing/auto-fit-command";
 import type { SpreadsheetSelection } from "../props";
 import { SpreadsheetDialog } from "./spreadsheet-dialog";
-import { Command } from "./spreadsheet-controls";
+import { Command, Icon } from "./spreadsheet-controls";
+import { SpreadsheetMergeToolbar } from "./spreadsheet-merge-toolbar";
+import { RibbonGroup } from "./spreadsheet-ribbon-group";
 
 export function SpreadsheetFormatToolbar({ controller: c }: { controller: SpreadsheetController }) {
   const [dialog, setDialog] = useState<"format" | "conditional" | null>(null);
@@ -21,6 +23,64 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
     try { const addresses = selectedAddresses(c.selection); c.afterCommit(() => c.afterCommand({ type: "cells.format", sheetId: c.activeSheet.id, addresses, format })); }
     catch (cause) { c.reportError(cause); }
   };
+  if (c.readOnly) return null;
+  return <>
+    {c.features.formatting && <RibbonGroup label="フォント">
+      <div className="lxs-ribbon-stack">
+        <div className="lxs-ribbon-row">
+          <select className="lxs-select lxs-format-font" aria-label="フォント" title="フォント" disabled={disabled} value={format?.fontFamily ?? ""} onChange={event => patch({ fontFamily: event.currentTarget.value })}>
+            <option value="" disabled>標準フォント</option>{["Arial", "Calibri", "Yu Gothic", "Meiryo", "Noto Sans JP", "Times New Roman", "Courier New"].map(font => <option key={font}>{font}</option>)}
+            {format?.fontFamily && !["Arial", "Calibri", "Yu Gothic", "Meiryo", "Noto Sans JP", "Times New Roman", "Courier New"].includes(format.fontFamily) && <option>{format.fontFamily}</option>}
+          </select>
+          <select className="lxs-select lxs-format-size" aria-label="フォントサイズ（px）" title="フォントサイズ（px）" disabled={disabled} value={format?.fontSize ?? 13} onChange={event => patch({ fontSize: Number(event.currentTarget.value) })}>
+            {[...new Set([10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 48, 72, format?.fontSize ?? 13])].sort((a, b) => a - b).map(size => <option key={size}>{size}</option>)}
+          </select>
+        </div>
+        <div className="lxs-ribbon-row">
+          <Command label="太字" aria-pressed={!!format?.bold} disabled={disabled} onClick={() => patch({ bold: !format?.bold })}><strong>B</strong></Command>
+          <Command label="斜体" aria-pressed={!!format?.italic} disabled={disabled} onClick={() => patch({ italic: !format?.italic })}><i>I</i></Command>
+          <Command label="下線" aria-pressed={!!format?.underline} disabled={disabled} onClick={() => patch({ underline: !format?.underline })}><u>U</u></Command>
+          <label className="lxs-color-control" title="文字色"><Icon name="fontColor" /><input aria-label="文字色" type="color" disabled={disabled} value={/^#[\da-f]{6}$/i.test(format?.color ?? "") ? format!.color : "#202124"} onChange={event => patch({ color: event.currentTarget.value })} /></label>
+          <label className="lxs-color-control" title="背景色"><Icon name="fillColor" /><input aria-label="背景色" type="color" disabled={disabled} value={/^#[\da-f]{6}$/i.test(format?.background ?? "") ? format!.background : "#ffffff"} onChange={event => patch({ background: event.currentTarget.value })} /></label>
+        </div>
+      </div>
+    </RibbonGroup>}
+    {(c.features.formatting || c.features.mergeCells) && <RibbonGroup label="配置">
+      <div className="lxs-ribbon-columns">
+        {c.features.formatting && <div className="lxs-ribbon-stack">
+          <div className="lxs-ribbon-row" role="group" aria-label="縦方向の配置">
+            <Command label="上揃え" aria-pressed={(format?.verticalAlign ?? "middle") === "top"} disabled={disabled} onClick={() => patch({ verticalAlign: "top" })}><Icon name="alignTop" /></Command>
+            <Command label="上下中央" aria-pressed={(format?.verticalAlign ?? "middle") === "middle"} disabled={disabled} onClick={() => patch({ verticalAlign: "middle" })}><Icon name="alignMiddle" /></Command>
+            <Command label="下揃え" aria-pressed={(format?.verticalAlign ?? "middle") === "bottom"} disabled={disabled} onClick={() => patch({ verticalAlign: "bottom" })}><Icon name="alignBottom" /></Command>
+          </div>
+          <div className="lxs-ribbon-row" role="group" aria-label="文字の配置">
+            <Command label="左揃え" aria-pressed={(format?.align ?? "left") === "left"} disabled={disabled} onClick={() => patch({ align: "left" })}><Icon name="alignLeft" /></Command>
+            <Command label="中央揃え" aria-pressed={(format?.align ?? "left") === "center"} disabled={disabled} onClick={() => patch({ align: "center" })}><Icon name="alignCenter" /></Command>
+            <Command label="右揃え" aria-pressed={(format?.align ?? "left") === "right"} disabled={disabled} onClick={() => patch({ align: "right" })}><Icon name="alignRight" /></Command>
+          </div>
+        </div>}
+        <div className="lxs-ribbon-stack">
+          {c.features.formatting && <Command className="lxs-ribbon-command-label" label="折り返して全体を表示" disabled={disabled} aria-pressed={!!format?.wrap} onClick={() => patch({ wrap: !format?.wrap })}><Icon name="wrap" /><span>折り返し</span></Command>}
+          <SpreadsheetMergeToolbar controller={c} />
+        </div>
+      </div>
+    </RibbonGroup>}
+    {c.features.formatting && <RibbonGroup label="表示形式">
+      <div className="lxs-ribbon-stack">
+        <select className="lxs-select" aria-label="数値の表示形式" title="数値の表示形式" value={format?.numberFormat ?? "general"} disabled={disabled} onChange={event => patch({ numberFormat: event.currentTarget.value as SpreadsheetCellFormat["numberFormat"] })}>{[["general", "標準"], ["number", "数値"], ["currency", "通貨"], ["percent", "パーセント"], ["date", "日付"], ["time", "時刻"], ["datetime", "日時"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+        <Command className="lxs-ribbon-command-label" label="罫線と数値の書式" disabled={disabled} onClick={() => c.afterCommit(() => setDialog("format"))}><Icon name="borders" /><span>書式…</span></Command>
+      </div>
+    </RibbonGroup>}
+    {c.features.formatting && c.features.conditionalFormatting && <RibbonGroup label="スタイル">
+      <Command className="lxs-ribbon-command-large" label="条件付き書式" disabled={disabled} onClick={() => c.afterCommit(() => setDialog("conditional"))}><Icon name="conditionalFormat" /><span>条件付き書式</span></Command>
+    </RibbonGroup>}
+    {dialog === "format" && c.features.formatting && <CellFormatDialog controller={c} onClose={closeDialog} />}
+    {dialog === "conditional" && c.features.formatting && c.features.conditionalFormatting && <ConditionalFormatDialog controller={c} onClose={closeDialog} />}
+  </>;
+}
+
+export function SpreadsheetAutoFitControl({ controller: c }: { controller: SpreadsheetController }) {
+  const disabled = c.disabled || c.requesting || !!c.selectedDrawingId;
   const fit = (axis: "row" | "column", ownerDocument: Document) => {
     if (disabled) return;
     c.afterCommit(() => {
@@ -30,37 +90,12 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
       c.afterCommand(autoFitCommand(workbook, c.activeSheet.id, axis, indices, ownerDocument, workbook === c.workbook ? c.calculated[c.activeSheet.id] : undefined));
     });
   };
-  if (c.readOnly) return null;
-  return <>
-    {c.features.formatting && <div className="lxs-tool-group lxs-format-controls">
-      <Command label="太字" aria-pressed={!!format?.bold} disabled={disabled} onClick={() => patch({ bold: !format?.bold })}><strong>B</strong></Command>
-      <Command label="斜体" aria-pressed={!!format?.italic} disabled={disabled} onClick={() => patch({ italic: !format?.italic })}><i>I</i></Command>
-      <Command label="下線" aria-pressed={!!format?.underline} disabled={disabled} onClick={() => patch({ underline: !format?.underline })}><u>U</u></Command>
-      <label className="lxs-color-control" title="文字色"><span aria-hidden="true">A</span><input aria-label="文字色" type="color" disabled={disabled} value={/^#[\da-f]{6}$/i.test(format?.color ?? "") ? format!.color : "#202124"} onChange={event => patch({ color: event.currentTarget.value })} /></label>
-      <label className="lxs-color-control" title="背景色"><span aria-hidden="true">▧</span><input aria-label="背景色" type="color" disabled={disabled} value={/^#[\da-f]{6}$/i.test(format?.background ?? "") ? format!.background : "#ffffff"} onChange={event => patch({ background: event.currentTarget.value })} /></label>
-      <select className="lxs-select" aria-label="文字の配置" value={format?.align ?? "left"} disabled={disabled} onChange={event => patch({ align: event.currentTarget.value as "left" | "center" | "right" })}><option value="left">左揃え</option><option value="center">中央揃え</option><option value="right">右揃え</option></select>
-      <select className="lxs-select" aria-label="数値の表示形式" value={format?.numberFormat ?? "general"} disabled={disabled} onChange={event => patch({ numberFormat: event.currentTarget.value as SpreadsheetCellFormat["numberFormat"] })}>{[["general", "標準"], ["number", "数値"], ["currency", "通貨"], ["percent", "パーセント"], ["date", "日付"], ["time", "時刻"], ["datetime", "日時"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-      <select className="lxs-select" aria-label="フォント" disabled={disabled} value={format?.fontFamily ?? ""} onChange={event => patch({ fontFamily: event.currentTarget.value })}>
-        <option value="" disabled>標準フォント</option>{["Arial", "Calibri", "Yu Gothic", "Meiryo", "Noto Sans JP", "Times New Roman", "Courier New"].map(font => <option key={font}>{font}</option>)}
-        {format?.fontFamily && !["Arial", "Calibri", "Yu Gothic", "Meiryo", "Noto Sans JP", "Times New Roman", "Courier New"].includes(format.fontFamily) && <option>{format.fontFamily}</option>}
-      </select>
-      <select className="lxs-select lxs-format-size" aria-label="フォントサイズ（px）" disabled={disabled} value={format?.fontSize ?? 13} onChange={event => patch({ fontSize: Number(event.currentTarget.value) })}>
-        {[...new Set([10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 48, 72, format?.fontSize ?? 13])].sort((a, b) => a - b).map(size => <option key={size}>{size}</option>)}
-      </select>
-      <Command label="折り返して全体を表示" disabled={disabled} aria-pressed={!!format?.wrap} onClick={() => patch({ wrap: !format?.wrap })}>折返し</Command>
-      <select className="lxs-select" aria-label="縦方向の配置" disabled={disabled} value={format?.verticalAlign ?? "middle"} onChange={event => patch({ verticalAlign: event.currentTarget.value as "top" | "middle" | "bottom" })}>
-        <option value="top">上揃え</option><option value="middle">上下中央</option><option value="bottom">下揃え</option>
-      </select>
-      <Command label="罫線と数値の書式" disabled={disabled} onClick={() => c.afterCommit(() => setDialog("format"))}>書式…</Command>
-      {c.features.conditionalFormatting && <Command label="条件付き書式" disabled={disabled} onClick={() => c.afterCommit(() => setDialog("conditional"))}>条件付き書式…</Command>}
-    </div>}
-    {c.features.resize && <div className="lxs-tool-group"><select className="lxs-select" aria-label="行列サイズの自動調整" disabled={disabled} value="" onChange={event => { const value = event.currentTarget.value, doc = event.currentTarget.ownerDocument; if (value) fit(value as "row" | "column", doc); }}>
-      <option value="" disabled>サイズ調整</option><option value="row">行の高さを自動調整</option><option value="column">列の幅を自動調整</option>
-    </select></div>}
-    {dialog === "format" && c.features.formatting && <CellFormatDialog controller={c} onClose={closeDialog} />}
-    {dialog === "conditional" && c.features.formatting && c.features.conditionalFormatting && <ConditionalFormatDialog controller={c} onClose={closeDialog} />}
-  </>;
+  if (c.readOnly || !c.features.resize) return null;
+  return <select className="lxs-select" aria-label="行列サイズの自動調整" title="行列サイズの自動調整" disabled={disabled} value="" onChange={event => { const value = event.currentTarget.value, doc = event.currentTarget.ownerDocument; if (value) fit(value as "row" | "column", doc); }}>
+    <option value="" disabled>サイズ調整</option><option value="row">行の高さを自動調整</option><option value="column">列の幅を自動調整</option>
+  </select>;
 }
+
 export function CellFormatDialog({ controller: c, onClose, target }: { controller: SpreadsheetController; onClose: () => void;
   target?: {sheetId: string; selection: SpreadsheetSelection} }) {
   const [snapshot] = useState(() => ({ workbook: c.getWorkbook(), sheetId: target?.sheetId ?? c.activeSheet.id, selection: target?.selection ?? c.selection }));

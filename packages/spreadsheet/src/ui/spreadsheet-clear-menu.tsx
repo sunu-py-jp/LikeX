@@ -7,7 +7,7 @@ import type { SpreadsheetController } from "../state/use-spreadsheet";
 export function SpreadsheetClearMenu({ controller: c }: { controller: SpreadsheetController }) {
   if (c.readOnly) return null;
   const disabled = c.disabled || c.requesting || c.pendingObjectEdit || !!c.selectedDrawingId;
-  return <div className="lxs-tool-group"><select aria-label="セルをクリア" className="lxs-select" disabled={disabled} value="" onChange={event => {
+  return <div className="lxs-ribbon-row"><select aria-label="セルをクリア" className="lxs-select" disabled={disabled} value="" onChange={event => {
     if (disabled) return;
     const mode = event.target.value;
     if (mode !== "values" && mode !== "all") return;

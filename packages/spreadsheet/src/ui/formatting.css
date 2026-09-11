@@ -8,7 +8,6 @@
 .lxs-root .lxs-row-header { position: sticky; }
 .lxs-root .lxs-row-resize { position: absolute; height: 7px; bottom: -3px; left: 0; right: 0; z-index: 5; cursor: row-resize; touch-action: none; }
 .lxs-root .lxs-row-resize:focus-visible { outline: 2px solid var(--lxs-accent); outline-offset: -2px; }
-.lxs-root .lxs-format-controls { display: flex; gap: 5px; align-items: center; }
 .lxs-root .lxs-format-size { width: 58px; }
 .lxs-root .lxs-format-dialog-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .lxs-root .lxs-format-dialog-fields label { display: flex; gap: 5px; flex-direction: column; min-width: 0; }

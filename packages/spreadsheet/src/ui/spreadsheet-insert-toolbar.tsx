@@ -7,6 +7,7 @@ import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { readImageResource } from "../state/read-image";
 import { Command, Icon } from "./spreadsheet-controls";
 import { SpreadsheetTableTools } from "./spreadsheet-table-tools";
+import { RibbonGroup } from "./spreadsheet-ribbon-group";
 
 type ImageRequest = { abort: AbortController; workbook: SpreadsheetController["workbook"]; selection: SpreadsheetController["selection"]; sheetId: string };
 function acceptsImage(c: SpreadsheetController, request: ImageRequest) {
@@ -68,30 +69,33 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
   };
   return <div className="lxs-ribbon" role="toolbar" aria-label="シートへの挿入">
     <SpreadsheetTableTools controller={c} />
-    {!c.readOnly && c.features.images && <div className="lxs-tool-group">
+    {!c.readOnly && (c.features.images || c.features.shapes || c.features.textBoxes) && <RibbonGroup label="図"><div className="lxs-ribbon-columns">
+    {c.features.images && <>
       <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden aria-label="挿入する画像ファイル" disabled={c.disabled || c.requesting || loading} onChange={event => {
         const file = event.target.files?.[0]; event.target.value = "";
         if (file) void upload(file);
       }} />
-      <Command label="画像を挿入" className="lxs-insert-command" disabled={c.disabled || c.requesting || loading} onClick={() => {
+      <Command label="画像を挿入" className="lxs-ribbon-command-large" disabled={c.disabled || c.requesting || loading} onClick={() => {
         if (!latest.current.disabled && latest.current.features.images) latest.current.afterCommit(() => input.current?.click());
       }}><Icon name="image" /><span>画像</span></Command>
-    </div>}
-    {!c.readOnly && c.features.shapes && <div className="lxs-tool-group">
+    </>}
+    {(c.features.shapes || c.features.textBoxes) && <div className="lxs-ribbon-stack">
+    {c.features.shapes && <div className="lxs-ribbon-row">
+      <Icon name="shape" />
       <select className="lxs-select lxs-insert-select" aria-label="図形を挿入" value="" disabled={c.disabled || c.requesting} onChange={event => {
         const value = event.target.value;
         if (value === "rectangle" || value === "ellipse" || value === "line" || value === "arrow") shape(value);
       }}><option value="" disabled>図形</option><option value="rectangle">長方形</option><option value="ellipse">楕円</option><option value="line">直線</option><option value="arrow">矢印</option></select>
     </div>}
-    {!c.readOnly && c.features.textBoxes && <div className="lxs-tool-group">
-      <Command label="テキストボックスを挿入" className="lxs-insert-command" disabled={c.disabled || c.requesting} onClick={() => insert({ type: "textBoxes.insert", sheetId: latest.current.activeSheet.id, anchor: anchor() }, "textBoxes")}><Icon name="text" /><span>テキストボックス</span></Command>
+    {c.features.textBoxes && <Command label="テキストボックスを挿入" className="lxs-ribbon-command-label" disabled={c.disabled || c.requesting} onClick={() => insert({ type: "textBoxes.insert", sheetId: latest.current.activeSheet.id, anchor: anchor() }, "textBoxes")}><Icon name="text" /><span>テキストボックス</span></Command>}
     </div>}
-    {!c.readOnly && c.features.comments && <div className="lxs-tool-group">
-      <Command label="コメントを挿入" className="lxs-insert-command" disabled={c.disabled || c.requesting} onClick={() => {
+    </div></RibbonGroup>}
+    {!c.readOnly && c.features.comments && <RibbonGroup label="コメント">
+      <Command label="コメントを挿入" className="lxs-ribbon-command-large" disabled={c.disabled || c.requesting} onClick={() => {
         const live = latest.current;
         if (!live.disabled && live.features.comments) live.afterCommit(() => { latest.current.selectDrawing(null); latest.current.setCommentOpen(true); });
       }}><Icon name="comment" /><span>コメント</span></Command>
-    </div>}
+    </RibbonGroup>}
     {loading && <span className="lxs-ribbon-hint" role="status">画像を読み込み中…</span>}
   </div>;
 }

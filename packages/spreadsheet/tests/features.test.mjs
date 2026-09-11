@@ -135,7 +135,7 @@ test('all disabled feature controls disappear without removing pre-existing data
   const features = Object.fromEntries(Object.keys(resolveSpreadsheetFeatures()).map(key => [key, false]));
   const view = await mount(t, { features });
   const controls = labels(view.root);
-  for (const label of ['コピー', '切り取り', '貼り付け', '元に戻す', 'やり直す', '関数を挿入', '文字色', '背景色', '文字の配置',
+  for (const label of ['コピー', '切り取り', '貼り付け', '元に戻す', 'やり直す', '関数を挿入', '文字色', '背景色', '左揃え', '中央揃え', '右揃え', '上揃え', '上下中央', '下揃え',
     'セルを結合', '結合を解除', '行と列の操作', '画像を挿入', '図形を挿入', 'テキストボックスを挿入', 'コメントを挿入', 'ワークシート', 'セルの値・数式'])
     assert.equal(controls.includes(label), false, label);
   assert.equal(view.root.findAllByProps({ role: 'separator' }).length, 0);

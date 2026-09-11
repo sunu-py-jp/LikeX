@@ -65,7 +65,8 @@ test('home and insert switch with one shared save action, and shapes anchor at t
   assert.equal(drawing.shape, 'ellipse');
   assert.deepEqual(drawing.anchor, { row: 3, column: 2, offsetX: 0, offsetY: 0 });
   assert.equal(hook.current.selectedDrawingId, drawing.id);
-  assert.equal(hook.root.findByProps({ 'aria-label': '文字の配置' }).props.disabled, true);
+  for (const label of ['左揃え', '中央揃え', '右揃え', '上揃え', '上下中央', '下揃え'])
+    assert.equal(hook.root.findByProps({ 'aria-label': label }).props.disabled, true);
   assert.equal(hook.root.findByProps({ 'aria-label': '行と列の操作' }).props.disabled, true);
 });
 
@@ -161,13 +162,13 @@ function textButton(root, text) {
 test('named range dialog calls commands and definition-only deletion preserves cells', async t => {
   const hook = await mount(t);
   await act(async () => hook.current.writeValues({A1:'value'}));
-  await act(async () => hook.root.findByProps({'aria-label':'名前付き範囲'}).props.onClick());
+  await act(async () => hook.root.findAllByType('button').find(button => button.props['aria-label'] === '名前付き範囲').props.onClick());
   await act(async () => hook.root.findByProps({placeholder:'売上明細'}).props.onChange({target:{value:'DataRange'}}));
   await act(async () => hook.root.findByProps({placeholder:'A1:C10'}).props.onChange({target:{value:'A1:B2'}}));
   await act(async () => textButton(hook.root,'追加').props.onClick());
   const definition = hook.current.workbook.namedRanges[0];
   assert.equal(definition.name,'DataRange'); assert.deepEqual(definition.range,{top:0,left:0,bottom:1,right:1});
-  await act(async () => hook.root.findByProps({'aria-label':'名前付き範囲'}).props.onClick());
+  await act(async () => hook.root.findAllByType('button').find(button => button.props['aria-label'] === '名前付き範囲').props.onClick());
   const selector = hook.root.findAllByType('select').find(select => select.findAllByType('option').some(option => option.props.value===definition.id));
   await act(async () => selector.props.onChange({target:{value:definition.id}}));
   await act(async () => textButton(hook.root,'削除').props.onClick());
@@ -189,7 +190,7 @@ test('table dialog creates metadata from selected cells and bordered action uses
 });
 test('named range dialog rejects a target captured before a newer edit', async t => {
   const hook = await mount(t);
-  await act(async () => hook.root.findByProps({'aria-label':'名前付き範囲'}).props.onClick());
+  await act(async () => hook.root.findAllByType('button').find(button => button.props['aria-label'] === '名前付き範囲').props.onClick());
   await act(async () => hook.root.findByProps({placeholder:'売上明細'}).props.onChange({target:{value:'StaleRange'}}));
   await act(async () => hook.current.writeValues({A1:'newer'}));
   await act(async () => textButton(hook.root,'追加').props.onClick());
@@ -201,4 +202,69 @@ test('range/table feature switches hide only the corresponding new controls', as
   assert.equal(hook.root.findAllByProps({'aria-label':'名前付き範囲'}).length,0);
   assert.equal(hook.root.findAllByProps({'aria-label':'テーブルを挿入'}).length,0);
   assert.equal(hook.root.findAllByProps({'aria-label':'セルをクリア'}).length,1);
+});
+
+const ribbonGroups = root => root.findAll(node => node.type === 'section' && node.props.role === 'group');
+test('ribbon groups keep related actions together with visible labels on every tab', async t => {
+  const hook = await mount(t);
+  const home = hook.root.findByProps({ 'aria-label': 'シートの編集' });
+  assert.deepEqual(ribbonGroups(home).map(group => group.props['aria-label']), ['クリップボード', 'フォント', '配置', '表示形式', 'スタイル', 'セル', '編集']);
+  for (const [label, controls] of [
+    ['クリップボード', ['コピー', '切り取り', '貼り付け', '形式を選択して貼り付け']],
+    ['フォント', ['フォント', 'フォントサイズ（px）', '太字', '文字色', '背景色']],
+    ['配置', ['上揃え', '上下中央', '下揃え', '左揃え', '中央揃え', '右揃え', 'セルを結合', '折り返して全体を表示']],
+    ['セル', ['行と列の操作', '行列サイズの自動調整']],
+    ['編集', ['検索', '置換', '関数を挿入', 'セルをクリア']],
+  ]) {
+    const group = ribbonGroups(home).find(group => group.props['aria-label'] === label);
+    assert.equal(group.findByProps({ className: 'lxs-ribbon-group-label' }).children.join(''), label);
+    for (const control of controls) assert.ok(group.findAll(node => ['button', 'input', 'select'].includes(node.type) && node.props['aria-label'] === control).length, `${control} belongs to ${label}`);
+  }
+  assert.deepEqual(ribbonGroups(hook.root.findByProps({ 'aria-label': 'シートへの挿入' })).map(group => group.props['aria-label']), ['テーブル', '図', 'コメント']);
+  assert.deepEqual(ribbonGroups(hook.root.findByProps({ 'aria-label': 'データの操作' })).map(group => group.props['aria-label']), ['名前付き範囲', '入力規則']);
+  assert.equal(home.findAllByProps({ 'aria-label': '元に戻す' }).length, 0, 'history stays in the quick access header');
+});
+
+test('group visibility follows feature flags and readonly without orphaned labels', async t => {
+  const hook = await mount(t, { features: { formatting: false, copy: false, cut: false, paste: false, pasteSpecial: false,
+    resize: false, insertRows: false, deleteRows: false, insertColumns: false, deleteColumns: false } });
+  const labels = () => ribbonGroups(hook.root.findByProps({ 'aria-label': 'シートの編集' })).map(group => group.props['aria-label']);
+  assert.deepEqual(labels(), ['配置', '編集']);
+  assert.ok(hook.root.findByProps({ 'aria-label': 'セルを結合' }));
+  assert.equal(hook.root.findAllByProps({ 'aria-label': '上揃え' }).length, 0);
+  await hook.update({ features: { mergeCells: false, conditionalFormatting: false } });
+  assert.equal(hook.root.findAllByProps({ 'aria-label': 'セルを結合' }).length, 0);
+  assert.equal(labels().includes('スタイル'), false);
+  assert.ok(labels().includes('フォント'));
+  await hook.update({ readOnly: true, features: {} });
+  assert.deepEqual(labels(), ['クリップボード', '編集']);
+  assert.equal(hook.root.findAllByProps({ 'aria-label': '切り取り' }).length, 0);
+  assert.equal(hook.root.findAllByProps({ 'aria-label': '置換' }).length, 0);
+  await hook.update({ features: { copy: false, search: false } });
+  assert.deepEqual(labels(), []);
+});
+
+test('alignment icon buttons format the full selected range through commands and retain Undo selection', async t => {
+  const changes = [];
+  const hook = await mount(t, { onChange: (_, event) => changes.push(event) });
+  await act(async () => hook.current.selectRange({ row: 1, column: 1 }, { row: 2, column: 2 }));
+  const selection = structuredClone(hook.current.selection);
+  for (const [label, key, value] of [['上揃え', 'verticalAlign', 'top'], ['上下中央', 'verticalAlign', 'middle'], ['下揃え', 'verticalAlign', 'bottom'],
+    ['中央揃え', 'align', 'center'], ['右揃え', 'align', 'right'], ['左揃え', 'align', 'left']]) {
+    const before = hook.current.getWorkbook();
+    const button = hook.root.findByProps({ 'aria-label': label });
+    assert.equal(button.findAllByType('svg').length, 1);
+    assert.equal(button.props.title, label);
+    await act(async () => button.props.onClick());
+    for (const address of ['B2', 'C2', 'B3', 'C3']) assert.equal(hook.current.activeSheet.cells[address].format[key], value);
+    assert.equal(hook.current.activeSheet.cells.A1, undefined);
+    assert.equal(hook.root.findByProps({ 'aria-label': label }).props['aria-pressed'], true);
+    await act(async () => hook.current.select({ row: 5, column: 4 }));
+    await act(async () => hook.current.undo());
+    assert.deepEqual(hook.current.getWorkbook(), before);
+    assert.deepEqual(hook.current.selection, selection);
+    await act(async () => hook.current.redo());
+    assert.deepEqual(hook.current.selection, selection);
+  }
+  assert.equal(changes.length, 18);
 });

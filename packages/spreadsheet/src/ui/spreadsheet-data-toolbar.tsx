@@ -6,7 +6,8 @@ import { normalizeDataValidation, type SpreadsheetDataValidation } from "../mode
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { selectedAddresses } from "../state/selection";
 import { SpreadsheetDialog } from "./spreadsheet-dialog";
-import { Command } from "./spreadsheet-controls";
+import { Command, Icon } from "./spreadsheet-controls";
+import { RibbonGroup } from "./spreadsheet-ribbon-group";
 
 type Target = { sheetId: string; addresses: string[]; revision: number; rule?: SpreadsheetDataValidation };
 
@@ -72,9 +73,10 @@ export function SpreadsheetDataToolbar({ controller: c }: { controller: Spreadsh
     });
   };
   if (!c.features.dataValidation || c.readOnly) return null;
-  return <div className="lxs-tool-group">
-    <Command label="入力規則" disabled={disabled} onClick={() => open()}>入力規則</Command>
-    {c.features.checkboxes && <Command label="チェックボックスを挿入" disabled={disabled} onClick={() => open(true)}>☑ チェックボックス</Command>}
+  return <><RibbonGroup label="入力規則"><div className="lxs-ribbon-columns">
+    <Command label="入力規則" className="lxs-ribbon-command-large" disabled={disabled} onClick={() => open()}><Icon name="validation" /><span>入力規則</span></Command>
+    {c.features.checkboxes && <Command label="チェックボックスを挿入" className="lxs-ribbon-command-large" disabled={disabled} onClick={() => open(true)}><Icon name="check" /><span>チェックボックス</span></Command>}
+    </div></RibbonGroup>
     {target && <ValidationDialog controller={c} target={target} onClose={() => { c.cancelEditRequest(); setTarget(null); }} />}
-  </div>;
+  </>;
 }

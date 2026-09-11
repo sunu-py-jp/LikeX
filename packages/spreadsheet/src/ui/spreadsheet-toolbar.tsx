@@ -9,13 +9,13 @@ import { Command, Icon } from "./spreadsheet-controls";
 import { useId, useRef, useState } from "react";
 import { SpreadsheetInsertToolbar } from "./spreadsheet-insert-toolbar";
 import { SpreadsheetFunctionPicker } from "./spreadsheet-function-picker";
-import { SpreadsheetMergeToolbar } from "./spreadsheet-merge-toolbar";
 import { SpreadsheetPersistenceControls } from "./spreadsheet-persistence-controls";
-import { SpreadsheetFormatToolbar } from "./spreadsheet-format-toolbar";
-import { SpreadsheetEditToolbar } from "./spreadsheet-edit-toolbar";
+import { SpreadsheetAutoFitControl, SpreadsheetFormatToolbar } from "./spreadsheet-format-toolbar";
+import { SpreadsheetEditToolbar, SpreadsheetPasteSpecialControl } from "./spreadsheet-edit-toolbar";
 import { SpreadsheetDataToolbar } from "./spreadsheet-data-toolbar";
 import { SpreadsheetNamedRanges } from "./spreadsheet-named-ranges";
 import { SpreadsheetClearMenu } from "./spreadsheet-clear-menu";
+import { RibbonGroup } from "./spreadsheet-ribbon-group";
 
 type ToolbarProps = { controller: SpreadsheetController; clipboard: ReturnType<typeof useSpreadsheetClipboard> };
 
@@ -46,6 +46,10 @@ export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
           id={`${id}-${item.key}`} aria-controls={`${id}-${item.key}-panel`} aria-selected={active === item.key}
           tabIndex={active === item.key ? 0 : -1} className="lxs-ribbon-tab" onClick={() => setTab(item.key)}>{item.label}</button>)}
       </div>
+      {c.features.undoRedo && !c.readOnly && <div className="lxs-ribbon-quick-access" role="group" aria-label="操作履歴">
+        <Command label="元に戻す" disabled={c.disabled || !c.canUndo} onClick={c.undo}><Icon name="undo" /></Command>
+        <Command label="やり直す" disabled={c.disabled || !c.canRedo} onClick={c.redo}><Icon name="redo" /></Command>
+      </div>}
       <SpreadsheetPersistenceControls controller={c} />
     </div>
     <div role="tabpanel" id={`${id}-home-panel`} aria-labelledby={`${id}-home`} hidden={active !== "home"}>
@@ -77,25 +81,34 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
           : { type: "columns.delete", sheetId, index: left, count: right - left + 1 }));
   };
   return <div className="lxs-ribbon" role="toolbar" aria-label="シートの編集">
-    {(c.features.copy || (!c.readOnly && (c.features.cut || c.features.paste))) && <div className="lxs-tool-group">
-      {c.features.copy && <Command label="コピー" title={singleRangeHint} disabled={c.pendingObjectEdit || (!drawingSelected && multiple)} onClick={() => { if (drawingSelected || !multiple) c.afterCommit(() => void clipboard.copy()); }}><Icon name="copy" /></Command>}
-      {!c.readOnly && <>{c.features.cut && <Command label="切り取り" title={singleRangeHint} disabled={cellDisabled || multiple} onClick={() => { if (!multiple && !cellDisabled) c.afterCommit(() => void clipboard.copy(true)); }}><Icon name="cut" /></Command>}
-        {c.features.paste && <Command label="貼り付け" title={singleRangeHint} disabled={clipboardDisabled} onClick={() => { if (!clipboardDisabled) c.afterCommit(() => void clipboard.paste()); }}><Icon name="paste" /></Command>}</>}
-    </div>}
-    {c.features.undoRedo && !c.readOnly && <div className="lxs-tool-group">
-      <Command label="元に戻す" disabled={c.disabled || !c.canUndo} onClick={c.undo}><Icon name="undo" /></Command>
-      <Command label="やり直す" disabled={c.disabled || !c.canRedo} onClick={c.redo}><Icon name="redo" /></Command>
-    </div>}
-    <SpreadsheetFunctionPicker controller={c} />
+    {(c.features.copy || (!c.readOnly && (c.features.cut || c.features.paste || c.features.pasteSpecial))) && <RibbonGroup label="クリップボード" className="lxs-ribbon-group-clipboard">
+      <div className="lxs-ribbon-columns">
+        {!c.readOnly && c.features.paste && <Command label="貼り付け" className="lxs-ribbon-command-large" title={singleRangeHint} disabled={clipboardDisabled}
+          onClick={() => { if (!clipboardDisabled) c.afterCommit(() => void clipboard.paste()); }}><Icon name="paste" /><span>貼り付け</span></Command>}
+        {(c.features.copy || !c.readOnly && (c.features.cut || c.features.pasteSpecial)) && <div className="lxs-ribbon-stack">
+          {(c.features.copy || !c.readOnly && c.features.cut) && <div className="lxs-ribbon-row">
+            {!c.readOnly && c.features.cut && <Command label="切り取り" title={singleRangeHint} disabled={cellDisabled || multiple} onClick={() => { if (!multiple && !cellDisabled) c.afterCommit(() => void clipboard.copy(true)); }}><Icon name="cut" /></Command>}
+            {c.features.copy && <Command label="コピー" title={singleRangeHint} disabled={c.pendingObjectEdit || (!drawingSelected && multiple)} onClick={() => { if (drawingSelected || !multiple) c.afterCommit(() => void clipboard.copy()); }}><Icon name="copy" /></Command>}
+          </div>}
+          <SpreadsheetPasteSpecialControl controller={c} clipboard={clipboard} />
+        </div>}
+      </div>
+    </RibbonGroup>}
     <SpreadsheetFormatToolbar controller={c} />
-    <SpreadsheetEditToolbar controller={c} clipboard={clipboard} />
-    <SpreadsheetClearMenu controller={c} />
-    <SpreadsheetMergeToolbar controller={c} />
-    {(c.features.insertRows || c.features.deleteRows || c.features.insertColumns || c.features.deleteColumns) && !c.readOnly && <div className="lxs-tool-group">
-      <select aria-label="行と列の操作" className="lxs-select" value="" title={singleRangeHint} disabled={cellDisabled || multiple} onChange={event => { if (event.target.value) structural(event.target.value); }}>
-        <option value="" disabled>行・列</option>{c.features.insertRows && <option value="insert-row">上に行を挿入</option>}{c.features.insertColumns && <option value="insert-column">左に列を挿入</option>}{c.features.deleteRows && <option value="delete-row">選択した行を削除</option>}{c.features.deleteColumns && <option value="delete-column">選択した列を削除</option>}
-      </select>
-    </div>}
+    {(c.features.insertRows || c.features.deleteRows || c.features.insertColumns || c.features.deleteColumns || c.features.resize) && !c.readOnly && <RibbonGroup label="セル" className="lxs-ribbon-group-cells">
+      <div className="lxs-ribbon-stack">
+        {(c.features.insertRows || c.features.deleteRows || c.features.insertColumns || c.features.deleteColumns) && <select aria-label="行と列の操作" className="lxs-select" value="" title={singleRangeHint} disabled={cellDisabled || multiple} onChange={event => { if (event.target.value) structural(event.target.value); }}>
+          <option value="" disabled>行・列の操作</option>{c.features.insertRows && <option value="insert-row">上に行を挿入</option>}{c.features.insertColumns && <option value="insert-column">左に列を挿入</option>}{c.features.deleteRows && <option value="delete-row">選択した行を削除</option>}{c.features.deleteColumns && <option value="delete-column">選択した列を削除</option>}
+        </select>}
+        <SpreadsheetAutoFitControl controller={c} />
+      </div>
+    </RibbonGroup>}
+    {(c.features.search || !c.readOnly) && <RibbonGroup label="編集" className="lxs-ribbon-group-editing">
+      <div className="lxs-ribbon-columns">
+        <SpreadsheetEditToolbar controller={c} />
+        {!c.readOnly && <div className="lxs-ribbon-stack"><SpreadsheetFunctionPicker controller={c} /><SpreadsheetClearMenu controller={c} /></div>}
+      </div>
+    </RibbonGroup>}
     {c.selectedDrawingId && <span className="lxs-ribbon-hint">描画を選択中</span>}
   </div>;
 }

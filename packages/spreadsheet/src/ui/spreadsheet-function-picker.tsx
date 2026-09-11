@@ -22,7 +22,7 @@ export function SpreadsheetFunctionPicker({ controller: c }: { controller: Sprea
   });
 
   if (!c.features.formulas || c.readOnly) return null;
-  return <div className="lxs-tool-group">
+  return <div className="lxs-ribbon-row">
     <select ref={select} aria-label="関数を挿入" className="lxs-select" value="" disabled={disabled}
       title="関数の例を入力します。引数を変更して Enter で確定します。"
       onChange={event => {

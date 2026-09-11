@@ -9,7 +9,8 @@ import { getRange } from "../model/query";
 import { namedRangeAddress } from "../model/named-ranges";
 import { isMultiRangeSelection, selectionBounds } from "../state/selection";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
-import { Command } from "./spreadsheet-controls";
+import { Command, Icon } from "./spreadsheet-controls";
+import { RibbonGroup } from "./spreadsheet-ribbon-group";
 import { SpreadsheetDialog } from "./spreadsheet-dialog";
 import { useSpreadsheetDialogCommand } from "./use-spreadsheet-dialog-command";
 
@@ -66,9 +67,10 @@ export function SpreadsheetTableTools({ controller: c }: { controller: Spreadshe
     });
   };
   const hint = multiple ? "1つの連続した範囲を選択してください" : undefined;
-  return <div className="lxs-tool-group">
-    <Command label="テーブルを挿入" disabled={disabled} title={hint} onClick={() => open(true)}>テーブル</Command>
-    <Command label="罫線付きの表を作成" disabled={disabled} title={hint ?? "選択したセルに罫線を付け、先頭行を見出しにします"} onClick={() => open(false)}>罫線付きの表</Command>
+  return <><RibbonGroup label="テーブル"><div className="lxs-ribbon-columns">
+    <Command label="テーブルを挿入" className="lxs-ribbon-command-large" disabled={disabled} title={hint} onClick={() => open(true)}><Icon name="table" /><span>テーブル</span></Command>
+    <Command label="罫線付きの表を作成" className="lxs-ribbon-command-large" disabled={disabled} title={hint ?? "選択したセルに罫線を付け、先頭行を見出しにします"} onClick={() => open(false)}><Icon name="borders" /><span>罫線付きの表</span></Command>
+    </div></RibbonGroup>
     {target && <TableDialog controller={c} target={target} onClose={() => { c.cancelEditRequest(); setTarget(null); }} />}
-  </div>;
+  </>;
 }

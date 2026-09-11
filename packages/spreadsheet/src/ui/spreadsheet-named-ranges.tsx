@@ -5,7 +5,8 @@ import type { SpreadsheetNamedRange } from "../model/types";
 import { namedRangeAddress } from "../model/named-ranges";
 import { isMultiRangeSelection, selectionBounds } from "../state/selection";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
-import { Command } from "./spreadsheet-controls";
+import { Command, Icon } from "./spreadsheet-controls";
+import { RibbonGroup } from "./spreadsheet-ribbon-group";
 import { SpreadsheetDialog } from "./spreadsheet-dialog";
 import { useSpreadsheetDialogCommand } from "./use-spreadsheet-dialog-command";
 
@@ -64,8 +65,9 @@ export function SpreadsheetNamedRanges({ controller: c }: { controller: Spreadsh
     c.afterCommit(() => setTarget({ sheetId: c.activeSheet.id, address: namedRangeAddress(selectionBounds(c.selection)),
       revision: c.getRevision(), definitions: c.getWorkbook().namedRanges?.filter(item => item.sheetId === c.activeSheet.id) ?? [] }));
   };
-  return <div className="lxs-tool-group">
-    <Command label="名前付き範囲" disabled={disabled} title={multiple ? "1つの連続した範囲を選択してください" : undefined} onClick={open}>名前付き範囲</Command>
+  return <><RibbonGroup label="名前付き範囲">
+    <Command label="名前付き範囲" className="lxs-ribbon-command-large" disabled={disabled} title={multiple ? "1つの連続した範囲を選択してください" : undefined} onClick={open}><Icon name="namedRange" /><span>名前の管理</span></Command>
+    </RibbonGroup>
     {target && <NamedRangeDialog controller={c} target={target} onClose={() => { c.cancelEditRequest(); setTarget(null); }} />}
-  </div>;
+  </>;
 }
