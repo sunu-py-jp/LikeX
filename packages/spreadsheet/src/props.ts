@@ -12,14 +12,21 @@ export type SpreadsheetColorMode = "light" | "dark" | "system";
 
 export type SpreadsheetSelectionRange = Readonly<{
   anchor: Readonly<SpreadsheetCellPosition>;
+  /** Geometric endpoint; the active cell is SpreadsheetSelection.focus. */
   focus: Readonly<SpreadsheetCellPosition>;
+  /** Header selection keeps its exact bounds across intersecting merged cells. */
+  kind?: "row" | "column";
 }>;
 
 export type SpreadsheetSelection = Readonly<{
   sheetId: string;
   /** Origin used to extend the active range. See ranges for the complete geometry. */
   anchor: Readonly<SpreadsheetCellPosition>;
-  /** Editable active cell; merged positions resolve to the top-left cell. */
+  /**
+   * Active cell. Cell selections resolve merged positions to the top-left cell.
+   * Header selections stay inside the selected axis and skip covered cells.
+   * If the entire axis is covered, this is a non-editable logical position.
+   */
   focus: Readonly<SpreadsheetCellPosition>;
   /** All selected ranges, including the active range last. Always supplied by onSelectionChange. */
   ranges?: readonly SpreadsheetSelectionRange[];
@@ -30,6 +37,8 @@ export type SpreadsheetProps = {
   ref?: Ref<SpreadsheetHandle>;
   /** Read once at mount. Change the React key to open another workbook. */
   initialWorkbook?: SpreadsheetWorkbook;
+  /** Initial view magnification in percent (25–200, default 100). Not saved in the workbook. */
+  initialZoom?: number;
   /** Observes draft changes. This notification does not perform persistence. */
   onChange?: (workbook: SpreadsheetWorkbook) => void;
   /** Owns persistence. Omit this callback for read-only viewing. */

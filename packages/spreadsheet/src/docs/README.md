@@ -45,6 +45,7 @@ Next.js App Routerでは `app/layout.tsx` にCSSのimportを置きます。コ�
 - [シートの追加・名前変更・複製・並べ替え](./sheets.md)
 - [入力規則・プルダウン・チェックボックス](./input-validation.md)
 - [操作と対応範囲](./capabilities.md)
+- [表示倍率の変更](./zoom.md)
 - [セル・範囲・行列の複数選択](./selection.md)
 - [セルの結合・解除とJSON保存](./merged-cells.md)
 - [基本15関数・数式とJSON保存](./functions.md)

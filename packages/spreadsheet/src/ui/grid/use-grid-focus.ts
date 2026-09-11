@@ -1,12 +1,13 @@
 "use client";
 
-import { useLayoutEffect, useRef, type FocusEvent, type InputEvent, type KeyboardEvent, type RefObject } from "react";
+import { useCallback, useLayoutEffect, useRef, type FocusEvent, type InputEvent, type KeyboardEvent, type RefObject } from "react";
 import { cellAddress } from "../../model/address";
 import { getMergedRange, mergedCellPosition } from "../../model/merges";
 import type { SpreadsheetCellPosition, SpreadsheetSheet } from "../../model/types";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 import { selectionRanges } from "../../state/selection";
 import { ROW_HEIGHT, ROW_HEADER_WIDTH } from "./grid-geometry";
+import { lastUsedCellPosition, nextDataCellPosition, pageRowPosition } from "./grid-navigation";
 
 export type GridFocusRefs = {
   scrollerRef: RefObject<HTMLDivElement | null>;
@@ -25,6 +26,25 @@ export function nextCellPosition(sheet: SpreadsheetSheet, position: Readonly<Spr
 /** Coordinates the active input, scrolling and cell keyboard navigation. */
 export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRefs["scrollerRef"], widths: readonly number[], rowOffsets: readonly number[]) {
   const activeInput = useRef<HTMLTextAreaElement>(null);
+  const replacedFocusedInput = useRef<HTMLTextAreaElement | null>(null);
+  const bindActiveInput = useCallback((input: HTMLTextAreaElement | null) => {
+    const previous = activeInput.current;
+    // Adding/removing a merge reparents the cell and replaces its textarea even
+    // when the cursor coordinates stay unchanged. Capture focus before removal.
+    if (!input && previous?.ownerDocument.activeElement === previous) replacedFocusedInput.current = previous;
+    activeInput.current = input;
+  }, []);
+  useLayoutEffect(() => {
+    const previous = replacedFocusedInput.current;
+    replacedFocusedInput.current = null;
+    const input = activeInput.current;
+    if (!previous || !input || c.selectedDrawingId) return;
+    const document = input.ownerDocument;
+    // A host callback or pending permission may move focus outside the grid.
+    if (document.activeElement && document.activeElement !== document.body && document.activeElement !== previous) return;
+    input.focus({ preventScroll: true });
+    input.setSelectionRange(0, 0);
+  });
   const focusIntent = useRef(false);
   const editAtEnd = useRef(false);
   const editCaret = useRef<number | null>(null);
@@ -95,7 +115,17 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
       return;
     }
     if (c.editing) return;
-    if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+    const commandKey = (event.ctrlKey || event.metaKey) && !event.altKey;
+    if (event.key === " " && !event.altKey && (commandKey || event.shiftKey)) {
+      event.preventDefault(); focusIntent.current = true;
+      if (commandKey && event.shiftKey) c.selectRange({ row: c.activeSheet.rowCount - 1, column: c.activeSheet.columnCount - 1 }, { row: 0, column: 0 });
+      else {
+        const kind = commandKey ? "column" : "row", active = selectionRanges(c.selection).at(-1)!;
+        c.selectAxisRange(kind, active.anchor[kind], active.focus[kind]);
+      }
+      return;
+    }
+    if (commandKey) {
       const key = event.key.toLowerCase();
       if (key === "a") { event.preventDefault(); focusIntent.current = true; c.selectRange({ row: c.activeSheet.rowCount - 1, column: c.activeSheet.columnCount - 1 }, { row: 0, column: 0 }); return; }
       if (c.features.undoRedo && !c.readOnly && (key === "z" || key === "y")) { event.preventDefault(); focusIntent.current = true; if (key === "y" || event.shiftKey) c.redo(); else c.undo(); return; }
@@ -105,11 +135,26 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
       event.preventDefault();
       const [r, col] = directions[event.key];
       focusIntent.current = true;
+      const active = selectionRanges(c.selection).at(-1)!;
+      if (event.shiftKey && active.kind) {
+        const delta = active.kind === "row" ? r : col;
+        if (!delta) return;
+        const position = { ...c.selection.focus, [active.kind]: active.focus[active.kind] };
+        const target = commandKey ? nextDataCellPosition(c.activeSheet, position, r, col)[active.kind] : active.focus[active.kind] + delta;
+        c.selectAxisRange(active.kind, active.anchor[active.kind], target, false, true);
+        return;
+      }
       const position = event.shiftKey ? selectionRanges(c.selection).at(-1)!.focus : c.selection.focus;
-      c.select(nextCellPosition(c.activeSheet, position, r, col), event.shiftKey);
+      c.select(commandKey ? nextDataCellPosition(c.activeSheet, position, r, col) : nextCellPosition(c.activeSheet, position, r, col), event.shiftKey);
     } else if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); c.clearCells(); }
-    else if (event.key === "Home") { event.preventDefault(); focusIntent.current = true; c.select({ row: event.ctrlKey || event.metaKey ? 0 : c.selection.focus.row, column: 0 }, event.shiftKey); }
-    else if (event.key === "End") { event.preventDefault(); focusIntent.current = true; c.select({ row: c.selection.focus.row, column: c.activeSheet.columnCount - 1 }, event.shiftKey); }
+    else if (event.key === "Home") { event.preventDefault(); focusIntent.current = true; c.select({ row: commandKey ? 0 : c.selection.focus.row, column: 0 }, event.shiftKey); }
+    else if (event.key === "End") { event.preventDefault(); focusIntent.current = true; c.select(commandKey ? lastUsedCellPosition(c.activeSheet) : { row: c.selection.focus.row, column: c.activeSheet.columnCount - 1 }, event.shiftKey); }
+    else if ((event.key === "PageUp" || event.key === "PageDown") && !commandKey && !event.altKey) {
+      event.preventDefault(); focusIntent.current = true;
+      const position = event.shiftKey ? selectionRanges(c.selection).at(-1)!.focus : c.selection.focus;
+      c.select({ row: pageRowPosition(rowOffsets, position.row, event.key === "PageDown" ? 1 : -1,
+        Math.max(ROW_HEIGHT, (scrollerRef.current?.clientHeight ?? ROW_HEIGHT * 10) - ROW_HEIGHT)), column: position.column }, event.shiftKey);
+    }
     else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
       // Typing replaces the selected cell; a second click or F2 edits its value.
       event.preventDefault(); beginTextEdit(event.key);
@@ -134,5 +179,5 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
       c.requestGridFocus();
     });
   };
-  return { scrollerRef, activeInputRef: activeInput, focusIntentRef: focusIntent, keyDown, onCompositionStart, onBeforeInput, onBlurCapture, selectAll };
+  return { scrollerRef, activeInputRef: activeInput, bindActiveInput, focusIntentRef: focusIntent, keyDown, onCompositionStart, onBeforeInput, onBlurCapture, selectAll };
 }

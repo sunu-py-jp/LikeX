@@ -59,6 +59,7 @@ export default function Report() {
 | `getCell(sheetId, address)` / `getRange(sheetId, range)` など | セルやIDで対象を取得。[読み取りAPI](./data-access.md)を参照 |
 | `undo()` / `redo()` | 編集許可を待って履歴を移動。`boolean` または `Promise<boolean>` を返す |
 | `getHistoryState()` | `canUndo` / `canRedo` / `undoCount` / `redoCount` |
+| `getZoom()` / `setZoom(percent)` | 現在の表示倍率を取得／変更。保存データ・履歴・未保存状態は変えません。[表示倍率](./zoom.md) |
 | `executeAsync(command)` / `batchAsync(commands)` | 外部の編集許可を待てる操作。結果をPromiseで返す |
 
 `execute` / `batch` はPromiseを返しません。成功直後の `getWorkbook()` には、Reactの再描画を待たず変更が反映されています。スナップショットは凍結されており、直接書き換えずコマンドを使います。入力中でまだ確定していない文字列は含まれません。
@@ -132,6 +133,33 @@ const anchor = { row: 4, column: 1, offsetX: 12, offsetY: 8 }; // B5から右12p
 `offsetX` / `offsetY` は省略時0です。ブラウザのスクロール位置には依存しません。行列の挿入・削除では既存の数式参照、結合、コメント、描画の位置もモデルのルールに従って調整します。
 
 結合で左上以外の内容が失われる場合、既定では失敗します。利用側で内容の破棄を確認した後、`discardContent: true` を指定してください。外部APIは確認ダイアログを自動では開きません。`cells.set` で結合セルを指定するときは左上のアドレスへ値を入れます。
+
+## 貼り付け先の行・列が足りない場合
+
+`cells.paste` と `cells.move` は、貼り付け先の行数・列数が足りない場合、必要な大きさまでシートの末尾を自動で広げます。結合を含むコピーも同じです。追加する行・列は空で、既存セルの座標をずらしません。行の高さ・列の幅は通常の既定値です。
+
+```ts
+import { createWorkbook, applySpreadsheetCommands } from "@likex/spreadsheet/model";
+
+const workbook = createWorkbook(); // 300行×26列
+const sheetId = workbook.sheets[0].id;
+const result = applySpreadsheetCommands(workbook, [{
+  type: "cells.paste", sheetId,
+  target: { row: 299, column: 25 }, // Z300
+  payload: {
+    values: [["見出し", ""], ["10", "20"]],
+    merges: [{ top: 0, left: 0, bottom: 0, right: 1 }],
+  },
+}]);
+if (!result.ok) throw new Error(result.message);
+const sheet = result.workbook.sheets[0];
+console.log(sheet.rowCount, sheet.columnCount); // 301, 27
+// Z300:AA300を結合し、Z301とAA301へ明細を配置します。
+```
+
+不足する行の追加には `features.insertRows`、列の追加には `features.insertColumns` が必要です。追加が不要な貼り付けには、この機能設定を要求しません。`features.rowColumnOperations: false` も行列追加を無効にします。最大10,000行・1,000列、一度の貼り付け・移動は10,000セルまでという上限は維持します。コピー範囲はコピー元シート内に収まっている必要があります。
+
+拡張と内容の反映は1つの変更です。入力規則・結合・機能設定などの検証に失敗した場合は、行・列の追加も残しません。`cells.move` が `onConflict: "skip"` で移動全体を見送った場合も、シートを広げず移動元を維持します。GUI・編集セッションでは、成功した拡張と貼り付けを一度のUndoで戻せます。拡張後の寸法は `getWorkbook()` / `getSheet()` で取得できます。
 
 ## 画像の準備と一括挿入
 
@@ -218,7 +246,7 @@ console.log(pasted.results[0].placement); // 配置位置・次の行と列
 - 1件でも失敗した場合は全体を中止します。ブック・画像リソース・履歴に部分的な変更は残らず、`onChange` も発火しません。コマンドが原因の失敗では、0始まりの `commandIndex` が返ります。
 - 成功時は1回の `onChange`、1回のUndo単位になります。`undoRedo: false` の場合は履歴を記録しません。
 - 空のバッチ、同じ値の設定、変更して元に戻すバッチなど、最終結果が同じなら `changed: false` です。通知や履歴は増やしません。
-- 外部操作はシートの切り替えやフォーカス移動を行いません。構造の変更で現在の選択が範囲外になる場合は補正します。
+- `execute` / `batch` とその非同期版はシートの切り替えやフォーカス移動を行いません。構造の変更で現在の選択が範囲外になる場合は補正します。`undo` / `redo` はGUIと同じく履歴で変更された場所へ選択を移しますが、コンポーネント外のDOMフォーカスは奪いません。[履歴操作後の選択](./history-session.md#guiとの境界)を参照してください。
 - 自動保存はしません。保存ボタンの操作で既存の `onSave` にブック全体が渡ります。実際の変更があれば保存ボタンが有効になります。
 - 1回のバッチは1,000コマンドまでです。大量のセル値には1セルずつコマンドを作らず、`cells.set.values` にまとめて指定してください。ブック自体の上限も適用されます。
 

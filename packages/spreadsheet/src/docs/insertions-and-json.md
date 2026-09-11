@@ -62,7 +62,7 @@ const snapshot: SpreadsheetWorkbook = {
     },
   },
   sheets: [{
-    id: "sheet-1", name: "資料", rowCount: 100, columnCount: 26,
+    id: "sheet-1", name: "資料", rowCount: 300, columnCount: 26,
     cells: { A1: { value: "売上" } },
     comments: { A1: { id: "comment-1", text: "金額を確認してください", author: "担当者" } },
     drawings: [

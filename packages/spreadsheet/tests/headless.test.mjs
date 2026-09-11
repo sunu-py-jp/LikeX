@@ -25,7 +25,7 @@ test('parsed workbook and AI command JSON insert populated rows in order and pre
   const commands = JSON.parse('[{"type":"rows.insert","sheetId":"sheet-1","index":2,"count":2},{"type":"cells.set","sheetId":"sheet-1","values":{"A3":"商品A","B3":"100","A4":"商品B","B4":"200","C4":"=SUM(B3:B4)"}}]');
   const result = apply(workbook, commands);
   assert.equal(result.ok, true); assert.equal(result.changed, true);
-  assert.equal(first(result).rowCount, 102);
+  assert.equal(first(result).rowCount, workbook.sheets[0].rowCount + 2);
   assert.equal(first(result).cells.A3.value, '商品A'); assert.equal(first(result).cells.A4.value, '商品B');
   assert.equal(first(result).cells.A5.value, '既存'); assert.equal(first(result).cells.C5.value, '=B5*2');
   assert.equal(calculateWorkbook(result.workbook)['sheet-1'].C4, 300);

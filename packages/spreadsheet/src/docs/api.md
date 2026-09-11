@@ -13,7 +13,7 @@ const workbook: SpreadsheetWorkbook = {
   sheets: [{
     id: "sales",
     name: "売上",
-    rowCount: 100,
+    rowCount: 300,
     columnCount: 26,
     cells: {
       A1: { value: "商品" },
@@ -30,7 +30,9 @@ const workbook: SpreadsheetWorkbook = {
 
 結合セルはシートの `merges` に保持します。[セルの結合・解除](./merged-cells.md) に `SpreadsheetMergedRange`、`mergeCells` / `unmergeCells` の例とデータ保持のルールをまとめています。
 
-`createWorkbook()` は100行×26列のブックを作ります。`normalizeWorkbook(input)` は入力を検証し、コピーしたブックを返します。`setCellValue`、`setCellValues`、`moveCells`、`formatCells`、`resizeColumn`、`insertRows`、`deleteRows`、`insertColumns`、`deleteColumns`、`addSheet`、`renameSheet`、`deleteSheet`、`moveSheet` は元のブックを書き換えず、結果のブックを返します。`moveSheet(workbook, sheetId, index)` の `index` は移動後の0始まりの位置です。アドレス変換は `cellAddress` / `parseCellAddress`、計算は `calculateWorkbook`、数式の参照移動は `translateFormula`、TSVは `parseTsv` / `stringifyTsv` を使えます。引数と戻り値の詳細は同梱の公開型で確認できます。
+`createWorkbook()` は300行×26列のブックを作ります。GUIの新規シート、`sheets.add`、`addSheet` も同じ既定サイズです。明示した `rowCount` / `columnCount` は読み込み時に維持するため、保存済みの小さいシートを一律に300行へ広げることはありません。
+
+`normalizeWorkbook(input)` は入力を検証し、コピーしたブックを返します。`setCellValue`、`setCellValues`、`moveCells`、`formatCells`、`resizeColumn`、`insertRows`、`deleteRows`、`insertColumns`、`deleteColumns`、`addSheet`、`renameSheet`、`deleteSheet`、`moveSheet` は元のブックを書き換えず、結果のブックを返します。`moveSheet(workbook, sheetId, index)` の `index` は移動後の0始まりの位置です。アドレス変換は `cellAddress` / `parseCellAddress`、計算は `calculateWorkbook`、数式の参照移動は `translateFormula`、TSVは `parseTsv` / `stringifyTsv` を使えます。引数と戻り値の詳細は同梱の公開型で確認できます。
 
 `workbooksEqual(a, b)` はセルのキー順に依存せず、ブックの内容・書式・寸法を比較します。既定書式や元の値・幅へ戻した場合、保存が必要な変更として扱わないためにも利用しています。ブックとセルは変更用関数から新しい値を作り、受け取った下書きを直接書き換えないでください。
 
@@ -41,7 +43,8 @@ const workbook: SpreadsheetWorkbook = {
 | Prop | 型 | 役割・既定値 |
 | --- | --- | --- |
 | `ref` | `Ref<SpreadsheetHandle>` | `SpreadsheetHandle`。表示中の下書きへ `execute` / `batch` で操作し、`getWorkbook` で取得。[外部操作API](./external-operations.md) |
-| `initialWorkbook` | `SpreadsheetWorkbook` | マウント時の初期ブック。省略時は空の100行×26列。再代入で下書きは置き換わりません。 |
+| `initialWorkbook` | `SpreadsheetWorkbook` | マウント時の初期ブック。省略時は空の300行×26列。再代入で下書きは置き換わりません。 |
+| `initialZoom` | `number` | マウント時の表示倍率。既定100％、25〜200へ補正。有限でない数値は100。[表示倍率](./zoom.md) |
 | `onChange` | `(workbook: SpreadsheetWorkbook) => void` | 下書きの変更通知。永続化は行いません。 |
 | `onSave` | `SpreadsheetSaveHandler` | 保存処理。省略すると読み取り専用。 |
 | `onBeforeSave` | `SpreadsheetBeforeSaveHandler` | 保存前チェック。`false`で中止。 |
@@ -55,7 +58,7 @@ const workbook: SpreadsheetWorkbook = {
 | `features` | `SpreadsheetFeatures` | 下記の機能設定。省略した項目は `true`。 |
 | `getContextMenuItems` | `SpreadsheetContextMenuProvider` | セル／シートの対象・選択・下書きに応じた追加メニュー。[右クリックメニュー](./context-menu.md) |
 | `contextMenuExecutionMode` | `ContextMenuExecutionMode` | `block`（既定）・`confirm`・`reject-if-changed`。メニュー処理中の変更と反映を制御。 |
-| `onSelectionChange` | `(selection: SpreadsheetSelection) => void` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。`ranges` は全範囲、`focus` は編集先セル（結合内なら左上）。[複数選択](./selection.md) |
+| `onSelectionChange` | `(selection: SpreadsheetSelection) => void` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。各範囲の任意の `kind` は行番号／列名から始めた選択を表す。`focus` はアクティブセル（通常のセル選択では結合の左上）。[複数選択](./selection.md) |
 | `colorMode` | `SpreadsheetColorMode` | `"light"`（既定）・`"dark"`・`"system"`。 |
 | `title` | `string` | 表示タイトル。省略時は「スプレッドシート」。 |
 | `exportFileName` | `string` | Excel出力のファイル名。省略時は `title`、未指定なら `spreadsheet.xlsx`。[Excel出力](./excel-export.md) |

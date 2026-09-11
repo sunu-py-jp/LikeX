@@ -153,7 +153,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     };
     return typeof permission === "boolean" ? commit(permission) : permission.then(commit);
   }, [getMutationFailure, edit, publishChange, history]);
-  const changeHistory = (direction: WorkbookHistoryDirection, resetView: (workbook: Workbook) => void,
+  const changeHistory = (direction: WorkbookHistoryDirection, resetView: (workbook: Workbook, previous: Workbook) => void,
     options: DraftHistoryOptions = {}): MaybePromise<boolean> => {
     if (getMutationFailure() || propsRef.current.features?.undoRedo === false || (options.isCurrent && !options.isCurrent())) return false;
     const next = history.peek(direction);
@@ -169,7 +169,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
       try {
         history.step(direction, before);
         setHistoryStatus(history.getState());
-        resetView(next);
+        resetView(next, before);
         publishChange(next, direction === "past" ? "undo" : "redo");
         return true;
       } finally { transactionRef.current = false; }

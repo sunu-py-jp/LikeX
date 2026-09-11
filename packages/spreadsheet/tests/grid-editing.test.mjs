@@ -26,6 +26,7 @@ async function mount(t, options = {}) {
     const label = element?.props?.['aria-label'];
     if (element?.type === 'textarea' && inputs.has(label)) return inputs.get(label);
     const result = { ownerDocument: document, style: {}, scrollHeight: 18, closest: () => null, scrollTop: 0, scrollLeft: 0, clientHeight: 480, clientWidth: 1000,
+      addEventListener() {}, removeEventListener() {},
       focus() { document.activeElement = this; }, contains: target => target?.ownerDocument === document,
       selectCalls: 0, ranges: [], selectionStart: 0, selectionEnd: 0,
       select() { this.selectCalls++; this.selectionStart = 0; this.selectionEnd = this.value.length; },
@@ -58,6 +59,77 @@ async function mount(t, options = {}) {
     async compose() { await act(async () => input().props.onCompositionStart()); },
   };
 }
+
+test('Ctrl/Cmd arrows jump between data edges while Ctrl+Shift extends the original selection', async t => {
+  const ui = await mount(t, { initialWorkbook: { sheets: [{ id: 'main', name: 'Main', rowCount: 12, columnCount: 8,
+    cells: { A1: { value: 'a' }, B1: { value: 'b' }, C1: { value: 'c' }, F1: { value: 'f' }, G1: { value: 'g' }, C4: { value: 'lower' } } }] } });
+  await ui.click('A1');
+  assert.equal((await ui.key('ArrowRight', { ctrlKey: true, shiftKey: true })).prevented, true);
+  assert.deepEqual(ui.c.selection.focus, { row: 0, column: 2 });
+  assert.deepEqual(ui.c.selection.ranges, [{ anchor: { row: 0, column: 0 }, focus: { row: 0, column: 2 } }]);
+  await ui.key('ArrowDown', { ctrlKey: true, shiftKey: true });
+  assert.deepEqual(ui.c.selection.focus, { row: 3, column: 2 });
+  assert.deepEqual(ui.c.selection.ranges, [{ anchor: { row: 0, column: 0 }, focus: { row: 3, column: 2 } }]);
+  await ui.key('Home', { ctrlKey: true });
+  for (const column of [2, 5, 6, 7]) {
+    await ui.key('ArrowRight', { metaKey: true }); assert.deepEqual(ui.c.selection.focus, { row: 0, column });
+    assert.equal(ui.document.activeElement, ui.inputNode());
+  }
+});
+
+test('Home/End and modified variants navigate the row or actual used area and support range extension', async t => {
+  const ui = await mount(t, { initialWorkbook: { sheets: [{ id: 'main', name: 'Main', rowCount: 12, columnCount: 8,
+    cells: { B2: { value: 'b' }, F8: { value: '', format: { bold: true } } } }] } });
+  await ui.click('B2');
+  await ui.key('End', { ctrlKey: true }); assert.deepEqual(ui.c.selection.focus, { row: 7, column: 5 });
+  await ui.key('Home'); assert.deepEqual(ui.c.selection.focus, { row: 7, column: 0 });
+  await ui.key('End'); assert.deepEqual(ui.c.selection.focus, { row: 7, column: 7 });
+  await ui.key('Home', { metaKey: true }); assert.deepEqual(ui.c.selection.focus, { row: 0, column: 0 });
+  await ui.key('End', { ctrlKey: true, shiftKey: true });
+  assert.deepEqual(ui.c.selection.ranges, [{ anchor: { row: 0, column: 0 }, focus: { row: 7, column: 5 } }]);
+  await ui.key('Home', { ctrlKey: true, shiftKey: true });
+  assert.deepEqual(ui.c.selection.focus, { row: 0, column: 0 });
+});
+
+test('Ctrl+Space and Shift+Space select columns and rows, preserving axis selection with modified arrows', async t => {
+  const ui = await mount(t);
+  await ui.click('B2'); await ui.click('C3', { shiftKey: true });
+  await ui.key(' ', { ctrlKey: true });
+  let range = ui.c.selection.ranges[0];
+  assert.equal(range.kind, 'column'); assert.equal(range.anchor.column, 1); assert.equal(range.focus.column, 2);
+  assert.equal(Math.min(range.anchor.row, range.focus.row), 0); assert.equal(Math.max(range.anchor.row, range.focus.row), 4);
+  await ui.key('ArrowRight', { ctrlKey: true, shiftKey: true });
+  assert.equal(ui.c.selection.ranges[0].kind, 'column'); assert.equal(ui.c.selection.ranges[0].focus.column, 4);
+  await ui.click('B2'); await ui.key(' ', { shiftKey: true });
+  range = ui.c.selection.ranges[0];
+  assert.equal(range.kind, 'row'); assert.equal(range.anchor.row, 1); assert.equal(range.focus.row, 1);
+  assert.equal(Math.min(range.anchor.column, range.focus.column), 0); assert.equal(Math.max(range.anchor.column, range.focus.column), 4);
+  await ui.key('ArrowDown', { ctrlKey: true, shiftKey: true });
+  assert.equal(ui.c.selection.ranges[0].kind, 'row'); assert.equal(ui.c.selection.ranges[0].focus.row, 4);
+  await ui.key(' ', { ctrlKey: true, shiftKey: true });
+  assert.deepEqual(ui.c.selection.ranges, [{ anchor: { row: 4, column: 4 }, focus: { row: 0, column: 0 } }]);
+});
+
+test('navigation shortcuts remain native inside a text editor and during IME composition', async t => {
+  const ui = await mount(t);
+  await ui.click('B2'); await ui.key('F2');
+  const before = ui.c.selection;
+  for (const key of ['ArrowLeft', 'Home', 'End', ' ']) assert.equal((await ui.key(key, { ctrlKey: true })).prevented, false);
+  assert.equal(ui.c.selection, before);
+  await ui.key('Escape');
+  assert.equal((await ui.key('ArrowDown', { ctrlKey: true, nativeEvent: { isComposing: true } })).prevented, false);
+  assert.equal((await ui.key('ArrowDown', { ctrlKey: true, keyCode: 229 })).prevented, false);
+  assert.equal(ui.c.selection, before);
+});
+
+test('PageDown/PageUp navigate a visible page and Shift extends the selection', async t => {
+  const ui = await mount(t, { initialWorkbook: { sheets: [{ id: 'main', name: 'Main', rowCount: 100, columnCount: 5, cells: {} }] } });
+  await ui.click('B2');
+  await ui.key('PageDown', { shiftKey: true });
+  assert.ok(ui.c.selection.focus.row > 1); assert.equal(ui.c.selection.focus.column, 1);
+  assert.deepEqual(ui.c.selection.ranges[0].anchor, { row: 1, column: 1 });
+  await ui.key('PageUp'); assert.equal(ui.c.selection.focus.row, 0); assert.equal(ui.c.selection.focus.column, 1);
+});
 
 test('a first cell click only selects without highlighting its text, and the next click leaves native caret placement intact', async t => {
   const ui = await mount(t);

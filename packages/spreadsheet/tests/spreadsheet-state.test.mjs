@@ -227,12 +227,22 @@ test('cutting a range moves its formulas and updates other cells that refer to i
   assert.equal(hook.current.calculated.one.C1, 7);
 });
 
-test('a paste that would exceed the sheet is rejected atomically', async t => {
+test('a paste beyond existing capacity appends the missing columns and can be undone once', async t => {
   const hook = await mount(t);
+  const before = hook.current.workbook;
   await act(async () => hook.current.select({ row: 19, column: 9 }));
   await act(async () => hook.current.clipboard.onPaste(clipboardEvent({ 'text/plain': 'left\tright' })));
-  assert.equal(hook.current.dirty, false);
-  assert.ok(hook.current.error);
+  assert.equal(hook.current.dirty, true); assert.equal(hook.current.error, null);
+  assert.equal(hook.current.activeSheet.columnCount, 11); assert.equal(hook.current.activeSheet.cells.K20.value, 'right');
+  await act(async () => hook.current.undo());
+  assert.equal(hook.current.workbook, before); assert.equal(hook.current.dirty, false);
+});
+
+test('a paste needing unavailable column insertion leaves the workbook unchanged', async t => {
+  const hook = await mount(t, { features: { insertColumns: false } }), before = hook.current.workbook;
+  await act(async () => hook.current.select({ row: 19, column: 9 }));
+  await act(async () => hook.current.clipboard.onPaste(clipboardEvent({ 'text/plain': 'left\tright' })));
+  assert.equal(hook.current.workbook, before); assert.equal(hook.current.dirty, false); assert.ok(hook.current.error);
 });
 
 test('clipboard feature off blocks native copy and paste independently of editing', async t => {

@@ -18,7 +18,7 @@ const statusRule = {
 
 const workbook: SpreadsheetWorkbook = {
   sheets: [{
-    id: "tasks", name: "タスク", rowCount: 100, columnCount: 10,
+    id: "tasks", name: "タスク", rowCount: 300, columnCount: 26,
     cells: {
       A1: { value: "未着手", validation: statusRule },
       B1: { value: "3", validation: { type: "number", integer: true, min: 0, max: 100 } },

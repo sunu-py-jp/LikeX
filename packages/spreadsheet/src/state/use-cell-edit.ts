@@ -5,7 +5,7 @@ import type { MaybePromise } from "../core";
 import { cellAddress, mergedCellPosition } from "../model";
 import type { SpreadsheetSelection } from "../props";
 import type { SpreadsheetCommand, SpreadsheetCommandResult } from "../api/types";
-import { clampPosition, rangeBounds, selectionRanges } from "./selection";
+import { clampPosition, isCellSelected, rangeBounds, selectionRanges } from "./selection";
 import type { Position, ReportError, Sheet } from "./types";
 import type { SpreadsheetGuiCommandOptions } from "./use-spreadsheet-commands";
 
@@ -25,8 +25,9 @@ export function useCellEdit({ activeSheet, selection, disabled, executeCommands,
   const editingRef = useRef(editing);
   const beginEdit = (position = selection.focus, value?: string) => {
     if (disabled) return;
-    clearDrawingSelection();
     const anchor = mergedCellPosition(activeSheet, clampPosition(position, activeSheet));
+    if (selectionRanges(selection).some(range => range.kind) && !isCellSelected(selection, anchor)) return;
+    clearDrawingSelection();
     const next = { position: anchor, value: value ?? activeSheet.cells[cellAddress(anchor.row, anchor.column)]?.value ?? "", sheetId: activeSheet.id };
     if (editingRef.current) cancelEditRequest();
     editingRef.current = next;

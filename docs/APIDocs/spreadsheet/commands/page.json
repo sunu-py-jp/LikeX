@@ -16,7 +16,10 @@
     "prepareSpreadsheetImage",
     "copySpreadsheetDrawing",
     "drawings.paste",
-    "SpreadsheetDrawingPastePayload"
+    "SpreadsheetDrawingPastePayload",
+    "cells.paste",
+    "cells.move",
+    "行列の自動拡張"
   ],
   "screenshots": []
 }

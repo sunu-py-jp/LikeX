@@ -4,13 +4,18 @@ import { cellAddress, parseCellAddress } from "../model/address";
 import type { SpreadsheetCommand } from "./types";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { fillSpreadsheetCells } from "../model/editing/fill";
-import { pasteSpreadsheetCells } from "../model/editing/paste";
-import { moveSpreadsheetCells } from "../model/editing/move";
+import { getCellPasteRange, pasteSpreadsheetCells } from "../model/editing/paste";
+import { getCellMoveRange, moveSpreadsheetCells } from "../model/editing/move";
 import { findSpreadsheetCells, replaceSpreadsheetCells, replaceSpreadsheetText } from "../model/editing/search";
 import { duplicateSheetWithIds } from "../model/workbook/sheets";
-import type { SpreadsheetWorkbook } from "../model/types";
+import type { SpreadsheetMergedRange, SpreadsheetSheet, SpreadsheetWorkbook } from "../model/types";
 import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { commandKeys, commandRecord, rejectCommand, requireCommandAddress, requireCommandFeature, requireCommandSheet } from "./validation";
+
+function requireTransferCapacityFeatures(features: SpreadsheetFeatureSettings, sheet: SpreadsheetSheet, range?: SpreadsheetMergedRange): void {
+  if (range && range.bottom >= sheet.rowCount) requireCommandFeature(features, "insertRows");
+  if (range && range.right >= sheet.columnCount) requireCommandFeature(features, "insertColumns");
+}
 
 export function stageEditingCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand, features: SpreadsheetFeatureSettings,
   nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandBaseReceipt } | null {
@@ -44,15 +49,17 @@ export function stageEditingCommand(workbook: SpreadsheetWorkbook, command: Spre
       commandKeys(commandRecord(command.target, "貼り付け先"), ["row", "column"], "貼り付け先");
       commandKeys(commandRecord(command.payload, "コピー内容"), ["values", "displayedValues", "valueTypes", "formats", "validations", "comments", "merges", "source"], "コピー内容");
       if (command.payload.source !== undefined) commandKeys(commandRecord(command.payload.source, "コピー元"), ["sheetId", "row", "column"], "コピー元");
+      requireTransferCapacityFeatures(features, sheet, getCellPasteRange(sheet, command.target, command.payload, command.partialMerges));
       return finish(pasteSpreadsheetCells(workbook, sheet.id, command.target, command.payload, command.mode,
         { formulas: features.formulas, formatting: features.formatting, dataValidation: features.dataValidation, checkboxes: features.checkboxes,
-          comments: features.comments, mergeCells: features.mergeCells, onConflict: command.onConflict, skippedAddresses }, nextId));
+          comments: features.comments, mergeCells: features.mergeCells, onConflict: command.onConflict, skippedAddresses, partialMerges: command.partialMerges }, nextId));
     case "cells.move": {
       requireCommandFeature(features, "cut");
       requireCommandFeature(features, "paste");
       commandKeys(commandRecord(command.source, "移動元"), ["sheetId", "top", "left", "bottom", "right"], "移動元");
       commandKeys(commandRecord(command.target, "移動先"), ["row", "column"], "移動先");
       requireCommandSheet(workbook, command.source.sheetId);
+      requireTransferCapacityFeatures(features, sheet, getCellMoveRange(workbook, command.source, { ...command.target, sheetId: sheet.id }));
       const next = moveSpreadsheetCells(workbook, command.source, { ...command.target, sheetId: sheet.id }, features);
       const destination = next.sheets.find(item => item.id === sheet.id)!;
       const values: Record<string, string> = {};
@@ -63,7 +70,8 @@ export function stageEditingCommand(workbook: SpreadsheetWorkbook, command: Spre
           column >= command.source.left && column <= command.source.right) continue;
         const address = cellAddress(row, column); values[address] = destination.cells[address]?.value ?? "";
       }
-      const filtered = filterCellValueWrites(sheet, values, command.onConflict);
+      // Compare against the original values while accepting the newly allocated destination coordinates.
+      const filtered = filterCellValueWrites({ ...sheet, rowCount: destination.rowCount, columnCount: destination.columnCount }, values, command.onConflict);
       filtered.skippedAddresses.forEach(address => skippedAddresses.add(address));
       // A cut is atomic: never erase a source cell whose destination was skipped.
       return finish(skippedAddresses.size ? workbook : next);

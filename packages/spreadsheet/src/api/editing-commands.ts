@@ -4,6 +4,8 @@ import type { SpreadsheetCell, SpreadsheetCellFormat, SpreadsheetCellPosition, S
 export type SpreadsheetSearchQuery = Readonly<{ text: string; matchCase?: boolean; wholeCell?: boolean; lookIn?: "values" | "formulas" }>;
 export type SpreadsheetSearchMatch = Readonly<{ sheetId: string; address: string; value: string; matchedText: string }>;
 export type SpreadsheetPasteMode = "all" | "values" | "formulas" | "formats";
+/** Preserve merges that extend beyond a copied/pasted rectangle. Defaults to rejecting partial merges. */
+export type SpreadsheetPartialMergePolicy = "reject" | "skip";
 export type SpreadsheetPastePayload = Readonly<{
   values: readonly (readonly string[])[];
   displayedValues?: readonly (readonly string[])[];
@@ -20,7 +22,7 @@ export type SpreadsheetPastePayload = Readonly<{
 export type SpreadsheetEditingCommand =
   | Readonly<{ type: "cells.replace"; sheetId: string; query: SpreadsheetSearchQuery; replacement: string; addresses?: readonly string[]; onConflict?: SpreadsheetWriteConflictPolicy }>
   | Readonly<{ type: "cells.fill"; sheetId: string; source: SpreadsheetMergedRange; target: SpreadsheetMergedRange; mode?: "auto" | "copy" | "series"; onConflict?: SpreadsheetWriteConflictPolicy }>
-  | Readonly<{ type: "cells.paste"; sheetId: string; target: Readonly<SpreadsheetCellPosition>; payload: SpreadsheetPastePayload; mode?: SpreadsheetPasteMode; onConflict?: SpreadsheetWriteConflictPolicy }>
+  | Readonly<{ type: "cells.paste"; sheetId: string; target: Readonly<SpreadsheetCellPosition>; payload: SpreadsheetPastePayload; mode?: SpreadsheetPasteMode; onConflict?: SpreadsheetWriteConflictPolicy; partialMerges?: SpreadsheetPartialMergePolicy }>
   /** Cut/paste preserves cell identity and updates references, including across sheets. */
   | Readonly<{ type: "cells.move"; sheetId: string; source: Readonly<SpreadsheetMoveSource>; target: Readonly<SpreadsheetCellPosition>; onConflict?: SpreadsheetWriteConflictPolicy }>
   | Readonly<{ type: "sheets.duplicate"; sheetId: string; name?: string }>;

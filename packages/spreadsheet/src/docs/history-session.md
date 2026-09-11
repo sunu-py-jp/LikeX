@@ -104,9 +104,24 @@ if (!moved.ok) throw new Error(moved.message);
 
 `copySpreadsheetCells` は値・書式・入力規則・コメント・結合情報とコピー元座標を持つ `SpreadsheetPastePayload` を返します。ブックやOSクリップボードは変更しません。`cells.paste` の `mode` には `all` / `values` / `formulas` / `formats` を指定できます。省略時は `all` です。コピー時のコメントには新しいIDを付け、移動では既存IDを維持します。
 
-コピー関数の第4引数には `{ features, kind }` を指定できます。`features` はコピー時に使う機能設定、`kind` は `"copy"`（既定）または `"cut"` です。`kind: "cut"` も読み取りだけで、セルは移動しません。保存データの変更は `cells.move` で行います。画面なしの独立したコピー関数には、必要な機能設定を明示して渡してください。
+コピー関数の第4引数 `SpreadsheetCopyOptions` には `features`、`kind`、`partialMerges` を指定できます。`features` はコピー時に使う機能設定、`kind` は `"copy"`（既定）または `"cut"` です。`kind: "cut"` も読み取りだけで、セルは移動しません。保存データの変更は `cells.move` で行います。画面なしの独立したコピー関数には、必要な機能設定を明示して渡してください。
+
+`partialMerges?: "reject" | "skip"` の既定値は `"reject"` です。`"skip"` を指定してコピーすると、範囲に一部しか含まれない結合の中を空セルとして扱い、完全に含まれる結合は通常どおりコピーします。貼り付け側も横断する結合を保護したい場合は、`cells.paste` コマンドに別途 `partialMerges: "skip"` を指定します。切り取り・`cells.move` は部分的な結合を許可しません。
+
+```ts
+// 上のsessionで、C列をコピーしてD列へ貼り付けます。
+const lastRow = session.getWorkbook().sheets[0].rowCount - 1;
+const columnPayload = copySpreadsheetCells(session.getWorkbook(), sheetId,
+  { top: 0, left: 2, bottom: lastRow, right: 2 },
+  { partialMerges: "skip" });
+const columnPaste = session.execute({ type: "cells.paste", sheetId,
+  target: { row: 0, column: 3 }, payload: columnPayload, partialMerges: "skip" });
+if (!columnPaste.ok) throw new Error(columnPaste.message);
+```
 
 `cells.move` はコピー用データではなく、実行時点の移動元を参照します。コピー先へ書いた後に元を削除する2操作に分けず、単一のコマンドとして実行するため、重なる範囲や参照の調整も共通処理に任せられます。移動先は外側の `sheetId`、移動元は `source.sheetId` で指定します。
+
+`cells.paste` / `cells.move` は、移動先の行・列が足りなければ必要な大きさまで末尾を拡張します。行・列の追加と内容の反映は同じUndo単位で、失敗した場合はどちらも反映しません。必要な行列追加の機能設定と上限は、[末尾の自動拡張](./external-operations.md#貼り付け先の行列が足りない場合)を参照してください。
 
 ## GUIとの境界
 
@@ -114,6 +129,15 @@ GUIのセル確定、削除、貼り付け、移動、行列・書式・画像�
 
 表示中のコンポーネントには別のセッションを作らず、`ref` の `execute` / `batch`、`undo` / `redo` を使います。`await api.undo()` / `await api.redo()` は必要な編集許可を待ちます。保存中、読み取り専用、セル・コメント・図形の未確定入力がある場合などは `false` を返し、入力を勝手に捨てません。
 
-GUIのUndo／Redoは、現在の複数の選択範囲とアクティブセルを維持します。選択中の画像・図形・テキストボックスも、同じIDが復元後に存在すれば選択を保ちます。行列が小さくなった場合は各範囲を補正し、対象オブジェクトがなくなればセルへ戻ります。表示中のシートがなくなる場合は先頭シートのA1です。過去の選択状態を履歴から復元する機能ではなく、保存成功・再読み込み・変更の破棄では従来どおり画面状態をリセットします。
+GUIのUndo／Redoと表示中コンポーネントの `api.undo()` / `api.redo()` は、その履歴で変更された場所へ選択を移します。たとえばB3を編集してからD8へ移動していても、UndoするとB3を選択して変更を戻します。
+
+| 履歴の変更内容 | Undo／Redo後の選択 |
+| --- | --- |
+| セルの値・書式・入力規則・コメント | 変更されたセル。複数セルでは変更されたセルを含む範囲を選択 |
+| 複数シートのセル | 表示中のシートに変更があればそのシート。なければ最初の対象シートへ移動 |
+| 画像・図形・テキストボックスだけの変更 | 変更したオブジェクト。Undoで挿入を取り消す場合など、そのオブジェクトがなくなるときはアンカーのセル |
+| 行列の挿入・削除、結合、シート構成の変更 | 現在の選択を維持し、復元後の有効な範囲へ補正。表示中のシートがなくなる場合は先頭シートのA1 |
+
+コンポーネント外の入力欄などにDOMフォーカスがある場合、そのフォーカスは奪いません。ブック内の選択更新と、キーボード入力先のフォーカス移動は区別します。選択は保存JSONや履歴データに追加せず、保存成功・再読み込み・変更の破棄では従来どおり画面状態をリセットします。
 
 画面なしのセッションは `onSave` や `onEditRequest` を呼びません。通信や認証、共同編集のロックは呼び出し側で行います。入力中のUI状態をAPIへ持ち込まず、データ操作と環境依存の処理を分けています。

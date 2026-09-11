@@ -197,7 +197,7 @@ type WorkbookResult = ReturnType<SpreadsheetHandle["getWorkbook"]>;
 {
   "id": "sheet-1",
   "name": "売上",
-  "rowCount": 100,
+  "rowCount": 300,
   "columnCount": 26,
   "cells": { "A1": { "value": "商品" }, "B1": { "value": "金額" } },
   "rowHeights": { "0": 36 },
@@ -356,7 +356,7 @@ type WorkbookResult = ReturnType<SpreadsheetHandle["getWorkbook"]>;
     {
       "id": "sheet-1",
       "name": "売上",
-      "rowCount": 100,
+      "rowCount": 300,
       "columnCount": 26,
       "cells": { "A1": { "value": "商品" } }
     }

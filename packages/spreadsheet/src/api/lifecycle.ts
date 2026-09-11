@@ -30,6 +30,7 @@ export type SpreadsheetRefreshHandler = (context: OperationContext) => MaybeProm
 /** Explicit consent to replace both committed changes and unfinished input. */
 export type SpreadsheetDiscardOptions = Readonly<{ discardChanges?: boolean }>;
 export type SpreadsheetEvent =
+  | Readonly<{ type: "zoom-change"; zoom: number; previousZoom: number }>
   | ContextMenuExecutionEvent
   | Readonly<{ type: "change"; source: SpreadsheetChangeSource; workbook: SpreadsheetWorkbookSnapshot; commands?: readonly SpreadsheetCommand["type"][] }>
   | Readonly<{ type: "save"; status: "start" | "success"; requestId: string; workbook: SpreadsheetWorkbookSnapshot }>

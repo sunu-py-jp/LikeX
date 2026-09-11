@@ -26,7 +26,7 @@ async function mount(t, options = {}) {
     if (nodes.has(element.props)) return nodes.get(element.props);
     const drawingId = element.props['data-lxs-drawing'];
     const inGrid = ['lxs-cell-input', 'lxs-grid-scroll'].includes(element.props.className) || !!drawingId;
-    const result = { ownerDocument: document, style: {}, scrollHeight: 18, label: element.props['aria-label'], insideSpreadsheet: true,
+    const result = { ownerDocument: document, addEventListener() {}, removeEventListener() {}, style: {}, scrollHeight: 18, label: element.props['aria-label'], insideSpreadsheet: true,
       dataset: { lxsDrawing: drawingId },
       focus() {
         if (document.activeElement !== this) {
@@ -69,8 +69,16 @@ async function mount(t, options = {}) {
           preventDefault() { prevented = true; }, ...modifiers }));
       assert.equal(prevented, true);
     },
-    assertGridFocus() {
+    assertGridFocus(address) {
       assert.equal(document.activeElement === activeInput, true, 'keyboard focus must belong to the replacement grid input');
+      if (address) {
+        assert.equal(document.activeElement.label, `${address}の値`, 'actual DOM focus must point to the changed cell');
+        const renderedInput = renderer.root.findAllByType('textarea').find(input => input.props.className === 'lxs-cell-input');
+        assert.equal(renderedInput.props['aria-label'], `${address}の値`);
+      }
+    },
+    async focusCell(row, column) {
+      await act(async () => { controller().select({ row, column }); controller().requestGridFocus(); });
     },
     async focusDrawing(id) {
       await act(async () => {
@@ -99,7 +107,7 @@ async function mount(t, options = {}) {
   };
 }
 
-test('successive keyboard Undo and Redo traverse every committed cell and retain grid focus', async t => {
+test('successive keyboard Undo and Redo move selection and actual DOM focus to each changed cell', async t => {
   const ui = await mount(t);
   await ui.edit(1, 1, 'first');
   await ui.edit(2, 2, 'second');
@@ -108,19 +116,23 @@ test('successive keyboard Undo and Redo traverse every committed cell and retain
     [{ key: 'z', metaKey: true }, { key: 'z', metaKey: true, shiftKey: true }],
     [{ key: 'z', ctrlKey: true }, { key: 'y', ctrlKey: true }],
   ]) {
-    for (const address of ['D4', 'C3', 'B2']) {
+    await ui.focusCell(6, 6);
+    for (const [address, row, column] of [['D4', 3, 3], ['C3', 2, 2], ['B2', 1, 1]]) {
       await ui.key(undo.key, undo);
       assert.equal(ui.value(address), undefined);
       assert.equal(ui.c.editing, null);
-      ui.assertGridFocus();
+      assert.deepEqual(ui.c.selection.focus, { row, column });
+      ui.assertGridFocus(address);
     }
     assert.equal(ui.c.canUndo, false);
     assert.equal(ui.c.canRedo, true);
     assert.equal(ui.c.dirty, false);
-    for (const [address, value] of [['B2', 'first'], ['C3', 'second'], ['D4', 'third']]) {
+    await ui.focusCell(7, 7);
+    for (const [address, value, row, column] of [['B2', 'first', 1, 1], ['C3', 'second', 2, 2], ['D4', 'third', 3, 3]]) {
       await ui.key(redo.key, redo);
       assert.equal(ui.value(address), value);
-      ui.assertGridFocus();
+      assert.deepEqual(ui.c.selection.focus, { row, column });
+      ui.assertGridFocus(address);
     }
     assert.equal(ui.c.canUndo, true);
     assert.equal(ui.c.canRedo, false);
@@ -148,42 +160,89 @@ test('rapid history calls use the latest snapshots without ending or reacquiring
 test('history does not take focus from a control outside the grid', async t => {
   const ui = await mount(t);
   await ui.edit(1, 1, 'changed');
+  await ui.focusCell(7, 7);
   const outside = ui.focusOutside();
   await act(async () => assert.equal(ui.c.undo(), true));
   assert.equal(ui.activeElement(), outside);
+  assert.deepEqual(ui.c.selection.focus, { row: 1, column: 1 });
   await act(async () => assert.equal(ui.c.redo(), true));
   assert.equal(ui.activeElement(), outside);
+  assert.deepEqual(ui.c.selection.focus, { row: 1, column: 1 });
 });
 
-test('paste Undo and Redo retain the active cell and every disjoint selection range', async t => {
+test('paste history selects its changed cell instead of subsequently selected disjoint ranges', async t => {
   const ui = await mount(t);
   const focus = { row: 4, column: 5 };
-  await act(async () => {
-    ui.c.select(focus);
-    assert.equal((await ui.c.executeCommand({ type: 'cells.paste', sheetId: 'one', target: focus,
-      mode: 'values', payload: { values: [['pasted']] } })).ok, true);
-  });
+  await act(async () => assert.equal((await ui.c.executeCommand({ type: 'cells.paste', sheetId: 'one', target: focus,
+    mode: 'values', payload: { values: [['pasted']] } })).ok, true));
   assert.equal(ui.value('F5'), 'pasted');
   for (const direction of ['undo', 'redo']) {
+    await ui.focusCell(7, 7);
+    await act(async () => {
+      ui.c.selectRange({ row: 0, column: 0 }, { row: 1, column: 2 });
+      ui.c.selectRange({ row: 6, column: 6 }, { row: 7, column: 7 }, true);
+    });
+    assert.equal(ui.c.selection.ranges.length, 2);
     await act(async () => assert.equal(await ui.c[direction](), true));
     assert.deepEqual(ui.c.selection.focus, focus);
     assert.deepEqual(ui.c.selection.ranges, [{ anchor: focus, focus }]);
     assert.equal(ui.value('F5'), direction === 'undo' ? undefined : 'pasted');
-  }
-  const nextFocus = { row: 6, column: 7 };
-  await act(async () => {
-    ui.c.selectRange({ row: 1, column: 1 }, focus);
-    ui.c.selectRange({ row: 5, column: 6 }, nextFocus, true);
-  });
-  assert.equal(ui.c.selection.ranges.length, 2);
-  const selection = structuredClone(ui.c.selection);
-  for (const direction of ['undo', 'redo']) {
-    await act(async () => assert.equal(await ui.c[direction](), true));
-    assert.deepEqual(ui.c.selection, selection);
+    ui.assertGridFocus('F5');
   }
 });
 
-test('keyboard Undo and Redo preserve the selected drawing and its focus for repeated shortcuts', async t => {
+// Selection ranges may be coalesced or reordered to place the active range last.
+function selectedCells(selection) {
+  const cells = new Set();
+  for (const range of selection.ranges) {
+    for (let row = Math.min(range.anchor.row, range.focus.row); row <= Math.max(range.anchor.row, range.focus.row); row++) {
+      for (let column = Math.min(range.anchor.column, range.focus.column); column <= Math.max(range.anchor.column, range.focus.column); column++) {
+        cells.add(`${row}:${column}`);
+      }
+    }
+  }
+  return [...cells].sort();
+}
+
+test('multi-cell history selects only cells changed by the transaction, with the first changed cell active', async t => {
+  const ui = await mount(t);
+  await act(async () => assert.equal((await ui.c.executeCommand({ type: 'cells.set', sheetId: 'one',
+    values: { F6: 'third', B2: 'first', D4: 'second', A1: 'baseline' } })).ok, true));
+  for (const direction of ['undo', 'redo']) {
+    await ui.focusCell(7, 7);
+    await act(async () => {
+      ui.c.selectRange({ row: 0, column: 0 }, { row: 0, column: 2 });
+      ui.c.selectRange({ row: 7, column: 0 }, { row: 7, column: 3 }, true);
+    });
+    await act(async () => assert.equal(await ui.c[direction](), true));
+    assert.deepEqual(selectedCells(ui.c.selection), ['1:1', '3:3', '5:5']);
+    assert.deepEqual(ui.c.selection.focus, { row: 1, column: 1 });
+    assert.equal(ui.value('A1'), 'baseline', 'an unchanged command entry must not become a history target');
+    ui.assertGridFocus('B2');
+  }
+});
+
+test('history of a cell edited on an inactive sheet navigates to that sheet and focuses its changed cell', async t => {
+  const ui = await mount(t, { initialWorkbook: { sheets: [
+    { id: 'one', name: 'Sheet1', rowCount: 8, columnCount: 8, cells: { A1: { value: 'baseline' } } },
+    { id: 'two', name: 'Sheet2', rowCount: 8, columnCount: 8, cells: {} },
+  ] } });
+  await ui.focusCell(6, 6);
+  await act(async () => assert.equal((await ui.c.externalExecuteAsync({ type: 'cells.set', sheetId: 'two', values: { C3: 'remote sheet' } })).ok, true));
+  assert.equal(ui.c.activeSheet.id, 'one');
+  for (const [key, modifiers, value] of [['z', { ctrlKey: true }, undefined], ['y', { ctrlKey: true }, 'remote sheet']]) {
+    await act(async () => ui.c.selectCellInSheet('one', { row: 6, column: 6 }));
+    await ui.focusCell(6, 6);
+    await ui.key(key, modifiers);
+    assert.equal(ui.c.activeSheet.id, 'two');
+    assert.equal(ui.c.selection.sheetId, 'two');
+    assert.deepEqual(ui.c.selection.focus, { row: 2, column: 2 });
+    assert.equal(ui.value('C3'), value);
+    ui.assertGridFocus('C3');
+  }
+});
+
+test('drawing history targets the changed object, its anchor on removal, and the restored object on Redo', async t => {
   const ui = await mount(t);
   let drawingId;
   await act(async () => {
@@ -199,7 +258,8 @@ test('keyboard Undo and Redo preserve the selected drawing and its focus for rep
     [{ key: 'z', ctrlKey: true }, { key: 'y', ctrlKey: true }],
     [{ key: 'z', metaKey: true }, { key: 'z', metaKey: true, shiftKey: true }],
   ]) {
-    await ui.drawingKey(undo.key, undo);
+    await ui.focusCell(7, 7);
+    await ui.key(undo.key, undo);
     assert.equal(ui.c.selectedDrawingId, drawingId);
     assert.equal(ui.c.selectedDrawing.width, 120);
     ui.assertDrawingFocus(drawingId);
@@ -211,10 +271,11 @@ test('keyboard Undo and Redo preserve the selected drawing and its focus for rep
   await ui.drawingKey('z', { ctrlKey: true });
   await ui.drawingKey('z', { ctrlKey: true });
   assert.equal(ui.c.selectedDrawingId, null, 'Undo insertion clears a target which no longer exists');
-  ui.assertGridFocus();
+  assert.deepEqual(ui.c.selection.focus, { row: 1, column: 1 });
+  ui.assertGridFocus('B2');
   await ui.key('y', { ctrlKey: true });
-  assert.equal(ui.c.selectedDrawingId, null, 'Redo does not revive a discarded selection');
-  ui.assertGridFocus();
+  assert.equal(ui.c.selectedDrawingId, drawingId, 'Redo selects the restored drawing');
+  ui.assertDrawingFocus(drawingId);
 });
 
 test('history clamps the active cell when Undo or Redo shrinks rows and columns', async t => {
@@ -305,7 +366,7 @@ test('saving still resets the selected cell after history keeps its position', a
   assert.deepEqual(ui.c.selection.focus, { row: 0, column: 0 });
 });
 
-test('refresh and discard still reset drawing and range selections after history preserves them', async t => {
+test('refresh and discard reset explicit drawing and range selections after history targets changed cells', async t => {
   const initialWorkbook = { sheets: [{ id: 'one', name: 'Sheet1', rowCount: 8, columnCount: 8, cells: {}, drawings: [{
     id: 'box', type: 'shape', shape: 'rectangle', anchor: { row: 1, column: 1, offsetX: 0, offsetY: 0 },
     width: 120, height: 60, fill: '#ffffff', stroke: '#217346', strokeWidth: 2,
@@ -320,6 +381,13 @@ test('refresh and discard still reset drawing and range selections after history
     });
     await act(async () => assert.equal(await ui.c.undo(), true));
     await act(async () => assert.equal(await ui.c.redo(), true));
+    assert.equal(ui.c.selectedDrawingId, null);
+    assert.deepEqual(ui.c.selection.focus, { row: 0, column: 0 });
+    await act(async () => {
+      ui.c.selectRange({ row: 2, column: 2 }, { row: 3, column: 3 });
+      ui.c.selectRange({ row: 4, column: 4 }, { row: 5, column: 5 }, true);
+      ui.c.selectDrawing('box');
+    });
     assert.equal(ui.c.selectedDrawingId, 'box');
     assert.equal(ui.c.selection.ranges.length, 2);
     await act(async () => assert.equal(await ui.c[operation]({ discardChanges: true }), true));

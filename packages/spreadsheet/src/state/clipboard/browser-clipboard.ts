@@ -2,6 +2,8 @@ import { parseTsv } from "../../model/tsv";
 
 export const CLIPBOARD_MIME_TYPE = "application/x-likex-spreadsheet";
 export const clipboardTokenFromHtml = (html: string) => /data-likex-spreadsheet="([a-zA-Z0-9-]+)"/.exec(html)?.[1] ?? "";
+/** Browser clipboards can normalize CRLF to LF without changing the copied content. */
+export const clipboardTextMatches = (copied: string, pasted: string) => copied === pasted || copied.replaceAll("\r\n", "\n") === pasted.replaceAll("\r\n", "\n");
 type BrowserClipboardValue = { text: string; token: string; kind?: "cells" | "drawing" };
 
 export function isOtherTextControl(target: EventTarget | null) {

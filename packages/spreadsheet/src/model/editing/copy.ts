@@ -1,27 +1,31 @@
 import type { SpreadsheetFeatures } from "../../api/features";
 import { resolveSpreadsheetFeatures } from "../../api/resolve-features";
 import { validateSpreadsheetFeatures } from "../../api/validate-features";
-import type { SpreadsheetPastePayload } from "../../api/editing-commands";
+import type { SpreadsheetPastePayload, SpreadsheetPartialMergePolicy } from "../../api/editing-commands";
 import type { SpreadsheetWorkbookSnapshot } from "../../commands/types";
 import { cellAddress } from "../address";
 import { calculateWorkbook } from "../formula";
 import { rangeContains, rangesIntersect } from "../merges";
 import { normalizeWorkbook } from "../workbook/normalize";
 import { SPREADSHEET_LIMITS, type SpreadsheetMergedRange, type SpreadsheetWorkbook } from "../types";
+import { mergedCellAddresses, skipsPartialMerges } from "./partial-merges";
 
 export type SpreadsheetCopyOptions = Readonly<{
   features?: SpreadsheetFeatures;
   /** Captures a cut snapshot using the cut permission; it does not remove or arm any cells. */
   kind?: "copy" | "cut";
+  /** Copy partial merged cells as blanks; cuts still require complete merges. */
+  partialMerges?: SpreadsheetPartialMergePolicy;
 }>;
 
 /** Read a transferable, JSON-serializable rectangle without a component or browser clipboard. */
 export function copySpreadsheetCells(input: SpreadsheetWorkbookSnapshot, sheetId: string, range: SpreadsheetMergedRange,
   options: SpreadsheetCopyOptions = {}): SpreadsheetPastePayload {
   if (!options || typeof options !== "object" || Array.isArray(options) || Object.prototype.toString.call(options) !== "[object Object]" ||
-    Object.keys(options).some(key => key !== "features" && key !== "kind") ||
+    Object.keys(options).some(key => key !== "features" && key !== "kind" && key !== "partialMerges") ||
     (options.kind !== undefined && options.kind !== "copy" && options.kind !== "cut")) throw new Error("コピーの設定が正しくありません");
   validateSpreadsheetFeatures(options.features);
+  const skipPartial = skipsPartialMerges(options.partialMerges);
   const features = resolveSpreadsheetFeatures(options.features);
   if (!(options.kind === "cut" ? features.cut : features.copy)) throw new Error("コピーまたは切り取りは無効です");
   if (!input) throw new Error("コピーするブックを指定してください");
@@ -33,8 +37,11 @@ export function copySpreadsheetCells(input: SpreadsheetWorkbookSnapshot, sheetId
     throw new Error("コピー元の範囲が正しくありません");
   const height = range.bottom - range.top + 1, width = range.right - range.left + 1;
   if (height * width > SPREADSHEET_LIMITS.clipboardCells) throw new Error("コピーできる範囲は 10,000 セルまでです");
-  const merges = (sheet.merges ?? []).filter(merge => rangesIntersect(range, merge));
-  if (merges.some(merge => !rangeContains(range, merge))) throw new Error("結合されたセルの一部はコピー・切り取りできません。結合全体を選択してください");
+  const intersected = (sheet.merges ?? []).filter(merge => rangesIntersect(range, merge));
+  const partial = intersected.filter(merge => !rangeContains(range, merge));
+  if (partial.length && (!skipPartial || options.kind === "cut")) throw new Error("結合されたセルの一部はコピー・切り取りできません。結合全体を選択してください");
+  const merges = intersected.filter(merge => rangeContains(range, merge));
+  const excluded = mergedCellAddresses(range, partial);
   if (options.kind === "cut" && merges.length && !features.mergeCells) throw new Error("セルの結合の変更は無効です");
   const calculated = calculateWorkbook(workbook)[sheetId];
   const values: string[][] = [], displayedValues: string[][] = [], valueTypes: ("string" | "number" | "boolean")[][] = [];
@@ -42,7 +49,8 @@ export function copySpreadsheetCells(input: SpreadsheetWorkbookSnapshot, sheetId
   const validations: NonNullable<SpreadsheetPastePayload["validations"]>[number][] = [];
   const comments: NonNullable<SpreadsheetPastePayload["comments"]>[number][] = [];
   for (let row = range.top; row <= range.bottom; row++) {
-    const addresses = Array.from({ length: width }, (_, column) => cellAddress(row, range.left + column));
+    const addresses = Array.from({ length: width }, (_, column) => cellAddress(row, range.left + column))
+      .map(address => excluded.has(address) ? "" : address);
     values.push(addresses.map(address => sheet.cells[address]?.value ?? ""));
     displayedValues.push(addresses.map(address => String(calculated?.[address] ?? "")));
     valueTypes.push(addresses.map(address => typeof (calculated?.[address] ?? "") as "string" | "number" | "boolean"));

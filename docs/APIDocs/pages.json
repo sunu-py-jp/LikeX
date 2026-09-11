@@ -797,6 +797,7 @@
       "SpreadsheetCell",
       "SpreadsheetSheet",
       "colorMode",
+      "initialZoom",
       "title",
       "onSave"
     ],
@@ -838,7 +839,8 @@
       "readOnly",
       "formulas",
       "clipboard",
-      "exportExcel"
+      "exportExcel",
+      "zoom"
     ],
     "headings": [
       {
@@ -888,6 +890,43 @@
     ]
   },
   {
+    "id": "spreadsheet/zoom",
+    "title": "表示倍率の変更",
+    "component": "spreadsheet",
+    "section": "基本",
+    "output": "spreadsheet/zoom/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/zoom.md"
+    ],
+    "keywords": [
+      "initialZoom",
+      "getZoom",
+      "setZoom",
+      "zoom-change",
+      "zoom",
+      "ズーム",
+      "ピンチ",
+      "表示倍率"
+    ],
+    "headings": [
+      {
+        "id": "初期倍率",
+        "title": "初期倍率",
+        "depth": 2
+      },
+      {
+        "id": "外部から倍率を変更する",
+        "title": "外部から倍率を変更する",
+        "depth": 2
+      },
+      {
+        "id": "変更通知と操作の無効化",
+        "title": "変更通知と操作の無効化",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/selection",
     "title": "セルと範囲の選択",
     "component": "spreadsheet",
@@ -902,9 +941,21 @@
       "SpreadsheetSelectionRange",
       "anchor",
       "focus",
-      "ranges"
+      "ranges",
+      "kind",
+      "Ctrl",
+      "Cmd",
+      "PageUp",
+      "PageDown",
+      "Home",
+      "End"
     ],
     "headings": [
+      {
+        "id": "キーボードで移動する",
+        "title": "キーボードで移動する",
+        "depth": 2
+      },
       {
         "id": "複数範囲に対する操作",
         "title": "複数範囲に対する操作",
@@ -1135,7 +1186,9 @@
       "paste",
       "autoFill",
       "copySpreadsheetDrawing",
-      "drawings.paste"
+      "drawings.paste",
+      "partialMerges",
+      "行列の自動拡張"
     ],
     "headings": [
       {
@@ -1461,7 +1514,10 @@
       "prepareSpreadsheetImage",
       "copySpreadsheetDrawing",
       "drawings.paste",
-      "SpreadsheetDrawingPastePayload"
+      "SpreadsheetDrawingPastePayload",
+      "cells.paste",
+      "cells.move",
+      "行列の自動拡張"
     ],
     "headings": [
       {
@@ -1477,6 +1533,11 @@
       {
         "id": "コマンド一覧",
         "title": "コマンド一覧",
+        "depth": 2
+      },
+      {
+        "id": "貼り付け先の行列が足りない場合",
+        "title": "貼り付け先の行・列が足りない場合",
         "depth": 2
       },
       {

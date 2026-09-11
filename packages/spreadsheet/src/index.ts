@@ -33,7 +33,7 @@ export type { OperationContext as SpreadsheetOperationContext, EditMode as Sprea
 export type { ContextMenuExecutionMode } from "./core";
 export type { SpreadsheetContextMenuContext, SpreadsheetContextMenuChange, SpreadsheetContextMenuItem, SpreadsheetContextMenuProvider } from "./api/context-menu";
 export type { SpreadsheetFormattingCommand } from "./api/formatting-commands";
-export type { SpreadsheetEditingCommand, SpreadsheetSearchQuery, SpreadsheetSearchMatch, SpreadsheetPasteMode, SpreadsheetPastePayload } from "./api/editing-commands";
+export type { SpreadsheetEditingCommand, SpreadsheetSearchQuery, SpreadsheetSearchMatch, SpreadsheetPasteMode, SpreadsheetPastePayload, SpreadsheetPartialMergePolicy } from "./api/editing-commands";
 export { findSpreadsheetCells } from "./model/editing/search";
 export type { SpreadsheetDataValidationCommand } from "./api/data-validation-commands";
 export type { SpreadsheetDataValidation } from "./model/data-validation";

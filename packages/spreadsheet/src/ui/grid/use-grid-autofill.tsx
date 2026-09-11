@@ -42,8 +42,9 @@ export function useGridAutofill(c: SpreadsheetController, scroller: RefObject<HT
       const { c: current, geometry: sizes } = latest.current;
       if (current.disabled || current.requesting || !current.features.autoFill || current.activeSheet.id !== active.sheetId || current.getWorkbook() !== active.workbook) { cancel(); return; }
       const bounds = element.getBoundingClientRect();
-      const row = cellAt(sizes.rowOffsets, active.y - bounds.top + element.scrollTop);
-      const column = cellAt(sizes.columnOffsets, active.x - bounds.left + element.scrollLeft);
+      const scale = (current.zoom ?? 100) / 100;
+      const row = cellAt(sizes.rowOffsets, (active.y - bounds.top) / scale + element.scrollTop);
+      const column = cellAt(sizes.columnOffsets, (active.x - bounds.left) / scale + element.scrollLeft);
       const target = autoFillTarget(active.source, row, column);
       active.target = target; setPreview(target);
     };
@@ -52,8 +53,9 @@ export function useGridAutofill(c: SpreadsheetController, scroller: RefObject<HT
       const active = drag.current;
       if (!active) return;
       const bounds = element.getBoundingClientRect(), edge = 28;
-      const dy = active.y < bounds.top + ROW_HEIGHT + edge ? -16 : active.y > bounds.bottom - edge ? 16 : 0;
-      const dx = active.x < bounds.left + ROW_HEADER_WIDTH + edge ? -16 : active.x > bounds.right - edge ? 16 : 0;
+      const scale = (latest.current.c.zoom ?? 100) / 100;
+      const dy = active.y < bounds.top + ROW_HEIGHT * scale + edge ? -16 : active.y > bounds.bottom - edge ? 16 : 0;
+      const dx = active.x < bounds.left + ROW_HEADER_WIDTH * scale + edge ? -16 : active.x > bounds.right - edge ? 16 : 0;
       if (dy || dx) { element.scrollTop += dy; element.scrollLeft += dx; update(); }
       if (drag.current) frame = view.requestAnimationFrame(scroll);
     };
@@ -89,7 +91,7 @@ export function useGridAutofill(c: SpreadsheetController, scroller: RefObject<HT
       document.removeEventListener("pointercancel", cancel); document.removeEventListener("keydown", escape, true); view.removeEventListener("blur", cancel);
     };
   }, [scroller]);
-  useLayoutEffect(() => { cancelRef.current(); }, [c.workbook, c.selection, c.activeSheet.id, c.features.autoFill, c.disabled]);
+  useLayoutEffect(() => { cancelRef.current(); }, [c.workbook, c.selection, c.activeSheet.id, c.features.autoFill, c.disabled, c.zoom]);
   const source = selectionBounds(c.selection);
   const enabled = c.features.autoFill && !c.disabled && !c.requesting && !c.editing && !c.pendingObjectEdit && !c.selectedDrawingId &&
     !isMultiRangeSelection(c.selection) && !(c.activeSheet.merges?.some(merge => rangesIntersect(merge, source)));

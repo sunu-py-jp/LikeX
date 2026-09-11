@@ -22,7 +22,7 @@ assert.equal(result.workbook.sheets[0].cells.C1.value, '=B4*2');
 assert.deepEqual(result.results[0].placement, { nextRow: 3 });
 assert.deepEqual(result.results[1].placement, { nextRow: 3, nextColumn: 2 });
 assert.equal(serializeWorkbook(original), before);
-assert.equal(parseWorkbook(serializeWorkbook(result.workbook)).sheets[0].rowCount, 102);
+assert.equal(parseWorkbook(serializeWorkbook(result.workbook)).sheets[0].rowCount, original.sheets[0].rowCount + 2);
 const failed = applySpreadsheetCommands(original, [commands[0], { type: 'cells.set', sheetId: 'missing', values: { A1: 'bad' } }]);
 assert.equal(failed.ok, false);
 assert.equal(failed.commandIndex, 1);

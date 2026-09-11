@@ -1,18 +1,21 @@
 import { filterCellValueWrites, type SpreadsheetWriteConflictPolicy } from "../workbook/write-conflicts";
-import type { SpreadsheetPasteMode, SpreadsheetPastePayload } from "../../api/editing-commands";
+import type { SpreadsheetPasteMode, SpreadsheetPastePayload, SpreadsheetPartialMergePolicy } from "../../api/editing-commands";
 import { cellAddress } from "../address";
 import { translateFormula } from "../formula";
 import { normalizeDataValidation } from "../data-validation";
 import { getMergedRange, normalizeMerges, rangeContains, rangesIntersect } from "../merges";
-import { mergeCells, unmergeCells } from "../workbook/merges";
+import { mergeCells } from "../workbook/merges";
 import { setCellComments } from "../workbook/annotations";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, type SpreadsheetCellPosition,
   type SpreadsheetComment, type SpreadsheetMergedRange, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
 import { getWorkbookSheet, replaceWorkbookSheet } from "../workbook/snapshot";
 import { normalizeCellFormat, validateCellValue } from "../workbook/validation";
+import { mergedCellAddresses, skipsPartialMerges } from "./partial-merges";
+import { stageTransferCapacity, validateTransferRange } from "./transfer-capacity";
 
 export type PastePolicy = Readonly<{ formulas: boolean; formatting: boolean; dataValidation?: boolean; checkboxes?: boolean;
-  comments?: boolean; mergeCells?: boolean; onConflict?: SpreadsheetWriteConflictPolicy; skippedAddresses?: Set<string> }>;
+  comments?: boolean; mergeCells?: boolean; onConflict?: SpreadsheetWriteConflictPolicy; skippedAddresses?: Set<string>;
+  partialMerges?: SpreadsheetPartialMergePolicy }>;
 
 function payloadSize(payload: SpreadsheetPastePayload) {
   if (!payload || !Array.isArray(payload.values) || payload.values.length > SPREADSHEET_LIMITS.clipboardCells ||
@@ -23,24 +26,24 @@ function payloadSize(payload: SpreadsheetPastePayload) {
   return { height, width };
 }
 
-/** Resolve a scalar paste to a merged cell's anchor and validate the complete destination geometry. */
+/** Resolve a merged anchor and validate the destination, including any required tail expansion. */
 export function getCellPasteRange(sheet: SpreadsheetSheet, target: SpreadsheetCellPosition,
-  payload: SpreadsheetPastePayload): SpreadsheetMergedRange | undefined {
+  payload: SpreadsheetPastePayload, partialMerges?: SpreadsheetPartialMergePolicy): SpreadsheetMergedRange | undefined {
+  const skipPartial = skipsPartialMerges(partialMerges);
   const { height, width } = payloadSize(payload);
   if (!height || !width) return undefined;
-  if (!target || !Number.isInteger(target.row) || !Number.isInteger(target.column) || target.row < 0 || target.column < 0 ||
-    target.row >= sheet.rowCount || target.column >= sheet.columnCount) throw new Error("貼り付け先がシートの範囲外です。行・列が足りません");
+  if (!target || !Number.isInteger(target.row) || !Number.isInteger(target.column) || target.row < 0 || target.column < 0)
+    throw new Error("貼り付け先の範囲が正しくありません");
   if (payload.merges !== undefined) normalizeMerges(payload.merges, { rowCount: height, columnCount: width });
-  const scalar = height === 1 && width === 1 && !payload.merges?.length ? getMergedRange(sheet, target) : undefined;
+  const scalar = !skipPartial && height === 1 && width === 1 && !payload.merges?.length ? getMergedRange(sheet, target) : undefined;
   const top = scalar?.top ?? target.row, left = scalar?.left ?? target.column;
   const destination = { top, left, bottom: top + height - 1, right: left + width - 1 };
-  if (destination.bottom >= sheet.rowCount || destination.right >= sheet.columnCount)
-    throw new Error("貼り付け先がシートの範囲外です。行・列が足りません");
+  validateTransferRange(destination);
   const merges = (sheet.merges ?? []).filter(merge => rangesIntersect(destination, merge));
   if (!scalar) {
-    if (merges.some(merge => !rangeContains(destination, merge)))
+    if (!skipPartial && merges.some(merge => !rangeContains(destination, merge)))
       throw new Error("結合されたセルの一部には貼り付けできません。結合を解除するか、結合全体を選択してください");
-    if (payload.merges === undefined && merges.length) throw new Error("結合されたセルを含む範囲への貼り付けには、先に結合を解除してください");
+    if (payload.merges === undefined && merges.some(merge => !skipPartial || rangeContains(destination, merge))) throw new Error("結合されたセルを含む範囲への貼り付けには、先に結合を解除してください");
   }
   return destination;
 }
@@ -51,18 +54,32 @@ export function pasteSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: st
   nextCommentId: () => string = () => crypto.randomUUID()): SpreadsheetWorkbook {
   const skippedAddresses = policy.skippedAddresses ?? new Set<string>();
   policy = { ...policy, skippedAddresses };
-  const sheet = getWorkbookSheet(workbook, sheetId), destination = getCellPasteRange(sheet, target, payload);
+  const destination = getCellPasteRange(getWorkbookSheet(workbook, sheetId), target, payload, policy.partialMerges);
   if (!destination) return pasteCellMatrix(workbook, sheetId, target, payload, mode, policy);
-  const merged = (sheet.merges ?? []).filter(merge => rangesIntersect(destination, merge));
+  workbook = stageTransferCapacity(workbook, sheetId, destination);
+  const sheet = getWorkbookSheet(workbook, sheetId);
+  const intersected = (sheet.merges ?? []).filter(merge => rangesIntersect(destination, merge));
+  const partial = policy.partialMerges === "skip" ? intersected.filter(merge => !rangeContains(destination, merge)) : [];
+  const protectedCells = mergedCellAddresses(destination, partial);
+  protectedCells.forEach(address => skippedAddresses.add(address));
+  const merged = intersected.filter(merge => !partial.includes(merge));
   const scalar = destination.top === destination.bottom && destination.left === destination.right && !payload.merges?.length;
   if (policy.mergeCells === false && !scalar && (payload.merges?.length || merged.length)) throw new Error("セルの結合の変更は無効です");
   const { height, width } = payloadSize(payload);
   if (payload.comments !== undefined && (!Array.isArray(payload.comments) || payload.comments.length !== height ||
     Array.from(payload.comments).some(row => !Array.isArray(row) || row.length > width))) throw new Error("貼り付けるコメントの行列が一致していません");
-  let next = mode === "all" && payload.merges !== undefined && !scalar && merged.length ? unmergeCells(workbook, sheetId, destination) : workbook;
+  if (mode === "all" && payload.merges?.some(merge => partial.some(protectedMerge => rangesIntersect(protectedMerge, {
+    top: destination.top + merge.top, bottom: destination.top + merge.bottom,
+    left: destination.left + merge.left, right: destination.left + merge.right,
+  })))) throw new Error("貼り付ける結合セルが、保持する結合セルと重なっています");
+  let next = workbook;
+  if (mode === "all" && payload.merges !== undefined && !scalar && merged.length) {
+    const retained = sheet.merges!.filter(merge => !merged.includes(merge));
+    next = replaceWorkbookSheet(workbook, { ...sheet, merges: retained.length ? Object.freeze(retained) : undefined });
+  }
   next = pasteCellMatrix(next, sheetId, { row: destination.top, column: destination.left }, payload, mode, policy);
   if (mode !== "all") return next;
-  if (skippedAddresses.size && !scalar && (payload.merges?.length || merged.length))
+  if ([...skippedAddresses].some(address => !protectedCells.has(address)) && !scalar && (payload.merges?.length || merged.length))
     throw new Error("結合の変更を伴う貼り付けでは一部のセルをスキップできません");
   if (payload.comments && policy.comments !== false) {
     const comments: Record<string, SpreadsheetComment | null> = {};
@@ -101,6 +118,7 @@ function pasteCellMatrix(workbook: SpreadsheetWorkbook, sheetId: string, target:
   const cells = { ...sheet.cells }, proposed: Record<string, string> = {};
   for (let row = 0; row < height; row++) for (let column = 0; column < width; column++) {
     const position = { row: target.row + row, column: target.column + column }, address = cellAddress(position.row, position.column);
+    if (policy.skippedAddresses?.has(address)) continue;
     const merge = getMergedRange(sheet, position);
     if (merge && (merge.top !== position.row || merge.left !== position.column)) throw new Error("結合されたセルの一部には貼り付けできません");
     const previous = cells[address];

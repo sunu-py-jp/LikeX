@@ -10,7 +10,8 @@
     "readOnly",
     "formulas",
     "clipboard",
-    "exportExcel"
+    "exportExcel",
+    "zoom"
   ],
   "screenshots": []
 }

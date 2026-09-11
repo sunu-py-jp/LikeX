@@ -4,8 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, type ClipboardEvent } 
 import type { SpreadsheetController } from "./use-spreadsheet";
 import { chainResult } from "../core";
 import { createSelection, isMultiRangeSelection, selectionRanges } from "./selection";
-import { assertSingleClipboardRange, captureCopiedCells, prepareCellPaste, type CopiedCells } from "./clipboard/cell-transfer";
-import { CLIPBOARD_MIME_TYPE, clipboardTokenFromHtml, isOtherTextControl, readBrowserClipboard, spreadsheetClipboardHtml, writeBrowserClipboard } from "./clipboard/browser-clipboard";
+import { assertSingleClipboardRange, captureCopiedCells, cellPasteFocus, prepareCellPaste, type CopiedCells } from "./clipboard/cell-transfer";
+import { CLIPBOARD_MIME_TYPE, clipboardTextMatches, clipboardTokenFromHtml, isOtherTextControl, readBrowserClipboard, spreadsheetClipboardHtml, writeBrowserClipboard } from "./clipboard/browser-clipboard";
 import { captureCopiedDrawing, prepareDrawingPaste, type CopiedDrawing } from "./clipboard/drawing-transfer";
 import type { SpreadsheetSelection } from "../props";
 import type { SpreadsheetPasteMode } from "../api/editing-commands";
@@ -59,7 +59,7 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
     if (controller.disabled || controller.pendingObjectEdit || !controller.features.paste || (mode !== "all" && !controller.features.pasteSpecial)) return;
     try {
       const context = targetContext(selection);
-      const matched = token && copied.current?.token === token && copied.current.text === text ? copied.current : null;
+      const matched = token && copied.current?.token === token && clipboardTextMatches(copied.current.text, text) ? copied.current : null;
       const request = requestId.current;
       const isCurrent = () => mounted.current && request === requestId.current && latest.current.features.paste &&
         (mode === "all" || latest.current.features.pasteSpecial) && latest.current.selection === controller.selection &&
@@ -85,7 +85,8 @@ export function useSpreadsheetClipboard(controller: SpreadsheetController) {
       }), accepted => {
         if (accepted.ok && mounted.current) {
           const { top, left, bottom, right } = paste.destination;
-          controller.selectRange({ row: top, column: left }, { row: bottom, column: right });
+          controller.selectRangeInSheet(context.activeSheet.id, { row: top, column: left }, { row: bottom, column: right },
+            cellPasteFocus(paste.destination, context.selection.focus), paste.axis);
           if (internal?.cut) copied.current = null;
           emitClipboard("paste", undefined, context.selection);
         }

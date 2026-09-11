@@ -30,7 +30,7 @@ function getCommandPlacement(workbook: SpreadsheetWorkbook, command: Spreadsheet
       return nextRow ? { nextRow, nextColumn } : undefined;
     }
     case "cells.paste": {
-      const destination = getCellPasteRange(workbook.sheets.find(sheet => sheet.id === command.sheetId)!, command.target, command.payload);
+      const destination = getCellPasteRange(workbook.sheets.find(sheet => sheet.id === command.sheetId)!, command.target, command.payload, command.partialMerges);
       return destination ? { nextRow: destination.bottom + 1, nextColumn: destination.right + 1 } : undefined;
     }
     case "cells.move":

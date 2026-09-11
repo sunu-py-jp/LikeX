@@ -22,7 +22,7 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "cells.set": ["values", "onConflict"], "cells.format": ["addresses", "format"],
   "cells.replace": ["query", "replacement", "addresses", "onConflict"],
   "cells.fill": ["source", "target", "mode", "onConflict"],
-  "cells.paste": ["target", "payload", "mode", "onConflict"],
+  "cells.paste": ["target", "payload", "mode", "onConflict", "partialMerges"],
   "cells.move": ["source", "target", "onConflict"],
   "cells.clear": ["range", "mode"], "cells.delete": ["range"],
   "namedRanges.add": ["name", "range"],

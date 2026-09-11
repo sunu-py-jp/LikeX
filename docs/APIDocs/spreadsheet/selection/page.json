@@ -1,6 +1,6 @@
 {
   "title": "セルと範囲の選択",
-  "summary": "連続範囲、離れたセル、行・列の選択を扱い、選択範囲を親に通知します。",
+  "summary": "セル・行列を太枠で選択し、Ctrl＋矢印などの移動と選択範囲の通知を扱います。",
   "source": "packages/spreadsheet/src/docs/selection.md",
   "order": 50,
   "section": "セルとシート",
@@ -10,7 +10,14 @@
     "SpreadsheetSelectionRange",
     "anchor",
     "focus",
-    "ranges"
+    "ranges",
+    "kind",
+    "Ctrl",
+    "Cmd",
+    "PageUp",
+    "PageDown",
+    "Home",
+    "End"
   ],
   "screenshots": []
 }

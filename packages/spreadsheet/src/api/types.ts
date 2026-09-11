@@ -13,6 +13,10 @@ export type SpreadsheetHandle = SpreadsheetReadApi & Readonly<{
   executeAsync(command: SpreadsheetCommand): Promise<SpreadsheetCommandResult>;
   batchAsync(commands: readonly SpreadsheetCommand[]): Promise<SpreadsheetCommandResult>;
   getWorkbook(): SpreadsheetWorkbookSnapshot;
+  /** View magnification in percent, independent of workbook data and history. */
+  getZoom(): number;
+  /** Clamps to 25–200%. Returns false when disabled or the number is not finite. */
+  setZoom(percent: number): boolean;
   /** Uses the same edit permission and history as GUI actions. Unfinished input is not discarded. */
   undo(): MaybePromise<boolean>;
   redo(): MaybePromise<boolean>;

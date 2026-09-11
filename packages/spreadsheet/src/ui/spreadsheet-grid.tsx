@@ -12,12 +12,14 @@ import { SpreadsheetDrawings, SpreadsheetDrawingInspector } from "./spreadsheet-
 import { displayCell } from "./grid/cell-display";
 import { ROW_HEIGHT, ROW_HEADER_WIDTH } from "./grid/grid-geometry";
 import { useGridLayout } from "./grid/use-grid-layout";
+import { useGridZoom } from "./grid/use-grid-zoom";
 import { useGridFocus } from "./grid/use-grid-focus";
 import { useGridSelection } from "./grid/use-grid-selection";
 import { useColumnResize } from "./grid/use-column-resize";
 import { useGridResize } from "./grid/use-grid-resize";
 import { useGridAutofill } from "./grid/use-grid-autofill";
 import { CellDataControl } from "./grid/cell-data-control";
+import { SelectionOutline } from "./grid/selection-outline";
 import { cellFormatStyle } from "./grid/cell-style";
 import { createConditionalFormatter } from "../model/conditional-formatting";
 
@@ -29,8 +31,9 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   const resize = useColumnResize(c);
   const { resizing } = resize;
   const rowResize = useGridResize(c, "row");
-  const layout = useGridLayout(c.activeSheet, c.selection.focus.row, resizing, rowResize.resizing);
+  const layout = useGridLayout(c.activeSheet, c.selection.focus.row, resizing, rowResize.resizing, c.zoom);
   const { scroller, widths, columnOffsets, rowOffsets, gridWidth, virtualRows, renderedMerges } = layout;
+  useGridZoom(c, scroller);
   const autofill = useGridAutofill(c, scroller, { columnOffsets, rowOffsets });
   const conditional = useMemo(() => createConditionalFormatter(c.activeSheet, c.calculated[c.activeSheet.id]), [c.activeSheet, c.calculated]);
   const focus = useGridFocus(c, scroller, widths, rowOffsets);
@@ -44,7 +47,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   const { startSelection, extendSelection, selectHeaderWithKeyboard } = useGridSelection(c, focus);
   const selectedBounds = useMemo(() => selectionRanges(c.selection).map(rangeBounds), [c.selection]);
 
-  return <div className="lxs-grid-surface"><SpreadsheetDrawingInspector controller={c} /><div ref={scroller} tabIndex={-1} className="lxs-grid-scroll" onBlurCapture={focus.onBlurCapture} onScroll={layout.onScroll}>
+  return <div className="lxs-grid-surface"><SpreadsheetDrawingInspector controller={c} /><div ref={scroller} tabIndex={-1} className="lxs-grid-scroll" style={{ zoom: (c.zoom ?? 100) / 100 }} onBlurCapture={focus.onBlurCapture} onScroll={layout.onScroll}>
     <div className="lxs-grid-canvas" style={{ width: gridWidth, height: rowOffsets.at(-1) }}><div role="grid" aria-label={c.activeSheet.name} aria-readonly={c.disabled || c.requesting} aria-rowcount={c.activeSheet.rowCount + 1} aria-colcount={c.activeSheet.columnCount + 1} aria-multiselectable="true" className="lxs-grid" style={{ width: gridWidth, height: rowOffsets.at(-1) }}>
       <div role="row" aria-rowindex={1} className="lxs-column-headers" style={{ width: gridWidth, height: ROW_HEIGHT }}>
         <div role="columnheader" className="lxs-corner" style={{ width: ROW_HEADER_WIDTH }} aria-label="行と列"><button type="button" className="lxs-header-button" aria-label="すべてのセルを選択" onClick={focus.selectAll}>◢</button></div>
@@ -96,7 +99,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
             onPointerEnter={event => extendSelection(event, { row, column })}
             onDoubleClick={() => { if (!c.editing) c.beginEdit({ row, column }); }}>
             {appearance.dataBar && <span aria-hidden="true" className="lxs-cell-data-bar" style={{ left: `${appearance.dataBar.start}%`, width: `${appearance.dataBar.width}%`, backgroundColor: appearance.dataBar.color }} />}
-            {focused ? <textarea rows={1} ref={activeInput} className="lxs-cell-input" data-editing={editing || undefined} aria-label={`${address}の値`}  value={editing ? c.editing!.value : text} readOnly={c.disabled || c.requesting}
+            {focused ? <textarea rows={1} ref={focus.bindActiveInput} className="lxs-cell-input" data-editing={editing || undefined} aria-label={`${address}の値`}  value={editing ? c.editing!.value : text} readOnly={c.disabled || c.requesting}
               onFocus={event => { if (!c.editing) event.currentTarget.setSelectionRange(0, 0); }}
               onChange={event => c.beginEdit({ row, column }, event.target.value)}
               onKeyDown={keyDown}
@@ -113,6 +116,6 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
           return merge ? <div key={column} className="lxs-cell-placeholder" style={{ width }}>{rendered}</div> : rendered;
         })}
       </div>)}
-    </div><SpreadsheetDrawings controller={c} geometry={{ columnOffsets, rowOffsets }} />{autofill.preview}{autofill.handle}</div>
+    </div>{!c.selectedDrawingId && <SelectionOutline selection={c.selection} columnOffsets={columnOffsets} rowOffsets={rowOffsets} />}<SpreadsheetDrawings controller={c} geometry={{ columnOffsets, rowOffsets }} />{autofill.preview}{autofill.handle}</div>
   </div></div>;
 }

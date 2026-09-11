@@ -13,13 +13,16 @@ const first = workbook => workbook.sheets[0].id;
 const fill = values => { const wb = createWorkbook(); return setCellValues(wb, first(wb), values); };
 const values = workbook => calculateWorkbook(workbook)[first(workbook)];
 
-test('a new workbook is frozen and sparse, with 100 rows and 26 columns', () => {
+test('new workbooks and added sheets are frozen and sparse, with 300 rows and 26 columns', () => {
   const wb = createWorkbook();
   assert.equal(wb.sheets.length, 1);
-  assert.equal(wb.sheets[0].rowCount, 100); assert.equal(wb.sheets[0].columnCount, 26);
+  assert.equal(wb.sheets[0].rowCount, 300); assert.equal(wb.sheets[0].columnCount, 26);
   assert.equal(Object.keys(wb.sheets[0].cells).length, 0);
   assert.ok(Object.isFrozen(wb)); assert.ok(Object.isFrozen(wb.sheets[0].cells));
   assert.deepEqual(normalizeWorkbook(), wb);
+  const added = addSheet(wb).sheets[1];
+  assert.equal(added.rowCount, 300); assert.equal(added.columnCount, 26);
+  assert.deepEqual(Object.keys(added.cells), []);
 });
 
 test('normalization clones host data, canonicalizes cell addresses, validates limits and keeps formatting-only cells', () => {
@@ -57,7 +60,7 @@ test('edits preserve undo snapshots and unchanged cells/sheets; no-ops preserve 
   assert.equal(setCellValue(next, first(next), 'C1', ''), next);
   const cleared = setCellValue(next, first(next), 'B1', '');
   assert.equal(cleared.sheets[0].cells.B1, undefined);
-  assert.throws(() => setCellValues(initial, first(initial), { A1: 'would-change', A101: 'bad' }));
+  assert.throws(() => setCellValues(initial, first(initial), { A1: 'would-change', [`A${initial.sheets[0].rowCount + 1}`]: 'bad' }));
   assert.equal(initial.sheets[0].cells.A1.value, 'one', 'failed batches are atomic');
 });
 
@@ -96,7 +99,7 @@ test('range and single-reference aggregates ignore blanks/text and include zero'
 test('IF evaluates only the chosen branch and error values propagate predictably', () => {
   const result = values(fill({ A1: '=IF(TRUE,42,1/0)', A2: '=IF(FALSE,A2,7)', A3: '=IF(1<2,"yes","no")',
     A4: '=1/0', A5: '=A4+1', A6: '=SUM(A4:A5)', A7: '=UNKNOWN(1)', A8: '="x"*2', A9: '=10^1000',
-    A10: '=IF(FALSE,1)', A11: '=SUM(Z101)', A12: '=IF(1)', A13: '=1+' }));
+    A10: '=IF(FALSE,1)', A11: '=SUM(Z10000)', A12: '=IF(1)', A13: '=1+' }));
   assert.equal(result.A1, 42); assert.equal(result.A2, 7); assert.equal(result.A3, 'yes');
   assert.equal(result.A4, '#DIV/0!'); assert.equal(result.A5, '#DIV/0!'); assert.equal(result.A6, '#DIV/0!');
   assert.equal(result.A7, '#NAME?'); assert.equal(result.A8, '#VALUE!'); assert.equal(result.A9, '#NUM!');
@@ -141,7 +144,7 @@ test('inserting rows moves cells and expands same-sheet and cross-sheet ranges, 
   let wb = addSheet(fill({ A1: '1', A2: '2', A3: '3', B1: '=SUM(A1:A3)+$A$2', B2: '="A2"' }));
   wb = setCellValue(wb, wb.sheets[1].id, 'A1', '=SUM(Sheet1!A1:A3)');
   const next = insertRows(wb, first(wb), 1, 2);
-  assert.equal(next.sheets[0].rowCount, 102); assert.equal(next.sheets[0].cells.A4.value, '2');
+  assert.equal(next.sheets[0].rowCount, wb.sheets[0].rowCount + 2); assert.equal(next.sheets[0].cells.A4.value, '2');
   assert.equal(next.sheets[0].cells.B1.value, '=SUM(A1:A5)+$A$4'); assert.equal(next.sheets[0].cells.B4.value, '="A2"');
   assert.equal(next.sheets[1].cells.A1.value, '=SUM(Sheet1!A1:A5)');
   assert.equal(values(next).B1, 8); assert.equal(calculateWorkbook(next)[next.sheets[1].id].A1, 6);
@@ -156,7 +159,7 @@ test('deleting rows shrinks partly overlapping ranges and invalidates deleted si
   assert.equal(next.sheets[0].cells.C1.value, '=#REF!'); assert.equal(values(next).C1, '#REF!');
   assert.equal(next.sheets[0].cells.D1.value, '=SUM(#REF!)'); assert.equal(values(next).D1, '#REF!');
   assert.equal(next.sheets[0].cells.E1.value, '=SUM(A3:A2)');
-  assert.equal(next.sheets[0].rowCount, 99);
+  assert.equal(next.sheets[0].rowCount, wb.sheets[0].rowCount - 1);
 });
 
 test('column structure updates dimensions, widths, formulas and preserves unaffected sheets', () => {
@@ -169,7 +172,7 @@ test('column structure updates dimensions, widths, formulas and preserves unaffe
   const deleted = deleteColumns(inserted, first(wb), 1);
   assert.deepEqual({ ...deleted.sheets[0].cells }, { ...wb.sheets[0].cells });
   assert.equal(deleted.sheets[0].columnWidths[1], 180);
-  assert.throws(() => deleteRows(wb, first(wb), 0, 100));
+  assert.throws(() => deleteRows(wb, first(wb), 0, wb.sheets[0].rowCount));
   assert.throws(() => insertColumns(wb, first(wb), -1));
 });
 
@@ -247,7 +250,7 @@ test('a partial range cut is rejected atomically, while the complete reference r
     { sheetId: first(wb), row: 5, column: 0 });
   assert.equal(next.sheets[0].cells.B1.value, '=SUM(A6:A8)'); assert.equal(values(next).B1, 6);
   assert.throws(() => moveCells(wb, { sheetId: first(wb), top: 0, left: 0, bottom: 2, right: 0 },
-    { sheetId: first(wb), row: 99, column: 0 }));
+    { sheetId: first(wb), row: SPREADSHEET_LIMITS.rows - 1, column: 0 }));
 });
 
 test('workbook equality ignores cell insertion order when manually restoring deleted values', () => {

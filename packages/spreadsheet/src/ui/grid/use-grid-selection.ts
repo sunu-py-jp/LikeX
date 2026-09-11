@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, type PointerEvent } from "react";
 import type { SpreadsheetController, Position } from "../../state/use-spreadsheet";
-import { isCellSelected, isRangeSelected } from "../../state/selection";
+import { axisSelectionRange, isCellSelected, isRangeSelected } from "../../state/selection";
 import { blurObjectEditor } from "../../state/blur-object-editor";
 import type { GridFocusRefs } from "./use-grid-focus";
 
@@ -29,7 +29,7 @@ export function useGridSelection(c: SpreadsheetController, { scrollerRef, active
       dragging.current = null;
       if (drag.toggleOnClick) {
         if (drag.kind === "cell") latest.current.toggleSelection(drag.toggleOnClick.focus);
-        else latest.current.toggleSelectionRange(drag.toggleOnClick.anchor, drag.toggleOnClick.focus);
+        else latest.current.toggleAxisRange(drag.kind, drag.toggleOnClick.anchor[drag.kind], drag.toggleOnClick.focus[drag.kind]);
         latest.current.requestGridFocus();
       }
     };
@@ -57,22 +57,18 @@ export function useGridSelection(c: SpreadsheetController, { scrollerRef, active
     if (pendingPointer.current !== pointer || latest.current.activeSheet.id !== c.activeSheet.id) return;
     const additive = (ctrlKey || metaKey) && !altKey && !shiftKey;
     const origin = shiftKey ? c.selection.anchor : position;
-    const range = kind === "row"
-      ? { anchor: { row: origin.row, column: c.activeSheet.columnCount - 1 }, focus: { row: position.row, column: 0 } }
-      : kind === "column"
-        ? { anchor: { row: c.activeSheet.rowCount - 1, column: origin.column }, focus: { row: 0, column: position.column } }
-        : { anchor: position, focus: position };
+    const range = kind === "cell" ? { anchor: position, focus: position } : axisSelectionRange(c.activeSheet, kind, origin[kind], position[kind]);
     const alreadySelected = kind === "cell" ? isCellSelected(c.selection, position) : isRangeSelected(c.selection, range);
     const toggleOnClick = additive && alreadySelected ? range : undefined;
     if (!toggleOnClick) {
       const accepted = kind === "cell" ? c.select(position, shiftKey, additive)
-        : c.selectRange(range.anchor, range.focus, additive, shiftKey);
+        : c.selectAxisRange(kind, origin[kind], position[kind], additive, shiftKey);
       if (!accepted) return;
     }
     dragging.current = pointer.down ? { kind, pointerId: pointer.id, origin, toggleOnClick } : null;
     if (!pointer.down && toggleOnClick) {
       if (kind === "cell") c.toggleSelection(toggleOnClick.focus);
-      else c.toggleSelectionRange(toggleOnClick.anchor, toggleOnClick.focus);
+      else c.toggleAxisRange(kind, toggleOnClick.anchor[kind], toggleOnClick.focus[kind]);
     }
     focusIntentRef.current = true;
     c.requestGridFocus();
@@ -90,13 +86,11 @@ export function useGridSelection(c: SpreadsheetController, { scrollerRef, active
     let accepted: boolean;
     if (drag.toggleOnClick) {
       if (drag.kind === "row" ? position.row === drag.origin.row : drag.kind === "column" ? position.column === drag.origin.column : position.row === drag.origin.row && position.column === drag.origin.column) return;
-      if (drag.kind === "row") accepted = c.selectRange({ row: drag.origin.row, column: c.activeSheet.columnCount - 1 }, { row: position.row, column: 0 }, true);
-      else if (drag.kind === "column") accepted = c.selectRange({ row: c.activeSheet.rowCount - 1, column: drag.origin.column }, { row: 0, column: position.column }, true);
-      else accepted = c.selectRange(drag.origin, position, true);
+      if (drag.kind === "cell") accepted = c.selectRange(drag.origin, position, true);
+      else accepted = c.selectAxisRange(drag.kind, drag.origin[drag.kind], position[drag.kind], true);
       if (accepted) drag.toggleOnClick = undefined;
-    } else if (drag.kind === "row") accepted = c.select({ row: position.row, column: 0 }, true);
-    else if (drag.kind === "column") accepted = c.select({ row: 0, column: position.column }, true);
-    else accepted = c.select(position, true);
+    } else if (drag.kind === "cell") accepted = c.select(position, true);
+    else accepted = c.selectAxisRange(drag.kind, drag.origin[drag.kind], position[drag.kind], false, true);
     // A rejected addition must never turn the next pointer event into an extension
     // of the previous active range, or a release into a pending deselection.
     if (!accepted) { dragging.current = null; focusIntentRef.current = false; return; }
@@ -110,10 +104,8 @@ export function useGridSelection(c: SpreadsheetController, { scrollerRef, active
     focusIntentRef.current = true;
     const additive = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
     const origin = event.shiftKey ? c.selection.anchor : position;
-    const anchor = kind === "row" ? { row: origin.row, column: c.activeSheet.columnCount - 1 } : { row: c.activeSheet.rowCount - 1, column: origin.column };
-    const focus = kind === "row" ? { row: position.row, column: 0 } : { row: 0, column: position.column };
-    if (additive) c.toggleSelectionRange(anchor, focus);
-    else c.selectRange(anchor, focus, false, event.shiftKey);
+    if (additive) c.toggleAxisRange(kind, origin[kind], position[kind]);
+    else c.selectAxisRange(kind, origin[kind], position[kind], false, event.shiftKey);
     c.requestGridFocus();
     });
   };

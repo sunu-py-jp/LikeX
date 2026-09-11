@@ -14,6 +14,8 @@ import { useSpreadsheetExport } from "./use-spreadsheet-export";
 import { useSpreadsheetSelection } from "./use-spreadsheet-selection";
 import { useSpreadsheetCommands, type SpreadsheetGuiCommandOptions } from "./use-spreadsheet-commands";
 import { useWorkbookDraft } from "./use-workbook-draft";
+import { findHistoryTarget } from "./history-target";
+import { useSpreadsheetZoom } from "./use-spreadsheet-zoom";
 
 export { MAX_SELECTION_CELLS, MAX_SELECTION_RANGES, selectedAddresses, selectionBounds, selectionRanges, rangeBounds,
   isCellSelected, isRangeSelected, isMultiRangeSelection, selectionCellCount } from "./selection";
@@ -24,6 +26,7 @@ export { DEFAULT_ROW_HEIGHT as ROW_HEIGHT, DEFAULT_COLUMN_WIDTH as COLUMN_WIDTH 
 export function useSpreadsheet(props: SpreadsheetProps) {
   const features = resolveSpreadsheetFeatures(props.features);
   const draft = useWorkbookDraft(props);
+  const zoom = useSpreadsheetZoom(props, draft.emitEvent);
   const view = useSpreadsheetSelection(draft.workbook, features, draft.reportError, draft.propsRef);
   const { selectionRef, setSelection } = view;
   // The editor only calls this after initialization; command guards can then inspect its live ref.
@@ -63,9 +66,10 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     cellEdit.cancelEdit();
     view.resetForWorkbook(workbook);
   };
-  const restoreHistoryView = (workbook: Workbook) => {
+  const restoreHistoryView = (workbook: Workbook, previous: Workbook) => {
     cellEdit.cancelEdit();
-    view.resetForWorkbook(workbook, { preserveFocus: true });
+    view.resetForWorkbook(workbook, { preserveFocus: true,
+      historyTarget: findHistoryTarget(previous, workbook, view.selectionRef.current.sheetId) });
   };
   const viewSession = { commitEdit: cellEdit.commitEdit,
     hasPendingEdits: () => !!cellEdit.editingRef.current || pending.pendingObjectEditRef.current, resetView: resetWorkbookView };
@@ -86,10 +90,12 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   useEffect(() => { emitEvent({ type: "unsaved-changes", dirty, pending: pendingInput, hasUnsavedChanges }); },
     [emitEvent, dirty, pendingInput, hasUnsavedChanges]);
 
-  return { workbook: draft.workbook, activeSheet: view.activeSheet, selection: view.selection,
-    select: view.select, selectRange: view.selectRange, toggleSelection: view.toggleSelection, toggleSelectionRange: view.toggleSelectionRange,
+  return { ...zoom, workbook: draft.workbook, activeSheet: view.activeSheet, selection: view.selection,
+    select: view.select, selectRange: view.selectRange, selectAxisRange: view.selectAxisRange, toggleAxisRange: view.toggleAxisRange,
+    toggleSelection: view.toggleSelection, toggleSelectionRange: view.toggleSelectionRange,
     switchSheet, selectCellInSheet: view.selectCellInSheet,
-    selectRangeInSheet: (sheetId: string, anchor: Position, focus: Position) => view.selectRangeInSheet(sheetId, anchor, focus, draft.workbookRef.current),
+    selectRangeInSheet: (sheetId: string, anchor: Position, focus: Position, activeFocus?: Position, kind?: "row" | "column") =>
+      view.selectRangeInSheet(sheetId, anchor, focus, draft.workbookRef.current, activeFocus, kind),
     calculated, editing: cellEdit.editing, beginEdit: cellEdit.beginEdit, cancelEdit: cellEdit.cancelEdit, commitEdit: cellEdit.commitEdit,
     selectedDrawingId: view.selectedDrawingId, selectedDrawing: view.selectedDrawing, selectDrawing,
     commentOpen: view.commentOpen, setCommentOpen: view.setCommentOpen,

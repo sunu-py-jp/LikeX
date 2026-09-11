@@ -44,6 +44,8 @@ export type SpreadsheetFeatures = Readonly<{
   reorderSheets?: boolean;
   /** Allows resizing rows, columns and drawing objects, including automatic sizing. */
   resize?: boolean;
+  /** Shows view zoom controls and enables wheel/pinch zoom and the setZoom handle. */
+  zoom?: boolean;
   undoRedo?: boolean;
   images?: boolean;
   shapes?: boolean;

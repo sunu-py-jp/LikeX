@@ -1,11 +1,12 @@
 import { parseTsv, stringifyTsv, SPREADSHEET_LIMITS } from "../../model";
 import { copySpreadsheetCells } from "../../model/editing/copy";
 import { getCellPasteRange } from "../../model/editing/paste";
-import type { SpreadsheetCalculatedValue, SpreadsheetSheet, SpreadsheetWorkbook } from "../../model/types";
+import { getCellMoveRange } from "../../model/editing/move";
+import type { SpreadsheetCalculatedValue, SpreadsheetCellPosition, SpreadsheetMergedRange, SpreadsheetSheet, SpreadsheetWorkbook } from "../../model/types";
 import type { SpreadsheetFeatures, SpreadsheetSelection } from "../../props";
 import type { SpreadsheetCommand } from "../../commands/types";
 import type { SpreadsheetPasteMode, SpreadsheetPastePayload } from "../../api/editing-commands";
-import { isMultiRangeSelection, selectionBounds } from "../selection";
+import { isMultiRangeSelection, selectionBounds, selectionRanges } from "../selection";
 
 /** Selection and clipboard token handling stay in the UI adapter; data transfer is a public command. */
 export type CellTransferContext = {
@@ -18,6 +19,8 @@ export type CellTransferContext = {
 export type CopiedCells = SpreadsheetPastePayload & {
   token: string; text: string;
   sheetId: string; top: number; left: number; cut: boolean; workbook: SpreadsheetWorkbook;
+  /** Header-selection provenance, also retained by partial axis selections. */
+  axis?: "row" | "column";
 };
 
 export const SINGLE_RANGE_CLIPBOARD_MESSAGE = "コピー・切り取り・貼り付けは、1つの連続した範囲を選択してください";
@@ -25,13 +28,29 @@ export function assertSingleClipboardRange(selection: SpreadsheetSelection): voi
   if (isMultiRangeSelection(selection)) throw new Error(SINGLE_RANGE_CLIPBOARD_MESSAGE);
 }
 
+/** The range end is not the active cursor: preserve a visible destination cell when possible. */
+export function cellPasteFocus(destination: SpreadsheetMergedRange, previous: SpreadsheetCellPosition): SpreadsheetCellPosition {
+  return previous.row >= destination.top && previous.row <= destination.bottom && previous.column >= destination.left && previous.column <= destination.right
+    ? { ...previous } : { row: destination.top, column: destination.left };
+}
+
+/** Only a complete copied axis may be repositioned to the destination origin. */
+function copiedWholeAxis(internal: CopiedCells | null, height: number, width: number): CopiedCells["axis"] {
+  const source = internal?.workbook.sheets.find(sheet => sheet.id === internal.sheetId);
+  if (!source || !internal) return undefined;
+  if (internal.axis === "column" && internal.top === 0 && height === source.rowCount) return "column";
+  if (internal.axis === "row" && internal.left === 0 && width === source.columnCount) return "row";
+  return undefined;
+}
+
 export function captureCopiedCells(context: CellTransferContext, cut: boolean): Omit<CopiedCells, "token"> {
   assertSingleClipboardRange(context.selection);
   const range = selectionBounds(context.selection);
+  const axis = selectionRanges(context.selection).at(-1)?.kind;
   const payload = copySpreadsheetCells(context.workbook, context.activeSheet.id, range,
-    { features: context.features, kind: cut ? "cut" : "copy" });
+    { features: context.features, kind: cut ? "cut" : "copy", partialMerges: axis && !cut ? "skip" : "reject" });
   return { ...payload, text: stringifyTsv(payload.displayedValues!), sheetId: context.activeSheet.id,
-    top: range.top, left: range.left, cut, workbook: context.workbook };
+    top: range.top, left: range.left, cut, workbook: context.workbook, ...(axis ? { axis } : {}) };
 }
 
 /** Build commands from a selected destination; no workbook changes are performed by this adapter. */
@@ -41,17 +60,25 @@ export function prepareCellPaste(context: CellTransferContext, text: string, int
   if (mode !== "all" && internal?.cut) throw new Error("切り取りした範囲には通常の貼り付けを使用してください");
   const values = internal?.values ?? parseTsv(text), width = Math.max(0, ...values.map(row => row.length));
   if (!values.length || !width) return;
-  const { top, left } = selectionBounds(context.selection), target = { row: top, column: left };
+  const selected = selectionBounds(context.selection);
+  // A copied header represents an entire row/column even when the destination
+  // is a visible cell in its middle. Align only that source axis to its origin.
+  const wholeAxis = copiedWholeAxis(internal, values.length, width);
+  const top = wholeAxis === "column" ? 0 : selected.top;
+  const left = wholeAxis === "row" ? 0 : selected.left;
+  const target = { row: top, column: left };
+  const axis = internal?.axis ?? selectionRanges(context.selection).at(-1)?.kind;
   if (internal?.cut && internal.workbook === context.workbook) {
     const source = { sheetId: internal.sheetId, top: internal.top, left: internal.left,
       bottom: internal.top + values.length - 1, right: internal.left + width - 1 };
     const command: SpreadsheetCommand = { type: "cells.move", sheetId: context.activeSheet.id, source, target };
-    return { destination: { top, left, bottom: top + values.length - 1, right: left + width - 1 }, commands: [command] };
+    return { destination: getCellMoveRange(context.workbook, source, { ...target, sheetId: context.activeSheet.id }), commands: [command], axis };
   }
   const payload: SpreadsheetPastePayload = internal ? { values, displayedValues: internal.displayedValues, valueTypes: internal.valueTypes,
     formats: internal.formats, validations: internal.validations, comments: internal.comments, merges: internal.merges, source: internal.source } : { values };
-  const destination = getCellPasteRange(context.activeSheet, target, payload);
+  const partialMerges = axis ? "skip" : "reject";
+  const destination = getCellPasteRange(context.activeSheet, target, payload, partialMerges);
   if (!destination) return;
-  const command: SpreadsheetCommand = { type: "cells.paste", sheetId: context.activeSheet.id, target, payload, mode };
-  return { destination, commands: [command] };
+  const command: SpreadsheetCommand = { type: "cells.paste", sheetId: context.activeSheet.id, target, payload, mode, partialMerges };
+  return { destination, commands: [command], axis };
 }

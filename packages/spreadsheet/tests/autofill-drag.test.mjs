@@ -57,3 +57,18 @@ test('an intervening edit invalidates the drag and geometry never extends both a
   assert.equal(hook.current.c.workbook.sheets[0].cells.A1.value, '99'); assert.equal(hook.current.c.workbook.sheets[0].cells.A3, undefined);
   assert.deepEqual(autoFillTarget({ top: 1, left: 1, bottom: 2, right: 2 }, 3, 6), { top: 1, left: 1, bottom: 2, right: 6 });
 });
+
+for (const zoom of [50, 200]) test(`autofill at ${zoom}% targets the same logical cells and cancels when zoom changes`, async t => {
+  const hook = await mount(t, { initialZoom: zoom });
+  await hook.start();
+  await hook.dispatch('pointermove', { clientX: 80 * zoom / 100, clientY: 130 * zoom / 100 });
+  await hook.dispatch('pointerup');
+  assert.equal(hook.current.c.workbook.sheets[0].cells.A4.value, '4');
+  assert.equal(hook.current.c.workbook.sheets[0].cells.A5, undefined);
+  await act(async () => hook.current.c.undo());
+  await hook.start();
+  await act(async () => hook.current.c.setZoom(100));
+  assert.equal(hook.current.fill.preview, null);
+  await hook.dispatch('pointerup');
+  assert.equal(hook.current.c.workbook.sheets[0].cells.A3, undefined);
+});

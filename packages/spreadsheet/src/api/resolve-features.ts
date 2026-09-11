@@ -32,6 +32,7 @@ export function resolveSpreadsheetFeatures(features: SpreadsheetFeatures | undef
     deleteSheet: features?.sheets !== false && features?.deleteSheet !== false,
     reorderSheets: features?.sheets !== false && features?.reorderSheets !== false,
     resize: features?.resize !== false,
+    zoom: features?.zoom !== false,
     undoRedo: features?.undoRedo !== false,
     images: features?.images !== false,
     shapes: features?.shapes !== false,

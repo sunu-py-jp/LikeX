@@ -69,7 +69,7 @@ import {
 const workbook: SpreadsheetWorkbook = {
   schemaVersion: 1,
   sheets: [{
-    id: "budget", name: "予算", rowCount: 100, columnCount: 26,
+    id: "budget", name: "予算", rowCount: 300, columnCount: 26,
     cells: {
       A1: { value: "1200" },
       A2: { value: "300" },

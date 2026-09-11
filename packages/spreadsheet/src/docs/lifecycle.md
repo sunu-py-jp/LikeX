@@ -179,6 +179,7 @@ const state = api.getEditState();
 | `discard` | 破棄後のブック |
 | `selection` | セル・範囲の選択 |
 | `drawing-selection` | 選択した描画のID、解除時は`null` |
+| `zoom-change` | 表示倍率が実際に変わったときの `zoom` / `previousZoom`（％）。保存データの変更ではありません。[表示倍率](./zoom.md) |
 | `clipboard` | `copy` / `cut` / `paste`、対象シートと操作開始時の選択範囲 |
 | `context-menu` | カスタムメニュー処理の開始・確認待ち・成功・キャンセル・失敗。[右クリックメニュー](./context-menu.md) |
 | `unsaved-changes` | 確定変更 `dirty`、未確定入力 `pending`、両者を含む `hasUnsavedChanges` |

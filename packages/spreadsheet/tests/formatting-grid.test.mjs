@@ -13,7 +13,7 @@ async function mount(t, props = {}) {
   const doc = { activeElement: null, addEventListener(name, handler) { const values = listeners.get(name) ?? new Set(); values.add(handler); listeners.set(name, values); }, removeEventListener(name, handler) { listeners.get(name)?.delete(handler); }, createElement() { return { getContext() { return { font: '', measureText(text) { return { width: text.length * 10 }; } }; } }; }, defaultView: { addEventListener() {}, removeEventListener() {}, cancelAnimationFrame() {}, requestAnimationFrame() { return 1; } } };
   const node = element => {
     if (element.type === 'textarea' && input) return input;
-    const value = { ownerDocument: doc, style: {}, scrollHeight: 18, clientHeight: 480, clientWidth: 1000, scrollTop: 0, scrollLeft: 0, selectionStart: 0, selectionEnd: 0,
+    const value = { ownerDocument: doc, addEventListener() {}, removeEventListener() {}, style: {}, scrollHeight: 18, clientHeight: 480, clientWidth: 1000, scrollTop: 0, scrollLeft: 0, selectionStart: 0, selectionEnd: 0,
       focus() { doc.activeElement = this; }, setSelectionRange(a, b) { this.selectionStart = a; this.selectionEnd = b; }, closest() { return null; }, contains(target) { return target?.ownerDocument === doc; }, setPointerCapture() {}, releasePointerCapture() {}, getBoundingClientRect() { return { top: 0, left: 0, right: 1000, bottom: 480 }; },
       get value() { return c.editing?.value ?? element.props.value ?? ''; } };
     if (element.type === 'textarea') input = value;
@@ -61,6 +61,23 @@ test('row/column separator double click auto-fits text and multiline font metric
   const ui = await mount(t);
   await ui.resize('1行の高さ', 'onDoubleClick'); assert.equal(ui.c.activeSheet.rowHeights[0], 62);
   await ui.resize('A列の幅', 'onDoubleClick'); assert.equal(ui.c.activeSheet.columnWidths[0], 66);
+});
+
+test('zoomed row and column resizing converts pointer movement to saved logical sizes', async t => {
+  const ui = await mount(t, { initialZoom: 200 });
+  await ui.resize('1行の高さ', 'onPointerDown', { clientY: 20 });
+  await ui.resize('1行の高さ', 'onPointerMove', { clientY: 80 });
+  await ui.resize('1行の高さ', 'onPointerUp', { clientY: 80 });
+  assert.equal(ui.c.activeSheet.rowHeights[0], 58, '60 screen pixels become 30 sheet pixels');
+  await ui.resize('A列の幅', 'onPointerDown', { clientX: 100 });
+  await ui.resize('A列の幅', 'onPointerMove', { clientX: 160 });
+  await ui.resize('A列の幅', 'onPointerUp', { clientX: 160 });
+  assert.equal(ui.c.activeSheet.columnWidths[0], 130);
+  await ui.resize('1行の高さ', 'onPointerDown', { clientY: 20 });
+  await act(async () => ui.c.setZoom(50));
+  await ui.resize('1行の高さ', 'onPointerMove', { clientY: 200 });
+  await ui.resize('1行の高さ', 'onPointerUp', { clientY: 200 });
+  assert.equal(ui.c.activeSheet.rowHeights[0], 58, 'changing zoom cancels an unfinished drag');
 });
 
 test('format styling is rendered independently of editing permissions', async t => {

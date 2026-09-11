@@ -14,7 +14,9 @@
     "paste",
     "autoFill",
     "copySpreadsheetDrawing",
-    "drawings.paste"
+    "drawings.paste",
+    "partialMerges",
+    "行列の自動拡張"
   ],
   "screenshots": [
     {

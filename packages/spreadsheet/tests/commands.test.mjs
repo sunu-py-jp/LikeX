@@ -92,7 +92,7 @@ test('commands stage in order without mutating the source or caller payload and 
 test('failure at a later command returns no partial workbook or receipts and leaves the original intact', () => {
   const workbook = initial(), snapshot = serializeWorkbook(workbook);
   const result = run(workbook, [{ type: 'cells.set', sheetId: 'sheet-1', values: { A1: '99' } },
-    { type: 'rows.delete', sheetId: 'sheet-1', index: 0, count: 100 }]);
+    { type: 'rows.delete', sheetId: 'sheet-1', index: 0, count: workbook.sheets[0].rowCount }]);
   assert.equal(result.ok, false); assert.equal(result.commandIndex, 1); assert.equal(result.code, 'VALIDATION_FAILED');
   assert.equal('workbook' in result, false); assert.equal('results' in result, false);
   assert.equal(serializeWorkbook(workbook), snapshot); assert.equal(Object.isFrozen(result), true);
@@ -116,7 +116,7 @@ test('all row/column operations reuse reference transforms and resize preserves 
     { type: 'columns.insert', sheetId: 'sheet-1', index: 0 }, { type: 'columns.delete', sheetId: 'sheet-1', index: 0 },
     { type: 'columns.resize', sheetId: 'sheet-1', column: 2, width: 250 },
   ]);
-  assert.equal(result.ok, true); assert.equal(first(result).rowCount, 100); assert.equal(first(result).columnCount, 26);
+  assert.equal(result.ok, true); assert.equal(first(result).rowCount, workbook.sheets[0].rowCount); assert.equal(first(result).columnCount, 26);
   assert.equal(first(result).cells.D1.value, '=SUM(A1:B1)'); assert.equal(first(result).columnWidths[2], 250);
 });
 
@@ -346,7 +346,7 @@ test('model validation remains authoritative for hostile image bytes, invalid ge
     { type: 'images.insert', sheetId: 'sheet-1', anchor, resource: { ...imageResource, mimeType: 'image/svg+xml' } },
     { type: 'shapes.insert', sheetId: 'sheet-1', shape: 'rectangle', anchor, fill: 'url(javascript:alert(1))' },
     { type: 'shapes.insert', sheetId: 'sheet-1', shape: 'triangle', anchor },
-    { type: 'shapes.insert', sheetId: 'sheet-1', shape: 'rectangle', anchor: { row: 100, column: 0 } },
+    { type: 'shapes.insert', sheetId: 'sheet-1', shape: 'rectangle', anchor: { row: workbook.sheets[0].rowCount, column: 0 } },
     { type: 'cells.merge', sheetId: 'sheet-1', range: { ...range, right: 100 } },
     { type: 'sheets.delete', sheetId: 'sheet-1' },
   ]) { const result = run(workbook, [command]); assert.equal(result.ok, false); assert.equal(result.code, 'VALIDATION_FAILED'); }

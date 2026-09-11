@@ -2,7 +2,7 @@ import type { SpreadsheetContextMenuContext } from "../../api/context-menu";
 import type { SpreadsheetCommand } from "../../api/types";
 import type { SpreadsheetSelection } from "../../props";
 import type { SpreadsheetController } from "../use-spreadsheet";
-import { isCellSelected, isMultiRangeSelection, rangeBounds, selectionForSheet, selectionRanges } from "../selection";
+import { axisSelectionRange, isCellSelected, isMultiRangeSelection, rangeBounds, selectionForSheet, selectionRanges } from "../selection";
 
 export type CellMenuAction = "copy" | "cut" | "paste" | "paste-values" | "paste-formats" |
   "insert-rows" | "insert-columns" | "delete-rows" | "delete-columns" | "clear" | "delete-cells" |
@@ -22,11 +22,13 @@ export function selectionForContextTarget(context: SpreadsheetContextMenuContext
     if (target.kind === "column" && bounds.every(b => b.top === 0 && b.bottom === sheet.rowCount - 1) &&
       bounds.some(b => target.column >= b.left && target.column <= b.right)) return context.selection;
   }
-  const anchor = target.kind === "column" ? {row: 0, column: target.column} :
-    target.kind === "row" ? {row: target.row, column: 0} : {row: target.row, column: target.column};
-  const focus = target.kind === "row" ? {row: target.row, column: sheet.columnCount - 1} :
-    target.kind === "column" ? {row: sheet.rowCount - 1, column: target.column} : anchor;
-  return selectionForSheet(sheet, [{anchor, focus}], true, anchor);
+  if (target.kind !== "cell") {
+    const index = target.kind === "row" ? target.row : target.column;
+    const range = axisSelectionRange(sheet, target.kind, index, index);
+    return selectionForSheet(sheet, [range], false, range.focus);
+  }
+  const anchor = {row: target.row, column: target.column};
+  return selectionForSheet(sheet, [{anchor, focus: anchor}], true, anchor);
 }
 
 export function selectionAxisIndices(selection: SpreadsheetSelection, axis: "row" | "column"): number[] {

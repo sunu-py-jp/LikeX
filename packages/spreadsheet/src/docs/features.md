@@ -49,6 +49,7 @@ const features = {
 | `duplicateSheet` | シートの複製。`sheets` と `createSheet` も有効である必要があります。 |
 | `reorderSheets` | タブのドラッグや `sheets.move` によるシートの並べ替え。 |
 | `resize` | 行高・列幅とその自動調整、画像・図形・テキストボックスのサイズ変更。挿入時のサイズ指定は可能です。 |
+| `zoom` | 右下の倍率操作、グリッド上のCtrl＋ホイール・ピンチ、`setZoom`。現在の倍率と `initialZoom` の表示は維持します。[表示倍率](./zoom.md) |
 | `undoRedo` | 元に戻す・やり直す、変更履歴の記録。 |
 | `images` / `shapes` / `textBoxes` | 画像／図形／テキストボックスの挿入・表示・編集・削除。 |
 | `comments` | コメントの挿入・表示・編集・削除。 |

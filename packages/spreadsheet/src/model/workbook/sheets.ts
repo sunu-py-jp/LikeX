@@ -1,6 +1,7 @@
 import { rewriteFormulaReferences, type FormulaReference } from "../formula";
 import { pruneImageResources } from "../image-resources";
 import { SPREADSHEET_LIMITS, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
+import { DEFAULT_SHEET_SIZE } from "../sheet-dimensions";
 import { finishWorkbook, freezeCell, getWorkbookSheet } from "./snapshot";
 import { ensureUniqueSheetName, fail, normalizeSheetName } from "./validation";
 
@@ -16,7 +17,7 @@ function addedSheetName(workbook: SpreadsheetWorkbook, suppliedName?: string): s
 function appendSheet(workbook: SpreadsheetWorkbook, name: string, id: string): SpreadsheetWorkbook {
   if (typeof id !== "string" || !id || id.length > 200 || /\0/.test(id) || workbook.sheets.some(sheet => sheet.id === id))
     return fail("シートの ID が空、重複、または不正です");
-  return finishWorkbook([...workbook.sheets, Object.freeze({ id, name, cells: Object.freeze({}), rowCount: 100, columnCount: 26 })], workbook);
+  return finishWorkbook([...workbook.sheets, Object.freeze({ id, name, cells: Object.freeze({}), ...DEFAULT_SHEET_SIZE })], workbook);
 }
 /** Internal command boundary: callers supply identity without consuming the legacy model sequence. */
 export function addSheetWithId(workbook: SpreadsheetWorkbook, suppliedName: string | undefined, id: string): SpreadsheetWorkbook {

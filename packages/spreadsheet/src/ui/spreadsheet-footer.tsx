@@ -7,6 +7,7 @@ import { selectionCellCount, selectionRanges } from "../state/selection";
 import { Command, Icon } from "./spreadsheet-controls";
 import { useObjectEditPending } from "../state/use-object-edit-pending";
 import { useSheetTabReorder } from "./sheets/use-sheet-tab-reorder";
+import { SpreadsheetZoomControls } from "./spreadsheet-zoom-controls";
 
 export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetController }) {
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
@@ -63,8 +64,8 @@ export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetCo
           }}><Icon name="plus" /></Command>}
         </>}
       </div> : <span className="lxs-sheet-label">{c.activeSheet.name}</span>}
-      <span className="lxs-selection-stats" aria-live="polite">{stats}</span>
     </footer>
+    <div className="lxs-status-bar"><span className="lxs-selection-stats" aria-live="polite">{stats}</span><SpreadsheetZoomControls controller={c} /></div>
     {c.error && <div className="lxs-error" role="alert"><span>{c.error}</span><Command label="エラー表示を閉じる" onClick={() => c.setError(null)}><Icon name="close" /></Command></div>}
   </>;
 }

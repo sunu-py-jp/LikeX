@@ -50,7 +50,7 @@ test('transfer validation fails before publishing any workbook changes', () => {
   const paste = core.prepareCellPaste(source, '=1+2', null);
   assert.throws(() => applyPaste(paste, workbook, () => assert.fail('no identity should be allocated'), { formulas: false }), /formulas|数式/);
   assert.deepEqual(workbook.sheets[0].cells, {});
-  assert.throws(() => core.prepareCellPaste(context(workbook, { row: 99, column: 25 }), 'a\tb', null), /行・列/);
+  assert.throws(() => core.prepareCellPaste(context(workbook, { row: 0, column: 999 }), 'a\tb', null), /行数または列数が上限/);
   const merged = core.mergeCells(workbook, workbook.sheets[0].id, { top: 0, left: 0, bottom: 1, right: 1 });
   assert.throws(() => core.captureCopiedCells(context(merged, { row: 1, column: 1 }), false), /結合/);
 });

@@ -17,6 +17,8 @@ export function useSpreadsheetHandle(ref: Ref<SpreadsheetHandle> | undefined, co
     executeAsync: command => latest.current.externalExecuteAsync(command),
     batchAsync: commands => latest.current.externalBatchAsync(commands),
     getWorkbook: () => latest.current.getWorkbook(),
+    getZoom: () => latest.current.getZoom(),
+    setZoom: percent => latest.current.setZoom(percent),
     undo: () => latest.current.externalUndo(),
     redo: () => latest.current.externalRedo(),
     getHistoryState: () => latest.current.getHistoryState(),

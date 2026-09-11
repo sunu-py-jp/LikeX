@@ -5,6 +5,7 @@ import { normalizeDataValidation } from "../data-validation";
 import { normalizeMerges, validateMergedContents } from "../merges";
 import { normalizeTables } from "../tables/normalize";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetWorkbook } from "../types";
+import { DEFAULT_SHEET_SIZE } from "../sheet-dimensions";
 import { finishWorkbook, freezeCell } from "./snapshot";
 import { canonicalCellAddress, fail, normalizeCellFormat, normalizeSheetName, normalizeSizes, validateCellValue, validateDimension } from "./validation";
 
@@ -52,5 +53,5 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
 }
 
 export function createWorkbook(): SpreadsheetWorkbook {
-  return finishWorkbook([Object.freeze({ id: "sheet-1", name: "Sheet1", cells: Object.freeze({}), rowCount: 100, columnCount: 26 })]);
+  return finishWorkbook([Object.freeze({ id: "sheet-1", name: "Sheet1", cells: Object.freeze({}), ...DEFAULT_SHEET_SIZE })]);
 }

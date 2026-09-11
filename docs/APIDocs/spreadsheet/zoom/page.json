@@ -1,0 +1,9 @@
+{
+  "title": "表示倍率の変更",
+  "summary": "右下のスライダーやピンチで拡大・縮小し、初期倍率と外部操作APIを設定します。",
+  "source": "packages/spreadsheet/src/docs/zoom.md",
+  "order": 45,
+  "section": "基本",
+  "keywords": ["initialZoom", "getZoom", "setZoom", "zoom-change", "zoom", "ズーム", "ピンチ", "表示倍率"],
+  "screenshots": []
+}

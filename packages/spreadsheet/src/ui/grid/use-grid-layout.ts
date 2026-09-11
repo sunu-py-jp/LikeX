@@ -5,7 +5,7 @@ import type { SpreadsheetSheet } from "../../model/types";
 import { columnGeometry, createRowOffsets, visibleGridRows, visibleMergedCells, type ColumnWidthPreview, type GridViewport } from "./grid-geometry";
 
 /** Owns viewport observation and spatial lookup; selection/editing remain outside this hook. */
-export function useGridLayout(sheet: SpreadsheetSheet, focusedRow: number, resizing: ColumnWidthPreview | null, rowResize?: { index: number; value: number } | null) {
+export function useGridLayout(sheet: SpreadsheetSheet, focusedRow: number, resizing: ColumnWidthPreview | null, rowResize?: { index: number; value: number } | null, zoom = 100) {
   const scroller = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState<GridViewport>({ top: 0, height: 480 });
   const columns = columnGeometry(sheet, resizing);
@@ -21,7 +21,7 @@ export function useGridLayout(sheet: SpreadsheetSheet, focusedRow: number, resiz
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
     observer?.observe(element);
     return () => observer?.disconnect();
-  }, []);
+  }, [zoom]);
   const onScroll = (event: UIEvent<HTMLDivElement>) => setViewport({ top: event.currentTarget.scrollTop, height: event.currentTarget.clientHeight });
   return { scroller, ...columns, rowOffsets, virtualRows, renderedMerges, onScroll };
 }
