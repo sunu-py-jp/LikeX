@@ -21,7 +21,7 @@ export function updateDrawing(workbook: SpreadsheetWorkbook, sheetId: string, dr
   if (drawingsEqual(current, next)) return workbook;
   const sheets = workbook.sheets.map(item => item.id === sheetId
     ? Object.freeze({ ...sheet, drawings: Object.freeze(sheet.drawings!.map(drawing => drawing.id === drawingId ? next : drawing)) }) : item);
-  return finishWorkbook(sheets, undefined, current.type === "image" && next.type === "image" && current.resourceId !== next.resourceId
+  return finishWorkbook(sheets, workbook, current.type === "image" && next.type === "image" && current.resourceId !== next.resourceId
     ? pruneImageResources(workbook.resources, sheets) : workbook.resources);
 }
 
@@ -30,7 +30,7 @@ export function deleteDrawing(workbook: SpreadsheetWorkbook, sheetId: string, dr
   if (!sheet.drawings?.some(item => item.id === drawingId)) return workbook;
   const sheets = workbook.sheets.map(item => item.id === sheetId
     ? Object.freeze({ ...sheet, drawings: Object.freeze(sheet.drawings!.filter(drawing => drawing.id !== drawingId)) }) : item);
-  return finishWorkbook(sheets, undefined, pruneImageResources(workbook.resources, sheets));
+  return finishWorkbook(sheets, workbook, pruneImageResources(workbook.resources, sheets));
 }
 
 /** Add an embedded resource and its drawing atomically; a referenced ID cannot be silently replaced. */
@@ -46,7 +46,7 @@ export function insertImage(workbook: SpreadsheetWorkbook, sheetId: string, reso
   const normalized = normalizeDrawing(drawing, sheet, resources);
   if (sheet.drawings?.some(item => item.id === normalized.id)) return fail("同じ ID の描画オブジェクトがあります");
   return finishWorkbook(workbook.sheets.map(item => item.id === sheetId
-    ? Object.freeze({ ...sheet, drawings: Object.freeze([...(sheet.drawings ?? []), normalized]) }) : item), undefined, resources);
+    ? Object.freeze({ ...sheet, drawings: Object.freeze([...(sheet.drawings ?? []), normalized]) }) : item), workbook, resources);
 }
 
 export function setCellComments(workbook: SpreadsheetWorkbook, sheetId: string,

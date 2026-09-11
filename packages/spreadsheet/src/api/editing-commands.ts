@@ -1,3 +1,4 @@
+import type { SpreadsheetWriteConflictPolicy } from "../model/workbook/write-conflicts";
 import type { SpreadsheetCell, SpreadsheetCellFormat, SpreadsheetCellPosition, SpreadsheetComment, SpreadsheetMergedRange, SpreadsheetMoveSource } from "../model/types";
 
 export type SpreadsheetSearchQuery = Readonly<{ text: string; matchCase?: boolean; wholeCell?: boolean; lookIn?: "values" | "formulas" }>;
@@ -17,9 +18,9 @@ export type SpreadsheetPastePayload = Readonly<{
   source?: Readonly<SpreadsheetCellPosition & { sheetId: string }>;
 }>;
 export type SpreadsheetEditingCommand =
-  | Readonly<{ type: "cells.replace"; sheetId: string; query: SpreadsheetSearchQuery; replacement: string; addresses?: readonly string[] }>
-  | Readonly<{ type: "cells.fill"; sheetId: string; source: SpreadsheetMergedRange; target: SpreadsheetMergedRange; mode?: "auto" | "copy" | "series" }>
-  | Readonly<{ type: "cells.paste"; sheetId: string; target: Readonly<SpreadsheetCellPosition>; payload: SpreadsheetPastePayload; mode?: SpreadsheetPasteMode }>
+  | Readonly<{ type: "cells.replace"; sheetId: string; query: SpreadsheetSearchQuery; replacement: string; addresses?: readonly string[]; onConflict?: SpreadsheetWriteConflictPolicy }>
+  | Readonly<{ type: "cells.fill"; sheetId: string; source: SpreadsheetMergedRange; target: SpreadsheetMergedRange; mode?: "auto" | "copy" | "series"; onConflict?: SpreadsheetWriteConflictPolicy }>
+  | Readonly<{ type: "cells.paste"; sheetId: string; target: Readonly<SpreadsheetCellPosition>; payload: SpreadsheetPastePayload; mode?: SpreadsheetPasteMode; onConflict?: SpreadsheetWriteConflictPolicy }>
   /** Cut/paste preserves cell identity and updates references, including across sheets. */
-  | Readonly<{ type: "cells.move"; sheetId: string; source: Readonly<SpreadsheetMoveSource>; target: Readonly<SpreadsheetCellPosition> }>
+  | Readonly<{ type: "cells.move"; sheetId: string; source: Readonly<SpreadsheetMoveSource>; target: Readonly<SpreadsheetCellPosition>; onConflict?: SpreadsheetWriteConflictPolicy }>
   | Readonly<{ type: "sheets.duplicate"; sheetId: string; name?: string }>;

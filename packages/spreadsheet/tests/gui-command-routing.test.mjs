@@ -40,7 +40,7 @@ const copyEvent = () => {
     setData: (key, value) => values.set(key, value), get types() { return [...values.keys()]; } } };
 };
 
-test('GUI editor commits and clear use the same command result and event semantics as headless cells.set', async t => {
+test('GUI editor commits and clear use the same command result and event semantics as headless cell commands', async t => {
   const initial = source(), ui = await mount(t, initial);
   await act(async () => ui.c.beginEdit({ row: 2, column: 2 }, '=D1*2'));
   await act(async () => { assert.equal(await ui.c.commitEdit(), true); });
@@ -51,9 +51,9 @@ test('GUI editor commits and clear use the same command result and event semanti
   assert.equal(ui.changes.length, 1); assert.equal(ui.requests.length, 1);
   await act(async () => ui.c.select({ row: 2, column: 2 }));
   await act(async () => ui.c.clearCells());
-  const cleared = applySpreadsheetCommands(direct.workbook, [{ type: 'cells.set', sheetId: 'sheet', values: { C3: '' } }]);
+  const cleared = applySpreadsheetCommands(direct.workbook, [{ type: 'cells.clear', sheetId: 'sheet', range: 'C3' }]);
   assert.deepEqual(ui.c.workbook, cleared.workbook);
-  assert.deepEqual(ui.events.filter(event => event.type === 'change').at(-1).commands, ['cells.set']);
+  assert.deepEqual(ui.events.filter(event => event.type === 'change').at(-1).commands, ['cells.clear']);
   await act(async () => ui.c.undo());
   assert.deepEqual(ui.c.workbook, direct.workbook);
 });

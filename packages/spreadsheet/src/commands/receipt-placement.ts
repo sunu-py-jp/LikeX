@@ -17,6 +17,8 @@ function getCommandPlacement(workbook: SpreadsheetWorkbook, command: Spreadsheet
       const { nextRow, nextColumn } = getDrawingPlacement(workbook, receipt.sheetId, receipt.drawingId!);
       return { nextRow, nextColumn };
     }
+    case "tables.insert": case "cells.writeTable":
+      return { nextRow: receipt.range!.bottom + 1, nextColumn: receipt.range!.right + 1 };
     case "cells.set": {
       let nextRow = 0, nextColumn = 0;
       for (const address of Object.keys(command.values)) {

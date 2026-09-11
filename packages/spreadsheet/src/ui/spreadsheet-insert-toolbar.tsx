@@ -6,6 +6,7 @@ import type { SpreadsheetCommand } from "../api/types";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { readImageResource } from "../state/read-image";
 import { Command, Icon } from "./spreadsheet-controls";
+import { SpreadsheetTableTools } from "./spreadsheet-table-tools";
 
 type ImageRequest = { abort: AbortController; workbook: SpreadsheetController["workbook"]; selection: SpreadsheetController["selection"]; sheetId: string };
 function acceptsImage(c: SpreadsheetController, request: ImageRequest) {
@@ -66,6 +67,7 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
     }
   };
   return <div className="lxs-ribbon" role="toolbar" aria-label="シートへの挿入">
+    <SpreadsheetTableTools controller={c} />
     {!c.readOnly && c.features.images && <div className="lxs-tool-group">
       <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden aria-label="挿入する画像ファイル" disabled={c.disabled || c.requesting || loading} onChange={event => {
         const file = event.target.files?.[0]; event.target.value = "";

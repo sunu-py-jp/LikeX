@@ -1,3 +1,8 @@
+import { stageNamedRangeCommand } from "./named-ranges";
+import { stageTableCommand } from "./tables";
+import { clearCommandCells } from "./clear-cells";
+import { cellWriteReport } from "./cell-write-report";
+import { filterCellValueWrites, WriteConflictError } from "../model/workbook/write-conflicts";
 import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandReceipt, SpreadsheetCommandSuccess } from "./types";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { completeCommandReceipt } from "./receipt-placement";
@@ -30,6 +35,14 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
   const result = (next: SpreadsheetWorkbook, extra: Partial<SpreadsheetCommandBaseReceipt> = {}) =>
     ({ workbook: next, receipt: { type: command.type, sheetId: sheet.id, ...extra } });
   switch (command.type) {
+    case "namedRanges.add": case "namedRanges.update": case "namedRanges.delete": case "namedRanges.clear":
+      return stageNamedRangeCommand(workbook, command, features, nextId);
+    case "tables.insert": case "cells.writeTable": case "tables.delete":
+      return stageTableCommand(workbook, command, features, nextId);
+    case "cells.clear": case "cells.delete": {
+      const next = clearCommandCells(workbook, sheet.id, command.range, command.type === "cells.delete" ? "all" : command.mode ?? "values", features);
+      return result(next, { write: cellWriteReport(workbook, next) });
+    }
     case "cells.validation":
       return applyDataValidationCommand(workbook, command, features);
     case "rows.resize":
@@ -52,7 +65,9 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
         if (typeof value !== "string") return rejectCommand("INVALID_COMMAND", "セルの値は文字列で指定してください");
         if (value.startsWith("=")) requireCommandFeature(features, "formulas");
       }
-      return result(setCellValues(workbook, sheet.id, command.values));
+      const filtered = filterCellValueWrites(sheet, command.values, command.onConflict);
+      const next = setCellValues(workbook, sheet.id, filtered.values);
+      return result(next, { write: cellWriteReport(workbook, next, filtered.skippedAddresses) });
     }
     case "cells.format":
       requireCommandFeature(features, "formatting");
@@ -126,8 +141,9 @@ export function stageSpreadsheetCommands(workbook: SpreadsheetWorkbook, commands
     const changed = !workbooksEqual(workbook, staged);
     return Object.freeze({ ok: true, changed, workbook: changed ? staged : workbook, results: Object.freeze(results) });
   } catch (cause) {
-    return Object.freeze({ ok: false, code: cause instanceof SpreadsheetCommandError ? cause.code : "VALIDATION_FAILED",
+    return Object.freeze({ ok: false, code: cause instanceof SpreadsheetCommandError || cause instanceof WriteConflictError ? cause.code : "VALIDATION_FAILED",
       message: cause instanceof Error ? cause.message : "コマンドを実行できませんでした",
-      ...(commandIndex !== undefined ? { commandIndex } : {}) });
+      ...(commandIndex !== undefined ? { commandIndex } : {}),
+      ...(cause instanceof WriteConflictError ? { conflicts: cause.conflicts } : {}) });
   }
 }

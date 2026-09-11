@@ -1,0 +1,24 @@
+{
+  "title": "テーブル・罫線付きの表",
+  "summary": "ヘッダーと明細から表を配置し、構造化テーブルと通常のセル書式を用途に合わせて選びます。",
+  "source": "packages/spreadsheet/src/docs/tables.md",
+  "order": 115,
+  "section": "セルとシート",
+  "keywords": [
+    "tables.insert",
+    "tables.delete",
+    "cells.writeTable",
+    "getTable",
+    "getTableByName",
+    "getTables",
+    "SpreadsheetTable",
+    "SpreadsheetTableData"
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/spreadsheet-tables.png",
+      "alt": "選択範囲B4:D9に名前付きテーブルを作成するダイアログ",
+      "caption": "選択範囲の先頭行を見出しにして、テーブル名と列の定義を保存します。"
+    }
+  ]
+}

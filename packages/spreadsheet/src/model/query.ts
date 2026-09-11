@@ -1,5 +1,7 @@
 import { cellAddress, parseCellAddress } from "./address";
 import { copyQuerySnapshot, type QuerySnapshot } from "./query-snapshot";
+import { namedRangeAddress, normalizeNamedRangeRectangle, normalizeRangeName, type SpreadsheetNamedRangeInfo } from "./named-ranges";
+import type { SpreadsheetTable } from "./tables/types";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetComment, type SpreadsheetDrawing,
   type SpreadsheetImageDrawing, type SpreadsheetImageResource, type SpreadsheetMergedRange, type SpreadsheetShapeDrawing,
   type SpreadsheetSheet, type SpreadsheetTextDrawing, type SpreadsheetWorkbook } from "./types";
@@ -10,6 +12,7 @@ export type SpreadsheetReadRangeInput = SpreadsheetMergedRange | string;
 export type SpreadsheetReadRange = readonly (readonly (QuerySnapshot<SpreadsheetCell> | null)[])[];
 type QueryWorkbook = QuerySnapshot<SpreadsheetWorkbook>;
 type QuerySheet = QuerySnapshot<SpreadsheetSheet>;
+export type SpreadsheetTableInfo = SpreadsheetTable & Readonly<{ sheetId: string; address: string }>;
 
 function validateId(id: string): void {
   if (typeof id !== "string" || !id || id.length > 200 || /\0/.test(id)) throw new Error("読み取る対象のIDが正しくありません");
@@ -147,4 +150,131 @@ export function getCellComment(workbook: QueryWorkbook, sheetId: string, address
   if (sheet.comments === undefined) return undefined;
   record(sheet.comments, "コメント一覧");
   return copyQuerySnapshot(Object.hasOwn(sheet.comments, key) ? sheet.comments[key] : undefined);
+}
+
+/** Get a workbook-scoped name definition; matching is case insensitive, and absence is undefined. */
+export function getNamedRange(workbook: QueryWorkbook, name: string): QuerySnapshot<SpreadsheetNamedRangeInfo> | undefined {
+  requireWorkbook(workbook);
+  const key = normalizeRangeName(name).toLocaleLowerCase("en-US");
+  if (workbook.namedRanges === undefined) return undefined;
+  if (!Array.isArray(workbook.namedRanges) || workbook.namedRanges.length > SPREADSHEET_LIMITS.namedRanges)
+    throw new Error("名前付き範囲の形式または件数が正しくありません");
+  const matches = workbook.namedRanges.filter(item => item && typeof item.name === "string" && item.name.toLocaleLowerCase("en-US") === key);
+  if (matches.length > 1) throw new Error("同じ名前の名前付き範囲があります");
+  const item = matches[0];
+  if (!item) return undefined;
+  validateId(item.id);
+  const range = normalizeNamedRangeRectangle(item.range, requireSheet(workbook, item.sheetId));
+  return copyQuerySnapshot({ id: item.id, name: item.name, sheetId: item.sheetId, range, address: namedRangeAddress(range) });
+}
+
+/** Get the current raw cell matrix by name. Uses the same limit/blank conventions as getRange. */
+export function getRangeByName(workbook: QueryWorkbook, name: string): SpreadsheetReadRange | undefined {
+  const item = getNamedRange(workbook, name);
+  return item ? getRange(workbook, item.sheetId, item.range) : undefined;
+}
+
+function findTable(workbook: QueryWorkbook, matches: (table: QuerySnapshot<SpreadsheetTable>) => boolean): QuerySnapshot<SpreadsheetTableInfo> | undefined {
+  requireWorkbook(workbook);
+  let found: SpreadsheetTableInfo | undefined;
+  for (const sheet of workbook.sheets) {
+    if (sheet.tables === undefined) continue;
+    if (!Array.isArray(sheet.tables) || sheet.tables.length > SPREADSHEET_LIMITS.tables) throw new Error("テーブル一覧の形式が正しくありません");
+    for (const table of sheet.tables) {
+      if (!table || !matches(table)) continue;
+      if (found) throw new Error("同じIDまたは名前のテーブルが重複しています");
+      validateId(table.id); normalizeRangeName(table.name);
+      const range = normalizeNamedRangeRectangle(table.range, requireSheet(workbook, sheet.id));
+      found = { ...table, range, sheetId: sheet.id, address: namedRangeAddress(range) };
+    }
+  }
+  return copyQuerySnapshot(found);
+}
+
+/** Get a workbook-wide table by its stable ID, including its current sheet and rectangle. */
+export function getTable(workbook: QueryWorkbook, tableId: string): QuerySnapshot<SpreadsheetTableInfo> | undefined {
+  validateId(tableId);
+  return findTable(workbook, table => table.id === tableId);
+}
+
+/** Table names, like named range names, are workbook-wide and case insensitive. */
+export function getTableByName(workbook: QueryWorkbook, name: string): QuerySnapshot<SpreadsheetTableInfo> | undefined {
+  const key = normalizeRangeName(name).toLocaleLowerCase("en-US");
+  return findTable(workbook, table => typeof table.name === "string" && table.name.toLocaleLowerCase("en-US") === key);
+}
+
+/** Enumerate immutable sheet JSON in workbook/tab order. Empty arrays are never used for an invalid workbook. */
+export function getSheets(workbook: QueryWorkbook): readonly QuerySnapshot<SpreadsheetSheet>[] {
+  requireWorkbook(workbook);
+  for (const sheet of workbook.sheets) requireSheet(workbook, sheet.id);
+  return copyQuerySnapshot(workbook.sheets);
+}
+
+/** Enumerate names in definition order, optionally scoped to one sheet. Empty means no definitions. */
+export function getNamedRanges(workbook: QueryWorkbook, sheetId?: string): readonly QuerySnapshot<SpreadsheetNamedRangeInfo>[] {
+  requireWorkbook(workbook);
+  if (sheetId !== undefined) requireSheet(workbook, sheetId);
+  if (workbook.namedRanges === undefined) return Object.freeze([]);
+  if (!Array.isArray(workbook.namedRanges) || workbook.namedRanges.length > SPREADSHEET_LIMITS.namedRanges)
+    throw new Error("名前付き範囲の形式または件数が正しくありません");
+  const ids = new Set<string>(), names = new Set<string>();
+  const result: SpreadsheetNamedRangeInfo[] = [];
+  for (const item of workbook.namedRanges) {
+    if (!item) throw new Error("名前付き範囲の形式が正しくありません");
+    validateId(item.id);
+    const key = normalizeRangeName(item.name).toLocaleLowerCase("en-US");
+    if (ids.has(item.id) || names.has(key)) throw new Error("名前付き範囲のIDまたは名前が重複しています");
+    ids.add(item.id); names.add(key);
+    const range = normalizeNamedRangeRectangle(item.range, requireSheet(workbook, item.sheetId));
+    if (sheetId === undefined || sheetId === item.sheetId)
+      result.push({ id: item.id, name: item.name, sheetId: item.sheetId, range, address: namedRangeAddress(range) });
+  }
+  return copyQuerySnapshot(result);
+}
+
+/** Enumerate sheet placements in drawing order; image resources remain in workbook.resources. */
+export function getDrawings(workbook: QueryWorkbook, sheetId: string): readonly QuerySnapshot<SpreadsheetDrawing>[] {
+  const sheet = requireSheet(workbook, sheetId);
+  if (sheet.drawings === undefined) return Object.freeze([]);
+  if (!Array.isArray(sheet.drawings) || sheet.drawings.length > SPREADSHEET_LIMITS.drawings) throw new Error("描画オブジェクト一覧の形式が正しくありません");
+  const ids = new Set<string>();
+  for (const drawing of sheet.drawings) {
+    if (!drawing || !["image", "shape", "text"].includes(drawing.type)) throw new Error("描画オブジェクトの種類が正しくありません");
+    validateId(drawing.id);
+    if (ids.has(drawing.id)) throw new Error("同じIDの描画オブジェクトが重複しています");
+    ids.add(drawing.id);
+  }
+  return copyQuerySnapshot(sheet.drawings);
+}
+
+export function getImages(workbook: QueryWorkbook, sheetId: string): readonly QuerySnapshot<SpreadsheetImageDrawing>[] {
+  return Object.freeze(getDrawings(workbook, sheetId).filter((drawing): drawing is QuerySnapshot<SpreadsheetImageDrawing> => drawing.type === "image"));
+}
+export function getShapes(workbook: QueryWorkbook, sheetId: string): readonly QuerySnapshot<SpreadsheetShapeDrawing>[] {
+  return Object.freeze(getDrawings(workbook, sheetId).filter((drawing): drawing is QuerySnapshot<SpreadsheetShapeDrawing> => drawing.type === "shape"));
+}
+export function getTextBoxes(workbook: QueryWorkbook, sheetId: string): readonly QuerySnapshot<SpreadsheetTextDrawing>[] {
+  return Object.freeze(getDrawings(workbook, sheetId).filter((drawing): drawing is QuerySnapshot<SpreadsheetTextDrawing> => drawing.type === "text"));
+}
+
+/** Enumerate tables in sheet/table order, optionally limited to a single sheet. */
+export function getTables(workbook: QueryWorkbook, sheetId?: string): readonly QuerySnapshot<SpreadsheetTableInfo>[] {
+  requireWorkbook(workbook);
+  if (sheetId !== undefined) requireSheet(workbook, sheetId);
+  const result: SpreadsheetTableInfo[] = [], ids = new Set<string>(), names = new Set<string>();
+  for (const sheet of workbook.sheets) {
+    if (sheet.tables === undefined) continue;
+    if (!Array.isArray(sheet.tables) || sheet.tables.length > SPREADSHEET_LIMITS.tables) throw new Error("テーブル一覧の形式が正しくありません");
+    for (const table of sheet.tables) {
+      if (!table) throw new Error("テーブルの形式が正しくありません");
+      validateId(table.id);
+      const key = normalizeRangeName(table.name).toLocaleLowerCase("en-US");
+      if (ids.has(table.id) || names.has(key)) throw new Error("テーブルのIDまたは名前が重複しています");
+      ids.add(table.id); names.add(key);
+      const range = normalizeNamedRangeRectangle(table.range, requireSheet(workbook, sheet.id));
+      if (sheetId === undefined || sheetId === sheet.id) result.push({ ...table, range, sheetId: sheet.id, address: namedRangeAddress(range) });
+    }
+  }
+  if (ids.size > SPREADSHEET_LIMITS.tables) throw new Error("テーブルの件数が上限を超えています");
+  return copyQuerySnapshot(result);
 }

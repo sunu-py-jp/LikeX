@@ -10,6 +10,11 @@ const bundled = await build({ stdin: { contents: 'export {SpreadsheetToolbar} fr
 bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
 plugins: [{ name: 'same-react', setup(builder) {
   builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+  // The test renderer has no DOM region for portals. Keep the real form and
+  // command handlers; render only the dialog shell inline for these tests.
+  builder.onResolve({ filter: /\/spreadsheet-dialog$/ }, () => ({ path: 'dialog', namespace: 'inline-dialog' }));
+  builder.onLoad({ filter: /.*/, namespace: 'inline-dialog' }, () => ({ contents:
+    'import {createElement, Fragment} from "react"; export const SpreadsheetDialog = ({children,actions}) => createElement(Fragment,null,children,actions);', loader: 'js' }));
 } }] });
 const { SpreadsheetToolbar, useSpreadsheet } = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`);
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVZkAAAAASUVORK5CYII=', 'base64');
@@ -65,7 +70,7 @@ test('home and insert switch with one shared save action, and shapes anchor at t
 });
 
 test('insert controls disappear in readonly mode and respect individual feature switches', async t => {
-  const hook = await mount(t, { features: { images: false, shapes: false, textBoxes: false, comments: false } });
+  const hook = await mount(t, { features: { images: false, shapes: false, textBoxes: false, comments: false, tables: false } });
   assert.deepEqual(hook.root.findAllByProps({ role: 'tab' }).map(tab => tab.children[0]), ['ホーム', 'データ']);
   await hook.update({ features: { images: false }, readOnly: false });
   assert.equal(hook.root.findAllByProps({ 'aria-label': '画像を挿入' }).length, 0);
@@ -148,4 +153,52 @@ test('an image completing beside a same-tick draft change cannot overwrite the n
   assert.equal(hook.current.workbook.sheets[0].cells.A1.value, 'newer synchronous draft');
   assert.equal(hook.current.workbook.resources, undefined);
   assert.equal(hook.current.workbook.sheets[0].drawings, undefined);
+});
+
+function textButton(root, text) {
+  return root.findAllByType('button').find(button => button.children.join('') === text);
+}
+test('named range dialog calls commands and definition-only deletion preserves cells', async t => {
+  const hook = await mount(t);
+  await act(async () => hook.current.writeValues({A1:'value'}));
+  await act(async () => hook.root.findByProps({'aria-label':'名前付き範囲'}).props.onClick());
+  await act(async () => hook.root.findByProps({placeholder:'売上明細'}).props.onChange({target:{value:'DataRange'}}));
+  await act(async () => hook.root.findByProps({placeholder:'A1:C10'}).props.onChange({target:{value:'A1:B2'}}));
+  await act(async () => textButton(hook.root,'追加').props.onClick());
+  const definition = hook.current.workbook.namedRanges[0];
+  assert.equal(definition.name,'DataRange'); assert.deepEqual(definition.range,{top:0,left:0,bottom:1,right:1});
+  await act(async () => hook.root.findByProps({'aria-label':'名前付き範囲'}).props.onClick());
+  const selector = hook.root.findAllByType('select').find(select => select.findAllByType('option').some(option => option.props.value===definition.id));
+  await act(async () => selector.props.onChange({target:{value:definition.id}}));
+  await act(async () => textButton(hook.root,'削除').props.onClick());
+  assert.equal(hook.current.workbook.namedRanges,undefined); assert.equal(hook.current.workbook.sheets[0].cells.A1.value,'value');
+  await act(async () => hook.current.undo()); assert.equal(hook.current.workbook.namedRanges[0].id,definition.id);
+});
+test('table dialog creates metadata from selected cells and bordered action uses ordinary cells', async t => {
+  const hook = await mount(t);
+  await act(async () => hook.current.writeValues({A1:'商品',B1:'数量',A2:'test',B2:'2'}));
+  await act(async () => hook.current.selectRange({row:0,column:0},{row:1,column:1}));
+  await act(async () => hook.root.findByProps({'aria-label':'テーブルを挿入'}).props.onClick());
+  await act(async () => textButton(hook.root,'作成').props.onClick());
+  const table=hook.current.workbook.sheets[0].tables[0]; assert.equal(table.name,'Table1');
+  assert.deepEqual(table.columns.map(column=>column.name),['商品','数量']);
+  await act(async () => hook.current.undo()); assert.equal(hook.current.workbook.sheets[0].tables,undefined);
+  await act(async () => hook.current.selectRange({row:0,column:0},{row:1,column:1}));
+  await act(async () => hook.root.findByProps({'aria-label':'罫線付きの表を作成'}).props.onClick());
+  assert.equal(hook.current.workbook.sheets[0].tables,undefined); assert.equal(hook.current.workbook.sheets[0].cells.A1.format.borders.bottom.width,1);
+});
+test('named range dialog rejects a target captured before a newer edit', async t => {
+  const hook = await mount(t);
+  await act(async () => hook.root.findByProps({'aria-label':'名前付き範囲'}).props.onClick());
+  await act(async () => hook.root.findByProps({placeholder:'売上明細'}).props.onChange({target:{value:'StaleRange'}}));
+  await act(async () => hook.current.writeValues({A1:'newer'}));
+  await act(async () => textButton(hook.root,'追加').props.onClick());
+  assert.equal(hook.current.workbook.namedRanges,undefined); assert.equal(hook.current.workbook.sheets[0].cells.A1.value,'newer');
+  assert.match(hook.root.findByProps({role:'alert'}).children.join(''),/状態が変わりました/);
+});
+test('range/table feature switches hide only the corresponding new controls', async t => {
+  const hook=await mount(t,{features:{namedRanges:false,tables:false}});
+  assert.equal(hook.root.findAllByProps({'aria-label':'名前付き範囲'}).length,0);
+  assert.equal(hook.root.findAllByProps({'aria-label':'テーブルを挿入'}).length,0);
+  assert.equal(hook.root.findAllByProps({'aria-label':'セルをクリア'}).length,1);
 });

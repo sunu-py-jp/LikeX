@@ -3,6 +3,10 @@ import type { SpreadsheetCellFormat, SpreadsheetImageDrawing, SpreadsheetImageRe
 import type { SpreadsheetFormattingCommand } from "../api/formatting-commands";
 import type { SpreadsheetEditingCommand } from "../api/editing-commands";
 import type { SpreadsheetDataValidationCommand } from "../api/data-validation-commands";
+import type { SpreadsheetTableCommand } from "../api/table-commands";
+import type { SpreadsheetNamedRangeCommand } from "../api/named-range-commands";
+import type { SpreadsheetClearMode, SpreadsheetCellRangeInput } from "../model/workbook/clear";
+import type { SpreadsheetWriteConflictPolicy } from "../model/workbook/write-conflicts";
 
 // A mapped type preserves tuple lengths as well as making ordinary arrays readonly.
 type DeepReadonly<T> = T extends object ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> } : T;
@@ -17,8 +21,10 @@ export type SpreadsheetTextBoxCommandPatch = DeepReadonly<Partial<Omit<Spreadshe
 
 /** Explicit targets make commands independent of the currently selected sheet or cells. */
 export type SpreadsheetCommand = DeepReadonly<
-  | SpreadsheetFormattingCommand | SpreadsheetEditingCommand | SpreadsheetDataValidationCommand
-  | { type: "cells.set"; sheetId: string; values: Record<string, string> }
+  | SpreadsheetFormattingCommand | SpreadsheetEditingCommand | SpreadsheetDataValidationCommand | SpreadsheetTableCommand | SpreadsheetNamedRangeCommand
+  | { type: "cells.set"; sheetId: string; values: Record<string, string>; onConflict?: SpreadsheetWriteConflictPolicy }
+  | { type: "cells.clear"; sheetId: string; range: SpreadsheetCellRangeInput; mode?: SpreadsheetClearMode }
+  | { type: "cells.delete"; sheetId: string; range: SpreadsheetCellRangeInput }
   | { type: "cells.format"; sheetId: string; addresses: readonly string[]; format: SpreadsheetCellFormat }
   | { type: "rows.insert" | "rows.delete" | "columns.insert" | "columns.delete"; sheetId: string; index: number; count?: number }
   | { type: "columns.resize"; sheetId: string; column: number; width: number }
@@ -46,8 +52,11 @@ export type SpreadsheetCommand = DeepReadonly<
 export type SpreadsheetCommandPlacement = Readonly<{ nextRow: number; nextColumn: number }>;
 
 type DrawingPlacementCommand = "images.insert" | "images.update" | "shapes.insert" | "shapes.update" | "textBoxes.insert" | "textBoxes.update";
+/** Actual raw-value changes across affected sheets; skipped addresses belong to the destination sheet. */
+export type SpreadsheetWriteReport = Readonly<{ changedCount: number; skippedCount: number; skippedAddresses: readonly string[] }>;
+
 type CommandReceiptPlacement<Type extends SpreadsheetCommand["type"]> =
-  Type extends DrawingPlacementCommand | "cells.fill" | "cells.move" ? { placement: SpreadsheetCommandPlacement }
+  Type extends DrawingPlacementCommand | "cells.fill" | "cells.move" | "tables.insert" | "cells.writeTable" ? { placement: SpreadsheetCommandPlacement }
     : Type extends "cells.set" | "cells.paste" ? { placement?: SpreadsheetCommandPlacement }
       : Type extends "rows.insert" ? { placement: Readonly<{ nextRow: number; nextColumn?: never }> }
         : Type extends "columns.insert" ? { placement: Readonly<{ nextRow?: never; nextColumn: number }> }
@@ -64,12 +73,22 @@ export type SpreadsheetCommandReceipt = {
     drawingId?: string;
     resourceId?: string;
     commentId?: string;
+    namedRangeId?: string;
+    tableId?: string;
+    range?: SpreadsheetMergedRange;
+    write?: SpreadsheetWriteReport;
   } & CommandReceiptPlacement<Type> & (Type extends DrawingPlacementCommand ? { drawingId: string } : object)
-    & (Type extends "images.insert" | "images.update" ? { resourceId: string } : object)>;
+    & (Type extends "images.insert" | "images.update" ? { resourceId: string } : object)
+    & (Type extends SpreadsheetNamedRangeCommand["type"] ? { namedRangeId: string } : object)
+    & (Type extends "tables.insert" | "tables.delete" ? { tableId: string } : object)
+    & (Type extends "tables.insert" | "tables.delete" | "cells.writeTable" ? { range: SpreadsheetMergedRange } : object)
+    & (Type extends "cells.set" | "cells.paste" | "cells.fill" | "cells.move" | "cells.replace" | "cells.clear" | "cells.delete" | "tables.insert" | "cells.writeTable"
+      ? { write: SpreadsheetWriteReport } : object)>;
 }[SpreadsheetCommand["type"]];
 
 export type SpreadsheetCommandErrorCode = "NOT_MOUNTED" | "READ_ONLY" | "SAVING" | "PENDING_EDIT" | "BUSY"
   | "FEATURE_DISABLED" | "INVALID_COMMAND" | "INVALID_TARGET" | "VALIDATION_FAILED"
+  | "WRITE_CONFLICT"
   | "REFRESHING" | "EDIT_REQUIRED" | "EDIT_PENDING" | "EDIT_DENIED" | "EDIT_CANCELLED" | "STALE_TARGET";
 export type SpreadsheetCommandFailure = Readonly<{
   ok: false;
@@ -77,6 +96,8 @@ export type SpreadsheetCommandFailure = Readonly<{
   message: string;
   /** Zero-based index of the rejected command, when failure belongs to a particular command. */
   commandIndex?: number;
+  /** Conflicting cell addresses in the failed command. */
+  conflicts?: readonly string[];
 }>;
 export type SpreadsheetCommandSuccess = Readonly<{
   ok: true;

@@ -1,6 +1,7 @@
 import type { SpreadsheetConditionalFormatRule } from "./conditional-formatting";
 import type { SpreadsheetCellBorders } from "./formatting/types";
 import type { SpreadsheetDataValidation } from "./data-validation";
+import type { SpreadsheetTable } from "./tables/types";
 
 export type SpreadsheetCellFormat = {
   bold?: boolean;
@@ -49,6 +50,8 @@ export type SpreadsheetDrawingPatch = Partial<Omit<SpreadsheetDrawingBase, "id">
 export type SpreadsheetComment = { id: string; text: string; author?: string };
 /** Inclusive, zero-based rectangle. The top-left cell stores the merged value and comment. */
 export type SpreadsheetMergedRange = Readonly<{ top: number; left: number; bottom: number; right: number }>;
+/** Workbook-scoped identity and name for a single, same-sheet rectangle. */
+export type SpreadsheetNamedRange = Readonly<{ id: string; name: string; sheetId: string; range: SpreadsheetMergedRange }>;
 export type SpreadsheetSheet = {
   id: string;
   name: string;
@@ -61,11 +64,13 @@ export type SpreadsheetSheet = {
   comments?: Readonly<Record<string, SpreadsheetComment>>;
   merges?: readonly SpreadsheetMergedRange[];
   conditionalFormats?: readonly SpreadsheetConditionalFormatRule[];
+  tables?: readonly SpreadsheetTable[];
 };
 export type SpreadsheetWorkbook = {
   schemaVersion?: 1;
   sheets: readonly SpreadsheetSheet[];
   resources?: { images?: Readonly<Record<string, SpreadsheetImageResource>> };
+  namedRanges?: readonly SpreadsheetNamedRange[];
 };
 /** Zero-based row and column coordinates. */
 export type SpreadsheetCellPosition = { row: number; column: number };
@@ -79,5 +84,5 @@ export const SPREADSHEET_LIMITS = Object.freeze({ rows: 10_000, columns: 1_000, 
   clipboardCharacters: 10 * 1024 * 1024, clipboardCells: 10_000,
   imageBytes: 5 * 1024 * 1024, totalImageBytes: 20 * 1024 * 1024,
   imageDimension: 10_000, imagePixels: 16_000_000, images: 1_000,
-  drawings: 1_000, comments: 10_000, merges: 1_000, commentLength: 10_000, drawingTextLength: 100_000,
+  drawings: 1_000, comments: 10_000, merges: 1_000, namedRanges: 1_000, tables: 1_000, commentLength: 10_000, drawingTextLength: 100_000,
   serializedCharacters: 64 * 1024 * 1024 });

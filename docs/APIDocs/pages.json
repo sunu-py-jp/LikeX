@@ -923,6 +923,89 @@
     ]
   },
   {
+    "id": "spreadsheet/cell-writing",
+    "title": "セルの書き込み・クリア",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/cell-writing/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/cell-writing.md"
+    ],
+    "keywords": [
+      "cells.set",
+      "cells.clear",
+      "cells.delete",
+      "onConflict",
+      "SpreadsheetWriteConflictPolicy",
+      "SpreadsheetWriteReport",
+      "WRITE_CONFLICT"
+    ],
+    "headings": [
+      {
+        "id": "既存の値を上書きするか",
+        "title": "既存の値を上書きするか",
+        "depth": 2
+      },
+      {
+        "id": "値だけ消すセル情報も消す",
+        "title": "値だけ消す・セル情報も消す",
+        "depth": 2
+      },
+      {
+        "id": "表示中の操作保存履歴",
+        "title": "表示中の操作・保存・履歴",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/named-ranges",
+    "title": "名前付き範囲",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/named-ranges/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/named-ranges.md"
+    ],
+    "keywords": [
+      "namedRanges.add",
+      "namedRanges.update",
+      "namedRanges.delete",
+      "namedRanges.clear",
+      "getNamedRange",
+      "getRangeByName",
+      "getNamedRanges",
+      "SpreadsheetNamedRange"
+    ],
+    "headings": [
+      {
+        "id": "画面なしで追加取得する",
+        "title": "画面なしで追加・取得する",
+        "depth": 2
+      },
+      {
+        "id": "コマンドと戻り値",
+        "title": "コマンドと戻り値",
+        "depth": 2
+      },
+      {
+        "id": "定義を消す場合とセルも消す場合",
+        "title": "定義を消す場合と、セルも消す場合",
+        "depth": 2
+      },
+      {
+        "id": "取得する情報",
+        "title": "取得する情報",
+        "depth": 2
+      },
+      {
+        "id": "guiと対応範囲",
+        "title": "GUIと対応範囲",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/merged-cells",
     "title": "セル結合",
     "component": "spreadsheet",
@@ -1156,6 +1239,53 @@
       {
         "id": "xlsx出力と制限",
         "title": "XLSX出力と制限",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/tables",
+    "title": "テーブル・罫線付きの表",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/tables/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/tables.md"
+    ],
+    "keywords": [
+      "tables.insert",
+      "tables.delete",
+      "cells.writeTable",
+      "getTable",
+      "getTableByName",
+      "getTables",
+      "SpreadsheetTable",
+      "SpreadsheetTableData"
+    ],
+    "headings": [
+      {
+        "id": "画面なしでテーブルを作る",
+        "title": "画面なしでテーブルを作る",
+        "depth": 2
+      },
+      {
+        "id": "書き込みに使う引数",
+        "title": "書き込みに使う引数",
+        "depth": 2
+      },
+      {
+        "id": "既存の値と結果",
+        "title": "既存の値と結果",
+        "depth": 2
+      },
+      {
+        "id": "定義を削除する",
+        "title": "定義を削除する",
+        "depth": 2
+      },
+      {
+        "id": "gui機能設定制限",
+        "title": "GUI・機能設定・制限",
         "depth": 2
       }
     ]
@@ -1482,7 +1612,7 @@
   },
   {
     "id": "spreadsheet/data-access",
-    "title": "セル・範囲・画像の取得",
+    "title": "セル・シート・オブジェクトの取得",
     "component": "spreadsheet",
     "section": "親アプリとの連携",
     "output": "spreadsheet/data-access/index.html",
@@ -1501,7 +1631,17 @@
       "getCellComment",
       "SpreadsheetReadApi",
       "drawingId",
-      "resourceId"
+      "resourceId",
+      "getSheets",
+      "getNamedRanges",
+      "getDrawings",
+      "getImages",
+      "getShapes",
+      "getTextBoxes",
+      "getTables",
+      "sheet",
+      "getSheetReader",
+      "SpreadsheetSheetReadApi"
     ],
     "headings": [
       {
@@ -1512,6 +1652,16 @@
       {
         "id": "idで画像図形を取得する",
         "title": "IDで画像・図形を取得する",
+        "depth": 2
+      },
+      {
+        "id": "一覧を取得する",
+        "title": "一覧を取得する",
+        "depth": 2
+      },
+      {
+        "id": "シートを指定して読み続ける",
+        "title": "シートを指定して読み続ける",
         "depth": 2
       },
       {

@@ -1,4 +1,4 @@
-# セル・範囲・画像の取得
+# セル・シート・オブジェクトの取得
 
 [利用ガイドへ戻る](./README.md)
 
@@ -61,6 +61,59 @@ export function readImage(workbook: SpreadsheetWorkbookSnapshot, sheetId: string
 
 `drawingId` はシート上の配置ID、`resourceId` は画像データ本体のIDです。同じ画像データを複数箇所に置く場合も区別できます。どちらも画像挿入コマンドの結果で受け取れます。描画位置から次の行・列を求める場合は[配置位置のヘルパー](./drawing-placement.md)を使います。
 
+## 一覧を取得する
+
+単一の対象を探す関数に加え、配列を返す取得関数があります。どれも深いreadonlyのスナップショットで、関数や変更用メソッドは含みません。
+
+| 関数 | 配列の要素 |
+| --- | --- |
+| `getSheets(workbook)` | `SpreadsheetSheet`。タブの順序で取得 |
+| `getNamedRanges(workbook, sheetId?)` | `SpreadsheetNamedRangeInfo`。ID・名前・シートID・範囲・A1表記 |
+| `getDrawings(workbook, sheetId)` | `SpreadsheetDrawing`。画像・図形・テキストを描画順で取得 |
+| `getImages(workbook, sheetId)` | `SpreadsheetImageDrawing`。画像の配置情報。実体は`resourceId`で参照 |
+| `getShapes(workbook, sheetId)` | `SpreadsheetShapeDrawing` |
+| `getTextBoxes(workbook, sheetId)` | `SpreadsheetTextDrawing` |
+| `getTables(workbook, sheetId?)` | `SpreadsheetTableInfo`。テーブル定義にシートID・A1表記を付加 |
+
+`sheetId?` は任意です。省略した名前付き範囲・テーブルの一覧はブック全体を対象にします。該当する定義・オブジェクトがなければ、`undefined`ではなく空配列 `[]` を返します。有効なブックには少なくとも1シートあるため、`getSheets` は1件以上です。不正なシートIDやブックでは例外になります。
+
+```ts
+import { createWorkbook, getSheets, getNamedRanges, getImages } from "@likex/spreadsheet/model";
+
+const workbook = createWorkbook();
+for (const sheet of getSheets(workbook)) {
+  console.log(sheet.id, sheet.name);
+  console.log(getNamedRanges(workbook, sheet.id)); // 初期ブックでは []
+  console.log(getImages(workbook, sheet.id));      // 初期ブックでは []
+}
+```
+
+`getSheet` / `getSheets` は保存するシートJSONを返します。これらの結果へ `.getImages()` などのメソッドを追加することはありません。対象シートを先に決めて繰り返し取得したい場合は、次の `sheet(sheetId)` を使います。
+
+## シートを指定して読み続ける
+
+```ts
+import { createWorkbook, createSpreadsheetSession } from "@likex/spreadsheet/model";
+
+const session = createSpreadsheetSession(createWorkbook());
+const sheetId = session.getSheets()[0].id;
+const sheet = session.sheet(sheetId);
+
+console.log(sheet.getInfo().name); // シートJSONの取得
+console.log(sheet.getNamedRanges());
+console.log(sheet.getImages());
+console.log(sheet.getTables());
+
+session.execute({ type: "cells.set", sheetId, values: { B2: "1200" } });
+console.log(sheet.getCell("B2")?.value); // "1200"。呼ぶたびに現在のブックを読む
+```
+
+`session.sheet(sheetId)` と表示中の `ref.current.sheet(sheetId)` は `SpreadsheetSheetReadApi` を返します。`getInfo`、`getCell`、`getRange`、`getDrawing`、`getImage`、`getShape`、`getTextBox`、`getCellComment`、`getNamedRanges`、`getDrawings`、`getImages`、`getShapes`、`getTextBoxes`、`getTables` を使えます。シートIDを毎回渡す必要はありません。
+
+取得用のオブジェクトを保持していても、各呼び出しは最新の下書き・セッションを読みます。過去に取得した配列やセルの値が後から書き換わることはありません。対象シートが削除された後は例外になります。
+
+固定したブックに対する読み取りには、`getSheetReader(workbook, sheetId)` も使えます。作成時にコピーしたブックを読み続け、外部の編集結果へ自動では切り替わりません。どちらも変更用APIではなく、セル設定などには引き続き `execute` / `executeAsync` を使います。
+
 ## API一覧
 
 | 関数 | 戻り値のデータ型（深いreadonly） | 対象がない場合 |
@@ -74,6 +127,9 @@ export function readImage(workbook: SpreadsheetWorkbookSnapshot, sheetId: string
 | `getTextBox(workbook, sheetId, drawingId)` | [`SpreadsheetTextDrawing`](#gettextbox) | `undefined` |
 | `getImageResource(workbook, resourceId)` | [`SpreadsheetImageResource`](#getimageresource) | `undefined` |
 | `getCellComment(workbook, sheetId, address)` | [`SpreadsheetComment`](#getcellcomment) | `undefined` |
+| `getNamedRange(workbook, name)` | [`SpreadsheetNamedRangeInfo`](./named-ranges.md#取得する情報) | `undefined` |
+| `getRangeByName(workbook, name)` | `SpreadsheetReadRange` | 定義がなければ `undefined`、未格納セルは `null` |
+| `getTable(workbook, tableId)` / `getTableByName(workbook, name)` | [`SpreadsheetTableInfo`](./tables.md#既存の値と結果) | `undefined` |
 
 `getImage` に図形のIDを渡すなど、種類が一致しない場合も `undefined` です。存在しないシートID、不正な番地、シート外の番地、逆順や上限を超えた範囲は例外になります。外部のJSONは先に `parseWorkbook` / `normalizeWorkbook` で検証してください。
 
@@ -157,6 +213,7 @@ type WorkbookResult = ReturnType<SpreadsheetHandle["getWorkbook"]>;
 | `cells` | `Record<string, SpreadsheetCell>` | `A1`などの番地をキーにした格納済みセル。空白を埋めた配列ではない |
 | `rowHeights?` / `columnWidths?` | `Record<number, number>` | 0始まりの行・列をキーにした変更済み寸法（px）。JSONではキーが文字列になる |
 | `drawings?` | `SpreadsheetDrawing[]` | 画像・図形・テキストボックスの配置一覧 |
+| `tables?` | `SpreadsheetTable[]` | [テーブル](./tables.md)のID・名前・範囲・列定義 |
 | `comments?` | `Record<string, SpreadsheetComment>` | 番地をキーにしたコメント |
 | `merges?` | `SpreadsheetMergedRange[]` | 結合範囲。各要素は `{ top, left, bottom, right }`、0始まり・両端を含む |
 | `conditionalFormats?` | `SpreadsheetConditionalFormatRule[]` | [条件付き書式](./formatting.md)の定義 |
@@ -311,6 +368,7 @@ type WorkbookResult = ReturnType<SpreadsheetHandle["getWorkbook"]>;
 | --- | --- | --- |
 | `schemaVersion?` | `1` | 型上は旧データ用に任意。コンポーネント／セッションの正規化済みブックでは`1` |
 | `sheets` | `SpreadsheetSheet[]` | 表示順のシート一覧。各要素は[`getSheet`](#getsheet)と同じデータ構造 |
+| `namedRanges?` | `SpreadsheetNamedRange[]` | [名前付き範囲](./named-ranges.md)の定義。保存データには派生値の`address`は含まない |
 | `resources?` | `{ images?: Record<string, SpreadsheetImageResource> }` | `images`のキーがリソースID、値が[`getImageResource`](#getimageresource)の形式 |
 
 選択範囲・編集中の文字列・Undo履歴・ロック情報は入りません。変更がなければ同じ凍結済みブックを返し、毎回ブック全体をコピーする処理は行いません。各`getCell`などが返す切り出したコピーとは、この点が異なります。

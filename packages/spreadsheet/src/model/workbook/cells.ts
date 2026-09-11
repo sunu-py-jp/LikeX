@@ -3,13 +3,15 @@ import { getMergedRange, mergedCellPosition } from "../merges";
 import type { SpreadsheetCellFormat, SpreadsheetWorkbook } from "../types";
 import { freezeCell, getWorkbookSheet, replaceWorkbookSheet } from "./snapshot";
 import { canonicalCellAddress, fail, normalizeCellFormat, validateCellValue } from "./validation";
+import { filterCellValueWrites, type SpreadsheetWriteOptions } from "./write-conflicts";
 
-export function setCellValue(workbook: SpreadsheetWorkbook, sheetId: string, address: string, value: string): SpreadsheetWorkbook {
+export function setCellValue(workbook: SpreadsheetWorkbook, sheetId: string, address: string, value: string, options?: SpreadsheetWriteOptions): SpreadsheetWorkbook {
   const sheet = getWorkbookSheet(workbook, sheetId), position = mergedCellPosition(sheet, parseCellAddress(canonicalCellAddress(sheet, address))!);
-  return setCellValues(workbook, sheetId, { [cellAddress(position.row, position.column)]: value });
+  return setCellValues(workbook, sheetId, { [cellAddress(position.row, position.column)]: value }, options);
 }
-export function setCellValues(workbook: SpreadsheetWorkbook, sheetId: string, values: Readonly<Record<string, string>>): SpreadsheetWorkbook {
+export function setCellValues(workbook: SpreadsheetWorkbook, sheetId: string, values: Readonly<Record<string, string>>, options?: SpreadsheetWriteOptions): SpreadsheetWorkbook {
   const sheet = getWorkbookSheet(workbook, sheetId), cells = { ...sheet.cells };
+  values = filterCellValueWrites(sheet, values, options?.onConflict).values;
   let changed = false;
   for (const [address, raw] of Object.entries(values)) {
     const key = canonicalCellAddress(sheet, address), value = validateCellValue(raw), previous = cells[key];

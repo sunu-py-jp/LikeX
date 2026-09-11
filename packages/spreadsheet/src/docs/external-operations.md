@@ -91,7 +91,10 @@ if (result.ok) {
 
 | `type` | 主な引数 |
 | --- | --- |
-| `cells.set` | `values: { A1: "値", B1: "=A1*2" }`。数値・数式も文字列 |
+| `cells.set` | `values: { A1: "値", B1: "=A1*2" }`、`onConflict?`。数値・数式も文字列 |
+| `cells.clear` / `cells.delete` | `range`。値だけのクリア／セル情報の削除。周囲のセル位置は移動しません。[書き込みとクリア](./cell-writing.md) |
+| `namedRanges.add` / `update` / `clear` / `delete` | 定義の追加・変更・対象セルのクリア・定義削除。[名前付き範囲](./named-ranges.md) |
+| `tables.insert` / `cells.writeTable` / `tables.delete` | 構造化テーブルと罫線付きの表。[表の書き込み](./tables.md) |
 | `cells.format` | `addresses: ["A1", "B1"]`, `format: { bold: true, ... }` |
 | `rows.insert` / `rows.delete` | `index`, `count?`（既定1） |
 | `columns.insert` / `columns.delete` | `index`, `count?`（既定1） |
@@ -198,6 +201,7 @@ if (!result.ok) console.error(result.message);
 | `INVALID_COMMAND` | コマンドの種類や引数の形式が不正 |
 | `INVALID_TARGET` | シート・セル・オブジェクトが存在しない、または種類が不一致 |
 | `VALIDATION_FAILED` | 値・範囲・上限・結合・選択などの検証に失敗した |
+| `WRITE_CONFLICT` | 既存の非空の値と競合した。`conflicts`に番地一覧。[上書き方針](./cell-writing.md) |
 
 未確定入力は勝手に確定・破棄しません。`PENDING_EDIT` の場合は利用者が確定またはキャンセルした後に再度呼び出します。保存中の操作を自動で予約・再実行する仕組みもありません。
 

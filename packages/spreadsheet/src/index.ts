@@ -40,3 +40,10 @@ export type { SpreadsheetDataValidation } from "./model/data-validation";
 export { setCellDataValidation } from "./model/workbook/data-validation";
 export type { SpreadsheetConditionalFormatRule } from "./model/conditional-formatting";
 export type { SpreadsheetCellBorder, SpreadsheetCellBorders } from "./model/formatting";
+
+export type { SpreadsheetWriteConflictPolicy, SpreadsheetWriteOptions } from "./model/workbook/write-conflicts";
+export type { SpreadsheetClearMode, SpreadsheetCellRangeInput } from "./model/workbook/clear";
+export { clearCellRange } from "./model/workbook/clear";
+export type { SpreadsheetTableCommand, SpreadsheetTableData, SpreadsheetTableWriteOptions } from "./api/table-commands";
+export type { SpreadsheetNamedRangeCommand } from "./api/named-range-commands";
+export type { SpreadsheetWriteReport } from "./commands/types";

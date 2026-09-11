@@ -73,17 +73,18 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
     const sheet = currentWorkbook.sheets.find(item => item.id === id);
     if (sheet) setSelection(initialSheetSelection(sheet));
   };
-  const selectCellInSheet = (sheetId: string, position: Position): boolean => {
-    const sheet = workbook.sheets.find(item => item.id === sheetId);
+  const selectRangeInSheet = (sheetId: string, anchor: Position, focus: Position, currentWorkbook = workbook): boolean => {
+    const sheet = currentWorkbook.sheets.find(item => item.id === sheetId);
     if (!sheet || (!features.sheets && sheet.id !== activeSheet.id)) return false;
     try {
-      const target = clampPosition(position, sheet);
-      setSelection(selectionForSheet(sheet, [{ anchor: target, focus: target }], false, target));
+      const start = clampPosition(anchor, sheet), target = clampPosition(focus, sheet);
+      setSelection(selectionForSheet(sheet, [{ anchor: start, focus: target }], false, start));
       clearDrawingSelection();
       setCommentOpen(false);
       return true;
     } catch (cause) { reportError(cause); return false; }
   };
+  const selectCellInSheet = (sheetId: string, position: Position): boolean => selectRangeInSheet(sheetId, position, position);
   const resetForWorkbook = (next: Workbook, options?: { preserveFocus?: boolean }) => {
     clearDrawingSelection();
     setCommentOpen(false);
@@ -98,7 +99,7 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
   };
 
   return { activeSheet, selection, selectionRef, setSelection, select, selectRange, toggleSelection, toggleSelectionRange, viewRevision,
-    selectedDrawing, selectedDrawingId, selectDrawing, clearDrawingSelection, switchSheet, selectCellInSheet, resetForWorkbook,
+    selectedDrawing, selectedDrawingId, selectDrawing, clearDrawingSelection, switchSheet, selectCellInSheet, selectRangeInSheet, resetForWorkbook,
     commentOpen: features.comments && commentOpen, setCommentOpen,
     gridFocusRequest, requestGridFocus: () => setGridFocusRequest(value => value + 1) };
 }

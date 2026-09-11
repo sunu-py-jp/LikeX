@@ -14,6 +14,8 @@ import { SpreadsheetPersistenceControls } from "./spreadsheet-persistence-contro
 import { SpreadsheetFormatToolbar } from "./spreadsheet-format-toolbar";
 import { SpreadsheetEditToolbar } from "./spreadsheet-edit-toolbar";
 import { SpreadsheetDataToolbar } from "./spreadsheet-data-toolbar";
+import { SpreadsheetNamedRanges } from "./spreadsheet-named-ranges";
+import { SpreadsheetClearMenu } from "./spreadsheet-clear-menu";
 
 type ToolbarProps = { controller: SpreadsheetController; clipboard: ReturnType<typeof useSpreadsheetClipboard> };
 
@@ -22,8 +24,8 @@ export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
   const [tab, setTab] = useState<Tab>("home");
   const id = useId();
   const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
-  const canInsert = !c.readOnly && (c.features.images || c.features.shapes || c.features.textBoxes || c.features.comments);
-  const canData = !c.readOnly && c.features.dataValidation;
+  const canInsert = !c.readOnly && (c.features.images || c.features.shapes || c.features.textBoxes || c.features.comments || c.features.tables && c.features.formatting);
+  const canData = !c.readOnly && (c.features.dataValidation || c.features.namedRanges);
   const tabs: { key: Tab; label: string }[] = [{ key: "home", label: "ホーム" },
     ...(canInsert ? [{ key: "insert" as const, label: "挿入" }] : []), ...(canData ? [{ key: "data" as const, label: "データ" }] : [])];
   const active = tabs.some(item => item.key === tab) ? tab : "home";
@@ -53,7 +55,7 @@ export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
       <SpreadsheetInsertToolbar controller={c} />
     </div>}
     {canData && <div role="tabpanel" id={`${id}-data-panel`} aria-labelledby={`${id}-data`} hidden={active !== "data"}>
-      <div className="lxs-ribbon" role="toolbar" aria-label="データの操作"><SpreadsheetDataToolbar controller={c} /></div>
+      <div className="lxs-ribbon" role="toolbar" aria-label="データの操作"><SpreadsheetNamedRanges controller={c} /><SpreadsheetDataToolbar controller={c} /></div>
     </div>}
   </div>;
 }
@@ -85,6 +87,7 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
     <SpreadsheetFunctionPicker controller={c} />
     <SpreadsheetFormatToolbar controller={c} />
     <SpreadsheetEditToolbar controller={c} clipboard={clipboard} />
+    <SpreadsheetClearMenu controller={c} />
     <SpreadsheetMergeToolbar controller={c} />
     {(c.features.insertRows || c.features.deleteRows || c.features.insertColumns || c.features.deleteColumns) && !c.readOnly && <div className="lxs-tool-group">
       <select aria-label="行と列の操作" className="lxs-select" value="" title={singleRangeHint} disabled={cellDisabled || multiple} onChange={event => { if (event.target.value) structural(event.target.value); }}>
@@ -97,16 +100,35 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
 
 export function SpreadsheetFormulaBar({ controller: c }: { controller: SpreadsheetController }) {
   const address = cellAddress(c.selection.focus.row, c.selection.focus.column);
+  const bounds = selectionBounds(c.selection);
+  const named = c.features.namedRanges && !isMultiRangeSelection(c.selection) ? c.workbook.namedRanges?.find(item => item.sheetId === c.activeSheet.id &&
+    item.range.top === bounds.top && item.range.left === bounds.left && item.range.bottom === bounds.bottom && item.range.right === bounds.right) : undefined;
   const [nameDraft, setNameDraft] = useState<{ address: string; value: string } | null>(null);
-  const name = nameDraft?.address === address ? nameDraft.value : address;
+  const name = nameDraft?.address === address ? nameDraft.value : named?.name ?? address;
   const setName = (value: string) => setNameDraft({ address, value });
   return <div className="lxs-formula-bar">
-    <input aria-label="セルの位置" className="lxs-name-box" value={name} onChange={event => setName(event.target.value)} onBlur={() => setNameDraft(null)} onKeyDown={event => {
+    <input aria-label="セルの位置" title={c.features.namedRanges ? "A1形式の番地、または名前付き範囲" : undefined} className="lxs-name-box" value={name} onChange={event => setName(event.target.value)} onBlur={() => setNameDraft(null)} onKeyDown={event => {
       if (event.nativeEvent.isComposing || event.keyCode === 229) return;
       if (event.key === "Escape") { event.preventDefault(); setName(address); }
       if (event.key === "Enter") {
         event.preventDefault();
-        try { const position = parseCellAddress(name.trim()); if (!position) throw new Error("A1のようなセル位置を入力してください"); if (position.row >= c.activeSheet.rowCount || position.column >= c.activeSheet.columnCount) throw new Error("シートの範囲外です"); c.afterCommit(() => { c.select(position); c.requestGridFocus(); }); }
+        try {
+          const definition = c.features.namedRanges ? c.getWorkbook().namedRanges?.find(item => item.name.toLocaleLowerCase("en-US") === name.trim().toLocaleLowerCase("en-US")) : undefined;
+          if (definition) {
+            c.afterCommit(() => {
+              const current = c.getWorkbook().namedRanges?.find(item => item.id === definition.id);
+              if (!current || !c.selectRangeInSheet(current.sheetId, { row: current.range.top, column: current.range.left }, { row: current.range.bottom, column: current.range.right })) {
+                c.reportError(new Error("この名前付き範囲へ移動できません")); return;
+              }
+              setNameDraft(null); c.requestGridFocus();
+            });
+            return;
+          }
+          const position = parseCellAddress(name.trim());
+          if (!position) throw new Error(c.features.namedRanges ? "A1のようなセル位置か、登録済みの範囲名を入力してください" : "A1のようなセル位置を入力してください");
+          if (position.row >= c.activeSheet.rowCount || position.column >= c.activeSheet.columnCount) throw new Error("シートの範囲外です");
+          c.afterCommit(() => { c.select(position); c.requestGridFocus(); });
+        }
         catch (cause) { c.reportError(cause); setName(address); }
       }
     }} />

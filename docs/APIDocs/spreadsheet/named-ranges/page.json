@@ -1,0 +1,24 @@
+{
+  "title": "名前付き範囲",
+  "summary": "連続した範囲に名前を付け、定義の取得・更新・削除や、名前を指定したセル取得を行います。",
+  "source": "packages/spreadsheet/src/docs/named-ranges.md",
+  "order": 55,
+  "section": "セルとシート",
+  "keywords": [
+    "namedRanges.add",
+    "namedRanges.update",
+    "namedRanges.delete",
+    "namedRanges.clear",
+    "getNamedRange",
+    "getRangeByName",
+    "getNamedRanges",
+    "SpreadsheetNamedRange"
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/spreadsheet-named-ranges.png",
+      "alt": "範囲名・セル範囲・削除時に消す内容を選べる名前付き範囲ダイアログ",
+      "caption": "登録済みの範囲を変更できます。削除時は定義だけを外すか、対象セルもクリアするかを選びます。"
+    }
+  ]
+}

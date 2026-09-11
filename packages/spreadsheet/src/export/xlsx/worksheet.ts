@@ -7,9 +7,11 @@ import { xlsxCellFormat, type XlsxStyles } from "./styles";
 import { conditionalFormattingXml } from "./conditional-formatting";
 import { dataValidationsXml } from "./data-validation";
 import { xml, xlsxText } from "./xml";
+import { tablePartsXml } from "./tables";
 
 type Calculated = Record<string, Record<string, SpreadsheetCalculatedValue>>;
-type Links = { drawingId?: string; commentsDrawingId?: string; formulaForList?: (values: readonly string[]) => string };
+type Links = { drawingId?: string; commentsDrawingId?: string; formulaForList?: (values: readonly string[]) => string;
+  tableRelationshipIds?: readonly string[] };
 const numeric = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 function numericValue(value: string): number | undefined {
   if (!numeric.test(value) || /^[+-]?0\d/.test(value)) return;
@@ -23,11 +25,12 @@ function checkText(value: string, label: string) {
   if (value.length > 32_767 || (value.match(/\n/g)?.length ?? 0) > 253)
     throw new Error(`Excelのセル文字数または改行数の上限を超えています（${label}）`);
 }
-function cellXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, address: string, cell: SpreadsheetCell, styles: XlsxStyles, calculated: Calculated): string {
+function cellXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, address: string, cell: SpreadsheetCell, styles: XlsxStyles, calculated: Calculated, headerText?: string): string {
   const label = `${sheet.name}!${address}`, value = cell.value;
   checkText(value, label);
   const format = xlsxCellFormat(cell);
   const attributes = `r="${xml(address)}" s="${styles.styleId(format)}"`;
+  if (headerText !== undefined) return `<c ${attributes} t="inlineStr"><is><t xml:space="preserve">${xlsxText(headerText)}</t></is></c>`;
   // Empty model values are blank cells, which Excel must not count as empty text.
   if (value === "") return `<c ${attributes}/>`;
   if (value.startsWith("=")) {
@@ -56,6 +59,8 @@ const columnWidth = (pixels: number) => Math.floor(((pixels - 5) / 7) * 256) / 2
 
 /** Worksheet schema ordering is centralized here; drawing relationships are supplied by the package assembler. */
 export function worksheetXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, styles: XlsxStyles, calculated: Calculated, links: Links = {}): string {
+  const tableHeaders = new Map((sheet.tables ?? []).flatMap(table => table.columns.map((column, index) =>
+    [cellAddress(table.range.top, table.range.left + index), column.name] as const)));
   const rows = new Map<number, { address: string; column: number; cell: SpreadsheetCell }[]>();
   for (const [address, cell] of Object.entries(sheet.cells)) {
     const position = parseCellAddress(address)!;
@@ -66,10 +71,10 @@ export function worksheetXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSh
   const rowXml = [...rows].sort(([left], [right]) => left - right).map(([row, cells]) => {
     const height = sheet.rowHeights?.[row];
     if (height !== undefined && height * 0.75 > 409) throw new Error(`Excelの行の高さの上限を超えています（${sheet.name}!${row + 1}行）`);
-    return `<row r="${row + 1}"${height === undefined ? "" : ` ht="${xml(height * 0.75)}" customHeight="1"`}>${cells.sort((left, right) => left.column - right.column).map(item => cellXml(workbook, sheet, item.address, item.cell, styles, calculated)).join("")}</row>`;
+    return `<row r="${row + 1}"${height === undefined ? "" : ` ht="${xml(height * 0.75)}" customHeight="1"`}>${cells.sort((left, right) => left.column - right.column).map(item => cellXml(workbook, sheet, item.address, item.cell, styles, calculated, tableHeaders.get(item.address))).join("")}</row>`;
   }).join("");
   const columns = Object.entries(sheet.columnWidths ?? {}).sort(([left], [right]) => Number(left) - Number(right)).map(([column, width]) =>
     `<col min="${Number(column) + 1}" max="${Number(column) + 1}" width="${xml(columnWidth(width))}" customWidth="1"/>`).join("");
   const merges = (sheet.merges ?? []).map(range => `<mergeCell ref="${cellAddress(range.top, range.left)}:${cellAddress(range.bottom, range.right)}"/>`).join("");
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:${cellAddress(sheet.rowCount - 1, sheet.columnCount - 1)}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultColWidth="${columnWidth(DEFAULT_COLUMN_WIDTH)}" defaultRowHeight="${DEFAULT_ROW_HEIGHT * 0.75}"/>${columns ? `<cols>${columns}</cols>` : ""}<sheetData>${rowXml}</sheetData>${merges ? `<mergeCells count="${sheet.merges!.length}">${merges}</mergeCells>` : ""}${conditionalFormattingXml(sheet, styles)}${dataValidationsXml(sheet, { formulaForList: links.formulaForList })}${links.drawingId ? `<drawing r:id="${xml(links.drawingId)}"/>` : ""}${links.commentsDrawingId ? `<legacyDrawing r:id="${xml(links.commentsDrawingId)}"/>` : ""}</worksheet>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:${cellAddress(sheet.rowCount - 1, sheet.columnCount - 1)}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultColWidth="${columnWidth(DEFAULT_COLUMN_WIDTH)}" defaultRowHeight="${DEFAULT_ROW_HEIGHT * 0.75}"/>${columns ? `<cols>${columns}</cols>` : ""}<sheetData>${rowXml}</sheetData>${merges ? `<mergeCells count="${sheet.merges!.length}">${merges}</mergeCells>` : ""}${conditionalFormattingXml(sheet, styles)}${dataValidationsXml(sheet, { formulaForList: links.formulaForList })}${links.drawingId ? `<drawing r:id="${xml(links.drawingId)}"/>` : ""}${links.commentsDrawingId ? `<legacyDrawing r:id="${xml(links.commentsDrawingId)}"/>` : ""}${tablePartsXml(links.tableRelationshipIds)}</worksheet>`;
 }

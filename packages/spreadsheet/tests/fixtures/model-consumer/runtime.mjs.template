@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { applySpreadsheetCommands, parseWorkbook, serializeWorkbook, createWorkbook, setCellValues,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
-  createSpreadsheetSession, copySpreadsheetCells } from '__MODEL_IMPORT__';
+  createSpreadsheetSession, copySpreadsheetCells, getSheets, getSheetReader, getNamedRange, getRangeByName } from '__MODEL_IMPORT__';
 
 const require = createRequire(import.meta.url);
 assert.throws(() => require.resolve('react'), { code: 'MODULE_NOT_FOUND' });
@@ -99,5 +99,29 @@ assert.equal(session.redo(), false);
 assert.equal(serializeWorkbook(original), before, 'headless session history never changes its input workbook');
 session.clearHistory();
 assert.deepEqual(session.getHistoryState(), { canUndo: false, canRedo: false, undoCount: 0, redoCount: 0 });
+const readSession = createSpreadsheetSession(withImage.workbook);
+const sheets = getSheets(readSession.getWorkbook());
+assert.equal(Object.isFrozen(sheets),true);
+const liveSheet = readSession.sheet(sheets[0].id);
+const fixedSheet = getSheetReader(readSession.getWorkbook(),sheets[0].id);
+assert.equal(liveSheet.getImages()[0].id,image.drawingId);
+assert.equal(readSession.batch([
+  {type:'namedRanges.add',sheetId:sheets[0].id,name:'Sales',range:'A20:B21'},
+  {type:'tables.insert',sheetId:sheets[0].id,name:'SalesTable',target:{row:19,column:0},headers:['Item','Amount'],
+    data:{type:'rows',values:[['A','10']]},onConflict:'error'},
+]).ok,true);
+assert.equal(liveSheet.getNamedRanges()[0].address,'A20:B21');
+assert.equal(fixedSheet.getNamedRanges().length,0,'snapshot reader remains fixed');
+assert.equal(liveSheet.getTables()[0].name,'SalesTable');
+assert.equal(getNamedRange(readSession.getWorkbook(),'sales').name,'Sales');
+assert.equal(getRangeByName(readSession.getWorkbook(),'Sales')[1][1].value,'10');
+const conflict = readSession.execute({type:'cells.set',sheetId:sheets[0].id,values:{B21:'20'},onConflict:'error'});
+assert.equal(conflict.code,'WRITE_CONFLICT');
+assert.equal(liveSheet.getCell('B21').value,'10');
+assert.equal(readSession.execute({type:'namedRanges.delete',sheetId:sheets[0].id,
+  namedRangeId:liveSheet.getNamedRanges()[0].id,clear:'all'}).ok,true);
+assert.equal(liveSheet.getCell('B21'),undefined);
+assert.equal(liveSheet.getTables().length,0);
 console.log(JSON.stringify({ operations: 'passed', atomicFailure: 'passed', features: 'passed', drawingPlacement: 'passed',
+  collections: 'passed', namedRanges: 'passed', tables: 'passed', writeConflicts: 'passed',
   queries: 'passed', sessionHistory: 'passed', clipboardCommands: 'passed', reactInstalled: false, browserGlobals: false }));

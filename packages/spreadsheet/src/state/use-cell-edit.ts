@@ -5,7 +5,7 @@ import type { MaybePromise } from "../core";
 import { cellAddress, mergedCellPosition } from "../model";
 import type { SpreadsheetSelection } from "../props";
 import type { SpreadsheetCommand, SpreadsheetCommandResult } from "../api/types";
-import { clampPosition, selectedAddresses } from "./selection";
+import { clampPosition, rangeBounds, selectionRanges } from "./selection";
 import type { Position, ReportError, Sheet } from "./types";
 import type { SpreadsheetGuiCommandOptions } from "./use-spreadsheet-commands";
 
@@ -51,7 +51,7 @@ export function useCellEdit({ activeSheet, selection, disabled, executeCommands,
     return result instanceof Promise ? result.then(value => value.ok) : result.ok;
   };
   const clearCells = () => {
-    try { writeValues(Object.fromEntries(selectedAddresses(selection).map(address => [address, ""]))); }
+    try { executeCommands(selectionRanges(selection).map(range => ({ type: "cells.clear" as const, sheetId: activeSheet.id, range: rangeBounds(range) }))); }
     catch (cause) { reportError(cause); }
   };
 

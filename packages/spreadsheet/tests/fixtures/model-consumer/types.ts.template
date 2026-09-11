@@ -2,6 +2,8 @@ import {
   applySpreadsheetCommands, createWorkbook, parseWorkbook, serializeWorkbook,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
   createSpreadsheetSession, copySpreadsheetCells,
+  getSheets, getSheetReader, getNamedRange, getRangeByName,
+  type SpreadsheetTable, type SpreadsheetTableColumn, type SpreadsheetSheetReadApi,
   type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot, type SpreadsheetReadApi, type SpreadsheetReadRange,
   type SpreadsheetSession, type SpreadsheetSessionOptions, type SpreadsheetHistoryState, type SpreadsheetPastePayload,
 } from '__MODEL_IMPORT__';
@@ -98,3 +100,30 @@ session.execute({ type: 'cells.move', sheetId: 'sheet-1', source: { top: 0, left
 // @ts-expect-error History limit is numeric.
 createSpreadsheetSession(snapshot, { historyLimit: '20' });
 void [didUndo, didRedo, history, latest];
+
+const sheets = getSheets(snapshot);
+const reader: SpreadsheetSheetReadApi = getSheetReader(snapshot, sheets[0].id);
+const tables: readonly SpreadsheetTable[] = reader.getTables();
+const columns: readonly SpreadsheetTableColumn[] | undefined = tables[0]?.columns;
+const liveReader: SpreadsheetSheetReadApi = session.sheet('sheet-1');
+void [columns, liveReader.getNamedRanges(), liveReader.getImages(), reader.getInfo(),
+  getNamedRange(snapshot, 'Sales'), getRangeByName(snapshot, 'Sales')];
+const rangeCommands: readonly SpreadsheetCommand[] = [
+  {type:'namedRanges.add',sheetId:'sheet-1',name:'Sales',range:'A1:B3'},
+  {type:'tables.insert',sheetId:'sheet-1',name:'SalesTable',target:{row:5,column:0},headers:['Item','Value'],
+    data:{type:'rows',values:[['A','10']]},onConflict:'error'},
+  {type:'cells.clear',sheetId:'sheet-1',range:'A1',mode:'values'},
+];
+const rangesResult = applySpreadsheetCommands(snapshot, rangeCommands);
+if (rangesResult.ok) for (const receipt of rangesResult.results) {
+  if (receipt.type === 'namedRanges.add') { const id: string = receipt.namedRangeId; void id; }
+  if (receipt.type === 'tables.insert') {
+    const id: string = receipt.tableId, count: number = receipt.write.changedCount;
+    const next: number = receipt.placement.nextRow, bottom: number = receipt.range.bottom;
+    void [id,count,next,bottom];
+  }
+}
+// @ts-expect-error Collection results are readonly.
+sheets.push(sheets[0]);
+// @ts-expect-error Conflict policies cannot be misspelled.
+session.execute({type:'cells.set',sheetId:'sheet-1',values:{A1:'x'},onConflict:'ignore'});

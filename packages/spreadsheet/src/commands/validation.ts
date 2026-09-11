@@ -19,11 +19,19 @@ export function commandKeys(value: Record<string, unknown>, allowed: readonly st
 }
 
 const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
-  "cells.set": ["values"], "cells.format": ["addresses", "format"],
-  "cells.replace": ["query", "replacement", "addresses"],
-  "cells.fill": ["source", "target", "mode"],
-  "cells.paste": ["target", "payload", "mode"],
-  "cells.move": ["source", "target"],
+  "cells.set": ["values", "onConflict"], "cells.format": ["addresses", "format"],
+  "cells.replace": ["query", "replacement", "addresses", "onConflict"],
+  "cells.fill": ["source", "target", "mode", "onConflict"],
+  "cells.paste": ["target", "payload", "mode", "onConflict"],
+  "cells.move": ["source", "target", "onConflict"],
+  "cells.clear": ["range", "mode"], "cells.delete": ["range"],
+  "namedRanges.add": ["name", "range"],
+  "namedRanges.update": ["namedRangeId", "name", "range"],
+  "namedRanges.delete": ["namedRangeId", "clear"],
+  "namedRanges.clear": ["namedRangeId", "mode"],
+  "tables.insert": ["target", "headers", "data", "headerStyle", "rowNumbers", "onConflict", "name"],
+  "cells.writeTable": ["target", "headers", "data", "headerStyle", "rowNumbers", "onConflict"],
+  "tables.delete": ["tableId", "clear"],
   "cells.validation": ["addresses", "validation"],
   "conditionalFormats.set": ["rules"],
   "rows.resize": ["row", "height"],
@@ -53,6 +61,8 @@ export function validateCommand(value: unknown): SpreadsheetCommand {
     if (input[key] !== undefined && typeof input[key] !== "string") return rejectCommand("INVALID_COMMAND", `${key}は文字列で指定してください`);
   for (const key of ["bold", "discardContent"])
     if (input[key] !== undefined && typeof input[key] !== "boolean") return rejectCommand("INVALID_COMMAND", `${key}はtrueまたはfalseで指定してください`);
+  if (input.onConflict !== undefined && !["error", "overwrite", "skip"].includes(input.onConflict as string))
+    return rejectCommand("INVALID_COMMAND", "onConflictはerror、overwrite、skipのいずれかで指定してください");
   return input as SpreadsheetCommand;
 }
 

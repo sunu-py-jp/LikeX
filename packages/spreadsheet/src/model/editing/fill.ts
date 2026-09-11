@@ -1,3 +1,4 @@
+import { filterCellValueWrites, type SpreadsheetWriteConflictPolicy } from "../workbook/write-conflicts";
 import { cellAddress } from "../address";
 import { rangeContains, rangesIntersect } from "../merges";
 import { translateFormula } from "../formula";
@@ -48,7 +49,7 @@ function sequence(values: readonly string[], mode: "auto" | "copy" | "series"): 
 /** Extends a single rectangle along one axis, preserving source cells and translating relative formulas. */
 export function fillSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: string, source: SpreadsheetMergedRange,
   target: SpreadsheetMergedRange, mode: "auto" | "copy" | "series" = "auto",
-  policy: { formulas: boolean; formatting: boolean; dataValidation: boolean; checkboxes?: boolean } = { formulas: true, formatting: true, dataValidation: true }): SpreadsheetWorkbook {
+  policy: { formulas: boolean; formatting: boolean; dataValidation: boolean; checkboxes?: boolean; onConflict?: SpreadsheetWriteConflictPolicy; skippedAddresses?: Set<string> } = { formulas: true, formatting: true, dataValidation: true }): SpreadsheetWorkbook {
   if (!["auto", "copy", "series"].includes(mode)) throw new Error("オートフィルの方式が正しくありません");
   const sheet = getWorkbookSheet(workbook, sheetId);
   validateRange(source, sheet.rowCount, sheet.columnCount); validateRange(target, sheet.rowCount, sheet.columnCount);
@@ -58,6 +59,7 @@ export function fillSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: str
   if (!vertical && !horizontal) throw new Error("オートフィルは縦または横の一方向に伸ばしてください");
   if ((target.bottom - target.top + 1) * (target.right - target.left + 1) > SPREADSHEET_LIMITS.clipboardCells) throw new Error("オートフィルは10,000セルまでです");
   if (sheet.merges?.some(merge => rangesIntersect(merge, target))) throw new Error("結合セルを含む範囲はオートフィルできません");
+  const proposed: Record<string, string> = {};
   const cells = { ...sheet.cells }, height = source.bottom - source.top + 1, width = source.right - source.left + 1;
   const modulo = (n: number, length: number) => (n % length + length) % length;
   const generators = new Map<number, ((index: number) => string) | null>();
@@ -80,11 +82,17 @@ export function fillSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: str
       value = generators.get(lane)?.(vertical ? row - source.top : column - source.left) ?? value;
     }
     validateCellValue(value);
+    proposed[address] = value;
     const format = policy.formatting ? original?.format : previous?.format;
     const ruleTransferEnabled = policy.dataValidation && !(policy.checkboxes === false && (original?.validation?.type === "checkbox" || previous?.validation?.type === "checkbox"));
     const validation = ruleTransferEnabled ? original?.validation : previous?.validation;
     if (!value && !format && !validation) delete cells[address];
     else cells[address] = Object.freeze({ value, ...(format ? { format } : {}), ...(validation ? { validation } : {}) });
+  }
+  const filtered = filterCellValueWrites(sheet, proposed, policy.onConflict);
+  for (const address of filtered.skippedAddresses) {
+    policy.skippedAddresses?.add(address);
+    if (sheet.cells[address]) cells[address] = sheet.cells[address]; else delete cells[address];
   }
   return replaceWorkbookSheet(workbook, { ...sheet, cells: Object.freeze(cells) });
 }

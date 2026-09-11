@@ -5,6 +5,8 @@ import { commentsEqual, drawingsEqual } from "./annotations";
 import { dataValidationsEqual } from "./data-validation";
 import { mergesEqual } from "./merges";
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "./sheet-dimensions";
+import { namedRangesEqual } from "./named-ranges";
+import { tablesEqual } from "./tables/normalize";
 
 const emptySizes: Readonly<Record<number, number>> = Object.freeze({});
 function cellsEqual(left: SpreadsheetCell | undefined, right: SpreadsheetCell | undefined): boolean {
@@ -34,6 +36,7 @@ function resourcesEqual(left: SpreadsheetWorkbook["resources"], right: Spreadshe
   });
 }
 function annotationsEqual(left: SpreadsheetWorkbook["sheets"][number], right: SpreadsheetWorkbook["sheets"][number]): boolean {
+  if (!tablesEqual(left.tables, right.tables)) return false;
   if (left.drawings !== right.drawings) {
     const a = left.drawings ?? [], b = right.drawings ?? [];
     if (a.length !== b.length || a.some((drawing, index) => !drawingsEqual(drawing, b[index]))) return false;
@@ -49,7 +52,8 @@ function annotationsEqual(left: SpreadsheetWorkbook["sheets"][number], right: Sp
  * Sheet order matters. Explicit default sizes and false/general styles equal their omitted defaults. */
 export function workbooksEqual(left: SpreadsheetWorkbook, right: SpreadsheetWorkbook): boolean {
   if (left === right) return true;
-  if ((left.schemaVersion ?? 1) !== (right.schemaVersion ?? 1) || left.sheets.length !== right.sheets.length || !resourcesEqual(left.resources, right.resources)) return false;
+  if ((left.schemaVersion ?? 1) !== (right.schemaVersion ?? 1) || left.sheets.length !== right.sheets.length ||
+    !resourcesEqual(left.resources, right.resources) || !namedRangesEqual(left.namedRanges, right.namedRanges)) return false;
   return left.sheets.every((sheet, index) => {
     const other = right.sheets[index];
     return sheet === other || (sheet.id === other.id && sheet.name === other.name && sheet.rowCount === other.rowCount &&

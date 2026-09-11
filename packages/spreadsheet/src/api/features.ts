@@ -15,6 +15,10 @@ export type SpreadsheetFeatures = Readonly<{
   /** Drag the selection handle to extend values, sequences, and formulas. */
   autoFill?: boolean;
   formatting?: boolean;
+  /** Create, update, or remove named ranges. Reading existing names remains available. */
+  namedRanges?: boolean;
+  /** Structured tables and bordered table writes. */
+  tables?: boolean;
   /** Allows changing rules; existing conditional formatting still renders. */
   conditionalFormatting?: boolean;
   /** Allows configuring input rules. Existing rules remain enforced when disabled. */

@@ -1,3 +1,4 @@
+import { filterCellValueWrites, type SpreadsheetWriteConflictPolicy } from "../workbook/write-conflicts";
 import type { SpreadsheetPasteMode, SpreadsheetPastePayload } from "../../api/editing-commands";
 import { cellAddress } from "../address";
 import { translateFormula } from "../formula";
@@ -11,7 +12,7 @@ import { getWorkbookSheet, replaceWorkbookSheet } from "../workbook/snapshot";
 import { normalizeCellFormat, validateCellValue } from "../workbook/validation";
 
 export type PastePolicy = Readonly<{ formulas: boolean; formatting: boolean; dataValidation?: boolean; checkboxes?: boolean;
-  comments?: boolean; mergeCells?: boolean }>;
+  comments?: boolean; mergeCells?: boolean; onConflict?: SpreadsheetWriteConflictPolicy; skippedAddresses?: Set<string> }>;
 
 function payloadSize(payload: SpreadsheetPastePayload) {
   if (!payload || !Array.isArray(payload.values) || payload.values.length > SPREADSHEET_LIMITS.clipboardCells ||
@@ -48,6 +49,8 @@ export function getCellPasteRange(sheet: SpreadsheetSheet, target: SpreadsheetCe
 export function pasteSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: string, target: SpreadsheetCellPosition,
   payload: SpreadsheetPastePayload, mode: SpreadsheetPasteMode = "all", policy: PastePolicy = { formulas: true, formatting: true, dataValidation: true },
   nextCommentId: () => string = () => crypto.randomUUID()): SpreadsheetWorkbook {
+  const skippedAddresses = policy.skippedAddresses ?? new Set<string>();
+  policy = { ...policy, skippedAddresses };
   const sheet = getWorkbookSheet(workbook, sheetId), destination = getCellPasteRange(sheet, target, payload);
   if (!destination) return pasteCellMatrix(workbook, sheetId, target, payload, mode, policy);
   const merged = (sheet.merges ?? []).filter(merge => rangesIntersect(destination, merge));
@@ -59,9 +62,12 @@ export function pasteSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: st
   let next = mode === "all" && payload.merges !== undefined && !scalar && merged.length ? unmergeCells(workbook, sheetId, destination) : workbook;
   next = pasteCellMatrix(next, sheetId, { row: destination.top, column: destination.left }, payload, mode, policy);
   if (mode !== "all") return next;
+  if (skippedAddresses.size && !scalar && (payload.merges?.length || merged.length))
+    throw new Error("結合の変更を伴う貼り付けでは一部のセルをスキップできません");
   if (payload.comments && policy.comments !== false) {
     const comments: Record<string, SpreadsheetComment | null> = {};
     for (let row = 0; row < height; row++) for (let column = 0; column < width; column++) {
+      if (skippedAddresses.has(cellAddress(destination.top + row, destination.left + column))) continue;
       const comment = payload.comments[row]?.[column] ?? null;
       if (comment !== null && (!comment || typeof comment !== "object" || Array.isArray(comment) ||
         Object.keys(comment).some(key => key !== "text" && key !== "author"))) throw new Error("貼り付けるコメントが正しくありません");
@@ -92,7 +98,7 @@ function pasteCellMatrix(workbook: SpreadsheetWorkbook, sheetId: string, target:
   if (!target || !Number.isInteger(target.row) || !Number.isInteger(target.column) || target.row < 0 || target.column < 0 ||
     target.row + height > sheet.rowCount || target.column + width > sheet.columnCount) throw new Error("貼り付け先がシートの範囲外です");
   if (mode === "formats" && (!policy.formatting || !payload.formats)) throw new Error("書式の貼り付けには、このスプレッドシートでコピーした書式が必要です");
-  const cells = { ...sheet.cells };
+  const cells = { ...sheet.cells }, proposed: Record<string, string> = {};
   for (let row = 0; row < height; row++) for (let column = 0; column < width; column++) {
     const position = { row: target.row + row, column: target.column + column }, address = cellAddress(position.row, position.column);
     const merge = getMergedRange(sheet, position);
@@ -108,6 +114,7 @@ function pasteCellMatrix(workbook: SpreadsheetWorkbook, sheetId: string, target:
         if (payload.source) value = translateFormula(value, target.row - payload.source.row, target.column - payload.source.column);
       }
       value = validateCellValue(value);
+      proposed[address] = value;
     }
     let format: SpreadsheetCellFormat | undefined = previous?.format;
     if ((mode === "all" || mode === "formats") && policy.formatting && payload.formats) format = normalizeCellFormat(payload.formats[row]?.[column] ?? {});
@@ -116,6 +123,11 @@ function pasteCellMatrix(workbook: SpreadsheetWorkbook, sheetId: string, target:
     const validation = mode === "all" && ruleTransferEnabled && payload.validations ? normalizeDataValidation(suppliedValidation ?? undefined) : previous?.validation;
     if (!value && !format && !validation) delete cells[address];
     else cells[address] = Object.freeze({ value, ...(format ? { format } : {}), ...(validation ? { validation } : {}) }) as SpreadsheetCell;
+  }
+  const filtered = filterCellValueWrites(sheet, proposed, policy.onConflict);
+  for (const address of filtered.skippedAddresses) {
+    policy.skippedAddresses?.add(address);
+    if (sheet.cells[address]) cells[address] = sheet.cells[address]; else delete cells[address];
   }
   return replaceWorkbookSheet(workbook, { ...sheet, cells: Object.freeze(cells) });
 }

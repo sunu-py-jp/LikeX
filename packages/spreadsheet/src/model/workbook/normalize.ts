@@ -3,6 +3,7 @@ import { normalizeComments, normalizeDrawings } from "../annotations";
 import { normalizeResources } from "../image-resources";
 import { normalizeDataValidation } from "../data-validation";
 import { normalizeMerges, validateMergedContents } from "../merges";
+import { normalizeTables } from "../tables/normalize";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetWorkbook } from "../types";
 import { finishWorkbook, freezeCell } from "./snapshot";
 import { canonicalCellAddress, fail, normalizeCellFormat, normalizeSheetName, normalizeSizes, validateCellValue, validateDimension } from "./validation";
@@ -40,12 +41,14 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
     const comments = normalizeComments(sheet.comments, { rowCount, columnCount });
     const merges = normalizeMerges(sheet.merges, { rowCount, columnCount });
     const conditionalFormats = normalizeConditionalFormats(sheet.conditionalFormats, { rowCount, columnCount });
+    const tables = normalizeTables(sheet.tables, { rowCount, columnCount, cells, merges });
     validateMergedContents({ cells, comments, merges });
     return Object.freeze({ id: sheet.id, name, cells: Object.freeze(cells), rowCount, columnCount,
       ...(columnWidths ? { columnWidths } : {}), ...(rowHeights ? { rowHeights } : {}),
-      ...(drawings ? { drawings } : {}), ...(comments ? { comments } : {}), ...(merges ? { merges } : {}), ...(conditionalFormats ? { conditionalFormats } : {}) });
+      ...(drawings ? { drawings } : {}), ...(comments ? { comments } : {}), ...(merges ? { merges } : {}),
+      ...(conditionalFormats ? { conditionalFormats } : {}), ...(tables ? { tables } : {}) });
   });
-  return finishWorkbook(sheets, undefined, resources);
+  return finishWorkbook(sheets, undefined, resources, input.namedRanges);
 }
 
 export function createWorkbook(): SpreadsheetWorkbook {

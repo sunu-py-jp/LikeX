@@ -4,6 +4,8 @@ import { normalizeMerges, rangeContains, rangesIntersect } from "../merges";
 import { SPREADSHEET_LIMITS, type SpreadsheetMoveSource, type SpreadsheetMoveTarget, type SpreadsheetWorkbook } from "../types";
 import { finishWorkbook, freezeCell, getWorkbookSheet } from "./snapshot";
 import { fail } from "./validation";
+import { moveNamedRanges } from "../named-ranges";
+import { moveSheetTables } from "./table-structure";
 
 /** Cut/paste preserves the referenced cells, rather than applying copy-style relative offsets.
  * A partially intersected range cannot be represented as one rectangle and is rejected atomically. */
@@ -27,6 +29,8 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
       return fail("貼り付け先に結合セルの一部分が含まれています。結合範囲全体を選択してください");
   }
   if (source.sheetId === destination.sheetId && source.top === destination.row && source.left === destination.column) return workbook;
+  const namedRanges = moveNamedRanges(workbook.namedRanges, source, destination);
+  const tablesBySheet = moveSheetTables(workbook.sheets, source, destination);
   const inSource = (row: number, column: number) => row >= source.top && row <= source.bottom && column >= source.left && column <= source.right;
   const inDestination = (row: number, column: number) => row >= destination.row && row < destination.row + height && column >= destination.column && column < destination.column + width;
   const equalName = (a: string, b: string) => a.toLocaleLowerCase("en-US") === b.toLocaleLowerCase("en-US");
@@ -62,7 +66,8 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
       top: merge.top + destination.row - source.top, bottom: merge.bottom + destination.row - source.top,
       left: merge.left + destination.column - source.left, right: merge.right + destination.column - source.left,
     })) : [];
-    return { ...sheet, cells, ...(sheet.merges || movedMerges.length ? { merges: normalizeMerges([...retainedMerges, ...movedMerges], sheet) } : {}),
+    return { ...sheet, cells, ...(sheet.tables || tablesBySheet.get(sheet.id) ? { tables: tablesBySheet.get(sheet.id) } : {}),
+      ...(sheet.merges || movedMerges.length ? { merges: normalizeMerges([...retainedMerges, ...movedMerges], sheet) } : {}),
       ...(sheet.comments || Object.keys(comments).length ? { comments: Object.freeze(comments) } : {}) };
   });
   const result = staged.map(sheet => {
@@ -102,5 +107,5 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
     }
     return changed ? Object.freeze({ ...sheet, cells: Object.freeze(cells) }) : sheet;
   });
-  return finishWorkbook(result, workbook);
+  return finishWorkbook(result, workbook, workbook.resources, namedRanges);
 }

@@ -1,3 +1,6 @@
+import { filterCellValueWrites, type SpreadsheetWriteConflictPolicy } from "../workbook/write-conflicts";
+import { canonicalCellAddress } from "../workbook/validation";
+import { getWorkbookSheet } from "../workbook/snapshot";
 import type { SpreadsheetSearchMatch, SpreadsheetSearchQuery } from "../../api/editing-commands";
 import { parseCellAddress } from "../address";
 import { calculateWorkbook } from "../formula";
@@ -39,8 +42,9 @@ export function replaceSpreadsheetText(value: string, query: SpreadsheetSearchQu
   return matcher ? value.replace(matcher, () => replacement) : value;
 }
 export function replaceSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: string, query: SpreadsheetSearchQuery,
-  replacement: string, addresses?: readonly string[]): SpreadsheetWorkbook {
-  const selected = addresses ? new Set(addresses) : undefined;
+  replacement: string, addresses?: readonly string[], options?: { onConflict?: SpreadsheetWriteConflictPolicy; skippedAddresses?: Set<string> }): SpreadsheetWorkbook {
+  const sheet = getWorkbookSheet(workbook, sheetId);
+  const selected = addresses ? new Set(addresses.map(address => canonicalCellAddress(sheet, address))) : undefined;
   const values: Record<string, string> = {};
   const calculated = query.lookIn === "formulas" ? undefined : calculateWorkbook(workbook);
   for (const match of findSpreadsheetCells(workbook, query, { sheetId, calculated })) {
@@ -49,5 +53,7 @@ export function replaceSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: 
       values[match.address] = query.lookIn !== "formulas" && value && (typeof calculated?.[sheetId]?.[match.address] === "string" || value.startsWith("=") || value.startsWith("'")) ? `'${value}` : value;
     }
   }
-  return setCellValues(workbook, sheetId, values);
+  const filtered = filterCellValueWrites(getWorkbookSheet(workbook, sheetId), values, options?.onConflict);
+  for (const address of filtered.skippedAddresses) options?.skippedAddresses?.add(address);
+  return setCellValues(workbook, sheetId, filtered.values);
 }

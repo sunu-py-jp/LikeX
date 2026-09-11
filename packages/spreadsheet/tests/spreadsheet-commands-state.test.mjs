@@ -96,7 +96,7 @@ test('a no-op and a batch whose net effect is unchanged do not create history or
   let result;
   await act(async () => {
     assert.deepEqual(ui.api.execute(set('2')), { ok: true, changed: false,
-      results: [{ type: 'cells.set', sheetId: 'one', placement: { nextRow: 1, nextColumn: 1 } }] });
+      results: [{ type: 'cells.set', sheetId: 'one', placement: { nextRow: 1, nextColumn: 1 }, write: { changedCount: 0, skippedCount: 0, skippedAddresses: [] } }] });
     result = ui.api.batch([set('9'), set('2')]);
   });
   assert.equal(result.ok, true);

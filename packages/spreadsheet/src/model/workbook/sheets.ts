@@ -52,7 +52,8 @@ export function deleteSheet(workbook: SpreadsheetWorkbook, sheetId: string): Spr
   const sheet = getWorkbookSheet(workbook, sheetId);
   if (workbook.sheets.length <= 1) return fail("最後のシートは削除できません");
   const sheets = replaceSheetReferences(workbook, sheet.name).filter(item => item.id !== sheetId);
-  return finishWorkbook(sheets, undefined, pruneImageResources(workbook.resources, sheets));
+  return finishWorkbook(sheets, workbook, pruneImageResources(workbook.resources, sheets),
+    (workbook.namedRanges ?? []).filter(item => item.sheetId !== sheetId));
 }
 /** Move an existing sheet to its final zero-based position without changing its contents or identity. */
 export function moveSheet(workbook: SpreadsheetWorkbook, sheetId: string, index: number): SpreadsheetWorkbook {
@@ -80,6 +81,7 @@ export function duplicateSheetWithIds(workbook: SpreadsheetWorkbook, sheetId: st
     while (workbook.sheets.some(sheet => sheet.name.toLocaleLowerCase("en-US") === name.toLocaleLowerCase("en-US")));
   }
   const occupied = new Set(workbook.sheets.flatMap(sheet => [sheet.id, ...(sheet.drawings?.map(drawing => drawing.id) ?? []),
+    ...(sheet.tables?.flatMap(table => [table.id, ...table.columns.map(column => column.id)]) ?? []),
     ...Object.values(sheet.comments ?? {}).map(comment => comment.id)]));
   const identity = () => {
     const id = nextIdentity();
@@ -91,7 +93,17 @@ export function duplicateSheetWithIds(workbook: SpreadsheetWorkbook, sheetId: st
     value: rewriteFormulaReferences(cell.value, reference => reference.sheet?.toLocaleLowerCase("en-US") === source.name.toLocaleLowerCase("en-US")
       ? `'${name.replaceAll("'", "''")}'!${reference.address}` : undefined),
   })]));
+  const tableNames = new Set([...(workbook.namedRanges ?? []).map(item => item.name.toLocaleLowerCase("en-US")),
+    ...workbook.sheets.flatMap(sheet => (sheet.tables ?? []).map(item => item.name.toLocaleLowerCase("en-US")))]);
   const duplicated: SpreadsheetSheet = Object.freeze({ ...source, id, name, cells: Object.freeze(cells),
+    ...(source.tables ? { tables: Object.freeze(source.tables.map(table => {
+      let tableName: string, suffix = 2;
+      do { const ending = `_${suffix++}`; tableName = `${table.name.slice(0, 255 - ending.length)}${ending}`; }
+      while (tableNames.has(tableName.toLocaleLowerCase("en-US")));
+      tableNames.add(tableName.toLocaleLowerCase("en-US"));
+      return Object.freeze({ ...table, id: identity(), name: tableName,
+        columns: Object.freeze(table.columns.map(column => Object.freeze({ ...column, id: identity() }))) });
+    })) } : {}),
     ...(source.drawings ? { drawings: Object.freeze(source.drawings.map(drawing => Object.freeze({ ...drawing, id: identity(), anchor: Object.freeze({ ...drawing.anchor }) }))) } : {}),
     ...(source.comments ? { comments: Object.freeze(Object.fromEntries(Object.entries(source.comments).map(([address, comment]) => [address, Object.freeze({ ...comment, id: identity() })]))) } : {}),
   });

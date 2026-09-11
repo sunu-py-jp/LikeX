@@ -7,7 +7,7 @@ import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetCommandSu
 import type { SpreadsheetDiscardOptions } from "../api/lifecycle";
 import type { SpreadsheetProps } from "../props";
 import { resolveSpreadsheetFeatures } from "../api/resolve-features";
-import type { Workbook } from "./types";
+import type { Position, Workbook } from "./types";
 import { useCellEdit } from "./use-cell-edit";
 import { usePendingObjectEdits } from "./use-pending-object-edits";
 import { useSpreadsheetExport } from "./use-spreadsheet-export";
@@ -88,7 +88,9 @@ export function useSpreadsheet(props: SpreadsheetProps) {
 
   return { workbook: draft.workbook, activeSheet: view.activeSheet, selection: view.selection,
     select: view.select, selectRange: view.selectRange, toggleSelection: view.toggleSelection, toggleSelectionRange: view.toggleSelectionRange,
-    switchSheet, selectCellInSheet: view.selectCellInSheet, calculated, editing: cellEdit.editing, beginEdit: cellEdit.beginEdit, cancelEdit: cellEdit.cancelEdit, commitEdit: cellEdit.commitEdit,
+    switchSheet, selectCellInSheet: view.selectCellInSheet,
+    selectRangeInSheet: (sheetId: string, anchor: Position, focus: Position) => view.selectRangeInSheet(sheetId, anchor, focus, draft.workbookRef.current),
+    calculated, editing: cellEdit.editing, beginEdit: cellEdit.beginEdit, cancelEdit: cellEdit.cancelEdit, commitEdit: cellEdit.commitEdit,
     selectedDrawingId: view.selectedDrawingId, selectedDrawing: view.selectedDrawing, selectDrawing,
     commentOpen: view.commentOpen, setCommentOpen: view.setCommentOpen,
     pendingObjectEdit: pending.pendingObjectEdit, setPendingObjectEdit: pending.setPendingObjectEdit,
