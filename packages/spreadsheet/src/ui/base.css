@@ -125,6 +125,14 @@
 .lxs-object-properties { display: flex; gap: 8px; }
 .lxs-object-property { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; margin: 8px 0; font-size: 11px; }
 .lxs-root .lxs-object-property input { width: 100%; min-width: 0; height: 29px; padding: 4px 6px; border: 1px solid var(--lxs-border); border-radius: 4px; background: var(--lxs-panel); color: var(--lxs-foreground); font-size: 12px; }
+.lxs-object-color-controls { display: flex; gap: 6px; align-items: center; }
+.lxs-object-color-picker { position: relative; flex: 1; height: 29px; overflow: hidden; border: 1px solid var(--lxs-border); border-radius: 4px; background-color: #fff; background-image: conic-gradient(#ddd 25%, transparent 0 50%, #ddd 0 75%, transparent 0); background-size: 10px 10px; }
+.lxs-object-color-swatch { position: absolute; inset: 0; }
+.lxs-root .lxs-object-color-picker input[type="color"] { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; opacity: 0; cursor: pointer; }
+.lxs-object-color-picker:focus-within { outline: 2px solid var(--lxs-accent); outline-offset: 2px; }
+.lxs-object-color-picker:has(input:disabled) { opacity: .5; }
+.lxs-root .lxs-object-color-reset { min-width: 46px; height: 29px; padding: 4px 8px; border: 1px solid var(--lxs-border); border-radius: 4px; font-size: 12px; }
+.lxs-root .lxs-object-color-reset:hover:enabled, .lxs-root .lxs-object-color-reset[aria-pressed="true"] { background: var(--lxs-hover); }
 .lxs-object-bold { display: flex; align-items: center; gap: 6px; margin: 10px 0; }
 .lxs-root .lxs-object-bold input { accent-color: var(--lxs-accent); }
 .lxs-root .lxs-object-delete { padding: 5px 8px; border: 1px solid var(--lxs-border); border-radius: 4px; color: var(--lxs-error); font-size: 12px; }

@@ -102,8 +102,7 @@ test('shape text is edited as one drawing, saved, undone and redone independentl
   await act(async () => ui.c.redo());
   assert.equal(ui.c.activeSheet.drawings[0].text, '内容確認\n担当：総務');
   await act(async () => ui.c.selectDrawing('shape'));
-  await act(async () => ui.property('文字色').props.onChange(event({ target: { value: '#1e3a5f' } })));
-  await act(async () => ui.property('文字色').props.onBlur());
+  await act(async () => ui.property('文字色').props.onInput(event({ currentTarget: { value: '#1e3a5f' } })));
   await act(async () => ui.drawing('shape').props.onKeyDown(event({ key: 'Enter' })));
   await act(async () => ui.textarea().props.onChange(event({ target: { value: '保存するラベル' } })));
   await act(async () => ui.textarea().props.onKeyDown(event({ key: 's', ctrlKey: true })));
@@ -131,6 +130,63 @@ test('shape text cancellation, readonly and shape feature removal cannot mutate 
   await act(async () => ui.drawing('shape').props.onDoubleClick());
   assert.equal(ui.root.findAllByType('textarea').length, 0);
   assert.equal(ui.property('文字色').props.disabled, true);
+});
+
+test('shape color pickers update their own properties, save and undo without CSS text inputs', async t => {
+  const ui = await mount(t);
+  await act(async () => ui.c.selectDrawing('shape'));
+  const original = ui.c.workbook;
+  const inspector = ui.root.findByProps({'aria-label':'オブジェクトの設定'});
+  assert.equal(inspector.findAllByType('input').filter(input=>input.props.type==='text').length,0);
+  for (const [label, property, color] of [['塗りつぶし','fill','#aabbcc'],['線の色','stroke','#dd5500'],['文字色','color','#224466']]) {
+    assert.equal(ui.property(label).props.type,'color');
+    await act(async () => ui.property(label).props.onInput(event({currentTarget:{value:color}})));
+    assert.equal(ui.c.activeSheet.drawings[0][property],color);
+    assert.equal(ui.c.activeSheet.drawings[1].color,'currentColor');
+  }
+  await act(async () => ui.c.undo()); assert.equal(ui.c.activeSheet.drawings[0].color,undefined);
+  await act(async () => ui.c.redo()); assert.equal(ui.c.activeSheet.drawings[0].color,'#224466');
+  await act(async () => ui.c.save()); assert.equal(ui.saves[0].sheets[0].drawings[0].fill,'#aabbcc');
+  assert.notEqual(ui.c.workbook,original);
+  await ui.update({colorMode:'dark'});
+  await act(async () => ui.c.selectDrawing('shape'));
+  await act(async () => ui.root.findByProps({'aria-label':'文字色を自動にする'}).props.onClick());
+  assert.equal(ui.c.activeSheet.drawings[0].color,'#1f2937','automatic shape text remains readable on its pale fill in dark mode');
+});
+
+test('text box pickers preserve default raw colors until chosen and expose automatic/none resets', async t => {
+  const ui = await mount(t);
+  await act(async () => ui.c.selectDrawing('text'));
+  const original = ui.c.workbook;
+  assert.equal(ui.property('文字色').props.type,'color');
+  assert.equal(ui.property('背景色').props.type,'color');
+  // A test renderer has no DOM swatch. Opening controls must never write a fallback value.
+  await act(async () => ui.property('文字色').props.onFocus(event()));
+  await act(async () => ui.property('背景色').props.onClick(event()));
+  assert.equal(ui.c.workbook,original);
+  await act(async () => ui.property('文字色').props.onInput(event({currentTarget:{value:'#112233'}})));
+  await act(async () => ui.property('背景色').props.onInput(event({currentTarget:{value:'#ffeecc'}})));
+  assert.equal(ui.c.activeSheet.drawings[1].color,'#112233');
+  assert.equal(ui.c.activeSheet.drawings[1].background,'#ffeecc');
+  await act(async () => ui.root.findByProps({'aria-label':'文字色を自動にする'}).props.onClick());
+  await act(async () => ui.root.findByProps({'aria-label':'背景色をなしにする'}).props.onClick());
+  assert.equal(ui.c.activeSheet.drawings[1].color,'currentColor');
+  assert.equal(ui.c.activeSheet.drawings[1].background,'transparent');
+});
+
+test('color picking respects denied edit requests and readonly controls', async t => {
+  const ui = await mount(t,{onEditRequest:async()=>false});
+  await act(async () => ui.c.selectDrawing('shape'));
+  const original=ui.c.workbook;
+  await act(async () => ui.property('塗りつぶし').props.onInput(event({currentTarget:{value:'#ff0000'}})));
+  assert.equal(ui.c.workbook,original);
+  await ui.update({readOnly:true});
+  await act(async () => ui.c.selectDrawing('shape'));
+  assert.equal(ui.property('塗りつぶし').props.disabled,true);
+  const reset=ui.root.findByProps({'aria-label':'塗りつぶしをなしにする'});
+  assert.equal(reset.props.disabled,true);
+  await act(async () => reset.props.onClick());
+  assert.equal(ui.c.workbook,original);
 });
 
 test('drawing drag previews do not mutate the workbook and one completed gesture is one undo step', async t => {

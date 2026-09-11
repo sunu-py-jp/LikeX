@@ -6,8 +6,9 @@ import { cellAddress, type SpreadsheetDrawing, type SpreadsheetDrawingPatch } fr
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 import { useObjectEditPending } from "../../state/use-object-edit-pending";
 import { Command, Icon } from "../spreadsheet-controls";
-import { drawingLabel, drawingTextColor, visibleDrawing } from "./drawing-helpers";
+import { DEFAULT_SHAPE_TEXT_COLOR, drawingLabel, drawingTextColor, visibleDrawing } from "./drawing-helpers";
 import { updateDrawingFromUI } from "./drawing-commands";
+import { ColorPropertyField } from "./color-property-field";
 
 function PropertyField({ label, value, onCommit, controller: c, type = "text" }: { label: string; value: string | number; onCommit: (value: string) => MaybePromise<boolean>; controller: SpreadsheetController; type?: "text" | "number" }) {
   const [draft, setDraft] = useState<string | null>(null);
@@ -45,14 +46,15 @@ function DrawingInspectorSession({ controller: c, drawing }: { controller: Sprea
     {c.features.resize && <div className="lxs-object-properties"><PropertyField label="幅" type="number" value={drawing.width} controller={c} onCommit={value => update({ width: Number(value) })} /><PropertyField label="高さ" type="number" value={drawing.height} controller={c} onCommit={value => update({ height: Number(value) })} /></div>}
     {drawing.type === "image" && <PropertyField label="代替テキスト" value={drawing.alt} controller={c} onCommit={alt => update({ alt })} />}
     {drawing.type === "shape" && <>
-      {!["line", "arrow"].includes(drawing.shape) && <PropertyField label="塗りつぶし" value={drawing.fill} controller={c} onCommit={fill => update({ fill })} />}
-      <PropertyField label="線の色" value={drawing.stroke} controller={c} onCommit={stroke => update({ stroke })} />
+      {!["line", "arrow"].includes(drawing.shape) && <ColorPropertyField label="塗りつぶし" value={drawing.fill} controller={c} reset={{label: "なし", value: "transparent"}} onCommit={fill => update({ fill })} />}
+      <ColorPropertyField label="線の色" value={drawing.stroke} controller={c} reset={{label: "なし", value: "transparent"}} onCommit={stroke => update({ stroke })} />
       <PropertyField label="線の太さ" type="number" value={drawing.strokeWidth} controller={c} onCommit={value => update({ strokeWidth: Number(value) })} />
     </>}
     {drawing.type !== "image" && <>
       <PropertyField label="文字サイズ" type="number" value={drawing.fontSize ?? 16} controller={c} onCommit={value => update({ fontSize: Number(value) })} />
-      <PropertyField label="文字色" value={drawingTextColor(drawing)} controller={c} onCommit={color => update({ color })} />
-      {drawing.type === "text" && <PropertyField label="背景色" value={drawing.background} controller={c} onCommit={background => update({ background })} />}
+      <ColorPropertyField label="文字色" value={drawingTextColor(drawing)} controller={c}
+        reset={{label: "自動", value: drawing.type === "shape" ? DEFAULT_SHAPE_TEXT_COLOR : "currentColor"}} onCommit={color => update({ color })} />
+      {drawing.type === "text" && <ColorPropertyField label="背景色" value={drawing.background} controller={c} reset={{label: "なし", value: "transparent"}} onCommit={background => update({ background })} />}
       <label className="lxs-object-bold"><input type="checkbox" checked={!!drawing.bold} disabled={c.disabled} onChange={event => update({ bold: event.target.checked })} />太字</label>
       <p className="lxs-object-hint">ダブルクリックまたは Enter で文章を編集</p>
     </>}
