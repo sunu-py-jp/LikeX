@@ -1,5 +1,7 @@
 "use client";
 
+import { HorizontalScrollStrip } from "./horizontal-scroll-strip";
+
 import { useLayoutEffect, useRef, useState } from "react";
 import type { SpreadsheetShapeDrawing } from "../model";
 import type { SpreadsheetCommand } from "../api/types";
@@ -67,7 +69,7 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
       if (pending.current === request) { pending.current = null; if (mounted.current) setLoading(false); }
     }
   };
-  return <div className="lxs-ribbon" role="toolbar" aria-label="シートへの挿入">
+  return <HorizontalScrollStrip className="lxs-ribbon" role="toolbar" aria-label="シートへの挿入" itemSelector=".lxs-ribbon-group" previousLabel="前のリボングループを表示" nextLabel="次のリボングループを表示">
     <SpreadsheetTableTools controller={c} />
     {!c.readOnly && (c.features.images || c.features.shapes || c.features.textBoxes) && <RibbonGroup label="図"><div className="lxs-ribbon-columns">
     {c.features.images && <>
@@ -97,5 +99,5 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
       }}><Icon name="comment" /><span>コメント</span></Command>
     </RibbonGroup>}
     {loading && <span className="lxs-ribbon-hint" role="status">画像を読み込み中…</span>}
-  </div>;
+  </HorizontalScrollStrip>;
 }

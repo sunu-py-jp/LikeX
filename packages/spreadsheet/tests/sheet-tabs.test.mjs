@@ -98,3 +98,29 @@ test('renaming an active sheet waits for its edited cell to commit and preserves
   assert.equal(ui.current.activeSheet.name, 'Renamed after commit');
   assert.equal(ui.current.pendingObjectEdit, false);
 });
+
+test('errors replace selection information inside the existing status bar, retain zoom, and dismiss back to the selection', async t => {
+  const ui = await mount(t);
+  await act(async () => ui.current.selectRange({ row: 0, column: 0 }, { row: 0, column: 2 }));
+  const status = () => ui.root.findByProps({ className: 'lxs-status-bar' });
+  const summary = () => status().findByProps({ className: 'lxs-selection-stats' }).children.join('');
+  assert.equal(summary(), '3 セルを選択');
+  const message = '書式と入力!C5: 指定された数値の範囲で入力してください。入力できる値は1以上100以下です。';
+  await act(async () => ui.current.reportError(new Error(message)));
+  assert.equal(ui.root.findAllByProps({ role: 'alert' }).length, 1);
+  const alert = status().findByProps({ role: 'alert' });
+  const text = alert.findByProps({ className: 'lxs-status-error-message' });
+  assert.equal(text.children.join(''), message);
+  assert.equal(text.props.title, message, 'the full message remains available when its single line is truncated');
+  assert.equal(status().props['data-error'], true);
+  assert.equal(ui.root.findAllByProps({ className: 'lxs-selection-stats' }).length, 0);
+  assert.equal(ui.root.findAllByProps({ className: 'lxs-error' }).length, 0, 'no additional error row is rendered');
+  await act(async () => status().findByProps({ 'aria-label': '拡大' }).props.onClick());
+  assert.equal(ui.current.zoom, 105);
+  assert.equal(ui.current.error, message);
+  await act(async () => alert.findByProps({ 'aria-label': 'エラー表示を閉じる' }).props.onClick());
+  assert.equal(ui.current.error, null);
+  assert.equal(status().props['data-error'], undefined);
+  assert.equal(ui.root.findAllByProps({ role: 'alert' }).length, 0);
+  assert.equal(summary(), '3 セルを選択');
+});

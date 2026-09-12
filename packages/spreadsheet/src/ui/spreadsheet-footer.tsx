@@ -8,6 +8,7 @@ import { Command, Icon } from "./spreadsheet-controls";
 import { useObjectEditPending } from "../state/use-object-edit-pending";
 import { useSheetTabReorder } from "./sheets/use-sheet-tab-reorder";
 import { SpreadsheetZoomControls } from "./spreadsheet-zoom-controls";
+import { HorizontalScrollStrip } from "./horizontal-scroll-strip";
 
 export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetController }) {
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
@@ -40,7 +41,8 @@ export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetCo
   };
   return <>
     <footer className="lxs-footer">
-      {c.features.sheets ? <div className="lxs-sheet-tabs" role="tablist" aria-label="ワークシート"
+      {c.features.sheets ? <HorizontalScrollStrip className="lxs-sheet-tabs" role="tablist" aria-label="ワークシート"
+        itemSelector=".lxs-sheet-tab, .lxs-sheet-name-input, .lxs-command" previousLabel="左のシートを表示" nextLabel="右のシートを表示"
         onDragOver={reorder.onDragOver} onDrop={reorder.onDrop} onDragLeave={reorder.onDragLeave}>
         {c.workbook.sheets.map(sheet => renaming?.id === sheet.id && c.features.renameSheet && !c.readOnly ? <input key={sheet.id} autoFocus className="lxs-sheet-name-input" aria-label="シート名" value={renaming.value} readOnly={c.disabled || c.requesting} maxLength={31} onFocus={event => event.currentTarget.select()} onChange={event => { setRenaming({ id: sheet.id, value: event.target.value }); markPending(event.target.value !== sheet.name); }} onBlur={commitName} onKeyDown={event => {
           if (event.nativeEvent.isComposing || event.keyCode === 229) return;
@@ -63,9 +65,14 @@ export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetCo
             }));
           }}><Icon name="plus" /></Command>}
         </>}
-      </div> : <span className="lxs-sheet-label">{c.activeSheet.name}</span>}
+      </HorizontalScrollStrip> : <span className="lxs-sheet-label">{c.activeSheet.name}</span>}
     </footer>
-    <div className="lxs-status-bar"><span className="lxs-selection-stats" aria-live="polite">{stats}</span><SpreadsheetZoomControls controller={c} /></div>
-    {c.error && <div className="lxs-error" role="alert"><span>{c.error}</span><Command label="エラー表示を閉じる" onClick={() => c.setError(null)}><Icon name="close" /></Command></div>}
+    <div className="lxs-status-bar" data-error={!!c.error || undefined}>
+      {c.error ? <div className="lxs-status-error" role="alert">
+        <span className="lxs-status-error-message" title={c.error}>{c.error}</span>
+        <Command label="エラー表示を閉じる" onClick={() => c.setError(null)}><Icon name="close" /></Command>
+      </div> : <span className="lxs-selection-stats" aria-live="polite">{stats}</span>}
+      <SpreadsheetZoomControls controller={c} />
+    </div>
   </>;
 }

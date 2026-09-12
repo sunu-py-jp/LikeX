@@ -16,6 +16,7 @@ import { SpreadsheetDataToolbar } from "./spreadsheet-data-toolbar";
 import { SpreadsheetNamedRanges } from "./spreadsheet-named-ranges";
 import { SpreadsheetClearMenu } from "./spreadsheet-clear-menu";
 import { RibbonGroup } from "./spreadsheet-ribbon-group";
+import { HorizontalScrollStrip } from "./horizontal-scroll-strip";
 
 type ToolbarProps = { controller: SpreadsheetController; clipboard: ReturnType<typeof useSpreadsheetClipboard> };
 
@@ -59,7 +60,7 @@ export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
       <SpreadsheetInsertToolbar controller={c} />
     </div>}
     {canData && <div role="tabpanel" id={`${id}-data-panel`} aria-labelledby={`${id}-data`} hidden={active !== "data"}>
-      <div className="lxs-ribbon" role="toolbar" aria-label="データの操作"><SpreadsheetNamedRanges controller={c} /><SpreadsheetDataToolbar controller={c} /></div>
+      <HorizontalScrollStrip className="lxs-ribbon" role="toolbar" aria-label="データの操作" itemSelector=".lxs-ribbon-group" previousLabel="前のリボングループを表示" nextLabel="次のリボングループを表示"><SpreadsheetNamedRanges controller={c} /><SpreadsheetDataToolbar controller={c} /></HorizontalScrollStrip>
     </div>}
   </div>;
 }
@@ -80,7 +81,7 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
         : action === "delete-row" ? { type: "rows.delete", sheetId, index: top, count: bottom - top + 1 }
           : { type: "columns.delete", sheetId, index: left, count: right - left + 1 }));
   };
-  return <div className="lxs-ribbon" role="toolbar" aria-label="シートの編集">
+  return <HorizontalScrollStrip className="lxs-ribbon" role="toolbar" aria-label="シートの編集" itemSelector=".lxs-ribbon-group" previousLabel="前のリボングループを表示" nextLabel="次のリボングループを表示">
     {(c.features.copy || (!c.readOnly && (c.features.cut || c.features.paste || c.features.pasteSpecial))) && <RibbonGroup label="クリップボード" className="lxs-ribbon-group-clipboard">
       <div className="lxs-ribbon-columns">
         {!c.readOnly && c.features.paste && <Command label="貼り付け" className="lxs-ribbon-command-large" title={singleRangeHint} disabled={clipboardDisabled}
@@ -110,7 +111,7 @@ function SpreadsheetHomeToolbar({ controller: c, clipboard }: ToolbarProps) {
       </div>
     </RibbonGroup>}
     {c.selectedDrawingId && <span className="lxs-ribbon-hint">描画を選択中</span>}
-  </div>;
+  </HorizontalScrollStrip>;
 }
 
 export function SpreadsheetFormulaBar({ controller: c }: { controller: SpreadsheetController }) {

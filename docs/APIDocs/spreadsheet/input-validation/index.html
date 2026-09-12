@@ -29,6 +29,7 @@
   }],
 };</code></pre></div>
 <div class="table-scroll" tabindex="0" role="region" aria-label="APIの一覧表"><table><thead><tr><th scope="col"><code>type</code></th><th scope="col">設定と値の扱い</th></tr></thead><tbody><tr><td><code>list</code></td><td><code>values: readonly string[]</code>。一覧の値との一致を検証します。大文字・小文字は区別しません。</td></tr><tr><td><code>number</code></td><td><code>min?</code> / <code>max?</code>、<code>integer?</code>。有限の数値を許可し、<code>integer: true</code> なら整数に限定します。</td></tr><tr><td><code>textLength</code></td><td><code>min?</code> / <code>max?</code>。文字数の範囲。絵文字などはUnicodeコードポイント単位で数えます。</td></tr><tr><td><code>date</code></td><td><code>min?</code> / <code>max?</code> は <code>YYYY-MM-DD</code>。セルにも同じ形式の実在する日付を入力します。</td></tr><tr><td><code>checkbox</code></td><td><code>&quot;TRUE&quot;</code> / <code>&quot;FALSE&quot;</code>。GUI操作でこれらの文字列を設定します。</td></tr></tbody></table></div><p>共通設定の <code>allowBlank</code> は既定 <code>true</code>、<code>message</code> は入力エラー時の説明です。最小値・最大値はそれぞれ省略可能です。カスタム数式による入力規則には対応していません。</p>
+<p>画面からの入力エラーは、下部の選択セル情報と同じステータスバーに表示します。別の行を増やさず、閉じると通常のセル情報に戻ります。長い文は1行で省略し、マウスを重ねると全文を確認できます。</p>
 <h2 id="gui">GUI<a class="heading-link" href="#gui" aria-label="この見出しへのリンク">#</a></h2>
 <p>セル範囲を選び、リボンの「データ」→「入力規則」で設定します。「チェックボックス」は同じダイアログをチェックボックスの設定で開きます。既存の規則は「規則を解除」で取り除けます。</p>
 <p>リストのセルを選ぶとセル右側にプルダウンが現れます。チェックボックスはセル内で切り替えます。どちらも通常の編集許可・変更通知・履歴処理を通ります。<code>=</code> で始まるリスト候補を選んでも、数式として実行しません。</p>
