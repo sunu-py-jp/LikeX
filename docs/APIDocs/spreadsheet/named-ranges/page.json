@@ -16,9 +16,14 @@
   ],
   "screenshots": [
     {
+      "src": "assets/screenshots/spreadsheet-named-range-manager.png",
+      "alt": "シート右側の名前付き範囲の管理一覧と選択された売上明細",
+      "caption": "「管理」でブック全体の一覧を開きます。カードを押すと範囲を選択し、右端の鉛筆から編集できます。"
+    },
+    {
       "src": "assets/screenshots/spreadsheet-named-ranges.png",
       "alt": "範囲名・セル範囲・削除時に消す内容を選べる名前付き範囲ダイアログ",
-      "caption": "登録済みの範囲を変更できます。削除時は定義だけを外すか、対象セルもクリアするかを選びます。"
+      "caption": "追加と編集は共通のダイアログです。編集では対象シートを確認し、名前や範囲を変更できます。削除時は対象セルを残すかクリアするかを選べます。"
     }
   ]
 }

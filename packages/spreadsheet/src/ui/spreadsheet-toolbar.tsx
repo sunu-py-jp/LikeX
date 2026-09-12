@@ -14,19 +14,20 @@ import { SpreadsheetAutoFitControl, SpreadsheetFormatToolbar } from "./spreadshe
 import { SpreadsheetEditToolbar, SpreadsheetPasteSpecialControl } from "./spreadsheet-edit-toolbar";
 import { SpreadsheetDataToolbar } from "./spreadsheet-data-toolbar";
 import { SpreadsheetNamedRanges } from "./spreadsheet-named-ranges";
+import type { NamedRangeManager } from "./named-ranges/use-named-range-manager";
 import { SpreadsheetClearMenu } from "./spreadsheet-clear-menu";
 import { RibbonGroup } from "./spreadsheet-ribbon-group";
 import { HorizontalScrollStrip } from "./horizontal-scroll-strip";
 
 type ToolbarProps = { controller: SpreadsheetController; clipboard: ReturnType<typeof useSpreadsheetClipboard> };
 
-export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
+export function SpreadsheetToolbar({ controller: c, clipboard, namedRangeManager }: ToolbarProps & { namedRangeManager: NamedRangeManager }) {
   type Tab = "home" | "insert" | "data";
   const [tab, setTab] = useState<Tab>("home");
   const id = useId();
   const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
   const canInsert = !c.readOnly && (c.features.images || c.features.shapes || c.features.textBoxes || c.features.comments || c.features.tables && c.features.formatting);
-  const canData = !c.readOnly && (c.features.dataValidation || c.features.namedRanges);
+  const canData = c.features.namedRanges || (!c.readOnly && c.features.dataValidation);
   const tabs: { key: Tab; label: string }[] = [{ key: "home", label: "ホーム" },
     ...(canInsert ? [{ key: "insert" as const, label: "挿入" }] : []), ...(canData ? [{ key: "data" as const, label: "データ" }] : [])];
   const active = tabs.some(item => item.key === tab) ? tab : "home";
@@ -60,7 +61,7 @@ export function SpreadsheetToolbar({ controller: c, clipboard }: ToolbarProps) {
       <SpreadsheetInsertToolbar controller={c} />
     </div>}
     {canData && <div role="tabpanel" id={`${id}-data-panel`} aria-labelledby={`${id}-data`} hidden={active !== "data"}>
-      <HorizontalScrollStrip className="lxs-ribbon" role="toolbar" aria-label="データの操作" itemSelector=".lxs-ribbon-group" previousLabel="前のリボングループを表示" nextLabel="次のリボングループを表示"><SpreadsheetNamedRanges controller={c} /><SpreadsheetDataToolbar controller={c} /></HorizontalScrollStrip>
+      <HorizontalScrollStrip className="lxs-ribbon" role="toolbar" aria-label="データの操作" itemSelector=".lxs-ribbon-group" previousLabel="前のリボングループを表示" nextLabel="次のリボングループを表示"><SpreadsheetNamedRanges controller={c} manager={namedRangeManager} /><SpreadsheetDataToolbar controller={c} /></HorizontalScrollStrip>
     </div>}
   </div>;
 }

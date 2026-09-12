@@ -8,6 +8,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = await build({ stdin: { contents: `export * from './src/model';
 export * from './src/session/create-spreadsheet-session';
 export * from './src/state/use-spreadsheet'; export * from './src/state/use-spreadsheet-clipboard';
+export * from './src/ui/named-ranges/use-named-range-manager';
 export * from './src/ui/spreadsheet-toolbar'; export * from './src/ui/spreadsheet-drawings';`,
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'drawing-clipboard.tsx' },
   bundle: true, platform: 'node', format: 'esm', write: false,
@@ -41,8 +42,9 @@ async function mount(t, overrides = {}, renderToolbar = false, focusEnvironment)
   let current, renderer, props = { initialWorkbook: book(), onSave: () => {}, ...overrides };
   function Probe() {
     const c = m.useSpreadsheet(props), clipboard = m.useSpreadsheetClipboard(c); current = { ...c, clipboard };
+    const namedRangeManager = m.useNamedRangeManager(c);
     return createElement(Fragment, null,
-      renderToolbar ? createElement(m.SpreadsheetToolbar, { controller: c, clipboard }) : null,
+      renderToolbar ? createElement(m.SpreadsheetToolbar, { controller: c, clipboard, namedRangeManager }) : null,
       focusEnvironment ? createElement(m.SpreadsheetDrawings, { controller: c, geometry: {
         columnOffsets: Array.from({length: 11}, (_, i) => 48 + i * 100), rowOffsets: Array.from({length: 21}, (_, i) => 28 + i * 28),
       } }) : null);

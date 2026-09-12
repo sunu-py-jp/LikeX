@@ -38,6 +38,7 @@ const paths = {
   shape: "M3 3h10v10H3zM21 16a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z",
   validation: "M3 4h10v16H3zM6 8h4M6 12h3m5 2 3 3 5-7",
   namedRange: "M9 4h11v16H4V9M4 4h1M4 12h16M12 4v16M1 1h7v7H1z",
+  edit: "m16 3 5 5-12 12-6 1 1-6L16 3Zm-2 2 5 5",
 } as const;
 
 export function Icon({ name }: { name: keyof typeof paths }) {

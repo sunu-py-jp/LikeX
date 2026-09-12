@@ -64,7 +64,11 @@ export function createDemoWorkbook(): SpreadsheetWorkbook {
     mergeDemoSheet,
   ] }));
   const defaults = createWorkbook().sheets[0];
-  return { ...workbook, sheets: workbook.sheets.map(sheet => ({ ...sheet,
+  return { ...workbook, namedRanges: [
+    { id: "demo-projects", name: "案件一覧", sheetId: "formatting-and-input", range: { top: 3, left: 0, bottom: 8, right: 7 } },
+    { id: "demo-sales", name: "売上明細", sheetId: "sales-plan", range: { top: 2, left: 0, bottom: 8, right: 8 } },
+    { id: "demo-expenses", name: "経費明細", sheetId: "expenses", range: { top: 2, left: 0, bottom: 5, right: 2 } },
+  ], sheets: workbook.sheets.map(sheet => ({ ...sheet,
     rowCount: Math.max(sheet.rowCount, defaults.rowCount),
     columnCount: Math.max(sheet.columnCount, defaults.columnCount),
   })) };

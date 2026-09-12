@@ -7,6 +7,7 @@ import { create } from 'react-test-renderer';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = await build({ stdin: { contents: `
   export { useSpreadsheet } from './src/state/use-spreadsheet';
+  export { useNamedRangeManager } from "./src/ui/named-ranges/use-named-range-manager";
   export { SpreadsheetToolbar } from './src/ui/spreadsheet-toolbar';
   export { SpreadsheetFooter } from './src/ui/spreadsheet-footer';`,
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'selection-actions.ts' },
@@ -15,7 +16,7 @@ const output = await build({ stdin: { contents: `
     builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
-const { useSpreadsheet, SpreadsheetToolbar, SpreadsheetFooter } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { useSpreadsheet, useNamedRangeManager, SpreadsheetToolbar, SpreadsheetFooter } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 
 async function mount(t, options = {}) {
   let current, renderer;
@@ -26,8 +27,9 @@ async function mount(t, options = {}) {
   }] }, onSave: wb => wb, ...options };
   function Probe() {
     current = useSpreadsheet(props);
+    const namedRangeManager = useNamedRangeManager(current);
     return createElement('section', null,
-      createElement(SpreadsheetToolbar, { controller: current, clipboard: { copy: () => calls.push('copy'), paste: () => calls.push('paste') } }),
+      createElement(SpreadsheetToolbar, { controller: current, namedRangeManager, clipboard: { copy: () => calls.push('copy'), paste: () => calls.push('paste') } }),
       createElement(SpreadsheetFooter, { controller: current }));
   }
   await act(async () => { renderer = create(createElement(Probe)); });

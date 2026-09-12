@@ -79,6 +79,44 @@ test('insertions move or expand a named range, deletions shrink it and complete 
   assert.equal(getNamedRange(workbook, '売上明細'), undefined);
 });
 
+test('named range insertion boundaries shift at the start, expand through the last cell and exclude the following position', () => {
+  const initial = named(), id = getNamedRange(initial, '売上明細').id;
+  const cases = [
+    ['rows.insert', 2, 'B4:D7', 'before the first row'],
+    ['rows.insert', 3, 'B3:D7', 'inside the rows'],
+    ['rows.insert', 5, 'B3:D7', 'before the last row'],
+    ['rows.insert', 6, 'B3:D6', 'immediately after the last row'],
+    ['columns.insert', 1, 'C3:E6', 'before the first column'],
+    ['columns.insert', 2, 'B3:E6', 'inside the columns'],
+    ['columns.insert', 3, 'B3:E6', 'before the last column'],
+    ['columns.insert', 4, 'B3:D6', 'immediately after the last column'],
+  ];
+  for (const [type, index, address, description] of cases) {
+    const workbook = run(initial, { type, sheetId, index, count: 1 }).workbook;
+    const definition = getNamedRange(workbook, '売上明細');
+    assert.equal(definition.address, address, description);
+    assert.equal(definition.id, id, description);
+  }
+});
+
+test('named range deletion boundaries shrink only the overlap and remove definitions when an entire axis is deleted', () => {
+  const initial = named();
+  const cases = [
+    ['rows.delete', 1, 1, 'B2:D5', 'before the rows'],
+    ['rows.delete', 3, 1, 'B3:D5', 'inside the rows'],
+    ['rows.delete', 6, 1, 'B3:D6', 'immediately after the rows'],
+    ['rows.delete', 2, 4, undefined, 'all the rows'],
+    ['columns.delete', 0, 1, 'A3:C6', 'before the columns'],
+    ['columns.delete', 2, 1, 'B3:C6', 'inside the columns'],
+    ['columns.delete', 4, 1, 'B3:D6', 'immediately after the columns'],
+    ['columns.delete', 1, 3, undefined, 'all the columns'],
+  ];
+  for (const [type, index, count, address, description] of cases) {
+    const workbook = run(initial, { type, sheetId, index, count }).workbook;
+    assert.equal(getNamedRange(workbook, '売上明細')?.address, address, description);
+  }
+});
+
 test('full cut/move follows the named rectangle across sheets and partial moves reject atomically', () => {
   const initial = named(), added = run(initial, { type: 'sheets.add', name: 'Target' });
   const targetId = added.results[0].sheetId;

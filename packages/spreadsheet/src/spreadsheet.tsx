@@ -12,9 +12,13 @@ import { useSpreadsheetHandle } from "./api/use-spreadsheet-handle";
 import { useUnsavedChangesGuard } from "./state/use-unsaved-changes-guard";
 import { useSpreadsheetContextMenu } from "./state/use-spreadsheet-context-menu";
 import { SpreadsheetContextMenu } from "./ui/spreadsheet-context-menu";
+import { useNamedRangeManager } from "./ui/named-ranges/use-named-range-manager";
+import { NamedRangeDialog, SpreadsheetNamedRangePanel } from "./ui/spreadsheet-named-ranges";
 
 export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetProps) {
   const c = useSpreadsheet(props);
+  const namedRangeManager = useNamedRangeManager(c);
+  const namedRangeTarget = namedRangeManager.dialogTarget;
   useSpreadsheetHandle(handleRef, c);
   const root = useRef<HTMLElement>(null);
   const gridHadFocus = useRef(false);
@@ -73,13 +77,16 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
       if (key === "a" && !c.editing && (event.target as HTMLElement).closest(".lxs-grid")) { event.preventDefault(); c.selectRange({ row: c.activeSheet.rowCount - 1, column: c.activeSheet.columnCount - 1 }, { row: 0, column: 0 }); }
     }}>
     <header className="lxs-title-bar"><span className="lxs-app-mark" aria-hidden="true">▦</span><span className="lxs-title">{props.title?.trim() || "スプレッドシート"}</span><span className="lxs-title-context">LikeX</span></header>
-    <SpreadsheetToolbar controller={c} clipboard={clipboard} />
+    <SpreadsheetToolbar controller={c} clipboard={clipboard} namedRangeManager={namedRangeManager} />
     <SpreadsheetFormulaBar controller={c} />
     <div className="lxs-sheet-workspace">
       <SpreadsheetGrid key={`grid-${c.viewRevision}`} controller={c} />
       <SpreadsheetComments key={`comments-${c.viewRevision}`} controller={c} />
+      <SpreadsheetNamedRangePanel controller={c} manager={namedRangeManager} />
     </div>
     <SpreadsheetFooter key={`footer-${c.viewRevision}`} controller={c} />
+    {namedRangeTarget && <NamedRangeDialog key={JSON.stringify([namedRangeTarget.id, namedRangeTarget.sheetId, namedRangeTarget.revision])}
+      controller={c} target={namedRangeTarget} onClose={namedRangeManager.closeDialog} />}
     <SpreadsheetContextMenu controller={contextMenu} root={root} />
   </section>;
 }

@@ -5,7 +5,7 @@ import { act, createElement } from 'react';
 import { create } from 'react-test-renderer';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-const bundled = await build({ stdin: { contents: 'export {SpreadsheetToolbar} from "./src/ui/spreadsheet-toolbar"; export {useSpreadsheet} from "./src/state/use-spreadsheet";',
+const bundled = await build({ stdin: { contents: 'export {SpreadsheetToolbar} from "./src/ui/spreadsheet-toolbar"; export {SpreadsheetNamedRangePanel,NamedRangeDialog} from "./src/ui/spreadsheet-named-ranges"; export {useSpreadsheet} from "./src/state/use-spreadsheet"; export {useNamedRangeManager} from "./src/ui/named-ranges/use-named-range-manager";',
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'insert-test.ts' },
 bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
 plugins: [{ name: 'same-react', setup(builder) {
@@ -16,21 +16,26 @@ plugins: [{ name: 'same-react', setup(builder) {
   builder.onLoad({ filter: /.*/, namespace: 'inline-dialog' }, () => ({ contents:
     'import {createElement, Fragment} from "react"; export const SpreadsheetDialog = ({children,actions}) => createElement(Fragment,null,children,actions);', loader: 'js' }));
 } }] });
-const { SpreadsheetToolbar, useSpreadsheet } = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`);
+const { SpreadsheetToolbar, SpreadsheetNamedRangePanel, NamedRangeDialog, useSpreadsheet, useNamedRangeManager } = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`);
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVZkAAAAASUVORK5CYII=', 'base64');
 const initialWorkbook = () => ({ sheets: ['one', 'two'].map(id => ({ id, name: id, cells: {}, rowCount: 10, columnCount: 5 })) });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 async function mount(t, overrides = {}) {
-  let current, renderer, unmounted = false;
+  let current, manager, renderer, unmounted = false;
   let props = { initialWorkbook: initialWorkbook(), onSave: workbook => workbook, ...overrides };
   function Probe() {
     current = useSpreadsheet(props);
-    return createElement(SpreadsheetToolbar, { controller: current, clipboard: { copy() {}, paste() {} } });
+    const namedRangeManager = useNamedRangeManager(current); manager = namedRangeManager;
+    return createElement('section', { 'data-likex-spreadsheet': true },
+      createElement(SpreadsheetToolbar, { controller: current, namedRangeManager, clipboard: { copy() {}, paste() {} } }),
+      createElement(SpreadsheetNamedRangePanel, { controller: current, manager: namedRangeManager }),
+      namedRangeManager.dialogTarget ? createElement(NamedRangeDialog, { controller: current, target: namedRangeManager.dialogTarget,
+        key: JSON.stringify(namedRangeManager.dialogTarget), onClose: namedRangeManager.closeDialog }) : null);
   }
   await act(async () => { renderer = create(createElement(Probe)); });
   const unmount = async () => { if (!unmounted) { unmounted = true; await act(async () => renderer.unmount()); } };
   t.after(unmount);
-  return { get current() { return current; }, get root() { return renderer.root; }, unmount,
+  return { get current() { return current; }, get manager() { return manager; }, get root() { return renderer.root; }, unmount,
     async update(patch) { props = { ...props, ...patch }; await act(async () => renderer.update(createElement(Probe))); } };
 }
 function decode(t) {
@@ -77,7 +82,9 @@ test('insert controls disappear in readonly mode and respect individual feature 
   assert.equal(hook.root.findAllByProps({ 'aria-label': '画像を挿入' }).length, 0);
   assert.equal(hook.root.findAllByProps({ 'aria-label': '図形を挿入' }).length, 1);
   await hook.update({ onSave: undefined });
-  assert.equal(hook.root.findAllByProps({ role: 'tab' }).length, 1);
+  assert.deepEqual(hook.root.findAllByProps({ role: 'tab' }).map(tab => tab.children[0]), ['ホーム', 'データ']);
+  assert.equal(hook.root.findAllByProps({ 'aria-label': '名前付き範囲を追加' }).length, 0);
+  assert.equal(hook.root.findAllByProps({ 'aria-label': '名前付き範囲を管理' }).length, 1);
   assert.equal(hook.root.findAllByProps({ 'aria-label': '図形を挿入' }).length, 0);
 });
 
@@ -162,15 +169,14 @@ function textButton(root, text) {
 test('named range dialog calls commands and definition-only deletion preserves cells', async t => {
   const hook = await mount(t);
   await act(async () => hook.current.writeValues({A1:'value'}));
-  await act(async () => hook.root.findAllByType('button').find(button => button.props['aria-label'] === '名前付き範囲').props.onClick());
+  await act(async () => hook.root.findAllByType('button').find(button => button.props['aria-label'] === '名前付き範囲を追加').props.onClick());
   await act(async () => hook.root.findByProps({placeholder:'売上明細'}).props.onChange({target:{value:'DataRange'}}));
   await act(async () => hook.root.findByProps({placeholder:'A1:C10'}).props.onChange({target:{value:'A1:B2'}}));
   await act(async () => textButton(hook.root,'追加').props.onClick());
   const definition = hook.current.workbook.namedRanges[0];
   assert.equal(definition.name,'DataRange'); assert.deepEqual(definition.range,{top:0,left:0,bottom:1,right:1});
-  await act(async () => hook.root.findAllByType('button').find(button => button.props['aria-label'] === '名前付き範囲').props.onClick());
-  const selector = hook.root.findAllByType('select').find(select => select.findAllByType('option').some(option => option.props.value===definition.id));
-  await act(async () => selector.props.onChange({target:{value:definition.id}}));
+  await act(async () => hook.root.findAllByType('button').find(button => button.props['aria-label'] === '名前付き範囲を管理').props.onClick());
+  await act(async () => hook.root.findAllByType('button').find(button => button.props['aria-label'] === 'DataRangeを編集').props.onClick());
   await act(async () => textButton(hook.root,'削除').props.onClick());
   assert.equal(hook.current.workbook.namedRanges,undefined); assert.equal(hook.current.workbook.sheets[0].cells.A1.value,'value');
   await act(async () => hook.current.undo()); assert.equal(hook.current.workbook.namedRanges[0].id,definition.id);
@@ -190,7 +196,7 @@ test('table dialog creates metadata from selected cells and bordered action uses
 });
 test('named range dialog rejects a target captured before a newer edit', async t => {
   const hook = await mount(t);
-  await act(async () => hook.root.findAllByType('button').find(button => button.props['aria-label'] === '名前付き範囲').props.onClick());
+  await act(async () => hook.root.findAllByType('button').find(button => button.props['aria-label'] === '名前付き範囲を追加').props.onClick());
   await act(async () => hook.root.findByProps({placeholder:'売上明細'}).props.onChange({target:{value:'StaleRange'}}));
   await act(async () => hook.current.writeValues({A1:'newer'}));
   await act(async () => textButton(hook.root,'追加').props.onClick());
@@ -199,7 +205,7 @@ test('named range dialog rejects a target captured before a newer edit', async t
 });
 test('range/table feature switches hide only the corresponding new controls', async t => {
   const hook=await mount(t,{features:{namedRanges:false,tables:false}});
-  assert.equal(hook.root.findAllByProps({'aria-label':'名前付き範囲'}).length,0);
+  assert.equal(hook.root.findAllByProps({'aria-label':'名前付き範囲を追加'}).length,0);
   assert.equal(hook.root.findAllByProps({'aria-label':'テーブルを挿入'}).length,0);
   assert.equal(hook.root.findAllByProps({'aria-label':'セルをクリア'}).length,1);
 });
