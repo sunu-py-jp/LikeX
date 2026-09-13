@@ -109,6 +109,7 @@ test('save failures keep dirty data; success updates baseline before releasing t
   await act(async () => ui.api.executeAsync(set('local')));
   await act(async () => assert.equal(await ui.api.save(), false));
   assert.equal(ui.api.getWorkbook().sheets[0].cells.A1.value, 'local'); assert.equal(ui.c.dirty, true);
+  assert.equal(ui.api.getHistoryState().undoCount, 1);
   assert.equal(context.signal.aborted, false); assert.equal(ui.api.getEditState().mode, 'edit');
   fail = false;
   await act(async () => assert.equal(await ui.api.save(), true));
@@ -116,6 +117,87 @@ test('save failures keep dirty data; success updates baseline before releasing t
   assert.equal(context.signal.aborted, true); assert.equal(ui.api.getEditState().mode, 'view');
   const success = events.findIndex(e => e.type === 'save' && e.status === 'success');
   assert.equal(events[success + 1].reason, 'saved');
+  assert.equal(ui.api.getHistoryState().undoCount, 1, 'saving does not record or remove an operation');
+  await act(async () => assert.equal(await ui.api.undo(), true));
+  assert.equal(ui.api.getWorkbook().sheets[0].cells.A1.value, 'old'); assert.equal(ui.c.dirty, true);
+  await act(async () => assert.equal(await ui.api.redo(), true));
+  assert.equal(ui.api.getWorkbook().sheets[0].cells.A1.value, 'accepted'); assert.equal(ui.c.dirty, false);
+});
+
+test('saving in the middle of history keeps both stacks and dirty state follows the latest save', async t => {
+  const dirty = []; let writes = 0;
+  const ui = await mount(t, { onSave() { writes++; }, onDirtyChange: value => dirty.push(value) });
+  await act(async () => { ui.api.execute(set('first')); ui.api.execute(set('second')); });
+  await act(async () => assert.equal(await ui.api.undo(), true));
+  const history = ui.api.getHistoryState();
+  assert.deepEqual(history, { canUndo: true, canRedo: true, undoCount: 1, redoCount: 1 });
+  await act(async () => assert.equal(await ui.api.save(), true));
+  assert.deepEqual(ui.api.getHistoryState(), history); assert.equal(ui.c.hasUnsavedChanges, false);
+  await act(async () => assert.equal(await ui.api.save(), true));
+  assert.equal(writes, 1, 'saving unchanged data does not write or erase Redo');
+  assert.deepEqual(ui.api.getHistoryState(), history);
+  await act(async () => assert.equal(await ui.api.redo(), true));
+  assert.equal(ui.api.getCell('one', 'A1').value, 'second'); assert.equal(ui.c.hasUnsavedChanges, true);
+  await act(async () => assert.equal(await ui.api.undo(), true));
+  assert.equal(ui.api.getCell('one', 'A1').value, 'first'); assert.equal(ui.c.hasUnsavedChanges, false);
+  await act(async () => assert.equal(await ui.api.undo(), true));
+  assert.equal(ui.api.getCell('one', 'A1').value, 'old'); assert.equal(ui.c.hasUnsavedChanges, true);
+  await act(async () => assert.equal(await ui.api.save(), true));
+  assert.equal(ui.c.hasUnsavedChanges, false); assert.equal(ui.api.getHistoryState().redoCount, 2);
+  await act(async () => { assert.equal(await ui.api.redo(), true); assert.equal(await ui.api.redo(), true); });
+  await act(async () => assert.equal(await ui.api.save(), true));
+  assert.equal(ui.api.getHistoryState().undoCount, 2); assert.equal(ui.c.hasUnsavedChanges, false);
+  await act(async () => { assert.equal(await ui.api.undo(), true); ui.api.execute(set('branch')); });
+  assert.equal(ui.api.getHistoryState().redoCount, 0, 'a new change still invalidates the future branch');
+  assert.equal(writes, 3);
+  assert.deepEqual(dirty.slice(0, 5), [false, true, false, true, false]);
+});
+
+test('post-save Undo waits for a new edit lease and denial preserves history', async t => {
+  const requests = []; let response = true;
+  const ui = await mount(t, { onEditRequest: request => { requests.push(request.action); return response; } });
+  await act(async () => ui.api.executeAsync(set('saved')));
+  await act(async () => assert.equal(await ui.api.save(), true));
+  response = false;
+  await act(async () => assert.equal(await ui.api.undo(), false));
+  assert.equal(ui.api.getCell('one', 'A1').value, 'saved'); assert.equal(ui.c.dirty, false);
+  assert.equal(ui.api.getHistoryState().undoCount, 1);
+  const pending = deferred(); response = pending.promise;
+  let undo;
+  await act(async () => { undo = ui.api.undo(); });
+  assert.equal(ui.api.getHistoryState().undoCount, 1); assert.equal(ui.c.requesting, true);
+  await act(async () => { pending.resolve({ allowed: true, workbook: book('saved') }); assert.equal(await undo, true); });
+  assert.equal(ui.api.getCell('one', 'A1').value, 'old'); assert.equal(ui.c.dirty, true);
+  assert.deepEqual(requests, ['cells.set', 'undo', 'undo']);
+});
+
+test('saved history ends on explicit reload, discard, authoritative replacement or remount', async t => {
+  for (const boundary of ['refresh', 'discard', 'replace', 'remount']) {
+    const ui = await mount(t, { onRefresh: () => book('loaded') });
+    await act(async () => ui.api.execute(set('saved')));
+    await act(async () => assert.equal(await ui.api.save(), true));
+    const saved = ui.api.getWorkbook();
+    await ui.update({ initialWorkbook: saved });
+    assert.equal(ui.api.getHistoryState().undoCount, 1, 'a parent echo does not reset the session');
+    if (boundary === 'refresh') await act(async () => assert.equal(await ui.api.refresh(), true));
+    else if (boundary === 'discard') {
+      await act(async () => assert.equal(await ui.api.undo(), true));
+      await act(async () => assert.equal(ui.api.discard({ discardChanges: true }), true));
+      assert.equal(ui.api.getCell('one', 'A1').value, 'saved');
+    } else if (boundary === 'replace') {
+      await ui.update({ onEditRequest: () => ({ allowed: true, workbook: book('remote') }) });
+      await act(async () => assert.equal(await ui.api.undo(), false));
+      assert.equal(ui.api.getCell('one', 'A1').value, 'remote');
+    } else {
+      await ui.unmount();
+      const reopened = await mount(t, { initialWorkbook: saved });
+      assert.equal(reopened.api.getHistoryState().undoCount, 0);
+      assert.equal(reopened.api.getCell('one', 'A1').value, 'saved');
+      continue;
+    }
+    assert.deepEqual(ui.api.getHistoryState(), { canUndo: false, canRedo: false, undoCount: 0, redoCount: 0 });
+    assert.equal(ui.c.dirty, false);
+  }
 });
 
 test('saving after readonly releases a lease reacquires permission before persistence', async t => {

@@ -50,7 +50,7 @@ test('GUI publication uses the shared cap, synchronous history queries and every
   assert.equal(ui.c.canUndo, true); assert.equal(ui.c.canRedo, false);
 });
 
-test('disabled edits invalidate obsolete GUI history and an accepted save clears the shared engine', async t => {
+test('disabled edits invalidate obsolete GUI history but an accepted save retains it', async t => {
   const ui = await mount(t);
   await act(async () => ui.commit('one'));
   await ui.update({ features: { undoRedo: false } });
@@ -60,8 +60,12 @@ test('disabled edits invalidate obsolete GUI history and an accepted save clears
   await act(async () => { assert.equal(ui.step('past'), false); ui.commit('three'); });
   assert.equal(ui.c.getHistoryState().undoCount, 1);
   await act(async () => assert.equal(await ui.c.save({ commitEdit: () => true, hasPendingEdits: () => false, resetView() {} }), true));
-  assert.deepEqual(ui.c.getHistoryState(), { canUndo: false, canRedo: false, undoCount: 0, redoCount: 0 });
+  assert.deepEqual(ui.c.getHistoryState(), { canUndo: true, canRedo: false, undoCount: 1, redoCount: 0 });
   assert.equal(ui.c.dirty, false); assert.equal(ui.value(), 'three');
+  await act(async () => assert.equal(ui.step('past'), true));
+  assert.equal(ui.value(), 'two'); assert.equal(ui.c.dirty, true);
+  await act(async () => assert.equal(ui.step('future'), true));
+  assert.equal(ui.value(), 'three'); assert.equal(ui.c.dirty, false);
 });
 
 test('external history rechecks pending editors after asynchronous permission without consuming the entry', async t => {

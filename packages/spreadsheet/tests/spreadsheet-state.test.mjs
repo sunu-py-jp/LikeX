@@ -330,7 +330,13 @@ test('save round trips embedded image data, comments, text, and cell formulas as
   assert.equal(restored.sheets[0].comments.A1.text, '要確認');
   assert.equal(restored.sheets[0].cells.B1.value, '=A1*3');
   assert.equal(hook.current.dirty, false);
-  assert.equal(hook.current.canUndo, false);
+  assert.equal(hook.current.canUndo, true);
+  await act(async () => { hook.current.undo(); hook.current.undo(); });
+  assert.equal(hook.current.activeSheet.drawings, undefined);
+  assert.equal(hook.current.dirty, true);
+  await act(async () => { hook.current.redo(); hook.current.redo(); });
+  assert.deepEqual(JSON.parse(serializeWorkbook(hook.current.getWorkbook())), restored);
+  assert.equal(hook.current.dirty, false);
 });
 
 test('uncommitted object editors prevent a misleading successful save', async t => {

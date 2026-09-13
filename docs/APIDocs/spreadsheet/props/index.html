@@ -47,7 +47,7 @@
   }}
   style={{ height: <span class="syntax-number">560</span> }}
 /&gt;</code></pre></div>
-<p><code>onSave</code> はブック全体を受け取り、<code>void</code>・<code>SpreadsheetWorkbook</code>・それらのPromiseを返します。ブックを返すと検証後に保存済み状態として採用し、戻り値がなければ送信した下書きを採用します。保存中は変更操作を止め、失敗時は下書きを維持してエラーを表示します。成功時にはundo/redo履歴をリセットします。</p>
+<p><code>onSave</code> はブック全体を受け取り、<code>void</code>・<code>SpreadsheetWorkbook</code>・それらのPromiseを返します。ブックを返すと検証後に保存済み状態として採用し、戻り値がなければ送信した下書きを採用します。保存中は変更操作を止め、失敗時は下書きを維持してエラーを表示します。成功後もUndo／Redoの履歴は保持し、<code>onSave</code> が正規化後のブックを返した場合も同様です。未保存状態は、最後に採用した保存済みブックとの差で判定します。<a href="../lifecycle/index.html">保存後の履歴と編集許可</a>も参照してください。</p>
 <p>認証・認可、API入力の検証、同時更新の競合検知、DB等への永続化は利用側で実装してください。UIの読み取り専用設定はサーバーの権限制御に代わるものではありません。下書き・履歴はメモリ内にあり、ページ再読み込みやアンマウントでは失われます。</p>
 <h2 id="機能設定">機能設定<a class="heading-link" href="#%E6%A9%9F%E8%83%BD%E8%A8%AD%E5%AE%9A" aria-label="この見出しへのリンク">#</a></h2>
 <div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>&lt;Spreadsheet

@@ -20,7 +20,7 @@ type Options = {
   saveStartingRef: RefObject<boolean>; transactionRef: RefObject<boolean>;
   contextMenuOwnerRef?: RefObject<object | null>;
   getMutationFailure: (allowSaveStarting?: boolean) => SpreadsheetCommandFailure | null;
-  replaceBaseline: (workbook: Workbook) => void;
+  replaceBaseline: (workbook: Workbook, options?: { preserveHistory?: boolean }) => void;
   reportError: (cause: unknown) => void;
   emitEvent: (event: SpreadsheetEvent) => void;
   edit: ReturnType<typeof useSpreadsheetEditSession>;
@@ -111,7 +111,8 @@ export function useWorkbookPersistence(options: Options) {
       const accepted = normalizeWorkbook(response === undefined ? snapshot : response);
       transactionRef.current = true;
       try {
-        replaceBaseline(accepted);
+        // Saving advances the clean baseline, not the session's Undo/Redo boundary.
+        replaceBaseline(accepted, { preserveHistory: true });
         session.resetView(accepted);
         emitEvent({ type: "save", status: "success", requestId: request.id, workbook: accepted });
         edit.finishEdit("saved");

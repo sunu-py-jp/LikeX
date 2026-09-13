@@ -79,14 +79,14 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     history.clear();
     setHistoryStatus(history.getState());
   }, [history]);
-  const replaceBaseline = useCallback((next: Workbook) => {
+  const replaceBaseline = useCallback((next: Workbook, options?: { preserveHistory?: boolean }) => {
     revisionRef.current++;
     structureRevisionRef.current++;
     workbookRef.current = next;
     savedRef.current = next;
     setWorkbook(next);
     setSaved(next);
-    clearHistory();
+    if (!options?.preserveHistory) clearHistory();
     setError(null);
     resetViewRef.current?.(next);
   }, [clearHistory]);

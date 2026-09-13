@@ -86,6 +86,13 @@ async function mount(t, options = {}) {
           preventDefault() { prevented = true; }, ...modifiers }));
       assert.equal(prevented, true);
     },
+    async saveKey(primary) {
+      let prevented = false;
+      await act(async () => renderer.root.findByType('section').props.onKeyDown({ key: 's', nativeEvent: {},
+        target: document.activeElement, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false,
+        preventDefault() { prevented = true; }, [primary]: true }));
+      assert.equal(prevented, true);
+    },
     async pasteText(text) {
       await act(async () => renderer.root.findByType('section').props.onPaste({ target: activeInput, preventDefault() {}, clipboardData: {
         types: ['text/plain'], getData: type => type === 'text/plain' ? text : '',
@@ -627,6 +634,54 @@ test('saving still resets the selected cell after history keeps its position', a
   assert.deepEqual(ui.c.selection.focus, { row: 4, column: 5 });
   await act(async () => assert.equal(await ui.c.save(), true));
   assert.deepEqual(ui.c.selection.focus, { row: 0, column: 0 });
+});
+
+for (const primary of ['ctrlKey', 'metaKey']) test(`${primary}: saved range and drawing edits retain their keyboard Undo/Redo targets`, async t => {
+  let saves = 0;
+  const ui = await mount(t, { initialWorkbook: historyWorkbook({ B2: 'first', D4: 'second' }), onSave() { saves++; } });
+  await ui.focusCell(1, 1);
+  await act(async () => { ui.c.selectRange({ row: 1, column: 1 }, { row: 5, column: 5 }); ui.c.requestGridFocus(); });
+  const original = structuredClone(ui.c.selection);
+  await ui.key('Delete');
+  await ui.saveKey(primary);
+  assert.equal(saves, 1);
+  assert.equal(ui.c.dirty, false);
+  assert.equal(ui.c.getHistoryState().undoCount, 1);
+  assert.deepEqual(ui.c.selection.focus, { row: 0, column: 0 });
+  for (const redo of [false, true]) {
+    await ui.focusCell(7, 7);
+    await ui.key('z', { [primary]: true, shiftKey: redo });
+    assert.deepEqual(ui.c.selection, original, 'saving must retain the full operation range, including unchanged blanks');
+    assert.equal(ui.value('B2'), redo ? undefined : 'first');
+    assert.equal(ui.value('D4'), redo ? undefined : 'second');
+    assert.equal(ui.c.dirty, !redo);
+    ui.assertGridFocus('F6');
+  }
+  let drawingId;
+  await act(async () => {
+    const result = await ui.c.externalExecute({ type: 'shapes.insert', sheetId: 'one', shape: 'rectangle',
+      anchor: { row: 1, column: 1 }, width: 120, height: 60 });
+    assert.equal(result.ok, true);
+    drawingId = result.results[0].drawingId;
+  });
+  await ui.focusDrawing(drawingId);
+  await act(async () => assert.equal((await ui.c.executeCommand({ type: 'shapes.update', sheetId: 'one', drawingId,
+    patch: { width: 180 } })).ok, true));
+  await ui.saveKey(primary);
+  assert.equal(saves, 2);
+  assert.equal(ui.c.dirty, false);
+  assert.equal(ui.c.getHistoryState().undoCount, 3);
+  await ui.focusCell(7, 7);
+  await ui.key('z', { [primary]: true });
+  assert.equal(ui.c.selectedDrawingId, drawingId);
+  assert.equal(ui.c.selectedDrawing.width, 120);
+  assert.equal(ui.c.dirty, true);
+  ui.assertDrawingFocus(drawingId);
+  await ui.drawingKey('z', { [primary]: true, shiftKey: true });
+  assert.equal(ui.c.selectedDrawingId, drawingId);
+  assert.equal(ui.c.selectedDrawing.width, 180);
+  assert.equal(ui.c.dirty, false);
+  ui.assertDrawingFocus(drawingId);
 });
 
 test('refresh and discard reset explicit drawing and range selections after history targets changed cells', async t => {
