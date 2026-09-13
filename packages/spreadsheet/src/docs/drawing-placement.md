@@ -117,6 +117,8 @@ type SpreadsheetDrawingPlacement = Readonly<{
 
 座標は、行番号・列見出しを除いたセル領域の左上（A1の左上）を原点とするCSS pxで、小数になる場合もあります。スクロール位置や画面上の拡大率には依存しません。画像については、実際の絵柄や透明部分ではなく表示枠を計測します。
 
+`flipX` / `flipY` は表示枠の中での反転を表し、配置の計算には影響しません。反転だけを変更した場合、`bounds` と `nextRow` / `nextColumn` は変わりません。幅・高さは反転の有無にかかわらず正の値です。
+
 ```ts
 import { getDrawingBounds, getDrawingPlacement } from "@likex/spreadsheet/model";
 

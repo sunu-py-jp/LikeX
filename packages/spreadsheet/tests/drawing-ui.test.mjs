@@ -18,7 +18,7 @@ const textBox = { id: 'text', type: 'text', anchor: { row: 2, column: 0, offsetX
 const book = () => ({ sheets: [{ id: 'one', name: 'Sheet1', rowCount: 10, columnCount: 10, cells: {}, drawings: [shape, textBox], comments: { A1: { id: 'comment', text: 'initial' } } }] });
 const geometry = { columnOffsets: Array.from({ length: 11 }, (_, i) => 48 + i * 100), rowOffsets: Array.from({ length: 11 }, (_, i) => 28 + i * 28) };
 function event(overrides = {}) { return { nativeEvent: {}, target: { closest: () => null }, preventDefault() {}, stopPropagation() {}, ...overrides }; }
-async function mount(t, options = {}) {
+async function mount(t, options = {}, displayScale = 1) {
   let current, renderer;
   const saves = [];
   let props = { initialWorkbook: book(), onSave: wb => { saves.push(wb); }, ...options };
@@ -26,7 +26,7 @@ async function mount(t, options = {}) {
     const c = useSpreadsheet(props); current = c;
     return createElement(Fragment, null, createElement(SpreadsheetComments, { controller: c }), createElement(SpreadsheetDrawings, { controller: c, geometry }), createElement(SpreadsheetDrawingInspector, { controller: c }));
   }
-  await act(async () => { renderer = create(createElement(Probe), { createNodeMock: element => element.props.className === 'lxs-drawing-layer' ? { getBoundingClientRect: () => ({ left: 0, top: 0, width: 1048, height: 308 }) } : null }); });
+  await act(async () => { renderer = create(createElement(Probe), { createNodeMock: element => element.props.className === 'lxs-drawing-layer' ? { getBoundingClientRect: () => ({ left: 0, top: 0, width: 1048 * displayScale, height: 308 * displayScale }) } : null }); });
   t.after(async () => { await act(async () => renderer.unmount()); });
   return {
     get c() { return current; }, get root() { return renderer.root; }, saves,
@@ -242,7 +242,7 @@ test('external drawing updates invalidate move and resize previews before the ne
     await act(async () => ui.c.selectDrawing('shape'));
     const pointerTarget = { ownerDocument: { activeElement: null }, closest: () => null, focus() {}, setPointerCapture() {}, hasPointerCapture: () => false, releasePointerCapture() {} };
     const pointer = (x, y) => event({ button: 0, pointerId: 1, currentTarget: pointerTarget, clientX: x, clientY: y });
-    const target = () => kind === 'move' ? ui.drawing('shape') : ui.drawing('shape').findByProps({ className: 'lxs-drawing-resize' });
+    const target = () => kind === 'move' ? ui.drawing('shape') : ui.drawing('shape').findByProps({ 'data-lxs-resize-corner': 'se' });
     const before = ui.c.getWorkbook();
     await act(async () => target().props.onPointerDown(pointer(70, 50)));
     await act(async () => target().props.onPointerMove(pointer(160, 90)));
@@ -283,7 +283,7 @@ function imagePointer() {
 test('image corner resizing preserves frame ratio in preview, release, undo/redo and saved JSON', async t => {
   const ui = await mount(t, { initialWorkbook: imageBook() });
   await act(async () => ui.c.selectDrawing('picture'));
-  const handle = () => ui.drawing('picture').findByProps({ className: 'lxs-drawing-resize' });
+  const handle = () => ui.drawing('picture').findByProps({ 'data-lxs-resize-corner': 'se' });
   const pointer = imagePointer(), original = ui.c.workbook;
   await act(async () => handle().props.onPointerDown(pointer(400, 250)));
   await act(async () => handle().props.onPointerMove(pointer(500, 267)));
@@ -316,7 +316,7 @@ test('image dimension fields and resize arrow keys update both dimensions while 
   await act(async () => ui.property('高さ').props.onChange(event({ target: { value: '33.3' } })));
   await act(async () => ui.property('高さ').props.onBlur());
   sameRatio(picture(ui), 333 / 200);
-  const handle = () => ui.drawing('picture').findByProps({ className: 'lxs-drawing-resize' });
+  const handle = () => ui.drawing('picture').findByProps({ 'data-lxs-resize-corner': 'se' });
   for (const key of ['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown']) {
     await act(async () => handle().props.onKeyDown(event({ key })));
     sameRatio(picture(ui), 333 / 200);
@@ -329,7 +329,7 @@ test('image dimension fields and resize arrow keys update both dimensions while 
 test('image resize limits scale both axes, and an unmoved or cancelled handle adds no history', async t => {
   const ui = await mount(t, { initialWorkbook: imageBook(320, 0.032) });
   await act(async () => ui.c.selectDrawing('picture'));
-  const handle = () => ui.drawing('picture').findByProps({ className: 'lxs-drawing-resize' });
+  const handle = () => ui.drawing('picture').findByProps({ 'data-lxs-resize-corner': 'se' });
   const pointer = imagePointer(), original = ui.c.workbook;
   await act(async () => handle().props.onPointerDown(pointer(400, 30)));
   await act(async () => handle().props.onPointerUp(pointer(400, 30)));
@@ -353,7 +353,7 @@ test('explicit external image frame updates remain independent and shape resizin
   });
   assert.equal(picture(ui).height, 200);
   await act(async () => ui.c.selectDrawing('shape'));
-  const handle = () => ui.drawing('shape').findByProps({ className: 'lxs-drawing-resize' });
+  const handle = () => ui.drawing('shape').findByProps({ 'data-lxs-resize-corner': 'se' });
   const pointer = imagePointer();
   await act(async () => handle().props.onPointerDown(pointer(170, 110)));
   await act(async () => handle().props.onPointerUp(pointer(200, 110)));
@@ -364,7 +364,7 @@ test('explicit external image frame updates remain independent and shape resizin
 test('image resize can reach the dimension limit without floating point overflow rejection', async t => {
   const ui = await mount(t, { initialWorkbook: imageBook(145, 87) });
   await act(async () => ui.c.selectDrawing('picture'));
-  const handle = () => ui.drawing('picture').findByProps({ className: 'lxs-drawing-resize' });
+  const handle = () => ui.drawing('picture').findByProps({ 'data-lxs-resize-corner': 'se' });
   const pointer = imagePointer();
   await act(async () => handle().props.onPointerDown(pointer(200, 120)));
   await act(async () => handle().props.onPointerUp(pointer(100000, 100000)));
@@ -377,4 +377,93 @@ test('image resize can reach the dimension limit without floating point overflow
   await act(async () => ui.property('幅').props.onBlur());
   assert.equal(picture(ui).width, 10000);
   assert.equal(picture(ui).height, 6000);
+});
+
+function centeredArrowBook(flips = {}) {
+  const workbook = book();
+  workbook.sheets[0].drawings[0] = { ...shape, shape: 'arrow', text: '確認する', ...flips,
+    anchor: { row: 5, column: 2, offsetX: 10, offsetY: 10 } };
+  return workbook;
+}
+const resizedShape = ui => ui.c.activeSheet.drawings.find(item => item.id === 'shape');
+function displayedRectangle(drawing) {
+  return { left: geometry.columnOffsets[drawing.anchor.column] + drawing.anchor.offsetX,
+    top: geometry.rowOffsets[drawing.anchor.row] + drawing.anchor.offsetY, width: drawing.width, height: drawing.height };
+}
+const cornerCases = [
+  { corner: 'nw', start: [258, 178], end: [398, 278], expected: { left: 358, top: 238, width: 40, height: 40 } },
+  { corner: 'ne', start: [358, 178], end: [218, 278], expected: { left: 218, top: 238, width: 40, height: 40 } },
+  { corner: 'sw', start: [258, 238], end: [398, 138], expected: { left: 358, top: 138, width: 40, height: 40 } },
+  { corner: 'se', start: [358, 238], end: [218, 138], expected: { left: 218, top: 138, width: 40, height: 40 } },
+];
+for (const { corner, start, end, expected } of cornerCases) {
+  test(`${corner} corner crosses its fixed opposite corner, preserving identity and one undoable saved change`, async t => {
+    const ui = await mount(t, { initialWorkbook: centeredArrowBook() });
+    await act(async () => ui.c.selectDrawing('shape'));
+    const handles = ui.drawing('shape').findAllByType('button').filter(item => item.props['data-lxs-resize-corner']);
+    assert.deepEqual(handles.map(item => item.props['data-lxs-resize-corner']).sort(), ['ne', 'nw', 'se', 'sw']);
+    const handle = () => ui.drawing('shape').findByProps({ 'data-lxs-resize-corner': corner });
+    const pointer = imagePointer(), before = ui.c.workbook;
+    await act(async () => handle().props.onPointerDown(pointer(...start)));
+    await act(async () => handle().props.onPointerMove(pointer(...end)));
+    assert.equal(ui.c.workbook, before, 'crossing previews do not commit');
+    assert.deepEqual(ui.drawing('shape').props.style, expected);
+    await act(async () => handle().props.onPointerUp(pointer(...end)));
+    const changed = ui.c.workbook, drawing = resizedShape(ui);
+    assert.deepEqual(displayedRectangle(drawing), expected);
+    assert.equal(drawing.flipX, true); assert.equal(drawing.flipY, true);
+    assert.equal(drawing.id, 'shape'); assert.equal(drawing.text, '確認する');
+    assert.equal(ui.c.selectedDrawingId, 'shape');
+    await act(async () => ui.c.undo()); assert.equal(ui.c.workbook, before);
+    await act(async () => ui.c.redo()); assert.equal(ui.c.workbook, changed);
+    await act(async () => ui.c.save());
+    const reopened = await mount(t, { initialWorkbook: JSON.parse(JSON.stringify(ui.saves[0])) });
+    assert.deepEqual(resizedShape(reopened), drawing);
+  });
+}
+
+test('single-axis crossing at 200% zoom and repeated crossing compose with existing flips', async t => {
+  const ui = await mount(t, { initialWorkbook: centeredArrowBook({ flipX: true, flipY: true }) }, 2);
+  await act(async () => ui.c.selectDrawing('shape'));
+  const handle = () => ui.drawing('shape').findByProps({ 'data-lxs-resize-corner': 'se' });
+  const pointer = imagePointer();
+  await act(async () => handle().props.onPointerDown(pointer(716, 476)));
+  await act(async () => handle().props.onPointerUp(pointer(436, 516)));
+  assert.deepEqual(displayedRectangle(resizedShape(ui)), { left: 218, top: 178, width: 40, height: 80 });
+  assert.equal(!!resizedShape(ui).flipX, false);
+  assert.equal(resizedShape(ui).flipY, true);
+  const before = ui.c.workbook;
+  await act(async () => handle().props.onPointerDown(pointer(516, 516)));
+  await act(async () => handle().props.onPointerMove(pointer(596, 276)));
+  await act(async () => handle().props.onPointerUp(pointer(516, 516)));
+  assert.equal(ui.c.workbook, before, 'returning to the initial corner restores the original orientation without history');
+});
+
+test('crossing can be cancelled and a disabled resize cannot commit a captured gesture', async t => {
+  const ui = await mount(t, { initialWorkbook: centeredArrowBook() });
+  await act(async () => ui.c.selectDrawing('shape'));
+  const pointer = imagePointer(), before = ui.c.workbook;
+  const handle = () => ui.drawing('shape').findByProps({ 'data-lxs-resize-corner': 'nw' });
+  await act(async () => handle().props.onPointerDown(pointer(258, 178)));
+  await act(async () => handle().props.onPointerMove(pointer(398, 278)));
+  await act(async () => handle().props.onPointerCancel());
+  assert.equal(ui.c.workbook, before);
+  await act(async () => handle().props.onPointerDown(pointer(258, 178)));
+  await act(async () => handle().props.onPointerMove(pointer(398, 278)));
+  await ui.update({ features: { resize: false } });
+  assert.equal(ui.drawing('shape').findAllByType('button').filter(item => item.props['data-lxs-resize-corner']).length, 0);
+  await act(async () => ui.drawing('shape').props.onPointerUp(pointer(398, 278)));
+  assert.equal(ui.c.workbook, before);
+  assert.equal(ui.c.canUndo, false);
+});
+
+test('denied editing permission discards the flipped preview without changing saved orientation', async t => {
+  const ui = await mount(t, { initialWorkbook: centeredArrowBook(), onEditRequest: async () => false });
+  await act(async () => ui.c.selectDrawing('shape'));
+  const before = ui.c.workbook, pointer = imagePointer();
+  const handle = () => ui.drawing('shape').findByProps({ 'data-lxs-resize-corner': 'se' });
+  await act(async () => handle().props.onPointerDown(pointer(358, 238)));
+  await act(async () => handle().props.onPointerUp(pointer(218, 138)));
+  assert.equal(ui.c.workbook, before);
+  assert.equal(ui.c.canUndo, false);
 });

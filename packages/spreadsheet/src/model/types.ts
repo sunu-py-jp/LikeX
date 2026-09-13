@@ -31,7 +31,11 @@ export type SpreadsheetImageResource = {
   height: number;
 };
 export type SpreadsheetDrawingAnchor = { row: number; column: number; offsetX: number; offsetY: number };
-type SpreadsheetDrawingBase = { id: string; anchor: SpreadsheetDrawingAnchor; width: number; height: number };
+type SpreadsheetDrawingBase = {
+  id: string; anchor: SpreadsheetDrawingAnchor; width: number; height: number;
+  /** Reflection within the positive-sized frame. Omitted flags mean false; text stays readable. */
+  flipX?: boolean; flipY?: boolean;
+};
 export type SpreadsheetImageDrawing = SpreadsheetDrawingBase & { type: "image"; resourceId: string; alt: string };
 export type SpreadsheetShapeDrawing = SpreadsheetDrawingBase & {
   type: "shape"; shape: "rectangle" | "ellipse" | "line" | "arrow"; fill: string; stroke: string; strokeWidth: number;

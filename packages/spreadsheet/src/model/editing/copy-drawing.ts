@@ -23,7 +23,7 @@ export function normalizeDrawingPastePayload(input: SpreadsheetDrawingPastePaylo
     throw new Error("図形のコピー内容が正しくありません");
   const drawing = input.drawing;
   if (!drawing || typeof drawing !== "object" || Array.isArray(drawing)) throw new Error("図形のコピー内容が正しくありません");
-  const common = ["id", "type", "anchor", "width", "height"];
+  const common = ["id", "type", "anchor", "width", "height", "flipX", "flipY"];
   const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape"
     ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold"] : ["text", "fontSize", "color", "background", "bold"];
   if (Object.keys(drawing).some(key => !common.includes(key) && !specific.includes(key)) || !drawing.anchor ||

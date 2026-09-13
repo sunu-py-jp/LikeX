@@ -1414,7 +1414,9 @@
       "textBoxes.insert",
       "comments.set",
       "serializeWorkbook",
-      "parseWorkbook"
+      "parseWorkbook",
+      "flipX",
+      "flipY"
     ],
     "headings": [
       {

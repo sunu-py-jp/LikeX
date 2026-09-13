@@ -7,6 +7,10 @@ const workbook: SpreadsheetWorkbookSnapshot = createWorkbook();
 const commands = [
   { type: "rows.insert", sheetId: "sheet-1", index: 2, count: 2 },
   { type: "cells.set", sheetId: "sheet-1", values: { A3: "商品A", B3: "100" } },
+  { type: "shapes.insert", sheetId: "sheet-1", shape: "arrow", anchor: { row: 1, column: 1 }, flipX: true, flipY: false },
+  { type: "textBoxes.insert", sheetId: "sheet-1", anchor: { row: 2, column: 1 }, flipY: true },
+  { type: "images.insert", sheetId: "sheet-1", anchor: { row: 3, column: 1 }, flipX: true,
+    resource: { name: "pixel.png", mimeType: "image/png", width: 1, height: 1, dataUrl: "data:image/png;base64,..." } },
 ] as const satisfies readonly SpreadsheetCommand[];
 const options: SpreadsheetApplyCommandsOptions = { features: { images: false } };
 const result: SpreadsheetApplyCommandsResult = applySpreadsheetCommands(workbook, commands, options);
@@ -26,6 +30,17 @@ applySpreadsheetCommands(workbook, [{ type: "cells.set", sheetId: "sheet-1", val
 applySpreadsheetCommands(workbook, [{ type: "cells.unknown", sheetId: "sheet-1" }]);
 // @ts-expect-error unsupported options cannot silently bypass the command contract
 applySpreadsheetCommands(workbook, [], { readOnly: true });
+
+const reflectionUpdates = [
+  { type: "images.update", sheetId: "sheet-1", drawingId: "image", patch: { flipX: false, flipY: true } },
+  { type: "shapes.update", sheetId: "sheet-1", drawingId: "shape", patch: { flipX: true } },
+  { type: "textBoxes.update", sheetId: "sheet-1", drawingId: "text", patch: { flipY: false } },
+] satisfies readonly SpreadsheetCommand[];
+void reflectionUpdates;
+// @ts-expect-error Reflection flags are boolean, not string-valued transforms.
+applySpreadsheetCommands(workbook, [{ type: "shapes.insert", sheetId: "sheet-1", shape: "arrow", anchor: { row: 0, column: 0 }, flipX: "true" }]);
+// @ts-expect-error Update patches use the same strict boolean reflection fields.
+applySpreadsheetCommands(workbook, [{ type: "images.update", sheetId: "sheet-1", drawingId: "image", patch: { flipY: 1 } }]);
 // @ts-expect-error feature flags are booleans
 applySpreadsheetCommands(workbook, [], { features: { images: "false" } });
 

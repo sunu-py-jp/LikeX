@@ -11,7 +11,8 @@ import { updateDrawingFromUI } from "./drawing-commands";
 export function Shape({ drawing }: { drawing: Extract<SpreadsheetDrawing, { type: "shape" }> }) {
   const marker = useId().replace(/:/g, "");
   const stroke = drawing.strokeWidth;
-  return <svg className="lxs-shape" width="100%" height="100%" viewBox={`0 0 ${drawing.width} ${drawing.height}`} aria-hidden="true" overflow="visible">
+  return <svg className="lxs-shape" width="100%" height="100%" viewBox={`0 0 ${drawing.width} ${drawing.height}`} aria-hidden="true" overflow="visible"
+    style={{ transform: `scale(${drawing.flipX ? -1 : 1}, ${drawing.flipY ? -1 : 1})`, transformOrigin: "center" }}>
     {drawing.shape === "arrow" && <defs><marker id={marker} markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M0 0 9 4.5 0 9 2 4.5Z" fill={drawing.stroke} /></marker></defs>}
     {drawing.shape === "rectangle" ? <rect x={stroke / 2} y={stroke / 2} width={Math.max(0, drawing.width - stroke)} height={Math.max(0, drawing.height - stroke)} fill={drawing.fill} stroke={drawing.stroke} strokeWidth={stroke} />
       : drawing.shape === "ellipse" ? <ellipse cx={drawing.width / 2} cy={drawing.height / 2} rx={Math.max(0, (drawing.width - stroke) / 2)} ry={Math.max(0, (drawing.height - stroke) / 2)} fill={drawing.fill} stroke={drawing.stroke} strokeWidth={stroke} />

@@ -34,14 +34,15 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       const width = command.width ?? size.width * scale;
       const height = command.height ?? size.height * scale;
       return receipt(insertImage(workbook, sheet.id, resourceId, resource,
-        { id: drawingId, type: "image", resourceId, anchor, width, height, alt: command.alt ?? resource.name }), drawingId, resourceId);
+        { id: drawingId, type: "image", resourceId, anchor, width, height, alt: command.alt ?? resource.name,
+          flipX: command.flipX, flipY: command.flipY }), drawingId, resourceId);
     }
     case "shapes.insert": {
       requireCommandFeature(features, "shapes");
       const anchor = drawingAnchor(command.anchor), drawingId = nextId();
       const line = command.shape === "line" || command.shape === "arrow";
       return receipt(addDrawing(workbook, sheet.id, { id: drawingId, type: "shape", shape: command.shape, anchor,
-        width: command.width ?? 160, height: command.height ?? (line ? 72 : 100),
+        width: command.width ?? 160, height: command.height ?? (line ? 72 : 100), flipX: command.flipX, flipY: command.flipY,
         fill: command.fill ?? (line ? "transparent" : "#e8f3ec"), stroke: command.stroke ?? "#217346", strokeWidth: command.strokeWidth ?? 2,
         ...(command.text !== undefined ? { text: command.text } : {}), ...(command.fontSize !== undefined ? { fontSize: command.fontSize } : {}),
         ...(command.color !== undefined ? { color: command.color } : {}), ...(command.bold !== undefined ? { bold: command.bold } : {}) }), drawingId);
@@ -51,6 +52,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       const anchor = drawingAnchor(command.anchor), drawingId = nextId();
       return receipt(addDrawing(workbook, sheet.id, { id: drawingId, type: "text", anchor,
         text: command.text ?? "テキスト", width: command.width ?? 200, height: command.height ?? 80,
+        flipX: command.flipX, flipY: command.flipY,
         fontSize: command.fontSize ?? 16, color: command.color ?? "currentColor", background: command.background ?? "transparent",
         ...(command.bold !== undefined ? { bold: command.bold } : {}) }), drawingId);
     }
@@ -67,8 +69,11 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       const patch = commandRecord(command.patch, "更新内容");
       const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape" ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold"]
         : ["text", "fontSize", "color", "background", "bold"];
-      commandKeys(patch, ["anchor", "width", "height", ...specific], "更新内容");
-      if ((patch.width !== undefined && patch.width !== drawing.width) || (patch.height !== undefined && patch.height !== drawing.height))
+      commandKeys(patch, ["anchor", "width", "height", "flipX", "flipY", ...specific], "更新内容");
+      for (const key of ["flipX", "flipY"] as const)
+        if (patch[key] !== undefined && typeof patch[key] !== "boolean") return rejectCommand("INVALID_COMMAND", `${key}はtrueまたはfalseで指定してください`);
+      if ((patch.width !== undefined && patch.width !== drawing.width) || (patch.height !== undefined && patch.height !== drawing.height) ||
+        (["flipX", "flipY"] as const).some(key => Object.hasOwn(patch, key) && !!patch[key] !== !!drawing[key]))
         requireCommandFeature(features, "resize");
       const normalized: SpreadsheetDrawingPatch = { ...patch,
         ...(patch.anchor !== undefined ? { anchor: drawingAnchor(patch.anchor as SpreadsheetCommandAnchor) } : {}) };

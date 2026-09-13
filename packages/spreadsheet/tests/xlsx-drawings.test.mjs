@@ -15,6 +15,15 @@ const imageDrawing = (id = 'picture', resourceId = 'asset') => ({ id, type: 'ima
   anchor: { row: 1, column: 1, offsetX: 5, offsetY: 7 }, width: 120, height: 80 });
 const sheet = drawings => ({ id: 'sheet', name: 'Sheet', cells: {}, rowCount: 20, columnCount: 10, drawings });
 const xmlPart = (result, name = 'xl/drawings/drawing1.xml') => result.parts.find(part => part.path === name).content.text();
+const emu = pixels => Math.round(pixels * 9525);
+const flips = [{}, { flipX: true }, { flipY: true }, { flipX: true, flipY: true }];
+const anchors = drawing => [...drawing.matchAll(/<xdr:oneCellAnchor>([\s\S]*?)<\/xdr:oneCellAnchor>/g)].map(match => match[1]);
+function drawingTransform(drawing) {
+  const match = drawing.match(/<a:xfrm([^>]*)><a:off x="(-?\d+)" y="(-?\d+)"\/><a:ext cx="(\d+)" cy="(\d+)"\/>/);
+  assert.ok(match, 'native drawing has a transform');
+  return { flipX: match[1].includes('flipH="1"'), flipY: match[1].includes('flipV="1"'),
+    x: Number(match[2]), y: Number(match[3]), width: Number(match[4]), height: Number(match[5]) };
+}
 
 function browser(t, { width = 1, height = 1, loading = false, encoding = false, failed = false, blob, contextAvailable = true } = {}) {
   const created = [], revoked = [], images = [], calls = [], canvases = [];
@@ -81,6 +90,107 @@ test('shared resources produce one media part across repeated pictures and multi
   assert.equal((await xmlPart(first)).match(/r:embed="rIdImage1"/g).length, 2);
   assert.match(await xmlPart(second, 'xl/drawings/_rels/drawing2.xml.rels'), /Target="\.\.\/media\/image1_1.png"/);
   assert.equal(second.parts.some(part => part.path === 'xl/drawings/drawing2.xml'), true);
+});
+
+test('picture flips preserve centered contain geometry and share the unchanged image bytes', async () => {
+  const drawings = flips.flatMap((flip, index) => [
+    { ...imageDrawing(`wide-${index}`), ...flip },
+    { ...imageDrawing(`tall-${index}`), width: 60, height: 120, ...flip },
+  ]);
+  const result = await prepareWorksheetDrawings(sheet(drawings), { images: { asset: resource() } }, { sheetIndex: 1 });
+  const pictures = anchors(await xmlPart(result));
+  assert.equal(pictures.length, drawings.length);
+  for (let index = 0; index < drawings.length; index++) {
+    const drawing = drawings[index];
+    assert.deepEqual(drawingTransform(pictures[index]), { flipX: !!drawing.flipX, flipY: !!drawing.flipY,
+      ...(index % 2 === 0 ? { x: emu(125), y: emu(35), width: emu(80), height: emu(80) }
+        : { x: emu(105), y: emu(65), width: emu(60), height: emu(60) }) });
+    assert.match(pictures[index], /r:embed="rIdImage1"/);
+  }
+  const media = result.parts.filter(part => part.path.startsWith('xl/media/'));
+  assert.equal(media.length, 1);
+  assert.deepEqual(Buffer.from(await media[0].content.arrayBuffer()), png);
+});
+
+test('reflected shapes and text boxes retain native flip flags while their text stays upright', async () => {
+  const base = { anchor: { row: 0, column: 0, offsetX: 10, offsetY: 20 }, width: 120, height: 80, text: 'Readable < & 日本語' };
+  const drawings = flips.flatMap((flip, index) => [
+    ...['rectangle', 'ellipse'].map(shape => ({ ...base, ...flip, id: `${shape}-${index}`, type: 'shape', shape,
+      fill: '#fff', stroke: '#000', strokeWidth: 2 })),
+    { ...base, ...flip, id: `text-${index}`, type: 'text', fontSize: 20, color: '#000', background: '#fff' },
+  ]);
+  const shapes = anchors(await xmlPart(await prepareWorksheetDrawings(sheet(drawings), undefined, { sheetIndex: 1 })));
+  for (let index = 0; index < drawings.length; index++) {
+    const drawing = drawings[index], inset = drawing.type === 'shape' ? 1 : 0;
+    assert.deepEqual(drawingTransform(shapes[index]), { flipX: !!drawing.flipX, flipY: !!drawing.flipY,
+      x: emu(10 + inset), y: emu(20 + inset), width: emu(120 - inset * 2), height: emu(80 - inset * 2) });
+    assert.match(shapes[index], /<a:bodyPr[^>]*upright="1"/);
+    assert.match(shapes[index], /<a:t xml:space="preserve">Readable &lt; &amp; 日本語<\/a:t>/);
+    assert.match(shapes[index], drawing.type === 'text' ? /<a:pPr algn="l">/ : /<a:pPr algn="ctr">/);
+  }
+});
+
+test('line and arrow endpoints reflect within the full frame, including reversed and zero-length axes', async () => {
+  // These endpoints are the rendered SVG geometry before reflecting the whole drawing frame.
+  const cases = [
+    { shape: 'line', width: 120, height: 80, strokeWidth: 2, start: [4, 4], end: [118, 78] },
+    { shape: 'arrow', width: 120, height: 80, strokeWidth: 2, start: [4, 4], end: [106, 66] },
+    { shape: 'arrow', width: 10, height: 100, strokeWidth: 2, start: [4, 4], end: [2, 86] },
+    { shape: 'arrow', width: 100, height: 10, strokeWidth: 2, start: [4, 4], end: [86, 2] },
+    { shape: 'line', width: 1, height: 1, strokeWidth: 2, start: [4, 4], end: [2, 2] },
+    { shape: 'arrow', width: 18, height: 18, strokeWidth: 2, start: [4, 4], end: [4, 4] },
+    { shape: 'arrow', width: 1, height: 1, strokeWidth: 0, start: [4, 4], end: [1, 1] },
+  ];
+  const drawings = cases.flatMap(({ shape, width, height, strokeWidth }, index) => flips.map((flip, direction) => ({ shape, width, height, strokeWidth, ...flip,
+    id: `line-${index}-${direction}`, type: 'shape', fill: 'none', stroke: '#000', text: 'Direction',
+    anchor: { row: 1, column: 1, offsetX: 95, offsetY: 25 } })));
+  const source = { ...sheet(drawings), columnWidths: { 0: 150 }, rowHeights: { 0: 40 } };
+  const elements = anchors(await xmlPart(await prepareWorksheetDrawings(source, undefined, { sheetIndex: 1 })));
+  for (let index = 0; index < drawings.length; index++) {
+    const drawing = drawings[index], expected = cases[Math.floor(index / flips.length)];
+    const element = elements[index], transform = drawingTransform(element);
+    const start = [transform.x + (transform.flipX ? transform.width : 0), transform.y + (transform.flipY ? transform.height : 0)];
+    const end = [transform.x + (transform.flipX ? 0 : transform.width), transform.y + (transform.flipY ? 0 : transform.height)];
+    const reflect = ([x, y]) => [emu(245 + (drawing.flipX ? drawing.width - x : x)), emu(65 + (drawing.flipY ? drawing.height - y : y))];
+    for (const [actual, target] of [[start, reflect(expected.start)], [end, reflect(expected.end)]]) {
+      actual.forEach((value, axis) => assert.ok(Math.abs(value - target[axis]) <= 1,
+        `${drawing.id}: endpoint axis ${axis} should be ${target[axis]}, got ${value}`));
+    }
+    assert.ok(transform.width >= 1 && transform.height >= 1, 'collapsed extents remain valid positive EMUs');
+    const marker = element.match(/<xdr:col>(\d+)<\/xdr:col><xdr:colOff>(-?\d+)<\/xdr:colOff><xdr:row>(\d+)<\/xdr:row><xdr:rowOff>(-?\d+)<\/xdr:rowOff>/);
+    assert.ok(marker);
+    assert.equal(emu(150 + (Number(marker[1]) - 1) * 100) + Number(marker[2]), transform.x);
+    assert.equal(emu(40 + (Number(marker[3]) - 1) * 28) + Number(marker[4]), transform.y);
+    assert.match(element, new RegExp(`<xdr:ext cx="${transform.width}" cy="${transform.height}"/>`));
+    assert.match(element, /<a:bodyPr[^>]*upright="1"/);
+    if (drawing.shape === 'arrow' && drawing.strokeWidth > 0) assert.match(element, /<a:tailEnd type="triangle"/);
+  }
+});
+
+test('oversized reflected strokes preserve SVG overflow through signed offsets at the sheet origin', async () => {
+  const cases = [
+    { shape: 'arrow', width: 16, height: 12, strokeWidth: 20, x: -4, y: -8 },
+    { shape: 'line', width: 1, height: 1, strokeWidth: 2, x: -3, y: -3 },
+    { shape: 'rectangle', width: 1, height: 2, strokeWidth: 100, x: -49, y: -48 },
+    { shape: 'ellipse', width: 1, height: 2, strokeWidth: 100, x: 0.5, y: 1 },
+  ];
+  const drawings = cases.map(({ shape, width, height, strokeWidth }) => ({ id: shape, type: 'shape', shape, width, height, strokeWidth,
+    fill: '#fff', stroke: '#000', flipX: true, flipY: true, anchor: { row: 0, column: 0, offsetX: 0, offsetY: 0 } }));
+  const elements = anchors(await xmlPart(await prepareWorksheetDrawings(sheet(drawings), undefined, { sheetIndex: 1 })));
+  for (let index = 0; index < cases.length; index++) {
+    const expected = cases[index], element = elements[index], transform = drawingTransform(element);
+    assert.equal(transform.x, emu(expected.x)); assert.equal(transform.y, emu(expected.y));
+    assert.ok(transform.width >= 1 && transform.height >= 1);
+    assert.match(element, new RegExp(`<xdr:col>0</xdr:col><xdr:colOff>${emu(expected.x)}</xdr:colOff>`));
+    assert.match(element, new RegExp(`<xdr:row>0</xdr:row><xdr:rowOff>${emu(expected.y)}</xdr:rowOff>`));
+  }
+});
+
+test('sub-EMU reflected pictures retain both flips with nonzero output extents', async () => {
+  const drawing = { ...imageDrawing(), width: Number.MIN_VALUE, height: Number.MIN_VALUE, flipX: true, flipY: true };
+  const content = await xmlPart(await prepareWorksheetDrawings(sheet([drawing]), { images: { asset: resource() } }, { sheetIndex: 1 }));
+  assert.deepEqual(drawingTransform(content), { x: emu(105), y: emu(35), width: 1, height: 1, flipX: true, flipY: true });
+  assert.match(content, /<xdr:ext cx="1" cy="1"\/>/);
 });
 
 test('all native shapes and multiline text boxes retain style, alpha and literal escaped text', async () => {
