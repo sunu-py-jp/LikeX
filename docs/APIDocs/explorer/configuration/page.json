@@ -12,6 +12,10 @@
     "ExplorerViewOptions",
     "readOnly",
     "features",
+    "mouseNavigation",
+    "マウス",
+    "戻る",
+    "進む",
     "selection",
     "view"
   ],

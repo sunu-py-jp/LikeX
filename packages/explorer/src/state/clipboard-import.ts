@@ -1,4 +1,6 @@
 import { normalizeEntryName } from "../model/entries";
+import type { ExplorerImportProgress } from "../model/upload";
+import { createImportProgress } from "./import-progress";
 
 type ClipboardItem = DataTransferItem & {
   getAsEntry?: () => FileSystemEntry | null;
@@ -13,7 +15,7 @@ export type ClipboardImport = {
   hasRootFiles: boolean;
   /** Immediately available when no directories were captured. */
   files: File[];
-  read(signal?: AbortSignal): Promise<File[]>;
+  read(signal?: AbortSignal, onProgress?: (value: ExplorerImportProgress) => void): Promise<File[]>;
 };
 
 function unavailable(): Error {
@@ -59,9 +61,14 @@ function readOperation<T>(start: (success: (result: T) => void, failure: (error:
   });
 }
 
-async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortSignal): Promise<File[]> {
+async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortSignal,
+  onProgress?: (value: ExplorerImportProgress) => void): Promise<File[]> {
+  checkAbort(signal);
   const files: File[] = [];
   const ancestors = new Set<FileSystemEntry>();
+  const checkpoint = createImportProgress(onProgress, signal);
+  const initialPause = checkpoint({ phase: "discovering", completed: 0 }, true);
+  if (initialPause) await initialPause;
 
   async function visit(entry: FileSystemEntry, parent: readonly string[], rootName?: string): Promise<void> {
     checkAbort(signal);
@@ -69,6 +76,8 @@ async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortS
     const relativePath = parts.join("/");
     try {
       if (entry.isDirectory && !entry.isFile) {
+        const pause = checkpoint({ phase: "discovering", completed: files.length });
+        if (pause) await pause;
         const directory = entry as FileSystemDirectoryEntry;
         if (typeof directory.createReader !== "function" || ancestors.has(directory)) throw unavailable();
         const reader = directory.createReader();
@@ -100,6 +109,8 @@ async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortS
         const copy = new File([file], file.name, { type: file.type, lastModified: file.lastModified });
         Object.defineProperty(copy, "webkitRelativePath", { value: relativePath, enumerable: true });
         files.push(copy);
+        const pause = checkpoint({ phase: "discovering", completed: files.length });
+        if (pause) await pause;
       } else throw unavailable();
     } catch (error) {
       checkAbort(signal);
@@ -108,13 +119,20 @@ async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortS
     }
   }
 
-  for (const item of items) {
+  try {
+    for (const item of items) {
+      checkAbort(signal);
+      if (item.kind === "file") {
+        files.push(item.file);
+        const pause = checkpoint({ phase: "discovering", completed: files.length });
+        if (pause) await pause;
+      } else await visit(item.entry, [], item.name);
+    }
     checkAbort(signal);
-    if (item.kind === "file") files.push(item.file);
-    else await visit(item.entry, [], item.name);
-  }
-  checkAbort(signal);
-  return files;
+    const finalPause = checkpoint({ phase: "discovering", completed: files.length, total: files.length }, true);
+    if (finalPause) await finalPause;
+    return files;
+  } finally { checkpoint.dispose(); }
 }
 
 /** Read the transfer only during its native paste event. The returned operation
@@ -149,6 +167,6 @@ export function captureClipboardImport(data: DataTransfer): ClipboardImport | nu
     hasDirectories: captured.some(item => item.kind === "directory"),
     hasRootFiles: files.length > 0,
     files,
-    read: signal => readCapturedItems(captured, signal),
+    read: (signal, onProgress) => readCapturedItems(captured, signal, onProgress),
   };
 }

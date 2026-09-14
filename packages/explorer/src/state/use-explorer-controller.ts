@@ -36,7 +36,9 @@ import { useExplorerUpload } from "./use-explorer-upload";
 import { useExplorerContextMenu } from "./use-explorer-context-menu";
 import { useExplorerListing } from "./use-explorer-listing";
 import { useExplorerSearch } from "./use-explorer-search";
-import { captureClipboardImport } from "./clipboard-import";
+import { useExplorerMouseNavigation } from "./use-explorer-mouse-navigation";
+import { captureClipboardImport, type ClipboardImport } from "./clipboard-import";
+import { describeImportProgress } from "./import-progress";
 import { hasKeyModifiers, isComposingKeyEvent, matchesExplorerShortcut } from "../model/keyboard";
 import {
   DEFAULT_ROOT_LABEL,
@@ -226,7 +228,7 @@ export function useExplorerViewController({
   const clipboard = storedClipboard && features[storedClipboard.action] ? storedClipboard : null;
   const currentClipboard = useRef(storedClipboard);
   useLayoutEffect(() => { currentClipboard.current = storedClipboard; }, [storedClipboard]);
-  const pendingPaste = useRef<{
+  const pendingTransfer = useRef<{
     controller: AbortController;
     hasDirectories: boolean;
     hasRootFiles: boolean;
@@ -249,9 +251,9 @@ export function useExplorerViewController({
     if (!features.uploadFiles) cancelFilePicker("file");
     if (!features.uploadFolders) cancelFilePicker("folder");
   }, [features.uploadFiles, features.uploadFolders, cancelFilePicker]);
-  useEffect(() => () => { pendingPaste.current?.controller.abort(); }, []);
+  useEffect(() => () => { pendingTransfer.current?.controller.abort(); }, []);
   useEffect(() => {
-    const pending = pendingPaste.current;
+    const pending = pendingTransfer.current;
     if (pending && ((pending.hasDirectories && !features.uploadFolders) ||
       (pending.hasRootFiles && !features.uploadFiles))) pending.controller.abort();
   }, [features.uploadFiles, features.uploadFolders]);
@@ -284,7 +286,7 @@ export function useExplorerViewController({
     renameSessionRef.current = null;
     modalRef.current = null;
     currentClipboard.current = null;
-    pendingPaste.current?.controller.abort();
+    pendingTransfer.current?.controller.abort();
     cancelFilePicker("file");
     cancelFilePicker("folder");
   }, [readOnly, editRevision, cancelFilePicker]);
@@ -321,6 +323,12 @@ export function useExplorerViewController({
       ...(options?.persistent ? { persistent: true } : {}) };
     setNotification(next);
     return next;
+  }
+  function showImportProgress(notice: ExplorerNotification) {
+    setNotification(notice);
+    return () => {
+      if (mounted.current) setNotification(current => current === notice ? null : current);
+    };
   }
   /** Preserve the gesture's targets across authorization; never replay a stale view. */
   function runEdit(intent: ExplorerEditIntent, operation: () => boolean, onError?: (error: unknown) => void): boolean | Promise<boolean> {
@@ -364,7 +372,7 @@ export function useExplorerViewController({
     return typeof result === "boolean" ? finish(result) : result.then(finish);
   }
   useEffect(() => {
-    if (!notification || notification.persistent) return;
+    if (!notification || notification.persistent || notification.kind === "progress") return;
     const timeout = setTimeout(() => setNotification(null), 5000);
     return () => clearTimeout(timeout);
   }, [notification]);
@@ -961,7 +969,9 @@ export function useExplorerViewController({
     event.stopPropagation();
     const sameFolder = internal && !event.ctrlKey && draggedIdsRef.current !== null &&
       isSameFolderMove(entries, draggedIdsRef.current, id);
-    if (busy || currentOptions.current.readOnly || sameFolder || (internal ? !canAct(event.ctrlKey ? "copy" : "move", currentOptions.current) : !currentOptions.current.features.uploadFiles)) {
+    // During dragover the protected transfer may expose only "Files". Allow
+    // either import kind here, then validate the actual file/folder mix on drop.
+    if (busy || currentOptions.current.readOnly || sameFolder || (internal ? !canAct(event.ctrlKey ? "copy" : "move", currentOptions.current) : !(currentOptions.current.features.uploadFiles || currentOptions.current.features.uploadFolders))) {
       event.dataTransfer.dropEffect = "none";
       setDragOver(null);
       return;
@@ -994,8 +1004,16 @@ export function useExplorerViewController({
           error instanceof Error ? error.message : "項目を選び直してください",
         );
       }
-    } else if (features.uploadFiles && event.dataTransfer.files.length)
-      addLocalFiles(Array.from(event.dataTransfer.files), "file", id);
+    } else if (features.uploadFiles || features.uploadFolders) {
+      try {
+        const captured = captureClipboardImport(event.dataTransfer);
+        if (captured) importTransferredFiles(captured, id, "ドロップ");
+      } catch (error) {
+        notify("error", "ドロップしたファイルを取得できませんでした", {
+          description: error instanceof Error ? error.message : "ファイルまたはフォルダを選択して追加してください",
+        });
+      }
+    }
   }
   const uploadImport = useExplorerUpload({
     draft: workspace.draft,
@@ -1006,6 +1024,7 @@ export function useExplorerViewController({
     ownerDocument,
     runEdit,
     notify,
+    showProgress: showImportProgress,
   });
   const customMenu = useExplorerContextMenu({ workspace, options, provider: getContextMenuItems,
     mode: contextMenuExecutionMode, readFile, windowId, ownerDocument,
@@ -1013,6 +1032,43 @@ export function useExplorerViewController({
     container: workspaceRef, upload: uploadImport, notify, emitEvent });
   function addLocalFiles(files: File[], source: "file" | "folder" = "file", parent = currentParent) {
     return uploadImport.start(files, parent, source === "folder" || files.some(file => !!file.webkitRelativePath));
+  }
+  function importTransferredFiles(captured: ClipboardImport, parent: string, source: "貼り付け" | "ドロップ") {
+    pendingTransfer.current?.controller.abort();
+    const allowed = currentOptions.current.features;
+    if ((captured.hasDirectories && !allowed.uploadFolders) || (captured.hasRootFiles && !allowed.uploadFiles)) {
+      notify("error", `${source}に含まれる項目の追加が無効になっています`, {
+        description: "許可されたファイルまたはフォルダだけを選択してください",
+      });
+      return;
+    }
+    if (!captured.hasDirectories) return addLocalFiles(captured.files, "file", parent);
+    const controller = new AbortController();
+    pendingTransfer.current = { controller, hasDirectories: captured.hasDirectories, hasRootFiles: captured.hasRootFiles };
+    const unregister = workspace.registerImport(controller);
+    let dismissProgress: (() => void) | undefined;
+    void captured.read(controller.signal, progress => {
+      if (mounted.current && !controller.signal.aborted) dismissProgress = showImportProgress(describeImportProgress(progress));
+    }).then(files => {
+      const allowed = currentOptions.current.features;
+      if (!mounted.current || controller.signal.aborted ||
+        (captured.hasDirectories && !allowed.uploadFolders) || (captured.hasRootFiles && !allowed.uploadFiles)) return;
+      if (!files.length) {
+        notify("info", "追加できるファイルがありませんでした", { description: "空のフォルダは取り込みません" });
+        return;
+      }
+      return addLocalFiles(files, "folder", parent);
+    }).catch(error => {
+      if (!mounted.current || controller.signal.aborted) return;
+      notify("error", "フォルダを読み込めなかったため、追加を中止しました", {
+        description: error instanceof Error ? error.message : "フォルダを選択して追加し直してください",
+        persistent: true,
+      });
+    }).finally(() => {
+      unregister();
+      if (pendingTransfer.current?.controller === controller) pendingTransfer.current = null;
+      dismissProgress?.();
+    });
   }
 
   function chooseFiles(directory = false) {
@@ -1037,6 +1093,9 @@ export function useExplorerViewController({
     if (picker?.controller.signal.aborted) return;
     return addLocalFiles(files, source, picker?.parent ?? currentParent);
   }
+  useExplorerMouseNavigation({ rootRef: workspaceRef, ownerDocument,
+    enabled: features.mouseNavigation && !(busy || renamingEntryId || modal || uploadImport.prompt || preview || details),
+    canGoBack: historyIndex > 0, canGoForward: historyIndex < history.length - 1, travel });
   useEffect(() => {
     if (!ownerDocument) return;
     function isWorkspaceCommand(event: Event) {
@@ -1080,7 +1139,7 @@ export function useExplorerViewController({
       const hasFilePayload = data.files?.length || Array.from(data.items ?? []).some(item => item.kind === "file") ||
         Array.from(data.types ?? []).includes("Files");
       if (hasFilePayload) {
-        pendingPaste.current?.controller.abort();
+        pendingTransfer.current?.controller.abort();
         if (!features.uploadFiles && !features.uploadFolders) return;
         event.preventDefault();
         event.stopPropagation();
@@ -1088,48 +1147,7 @@ export function useExplorerViewController({
           // Capture entries while the clipboard event's data store is readable.
           const captured = captureClipboardImport(data);
           if (!captured) return;
-          if ((captured.hasDirectories && !features.uploadFolders) ||
-            (captured.hasRootFiles && !features.uploadFiles)) {
-            notify("error", "貼り付けに含まれる項目の追加が無効になっています", {
-              description: "許可されたファイルまたはフォルダだけをコピーしてください",
-            });
-            return;
-          }
-          if (!captured.hasDirectories) {
-            addLocalFiles(captured.files);
-            return;
-          }
-          const controller = new AbortController();
-          pendingPaste.current = { controller, hasDirectories: captured.hasDirectories, hasRootFiles: captured.hasRootFiles };
-          const unregister = workspace.registerImport(controller);
-          const parent = currentParent;
-          const notice = notify("info", "フォルダを読み込んでいます", {
-            description: "読み込みが終わると、階層を保って一覧に追加します",
-            persistent: true,
-          });
-          void captured.read(controller.signal).then(files => {
-            const allowed = currentOptions.current.features;
-            if (!mounted.current || controller.signal.aborted ||
-              (captured.hasDirectories && !allowed.uploadFolders) ||
-              (captured.hasRootFiles && !allowed.uploadFiles)) return;
-            if (!files.length) {
-              notify("info", "追加できるファイルがありませんでした", {
-                description: "空のフォルダは取り込みません",
-              });
-              return;
-            }
-            addLocalFiles(files, "folder", parent);
-          }).catch(error => {
-            if (!mounted.current || controller.signal.aborted) return;
-            notify("error", "フォルダを読み込めなかったため、追加を中止しました", {
-              description: error instanceof Error ? error.message : "フォルダを選択して追加し直してください",
-              persistent: true,
-            });
-          }).finally(() => {
-            unregister();
-            if (pendingPaste.current?.controller === controller) pendingPaste.current = null;
-            if (mounted.current) setNotification(current => current === notice ? null : current);
-          });
+          importTransferredFiles(captured, currentParent, "貼り付け");
         } catch (error) {
           notify("error", "クリップボードのファイルを取得できませんでした", {
             description: error instanceof Error ? error.message : "ファイルまたはフォルダを選択して追加してください",

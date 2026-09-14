@@ -396,6 +396,10 @@
       "ExplorerViewOptions",
       "readOnly",
       "features",
+      "mouseNavigation",
+      "マウス",
+      "戻る",
+      "進む",
       "selection",
       "view"
     ],
@@ -408,6 +412,11 @@
       {
         "id": "機能選択表示の設定",
         "title": "機能・選択・表示の設定",
+        "depth": 2
+      },
+      {
+        "id": "マウスのサイドボタンで戻る進む",
+        "title": "マウスのサイドボタンで戻る・進む",
         "depth": 2
       },
       {

@@ -37,7 +37,7 @@ const { resolveExplorerOptions, useExplorerController, FAVORITES, RECENT } = awa
 
 const featureNames = [
   'favorites', 'recent', 'createFolder', 'createFile', 'uploadFiles', 'uploadFolders', 'copy', 'move',
-  'rename', 'delete', 'preview', 'download', 'details', 'search', 'sort', 'tabs', 'pathInput', 'detachTabs', 'resizeSidebar',
+  'rename', 'delete', 'preview', 'download', 'details', 'search', 'sort', 'tabs', 'pathInput', 'detachTabs', 'resizeSidebar', 'mouseNavigation',
 ];
 const allFeatures = enabled => Object.fromEntries(featureNames.map(name => [name, enabled]));
 const entry = (id, name, size = 4, kind = 'file', mime = 'text/plain') => ({
@@ -656,14 +656,23 @@ test('file uploads and folder uploads independently gate pickers, additions and 
   assert.equal(hook.effects.filePicker, 1);
   assert.equal(hook.effects.folderPicker, 1);
   assert.equal(hook.current.entries.length, beforeFolder);
-  await act(async () => { hook.current.allowDrop(drop, 'root'); });
-  assert.equal(drop.dataTransfer.dropEffect, 'none');
+  const protectedHover = dragEvent({ files: [file] });
+  Object.defineProperties(protectedHover.dataTransfer, {
+    files: { get() { throw Error('File payloads cannot be read during protected dragover'); } },
+    items: { get() { throw Error('Entry handles cannot be read during protected dragover'); } },
+  });
+  await act(async () => { hook.current.allowDrop(protectedHover, 'root'); });
+  assert.equal(protectedHover.dataTransfer.dropEffect, 'copy',
+    'a protected Files payload may be a permitted folder; actual files are rejected on drop');
   await act(async () => { hook.current.addLocalFiles([nested], 'folder'); });
   const folder = hook.current.entries.find(item => item.name === 'Uploaded');
   const added = hook.current.entries.find(item => item.name === 'nested.txt');
   assert.equal(folder.kind, 'folder', 'uploading a directory does not depend on the new-folder command');
   assert.equal(added.parent, folder.id);
   assert.equal(added.source.file, nested);
+  await hook.update({ features: { uploadFiles: false, uploadFolders: false } });
+  await act(async () => { hook.current.allowDrop(protectedHover, 'root'); });
+  assert.equal(protectedHover.dataTransfer.dropEffect, 'none');
 });
 
 test('hiding checkboxes retains multiple selection by Ctrl, Shift and Ctrl+A', async t => {

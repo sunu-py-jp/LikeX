@@ -47,6 +47,14 @@ export type ExplorerUploadResult = Readonly<{
   rejections: readonly ExplorerUploadRejection[];
 }>;
 
+/** Work completed so far while inspecting or preparing a local import, not byte transfer. */
+export type ExplorerImportProgress = Readonly<{
+  phase: "discovering" | "checking" | "preparing";
+  completed: number;
+  /** Directory enumeration cannot know its total until every reader is exhausted. */
+  total?: number;
+}>;
+
 export type ExplorerUploadConflict = Readonly<{
   /** Position in the original input batch, including inputs rejected by validation. */
   fileIndex: number;

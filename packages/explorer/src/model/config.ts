@@ -19,6 +19,7 @@ export type ExplorerFeature =
   | "tabs"
   | "detachTabs"
   | "resizeSidebar"
+  | "mouseNavigation"
   | "pathInput";
 
 /** Omitted features remain enabled; false removes their UI and operations. */
@@ -81,6 +82,7 @@ const featureDefaults: Required<ExplorerFeatures> = {
   tabs: true,
   detachTabs: true,
   resizeSidebar: true,
+  mouseNavigation: true,
   pathInput: true,
 };
 

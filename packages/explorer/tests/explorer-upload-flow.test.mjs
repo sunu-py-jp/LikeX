@@ -9,11 +9,12 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
   export { useExplorerWorkspace } from './src/state/use-explorer-workspace.ts';
   export { useExplorerViewController } from './src/state/use-explorer-controller.ts';
+  export { createExplorerUploadSession } from './src/model/upload.ts';
 `, resolveDir: packageRoot, sourcefile: 'explorer-upload-flow.ts' }, bundle: true, platform: 'node', format: 'esm', write: false,
 plugins: [{ name: 'shared-react', setup(builder) {
   builder.onResolve({ filter: /^(react|lucide-react)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
 } }] });
-const { useExplorerWorkspace, useExplorerViewController } = await import(
+const { useExplorerWorkspace, useExplorerViewController, createExplorerUploadSession } = await import(
   `data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text + '\n//# sourceURL=explorer-upload-flow.mjs').toString('base64')}`
 );
 const change = async callback => { await act(async () => { await callback(); }); };
@@ -34,7 +35,13 @@ async function mount(t, supplied = {}) {
   let props = { initialEntries: initial, onSave: payload => { saves.push(payload); },
     onEvent: event => events.push(event), onEditRequest: request => { requests.push(request); return true; }, ...supplied };
   const panes = new Map();
-  function Pane({ options, workspace, id }) { panes.set(id, useExplorerViewController(options, workspace, id, null)); return null; }
+  const notifications = [];
+  function Pane({ options, workspace, id }) {
+    const pane = useExplorerViewController(options, workspace, id, null);
+    panes.set(id, pane);
+    if (id === 'main' && pane.notification && notifications.at(-1) !== pane.notification) notifications.push(pane.notification);
+    return null;
+  }
   function Probe({ options }) {
     const workspace = useExplorerWorkspace(options); latest = workspace;
     useLayoutEffect(() => { const child = workspace.tabs.forWindow('child'); if (!child.tabs.length) child.addTab(); }, [workspace.tabs]);
@@ -44,7 +51,7 @@ async function mount(t, supplied = {}) {
   await change(() => { renderer = create(tree()); });
   t.after(() => change(() => renderer.unmount()));
   return { get main() { return panes.get('main'); }, get child() { return panes.get('child'); }, get workspace() { return latest; },
-    events, requests, saves,
+    events, requests, saves, notifications,
     async update(patch) { props = { ...props, ...patch }; await change(() => renderer.update(tree())); },
     async closeChild() { children = false; await change(() => renderer.update(tree())); },
   };
@@ -159,4 +166,111 @@ test('mixed file/directory imports recheck both feature permissions during a con
   await app.update({ features: { uploadFiles: false, uploadFolders: true } });
   await change(() => retained('overwrite', true));
   assert.equal(app.main.uploadPrompt, null); assert.equal(app.main.dirty, false); assert.equal(app.requests.length, 0);
+});
+
+test('large folder selections display counted progress and publish only one complete draft', async t => {
+  const app = await mount(t), before = app.main.entries;
+  const files = Array.from({ length: 600 }, (_, i) => file(`large-${i}.txt`, `Batch/large-${i}.txt`));
+  let pending;
+  await change(() => {
+    pending = app.main.addLocalFiles(files, 'folder', 'root');
+    assert.equal(app.main.entries, before);
+    assert.equal(app.events.filter(e => e.type === 'change').length, 0);
+  });
+  await change(() => pending);
+  assert.ok(app.notifications.some(n => n.kind === 'progress' && /0 \/ 600ファイル/.test(n.description)));
+  assert.equal(app.main.notification.kind, 'success');
+  assert.equal(app.main.entries.filter(e => e.source?.kind === 'local').length, 600);
+  assert.equal(app.events.filter(e => e.type === 'change').length, 1);
+  assert.equal(app.saves.length, 0);
+});
+
+test('cooperative preparation retries relaxed upload rules without emitting an obsolete rejection', async t => {
+  const app = await mount(t, { upload: { allowedExtensions: ['.pdf'] } });
+  const files = Array.from({ length: 600 }, (_, i) => file(`new-${i}.txt`));
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles(files); });
+  await app.update({ upload: { allowedExtensions: ['.txt'] } });
+  await change(() => pending);
+  assert.equal(app.main.entries.filter(e => e.source?.kind === 'local').length, 600);
+  assert.equal(app.events.filter(e => e.type === 'upload' && e.status === 'rejected').length, 0);
+});
+
+test('cooperative preparation rechecks tightened rules before committing any files', async t => {
+  const app = await mount(t), before = app.main.entries;
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles(Array.from({ length: 600 }, (_, i) => file(`new-${i}.txt`))); });
+  await app.update({ upload: { allowedExtensions: ['.pdf'] } });
+  await change(() => pending);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.notification.kind, 'error');
+  assert.equal(app.events.filter(e => e.type === 'upload' && e.status === 'rejected').length, 1);
+  assert.equal(app.events.filter(e => e.type === 'change').length, 0);
+});
+
+test('a concurrent pane edit remains present after a large import commits', async t => {
+  const app = await mount(t);
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles(Array.from({ length: 600 }, (_, i) => file(`new-${i}.txt`))); });
+  await change(() => app.child.act('rename', ['b'], { name: 'Renamed.txt' }));
+  await change(() => pending);
+  assert.equal(app.main.entries.find(e => e.id === 'b').name, 'Renamed.txt');
+  assert.equal(app.main.entries.filter(e => e.source?.kind === 'local').length, 600);
+  assert.equal(app.events.filter(e => e.type === 'change' && e.action === 'upload').length, 1);
+});
+
+for (const reason of ['cancel', 'save', 'discard', 'readonly']) test(`${reason} stops a large preparation without late changes or rejection notices`, async t => {
+  const app = await mount(t, { upload: { allowedExtensions: ['.pdf'] } }), before = app.main.entries;
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles(Array.from({ length: 600 }, (_, i) => file(`new-${i}.txt`))); });
+  if (reason === 'cancel') await change(() => app.main.cancelUpload());
+  if (reason === 'save') await change(() => app.workspace.draft.save());
+  if (reason === 'discard') await change(() => app.workspace.draft.discard());
+  if (reason === 'readonly') await app.update({ readOnly: true });
+  await change(() => pending);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.notification, null);
+  assert.equal(app.events.filter(e => e.type === 'upload' || e.type === 'change').length, 0);
+  assert.equal(app.requests.length, 0);
+});
+
+test('a large batch still waits for every overwrite decision before its atomic commit', async t => {
+  const app = await mount(t), before = app.main.entries;
+  const files = [file('A.txt'), file('C.txt'), ...Array.from({ length: 598 }, (_, i) => file(`new-${i}.txt`))];
+  await change(() => app.main.addLocalFiles(files, 'file', 'folder'));
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.uploadPrompt.conflictCount, 2);
+  assert.equal(app.main.notification, null);
+  await change(() => app.main.answerUploadConflict('overwrite', true));
+  assert.equal(app.main.entries.find(e => e.id === 'a').source.file, files[0]);
+  assert.equal(app.main.entries.find(e => e.id === 'c').source.file, files[1]);
+  assert.equal(app.events.filter(e => e.type === 'change').length, 1);
+});
+
+test('apply-all never approves a file version changed during cooperative preparation', async t => {
+  const app = await mount(t);
+  const files = [file('A.txt'), ...Array.from({ length: 599 }, (_, i) => file(`new-${i}.txt`))];
+  await change(() => app.main.addLocalFiles(files, 'file', 'folder'));
+  let pending;
+  await change(() => { pending = app.main.answerUploadConflict('overwrite', true); });
+  await change(() => app.child.act('favorite', ['a']));
+  await change(() => pending);
+  assert.equal(app.main.uploadPrompt.conflict.existing.favorite, 1);
+  assert.equal(app.main.entries.find(e => e.id === 'a').source.kind, 'existing');
+  assert.equal(app.events.filter(e => e.type === 'change' && e.action === 'upload').length, 0);
+  await change(() => app.main.answerUploadConflict('overwrite', false));
+  assert.equal(app.main.entries.find(e => e.id === 'a').source.file, files[0]);
+});
+
+test('aborting after asynchronous preparation invalidates its uncommitted candidate', async t => {
+  const app = await mount(t), before = app.main.entries, controller = new AbortController();
+  let prepared;
+  await change(async () => { prepared = await app.workspace.draft.prepareAddAsync([file('Ready.txt')], 'root', [],
+    createExplorerUploadSession(), { signal: controller.signal, onProgress() {} }); });
+  assert.equal(prepared.changed, true);
+  controller.abort();
+  await change(() => assert.equal(prepared.commit(), undefined));
+  assert.equal(app.main.entries, before);
+  assert.equal(app.requests.length, 0);
+  assert.equal(app.events.filter(e => e.type === 'change').length, 0);
 });

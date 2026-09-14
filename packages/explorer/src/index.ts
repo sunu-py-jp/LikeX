@@ -45,6 +45,7 @@ export type {
   ExplorerUploadSession,
   ExplorerUploadInvalidFileBehavior,
   ExplorerUploadResult,
+  ExplorerImportProgress,
   ExplorerUploadRejection,
   ExplorerUploadRejectionReason,
 } from "./model/upload";

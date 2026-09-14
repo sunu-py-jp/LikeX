@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  addFilesWithResult,
+  prepareFilesWithProgress,
   applyAction,
   createDraftSnapshot,
   getSavePayload,
@@ -23,6 +23,8 @@ import type { ExplorerOptions } from "../model/config";
 import { cloneUploadRejections, ExplorerUploadValidationError, formatUploadRejections, resolveUploadOptions, type ExplorerUploadDecision, type ExplorerUploadSession, createExplorerUploadSession, type ExplorerUploadOptions, type ExplorerUploadResult } from "../model/upload";
 import { cloneEditRequest, createEditRequest, type ExplorerEditHandler, type ExplorerEditIntent, type ExplorerEditModeEvent, type ExplorerEditRequest, type ExplorerEditResult, type ExplorerEditState } from "../model/edit-session";
 import type { SaveHandler as CoreSaveHandler, RefreshHandler as CoreRefreshHandler } from "../core";
+import { prepareImport } from "./import-progress";
+import type { ExplorerImportProgress } from "../model/upload";
 
 export type ExplorerSaveHandler = CoreSaveHandler<ExplorerSavePayload, readonly ExplorerEntry[]>;
 
@@ -381,21 +383,22 @@ export function useExplorerDraft({
   }, [checkWritable, requireEdit, commit, emitChange]);
 
   /** Classify first; rejected/empty batches never need an edit session. */
-  const prepareAdd = useCallback((files: readonly File[], parent: string, decisions: readonly ExplorerUploadDecision[] = [], uploadSession: ExplorerUploadSession = createExplorerUploadSession(), owner?: symbol): {
+  const prepareAddSteps = useCallback(function* (files: readonly File[], parent: string, decisions: readonly ExplorerUploadDecision[] = [], uploadSession: ExplorerUploadSession = createExplorerUploadSession(), owner?: symbol, signal?: AbortSignal): Generator<ExplorerImportProgress, {
     result: ExplorerUploadResult;
     changed: boolean;
     commit: () => ExplorerUploadResult | undefined;
-  } | undefined => {
+  } | undefined> {
     if (!checkWritable(owner)) return;
     const captured = [...files];
     const answers = decisions.map(decision => ({ ...decision, existing: { ...decision.existing, source: decision.existing.source ? { ...decision.existing.source } : null } }));
     let source = current.current.draft;
     let options = currentUploadOptions.current;
-    const stage = (snapshot: ExplorerSnapshot, upload: typeof options) => {
+    const stage = function* (snapshot: ExplorerSnapshot, upload: typeof options) {
       try {
-        return addFilesWithResult(snapshot, captured, parent, upload, answers, uploadSession);
+        return yield* prepareFilesWithProgress(snapshot, captured, parent, upload, answers, uploadSession);
       } catch (error) {
-        if (error instanceof ExplorerUploadValidationError) {
+        if (error instanceof ExplorerUploadValidationError && !signal?.aborted &&
+          snapshot === current.current.draft && upload === currentUploadOptions.current) {
           emit(() => ({
             type: "upload", status: "rejected", parentId: parent,
             parentPath: formatExplorerPath(snapshot.entries, parent),
@@ -406,12 +409,16 @@ export function useExplorerDraft({
         throw error;
       }
     };
-    let candidate = stage(source, options);
+    let candidate = yield* stage(source, options);
     const refresh = () => {
       const latest = current.current.draft;
       const latestOptions = currentUploadOptions.current;
       if (latest !== source || latestOptions !== options) {
-        candidate = stage(latest, latestOptions);
+        const operation = stage(latest, latestOptions);
+        for (;;) {
+          const step = operation.next();
+          if (step.done) { candidate = step.value; break; }
+        }
         source = latest;
         options = latestOptions;
       }
@@ -422,13 +429,13 @@ export function useExplorerDraft({
       changed: hasChanges(source, candidate.snapshot),
       result: { ...candidate.result, rejections: cloneUploadRejections(candidate.result.rejections) },
       commit: () => {
-        if (completed || committing || !checkWritable(owner)) return;
+        if (completed || committing || signal?.aborted || !checkWritable(owner)) return;
         committing = true;
         try {
           refresh();
           if (hasChanges(source, candidate.snapshot)) {
             requireEdit({ action: "upload", parent }, owner);
-            if (!checkWritable(owner)) return;
+            if (signal?.aborted || !checkWritable(owner)) return;
             refresh();
           }
           const { snapshot, result } = candidate;
@@ -455,6 +462,32 @@ export function useExplorerDraft({
       },
     };
   }, [checkWritable, requireEdit, commit, emitChange, emit]);
+
+  const prepareAdd = useCallback((files: readonly File[], parent: string, decisions: readonly ExplorerUploadDecision[] = [],
+    uploadSession: ExplorerUploadSession = createExplorerUploadSession(), owner?: symbol) => {
+    const operation = prepareAddSteps(files, parent, decisions, uploadSession, owner);
+    for (;;) {
+      const step = operation.next();
+      if (step.done) return step.value;
+    }
+  }, [prepareAddSteps]);
+  const prepareAddAsync = useCallback(async (files: readonly File[], parent: string,
+    decisions: readonly ExplorerUploadDecision[], uploadSession: ExplorerUploadSession,
+    execution: { signal: AbortSignal; onProgress: (value: ExplorerImportProgress) => void; owner?: symbol },
+  ) => {
+    const { signal, onProgress, owner } = execution;
+    for (;;) {
+      const source = current.current.draft, options = currentUploadOptions.current;
+      try {
+        const prepared = await prepareImport(prepareAddSteps(files, parent, decisions, uploadSession, owner, signal), signal, onProgress);
+        if (source === current.current.draft && options === currentUploadOptions.current) return prepared;
+      } catch (error) {
+        if (signal.aborted || (source === current.current.draft && options === currentUploadOptions.current)) throw error;
+      }
+      // A yielded task may change the destination or upload restrictions. Retry
+      // privately before reporting errors from a snapshot that is no longer current.
+    }
+  }, [prepareAddSteps]);
 
   const apply = useCallback((action: ExplorerAction) => {
     prepareAction(action)?.();
@@ -640,6 +673,7 @@ export function useExplorerDraft({
     endContextMenuOperation,
     prepareAction,
     prepareAdd,
+    prepareAddAsync,
     apply,
     add,
     save,

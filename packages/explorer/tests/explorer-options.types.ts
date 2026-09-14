@@ -28,7 +28,7 @@ import type {
 } from "../src";
 import { createExplorerUploadSession } from "../src";
 
-export const features = { copy: false, move: true, preview: true, download: false } satisfies ExplorerFeatures;
+export const features = { copy: false, move: true, preview: true, download: false, mouseNavigation: false } satisfies ExplorerFeatures;
 export const selectionMode = "single" satisfies ExplorerSelectionMode;
 export const selection = { mode: selectionMode, checkboxes: false } satisfies ExplorerSelectionOptions;
 export const ui = { sidebar: false, contextMenu: true, rowActions: false, thumbnails: true } satisfies ExplorerUIOptions;

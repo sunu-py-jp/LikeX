@@ -410,6 +410,36 @@ const pathsFor = entries => {
   return entries.map(path);
 };
 
+test('external folder drop shares the counted spinner and retains the original destination with file uploads disabled', async t => {
+  const hook = await mount(t, { features: { uploadFiles: false, uploadFolders: true } });
+  const delayed = delayedDirectory('Dropped');
+  const dataTransfer = { ...directoryClipboard([delayed.directory]), getData: () => '', dropEffect: 'none' };
+  const event = { dataTransfer, ctrlKey: false, defaultPrevented: false,
+    preventDefault() { this.defaultPrevented = true; }, stopPropagation() {} };
+  await change(() => hook.current.allowDrop(event, 'folder'));
+  assert.equal(dataTransfer.dropEffect, 'copy');
+  await change(() => hook.current.drop(event, 'folder'));
+  assert.equal(hook.current.notification.kind, 'progress');
+  assert.match(hook.current.notification.description, /0ファイルを検出.*総数を確認中/);
+  assert.equal(hook.current.notification.progress, undefined);
+  assert.equal(hook.current.dirty, false);
+  await change(() => delayed.complete([browserFileEntry(file('inside.txt'))]));
+  assert.ok(pathsFor(hook.current.entries).includes('/資料/Dropped/inside.txt'));
+  assert.equal(hook.current.notification.kind, 'success');
+  assert.equal(hook.events.filter(e => e.type === 'change').length, 1);
+});
+
+test('mixed folder drops honor both upload gates before opening any directory reader', async t => {
+  const hook = await mount(t, { features: { uploadFiles: false, uploadFolders: true } });
+  const root = browserDirectory('Dropped', [browserFileEntry(file('inside.txt'))]);
+  const event = { dataTransfer: { ...directoryClipboard([root], [file('root.txt')]), getData: () => '' },
+    preventDefault() {}, stopPropagation() {} };
+  await change(() => hook.current.drop(event, 'root'));
+  assert.equal(root.stats.calls, 0);
+  assert.equal(hook.current.dirty, false);
+  assert.equal(hook.current.notification.kind, 'error');
+});
+
 test('native folder paste drains 101+ entries, preserves hierarchy and ignores empty folders in one atomic change', async t => {
   const hook = await mount(t);
   const many = Array.from({ length: 105 }, (_, index) => browserFileEntry(file(`file-${index}.txt`)));

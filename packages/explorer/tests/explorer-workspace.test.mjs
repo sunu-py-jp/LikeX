@@ -897,7 +897,7 @@ test('pagehide closes every detached tab while retaining main state for BFCache 
   await change(() => hook.main.setSelected(['nested']));
   const mainTab = hook.workspace.tabs.activeTab;
   const closedIds = [first, second].map(id => hook.workspace.tabs.getWindowTabIds(id));
-  assert.equal(hook.mainDocument.windowListeners.get('pagehide').size, 4, 'workspace closes child views and the pane cancels downloads, pending edit permission and pending upload confirmations');
+  assert.equal(hook.mainDocument.windowListeners.get('pagehide').size, 5, 'workspace closes child views and the pane cancels downloads, pending edit permission, pending upload confirmations and side-button gestures');
   await change(() => hook.mainDocument.dispatch('pagehide'));
   assert.deepEqual(hook.workspace.windows, []);
   assert.deepEqual(hook.workspace.tabs.allTabs, [mainTab]);

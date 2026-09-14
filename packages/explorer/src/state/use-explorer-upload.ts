@@ -15,6 +15,7 @@ import type { ExplorerEditIntent } from "../model/edit-session";
 import type { useExplorerDraft } from "./use-explorer-draft";
 import { describeUploadRejections } from "../model/upload-notification";
 import type { ExplorerNotification } from "../model/notifications";
+import { describeImportProgress } from "./import-progress";
 
 type UploadOptions = {
   draft: ReturnType<typeof useExplorerDraft>;
@@ -25,6 +26,7 @@ type UploadOptions = {
   ownerDocument: Document | null;
   runEdit: (intent: ExplorerEditIntent, operation: () => boolean, onError: (error: unknown) => void) => boolean | Promise<boolean>;
   notify: (kind: "success" | "error" | "info", message: string, options?: Pick<ExplorerNotification, "description" | "details" | "hint" | "persistent">) => unknown;
+  showProgress: (notification: ExplorerNotification) => () => void;
 };
 type Batch = {
   files: File[];
@@ -43,6 +45,7 @@ type Batch = {
   complete?: (changed: boolean) => void;
   reject?: (error: unknown) => void;
   onCancel?: () => void;
+  dismissProgress?: () => void;
 };
 export type ExplorerUploadPrompt = {
   conflict: ExplorerUploadConflict;
@@ -70,6 +73,7 @@ export function useExplorerUpload(options: UploadOptions) {
       (!batch.directory || latest.uploadFolders) && (!batch.requiresFiles || latest.uploadFiles);
   }
   function release(batch: Batch, changed = false) {
+    batch.dismissProgress?.();
     batch.unregister();
     batch.complete?.(changed);
     if (pending.current !== batch) return;
@@ -98,6 +102,7 @@ export function useExplorerUpload(options: UploadOptions) {
   });
 
   function showConflict(batch: Batch, error: ExplorerUploadConflictError) {
+    batch.dismissProgress?.();
     batch.applying = false;
     setApplying(false);
     setPrompt({ conflict: error.conflict, conflictIndex: error.conflictIndex, conflictCount: error.conflictCount, revision: ++revision.current });
@@ -135,6 +140,40 @@ export function useExplorerUpload(options: UploadOptions) {
       });
     } else current.current.notify("error", error instanceof Error ? error.message : "ファイルを追加できませんでした");
   }
+  async function prepareAsync(batch: Batch): Promise<boolean> {
+    batch.applying = true;
+    setApplying(true);
+    for (;;) {
+      if (!alive(batch)) { release(batch); return false; }
+      if (batch.observedEntries !== current.current.draft.getEntries()) {
+        batch.applyAll = null;
+        batch.observedEntries = current.current.draft.getEntries();
+      }
+      try {
+        const prepared = await current.current.draft.prepareAddAsync(batch.files, batch.parent,
+          batch.decisions, batch.session, { owner: batch.owner, signal: batch.controller.signal, onProgress: value => {
+            if (alive(batch)) batch.dismissProgress = current.current.showProgress(describeImportProgress(value));
+          } });
+        if (!alive(batch)) { release(batch); return false; }
+        return applyPrepared(batch, prepared);
+      } catch (error) {
+        if (batch.observedEntries !== current.current.draft.getEntries()) {
+          batch.applyAll = null;
+          batch.observedEntries = current.current.draft.getEntries();
+        }
+        if (error instanceof ExplorerUploadConflictError && batch.applyAll && alive(batch)) {
+          approveRemaining(batch, error);
+        } else { fail(batch, error); return false; }
+      }
+    }
+  }
+  function approveRemaining(batch: Batch, error: ExplorerUploadConflictError) {
+    const unresolved = new Set(error.conflicts.map(conflict => conflict.fileIndex));
+    batch.decisions = batch.decisions.filter(answer => !unresolved.has(answer.fileIndex));
+    batch.decisions.push(...error.conflicts.map(conflict => ({
+      fileIndex: conflict.fileIndex, existing: conflict.existing, action: batch.applyAll!,
+    })));
+  }
   function process(batch: Batch): boolean | Promise<boolean> {
     if (!alive(batch)) { release(batch); return false; }
     const draft = current.current.draft;
@@ -142,6 +181,7 @@ export function useExplorerUpload(options: UploadOptions) {
       batch.applyAll = null;
       batch.observedEntries = draft.getEntries();
     }
+    if (batch.files.length >= 200) return prepareAsync(batch);
     let prepared: ReturnType<typeof draft.prepareAdd>;
     // Rebuild from the original snapshot/Files and approved decisions. Nothing
     // from a partially answered batch is published to the shared workspace.
@@ -151,14 +191,13 @@ export function useExplorerUpload(options: UploadOptions) {
         break;
       } catch (error) {
         if (error instanceof ExplorerUploadConflictError && batch.applyAll) {
-          const unresolved = new Set(error.conflicts.map(conflict => conflict.fileIndex));
-          batch.decisions = batch.decisions.filter(answer => !unresolved.has(answer.fileIndex));
-          batch.decisions.push(...error.conflicts.map(conflict => ({
-            fileIndex: conflict.fileIndex, existing: conflict.existing, action: batch.applyAll!,
-          })));
+          approveRemaining(batch, error);
         } else { fail(batch, error); return false; }
       }
     }
+    return applyPrepared(batch, prepared);
+  }
+  function applyPrepared(batch: Batch, prepared: ReturnType<UploadOptions["draft"]["prepareAdd"]>): boolean | Promise<boolean> {
     if (!prepared) { release(batch); return false; }
     const commit = () => {
       if (!alive(batch)) { release(batch); return false; }
@@ -172,6 +211,10 @@ export function useExplorerUpload(options: UploadOptions) {
       if (!prepared.changed) return commit();
       batch.applying = true;
       setApplying(true);
+      if (batch.dismissProgress) batch.dismissProgress = current.current.showProgress({
+        kind: "progress", message: "読み込んだファイルを一覧へ反映しています", persistent: true,
+        description: `${batch.files.length}ファイルの確認が終わりました`,
+      });
       const result = (batch.runEdit ?? current.current.runEdit)({ action: "upload", parent: batch.parent }, commit, error => fail(batch, error));
       const finish = (changed: boolean) => {
         // Navigation or cancellation can invalidate authorization without an error.

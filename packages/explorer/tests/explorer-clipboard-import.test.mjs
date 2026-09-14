@@ -124,3 +124,17 @@ test('aborting an in-flight File callback preserves the abort reason and cannot 
   controller.abort(reason); await rejected;
   complete(file('late.txt')); await Promise.resolve();
 });
+
+test('directory progress reports real discoveries while totals are unknown, then the final exact count', async () => {
+  const delayed = deferredDirectory('Waiting'), progress = [];
+  const root = directory('Batch', [...Array.from({ length: 37 }, (_, i) => fileEntry(file(`${i}.txt`))), delayed.entry]);
+  const pending = captureClipboardImport(transfer([root])).read(undefined, value => progress.push(value));
+  assert.deepEqual(progress[0], { phase: 'discovering', completed: 0 });
+  await new Promise(resolve => setTimeout(resolve, 90));
+  assert.deepEqual(progress.at(-1), { phase: 'discovering', completed: 37 });
+  assert.ok(progress.every(value => value.total === undefined));
+  delayed.complete([fileEntry(file('last.txt'))]);
+  const files = await pending;
+  assert.equal(files.length, 38);
+  assert.deepEqual(progress.at(-1), { phase: 'discovering', completed: 38, total: 38 });
+});

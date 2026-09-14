@@ -339,17 +339,30 @@ function matchesUploadDecision(existing: ExplorerEntry, expected: ExplorerEntry)
 
 /** Commit accepted files together; skipped inputs never create folders or IDs. */
 export function addFilesWithResult(
+  ...args: Parameters<typeof prepareFilesWithProgress>
+): { snapshot: ExplorerSnapshot; result: ExplorerUploadResult } {
+  const operation = prepareFilesWithProgress(...args);
+  for (;;) {
+    const step = operation.next();
+    if (step.done) return step.value;
+  }
+}
+
+/** One private candidate shared by synchronous callers and cooperative UI imports. */
+export function* prepareFilesWithProgress(
   snapshot: ExplorerSnapshot,
   files: readonly File[],
   parent: string,
   upload?: ExplorerUploadOptions,
   decisions: readonly ExplorerUploadDecision[] = [],
   session: ExplorerUploadSession = createExplorerUploadSession(),
-): { snapshot: ExplorerSnapshot; result: ExplorerUploadResult } {
+): Generator<import("./upload").ExplorerImportProgress, { snapshot: ExplorerSnapshot; result: ExplorerUploadResult }> {
   const source = editSnapshot(snapshot);
   assertDestination(source.entries, parent);
   const options = resolveUploadOptions(upload);
-  const prepared = files.map((file, fileIndex) => {
+  const prepared: UploadInput[] = [];
+  yield { phase: "checking", completed: 0, total: files.length };
+  for (const [fileIndex, file] of files.entries()) {
     if (
       !file ||
       typeof file.name !== "string" ||
@@ -360,8 +373,9 @@ export function addFilesWithResult(
       throw new Error("ファイルを選択してください");
     }
     const parts = (file.webkitRelativePath || file.name).split("/").map(normalizeEntryName);
-    return { file, fileIndex, parts, name: parts[parts.length - 1], relativePath: parts.join("/") };
-  });
+    prepared.push({ file, fileIndex, parts, name: parts[parts.length - 1], relativePath: parts.join("/") });
+    yield { phase: "checking", completed: fileIndex + 1, total: files.length };
+  }
   const state = uploadSessionState(session, parent, prepared);
   if (!Array.isArray(decisions)) throw new Error("アップロードの確認結果を配列で指定してください");
   const decisionsByIndex = new Map<number, ExplorerUploadDecision>();
@@ -412,7 +426,9 @@ export function addFilesWithResult(
   let conflictCount = 0;
   let firstConflictIndex = 0;
   const unresolved: ExplorerUploadConflict[] = [];
+  let preparedCount = 0;
   for (const { file, fileIndex, parts, relativePath } of accepted) {
+    yield { phase: "preparing", completed: preparedCount++, total: accepted.length };
     let destination = parent;
     for (let depth = 0; depth < parts.length - 1; depth++) {
       const part = parts[depth];
@@ -475,6 +491,7 @@ export function addFilesWithResult(
     addedCount++;
     changed = true;
   }
+  yield { phase: "preparing", completed: preparedCount, total: accepted.length };
   if (unresolved.length)
     throw new ExplorerUploadConflictError(unresolved[0], session, firstConflictIndex, conflictCount, unresolved);
   return { snapshot: changed ? finishEdit(source, entries) : snapshot, result: result() };
