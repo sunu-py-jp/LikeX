@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "A client-side file explorer for React with host-owned storage, previews, and downloads.",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

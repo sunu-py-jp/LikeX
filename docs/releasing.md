@@ -27,25 +27,27 @@ CIでは `npm run check:release -- --online` を実行し、パッケージ・�
 | --- | --- |
 | `packages/<module>/dist/` | ESM・NodeNext対応の型宣言・CSS・source map |
 | `packages/<module>/src/README.md` / `src/docs/` | コピー・パッケージ共通の利用ガイド。Markdownを配布物にも同じ配置で同梱 |
-| `packages/<module>/THIRD_PARTY_NOTICES.md` | 実際の依存から生成する第三者通知 |
+| `packages/<module>/THIRD_PARTY_NOTICES.md` / `src/THIRD_PARTY_NOTICES.md` | 実際の直接・推移的依存から生成する通知。コピー版も同じ本文 |
+| `packages/<module>/LICENSE` / `src/LICENSE` | LikeXのMITライセンス |
 | `artifacts/likex-explorer-0.1.0.tgz` | 現在の名前・バージョンでの配布物 |
 | `artifacts/spreadsheet/likex-spreadsheet-0.1.0.tgz` | Spreadsheetの配布物 |
 | `artifacts/core/likex-core-0.1.0.tgz` | coreの配布物 |
 | `artifacts/*-report.json` / `artifacts/spreadsheet/*-report.json` | 各モジュールの導入検証結果 |
 | `artifacts/release-check.json` | 全検証の実行結果。成果物はGit管理せず再生成します。 |
+| `artifacts/license-check.json` | 実行時依存・生成CSSの許可ライセンスと配布通知の確認結果 |
 
 ソースコピーはUIの `styles.css` を含む `packages/<module>/src/` と `packages/core/src/` を隣接フォルダへ持ち出し、UIの `core.ts` 1行だけ相対importへ変更します。利用側はパッケージの `@likex/<module>/styles.css` またはコピーした `styles.css` を読み込みます。両方とも利用先でTailwindの導入・専用設定は不要です。[Explorerの導入手順](../packages/explorer/README.md) または [Spreadsheetの導入手順](../packages/spreadsheet/README.md) を参照してください。
 
 ## 公開前に決めるもの
 
-ルートの `package.json` は常に非公開です。core・Explorer・Spreadsheetも現在は `private: true` / `UNLICENSED` で、tarballの作成は公開の実行を意味しません。
+LikeXはMITライセンスです。ルート・Core・Explorer・Spreadsheetの `private: true` は、npmへの誤公開を防ぐため維持しています。tarballの作成は公開の実行を意味しません。[ライセンスの検査と開発依存の扱い](licensing.md)も確認してください。
 
 1. `@likex` scopeの利用権と公開先、パッケージ名を確定します。
-2. 権利者がライセンスを選び、ルートとパッケージのLICENSE・manifestを整えます。
+2. `npm run check:licenses` と、配布ビルド後の `npm run check:licenses -- --artifacts` でライセンス・通知の整合性を確認します。
 3. バージョンと変更内容を確認し、公開対象のパッケージだけprivateガードを解除します。
 4. 最終設定で再度配布物を生成・検証します。
 
-第三者のライセンス通知は、LikeX自体のライセンス選択を代行しません。将来のモジュールにも独立したmanifest・バージョン・消費側fixtureを用意し、共通の配布検証へ登録します。
+第三者のライセンスは、LikeXのMITライセンスへ置き換わるものではありません。将来のモジュールにも独立したmanifest・バージョン・消費側fixtureを用意し、共通の配布検証へ登録します。
 
 ## GitHubから使える形で公開する
 

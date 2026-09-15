@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "An independent React spreadsheet with local editing, formulas, and host-owned persistence.",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

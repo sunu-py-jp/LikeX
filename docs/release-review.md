@@ -69,7 +69,7 @@ macOS / Node.js 24.2.0 / npm 11.3.0で、一括検証 npm run check:release が�
 | デモ | Vite本番ビルド成功。5173で起動し、暗色テーマ・アイコン一覧・タブ追加・ルート移動・名前変更・保存・再取得を実ブラウザで確認。未保存ダイアログの中心と表示領域の中心の一致、Esc・背景クリックによる取消しも確認。検証用の名前変更を戻し、1タブのicons一覧へ復帰。 |
 | 依存監査 | npm auditの全依存・本番依存とも検出0件。旧Vinext / Drizzle由来の監査項目は、その依存経路ごとの削除で解消しました。監査結果は検証時点の情報です。 |
 | CI | Node.js 22 / 24でnpm ci、オンラインでの一括検証、本番依存監査、tarballと両導入レポート保存を実行します。実行結果は[GitHub Actions](https://github.com/sunu-py-jp/LikeX/actions)で確認できます。 |
-| 公開 | [GitHubリポジトリ](https://github.com/sunu-py-jp/LikeX)を公開。npm・Releasesへのパッケージ公開は未実施で、manifestのprivate / UNLICENSEDを維持。 |
+| 公開 | [GitHubリポジトリ](https://github.com/sunu-py-jp/LikeX)をMITライセンスで公開。npm・Releasesへのパッケージ公開は未実施で、manifestのprivateを維持。[配布ライセンスの検査](licensing.md)を追加。 |
 
 デモの単一JSは約574 kB（gzip約175 kB）で、Vite標準の500 kB超の注意表示が残ります。ビルドは成功しています。これはReact等を含むデモ全体の値です。警告を隠す設定変更や、この構成整理だけを理由にしたコード分割は行っていません。
 

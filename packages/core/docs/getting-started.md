@@ -66,4 +66,4 @@ Coreは両コンポーネントで共有できます。UIのReact依存とスタ
 | 未保存のままウィンドウを閉じる操作を確認する | [離脱確認](./unsaved-changes.md) |
 | 複数のBlobをZIPにまとめる | [ZIPの生成](./zip.md) |
 
-現在のリポジトリは `private: true` / `UNLICENSED` で、npmへの公開は未実施です。tarballを使う場合は、Coreと利用するUIの両方をインストールしてください。
+LikeXはMITライセンスです。コピーする場合は`src/LICENSE`と`src/THIRD_PARTY_NOTICES.md`も保持してください。npmへの公開は未実施で、`private: true`は誤公開防止のため維持しています。tarballを使う場合は、Coreと利用するUIの両方をインストールしてください。

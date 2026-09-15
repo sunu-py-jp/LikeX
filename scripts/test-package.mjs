@@ -26,7 +26,11 @@ async function testConsumer(module) {
   const archiveFiles = (await run('tar', ['-tzf', tarball], { capture: true })).trim().split('\n');
   for (const file of archiveFiles) {
     assert.ok(file.startsWith('package/') && !file.includes('\\') && !file.split('/').includes('..'), `Unsafe packed path: ${file}`);
-    assert.match(file, /^package\/(?:(?:package\.json|README\.md|src\/README\.md|src\/docs\/[^/]+\.md|THIRD_PARTY_NOTICES\.md|LICENSE)$|dist(?:\/|$))/);
+    assert.match(file, /^package\/(?:(?:package\.json|README\.md|src\/README\.md|src\/(LICENSE|THIRD_PARTY_NOTICES\.md)|src\/docs\/[^/]+\.md|THIRD_PARTY_NOTICES\.md|LICENSE)$|dist(?:\/|$))/);
+  }
+  for (const file of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) {
+    assert.equal(await run('tar', ['-xOzf', tarball, `package/${file}`], { capture: true }),
+      await readFile(path.join(packageRoot, file), 'utf8'), `Packaged ${file} must retain the complete notice`);
   }
   const dependenciesToInstall = [];
   for (const dependencyName of dependencyOrder([module]).filter(name => name !== module)) {

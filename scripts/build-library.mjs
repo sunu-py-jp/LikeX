@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { projectRoot } from './lib/run.mjs';
-import { installedPackage } from './lib/packages.mjs';
+import { collectRuntimeNotices } from './lib/licenses.mjs';
 import { assertSourceBoundary } from './lib/source-boundary.mjs';
 import { dependencyOrder, libraryModule, requestedModules } from './lib/modules.mjs';
 import { bundlePlainStyles } from './lib/plain-styles.mjs';
@@ -104,20 +104,18 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
       throw new Error(`Unresolved declaration import ${specifier} in ${file}`);
     }));
   }
-  const notices = ['# Third-party dependencies', '',
-    'Runtime dependencies are external imports. Their own distributions carry notices for transitive dependencies.', ''];
+  const notices = ['# Dependency license notices', '',
+    'Includes installed runtime dependencies and peers, including transitive dependencies. JavaScript packages remain external imports; their notices are retained here for downstream distribution.', ''];
   if (profile.generatedStyles) notices.push('The distributed styles.css includes compiled Tailwind CSS utilities and Preflight. Its MIT license is also retained in styles.css for source-copy consumers.', '');
-  for (const name of [...new Set([...declared, ...profile.bundledDependencies])].sort()) {
-    const { directory: root, manifest: metadata } = await installedPackage(name);
-    notices.push(`## ${name} ${metadata.version}`, '',
-      profile.bundledDependencies.includes(name) ? 'Bundled CSS generated at build time; consumers do not install its compiler.' : 'External runtime dependency.', '',
-      `Declared license: ${metadata.license}`, '');
-    for (const file of await readdir(root, { withFileTypes: true })) {
-      if (file.isFile() && /^(licen[sc]e|notice|copyright)([.-]|$)/i.test(file.name))
-        notices.push(await readFile(path.join(root, file.name), 'utf8'), '');
-    }
+  for (const entry of collectRuntimeNotices(packageRoot, profile.bundledDependencies)) {
+    notices.push(`## ${entry.name} ${entry.version}`, '',
+      profile.bundledDependencies.includes(entry.name) ? 'Bundled CSS generated at build time; consumers do not install its compiler.' : 'External runtime dependency or peer.', '',
+      `Declared license: ${entry.license}`, '', ...entry.notices.flatMap(notice => [notice, '']));
   }
-  await writeFile(path.join(packageRoot, 'THIRD_PARTY_NOTICES.md'), notices.join('\n'));
+  const noticeText = notices.join('\n').replaceAll('\r\n', '\n').trimEnd() + '\n';
+  await writeFile(path.join(packageRoot, 'THIRD_PARTY_NOTICES.md'), noticeText);
+  // Source-copy users receive the same notices as package consumers.
+  await writeFile(path.join(sourceRoot, 'THIRD_PARTY_NOTICES.md'), noticeText);
   const report = { name: manifest.name, version: manifest.version, javascriptBytes: Buffer.byteLength(javascript),
     gzipBytes: gzipSync(javascript).length, declarationFiles: (await declarationFiles(declarationRoot)).length,
     stylesheetBytes: Buffer.byteLength(css), stylesheetGzipBytes: profile.ui ? gzipSync(css).length : 0,

@@ -5,18 +5,20 @@ import { libraryModule, moduleNames } from './lib/modules.mjs';
 
 const online = process.argv.includes('--online');
 const checks = [
-  ...['check:styles', 'docs:check', 'test:scripts', 'test', 'lint', 'typecheck'].map(name => ({ name })),
+  ...['check:licenses', 'check:styles', 'docs:check', 'test:scripts', 'test', 'lint', 'typecheck'].map(name => ({ name })),
   ...moduleNames.flatMap(module => ['pack:library', 'test:package', 'test:copy'].map(name => ({ name, module }))),
   { name: 'build:playground' },
+  { name: 'check:licenses', artifacts: true },
 ];
 const completed = [];
 await mkdir(artifactRoot, { recursive: true });
 const reportFile = path.join(artifactRoot, 'release-check.json');
 try {
   for (const check of checks) {
-    const label = check.module ? `${check.name}:${check.module}` : check.name;
+    const label = check.module ? `${check.name}:${check.module}` : check.artifacts ? `${check.name}:artifacts` : check.name;
     console.log(`\nRelease check: ${label}`);
     const options = check.module ? ['--module', check.module] : [];
+    if (check.artifacts) options.push('--artifacts');
     if (['test:package', 'test:copy'].includes(check.name)) {
       if (libraryModule(check.module).ui) options.push('--next');
       if (online) options.push('--online');

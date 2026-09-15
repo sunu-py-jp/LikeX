@@ -44,4 +44,4 @@ const zip = await createZipArchive([
 
 ExplorerとSpreadsheetは通常のnpm依存として `@likex/core` を利用します。tarballで導入する際はcoreとUIの両tarballをnpmに渡してください。コピー導入では `core/src/` とUIの `src/` を隣接フォルダへ置き、UI側の `core.ts` 1行を `export * from "../core";` へ変更します。自動生成や特殊な解決設定はありません。core単体も `src/` のコピーで利用できます。
 
-npm公開は未実施です。現在は `private: true` / `UNLICENSED` です。
+[MITライセンス](LICENSE)です。コピーする場合は`src/LICENSE`と`src/THIRD_PARTY_NOTICES.md`も保持してください。npm公開は未実施で、`private: true`は誤公開防止のため維持しています。

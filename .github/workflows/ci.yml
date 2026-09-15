@@ -40,6 +40,7 @@ jobs:
             artifacts/library-build.json
             artifacts/library-pack.json
             artifacts/release-check.json
+            artifacts/license-check.json
             artifacts/package-consumer-report.json
             artifacts/package-consumer-next.log
             artifacts/copy-consumer-report.json

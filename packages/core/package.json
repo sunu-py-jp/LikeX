@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Shared host contracts and dependency-free helpers for LikeX interfaces.",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

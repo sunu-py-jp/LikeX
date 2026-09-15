@@ -49,4 +49,6 @@ docs/               # 開発・構成・公開手順
 
 [開発ドキュメント](docs/README.md) にコマンド一覧、構成、配布手順、レビュー記録をまとめています。将来のモジュールは `packages/<module>/` に追加します。
 
-GitHubリポジトリは公開しています。npm・GitHub Releasesへのパッケージ公開は未実施で、ルートと各パッケージは現在 `private: true` / `UNLICENSED` です。
+LikeXは[MITライセンス](LICENSE)です。商用利用・改変・再配布が可能です。第三者の著作権・ライセンス通知も保持してください。[ライセンスと配布範囲](docs/licensing.md)に確認方法をまとめています。
+
+GitHubリポジトリは公開しています。npm・GitHub Releasesへのパッケージ公開は未実施で、`private: true` は誤公開を防ぐため維持しています。

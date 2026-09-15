@@ -51,4 +51,4 @@ CSSはアプリの入口で1回読み込みます。Next.js App Routerでは `ap
 
 [利用ガイドの目次](./src/docs/README.md) から、公開型、機能ON/OFF、検索、保存・更新、プレビュー・ダウンロード、テーマ、ポップアップ、制約、運用例を参照できます。ガイドの `@/components/explorer` はコピー導入の例で、パッケージ利用時は `@likex/explorer` に読み替えます。
 
-Azure等の構成例は設計サンプルであり、バックエンドの実装ではありません。現在のmanifestは `private: true` / `UNLICENSED` です。tarballの作成・配布はオープンソースライセンスの付与やnpm公開を意味しません。
+Azure等の構成例は設計サンプルであり、バックエンドの実装ではありません。LikeXは[MITライセンス](LICENSE)です。コピーする場合は`src/LICENSE`と`src/THIRD_PARTY_NOTICES.md`も保持してください。npm公開は未実施で、`private: true`は誤公開防止のため維持しています。

@@ -1,20 +1,32 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
+import { assertPermissiveLicense, readPackageNotice, resolvePackageDirectory, type PackageNotice } from "../../../scripts/lib/licenses.mjs";
 
-type PackageNotice = {
-  name: string;
-  version: string;
-  license: string;
-  notices: string[];
-};
+const workspaceRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
 export function licenseInventory(): Plugin {
   return {
-    name: "explorer-third-party-inventory",
+    name: "likex-license-inventory",
     apply: "build",
     generateBundle(_options, bundle) {
       const packages = new Map<string, PackageNotice>();
+      const checkedRoots = new Set<string>();
+      const include = (root: string) => {
+        if (checkedRoots.has(root)) return;
+        const entry = assertPermissiveLicense(readPackageNotice(root));
+        const key = `${entry.name}@${entry.version}`;
+        const previous = packages.get(key);
+        if (previous && JSON.stringify(previous) !== JSON.stringify(entry))
+          throw new Error(`Conflicting bundled license notices for ${key}`);
+        packages.set(key, entry);
+        checkedRoots.add(root);
+      };
+      // CSS is not a rendered JS module. Retain its notice even after minification.
+      include(resolvePackageDirectory("tailwindcss", workspaceRoot));
+      // LikeX's own MIT text is also part of the standalone demo distribution.
+      include(path.join(workspaceRoot, "apps/playground"));
       for (const chunk of Object.values(bundle)) {
         if (chunk.type !== "chunk") continue;
         for (const [id, module] of Object.entries(chunk.modules)) {
@@ -26,21 +38,7 @@ export function licenseInventory(): Plugin {
           const name = tail[0].startsWith("@") ? tail.slice(0, 2).join("/") : tail[0];
           const root = normalized.slice(0, position + 14) + name;
           if (!fs.existsSync(path.join(root, "package.json"))) continue;
-          const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-          const key = `${pkg.name ?? name}@${pkg.version}`;
-          if (packages.has(key)) continue;
-          const notices = fs.readdirSync(root)
-            .filter(file => /^(licen[sc]e|notice|copyright)([.-]|$)/i.test(file))
-            .flatMap(file => {
-              const full = path.join(root, file);
-              return fs.statSync(full).isFile() ? [fs.readFileSync(full, "utf8")] : [];
-            });
-          packages.set(key, {
-            name: pkg.name ?? name,
-            version: pkg.version,
-            license: typeof pkg.license === "string" ? pkg.license : JSON.stringify(pkg.license ?? "unlisted"),
-            notices,
-          });
+          include(root);
         }
       }
       const list = [...packages.values()].sort((a, b) => a.name.localeCompare(b.name));

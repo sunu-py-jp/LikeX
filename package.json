@@ -2,7 +2,7 @@
   "name": "likex",
   "version": "0.1.0",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "description": "Independent React interfaces inspired by familiar applications.",
   "type": "module",
   "workspaces": [
@@ -30,6 +30,7 @@
     "test:package": "node scripts/test-package.mjs",
     "test:copy": "node scripts/test-copy.mjs",
     "check:release": "node scripts/check-release.mjs",
+    "check:licenses": "node scripts/check-licenses.mjs",
     "build:styles": "node scripts/build-styles.mjs",
     "check:styles": "node scripts/build-styles.mjs --check",
     "test:styles": "node --test scripts/tests/build-styles.test.mjs",
