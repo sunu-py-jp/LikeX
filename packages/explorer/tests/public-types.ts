@@ -30,6 +30,12 @@ export const popupInitialFile = {
 } satisfies ExplorerPopupProps;
 
 export const optionalInitialFile = { initialEntries: [] } satisfies ExplorerProps;
+export const processingEntries = { initialEntries: [], processingEntryIds: ["file-one", "file-two"] as const } satisfies ExplorerProps;
+export const processingPopup = { ...processingEntries, renderTrigger: () => null } satisfies ExplorerPopupProps;
+// @ts-expect-error Processing IDs must be strings.
+export const invalidProcessingIds = { initialEntries: [], processingEntryIds: [123] } satisfies ExplorerProps;
+// @ts-expect-error Pass an array of entry IDs, not a flag map.
+export const invalidProcessingMap = { initialEntries: [], processingEntryIds: { "file-one": true } } satisfies ExplorerProps;
 export const readOnlyInitialFile = { ...explorerInitialFile, readOnly: true } satisfies ExplorerProps;
 
 // @ts-expect-error Initial file presentation is a closed public union.

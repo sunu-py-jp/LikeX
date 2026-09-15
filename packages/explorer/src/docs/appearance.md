@@ -150,6 +150,53 @@ const renderIconWithBadge: ExplorerIconRenderer = ({
 
 `renderIcon` はReactの描画中に呼ばれる純粋な関数として実装します。関数内で状態更新・通知・通信を始めず、操作の通知には `onEvent` を使います。hooksや非同期データが必要なら、`return <CustomIcon entry={entry} />` のようにコンポーネントを返し、そのコンポーネント内でhooksを使ってください。描画関数の呼出回数を操作回数として扱わないようにします。
 
+<a id="processing-entries"></a>
+
+## 親の処理中状態をアイコンに表示する
+
+`processingEntryIds?: readonly string[]` に処理中の項目IDを渡すと、その項目と祖先フォルダ（ルートを含む）のアイコンに回転するインジケーターを重ねます。ファイルのアップロード後に、親側で本文抽出やAI処理を待つ場合などに使えます。フォルダのIDも指定できます。フォルダを指定した場合、その子ファイルを一律に処理中にはしません。
+
+渡すIDは `ExplorerEntry.id` です。パスや、ファイル本体を参照する `source.id` ではありません。
+
+親がIDを配列から取り除くと表示が消えます。同じフォルダ内に別の処理中ファイルが残っている場合は、そのフォルダの表示を継続します。ファイルを移動した場合は、現在の下書き上の階層に追従します。存在しないIDは無視し、同じIDを複数指定しても表示は1つです。ルートだけを示す場合は `"root"` を指定します。
+
+次は親コンポーネント内のコード例です。`runServerTask` はサーバー処理の完了まで待つ親側の関数です。アップロード後など、必要なタイミングで `startProcessing(fileId)` を呼びます。`entries` と `handleSave` は通常の初期データ・保存処理です。
+
+```tsx
+import { useState } from "react";
+
+const [processingEntryIds, setProcessingEntryIds] = useState<readonly string[]>([]);
+
+async function startProcessing(fileId: string) {
+  setProcessingEntryIds(ids => [...new Set([...ids, fileId])]);
+  try {
+    await runServerTask(fileId);
+  } finally {
+    setProcessingEntryIds(ids => ids.filter(id => id !== fileId));
+  }
+}
+
+// 親の描画部分
+<Explorer
+  initialEntries={entries}
+  onSave={handleSave}
+  processingEntryIds={processingEntryIds}
+/>
+```
+
+| 場面 | 挙動 |
+| --- | --- |
+| 未指定・空配列 | 外部処理のインジケーターを表示しません。 |
+| 親が配列を更新 | 再マウントせず反映します。配列は直接変更せず、新しい配列を渡します。 |
+| 内蔵の取り込みと同時に処理 | 両方を合わせて表示し、どちらも終わるまで消しません。内蔵取り込みの「中止」は親の処理には影響しません。 |
+| 読み取り専用・保存中・再読み込み中 | 外部処理のインジケーターも表示できます。 |
+| アイコンをカスタマイズ | `renderIcon` の戻り値やサムネイルにも重ねます。 |
+| 別ウィンドウ | 同じExplorerから分離した子・孫ウィンドウにも反映します。`ExplorerPopup` も同じpropを使えます。 |
+
+これは表示専用の状態です。保存データ・未保存判定・操作イベントには含めず、ファイルの編集やフォルダ移動も禁止しません。処理の開始・終了・失敗の管理は親が担当します。同じファイルで複数のジョブを同時に走らせる場合は、全ジョブが完了してからそのIDを取り除いてください。別ページや独立したExplorer間で共有する場合も、親側で状態を共有します。
+
+成功・失敗・進捗率などのメッセージは、[外部からの通知](./notifications.md)と組み合わせられます。
+
 ## サイズとスタイルの前提
 
 外枠は `className` / `style`、配色とフォントは `colorMode` / `theme` で調整できます。複数配置する場合は `aria-label` で領域名を付けられます。

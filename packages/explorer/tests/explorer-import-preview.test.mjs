@@ -105,6 +105,29 @@ function delayedFile(name = 'Last.txt') {
 const previews = pane => pane.pendingImportEntries.map(item => item.entry);
 const uploadChanges = app => app.events.filter(event => event.type === 'change' && event.action === 'upload');
 
+test('host processing and local import indicators coexist and finish independently', async t => {
+  const app = await mount(t, {
+    initialEntries: [entry('folder', 'Folder', 'root', 'folder'), entry('existing', 'Existing.txt', 'folder')],
+    processingEntryIds: ['existing'],
+  });
+  const delayed = delayedFile(), hostIds = new Set(['existing', 'folder', 'root']);
+  await app.paste(directory('Folder', [fileEntry(file('Existing.txt')), fileEntry(file('New.txt')), delayed.entry]));
+  await eventually(() => delayed.started && app.main.processingEntryIds.size > hostIds.size, 'pending import should join the host indicators');
+  const combined = app.main.processingEntryIds;
+  assert.deepEqual(app.child.processingEntryIds, hostIds, 'host state is shared but provisional imports stay local');
+  await app.update({ processingEntryIds: [] });
+  assert.deepEqual(app.main.processingEntryIds, combined, 'finishing host processing does not hide an active import on the same file');
+  assert.equal(app.child.processingEntryIds.size, 0);
+  await app.update({ processingEntryIds: ['existing'] });
+  await change(() => app.main.notification.cancelImport());
+  assert.deepEqual(app.main.processingEntryIds, hostIds, 'canceling an import does not cancel or clear host processing');
+  assert.deepEqual(app.child.processingEntryIds, hostIds);
+  assert.equal(app.main.dirty, false);
+  await app.update({ processingEntryIds: [] });
+  assert.equal(app.main.processingEntryIds.size, 0);
+  await change(() => delayed.complete());
+});
+
 test('a discovered native file is grouped inside its root folder before the next callback and rolls back on read failure', async t => {
   const app = await mount(t), before = app.main.entries, delayed = delayedFile();
   await app.paste(directory('Batch', [fileEntry(file('First.txt')), delayed.entry]));
@@ -112,7 +135,7 @@ test('a discovered native file is grouped inside its root folder before the next
   assert.equal(previews(app.main).length, 1);
   assert.equal(previews(app.main)[0].name, 'Batch');
   assert.equal(previews(app.main)[0].kind, 'folder');
-  assert.ok(app.main.importingEntryIds.has(previews(app.main)[0].id));
+  assert.ok(app.main.processingEntryIds.has(previews(app.main)[0].id));
   assert.equal(app.main.entries, before);
   assert.deepEqual(app.main.visible.map(item => item.id), ['folder', 'existing']);
   assert.equal(app.main.dirty, false);
@@ -241,7 +264,7 @@ test('native discovery merges existing folders without duplicate rows and keeps 
   const app = await mount(t, { initialEntries: [entry('batch', 'Batch', 'root', 'folder'), entry('e', 'Existing.txt', 'batch')] });
   const before = app.main.entries, delayed = delayedFile('Existing.txt');
   await app.paste(directory('Batch', [fileEntry(file('First.txt')), delayed.entry]));
-  await eventually(() => app.main.importingEntryIds.has('batch') && delayed.started, 'existing parent should indicate pending descendants');
+  await eventually(() => app.main.processingEntryIds.has('batch') && delayed.started, 'existing parent should indicate pending descendants');
   assert.deepEqual(previews(app.main), []);
   assert.equal(app.main.navigationEntries.filter(item => item.parent === 'root' && item.name === 'Batch').length, 1);
   await change(() => app.main.navigate('batch'));
@@ -252,12 +275,12 @@ test('native discovery merges existing folders without duplicate rows and keeps 
   assert.equal(app.main.uploadPrompt.conflict.existing.id, 'e');
   assert.deepEqual(previews(app.main).map(item => item.name), ['First.txt']);
   assert.equal(previews(app.main)[0].id, firstId);
-  assert.ok(app.main.importingEntryIds.has('e'));
-  assert.ok(app.main.importingEntryIds.has('batch'));
+  assert.ok(app.main.processingEntryIds.has('e'));
+  assert.ok(app.main.processingEntryIds.has('batch'));
   assert.equal(app.main.entries, before);
   await change(() => app.main.cancelUpload());
   assert.equal(previews(app.main).length, 0);
-  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.processingEntryIds.size, 0);
   assert.equal(app.main.currentParent, 'batch');
   assert.equal(app.main.entries, before);
 });
@@ -308,17 +331,17 @@ for (const method of ['paste', 'drop']) test(`nested native ${method} can be bro
   assert.equal(batch.name, 'Batch');
   assert.equal(batch.kind, 'folder');
   assert.deepEqual(app.child.navigationEntries, before, 'the other window has no provisional folders');
-  assert.equal(app.child.importingEntryIds.size, 0);
+  assert.equal(app.child.processingEntryIds.size, 0);
   await change(() => app.main.openPendingImportFolder(batch.id));
   const nested = previews(app.main)[0];
   assert.equal(nested.name, 'Nested');
   assert.equal(nested.parent, batch.id);
-  assert.ok(app.main.importingEntryIds.has(batch.id));
-  assert.ok(app.main.importingEntryIds.has(nested.id));
+  assert.ok(app.main.processingEntryIds.has(batch.id));
+  assert.ok(app.main.processingEntryIds.has(nested.id));
   await change(() => app.main.openPendingImportFolder(nested.id));
   assert.equal(app.main.addressPath, '/Batch/Nested');
   assert.deepEqual(previews(app.main).map(item => item.name), ['First.txt']);
-  assert.ok(app.main.importingEntryIds.has(previews(app.main)[0].id));
+  assert.ok(app.main.processingEntryIds.has(previews(app.main)[0].id));
   assert.equal(app.main.currentParent, nested.id);
   assert.equal(app.main.dirty, false);
   assert.equal(app.main.entries, before);
@@ -336,7 +359,7 @@ for (const method of ['paste', 'drop']) test(`nested native ${method} can be bro
   assert.equal(app.main.addressPath, '/Batch/Nested');
   assert.deepEqual(app.main.visible.map(item => item.name), ['First.txt', 'Second.txt']);
   assert.deepEqual(previews(app.main), []);
-  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.processingEntryIds.size, 0);
   assert.equal(JSON.stringify(app.events).includes('import-preview:'), false);
   assert.equal(app.main.entries, app.child.entries, 'committed entries are shared with the other pane');
 });
@@ -345,7 +368,7 @@ for (const outcome of ['cancel', 'failure']) test(`browsing a provisional descen
   const app = await mount(t, { initialEntries: [entry('batch', 'Batch', 'root', 'folder'), entry('kept', 'Kept.txt', 'batch')] });
   const before = app.main.entries, delayed = delayedFile();
   await app.paste(directory('Batch', [directory('Nested', [fileEntry(file('First.txt')), delayed.entry])]));
-  await eventually(() => delayed.started && app.main.importingEntryIds.has('batch'), 'existing destination should be marked while a descendant is read');
+  await eventually(() => delayed.started && app.main.processingEntryIds.has('batch'), 'existing destination should be marked while a descendant is read');
   await change(() => app.main.navigate('batch'));
   const nested = previews(app.main)[0];
   assert.equal(nested.name, 'Nested');
@@ -355,7 +378,7 @@ for (const outcome of ['cancel', 'failure']) test(`browsing a provisional descen
   else await change(() => delayed.fail());
   await eventually(() => app.main.currentParent === 'batch', 'navigation should return to the nearest surviving ancestor');
   assert.equal(previews(app.main).length, 0);
-  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.processingEntryIds.size, 0);
   assert.equal(app.main.entries, before);
   assert.deepEqual(app.main.visible.map(item => item.name), ['Kept.txt']);
   assert.equal(app.main.addressPath, '/Batch');
@@ -424,7 +447,7 @@ for (const navigation of ['provisional-folder', 'new-tab']) test(`an import awai
   assert.equal(realNested.parent, realBatch.id);
   assert.deepEqual(app.main.entries.filter(item => item.parent === realNested.id).map(item => item.name), ['First.txt', 'Second.txt']);
   assert.equal(app.main.currentParent, navigation === 'provisional-folder' ? realNested.id : 'root');
-  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.processingEntryIds.size, 0);
   assert.equal(requests, 1);
 });
 
@@ -466,7 +489,7 @@ for (const lateResult of ['success', 'failure']) test(`the progress cancel actio
   await change(cancel);
   assert.equal(app.main.currentParent, 'batch', 'cancel returns immediately to the nearest existing folder');
   assert.equal(app.main.addressPath, '/Batch');
-  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.processingEntryIds.size, 0);
   assert.equal(previews(app.main).length, 0);
   assert.equal(app.main.entries, before);
   assert.equal(app.main.dirty, true, 'changes made before this import remain unsaved');
@@ -478,7 +501,7 @@ for (const lateResult of ['success', 'failure']) test(`the progress cancel actio
   await change(() => wait(100));
   assert.equal(app.main.notification, stoppedNotice, 'late callbacks must not replace the cancellation message');
   assert.equal(app.main.entries, before);
-  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.processingEntryIds.size, 0);
   assert.equal(app.requests.length, requestsBefore);
   assert.equal(uploadChanges(app).length, 0);
   assert.equal(app.saves.length, 0);
@@ -501,7 +524,7 @@ test('canceling from the first large-batch progress update stops queued validati
   await change(() => pending);
   assert.ok(canceledNotice, 'the button is available at the first asynchronous validation checkpoint');
   assert.equal(app.main.entries, before);
-  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.processingEntryIds.size, 0);
   assert.equal(app.main.notification.message, '取り込みを中止しました');
   assert.equal(app.main.dirty, false);
   assert.equal(app.requests.length, 0);
@@ -523,7 +546,7 @@ for (const fileCount of [2, 250]) test(`canceling a prepared ${fileCount}-file b
   assert.equal(app.main.addressPath, '/Batch');
   await change(() => app.main.notification.cancelImport());
   assert.equal(app.main.currentParent, 'root');
-  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.processingEntryIds.size, 0);
   assert.notEqual(app.main.editMode, 'requesting');
   assert.equal(app.main.notification.message, '取り込みを中止しました');
   await change(() => permission.resolve(true));
@@ -603,7 +626,7 @@ test('dismissing the progress message only hides it and leaves directory import 
   await change(() => app.main.setNotification(null));
   assert.equal(app.main.notification, null);
   assert.deepEqual(previews(app.main).map(item => item.name), ['Batch']);
-  assert.equal(app.main.importingEntryIds.size > 0, true);
+  assert.equal(app.main.processingEntryIds.size > 0, true);
   await change(() => delayed.complete());
   await eventually(() => uploadChanges(app).length === 1, 'closing the notification must not cancel the import');
   assert.equal(previews(app.main).length, 0);
@@ -654,7 +677,7 @@ test('canceling asynchronous preparation preserves a separate rename permission 
   assert.equal(started, true);
   assert.equal(requestSignal?.aborted, false, 'canceling import preparation must not revoke the unrelated rename request');
   assert.equal(app.main.editMode, 'requesting');
-  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.processingEntryIds.size, 0);
   assert.equal(app.main.notification.message, '取り込みを中止しました');
   await change(() => permission.resolve(true));
   await change(() => rename);

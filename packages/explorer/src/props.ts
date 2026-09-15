@@ -60,6 +60,9 @@ export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave
   contextMenuExecutionMode?: ContextMenuExecutionMode;
   /** Override file/folder icons. Null/undefined preserve the default icon or thumbnail. */
   renderIcon?: ExplorerIconRenderer;
+  /** Display a spinner on these entries and their ancestors. Live, display-only state:
+   * does not lock editing or affect saves/dirty state. Unknown IDs are ignored. */
+  processingEntryIds?: readonly string[];
   /** Optional label at the right of the tab bar. Omitted or blank values are hidden. */
   title?: string;
   /** Display name of the virtual root. Defaults to "ファイル". */

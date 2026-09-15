@@ -19,7 +19,7 @@ import { formatSize } from "../model/entries";
 import { getEntryIndex } from "../model/entry-index";
 import { folderNameOrder } from "../model/text";
 import { iconButtonClass } from "./explorer-controls";
-import { DefaultFileIcon, ExplorerImportingIcon, FileIcon } from "./explorer-file-icon";
+import { DefaultFileIcon, ExplorerProcessingIcon, FileIcon } from "./explorer-file-icon";
 import {
   ExplorerSidebarResizer,
   useExplorerSidebarResize,
@@ -29,7 +29,7 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
   const {
     entries,
     navigationEntries,
-    importingEntryIds,
+    processingEntryIds,
     openPendingImportFolder,
     expanded,
     setExpanded,
@@ -47,7 +47,7 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
     instanceId,
     workspaceRef,
     features,
-  } = useExplorerFields("entries", "navigationEntries", "importingEntryIds", "openPendingImportFolder", "expanded", "setExpanded", "location", "rootLabel", "dragOver", "allowDrop", "setDragOver", "drop", "navigate", "fileCount", "totalSize", "mobileOpen", "setOpenMobile", "instanceId", "workspaceRef", "features");
+  } = useExplorerFields("entries", "navigationEntries", "processingEntryIds", "openPendingImportFolder", "expanded", "setExpanded", "location", "rootLabel", "dragOver", "allowDrop", "setDragOver", "drop", "navigate", "fileCount", "totalSize", "mobileOpen", "setOpenMobile", "instanceId", "workspaceRef", "features");
 
   const asideRef = useRef<HTMLElement>(null);
   const sidebarResize = useExplorerSidebarResize(
@@ -92,7 +92,7 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
             <div
               className={`lxe:flex lxe:h-8 lxe:min-w-0 lxe:items-center lxe:gap-0.5 lxe:pr-2 lxe:hover:bg-[var(--explorer-hover)] ${location === entry.id ? "lxe:bg-[var(--explorer-selection)]" : ""} ${dragOver === entry.id ? "lxe:bg-[var(--explorer-selection)] lxe:outline-1 lxe:-outline-offset-1 lxe:outline-[var(--explorer-accent)]" : ""}`}
               style={{ paddingLeft: 24 + depth * 14 }}
-              aria-busy={importingEntryIds?.has(entry.id) || undefined}
+              aria-busy={processingEntryIds?.has(entry.id) || undefined}
               data-explorer-pending-folder={pending ? entry.id : undefined}
               onContextMenu={pending ? event => { event.preventDefault(); event.stopPropagation(); } : undefined}
               onDragOver={pending ? event => { event.preventDefault(); event.stopPropagation(); } : event => allowDrop(event, entry.id)}
@@ -125,9 +125,9 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
                 aria-current={location === entry.id ? "page" : undefined}
                 onClick={() => goTo(entry.id)}
               >
-                {pending ? <ExplorerImportingIcon importing={importingEntryIds?.has(entry.id) ?? true} className="lxe:size-4">
+                {pending ? <ExplorerProcessingIcon processing={processingEntryIds?.has(entry.id) ?? true} className="lxe:size-4">
                   <DefaultFileIcon entry={entry} className="lxe:size-4" />
-                </ExplorerImportingIcon> : <FileIcon
+                </ExplorerProcessingIcon> : <FileIcon
                   entry={entry}
                   location="tree"
                   selected={location === entry.id}
@@ -226,10 +226,10 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
                         : undefined
                     }
                   >
-                    <ExplorerImportingIcon importing={id === "root" && (importingEntryIds?.has("root") ?? false)} className="lxe:size-[17px]">
+                    <ExplorerProcessingIcon processing={id === "root" && (processingEntryIds?.has("root") ?? false)} className="lxe:size-[17px]">
                       <Icon size={17}
                         className={`lxe:shrink-0 ${id === FAVORITES ? "lxe:text-[var(--explorer-folder)]" : "lxe:text-[var(--explorer-accent)]"}`} />
-                    </ExplorerImportingIcon>
+                    </ExplorerProcessingIcon>
                     <span className="lxe:truncate">{label}</span>
                   </button>
                 </li>
@@ -271,9 +271,9 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
                   className="lxe:flex lxe:h-full lxe:min-w-0 lxe:flex-1 lxe:items-center lxe:gap-2 lxe:rounded-sm lxe:text-left lxe:text-[13px] lxe:outline-offset-[-2px] lxe:focus-visible:outline-2 lxe:focus-visible:outline-[var(--explorer-accent)]"
                   onClick={() => goTo("root")}
                 >
-                  <ExplorerImportingIcon importing={importingEntryIds?.has("root") ?? false} className="lxe:size-4">
+                  <ExplorerProcessingIcon processing={processingEntryIds?.has("root") ?? false} className="lxe:size-4">
                     <HardDrive size={16} className="lxe:shrink-0 lxe:text-[var(--explorer-muted)]" />
-                  </ExplorerImportingIcon>
+                  </ExplorerProcessingIcon>
                   <span className="lxe:truncate">{rootLabel}</span>
                 </button>
               </div>

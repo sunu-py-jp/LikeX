@@ -4,7 +4,7 @@ import { memo, type CSSProperties, type KeyboardEvent, type SyntheticEvent } fro
 import type { ExplorerPendingImportEntry } from "../state/import-preview";
 import type { ExplorerViewMode } from "../model/config";
 import { entryExtension, formatSize } from "../model/entries";
-import { DefaultFileIcon, ExplorerImportingIcon } from "./explorer-file-icon";
+import { DefaultFileIcon, ExplorerProcessingIcon } from "./explorer-file-icon";
 
 const stopInteraction = (event: SyntheticEvent) => event.stopPropagation();
 const preventInteraction = (event: SyntheticEvent) => {
@@ -56,7 +56,7 @@ export const ExplorerPendingImportRow = memo(function ExplorerPendingImportRow({
     {showCheckboxes && <td />}
     <td className={cellClass}>
       <div className="lxe:flex lxe:min-w-0 lxe:items-center lxe:gap-2.5">
-        <ExplorerImportingIcon importing><DefaultFileIcon entry={entry} /></ExplorerImportingIcon>
+        <ExplorerProcessingIcon processing><DefaultFileIcon entry={entry} /></ExplorerProcessingIcon>
         <span className="lxe:min-w-0 lxe:truncate lxe:text-sm lxe:text-[var(--explorer-foreground)]" title={relativePath}>{entry.name}</span>
       </div>
     </td>
@@ -78,7 +78,7 @@ export const ExplorerPendingImportCard = memo(function ExplorerPendingImportCard
     aria-label={entry.kind === "folder" ? entry.name : undefined}
     style={style} className={`${className} lxe:select-none lxe:outline-offset-[-2px] lxe:focus-visible:outline-2 lxe:focus-visible:outline-[var(--explorer-accent)]`}>
     <div className={`lxe:flex lxe:shrink-0 lxe:items-center lxe:justify-center ${visualClassName}`}>
-      <ExplorerImportingIcon importing large><DefaultFileIcon entry={entry} large /></ExplorerImportingIcon>
+      <ExplorerProcessingIcon processing large><DefaultFileIcon entry={entry} large /></ExplorerProcessingIcon>
     </div>
     <span title={relativePath}
       className={`lxe:min-w-0 lxe:text-sm lxe:font-normal ${horizontal ? "lxe:flex-1" : ""} ${descriptive ? `lxe:col-start-2 lxe:row-start-1 lxe:truncate lxe:text-left ${view === "content" ? "lxe:row-span-2" : ""}` : horizontal ? "lxe:truncate lxe:text-left" : "lxe:line-clamp-2 lxe:w-full lxe:text-center lxe:wrap-anywhere"}`}>

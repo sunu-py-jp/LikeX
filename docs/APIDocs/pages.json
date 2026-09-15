@@ -448,7 +448,10 @@
       "ExplorerIconContext",
       "colorMode",
       "theme",
-      "renderIcon"
+      "renderIcon",
+      "processingEntryIds",
+      "処理中",
+      "スピナー"
     ],
     "headings": [
       {
@@ -465,6 +468,11 @@
         "id": "既定アイコンにバッジを重ねる",
         "title": "既定アイコンにバッジを重ねる",
         "depth": 3
+      },
+      {
+        "id": "親の処理中状態をアイコンに表示する",
+        "title": "親の処理中状態をアイコンに表示する",
+        "depth": 2
       },
       {
         "id": "サイズとスタイルの前提",

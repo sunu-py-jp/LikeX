@@ -3,6 +3,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { ExplorerEntry } from "../model/draft";
 import { entryExtension, nameKey, normalizeEntryName } from "../model/entries";
+import { addEntryAndAncestors } from "../model/entry-index";
 
 /** Display-only metadata: these IDs and entries never enter the draft. */
 export type ExplorerPendingImportEntry = Readonly<{
@@ -79,12 +80,7 @@ export function projectExplorerImportPreview(
     return path;
   };
   const markImporting = (id: string) => {
-    let current = id;
-    while (!importingEntryIds.has(current)) {
-      importingEntryIds.add(current);
-      if (current === "root") break;
-      current = byId.get(current)?.parent ?? "root";
-    }
+    addEntryAndAncestors(importingEntryIds, id, byId);
   };
   const appendPending = (entry: ExplorerEntry, relativePath: string) => {
     const children = pendingEntriesByParent.get(entry.parent) ?? [];

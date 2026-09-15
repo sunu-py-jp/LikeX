@@ -28,6 +28,7 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `previewTrigger` | `ExplorerPreviewTrigger`。`"doubleClick"`（既定）または `"click"`。後者はファイル名の単クリックでプレビューします。 |
 | `onEvent` | `ExplorerEventHandler`。ローカル操作・選択・移動・表示状態・保存等を親へ通知します。通知の戻り値や例外は操作の成否を変えません。 |
 | `renderIcon` | `ExplorerIconRenderer`。項目情報・描画箇所・選択状態等から独自アイコンを返します。`null` / `undefined` は既定表示、`false` は枠だけを残します。 |
+| `processingEntryIds` | 任意の `readonly string[]`。親の処理中項目と祖先フォルダにインジケーターを表示します。マウント後の変更に追従し、保存・未保存判定や操作の可否には影響しません。[使い方](./appearance.md#processing-entries) |
 | `title` | 任意の `string`。`title="資料管理"` のようにタブバー右上の表示名を指定します。前後の空白を除去し、省略・空文字・空白のみなら非表示です。 |
 | `rootLabel` | ルートの表示名。省略時・空白のみの場合は「ファイル」。タブ、パンくず、サイドバー、保存場所表示へ適用します。 |
 | `defaultPath` | 「＋」の新規タブで開く仮想フォルダのパス。初期位置の指定がなければ最初のタブにも使います。省略・空白のみなら `/`。初回に解決したフォルダIDを保持します。 |

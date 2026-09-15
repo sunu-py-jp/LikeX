@@ -31,7 +31,7 @@ import { describeEntry } from "../model/item-info";
 import { createPreviewRequest } from "../model/preview";
 import { dispatchExplorerEvent, type ExplorerViewEvent, type ExplorerLocationInfo } from "../model/events";
 import { useExplorerWindowTabs, type TabViewState } from "./use-explorer-tabs";
-import { getEntryIndex } from "../model/entry-index";
+import { addEntryAndAncestors, getEntryIndex } from "../model/entry-index";
 import { useExplorerUpload } from "./use-explorer-upload";
 import { useExplorerContextMenu } from "./use-explorer-context-menu";
 import { useExplorerListing } from "./use-explorer-listing";
@@ -73,6 +73,7 @@ export function useExplorerViewController({
   previewTrigger = "doubleClick",
   onEvent,
   renderIcon,
+  processingEntryIds: hostProcessingEntryIds,
   rootLabel: label,
   features: featureOptions,
   selection: selectionConfig,
@@ -145,6 +146,12 @@ export function useExplorerViewController({
   const importHierarchy = useMemo(() => projectExplorerImportPreview(
     readOnly || saving || refreshing ? null : importPreview.preview, entries,
   ), [importPreview.preview, entries, readOnly, saving, refreshing]);
+  const processingEntryIds = useMemo(() => {
+    if (!hostProcessingEntryIds?.length) return importHierarchy.importingEntryIds;
+    const ids = new Set(importHierarchy.importingEntryIds);
+    for (const id of hostProcessingEntryIds) addEntryAndAncestors(ids, id, entryIndex.byId);
+    return ids;
+  }, [hostProcessingEntryIds, entryIndex, importHierarchy.importingEntryIds]);
   const navigationEntries = importHierarchy.navigationEntries;
   const navigationIndex = getEntryIndex(navigationEntries);
   // Keep paths only while a tab or its history still refers to a provisional
@@ -1423,7 +1430,7 @@ export function useExplorerViewController({
     visible,
     navigationEntries,
     provisionalLocation,
-    importingEntryIds: importHierarchy.importingEntryIds,
+    processingEntryIds,
     pendingImportEntries: !special && !query
       ? importHierarchy.pendingEntriesByParent.get(currentParent) ?? EMPTY_IMPORT_ENTRIES : EMPTY_IMPORT_ENTRIES,
     openPendingImportFolder,

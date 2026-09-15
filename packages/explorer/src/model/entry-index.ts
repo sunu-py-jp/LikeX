@@ -15,6 +15,23 @@ export type EntryIndex<T extends IndexableEntry> = {
 
 const indexes = new WeakMap<readonly IndexableEntry[], EntryIndex<IndexableEntry>>();
 
+/** Add an existing entry and its ancestors up to the virtual root. The target
+ * must already contain the ancestors of any IDs in it, so shared paths stop early. */
+export function addEntryAndAncestors(
+  target: Set<string>,
+  id: string,
+  byId: ReadonlyMap<string, { parent: string }>,
+): void {
+  let current = id;
+  while (!target.has(current)) {
+    if (current === "root") { target.add(current); break; }
+    const entry = byId.get(current);
+    if (!entry) break;
+    target.add(current);
+    current = entry.parent;
+  }
+}
+
 /** A draft's immutable array owns one shared index. Mutable external arrays
  * are deliberately rebuilt so callers can still edit their own input data. */
 export function getEntryIndex<T extends IndexableEntry>(entries: readonly T[]): EntryIndex<T> {

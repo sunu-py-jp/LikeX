@@ -94,14 +94,14 @@ export function DefaultFileIcon({
 }
 
 /** Keep the busy indicator inside the icon's existing footprint. */
-export function ExplorerImportingIcon({ children, importing, large = false, className }: {
+export function ExplorerProcessingIcon({ children, processing, large = false, className }: {
   children: ReactNode;
-  importing: boolean;
+  processing: boolean;
   large?: boolean;
   className?: string;
 }) {
-  if (!importing) return children;
-  return <span data-explorer-importing-icon aria-hidden="true"
+  if (!processing) return children;
+  return <span data-explorer-processing-icon aria-hidden="true"
     className={mergeExplorerClasses(
       "lxe:pointer-events-none lxe:relative lxe:inline-flex lxe:shrink-0 lxe:items-center lxe:justify-center lxe:[&>span:first-child]:size-full",
       large ? "lxe:size-20" : "lxe:h-[23px] lxe:w-5", className,
@@ -116,8 +116,8 @@ export function ExplorerImportingIcon({ children, importing, large = false, clas
   </span>;
 }
 
-function useImportingIcon(entry: Entry) {
-  return useOptionalExplorerSelector(context => context?.importingEntryIds?.has(entry.id) ?? false);
+function useProcessingIcon(entry: Entry) {
+  return useOptionalExplorerSelector(context => context?.processingEntryIds?.has(entry.id) ?? false);
 }
 
 function useIconOverride(
@@ -182,12 +182,12 @@ export const FileIcon = memo(function FileIcon({
     />
   );
   const custom = useIconOverride(entry, fallback, options);
-  const importing = useImportingIcon(entry);
-  return <ExplorerImportingIcon importing={importing} large={large} className={className}>
+  const processing = useProcessingIcon(entry);
+  return <ExplorerProcessingIcon processing={processing} large={large} className={className}>
     {custom == null || custom === fallback ? fallback : (
       <CustomIcon large={large} className={className}>{custom}</CustomIcon>
     )}
-  </ExplorerImportingIcon>;
+  </ExplorerProcessingIcon>;
 });
 
 type FileThumbnailProps = IconOptions & {
@@ -267,10 +267,10 @@ export const FileThumbnail = memo(function FileThumbnail({
     />
   );
   const custom = useIconOverride(entry, fallback, options);
-  const importing = useImportingIcon(entry);
-  return <ExplorerImportingIcon importing={importing} large className={className}>
+  const processing = useProcessingIcon(entry);
+  return <ExplorerProcessingIcon processing={processing} large className={className}>
     {custom == null || custom === fallback ? fallback : (
       <CustomIcon large className={className}>{custom}</CustomIcon>
     )}
-  </ExplorerImportingIcon>;
+  </ExplorerProcessingIcon>;
 });

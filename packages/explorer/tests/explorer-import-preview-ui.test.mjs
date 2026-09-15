@@ -33,7 +33,7 @@ const noop = () => {};
 function context(overrides = {}) {
   return {
     rootLabel: 'ファイル', entries: [real], visible: [real], pendingImportEntries: [pending(1)],
-    importingEntryIds: new Set(), navigationEntries: undefined, openPendingImportFolder: noop,
+    processingEntryIds: new Set(), navigationEntries: undefined, openPendingImportFolder: noop,
     selected: [real.id], selectedSet: new Set([real.id]), activeTabId: 'tab', focusEntryRef: { current: null },
     workspaceRef: { current: null }, clipboard: null, disabled: false, busy: false,
     view: 'details', compact: false, query: '', searchPending: false, searchError: null,
@@ -77,7 +77,7 @@ test('all display modes show non-interactive pending files without invoking publ
     assert.match(visibleText(row), /1\.png/);
     assert.equal(row.findByProps({ title: '追加フォルダ/画像/1.png' }).children.join(''), '1.png');
     assert.equal(visibleText(row).includes('取り込み中'), false);
-    assert.equal(row.findAllByProps({ 'data-explorer-importing-icon': true }).length, 1);
+    assert.equal(row.findAllByProps({ 'data-explorer-processing-icon': true }).length, 1);
     assert.equal(row.props.draggable, false);
     assert.equal(row.props.tabIndex, undefined);
     assert.equal(row.props['data-explorer-entry-id'], undefined);
@@ -150,7 +150,7 @@ test('a long folder path cannot replace the primary filename in any view', async
     assert.ok(!visibleText(name).includes(parent));
     assert.match(name.props.className, /truncate|line-clamp/);
     assert.equal(visibleText(row).includes('取り込み中'), false);
-    assert.equal(row.findAllByProps({ 'data-explorer-importing-icon': true }).length, 1);
+    assert.equal(row.findAllByProps({ 'data-explorer-processing-icon': true }).length, 1);
   });
 });
 
@@ -225,10 +225,10 @@ test('real folder and file icons retain custom overrides with one centered busy 
   for (const view of ['details', 'large', 'small']) await t.test(view, async subtest => {
     const items = [folder, file];
     const renderer = await mount(subtest, context({ view, entries: items, visible: items, pendingImportEntries: [],
-      importingEntryIds: new Set(items.map(item => item.id)),
+      processingEntryIds: new Set(items.map(item => item.id)),
       renderIcon: ({ entry }) => h('span', { 'data-custom-icon': entry.id }, entry.id),
     }));
-    assert.equal(renderer.root.findAllByProps({ 'data-explorer-importing-icon': true }).length, 2);
+    assert.equal(renderer.root.findAllByProps({ 'data-explorer-processing-icon': true }).length, 2);
     for (const item of items) {
       assert.equal(renderer.root.findAllByProps({ 'data-custom-icon': item.id }).length, 1);
       assert.equal(hosts(renderer).filter(node => node.props['data-explorer-entry-id'] === item.id).length, 1);
@@ -242,7 +242,7 @@ test('the tree shows temporary hierarchy with ancestor indicators and prevents t
   const pendingFolder = { ...entry('temporary-folder', '追加フォルダ'), kind: 'folder', extension: '', parent: folder.id };
   const opened = [], navigated = [], icons = [], drops = [];
   const value = context({ entries: [folder], navigationEntries: [folder, pendingFolder],
-    importingEntryIds: new Set(['root', folder.id, pendingFolder.id]), expanded: ['root', folder.id],
+    processingEntryIds: new Set(['root', folder.id, pendingFolder.id]), expanded: ['root', folder.id],
     openPendingImportFolder: id => opened.push(id), navigate: id => navigated.push(id),
     renderIcon: ({ entry }) => { icons.push(entry.id); return null; },
     drop: (_event, id) => drops.push(id), allowDrop: (_event, id) => drops.push(id),
@@ -256,7 +256,7 @@ test('the tree shows temporary hierarchy with ancestor indicators and prevents t
   assert.deepEqual(opened, [pendingFolder.id]);
   assert.deepEqual(navigated, []);
   assert.deepEqual([...new Set(icons)], [folder.id]);
-  assert.equal(renderer.root.findAllByProps({ 'data-explorer-importing-icon': true }).length, 4);
+  assert.equal(renderer.root.findAllByProps({ 'data-explorer-processing-icon': true }).length, 4);
   assert.equal(visibleText(renderer.root).includes('取り込み中'), false);
   for (const action of ['onDrop', 'onDragOver', 'onContextMenu']) {
     let prevented = false, stopped = false;
