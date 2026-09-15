@@ -52,11 +52,12 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
     features,
     uiOptions,
     detachTab,
+    canDetachTab,
     reattachWindow,
     isDetached,
   } = useExplorerFields(
     "tabs", "tabLocations", "entries", "activeTabId", "addTab", "selectTab", "closeTab",
-    "instanceId", "features", "uiOptions", "detachTab", "reattachWindow", "isDetached",
+    "instanceId", "features", "uiOptions", "detachTab", "canDetachTab", "reattachWindow", "isDetached",
   );
   const theme = useExplorerTheme();
   const { document: ownerDocument, portalContainer } = useExplorerDom();
@@ -269,7 +270,7 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
       suppressedClick.current = null;
       clickTimer.current = null;
     }, 0);
-    const detached = canDetach && outside && detachTab(current.id, {
+    const detached = canDetach && (canDetachTab?.(current.id) ?? true) && outside && detachTab(current.id, {
       left: event.screenX - current.offsetX,
       top: event.screenY - current.offsetY,
       tabAnchor: {
@@ -296,6 +297,7 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
       >
         {tabs.map((tab) => {
           const active = tab.id === activeTabId;
+          const canOpenWindow = canDetach && (canDetachTab?.(tab.id) ?? true);
           const folder = entries.find(
             (entry) => entry.kind === "folder" && entry.id === tabLocations[tab.id],
           );
@@ -370,7 +372,7 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
               )}
             </div>
           );
-          if (!features.detachTabs || !uiOptions.contextMenu || (!isDetached && tabs.length <= 1)) return tabContent;
+          if (!features.detachTabs || !uiOptions.contextMenu || (!isDetached && !canOpenWindow)) return tabContent;
           return (
             <ContextMenu.Root key={tab.id}>
               <ContextMenu.Trigger asChild>{tabContent}</ContextMenu.Trigger>
@@ -389,7 +391,7 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
                     if (source?.isConnected) source.focus({ preventScroll: true });
                   }}
                 >
-                  {canDetach && (
+                  {canOpenWindow && (
                     <ContextMenu.Item
                       className={menuItemClass}
                       onSelect={() => {

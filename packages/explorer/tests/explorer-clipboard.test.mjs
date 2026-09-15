@@ -420,7 +420,7 @@ test('external folder drop shares the counted spinner and retains the original d
   assert.equal(dataTransfer.dropEffect, 'copy');
   await change(() => hook.current.drop(event, 'folder'));
   assert.equal(hook.current.notification.kind, 'progress');
-  assert.match(hook.current.notification.description, /0ファイルを検出.*総数を確認中/);
+  assert.equal(hook.current.notification.description, '0ファイルを検出');
   assert.equal(hook.current.notification.progress, undefined);
   assert.equal(hook.current.dirty, false);
   await change(() => delayed.complete([browserFileEntry(file('inside.txt'))]));

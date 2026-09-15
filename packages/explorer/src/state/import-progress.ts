@@ -5,7 +5,7 @@ export function describeImportProgress(value: ExplorerImportProgress): ExplorerN
   const message = value.phase === "discovering" ? "フォルダ内のファイルを確認しています"
     : value.phase === "checking" ? "ファイル情報を確認しています" : "一覧への追加を準備しています";
   const count = value.total === undefined
-    ? `${value.completed}ファイルを検出（総数を確認中）`
+    ? `${value.completed}ファイルを検出`
     : `${value.completed} / ${value.total}ファイル`;
   return { kind: "progress", message, description: count, persistent: true,
     progress: value.total === undefined || value.total === 0 ? undefined : value.completed / value.total * 100 };

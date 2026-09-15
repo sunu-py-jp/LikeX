@@ -35,8 +35,7 @@ export const ExplorerStatusBar = memo(function ExplorerStatusBar() {
       aria-live="polite"
     >
       <span className="lxe:whitespace-nowrap">
-        {searchPending ? "検索中…" : searchError ? "検索に失敗しました" : `${visible.length} 個の項目`}
-        {pendingImportEntries.length > 0 && `・${pendingImportEntries.length} ファイルを取り込み中`}
+        {searchPending ? "検索中…" : searchError ? "検索に失敗しました" : `${visible.length + (pendingImportEntries?.length ?? 0)} 個の項目`}
       </span>
       {readOnly && <span className="lxe:whitespace-nowrap">読み取り専用</span>}
       {customContextMenuState.phase !== "idle" ? <span className="lxe:flex lxe:items-center lxe:gap-2">

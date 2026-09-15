@@ -13,8 +13,8 @@ import { useMenuActionHandoff } from "./use-menu-action-handoff";
 
 /** Add to the displayed folder, only from the list's empty space. */
 export function ExplorerBackgroundMenu({ children }: { children: ReactElement }) {
-  const { features, uiOptions, special, query, busy, showModal, chooseFiles, setSelected, instanceId, hasCustomContextMenu, getCustomContextMenu } =
-    useExplorerFields("features", "uiOptions", "special", "query", "busy", "showModal", "chooseFiles", "setSelected", "instanceId", "hasCustomContextMenu", "getCustomContextMenu");
+  const { features, uiOptions, special, provisionalLocation, query, busy, showModal, chooseFiles, setSelected, instanceId, hasCustomContextMenu, getCustomContextMenu } =
+    useExplorerFields("features", "uiOptions", "special", "provisionalLocation", "query", "busy", "showModal", "chooseFiles", "setSelected", "instanceId", "hasCustomContextMenu", "getCustomContextMenu");
   const [customMenu, setCustomMenu] = useState<ExplorerCustomMenu | null>(null);
   const [open, setOpen] = useState(false);
   const actionHandoff = useMenuActionHandoff();
@@ -23,7 +23,7 @@ export function ExplorerBackgroundMenu({ children }: { children: ReactElement })
   const allowBuiltins = !special && !query.trim();
   const hasCreate = allowBuiltins && (features.createFile || features.createFolder);
   const hasUpload = allowBuiltins && (features.uploadFiles || features.uploadFolders);
-  if (!uiOptions.contextMenu || (!hasCreate && !hasUpload && !hasCustomContextMenu)) return children;
+  if (provisionalLocation || !uiOptions.contextMenu || (!hasCreate && !hasUpload && !hasCustomContextMenu)) return children;
 
   return (
     <ContextMenu.Root open={open} onOpenChange={nextOpen => {

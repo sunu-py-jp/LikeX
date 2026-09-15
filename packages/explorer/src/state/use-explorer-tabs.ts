@@ -125,6 +125,26 @@ function createTabsStore(defaultView: ExplorerViewMode, initialStart: TabStart, 
     refresh(bucket);
     publish();
   }
+  /** Replace provisional folder locations in every tab, including history. */
+  function remapLocations(windowId: string, resolve: (location: ExplorerLocation) => ExplorerLocation) {
+    const bucket = getBucket(windowId);
+    let updated = false;
+    const tabs = bucket.tabs.map(previous => {
+      const requestedLocation = resolve(previous.requestedLocation);
+      const history = previous.history.map(resolve);
+      const expanded = [...new Set(previous.expanded.map(id => resolve(id)).filter((id): id is string => typeof id === "string"))];
+      if (requestedLocation === previous.requestedLocation && equalValue(history, previous.history) && equalValue(expanded, previous.expanded)) return previous;
+      const next = { ...previous, requestedLocation, history, expanded };
+      records.set(next.id, next);
+      updated = true;
+      return next;
+    });
+    if (!updated) return;
+    bucket.tabs = tabs;
+    allTabs = null;
+    refresh(bucket);
+    publish();
+  }
   function addTab(windowId: string, start: TabStart) {
     const id = `tab-${++nextId}`;
     const tab = createTab(id, settings.defaultView, start);
@@ -196,7 +216,7 @@ function createTabsStore(defaultView: ExplorerViewMode, initialStart: TabStart, 
     get activeTab() { return forWindow("main").activeTab; },
     get activeTabId() { return forWindow("main").activeTabId; },
     ...main.actions,
-    forWindow, detachTab, reattachWindow, restoreWindow: reattachWindow,
+    forWindow, remapLocations, detachTab, reattachWindow, restoreWindow: reattachWindow,
     closeWindow: (id: string) => closeWindows([id]), closeWindows, batch,
     get allTabs() { return allTabs ??= [...records.values()]; },
     getWindowTabIds: (windowId: string) => [...(windows.get(windowId)?.ids ?? EMPTY_IDS)],

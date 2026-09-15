@@ -20,11 +20,117 @@ export type ExplorerImportPreviewWriter = {
 
 export const EMPTY_IMPORT_ENTRIES: readonly ExplorerPendingImportEntry[] = Object.freeze([]);
 
-type Preview = { parent: string; entries: readonly ExplorerPendingImportEntry[] };
+export type ExplorerImportPreview = Readonly<{
+  /** Stable for the whole import, including intermediate publications. */
+  id: string;
+  parent: string;
+  entries: readonly ExplorerPendingImportEntry[];
+}>;
+
+export type ExplorerImportPreviewProjection = Readonly<{
+  /** Navigation can see provisional folders; draft operations cannot. */
+  navigationEntries: readonly ExplorerEntry[];
+  pendingEntriesByParent: ReadonlyMap<string, readonly ExplorerPendingImportEntry[]>;
+  importingEntryIds: ReadonlySet<string>;
+  /** Absolute paths let a provisional location follow its committed replacement. */
+  folderPaths: ReadonlyMap<string, string>;
+  fileCount: number;
+}>;
+
+/** Project discovered files into their hierarchy without modifying committed data. */
+export function projectExplorerImportPreview(
+  preview: ExplorerImportPreview | null,
+  committedEntries: readonly ExplorerEntry[],
+): ExplorerImportPreviewProjection {
+  const pendingEntriesByParent = new Map<string, ExplorerPendingImportEntry[]>();
+  const importingEntryIds = new Set<string>();
+  const folderPaths = new Map<string, string>();
+  const result = { navigationEntries: committedEntries, pendingEntriesByParent, importingEntryIds, folderPaths, fileCount: preview?.entries.length ?? 0 };
+  if (!preview?.entries.length) return result;
+
+  const byId = new Map(committedEntries.map(entry => [entry.id, entry]));
+  if (preview.parent !== "root" && byId.get(preview.parent)?.kind !== "folder") return result;
+  const byParentName = new Map<string, Map<string, ExplorerEntry>>();
+  for (const entry of committedEntries) {
+    const siblings = byParentName.get(entry.parent) ?? new Map<string, ExplorerEntry>();
+    siblings.set(nameKey(entry.name), entry);
+    byParentName.set(entry.parent, siblings);
+  }
+  const provisionalFolders: ExplorerEntry[] = [];
+  const pathCache = new Map<string, string>([["root", "/"]]);
+  const pathFor = (id: string): string => {
+    const cached = pathCache.get(id);
+    if (cached !== undefined) return cached;
+    const ancestors: ExplorerEntry[] = [];
+    const seen = new Set<string>();
+    let current = id;
+    while (!pathCache.has(current) && !seen.has(current)) {
+      seen.add(current);
+      const entry = byId.get(current);
+      if (!entry) break;
+      ancestors.push(entry);
+      current = entry.parent;
+    }
+    let path = pathCache.get(current) ?? "/";
+    for (const entry of ancestors.reverse()) {
+      path = `${path === "/" ? "" : path}/${entry.name}`;
+      pathCache.set(entry.id, path);
+    }
+    return path;
+  };
+  const markImporting = (id: string) => {
+    let current = id;
+    while (!importingEntryIds.has(current)) {
+      importingEntryIds.add(current);
+      if (current === "root") break;
+      current = byId.get(current)?.parent ?? "root";
+    }
+  };
+  const appendPending = (entry: ExplorerEntry, relativePath: string) => {
+    const children = pendingEntriesByParent.get(entry.parent) ?? [];
+    children.push({ entry, relativePath });
+    pendingEntriesByParent.set(entry.parent, children);
+    byId.set(entry.id, entry);
+    const siblings = byParentName.get(entry.parent) ?? new Map<string, ExplorerEntry>();
+    siblings.set(nameKey(entry.name), entry);
+    byParentName.set(entry.parent, siblings);
+  };
+  for (const item of preview.entries) {
+    const parts = item.relativePath.split("/");
+    let parent = preview.parent;
+    for (let index = 0; index < parts.length; index++) {
+      const name = parts[index];
+      const last = index === parts.length - 1;
+      const existing = byParentName.get(parent)?.get(nameKey(name));
+      if (existing) {
+        markImporting(existing.id);
+        // A file where a directory is required is reported by upload validation.
+        // Do not create a second row or fictitious children beneath that file.
+        if (last || existing.kind !== "folder") break;
+        parent = existing.id;
+        continue;
+      }
+      const relativePath = parts.slice(0, index + 1).join("/");
+      const entry: ExplorerEntry = last ? { ...item.entry, parent } : {
+        id: `import-preview:${preview.id}:folder:${JSON.stringify(parts.slice(0, index + 1).map(nameKey))}`,
+        parent, name, kind: "folder", extension: "", size: 0, mime: "",
+        createdAt: "", updatedAt: "", favorite: 0, source: null,
+      };
+      appendPending(entry, relativePath);
+      markImporting(entry.id);
+      if (!last) {
+        provisionalFolders.push(entry);
+        folderPaths.set(entry.id, pathFor(entry.id));
+        parent = entry.id;
+      }
+    }
+  }
+  return { ...result, navigationEntries: provisionalFolders.length ? [...committedEntries, ...provisionalFolders] : committedEntries };
+}
 
 /** One originating pane owns the preview; workspace data remains atomic/shared. */
 export function useExplorerImportPreview() {
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const [preview, setPreview] = useState<ExplorerImportPreview | null>(null);
   const active = useRef<ExplorerImportPreviewWriter | null>(null);
   const mounted = useRef(true);
   useLayoutEffect(() => {
@@ -51,7 +157,7 @@ export function useExplorerImportPreview() {
       if (!alive() || !changed) return;
       changed = false;
       lastPublished = performance.now();
-      setPreview({ parent, entries: Array.from(items.values(), value => value.item) });
+      setPreview({ id: token, parent, entries: Array.from(items.values(), value => value.item) });
     };
     const schedule = () => {
       const remaining = 80 - (performance.now() - lastPublished);

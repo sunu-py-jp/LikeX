@@ -14,7 +14,7 @@ test('unknown directory totals stay indeterminate and known counts describe loca
   const discovering = describeImportProgress({ phase: 'discovering', completed: 35 });
   assert.equal(discovering.kind, 'progress');
   assert.equal(discovering.progress, undefined);
-  assert.match(discovering.description, /35ファイルを検出.*総数を確認中/);
+  assert.equal(discovering.description, '35ファイルを検出');
   const preparing = describeImportProgress({ phase: 'preparing', completed: 35, total: 100 });
   assert.equal(preparing.progress, 35);
   assert.equal(preparing.description, '35 / 100ファイル');

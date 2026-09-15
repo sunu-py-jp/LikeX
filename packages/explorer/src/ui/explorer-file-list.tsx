@@ -435,6 +435,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     entries,
     visible,
     pendingImportEntries,
+    openPendingImportFolder,
     selectedSet,
     activeTabId,
     focusEntryRef,
@@ -450,6 +451,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     canSort,
     location,
     special,
+    provisionalLocation,
     currentParent,
     dragOver,
     externalDrag,
@@ -476,7 +478,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     renamingEntryId,
     previewTrigger,
     canEditFavorites,
-  } = useExplorerFields("rootLabel", "entries", "visible", "pendingImportEntries", "selectedSet", "activeTabId", "focusEntryRef", "clipboard", "disabled", "busy", "view", "compact", "query", "searchPending", "searchError", "retrySearch", "canSort", "location", "special", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "chooseFiles", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "showModal", "renamingEntryId", "previewTrigger", "canEditFavorites");
+  } = useExplorerFields("rootLabel", "entries", "visible", "pendingImportEntries", "openPendingImportFolder", "selectedSet", "activeTabId", "focusEntryRef", "clipboard", "disabled", "busy", "view", "compact", "query", "searchPending", "searchError", "retrySearch", "canSort", "location", "special", "provisionalLocation", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "chooseFiles", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "showModal", "renamingEntryId", "previewTrigger", "canEditFavorites");
   const { scheduleRename, cancelPendingRename } = useEntryRenameDelay();
   const suppressNamePreview = useRef(false);
   const horizontal = view === "small" || view === "list";
@@ -500,16 +502,16 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
   const cutIds = useMemo(() => new Set(clipboard?.action === "move" ? clipboard.ids : []), [clipboard]);
   const entryIndex = useMemo(() => getEntryIndex(entries), [entries]);
   const pendingById = useMemo(() => new Map(pendingImportEntries.map(preview => [preview.entry.id, preview])), [pendingImportEntries]);
-  // Only rendering includes staged imports. Selection, navigation, menus and host
-  // callbacks continue to use committed visible entries exclusively.
+  // Only rendering includes staged imports. Selection, menus and host callbacks
+  // use committed entries; temporary folders have a separate navigation action.
   const displayedEntries = useMemo(() => pendingImportEntries.length
     ? [...pendingImportEntries.map(preview => preview.entry), ...visible] : visible, [pendingImportEntries, visible]);
   const { enabled: virtualEnabled, scrollRef: scrollContainerRef, items: virtualItems, layout: virtualLayout,
     pin: pinVirtualEntry, contentStyle: virtualContentStyle } = useExplorerVirtualList(displayedEntries, view, compact, showLocation, showCardControls,
     JSON.stringify([activeTabId, String(location), query, displayedSort, view]), renamingEntryId, focusEntryRef);
-  const canUpload = features.uploadFiles || features.uploadFolders;
+  const canUpload = !provisionalLocation && (features.uploadFiles || features.uploadFolders);
   const acceptsDrop = (event: DragEvent<HTMLElement>) =>
-    !busy &&
+    !provisionalLocation && !busy &&
     (event.dataTransfer.types.includes("Files")
       ? canUpload
       : canDrag && event.dataTransfer.types.includes("application/x-explorer"));
@@ -610,7 +612,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     <section
       className="lxe:flex lxe:min-h-0 lxe:min-w-0 lxe:flex-1 lxe:flex-col lxe:bg-[var(--explorer-background)]"
       aria-label="ファイル一覧"
-      aria-busy={searchPending || pendingImportEntries.length > 0}
+      aria-busy={searchPending || provisionalLocation || pendingImportEntries.length > 0}
       onFocusCapture={(event) => pinVirtualEntry("focus", (event.target as Element).closest<HTMLElement>("[data-explorer-entry-id]")?.dataset.explorerEntryId ?? null)}
       onBlurCapture={(event) => pinVirtualEntry("focus", (event.relatedTarget as Element | null)?.closest?.<HTMLElement>("[data-explorer-entry-id]")?.dataset.explorerEntryId ?? null)}
       onDragEndCapture={() => pinVirtualEntry("drag", null)}
@@ -667,7 +669,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
             </span>
           </div>
         )}
-        {searchPending || searchError || !displayedEntries.length ? (
+        {searchPending || searchError || !displayedEntries.length ? (provisionalLocation && !searchPending && !searchError ? null :
           <div role={searchError ? "alert" : searchPending ? "status" : undefined} className="lxe:flex lxe:h-full lxe:min-h-52 lxe:flex-col lxe:items-center lxe:justify-center lxe:gap-3 lxe:p-6 lxe:text-center">
             {searchPending ? (
               <Loader2
@@ -728,6 +730,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
             {!searchPending &&
               !searchError &&
               !special &&
+              !provisionalLocation &&
               !searching &&
               (features.uploadFiles ||
                 features.uploadFolders ||
@@ -865,7 +868,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                 {pendingById.has(entry.id) ? (
                   <ExplorerPendingImportRow preview={pendingById.get(entry.id)!} rowIndex={index + 2}
                     style={virtualEnabled ? { height: virtualLayout.rowHeight } : undefined}
-                    compact={compact} showCheckboxes={showCheckboxes} showActions={showActions} />
+                    compact={compact} showCheckboxes={showCheckboxes} showActions={showActions} onOpenFolder={openPendingImportFolder} />
                 ) : <EntryContext entry={entry} onOpenChange={open => pinVirtualEntry("menu", open ? entry.id : null)}>
                   <tr
                     {...entryEvents(entry)}
@@ -942,7 +945,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
           <div className={`lxe:content-start ${gridClasses[view]}`} style={virtualContentStyle}>
             {virtualItems.map(({ entry, style }) => pendingById.has(entry.id) ? (
               <ExplorerPendingImportCard key={entry.id} preview={pendingById.get(entry.id)!} style={style}
-                compact={compact} view={view} className={cardClassName} visualClassName={visualClasses[view]} />
+                compact={compact} view={view} className={cardClassName} visualClassName={visualClasses[view]} onOpenFolder={openPendingImportFolder} />
             ) : (
               <EntryContext key={entry.id} entry={entry} onOpenChange={open => pinVirtualEntry("menu", open ? entry.id : null)}>
                 <div

@@ -39,7 +39,7 @@ import { useExplorerSearch } from "./use-explorer-search";
 import { useExplorerMouseNavigation } from "./use-explorer-mouse-navigation";
 import { captureClipboardImport, type ClipboardImport } from "./clipboard-import";
 import { describeImportProgress } from "./import-progress";
-import { EMPTY_IMPORT_ENTRIES, useExplorerImportPreview, type ExplorerImportPreviewWriter } from "./import-preview";
+import { EMPTY_IMPORT_ENTRIES, projectExplorerImportPreview, useExplorerImportPreview, type ExplorerImportPreviewWriter } from "./import-preview";
 import { hasKeyModifiers, isComposingKeyEvent, matchesExplorerShortcut } from "../model/keyboard";
 import {
   DEFAULT_ROOT_LABEL,
@@ -142,6 +142,37 @@ export function useExplorerViewController({
   }, [cancelEditRequest, windowId, ownerDocument]);
   const tabState = useExplorerWindowTabs(workspace.tabs, windowId);
   const entryIndex = getEntryIndex(entries);
+  const importHierarchy = useMemo(() => projectExplorerImportPreview(
+    readOnly || saving || refreshing ? null : importPreview.preview, entries,
+  ), [importPreview.preview, entries, readOnly, saving, refreshing]);
+  const navigationEntries = importHierarchy.navigationEntries;
+  const navigationIndex = getEntryIndex(navigationEntries);
+  // Keep paths only while a tab or its history still refers to a provisional
+  // folder. Completion replaces those references with real IDs before paint.
+  const [rememberedImportNavigation, setRememberedImportNavigation] = useState(() => ({
+    paths: importHierarchy.folderPaths,
+    tabs: tabState.tabs,
+    folders: importHierarchy.folderPaths,
+  }));
+  if (rememberedImportNavigation.paths !== importHierarchy.folderPaths || rememberedImportNavigation.tabs !== tabState.tabs) {
+    const referenced = new Set(tabState.tabs.flatMap(tab => [tab.requestedLocation, ...tab.history, ...tab.expanded]));
+    const folders = new Map([...rememberedImportNavigation.folders].filter(([id]) => referenced.has(id)));
+    for (const [id, path] of importHierarchy.folderPaths) folders.set(id, path);
+    setRememberedImportNavigation({ paths: importHierarchy.folderPaths, tabs: tabState.tabs, folders });
+  }
+  const knownImportFolders = rememberedImportNavigation.folders;
+  const resolveImportLocation = useCallback((requested: ExplorerLocation): ExplorerLocation => {
+    if (typeof requested !== "string" || navigationIndex.byId.has(requested)) return requested;
+    let path = knownImportFolders.get(requested);
+    while (path) {
+      try { return resolveExplorerPath(navigationEntries, path); }
+      catch { path = path.slice(0, path.lastIndexOf("/")); }
+    }
+    return knownImportFolders.has(requested) ? "root" : requested;
+  }, [navigationEntries, navigationIndex, knownImportFolders]);
+  useLayoutEffect(() => {
+    workspace.tabs.remapLocations(windowId, resolveImportLocation);
+  }, [workspace.tabs, windowId, resolveImportLocation]);
   const {
     requestedLocation,
     history,
@@ -358,8 +389,11 @@ export function useExplorerViewController({
         return false;
       }
       const currentTab = workspace.tabs.forWindow(windowId);
+      // Uploads keep their captured destination while the user browses. Other
+      // edits still belong to the initiating tab and visible selection.
+      const viewChanged = currentTab.activeTabId !== tabId || currentTab.activeTab.requestedLocation !== requestedLocation;
       if (session.mode !== "edit" || session.requestId !== requestId ||
-        currentTab.activeTabId !== tabId || currentTab.activeTab.requestedLocation !== requestedLocation ||
+        (intent.action !== "upload" && viewChanged) ||
         currentDraft.current.saving || currentDraft.current.refreshing || (intent.action !== "upload" && intent.action !== "save" && !canAct(intent.action, currentOptions.current))) return false;
       try {
         const latest = getEntryIndex(draft.getEntries());
@@ -387,13 +421,14 @@ export function useExplorerViewController({
   const entryId = (id: string) => `${instanceId}-entry-${id}`;
   const [mobileOpen, setOpenMobile] = useState(false);
   const resolveLocation = useCallback((requested: ExplorerLocation): ExplorerLocation => {
+    requested = resolveImportLocation(requested);
     return requested === "root" ||
       (requested === FAVORITES && features.favorites) ||
       (requested === RECENT && features.recent) ||
-      entryIndex.byId.get(requested as string)?.kind === "folder"
+      navigationIndex.byId.get(requested as string)?.kind === "folder"
       ? requested
       : "root";
-  }, [entryIndex, features.favorites, features.recent]);
+  }, [navigationIndex, resolveImportLocation, features.favorites, features.recent]);
   const locationTitle = useCallback((value: ExplorerLocation): string => {
     return value === "root"
       ? rootLabel
@@ -401,12 +436,13 @@ export function useExplorerViewController({
         ? "お気に入り"
         : value === RECENT
           ? "最近更新したファイル"
-          : (entryIndex.byId.get(value as string)?.name ?? "フォルダ");
-  }, [entryIndex, rootLabel]);
+          : (navigationIndex.byId.get(value as string)?.name ?? "フォルダ");
+  }, [navigationIndex, rootLabel]);
   const location = resolveLocation(requestedLocation);
-  const folder = entryIndex.byId.get(location as string),
+  const folder = navigationIndex.byId.get(location as string),
     special = location === FAVORITES || location === RECENT,
     currentParent = typeof location === "string" ? location : "root";
+  const provisionalLocation = importHierarchy.folderPaths.has(currentParent);
   const title = locationTitle(location);
   const tabLocations = useMemo(() => Object.fromEntries(
     tabState.tabs.map(tab => [tab.id, resolveLocation(tab.requestedLocation)] as const),
@@ -419,7 +455,7 @@ export function useExplorerViewController({
   })), [features.tabs, features.search, tabState.tabs, tabState.activeTab, locationTitle, resolveLocation]);
   function clearTransientState() {
     composingSearch.current = false;
-    cancelEditRequest(windowId);
+    cancelBrowsingEditRequest();
     cancelRename();
     setModal(null);
     setPreviewId(null);
@@ -448,9 +484,17 @@ export function useExplorerViewController({
       clearTransientState();
     tabState.closeTab(id);
   }
+  function canDetachTab(id: string): boolean {
+    const windowTabs = workspace.tabs.forWindow(windowId).tabs;
+    const tab = windowTabs.find(tab => tab.id === id);
+    // A provisional folder belongs to this pane until it becomes a real entry.
+    return features.tabs && features.detachTabs && windowTabs.length > 1 && !!tab &&
+      ![tab.requestedLocation, ...tab.history].some(location => typeof location === "string" &&
+        (importHierarchy.folderPaths.has(location) || knownImportFolders.has(location)));
+  }
   function detachTab(id: string, position?: WindowPosition): boolean {
     const windowTabIds = workspace.tabs.getWindowTabIds(windowId);
-    if (!features.tabs || !features.detachTabs || windowTabIds.length <= 1 || !windowTabIds.includes(id)) return false;
+    if (!canDetachTab(id) || windowTabIds.length <= 1 || !windowTabIds.includes(id)) return false;
     if (workspace.detachTab(id, ownerDocument, position, windowId, () => {
       if (mounted.current) notify("error", "別ウィンドウを表示できなかったため、タブを復元しました", {
         description: "ブラウザが新しいウィンドウを閉じたか、表示を完了できませんでした",
@@ -469,11 +513,11 @@ export function useExplorerViewController({
   }
   const displayedSort =
     location === RECENT ? { key: "updatedAt" as const, asc: false } : sort;
-  const crumbs = useMemo(() => getEntryPath(entries, currentParent), [entries, currentParent]);
-  const addressPath = formatExplorerPath(entries, currentParent);
+  const crumbs = useMemo(() => getEntryPath(navigationEntries, currentParent), [navigationEntries, currentParent]);
+  const addressPath = formatExplorerPath(navigationEntries, currentParent);
   function navigatePath(value: string) {
     if (!features.pathInput) return;
-    navigate(resolveExplorerPath(entries, value, currentParent, rootLabel));
+    navigate(resolveExplorerPath(navigationEntries, value, currentParent, rootLabel));
   }
   const details = features.details ? entryIndex.byId.get(detailId ?? "") : undefined,
     preview = features.preview && !onPreviewRequest ? entryIndex.byId.get(previewId ?? "") : undefined;
@@ -483,7 +527,7 @@ export function useExplorerViewController({
     : { kind: location === FAVORITES ? "favorites" : "recent", id: null, name: title, path: null },
   [location, title, addressPath]);
   const { resultIds, searchPending, searchError, externalSearch } = useExplorerSearch({
-    enabled: features.search, query, entries, location: locationInfo,
+    enabled: features.search && !provisionalLocation, query, entries, location: locationInfo,
     tabId: tabState.activeTabId, windowId, onSearchRequest, trigger: searchTrigger,
     debounceMs: searchOptions?.debounceMs, revision: searchRevision, ownerDocument,
   });
@@ -521,7 +565,7 @@ export function useExplorerViewController({
     observedState.current = keys;
     if (!previous || !onEvent) return;
     const events: ExplorerViewEvent[] = [];
-    if (previous.navigate !== keys.navigate)
+    if (previous.navigate !== keys.navigate && !provisionalLocation)
       events.push({ type: "navigate", location: { ...locationInfo } });
     if (previous.selection !== keys.selection)
       events.push({ type: "selection", ids: [...selected], entries: selectedEntries.map(entry => describeEntry(entries, entry)) });
@@ -612,7 +656,7 @@ export function useExplorerViewController({
 
   function changeView(mode: ExplorerViewMode) {
     if (allowedViewModes.includes(mode)) {
-      cancelEditRequest(windowId);
+      cancelBrowsingEditRequest();
       cancelRename();
       setView(mode);
     }
@@ -621,10 +665,16 @@ export function useExplorerViewController({
     if (allowedViewModes.length > 1) setCompact(value);
   }
   const canDrag = features.copy || features.move;
-  const canPaste = !busy && !special && !!clipboard && features[clipboard.action];
+  const canPaste = !busy && !special && !provisionalLocation && !!clipboard && features[clipboard.action];
+  function cancelBrowsingEditRequest() {
+    // Import authorization targets the captured destination, not the folder
+    // being viewed. Browsing must not cancel a background import.
+    if (!pendingTransfer.current && !uploadImport.isPending()) cancelEditRequest(windowId);
+  }
   function navigate(id: ExplorerLocation, record = true) {
     if ((id === FAVORITES && !features.favorites) || (id === RECENT && !features.recent)) return;
-    cancelEditRequest(windowId);
+    id = resolveLocation(id);
+    cancelBrowsingEditRequest();
     cancelRename();
     composingSearch.current = false;
     tabState.patchTabState(previous => {
@@ -633,11 +683,14 @@ export function useExplorerViewController({
         requestedLocation: id, selectedIds: [], anchor: null, query: "", searchText: "",
         history: nextHistory, historyIndex: record ? nextHistory.length - 1 : previous.historyIndex,
         expanded: typeof id === "string" && id !== "root"
-          ? [...new Set([...previous.expanded, ...getEntryPath(entries, id).map(entry => entry.id)])]
+          ? [...new Set([...previous.expanded, ...getEntryPath(navigationEntries, id).map(entry => entry.id)])]
           : previous.expanded,
       };
     });
     setOpenMobile(false);
+  }
+  function openPendingImportFolder(id: string) {
+    if (importHierarchy.folderPaths.has(id)) navigate(id);
   }
   function travel(direction: number) {
     const index = historyIndex + direction;
@@ -650,7 +703,7 @@ export function useExplorerViewController({
 
   function showModal(type: ExplorerDialogState["type"], ids = selected) {
     const creating = type === "create" || type === "createFile";
-    if (busy || !canShowModal(type, currentOptions.current, currentDraft.current.canRefresh) || (creating && special)) return;
+    if (busy || !canShowModal(type, currentOptions.current, currentDraft.current.canRefresh) || (creating && (special || provisionalLocation))) return;
     const capturedIds = creating ? [] : [...ids];
     cancelRename();
     setModalRevision(currentDraft.current.getEditRevision());
@@ -834,8 +887,9 @@ export function useExplorerViewController({
   }
   function paste() {
     const copied = workspace.getClipboard();
-    const currentLocation = workspace.tabs.forWindow(windowId).activeTab.requestedLocation;
+    const currentLocation = resolveLocation(workspace.tabs.forWindow(windowId).activeTab.requestedLocation);
     if (!copied || typeof currentLocation !== "string" || currentDraft.current.saving || currentDraft.current.refreshing ||
+      (currentLocation !== "root" && !getEntryIndex(currentDraft.current.getEntries()).byId.has(currentLocation)) ||
       currentDraft.current.getEditState().mode === "requesting" || !canAct(copied.action, currentOptions.current)) return false;
     return act(
       copied.action,
@@ -976,7 +1030,7 @@ export function useExplorerViewController({
       isSameFolderMove(entries, draggedIdsRef.current, id);
     // During dragover the protected transfer may expose only "Files". Allow
     // either import kind here, then validate the actual file/folder mix on drop.
-    if (busy || currentOptions.current.readOnly || sameFolder || (internal ? !canAct(event.ctrlKey ? "copy" : "move", currentOptions.current) : !(currentOptions.current.features.uploadFiles || currentOptions.current.features.uploadFolders))) {
+    if (busy || currentOptions.current.readOnly || (id !== "root" && !entryIndex.byId.has(id)) || sameFolder || (internal ? !canAct(event.ctrlKey ? "copy" : "move", currentOptions.current) : !(currentOptions.current.features.uploadFiles || currentOptions.current.features.uploadFolders))) {
       event.dataTransfer.dropEffect = "none";
       setDragOver(null);
       return;
@@ -988,7 +1042,7 @@ export function useExplorerViewController({
     event.preventDefault();
     event.stopPropagation();
     endDrag();
-    if (busy || currentOptions.current.readOnly) return;
+    if (busy || currentOptions.current.readOnly || (id !== "root" && !entryIndex.byId.has(id))) return;
     const raw = event.dataTransfer.getData("application/x-explorer");
     if (raw) {
       if (!features[event.ctrlKey ? "copy" : "move"]) return;
@@ -1040,10 +1094,11 @@ export function useExplorerViewController({
     tabId: tabState.activeTabId, selected, location: locationInfo,
     container: workspaceRef, upload: uploadImport, notify, emitEvent });
   function addLocalFiles(files: File[], source: "file" | "folder" = "file", parent = currentParent, preview?: ExplorerImportPreviewWriter) {
+    if (importHierarchy.folderPaths.has(parent)) { preview?.clear(); return false; }
     return uploadImport.start(files, parent, source === "folder" || files.some(file => !!file.webkitRelativePath), undefined, preview);
   }
   function importTransferredFiles(captured: ClipboardImport, parent: string, source: "貼り付け" | "ドロップ") {
-    if (uploadImport.isPending()) return;
+    if (uploadImport.isPending() || (parent !== "root" && !entryIndex.byId.has(parent))) return;
     pendingTransfer.current?.controller.abort();
     const allowed = currentOptions.current.features;
     if ((captured.hasDirectories && !allowed.uploadFolders) || (captured.hasRootFiles && !allowed.uploadFiles)) {
@@ -1091,7 +1146,7 @@ export function useExplorerViewController({
   }
 
   function chooseFiles(directory = false) {
-    if (busy || special || currentOptions.current.readOnly || !(directory ? currentOptions.current.features.uploadFolders : currentOptions.current.features.uploadFiles)) return;
+    if (busy || special || provisionalLocation || currentOptions.current.readOnly || !(directory ? currentOptions.current.features.uploadFolders : currentOptions.current.features.uploadFiles)) return;
     const source = directory ? "folder" : "file";
     const input = directory ? folderInput.current : fileInput.current;
     if (!input) return;
@@ -1260,6 +1315,7 @@ export function useExplorerViewController({
     selectTab,
     closeTab,
     detachTab,
+    canDetachTab,
     reattachWindow,
     isDetached: windowId !== "main",
     entries,
@@ -1356,8 +1412,12 @@ export function useExplorerViewController({
     totalSize,
     fileCount,
     visible,
-    pendingImportEntries: !readOnly && !saving && !refreshing && !special && !query && importPreview.preview?.parent === currentParent
-      ? importPreview.preview.entries : EMPTY_IMPORT_ENTRIES,
+    navigationEntries,
+    provisionalLocation,
+    importingEntryIds: importHierarchy.importingEntryIds,
+    pendingImportEntries: !special && !query
+      ? importHierarchy.pendingEntriesByParent.get(currentParent) ?? EMPTY_IMPORT_ENTRIES : EMPTY_IMPORT_ENTRIES,
+    openPendingImportFolder,
     changeView,
     changeCompact,
     navigate,
@@ -1381,7 +1441,7 @@ export function useExplorerViewController({
     addLocalFiles,
     uploadPrompt: uploadImport.prompt,
     hasCustomContextMenu: !!getContextMenuItems,
-    getCustomContextMenu: customMenu.getMenu,
+    getCustomContextMenu: (entry?: Entry) => provisionalLocation ? null : customMenu.getMenu(entry),
     runCustomContextMenu: customMenu.run,
     customContextMenuState: customMenu.state,
     customContextMenuBusy: workspace.draft.contextMenuBusy,

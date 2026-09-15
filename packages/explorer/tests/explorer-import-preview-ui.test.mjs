@@ -10,6 +10,8 @@ const output = await build({
   absWorkingDir: packageRoot,
   stdin: {
     contents: `export { ExplorerFileList } from './src/ui/explorer-file-list.tsx';
+      export { ExplorerSidebar } from './src/ui/explorer-sidebar.tsx';
+      export { ExplorerStatusBar } from './src/ui/explorer-status-bar.tsx';
       export { ExplorerContext } from './src/state/explorer-context.tsx';`,
     resolveDir: packageRoot,
   },
@@ -20,7 +22,7 @@ const output = await build({
     }));
   } }],
 });
-const { ExplorerFileList, ExplorerContext } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { ExplorerFileList, ExplorerSidebar, ExplorerStatusBar, ExplorerContext } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const modes = ['details', 'extra-large', 'large', 'medium', 'small', 'list', 'tiles', 'content'];
 const entry = (id, name) => ({ id, name, parent: 'root', kind: 'file', extension: name.split('.').at(-1),
   size: 123, mime: 'text/plain', source: null, favorite: 0,
@@ -31,6 +33,7 @@ const noop = () => {};
 function context(overrides = {}) {
   return {
     rootLabel: 'ファイル', entries: [real], visible: [real], pendingImportEntries: [pending(1)],
+    importingEntryIds: new Set(), navigationEntries: undefined, openPendingImportFolder: noop,
     selected: [real.id], selectedSet: new Set([real.id]), activeTabId: 'tab', focusEntryRef: { current: null },
     workspaceRef: { current: null }, clipboard: null, disabled: false, busy: false,
     view: 'details', compact: false, query: '', searchPending: false, searchError: null,
@@ -45,6 +48,8 @@ function context(overrides = {}) {
     uiOptions: { rowActions: false, contextMenu: false, thumbnails: true },
     canDrag: true, renamingEntryId: null, previewTrigger: 'click', canEditFavorites: false,
     startRename: noop, modal: null, preview: null, details: null, expanded: [],
+    setExpanded: noop, navigate: noop, fileCount: 1, totalSize: 123, mobileOpen: false, setOpenMobile: noop,
+    instanceId: 'explorer-preview',
     ...overrides,
   };
 }
@@ -71,7 +76,8 @@ test('all display modes show non-interactive pending files without invoking publ
     assert.ok(row);
     assert.match(visibleText(row), /1\.png/);
     assert.equal(row.findByProps({ title: '追加フォルダ/画像/1.png' }).children.join(''), '1.png');
-    assert.match(visibleText(row), /取り込み中/);
+    assert.equal(visibleText(row).includes('取り込み中'), false);
+    assert.equal(row.findAllByProps({ 'data-explorer-importing-icon': true }).length, 1);
     assert.equal(row.props.draggable, false);
     assert.equal(row.props.tabIndex, undefined);
     assert.equal(row.props['data-explorer-entry-id'], undefined);
@@ -122,7 +128,7 @@ test('clearing an aborted batch restores the empty folder and preview paths rema
     ...pending(0), relativePath: '<img src=x onerror=alert(1)>/0.png',
   }] });
   const renderer = await mount(t, value);
-  assert.match(visibleText(pendingNodes(renderer)[0]), /<img src=x onerror=alert\(1\)>/);
+  assert.equal(visibleText(pendingNodes(renderer)[0]).includes('<img'), false);
   assert.equal(pendingNodes(renderer)[0].findByProps({ title: '<img src=x onerror=alert(1)>/0.png' }).children.join(''), '0.png');
   assert.equal(renderer.root.findAllByType('img').length, 0);
   assert.equal(hosts(renderer).some(node => node.props.dangerouslySetInnerHTML), false);
@@ -142,8 +148,9 @@ test('a long folder path cannot replace the primary filename in any view', async
     const name = row.findByProps({ title: preview.relativePath });
     assert.deepEqual(name.children, ['確認用画像.png']);
     assert.ok(!visibleText(name).includes(parent));
-    assert.match(name.props.className, /truncate/);
-    assert.match(visibleText(row), /取り込み中/);
+    assert.match(name.props.className, /truncate|line-clamp/);
+    assert.equal(visibleText(row).includes('取り込み中'), false);
+    assert.equal(row.findAllByProps({ 'data-explorer-importing-icon': true }).length, 1);
   });
 });
 
@@ -177,4 +184,118 @@ test('folder-only uploads accept external drops on folders and background, while
       assert.equal(row.props.onDrop, undefined);
     }
   });
+});
+
+
+test('temporary folders can open in every display mode without becoming mutation targets', async t => {
+  const folder = { entry: { ...entry('temporary-folder', '追加フォルダ'), kind: 'folder', extension: '', size: 0 }, relativePath: '追加フォルダ' };
+  for (const view of modes) await t.test(view, async subtest => {
+    const opened = [], selected = [], iconIds = [];
+    const renderer = await mount(subtest, context({ view, pendingImportEntries: [folder],
+      openPendingImportFolder: id => opened.push(id), setSelected: ids => selected.push(ids),
+      renderIcon: ({ entry }) => { iconIds.push(entry.id); return null; },
+    }));
+    const [row] = pendingNodes(renderer);
+    assert.equal(row.props.tabIndex, 0);
+    assert.equal(row.props.draggable, false);
+    const event = { preventDefault: noop, stopPropagation: noop };
+    await act(() => {
+      row.props.onClick(event);
+      row.props.onDoubleClick(event);
+      row.props.onKeyDown({ ...event, key: 'Enter' });
+      row.props.onKeyDown({ ...event, key: ' ' });
+      row.props.onKeyDown({ ...event, key: 'Delete' });
+    });
+    assert.deepEqual(opened, Array(3).fill(folder.entry.id));
+    assert.deepEqual(selected, []);
+    assert.ok(!iconIds.includes(folder.entry.id));
+    assert.equal(row.findAllByType('input').length, 0);
+    assert.equal(row.findAllByType('button').length, 0);
+    for (const action of ['onDrop', 'onDragOver', 'onContextMenu']) {
+      let stopped = false, prevented = false;
+      await act(() => row.props[action]({ stopPropagation() { stopped = true; }, preventDefault() { prevented = true; } }));
+      assert.ok(stopped && prevented);
+    }
+  });
+});
+
+test('real folder and file icons retain custom overrides with one centered busy indicator', async t => {
+  const folder = { ...entry('real-folder', '既存フォルダ'), kind: 'folder', extension: '' };
+  const file = { ...real, source: null };
+  for (const view of ['details', 'large', 'small']) await t.test(view, async subtest => {
+    const items = [folder, file];
+    const renderer = await mount(subtest, context({ view, entries: items, visible: items, pendingImportEntries: [],
+      importingEntryIds: new Set(items.map(item => item.id)),
+      renderIcon: ({ entry }) => h('span', { 'data-custom-icon': entry.id }, entry.id),
+    }));
+    assert.equal(renderer.root.findAllByProps({ 'data-explorer-importing-icon': true }).length, 2);
+    for (const item of items) {
+      assert.equal(renderer.root.findAllByProps({ 'data-custom-icon': item.id }).length, 1);
+      assert.equal(hosts(renderer).filter(node => node.props['data-explorer-entry-id'] === item.id).length, 1);
+    }
+    assert.equal(visibleText(renderer.root).includes('取り込み中'), false);
+  });
+});
+
+test('the tree shows temporary hierarchy with ancestor indicators and prevents temporary drops or host icon callbacks', async t => {
+  const folder = { ...entry('real-folder', '既存フォルダ'), kind: 'folder', extension: '' };
+  const pendingFolder = { ...entry('temporary-folder', '追加フォルダ'), kind: 'folder', extension: '', parent: folder.id };
+  const opened = [], navigated = [], icons = [], drops = [];
+  const value = context({ entries: [folder], navigationEntries: [folder, pendingFolder],
+    importingEntryIds: new Set(['root', folder.id, pendingFolder.id]), expanded: ['root', folder.id],
+    openPendingImportFolder: id => opened.push(id), navigate: id => navigated.push(id),
+    renderIcon: ({ entry }) => { icons.push(entry.id); return null; },
+    drop: (_event, id) => drops.push(id), allowDrop: (_event, id) => drops.push(id),
+  });
+  let renderer;
+  await act(() => { renderer = create(h(ExplorerContext.Provider, { value }, h(ExplorerSidebar))); });
+  t.after(() => act(() => renderer.unmount()));
+  const row = renderer.root.findByProps({ 'data-explorer-pending-folder': pendingFolder.id });
+  const open = row.findAllByType('button').find(button => button.props['aria-current'] !== undefined || visibleText(button).includes(pendingFolder.name));
+  await act(() => open.props.onClick());
+  assert.deepEqual(opened, [pendingFolder.id]);
+  assert.deepEqual(navigated, []);
+  assert.deepEqual([...new Set(icons)], [folder.id]);
+  assert.equal(renderer.root.findAllByProps({ 'data-explorer-importing-icon': true }).length, 4);
+  assert.equal(visibleText(renderer.root).includes('取り込み中'), false);
+  for (const action of ['onDrop', 'onDragOver', 'onContextMenu']) {
+    let prevented = false, stopped = false;
+    await act(() => row.props[action]({ preventDefault() { prevented = true; }, stopPropagation() { stopped = true; } }));
+    assert.ok(prevented && stopped);
+  }
+  assert.deepEqual(drops, []);
+});
+
+test('status bar does not repeat import labels or introduce an extra status area', async t => {
+  const value = context({ pendingImportEntries: [pending(1)], selected: [], selectedEntries: [],
+    allowedViewModes: ['details'], customContextMenuState: { phase: 'idle' } });
+  let renderer;
+  await act(() => { renderer = create(h(ExplorerContext.Provider, { value }, h(ExplorerStatusBar))); });
+  t.after(() => act(() => renderer.unmount()));
+  assert.equal(renderer.root.findAllByType('footer').length, 1);
+  assert.equal(visibleText(renderer.root), '2 個の項目');
+});
+
+
+test('a temporary folder hides background creation, upload, and custom menus while keeping navigation available', async t => {
+  let customCalls = 0;
+  const drops = [];
+  const value = context({ entries: [], visible: [], pendingImportEntries: [], provisionalLocation: true,
+    currentParent: 'temporary-folder', location: 'temporary-folder', externalDrag: true,
+    uiOptions: { ...context().uiOptions, contextMenu: true }, hasCustomContextMenu: true,
+    getCustomContextMenu: () => { customCalls++; throw new Error('temporary destination must not reach the host'); },
+    drop: (_event, id) => drops.push(id), allowDrop: (_event, id) => drops.push(id),
+  });
+  const renderer = await mount(t, value);
+  assert.equal(visibleText(renderer.root), '');
+  assert.equal(renderer.root.findAllByType('button').length, 0);
+  const background = hosts(renderer).find(node => node.type === 'div' && node.props.onDrop);
+  for (const types of [['Files'], ['application/x-explorer']]) {
+    await act(() => {
+      background.props.onDragOver({ dataTransfer: { types } });
+      background.props.onDrop({ dataTransfer: { types } });
+    });
+  }
+  assert.deepEqual(drops, []);
+  assert.equal(customCalls, 0);
 });

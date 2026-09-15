@@ -73,6 +73,10 @@ async function mount(t, supplied = {}) {
     events, requests, saves, snapshots, unmount,
     async update(patch) { props = { ...props, ...patch }; await change(() => renderer.update(tree())); },
     async closeChild() { children = false; await change(() => renderer.update(tree())); },
+    async drop(directory, parent = 'root', id = 'main') {
+      const data = { files: [], items: [{ kind: 'file', webkitGetAsEntry: () => directory, getAsFile: () => null }], types: ['Files'], getData: () => '' };
+      await change(() => panes.get(id).drop({ dataTransfer: data, preventDefault() {}, stopPropagation() {} }, parent));
+    },
     async paste(directory, id = 'main') {
       const data = { files: [], items: [{ kind: 'file', webkitGetAsEntry: () => directory, getAsFile: () => null }], types: ['Files'], getData: () => '' };
       const event = { target: roots.get(id), clipboardData: data, defaultPrevented: false,
@@ -100,12 +104,14 @@ function delayedFile(name = 'Last.txt') {
 const previews = pane => pane.pendingImportEntries.map(item => item.entry);
 const uploadChanges = app => app.events.filter(event => event.type === 'change' && event.action === 'upload');
 
-test('a discovered file is visible before the next native file callback and rolls back on read failure', async t => {
+test('a discovered native file is grouped inside its root folder before the next callback and rolls back on read failure', async t => {
   const app = await mount(t), before = app.main.entries, delayed = delayedFile();
   await app.paste(directory('Batch', [fileEntry(file('First.txt')), delayed.entry]));
   await eventually(() => previews(app.main).length === 1 && delayed.started, 'first file should be displayed while the next native read is pending');
   assert.equal(previews(app.main).length, 1);
-  assert.equal(previews(app.main)[0].name, 'First.txt');
+  assert.equal(previews(app.main)[0].name, 'Batch');
+  assert.equal(previews(app.main)[0].kind, 'folder');
+  assert.ok(app.main.importingEntryIds.has(previews(app.main)[0].id));
   assert.equal(app.main.entries, before);
   assert.deepEqual(app.main.visible.map(item => item.id), ['folder', 'existing']);
   assert.equal(app.main.dirty, false);
@@ -149,7 +155,12 @@ test('a large picker batch is displayed while edit permission is pending without
   await change(() => { pending = app.main.addLocalFiles(files, 'folder', 'root'); });
   await eventually(() => app.main.editMode === 'requesting', 'picker preparation should reach the edit permission request');
   assert.equal(app.main.editMode, 'requesting');
+  assert.deepEqual(previews(app.main).map(item => [item.name, item.kind]), [['Batch', 'folder']]);
+  const batch = previews(app.main)[0];
+  await change(() => app.main.openPendingImportFolder(batch.id));
   assert.equal(previews(app.main).length, 600);
+  assert.ok(previews(app.main).every(item => item.parent === batch.id && item.kind === 'file'));
+  await change(() => app.main.navigate('root'));
   assert.equal(app.main.entries, before);
   assert.equal(app.main.dirty, false);
   assert.equal(app.main.visible.length, before.length);
@@ -225,20 +236,28 @@ test('a failed default-abort validation clears every provisional file without ac
   assert.equal(uploadChanges(app).length, 0);
 });
 
-test('directory discovery hands its preview to overwrite confirmation without publishing a partial folder', async t => {
+test('native discovery merges existing folders without duplicate rows and keeps overwrite data intact', async t => {
   const app = await mount(t, { initialEntries: [entry('batch', 'Batch', 'root', 'folder'), entry('e', 'Existing.txt', 'batch')] });
   const before = app.main.entries, delayed = delayedFile('Existing.txt');
   await app.paste(directory('Batch', [fileEntry(file('First.txt')), delayed.entry]));
-  await eventually(() => previews(app.main).length === 1 && delayed.started, 'first discovery should be displayed before the conflicting file arrives');
+  await eventually(() => app.main.importingEntryIds.has('batch') && delayed.started, 'existing parent should indicate pending descendants');
+  assert.deepEqual(previews(app.main), []);
+  assert.equal(app.main.navigationEntries.filter(item => item.parent === 'root' && item.name === 'Batch').length, 1);
+  await change(() => app.main.navigate('batch'));
+  assert.deepEqual(previews(app.main).map(item => item.name), ['First.txt']);
   const firstId = previews(app.main)[0].id;
   await change(() => delayed.complete());
   await eventually(() => app.main.uploadPrompt !== null, 'completed discovery should reach overwrite confirmation');
   assert.equal(app.main.uploadPrompt.conflict.existing.id, 'e');
-  assert.equal(previews(app.main).length, 2);
-  assert.equal(previews(app.main).find(item => item.name === 'First.txt').id, firstId);
+  assert.deepEqual(previews(app.main).map(item => item.name), ['First.txt']);
+  assert.equal(previews(app.main)[0].id, firstId);
+  assert.ok(app.main.importingEntryIds.has('e'));
+  assert.ok(app.main.importingEntryIds.has('batch'));
   assert.equal(app.main.entries, before);
   await change(() => app.main.cancelUpload());
   assert.equal(previews(app.main).length, 0);
+  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.currentParent, 'batch');
   assert.equal(app.main.entries, before);
 });
 
@@ -248,8 +267,8 @@ test('two panes own independent provisional imports and cancellation cannot clea
   await app.paste(directory('ChildBatch', [fileEntry(file('ChildFirst.txt')), childLast.entry]), 'child');
   await eventually(() => previews(app.main).length === 1 && previews(app.child).length === 1 && mainLast.started && childLast.started,
     'both panes should display discoveries while their next native reads are pending');
-  assert.deepEqual(previews(app.main).map(item => item.name), ['MainFirst.txt']);
-  assert.deepEqual(previews(app.child).map(item => item.name), ['ChildFirst.txt']);
+  assert.deepEqual(previews(app.main).map(item => item.name), ['MainBatch']);
+  assert.deepEqual(previews(app.child).map(item => item.name), ['ChildBatch']);
   await change(() => app.main.cancelUpload());
   assert.equal(previews(app.main).length, 0);
   assert.equal(previews(app.child).length, 1);
@@ -277,4 +296,157 @@ test('skipping a duplicate incoming name retains the accepted first file in the 
   await change(() => pending);
   assert.equal(previews(app.main).length, 0);
   assert.equal(app.main.entries.find(item => item.name === 'New.txt').source.file, first);
+});
+
+for (const method of ['paste', 'drop']) test(`nested native ${method} can be browsed during discovery and stays in the resolved folder after commit`, async t => {
+  const app = await mount(t), before = app.main.entries, delayed = delayedFile('Second.txt');
+  const source = directory('Batch', [directory('Nested', [fileEntry(file('First.txt')), delayed.entry])]);
+  await app[method](source);
+  await eventually(() => previews(app.main).length === 1 && delayed.started, 'root folder should appear before the second file is read');
+  const batch = previews(app.main)[0];
+  assert.equal(batch.name, 'Batch');
+  assert.equal(batch.kind, 'folder');
+  assert.deepEqual(app.child.navigationEntries, before, 'the other window has no provisional folders');
+  assert.equal(app.child.importingEntryIds.size, 0);
+  await change(() => app.main.openPendingImportFolder(batch.id));
+  const nested = previews(app.main)[0];
+  assert.equal(nested.name, 'Nested');
+  assert.equal(nested.parent, batch.id);
+  assert.ok(app.main.importingEntryIds.has(batch.id));
+  assert.ok(app.main.importingEntryIds.has(nested.id));
+  await change(() => app.main.openPendingImportFolder(nested.id));
+  assert.equal(app.main.addressPath, '/Batch/Nested');
+  assert.deepEqual(previews(app.main).map(item => item.name), ['First.txt']);
+  assert.ok(app.main.importingEntryIds.has(previews(app.main)[0].id));
+  assert.equal(app.main.currentParent, nested.id);
+  assert.equal(app.main.dirty, false);
+  assert.equal(app.main.entries, before);
+  assert.deepEqual(app.main.selected, []);
+  assert.equal(JSON.stringify(app.events).includes('import-preview:'), false, 'temporary identifiers never escape through external events');
+  assert.equal(uploadChanges(app).length, 0);
+  const progress = app.main.notification;
+  assert.ok(progress, 'discovery progress stays visible during folder navigation');
+  await change(() => delayed.complete());
+  await eventually(() => uploadChanges(app).length === 1, 'native discovery should commit exactly once');
+  const realBatch = app.main.entries.find(item => item.name === 'Batch');
+  const realNested = app.main.entries.find(item => item.name === 'Nested');
+  assert.equal(realNested.parent, realBatch.id);
+  assert.equal(app.main.currentParent, realNested.id, 'current folder reconciles by path to the committed ID');
+  assert.equal(app.main.addressPath, '/Batch/Nested');
+  assert.deepEqual(app.main.visible.map(item => item.name), ['First.txt', 'Second.txt']);
+  assert.deepEqual(previews(app.main), []);
+  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(JSON.stringify(app.events).includes('import-preview:'), false);
+  assert.equal(app.main.entries, app.child.entries, 'committed entries are shared with the other pane');
+});
+
+for (const outcome of ['cancel', 'failure']) test(`browsing a provisional descendant returns to the nearest existing folder on ${outcome}`, async t => {
+  const app = await mount(t, { initialEntries: [entry('batch', 'Batch', 'root', 'folder'), entry('kept', 'Kept.txt', 'batch')] });
+  const before = app.main.entries, delayed = delayedFile();
+  await app.paste(directory('Batch', [directory('Nested', [fileEntry(file('First.txt')), delayed.entry])]));
+  await eventually(() => delayed.started && app.main.importingEntryIds.has('batch'), 'existing destination should be marked while a descendant is read');
+  await change(() => app.main.navigate('batch'));
+  const nested = previews(app.main)[0];
+  assert.equal(nested.name, 'Nested');
+  await change(() => app.main.openPendingImportFolder(nested.id));
+  assert.equal(app.main.currentParent, nested.id);
+  if (outcome === 'cancel') await change(() => app.main.cancelUpload());
+  else await change(() => delayed.fail());
+  await eventually(() => app.main.currentParent === 'batch', 'navigation should return to the nearest surviving ancestor');
+  assert.equal(previews(app.main).length, 0);
+  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.entries, before);
+  assert.deepEqual(app.main.visible.map(item => item.name), ['Kept.txt']);
+  assert.equal(app.main.addressPath, '/Batch');
+  if (outcome === 'cancel') await change(() => delayed.complete());
+  await change(() => wait(100));
+  assert.equal(previews(app.main).length, 0);
+  assert.equal(uploadChanges(app).length, 0);
+});
+
+for (const outcome of ['commit', 'cancel']) test(`inactive tabs and navigation history reconcile provisional folders after ${outcome}`, async t => {
+  const app = await mount(t), delayed = delayedFile();
+  await app.paste(directory('Batch', [directory('Nested', [fileEntry(file('First.txt')), delayed.entry])]));
+  await eventually(() => previews(app.main).length === 1 && delayed.started, 'provisional hierarchy should be available');
+  const batch = previews(app.main)[0];
+  await change(() => app.main.openPendingImportFolder(batch.id));
+  const nested = previews(app.main)[0];
+  await change(() => app.main.openPendingImportFolder(nested.id));
+  const firstTabId = app.main.activeTabId;
+  await change(() => app.main.addTab());
+  assert.equal(app.main.currentParent, 'root');
+  await change(() => app.main.openPendingImportFolder(batch.id));
+  assert.equal(app.main.currentParent, batch.id);
+  if (outcome === 'commit') {
+    await change(() => delayed.complete());
+    await eventually(() => uploadChanges(app).length === 1, 'background import should commit while another tab is active');
+  } else await change(() => app.main.cancelUpload());
+  const realBatch = app.main.entries.find(item => item.name === 'Batch');
+  const realNested = app.main.entries.find(item => item.name === 'Nested');
+  assert.equal(app.main.currentParent, outcome === 'commit' ? realBatch.id : 'root');
+  const windowTabs = app.workspace.tabs.forWindow('main').tabs;
+  assert.equal(JSON.stringify(windowTabs).includes('import-preview:'), false, 'inactive tabs, history and expanded nodes release temporary IDs');
+  await change(() => app.main.selectTab(firstTabId));
+  assert.equal(app.main.currentParent, outcome === 'commit' ? realNested.id : 'root');
+  await change(() => app.main.travel(-1));
+  assert.equal(app.main.currentParent, outcome === 'commit' ? realBatch.id : 'root');
+  await change(() => app.main.travel(1));
+  assert.equal(app.main.currentParent, outcome === 'commit' ? realNested.id : 'root');
+  assert.equal(JSON.stringify(app.events).includes('import-preview:'), false);
+  if (outcome === 'cancel') await change(() => delayed.complete());
+});
+
+for (const navigation of ['provisional-folder', 'new-tab']) test(`an import awaiting edit permission survives navigation to ${navigation}`, async t => {
+  let requests = 0;
+  const permission = deferred(), app = await mount(t, { onEditRequest: () => { requests++; return permission.promise; } });
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles([
+    file('First.txt', 'Batch/Nested/First.txt'), file('Second.txt', 'Batch/Nested/Second.txt'),
+  ], 'folder', 'root'); });
+  assert.equal(app.main.editMode, 'requesting');
+  assert.equal(requests, 1);
+  assert.equal(uploadChanges(app).length, 0);
+  const batch = previews(app.main)[0];
+  assert.equal(batch.name, 'Batch');
+  if (navigation === 'provisional-folder') {
+    await change(() => app.main.openPendingImportFolder(batch.id));
+    await change(() => app.main.openPendingImportFolder(previews(app.main)[0].id));
+    assert.equal(app.main.addressPath, '/Batch/Nested');
+  } else await change(() => app.main.addTab());
+  assert.equal(app.main.editMode, 'requesting', 'browsing leaves the captured import authorization active');
+  await change(() => permission.resolve(true));
+  await change(() => pending);
+  assert.equal(uploadChanges(app).length, 1, 'authorized import commits to its captured destination after browsing');
+  const realBatch = app.main.entries.find(item => item.name === 'Batch');
+  const realNested = app.main.entries.find(item => item.name === 'Nested');
+  assert.equal(realBatch.parent, 'root');
+  assert.equal(realNested.parent, realBatch.id);
+  assert.deepEqual(app.main.entries.filter(item => item.parent === realNested.id).map(item => item.name), ['First.txt', 'Second.txt']);
+  assert.equal(app.main.currentParent, navigation === 'provisional-folder' ? realNested.id : 'root');
+  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(requests, 1);
+});
+
+for (const outcome of ['commit', 'cancel']) test(`tab detachment waits for provisional history to resolve on ${outcome}`, async t => {
+  const app = await mount(t), delayed = delayedFile();
+  const firstTabId = app.main.activeTabId;
+  await change(() => app.main.addTab());
+  const importTabId = app.main.activeTabId;
+  await app.paste(directory('Batch', [fileEntry(file('First.txt')), delayed.entry]));
+  await eventually(() => previews(app.main).length === 1 && delayed.started, 'provisional directory should become available');
+  assert.equal(app.main.canDetachTab(importTabId), true, 'a tab with only committed locations can still detach');
+  await change(() => app.main.openPendingImportFolder(previews(app.main)[0].id));
+  assert.equal(app.main.canDetachTab(importTabId), false);
+  assert.equal(app.main.detachTab(importTabId), false, 'the action guard must reject a provisional tab before opening a window');
+  await change(() => app.main.navigate('root'));
+  assert.equal(app.main.canDetachTab(importTabId), false, 'provisional history also belongs to the originating pane');
+  await change(() => app.main.selectTab(firstTabId));
+  assert.equal(app.main.canDetachTab(importTabId), false, 'inactive tabs receive the same guard');
+  assert.equal(app.main.canDetachTab(firstTabId), true);
+  if (outcome === 'commit') {
+    await change(() => delayed.complete());
+    await eventually(() => uploadChanges(app).length === 1, 'import should commit');
+  } else await change(() => app.main.cancelUpload());
+  assert.equal(app.main.canDetachTab(importTabId), true, 'remapping releases the tab without retaining temporary history IDs');
+  if (outcome === 'cancel') await change(() => delayed.complete());
 });

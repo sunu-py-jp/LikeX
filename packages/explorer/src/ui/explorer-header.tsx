@@ -149,6 +149,7 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
     folder,
     location,
     special,
+    provisionalLocation,
     searchInput,
     setQuery,
     setSelected,
@@ -190,10 +191,10 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
     canEditFavorites,
     editMode,
     cancelEditPermission,
-  } = useExplorerFields("query", "searchText", "searchTrigger", "searchPending", "submitSearch", "clearSearch", "setSearchComposing", "canSort", "travel", "historyIndex", "history", "navigate", "folder", "location", "special", "searchInput", "setQuery", "setSelected", "disabled", "showModal", "startRename", "chooseFiles", "copyToClipboard", "selected", "paste", "displayedSort", "setSort", "view", "changeView", "compact", "changeCompact", "visible", "act", "selectedEntries", "download", "externalDownload", "busy", "saving", "refreshing", "canRefresh", "refreshEntries", "dirty", "saveChanges", "setDetailId", "mobileOpen", "setOpenMobile", "instanceId", "features", "selectionOptions", "uiOptions", "allowedViewModes", "canPaste", "readOnly", "canEditFavorites", "editMode", "cancelEditPermission");
+  } = useExplorerFields("query", "searchText", "searchTrigger", "searchPending", "submitSearch", "clearSearch", "setSearchComposing", "canSort", "travel", "historyIndex", "history", "navigate", "folder", "location", "special", "provisionalLocation", "searchInput", "setQuery", "setSelected", "disabled", "showModal", "startRename", "chooseFiles", "copyToClipboard", "selected", "paste", "displayedSort", "setSort", "view", "changeView", "compact", "changeCompact", "visible", "act", "selectedEntries", "download", "externalDownload", "busy", "saving", "refreshing", "canRefresh", "refreshEntries", "dirty", "saveChanges", "setDetailId", "mobileOpen", "setOpenMobile", "instanceId", "features", "selectionOptions", "uiOptions", "allowedViewModes", "canPaste", "readOnly", "canEditFavorites", "editMode", "cancelEditPermission");
   const renameMenuFocus = useRenameMenuFocus();
 
-  const hasUpload = features.uploadFiles || features.uploadFolders;
+  const hasUpload = !provisionalLocation && (features.uploadFiles || features.uploadFolders);
   const hasEdit =
     features.move || features.copy || features.rename || features.delete;
   const hasView = canSort || allowedViewModes.length > 1;
@@ -341,7 +342,7 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
       >
         {(hasUpload || hasEdit || hasView) && (
           <div className="lxe:flex lxe:min-w-0 lxe:flex-1 lxe:items-center lxe:gap-1 lxe:overflow-x-auto lxe:[scrollbar-width:thin]">
-            {(features.uploadFiles || features.uploadFolders) && (
+            {hasUpload && (
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>
                   <Command disabled={disabled || special}>
@@ -396,7 +397,7 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
                 label="貼り付け"
                 shortcut="paste"
                 onClick={() => void paste()}
-                disabled={disabled || special || !canPaste}
+                disabled={disabled || special || provisionalLocation || !canPaste}
               >
                 <ClipboardPaste size={17} />
               </ExplorerIconButton>
@@ -570,7 +571,7 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
             {(features.move || features.copy) && (
               <MenuItem
                 onSelect={() => void paste()}
-                disabled={disabled || special || !canPaste}
+                disabled={disabled || special || provisionalLocation || !canPaste}
               >
                 <ClipboardPaste size={16} />
                 貼り付け

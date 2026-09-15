@@ -11,11 +11,12 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { Folder } from "lucide-react";
+import { Folder, Loader2 } from "lucide-react";
 import { mergeExplorerClasses } from "./explorer-classnames";
 import type { ExplorerEntry as Entry } from "../model/draft";
 import type { ExplorerFileReader } from "../model/file-content";
 import { entryExtension } from "../model/entries";
+import { getEntryIndex } from "../model/entry-index";
 import { fileIconStyle, type FileIconStyle } from "../model/file-icon-style";
 import { describeEntry } from "../model/item-info";
 import { useOptionalExplorerSelector } from "../state/explorer-context";
@@ -92,12 +93,39 @@ export function DefaultFileIcon({
   );
 }
 
+/** Keep the busy indicator inside the icon's existing footprint. */
+export function ExplorerImportingIcon({ children, importing, large = false, className }: {
+  children: ReactNode;
+  importing: boolean;
+  large?: boolean;
+  className?: string;
+}) {
+  if (!importing) return children;
+  return <span data-explorer-importing-icon aria-hidden="true"
+    className={mergeExplorerClasses(
+      "lxe:pointer-events-none lxe:relative lxe:inline-flex lxe:shrink-0 lxe:items-center lxe:justify-center lxe:[&>span:first-child]:size-full",
+      large ? "lxe:size-20" : "lxe:h-[23px] lxe:w-5", className,
+    )}>
+    {children}
+    <span className="lxe:pointer-events-none lxe:absolute lxe:inset-0 lxe:flex lxe:items-center lxe:justify-center">
+      <span style={{ width: "45%", minWidth: 12, maxWidth: 24, aspectRatio: "1" }}
+        className="lxe:inline-flex lxe:items-center lxe:justify-center lxe:rounded-full lxe:bg-[var(--explorer-background)] lxe:p-px lxe:text-[var(--explorer-accent)]">
+        <Loader2 className="lxe:size-full lxe:animate-spin lxe:motion-reduce:animate-none" />
+      </span>
+    </span>
+  </span>;
+}
+
+function useImportingIcon(entry: Entry) {
+  return useOptionalExplorerSelector(context => context?.importingEntryIds?.has(entry.id) ?? false);
+}
+
 function useIconOverride(
   entry: Entry,
   defaultIcon: ReactElement,
   { location = "list", selected, expanded }: IconOptions,
 ) {
-  const context = useOptionalExplorerSelector(context => context?.renderIcon ? {
+  const context = useOptionalExplorerSelector(context => context?.renderIcon && getEntryIndex(context.entries).byId.has(entry.id) ? {
     entries: context.entries,
     renderIcon: context.renderIcon,
     view: context.view,
@@ -154,13 +182,12 @@ export const FileIcon = memo(function FileIcon({
     />
   );
   const custom = useIconOverride(entry, fallback, options);
-  return custom == null || custom === fallback ? (
-    fallback
-  ) : (
-    <CustomIcon large={large} className={className}>
-      {custom}
-    </CustomIcon>
-  );
+  const importing = useImportingIcon(entry);
+  return <ExplorerImportingIcon importing={importing} large={large} className={className}>
+    {custom == null || custom === fallback ? fallback : (
+      <CustomIcon large={large} className={className}>{custom}</CustomIcon>
+    )}
+  </ExplorerImportingIcon>;
 });
 
 type FileThumbnailProps = IconOptions & {
@@ -240,11 +267,10 @@ export const FileThumbnail = memo(function FileThumbnail({
     />
   );
   const custom = useIconOverride(entry, fallback, options);
-  return custom == null || custom === fallback ? (
-    fallback
-  ) : (
-    <CustomIcon large className={className}>
-      {custom}
-    </CustomIcon>
-  );
+  const importing = useImportingIcon(entry);
+  return <ExplorerImportingIcon importing={importing} large className={className}>
+    {custom == null || custom === fallback ? fallback : (
+      <CustomIcon large className={className}>{custom}</CustomIcon>
+    )}
+  </ExplorerImportingIcon>;
 });

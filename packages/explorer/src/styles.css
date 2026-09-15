@@ -711,9 +711,6 @@ SOFTWARE.
   .lxe\:max-w-\[40\%\]:where([data-likex-explorer], [data-likex-explorer] *) {
     max-width: 40%;
   }
-  .lxe\:max-w-\[70\%\]:where([data-likex-explorer], [data-likex-explorer] *) {
-    max-width: 70%;
-  }
   .lxe\:max-w-\[95\%\]:where([data-likex-explorer], [data-likex-explorer] *) {
     max-width: 95%;
   }
@@ -1157,6 +1154,9 @@ SOFTWARE.
   }
   .lxe\:p-\[25px\]:where([data-likex-explorer], [data-likex-explorer] *) {
     padding: 25px;
+  }
+  .lxe\:p-px:where([data-likex-explorer], [data-likex-explorer] *) {
+    padding: 1px;
   }
   .lxe\:px-1:where([data-likex-explorer], [data-likex-explorer] *) {
     padding-inline: var(--lxe-spacing);
@@ -1747,6 +1747,10 @@ SOFTWARE.
   }
   .lxe\:\[\&\>\*\]\:max-w-full>*:where([data-likex-explorer], [data-likex-explorer] *) {
     max-width: 100%;
+  }
+  .lxe\:\[\&\>span\:first-child\]\:size-full>span:first-child:where([data-likex-explorer], [data-likex-explorer] *) {
+    width: 100%;
+    height: 100%;
   }
   .lxe\:\[\&\>svg\]\:size-4>svg:where([data-likex-explorer], [data-likex-explorer] *) {
     width: calc(var(--lxe-spacing) * 4);
