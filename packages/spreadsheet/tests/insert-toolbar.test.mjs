@@ -60,9 +60,9 @@ async function upload(hook) {
 test('home and insert switch with one shared save action, and shapes anchor at the selected cell', async t => {
   const hook = await mount(t);
   const tabs = hook.root.findAllByProps({ role: 'tab' });
-  assert.deepEqual(tabs.map(tab => tab.children[0]), ['ホーム', '挿入', 'データ']);
-  await act(async () => tabs[1].props.onClick());
-  assert.equal(hook.root.findAllByProps({ role: 'tab' })[1].props['aria-selected'], true);
+  assert.deepEqual(tabs.map(tab => tab.children[0]), ['ファイル', 'ホーム', '挿入', 'データ']);
+  await act(async () => tabs.find(tab => tab.children[0] === '挿入').props.onClick());
+  assert.equal(hook.root.findAllByProps({ role: 'tab' }).find(tab => tab.children[0] === '挿入').props['aria-selected'], true);
   assert.equal(hook.root.findAllByProps({ className: 'lxs-save' }).length, 1);
   await act(async () => hook.current.select({ row: 3, column: 2 }));
   await act(async () => hook.root.findByProps({ 'aria-label': '図形を挿入' }).props.onClick());
@@ -78,12 +78,12 @@ test('home and insert switch with one shared save action, and shapes anchor at t
 
 test('insert controls disappear in readonly mode and respect individual feature switches', async t => {
   const hook = await mount(t, { features: { images: false, shapes: false, textBoxes: false, comments: false, tables: false } });
-  assert.deepEqual(hook.root.findAllByProps({ role: 'tab' }).map(tab => tab.children[0]), ['ホーム', 'データ']);
+  assert.deepEqual(hook.root.findAllByProps({ role: 'tab' }).map(tab => tab.children[0]), ['ファイル', 'ホーム', 'データ']);
   await hook.update({ features: { images: false }, readOnly: false });
   assert.equal(hook.root.findAllByProps({ 'aria-label': '画像を挿入' }).length, 0);
   assert.equal(hook.root.findAllByProps({ 'aria-label': '図形を挿入' }).length, 1);
   await hook.update({ onSave: undefined });
-  assert.deepEqual(hook.root.findAllByProps({ role: 'tab' }).map(tab => tab.children[0]), ['ホーム', 'データ']);
+  assert.deepEqual(hook.root.findAllByProps({ role: 'tab' }).map(tab => tab.children[0]), ['ファイル', 'ホーム', 'データ']);
   assert.equal(hook.root.findAllByProps({ 'aria-label': '名前付き範囲を追加' }).length, 0);
   assert.equal(hook.root.findAllByProps({ 'aria-label': '名前付き範囲を管理' }).length, 1);
   assert.equal(hook.root.findAllByProps({ 'aria-label': '図形を挿入' }).length, 0);

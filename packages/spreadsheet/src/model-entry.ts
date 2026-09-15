@@ -22,3 +22,5 @@ export type { SpreadsheetClearMode, SpreadsheetCellRangeInput } from "./model/wo
 export { clearCellRange } from "./model/workbook/clear";
 export type { SpreadsheetTableCommand, SpreadsheetTableData, SpreadsheetTableWriteOptions } from "./api/table-commands";
 export type { SpreadsheetNamedRangeCommand } from "./api/named-range-commands";
+export { importSpreadsheetXlsx } from "./import/import-xlsx";
+export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, SpreadsheetExcelImportWarning } from "./import/types";

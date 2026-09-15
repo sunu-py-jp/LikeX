@@ -50,7 +50,7 @@ function cellXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, address
   if (kind === "date" || kind === "time" || kind === "datetime") {
     const serial = excelDateSerial(value, kind);
     if (serial !== undefined) return `<c ${attributes}><v>${xml(serial)}</v></c>`;
-    if (cell.validation?.type === "date") throw new Error(`Excelへ出力できる日付は1900年以降のISO日付です（${label}）`);
+    if (cell.validation?.type === "date" && numericValue(value) === undefined) throw new Error(`Excelへ出力できる日付は1900年以降のISO日付またはExcelの日付シリアル値です（${label}）`);
   }
   const number = numericValue(value);
   if (number !== undefined) return `<c ${attributes}><v>${xml(number)}</v></c>`;

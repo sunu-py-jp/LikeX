@@ -1,12 +1,23 @@
 import {
   applySpreadsheetCommands, createWorkbook, parseWorkbook, serializeWorkbook,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
-  createSpreadsheetSession, copySpreadsheetCells,
+  createSpreadsheetSession, copySpreadsheetCells, importSpreadsheetXlsx,
   getSheets, getSheetReader, getNamedRange, getRangeByName,
   type SpreadsheetTable, type SpreadsheetTableColumn, type SpreadsheetSheetReadApi,
   type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot, type SpreadsheetReadApi, type SpreadsheetReadRange,
+  type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult,
   type SpreadsheetSession, type SpreadsheetSessionOptions, type SpreadsheetHistoryState, type SpreadsheetPastePayload,
 } from '__MODEL_IMPORT__';
+
+async function readExcel(bytes: Uint8Array, signal?: SpreadsheetExcelImportOptions['signal']) {
+  const options: SpreadsheetExcelImportOptions = { signal };
+  const imported: SpreadsheetExcelImportResult = await importSpreadsheetXlsx(bytes, options);
+  const warning: string | undefined = imported.warnings[0]?.message;
+  // @ts-expect-error Warning collections are readonly.
+  imported.warnings.push({ code: 'omitted', message: 'x' });
+  return [imported.workbook, warning];
+}
+void readExcel;
 
 const commands: readonly SpreadsheetCommand[] = [
   { type: 'rows.insert', sheetId: 'sheet-1', index: 1, count: 2 },

@@ -57,4 +57,6 @@ export type SpreadsheetFeatures = Readonly<{
   refresh?: boolean;
   /** Excel output is available even in read-only mode. */
   exportExcel?: boolean;
+  /** Imports .xlsx files into the editable draft as one undoable change. */
+  importExcel?: boolean;
 }>;

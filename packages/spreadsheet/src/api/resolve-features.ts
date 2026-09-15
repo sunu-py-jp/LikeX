@@ -41,5 +41,6 @@ export function resolveSpreadsheetFeatures(features: SpreadsheetFeatures | undef
     save: features?.save !== false,
     refresh: features?.refresh !== false,
     exportExcel: features?.exportExcel !== false,
+    importExcel: features?.importExcel !== false,
   };
 }

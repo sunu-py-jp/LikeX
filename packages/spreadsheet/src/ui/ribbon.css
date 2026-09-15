@@ -123,6 +123,9 @@
   text-align: center;
 }
 .lxs-ribbon-command-large > svg { width: 24px; height: 24px; }
+.lxs-import-spinner { display: inline-block; margin-right: 5px; vertical-align: middle; animation: lxs-import-spin 1s linear infinite; }
+@keyframes lxs-import-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .lxs-import-spinner { animation: none; } }
 .lxs-root .lxs-ribbon .lxs-select, .lxs-root .lxs-ribbon .lxs-paste-special {
   height: 28px;
   min-height: 28px;

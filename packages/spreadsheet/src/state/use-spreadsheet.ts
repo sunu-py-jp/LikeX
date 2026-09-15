@@ -11,6 +11,8 @@ import type { Position, Workbook } from "./types";
 import { useCellEdit } from "./use-cell-edit";
 import { usePendingObjectEdits } from "./use-pending-object-edits";
 import { useSpreadsheetExport } from "./use-spreadsheet-export";
+import { useSpreadsheetImport } from "./use-spreadsheet-import";
+import type { SpreadsheetExcelExportOptions } from "../export/types";
 import { useSpreadsheetSelection } from "./use-spreadsheet-selection";
 import { useSpreadsheetCommands, type SpreadsheetGuiCommandOptions } from "./use-spreadsheet-commands";
 import { useWorkbookDraft } from "./use-workbook-draft";
@@ -75,12 +77,21 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     hasPendingEdits: () => !!cellEdit.editingRef.current || pending.pendingObjectEditRef.current, resetView: resetWorkbookView };
   const externalHistory = (direction: "past" | "future") => viewSession.hasPendingEdits() ? false :
     draft.changeHistory(direction, restoreHistoryView, { source: "api", isCurrent: () => !viewSession.hasPendingEdits() });
-  const save = () => draft.save(viewSession);
-  const externalSave = () => viewSession.hasPendingEdits() ? Promise.resolve(false) : draft.save(viewSession);
-  const refresh = (options?: SpreadsheetDiscardOptions) => draft.refresh(viewSession, options);
-  const discard = (options?: SpreadsheetDiscardOptions) => draft.discard(viewSession, options);
-  const endEdit = () => !viewSession.hasPendingEdits() && draft.endEdit();
+  const save = () => excelImport.isImporting() ? Promise.resolve(false) : draft.save(viewSession);
+  const externalSave = () => excelImport.isImporting() || viewSession.hasPendingEdits() ? Promise.resolve(false) : draft.save(viewSession);
+  const refresh = (options?: SpreadsheetDiscardOptions) => excelImport.isImporting() ? Promise.resolve(false) : draft.refresh(viewSession, options);
+  const discard = (options?: SpreadsheetDiscardOptions) => !excelImport.isImporting() && draft.discard(viewSession, options);
+  const endEdit = () => !excelImport.isImporting() && !viewSession.hasPendingEdits() && draft.endEdit();
   const excelExport = useSpreadsheetExport(draft, viewSession.hasPendingEdits);
+  const excelImport = useSpreadsheetImport(draft, { selectionRef, setSelection, hasPendingEdits: viewSession.hasPendingEdits,
+    capturePendingEdits: () => {
+      const cell = cellEdit.editingRef.current, revision = pending.pendingEditRevisionRef.current;
+      return () => cellEdit.editingRef.current === cell && pending.pendingEditRevisionRef.current === revision;
+    },
+    resetView: workbook => { pending.clearPendingObjectEdits(); resetWorkbookView(workbook); },
+    isExporting: excelExport.isExporting });
+  const exportExcel = (options?: SpreadsheetExcelExportOptions) => excelImport.isImporting()
+    ? Promise.reject(new Error("Excel取り込みの処理が完了してからExcel出力してください")) : excelExport.exportExcel(options);
   const changedCellInput = cellEdit.editing !== null && cellEdit.editing.value !==
     (draft.workbook.sheets.find(sheet => sheet.id === cellEdit.editing?.sheetId)?.cells[cellAddress(cellEdit.editing.position.row, cellEdit.editing.position.column)]?.value ?? "");
   const hasUnsavedChanges = draft.dirty || changedCellInput || pending.pendingObjectEdit;
@@ -104,7 +115,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     features, readOnly: draft.readOnly, disabled: draft.disabled, dirty: draft.dirty, saving: draft.saving,
     refreshing: draft.refreshing, requesting: draft.editState.mode === "requesting", editMode: draft.editState.mode,
     canRefresh: !!props.onRefresh && features.refresh, hasUnsavedChanges,
-    ...excelExport, exportFileName: props.exportFileName ?? props.title ?? "spreadsheet",
+    ...excelExport, ...excelImport, exportExcel, exportFileName: props.exportFileName ?? props.title ?? "spreadsheet",
     viewRevision: view.viewRevision,
     setContextMenuLock: draft.setContextMenuLock, contextMenuLocked: draft.contextMenuLocked,
     getRevision: () => draft.revisionRef.current, getStructureRevision: () => draft.structureRevisionRef.current,

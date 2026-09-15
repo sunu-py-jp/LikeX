@@ -52,5 +52,5 @@ export function useSpreadsheetExport(draft: ReturnType<typeof useWorkbookDraft>,
       if (active.current === controller) { active.current = null; setExporting(false); }
     }
   }, []);
-  return { exportExcel, exporting, cancelExport };
+  return { exportExcel, exporting, cancelExport, isExporting: () => active.current !== null };
 }

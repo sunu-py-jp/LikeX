@@ -16,10 +16,10 @@ export function SpreadsheetExportControls({ controller: c }: { controller: Sprea
     }
   };
   return <>
-    <Command label="Excelにエクスポート" disabled={c.exporting || c.saving || c.refreshing || c.requesting || c.contextMenuLocked}
+    <Command label="Excelにエクスポート" className="lxs-ribbon-command-large" disabled={c.exporting || c.importing || c.saving || c.refreshing || c.requesting || c.contextMenuLocked}
       onClick={event => void start(event.currentTarget)}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5" /></svg>
-      {c.exporting ? "Excel出力中…" : "Excel出力"}
+      <span>{c.exporting ? "Excel出力中…" : "Excel出力"}</span>
     </Command>
     {c.exporting && <Command label="Excel出力をキャンセル" onClick={c.cancelExport}><Icon name="close" /></Command>}
   </>;

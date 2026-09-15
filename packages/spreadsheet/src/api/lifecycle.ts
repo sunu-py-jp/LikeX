@@ -2,11 +2,12 @@ import type { ContextMenuExecutionEvent, EditEndReason, EditMode, EditRequestHan
 import type { SpreadsheetWorkbook } from "../model/types";
 import type { SpreadsheetSelection } from "../props";
 import type { SpreadsheetCommand, SpreadsheetWorkbookSnapshot } from "./types";
+import type { SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, SpreadsheetExcelImportWarning } from "../import/types";
 
 export type SpreadsheetChangeSource = "ui" | "api" | "undo" | "redo";
 export type SpreadsheetEditIntent = Readonly<{
   source?: "ui" | "api";
-  action?: SpreadsheetCommand["type"] | "batch" | "paste" | "undo" | "redo" | "save" | "edit";
+  action?: SpreadsheetCommand["type"] | "batch" | "paste" | "undo" | "redo" | "save" | "edit" | "importExcel";
   sheetId?: string;
   commands?: readonly SpreadsheetCommand["type"][];
 }>;
@@ -29,6 +30,11 @@ export type SpreadsheetBeforeSaveHandler = RequestHandler<SpreadsheetWorkbook, v
 export type SpreadsheetRefreshHandler = (context: OperationContext) => MaybePromise<SpreadsheetWorkbook>;
 /** Explicit consent to replace both committed changes and unfinished input. */
 export type SpreadsheetDiscardOptions = Readonly<{ discardChanges?: boolean }>;
+/** Import replaces the draft only. Saving remains an explicit host-owned operation. */
+export type SpreadsheetImportExcelOptions = SpreadsheetExcelImportOptions & SpreadsheetDiscardOptions & Readonly<{
+  /** Runs once after parsing and before permission/application. False cancels the import. */
+  onReview?: (result: SpreadsheetExcelImportResult) => MaybePromise<boolean>;
+}>;
 export type SpreadsheetEvent =
   | Readonly<{ type: "zoom-change"; zoom: number; previousZoom: number }>
   | ContextMenuExecutionEvent
@@ -46,6 +52,9 @@ export type SpreadsheetEvent =
   | Readonly<{ type: "export"; format: "xlsx"; status: "success"; requestId: string; size: number }>
   | Readonly<{ type: "export"; format: "xlsx"; status: "error"; requestId: string; message: string }>
   | Readonly<{ type: "export"; format: "xlsx"; status: "cancelled"; requestId: string }>
+  | Readonly<{ type: "import"; format: "xlsx"; status: "start" | "cancelled"; requestId: string; fileName?: string }>
+  | Readonly<{ type: "import"; format: "xlsx"; status: "success"; requestId: string; fileName?: string; workbook: SpreadsheetWorkbookSnapshot; warnings: readonly SpreadsheetExcelImportWarning[] }>
+  | Readonly<{ type: "import"; format: "xlsx"; status: "error"; requestId: string; fileName?: string; message: string }>
   | Readonly<{ type: "edit-mode"; mode: EditMode; reason: "request" | "granted" | "denied" | "error" | EditEndReason; requestId: string; request: SpreadsheetEditRequest; message?: string }>
   | Readonly<{ type: "selection"; selection: SpreadsheetSelection }>
   | Readonly<{ type: "drawing-selection"; sheetId: string; drawingId: string | null }>

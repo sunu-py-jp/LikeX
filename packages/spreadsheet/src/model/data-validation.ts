@@ -4,7 +4,7 @@ import { EXCEL_DATE_SERIAL_END, excelSerialFromUtc } from "./formatting/excel-da
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, type SpreadsheetCalculatedValue, type SpreadsheetWorkbook } from "./types";
 
 type ValidationOptions = { /** Empty cells are allowed unless explicitly false. */ allowBlank?: boolean; message?: string };
-/** Dates accept ISO calendar literals or numeric formula results in Excel's 1900 date system. */
+/** Dates accept ISO calendar literals or numeric values in Excel's 1900 date system. */
 export type SpreadsheetDataValidation = Readonly<ValidationOptions & (
   | { type: "list"; values: readonly string[] }
   | { type: "number"; integer?: boolean; min?: number; max?: number }
@@ -87,10 +87,11 @@ export function dataValidationError(rule: SpreadsheetDataValidation, raw: string
     }
     case "textLength": { const length = [...display].length; valid = length >= (rule.min ?? 0) && length <= (rule.max ?? SPREADSHEET_LIMITS.cellLength); break; }
     case "date": {
-      if (typeof value === "number") {
+      if (typeof value === "number" || typeof value === "string" && !isFormulaValue(raw, format) && format?.numberFormat !== "text" && !raw.startsWith("'") && numberPattern.test(value)) {
+        const numeric = Number(value);
         const serial = (date: string) => excelSerialFromUtc(Date.parse(`${date}T00:00:00.000Z`));
-        valid = Number.isFinite(value) && value >= 0 && value < EXCEL_DATE_SERIAL_END &&
-          (rule.min === undefined || value >= serial(rule.min)) && (rule.max === undefined || value <= serial(rule.max));
+        valid = Number.isFinite(numeric) && numeric >= 0 && numeric < EXCEL_DATE_SERIAL_END &&
+          (rule.min === undefined || numeric >= serial(rule.min)) && (rule.max === undefined || numeric <= serial(rule.max));
       } else valid = isIsoCalendarDate(display) && (rule.min === undefined || display >= rule.min) && (rule.max === undefined || display <= rule.max);
       break;
     }

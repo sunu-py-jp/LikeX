@@ -141,6 +141,7 @@ if (!result.ok) showMessage(result.message);
 | `endEdit()` | 未保存の変更がなければセッションを終了する |
 | `save()` | 保存前検証と保存を実行し、成功したかをPromiseで返す |
 | `exportExcel(options?)` | 確定済みの下書きからXLSXのBlobを生成。保存やダウンロードは行いません。[Excel出力](./excel-export.md) |
+| `importExcel(input, options?)` | XLSXを下書きへ取り込み。未保存確認・編集許可・Undoに対応し、保存は行いません。[Excel取り込み](./excel-import.md) |
 | `refresh(options?)` | 最新ブックを読み込み、成功したかをPromiseで返す |
 | `discard(options?)` | 最後の保存済み状態へ戻し、編集セッションを終了する |
 
@@ -180,6 +181,7 @@ const state = api.getEditState();
 | `change` | 確定ブック、変更元 `ui` / `api` / `undo` / `redo`、コマンドの種類 |
 | `save` | `start` / `success` / `error` / `cancelled` |
 | `export` | Excel生成の `start` / `success` / `error` / `cancelled`。[詳細](./excel-export.md) |
+| `import` | Excel取り込みの `start` / `success` / `error` / `cancelled`。[詳細](./excel-import.md) |
 | `refresh` | `start` / `success` / `error` / `cancelled` |
 | `edit-mode` | モード、開始・許可・拒否・終了理由、要求IDと要求内容 |
 | `discard` | 破棄後のブック |

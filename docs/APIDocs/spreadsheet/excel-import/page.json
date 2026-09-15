@@ -1,0 +1,20 @@
+{
+  "title": "Excel取り込み",
+  "summary": ".xlsxを下書きへ取り込み、警告の確認・編集許可・Undoにつなげます。画面なしのJSON変換にも対応します。",
+  "source": "packages/spreadsheet/src/docs/excel-import.md",
+  "order": 165,
+  "section": "親アプリとの連携",
+  "keywords": ["importSpreadsheetXlsx", "importExcel", "SpreadsheetExcelImportResult", "SpreadsheetImportExcelOptions", "xlsx", "ファイル"],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/spreadsheet-excel-import.png",
+      "alt": "ファイルタブと、Excelから取り込んだ売上表・画像・テキストボックス",
+      "caption": "Excel取り込みとExcel出力を「ファイル」にまとめています。取り込んだブックは下書きになり、保存・Undo・Redoを利用できます。"
+    },
+    {
+      "src": "assets/screenshots/spreadsheet-excel-import-review.png",
+      "alt": "変換・省略される内容を一覧で確認する取り込みダイアログ",
+      "caption": "表スタイルや表示形式などに差がある場合は、適用する前に内容を確認できます。キャンセルすると元のブックを維持します。"
+    }
+  ]
+}

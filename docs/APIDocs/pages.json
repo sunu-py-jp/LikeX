@@ -1990,6 +1990,46 @@
     ]
   },
   {
+    "id": "spreadsheet/excel-import",
+    "title": "Excel取り込み",
+    "component": "spreadsheet",
+    "section": "親アプリとの連携",
+    "output": "spreadsheet/excel-import/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/excel-import.md"
+    ],
+    "keywords": [
+      "importSpreadsheetXlsx",
+      "importExcel",
+      "SpreadsheetExcelImportResult",
+      "SpreadsheetImportExcelOptions",
+      "xlsx",
+      "ファイル"
+    ],
+    "headings": [
+      {
+        "id": "画面から使う",
+        "title": "画面から使う",
+        "depth": 2
+      },
+      {
+        "id": "画面を用意せずjsonへ変換する",
+        "title": "画面を用意せずJSONへ変換する",
+        "depth": 2
+      },
+      {
+        "id": "表示中のブックへ取り込む",
+        "title": "表示中のブックへ取り込む",
+        "depth": 2
+      },
+      {
+        "id": "読み込む内容と制約",
+        "title": "読み込む内容と制約",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/excel-export",
     "title": "Excel出力",
     "component": "spreadsheet",

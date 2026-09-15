@@ -1,5 +1,6 @@
 import type { MaybePromise } from "../core";
-import type { SpreadsheetDiscardOptions, SpreadsheetEditIntent, SpreadsheetEditState } from "./lifecycle";
+import type { SpreadsheetDiscardOptions, SpreadsheetEditIntent, SpreadsheetEditState, SpreadsheetImportExcelOptions } from "./lifecycle";
+import type { SpreadsheetExcelImportResult } from "../import/types";
 import type { SpreadsheetExcelExportOptions } from "../export/types";
 import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetWorkbookSnapshot } from "../commands/types";
 import type { SpreadsheetReadApi } from "../model/query-reader";
@@ -28,6 +29,8 @@ export type SpreadsheetHandle = SpreadsheetReadApi & Readonly<{
   save(): Promise<boolean>;
   /** Generates an XLSX Blob from the committed draft without saving or downloading it. Rejects unfinished edits. */
   exportExcel(options?: SpreadsheetExcelExportOptions): Promise<Blob>;
+  /** Replaces the draft as one undoable edit; never saves. Dirty/pending input requires explicit consent. */
+  importExcel(input: Blob | ArrayBuffer | Uint8Array, options?: SpreadsheetImportExcelOptions): Promise<SpreadsheetExcelImportResult>;
   refresh(options?: SpreadsheetDiscardOptions): Promise<boolean>;
   discard(options?: SpreadsheetDiscardOptions): boolean;
 }>;

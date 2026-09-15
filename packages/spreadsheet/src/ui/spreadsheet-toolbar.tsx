@@ -10,6 +10,7 @@ import { useId, useRef, useState } from "react";
 import { SpreadsheetInsertToolbar } from "./spreadsheet-insert-toolbar";
 import { SpreadsheetFunctionPicker } from "./spreadsheet-function-picker";
 import { SpreadsheetPersistenceControls } from "./spreadsheet-persistence-controls";
+import { SpreadsheetFileControls } from "./spreadsheet-file-controls";
 import { SpreadsheetAutoFitControl, SpreadsheetFormatToolbar } from "./spreadsheet-format-toolbar";
 import { SpreadsheetEditToolbar, SpreadsheetPasteSpecialControl } from "./spreadsheet-edit-toolbar";
 import { SpreadsheetDataToolbar } from "./spreadsheet-data-toolbar";
@@ -22,13 +23,14 @@ import { HorizontalScrollStrip } from "./horizontal-scroll-strip";
 type ToolbarProps = { controller: SpreadsheetController; clipboard: ReturnType<typeof useSpreadsheetClipboard> };
 
 export function SpreadsheetToolbar({ controller: c, clipboard, namedRangeManager }: ToolbarProps & { namedRangeManager: NamedRangeManager }) {
-  type Tab = "home" | "insert" | "data";
+  type Tab = "file" | "home" | "insert" | "data";
   const [tab, setTab] = useState<Tab>("home");
   const id = useId();
   const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
   const canInsert = !c.readOnly && (c.features.images || c.features.shapes || c.features.textBoxes || c.features.comments || c.features.tables && c.features.formatting);
   const canData = c.features.namedRanges || (!c.readOnly && c.features.dataValidation);
-  const tabs: { key: Tab; label: string }[] = [{ key: "home", label: "ホーム" },
+  const canFile = c.features.exportExcel || (!c.readOnly && c.features.importExcel);
+  const tabs: { key: Tab; label: string }[] = [...(canFile ? [{ key: "file" as const, label: "ファイル" }] : []), { key: "home", label: "ホーム" },
     ...(canInsert ? [{ key: "insert" as const, label: "挿入" }] : []), ...(canData ? [{ key: "data" as const, label: "データ" }] : [])];
   const active = tabs.some(item => item.key === tab) ? tab : "home";
   const changeTab = (next: Tab) => { setTab(next); refs.current[next]?.focus(); };
@@ -54,6 +56,7 @@ export function SpreadsheetToolbar({ controller: c, clipboard, namedRangeManager
       </div>}
       <SpreadsheetPersistenceControls controller={c} />
     </div>
+    {canFile && <SpreadsheetFileControls key={`${c.readOnly}:${c.features.importExcel}`} controller={c} active={active === "file"} panelId={`${id}-file-panel`} tabId={`${id}-file`} />}
     <div role="tabpanel" id={`${id}-home-panel`} aria-labelledby={`${id}-home`} hidden={active !== "home"}>
       <SpreadsheetHomeToolbar controller={c} clipboard={clipboard} />
     </div>

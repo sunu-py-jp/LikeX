@@ -2,13 +2,16 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { applySpreadsheetCommands, parseWorkbook, serializeWorkbook, createWorkbook, setCellValues,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
-  createSpreadsheetSession, copySpreadsheetCells, getSheets, getSheetReader, getNamedRange, getRangeByName } from '__MODEL_IMPORT__';
+  createSpreadsheetSession, copySpreadsheetCells, getSheets, getSheetReader, getNamedRange, getRangeByName,
+  importSpreadsheetXlsx } from '__MODEL_IMPORT__';
 
 const require = createRequire(import.meta.url);
 assert.throws(() => require.resolve('react'), { code: 'MODULE_NOT_FOUND' });
 assert.throws(() => require.resolve('react-dom'), { code: 'MODULE_NOT_FOUND' });
 assert.equal(typeof window, 'undefined');
 assert.equal(typeof document, 'undefined');
+assert.equal(typeof importSpreadsheetXlsx, 'function');
+await assert.rejects(importSpreadsheetXlsx(new Uint8Array([1, 2, 3])), /xlsx|Excel/);
 const original = setCellValues(createWorkbook(), 'sheet-1', { A1: '既存', B2: '10', C1: '=B2*2' });
 const before = serializeWorkbook(original);
 const commands = JSON.parse('[{"type":"rows.insert","sheetId":"sheet-1","index":1,"count":2},{"type":"cells.set","sheetId":"sheet-1","values":{"A2":"商品A","B2":"100","A3":"商品B","B3":"200"}}]');

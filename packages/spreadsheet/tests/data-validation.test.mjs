@@ -72,8 +72,13 @@ test('date rules validate DATE results with inclusive ISO bounds and recheck dep
   for (const formula of ['=DATE(2023,12,31)', '=DATE(2025,1,1)', '=DATE(2024,12,31)+0.5', '=DATE(2024,2,29)/0'])
     assert.throws(() => write(initial, { A1: formula }), /日付|計算結果/);
   assert.equal(dataValidationError(dateRule, '=DATE(2024,1,1)', 45292), null);
-  // Numeric literals retain the existing ISO-only input contract; formulas supply actual numbers.
-  assert.ok(dataValidationError(dateRule, '45292'));
+  // Imported numeric serial literals remain numeric; formulas returning text do not become dates.
+  assert.equal(dataValidationError(dateRule, '45292'), null);
+  assert.equal(dataValidationError(dateRule, '45292.5'), null);
+  assert.ok(dataValidationError(dateRule, '45291'));
+  assert.ok(dataValidationError(dateRule, '1e309'));
+  assert.ok(dataValidationError(dateRule, '45292', undefined, { numberFormat: 'text' }));
+  assert.ok(dataValidationError(dateRule, "'45292"));
   assert.ok(dataValidationError(dateRule, '="45292"', '45292'));
   for (const value of [NaN, Infinity, -1, 2958466]) assert.ok(dataValidationError({ type: 'date' }, '=1', value));
   assert.equal(dataValidationError({ type: 'date', min: '1900-02-28', max: '1900-03-01' }, '=DATE(1900,2,29)', 60), null);

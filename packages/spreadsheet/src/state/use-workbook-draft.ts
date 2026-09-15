@@ -23,6 +23,8 @@ export type DraftOperationOptions = SpreadsheetEditIntent & {
   mutationOwner?: object;
   /** An operation such as paste can provide its full transfer range before publication. */
   historySelection?: SpreadsheetSelection;
+  /** Reset imported-file editors at the commit boundary, before host change callbacks. */
+  beforePublish?: () => void;
 };
 export type DraftHistoryOptions = {
   source?: "ui" | "api";
@@ -154,6 +156,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
         history.record(before, propsRef.current.features?.undoRedo !== false, historyTarget);
         setHistoryStatus(history.getState());
         selection.setSelection(nextSelection);
+        options.beforePublish?.();
         publishChange(next, options.source ?? "ui", options.commands);
         return { ok: true, changed: true };
       } catch (cause) { return { ok: false, code: "VALIDATION_FAILED", message: cause instanceof Error ? cause.message : "操作に失敗しました" }; }
@@ -196,7 +199,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     isOperationPending: () => !!(savingRef.current || refreshingRef.current || saveStartingRef.current || transactionRef.current ||
       contextMenuOwnerRef.current || edit.getEditState().mode === "requesting" || edit.isEndingEdit()),
     setContextMenuLock, contextMenuLocked, revisionRef, structureRevisionRef,
-    dirty, error, setError, reportError, applyTransaction, getMutationFailure, changeHistory,
+    dirty, isDirty: () => !workbooksEqual(workbookRef.current, savedRef.current), error, setError, reportError, applyTransaction, getMutationFailure, changeHistory,
     getHistoryState: history.getState, ...historyStatus,
     ...persistence, ...edit, endEdit, emitEvent, resetViewRef };
 }

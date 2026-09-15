@@ -28,6 +28,7 @@ export function useSpreadsheetHandle(ref: Ref<SpreadsheetHandle> | undefined, co
     endEdit: () => latest.current.endEdit(),
     save: () => latest.current.externalSave(),
     exportExcel: options => latest.current.exportExcel(options),
+    importExcel: (input, options) => latest.current.importExcel(input, options),
     refresh: options => latest.current.refresh(options),
     discard: options => latest.current.discard(options),
   }), [reader]);
