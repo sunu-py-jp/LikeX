@@ -2,6 +2,7 @@ import type { SpreadsheetConditionalFormatRule } from "./conditional-formatting"
 import type { SpreadsheetCellBorders } from "./formatting/types";
 import type { SpreadsheetDataValidation } from "./data-validation";
 import type { SpreadsheetTable } from "./tables/types";
+import type { SpreadsheetShapeKind } from "./shapes";
 
 export type SpreadsheetCellFormat = {
   bold?: boolean;
@@ -35,10 +36,12 @@ type SpreadsheetDrawingBase = {
   id: string; anchor: SpreadsheetDrawingAnchor; width: number; height: number;
   /** Reflection within the positive-sized frame. Omitted flags mean false; text stays readable. */
   flipX?: boolean; flipY?: boolean;
+  /** Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted. */
+  rotation?: number;
 };
 export type SpreadsheetImageDrawing = SpreadsheetDrawingBase & { type: "image"; resourceId: string; alt: string };
 export type SpreadsheetShapeDrawing = SpreadsheetDrawingBase & {
-  type: "shape"; shape: "rectangle" | "ellipse" | "line" | "arrow"; fill: string; stroke: string; strokeWidth: number;
+  type: "shape"; shape: SpreadsheetShapeKind; fill: string; stroke: string; strokeWidth: number;
   /** Optional shape text; omitted formatting uses 16 px, #1f2937 and normal weight. */
   text?: string; fontSize?: number; color?: string; bold?: boolean;
 };

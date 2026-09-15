@@ -65,8 +65,8 @@
   top: <span class="syntax-keyword">number</span>;    <span class="syntax-comment">// 上端（px）</span>
   right: <span class="syntax-keyword">number</span>;  <span class="syntax-comment">// left + width（px）</span>
   bottom: <span class="syntax-keyword">number</span>; <span class="syntax-comment">// top + height（px）</span>
-  width: <span class="syntax-keyword">number</span>;  <span class="syntax-comment">// 配置枠の幅（px）</span>
-  height: <span class="syntax-keyword">number</span>; <span class="syntax-comment">// 配置枠の高さ（px）</span>
+  width: <span class="syntax-keyword">number</span>;  <span class="syntax-comment">// 回転後の外接矩形の幅（px）</span>
+  height: <span class="syntax-keyword">number</span>; <span class="syntax-comment">// 回転後の外接矩形の高さ（px）</span>
 }&gt;;
 
 <span class="syntax-keyword">type</span> SpreadsheetDrawingPlacement = Readonly&lt;{
@@ -76,6 +76,7 @@
 }&gt;;</code></pre></div>
 <p><code>drawingId</code> はシート上の配置IDです。画像データ本体を指す <code>resourceId</code> ではありません。画像・図形・テキストボックスに共通で使えます。読み取り専用のスナップショットも渡せます。</p>
 <p>座標は、行番号・列見出しを除いたセル領域の左上（A1の左上）を原点とするCSS pxで、小数になる場合もあります。スクロール位置や画面上の拡大率には依存しません。画像については、実際の絵柄や透明部分ではなく表示枠を計測します。</p>
+<p><code>rotation</code> がある場合は、回転後の表示枠を囲む軸に平行な外接矩形を返します。保存済みの <code>anchor</code>・<code>width</code>・<code>height</code> は変更しませんが、<code>bounds</code> と <code>nextRow</code> / <code>nextColumn</code> は回転角度に応じて変わります。ハンドルや枠外の線の太さは含みません。A1付近で回転すると <code>left</code> / <code>top</code> が負になることがあります。</p>
 <p><code>flipX</code> / <code>flipY</code> は表示枠の中での反転を表し、配置の計算には影響しません。反転だけを変更した場合、<code>bounds</code> と <code>nextRow</code> / <code>nextColumn</code> は変わりません。幅・高さは反転の有無にかかわらず正の値です。</p>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> { getDrawingBounds, getDrawingPlacement } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/spreadsheet/model&quot;</span>;
 

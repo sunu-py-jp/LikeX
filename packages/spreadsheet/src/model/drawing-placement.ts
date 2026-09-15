@@ -1,4 +1,5 @@
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "./sheet-dimensions";
+import { rotatedDrawingBounds } from "./drawing-transform";
 import { SPREADSHEET_LIMITS, type SpreadsheetDrawingAnchor, type SpreadsheetSheet } from "./types";
 
 /** CSS pixels from the top-left of A1; row and column headers are excluded. */
@@ -21,7 +22,7 @@ export type SpreadsheetDrawingPlacement = Readonly<{
 }>;
 
 type PositionedDrawing = Readonly<{
-  id: string; anchor: Readonly<SpreadsheetDrawingAnchor>; width: number; height: number;
+  id: string; anchor: Readonly<SpreadsheetDrawingAnchor>; width: number; height: number; rotation?: number;
 }>;
 type GeometrySheet = Readonly<Pick<SpreadsheetSheet, "id" | "rowCount" | "columnCount" | "rowHeights" | "columnWidths"> & {
   drawings?: readonly PositionedDrawing[];
@@ -77,7 +78,7 @@ function drawingGeometry(workbook: GeometryWorkbook, sheetId: string, drawingId:
   const left = columns.offsets[anchor.column] + boundedNumber(anchor.offsetX, 0, 10_000),
     top = rows.offsets[anchor.row] + boundedNumber(anchor.offsetY, 0, 10_000),
     width = boundedNumber(drawing.width, Number.MIN_VALUE, 10_000), height = boundedNumber(drawing.height, Number.MIN_VALUE, 10_000);
-  const bounds: SpreadsheetDrawingBounds = Object.freeze({ left, top, right: left + width, bottom: top + height, width, height });
+  const bounds: SpreadsheetDrawingBounds = Object.freeze(rotatedDrawingBounds({ left, top, width, height }, drawing.rotation));
   return { rows, columns, bounds, anchor };
 }
 

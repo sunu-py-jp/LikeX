@@ -1,9 +1,10 @@
 import { calculateWorkbook } from "./formula";
 import { cellTextValue, isFormulaCell, isFormulaValue } from "./cell-value";
+import { EXCEL_DATE_SERIAL_END, excelSerialFromUtc } from "./formatting/excel-date";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, type SpreadsheetCalculatedValue, type SpreadsheetWorkbook } from "./types";
 
 type ValidationOptions = { /** Empty cells are allowed unless explicitly false. */ allowBlank?: boolean; message?: string };
-/** Persisted cell rules. Values remain strings; date rules accept ISO calendar dates. */
+/** Dates accept ISO calendar literals or numeric formula results in Excel's 1900 date system. */
 export type SpreadsheetDataValidation = Readonly<ValidationOptions & (
   | { type: "list"; values: readonly string[] }
   | { type: "number"; integer?: boolean; min?: number; max?: number }
@@ -85,7 +86,14 @@ export function dataValidationError(rule: SpreadsheetDataValidation, raw: string
       break;
     }
     case "textLength": { const length = [...display].length; valid = length >= (rule.min ?? 0) && length <= (rule.max ?? SPREADSHEET_LIMITS.cellLength); break; }
-    case "date": valid = isIsoCalendarDate(display) && (rule.min === undefined || display >= rule.min) && (rule.max === undefined || display <= rule.max); break;
+    case "date": {
+      if (typeof value === "number") {
+        const serial = (date: string) => excelSerialFromUtc(Date.parse(`${date}T00:00:00.000Z`));
+        valid = Number.isFinite(value) && value >= 0 && value < EXCEL_DATE_SERIAL_END &&
+          (rule.min === undefined || value >= serial(rule.min)) && (rule.max === undefined || value <= serial(rule.max));
+      } else valid = isIsoCalendarDate(display) && (rule.min === undefined || display >= rule.min) && (rule.max === undefined || display <= rule.max);
+      break;
+    }
   }
   return valid ? null : rule.message || { list: "リストの選択肢から入力してください", number: "指定された数値の範囲で入力してください",
     textLength: "指定された文字数の範囲で入力してください", date: "指定された日付の範囲で入力してください", checkbox: "チェックボックスには TRUE または FALSE を入力してください" }[rule.type];

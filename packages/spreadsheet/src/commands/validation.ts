@@ -39,9 +39,9 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "rows.insert": ["index", "count"], "rows.delete": ["index", "count"],
   "columns.insert": ["index", "count"], "columns.delete": ["index", "count"], "columns.resize": ["column", "width"],
   "cells.merge": ["range", "discardContent"], "cells.unmerge": ["range"],
-  "images.insert": ["resource", "anchor", "width", "height", "alt", "flipX", "flipY"],
-  "shapes.insert": ["shape", "anchor", "width", "height", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "flipX", "flipY"],
-  "textBoxes.insert": ["anchor", "text", "width", "height", "fontSize", "color", "background", "bold", "flipX", "flipY"],
+  "images.insert": ["resource", "anchor", "width", "height", "alt", "flipX", "flipY", "rotation"],
+  "shapes.insert": ["shape", "anchor", "width", "height", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "flipX", "flipY", "rotation"],
+  "textBoxes.insert": ["anchor", "text", "width", "height", "fontSize", "color", "background", "bold", "flipX", "flipY", "rotation"],
   "drawings.paste": ["payload", "anchor"],
   "drawings.delete": ["drawingId"], "images.update": ["drawingId", "patch"],
   "shapes.update": ["drawingId", "patch"], "textBoxes.update": ["drawingId", "patch"],
@@ -62,6 +62,8 @@ export function validateCommand(value: unknown): SpreadsheetCommand {
     if (input[key] !== undefined && typeof input[key] !== "string") return rejectCommand("INVALID_COMMAND", `${key}は文字列で指定してください`);
   for (const key of ["bold", "discardContent", "flipX", "flipY"])
     if (input[key] !== undefined && typeof input[key] !== "boolean") return rejectCommand("INVALID_COMMAND", `${key}はtrueまたはfalseで指定してください`);
+  if (input.rotation !== undefined && (typeof input.rotation !== "number" || !Number.isFinite(input.rotation)))
+    return rejectCommand("INVALID_COMMAND", "rotationは有限の数値で指定してください");
   if (input.onConflict !== undefined && !["error", "overwrite", "skip"].includes(input.onConflict as string))
     return rejectCommand("INVALID_COMMAND", "onConflictはerror、overwrite、skipのいずれかで指定してください");
   return input as SpreadsheetCommand;

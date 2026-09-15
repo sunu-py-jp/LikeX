@@ -49,7 +49,10 @@ flowchart TD
 | `model/workbook/cells.ts`・`merges.ts` | セル値・書式、セルの結合・解除 |
 | `model/workbook/structure.ts`・`sheets.ts`・`move-cells.ts` | 行列・シート構造、セル移動と参照の整合性 |
 | `model/workbook/annotations.ts` | 描画オブジェクト・画像・コメントのブックへの反映 |
-| `model/formula.ts`・`function-definitions.ts` | 数式の評価と参照の変換、対応関数の定義 |
+| `model/formula.ts`・`function-definitions.ts` | 数式の解析・参照の変換・計算量制限と、公開関数カタログ |
+| `model/formula-functions/` | 集計・検索・文字列・日付など用途ごとの評価処理。参照の形状と空白を保持し、必要なセルだけを読む |
+| `model/shapes.ts` | 図形の種類・ラベル・SVG形状・Excelのpresetを一元定義 |
+| `model/drawing-transform.ts`・`state/drawing-rotation.ts` | 角度の正規化と外接矩形、ポインターによる回転・回転後のリサイズ計算 |
 | `model/formatting/`・`model/conditional-formatting.ts` | 書式検証・表示文字列・日付変換と条件付き書式の評価。画面・検索・自動調整・Excel出力で共用 |
 | `model/editing/` | 検索、貼り付け、連続データと数式参照の展開 |
 | `model/data-validation.ts`・`model/workbook/data-validation.ts` | 入力規則の検証と変更後ブック全体の検査 |

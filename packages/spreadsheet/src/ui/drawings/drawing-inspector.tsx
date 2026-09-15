@@ -26,6 +26,16 @@ function PropertyField({ label, value, onCommit, controller: c, type = "text" }:
   return <label className="lxs-object-property"><span>{label}</span><input type={type} step={type === "number" ? "any" : undefined} value={text} disabled={c.disabled || c.requesting} aria-label={label} onChange={event => { generation.current++; setDraft(event.target.value); markPending(event.target.value !== base); }} onBlur={commit} onKeyDown={event => {
     event.stopPropagation();
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    const primary = (event.metaKey || event.ctrlKey) && !(event.metaKey && event.ctrlKey) && !event.altKey;
+    const key = event.key.toLowerCase();
+    // Once Enter/blur commits a property, Undo belongs to the workbook even if
+    // focus is still in this input. An unfinished draft retains native text Undo.
+    if (primary && (key === "z" || key === "y") && draft === null && !c.pendingObjectEdit && !c.editing &&
+      !c.readOnly && c.features.undoRedo) {
+      event.preventDefault();
+      if (key === "y" || event.shiftKey) c.redo(); else c.undo();
+      return;
+    }
     if (event.key === "Enter") { event.preventDefault(); commit(); }
     if (event.key === "Escape") { event.preventDefault(); generation.current++; c.cancelEditRequest(); setDraft(null); markPending(false); }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") { event.preventDefault(); void chainResult(commit(), accepted => { if (accepted) void c.save(); }); }
@@ -44,6 +54,7 @@ function DrawingInspectorSession({ controller: c, drawing }: { controller: Sprea
     <div className="lxs-object-heading"><strong>{drawingLabel(drawing)}</strong><Command label="オブジェクトの選択を解除" onClick={() => { c.selectDrawing(null); c.requestGridFocus(); }}><Icon name="close" /></Command></div>
     <p className="lxs-object-position">{cellAddress(drawing.anchor.row, drawing.anchor.column)} に配置</p>
     {c.features.resize && <div className="lxs-object-properties"><PropertyField label="幅" type="number" value={drawing.width} controller={c} onCommit={value => update({ width: Number(value) })} /><PropertyField label="高さ" type="number" value={drawing.height} controller={c} onCommit={value => update({ height: Number(value) })} /></div>}
+    {c.features.resize && <PropertyField label="角度（°）" type="number" value={drawing.rotation ?? 0} controller={c} onCommit={value => update({ rotation: Number(value) })} />}
     {drawing.type === "image" && <PropertyField label="代替テキスト" value={drawing.alt} controller={c} onCommit={alt => update({ alt })} />}
     {drawing.type === "shape" && <>
       {!["line", "arrow"].includes(drawing.shape) && <ColorPropertyField label="塗りつぶし" value={drawing.fill} controller={c} reset={{label: "なし", value: "transparent"}} onCommit={fill => update({ fill })} />}

@@ -32,12 +32,12 @@ export type SpreadsheetCommand = DeepReadonly<
   | { type: "cells.merge"; sheetId: string; range: SpreadsheetMergedRange; discardContent?: boolean }
   | { type: "cells.unmerge"; sheetId: string; range: SpreadsheetMergedRange }
   | { type: "images.insert"; sheetId: string; resource: SpreadsheetImageResource; anchor: SpreadsheetCommandAnchor;
-      width?: number; height?: number; alt?: string; flipX?: boolean; flipY?: boolean }
+      width?: number; height?: number; alt?: string; flipX?: boolean; flipY?: boolean; rotation?: number }
   | { type: "shapes.insert"; sheetId: string; shape: SpreadsheetShapeDrawing["shape"]; anchor: SpreadsheetCommandAnchor;
-      width?: number; height?: number; flipX?: boolean; flipY?: boolean; fill?: string; stroke?: string; strokeWidth?: number;
+      width?: number; height?: number; flipX?: boolean; flipY?: boolean; rotation?: number; fill?: string; stroke?: string; strokeWidth?: number;
       text?: string; fontSize?: number; color?: string; bold?: boolean }
   | { type: "textBoxes.insert"; sheetId: string; anchor: SpreadsheetCommandAnchor; text?: string; width?: number; height?: number;
-      fontSize?: number; color?: string; background?: string; bold?: boolean; flipX?: boolean; flipY?: boolean }
+      fontSize?: number; color?: string; background?: string; bold?: boolean; flipX?: boolean; flipY?: boolean; rotation?: number }
   | { type: "drawings.paste"; sheetId: string; payload: SpreadsheetDrawingPastePayload; anchor?: SpreadsheetCommandAnchor }
   | { type: "drawings.delete"; sheetId: string; drawingId: string }
   | { type: "images.update"; sheetId: string; drawingId: string; patch: SpreadsheetImageCommandPatch }

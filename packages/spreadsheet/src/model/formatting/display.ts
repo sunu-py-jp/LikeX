@@ -1,10 +1,10 @@
+import { EXCEL_DAY_MILLISECONDS as DAY, EXCEL_DATE_SERIAL_END, excelSerialFromUtc, excelUtcFromSerial } from "./excel-date";
 import type { SpreadsheetCell, SpreadsheetCellFormat, SpreadsheetCalculatedValue } from "../types";
 
 /** Date validation supplies its natural display format unless the host selected another format. */
 export function effectiveCellFormat(cell?: SpreadsheetCell): SpreadsheetCellFormat | undefined {
   return cell?.validation?.type === "date" && (!cell.format?.numberFormat || cell.format.numberFormat === "general") ? { ...cell.format, numberFormat: "date" } : cell?.format;
 }
-const DAY = 86_400_000, EPOCH = Date.UTC(1899, 11, 31);
 type DateKind = "date" | "time" | "datetime";
 /** ISO civil dates/times only. No locale parsing or timezone-dependent interpretation. */
 export function excelDateSerial(value: string, kind: DateKind): number | undefined {
@@ -28,14 +28,14 @@ export function excelDateSerial(value: string, kind: DateKind): number | undefin
     if (zoneHour > 23 || zoneMinute > 59) return undefined;
     milliseconds -= (zone[0] === "+" ? 1 : -1) * (zoneHour * 60 + zoneMinute) * 60000;
   }
-  const serial = (milliseconds - EPOCH) / DAY + (milliseconds >= Date.UTC(1900, 2, 1) ? 1 : 0);
+  const serial = excelSerialFromUtc(milliseconds);
   return kind === "time" ? ((serial % 1) + 1) % 1 : kind === "date" ? Math.floor(serial) : serial;
 }
 function dateDisplay(value: SpreadsheetCalculatedValue, kind: DateKind): string {
   const serial = typeof value === "number" ? value : typeof value === "string" ? excelDateSerial(value, kind) : undefined;
-  if (serial === undefined || !Number.isFinite(serial) || serial < 0 || serial >= 2958466) return String(value);
+  if (serial === undefined || !Number.isFinite(serial) || serial < 0 || serial >= EXCEL_DATE_SERIAL_END) return String(value);
   const whole = Math.floor(serial), milliseconds = Math.round((serial - whole) * DAY);
-  const date = new Date(EPOCH + (whole >= 60 ? whole - 1 : whole) * DAY + milliseconds);
+  const date = new Date(excelUtcFromSerial(whole) + milliseconds);
   const pad = (n: number) => String(n).padStart(2, "0");
   const day = whole === 60 ? "1900/02/29" : `${date.getUTCFullYear()}/${pad(date.getUTCMonth() + 1)}/${pad(date.getUTCDate())}`;
   const time = `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;

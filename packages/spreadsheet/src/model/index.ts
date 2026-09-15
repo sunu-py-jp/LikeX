@@ -1,4 +1,6 @@
 export * from "./types";
+export { SPREADSHEET_SHAPES } from "./shapes";
+export type { SpreadsheetShapeKind, SpreadsheetShapeCategory, SpreadsheetShapeInfo } from "./shapes";
 export { cellAddress, parseCellAddress } from "./address";
 export { calculateWorkbook, translateFormula } from "./formula";
 export { parseTsv, stringifyTsv } from "./tsv";
@@ -24,3 +26,6 @@ export type { SpreadsheetTable, SpreadsheetTableColumn } from "./tables/types";
 
 export { copySpreadsheetDrawing } from "./editing/copy-drawing";
 export type { SpreadsheetDrawingPastePayload, SpreadsheetDrawingCopyOptions } from "./editing/copy-drawing";
+
+export { SUPPORTED_SPREADSHEET_FUNCTIONS } from "./function-definitions";
+export type { SpreadsheetFunctionName, SpreadsheetFunctionCategory } from "./function-definitions";

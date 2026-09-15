@@ -1,6 +1,6 @@
 {
   "title": "画像・図形・コメント",
-  "summary": "画像、文字入り図形、テキストボックス、セルコメントを挿入し、JSONに保存します。",
+  "summary": "16種類の図形、画像、テキストボックス、セルコメントを挿入。回転・反転・文字編集とJSON保存に対応します。",
   "source": "packages/spreadsheet/src/docs/insertions-and-json.md",
   "order": 130,
   "section": "表示と挿入",
@@ -16,7 +16,10 @@
     "serializeWorkbook",
     "parseWorkbook",
     "flipX",
-    "flipY"
+    "flipY",
+    "rotation",
+    "SPREADSHEET_SHAPES",
+    "SpreadsheetShapeKind"
   ],
   "screenshots": [
     {
@@ -28,6 +31,16 @@
       "src": "assets/screenshots/spreadsheet-drawing-flip.png",
       "alt": "四隅のサイズ変更ハンドルと、ドラッグで左上向きに反転した矢印",
       "caption": "四隅をドラッグしてサイズを変更できます。反対の角を越えると向きが反転します。画像の縦横比と、図形内の文字の読みやすさは維持します。"
+    },
+    {
+      "src": "assets/screenshots/spreadsheet-shape-gallery.png",
+      "alt": "基本図形・ブロック矢印・線に分かれた16種類の図形選択ダイアログ",
+      "caption": "「挿入 → 図形」から形を選択します。選択したセルの位置へ挿入します。"
+    },
+    {
+      "src": "assets/screenshots/spreadsheet-drawing-rotation.png",
+      "alt": "30度に回転した文字入り矢印、上部の回転ハンドルと角度の入力欄",
+      "caption": "上部のハンドルをドラッグして回転。Shiftで15°刻みになり、角度欄からの指定とUndo／Redoにも対応します。"
     }
   ]
 }

@@ -3,6 +3,8 @@ import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { addDrawing, deleteDrawing, insertImage, updateDrawing } from "../model/workbook";
 import type { SpreadsheetDrawingAnchor, SpreadsheetDrawingPatch, SpreadsheetWorkbook } from "../model/types";
 import { getImageDisplaySize, normalizeImageResource } from "../model/image-resources";
+import { getShapeDefinition, isSpreadsheetShapeKind } from "../model/shapes";
+import { normalizeDrawingRotation } from "../model/drawing-transform";
 import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { commandKeys, commandRecord, rejectCommand, requireCommandFeature, requireCommandSheet } from "./validation";
 
@@ -35,14 +37,15 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       const height = command.height ?? size.height * scale;
       return receipt(insertImage(workbook, sheet.id, resourceId, resource,
         { id: drawingId, type: "image", resourceId, anchor, width, height, alt: command.alt ?? resource.name,
-          flipX: command.flipX, flipY: command.flipY }), drawingId, resourceId);
+          flipX: command.flipX, flipY: command.flipY, rotation: command.rotation }), drawingId, resourceId);
     }
     case "shapes.insert": {
       requireCommandFeature(features, "shapes");
+      if (!isSpreadsheetShapeKind(command.shape)) return rejectCommand("INVALID_COMMAND", "図形の種類が正しくありません");
       const anchor = drawingAnchor(command.anchor), drawingId = nextId();
-      const line = command.shape === "line" || command.shape === "arrow";
+      const line = getShapeDefinition(command.shape).geometry.type === "line";
       return receipt(addDrawing(workbook, sheet.id, { id: drawingId, type: "shape", shape: command.shape, anchor,
-        width: command.width ?? 160, height: command.height ?? (line ? 72 : 100), flipX: command.flipX, flipY: command.flipY,
+        width: command.width ?? 160, height: command.height ?? (line ? 72 : 100), flipX: command.flipX, flipY: command.flipY, rotation: command.rotation,
         fill: command.fill ?? (line ? "transparent" : "#e8f3ec"), stroke: command.stroke ?? "#217346", strokeWidth: command.strokeWidth ?? 2,
         ...(command.text !== undefined ? { text: command.text } : {}), ...(command.fontSize !== undefined ? { fontSize: command.fontSize } : {}),
         ...(command.color !== undefined ? { color: command.color } : {}), ...(command.bold !== undefined ? { bold: command.bold } : {}) }), drawingId);
@@ -52,7 +55,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       const anchor = drawingAnchor(command.anchor), drawingId = nextId();
       return receipt(addDrawing(workbook, sheet.id, { id: drawingId, type: "text", anchor,
         text: command.text ?? "テキスト", width: command.width ?? 200, height: command.height ?? 80,
-        flipX: command.flipX, flipY: command.flipY,
+        flipX: command.flipX, flipY: command.flipY, rotation: command.rotation,
         fontSize: command.fontSize ?? 16, color: command.color ?? "currentColor", background: command.background ?? "transparent",
         ...(command.bold !== undefined ? { bold: command.bold } : {}) }), drawingId);
     }
@@ -69,10 +72,15 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       const patch = commandRecord(command.patch, "更新内容");
       const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape" ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold"]
         : ["text", "fontSize", "color", "background", "bold"];
-      commandKeys(patch, ["anchor", "width", "height", "flipX", "flipY", ...specific], "更新内容");
+      commandKeys(patch, ["anchor", "width", "height", "flipX", "flipY", "rotation", ...specific], "更新内容");
+      if (drawing.type === "shape" && Object.hasOwn(patch, "shape") && !isSpreadsheetShapeKind(patch.shape))
+        return rejectCommand("INVALID_COMMAND", "図形の種類が正しくありません");
       for (const key of ["flipX", "flipY"] as const)
         if (patch[key] !== undefined && typeof patch[key] !== "boolean") return rejectCommand("INVALID_COMMAND", `${key}はtrueまたはfalseで指定してください`);
+      if (patch.rotation !== undefined && (typeof patch.rotation !== "number" || !Number.isFinite(patch.rotation)))
+        return rejectCommand("INVALID_COMMAND", "rotationは有限の数値で指定してください");
       if ((patch.width !== undefined && patch.width !== drawing.width) || (patch.height !== undefined && patch.height !== drawing.height) ||
+        (Object.hasOwn(patch, "rotation") && normalizeDrawingRotation(patch.rotation) !== normalizeDrawingRotation(drawing.rotation)) ||
         (["flipX", "flipY"] as const).some(key => Object.hasOwn(patch, key) && !!patch[key] !== !!drawing[key]))
         requireCommandFeature(features, "resize");
       const normalized: SpreadsheetDrawingPatch = { ...patch,

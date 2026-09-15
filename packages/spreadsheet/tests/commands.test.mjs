@@ -345,11 +345,12 @@ test('model validation remains authoritative for hostile image bytes, invalid ge
     { type: 'images.insert', sheetId: 'sheet-1', anchor, resource: { ...imageResource, dataUrl: 'https://example.com/not-inline.png' } },
     { type: 'images.insert', sheetId: 'sheet-1', anchor, resource: { ...imageResource, mimeType: 'image/svg+xml' } },
     { type: 'shapes.insert', sheetId: 'sheet-1', shape: 'rectangle', anchor, fill: 'url(javascript:alert(1))' },
-    { type: 'shapes.insert', sheetId: 'sheet-1', shape: 'triangle', anchor },
     { type: 'shapes.insert', sheetId: 'sheet-1', shape: 'rectangle', anchor: { row: workbook.sheets[0].rowCount, column: 0 } },
     { type: 'cells.merge', sheetId: 'sheet-1', range: { ...range, right: 100 } },
     { type: 'sheets.delete', sheetId: 'sheet-1' },
   ]) { const result = run(workbook, [command]); assert.equal(result.ok, false); assert.equal(result.code, 'VALIDATION_FAILED'); }
+  const unsupported = run(workbook, [{ type: 'shapes.insert', sheetId: 'sheet-1', shape: 'cloud', anchor }]);
+  assert.equal(unsupported.ok, false); assert.equal(unsupported.code, 'INVALID_COMMAND');
   assert.equal(normalizeWorkbook(workbook).sheets[0].cells.A1, undefined);
 });
 

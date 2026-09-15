@@ -1,31 +1,23 @@
 "use client";
 
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { chainResult } from "../../core";
 import { SPREADSHEET_LIMITS, type SpreadsheetDrawing } from "../../model";
+import { shapeTextFrame } from "../../model/shapes";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 import { useObjectEditPending } from "../../state/use-object-edit-pending";
 import { drawingTextColor, visibleDrawing } from "./drawing-helpers";
 import { updateDrawingFromUI } from "./drawing-commands";
 
-export function Shape({ drawing }: { drawing: Extract<SpreadsheetDrawing, { type: "shape" }> }) {
-  const marker = useId().replace(/:/g, "");
-  const stroke = drawing.strokeWidth;
-  return <svg className="lxs-shape" width="100%" height="100%" viewBox={`0 0 ${drawing.width} ${drawing.height}`} aria-hidden="true" overflow="visible"
-    style={{ transform: `scale(${drawing.flipX ? -1 : 1}, ${drawing.flipY ? -1 : 1})`, transformOrigin: "center" }}>
-    {drawing.shape === "arrow" && <defs><marker id={marker} markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M0 0 9 4.5 0 9 2 4.5Z" fill={drawing.stroke} /></marker></defs>}
-    {drawing.shape === "rectangle" ? <rect x={stroke / 2} y={stroke / 2} width={Math.max(0, drawing.width - stroke)} height={Math.max(0, drawing.height - stroke)} fill={drawing.fill} stroke={drawing.stroke} strokeWidth={stroke} />
-      : drawing.shape === "ellipse" ? <ellipse cx={drawing.width / 2} cy={drawing.height / 2} rx={Math.max(0, (drawing.width - stroke) / 2)} ry={Math.max(0, (drawing.height - stroke) / 2)} fill={drawing.fill} stroke={drawing.stroke} strokeWidth={stroke} />
-        : <line x1={Math.max(stroke, 4)} y1={Math.max(stroke, 4)} x2={Math.max(stroke, drawing.width - (drawing.shape === "arrow" ? stroke * 7 : stroke))} y2={Math.max(stroke, drawing.height - (drawing.shape === "arrow" ? stroke * 7 : stroke))} stroke={drawing.stroke} strokeWidth={stroke} markerEnd={drawing.shape === "arrow" ? `url(#${marker})` : undefined} />}
-  </svg>;
-}
+export { Shape } from "./shape";
 
 type TextDrawing = Exclude<SpreadsheetDrawing, { type: "image" }>;
 
 export function DrawingText({ drawing }: { drawing: TextDrawing }) {
   return <div className={drawing.type === "shape" ? "lxs-shape-text" : "lxs-text-box"}
     style={{ fontSize: drawing.fontSize ?? 16, color: drawingTextColor(drawing),
-      background: drawing.type === "text" ? drawing.background : undefined, fontWeight: drawing.bold ? 700 : 400 }}>
+      background: drawing.type === "text" ? drawing.background : undefined, fontWeight: drawing.bold ? 700 : 400,
+      ...(drawing.type === "shape" ? { ...shapeTextFrame(drawing), right: "auto", bottom: "auto" } : {}) }}>
     <span>{drawing.text || (drawing.type === "text" ? "テキストを入力" : "")}</span>
   </div>;
 }
@@ -37,12 +29,13 @@ export function DrawingTextEditor({ drawing, controller: c, onDone }: { drawing:
   const textarea = useRef<HTMLTextAreaElement>(null);
   const cancelled = useRef(false);
   const markPending = useObjectEditPending(c);
+  const frame = drawing.type === "shape" ? shapeTextFrame(drawing) : undefined;
   useLayoutEffect(() => {
     const editor = textarea.current;
     if (drawing.type !== "shape" || !editor) return;
     editor.style.height = "0px";
-    editor.style.height = `${Math.min(editor.scrollHeight, Math.max(0, drawing.height - 16))}px`;
-  }, [text, drawing.type, drawing.width, drawing.height, drawing.fontSize]);
+    editor.style.height = `${Math.min(editor.scrollHeight, Math.max(0, (frame?.height ?? drawing.height) - 16))}px`;
+  }, [text, drawing.type, drawing.width, drawing.height, drawing.fontSize, frame?.height]);
   useLayoutEffect(() => { textarea.current?.focus(); textarea.current?.select(); }, []);
   const commit = () => {
     if (cancelled.current) return true;
@@ -63,5 +56,5 @@ export function DrawingTextEditor({ drawing, controller: c, onDone }: { drawing:
       if (event.key === "Escape") { event.preventDefault(); cancelled.current = true; c.cancelEditRequest(); markPending(false); onDone(); }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") { event.preventDefault(); void chainResult(commit(), accepted => { if (accepted) void c.save(); }); }
     }} />;
-  return drawing.type === "shape" ? <div className="lxs-shape-text-edit-frame">{editor}</div> : editor;
+  return drawing.type === "shape" ? <div className="lxs-shape-text-edit-frame" style={{ ...frame, right: "auto", bottom: "auto" }}>{editor}</div> : editor;
 }

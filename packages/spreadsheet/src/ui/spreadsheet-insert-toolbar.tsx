@@ -10,6 +10,7 @@ import { readImageResource } from "../state/read-image";
 import { Command, Icon } from "./spreadsheet-controls";
 import { SpreadsheetTableTools } from "./spreadsheet-table-tools";
 import { RibbonGroup } from "./spreadsheet-ribbon-group";
+import { SpreadsheetShapeGallery } from "./spreadsheet-shape-gallery";
 
 type ImageRequest = { abort: AbortController; workbook: SpreadsheetController["workbook"]; selection: SpreadsheetController["selection"]; sheetId: string };
 function acceptsImage(c: SpreadsheetController, request: ImageRequest) {
@@ -82,13 +83,7 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
       }}><Icon name="image" /><span>画像</span></Command>
     </>}
     {(c.features.shapes || c.features.textBoxes) && <div className="lxs-ribbon-stack">
-    {c.features.shapes && <div className="lxs-ribbon-row">
-      <Icon name="shape" />
-      <select className="lxs-select lxs-insert-select" aria-label="図形を挿入" value="" disabled={c.disabled || c.requesting} onChange={event => {
-        const value = event.target.value;
-        if (value === "rectangle" || value === "ellipse" || value === "line" || value === "arrow") shape(value);
-      }}><option value="" disabled>図形</option><option value="rectangle">長方形</option><option value="ellipse">楕円</option><option value="line">直線</option><option value="arrow">矢印</option></select>
-    </div>}
+    {c.features.shapes && <SpreadsheetShapeGallery disabled={c.disabled || c.requesting} onSelect={shape} />}
     {c.features.textBoxes && <Command label="テキストボックスを挿入" className="lxs-ribbon-command-label" disabled={c.disabled || c.requesting} onClick={() => insert({ type: "textBoxes.insert", sheetId: latest.current.activeSheet.id, anchor: anchor() }, "textBoxes")}><Icon name="text" /><span>テキストボックス</span></Command>}
     </div>}
     </div></RibbonGroup>}

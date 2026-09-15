@@ -6,7 +6,7 @@ const output = await build({ stdin: {
   contents: 'export * from "./src/export/xlsx/worksheet"; export * from "./src/export/xlsx/styles"; export * from "./src/export/xlsx/comments"; export * from "./src/export/xlsx/xml"; export * from "./src/export/xlsx/formula"; export * from "./src/model";',
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'xlsx-worksheet-entry.ts',
 }, bundle: true, platform: 'node', format: 'esm', write: false });
-const { worksheetXml, createXlsxStyles, commentParts, xml, xlsxText, xlsxColor, xlsxFormula, normalizeWorkbook, calculateWorkbook } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { worksheetXml, createXlsxStyles, commentParts, xml, xlsxText, xlsxColor, xlsxFormula, normalizeWorkbook, calculateWorkbook, SUPPORTED_SPREADSHEET_FUNCTIONS } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const sheet = (id = 'one', name = 'Sheet 1', cells = {}) => ({ id, name, rowCount: 10, columnCount: 10, cells });
 const book = (cells = {}, extra = {}) => normalizeWorkbook({ sheets: [{ ...sheet('one', 'Sheet 1', cells), ...extra }] });
 const render = workbook => worksheetXml(workbook, workbook.sheets[0], createXlsxStyles(workbook), calculateWorkbook(workbook));
@@ -152,4 +152,40 @@ test('comments use standard notes XML, VML anchors, relationships and content ty
   assert.equal(result.contentTypes[0].partName, '/xl/comments2.xml');
   assert.equal(result.contentTypes[1].extension, 'vml');
   assert.deepEqual(commentParts(book().sheets[0], 1), { parts: [], relationships: [], contentTypes: [] });
+});
+
+
+test('the expanded function catalogue exports with current Excel namespace prefixes and preserved omitted arguments', () => {
+  const workbook = book(), sheet = workbook.sheets[0];
+  for (const definition of SUPPORTED_SPREADSHEET_FUNCTIONS) {
+    const formula = xlsxFormula(definition.example, workbook, sheet);
+    assert.ok(formula.length, definition.name);
+    assert.doesNotMatch(formula, /^=/);
+  }
+  assert.equal(xlsxFormula('=XLOOKUP("b",A1:A3,B1:B3,,0,-1)', workbook, sheet),
+    '_xlfn.XLOOKUP("b",A1:A3,B1:B3,,0,-(1))');
+  assert.equal(xlsxFormula('=IFNA(MATCH("b",A1:A3,0),0)', workbook, sheet),
+    '_xlfn.IFNA(MATCH("b",A1:A3,0),0)');
+  assert.equal(xlsxFormula('=IFS(TRUE,1,FALSE,2)', workbook, sheet), '_xlfn.IFS(TRUE,1,FALSE,2)');
+  assert.equal(xlsxFormula('=TEXTJOIN(",",TRUE,A1:B3)', workbook, sheet), '_xlfn.TEXTJOIN(",",TRUE,A1:B3)');
+  assert.equal(xlsxFormula('=SUMIFS(B1:B3,A1:A3,">0")', workbook, sheet), 'SUMIFS(B1:B3,A1:A3,">0")');
+  assert.equal(xlsxFormula('=ROW()+COLUMN()+ROWS(A1:B3)+COLUMNS(A1:B3)', workbook, sheet),
+    '((ROW()+COLUMN())+ROWS(A1:B3))+COLUMNS(A1:B3)');
+});
+
+test('new date, conditional, lookup and text formulas retain correctly typed XML caches', () => {
+  const workbook = book({ A1:{ value:'done' }, A2:{ value:'pending' }, A3:{value:'done'},
+    B1:{value:'10'}, B2:{value:'20'}, B3:{value:'30'},
+    C1:{value:'=SUMIFS(B1:B3,A1:A3,"done")'}, C2:{value:'=XLOOKUP("pending",A1:A3,B1:B3)'},
+    C3:{value:'=TEXTJOIN(",",TRUE,A1:A3)'}, C4:{value:'=DATE(2026,9,15)',format:{numberFormat:'date'}},
+    C5:{value:'=ISNUMBER(C1)'}, C6:{value:'=IFNA(#N/A,"missing")'} });
+  const contents = render(workbook);
+  assert.match(cell(contents,'C1'), /<v>40<\/v>/);
+  assert.match(cell(contents,'C2'), /<f>_xlfn.XLOOKUP/);
+  assert.match(cell(contents,'C2'), /<v>20<\/v>/);
+  assert.match(cell(contents,'C3'), /t="str"/);
+  assert.match(cell(contents,'C3'), /<v>done,pending,done<\/v>/);
+  assert.match(cell(contents,'C4'), /<v>46280<\/v>/);
+  assert.match(cell(contents,'C5'), /t="b"/);
+  assert.match(cell(contents,'C6'), /<v>missing<\/v>/);
 });

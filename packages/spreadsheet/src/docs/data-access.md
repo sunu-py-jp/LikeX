@@ -237,7 +237,9 @@ type WorkbookResult = ReturnType<SpreadsheetHandle["getWorkbook"]>;
 | `id` | `string` | シート上の配置ID（`drawingId`） |
 | `type` | `"image"` / `"shape"` / `"text"` | 配置の種類 |
 | `anchor` | `{ row: number; column: number; offsetX: number; offsetY: number }` | 行・列は0始まり。offsetはアンカーセル左上からのpx |
-| `width` / `height` | `number` | 表示枠の幅・高さ（px） |
+| `width` / `height` | `number` | 回転前の表示枠の幅・高さ（px） |
+| `rotation?` | `number` | 中心を軸とする時計回りの角度。0°は省略、保存値は0より大きく360未満 |
+| `flipX?` / `flipY?` | `boolean` | 左右・上下反転。反転しない場合は省略 |
 
 ### getImage
 
@@ -281,7 +283,7 @@ type WorkbookResult = ReturnType<SpreadsheetHandle["getWorkbook"]>;
 
 | 共通フィールド以外 | 型 | 内容 |
 | --- | --- | --- |
-| `shape` | `"rectangle"` / `"ellipse"` / `"line"` / `"arrow"` | 図形の形 |
+| `shape` | `SpreadsheetShapeKind` | [基本図形・線・ブロック矢印](./insertions-and-json.md#図形の種類)の形 |
 | `fill` / `stroke` | `string` | 塗りと線の色 |
 | `strokeWidth` | `number` | 線幅（px） |
 | `text?` | `string` | 図形内の文字 |

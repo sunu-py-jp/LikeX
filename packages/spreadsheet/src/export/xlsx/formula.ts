@@ -4,6 +4,7 @@ import { parseCellAddress } from "../../model/address";
 import type { SpreadsheetSheet, SpreadsheetWorkbook } from "../../model/types";
 
 const functions = new Set<string>(SUPPORTED_SPREADSHEET_FUNCTIONS.map(item => item.name));
+const futureFunctions = new Set(["CONCAT", "IFNA", "IFS", "TEXTJOIN", "XLOOKUP"]);
 export const EXCEL_ERRORS = new Set(["#NULL!", "#DIV/0!", "#VALUE!", "#REF!", "#NAME?", "#NUM!", "#N/A"]);
 
 /** Emit only the model's bounded, local formula language; never activate arbitrary Excel functions. */
@@ -32,6 +33,7 @@ export function xlsxFormula(value: string, workbook: SpreadsheetWorkbook, sheet:
     // Explicit operator grouping preserves the evaluator's precedence during Excel recalculation.
     function emit(node: ReturnType<typeof parseFormula>, nested = false, calls = 0): string {
       switch (node.type) {
+        case "omitted": return "";
         case "value": return typeof node.value === "string" ? `"${node.value.replaceAll('"', '""')}"`
           : typeof node.value === "boolean" ? node.value ? "TRUE" : "FALSE" : String(node.value);
         case "error": return node.code;
@@ -43,7 +45,7 @@ export function xlsxFormula(value: string, workbook: SpreadsheetWorkbook, sheet:
         }
         case "call": {
           if (calls >= 64 || node.args.length > 255) throw new Error("Excelの関数の入れ子または引数の上限を超えています");
-          return `${node.name === "CONCAT" ? "_xlfn.CONCAT" : node.name}(${node.args.map(argument => emit(argument, false, calls + 1)).join(",")})`;
+          return `${futureFunctions.has(node.name) ? `_xlfn.${node.name}` : node.name}(${node.args.map(argument => emit(argument, false, calls + 1)).join(",")})`;
         }
         case "unary": return node.operator === "%" ? `(${emit(node.value, false, calls)})%` : `${node.operator}(${emit(node.value, false, calls)})`;
         case "binary": {

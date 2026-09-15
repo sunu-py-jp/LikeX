@@ -115,6 +115,9 @@
 .lxs-shape-text > span { min-width: 0; max-width: 100%; max-height: 100%; overflow: hidden; }
 .lxs-image-missing { display: flex; height: 100%; align-items: center; justify-content: center; background: var(--lxs-panel); color: var(--lxs-muted); font-size: 12px; }
 .lxs-root .lxs-drawing-resize { position: absolute; width: 10px; height: 10px; border: 1px solid var(--lxs-background); background: var(--lxs-accent); cursor: nwse-resize; touch-action: none; }
+.lxs-root .lxs-drawing-rotate { position: absolute; left: 50%; top: -31px; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 1px solid var(--lxs-accent); border-radius: 50%; color: var(--lxs-accent); background: var(--lxs-background); cursor: grab; touch-action: none; }
+.lxs-root .lxs-drawing-rotate::after { position: absolute; content: ""; width: 1px; height: 11px; top: 19px; left: calc(50% - .5px); background: var(--lxs-accent); pointer-events: none; }
+.lxs-root .lxs-drawing-rotate:active { cursor: grabbing; }
 .lxs-drawing-resize[data-lxs-resize-corner="nw"] { left: -5px; top: -5px; }
 .lxs-drawing-resize[data-lxs-resize-corner="ne"] { right: -5px; top: -5px; cursor: nesw-resize; }
 .lxs-drawing-resize[data-lxs-resize-corner="sw"] { left: -5px; bottom: -5px; cursor: nesw-resize; }

@@ -1,16 +1,13 @@
 import { cellTextValue, isFormulaCell } from "./cell-value";
 import { cellAddress, parseCellAddress } from "./address";
-import { SUPPORTED_SPREADSHEET_FUNCTIONS } from "./function-definitions";
+import { FUNCTION_HANDLERS } from "./formula-functions";
+import { FormulaError, fail, errorPattern, finite, checked, number, literal, text, countable,
+  type FunctionContext, type FormulaRange } from "./formula-functions/runtime";
 import { SPREADSHEET_LIMITS, type SpreadsheetCalculatedValue as Value, type SpreadsheetWorkbook } from "./types";
 
 export type FormulaReference = { sheet?: string; address: string; prefix: string };
 export type FormulaToken = { kind: "number" | "string" | "reference" | "name" | "operator" | "error" | "end";
   text: string; start: number; end: number; reference?: FormulaReference };
-class FormulaError extends Error { constructor(readonly code: string) { super(code); } }
-const fail = (code = "#ERROR!"): never => { throw new FormulaError(code); };
-const errorPattern = /^#(?:REF!|DIV\/0!|VALUE!|NAME\?|NUM!|N\/A|CYCLE!|LIMIT!|ERROR!)/;
-const recoverableErrors = new Set(["#REF!", "#DIV/0!", "#VALUE!", "#NAME?", "#NUM!", "#N/A"]);
-const functionNames = new Set<string>(SUPPORTED_SPREADSHEET_FUNCTIONS.map(definition => definition.name));
 
 /** A bounded tokenizer shared by evaluation and reference rewriting. Never executes source text. */
 export function tokenizeFormula(formula: string): FormulaToken[] {
@@ -53,7 +50,7 @@ export function tokenizeFormula(formula: string): FormulaToken[] {
   return tokens;
 }
 
-type Node = { type: "value"; value: Value } | { type: "error"; code: string } |
+type Node = { type: "omitted" } | { type: "value"; value: Value } | { type: "error"; code: string } |
   { type: "reference"; reference: FormulaReference } |
   { type: "range"; first: FormulaReference; last: FormulaReference } |
   { type: "unary"; operator: string; value: Node } |
@@ -67,7 +64,7 @@ export function parseFormula(formula: string): Node {
   const tokens = tokenizeFormula(formula);
   let cursor = 0;
   const take = () => tokens[cursor++];
-  const is = (text: string) => tokens[cursor].text === text;
+  const is = (text: string) => tokens[cursor].kind === "operator" && tokens[cursor].text === text;
   const expect = (text: string) => { if (!is(text)) fail(); take(); };
   function expression(minimum = 0, depth = 0): Node {
     if (depth > SPREADSHEET_LIMITS.referenceDepth) return fail("#LIMIT!");
@@ -93,7 +90,10 @@ export function parseFormula(formula: string): Node {
       } else {
         take(); const args: Node[] = [];
         if (!is(")")) {
-          do { if (args.length) take(); args.push(expression(0, depth + 1)); } while (is(",") || is(";"));
+          do {
+            if (args.length) take();
+            args.push(is(",") || is(";") || is(")") ? { type: "omitted" } : expression(0, depth + 1));
+          } while (is(",") || is(";"));
         }
         expect(")"); node = { type: "call", name: token.text, args };
       }
@@ -112,146 +112,90 @@ export function parseFormula(formula: string): Node {
   return node;
 }
 
-function finite(value: number): number { return Number.isFinite(value) ? value : fail("#NUM!"); }
-function checked(value: Value): Value {
-  if (typeof value === "string" && errorPattern.test(value) && errorPattern.exec(value)![0] === value) return fail(value);
-  return value;
-}
-function number(value: Value): number {
-  checked(value);
-  if (typeof value === "number") return finite(value);
-  if (typeof value === "boolean") return Number(value);
-  if (!value.trim()) return 0;
-  return numeric.test(value.trim()) ? finite(Number(value)) : fail("#VALUE!");
-}
-const numeric = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
-function literal(value: string): Value {
-  if (value.startsWith("'")) return value.slice(1);
-  if (numeric.test(value.trim())) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : value; }
-  if (/^(true|false)$/i.test(value)) return value.toUpperCase() === "TRUE";
-  return value;
-}
-
-function logical(value: Value): boolean {
-  if (typeof value === "string" && /^(true|false)$/i.test(value.trim())) return value.trim().toUpperCase() === "TRUE";
-  return number(value) !== 0;
-}
-function text(value: Value): string { return typeof value === "boolean" ? (value ? "TRUE" : "FALSE") : String(value); }
-
-/** Round decimal digits, avoiding binary multiplication's 1.005 * 100 boundary error. */
-function round(value: number, places: number): number {
-  const digits = Math.trunc(places);
-  const [coefficient, power = "0"] = Math.abs(value).toString().split("e");
-  const fraction = coefficient.split(".")[1]?.length ?? 0;
-  const significant = coefficient.replace(".", "");
-  const remove = fraction - Number(power) - digits;
-  if (remove <= 0 || value === 0) return value === 0 ? 0 : value;
-  if (remove > significant.length) return 0;
-  const boundary = significant.length - remove;
-  let rounded = BigInt(significant.slice(0, boundary) || "0");
-  if (significant[boundary] >= "5") rounded++;
-  if (!rounded) return 0;
-  return finite(Math.sign(value) * Number(`${rounded}e${-digits}`));
-}
-
-/** Calculate only populated cells. Empty references are zero; absent display cells remain absent. */
+/** Calculate populated cells only; reference matrices retain blanks and their exact shape. */
 export function calculateWorkbook(workbook: SpreadsheetWorkbook): Record<string, Record<string, Value>> {
   const result: Record<string, Record<string, Value>> = Object.create(null);
   const sheets = new Map(workbook.sheets.map(sheet => [sheet.name.toLocaleLowerCase("en-US"), sheet]));
   const byId = new Map(workbook.sheets.map(sheet => [sheet.id, sheet]));
   const active = new Set<string>(), parsed = new Map<string, Node>();
   let steps = 0;
+  const tick = (cost = 1) => { if ((steps += cost) > SPREADSHEET_LIMITS.evaluationSteps) fail("#LIMIT!"); };
   for (const sheet of workbook.sheets) result[sheet.id] = Object.create(null);
-  function get(sheetId: string, address: string, depth: number): Value {
-    if (depth > SPREADSHEET_LIMITS.referenceDepth) return "#LIMIT!";
+  function get(sheetId: string, address: string, depth: number): Value | null {
+    if (depth > SPREADSHEET_LIMITS.referenceDepth) return fail("#LIMIT!");
     const sheet = byId.get(sheetId), position = parseCellAddress(address);
-    if (!sheet || !position || position.row >= sheet.rowCount || position.column >= sheet.columnCount) return "#REF!";
+    if (!sheet || !position || position.row >= sheet.rowCount || position.column >= sheet.columnCount) return fail("#REF!");
     const canonical = cellAddress(position.row, position.column), cache = result[sheetId];
-    if (Object.hasOwn(cache, canonical)) return cache[canonical];
     const cell = sheet.cells[canonical];
-    if (!cell || !cell.value) return 0;
+    if (!cell || !cell.value) return null;
+    if (Object.hasOwn(cache, canonical)) return countable(cache[canonical]);
     if (cell.format?.numberFormat === "text") return cache[canonical] = cellTextValue(cell.value);
     if (!isFormulaCell(cell)) return cache[canonical] = literal(cell.value);
     const key = `${sheetId}\0${canonical}`;
-    if (active.has(key)) return "#CYCLE!";
+    if (active.has(key)) return fail("#CYCLE!");
     active.add(key);
     try {
       let node = parsed.get(cell.value);
       if (!node) { node = parseFormula(cell.value); parsed.set(cell.value, node); }
-      const calculated = evaluate(node, sheetId, depth + 1);
-      cache[canonical] = Array.isArray(calculated) ? "#VALUE!" : checked(calculated);
+      cache[canonical] = scalar(node, sheetId, depth + 1, position);
     } catch (error) { cache[canonical] = error instanceof FormulaError ? error.code : "#ERROR!"; }
     finally { active.delete(key); }
-    return cache[canonical];
+    return countable(cache[canonical]);
   }
   function target(reference: FormulaReference, current: string) {
     return reference.sheet === undefined ? byId.get(current) : sheets.get(reference.sheet.toLocaleLowerCase("en-US"));
   }
-  function scalar(node: Node, sheet: string, depth: number): Value {
-    const value = evaluate(node, sheet, depth); return Array.isArray(value) ? fail("#VALUE!") : checked(value);
+  type Position = { row: number; column: number };
+  function scalar(node: Node, sheet: string, depth: number, position: Position): Value {
+    const value = evaluate(node, sheet, depth, position);
+    return typeof value === "object" && value !== null ? fail("#VALUE!") : checked(value ?? 0);
   }
-  function blankReference(node: Node, current: string): boolean {
-    if (node.type !== "reference") return false;
-    const sheet = target(node.reference, current), position = parseCellAddress(node.reference.address);
-    return !!sheet && !!position && position.row < sheet.rowCount && position.column < sheet.columnCount &&
-      !sheet.cells[cellAddress(position.row, position.column)]?.value;
+  function referenceRange(node: Node, current: string, depth: number): FormulaRange {
+    if (node.type !== "reference" && node.type !== "range") return fail("#VALUE!");
+    const a = node.type === "reference" ? node.reference : node.first;
+    const b = node.type === "reference" ? node.reference : node.last;
+    const sheet = target(a, current), endSheet = target(b, sheet?.id ?? current);
+    const first = parseCellAddress(a.address), last = parseCellAddress(b.address);
+    if (!sheet || sheet !== endSheet || !first || !last) return fail("#REF!");
+    const row = Math.min(first.row, last.row), column = Math.min(first.column, last.column);
+    const bottom = Math.max(first.row, last.row), right = Math.max(first.column, last.column);
+    if (bottom >= sheet.rowCount || right >= sheet.columnCount) return fail("#REF!");
+    const rows = bottom - row + 1, columns = right - column + 1;
+    const at = (index: number) => {
+      if (!Number.isInteger(index) || index < 0 || index >= rows * columns) return fail("#REF!");
+      tick(); return get(sheet.id, cellAddress(row + Math.floor(index / columns), column + index % columns), depth);
+    };
+    let cached: (Value | null)[] | undefined;
+    return {
+      rows, columns, row, column, at,
+      get values() {
+        if (rows * columns > SPREADSHEET_LIMITS.rangeCells) return fail("#LIMIT!");
+        return cached ??= Array.from({ length: rows * columns }, (_, index) => at(index));
+      },
+    };
   }
-  function textScalar(node: Node, current: string, depth: number): Value {
-    return blankReference(node, current) ? "" : scalar(node, current, depth);
-  }
-  // COUNTA may count ordinary error values, but it cannot hide cycles or resource limits.
-  function argumentValues(node: Node, current: string, depth: number, countErrors = false): Value[] {
-    if (blankReference(node, current)) return [];
-    try {
-      const value = evaluate(node, current, depth, countErrors);
-      return Array.isArray(value) ? value : [countErrors ? countable(value) : checked(value)];
-    } catch (error) {
-      if (countErrors && error instanceof FormulaError && recoverableErrors.has(error.code)) return [error.code];
-      throw error;
-    }
-  }
-  function countable(value: Value): Value {
-    return typeof value === "string" && recoverableErrors.has(value) ? value : checked(value);
-  }
-  function evaluate(node: Node, current: string, depth: number, countErrors = false): Value | Value[] {
-    if (++steps > SPREADSHEET_LIMITS.evaluationSteps || depth > SPREADSHEET_LIMITS.referenceDepth) return fail("#LIMIT!");
+
+  function evaluate(node: Node, current: string, depth: number, position: Position): Value | null | FormulaRange {
+    tick();
+    if (depth > SPREADSHEET_LIMITS.referenceDepth) return fail("#LIMIT!");
     switch (node.type) {
+      case "omitted": return 0;
       case "value": return node.value;
-      case "error": return fail(node.code);
+      case "error": return countable(node.code);
       case "reference": {
         const sheet = target(node.reference, current);
         if (!sheet) return fail("#REF!");
-        const value = get(sheet.id, node.reference.address, depth);
-        return countErrors ? countable(value) : checked(value);
+        return get(sheet.id, node.reference.address, depth);
       }
-      case "range": {
-        const sheet = target(node.first, current), endSheet = target(node.last, sheet?.id ?? current);
-        const first = parseCellAddress(node.first.address), last = parseCellAddress(node.last.address);
-        if (!sheet || sheet !== endSheet || !first || !last) return fail("#REF!");
-        const r0 = Math.min(first.row, last.row), r1 = Math.max(first.row, last.row);
-        const c0 = Math.min(first.column, last.column), c1 = Math.max(first.column, last.column);
-        if (r1 >= sheet.rowCount || c1 >= sheet.columnCount) return fail("#REF!");
-        if ((r1 - r0 + 1) * (c1 - c0 + 1) > SPREADSHEET_LIMITS.rangeCells) return fail("#LIMIT!");
-        const values: Value[] = [];
-        for (let row = r0; row <= r1; row++) for (let column = c0; column <= c1; column++) {
-          if (++steps > SPREADSHEET_LIMITS.evaluationSteps) return fail("#LIMIT!");
-          const address = cellAddress(row, column);
-          // Blank cells do not contribute to COUNT or the denominator of AVERAGE.
-          if (sheet.cells[address]?.value) {
-            const value = get(sheet.id, address, depth);
-            values.push(countErrors ? countable(value) : checked(value));
-          }
-        }
-        return values;
-      }
+      case "range": return referenceRange(node, current, depth);
       case "unary": {
-        const value = number(scalar(node.value, current, depth + 1));
+        const value = number(scalar(node.value, current, depth + 1, position));
         return node.operator === "-" ? -value : node.operator === "%" ? value / 100 : value;
       }
       case "binary": {
-        const left = scalar(node.left, current, depth + 1), right = scalar(node.right, current, depth + 1);
+        const left = scalar(node.left, current, depth + 1, position), right = scalar(node.right, current, depth + 1, position);
         if (node.operator === "&") {
-          const a = String(left), b = String(right);
+          const a = text(left), b = text(right);
           if (a.length + b.length > SPREADSHEET_LIMITS.cellLength) return fail("#LIMIT!");
           return a + b;
         }
@@ -268,74 +212,52 @@ export function calculateWorkbook(workbook: SpreadsheetWorkbook): Record<string,
           node.operator === "*" ? a * b : node.operator === "/" ? a / b : a ** b);
       }
       case "call": {
-        if (!functionNames.has(node.name)) return fail("#NAME?");
-        if (node.name === "IF") {
-          if (node.args.length < 2 || node.args.length > 3) return fail("#VALUE!");
-          const condition = scalar(node.args[0], current, depth + 1);
-          const branch = number(condition) ? node.args[1] : node.args[2];
-          return branch ? scalar(branch, current, depth + 1) : false;
-        }
-        if (node.name === "IFERROR") {
-          if (node.args.length !== 2) return fail("#VALUE!");
-          try { return textScalar(node.args[0], current, depth + 1); }
-          catch (error) {
-            if (!(error instanceof FormulaError) || !recoverableErrors.has(error.code)) throw error;
-            return textScalar(node.args[1], current, depth + 1);
-          }
-        }
-        if (["ROUND", "ABS", "NOT", "LEN"].includes(node.name)) {
-          if (node.args.length !== (node.name === "ROUND" ? 2 : 1)) return fail("#VALUE!");
-          if (node.name === "LEN") {
-            const value = text(textScalar(node.args[0], current, depth + 1));
-            let length = 0;
-            for (let index = 0; index < value.length; length++) index += value.codePointAt(index)! > 0xffff ? 2 : 1;
-            return length;
-          }
-          const value = scalar(node.args[0], current, depth + 1);
-          if (node.name === "NOT") return !logical(value);
-          const numericValue = number(value);
-          return node.name === "ABS" ? Math.abs(numericValue) : round(numericValue, number(scalar(node.args[1], current, depth + 1)));
-        }
-        if (["COUNTA", "AND", "OR", "CONCAT"].includes(node.name)) {
-          if (!node.args.length) return fail("#VALUE!");
-          let count = 0, truth = node.name === "AND", joined = "";
-          for (const argument of node.args) {
-            const referenced = argument.type === "reference" || argument.type === "range";
-            for (const value of argumentValues(argument, current, depth + 1, node.name === "COUNTA")) {
-              if (node.name === "COUNTA") { count++; continue; }
-              if (node.name === "CONCAT") {
-                const next = text(value);
-                if (joined.length + next.length > SPREADSHEET_LIMITS.cellLength) return fail("#LIMIT!");
-                joined += next;
-              } else if (!referenced || typeof value !== "string") {
-                const condition = logical(value);
-                truth = node.name === "AND" ? truth && condition : truth || condition;
-                count++;
-              }
-            }
-          }
-          if (node.name === "COUNTA") return count;
-          if (node.name === "CONCAT") return joined;
-          return count ? truth : fail("#VALUE!");
-        }
-        const values = node.args.flatMap(arg => argumentValues(arg, current, depth + 1));
-        const numbers = values.filter((value): value is number => typeof value === "number");
-        if (node.name === "COUNT") return numbers.length;
-        if (node.name === "AVERAGE" && !numbers.length) return fail("#DIV/0!");
-        if (!numbers.length) return 0;
-        if (node.name === "MIN") return numbers.reduce((value, next) => Math.min(value, next), Infinity);
-        if (node.name === "MAX") return numbers.reduce((value, next) => Math.max(value, next), -Infinity);
-        const sum = numbers.reduce((total, value) => total + value, 0);
-        return finite(node.name === "AVERAGE" ? sum / numbers.length : sum);
+        const handler = Object.hasOwn(FUNCTION_HANDLERS, node.name) ? FUNCTION_HANDLERS[node.name as keyof typeof FUNCTION_HANDLERS] : undefined;
+        if (!handler) return fail("#NAME?");
+        const read = (index: number) => {
+          if (!node.args[index]) return fail("#VALUE!");
+          return evaluate(node.args[index], current, depth + 1, position);
+        };
+        const context: FunctionContext = {
+          count: node.args.length, position, tick,
+          scalar: index => scalar(node.args[index] ?? fail("#VALUE!"), current, depth + 1, position),
+          raw: index => {
+            const value = read(index);
+            return typeof value === "object" && value !== null ? fail("#VALUE!") : value;
+          },
+          text: index => {
+            const value = read(index);
+            if (typeof value === "object" && value !== null) return fail("#VALUE!");
+            const output = text(checked(value ?? ""));
+            tick(Math.ceil(output.length / 64));
+            return output;
+          },
+          values: index => {
+            const value = read(index);
+            return typeof value === "object" && value !== null ? value.values : [value];
+          },
+          range: index => referenceRange(node.args[index] ?? fail("#VALUE!"), current, depth + 1),
+          criterion: index => {
+            const argument = node.args[index];
+            return argument?.type === "value" && typeof argument.value === "string" ? argument.value : context.scalar(index);
+          },
+          referenced: index => ["reference", "range"].includes(node.args[index]?.type),
+          omitted: index => !node.args[index] || node.args[index].type === "omitted",
+          checkArity(minimum, maximum = minimum) {
+            if (node.args.length < minimum || node.args.length > maximum) fail("#VALUE!");
+          },
+        };
+        return handler(context);
       }
     }
   }
   for (const sheet of workbook.sheets) for (const [address, cell] of Object.entries(sheet.cells)) {
-    if (cell.value) get(sheet.id, address, 0);
-    else result[sheet.id][address] = "";
+    try { if (cell.value) get(sheet.id, address, 0); else result[sheet.id][address] = ""; }
+    catch (error) { result[sheet.id][address] = error instanceof FormulaError ? error.code : "#ERROR!"; }
   }
   return result;
 }
+
 
 function shiftedReference(reference: FormulaReference, row: number, column: number): string {
   if (row < 0 || column < 0 || row >= SPREADSHEET_LIMITS.rows || column >= SPREADSHEET_LIMITS.columns) return "#REF!";

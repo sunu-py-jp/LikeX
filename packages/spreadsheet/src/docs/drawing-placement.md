@@ -102,8 +102,8 @@ type SpreadsheetDrawingBounds = Readonly<{
   top: number;    // 上端（px）
   right: number;  // left + width（px）
   bottom: number; // top + height（px）
-  width: number;  // 配置枠の幅（px）
-  height: number; // 配置枠の高さ（px）
+  width: number;  // 回転後の外接矩形の幅（px）
+  height: number; // 回転後の外接矩形の高さ（px）
 }>;
 
 type SpreadsheetDrawingPlacement = Readonly<{
@@ -116,6 +116,8 @@ type SpreadsheetDrawingPlacement = Readonly<{
 `drawingId` はシート上の配置IDです。画像データ本体を指す `resourceId` ではありません。画像・図形・テキストボックスに共通で使えます。読み取り専用のスナップショットも渡せます。
 
 座標は、行番号・列見出しを除いたセル領域の左上（A1の左上）を原点とするCSS pxで、小数になる場合もあります。スクロール位置や画面上の拡大率には依存しません。画像については、実際の絵柄や透明部分ではなく表示枠を計測します。
+
+`rotation` がある場合は、回転後の表示枠を囲む軸に平行な外接矩形を返します。保存済みの `anchor`・`width`・`height` は変更しませんが、`bounds` と `nextRow` / `nextColumn` は回転角度に応じて変わります。ハンドルや枠外の線の太さは含みません。A1付近で回転すると `left` / `top` が負になることがあります。
 
 `flipX` / `flipY` は表示枠の中での反転を表し、配置の計算には影響しません。反転だけを変更した場合、`bounds` と `nextRow` / `nextColumn` は変わりません。幅・高さは反転の有無にかかわらず正の値です。
 

@@ -65,7 +65,8 @@ test('home and insert switch with one shared save action, and shapes anchor at t
   assert.equal(hook.root.findAllByProps({ role: 'tab' })[1].props['aria-selected'], true);
   assert.equal(hook.root.findAllByProps({ className: 'lxs-save' }).length, 1);
   await act(async () => hook.current.select({ row: 3, column: 2 }));
-  await act(async () => hook.root.findByProps({ 'aria-label': '図形を挿入' }).props.onChange({ target: { value: 'ellipse' } }));
+  await act(async () => hook.root.findByProps({ 'aria-label': '図形を挿入' }).props.onClick());
+  await act(async () => hook.root.findByProps({ 'aria-label': '楕円' }).props.onClick());
   const drawing = hook.current.workbook.sheets[0].drawings[0];
   assert.equal(drawing.shape, 'ellipse');
   assert.deepEqual(drawing.anchor, { row: 3, column: 2, offsetX: 0, offsetY: 0 });
@@ -86,6 +87,43 @@ test('insert controls disappear in readonly mode and respect individual feature 
   assert.equal(hook.root.findAllByProps({ 'aria-label': '名前付き範囲を追加' }).length, 0);
   assert.equal(hook.root.findAllByProps({ 'aria-label': '名前付き範囲を管理' }).length, 1);
   assert.equal(hook.root.findAllByProps({ 'aria-label': '図形を挿入' }).length, 0);
+});
+
+test('shape gallery groups all icons and inserts a block arrow using the current selected cell', async t => {
+  const hook = await mount(t);
+  await act(async () => hook.current.select({ row: 2, column: 3 }));
+  await act(async () => hook.root.findByProps({ 'aria-label': '図形を挿入' }).props.onClick());
+  const gallery = hook.root.findByProps({ className: 'lxs-shape-gallery' });
+  assert.deepEqual(gallery.findAllByType('h3').map(heading => heading.children.join('')), ['基本図形', 'ブロック矢印', '線']);
+  assert.equal(gallery.findAllByType('button').length, 16);
+  for (const button of gallery.findAllByType('button')) {
+    assert.equal(button.findAllByType('svg').length, 1);
+    assert.equal(button.props.title, button.props['aria-label']);
+  }
+  await act(async () => gallery.findByProps({ 'aria-label': '左右矢印' }).props.onClick());
+  assert.equal(hook.root.findAllByProps({ className: 'lxs-shape-gallery' }).length, 0);
+  const drawing = hook.current.activeSheet.drawings[0];
+  assert.equal(drawing.shape, 'leftRightArrow');
+  assert.deepEqual(drawing.anchor, { row: 2, column: 3, offsetX: 0, offsetY: 0 });
+  assert.equal(hook.current.selectedDrawingId, drawing.id);
+  await act(async () => hook.current.undo());
+  assert.equal(hook.current.activeSheet.drawings, undefined);
+  await act(async () => hook.current.redo());
+  assert.equal(hook.current.activeSheet.drawings[0].shape, 'leftRightArrow');
+});
+
+test('shape gallery closes when editing becomes unavailable and does not reopen afterwards', async t => {
+  const hook = await mount(t);
+  await act(async () => hook.root.findByProps({ 'aria-label': '図形を挿入' }).props.onClick());
+  assert.equal(hook.root.findAllByProps({ className: 'lxs-shape-gallery' }).length, 1);
+  await hook.update({ readOnly: true });
+  assert.equal(hook.root.findAllByProps({ className: 'lxs-shape-gallery' }).length, 0);
+  await hook.update({ readOnly: false });
+  assert.equal(hook.root.findAllByProps({ className: 'lxs-shape-gallery' }).length, 0);
+  await act(async () => hook.root.findByProps({ 'aria-label': '図形を挿入' }).props.onClick());
+  await hook.update({ features: { shapes: false } });
+  assert.equal(hook.root.findAllByProps({ className: 'lxs-shape-gallery' }).length, 0);
+  assert.equal(hook.current.activeSheet.drawings, undefined);
 });
 
 test('text boxes inherit the host color and comments open at the selected cell', async t => {

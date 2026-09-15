@@ -16,11 +16,11 @@ const fill = cells => { const book = createWorkbook(); return setCellValues(book
 const calculate = book => calculateWorkbook(book)[book.sheets[0].id];
 const formulas = entries => calculate(fill(Object.fromEntries(entries.map(([formula], index) => [`A${index + 1}`, formula]))));
 
-test('all 15 function-picker examples are complete formulas and calculate without references', () => {
+test('the original 15 function-picker examples retain their calculation results', () => {
   const expected = { SUM: 60, AVERAGE: 20, MIN: 10, MAX: 30, COUNT: 3, COUNTA: 3, ROUND: 12.35,
     ABS: 10, IF: '達成', IFERROR: 0, AND: true, OR: true, NOT: false, LEN: 5, CONCAT: 'LikeX' };
-  assert.deepEqual(SUPPORTED_SPREADSHEET_FUNCTIONS.map(item => item.name).sort(), Object.keys(expected).sort());
-  for (const item of SUPPORTED_SPREADSHEET_FUNCTIONS) {
+  assert.equal(SUPPORTED_SPREADSHEET_FUNCTIONS.filter(item => Object.hasOwn(expected, item.name)).length, 15);
+  for (const item of SUPPORTED_SPREADSHEET_FUNCTIONS.filter(item => Object.hasOwn(expected, item.name))) {
     assert.equal(calculate(fill({ A1: item.example })).A1, expected[item.name], item.name);
     assert.ok(item.syntax.startsWith(`${item.name}(`));
     assert.ok(item.label.length && item.description.length);

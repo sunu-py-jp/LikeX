@@ -4,6 +4,8 @@ import { useLayoutEffect, useRef } from "react";
 import { SUPPORTED_SPREADSHEET_FUNCTIONS } from "../model/function-definitions";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 
+const groups = [...new Set(SUPPORTED_SPREADSHEET_FUNCTIONS.map(item => item.category))];
+
 /** Starts an ordinary cell edit; choosing a function never commits its example. */
 export function SpreadsheetFunctionPicker({ controller: c }: { controller: SpreadsheetController }) {
   const select = useRef<HTMLSelectElement>(null);
@@ -33,8 +35,11 @@ export function SpreadsheetFunctionPicker({ controller: c }: { controller: Sprea
         c.beginEdit(c.selection.focus, definition.example);
       }}>
       <option value="" disabled>ƒx 関数</option>
-      {SUPPORTED_SPREADSHEET_FUNCTIONS.map(definition => <option key={definition.name} value={definition.name}
-        title={`${definition.syntax} — ${definition.description}`}>{definition.name} · {definition.label}</option>)}
+      {groups.map(category => <optgroup key={category} label={category}>
+        {SUPPORTED_SPREADSHEET_FUNCTIONS.filter(definition => definition.category === category).map(definition =>
+          <option key={definition.name} value={definition.name}
+            title={`${definition.syntax} — ${definition.description}`}>{definition.name} · {definition.label}</option>)}
+      </optgroup>)}
     </select>
   </div>;
 }

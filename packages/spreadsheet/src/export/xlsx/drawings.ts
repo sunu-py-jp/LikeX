@@ -1,5 +1,7 @@
 import { normalizeDrawings } from "../../model/annotations";
 import { normalizeResources } from "../../model/image-resources";
+import { getShapeDefinition, shapeBodyFrame } from "../../model/shapes";
+import { normalizeDrawingRotation, rotateDrawingVector } from "../../model/drawing-transform";
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "../../model/sheet-dimensions";
 import { SPREADSHEET_LIMITS, type SpreadsheetDrawing, type SpreadsheetDrawingAnchor, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../../model/types";
 import { checkImageExportCancellation, createXlsxMediaRegistry, prepareXlsxMedia, type XlsxImage, type XlsxMediaRegistry } from "./images";
@@ -55,8 +57,9 @@ function anchor(rectangle: Rectangle, grid: Geometry): SpreadsheetDrawingAnchor 
   return { column: column.index, row: row.index, offsetX: column.offset, offsetY: row.offset };
 }
 
-function transform(rectangle: Rectangle, flip: { flipX?: boolean; flipY?: boolean } = {}) {
-  return `<a:xfrm${flip.flipX ? ' flipH="1"' : ""}${flip.flipY ? ' flipV="1"' : ""}><a:off x="${emu(rectangle.x)}" y="${emu(rectangle.y)}"/><a:ext cx="${Math.max(1, emu(rectangle.width))}" cy="${Math.max(1, emu(rectangle.height))}"/></a:xfrm>`;
+function transform(rectangle: Rectangle, flip: { flipX?: boolean; flipY?: boolean; rotation?: number } = {}) {
+  const angle = Math.round(normalizeDrawingRotation(flip.rotation) * 60_000) % 21_600_000;
+  return `<a:xfrm${flip.flipX ? ' flipH="1"' : ""}${flip.flipY ? ' flipV="1"' : ""}${angle ? ` rot="${angle}"` : ""}><a:off x="${emu(rectangle.x)}" y="${emu(rectangle.y)}"/><a:ext cx="${Math.max(1, emu(rectangle.width))}" cy="${Math.max(1, emu(rectangle.height))}"/></a:xfrm>`;
 }
 
 function anchored(rectangle: Rectangle, content: string, grid: Geometry) {
@@ -75,7 +78,8 @@ function picture(drawing: Extract<SpreadsheetDrawing, { type: "image" }>, id: nu
 }
 
 function shape(drawing: Extract<SpreadsheetDrawing, { type: "shape" }>, id: number, rectangle: Rectangle) {
-  const line = drawing.shape === "line" || drawing.shape === "arrow";
+  const definition = getShapeDefinition(drawing.shape);
+  const line = definition.geometry.type === "line";
   const stroke = drawing.strokeWidth;
   let adjusted = { ...rectangle };
   let flip = { flipX: drawing.flipX, flipY: drawing.flipY };
@@ -88,28 +92,41 @@ function shape(drawing: Extract<SpreadsheetDrawing, { type: "shape" }>, id: numb
     // Very short lines already reverse an axis; a user flip cancels that reversal.
     flip = { flipX: (endX < start) !== !!drawing.flipX, flipY: (endY < start) !== !!drawing.flipY };
   } else {
-    // SVG outlines are drawn inside the frame; DrawingML outlines straddle geometry.
-    // A collapsed SVG ellipse stays centered, unlike a rectangle with an oversized inset.
-    adjusted = { x: rectangle.x + (drawing.shape === "ellipse" ? Math.min(stroke, rectangle.width) : stroke) / 2,
-      y: rectangle.y + (drawing.shape === "ellipse" ? Math.min(stroke, rectangle.height) : stroke) / 2,
-      width: Math.max(0, rectangle.width - stroke), height: Math.max(0, rectangle.height - stroke) };
+    const inset = shapeBodyFrame(drawing.shape, rectangle.width, rectangle.height, stroke);
+    adjusted = { ...inset, x: rectangle.x + inset.x, y: rectangle.y + inset.y };
   }
   // Reflect inset geometry within the full frame, including arrow margins and oversized strokes.
   // DrawingML offsets are signed coordinates, so overflowing SVG geometry may remain outside A1.
   if (drawing.flipX) adjusted.x = rectangle.x * 2 + rectangle.width - adjusted.x - adjusted.width;
   if (drawing.flipY) adjusted.y = rectangle.y * 2 + rectangle.height - adjusted.y - adjusted.height;
+  if (drawing.rotation) {
+    // SVG rotates the full frame. Inset lines/arrows can have a different center:
+    // rotate that center too, then let DrawingML rotate about the new center.
+    const center = { x: rectangle.x + rectangle.width / 2, y: rectangle.y + rectangle.height / 2 };
+    const offset = rotateDrawingVector({ x: adjusted.x + adjusted.width / 2 - center.x,
+      y: adjusted.y + adjusted.height / 2 - center.y }, drawing.rotation);
+    adjusted = { ...adjusted, x: center.x + offset.x - adjusted.width / 2, y: center.y + offset.y - adjusted.height / 2 };
+  }
   const outline = stroke === 0 ? "<a:ln><a:noFill/></a:ln>" : `<a:ln w="${emu(stroke)}">${fill(drawing.stroke, "000000")}${drawing.shape === "arrow" ? '<a:tailEnd type="triangle" w="lg" len="lg"/>' : ""}</a:ln>`;
-  const content = `<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="${id}" name="${xml(drawing.id)}"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr>${transform(adjusted, flip)}<a:prstGeom prst="${line ? "line" : drawing.shape === "ellipse" ? "ellipse" : "rect"}"><a:avLst/></a:prstGeom>${line ? "<a:noFill/>" : fill(drawing.fill, "FFFFFF")}${outline}</xdr:spPr>${drawingTextBody(drawing.text ?? "", { ...drawing, color: drawing.color ?? "#1f2937" }, "center")}</xdr:sp>`;
+  const adjustment = definition.xlsxAdjustment;
+  const shortSide = Math.min(adjusted.width, adjusted.height);
+  const adjustmentValue = adjustment && shortSide > 0 ? Math.round(100_000 * adjustment.ratio * adjusted[adjustment.axis] / shortSide) : 0;
+  const guides = adjustment ? `<a:avLst><a:gd name="${adjustment.name}" fmla="val ${adjustmentValue}"/></a:avLst>` : "<a:avLst/>";
+  const content = `<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="${id}" name="${xml(drawing.id)}"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr>${transform(adjusted, { ...flip, rotation: drawing.rotation })}<a:prstGeom prst="${definition.xlsxPreset}">${guides}</a:prstGeom>${line ? "<a:noFill/>" : fill(drawing.fill, "FFFFFF")}${outline}</xdr:spPr>${drawingTextBody(drawing.text ?? "", { ...drawing, flipY: flip.flipY, color: drawing.color ?? "#1f2937" }, "center")}</xdr:sp>`;
   return { rectangle: adjusted, content };
 }
 
 /** DrawingML uses one text body inside either a native shape or a text box. */
-function drawingTextBody(text: string, style: { fontSize?: number; color?: string; bold?: boolean }, alignment: "center" | "top-left") {
+function drawingTextBody(text: string, style: { fontSize?: number; color?: string; bold?: boolean; rotation?: number; flipY?: boolean }, alignment: "center" | "top-left") {
   const centered = alignment === "center";
   const properties = `sz="${Math.max(100, Math.round((style.fontSize ?? 16) * 75))}" b="${style.bold ? 1 : 0}"`;
   const paragraphs = text.split(/\r\n|\r|\n/).map(line => `<a:p><a:pPr algn="${centered ? "ctr" : "l"}"><a:lnSpc><a:spcPct val="140000"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft></a:pPr><a:r><a:rPr ${properties}>${fill(style.color ?? "currentColor", "000000")}<a:latin typeface="Segoe UI"/><a:ea typeface="Noto Sans JP"/></a:rPr><a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr ${properties}/></a:p>`).join("");
-  // ECMA-376 bodyPr upright keeps text readable independently of the shape transform.
-  return `<xdr:txBody><a:bodyPr wrap="square" lIns="${emu(8)}" tIns="${emu(8)}" rIns="${emu(8)}" bIns="${emu(8)}" anchor="${centered ? "ctr" : "t"}" upright="1" vertOverflow="clip" horzOverflow="clip"><a:noAutofit/></a:bodyPr><a:lstStyle/>${paragraphs}</xdr:txBody>`;
+  // Upright ignores all rotation, including bodyPr.rot. Preserve old flip-only behavior,
+  // but let rotated text follow the frame. DrawingML keeps letters unmirrored yet flipV
+  // adds a half turn; cancel it (also for short lines' effective flips).
+  // Cross-checked against Apache POI REL_5_4_1 DrawTextShape.drawContent.
+  const textRotation = style.rotation && style.flipY ? ' rot="10800000"' : "";
+  return `<xdr:txBody><a:bodyPr wrap="square" lIns="${emu(8)}" tIns="${emu(8)}" rIns="${emu(8)}" bIns="${emu(8)}" anchor="${centered ? "ctr" : "t"}" upright="${style.rotation ? 0 : 1}"${textRotation} vertOverflow="clip" horzOverflow="clip"><a:noAutofit/></a:bodyPr><a:lstStyle/>${paragraphs}</xdr:txBody>`;
 }
 
 function textBox(drawing: Extract<SpreadsheetDrawing, { type: "text" }>, id: number, rectangle: Rectangle) {

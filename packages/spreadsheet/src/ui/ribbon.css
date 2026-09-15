@@ -161,7 +161,6 @@
 .lxs-ribbon .lxs-color-control:has(input:disabled) { opacity: .45; cursor: default; }
 .lxs-ribbon .lxs-color-control input:disabled { opacity: 1; }
 .lxs-ribbon-hint { align-self: center; padding: 0 8px; color: var(--lxs-muted); font-size: 11px; white-space: nowrap; }
-.lxs-root .lxs-insert-select { max-width: 150px; height: 32px; }
 @media (max-width: 540px) {
   .lxs-ribbon-header { gap: 4px; padding-inline: 5px; }
   .lxs-ribbon-quick-access { padding-right: 4px; }

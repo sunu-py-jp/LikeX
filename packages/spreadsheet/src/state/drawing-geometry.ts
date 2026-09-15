@@ -1,9 +1,12 @@
 import type { SpreadsheetDrawing, SpreadsheetDrawingAnchor } from "../model";
+import { normalizeDrawingRotation } from "../model/drawing-transform";
+import { resizeRotatedDrawingRectangle } from "./drawing-rotation";
 
 export type DrawingGeometry = { columnOffsets: readonly number[]; rowOffsets: readonly number[] };
 export type DrawingRectangle = { left: number; top: number; width: number; height: number };
 export type DrawingResizeCorner = "nw" | "ne" | "sw" | "se";
 export type DrawingResizeRectangle = DrawingRectangle & { flipX: boolean; flipY: boolean };
+export type DrawingResizeOptions = { preserveAspectRatio?: boolean; flipX?: boolean; flipY?: boolean; rotation?: number; axis?: "x" | "y" };
 type DrawingSize = Pick<DrawingRectangle, "width" | "height">;
 
 /** Keep an image's display-frame ratio. Corner drags project onto its diagonal;
@@ -51,9 +54,10 @@ export function boundedDrawingRectangle(rectangle: DrawingRectangle, geometry: D
  * Only the anchor must stay on the sheet; right/bottom overflow remains supported. */
 export function resizeDrawingRectangle(initial: DrawingRectangle, corner: DrawingResizeCorner,
   delta: { x: number; y: number }, geometry: DrawingGeometry,
-  options: { preserveAspectRatio?: boolean; flipX?: boolean; flipY?: boolean; axis?: "x" | "y" } = {}): DrawingResizeRectangle {
+  options: DrawingResizeOptions = {}): DrawingResizeRectangle {
   const flips = { flipX: !!options.flipX, flipY: !!options.flipY };
   if (delta.x === 0 && delta.y === 0) return { ...initial, ...flips };
+  if (normalizeDrawingRotation(options.rotation)) return resizeRotatedDrawingRectangle(initial, corner, delta, geometry, options);
   const east = corner.endsWith("e"), south = corner.startsWith("s");
   const longest = Math.max(initial.width, initial.height);
   const unitX = options.preserveAspectRatio ? initial.width / longest : 1;

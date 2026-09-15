@@ -60,6 +60,25 @@ test('all rule kinds validate literals, blank policy and effective formula resul
   assert.equal(dataValidationError({ type: 'list', values: ['yes'], message: '選んでください' }, 'no'), '選んでください');
 });
 
+test('date rules validate DATE results with inclusive ISO bounds and recheck dependencies', () => {
+  const dateRule = { type: 'date', min: '2024-01-01', max: '2024-12-31' };
+  const initial = applyRule(write(createWorkbook(), { B1: '2024' }), ['A1'], dateRule);
+  for (const formula of ['=DATE(B1,1,1)', '=DATE(B1,2,29)', '=DATE(B1,12,31)']) {
+    const updated = write(initial, { A1: formula });
+    assert.equal(typeof calculateWorkbook(updated)[sheet(updated).id].A1, 'number');
+    assert.equal(sheet(updated).cells.A1.value, formula);
+    assert.throws(() => write(updated, { B1: '2025' }), /日付/);
+  }
+  for (const formula of ['=DATE(2023,12,31)', '=DATE(2025,1,1)', '=DATE(2024,12,31)+0.5', '=DATE(2024,2,29)/0'])
+    assert.throws(() => write(initial, { A1: formula }), /日付|計算結果/);
+  assert.equal(dataValidationError(dateRule, '=DATE(2024,1,1)', 45292), null);
+  // Numeric literals retain the existing ISO-only input contract; formulas supply actual numbers.
+  assert.ok(dataValidationError(dateRule, '45292'));
+  assert.ok(dataValidationError(dateRule, '="45292"', '45292'));
+  for (const value of [NaN, Infinity, -1, 2958466]) assert.ok(dataValidationError({ type: 'date' }, '=1', value));
+  assert.equal(dataValidationError({ type: 'date', min: '1900-02-28', max: '1900-03-01' }, '=DATE(1900,2,29)', 60), null);
+});
+
 test('empty validated cells persist through JSON and formatting, and rule-only changes are detectable', () => {
   const original = createWorkbook(), validated = applyRule(original, ['A1', 'B1']);
   assert.equal(sheet(validated).cells.A1.value, ''); assert.equal(sheet(original).cells.A1, undefined);

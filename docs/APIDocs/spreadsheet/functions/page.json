@@ -1,6 +1,6 @@
 {
   "title": "数式と関数",
-  "summary": "セル参照と15種類の関数で計算し、入力した数式をJSONに保持します。",
+  "summary": "条件付き集計・検索・文字列・日付・行列番号などを計算し、数式をJSONに保持します。",
   "source": "packages/spreadsheet/src/docs/functions.md",
   "order": 70,
   "section": "セルとシート",
@@ -11,6 +11,17 @@
     "AVERAGE",
     "IF",
     "IFERROR",
+    "SUMIFS",
+    "COUNTIFS",
+    "XLOOKUP",
+    "VLOOKUP",
+    "INDEX",
+    "MATCH",
+    "DATE",
+    "ROW",
+    "COLUMN",
+    "ROWS",
+    "COLUMNS",
     "formulas"
   ],
   "screenshots": []

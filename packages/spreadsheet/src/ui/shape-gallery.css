@@ -1,0 +1,13 @@
+.lxs-root .lxs-shape-gallery-dialog { width: 460px; }
+.lxs-shape-gallery { display: grid; gap: 16px; }
+.lxs-shape-gallery h3 { margin: 0 0 7px; font-size: 12px; font-weight: 600; color: var(--lxs-muted); }
+.lxs-shape-gallery-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 5px; }
+.lxs-root .lxs-shape-gallery-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 70px; padding: 7px 3px; border: 1px solid transparent; border-radius: 4px;
+  background: var(--lxs-background); color: var(--lxs-foreground); font-size: 11px; cursor: pointer;
+}
+.lxs-root .lxs-shape-gallery-item:hover, .lxs-root .lxs-shape-gallery-item:focus-visible {
+  border-color: var(--lxs-border); background: var(--lxs-hover);
+}
+.lxs-shape-gallery-preview { display: block; width: 44px; height: 32px; }

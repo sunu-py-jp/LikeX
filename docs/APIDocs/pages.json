@@ -1134,18 +1134,69 @@
       "AVERAGE",
       "IF",
       "IFERROR",
+      "SUMIFS",
+      "COUNTIFS",
+      "XLOOKUP",
+      "VLOOKUP",
+      "INDEX",
+      "MATCH",
+      "DATE",
+      "ROW",
+      "COLUMN",
+      "ROWS",
+      "COLUMNS",
       "formulas"
     ],
     "headings": [
       {
-        "id": "対応関数",
-        "title": "対応関数",
+        "id": "基本の集計演算",
+        "title": "基本の集計・演算",
         "depth": 2
       },
       {
-        "id": "引数と空セルの扱い",
-        "title": "引数と空セルの扱い",
-        "depth": 3
+        "id": "条件付き集計",
+        "title": "条件付き集計",
+        "depth": 2
+      },
+      {
+        "id": "数値の処理",
+        "title": "数値の処理",
+        "depth": 2
+      },
+      {
+        "id": "文字列の処理",
+        "title": "文字列の処理",
+        "depth": 2
+      },
+      {
+        "id": "条件分岐判定",
+        "title": "条件分岐・判定",
+        "depth": 2
+      },
+      {
+        "id": "検索参照",
+        "title": "検索・参照",
+        "depth": 2
+      },
+      {
+        "id": "日付",
+        "title": "日付",
+        "depth": 2
+      },
+      {
+        "id": "行番号列番号と範囲の大きさ",
+        "title": "行番号・列番号と範囲の大きさ",
+        "depth": 2
+      },
+      {
+        "id": "対応関数を利用側で一覧表示する",
+        "title": "対応関数を利用側で一覧表示する",
+        "depth": 2
+      },
+      {
+        "id": "基本関数の引数と空セルの扱い",
+        "title": "基本関数の引数と空セルの扱い",
+        "depth": 2
       },
       {
         "id": "参照と演算子",
@@ -1433,12 +1484,20 @@
       "serializeWorkbook",
       "parseWorkbook",
       "flipX",
-      "flipY"
+      "flipY",
+      "rotation",
+      "SPREADSHEET_SHAPES",
+      "SpreadsheetShapeKind"
     ],
     "headings": [
       {
         "id": "画面の操作",
         "title": "画面の操作",
+        "depth": 2
+      },
+      {
+        "id": "図形の種類",
+        "title": "図形の種類",
         "depth": 2
       },
       {

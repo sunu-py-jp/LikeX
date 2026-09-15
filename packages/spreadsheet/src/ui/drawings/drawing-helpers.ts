@@ -1,4 +1,5 @@
 import type { SpreadsheetDrawing } from "../../model";
+import { getShapeDefinition } from "../../model/shapes";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 
 /** Shapes use a fixed light fill by default; keep their labels readable in dark UI themes. */
@@ -12,5 +13,5 @@ export function visibleDrawing(drawing: SpreadsheetDrawing, c: SpreadsheetContro
 }
 export function drawingLabel(drawing: SpreadsheetDrawing) {
   return drawing.type === "image" ? drawing.alt || "画像" : drawing.type === "text" ? `テキストボックス${drawing.text ? `: ${drawing.text.slice(0, 40)}` : ""}`
-    : ({ rectangle: "四角形", ellipse: "楕円", line: "直線", arrow: "矢印" } as const)[drawing.shape];
+    : getShapeDefinition(drawing.shape).label;
 }

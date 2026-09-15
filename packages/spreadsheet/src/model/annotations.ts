@@ -1,5 +1,7 @@
 import { cellAddress, parseCellAddress } from "./address";
 import { validateObjectId } from "./image-resources";
+import { isSpreadsheetShapeKind } from "./shapes";
+import { normalizeDrawingRotation } from "./drawing-transform";
 import { SPREADSHEET_LIMITS, type SpreadsheetComment, type SpreadsheetDrawing, type SpreadsheetSheet, type SpreadsheetTextDrawing, type SpreadsheetWorkbook } from "./types";
 
 const fail = (message: string): never => { throw new Error(message); };
@@ -31,20 +33,21 @@ export function normalizeDrawing(input: SpreadsheetDrawing, sheet: Pick<Spreadsh
   const id = validateObjectId(input.id), anchor = input.anchor;
   for (const key of ["flipX", "flipY"] as const)
     if (input[key] !== undefined && typeof input[key] !== "boolean") return fail("描画オブジェクトの反転はtrueまたはfalseで指定してください");
+  const rotation = normalizeDrawingRotation(input.rotation);
   if (!anchor || !Number.isInteger(anchor.row) || !Number.isInteger(anchor.column) || anchor.row < 0 || anchor.row >= sheet.rowCount ||
     anchor.column < 0 || anchor.column >= sheet.columnCount) return fail("描画オブジェクトの位置がシートの範囲外です");
   const common = { id, anchor: Object.freeze({ row: anchor.row, column: anchor.column,
     offsetX: number(anchor.offsetX, 0, 10_000), offsetY: number(anchor.offsetY, 0, 10_000) }),
   width: number(input.width, input.type === "image" ? Number.MIN_VALUE : 1, 10_000),
   height: number(input.height, input.type === "image" ? Number.MIN_VALUE : 1, 10_000),
-  ...(input.flipX ? { flipX: true } : {}), ...(input.flipY ? { flipY: true } : {}) };
+  ...(input.flipX ? { flipX: true } : {}), ...(input.flipY ? { flipY: true } : {}), ...(rotation ? { rotation } : {}) };
   if (input.type === "image") {
     const resourceId = validateObjectId(input.resourceId);
     if (!resources?.images || !Object.hasOwn(resources.images, resourceId)) return fail("画像のリソースが見つかりません");
     return Object.freeze({ ...common, type: "image", resourceId, alt: text(input.alt, 10_000, "画像の説明") });
   }
   if (input.type === "shape") {
-    if (!["rectangle", "ellipse", "line", "arrow"].includes(input.shape)) return fail("図形の種類が正しくありません");
+    if (!isSpreadsheetShapeKind(input.shape)) return fail("図形の種類が正しくありません");
     const content = drawingText({ text: input.text === undefined ? "" : input.text,
       fontSize: input.fontSize === undefined ? 16 : input.fontSize,
       color: input.color === undefined ? "#1f2937" : input.color, bold: input.bold }, "図形のテキスト");
@@ -102,6 +105,7 @@ export function drawingsEqual(left: SpreadsheetDrawing, right: SpreadsheetDrawin
   if (left === right) return true;
   if (left.id !== right.id || left.type !== right.type || left.width !== right.width || left.height !== right.height ||
     !!left.flipX !== !!right.flipX || !!left.flipY !== !!right.flipY ||
+    normalizeDrawingRotation(left.rotation) !== normalizeDrawingRotation(right.rotation) ||
     left.anchor.row !== right.anchor.row || left.anchor.column !== right.anchor.column ||
     left.anchor.offsetX !== right.anchor.offsetX || left.anchor.offsetY !== right.anchor.offsetY) return false;
   if (left.type === "image" && right.type === "image") return left.resourceId === right.resourceId && left.alt === right.alt;

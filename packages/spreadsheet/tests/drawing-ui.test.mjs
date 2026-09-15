@@ -467,3 +467,126 @@ test('denied editing permission discards the flipped preview without changing sa
   assert.equal(ui.c.workbook, before);
   assert.equal(ui.c.canUndo, false);
 });
+
+const rotationHandle = (ui, id = 'shape') => ui.drawing(id).findByProps({ className: 'lxs-drawing-rotate' });
+test('rotation drag previews at zoom, commits once on release, keeps selection and survives Undo/Redo and save', async t => {
+  const ui = await mount(t, { initialWorkbook: centeredArrowBook({ flipX: true }) }, 2);
+  await act(async () => ui.c.selectDrawing('shape'));
+  const before = ui.c.workbook, pointer = imagePointer();
+  await act(async () => rotationHandle(ui).props.onPointerDown(pointer(616, 296)));
+  await act(async () => rotationHandle(ui).props.onPointerMove(pointer(736, 416)));
+  assert.equal(ui.c.workbook, before);
+  assert.equal(ui.drawing('shape').props.style.transform, 'rotate(90deg)');
+  await act(async () => rotationHandle(ui).props.onPointerUp(pointer(616, 536)));
+  assert.equal(resizedShape(ui).rotation, 180);
+  assert.equal(resizedShape(ui).flipX, true);
+  assert.equal(resizedShape(ui).text, '確認する');
+  assert.equal(ui.c.selectedDrawingId, 'shape');
+  const after = ui.c.workbook;
+  await act(async () => ui.c.undo()); assert.equal(ui.c.workbook, before);
+  await act(async () => ui.c.redo()); assert.equal(ui.c.workbook, after);
+  await act(async () => ui.c.save()); assert.equal(ui.saves[0].sheets[0].drawings[0].rotation, 180);
+});
+
+test('rotation handles support Shift snapping and keyboard angle changes with Home reset', async t => {
+  const ui = await mount(t, { initialWorkbook: centeredArrowBook() });
+  await act(async () => ui.c.selectDrawing('shape'));
+  const pointer = imagePointer();
+  await act(async () => rotationHandle(ui).props.onPointerDown(pointer(308, 148)));
+  const point = pointer(308 + 60 * Math.sin(22 * Math.PI / 180), 208 - 60 * Math.cos(22 * Math.PI / 180));
+  await act(async () => rotationHandle(ui).props.onPointerUp({ ...point, shiftKey: true }));
+  assert.equal(resizedShape(ui).rotation, 15);
+  await act(async () => rotationHandle(ui).props.onKeyDown(event({ key: 'ArrowRight' })));
+  assert.equal(resizedShape(ui).rotation, 16);
+  await act(async () => rotationHandle(ui).props.onKeyDown(event({ key: 'ArrowLeft', shiftKey: true })));
+  assert.equal(resizedShape(ui).rotation, 1);
+  await act(async () => rotationHandle(ui).props.onKeyDown(event({ key: 'Home' })));
+  assert.equal(resizedShape(ui).rotation, undefined);
+  assert.equal(ui.c.selectedDrawingId, 'shape');
+});
+
+test('rotation can be cancelled with Escape, pointer cancellation, external updates or a resize feature change', async t => {
+  for (const reason of ['escape', 'pointer', 'feature', 'workbook']) {
+    const ui = await mount(t, { initialWorkbook: centeredArrowBook() });
+    await act(async () => ui.c.selectDrawing('shape'));
+    const pointer = imagePointer(), before = ui.c.workbook;
+    await act(async () => rotationHandle(ui).props.onPointerDown(pointer(308, 148)));
+    await act(async () => rotationHandle(ui).props.onPointerMove(pointer(368, 208)));
+    if (reason === 'escape') await act(async () => ui.drawing('shape').props.onKeyDown(event({ key: 'Escape' })));
+    if (reason === 'pointer') await act(async () => rotationHandle(ui).props.onPointerCancel());
+    if (reason === 'feature') await ui.update({ features: { resize: false } });
+    if (reason === 'workbook') await act(async () => ui.c.externalExecute({ type: 'cells.set', sheetId: 'one', values: { A1: 'newer' } }));
+    await act(async () => ui.drawing('shape').props.onPointerUp(pointer(368, 208)));
+    assert.equal(resizedShape(ui).rotation, undefined);
+    if (reason !== 'workbook') { assert.equal(ui.c.workbook, before); assert.equal(ui.c.canUndo, false); }
+    if (reason === 'feature') assert.equal(ui.drawing('shape').findAllByProps({ className: 'lxs-drawing-rotate' }).length, 0);
+  }
+});
+
+test('rotation property works for images and text boxes and is unavailable when resizing is disabled', async t => {
+  const ui = await mount(t, { initialWorkbook: imageBook() });
+  for (const id of ['shape', 'text', 'picture']) {
+    await act(async () => ui.c.selectDrawing(id));
+    await act(async () => ui.property('角度（°）').props.onChange(event({ target: { value: '-45' } })));
+    await act(async () => ui.property('角度（°）').props.onBlur());
+    const drawing = ui.c.activeSheet.drawings.find(item => item.id === id);
+    assert.equal(drawing.rotation, 315);
+    assert.equal(ui.drawing(id).props.style.transform, 'rotate(315deg)');
+    assert.equal(ui.property('角度（°）').props.value, '315');
+  }
+  await ui.update({ features: { resize: false } });
+  assert.equal(ui.property('角度（°）'), undefined);
+  assert.equal(ui.drawing('picture').findAllByProps({ className: 'lxs-drawing-rotate' }).length, 0);
+  assert.equal(ui.drawing('picture').props.style.transform, 'rotate(315deg)');
+});
+
+test('a rotated corner resizes in local axes while keeping its opposite visual point fixed', async t => {
+  const ui = await mount(t, { initialWorkbook: centeredArrowBook({ rotation: 90 }) });
+  await act(async () => ui.c.selectDrawing('shape'));
+  const pointer = imagePointer();
+  const handle = () => ui.drawing('shape').findByProps({ 'data-lxs-resize-corner': 'se' });
+  // Center (308,208), rotated SE=(278,258), fixed NW=(338,158).
+  await act(async () => handle().props.onPointerDown(pointer(278, 258)));
+  await act(async () => handle().props.onPointerUp(pointer(258, 298)));
+  const drawing = resizedShape(ui);
+  assert.equal(drawing.rotation, 90); assert.equal(drawing.width, 140); assert.equal(drawing.height, 80);
+  assert.deepEqual(displayedRectangle(drawing), { left: 228, top: 188, width: 140, height: 80 });
+  assert.equal(handle().props.style.cursor, 'nesw-resize');
+});
+
+test('committed property inputs route repeated Ctrl/Cmd Undo/Redo to workbook history while draft text keeps native Undo', async t => {
+  const ui = await mount(t);
+  await act(async () => ui.c.selectDrawing('shape'));
+  for (const value of ['45', '90']) {
+    await act(async () => ui.property('角度（°）').props.onChange(event({ target: { value } })));
+    await act(async () => ui.property('角度（°）').props.onKeyDown(event({ key: 'Enter' })));
+  }
+  assert.equal(resizedShape(ui).rotation, 90);
+  assert.equal(ui.c.pendingObjectEdit, false);
+  for (const [key, expected] of [[{ key: 'z', ctrlKey: true }, 45], [{ key: 'z', metaKey: true }, undefined],
+    [{ key: 'z', metaKey: true, shiftKey: true }, 45], [{ key: 'y', ctrlKey: true }, 90]]) {
+    let prevented = false;
+    await act(async () => ui.property('角度（°）').props.onKeyDown(event({ ...key, preventDefault() { prevented = true; } })));
+    assert.equal(prevented, true); assert.equal(resizedShape(ui).rotation, expected);
+    assert.equal(ui.property('角度（°）').props.value, String(expected ?? 0));
+    assert.equal(ui.c.selectedDrawingId, 'shape');
+  }
+  await act(async () => ui.property('角度（°）').props.onChange(event({ target: { value: '25' } })));
+  let prevented = false;
+  await act(async () => ui.property('角度（°）').props.onKeyDown(event({ key: 'z', metaKey: true, preventDefault() { prevented = true; } })));
+  assert.equal(prevented, false); assert.equal(resizedShape(ui).rotation, 90);
+  assert.equal(ui.property('角度（°）').props.value, '25');
+});
+
+test('new shape text and its editor share the reflected native text frame while following outer rotation', async t => {
+  const initialWorkbook = centeredArrowBook({ shape: 'triangle', width: 122, height: 122, flipY: true, rotation: 45 });
+  const ui = await mount(t, { initialWorkbook });
+  await act(async () => ui.c.selectDrawing('shape'));
+  const read = ui.drawing('shape').findByProps({ className: 'lxs-shape-text' }).props.style;
+  assert.equal(read.left, 31); assert.equal(read.top, 1); assert.equal(read.width, 60); assert.equal(read.height, 60);
+  assert.equal(read.transform, undefined, 'text is positioned inside the flipped shape but is not mirrored');
+  assert.equal(ui.drawing('shape').props.style.transform, 'rotate(45deg)');
+  await act(async () => ui.drawing('shape').props.onDoubleClick());
+  const editor = ui.drawing('shape').findByProps({ className: 'lxs-shape-text-edit-frame' }).props.style;
+  for (const key of ['left', 'top', 'width', 'height']) assert.equal(editor[key], read[key]);
+});

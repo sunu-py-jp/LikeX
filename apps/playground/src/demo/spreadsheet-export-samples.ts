@@ -1,5 +1,6 @@
 import type { SpreadsheetWorkbook, SpreadsheetSheet, SpreadsheetCell, SpreadsheetCellFormat, SpreadsheetImageResource } from "@likex/spreadsheet";
 import imageSamples from "./spreadsheet-image-samples.json";
+import { shapeDemoSheet } from "./spreadsheet-shapes";
 
 const heading: SpreadsheetCellFormat = { bold: true, color: '#ffffff', background: '#1e3a5f' };
 const muted: SpreadsheetCellFormat = { background: '#eff6ff', color: '#1e3a5f' };
@@ -131,18 +132,24 @@ export function withExportSamples(base: SpreadsheetWorkbook): SpreadsheetWorkboo
       fill: '#1d4ed8', stroke: '#1e40af', strokeWidth: 2, anchor: { row: 12, column: 0, offsetX: 12, offsetY: 0 }, width: 280, height: 130 },
     { id: 'unicode-shape', type: 'shape', shape: 'ellipse', text: '日本語 & <XML>\n確認 OK 😀', fontSize: 20, color: '#6b21a8',
       fill: '#f3e8ff', stroke: '#9333ea', strokeWidth: 2, anchor: { row: 12, column: 4, offsetX: 0, offsetY: 0 }, width: 300, height: 150 },
+    { id: 'rotated-arrow', type: 'shape', shape: 'rightArrow', text: '30° 回転', fontSize: 18, color: '#24563a',
+      fill: '#e8f3ec', stroke: '#217346', strokeWidth: 2, rotation: 30,
+      anchor: { row: 21, column: 1, offsetX: 0, offsetY: 0 }, width: 220, height: 100 },
+    { id: 'rotated-label', type: 'text', text: '文字も一緒に回転\n上のハンドルで調整', fontSize: 18, color: '#334155',
+      background: '#f1f5f9', rotation: 345, anchor: { row: 21, column: 5, offsetX: 0, offsetY: 0 }, width: 250, height: 100 },
   ];
-  workbook.sheets = [guide, ...workbook.sheets, types, formats, reference, edges, ratios, labeled, detail, empty];
+  workbook.sheets = [guide, ...workbook.sheets, types, formats, reference, edges, ratios, labeled, shapeDemoSheet, detail, empty];
   const descriptions = [
     'サンプルの目次。実データはすべて架空です。', '売上・粗利・達成率、通貨・割合、シート間参照',
     '費用の計算と集計', 'PNG画像・矩形・楕円・矢印・線・テキストボックス・メモ',
-    '対応している15種類の関数', '横・縦・矩形の結合、結合セル内の数式',
+    '対応する全関数の式と結果。条件付き集計・検索・文字列・日付・行列番号', '横・縦・矩形の結合、結合セル内の数式',
     '先頭ゼロ、長いID、真偽値、日本語・絵文字、文字列保持',
     '数値・通貨・割合、文字装飾、配置、色、列幅・行高',
     'シート名に引用符がある場合の参照元',
     '演算順序、絶対参照、シート間参照、意図した計算エラー',
     '3つの画像比率を6配置で比較。枠と画像の比率が異なる場合も確認',
     '図形内の文字、改行、文字色・サイズ・太字、日本語・特殊文字',
+    '基本図形とブロック矢印の一覧。図形の文字・サイズ・反転・Excel出力',
     '1,000行、3,000個の明細数式と集計', '中身のないシートも維持',
   ];
   workbook.sheets.forEach((s, i) => row(guide, i + 4, [s.name, descriptions[i]]));
