@@ -69,3 +69,37 @@ test('a throttled discovery count is published even while the next native callba
   assert.equal(updates.at(-1).completed, 37);
   checkpoint.dispose();
 });
+
+test('background timer delays do not consume the next processing slice', async t => {
+  let now = 0;
+  t.mock.method(performance, 'now', () => now);
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const checkpoint = createImportProgress();
+  t.after(() => checkpoint.dispose());
+  const progress = completed => ({ phase: 'checking', completed, total: 1000 });
+  for (let index = 1; index < 200; index++) assert.equal(checkpoint(progress(index)), undefined);
+  const firstPause = checkpoint(progress(200));
+  assert.ok(firstPause instanceof Promise, '200 steps yield even when the CPU clock has not advanced');
+
+  // Hidden tabs can leave a zero-delay task suspended for seconds. That idle
+  // interval must not force one more timer after every subsequently read file.
+  now = 30000;
+  t.mock.timers.tick(30000);
+  await firstPause;
+  for (let index = 201; index < 400; index++) {
+    assert.equal(checkpoint(progress(index)), undefined, `file ${index} belongs to the resumed CPU slice`);
+  }
+  const secondPause = checkpoint(progress(400));
+  assert.ok(secondPause instanceof Promise);
+  now = 60000;
+  t.mock.timers.tick(30000);
+  await secondPause;
+
+  now += 11;
+  assert.equal(checkpoint(progress(401)), undefined);
+  now += 1;
+  const cpuPause = checkpoint(progress(402));
+  assert.ok(cpuPause instanceof Promise, '12 ms of actual resumed work still yields before 200 steps');
+  t.mock.timers.tick(0);
+  await cpuPause;
+});

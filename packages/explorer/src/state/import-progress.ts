@@ -55,8 +55,10 @@ export function createImportProgress(
     previous = value;
     if (++steps < 200 && now - lastYield < 12) return;
     steps = 0;
-    lastYield = now;
-    return yieldImportTask(signal);
+    return yieldImportTask(signal).then(() => {
+      // Hidden-tab timer throttling is idle time, not work in the next slice.
+      lastYield = performance.now();
+    });
   };
   return Object.assign(checkpoint, { dispose });
 }
