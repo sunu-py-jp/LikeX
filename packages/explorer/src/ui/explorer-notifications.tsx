@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, CircleHelp, Info, LoaderCircle, X } from "lucide-react";
 import { Tooltip } from "radix-ui";
-import type { ExplorerNotification, ExplorerNotificationRecord } from "../model/notifications";
+import type { ExplorerNotification as NotificationContent, ExplorerNotificationRecord } from "../model/notifications";
+import type { ExplorerNotification } from "../state/view-state";
 import { iconButtonClass } from "./explorer-controls";
 import { useExplorerDom } from "./explorer-dom-context";
 import { useExplorerTheme } from "./explorer-theme";
@@ -52,16 +53,21 @@ export function ExplorerNotifications({
         aria-label="通知の内容"
         className="lxe:min-h-0 lxe:overflow-x-hidden lxe:overflow-y-auto lxe:overscroll-contain lxe:outline-none lxe:focus-visible:outline-2 lxe:focus-visible:-outline-offset-2 lxe:focus-visible:outline-[var(--explorer-accent)]"
       >
-        {notification && <NotificationMessage notification={notification} onDismiss={onDismissNotification} />}
+        {notification && <NotificationMessage
+          notification={notification}
+          onDismiss={onDismissNotification}
+          onCancel={notification.kind === "progress" ? notification.cancelImport : undefined}
+        />}
         {messages.map(message => <NotificationMessage key={message.id} notification={message} onDismiss={() => onDismissMessage(message.id)} />)}
       </div>
     </section>}
   </>;
 }
 
-function NotificationMessage({ notification, onDismiss }: {
-  notification: ExplorerNotification;
+function NotificationMessage({ notification, onDismiss, onCancel }: {
+  notification: NotificationContent;
   onDismiss: () => void;
+  onCancel?: () => void;
 }) {
   const progress = notification.kind === "progress" && Number.isFinite(notification.progress)
     ? Math.max(0, Math.min(100, notification.progress!)) : undefined;
@@ -73,6 +79,12 @@ function NotificationMessage({ notification, onDismiss }: {
       <div className="lxe:min-w-0 lxe:flex-1 lxe:pt-0.5 lxe:text-sm lxe:wrap-anywhere">
         <p>{notification.message}</p>
       </div>
+      {onCancel && <button
+        type="button"
+        aria-label="取り込みを中止"
+        className="lxe:shrink-0 lxe:cursor-pointer lxe:rounded lxe:px-1.5 lxe:py-1 lxe:text-xs lxe:whitespace-nowrap lxe:text-[var(--explorer-muted)] lxe:hover:bg-[var(--explorer-hover)] lxe:hover:text-[var(--explorer-foreground)] lxe:focus-visible:outline-2 lxe:focus-visible:outline-[var(--explorer-accent)]"
+        onClick={onCancel}
+      >中止</button>}
       {notification.hint && <NotificationHint hint={notification.hint} />}
       <button type="button" className={`${iconButtonClass} lxe:size-6`} aria-label="通知を閉じる" onClick={onDismiss}>
         <X size={14} aria-hidden="true" />

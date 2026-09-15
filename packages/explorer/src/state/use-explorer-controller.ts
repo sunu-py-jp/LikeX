@@ -360,10 +360,13 @@ export function useExplorerViewController({
     setNotification(next);
     return next;
   }
-  function showImportProgress(notice: ExplorerNotification) {
-    setNotification(notice);
+  function showImportProgress(notice: ExplorerNotification, cancel: () => boolean) {
+    const progressNotice: ExplorerNotification = { ...notice, cancelImport: () => {
+      if (mounted.current && cancel()) notify("info", "取り込みを中止しました");
+    } };
+    setNotification(progressNotice);
     return () => {
-      if (mounted.current) setNotification(current => current === notice ? null : current);
+      if (mounted.current) setNotification(current => current === progressNotice ? null : current);
     };
   }
   /** Preserve the gesture's targets across authorization; never replay a stale view. */
@@ -1115,10 +1118,15 @@ export function useExplorerViewController({
     pendingTransfer.current = { controller, hasDirectories: captured.hasDirectories, hasRootFiles: captured.hasRootFiles };
     const unregister = workspace.registerImport(controller);
     let dismissProgress: (() => void) | undefined;
+    const cancelDiscovery = () => {
+      if (handedOff || pendingTransfer.current?.controller !== controller || controller.signal.aborted) return false;
+      controller.abort();
+      return true;
+    };
     void captured.read(controller.signal, progress => {
       if (mounted.current && !controller.signal.aborted) {
         preview.flush();
-        dismissProgress = showImportProgress(describeImportProgress(progress));
+        dismissProgress = showImportProgress(describeImportProgress(progress), cancelDiscovery);
       }
     }, preview.append).then(files => {
       const allowed = currentOptions.current.features;
@@ -1129,6 +1137,7 @@ export function useExplorerViewController({
         return;
       }
       handedOff = true;
+      dismissProgress?.();
       return addLocalFiles(files, "folder", parent, preview);
     }).catch(error => {
       if (!mounted.current || controller.signal.aborted) return;

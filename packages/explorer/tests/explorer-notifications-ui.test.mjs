@@ -114,3 +114,67 @@ test('individual and combined dismissal route to the correct owner', async t => 
   await act(() => clear.props.onClick());
   assert.deepEqual(calls, ['internal', 'uploaded', 'internal', 'external-all']);
 });
+
+test('only an active local import exposes the cancellation action', () => {
+  const cancelImport = () => {};
+  const local = render({ notification: { kind: 'progress', message: '5 ファイルを検出', cancelImport } });
+  assert.match(local, /<button type="button" aria-label="取り込みを中止"/);
+  assert.match(local, />中止<\/button>/);
+  assert.match(local, /focus-visible:outline/);
+
+  const host = render({ messages: [{
+    id: 'server-upload', kind: 'progress', message: 'アップロード中', progress: 50, cancelImport,
+  }] });
+  assert.equal(host.includes('取り込みを中止'), false, 'host payloads cannot inject local import actions');
+  assert.equal(render({ notification: { kind: 'progress', message: 'ダウンロード中' } }).includes('取り込みを中止'), false);
+  for (const kind of ['success', 'info', 'error']) {
+    const html = render({ notification: { kind, message: '取り込み処理の結果', cancelImport } });
+    assert.equal(html.includes('取り込みを中止'), false, `${kind} results cannot retain a cancellation action`);
+  }
+});
+
+test('cancelling an import is distinct from dismissing one or all notices', async t => {
+  const calls = [];
+  let renderer;
+  await act(() => { renderer = create(h(ExplorerNotifications, { ...defaults,
+    notification: { kind: 'progress', message: '5 ファイルを検出', cancelImport: () => calls.push('cancel') },
+    messages: [{ id: 'host', kind: 'progress', message: '別のアップロード' }],
+    onDismissNotification: () => calls.push('dismiss-local'),
+    onDismissMessage: id => calls.push(`dismiss-${id}`),
+    onClearMessages: () => calls.push('dismiss-all-host'),
+  })); });
+  t.after(() => act(() => renderer.unmount()));
+  const buttons = renderer.root.findAllByType('button');
+  const cancel = buttons.find(button => button.props['aria-label'] === '取り込みを中止');
+  assert.equal(cancel.props.type, 'button');
+  assert.equal(cancel.props.disabled, undefined);
+  assert.equal(cancel.props.tabIndex, undefined, 'native button remains in the keyboard tab order');
+  await act(() => cancel.props.onClick());
+  assert.deepEqual(calls, ['cancel']);
+  for (const dismiss of buttons.filter(button => button.props['aria-label'] === '通知を閉じる')) {
+    await act(() => dismiss.props.onClick());
+  }
+  await act(() => buttons.find(button => button.children.includes('すべて閉じる')).props.onClick());
+  assert.deepEqual(calls, ['cancel', 'dismiss-local', 'dismiss-host', 'dismiss-local', 'dismiss-all-host']);
+});
+
+test('progress updates use the current import callback and results remove the action', async t => {
+  const calls = [];
+  const props = notification => ({ ...defaults, notification });
+  let renderer;
+  await act(() => { renderer = create(h(ExplorerNotifications, props({
+    kind: 'progress', message: '5 ファイルを検出', cancelImport: () => calls.push('previous-import'),
+  }))); });
+  t.after(() => act(() => renderer.unmount()));
+  await act(() => renderer.update(h(ExplorerNotifications, props({
+    kind: 'progress', message: '10 ファイルを確認', progress: 50, cancelImport: () => calls.push('current-import'),
+  }))));
+  await act(() => renderer.root.findByProps({ 'aria-label': '取り込みを中止' }).props.onClick());
+  assert.deepEqual(calls, ['current-import']);
+  await act(() => renderer.update(h(ExplorerNotifications, props({
+    kind: 'info', message: '取り込みを中止しました',
+  }))));
+  assert.equal(renderer.root.findAllByProps({ 'aria-label': '取り込みを中止' }).length, 0);
+  assert.equal(renderer.root.findAllByType('article').length, 1);
+  assert.equal(renderer.root.findByProps({ role: 'status' }).children.join(''), 'お知らせ: 取り込みを中止しました');
+});

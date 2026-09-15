@@ -42,7 +42,7 @@ function fakeDocument() {
     dispatch(type, event) { return change(() => { for (const callback of [...(listeners.get(type) ?? [])]) callback(event); }); },
   };
 }
-async function mount(t, supplied = {}) {
+async function mount(t, supplied = {}, onPane = () => {}) {
   let latest, renderer, children = true, closed = false;
   const events = [], requests = [], saves = [], panes = new Map(), snapshots = [];
   const documents = new Map(['main', 'child'].map(id => [id, fakeDocument()]));
@@ -58,6 +58,7 @@ async function mount(t, supplied = {}) {
     pane.workspaceRef.current = roots.get(id);
     panes.set(id, pane);
     snapshots.push({ id, pane });
+    useLayoutEffect(() => { onPane(pane, id); });
     return null;
   }
   function Probe({ options }) {
@@ -449,4 +450,215 @@ for (const outcome of ['commit', 'cancel']) test(`tab detachment waits for provi
   } else await change(() => app.main.cancelUpload());
   assert.equal(app.main.canDetachTab(importTabId), true, 'remapping releases the tab without retaining temporary history IDs');
   if (outcome === 'cancel') await change(() => delayed.complete());
+});
+
+for (const lateResult of ['success', 'failure']) test(`the progress cancel action immediately removes discovery while preserving existing edits after late native ${lateResult}`, async t => {
+  const app = await mount(t, { initialEntries: [entry('batch', 'Batch', 'root', 'folder'), entry('kept', 'Kept.txt', 'batch')] });
+  await change(() => app.main.act('favorite', ['kept']));
+  const before = app.main.entries, requestsBefore = app.requests.length, delayed = delayedFile();
+  assert.equal(app.main.dirty, true);
+  await app.paste(directory('Batch', [directory('Nested', [fileEntry(file('First.txt')), delayed.entry])]));
+  await eventually(() => delayed.started && typeof app.main.notification?.cancelImport === 'function', 'discovery should expose the local cancel action');
+  await change(() => app.main.navigate('batch'));
+  await change(() => app.main.openPendingImportFolder(previews(app.main)[0].id));
+  assert.equal(app.main.addressPath, '/Batch/Nested');
+  const cancel = app.main.notification.cancelImport;
+  await change(cancel);
+  assert.equal(app.main.currentParent, 'batch', 'cancel returns immediately to the nearest existing folder');
+  assert.equal(app.main.addressPath, '/Batch');
+  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(previews(app.main).length, 0);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.dirty, true, 'changes made before this import remain unsaved');
+  assert.equal(app.main.notification.kind, 'info');
+  assert.equal(app.main.notification.message, '取り込みを中止しました');
+  assert.equal(app.main.notification.cancelImport, undefined);
+  const stoppedNotice = app.main.notification;
+  await change(() => lateResult === 'success' ? delayed.complete() : delayed.fail());
+  await change(() => wait(100));
+  assert.equal(app.main.notification, stoppedNotice, 'late callbacks must not replace the cancellation message');
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.requests.length, requestsBefore);
+  assert.equal(uploadChanges(app).length, 0);
+  assert.equal(app.saves.length, 0);
+  await change(cancel);
+  assert.equal(app.main.notification, stoppedNotice, 'repeated cancellation is inert');
+});
+
+test('canceling from the first large-batch progress update stops queued validation before requesting permission', async t => {
+  let canceledNotice;
+  const app = await mount(t, {}, (pane, id) => {
+    if (id === 'main' && !canceledNotice && pane.notification?.message === 'ファイル情報を確認しています' && pane.notification.cancelImport) {
+      canceledNotice = pane.notification;
+      pane.notification.cancelImport();
+    }
+  });
+  const before = app.main.entries;
+  const files = Array.from({ length: 500 }, (_, index) => file(`File-${index}.txt`, `Batch/File-${index}.txt`));
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles(files, 'folder', 'root'); });
+  await change(() => pending);
+  assert.ok(canceledNotice, 'the button is available at the first asynchronous validation checkpoint');
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.notification.message, '取り込みを中止しました');
+  assert.equal(app.main.dirty, false);
+  assert.equal(app.requests.length, 0);
+  assert.equal(uploadChanges(app).length, 0);
+  const stoppedNotice = app.main.notification;
+  await change(() => wait(100));
+  assert.equal(app.main.notification, stoppedNotice, 'queued progress cannot resurrect a canceled preparation');
+  assert.equal(app.main.entries, before);
+});
+
+for (const fileCount of [2, 250]) test(`canceling a prepared ${fileCount}-file batch revokes its deferred edit request and ignores the later grant`, async t => {
+  const permission = deferred(), app = await mount(t, { onEditRequest: () => permission.promise });
+  const before = app.main.entries;
+  const files = Array.from({ length: fileCount }, (_, index) => file(`File-${index}.txt`, `Batch/File-${index}.txt`));
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles(files, 'folder', 'root'); });
+  await eventually(() => app.main.editMode === 'requesting' && typeof app.main.notification?.cancelImport === 'function', 'prepared files should remain cancellable during authorization');
+  await change(() => app.main.openPendingImportFolder(previews(app.main)[0].id));
+  assert.equal(app.main.addressPath, '/Batch');
+  await change(() => app.main.notification.cancelImport());
+  assert.equal(app.main.currentParent, 'root');
+  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.notEqual(app.main.editMode, 'requesting');
+  assert.equal(app.main.notification.message, '取り込みを中止しました');
+  await change(() => permission.resolve(true));
+  await change(() => pending);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.dirty, false);
+  assert.equal(uploadChanges(app).length, 0);
+  assert.equal(app.saves.length, 0);
+});
+
+for (const firstOutcome of ['canceled', 'completed']) test(`a ${firstOutcome} discovery cancel action cannot stop a later import`, async t => {
+  const app = await mount(t), first = delayedFile('OldLast.txt');
+  await app.paste(directory('OldBatch', [fileEntry(file('OldFirst.txt')), first.entry]));
+  await eventually(() => first.started && typeof app.main.notification?.cancelImport === 'function', 'first import should expose a cancel action');
+  const staleCancel = app.main.notification.cancelImport;
+  if (firstOutcome === 'canceled') await change(staleCancel);
+  else {
+    await change(() => first.complete());
+    await eventually(() => uploadChanges(app).length === 1, 'first import should finish before replacement');
+  }
+  const second = delayedFile('NewLast.txt');
+  await app.paste(directory('NewBatch', [fileEntry(file('NewFirst.txt')), second.entry]));
+  await eventually(() => second.started && previews(app.main).some(item => item.name === 'NewBatch'), 'new import should have its own pending hierarchy');
+  const before = app.main.entries, newNotice = app.main.notification;
+  await change(staleCancel);
+  assert.equal(app.main.notification, newNotice, 'stale actions must not change the current progress notification');
+  assert.ok(previews(app.main).some(item => item.name === 'NewBatch'));
+  if (firstOutcome === 'canceled') await change(() => first.fail());
+  await change(() => second.complete());
+  await eventually(() => app.main.entries !== before, 'replacement import should still commit');
+  assert.ok(app.main.entries.some(item => item.name === 'NewBatch'));
+  assert.equal(app.main.entries.some(item => item.name === 'OldBatch'), firstOutcome === 'completed');
+  assert.equal(uploadChanges(app).length, firstOutcome === 'completed' ? 2 : 1);
+});
+
+test('a discovery-stage cancel action cannot abort its later preparation-stage edit request', async t => {
+  const permission = deferred(), app = await mount(t, { onEditRequest: () => permission.promise });
+  const delayed = delayedFile('Last.txt');
+  const children = Array.from({ length: 249 }, (_, index) => fileEntry(file(`File-${index}.txt`)));
+  await app.paste(directory('Batch', [...children, delayed.entry]));
+  await eventually(() => delayed.started && typeof app.main.notification?.cancelImport === 'function', 'native discovery should be awaiting its last file');
+  const staleDiscoveryCancel = app.main.notification.cancelImport;
+  await change(() => delayed.complete());
+  await eventually(() => app.main.editMode === 'requesting' && app.main.notification?.message === '読み込んだファイルを一覧へ反映しています', 'discovery should hand off to prepared-file authorization');
+  const preparedNotice = app.main.notification;
+  assert.equal(typeof preparedNotice.cancelImport, 'function');
+  await change(staleDiscoveryCancel);
+  assert.equal(app.main.notification, preparedNotice);
+  assert.equal(app.main.editMode, 'requesting');
+  assert.equal(previews(app.main).length, 1);
+  await change(() => permission.resolve(true));
+  await eventually(() => uploadChanges(app).length === 1, 'prepared batch should still commit after the stale discovery action');
+  assert.equal(app.main.entries.filter(item => item.source?.kind === 'local').length, 250);
+});
+
+test('canceling one pane through its progress message leaves the other pane import active', async t => {
+  const app = await mount(t), mainLast = delayedFile('MainLast.txt'), childLast = delayedFile('ChildLast.txt');
+  await app.paste(directory('MainBatch', [fileEntry(file('MainFirst.txt')), mainLast.entry]));
+  await app.paste(directory('ChildBatch', [fileEntry(file('ChildFirst.txt')), childLast.entry]), 'child');
+  await eventually(() => mainLast.started && childLast.started && typeof app.main.notification?.cancelImport === 'function' && typeof app.child.notification?.cancelImport === 'function', 'each pane should expose its own cancellation');
+  const childNotice = app.child.notification;
+  await change(() => app.main.notification.cancelImport());
+  assert.equal(previews(app.main).length, 0);
+  assert.deepEqual(previews(app.child).map(item => item.name), ['ChildBatch']);
+  assert.equal(app.child.notification, childNotice);
+  await change(() => mainLast.complete());
+  await change(() => childLast.complete());
+  await eventually(() => uploadChanges(app).length === 1, 'uncanceled child import should commit');
+  assert.equal(app.main.entries.some(item => item.name === 'MainBatch'), false);
+  assert.equal(app.main.entries.some(item => item.name === 'ChildBatch'), true);
+});
+
+test('dismissing the progress message only hides it and leaves directory import active', async t => {
+  const app = await mount(t), delayed = delayedFile();
+  await app.paste(directory('Batch', [fileEntry(file('First.txt')), delayed.entry]));
+  await eventually(() => delayed.started && typeof app.main.notification?.cancelImport === 'function', 'import progress should be visible before dismissal');
+  await change(() => app.main.setNotification(null));
+  assert.equal(app.main.notification, null);
+  assert.deepEqual(previews(app.main).map(item => item.name), ['Batch']);
+  assert.equal(app.main.importingEntryIds.size > 0, true);
+  await change(() => delayed.complete());
+  await eventually(() => uploadChanges(app).length === 1, 'closing the notification must not cancel the import');
+  assert.equal(previews(app.main).length, 0);
+  assert.equal(app.main.entries.filter(item => item.source?.kind === 'local').length, 2);
+});
+
+for (const firstOutcome of ['canceled', 'completed']) test(`a ${firstOutcome} preparation cancel action cannot abort a replacement native import`, async t => {
+  const permission = deferred(), app = await mount(t, { onEditRequest: () => permission.promise });
+  const files = Array.from({ length: 250 }, (_, index) => file(`Old-${index}.txt`, `OldBatch/Old-${index}.txt`));
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles(files, 'folder', 'root'); });
+  await eventually(() => app.main.editMode === 'requesting' && typeof app.main.notification?.cancelImport === 'function', 'prepared batch should wait for edit permission');
+  const staleCancel = app.main.notification.cancelImport;
+  if (firstOutcome === 'canceled') await change(staleCancel);
+  await change(() => permission.resolve(true));
+  await change(() => pending);
+  assert.equal(uploadChanges(app).length, firstOutcome === 'completed' ? 1 : 0);
+  const delayed = delayedFile('NewLast.txt');
+  await app.paste(directory('NewBatch', [fileEntry(file('NewFirst.txt')), delayed.entry]));
+  await eventually(() => delayed.started && previews(app.main).some(item => item.name === 'NewBatch'), 'replacement discovery should be active');
+  const newNotice = app.main.notification;
+  await change(staleCancel);
+  assert.equal(app.main.notification, newNotice);
+  assert.ok(previews(app.main).some(item => item.name === 'NewBatch'));
+  const changesBefore = uploadChanges(app).length;
+  await change(() => delayed.complete());
+  await eventually(() => uploadChanges(app).length === changesBefore + 1, 'replacement discovery should complete despite the stale preparation action');
+  assert.ok(app.main.entries.some(item => item.name === 'NewBatch'));
+});
+
+test('canceling asynchronous preparation preserves a separate rename permission request in the same pane', async t => {
+  const permission = deferred();
+  let rename, started = false, requestSignal;
+  const app = await mount(t, { onEditRequest: (request, context) => {
+    assert.equal(request.action, 'rename');
+    requestSignal = context.signal;
+    return permission.promise;
+  } }, (pane, id) => {
+    if (id !== 'main' || started || pane.notification?.message !== 'ファイル情報を確認しています' || !pane.notification.cancelImport) return;
+    started = true;
+    rename = pane.act('rename', ['existing'], { name: 'Renamed.txt' });
+    pane.notification.cancelImport();
+  });
+  const files = Array.from({ length: 250 }, (_, index) => file(`File-${index}.txt`, `Batch/File-${index}.txt`));
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles(files, 'folder', 'root'); });
+  await change(() => pending);
+  assert.equal(started, true);
+  assert.equal(requestSignal?.aborted, false, 'canceling import preparation must not revoke the unrelated rename request');
+  assert.equal(app.main.editMode, 'requesting');
+  assert.equal(app.main.importingEntryIds.size, 0);
+  assert.equal(app.main.notification.message, '取り込みを中止しました');
+  await change(() => permission.resolve(true));
+  await change(() => rename);
+  assert.equal(app.main.entries.find(item => item.id === 'existing').name, 'Renamed.txt');
+  assert.equal(app.main.entries.some(item => item.name === 'Batch'), false);
+  assert.equal(uploadChanges(app).length, 0);
 });

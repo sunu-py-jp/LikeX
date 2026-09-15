@@ -9,4 +9,6 @@ export type ExplorerDialogState = {
 export type ExplorerClipboardState = { ids: string[]; action: "move" | "copy" } | null;
 export type ExplorerNotification = import("../model/notifications").ExplorerNotification & {
   downloadRequestId?: string;
+  /** Pane-owned action, never part of the public notification payload. */
+  cancelImport?: () => void;
 };

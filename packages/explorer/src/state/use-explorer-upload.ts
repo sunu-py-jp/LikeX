@@ -27,7 +27,7 @@ type UploadOptions = {
   ownerDocument: Document | null;
   runEdit: (intent: ExplorerEditIntent, operation: () => boolean, onError: (error: unknown) => void) => boolean | Promise<boolean>;
   notify: (kind: "success" | "error" | "info", message: string, options?: Pick<ExplorerNotification, "description" | "details" | "hint" | "persistent">) => unknown;
-  showProgress: (notification: ExplorerNotification) => () => void;
+  showProgress: (notification: ExplorerNotification, cancel: () => boolean) => () => void;
   beginPreview: (parent: string) => ExplorerImportPreviewWriter;
 };
 type Batch = {
@@ -49,6 +49,7 @@ type Batch = {
   onCancel?: () => void;
   dismissProgress?: () => void;
   preview: ExplorerImportPreviewWriter;
+  editRequestId?: string;
 };
 export type ExplorerUploadPrompt = {
   conflict: ExplorerUploadConflict;
@@ -84,10 +85,14 @@ export function useExplorerUpload(options: UploadOptions) {
     pending.current = null;
     if (mounted.current) { setPrompt(null); setApplying(false); }
   }
+  function cancelBatch(batch: Batch) {
+    if (pending.current !== batch || batch.controller.signal.aborted) return false;
+    batch.controller.abort();
+    return true;
+  }
   function cancel() {
     const batch = pending.current;
-    if (!batch) return;
-    batch.controller.abort();
+    if (batch) cancelBatch(batch);
   }
   useLayoutEffect(() => {
     mounted.current = true;
@@ -161,7 +166,7 @@ export function useExplorerUpload(options: UploadOptions) {
             if (alive(batch)) {
               batch.preview.include(batch.files, value.phase === "checking" ? value.completed : batch.files.length);
               batch.preview.flush();
-              batch.dismissProgress = current.current.showProgress(describeImportProgress(value));
+              batch.dismissProgress = current.current.showProgress(describeImportProgress(value), () => cancelBatch(batch));
             }
           } });
         if (!alive(batch)) { release(batch); return false; }
@@ -227,11 +232,16 @@ export function useExplorerUpload(options: UploadOptions) {
       if (!prepared.changed) return commit();
       batch.applying = true;
       setApplying(true);
-      if (batch.dismissProgress) batch.dismissProgress = current.current.showProgress({
+      batch.dismissProgress = current.current.showProgress({
         kind: "progress", message: "読み込んだファイルを一覧へ反映しています", persistent: true,
         description: `${batch.files.length}ファイルの確認が終わりました`,
-      });
+      }, () => cancelBatch(batch));
+      const previousEdit = current.current.draft.getEditState();
       const result = (batch.runEdit ?? current.current.runEdit)({ action: "upload", parent: batch.parent }, commit, error => fail(batch, error));
+      const requestedEdit = current.current.draft.getEditState();
+      if (previousEdit.mode !== "requesting" && requestedEdit.mode === "requesting" && requestedEdit.requestId) {
+        batch.editRequestId = requestedEdit.requestId;
+      }
       const finish = (changed: boolean) => {
         // Navigation or cancellation can invalidate authorization without an error.
         if (pending.current === batch && batch.applying) release(batch);
@@ -268,7 +278,10 @@ export function useExplorerUpload(options: UploadOptions) {
     pending.current = batch;
     controller.signal.addEventListener("abort", () => {
       release(batch);
-      current.current.cancelEditRequest();
+      // Preparation can overlap another edit in this pane. Only cancel an
+      // authorization request that this batch actually initiated.
+      if (batch.editRequestId && current.current.draft.getEditState().requestId === batch.editRequestId)
+        current.current.cancelEditRequest();
       batch.onCancel?.();
     }, { once: true });
     return process(batch);
