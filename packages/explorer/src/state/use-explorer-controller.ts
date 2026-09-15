@@ -39,6 +39,7 @@ import { useExplorerSearch } from "./use-explorer-search";
 import { useExplorerMouseNavigation } from "./use-explorer-mouse-navigation";
 import { captureClipboardImport, type ClipboardImport } from "./clipboard-import";
 import { describeImportProgress } from "./import-progress";
+import { EMPTY_IMPORT_ENTRIES, useExplorerImportPreview, type ExplorerImportPreviewWriter } from "./import-preview";
 import { hasKeyModifiers, isComposingKeyEvent, matchesExplorerShortcut } from "../model/keyboard";
 import {
   DEFAULT_ROOT_LABEL,
@@ -99,6 +100,12 @@ export function useExplorerViewController({
     dispatchExplorerEvent(eventObserver.current, windowId === "main" ? event : { ...event, windowId });
   }
   const mounted = useRef(true);
+  const importPreview = useExplorerImportPreview();
+  const pendingTransfer = useRef<{
+    controller: AbortController;
+    hasDirectories: boolean;
+    hasRootFiles: boolean;
+  } | null>(null);
   const {
     entries,
     dirty,
@@ -122,7 +129,10 @@ export function useExplorerViewController({
   }, []);
   useLayoutEffect(() => {
     mounted.current = true;
-    const cancelPending = () => cancelEditRequest(windowId);
+    const cancelPending = () => {
+      pendingTransfer.current?.controller.abort();
+      cancelEditRequest(windowId);
+    };
     ownerDocument?.defaultView?.addEventListener?.("pagehide", cancelPending);
     return () => {
       mounted.current = false;
@@ -228,11 +238,6 @@ export function useExplorerViewController({
   const clipboard = storedClipboard && features[storedClipboard.action] ? storedClipboard : null;
   const currentClipboard = useRef(storedClipboard);
   useLayoutEffect(() => { currentClipboard.current = storedClipboard; }, [storedClipboard]);
-  const pendingTransfer = useRef<{
-    controller: AbortController;
-    hasDirectories: boolean;
-    hasRootFiles: boolean;
-  } | null>(null);
   const pendingPickers = useRef<Partial<Record<"file" | "folder", {
     parent: string;
     controller: AbortController;
@@ -1025,15 +1030,20 @@ export function useExplorerViewController({
     runEdit,
     notify,
     showProgress: showImportProgress,
+    beginPreview: parent => {
+      pendingTransfer.current?.controller.abort();
+      return importPreview.begin(parent);
+    },
   });
   const customMenu = useExplorerContextMenu({ workspace, options, provider: getContextMenuItems,
     mode: contextMenuExecutionMode, readFile, windowId, ownerDocument,
     tabId: tabState.activeTabId, selected, location: locationInfo,
     container: workspaceRef, upload: uploadImport, notify, emitEvent });
-  function addLocalFiles(files: File[], source: "file" | "folder" = "file", parent = currentParent) {
-    return uploadImport.start(files, parent, source === "folder" || files.some(file => !!file.webkitRelativePath));
+  function addLocalFiles(files: File[], source: "file" | "folder" = "file", parent = currentParent, preview?: ExplorerImportPreviewWriter) {
+    return uploadImport.start(files, parent, source === "folder" || files.some(file => !!file.webkitRelativePath), undefined, preview);
   }
   function importTransferredFiles(captured: ClipboardImport, parent: string, source: "貼り付け" | "ドロップ") {
+    if (uploadImport.isPending()) return;
     pendingTransfer.current?.controller.abort();
     const allowed = currentOptions.current.features;
     if ((captured.hasDirectories && !allowed.uploadFolders) || (captured.hasRootFiles && !allowed.uploadFiles)) {
@@ -1044,12 +1054,18 @@ export function useExplorerViewController({
     }
     if (!captured.hasDirectories) return addLocalFiles(captured.files, "file", parent);
     const controller = new AbortController();
+    const preview = importPreview.begin(parent);
+    controller.signal.addEventListener("abort", preview.clear, { once: true });
+    let handedOff = false;
     pendingTransfer.current = { controller, hasDirectories: captured.hasDirectories, hasRootFiles: captured.hasRootFiles };
     const unregister = workspace.registerImport(controller);
     let dismissProgress: (() => void) | undefined;
     void captured.read(controller.signal, progress => {
-      if (mounted.current && !controller.signal.aborted) dismissProgress = showImportProgress(describeImportProgress(progress));
-    }).then(files => {
+      if (mounted.current && !controller.signal.aborted) {
+        preview.flush();
+        dismissProgress = showImportProgress(describeImportProgress(progress));
+      }
+    }, preview.append).then(files => {
       const allowed = currentOptions.current.features;
       if (!mounted.current || controller.signal.aborted ||
         (captured.hasDirectories && !allowed.uploadFolders) || (captured.hasRootFiles && !allowed.uploadFiles)) return;
@@ -1057,7 +1073,8 @@ export function useExplorerViewController({
         notify("info", "追加できるファイルがありませんでした", { description: "空のフォルダは取り込みません" });
         return;
       }
-      return addLocalFiles(files, "folder", parent);
+      handedOff = true;
+      return addLocalFiles(files, "folder", parent, preview);
     }).catch(error => {
       if (!mounted.current || controller.signal.aborted) return;
       notify("error", "フォルダを読み込めなかったため、追加を中止しました", {
@@ -1066,6 +1083,8 @@ export function useExplorerViewController({
       });
     }).finally(() => {
       unregister();
+      controller.signal.removeEventListener("abort", preview.clear);
+      if (!handedOff) preview.clear();
       if (pendingTransfer.current?.controller === controller) pendingTransfer.current = null;
       dismissProgress?.();
     });
@@ -1337,6 +1356,8 @@ export function useExplorerViewController({
     totalSize,
     fileCount,
     visible,
+    pendingImportEntries: !readOnly && !saving && !refreshing && !special && !query && importPreview.preview?.parent === currentParent
+      ? importPreview.preview.entries : EMPTY_IMPORT_ENTRIES,
     changeView,
     changeCompact,
     navigate,
@@ -1368,7 +1389,7 @@ export function useExplorerViewController({
     cancelCustomContextMenu: customMenu.cancel,
     uploadApplying: uploadImport.applying,
     answerUploadConflict: uploadImport.answer,
-    cancelUpload: uploadImport.cancel,
+    cancelUpload: () => { pendingTransfer.current?.controller.abort(); uploadImport.cancel(); },
     acceptChosenFiles,
     cancelFilePicker,
     chooseFiles,

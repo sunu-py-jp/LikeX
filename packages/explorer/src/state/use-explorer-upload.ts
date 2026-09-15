@@ -16,6 +16,7 @@ import type { useExplorerDraft } from "./use-explorer-draft";
 import { describeUploadRejections } from "../model/upload-notification";
 import type { ExplorerNotification } from "../model/notifications";
 import { describeImportProgress } from "./import-progress";
+import type { ExplorerImportPreviewWriter } from "./import-preview";
 
 type UploadOptions = {
   draft: ReturnType<typeof useExplorerDraft>;
@@ -27,6 +28,7 @@ type UploadOptions = {
   runEdit: (intent: ExplorerEditIntent, operation: () => boolean, onError: (error: unknown) => void) => boolean | Promise<boolean>;
   notify: (kind: "success" | "error" | "info", message: string, options?: Pick<ExplorerNotification, "description" | "details" | "hint" | "persistent">) => unknown;
   showProgress: (notification: ExplorerNotification) => () => void;
+  beginPreview: (parent: string) => ExplorerImportPreviewWriter;
 };
 type Batch = {
   files: File[];
@@ -46,6 +48,7 @@ type Batch = {
   reject?: (error: unknown) => void;
   onCancel?: () => void;
   dismissProgress?: () => void;
+  preview: ExplorerImportPreviewWriter;
 };
 export type ExplorerUploadPrompt = {
   conflict: ExplorerUploadConflict;
@@ -73,6 +76,7 @@ export function useExplorerUpload(options: UploadOptions) {
       (!batch.directory || latest.uploadFolders) && (!batch.requiresFiles || latest.uploadFiles);
   }
   function release(batch: Batch, changed = false) {
+    batch.preview.clear();
     batch.dismissProgress?.();
     batch.unregister();
     batch.complete?.(changed);
@@ -103,6 +107,8 @@ export function useExplorerUpload(options: UploadOptions) {
 
   function showConflict(batch: Batch, error: ExplorerUploadConflictError) {
     batch.dismissProgress?.();
+    batch.preview.include(batch.files, batch.files.length);
+    batch.preview.flush();
     batch.applying = false;
     setApplying(false);
     setPrompt({ conflict: error.conflict, conflictIndex: error.conflictIndex, conflictCount: error.conflictCount, revision: ++revision.current });
@@ -152,7 +158,11 @@ export function useExplorerUpload(options: UploadOptions) {
       try {
         const prepared = await current.current.draft.prepareAddAsync(batch.files, batch.parent,
           batch.decisions, batch.session, { owner: batch.owner, signal: batch.controller.signal, onProgress: value => {
-            if (alive(batch)) batch.dismissProgress = current.current.showProgress(describeImportProgress(value));
+            if (alive(batch)) {
+              batch.preview.include(batch.files, value.phase === "checking" ? value.completed : batch.files.length);
+              batch.preview.flush();
+              batch.dismissProgress = current.current.showProgress(describeImportProgress(value));
+            }
           } });
         if (!alive(batch)) { release(batch); return false; }
         return applyPrepared(batch, prepared);
@@ -182,6 +192,7 @@ export function useExplorerUpload(options: UploadOptions) {
       batch.observedEntries = draft.getEntries();
     }
     if (batch.files.length >= 200) return prepareAsync(batch);
+    batch.preview.include(batch.files, batch.files.length);
     let prepared: ReturnType<typeof draft.prepareAdd>;
     // Rebuild from the original snapshot/Files and approved decisions. Nothing
     // from a partially answered batch is published to the shared workspace.
@@ -199,6 +210,11 @@ export function useExplorerUpload(options: UploadOptions) {
   }
   function applyPrepared(batch: Batch, prepared: ReturnType<UploadOptions["draft"]["prepareAdd"]>): boolean | Promise<boolean> {
     if (!prepared) { release(batch); return false; }
+    batch.preview.omit([
+      ...prepared.result.rejections.map(rejection => rejection.file),
+      ...batch.decisions.filter(decision => decision.action === "skip").map(decision => batch.files[decision.fileIndex]),
+    ]);
+    batch.preview.flush();
     const commit = () => {
       if (!alive(batch)) { release(batch); return false; }
       const result = prepared.commit();
@@ -228,12 +244,12 @@ export function useExplorerUpload(options: UploadOptions) {
     owner: symbol; signal: AbortSignal; runEdit: UploadOptions["runEdit"];
     complete: (changed: boolean) => void; reject: (error: unknown) => void;
     onCancel?: () => void;
-  }) {
+  }, preview?: ExplorerImportPreviewWriter) {
     const latest = current.current;
     if (!files.length || pending.current || !mounted.current || !latest.draft.canMutate(execution?.owner) || execution?.signal.aborted || latest.draft.readOnly || latest.draft.saving || latest.draft.refreshing ||
-      latest.draft.editMode === "requesting" || !(directory ? latest.uploadFolders : latest.uploadFiles)) { execution?.complete(false); return false; }
+      latest.draft.editMode === "requesting" || !(directory ? latest.uploadFolders : latest.uploadFiles)) { preview?.clear(); execution?.complete(false); return false; }
     const requiresFiles = !directory || (files.some(file => !!file.webkitRelativePath) && files.some(file => !file.webkitRelativePath));
-    if (requiresFiles && !latest.uploadFiles) { execution?.complete(false); return false; }
+    if (requiresFiles && !latest.uploadFiles) { preview?.clear(); execution?.complete(false); return false; }
     const controller = new AbortController();
     const batch: Batch = {
       files: [...files], parent, directory, requiresFiles, controller,
@@ -241,6 +257,7 @@ export function useExplorerUpload(options: UploadOptions) {
       decisions: [], applyAll: null, observedEntries: latest.draft.getEntries(), applying: false,
       owner: execution?.owner, runEdit: execution?.runEdit, complete: execution?.complete, reject: execution?.reject,
       onCancel: execution?.onCancel,
+      preview: preview ?? latest.beginPreview(parent),
     };
     if (execution) {
       const abort = () => controller.abort();
@@ -274,5 +291,5 @@ export function useExplorerUpload(options: UploadOptions) {
     batch.applyAll = applyToAll ? action : null;
     return process(batch);
   }
-  return { start, startAsync, prompt, applying, answer, cancel };
+  return { start, startAsync, prompt, applying, answer, cancel, isPending: () => pending.current !== null };
 }

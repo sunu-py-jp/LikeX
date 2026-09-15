@@ -35,6 +35,7 @@ import { useExplorerVirtualList } from "../state/use-explorer-virtual-list";
 import { getEntryIndex } from "../model/entry-index";
 import { shortcutAriaKeys, shortcutLabel } from "../model/keyboard";
 import { FileIcon, FileThumbnail } from "./explorer-file-icon";
+import { ExplorerPendingImportCard, ExplorerPendingImportRow } from "./explorer-import-preview";
 import {
   ExplorerEntryName,
   useEntryRenameDelay,
@@ -433,6 +434,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     rootLabel,
     entries,
     visible,
+    pendingImportEntries,
     selectedSet,
     activeTabId,
     focusEntryRef,
@@ -474,7 +476,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     renamingEntryId,
     previewTrigger,
     canEditFavorites,
-  } = useExplorerFields("rootLabel", "entries", "visible", "selectedSet", "activeTabId", "focusEntryRef", "clipboard", "disabled", "busy", "view", "compact", "query", "searchPending", "searchError", "retrySearch", "canSort", "location", "special", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "chooseFiles", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "showModal", "renamingEntryId", "previewTrigger", "canEditFavorites");
+  } = useExplorerFields("rootLabel", "entries", "visible", "pendingImportEntries", "selectedSet", "activeTabId", "focusEntryRef", "clipboard", "disabled", "busy", "view", "compact", "query", "searchPending", "searchError", "retrySearch", "canSort", "location", "special", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "chooseFiles", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "showModal", "renamingEntryId", "previewTrigger", "canEditFavorites");
   const { scheduleRename, cancelPendingRename } = useEntryRenameDelay();
   const suppressNamePreview = useRef(false);
   const horizontal = view === "small" || view === "list";
@@ -497,13 +499,19 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     [canSelect, visible, selectedSet]);
   const cutIds = useMemo(() => new Set(clipboard?.action === "move" ? clipboard.ids : []), [clipboard]);
   const entryIndex = useMemo(() => getEntryIndex(entries), [entries]);
+  const pendingById = useMemo(() => new Map(pendingImportEntries.map(preview => [preview.entry.id, preview])), [pendingImportEntries]);
+  // Only rendering includes staged imports. Selection, navigation, menus and host
+  // callbacks continue to use committed visible entries exclusively.
+  const displayedEntries = useMemo(() => pendingImportEntries.length
+    ? [...pendingImportEntries.map(preview => preview.entry), ...visible] : visible, [pendingImportEntries, visible]);
   const { enabled: virtualEnabled, scrollRef: scrollContainerRef, items: virtualItems, layout: virtualLayout,
-    pin: pinVirtualEntry, contentStyle: virtualContentStyle } = useExplorerVirtualList(visible, view, compact, showLocation, showCardControls,
+    pin: pinVirtualEntry, contentStyle: virtualContentStyle } = useExplorerVirtualList(displayedEntries, view, compact, showLocation, showCardControls,
     JSON.stringify([activeTabId, String(location), query, displayedSort, view]), renamingEntryId, focusEntryRef);
+  const canUpload = features.uploadFiles || features.uploadFolders;
   const acceptsDrop = (event: DragEvent<HTMLElement>) =>
     !busy &&
     (event.dataTransfer.types.includes("Files")
-      ? features.uploadFiles
+      ? canUpload
       : canDrag && event.dataTransfer.types.includes("application/x-explorer"));
   const isNamePreviewClick = (entry: Entry, event: MouseEvent<HTMLElement>) =>
     previewTrigger === "click" &&
@@ -567,13 +575,13 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
           }
         : undefined,
     onDragOver:
-      entry.kind === "folder" && (canDrag || features.uploadFiles)
+      entry.kind === "folder" && (canDrag || canUpload)
         ? (event: DragEvent<HTMLElement>) => {
             if (acceptsDrop(event)) allowDrop(event, entry.id);
           }
         : undefined,
     onDrop:
-      entry.kind === "folder" && (canDrag || features.uploadFiles)
+      entry.kind === "folder" && (canDrag || canUpload)
         ? (event: DragEvent<HTMLElement>) => {
             if (acceptsDrop(event)) drop(event, entry.id);
           }
@@ -585,7 +593,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
       checked(entry)
         ? "lxe:bg-[var(--explorer-selection)]"
         : "lxe:hover:bg-[var(--explorer-hover)]",
-      (canDrag || features.uploadFiles) && dragOver === entry.id
+      (canDrag || canUpload) && dragOver === entry.id
         ? "lxe:outline lxe:outline-[var(--explorer-accent)] lxe:bg-[var(--explorer-selection)]"
         : "",
       features.move &&
@@ -596,12 +604,13 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     ].join(" ");
   const rowHeightClass = compact ? "lxe:h-7" : "lxe:h-9";
   const cellClass = `${rowHeightClass} lxe:px-3 lxe:text-xs lxe:text-[var(--explorer-muted)]`;
+  const cardClassName = `lxe:group lxe:relative lxe:min-w-0 lxe:cursor-default lxe:overflow-hidden lxe:rounded-sm lxe:border lxe:border-transparent ${horizontal ? `lxe:flex lxe:shrink-0 lxe:items-center lxe:gap-2 lxe:px-1.5 lxe:py-0.5 ${rowHeightClass} ${view === "list" ? "lxe:w-[230px]" : ""}` : descriptive ? `lxe:grid lxe:items-center lxe:gap-x-3 lxe:px-2.5 ${compact ? "lxe:py-1" : "lxe:py-2"} ${view === "content" ? "lxe:min-h-16 lxe:grid-cols-[56px_minmax(100px,1fr)_110px] lxe:grid-rows-2 lxe:rounded-none lxe:border-b-[var(--explorer-border)]" : "lxe:min-h-[72px] lxe:grid-cols-[56px_minmax(0,1fr)] lxe:grid-rows-2"}` : `lxe:flex lxe:flex-col lxe:items-center lxe:px-2 lxe:pb-2 ${showCardControls ? "lxe:pt-4" : "lxe:pt-2"}`}`;
 
   return (
     <section
       className="lxe:flex lxe:min-h-0 lxe:min-w-0 lxe:flex-1 lxe:flex-col lxe:bg-[var(--explorer-background)]"
       aria-label="ファイル一覧"
-      aria-busy={searchPending}
+      aria-busy={searchPending || pendingImportEntries.length > 0}
       onFocusCapture={(event) => pinVirtualEntry("focus", (event.target as Element).closest<HTMLElement>("[data-explorer-entry-id]")?.dataset.explorerEntryId ?? null)}
       onBlurCapture={(event) => pinVirtualEntry("focus", (event.relatedTarget as Element | null)?.closest?.<HTMLElement>("[data-explorer-entry-id]")?.dataset.explorerEntryId ?? null)}
       onDragEndCapture={() => pinVirtualEntry("drag", null)}
@@ -615,7 +624,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
       <ExplorerBackgroundMenu><div
         ref={scrollContainerRef}
         data-explorer-virtualized={virtualEnabled || undefined}
-        className={`lxe:relative lxe:min-h-0 lxe:flex-1 lxe:overflow-auto lxe:px-2 lxe:pb-3 lxe:[scrollbar-width:thin] ${(canDrag || features.uploadFiles) && dragOver === currentParent ? "lxe:ring-2 lxe:ring-[var(--explorer-accent)] lxe:ring-inset" : ""}`}
+        className={`lxe:relative lxe:min-h-0 lxe:flex-1 lxe:overflow-auto lxe:px-2 lxe:pb-3 lxe:[scrollbar-width:thin] ${(canDrag || canUpload) && dragOver === currentParent ? "lxe:ring-2 lxe:ring-[var(--explorer-accent)] lxe:ring-inset" : ""}`}
         onClick={(event) => {
           if (
             !(event.target as HTMLElement).closest(
@@ -632,7 +641,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
           if (special || !acceptsDrop(event)) return;
           allowDrop(event, currentParent);
           if (
-            features.uploadFiles &&
+            canUpload &&
             event.dataTransfer.types.includes("Files")
           )
             setExternalDrag(true);
@@ -647,7 +656,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
           if (!special && acceptsDrop(event)) drop(event, currentParent);
         }}
       >
-        {features.uploadFiles && externalDrag && (
+        {canUpload && externalDrag && (
           <div className="lxe:pointer-events-none lxe:sticky lxe:top-1/3 lxe:z-20 lxe:mx-auto lxe:-mb-24 lxe:flex lxe:w-[min(390px,90%)] lxe:flex-wrap lxe:items-center lxe:justify-center lxe:gap-2 lxe:rounded-md lxe:border lxe:border-[var(--explorer-accent)] lxe:bg-[var(--explorer-selection)] lxe:p-5 lxe:text-[var(--explorer-foreground)] lxe:shadow-lg">
             <Upload size={24} />
             <strong className="lxe:text-sm lxe:font-medium">
@@ -658,7 +667,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
             </span>
           </div>
         )}
-        {searchPending || searchError || !visible.length ? (
+        {searchPending || searchError || !displayedEntries.length ? (
           <div role={searchError ? "alert" : searchPending ? "status" : undefined} className="lxe:flex lxe:h-full lxe:min-h-52 lxe:flex-col lxe:items-center lxe:justify-center lxe:gap-3 lxe:p-6 lxe:text-center">
             {searchPending ? (
               <Loader2
@@ -750,7 +759,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
           </div>
         ) : view === "details" ? (
           <table
-            aria-rowcount={virtualEnabled ? visible.length + 1 : undefined}
+            aria-rowcount={virtualEnabled ? displayedEntries.length + 1 : undefined}
             className="lxe:w-full lxe:table-fixed lxe:border-separate lxe:border-spacing-0 lxe:text-sm"
             style={{
               minWidth:
@@ -853,7 +862,11 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                 {virtualEnabled && index > (virtualItems[position - 1]?.index ?? -1) + 1 && (
                   <tr aria-hidden="true"><td colSpan={columnCount} style={{ height: (index - (virtualItems[position - 1]?.index ?? -1) - 1) * virtualLayout.rowHeight, padding: 0, border: 0 }} /></tr>
                 )}
-                <EntryContext entry={entry} onOpenChange={open => pinVirtualEntry("menu", open ? entry.id : null)}>
+                {pendingById.has(entry.id) ? (
+                  <ExplorerPendingImportRow preview={pendingById.get(entry.id)!} rowIndex={index + 2}
+                    style={virtualEnabled ? { height: virtualLayout.rowHeight } : undefined}
+                    compact={compact} showCheckboxes={showCheckboxes} showActions={showActions} />
+                ) : <EntryContext entry={entry} onOpenChange={open => pinVirtualEntry("menu", open ? entry.id : null)}>
                   <tr
                     {...entryEvents(entry)}
                     aria-rowindex={index + 2}
@@ -917,17 +930,20 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                       </td>
                     )}
                   </tr>
-                </EntryContext>
+                </EntryContext>}
                 </Fragment>
               ))}
-              {virtualEnabled && (virtualItems.at(-1)?.index ?? -1) < visible.length - 1 && (
-                <tr aria-hidden="true"><td colSpan={columnCount} style={{ height: (visible.length - (virtualItems.at(-1)?.index ?? -1) - 1) * virtualLayout.rowHeight, padding: 0, border: 0 }} /></tr>
+              {virtualEnabled && (virtualItems.at(-1)?.index ?? -1) < displayedEntries.length - 1 && (
+                <tr aria-hidden="true"><td colSpan={columnCount} style={{ height: (displayedEntries.length - (virtualItems.at(-1)?.index ?? -1) - 1) * virtualLayout.rowHeight, padding: 0, border: 0 }} /></tr>
               )}
             </tbody>
           </table>
         ) : (
           <div className={`lxe:content-start ${gridClasses[view]}`} style={virtualContentStyle}>
-            {virtualItems.map(({ entry, style }) => (
+            {virtualItems.map(({ entry, style }) => pendingById.has(entry.id) ? (
+              <ExplorerPendingImportCard key={entry.id} preview={pendingById.get(entry.id)!} style={style}
+                compact={compact} view={view} className={cardClassName} visualClassName={visualClasses[view]} />
+            ) : (
               <EntryContext key={entry.id} entry={entry} onOpenChange={open => pinVirtualEntry("menu", open ? entry.id : null)}>
                 <div
                   {...entryEvents(entry)}
@@ -936,7 +952,8 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                   aria-label={entry.name}
                   aria-pressed={canSelect ? checked(entry) : undefined}
                   className={mergeExplorerClasses(
-                    `lxe:group lxe:relative lxe:min-w-0 lxe:cursor-default lxe:overflow-hidden lxe:rounded-sm lxe:border lxe:border-transparent ${entryStateClass(entry)} ${horizontal ? `lxe:flex lxe:shrink-0 lxe:items-center lxe:gap-2 lxe:px-1.5 lxe:py-0.5 ${rowHeightClass} ${view === "list" ? "lxe:w-[230px]" : ""}` : descriptive ? `lxe:grid lxe:items-center lxe:gap-x-3 lxe:px-2.5 ${compact ? "lxe:py-1" : "lxe:py-2"} ${view === "content" ? "lxe:min-h-16 lxe:grid-cols-[56px_minmax(100px,1fr)_110px] lxe:grid-rows-2 lxe:rounded-none lxe:border-b-[var(--explorer-border)]" : "lxe:min-h-[72px] lxe:grid-cols-[56px_minmax(0,1fr)] lxe:grid-rows-2"}` : `lxe:flex lxe:flex-col lxe:items-center lxe:px-2 lxe:pb-2 ${showCardControls ? "lxe:pt-4" : "lxe:pt-2"}`}`,
+                    cardClassName,
+                    entryStateClass(entry),
                     renamingEntryId === entry.id && "lxe:z-10 lxe:overflow-visible",
                     horizontal &&
                       renamingEntryId === entry.id &&

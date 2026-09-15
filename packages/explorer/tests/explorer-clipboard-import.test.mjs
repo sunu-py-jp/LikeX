@@ -62,6 +62,27 @@ test('mixed root files and folders retain each location and empty-only trees yie
   assert.deepEqual(await captureClipboardImport(transfer([directory('Empty', [directory('Nested')])])).read(), []);
 });
 
+test('file discoveries arrive with relative paths before a later native file read completes', async () => {
+  const first = file('first.txt'), last = file('last.txt'), direct = file('root.txt'), discovered = [];
+  let complete;
+  const delayed = { name: last.name, isFile: true, isDirectory: false, file(resolve) { complete = resolve; } };
+  const job = captureClipboardImport(transfer([directory('Batch', [fileEntry(first), delayed])], [direct]));
+  let settled = false;
+  const pending = job.read(undefined, undefined, value => discovered.push(value));
+  void pending.then(() => { settled = true; });
+  for (let i = 0; i < 10 && !complete; i++) await Promise.resolve();
+  assert.equal(typeof complete, 'function');
+  assert.equal(settled, false);
+  assert.equal(discovered.length, 1);
+  assert.equal(discovered[0].webkitRelativePath, 'Batch/first.txt');
+  assert.notEqual(discovered[0], first);
+  complete(last);
+  const files = await pending;
+  assert.deepEqual(discovered, files);
+  assert.equal(discovered[1].webkitRelativePath, 'Batch/last.txt');
+  assert.equal(discovered[2], direct);
+});
+
 test('DataTransfer and its items are captured synchronously before protected clipboard access disappears', async () => {
   const nested = file('content.txt'), root = directory('Batch', [fileEntry(nested)]);
   let accessible = true, entryCalls = 0;
@@ -73,9 +94,11 @@ test('DataTransfer and its items are captured synchronously before protected cli
 });
 
 test('a nested file read failure rejects the complete import rather than returning earlier results', async () => {
+  const discovered = [];
   const broken = { name: 'blocked.txt', isFile: true, isDirectory: false, file(resolve, reject) { reject(Error('Permission denied')); } };
-  const job = captureClipboardImport(transfer([directory('Batch', [fileEntry(file('good.txt')), broken])]));
-  await assert.rejects(job.read(), /Permission denied/);
+  const job = captureClipboardImport(transfer([directory('Batch', [fileEntry(file('good.txt')), broken, fileEntry(file('unvisited.txt'))])]));
+  await assert.rejects(job.read(undefined, undefined, value => discovered.push(value)), /Permission denied/);
+  assert.deepEqual(discovered.map(value => value.webkitRelativePath), ['Batch/good.txt']);
 });
 
 test('directory enumeration errors and invalid path segments reject the complete traversal', async () => {
@@ -86,9 +109,11 @@ test('directory enumeration errors and invalid path segments reject the complete
 
 test('an already-aborted import does not open directory readers', async () => {
   const root = directory('Batch', [fileEntry(file('a.txt'))]);
+  const discovered = [];
   const controller = new AbortController(); controller.abort();
-  await assert.rejects(captureClipboardImport(transfer([root])).read(controller.signal), error => error.name === 'AbortError');
+  await assert.rejects(captureClipboardImport(transfer([root])).read(controller.signal, undefined, value => discovered.push(value)), error => error.name === 'AbortError');
   assert.equal(root.stats.readers, 0);
+  assert.deepEqual(discovered, []);
 });
 
 test('aborting during readEntries rejects promptly and late callbacks cannot restart traversal', async () => {
@@ -113,16 +138,29 @@ test('capture accepts the unprefixed entry API and rejects unavailable items wit
 });
 
 test('aborting an in-flight File callback preserves the abort reason and cannot yield partial files', async () => {
+  const discovered = [];
   let complete;
   const delayed = { name: 'late.txt', isFile: true, isDirectory: false, file(resolve) { complete = resolve; } };
   const job = captureClipboardImport(transfer([directory('Batch', [fileEntry(file('first.txt')), delayed])]));
   const controller = new AbortController(), reason = Error('Cancelled by the workspace');
-  const pending = job.read(controller.signal);
+  const pending = job.read(controller.signal, undefined, value => discovered.push(value));
   const rejected = assert.rejects(pending, error => error === reason);
   for (let i = 0; i < 10 && !complete; i++) await Promise.resolve();
   assert.equal(typeof complete, 'function');
+  assert.deepEqual(discovered.map(value => value.webkitRelativePath), ['Batch/first.txt']);
   controller.abort(reason); await rejected;
   complete(file('late.txt')); await Promise.resolve();
+  assert.deepEqual(discovered.map(value => value.webkitRelativePath), ['Batch/first.txt']);
+});
+
+test('cancellation by a discovery callback stops subsequent root-file callbacks', async () => {
+  const controller = new AbortController(), discovered = [];
+  const job = captureClipboardImport(transfer([], [file('first.txt'), file('second.txt')]));
+  await assert.rejects(job.read(controller.signal, undefined, value => {
+    discovered.push(value.name);
+    controller.abort();
+  }), error => error.name === 'AbortError');
+  assert.deepEqual(discovered, ['first.txt']);
 });
 
 test('directory progress reports real discoveries while totals are unknown, then the final exact count', async () => {

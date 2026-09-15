@@ -62,7 +62,8 @@ function DocumentFileIcon({ appearance }: { appearance: FileIconStyle }) {
   );
 }
 
-function DefaultFileIcon({
+/** Internal fallback also used for imports that are not yet public entries. */
+export function DefaultFileIcon({
   entry,
   large = false,
   className,

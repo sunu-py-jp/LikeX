@@ -15,7 +15,9 @@ export type ClipboardImport = {
   hasRootFiles: boolean;
   /** Immediately available when no directories were captured. */
   files: File[];
-  read(signal?: AbortSignal, onProgress?: (value: ExplorerImportProgress) => void): Promise<File[]>;
+  /** onFile exposes provisional discoveries; only the resolved result is a complete import. */
+  read(signal?: AbortSignal, onProgress?: (value: ExplorerImportProgress) => void,
+    onFile?: (file: File) => void): Promise<File[]>;
 };
 
 function unavailable(): Error {
@@ -62,7 +64,7 @@ function readOperation<T>(start: (success: (result: T) => void, failure: (error:
 }
 
 async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortSignal,
-  onProgress?: (value: ExplorerImportProgress) => void): Promise<File[]> {
+  onProgress?: (value: ExplorerImportProgress) => void, onFile?: (file: File) => void): Promise<File[]> {
   checkAbort(signal);
   const files: File[] = [];
   const ancestors = new Set<FileSystemEntry>();
@@ -109,6 +111,7 @@ async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortS
         const copy = new File([file], file.name, { type: file.type, lastModified: file.lastModified });
         Object.defineProperty(copy, "webkitRelativePath", { value: relativePath, enumerable: true });
         files.push(copy);
+        onFile?.(copy);
         const pause = checkpoint({ phase: "discovering", completed: files.length });
         if (pause) await pause;
       } else throw unavailable();
@@ -124,6 +127,7 @@ async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortS
       checkAbort(signal);
       if (item.kind === "file") {
         files.push(item.file);
+        onFile?.(item.file);
         const pause = checkpoint({ phase: "discovering", completed: files.length });
         if (pause) await pause;
       } else await visit(item.entry, [], item.name);
@@ -167,6 +171,6 @@ export function captureClipboardImport(data: DataTransfer): ClipboardImport | nu
     hasDirectories: captured.some(item => item.kind === "directory"),
     hasRootFiles: files.length > 0,
     files,
-    read: (signal, onProgress) => readCapturedItems(captured, signal, onProgress),
+    read: (signal, onProgress, onFile) => readCapturedItems(captured, signal, onProgress, onFile),
   };
 }
