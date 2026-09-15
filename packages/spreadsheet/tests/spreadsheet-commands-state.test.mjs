@@ -75,6 +75,69 @@ test('a batch commits one snapshot, one notification and one undo entry without 
   assert.equal(ui.c.canUndo, false);
 });
 
+test('external insertion with values publishes one change and one Undo/Redo operation', async t => {
+  const changes = [];
+  const ui = await mount(t, { onChange: workbook => changes.push(workbook) });
+  let result;
+  await act(async () => { result = ui.api.execute({ type: 'rows.insert', sheetId: 'one', index: 0,
+    values: [['first', 100], ['second', 200]] }); });
+  assert.equal(result.ok, true, result.message);
+  assert.equal(result.results.length, 1);
+  assert.deepEqual(result.results[0].placement, { nextRow: 2 });
+  assert.equal(changes.length, 1);
+  const after = ui.api.getWorkbook();
+  assert.equal(after.sheets[0].rowCount, 262);
+  assert.equal(after.sheets[0].cells.A3.value, '2');
+  assert.equal(after.sheets[0].cells.B2.value, '200');
+  await act(async () => ui.c.undo());
+  assert.equal(ui.api.getWorkbook().sheets[0].rowCount, 260);
+  assert.equal(ui.api.getWorkbook().sheets[0].cells.A1.value, '2');
+  assert.equal(ui.c.canUndo, false);
+  await act(async () => ui.c.redo());
+  assert.equal(ui.api.getWorkbook().sheets[0].cells.A2.value, 'second');
+});
+
+test('async insertion captures nested values before permission and publishes nothing when denied', async t => {
+  for (const allowed of [true, false]) {
+    const permission = deferred(), changes = [];
+    const ui = await mount(t, { onEditRequest: () => permission.promise, onChange: workbook => changes.push(workbook) });
+    const command = { type: 'columns.insert', sheetId: 'one', index: 1, values: [['price', 100], ['done', true]] };
+    const before = ui.api.getWorkbook();
+    let pending;
+    await act(async () => { pending = ui.api.executeAsync(command); });
+    assert.equal(ui.api.getWorkbook(), before);
+    command.values[0][1] = 999;
+    command.values.push(['late column']);
+    let result;
+    await act(async () => { permission.resolve(allowed); result = await pending; });
+    assert.equal(result.ok, allowed);
+    assert.equal(changes.length, allowed ? 1 : 0);
+    if (allowed) {
+      const sheet = ui.api.getWorkbook().sheets[0];
+      assert.equal(sheet.columnCount, 10);
+      assert.equal(sheet.cells.B2.value, '100');
+      assert.equal(sheet.cells.C2.value, 'TRUE');
+      assert.deepEqual(result.results[0].placement, { nextColumn: 3 });
+    } else {
+      assert.equal(ui.api.getWorkbook(), before);
+      assert.equal(ui.c.canUndo, false);
+    }
+  }
+});
+
+test('invalid insertion values never request permission or publish a partial structure change', async t => {
+  let requests = 0, changes = 0;
+  const ui = await mount(t, { onEditRequest: () => { requests++; return true; }, onChange: () => { changes++; } });
+  const before = ui.api.getWorkbook();
+  let result;
+  await act(async () => { result = await ui.api.executeAsync({ type: 'rows.insert', sheetId: 'one', index: 1, count: 1,
+    values: [['first'], ['second']] }); });
+  assert.equal(result.ok, false);
+  assert.equal(ui.api.getWorkbook(), before);
+  assert.equal(ui.c.canUndo, false);
+  assert.equal(requests, 0); assert.equal(changes, 0);
+});
+
 test('a later invalid command rejects a complete batch and identifies the failing command', async t => {
   let notifications = 0;
   const ui = await mount(t, { onChange() { notifications++; } });

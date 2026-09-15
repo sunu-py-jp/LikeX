@@ -71,8 +71,8 @@ const json = serializeWorkbook(table.workbook);
 | `cells.paste` | 貼り付け先の最終行＋1、最終列＋1。空の貼り付けでは省略 |
 | `cells.fill` | 展開先範囲の最終行＋1、最終列＋1 |
 | `cells.move` | 移動先範囲の最終行＋1、最終列＋1 |
-| `rows.insert` | `nextRow` のみ。`index + count`。`count` の既定値は1 |
-| `columns.insert` | `nextColumn` のみ。`index + count` |
+| `rows.insert` | `nextRow` のみ。`index + 実際の挿入行数`。`values` ありで `count` を省略した場合は `values.length` を使う |
+| `columns.insert` | `nextColumn` のみ。`index + 実際の挿入列数`。`values` ありで `count` を省略した場合は `values.length` を使う |
 | `rows.delete` / `columns.delete` | 省略 |
 | `rows.resize` / `columns.resize` / `dimensions.resize` | 省略 |
 | `cells.format` / `cells.validation` / `conditionalFormats.set` | 省略 |
@@ -83,6 +83,35 @@ const json = serializeWorkbook(table.workbook);
 `cells.set` は指定されたセルを基準にします。離れたセル間の空白も含み、同じ値の再設定や空文字による消去でも位置を返します。実際に変更したセルだけを基準にはしません。空の指定では次の位置を決められないため、`placement` を省略します。
 
 コマンドの `type` で結果の型を絞り込めます。例えば `rows.insert` の結果には `placement.nextRow` があり、列の値を前提にせず扱えます。セル設定と貼り付けでは、空の指定に備えて `placement` の有無を確認します。
+
+### 値を入れた行・列の直後へ続ける
+
+行列挿入の `values` は、外側の配列1つが1行／1列に対応します。`count` を省略した場合も、空の内側配列を含めた実際の挿入数から次の位置を返します。`values` なしでは従来どおり `count` の既定値が1です。
+
+```ts
+import { createWorkbook, applySpreadsheetCommands } from "@likex/spreadsheet/model";
+
+const workbook = createWorkbook();
+const sheetId = workbook.sheets[0].id;
+const inserted = applySpreadsheetCommands(workbook, [{
+  type: "rows.insert", sheetId, index: 2,
+  values: [["商品A", 100], ["商品B", 200]], // 3〜4行目へ2行挿入
+}]);
+if (!inserted.ok) throw new Error(inserted.message);
+const rows = inserted.results[0];
+if (rows.type !== "rows.insert") throw new Error("行挿入の結果が必要です");
+console.log(rows.placement.nextRow); // 4（画面では5行目）
+
+const total = applySpreadsheetCommands(inserted.workbook, [{
+  type: "rows.insert", sheetId, index: rows.placement.nextRow,
+  values: [["合計", "=SUM(B3:B4)"]],
+}]);
+if (!total.ok) throw new Error(total.message);
+```
+
+列の場合も同様です。`index: 1, values: [["単価", 100], ["数量", 2]]` ならB列・C列を挿入し、`placement.nextColumn` は `3`（D列）になります。内側の配列は1行目から上→下に配置されます。
+
+ここでは結果の位置を使うため2回に分けています。履歴を持つGUI・編集セッションでは各呼び出しがそれぞれ1回のUndo単位です。挿入する件数が先に分かっていて全体を一度のUndoで戻したい場合は、2件目の `index` を計算し、同じバッチにまとめます。[行列の値の指定](./external-operations.md#行列を値と一緒に挿入する)も参照してください。
 
 ## IDから位置を取得・再計算する
 

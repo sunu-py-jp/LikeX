@@ -3,6 +3,7 @@ import { stageNamedRangeCommand } from "./named-ranges";
 import { stageTableCommand } from "./tables";
 import { clearCommandCells } from "./clear-cells";
 import { cellWriteReport } from "./cell-write-report";
+import { insertCommandAxis } from "./insert-axis";
 import { filterCellValueWrites, WriteConflictError } from "../model/workbook/write-conflicts";
 import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandReceipt, SpreadsheetCommandSuccess } from "./types";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
@@ -11,7 +12,7 @@ import { cellAddress, parseCellAddress } from "../model/address";
 import { isFormulaCell, isFormulaValue } from "../model/cell-value";
 import { workbooksEqual } from "../model/equality";
 import { mergedCellPosition } from "../model/merges";
-import { deleteColumns, deleteRows, deleteSheet, formatCells, insertColumns, insertRows, mergeCells, moveSheet, renameSheet,
+import { deleteColumns, deleteRows, deleteSheet, formatCells, mergeCells, moveSheet, renameSheet,
   resizeColumn, setCellComment, setCellValues, unmergeCells } from "../model/workbook";
 import { addSheetWithId } from "../model/workbook/sheets";
 import type { SpreadsheetWorkbook } from "../model/types";
@@ -87,14 +88,11 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
       return result(next);
     }
     case "rows.insert":
-      requireCommandFeature(features, "insertRows");
-      return result(insertRows(workbook, sheet.id, command.index, command.count));
+    case "columns.insert":
+      return result(insertCommandAxis(workbook, command, features));
     case "rows.delete":
       requireCommandFeature(features, "deleteRows");
       return result(deleteRows(workbook, sheet.id, command.index, command.count));
-    case "columns.insert":
-      requireCommandFeature(features, "insertColumns");
-      return result(insertColumns(workbook, sheet.id, command.index, command.count));
     case "columns.delete":
       requireCommandFeature(features, "deleteColumns");
       return result(deleteColumns(workbook, sheet.id, command.index, command.count));

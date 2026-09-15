@@ -1600,6 +1600,10 @@
       "SpreadsheetDrawingPastePayload",
       "cells.paste",
       "cells.move",
+      "rows.insert",
+      "columns.insert",
+      "SpreadsheetInsertValue",
+      "値付きの行列挿入",
       "行列の自動拡張"
     ],
     "headings": [
@@ -1617,6 +1621,26 @@
         "id": "コマンド一覧",
         "title": "コマンド一覧",
         "depth": 2
+      },
+      {
+        "id": "行列を値と一緒に挿入する",
+        "title": "行・列を値と一緒に挿入する",
+        "depth": 2
+      },
+      {
+        "id": "複数行を挿入する",
+        "title": "複数行を挿入する",
+        "depth": 3
+      },
+      {
+        "id": "複数列を挿入する",
+        "title": "複数列を挿入する",
+        "depth": 3
+      },
+      {
+        "id": "値の変換と制約",
+        "title": "値の変換と制約",
+        "depth": 3
       },
       {
         "id": "貼り付け先の行列が足りない場合",
@@ -1672,6 +1696,9 @@
       "AI",
       "JSON",
       "rows.insert",
+      "columns.insert",
+      "SpreadsheetInsertValue",
+      "values",
       "cells.set"
     ],
     "headings": [
@@ -1683,6 +1710,11 @@
       {
         "id": "行を挿入しその行の値をまとめて設定する",
         "title": "行を挿入し、その行の値をまとめて設定する",
+        "depth": 2
+      },
+      {
+        "id": "列を挿入して値を入れる",
+        "title": "列を挿入して値を入れる",
         "depth": 2
       },
       {
@@ -1731,6 +1763,9 @@
       "SpreadsheetDrawingPlacement",
       "SpreadsheetDrawingPlacementOptions",
       "SpreadsheetCommandReceipt",
+      "rows.insert",
+      "columns.insert",
+      "values",
       "画像",
       "図形",
       "余白",
@@ -1746,6 +1781,11 @@
         "id": "コマンドごとの返却内容",
         "title": "コマンドごとの返却内容",
         "depth": 2
+      },
+      {
+        "id": "値を入れた行列の直後へ続ける",
+        "title": "値を入れた行・列の直後へ続ける",
+        "depth": 3
       },
       {
         "id": "idから位置を取得再計算する",

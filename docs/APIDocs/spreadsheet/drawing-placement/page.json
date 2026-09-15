@@ -4,6 +4,6 @@
   "source": "packages/spreadsheet/src/docs/drawing-placement.md",
   "order": 156,
   "section": "親アプリとの連携",
-  "keywords": ["placement", "nextRow", "nextColumn", "getDrawingBounds", "getDrawingPlacement", "SpreadsheetDrawingBounds", "SpreadsheetDrawingPlacement", "SpreadsheetDrawingPlacementOptions", "SpreadsheetCommandReceipt", "画像", "図形", "余白", "alt"],
+  "keywords": ["placement", "nextRow", "nextColumn", "getDrawingBounds", "getDrawingPlacement", "SpreadsheetDrawingBounds", "SpreadsheetDrawingPlacement", "SpreadsheetDrawingPlacementOptions", "SpreadsheetCommandReceipt", "rows.insert", "columns.insert", "values", "画像", "図形", "余白", "alt"],
   "screenshots": []
 }

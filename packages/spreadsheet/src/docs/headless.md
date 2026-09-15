@@ -34,13 +34,13 @@ const updatedJson = serializeWorkbook(result.workbook);
 // updatedJsonの保存先は呼び出し側で決めます。
 ```
 
-`sheetId` はシート名ではなく、保存データにあるIDです。セルの値は数値や数式も文字列で指定します。例えば `"1200"`、`"=SUM(B2:B3)"` です。
+`sheetId` はシート名ではなく、保存データにあるIDです。`cells.set` の値は数値や数式も文字列で指定します。例えば `"1200"`、`"=SUM(B2:B3)"` です。後述する行列挿入の `values` は、数値・真偽値・`null` も受け取れます。
 
 既存JSONを使う場合は、`createWorkbook()` の代わりに `parseWorkbook(savedJson)` で読み込みます。`parseWorkbook` はブックの構造・値・上限を検証し、読み込めない場合は例外を投げます。
 
 ## 行を挿入し、その行の値をまとめて設定する
 
-行挿入と値設定を同じ配列に入れます。後のコマンドは、前のコマンドを反映した状態を対象にします。
+`rows.insert.values` に行ごとの配列を渡すと、行の挿入と値の設定を1コマンドで実行できます。外側の配列1つが1行に対応し、内側の値はA列から左→右に入ります。
 
 ```ts
 import {
@@ -53,15 +53,15 @@ import {
 export function insertProducts(savedJson: string, sheetId: string): string {
   const workbook = parseWorkbook(savedJson);
   const commands = [
-    // 位置は0始まり。3行目の直前に2行挿入します。
-    { type: "rows.insert", sheetId, index: 2, count: 2 },
     {
-      type: "cells.set",
+      // 位置は0始まり。3行目の直前に2行挿入します。
+      type: "rows.insert",
       sheetId,
-      values: {
-        A3: "商品A", B3: "100", C3: "2", D3: "=B3*C3",
-        A4: "商品B", B4: "200", C4: "3", D4: "=B4*C4",
-      },
+      index: 2,
+      values: [
+        ["商品A", 100, 2, "=B3*C3"], // A3:D3
+        ["商品B", 200, 3, "=B4*C4"], // A4:D4
+      ],
     },
   ] satisfies readonly SpreadsheetCommand[];
 
@@ -71,7 +71,36 @@ export function insertProducts(savedJson: string, sheetId: string): string {
 }
 ```
 
-挿入した行の値を指定する専用形式は必要ありません。`rows.insert` と `cells.set` を組み合わせることで、一括操作として扱えます。既存の数式参照、結合セル、コメント、描画の位置も、行列操作のルールに従って調整します。
+`count` を省略すると `values.length` が挿入数になります。上の例は2行です。挿入した行のうち一部のセルだけを書きたい場合などは、従来どおり `rows.insert` と `cells.set` を同じコマンド配列にまとめる方法も使えます。後のコマンドは、前のコマンドを反映した状態を対象にします。
+
+既存の数式参照、結合セル、コメント、描画の位置は行列操作のルールに従って調整します。`values` 内の数式は挿入後の位置に対して書きます。値の検証に失敗した場合、行の挿入だけが残ることはありません。
+
+## 列を挿入して値を入れる
+
+`columns.insert.values` は**列ごとの配列**です。外側の配列1つが1列に対応し、内側の値は1行目から上→下に入ります。
+
+```ts
+import { createWorkbook, applySpreadsheetCommands } from "@likex/spreadsheet/model";
+
+const workbook = createWorkbook();
+const sheetId = workbook.sheets[0].id;
+const result = applySpreadsheetCommands(workbook, [{
+  type: "columns.insert",
+  sheetId,
+  index: 1, // 既存のB列の直前へ2列を挿入
+  values: [
+    ["単価", 100, 200], // B1:B3
+    ["数量", 2, 3],     // C1:C3
+  ],
+}]);
+if (!result.ok) throw new Error(result.message);
+```
+
+行・列ともに `index` は0始まりです。現在の `rowCount` / `columnCount` と同じ値を指定すると末尾に追加します。`values` なしなら従来どおり空の行・列を挿入でき、`count` の既定値は1です。`values` と `count` を両方指定する場合、`count` は `values.length` と一致させます。
+
+各値の入力型は `SpreadsheetInsertValue`（`string | number | boolean | null`）です。有限の数値は文字列、真偽値は `"TRUE"` / `"FALSE"`、`null` は空文字に変換します。文字列はそのまま扱い、`=` で始まる場合は数式になります。保存JSONのセルの `value` は従来どおり文字列です。
+
+外側が空の `values: []`、疎配列、`undefined`・`NaN`・`Infinity`・オブジェクトなどの不正な値は拒否します。内側の配列は空でも長さが異なっていても構いません。行挿入では列数、列挿入では行数を自動で広げないため、内側の配列がシートの反対軸に収まるようにしてください。詳しい契約は[行・列を値と一緒に挿入する](./external-operations.md#行列を値と一緒に挿入する)にまとめています。
 
 ## APIと結果
 
@@ -101,7 +130,7 @@ applySpreadsheetCommands(workbook, commands, options?)
 
 コマンドの引数と対応操作は、[外部コマンド一覧](./external-operations.md#コマンド一覧)と共通です。画像はJSONの `SpreadsheetImageResource` を用意すれば挿入できます。ブラウザ用の `prepareSpreadsheetImage(File / Blob)` は、この入口には含まれません。
 
-挿入やセル設定の結果には、次に続けて配置するための `placement.nextRow` / `nextColumn` が入ります。対象コマンド、画像の下に表を作る例、IDから位置を再計算するヘルパーは[配置位置と次の行・列](./drawing-placement.md)を参照してください。
+挿入やセル設定の結果には、次に続けて配置するための `placement.nextRow` / `nextColumn` が入ります。行列挿入では `index + 実際の挿入数` です。`values` の例で `count` を省略した場合も配列の件数を使うため、上の行挿入は `nextRow: 4`、列挿入は `nextColumn: 3` になります。対象コマンド、画像の下に表を作る例、IDから位置を再計算するヘルパーは[配置位置と次の行・列](./drawing-placement.md)を参照してください。
 
 ## 機能を制限する
 
@@ -130,11 +159,11 @@ AIにはブックJSON全体を作り直させる代わりに、対象シートID
 
 ```json
 [
-  { "type": "rows.insert", "sheetId": "sales", "index": 2, "count": 1 },
   {
-    "type": "cells.set",
+    "type": "rows.insert",
     "sheetId": "sales",
-    "values": { "A3": "追加商品", "B3": "1200", "C3": "=B3*1.1" }
+    "index": 2,
+    "values": [["追加商品", 1200, "=B3*1.1"]]
   }
 ]
 ```
@@ -188,7 +217,9 @@ const calculated = calculateWorkbook(workbook);
 console.log(calculated[sheetId].A4); // 300
 ```
 
-こちらは変更後のブックを返す低レベルのAPIです。`features` や複数操作をまとめた結果型は持たず、不正な入力では例外を投げます。複数の操作をまとめて検証したい場合や、AIの操作JSONを扱う場合は `applySpreadsheetCommands` が使いやすい入口です。
+こちらは変更後のブックを返す低レベルのAPIです。`insertRows(workbook, sheetId, index, count?)` / `insertColumns(workbook, sheetId, index, count?)` に `values` 引数はありません。値もまとめて渡す場合は `rows.insert` / `columns.insert` コマンドを使います。
+
+モデル関数は `features` や複数操作をまとめた結果型を持たず、不正な入力では例外を投げます。複数の操作をまとめて検証したい場合や、AIの操作JSONを扱う場合は `applySpreadsheetCommands` が使いやすい入口です。
 
 数式は文字列としてJSONに保存します。計算結果が必要なら `calculateWorkbook` を使います。対応する関数と数式の範囲は[数式ガイド](./functions.md)を参照してください。
 
@@ -198,6 +229,8 @@ console.log(calculated[sheetId].A4); // 300
 | --- | --- |
 | バックエンド処理、AIエージェント、表示前のブック作成 | `@likex/spreadsheet/model` の `applySpreadsheetCommands` または個別モデル関数 |
 | 表示中の下書きの変更、Undo、`onChange`、編集許可との連携 | `@likex/spreadsheet` のコンポーネントと `ref.execute` / `ref.batch` など |
+
+行列を値と一緒に挿入するコマンド形式は、`applySpreadsheetCommands`、編集セッション、表示中コンポーネントの `ref` で共通です。GUI・編集セッションでは挿入と値設定を一度のUndoで戻せます。`applySpreadsheetCommands` 自体は履歴を持たず、原子的に変更したブックだけを返します。
 
 モデル側でJSONを変更しても、すでに表示しているコンポーネントの下書きは置き換わりません。外部で保存した内容を画面へ取り込む場合は、親側の再読み込み処理やブックの切り替えへ接続します。
 

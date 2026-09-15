@@ -19,6 +19,8 @@ export type SpreadsheetCommandAnchor = Readonly<{ row: number; column: number; o
 export type SpreadsheetImageCommandPatch = DeepReadonly<Partial<Omit<SpreadsheetImageDrawing, "id" | "type" | "anchor">> & { anchor?: SpreadsheetCommandAnchor }>;
 export type SpreadsheetShapeCommandPatch = DeepReadonly<Partial<Omit<SpreadsheetShapeDrawing, "id" | "type" | "anchor">> & { anchor?: SpreadsheetCommandAnchor }>;
 export type SpreadsheetTextBoxCommandPatch = DeepReadonly<Partial<Omit<SpreadsheetTextDrawing, "id" | "type" | "anchor">> & { anchor?: SpreadsheetCommandAnchor }>;
+/** Values accepted by row/column insertion; the stored workbook still uses string cell values. */
+export type SpreadsheetInsertValue = string | number | boolean | null;
 
 /** Explicit targets make commands independent of the currently selected sheet or cells. */
 export type SpreadsheetCommand = DeepReadonly<
@@ -27,7 +29,11 @@ export type SpreadsheetCommand = DeepReadonly<
   | { type: "cells.clear"; sheetId: string; range: SpreadsheetCellRangeInput; mode?: SpreadsheetClearMode }
   | { type: "cells.delete"; sheetId: string; range: SpreadsheetCellRangeInput }
   | { type: "cells.format"; sheetId: string; addresses: readonly string[]; format: SpreadsheetCellFormat }
-  | { type: "rows.insert" | "rows.delete" | "columns.insert" | "columns.delete"; sheetId: string; index: number; count?: number }
+  /** Each outer item is one inserted row; values start at column A. Omitted count uses values.length or 1. */
+  | { type: "rows.insert"; sheetId: string; index: number; count?: number; values?: readonly (readonly SpreadsheetInsertValue[])[] }
+  /** Each outer item is one inserted column; values start at row 1. Omitted count uses values.length or 1. */
+  | { type: "columns.insert"; sheetId: string; index: number; count?: number; values?: readonly (readonly SpreadsheetInsertValue[])[] }
+  | { type: "rows.delete" | "columns.delete"; sheetId: string; index: number; count?: number }
   | { type: "columns.resize"; sheetId: string; column: number; width: number }
   | { type: "cells.merge"; sheetId: string; range: SpreadsheetMergedRange; discardContent?: boolean }
   | { type: "cells.unmerge"; sheetId: string; range: SpreadsheetMergedRange }

@@ -1,6 +1,6 @@
 import { cellAddress, parseCellAddress } from "../address";
 import { getMergedRange, mergedCellPosition } from "../merges";
-import type { SpreadsheetCellFormat, SpreadsheetWorkbook } from "../types";
+import type { SpreadsheetCellFormat, SpreadsheetSheet, SpreadsheetWorkbook } from "../types";
 import { freezeCell, getWorkbookSheet, replaceWorkbookSheet } from "./snapshot";
 import { canonicalCellAddress, fail, normalizeCellFormat, validateCellValue } from "./validation";
 import { filterCellValueWrites, type SpreadsheetWriteOptions } from "./write-conflicts";
@@ -10,7 +10,13 @@ export function setCellValue(workbook: SpreadsheetWorkbook, sheetId: string, add
   return setCellValues(workbook, sheetId, { [cellAddress(position.row, position.column)]: value }, options);
 }
 export function setCellValues(workbook: SpreadsheetWorkbook, sheetId: string, values: Readonly<Record<string, string>>, options?: SpreadsheetWriteOptions): SpreadsheetWorkbook {
-  const sheet = getWorkbookSheet(workbook, sheetId), cells = { ...sheet.cells };
+  const sheet = getWorkbookSheet(workbook, sheetId), next = setSheetCellValues(sheet, values, options);
+  return next === sheet ? workbook : replaceWorkbookSheet(workbook, next);
+}
+
+/** Shared write preparation; composed structural operations validate the final workbook once. */
+export function setSheetCellValues(sheet: SpreadsheetSheet, values: Readonly<Record<string, string>>, options?: SpreadsheetWriteOptions): SpreadsheetSheet {
+  const cells = { ...sheet.cells };
   values = filterCellValueWrites(sheet, values, options?.onConflict).values;
   let changed = false;
   for (const [address, raw] of Object.entries(values)) {
@@ -22,7 +28,7 @@ export function setCellValues(workbook: SpreadsheetWorkbook, sheetId: string, va
     if (!value && !previous?.format && !previous?.validation) delete cells[key];
     else cells[key] = freezeCell(value, previous?.format, previous?.validation);
   }
-  return changed ? replaceWorkbookSheet(workbook, { ...sheet, cells: Object.freeze(cells) }) : workbook;
+  return changed ? Object.freeze({ ...sheet, cells: Object.freeze(cells) }) : sheet;
 }
 
 export function formatCells(workbook: SpreadsheetWorkbook, sheetId: string, addresses: readonly string[], format: Partial<SpreadsheetCellFormat>): SpreadsheetWorkbook {

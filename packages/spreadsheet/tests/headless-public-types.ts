@@ -1,17 +1,27 @@
 import { applySpreadsheetCommands, createWorkbook, serializeWorkbook,
   type SpreadsheetApplyCommandsOptions, type SpreadsheetApplyCommandsResult,
-  type SpreadsheetCommand, type SpreadsheetCommandReceipt, type SpreadsheetCommandPlacement,
+  type SpreadsheetCommand, type SpreadsheetCommandReceipt, type SpreadsheetCommandPlacement, type SpreadsheetInsertValue,
   type SpreadsheetWorkbookSnapshot } from "../src/model-entry";
 
 const workbook: SpreadsheetWorkbookSnapshot = createWorkbook();
 const commands = [
   { type: "rows.insert", sheetId: "sheet-1", index: 2, count: 2 },
+  { type: "rows.insert", sheetId: "sheet-1", index: 2, values: [["商品A", 100, true], ["商品B", 200, null]] },
+  { type: "columns.insert", sheetId: "sheet-1", index: 1, values: [["価格", 100, 200], ["完了", false, true]] },
   { type: "cells.set", sheetId: "sheet-1", values: { A3: "商品A", B3: "100" } },
   { type: "shapes.insert", sheetId: "sheet-1", shape: "arrow", anchor: { row: 1, column: 1 }, flipX: true, flipY: false },
   { type: "textBoxes.insert", sheetId: "sheet-1", anchor: { row: 2, column: 1 }, flipY: true },
   { type: "images.insert", sheetId: "sheet-1", anchor: { row: 3, column: 1 }, flipX: true,
     resource: { name: "pixel.png", mimeType: "image/png", width: 1, height: 1, dataUrl: "data:image/png;base64,..." } },
 ] as const satisfies readonly SpreadsheetCommand[];
+const insertionValue: SpreadsheetInsertValue = 100;
+void insertionValue;
+// @ts-expect-error insertion values require a matrix, even for a single row
+applySpreadsheetCommands(workbook, [{ type: "rows.insert", sheetId: "sheet-1", index: 0, values: ["text", 1] }]);
+// @ts-expect-error cell objects are not primitive insertion inputs
+applySpreadsheetCommands(workbook, [{ type: "columns.insert", sheetId: "sheet-1", index: 0, values: [[{ value: "text" }]] }]);
+// @ts-expect-error deletion does not accept insertion values
+applySpreadsheetCommands(workbook, [{ type: "rows.delete", sheetId: "sheet-1", index: 0, values: [["text"]] }]);
 const options: SpreadsheetApplyCommandsOptions = { features: { images: false } };
 const result: SpreadsheetApplyCommandsResult = applySpreadsheetCommands(workbook, commands, options);
 if (result.ok) {

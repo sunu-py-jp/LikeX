@@ -34,6 +34,18 @@ assert.equal(serializeWorkbook(original), before);
 const disabled = applySpreadsheetCommands(original, commands, { features: { insertRows: false } });
 assert.equal(disabled.ok, false);
 assert.equal(disabled.code, 'FEATURE_DISABLED');
+const insertedValues = applySpreadsheetCommands(original, [
+  { type: 'rows.insert', sheetId: 'sheet-1', index: 1, values: [['商品A', 100], ['商品B', 200]] },
+  { type: 'columns.insert', sheetId: 'sheet-1', index: 2, values: [['完了', true, false], ['メモ', null, '確認']] },
+]);
+assert.equal(insertedValues.ok, true, insertedValues.message);
+assert.equal(insertedValues.workbook.sheets[0].cells.B2.value, '100');
+assert.equal(insertedValues.workbook.sheets[0].cells.C2.value, 'TRUE');
+assert.equal(insertedValues.workbook.sheets[0].cells.C3.value, 'FALSE');
+assert.equal(insertedValues.workbook.sheets[0].cells.D3.value, '確認');
+assert.equal(insertedValues.workbook.sheets[0].cells.E1.value, '=B4*2');
+assert.deepEqual(insertedValues.results.map(receipt => receipt.placement), [{ nextRow: 3 }, { nextColumn: 4 }]);
+assert.equal(serializeWorkbook(original), before);
 const withImage = applySpreadsheetCommands(original, [{ type: 'images.insert', sheetId: 'sheet-1',
   anchor: { row: 0, column: 0 }, width: 280, alt: '説明画像',
   resource: { name: 'sample.png', mimeType: 'image/png', width: 1, height: 1,

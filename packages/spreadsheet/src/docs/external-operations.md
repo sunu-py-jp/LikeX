@@ -97,8 +97,8 @@ if (result.ok) {
 | `namedRanges.add` / `update` / `clear` / `delete` | 定義の追加・変更・対象セルのクリア・定義削除。[名前付き範囲](./named-ranges.md) |
 | `tables.insert` / `cells.writeTable` / `tables.delete` | 構造化テーブルと罫線付きの表。[表の書き込み](./tables.md) |
 | `cells.format` | `addresses: ["A1", "B1"]`, `format: { bold: true, ... }` |
-| `rows.insert` / `rows.delete` | `index`, `count?`（既定1） |
-| `columns.insert` / `columns.delete` | `index`, `count?`（既定1） |
+| `rows.insert` / `columns.insert` | `index`, `count?`, `values?`。行ごと／列ごとの値を同時に設定。[行列の挿入](#行列を値と一緒に挿入する) |
+| `rows.delete` / `columns.delete` | `index`, `count?`（既定1） |
 | `rows.resize` | `row`, `height`（px） |
 | `dimensions.resize` | `rowHeights`, `columnWidths`。0始まりのインデックスをキーにした寸法マップ。一括変更用 |
 | `cells.replace` / `cells.fill` / `cells.paste` | [編集操作](./editing-tools.md)の型と例を参照 |
@@ -133,6 +133,83 @@ const anchor = { row: 4, column: 1, offsetX: 12, offsetY: 8 }; // B5から右12p
 `offsetX` / `offsetY` は省略時0です。ブラウザのスクロール位置には依存しません。行列の挿入・削除では既存の数式参照、結合、コメント、描画の位置もモデルのルールに従って調整します。
 
 結合で左上以外の内容が失われる場合、既定では失敗します。利用側で内容の破棄を確認した後、`discardContent: true` を指定してください。外部APIは確認ダイアログを自動では開きません。`cells.set` で結合セルを指定するときは左上のアドレスへ値を入れます。
+
+## 行・列を値と一緒に挿入する
+
+`rows.insert` / `columns.insert` の `values` で、挿入する行・列の値をまとめて指定できます。既存の行・列を後ろへずらしてから新しい値を入れます。画面の選択位置には依存しません。
+
+```ts
+type SpreadsheetInsertValue = string | number | boolean | null;
+
+type InsertCommand = {
+  type: "rows.insert" | "columns.insert";
+  sheetId: string;
+  index: number;
+  count?: number;
+  values?: readonly (readonly SpreadsheetInsertValue[])[];
+};
+```
+
+上は引数の抜粋です。実際のコマンド型には、公開されている `SpreadsheetCommand` を使います。
+
+| 引数 | 動作 |
+| --- | --- |
+| `index` | 0始まり。指定位置の直前へ挿入。現在の行数／列数と同じ値なら末尾へ追加 |
+| `rows.insert.values` | 外側の配列1つが1行。内側はA列から左→右 |
+| `columns.insert.values` | 外側の配列1つが1列。内側は1行目から上→下。列優先の配列 |
+| `count`（`values` あり） | 省略時は `values.length`。明示する場合も同じ件数にする |
+| `count`（`values` なし） | 省略時1。指定した数の空の行・列を挿入 |
+
+### 複数行を挿入する
+
+```ts
+const result = await api.executeAsync({
+  type: "rows.insert", sheetId, index: 2,
+  values: [
+    ["商品A", 100, 2, "=B3*C3"], // A3:D3
+    ["商品B", 200, 3, "=B4*C4"], // A4:D4
+  ],
+});
+if (!result.ok) throw new Error(result.message);
+```
+
+既存の3行目の前へ2行挿入します。新しい数式は挿入後の番地で指定します。既存の数式参照、結合セル、コメント、画像などの位置は通常の行挿入と同じ規則で調整されます。
+
+### 複数列を挿入する
+
+```ts
+const result = await api.executeAsync({
+  type: "columns.insert", sheetId, index: 1,
+  values: [
+    ["単価", 100, 200], // 新しいB列。B1:B3
+    ["数量", 2, 3],     // 新しいC列。C1:C3
+  ],
+});
+if (!result.ok) throw new Error(result.message);
+```
+
+列挿入の内側を行のつもりで並べると、縦に値が入ります。`[["単価", "数量"], [100, 2]]` は、B1=`単価`、B2=`数量`、C1=`100`、C2=`2` になるので、行挿入と配列の向きを区別してください。
+
+### 値の変換と制約
+
+| 入力 | 保存するセル値 |
+| --- | --- |
+| 文字列 | そのまま。`=SUM(A1:A3)` のように `=` で始まるものは数式 |
+| 有限の数値 | `String(value)`。例: `100` → `"100"` |
+| `true` / `false` | `"TRUE"` / `"FALSE"` |
+| `null` | 空文字 `""` |
+
+この受け付け方は行列挿入の `values` の入力用です。保存JSONの `cell.value` と `cells.set.values` は従来どおり文字列です。`"00100"` など入力の表記を保つ値は文字列で渡します。文字列の解釈は `cells.set` と同じで、数式として渡したくない外部テキストを無条件に連結しないでください。
+
+`values: []`、外側・内側の疎配列、`undefined`、`NaN`、`Infinity`、オブジェクトなどは拒否します。内側の空配列や長さが異なる配列は指定でき、渡していない位置は空のままです。例えば `[[], ["見出し"]]` は2行（列挿入なら2列）を挿入します。
+
+反対軸の自動拡張はしません。行を挿入するときは各配列の長さを現在の列数以内、列を挿入するときは現在の行数以内にしてください。反対軸も広げたい場合は、必要な空の行・列を先に同じバッチで挿入します。現在の行列数は `api.getWorkbook()` などで確認できます。
+
+挿入と値設定は1つの変更です。不正な値、範囲や上限などで失敗した場合、挿入した空行・空列だけが残ることはありません。GUI・編集セッションでは成功した挿入を一度のUndoで戻せます。`features.undoRedo: false` の場合は履歴を記録しません。`ref`、編集セッション、`applySpreadsheetCommands` で同じコマンドを使えます。
+
+行挿入には `features.insertRows`、列挿入には `features.insertColumns` が必要です。`rowColumnOperations: false` は両方を無効にします。`values` に数式を含める場合は `features.formulas` も必要です。
+
+成功時の `results` にある `placement.nextRow` / `nextColumn` は `index + 実際の挿入数` です。上の行の例は `nextRow: 4`、列の例は `nextColumn: 3` になります。後続の配置例は[配置位置と次の行・列](./drawing-placement.md)を参照してください。
 
 ## 貼り付け先の行・列が足りない場合
 

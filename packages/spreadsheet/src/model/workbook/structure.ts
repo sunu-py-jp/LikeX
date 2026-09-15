@@ -9,6 +9,7 @@ import { shiftSheetTables } from "./table-structure";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetComment, type SpreadsheetMergedRange, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
 import { finishWorkbook, freezeCell, getWorkbookSheet, replaceWorkbookSheet } from "./snapshot";
 import { fail, validateDimension } from "./validation";
+import { setSheetCellValues } from "./cells";
 
 export function resizeColumn(workbook: SpreadsheetWorkbook, sheetId: string, column: number, width: number): SpreadsheetWorkbook {
   const sheet = getWorkbookSheet(workbook, sheetId);
@@ -89,7 +90,8 @@ function shiftAnnotations(sheet: SpreadsheetSheet, axis: "row" | "column", index
   return { ...(sheet.comments ? { comments: Object.freeze(comments) } : {}), ...(drawings ? { drawings: Object.freeze(drawings) } : {}) };
 }
 
-function changeAxis(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" | "column", index: number, count: number, remove: boolean): SpreadsheetWorkbook {
+function changeAxis(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" | "column", index: number, count: number, remove: boolean,
+  insertedValues?: Readonly<Record<string, string>>): SpreadsheetWorkbook {
   const target = getWorkbookSheet(workbook, sheetId), limit = axis === "row" ? target.rowCount : target.columnCount;
   if (!Number.isInteger(index) || index < 0 || index > limit || !Number.isInteger(count) || count < 1 || (remove && index + count > limit))
     return fail("挿入・削除する行列の範囲が正しくありません");
@@ -110,14 +112,20 @@ function changeAxis(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" 
       cells[nextAddress] = value === cell.value ? cell : freezeCell(value, cell.format, cell.validation);
     }
     if (!changed) return sheet;
-    return Object.freeze({ ...sheet, cells: Object.freeze(cells),
+    const next = Object.freeze({ ...sheet, cells: Object.freeze(cells),
       ...(sheet.id === sheetId && sheet.conditionalFormats ? { conditionalFormats: shiftConditionalFormats(sheet.conditionalFormats, axis, index, count, remove) } : {}),
       ...(sheet.id === sheetId && sheet.merges ? { merges: shiftMerges(sheet, axis, index, count, remove, total) } : {}),
       ...(sheet.id === sheetId && sheet.tables ? { tables: shiftSheetTables(sheet.tables, axis, index, count, remove) } : {}),
       ...(sheet.id === sheetId ? shiftAnnotations(sheet, axis, index, count, remove, total) : {}), ...(sheet.id === sheetId ? axis === "row"
       ? { rowCount: total, rowHeights: shiftSizes(sheet.rowHeights, index, count, remove) }
       : { columnCount: total, columnWidths: shiftSizes(sheet.columnWidths, index, count, remove) } : {}) });
+    return sheet.id === sheetId && insertedValues ? setSheetCellValues(next, insertedValues) : next;
   }), workbook, workbook.resources, shiftNamedRanges(workbook.namedRanges, sheetId, axis, index, count, remove));
+}
+/** Internal command composition: preserve structural metadata and validate only after values are written. */
+export function insertAxisWithValues(workbook: SpreadsheetWorkbook, id: string, axis: "row" | "column", index: number,
+  count: number, values: Readonly<Record<string, string>>): SpreadsheetWorkbook {
+  return changeAxis(workbook, id, axis, index, count, false, values);
 }
 export function insertRows(workbook: SpreadsheetWorkbook, id: string, index: number, count = 1) { return changeAxis(workbook, id, "row", index, count, false); }
 export function deleteRows(workbook: SpreadsheetWorkbook, id: string, index: number, count = 1) { return changeAxis(workbook, id, "row", index, count, true); }

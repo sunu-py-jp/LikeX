@@ -4,7 +4,7 @@ import {
   createSpreadsheetSession, copySpreadsheetCells, importSpreadsheetXlsx,
   getSheets, getSheetReader, getNamedRange, getRangeByName,
   type SpreadsheetTable, type SpreadsheetTableColumn, type SpreadsheetSheetReadApi,
-  type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot, type SpreadsheetReadApi, type SpreadsheetReadRange,
+  type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot, type SpreadsheetReadApi, type SpreadsheetReadRange, type SpreadsheetInsertValue,
   type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult,
   type SpreadsheetSession, type SpreadsheetSessionOptions, type SpreadsheetHistoryState, type SpreadsheetPastePayload,
 } from '__MODEL_IMPORT__';
@@ -21,8 +21,14 @@ void readExcel;
 
 const commands: readonly SpreadsheetCommand[] = [
   { type: 'rows.insert', sheetId: 'sheet-1', index: 1, count: 2 },
+  { type: 'rows.insert', sheetId: 'sheet-1', index: 1, values: [['商品A', 100, true], ['商品B', 200, null]] },
+  { type: 'columns.insert', sheetId: 'sheet-1', index: 2, values: [['価格', 100, 200], ['完了', false, true]] },
   { type: 'cells.set', sheetId: 'sheet-1', values: { A2: '100', A3: '=SUM(B1:B2)' } },
 ];
+const insertionValues: readonly SpreadsheetInsertValue[] = ['name', 10, false, null];
+void insertionValues;
+// @ts-expect-error Matrix input is required for row and column insertion.
+applySpreadsheetCommands(createWorkbook(), [{ type: 'rows.insert', sheetId: 'sheet-1', index: 0, values: ['text'] }]);
 const snapshot: SpreadsheetWorkbookSnapshot = createWorkbook();
 const result = applySpreadsheetCommands(snapshot, commands, { features: { shapes: false } });
 if (result.ok) {

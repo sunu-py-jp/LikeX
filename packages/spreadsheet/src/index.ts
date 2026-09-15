@@ -18,6 +18,7 @@ export type {
   SpreadsheetCommandResult, SpreadsheetCommandSuccess, SpreadsheetCommandFailure,
   SpreadsheetCommandErrorCode, SpreadsheetCommandReceipt, SpreadsheetCommandPlacement, SpreadsheetWorkbookSnapshot,
   SpreadsheetImageCommandPatch, SpreadsheetShapeCommandPatch, SpreadsheetTextBoxCommandPatch,
+  SpreadsheetInsertValue,
 } from "./api/types";
 export { readImageResource as prepareSpreadsheetImage } from "./state/read-image";
 export type { SpreadsheetImagePreparationOptions } from "./state/read-image";

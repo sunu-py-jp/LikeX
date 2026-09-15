@@ -1,6 +1,6 @@
 {
   "title": "画面なしでJSONを編集",
-  "summary": "Reactを描画せず、保存したブックJSONへセル設定や行挿入を適用します。AIの操作JSONにも使えます。",
+  "summary": "Reactを描画せず、保存したブックJSONへセル設定や値付きの行・列挿入を適用します。AIの操作JSONにも使えます。",
   "source": "packages/spreadsheet/src/docs/headless.md",
   "order": 155,
   "section": "親アプリとの連携",
@@ -17,6 +17,9 @@
     "AI",
     "JSON",
     "rows.insert",
+    "columns.insert",
+    "SpreadsheetInsertValue",
+    "values",
     "cells.set"
   ],
   "screenshots": []

@@ -1,6 +1,7 @@
 import { parseCellAddress } from "../model/address";
 import { getDrawingPlacement } from "../model/drawing-placement";
 import { getCellPasteRange } from "../model/editing/paste";
+import { getAxisInsertCount } from "./insert-axis";
 import type { SpreadsheetWorkbook } from "../model/types";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import type { SpreadsheetCommand, SpreadsheetCommandPlacement, SpreadsheetCommandReceipt } from "./types";
@@ -39,9 +40,9 @@ function getCommandPlacement(workbook: SpreadsheetWorkbook, command: Spreadsheet
     case "cells.fill":
       return { nextRow: command.target.bottom + 1, nextColumn: command.target.right + 1 };
     case "rows.insert":
-      return { nextRow: command.index + (command.count ?? 1) };
+      return { nextRow: command.index + getAxisInsertCount(command) };
     case "columns.insert":
-      return { nextColumn: command.index + (command.count ?? 1) };
+      return { nextColumn: command.index + getAxisInsertCount(command) };
     default:
       return undefined;
   }
