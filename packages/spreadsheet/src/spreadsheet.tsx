@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { createPrimaryColorPalette } from "./core";
 import type { SpreadsheetProps } from "./props";
 import { useSpreadsheet } from "./state/use-spreadsheet";
 import { useSpreadsheetClipboard } from "./state/use-spreadsheet-clipboard";
@@ -46,7 +47,16 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
     return () => media.removeEventListener("change", update);
   }, [props.colorMode]);
   const dark = props.colorMode === "dark" || (props.colorMode === "system" && systemDark);
-  return <section ref={root} data-likex-spreadsheet data-color-mode={dark ? "dark" : "light"} className={`lxs-root ${props.className ?? ""}`} style={props.style} role="region" aria-label={props["aria-label"] ?? "スプレッドシート"} aria-busy={c.exporting || c.saving || c.refreshing || c.requesting || contextMenu.state.phase !== "idle"}
+  const palette = useMemo(() => createPrimaryColorPalette(props.primaryColor, dark ? "dark" : "light"), [props.primaryColor, dark]);
+  const style: CSSProperties | undefined = palette ? {
+    "--lxs-primary": palette.primary,
+    "--lxs-on-primary": palette.onPrimary,
+    "--lxs-primary-hover": palette.primaryHover,
+    "--lxs-accent": palette.accent,
+    "--lxs-selection": palette.selection,
+    ...props.style,
+  } as CSSProperties : props.style;
+  return <section ref={root} data-likex-spreadsheet data-color-mode={dark ? "dark" : "light"} className={`lxs-root ${props.className ?? ""}`} style={style} role="region" aria-label={props["aria-label"] ?? "スプレッドシート"} aria-busy={c.exporting || c.saving || c.refreshing || c.requesting || contextMenu.state.phase !== "idle"}
     onContextMenu={contextMenu.onContextMenu} onPointerDownCapture={contextMenu.onPointerDownCapture} onKeyDownCapture={contextMenu.onKeyDownCapture}
     onFocusCapture={event => { gridHadFocus.current = !!(event.target as HTMLElement).closest(".lxs-grid-scroll"); }}
     onBlurCapture={event => {

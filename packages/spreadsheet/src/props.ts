@@ -65,6 +65,8 @@ export type SpreadsheetProps = {
   contextMenuExecutionMode?: ContextMenuExecutionMode;
   onSelectionChange?: (selection: SpreadsheetSelection) => void;
   colorMode?: SpreadsheetColorMode;
+  /** UI accent color in #RGB or #RRGGBB. Omitted or invalid values use the default green theme. */
+  primaryColor?: string;
   title?: string;
   /** Suggested Excel download name. Defaults to title, then spreadsheet.xlsx. */
   exportFileName?: string;

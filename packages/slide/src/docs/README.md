@@ -45,6 +45,7 @@ CSSはアプリの入口で1回importします。Next.js App Routerでは `app/l
 | `onSave` | `(deck) => void または Promise<void / SlideDeck>` | 読み取り専用 |
 | `readOnly` | `boolean` | `onSave` の有無に従う |
 | `colorMode` | `"light" / "dark" / "system"` | ライト |
+| `primaryColor` | `string`（`#RGB` / `#RRGGBB`） | オレンジ |
 | `title` | `string` | 資料のタイトルを利用 |
 | `style` / `className` | Reactの標準型 | 親側で高さを指定 |
 | `features` | `SlideFeatures` | 全機能有効 |
@@ -58,5 +59,14 @@ CSSはアプリの入口で1回importします。Next.js App Routerでは `app/l
 ```
 
 `initialDeck` は初回のみ読み込みます。別の資料に切り替えるときは `<LikeSlide key={documentId} ... />` とします。認証・保存先・共同編集の競合解決は親アプリの責務です。
+
+## プライマリカラー
+
+```tsx
+<LikeSlide initialDeck={deck} onSave={saveDeck}
+  primaryColor="#2563eb" colorMode="system" style={{ height: 720 }} />
+```
+
+`primaryColor` は一番上のタイトルバー・保存ボタン・選択表示などのUI色です。文字色や選択色は読みやすさに合わせて調整します。値を変更すれば表示へ即時反映され、スライド内の文字・図形・背景の色や保存するJSONは変わりません。未指定・不正な値は既定色を使用します。`style` で明示したCSS変数は優先します。
 
 [編集](editing.md) · [保存とイベント](lifecycle.md) · [コマンドとJSON](commands.md) · [PowerPoint入出力](powerpoint.md)

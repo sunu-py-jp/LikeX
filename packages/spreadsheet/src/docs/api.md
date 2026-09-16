@@ -60,6 +60,7 @@ const workbook: SpreadsheetWorkbook = {
 | `contextMenuExecutionMode` | `ContextMenuExecutionMode` | `block`（既定）・`confirm`・`reject-if-changed`。メニュー処理中の変更と反映を制御。 |
 | `onSelectionChange` | `(selection: SpreadsheetSelection) => void` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。各範囲の任意の `kind` は行番号／列名から始めた選択を表す。`focus` はアクティブセル（通常のセル選択では結合の左上）。[複数選択](./selection.md) |
 | `colorMode` | `SpreadsheetColorMode` | `"light"`（既定）・`"dark"`・`"system"`。 |
+| `primaryColor` | `string` | UIの基本色。`#RGB` / `#RRGGBB`。未指定・不正な値は既定の緑。動的変更可。[見た目の基本色](./formatting.md#画面の基本色) |
 | `title` | `string` | 表示タイトル。省略時は「スプレッドシート」。 |
 | `exportFileName` | `string` | Excel出力のファイル名。省略時は `title`、未指定なら `spreadsheet.xlsx`。[Excel出力](./excel-export.md) |
 | `className` | `string` | ルート要素に追加するCSSクラス。 |

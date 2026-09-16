@@ -4,6 +4,8 @@ export { notifyHost } from "./notifications";
 export { isPromiseLike, chainResult } from "./async";
 export { resolveFeatureFlags } from "./features";
 export type { FeatureFlags } from "./features";
+export { createPrimaryColorPalette } from "./primary-color";
+export type { PrimaryColorPalette } from "./primary-color";
 export { createUnsavedChangesGuard } from "./unsaved-changes";
 export type { UnsavedChangesGuard, UnsavedChangesGuardOptions } from "./unsaved-changes";
 export { resolveContextMenuItems } from "./context-menu";

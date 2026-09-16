@@ -35,6 +35,8 @@ export type SlideProps = {
   warnOnUnsavedChanges?: boolean;
   features?: SlideFeatures;
   colorMode?: "light" | "dark" | "system";
+  /** UI primary color in #RGB or #RRGGBB. Omit for the default orange. Does not change slide contents. */
+  primaryColor?: string;
   title?: string;
   exportFileName?: string;
   className?: string;

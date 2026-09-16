@@ -31,7 +31,7 @@ const workbook: SpreadsheetWorkbook = { sheets: [{ id: "main", name: "Sheet1", r
 const save: SpreadsheetSaveHandler = async (value) => value;
 const features = { sheets: false, formulas: false, clipboard: true, images: true, shapes: false, textBoxes: true, comments: true, mergeCells: false } satisfies SpreadsheetFeatures;
 const props: SpreadsheetProps = {
-  initialWorkbook: workbook, onSave: save, features, colorMode: "system", title: "資料",
+  initialWorkbook: workbook, onSave: save, features, colorMode: "system", primaryColor: "#2563eb", title: "資料",
   onChange(value) { void value.sheets[0].cells.A1?.value; },
   onSelectionChange(selection: SpreadsheetSelection) { void selection.focus.row; },
 };
@@ -46,8 +46,10 @@ const invalidCell: SpreadsheetCell = { value: 42 };
 const invalidSave: SpreadsheetSaveHandler = () => ({ success: true });
 // @ts-expect-error The color mode must be one of the supported modes.
 const invalidMode: SpreadsheetProps = { colorMode: "auto" };
+// @ts-expect-error The primary color is a string, not a numeric RGB value.
+const invalidPrimaryColor: SpreadsheetProps = { primaryColor: 0x2563eb };
 
-void [props, invalidFeature, invalidFormat, invalidCell, invalidSave, invalidMode];
+void [props, invalidFeature, invalidFormat, invalidCell, invalidSave, invalidMode, invalidPrimaryColor];
 
 const drawing: SpreadsheetDrawing = { id: "box", type: "text", text: "メモ", fontSize: 16, color: "#333333", background: "transparent", anchor: { row: 1, column: 2, offsetX: 0, offsetY: 8 }, width: 220, height: 100 };
 const drawingPatch: SpreadsheetDrawingPatch = { width: 240, text: "修正" };

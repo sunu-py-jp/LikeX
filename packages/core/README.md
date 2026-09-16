@@ -2,6 +2,8 @@
 
 LikeXコンポーネントの保存・編集許可・通知・機能設定に使う共通の型と小さなヘルパーです。React、Provider、継承用の抽象クラス、実行時依存はありません。
 
+`createPrimaryColorPalette(color, "light" | "dark")` は `#RGB` / `#RRGGBB` のUI色から `{ primary, onPrimary, primaryHover, accent, selection }` を返します。未指定・不正な色は `undefined` です。SpreadsheetとLikeSlideでは `primaryColor` Propsに指定すると内部で適用され、文書の配色は変更しません。
+
 ```ts
 import { notifyHost, resolveFeatureFlags } from "@likex/core";
 import type { SaveHandler, EditRequestHandler, EventHandler } from "@likex/core";

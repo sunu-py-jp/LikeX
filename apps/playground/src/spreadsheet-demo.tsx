@@ -4,6 +4,7 @@ import "../../../packages/spreadsheet/src/styles.css";
 import { createDemoWorkbook } from "./demo/spreadsheet-workbook";
 import { createSelectionSum } from "./demo/selection-sum";
 import { getDemoContextMenuMode } from "./demo/context-menu-mode";
+import { getDemoComponentTheme } from "./demo/component-theme";
 
 const contextMenuItems: SpreadsheetContextMenuProvider = context => {
   if (context.target.kind !== "cell" || context.readOnly || !context.features.formulas) return [];
@@ -23,6 +24,7 @@ const contextMenuItems: SpreadsheetContextMenuProvider = context => {
 
 export default function SpreadsheetDemo() {
   const [initialWorkbook] = useState(createDemoWorkbook);
+  const [theme] = useState(() => getDemoComponentTheme("light"));
   const [contextMenuMode] = useState(getDemoContextMenuMode);
   const savedJson = useRef<string | null>(null);
   const save = useCallback((workbook: SpreadsheetWorkbook) => {
@@ -30,6 +32,7 @@ export default function SpreadsheetDemo() {
     return parseWorkbook(savedJson.current);
   }, []);
   return <Spreadsheet
+    {...theme}
     title="LikeX サンプルブック"
     exportFileName="LikeX_Excel出力サンプル.xlsx"
     initialWorkbook={initialWorkbook}

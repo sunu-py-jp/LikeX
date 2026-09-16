@@ -37,7 +37,7 @@ export default function LikeSlide(props: SlideProps) {
   const root = useRef<HTMLDivElement | null>(null);
   const [ownerDocument, setOwnerDocument] = useState<Document | null>(null);
   const attach = useCallback((node: HTMLDivElement | null) => { root.current = node; setOwnerDocument(node?.ownerDocument ?? null); }, []);
-  const theme = useSlideTheme(props.colorMode, ownerDocument);
+  const theme = useSlideTheme(props.colorMode, ownerDocument, props.primaryColor);
   const [zoom, setZoom] = useState(100);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [notesOpen, setNotesOpen] = useState(true);
@@ -98,6 +98,7 @@ export default function LikeSlide(props: SlideProps) {
         {editor.features.presentation && <button type="button" className="lxp-title-action" disabled={!slide} onClick={() => setPresenting(true)}><MonitorPlay size={16} /><span>スライドショー</span></button>}
         {!editor.readOnly && <button type="button" className="lxp-save" disabled={!!editor.busy} onClick={() => void editor.save()}>{editor.busy === "save" ? <Loader2 size={15} className="lxp-spin" /> : <Save size={15} />}保存</button>}
       </div>
+      <span className="lxp-title-context">LikeX</span>
     </header>
     <SlideRibbon editor={editor} onImage={() => imageInput.current?.click()} onImport={importFile} onPresent={() => setPresenting(true)} propertiesOpen={propertiesOpen} notesOpen={notesOpen}
       onProperties={() => setPropertiesOpen(value => !value)} onNotes={() => setNotesOpen(value => !value)} onFit={() => setZoom(100)} ownerDocument={ownerDocument} />

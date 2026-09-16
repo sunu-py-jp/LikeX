@@ -13,6 +13,11 @@
       "src": "assets/screenshots/slide/overview.jpg",
       "alt": "LikeSlideのホームリボン、スライド一覧、キャンバス、書式設定パネル",
       "caption": "デモの編集画面。左でスライドを選び、中央で編集し、右で書式を調整します。"
+    },
+    {
+      "src": "assets/screenshots/slide/primary-color.jpg",
+      "alt": "primaryColorでタイトルバーと選択表示を青色にしたLikeSlide",
+      "caption": "primaryColor=\"#2563eb\"、colorMode=\"light\" の例。スライド内の図形や文字の色は維持されます。"
     }
   ]
 }

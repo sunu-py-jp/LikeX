@@ -5,7 +5,7 @@ const command: SlideCommand = { type: "element.add", slideId: deck.slides[0].id,
 const updated = applySlideCommands(deck, command);
 const session = createSlideSession(updated.deck);
 session.undo(); session.markSaved();
-const props: SlideProps = { initialDeck: deck, colorMode: "system", features: { images: false }, onSave: async current => current, onEditRequest: async (_request, { signal }) => !signal.aborted, onBeforeSave: () => true };
+const props: SlideProps = { initialDeck: deck, colorMode: "system", primaryColor: "#2563eb", features: { images: false }, onSave: async current => current, onEditRequest: async (_request, { signal }) => !signal.aborted, onBeforeSave: () => true };
 const ref = createRef<SlideHandle>();
 const view = <LikeSlide ref={ref} {...props} />;
 void view; void createSlideElement({ type: "shape", shape: "ellipse" });
