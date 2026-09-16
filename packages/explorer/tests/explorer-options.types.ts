@@ -115,6 +115,7 @@ export const unresolvedPreset = { baseColor: "#ffffff" } satisfies Partial<Explo
 export const uploadOptions = {
   allowedExtensions: [".pdf", ".TXT", ".tar.gz"] as const,
   maxFileSizeBytes: 10 * 1024 * 1024,
+  maxFileSizeBytesByExtension: { ".pdf": 20 * 1024 * 1024, ".TXT": 1024, ".tar.gz": 30 * 1024 * 1024 },
 } satisfies ExplorerUploadOptions;
 export const unrestrictedUpload = {} satisfies ExplorerUploadOptions;
 export const rejectAllUpload = { allowedExtensions: [] as const, maxFileSizeBytes: 0 } satisfies ExplorerUploadOptions;
@@ -197,6 +198,10 @@ export const extensionWithoutDot = { allowedExtensions: ["pdf"] } satisfies Expl
 export const mimeUploadRule = { allowedExtensions: ["image/*"] } satisfies ExplorerUploadOptions;
 // @ts-expect-error Upload limits use bytes as numbers, not size strings.
 export const stringUploadSize = { maxFileSizeBytes: "10 MB" } satisfies ExplorerUploadOptions;
+// @ts-expect-error Extension size keys require the leading dot.
+export const sizeExtensionWithoutDot = { maxFileSizeBytesByExtension: { pdf: 10 } } satisfies ExplorerUploadOptions;
+// @ts-expect-error Extension limits use numeric byte counts.
+export const stringExtensionSize = { maxFileSizeBytesByExtension: { ".pdf": "10 MB" } } satisfies ExplorerUploadOptions;
 // @ts-expect-error File count is outside the public upload restriction API.
 export const unsupportedUploadCount = { maxFiles: 100 } satisfies ExplorerUploadOptions;
 // @ts-expect-error A size rejection must include the numeric limit.
@@ -204,6 +209,8 @@ export const incompleteSizeRejection = { code: "file-too-large", message: "サ�
 // @ts-expect-error Rejection reasons are a closed discriminated union.
 export const unknownUploadReason = { code: "unsupported-mime", message: "形式エラー" } satisfies ExplorerUploadRejectionReason;
 export function readonlyUploadContract(options: ExplorerUploadOptions, event: ExplorerUploadRejectedEvent) {
+  // @ts-expect-error Per-extension size maps are readonly.
+  if (options.maxFileSizeBytesByExtension) options.maxFileSizeBytesByExtension[".pdf"] = 1024;
   // @ts-expect-error Caller configuration is readonly.
   options.maxFileSizeBytes = 1024;
   // @ts-expect-error The allowed suffix list is readonly.

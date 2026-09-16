@@ -218,6 +218,19 @@ test('native Files use the same atomic upload restrictions and latest options, w
   assert.equal(newEntries(hook.current)[0].name, 'bad.exe');
 });
 
+test('native paste uses extension-specific size limits in both main and detached panes', async t => {
+  const hook = await mount(t, { upload: { maxFileSizeBytes: 4,
+    maxFileSizeBytesByExtension: { '.csv': 2, '.xlsx': 8 } } }, { shared: true });
+  const before = hook.current.entries;
+  await hook.paste([file('book.xlsx', '12345678'), file('bad.csv', '123')], {}, 'child');
+  assert.equal(hook.current.entries, before);
+  assert.equal(hook.events.find(e => e.type === 'upload').rejections[0].reasons[0].maxFileSizeBytes, 2);
+  await hook.update({ upload: { maxFileSizeBytes: 4, maxFileSizeBytesByExtension: { '.csv': 2, '.xlsx': 8 }, invalidFileBehavior: 'skip' } });
+  await hook.paste([file('book.xlsx', '12345678'), file('bad.csv', '123')]);
+  assert.deepEqual(newEntries(hook.current).map(e => e.name), ['book.xlsx']);
+  assert.equal(hook.current.entries, hook.child.entries);
+});
+
 test('outside, prevented, form and editable targets retain their native paste behavior', async t => {
   const hook = await mount(t);
   const before = hook.current.entries;

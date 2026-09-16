@@ -7,12 +7,15 @@ export type ExplorerUploadInvalidFileBehavior = "reject-batch" | "skip";
 export type ExplorerUploadOptions = Readonly<{
   allowedExtensions?: readonly `.${string}`[];
   maxFileSizeBytes?: number;
+  /** Matching suffixes override maxFileSizeBytes; the longest compound suffix wins. */
+  maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
   invalidFileBehavior?: ExplorerUploadInvalidFileBehavior;
 }>;
 
 export type ResolvedExplorerUploadOptions = Readonly<{
   allowedExtensions: readonly `.${string}`[] | undefined;
   maxFileSizeBytes: number | undefined;
+  maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
   invalidFileBehavior: ExplorerUploadInvalidFileBehavior;
   accept: string | undefined;
 }>;
@@ -123,7 +126,39 @@ export class ExplorerUploadConflictError extends Error {
   }
 }
 
-/** Normalize caller configuration without retaining caller-owned arrays. */
+function normalizeUploadExtension(value: unknown, label: string): `.${string}` {
+  if (typeof value !== "string")
+    throw new Error(`${label}は .pdf のように先頭にピリオドを付けて指定してください`);
+  const extension = value.trim().normalize("NFC").toLowerCase();
+  if (!extension.startsWith(".") || extension.slice(1).split(".").some(part => !part) ||
+    /[\s\\/:*?"<>|,;\u0000-\u001f\u007f]/.test(extension) ||
+    ["[", "]", "{", "}"].some(character => extension.includes(character)))
+    throw new Error(`${label}「${value}」を確認してください。 .pdf や .tar.gz の形式で指定できます`);
+  return extension as `.${string}`;
+}
+
+function validateUploadSize(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0)
+    throw new Error(`${label} は0以上の安全な整数で指定してください`);
+  return value;
+}
+
+function normalizeExtensionSizeLimits(value: unknown): Readonly<Record<`.${string}`, number>> {
+  if (!value || typeof value !== "object" || Array.isArray(value) ||
+    (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null))
+    throw new Error("maxFileSizeBytesByExtension は拡張子をキーとするプレーンオブジェクトで指定してください");
+  const limits: Record<`.${string}`, number> = {};
+  for (const key of Reflect.ownKeys(value)) {
+    const extension = normalizeUploadExtension(key, "サイズ制限の拡張子");
+    const limit = validateUploadSize((value as Record<PropertyKey, unknown>)[key], `maxFileSizeBytesByExtension[${String(key)}]`);
+    if (Object.hasOwn(limits, extension) && limits[extension] !== limit)
+      throw new Error(`拡張子「${extension}」に異なるサイズ制限が重複して指定されています`);
+    limits[extension] = limit;
+  }
+  return Object.freeze(limits);
+}
+
+/** Normalize caller configuration without retaining caller-owned arrays or maps. */
 export function resolveUploadOptions(options?: ExplorerUploadOptions): ResolvedExplorerUploadOptions {
   if (options !== undefined && (!options || typeof options !== "object" || Array.isArray(options)))
     throw new Error("アップロードの設定をオブジェクトで指定してください");
@@ -132,27 +167,20 @@ export function resolveUploadOptions(options?: ExplorerUploadOptions): ResolvedE
     if (!Array.isArray(options.allowedExtensions))
       throw new Error("allowedExtensions は拡張子の配列で指定してください");
     const extensions = new Set<`.${string}`>();
-    for (const value of options.allowedExtensions) {
-      if (typeof value !== "string")
-        throw new Error("許可する拡張子は .pdf のように先頭にピリオドを付けて指定してください");
-      const extension = value.trim().normalize("NFC").toLowerCase();
-      if (!extension.startsWith(".") || extension.slice(1).split(".").some(part => !part) ||
-        /[\s\\/:*?"<>|,;\u0000-\u001f\u007f]/.test(extension) ||
-        ["[", "]", "{", "}"].some(character => extension.includes(character)))
-        throw new Error(`許可する拡張子「${value}」を確認してください。 .pdf や .tar.gz の形式で指定できます`);
-      extensions.add(extension as `.${string}`);
-    }
+    for (const value of options.allowedExtensions) extensions.add(normalizeUploadExtension(value, "許可する拡張子"));
     allowedExtensions = Object.freeze([...extensions]);
   }
   const maxFileSizeBytes = options?.maxFileSizeBytes;
-  if (maxFileSizeBytes !== undefined && (!Number.isSafeInteger(maxFileSizeBytes) || maxFileSizeBytes < 0))
-    throw new Error("maxFileSizeBytes は0以上の安全な整数で指定してください");
+  if (maxFileSizeBytes !== undefined) validateUploadSize(maxFileSizeBytes, "maxFileSizeBytes");
+  const extensionLimits = options?.maxFileSizeBytesByExtension;
+  const maxFileSizeBytesByExtension = extensionLimits === undefined ? undefined : normalizeExtensionSizeLimits(extensionLimits);
   const invalidFileBehavior = options?.invalidFileBehavior;
   if (invalidFileBehavior !== undefined && invalidFileBehavior !== "reject-batch" && invalidFileBehavior !== "skip")
     throw new Error('invalidFileBehavior は "reject-batch" または "skip" で指定してください');
   return {
     allowedExtensions,
     maxFileSizeBytes,
+    ...(maxFileSizeBytesByExtension ? { maxFileSizeBytesByExtension } : {}),
     invalidFileBehavior: invalidFileBehavior ?? "reject-batch",
     // An empty accept attribute cannot prohibit every file; validation does.
     accept: allowedExtensions?.length ? allowedExtensions.join(",") : undefined,
@@ -194,6 +222,8 @@ export function validateUploadFiles<T extends Readonly<{ file: File; name: strin
 ): { accepted: T[]; rejections: ExplorerUploadRejection[] } {
   const accepted: T[] = [];
   const rejections: ExplorerUploadRejection[] = [];
+  const extensionLimits = Object.entries(options.maxFileSizeBytesByExtension ?? {})
+    .sort(([left], [right]) => right.length - left.length);
   for (const candidate of files) {
     const { file, name, relativePath } = candidate;
     const extension = fileExtension(name);
@@ -209,11 +239,13 @@ export function validateUploadFiles<T extends Readonly<{ file: File; name: strin
           : "許可された拡張子がないため、ファイルを追加できません",
       });
     }
-    if (options.maxFileSizeBytes !== undefined && file.size > options.maxFileSizeBytes) {
+    const maxFileSizeBytes = (extension ? extensionLimits.find(([suffix]) => comparisonName.endsWith(suffix))?.[1] : undefined)
+      ?? options.maxFileSizeBytes;
+    if (maxFileSizeBytes !== undefined && file.size > maxFileSizeBytes) {
       reasons.push({
         code: "file-too-large",
-        maxFileSizeBytes: options.maxFileSizeBytes,
-        message: `${file.size}バイトは1ファイルの上限${options.maxFileSizeBytes}バイトを超えています`,
+        maxFileSizeBytes,
+        message: `${file.size}バイトは1ファイルの上限${maxFileSizeBytes}バイトを超えています`,
       });
     }
     if (reasons.length) rejections.push({ file, name, relativePath, extension, size: file.size, reasons });

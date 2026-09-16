@@ -182,6 +182,7 @@
       "createExplorerUploadSession",
       "allowedExtensions",
       "maxFileSizeBytes",
+      "maxFileSizeBytesByExtension",
       "invalidFileBehavior"
     ],
     "headings": [

@@ -44,3 +44,12 @@ test('empty extension permissions and zero rejected files have explicit, non-rep
   assert.equal(emptyPolicy.hint, '許可されている拡張子はありません');
   assert.deepEqual(describeUploadRejections([]), { details: [], hint: undefined });
 });
+
+test('mixed size limits show the applicable limit on each file without an irrelevant extension tooltip', () => {
+  const notice = describeUploadRejections(rejected(['data.csv', 'book.xlsx', 'note.md'], {
+    maxFileSizeBytes: 5, maxFileSizeBytesByExtension: { '.csv': 1, '.xlsx': 3 },
+  }));
+  assert.equal(notice.hint, undefined);
+  assert.deepEqual(notice.details.map(detail => detail.message), ['資料/data.csv', '資料/book.xlsx', '資料/note.md']);
+  for (const [index, limit] of [1, 3, 5].entries()) assert.match(notice.details[index].description, new RegExp(`上限${limit}バイト`));
+});

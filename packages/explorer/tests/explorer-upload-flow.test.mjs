@@ -208,6 +208,20 @@ test('cooperative preparation rechecks tightened rules before committing any fil
   assert.equal(app.events.filter(e => e.type === 'change').length, 0);
 });
 
+test('a tightened extension size limit is rechecked before a large folder batch can commit', async t => {
+  const app = await mount(t, { upload: { maxFileSizeBytesByExtension: { '.csv': 10 } } }), before = app.main.entries;
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles(Array.from({ length: 600 }, (_, i) => file(`new-${i}.csv`, `Batch/new-${i}.csv`, '1234')), 'folder', 'root'); });
+  await app.update({ upload: { maxFileSizeBytesByExtension: { '.csv': 2 } } });
+  await change(() => pending);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.notification.kind, 'error');
+  const rejections = app.events.filter(e => e.type === 'upload' && e.status === 'rejected');
+  assert.equal(rejections.length, 1);
+  assert.ok(rejections[0].rejections.every(rejection => rejection.reasons[0].maxFileSizeBytes === 2));
+  assert.equal(app.events.filter(e => e.type === 'change').length, 0);
+});
+
 test('a concurrent pane edit remains present after a large import commits', async t => {
   const app = await mount(t);
   let pending;

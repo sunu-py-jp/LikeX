@@ -54,7 +54,7 @@
 
 本体は0バイトのブラウザー `File` で、`source: { kind: "local", file }` として保持します。作成時の `entry.name` と `File.name` は一致し、`.txt` は大小文字を問わずMIMEが `text/plain`、それ以外は `application/octet-stream` です。拡張子を `.xlsx`・`.docx`・`.pptx`・`.pdf` 等にしても、Office文書やPDFの中身を生成する機能ではありません。
 
-空ファイル作成にも `upload.allowedExtensions` と `upload.maxFileSizeBytes` を適用します。単一ファイルの作成なので、`invalidFileBehavior: "skip"` であっても違反時は入力エラーにし、黙って作成を省略する扱いにはしません。失敗時は下書きを変えず、`change` / `upload` イベントも発行しません。入力が不正な段階では編集許可を要求せず、名前を修正して再試行できます。ほかの変更で既に取得した編集セッションがあれば保持します。
+空ファイル作成にも `upload.allowedExtensions` と、共通・拡張子別のサイズ上限を適用します。本体は0バイトなので、サイズ上限が0でも作成できます。単一ファイルの作成なので、`invalidFileBehavior: "skip"` であっても違反時は入力エラーにし、黙って作成を省略する扱いにはしません。失敗時は下書きを変えず、`change` / `upload` イベントも発行しません。入力が不正な段階では編集許可を要求せず、名前を修正して再試行できます。ほかの変更で既に取得した編集セッションがあれば保持します。
 
 作成は保存までクライアント内の下書きです。ダイアログを開く時点では許可を要求せず、有効な名前で作成を確定した時点に `onEditRequest` の `request.action: "createFile"` で要求します。成功時の変更通知は `change.action: "createFile"` です。`onSave` を自動では呼ばず、保存時に `entries` と `changes.created` にローカルFileを含む項目を渡します。フォルダ作成の操作名は従来どおり `"create"` です。
 
@@ -70,14 +70,18 @@ OSからの追加とExplorer内のコピー・切り取りは、[コピー・切
 
 ## アップロードの拡張子とサイズを制限する
 
-`Explorer`、`ExplorerPopup`、`useExplorerDraft` に共通の `upload?: ExplorerUploadOptions` を渡します。制限はクライアントの下書きへ追加する前に適用し、ストレージとの通信は行いません。次の例は、PDF・Word・Excelの指定拡張子で、1ファイル20 MiB以下を許可します。
+`Explorer`、`ExplorerPopup`、`useExplorerDraft` に共通の `upload?: ExplorerUploadOptions` を渡します。制限はクライアントの下書きへ追加する前に適用し、ストレージとの通信は行いません。次の例はCSV・PDF・Word・Excelを許可し、CSVは2 MiB、Excelは30 MiB、ほかは10 MiBを1ファイルの上限にします。
 
 ```tsx
 import Explorer, { type ExplorerUploadOptions } from "@/components/explorer";
 
 const upload = {
-  allowedExtensions: [".pdf", ".docx", ".xlsx"],
-  maxFileSizeBytes: 20 * 1024 * 1024,
+  allowedExtensions: [".csv", ".pdf", ".docx", ".xlsx"],
+  maxFileSizeBytes: 10 * 1024 * 1024,
+  maxFileSizeBytesByExtension: {
+    ".csv": 2 * 1024 * 1024,
+    ".xlsx": 30 * 1024 * 1024,
+  },
 } satisfies ExplorerUploadOptions;
 
 // entriesとsaveは親が用意した一覧と保存関数です。
@@ -92,6 +96,7 @@ type ExplorerUploadInvalidFileBehavior = "reject-batch" | "skip";
 type ExplorerUploadOptions = Readonly<{
   allowedExtensions?: readonly `.${string}`[];
   maxFileSizeBytes?: number;
+  maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
   invalidFileBehavior?: ExplorerUploadInvalidFileBehavior;
 }>;
 ```
@@ -104,12 +109,17 @@ type ExplorerUploadOptions = Readonly<{
 | 複合拡張子 | `.tar.gz` のような指定も可能です。正規化した取り込み元の名前がその末尾と一致するか判定します。 |
 | 拡張子なし | 許可リストを指定した場合、`README` や `.env` は拒否します。サイズだけの制限なら追加できます。 |
 | `maxFileSizeBytes` | バイト単位の、0以上の安全な整数を指定します。上限と同じサイズは許可し、0なら空ファイルだけを許可します。負数・小数・NaN・Infinityは設定エラーです。 |
+| `maxFileSizeBytesByExtension` | 拡張子ごとの上限を指定します。一致する指定があれば共通の `maxFileSizeBytes` を上書きし、小さくも大きくもできます。未一致なら共通上限を使い、共通上限もなければサイズは無制限です。値の単位・有効範囲は共通上限と同じです。 |
 | `invalidFileBehavior: "reject-batch"` | 既定値。1件でも拡張子・サイズに違反すれば、その回の追加をすべて中止します。 |
 | `invalidFileBehavior: "skip"` | 拡張子・サイズに違反したファイルを除外し、残りを一括で追加します。指定できる型は `ExplorerUploadInvalidFileBehavior` です。 |
 
 MIME指定や `image/*` のようなワイルドカードはこの設定では受け付けません。拡張子はファイル名の条件であり、内容の形式を解析するものではありません。サイズは `File.size` で判定するため、検証のために本体を読み込む必要はありません。
 
-ファイル選択・フォルダ追加・外部ファイルのドロップ・OSからのファイルやフォルダの貼り付けは、すべて同じ追加処理で検証します。フォルダ追加では `webkitRelativePath` の各部分を通常の名前規則で正規化し、その末尾のファイル名で判定します。既定の `"reject-batch"` では、違反があればその回のファイルもフォルダも一切追加せず、既存の下書き・未保存状態を保持します。拒否は保存コールバックや成功の `change` イベントを発生させません。
+拡張子別上限のキーも先頭にピリオドを付け、前後の空白を除去・NFC正規化・小文字化して比較します。`.tar.gz` と `.gz` の両方を設定した場合は、名前の末尾に一致する最も長いキーを優先します。`README` や `.env` のような拡張子のない名前には共通上限を使います。空のマップ `{}` は個別指定なしと同じです。
+
+`allowedExtensions` は独立した条件です。例えば `.xlsx` のサイズ上限を設定しても、許可リストに `.xlsx` がなければ追加できません。キーの形式やマップ・サイズが不正な場合は設定エラーです。`.CSV` と `.csv` のように正規化後のキーが重なる場合、上限も同じならまとめ、異なる上限なら設定エラーにします。
+
+ファイル選択・フォルダ追加・外部ファイルのドロップ・OSからのファイルやフォルダの貼り付け・公開フックからの追加は、すべて同じ追加処理で検証します。フォルダ追加では `webkitRelativePath` の各部分を通常の名前規則で正規化し、その末尾のファイル名で判定します。共通・拡張子別のどちらのサイズ上限にも `invalidFileBehavior` を適用します。既定の `"reject-batch"` では、違反があればその回のファイルもフォルダも一切追加せず、既存の下書き・未保存状態を保持します。拒否は保存コールバックや成功の `change` イベントを発生させません。
 
 「新しいファイル」の空ファイルも同じ拡張子・サイズ制限で検証します。ただし単一作成のため、違反時は `"skip"` でも入力エラーとし、以下の一括アップロード用 `upload` 通知は発行しません。
 
@@ -177,7 +187,7 @@ const onEvent: ExplorerEventHandler = event => {
 各 `rejections` には元の `file: File`、正規化後の `name` / `relativePath`、最後の拡張子を小文字・ピリオドなしにした `extension`、バイト数の `size`、理由一覧の `reasons` を含みます。1ファイルに拡張子とサイズの両方の違反がある場合は、両方の理由を渡します。
 
 - `code: "extension-not-allowed"` の理由は `allowedExtensions` と `message` を持ちます。
-- `code: "file-too-large"` の理由は `maxFileSizeBytes` と `message` を持ちます。
+- `code: "file-too-large"` の理由は、そのファイルに適用した実効上限の `maxFileSizeBytes` と `message` を持ちます。拡張子別の上限を使った場合、通知とイベントにもその値を渡します。
 
 `rejections` のファイルは下書きへ追加していないため、ファイルの項目IDや保存済みの `source.id` はありません。`File` 以外の通知オブジェクトは内部の結果と別のコピーです。子・孫ウィンドウからの拒否・除外も共有ワークスペースから1回だけ通知します。
 

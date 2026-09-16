@@ -160,6 +160,97 @@ test('a zero byte limit accepts only empty files and reports every oversized fil
   assert.ok(error.rejections.every(e => e.reasons[0].code === 'file-too-large' && e.reasons[0].maxFileSizeBytes === 0));
 });
 
+test('per-extension limits normalize and isolate caller maps without changing the extension allowlist', () => {
+  const limits = { ' .PDF ': 10, '.pdf': 10, '.E\u0301': 2 };
+  const resolved = resolveUploadOptions({ maxFileSizeBytesByExtension: limits });
+  assert.deepEqual(Object.entries(resolved.maxFileSizeBytesByExtension), [['.pdf', 10], ['.é', 2]]);
+  assert.equal(resolved.accept, undefined);
+  assert.equal(resolved.allowedExtensions, undefined);
+  assert.ok(Object.isFrozen(resolved.maxFileSizeBytesByExtension));
+  limits[' .PDF '] = 1; limits['.csv'] = 0;
+  assert.equal(resolved.maxFileSizeBytesByExtension['.pdf'], 10);
+  assert.equal(resolved.maxFileSizeBytesByExtension['.csv'], undefined);
+  assert.doesNotThrow(() => resolveUploadOptions({ maxFileSizeBytesByExtension: Object.create(null) }));
+});
+
+test('per-extension limits replace the fallback in either direction and report the effective byte limit', () => {
+  const options = { maxFileSizeBytes: 8, maxFileSizeBytesByExtension: { '.csv': 2, '.xlsx': 16 } };
+  const accepted = addFiles(snapshot(), [file('data.csv', 2), file('book.XLSX', 16), file('note.txt', 8)], 'root', options);
+  assert.equal(accepted.entries.filter(e => e.kind === 'file').length, 3);
+  const error = rejected(() => addFiles(snapshot(), [file('data.csv', 3), file('book.xlsx', 17), file('note.txt', 9)], 'root', options));
+  assert.deepEqual(error.rejections.map(e => e.reasons[0].maxFileSizeBytes), [2, 16, 8]);
+  assert.match(error.rejections[1].reasons[0].message, /上限16バイト/);
+  assert.equal(addFiles(snapshot(), [file('empty.csv', 0)], 'root', { maxFileSizeBytesByExtension: { '.csv': 0 } }).entries.at(-1).size, 0);
+  assert.equal(rejected(() => addFiles(snapshot(), [file('data.csv', 1)], 'root', { maxFileSizeBytesByExtension: { '.csv': 0 } })).rejections[0].reasons[0].maxFileSizeBytes, 0);
+});
+
+test('compound size rules use the longest normalized suffix and inspect the actual destination basename', () => {
+  const options = { maxFileSizeBytes: 1, maxFileSizeBytesByExtension: { '.gz': 2, '.tar.gz': 4, '.é': 3 } };
+  assert.equal(addFiles(snapshot(), [file('A.TAR.GZ', 4), file('B.gz', 2), file('C.E\u0301', 3)], 'root', options).entries.length, 4);
+  const error = rejected(() => addFiles(snapshot(), [file('a.tar.gz', 5), file('b.gz', 3), file('c.tar.gz.exe', 2), file('a.tar.gz', 3, 'Batch/actual.gz')], 'root', options));
+  assert.deepEqual(error.rejections.map(e => e.reasons[0].maxFileSizeBytes), [4, 2, 1, 2]);
+  assert.equal(error.rejections.at(-1).relativePath, 'Batch/actual.gz');
+});
+
+test('unmatched files use no size limit without a fallback, and size rules never grant extension permission', () => {
+  const options = { maxFileSizeBytesByExtension: { '.csv': 0, '.env': 0 } };
+  assert.equal(addFiles(snapshot(), [file('book.xlsx', 20), file('README', 20), file('.env', 20)], 'root', options).entries.length, 4);
+  for (const allowedExtensions of [[], ['.txt']]) {
+    const error = rejected(() => addFiles(snapshot(), [file('empty.csv', 0)], 'root', { ...options, allowedExtensions }));
+    assert.deepEqual(error.rejections[0].reasons.map(reason => reason.code), ['extension-not-allowed']);
+  }
+  assert.equal(rejected(() => addFiles(snapshot(), [file('.env', 2)], 'root', { ...options, maxFileSizeBytes: 1 })).rejections[0].reasons[0].maxFileSizeBytes, 1);
+});
+
+test('invalid extension size maps fail instead of silently weakening the upload policy', () => {
+  for (const map of [null, [], '.csv', true, 10, new Map([['.csv', 2]]), new Date(), new (class Limits {})()])
+    assert.throws(() => resolveUploadOptions({ maxFileSizeBytesByExtension: map }));
+  for (const key of ['csv', '.', '..csv', '.tar..gz', '.p df', '.csv,.exe', 'image/*', '.p/f', '.p\\f', '.{csv}'])
+    assert.throws(() => resolveUploadOptions({ maxFileSizeBytesByExtension: { [key]: 2 } }), key);
+  for (const value of [-1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, '2', null, undefined])
+    assert.throws(() => resolveUploadOptions({ maxFileSizeBytesByExtension: { '.csv': value } }), String(value));
+  assert.throws(() => resolveUploadOptions({ maxFileSizeBytesByExtension: { '.PDF': 2, '.pdf': 4 } }));
+  assert.doesNotThrow(() => resolveUploadOptions({ maxFileSizeBytesByExtension: { '.csv': Number.MAX_SAFE_INTEGER } }));
+});
+
+test('folder size violations reject atomically by default and skip only invalid files when configured', () => {
+  const before = snapshot(), options = { maxFileSizeBytes: 8, maxFileSizeBytesByExtension: { '.csv': 2, '.xlsx': 16 } };
+  const files = [file('good.xlsx', 16, 'Batch/good.xlsx'), file('bad.csv', 3, 'Rejected/bad.csv')];
+  rejected(() => addFilesWithResult(before, files, 'root', options));
+  assert.deepEqual(before.entries, [folder]);
+  const result = addFilesWithResult(before, files, 'root', { ...options, invalidFileBehavior: 'skip' });
+  assert.deepEqual(result.snapshot.entries.slice(1).map(e => e.name), ['Batch', 'good.xlsx']);
+  assert.equal(result.result.rejections[0].relativePath, 'Rejected/bad.csv');
+  assert.equal(result.result.rejections[0].reasons[0].maxFileSizeBytes, 2);
+});
+
+test('retained draft callbacks use updated extension limits without altering existing imported files', async t => {
+  const hook = await mountDraft(t, { upload: { maxFileSizeBytesByExtension: { '.csv': 4 } } });
+  const add = hook.current.add;
+  await change(() => add([file('original.csv', 4)], 'root'));
+  const before = hook.current.entries;
+  await hook.update({ upload: { maxFileSizeBytesByExtension: { '.csv': 2 } } });
+  await change(() => rejected(() => add([file('later.csv', 3)], 'root')));
+  assert.equal(hook.current.entries, before);
+  assert.equal(hook.events.filter(e => e.type === 'upload').at(-1).rejections[0].reasons[0].maxFileSizeBytes, 2);
+  await hook.update({ upload: { maxFileSizeBytesByExtension: { '.csv': 8 } } });
+  await change(() => add([file('later.csv', 8)], 'root'));
+  assert.equal(hook.current.entries.at(-1).size, 8);
+});
+
+test('folder pickers and external drops share extension limits across popup and main panes', async t => {
+  const hook = await mountSharedViews(t, { upload: { maxFileSizeBytes: 8,
+    maxFileSizeBytesByExtension: { '.csv': 2, '.xlsx': 16 }, invalidFileBehavior: 'skip' } });
+  await change(() => hook.current.child.addLocalFiles([file('book.xlsx', 16, 'Batch/book.xlsx'), file('bad.csv', 3, 'Batch/bad.csv')], 'folder', 'root'));
+  assert.equal(hook.current.child.entries, hook.current.main.entries);
+  assert.equal(hook.current.main.entries.at(-1).name, 'book.xlsx');
+  assert.match(hook.current.child.notification.details[0].description, /上限2バイト/);
+  await change(() => hook.current.main.drop(dropEvent([file('next.csv', 2), file('big.xlsx', 17)]), 'folder'));
+  assert.equal(hook.current.main.entries.at(-1).name, 'next.csv');
+  assert.match(hook.current.main.notification.details[0].description, /上限16バイト/);
+  assert.equal(hook.current.main.notification.hint, undefined);
+});
+
 test('mixed folder imports reject atomically and report normalized paths plus all reasons without reading bytes', t => {
   const source = snapshot();
   const good = file('good.txt', 4, ' Batch /nested/good.txt');

@@ -2,7 +2,7 @@ import Explorer, { ExplorerPopup, useExplorerDraft, createExplorerUploadSession,
   type ExplorerProps, type ExplorerEntry, type ExplorerEvent,
   type ExplorerFileReader, type ExplorerSaveHandler, type ExplorerRefreshHandler,
   type ExplorerSearchOptions, type ExplorerSearchHandler, type ExplorerSearchRequest,
-  type ExplorerSearchContext,
+  type ExplorerSearchContext, type ExplorerUploadOptions,
   type FileReader as LegacyFileReader, type SaveHandler as LegacySaveHandler,
   type RefreshHandler as LegacyRefreshHandler } from "__EXPLORER_IMPORT__";
 
@@ -11,6 +11,13 @@ const onRefresh: ExplorerRefreshHandler = async () => entries;
 const onSave: ExplorerSaveHandler = payload => payload.entries;
 const readFile: ExplorerFileReader = async () => new Blob(['example']);
 const search = { trigger: "input", debounceMs: 300 } satisfies ExplorerSearchOptions;
+const upload = { maxFileSizeBytes: 10 * 1024 * 1024,
+  maxFileSizeBytesByExtension: { ".csv": 2 * 1024 * 1024, ".xlsx": 30 * 1024 * 1024 },
+} satisfies ExplorerUploadOptions;
+// @ts-expect-error Published extension size rules require dot-prefixed extensions.
+const wrongSizeExtension = { maxFileSizeBytesByExtension: { csv: 1024 } } satisfies ExplorerUploadOptions;
+// @ts-expect-error Published extension size values are numbers in bytes.
+const wrongExtensionSize = { maxFileSizeBytesByExtension: { ".csv": "1 MB" } } satisfies ExplorerUploadOptions;
 const onSearchRequest: ExplorerSearchHandler = async (request: ExplorerSearchRequest, context: ExplorerSearchContext) => {
   const query: string = request.query;
   const tabId: string = request.tabId;
@@ -26,7 +33,7 @@ const legacyReadFile: LegacyFileReader = readFile;
 const legacySave: LegacySaveHandler = onSave;
 const legacyRefresh: LegacyRefreshHandler = onRefresh;
 const legacyProps = { initialEntries: entries, readFile: legacyReadFile, onSave: legacySave, onRefresh: legacyRefresh } satisfies ExplorerProps;
-const valid: ExplorerProps = { initialEntries: entries, onSave, onRefresh, readFile, search, onSearchRequest,
+const valid: ExplorerProps = { initialEntries: entries, onSave, onRefresh, readFile, search, onSearchRequest, upload,
   onEvent(event: ExplorerEvent) {
     if (event.type === "refresh" && event.status === "success") {
       const path: string = event.entries[0]?.path ?? "/";
@@ -62,4 +69,4 @@ function useConsumerDraft() {
   const busy: boolean = draft.refreshing;
   return { result, busy, session: createExplorerUploadSession() };
 }
-void [readOnly, popup, submitSearch, wrongSearchTrigger, wrongSearchResult, rejected, wrongFeature, legacyProps, rejectSearchMutation, useConsumerDraft];
+void [readOnly, popup, submitSearch, wrongSearchTrigger, wrongSearchResult, wrongSizeExtension, wrongExtensionSize, rejected, wrongFeature, legacyProps, rejectSearchMutation, useConsumerDraft];
