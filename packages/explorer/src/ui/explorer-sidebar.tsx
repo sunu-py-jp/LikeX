@@ -13,13 +13,13 @@ import {
   Star,
   X,
 } from "lucide-react";
-import { useExplorerFields } from "../state/explorer-context";
+import { useExplorerFields, useOptionalExplorerSelector } from "../state/explorer-context";
 import { FAVORITES, RECENT } from "../state/view-state";
 import { formatSize } from "../model/entries";
 import { getEntryIndex } from "../model/entry-index";
 import { folderNameOrder } from "../model/text";
 import { iconButtonClass } from "./explorer-controls";
-import { DefaultFileIcon, ExplorerProcessingIcon, FileIcon } from "./explorer-file-icon";
+import { DefaultFileIcon, ExplorerPendingUploadIcon, ExplorerProcessingIcon, FileIcon } from "./explorer-file-icon";
 import {
   ExplorerSidebarResizer,
   useExplorerSidebarResize,
@@ -48,6 +48,7 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
     workspaceRef,
     features,
   } = useExplorerFields("entries", "navigationEntries", "processingEntryIds", "openPendingImportFolder", "expanded", "setExpanded", "location", "rootLabel", "dragOver", "allowDrop", "setDragOver", "drop", "navigate", "fileCount", "totalSize", "mobileOpen", "setOpenMobile", "instanceId", "workspaceRef", "features");
+  const rootPendingUpload = useOptionalExplorerSelector(context => context?.pendingUploadEntryIds?.has("root") ?? false);
 
   const asideRef = useRef<HTMLElement>(null);
   const sidebarResize = useExplorerSidebarResize(
@@ -226,10 +227,12 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
                         : undefined
                     }
                   >
-                    <ExplorerProcessingIcon processing={id === "root" && (processingEntryIds?.has("root") ?? false)} className="lxe:size-[17px]">
-                      <Icon size={17}
-                        className={`lxe:shrink-0 ${id === FAVORITES ? "lxe:text-[var(--explorer-folder)]" : "lxe:text-[var(--explorer-accent)]"}`} />
-                    </ExplorerProcessingIcon>
+                    <ExplorerPendingUploadIcon pendingUpload={id === "root" && rootPendingUpload} className="lxe:size-[17px]">
+                      <ExplorerProcessingIcon processing={id === "root" && (processingEntryIds?.has("root") ?? false)} className="lxe:size-[17px]">
+                        <Icon size={17}
+                          className={`lxe:shrink-0 ${id === FAVORITES ? "lxe:text-[var(--explorer-folder)]" : "lxe:text-[var(--explorer-accent)]"}`} />
+                      </ExplorerProcessingIcon>
+                    </ExplorerPendingUploadIcon>
                     <span className="lxe:truncate">{label}</span>
                   </button>
                 </li>
@@ -271,9 +274,11 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
                   className="lxe:flex lxe:h-full lxe:min-w-0 lxe:flex-1 lxe:items-center lxe:gap-2 lxe:rounded-sm lxe:text-left lxe:text-[13px] lxe:outline-offset-[-2px] lxe:focus-visible:outline-2 lxe:focus-visible:outline-[var(--explorer-accent)]"
                   onClick={() => goTo("root")}
                 >
-                  <ExplorerProcessingIcon processing={processingEntryIds?.has("root") ?? false} className="lxe:size-4">
-                    <HardDrive size={16} className="lxe:shrink-0 lxe:text-[var(--explorer-muted)]" />
-                  </ExplorerProcessingIcon>
+                  <ExplorerPendingUploadIcon pendingUpload={rootPendingUpload} className="lxe:size-4">
+                    <ExplorerProcessingIcon processing={processingEntryIds?.has("root") ?? false} className="lxe:size-4">
+                      <HardDrive size={16} className="lxe:shrink-0 lxe:text-[var(--explorer-muted)]" />
+                    </ExplorerProcessingIcon>
+                  </ExplorerPendingUploadIcon>
                   <span className="lxe:truncate">{rootLabel}</span>
                 </button>
               </div>

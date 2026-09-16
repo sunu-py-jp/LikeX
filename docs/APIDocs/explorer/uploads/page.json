@@ -15,7 +15,9 @@
     "maxFileSizeBytesByExtension",
     "maxFilesPerUpload",
     "maxTotalFiles",
-    "invalidFileBehavior"
+    "invalidFileBehavior",
+    "未保存",
+    "青い点"
   ],
   "section": "ファイル操作",
   "screenshots": [

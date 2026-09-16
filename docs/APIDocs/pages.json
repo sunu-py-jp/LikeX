@@ -185,7 +185,9 @@
       "maxFileSizeBytesByExtension",
       "maxFilesPerUpload",
       "maxTotalFiles",
-      "invalidFileBehavior"
+      "invalidFileBehavior",
+      "未保存",
+      "青い点"
     ],
     "headings": [
       {
@@ -453,6 +455,9 @@
       "theme",
       "renderIcon",
       "processingEntryIds",
+      "未保存",
+      "青い点",
+      "ローカルファイル",
       "処理中",
       "スピナー"
     ],
@@ -471,6 +476,11 @@
         "id": "既定アイコンにバッジを重ねる",
         "title": "既定アイコンにバッジを重ねる",
         "depth": 3
+      },
+      {
+        "id": "未保存のローカルファイルを示す青い点",
+        "title": "未保存のローカルファイルを示す青い点",
+        "depth": 2
       },
       {
         "id": "親の処理中状態をアイコンに表示する",

@@ -74,7 +74,11 @@ async function mount(t, node, context = baseContext) {
   await change(() => { renderer = create(element()); });
   return {
     get root() { return renderer.root; },
-    json: () => renderer.toJSON(), unmount,
+    // These snapshots describe the artwork; status overlays have separate coverage.
+    json: () => {
+      const json = renderer.toJSON();
+      return json?.props?.['data-explorer-upload-status'] ? json.children[0] : json;
+    }, unmount,
     async update({ node = currentNode, context = currentContext }) {
       currentNode = node; currentContext = context;
       await change(() => renderer.update(element()));
@@ -390,7 +394,7 @@ test('folder tree exposes a labeled root above folders and preserves expansion w
   await view.update({ context });
   assert.equal(rootButton().props['aria-current'], 'page');
   assert.equal(view.root.findAllByProps({ 'aria-label': 'ストレージ（ルート）' }).length, 0);
-  assert.equal(rootButton().findByType('span').children.join(''), '共有ファイル');
+  assert.ok(rootButton().findAllByType('span').some(node => node.children.join('') === '共有ファイル'));
 
   const collapse = view.root.findByProps({ 'aria-label': '共有ファイル（ルート）を折りたたむ' });
   assert.equal(collapse.props['aria-expanded'], true);

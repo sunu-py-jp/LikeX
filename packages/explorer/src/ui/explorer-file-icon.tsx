@@ -116,8 +116,36 @@ export function ExplorerProcessingIcon({ children, processing, large = false, cl
   </span>;
 }
 
+/** Keep the icon mounted when a save changes only its pending upload status. */
+export function ExplorerPendingUploadIcon({ children, pendingUpload, large = false, className }: {
+  children: ReactNode;
+  pendingUpload: boolean;
+  large?: boolean;
+  className?: string;
+}) {
+  return <span data-explorer-upload-status data-explorer-pending-upload-icon={pendingUpload || undefined}
+    role={pendingUpload ? "img" : undefined}
+    aria-label={pendingUpload ? "未保存のアップロード" : undefined}
+    title={pendingUpload ? "未保存のアップロード" : undefined}
+    className={mergeExplorerClasses(
+      "lxe:relative lxe:inline-flex lxe:shrink-0 lxe:items-center lxe:justify-center lxe:[&>span:first-child]:size-full",
+      large ? "lxe:size-20" : "lxe:h-[23px] lxe:w-5", className,
+    )}>
+    {children}
+    {pendingUpload && <span data-explorer-pending-upload-badge aria-hidden="true" className="lxe:pointer-events-none lxe:absolute lxe:top-0 lxe:right-0 lxe:rounded-full"
+      style={{
+        width: "clamp(5px, 28%, 9px)", aspectRatio: "1", backgroundColor: "#3b82f6",
+        boxShadow: "0 0 0 1.5px var(--explorer-background)",
+      }} />}
+  </span>;
+}
+
 function useProcessingIcon(entry: Entry) {
   return useOptionalExplorerSelector(context => context?.processingEntryIds?.has(entry.id) ?? false);
+}
+
+function usePendingUploadIcon(entry: Entry) {
+  return useOptionalExplorerSelector(context => context?.pendingUploadEntryIds?.has(entry.id) ?? false);
 }
 
 function useIconOverride(
@@ -183,11 +211,14 @@ export const FileIcon = memo(function FileIcon({
   );
   const custom = useIconOverride(entry, fallback, options);
   const processing = useProcessingIcon(entry);
-  return <ExplorerProcessingIcon processing={processing} large={large} className={className}>
-    {custom == null || custom === fallback ? fallback : (
-      <CustomIcon large={large} className={className}>{custom}</CustomIcon>
-    )}
-  </ExplorerProcessingIcon>;
+  const pendingUpload = usePendingUploadIcon(entry);
+  return <ExplorerPendingUploadIcon pendingUpload={pendingUpload} large={large} className={className}>
+    <ExplorerProcessingIcon processing={processing} large={large} className={className}>
+      {custom == null || custom === fallback ? fallback : (
+        <CustomIcon large={large} className={className}>{custom}</CustomIcon>
+      )}
+    </ExplorerProcessingIcon>
+  </ExplorerPendingUploadIcon>;
 });
 
 type FileThumbnailProps = IconOptions & {
@@ -268,9 +299,12 @@ export const FileThumbnail = memo(function FileThumbnail({
   );
   const custom = useIconOverride(entry, fallback, options);
   const processing = useProcessingIcon(entry);
-  return <ExplorerProcessingIcon processing={processing} large className={className}>
-    {custom == null || custom === fallback ? fallback : (
-      <CustomIcon large className={className}>{custom}</CustomIcon>
-    )}
-  </ExplorerProcessingIcon>;
+  const pendingUpload = usePendingUploadIcon(entry);
+  return <ExplorerPendingUploadIcon pendingUpload={pendingUpload} large className={className}>
+    <ExplorerProcessingIcon processing={processing} large className={className}>
+      {custom == null || custom === fallback ? fallback : (
+        <CustomIcon large className={className}>{custom}</CustomIcon>
+      )}
+    </ExplorerProcessingIcon>
+  </ExplorerPendingUploadIcon>;
 });

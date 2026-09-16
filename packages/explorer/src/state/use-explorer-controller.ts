@@ -109,6 +109,7 @@ export function useExplorerViewController({
   } | null>(null);
   const {
     entries,
+    pendingUploadEntryIds,
     dirty,
     saving,
     refreshing,
@@ -1431,6 +1432,7 @@ export function useExplorerViewController({
     navigationEntries,
     provisionalLocation,
     processingEntryIds,
+    pendingUploadEntryIds,
     pendingImportEntries: !special && !query
       ? importHierarchy.pendingEntriesByParent.get(currentParent) ?? EMPTY_IMPORT_ENTRIES : EMPTY_IMPORT_ENTRIES,
     openPendingImportFolder,

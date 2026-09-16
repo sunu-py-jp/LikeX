@@ -19,6 +19,7 @@ import {
 } from "../model/events";
 import { describeEntries } from "../model/item-info";
 import { formatExplorerPath } from "../model/path";
+import { getPendingUploadEntryIds } from "../model/pending-uploads";
 import type { ExplorerOptions } from "../model/config";
 import { cloneUploadRejections, ExplorerUploadValidationError, formatUploadRejections, resolveUploadOptions, type ExplorerUploadDecision, type ExplorerUploadSession, createExplorerUploadSession, type ExplorerUploadOptions, type ExplorerUploadResult } from "../model/upload";
 import { cloneEditRequest, createEditRequest, type ExplorerEditHandler, type ExplorerEditIntent, type ExplorerEditModeEvent, type ExplorerEditRequest, type ExplorerEditResult, type ExplorerEditState } from "../model/edit-session";
@@ -223,6 +224,9 @@ export function useExplorerDraft({
   }, [emit]);
 
   const dirty = hasChanges(state.baseline, state.draft);
+  const pendingUploadEntryIds = useMemo(() => getPendingUploadEntryIds(
+    state.baseline.entries, state.draft.entries,
+  ), [state.baseline.entries, state.draft.entries]);
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
@@ -647,6 +651,7 @@ export function useExplorerDraft({
   return {
     readOnly,
     entries: state.draft.entries,
+    pendingUploadEntryIds,
     dirty,
     saving: state.saving,
     saveError: state.saveError,
