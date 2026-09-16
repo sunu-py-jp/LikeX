@@ -183,6 +183,8 @@
       "allowedExtensions",
       "maxFileSizeBytes",
       "maxFileSizeBytesByExtension",
+      "maxFilesPerUpload",
+      "maxTotalFiles",
       "invalidFileBehavior"
     ],
     "headings": [
@@ -197,8 +199,8 @@
         "depth": 2
       },
       {
-        "id": "アップロードの拡張子とサイズを制限する",
-        "title": "アップロードの拡張子とサイズを制限する",
+        "id": "アップロードの拡張子サイズ件数を制限する",
+        "title": "アップロードの拡張子・サイズ・件数を制限する",
         "depth": 2
       },
       {

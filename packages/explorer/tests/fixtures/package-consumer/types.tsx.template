@@ -13,6 +13,7 @@ const readFile: ExplorerFileReader = async () => new Blob(['example']);
 const search = { trigger: "input", debounceMs: 300 } satisfies ExplorerSearchOptions;
 const upload = { maxFileSizeBytes: 10 * 1024 * 1024,
   maxFileSizeBytesByExtension: { ".csv": 2 * 1024 * 1024, ".xlsx": 30 * 1024 * 1024 },
+  maxFilesPerUpload: 10, maxTotalFiles: 1000,
 } satisfies ExplorerUploadOptions;
 // @ts-expect-error Published extension size rules require dot-prefixed extensions.
 const wrongSizeExtension = { maxFileSizeBytesByExtension: { csv: 1024 } } satisfies ExplorerUploadOptions;

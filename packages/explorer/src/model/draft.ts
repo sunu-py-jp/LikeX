@@ -1,10 +1,11 @@
 import { entryExtension, nameKey, selectionRoots, validateDestination, normalizeEntryName } from "./entries";
 import { getEntryIndex, subtreeEntries } from "./entry-index";
 import { fileExtension } from "./text";
+import { countFiles, totalFileCountRejection, uploadFileCountRejections } from "./file-count-limits";
 import {
-  createExplorerUploadSession, ExplorerUploadConflictError, isExplorerUploadSession,
+  createExplorerUploadSession, createUploadRejection, ExplorerUploadConflictError, ExplorerUploadValidationError, isExplorerUploadSession,
   resolveUploadOptions, validateUploadFiles,
-  type ExplorerUploadConflict, type ExplorerUploadDecision, type ExplorerUploadOptions, type ExplorerUploadResult, type ExplorerUploadSession,
+  type ExplorerUploadConflict, type ExplorerUploadDecision, type ExplorerUploadOptions, type ExplorerUploadRejection, type ExplorerUploadResult, type ExplorerUploadSession,
 } from "./upload";
 
 /** File content is owned by the host or retained as an in-memory browser File. */
@@ -225,6 +226,10 @@ export function applyAction(
       // A single named creation must either succeed or explain the rejection;
       // the batch-only skip policy must never report an uncreated file as success.
       validateUploadFiles([{ file, name, relativePath: name }], { ...options, invalidFileBehavior: "reject-batch" });
+      const rejection = totalFileCountRejection(countFiles(source.entries), 1, options.maxTotalFiles);
+      if (rejection) throw new ExplorerUploadValidationError([
+        createUploadRejection({ file, name, relativePath: name }, [rejection]),
+      ]);
       insert({
         id: crypto.randomUUID(), parent, name, kind: "file", size: 0, mime,
         createdAt: now, updatedAt: now, favorite: 0, source: { kind: "local", file },
@@ -243,7 +248,15 @@ export function applyAction(
     case "move":
     case "copy": {
       validateDestination(source.entries, roots, parent);
-      for (const root of roots) {
+      const copiedTrees = action.action === "copy"
+        ? roots.map(root => subtreeEntries(source.entries, root.id)) : undefined;
+      if (copiedTrees) {
+        const options = resolveUploadOptions(upload);
+        const addedCount = copiedTrees.reduce((count, tree) => count + countFiles(tree), 0);
+        const rejection = totalFileCountRejection(countFiles(source.entries), addedCount, options.maxTotalFiles);
+        if (rejection) throw new Error(rejection.message);
+      }
+      for (const [rootIndex, root] of roots.entries()) {
         if (action.action === "move") {
           if (root.parent === parent) continue;
           if (namesAt(parent).has(nameKey(root.name)))
@@ -253,7 +266,7 @@ export function applyAction(
           namesAt(parent).set(nameKey(root.name), moved);
           replace(moved);
         } else {
-          const tree = subtreeEntries(source.entries, root.id);
+          const tree = copiedTrees![rootIndex];
           const copiedIds = new Map(tree.map(entry => [entry.id, crypto.randomUUID()]));
           const name = availableName(namesAt(parent), root.name);
           for (const entry of tree) insert({
@@ -389,11 +402,20 @@ export function* prepareFilesWithProgress(
     decisionsByIndex.set(decision.fileIndex, decision);
   }
   const { accepted, rejections } = validateUploadFiles(prepared, options);
+  // Keep initial file validation and later quota rejections in original input order.
+  const rejectionsByIndex = new Map<number, ExplorerUploadRejection>();
+  if (rejections.length) {
+    const acceptedInputs = new Set(accepted);
+    let rejectionIndex = 0;
+    for (const input of prepared) if (!acceptedInputs.has(input))
+      rejectionsByIndex.set(input.fileIndex, rejections[rejectionIndex++]);
+  }
+  const orderedRejections = () => [...rejectionsByIndex].sort(([left], [right]) => left - right).map(([, rejection]) => rejection);
   let addedCount = 0;
   let overwrittenCount = 0;
   let skippedCount = 0;
   const result = (): ExplorerUploadResult => ({
-    attemptedCount: files.length, addedCount, overwrittenCount, skippedCount, rejections,
+    attemptedCount: files.length, addedCount, overwrittenCount, skippedCount, rejections: orderedRejections(),
   });
   if (!accepted.length) return { snapshot, result: result() };
   const entries = [...source.entries];
@@ -422,14 +444,17 @@ export function* prepareFilesWithProgress(
     return siblings;
   };
   const now = state.now;
+  const initialFileCount = countFiles(source.entries);
   let changed = false;
   let conflictCount = 0;
   let firstConflictIndex = 0;
   const unresolved: ExplorerUploadConflict[] = [];
   let preparedCount = 0;
-  for (const { file, fileIndex, parts, relativePath } of accepted) {
+  for (const input of accepted) {
+    const { file, fileIndex, parts, relativePath } = input;
     yield { phase: "preparing", completed: preparedCount++, total: accepted.length };
     let destination = parent;
+    let missingFolderDepth = parts.length - 1;
     for (let depth = 0; depth < parts.length - 1; depth++) {
       const part = parts[depth];
       const existing = namesAt(destination).get(nameKey(part));
@@ -438,15 +463,12 @@ export function* prepareFilesWithProgress(
           throw new Error(`「${part}」と同じ名前のファイルがすでにあります`);
         destination = existing.id;
       } else {
-        const folder = newFolder(destination, part, now, allocateId(`folder:${JSON.stringify(parts.slice(0, depth + 1).map(nameKey))}`));
-        insert(folder);
-        namesAt(destination).set(nameKey(folder.name), folder);
-        destination = folder.id;
-        changed = true;
+        missingFolderDepth = depth;
+        break;
       }
     }
     const name = parts[parts.length - 1];
-    const existing = namesAt(destination).get(nameKey(name));
+    const existing = missingFolderDepth === parts.length - 1 ? namesAt(destination).get(nameKey(name)) : undefined;
     if (existing) {
       if (existing.kind !== "file") throw new Error(`「${relativePath}」と同じ名前のフォルダがすでにあります`);
       conflictCount++;
@@ -462,6 +484,11 @@ export function* prepareFilesWithProgress(
         skippedCount++;
         continue;
       }
+      const reasons = uploadFileCountRejections(options, addedCount + overwrittenCount, initialFileCount + addedCount, false);
+      if (reasons.length) {
+        rejectionsByIndex.set(fileIndex, createUploadRejection(input, reasons));
+        continue;
+      }
       const overwritten: ExplorerEntry = {
         ...existing, size: file.size, mime: file.type || "application/octet-stream", source: { kind: "local", file },
       };
@@ -472,6 +499,19 @@ export function* prepareFilesWithProgress(
       }
       overwrittenCount++;
       continue;
+    }
+    const reasons = uploadFileCountRejections(options, addedCount + overwrittenCount, initialFileCount + addedCount, true);
+    if (reasons.length) {
+      rejectionsByIndex.set(fileIndex, createUploadRejection(input, reasons));
+      continue;
+    }
+    // Only accepted files materialize their missing ancestry. Quota-rejected
+    // inputs cannot leave empty folders in an otherwise successful skip batch.
+    for (let depth = missingFolderDepth; depth < parts.length - 1; depth++) {
+      const folder = newFolder(destination, parts[depth], now, allocateId(`folder:${JSON.stringify(parts.slice(0, depth + 1).map(nameKey))}`));
+      insert(folder);
+      namesAt(destination).set(nameKey(folder.name), folder);
+      destination = folder.id;
     }
     const added: ExplorerEntry = {
       id: allocateId(`file:${fileIndex}`),
@@ -492,6 +532,11 @@ export function* prepareFilesWithProgress(
     changed = true;
   }
   yield { phase: "preparing", completed: preparedCount, total: accepted.length };
+  // Unanswered conflicts may still be skipped, so they do not consume capacity.
+  // A failure among the known imports cannot be rescued by those answers and
+  // must reject the batch before presenting any unnecessary conflict dialogs.
+  if (rejectionsByIndex.size && options.invalidFileBehavior !== "skip")
+    throw new ExplorerUploadValidationError(orderedRejections());
   if (unresolved.length)
     throw new ExplorerUploadConflictError(unresolved[0], session, firstConflictIndex, conflictCount, unresolved);
   return { snapshot: changed ? finishEdit(source, entries) : snapshot, result: result() };

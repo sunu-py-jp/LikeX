@@ -54,7 +54,7 @@
 
 本体は0バイトのブラウザー `File` で、`source: { kind: "local", file }` として保持します。作成時の `entry.name` と `File.name` は一致し、`.txt` は大小文字を問わずMIMEが `text/plain`、それ以外は `application/octet-stream` です。拡張子を `.xlsx`・`.docx`・`.pptx`・`.pdf` 等にしても、Office文書やPDFの中身を生成する機能ではありません。
 
-空ファイル作成にも `upload.allowedExtensions` と、共通・拡張子別のサイズ上限を適用します。本体は0バイトなので、サイズ上限が0でも作成できます。単一ファイルの作成なので、`invalidFileBehavior: "skip"` であっても違反時は入力エラーにし、黙って作成を省略する扱いにはしません。失敗時は下書きを変えず、`change` / `upload` イベントも発行しません。入力が不正な段階では編集許可を要求せず、名前を修正して再試行できます。ほかの変更で既に取得した編集セッションがあれば保持します。
+空ファイル作成にも `upload.allowedExtensions` と、共通・拡張子別のサイズ上限、総ファイル数の `maxTotalFiles` を適用します。本体は0バイトなのでサイズ上限が0でも作成できますが、総数には1件として数えます。1回のアップロード件数を制限する `maxFilesPerUpload` は手動作成には適用しません。単一ファイルの作成なので、`invalidFileBehavior: "skip"` であっても違反時は入力エラーにし、黙って作成を省略する扱いにはしません。失敗時は下書きを変えず、`change` / `upload` イベントも発行しません。入力が不正な段階では編集許可を要求せず、名前を修正して再試行できます。ほかの変更で既に取得した編集セッションがあれば保持します。
 
 作成は保存までクライアント内の下書きです。ダイアログを開く時点では許可を要求せず、有効な名前で作成を確定した時点に `onEditRequest` の `request.action: "createFile"` で要求します。成功時の変更通知は `change.action: "createFile"` です。`onSave` を自動では呼ばず、保存時に `entries` と `changes.created` にローカルFileを含む項目を渡します。フォルダ作成の操作名は従来どおり `"create"` です。
 
@@ -68,9 +68,9 @@ OSからの追加とExplorer内のコピー・切り取りは、[コピー・切
 
 <a id="upload-restrictions"></a>
 
-## アップロードの拡張子とサイズを制限する
+## アップロードの拡張子・サイズ・件数を制限する
 
-`Explorer`、`ExplorerPopup`、`useExplorerDraft` に共通の `upload?: ExplorerUploadOptions` を渡します。制限はクライアントの下書きへ追加する前に適用し、ストレージとの通信は行いません。次の例はCSV・PDF・Word・Excelを許可し、CSVは2 MiB、Excelは30 MiB、ほかは10 MiBを1ファイルの上限にします。
+`Explorer`、`ExplorerPopup`、`useExplorerDraft` に共通の `upload?: ExplorerUploadOptions` を渡します。制限はクライアントの下書きへ追加する前に適用し、ストレージとの通信は行いません。次の例はCSV・PDF・Word・Excelを許可し、CSVは2 MiB、Excelは30 MiB、ほかは10 MiBを1ファイルの上限にします。1回の取り込みは新規・上書き合わせて20件、下書き全体は200ファイルまでに制限します。
 
 ```tsx
 import Explorer, { type ExplorerUploadOptions } from "@/components/explorer";
@@ -82,6 +82,8 @@ const upload = {
     ".csv": 2 * 1024 * 1024,
     ".xlsx": 30 * 1024 * 1024,
   },
+  maxFilesPerUpload: 20,
+  maxTotalFiles: 200,
 } satisfies ExplorerUploadOptions;
 
 // entriesとsaveは親が用意した一覧と保存関数です。
@@ -97,21 +99,25 @@ type ExplorerUploadOptions = Readonly<{
   allowedExtensions?: readonly `.${string}`[];
   maxFileSizeBytes?: number;
   maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
+  maxFilesPerUpload?: number;
+  maxTotalFiles?: number;
   invalidFileBehavior?: ExplorerUploadInvalidFileBehavior;
 }>;
 ```
 
 | 設定 | 動作 |
 | --- | --- |
-| `upload` または拡張子・サイズの項目を省略 | 省略した制限は適用しません。拡張子だけ、サイズだけの指定もできます。 |
+| `upload` または制限の項目を省略 | 省略した制限は適用しません。拡張子・サイズ・件数はそれぞれ独立して指定できます。 |
 | `allowedExtensions` | `.pdf` のように先頭にピリオドを付けます。前後の空白を除去し、UnicodeをNFCに正規化し、大小文字を区別せず判定します。重複指定はまとめます。 |
 | `allowedExtensions: []` | すべてのファイルが拡張子の条件に違反します。アップロードは既定で全体を拒否、`"skip"` では全件を除外します。空ファイル作成は入力エラーです。機能自体を隠す場合は `features.createFile` / `uploadFiles` / `uploadFolders` を無効にします。 |
 | 複合拡張子 | `.tar.gz` のような指定も可能です。正規化した取り込み元の名前がその末尾と一致するか判定します。 |
 | 拡張子なし | 許可リストを指定した場合、`README` や `.env` は拒否します。サイズだけの制限なら追加できます。 |
 | `maxFileSizeBytes` | バイト単位の、0以上の安全な整数を指定します。上限と同じサイズは許可し、0なら空ファイルだけを許可します。負数・小数・NaN・Infinityは設定エラーです。 |
 | `maxFileSizeBytesByExtension` | 拡張子ごとの上限を指定します。一致する指定があれば共通の `maxFileSizeBytes` を上書きし、小さくも大きくもできます。未一致なら共通上限を使い、共通上限もなければサイズは無制限です。値の単位・有効範囲は共通上限と同じです。 |
-| `invalidFileBehavior: "reject-batch"` | 既定値。1件でも拡張子・サイズに違反すれば、その回の追加をすべて中止します。 |
-| `invalidFileBehavior: "skip"` | 拡張子・サイズに違反したファイルを除外し、残りを一括で追加します。指定できる型は `ExplorerUploadInvalidFileBehavior` です。 |
+| `maxFilesPerUpload` | 1回の選択・ドロップ・貼り付け・API追加で取り込む、新規と上書きの合計件数。フォルダや除外・競合スキップしたファイルは数えません。 |
+| `maxTotalFiles` | 下書き全階層の `kind: "file"` の上限。保存済み・未保存を合算します。上書き・移動は増えず、削除すると空きができます。空ファイル作成や内部コピー・複製にも適用します。 |
+| `invalidFileBehavior: "reject-batch"` | 既定値。1件でも拡張子・サイズ・件数に違反すれば、その回の取り込みをすべて中止します。 |
+| `invalidFileBehavior: "skip"` | 拡張子・サイズ・件数に違反したファイルを除外し、残りを一括で取り込みます。件数は入力順で判定します。指定できる型は `ExplorerUploadInvalidFileBehavior` です。 |
 
 MIME指定や `image/*` のようなワイルドカードはこの設定では受け付けません。拡張子はファイル名の条件であり、内容の形式を解析するものではありません。サイズは `File.size` で判定するため、検証のために本体を読み込む必要はありません。
 
@@ -119,7 +125,17 @@ MIME指定や `image/*` のようなワイルドカードはこの設定では�
 
 `allowedExtensions` は独立した条件です。例えば `.xlsx` のサイズ上限を設定しても、許可リストに `.xlsx` がなければ追加できません。キーの形式やマップ・サイズが不正な場合は設定エラーです。`.CSV` と `.csv` のように正規化後のキーが重なる場合、上限も同じならまとめ、異なる上限なら設定エラーにします。
 
-ファイル選択・フォルダ追加・外部ファイルのドロップ・OSからのファイルやフォルダの貼り付け・公開フックからの追加は、すべて同じ追加処理で検証します。フォルダ追加では `webkitRelativePath` の各部分を通常の名前規則で正規化し、その末尾のファイル名で判定します。共通・拡張子別のどちらのサイズ上限にも `invalidFileBehavior` を適用します。既定の `"reject-batch"` では、違反があればその回のファイルもフォルダも一切追加せず、既存の下書き・未保存状態を保持します。拒否は保存コールバックや成功の `change` イベントを発生させません。
+件数上限も0以上の安全な整数を指定します。省略時は無制限で、負数・小数・NaN・Infinityは設定エラーです。`maxFilesPerUpload: 0` では新規・上書きとも取り込めず、`maxTotalFiles: 0` ではファイル数を増やせません。どちらもフォルダ自体は数えません。
+
+`maxFilesPerUpload` で数えるのは実際に取り込む `addedCount + overwrittenCount` です。拡張子・サイズの違反や、同名確認でのスキップは枠を使いません。例えば上限2件で「新規A・上書きB・新規C」の順に取り込むと、既定では全体を中止します。`"skip"` ならAとBを反映し、Cを件数違反として除外します。Bの上書きをスキップした場合は、AとCを取り込めます。
+
+これはクライアントへの取り込み件数です。同じ内容のファイルでも承諾した上書きとして取り込めば1件と数え、親の保存処理がハッシュ比較でストレージへの送信を省略するかどうかには依存しません。同じ操作内に同じ保存先への新規追加と上書きがあれば、取り込みは2件、総ファイル数の増加は1件です。
+
+`maxTotalFiles` は現在表示中のフォルダや検索結果ではなく、下書き全体で判定します。すでに上限以上の一覧を `initialEntries` や `onRefresh` から受け取っても読込を拒否せず、既存項目を削除しません。件数が増えない上書き・移動や、件数を減らす削除は行えます。判定できるのは親から渡された一覧だけで、サーバーにある未取得ファイルの数は分かりません。サーバー全体の上限も必要なら保存処理側で検証してください。
+
+内部コピー・複製・その貼り付けでは `maxTotalFiles` だけを件数制限として使い、1回の操作で増える全ファイルをまとめて確認します。フォルダ配下を含めて上限を超える場合は、`"skip"` でも操作全体を拒否し、一部だけを複製しません。手動の空ファイル作成も同じ総数制限を使います。
+
+ファイル選択・フォルダ追加・外部ファイルのドロップ・OSからのファイルやフォルダの貼り付け・公開フックからの追加は、すべて同じ追加処理で検証します。フォルダ追加では `webkitRelativePath` の各部分を通常の名前規則で正規化し、その末尾のファイル名で判定します。サイズと件数のどちらの上限にも `invalidFileBehavior` を適用します。既定の `"reject-batch"` では、違反があればその回のファイルもフォルダも一切追加せず、既存の下書き・未保存状態を保持します。拒否は保存コールバックや成功の `change` イベントを発生させません。
 
 「新しいファイル」の空ファイルも同じ拡張子・サイズ制限で検証します。ただし単一作成のため、違反時は `"skip"` でも入力エラーとし、以下の一括アップロード用 `upload` 通知は発行しません。
 
@@ -139,7 +155,7 @@ MIME指定や `image/*` のようなワイルドカードはこの設定では�
 
 `"skip"` で作るフォルダは、追加対象のファイルに必要な階層だけです。空フォルダや、配下の全ファイルが除外されたフォルダは作りません。全件除外の場合は一覧・未保存状態を変えず、`change` イベントも発行しません。全件拒否・全件除外では `onEditRequest` も呼ばず、有効な追加対象がある場合だけ適用直前に要求します。
 
-除外できるのは拡張子・サイズの違反だけです。不正なパス、壊れた `File`、フォルダ列挙やファイルの読取エラーは、`"skip"` でもその回の追加をすべて中止します。また、追加対象のファイルに必要な階層で、フォルダと同じ名前のファイルが存在する場合も全体を中止します。除外したファイルだけが使う階層は作成も衝突確認もしません。同名ファイルについては、下記の上書き確認で扱います。
+除外できるのは拡張子・サイズ・件数の違反です。不正なパス、壊れた `File`、フォルダ列挙やファイルの読取エラーは、`"skip"` でもその回の追加をすべて中止します。また、追加対象のファイルに必要な階層で、フォルダと同じ名前のファイルが存在する場合も全体を中止します。拡張子・サイズの検証で除外したファイルだけが使う階層は、作成も衝突確認もしません。同名ファイルについては、下記の上書き確認で扱います。
 
 通常のファイル選択には `accept` も反映します。フォルダ選択ではブラウザーに対象を部分的に除外させないよう `accept` を指定せず、受け取った全ファイルを検証します。`accept` は選択の補助であり、検証そのものではありません。[MDNの説明](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/accept)も参照してください。
 
@@ -177,9 +193,9 @@ const onEvent: ExplorerEventHandler = event => {
 | `parentId` / `parentPath` | 追加先フォルダのIDと、その操作時点の下書き上の絶対パス。 |
 | `attemptedCount` | その回に追加しようとした全ファイル数。 |
 | `addedCount` | `status: "skipped"` の場合に存在する、新しく追加したファイル数。上書きや作成フォルダは含めません。 |
-| `overwrittenCount` | `status: "skipped"` の場合に存在する、同名確認で上書きを選んだファイル数。 |
+| `overwrittenCount` | `status: "skipped"` の場合に存在する、同名確認で上書きを承諾して実際に取り込んだファイル数。件数制限などで除外したものは含めません。 |
 | `skippedCount` | `status: "skipped"` の場合に存在する、同名確認でスキップを選んだファイル数。条件違反の除外は含めません。 |
-| `rejections` | 拡張子・サイズの条件に違反したファイルだけの一覧。`"rejected"` では正常なファイルも含め全体を中止します。競合のスキップだけなら空配列です。 |
+| `rejections` | 拡張子・サイズ・件数の条件に違反したファイルだけの一覧。`"rejected"` では正常なファイルも含め全体を中止します。競合のスキップだけなら空配列です。 |
 | `message` | 該当ファイルと理由をまとめた説明。 |
 
 一部をスキップ・除外して変更を適用した場合は、通常の `change`（`action: "upload"`）を1回通知し、その後に `upload` の `skipped` を通知します。全件スキップ・除外なら `skipped` だけです。スキップも条件違反もなければ、追加・上書きによる `change` だけを通知します。
@@ -188,10 +204,12 @@ const onEvent: ExplorerEventHandler = event => {
 
 - `code: "extension-not-allowed"` の理由は `allowedExtensions` と `message` を持ちます。
 - `code: "file-too-large"` の理由は、そのファイルに適用した実効上限の `maxFileSizeBytes` と `message` を持ちます。拡張子別の上限を使った場合、通知とイベントにもその値を渡します。
+- `code: "upload-file-count-exceeded"` の理由は、1回の取り込み上限の `maxFilesPerUpload` と `message` を持ちます。
+- `code: "total-file-count-exceeded"` の理由は、下書き全体の上限の `maxTotalFiles` と `message` を持ちます。
 
 `rejections` のファイルは下書きへ追加していないため、ファイルの項目IDや保存済みの `source.id` はありません。`File` 以外の通知オブジェクトは内部の結果と別のコピーです。子・孫ウィンドウからの拒否・除外も共有ワークスペースから1回だけ通知します。
 
-`upload` はマウント後の変更に対応し、追加時点の最新設定を全ウィンドウで使います。貼り付けのフォルダ読込中に設定を変えた場合も、読込完了後の追加時に判定します。取り込み済みの項目を遡って拒否したり、削除したりはしません。コピーや親のプログラムによる名前変更、保存時の検証にもこの設定を自動適用しません。保存先での制限が必要な場合は、親から呼ぶサーバー側の保存処理で実際の内容・サイズ・保存名を検証します。
+`upload` はマウント後の変更に対応し、追加時点の最新設定を全ウィンドウで使います。貼り付けのフォルダ読込中に設定を変えた場合も、読込完了後の追加時に判定します。取り込み済みの項目を遡って拒否したり、削除したりはしません。内部コピーにも `maxTotalFiles` は適用しますが、拡張子・サイズ・1回のアップロード件数の制限は適用しません。親のプログラムによる名前変更や保存時の検証へ、これらの設定を自動適用することもありません。保存先での制限が必要な場合は、親から呼ぶサーバー側の保存処理で実際の内容・サイズ・保存名・件数を検証します。
 
 `useExplorerDraft` を直接使う場合、正常に完了した `add()` は次の `ExplorerUploadResult` を返します。全件スキップ・除外でも結果が返り、新規追加・上書きは0件です。アンマウント後の呼び出しは何もせず `undefined` を返します。`ExplorerUploadInvalidFileBehavior` と `ExplorerUploadResult` は公開入口からimportできます。
 
@@ -205,7 +223,7 @@ type ExplorerUploadResult = Readonly<{
 }>;
 ```
 
-`"reject-batch"` で条件に違反した場合は、従来どおり `add()` が `ExplorerUploadValidationError` をthrowします。`onEvent` への通知後もthrowするため、親の操作ハンドラーでcatchしてください。画面への拒否・除外理由の表示は `Explorer` / `ExplorerPopup` に内蔵しています。ファイル数や全ファイルの合計サイズを制限する設定は、現在は設けていません。
+`"reject-batch"` で条件に違反した場合は、従来どおり `add()` が `ExplorerUploadValidationError` をthrowします。`onEvent` への通知後もthrowするため、親の操作ハンドラーでcatchしてください。画面への拒否・除外理由の表示は `Explorer` / `ExplorerPopup` に内蔵しています。全ファイルの合計バイト数を制限する設定は、現在は設けていません。
 
 <a id="upload-conflicts"></a>
 

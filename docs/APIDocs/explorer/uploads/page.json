@@ -1,6 +1,6 @@
 {
   "title": "作成・アップロード",
-  "summary": "ファイル・フォルダの作成とアップロードに対応します。許可拡張子・共通と拡張子別のサイズ上限・同名上書きを設定できます。",
+  "summary": "ファイル・フォルダの作成とアップロードに対応します。拡張子・サイズ・1回の取り込み件数・総ファイル数を制限できます。",
   "source": "packages/explorer/src/docs/uploads.md",
   "order": 40,
   "keywords": [
@@ -13,6 +13,8 @@
     "allowedExtensions",
     "maxFileSizeBytes",
     "maxFileSizeBytesByExtension",
+    "maxFilesPerUpload",
+    "maxTotalFiles",
     "invalidFileBehavior"
   ],
   "section": "ファイル操作",

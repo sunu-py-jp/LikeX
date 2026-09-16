@@ -18,6 +18,8 @@ Explorer内の項目のコピー・移動と、PCでコピーしたファイル�
 
 コピー先に同名項目がある場合は `資料 (2).pdf` のように空いている名前を付けます。移動先の同名項目には上書きせず、エラーを表示します。[アップロード時の上書き確認](./uploads.md#upload-conflicts)とは異なる扱いです。
 
+`upload.maxTotalFiles` を指定すると、内部コピー・複製・その貼り付けにも下書き全体のファイル数上限を適用します。フォルダ配下を含む全コピーで上限を超える場合は、`invalidFileBehavior: "skip"` でもその操作全体を拒否します。内部コピーには `maxFilesPerUpload` を適用しません。切り取りによる移動はファイル数を増やさず、総数の枠を消費しません。
+
 ### コピーだけを無効にする
 
 コピーと切り取りによる移動は独立しています。次の設定はコピーを隠し、切り取り・移動・その貼り付けを残します。`entries` と `save` は親が用意した一覧と保存関数です。
@@ -66,7 +68,7 @@ Explorer内部のコピーを制御する `features.copy` とは独立して、�
 
 フォルダの列挙では、各 `readEntries()` が空の配列を返すまで読み進めるため、1回の応答に含まれない残りの項目も取り込みます。利用するAPIは [MDNのwebkitGetAsEntry()](https://developer.mozilla.org/en-US/docs/Web/API/DataTransferItem/webkitGetAsEntry) と [readEntries()](https://developer.mozilla.org/en-US/docs/Web/API/FileSystemDirectoryReader/readEntries) を参照してください。
 
-`upload.allowedExtensions`、共通上限の `maxFileSizeBytes`、拡張子別上限の `maxFileSizeBytesByExtension` も通常のアップロードと同じ条件で検証します。個別上限が一致すれば共通上限を上書きします。[サイズ制限の設定例](./uploads.md#upload-restrictions)を参照してください。既定では1件でも条件に違反するとその回の追加をすべて中止し、`upload` の `rejected` イベントで通知します。`invalidFileBehavior: "skip"` なら違反ファイルだけを除外し、残りを追加して `skipped` イベントで通知します。読取エラーの場合は設定によらず全体を中止します。追加があれば `change` イベントの `action: "upload"` も通知します。追加した `File` は共有する下書きに保持され、子・孫ウィンドウでも同じ結果が見えます。貼り付けで `onSave` は呼ばず、保存ボタンを押したときに親へ渡します。
+`upload.allowedExtensions`、共通上限の `maxFileSizeBytes`、拡張子別上限の `maxFileSizeBytesByExtension`、件数上限の `maxFilesPerUpload` / `maxTotalFiles` も通常のアップロードと同じ条件で検証します。1回の貼り付けを1バッチとして、新規と上書きの両方を `maxFilesPerUpload` で数えます。個別のサイズ上限が一致すれば共通上限を上書きします。[制限の設定例と件数の数え方](./uploads.md#upload-restrictions)を参照してください。既定では1件でも条件に違反するとその回の追加をすべて中止し、`upload` の `rejected` イベントで通知します。`invalidFileBehavior: "skip"` なら違反ファイルだけを除外し、件数も入力順で判定して残りを追加し、`skipped` イベントで通知します。読取エラーの場合は設定によらず全体を中止します。追加があれば `change` イベントの `action: "upload"` も通知します。追加した `File` は共有する下書きに保持され、子・孫ウィンドウでも同じ結果が見えます。貼り付けで `onSave` は呼ばず、保存ボタンを押したときに親へ渡します。
 
 読み取り中は画面に案内を表示します。追加先は貼り付けた時点のフォルダで固定し、読み取り中に別のフォルダへ移動しても変更しません。同じウィンドウで次の外部ファイル・フォルダ貼り付けを開始した場合、貼り付け元のビューがアンマウントされた場合、または必要な追加機能を無効にした場合は、そのビューの進行中の取り込みを中止します。別ウィンドウでの同時読み取りは独立しています。
 

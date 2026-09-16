@@ -238,6 +238,19 @@ test('retained draft callbacks use updated extension limits without altering exi
   assert.equal(hook.current.entries.at(-1).size, 8);
 });
 
+test('two prepared imports cannot commit into the same last ownership slot', async t => {
+  const hook = await mountDraft(t, { upload: { maxTotalFiles: 1 } });
+  const first = hook.current.prepareAdd([file('first.txt')], 'root');
+  const second = hook.current.prepareAdd([file('second.txt')], 'folder');
+  await change(() => first.commit());
+  await change(() => rejected(() => second.commit()));
+  assert.deepEqual(hook.current.entries.filter(item => item.kind === 'file').map(item => item.name), ['first.txt']);
+  assert.equal(hook.events.filter(event => event.type === 'change').length, 1);
+  await change(() => hook.current.apply({ action: 'delete', ids: [hook.current.entries.at(-1).id] }));
+  await change(() => hook.current.add([file('after-delete.txt')], 'folder'));
+  assert.equal(hook.current.entries.at(-1).name, 'after-delete.txt');
+});
+
 test('folder pickers and external drops share extension limits across popup and main panes', async t => {
   const hook = await mountSharedViews(t, { upload: { maxFileSizeBytes: 8,
     maxFileSizeBytesByExtension: { '.csv': 2, '.xlsx': 16 }, invalidFileBehavior: 'skip' } });

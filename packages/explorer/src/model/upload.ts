@@ -9,6 +9,10 @@ export type ExplorerUploadOptions = Readonly<{
   maxFileSizeBytes?: number;
   /** Matching suffixes override maxFileSizeBytes; the longest compound suffix wins. */
   maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
+  /** Files actually added or overwritten by one import, excluding rejected or skipped files. */
+  maxFilesPerUpload?: number;
+  /** Files across the entire draft, including unsaved additions. */
+  maxTotalFiles?: number;
   invalidFileBehavior?: ExplorerUploadInvalidFileBehavior;
 }>;
 
@@ -16,6 +20,8 @@ export type ResolvedExplorerUploadOptions = Readonly<{
   allowedExtensions: readonly `.${string}`[] | undefined;
   maxFileSizeBytes: number | undefined;
   maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
+  maxFilesPerUpload?: number;
+  maxTotalFiles?: number;
   invalidFileBehavior: ExplorerUploadInvalidFileBehavior;
   accept: string | undefined;
 }>;
@@ -29,6 +35,16 @@ export type ExplorerUploadRejectionReason =
   | Readonly<{
       code: "file-too-large";
       maxFileSizeBytes: number;
+      message: string;
+    }>
+  | Readonly<{
+      code: "upload-file-count-exceeded";
+      maxFilesPerUpload: number;
+      message: string;
+    }>
+  | Readonly<{
+      code: "total-file-count-exceeded";
+      maxTotalFiles: number;
       message: string;
     }>;
 
@@ -137,7 +153,7 @@ function normalizeUploadExtension(value: unknown, label: string): `.${string}` {
   return extension as `.${string}`;
 }
 
-function validateUploadSize(value: unknown, label: string): number {
+function validateUploadLimit(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0)
     throw new Error(`${label} は0以上の安全な整数で指定してください`);
   return value;
@@ -150,7 +166,7 @@ function normalizeExtensionSizeLimits(value: unknown): Readonly<Record<`.${strin
   const limits: Record<`.${string}`, number> = {};
   for (const key of Reflect.ownKeys(value)) {
     const extension = normalizeUploadExtension(key, "サイズ制限の拡張子");
-    const limit = validateUploadSize((value as Record<PropertyKey, unknown>)[key], `maxFileSizeBytesByExtension[${String(key)}]`);
+    const limit = validateUploadLimit((value as Record<PropertyKey, unknown>)[key], `maxFileSizeBytesByExtension[${String(key)}]`);
     if (Object.hasOwn(limits, extension) && limits[extension] !== limit)
       throw new Error(`拡張子「${extension}」に異なるサイズ制限が重複して指定されています`);
     limits[extension] = limit;
@@ -171,9 +187,13 @@ export function resolveUploadOptions(options?: ExplorerUploadOptions): ResolvedE
     allowedExtensions = Object.freeze([...extensions]);
   }
   const maxFileSizeBytes = options?.maxFileSizeBytes;
-  if (maxFileSizeBytes !== undefined) validateUploadSize(maxFileSizeBytes, "maxFileSizeBytes");
+  if (maxFileSizeBytes !== undefined) validateUploadLimit(maxFileSizeBytes, "maxFileSizeBytes");
   const extensionLimits = options?.maxFileSizeBytesByExtension;
   const maxFileSizeBytesByExtension = extensionLimits === undefined ? undefined : normalizeExtensionSizeLimits(extensionLimits);
+  const maxFilesPerUpload = options?.maxFilesPerUpload;
+  if (maxFilesPerUpload !== undefined) validateUploadLimit(maxFilesPerUpload, "maxFilesPerUpload");
+  const maxTotalFiles = options?.maxTotalFiles;
+  if (maxTotalFiles !== undefined) validateUploadLimit(maxTotalFiles, "maxTotalFiles");
   const invalidFileBehavior = options?.invalidFileBehavior;
   if (invalidFileBehavior !== undefined && invalidFileBehavior !== "reject-batch" && invalidFileBehavior !== "skip")
     throw new Error('invalidFileBehavior は "reject-batch" または "skip" で指定してください');
@@ -181,6 +201,8 @@ export function resolveUploadOptions(options?: ExplorerUploadOptions): ResolvedE
     allowedExtensions,
     maxFileSizeBytes,
     ...(maxFileSizeBytesByExtension ? { maxFileSizeBytesByExtension } : {}),
+    ...(maxFilesPerUpload === undefined ? {} : { maxFilesPerUpload }),
+    ...(maxTotalFiles === undefined ? {} : { maxTotalFiles }),
     invalidFileBehavior: invalidFileBehavior ?? "reject-batch",
     // An empty accept attribute cannot prohibit every file; validation does.
     accept: allowedExtensions?.length ? allowedExtensions.join(",") : undefined,
@@ -215,6 +237,14 @@ export class ExplorerUploadValidationError extends Error {
   }
 }
 
+/** Describe a rejected input consistently across file validation and import quotas. */
+export function createUploadRejection(
+  { file, name, relativePath }: Readonly<{ file: File; name: string; relativePath: string }>,
+  reasons: readonly ExplorerUploadRejectionReason[],
+): ExplorerUploadRejection {
+  return { file, name, relativePath, extension: fileExtension(name), size: file.size, reasons };
+}
+
 /** Classify each normalized input before allocating any folders or entry IDs. */
 export function validateUploadFiles<T extends Readonly<{ file: File; name: string; relativePath: string }>>(
   files: readonly T[],
@@ -225,7 +255,7 @@ export function validateUploadFiles<T extends Readonly<{ file: File; name: strin
   const extensionLimits = Object.entries(options.maxFileSizeBytesByExtension ?? {})
     .sort(([left], [right]) => right.length - left.length);
   for (const candidate of files) {
-    const { file, name, relativePath } = candidate;
+    const { file, name } = candidate;
     const extension = fileExtension(name);
     const comparisonName = name.normalize("NFC").toLowerCase();
     const reasons: ExplorerUploadRejectionReason[] = [];
@@ -248,7 +278,7 @@ export function validateUploadFiles<T extends Readonly<{ file: File; name: strin
         message: `${file.size}バイトは1ファイルの上限${maxFileSizeBytes}バイトを超えています`,
       });
     }
-    if (reasons.length) rejections.push({ file, name, relativePath, extension, size: file.size, reasons });
+    if (reasons.length) rejections.push(createUploadRejection(candidate, reasons));
     else accepted.push(candidate);
   }
   if (rejections.length && options.invalidFileBehavior !== "skip")

@@ -77,6 +77,66 @@ test('folder merge prompts individually, preserves extra files and commits one a
   assert.equal(app.events.filter(event => event.type === 'change').length, 1); assert.equal(app.saves.length, 0);
 });
 
+test('apply-all skip frees upload capacity for new files without counting unanswered overwrites', async t => {
+  const app = await mount(t, { upload: { maxFilesPerUpload: 1 } });
+  await change(() => app.child.addLocalFiles([file('A.txt'), file('C.txt'), file('D.txt')], 'file', 'folder'));
+  assert.equal(app.child.uploadPrompt.conflict.existing.id, 'a');
+  assert.equal(app.requests.length, 0);
+  await change(() => app.child.answerUploadConflict('skip', true));
+  assert.equal(app.child.uploadPrompt, null);
+  assert.equal(app.main.entries.find(item => item.id === 'a').source.kind, 'existing');
+  assert.equal(app.main.entries.find(item => item.id === 'c').source.kind, 'existing');
+  assert.ok(app.main.entries.some(item => item.name === 'D.txt'));
+  assert.equal(app.events.filter(event => event.type === 'change').length, 1);
+  assert.equal(app.events.filter(event => event.type === 'upload' && event.status === 'rejected').length, 0);
+});
+
+test('apply-all overwrite respects upload capacity and reports excluded files in the shared notification', async t => {
+  const app = await mount(t, { upload: { maxFilesPerUpload: 1, invalidFileBehavior: 'skip' } });
+  await change(() => app.child.addLocalFiles([file('A.txt'), file('C.txt'), file('D.txt')], 'file', 'folder'));
+  await change(() => app.child.answerUploadConflict('overwrite', true));
+  assert.equal(app.child.uploadPrompt, null);
+  assert.equal(app.main.entries.find(item => item.id === 'a').source.kind, 'local');
+  assert.equal(app.main.entries.find(item => item.id === 'c').source.kind, 'existing');
+  assert.equal(app.main.entries.some(item => item.name === 'D.txt'), false);
+  const skipped = app.events.find(event => event.type === 'upload' && event.status === 'skipped');
+  assert.equal(skipped.overwrittenCount, 1); assert.equal(skipped.addedCount, 0);
+  assert.deepEqual(skipped.rejections.map(rejection => rejection.name), ['C.txt', 'D.txt']);
+  assert.ok(skipped.rejections.every(rejection => rejection.reasons[0].code === 'upload-file-count-exceeded'));
+  assert.equal(app.child.notification.details.length, 2);
+  assert.equal(app.child.notification.hint, undefined);
+});
+
+test('a lower ownership limit received during edit permission rejects the pending import without a partial commit', async t => {
+  const permission = deferred();
+  const app = await mount(t, { upload: { maxTotalFiles: 4 }, onEditRequest: () => permission.promise });
+  const before = app.main.entries;
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles([file('D.txt')], 'file', 'folder'); });
+  await app.update({ upload: { maxTotalFiles: 3 } });
+  await change(() => permission.resolve(true));
+  await change(() => pending);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.dirty, false);
+  assert.equal(app.main.notification.kind, 'error');
+  assert.equal(app.events.find(event => event.type === 'upload' && event.status === 'rejected').rejections[0].reasons[0].code, 'total-file-count-exceeded');
+  assert.equal(app.events.filter(event => event.type === 'change').length, 0);
+});
+
+test('a concurrent pane can consume the last ownership slot while a folder import is preparing', async t => {
+  const app = await mount(t, { upload: { maxTotalFiles: 4, invalidFileBehavior: 'skip' } });
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles(Array.from({ length: 600 }, (_, i) => file(`new-${i}.txt`, `Batch/new-${i}.txt`)), 'folder', 'root'); });
+  await change(() => app.child.addLocalFiles([file('winner.txt')], 'file', 'folder'));
+  await change(() => pending);
+  assert.equal(app.main.entries.filter(item => item.kind === 'file').length, 4);
+  assert.ok(app.main.entries.some(item => item.name === 'winner.txt'));
+  assert.equal(app.main.entries.some(item => item.name === 'Batch'), false);
+  assert.equal(app.events.filter(event => event.type === 'change').length, 1);
+  const skipped = app.events.find(event => event.type === 'upload' && event.status === 'skipped');
+  assert.equal(skipped.addedCount, 0); assert.equal(skipped.rejections.length, 600);
+});
+
 for (const action of ['overwrite', 'skip']) test(`apply-all ${action} affects conflicts only and resets on the next batch`, async t => {
   const app = await mount(t);
   const a = file('A.txt'), c = file('C.txt'), d = file('D.txt');

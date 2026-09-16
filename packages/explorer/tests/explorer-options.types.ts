@@ -116,6 +116,8 @@ export const uploadOptions = {
   allowedExtensions: [".pdf", ".TXT", ".tar.gz"] as const,
   maxFileSizeBytes: 10 * 1024 * 1024,
   maxFileSizeBytesByExtension: { ".pdf": 20 * 1024 * 1024, ".TXT": 1024, ".tar.gz": 30 * 1024 * 1024 },
+  maxFilesPerUpload: 10,
+  maxTotalFiles: 1000,
 } satisfies ExplorerUploadOptions;
 export const unrestrictedUpload = {} satisfies ExplorerUploadOptions;
 export const rejectAllUpload = { allowedExtensions: [] as const, maxFileSizeBytes: 0 } satisfies ExplorerUploadOptions;
@@ -124,6 +126,8 @@ export const restrictedPopup = { ...props, upload: uploadOptions, renderTrigger:
 export const restrictedDraft = { initialEntries: [], onSave: async () => {}, upload: uploadOptions } satisfies ExplorerDraftOptions;
 export const extensionReason = { code: "extension-not-allowed", allowedExtensions: [".pdf"], message: "許可されていない拡張子" } satisfies ExplorerUploadRejectionReason;
 export const sizeReason = { code: "file-too-large", maxFileSizeBytes: 10, message: "サイズ超過" } satisfies ExplorerUploadRejectionReason;
+export const uploadCountReason = { code: "upload-file-count-exceeded", maxFilesPerUpload: 10, message: "取込件数超過" } satisfies ExplorerUploadRejectionReason;
+export const totalCountReason = { code: "total-file-count-exceeded", maxTotalFiles: 1000, message: "保有数超過" } satisfies ExplorerUploadRejectionReason;
 export const rejectionFor = (file: File): ExplorerUploadRejection => ({
   file, name: file.name, relativePath: file.name, extension: "exe", size: file.size, reasons: [extensionReason, sizeReason],
 });
@@ -202,8 +206,14 @@ export const stringUploadSize = { maxFileSizeBytes: "10 MB" } satisfies Explorer
 export const sizeExtensionWithoutDot = { maxFileSizeBytesByExtension: { pdf: 10 } } satisfies ExplorerUploadOptions;
 // @ts-expect-error Extension limits use numeric byte counts.
 export const stringExtensionSize = { maxFileSizeBytesByExtension: { ".pdf": "10 MB" } } satisfies ExplorerUploadOptions;
-// @ts-expect-error File count is outside the public upload restriction API.
+// @ts-expect-error Count limits distinguish per-upload and total counts; maxFiles is not an option.
 export const unsupportedUploadCount = { maxFiles: 100 } satisfies ExplorerUploadOptions;
+// @ts-expect-error Upload counts must be numbers.
+export const stringUploadCount = { maxFilesPerUpload: "10" } satisfies ExplorerUploadOptions;
+// @ts-expect-error Total file counts must be numbers.
+export const stringTotalCount = { maxTotalFiles: "1000" } satisfies ExplorerUploadOptions;
+// @ts-expect-error Count rejection reasons must include the relevant limit.
+export const incompleteCountReason = { code: "total-file-count-exceeded", message: "保有数超過" } satisfies ExplorerUploadRejectionReason;
 // @ts-expect-error A size rejection must include the numeric limit.
 export const incompleteSizeRejection = { code: "file-too-large", message: "サイズ超過" } satisfies ExplorerUploadRejectionReason;
 // @ts-expect-error Rejection reasons are a closed discriminated union.

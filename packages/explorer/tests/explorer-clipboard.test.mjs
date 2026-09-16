@@ -231,6 +231,25 @@ test('native paste uses extension-specific size limits in both main and detached
   assert.equal(hook.current.entries, hook.child.entries);
 });
 
+test('native paste resets its operation quota but shares total capacity with internal copies', async t => {
+  const hook = await mount(t, { upload: { maxFilesPerUpload: 1, maxTotalFiles: 3, invalidFileBehavior: 'skip' } });
+  await hook.paste([file('first.txt'), file('second.txt')]);
+  assert.deepEqual(newEntries(hook.current).map(item => item.name), ['first.txt']);
+  assert.equal(hook.current.notification.details[0].description.includes('上限'), true);
+  await hook.paste([file('third.txt')]);
+  assert.equal(hook.current.entries.filter(item => item.kind === 'file').length, 3);
+  await change(() => hook.current.copyToClipboard('copy', ['alpha']));
+  await change(() => hook.current.navigate('folder'));
+  const before = hook.current.entries;
+  await hook.paste();
+  assert.equal(hook.current.entries, before);
+  assert.equal(hook.current.notification.kind, 'error');
+  await hook.paste([file('fourth.txt')]);
+  assert.equal(hook.current.entries, before);
+  const skipped = hook.events.filter(event => event.type === 'upload' && event.status === 'skipped').at(-1);
+  assert.equal(skipped.rejections[0].reasons[0].code, 'total-file-count-exceeded');
+});
+
 test('outside, prevented, form and editable targets retain their native paste behavior', async t => {
   const hook = await mount(t);
   const before = hook.current.entries;
