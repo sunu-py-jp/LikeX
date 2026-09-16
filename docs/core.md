@@ -57,10 +57,10 @@ packages/spreadsheet/src/core.ts     export * from "@likex/core"
 
 1. `packages/core/src/` を利用先の `components/core/` へコピーする。
 2. UIの `src/` を `components/explorer/` または `components/spreadsheet/` へコピーする。
-3. UIフォルダの `core.ts` の1行を `export * from "../core";` に変更する。
+3. UIフォルダの `core.ts` を `export * from "../core";` に変更する。Spreadsheet・LikeSlideは `ooxml.ts` も `export * from "../core/ooxml";` に変更する。
 
 coreは両UIで1つを共有できます。コピー後も元の `@likex/core` に依存させる選択は可能ですが、上記手順ではLikeXパッケージのインストールは不要です。Reactなどの外部依存とUIのCSS読み込みは引き続き必要です。共通実装の自動複製・生成確認・特殊なパス解決は行いません。
 
 `build:library` / `pack:library` は依存順にcoreを先に処理します。UIの `test` / `typecheck` もcoreのビルドから開始します。導入検証は、coreとUIの両tarballからの依存解決と、上記3手順によるソースコピーを実際に検証します。
 
-`@likex/core` 単体も依存なしのESMパッケージとしてビルド・pack・Nodeインポート・strict型検証・ソースコピーを確認します。UIのない基盤なのでCSSやNext.jsページの検証は対象外です。ExplorerとSpreadsheetのNext.js・CSS・コピー導入検証は引き続き実行します。
+`@likex/core` 単体も依存なしのESMパッケージとしてビルド・pack・Nodeインポート・strict型検証・ソースコピーを確認します。UIのない基盤なのでCSSやNext.jsページの検証は対象外です。Explorer・Spreadsheet・LikeSlideのNext.js・CSS・コピー導入検証は引き続き実行します。

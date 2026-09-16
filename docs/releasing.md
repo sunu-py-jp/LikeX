@@ -1,6 +1,6 @@
 # LikeXの配布と公開
 
-Explorer、Spreadsheet、coreは独立したパッケージです。各配布設定は `packages/<module>/package.json`、実装の原本は `packages/<module>/src/` です。ビルドは同じパッケージ内の `dist/` に生成します。デモとテスト、`src/` のTypeScriptファイルは配布一覧から除外します。デバッグ用source mapにはソース内容を含みます。コピー用の原本はリポジトリから取得します。
+Explorer、Spreadsheet、LikeSlide、coreは独立したパッケージです。各配布設定は `packages/<module>/package.json`、実装の原本は `packages/<module>/src/` です。ビルドは同じパッケージ内の `dist/` に生成します。デモとテスト、`src/` のTypeScriptファイルは配布一覧から除外します。デバッグ用source mapにはソース内容を含みます。コピー用の原本はリポジトリから取得します。
 
 ## 配布物を検証する
 
@@ -31,16 +31,17 @@ CIでは `npm run check:release -- --online` を実行し、パッケージ・�
 | `packages/<module>/LICENSE` / `src/LICENSE` | LikeXのMITライセンス |
 | `artifacts/likex-explorer-0.1.0.tgz` | 現在の名前・バージョンでの配布物 |
 | `artifacts/spreadsheet/likex-spreadsheet-0.1.0.tgz` | Spreadsheetの配布物 |
+| `artifacts/slide/likex-slide-0.1.0.tgz` | LikeSlideの配布物 |
 | `artifacts/core/likex-core-0.1.0.tgz` | coreの配布物 |
 | `artifacts/*-report.json` / `artifacts/spreadsheet/*-report.json` | 各モジュールの導入検証結果 |
 | `artifacts/release-check.json` | 全検証の実行結果。成果物はGit管理せず再生成します。 |
 | `artifacts/license-check.json` | 実行時依存・生成CSSの許可ライセンスと配布通知の確認結果 |
 
-ソースコピーはUIの `styles.css` を含む `packages/<module>/src/` と `packages/core/src/` を隣接フォルダへ持ち出し、UIの `core.ts` 1行だけ相対importへ変更します。利用側はパッケージの `@likex/<module>/styles.css` またはコピーした `styles.css` を読み込みます。両方とも利用先でTailwindの導入・専用設定は不要です。[Explorerの導入手順](../packages/explorer/README.md) または [Spreadsheetの導入手順](../packages/spreadsheet/README.md) を参照してください。
+ソースコピーはUIの `styles.css` を含む `packages/<module>/src/` と `packages/core/src/` を隣接フォルダへ持ち出し、UIの `core.ts` を相対importへ変更します。Spreadsheet・LikeSlideでは `ooxml.ts` も `export * from "../core/ooxml";` に変更します。利用側はパッケージの `@likex/<module>/styles.css` またはコピーした `styles.css` を読み込みます。両方とも利用先でTailwindの導入・専用設定は不要です。[Explorerの導入手順](../packages/explorer/README.md) または [Spreadsheetの導入手順](../packages/spreadsheet/README.md) を参照してください。
 
 ## 公開前に決めるもの
 
-LikeXはMITライセンスです。ルート・Core・Explorer・Spreadsheetの `private: true` は、npmへの誤公開を防ぐため維持しています。tarballの作成は公開の実行を意味しません。[ライセンスの検査と開発依存の扱い](licensing.md)も確認してください。
+LikeXはMITライセンスです。ルート・Core・Explorer・Spreadsheet・LikeSlideの `private: true` は、npmへの誤公開を防ぐため維持しています。tarballの作成は公開の実行を意味しません。[ライセンスの検査と開発依存の扱い](licensing.md)も確認してください。
 
 1. `@likex` scopeの利用権と公開先、パッケージ名を確定します。
 2. `npm run check:licenses` と、配布ビルド後の `npm run check:licenses -- --artifacts` でライセンス・通知の整合性を確認します。

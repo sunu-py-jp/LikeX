@@ -1,0 +1,8 @@
+import LikeSlide from "__LIBRARY_IMPORT__";
+import { createSlideDeck, applySlideCommands } from "__LIBRARY_MODEL__";
+import ClientSlide from "./client";
+export default function Page() {
+  const deck = createSlideDeck({ title: "LikeSlide consumer" });
+  const result = applySlideCommands(deck, { type: "element.add", slideId: deck.slides[0].id, element: { type: "text", text: "Server model content" } });
+  return <main><LikeSlide initialDeck={result.deck} title="LikeSlide consumer" style={{ height: 360 }} /><ClientSlide /></main>;
+}

@@ -2,6 +2,7 @@ import { escapeHtml as e, relativeUrl } from './render.mjs';
 export const components = [
   { id: 'explorer', name: 'Explorer', note: 'ファイルとフォルダ' },
   { id: 'spreadsheet', name: 'Spreadsheet', note: 'セルとワークブック' },
+  { id: 'slide', name: 'LikeSlide', note: 'スライドとプレゼンテーション' },
   { id: 'core', name: 'Core', note: '共通の型とヘルパー' },
 ];
 

@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import LikeSlide, { LikeSlide as NamedLikeSlide, createSlideDeck, createSlideElement } from "__LIBRARY_IMPORT__";
+assert.equal(LikeSlide, NamedLikeSlide);
+assert.equal(typeof window, "undefined");
+const deck = createSlideDeck({ title: "LikeSlide consumer", slides: [{ id: "slide", name: "Overview", background: "#ffffff", notes: "", elements: [createSlideElement({ type: "text", text: "Presentation content" })] }] });
+const markup = renderToStaticMarkup(createElement(LikeSlide, { initialDeck: deck, title: "LikeSlide consumer", style: { height: 360 } }));
+assert.match(markup, /data-likex-slide/);
+assert.match(markup, /Presentation content/);
+assert.match(markup, /height:360px/);
+console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

@@ -58,3 +58,9 @@ jobs:
             artifacts/spreadsheet/*-report.json
             artifacts/spreadsheet/*-next.log
             artifacts/spreadsheet/*-install-*.log
+            artifacts/slide/*.tgz
+            artifacts/slide/library-build.json
+            artifacts/slide/library-pack.json
+            artifacts/slide/*-report.json
+            artifacts/slide/*-next.log
+            artifacts/slide/*-install-*.log

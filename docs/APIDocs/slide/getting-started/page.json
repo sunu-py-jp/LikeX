@@ -1,0 +1,18 @@
+{
+  "title": "導入と初期表示",
+  "summary": "パッケージとコピーでの導入、読み取り専用、表示設定。",
+  "source": "packages/slide/src/docs/README.md",
+  "order": 0,
+  "section": "はじめに",
+  "keywords": [
+    "LikeSlide",
+    "SlideDeck"
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/slide/overview.jpg",
+      "alt": "LikeSlideのホームリボン、スライド一覧、キャンバス、書式設定パネル",
+      "caption": "デモの編集画面。左でスライドを選び、中央で編集し、右で書式を調整します。"
+    }
+  ]
+}

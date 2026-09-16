@@ -8,6 +8,7 @@ const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url));
 const coreSource = fileURLToPath(new URL("../../packages/core/src/index.ts", import.meta.url));
 const explorerSource = fileURLToPath(new URL("../../packages/explorer/src/index.ts", import.meta.url));
 const spreadsheetSource = fileURLToPath(new URL("../../packages/spreadsheet/src/index.ts", import.meta.url));
+const slideSource = fileURLToPath(new URL("../../packages/slide/src/index.ts", import.meta.url));
 
 export default defineConfig({
   plugins: [explorerStyles(), react(), licenseInventory()],
@@ -17,6 +18,7 @@ export default defineConfig({
       { find: /^@likex\/core$/, replacement: coreSource },
       { find: /^@likex\/explorer$/, replacement: explorerSource },
       { find: /^@likex\/spreadsheet$/, replacement: spreadsheetSource },
+      { find: /^@likex\/slide$/, replacement: slideSource },
     ],
     dedupe: ["react", "react-dom"],
   },

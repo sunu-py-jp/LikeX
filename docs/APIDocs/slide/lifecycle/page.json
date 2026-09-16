@@ -1,0 +1,12 @@
+{
+  "title": "保存・編集許可・イベント",
+  "summary": "保存前の確認、非同期保存、編集許可と変更通知。",
+  "source": "packages/slide/src/docs/lifecycle.md",
+  "order": 30,
+  "section": "親アプリとの連携",
+  "keywords": [
+    "LikeSlide",
+    "SlideDeck"
+  ],
+  "screenshots": []
+}

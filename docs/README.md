@@ -1,10 +1,10 @@
 # ドキュメント
 
-[APIリファレンスを開く](APIDocs/index.html) — Explorer・Spreadsheet・Coreの機能別API、利用例、画面例。HTMLをローカルで開くか静的サーバーへ配置できます。
+[APIリファレンスを開く](APIDocs/index.html) — Explorer・Spreadsheet・LikeSlide・Coreの機能別API、利用例、画面例。HTMLをローカルで開くか静的サーバーへ配置できます。
 
 このディレクトリはLikeXリポジトリを開発・配布する人向けです。コンポーネントを組み込む場合は [Explorerの導入手順](../packages/explorer/README.md) と [利用ガイド](../packages/explorer/src/docs/README.md) を参照してください。
 
-Spreadsheetの導入・操作・数式・制約は [Spreadsheetのガイド](../packages/spreadsheet/README.md) を参照してください。
+Spreadsheetの導入・操作・数式・制約は [Spreadsheetのガイド](../packages/spreadsheet/README.md)、スライド編集とPowerPoint入出力は [LikeSlideのガイド](../packages/slide/README.md) を参照してください。
 
 | ドキュメント | 内容 |
 | --- | --- |

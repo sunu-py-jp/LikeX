@@ -2123,6 +2123,172 @@
     ]
   },
   {
+    "id": "slide/getting-started",
+    "title": "導入と初期表示",
+    "component": "slide",
+    "section": "はじめに",
+    "output": "slide/getting-started/index.html",
+    "sources": [
+      "packages/slide/src/docs/README.md"
+    ],
+    "keywords": [
+      "LikeSlide",
+      "SlideDeck"
+    ],
+    "headings": [
+      {
+        "id": "パッケージで使う",
+        "title": "パッケージで使う",
+        "depth": 2
+      },
+      {
+        "id": "コピーで使う",
+        "title": "コピーで使う",
+        "depth": 2
+      },
+      {
+        "id": "表示と編集の設定",
+        "title": "表示と編集の設定",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "slide/editing",
+    "title": "スライド・図形・画像の編集",
+    "component": "slide",
+    "section": "編集と発表",
+    "output": "slide/editing/index.html",
+    "sources": [
+      "packages/slide/src/docs/editing.md"
+    ],
+    "keywords": [
+      "LikeSlide",
+      "SlideDeck"
+    ],
+    "headings": [
+      {
+        "id": "スライド",
+        "title": "スライド",
+        "depth": 2
+      },
+      {
+        "id": "テキスト図形画像",
+        "title": "テキスト・図形・画像",
+        "depth": 2
+      },
+      {
+        "id": "履歴と発表",
+        "title": "履歴と発表",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "slide/commands",
+    "title": "JSON・コマンド・履歴",
+    "component": "slide",
+    "section": "親アプリとの連携",
+    "output": "slide/commands/index.html",
+    "sources": [
+      "packages/slide/src/docs/commands.md"
+    ],
+    "keywords": [
+      "LikeSlide",
+      "SlideDeck"
+    ],
+    "headings": [
+      {
+        "id": "jsonの構造",
+        "title": "JSONの構造",
+        "depth": 2
+      },
+      {
+        "id": "テキストを追加する",
+        "title": "テキストを追加する",
+        "depth": 2
+      },
+      {
+        "id": "操作一覧",
+        "title": "操作一覧",
+        "depth": 2
+      },
+      {
+        "id": "取得と復元",
+        "title": "取得と復元",
+        "depth": 2
+      },
+      {
+        "id": "履歴を持つセッション",
+        "title": "履歴を持つセッション",
+        "depth": 2
+      },
+      {
+        "id": "表示中のコンポーネントを操作する",
+        "title": "表示中のコンポーネントを操作する",
+        "depth": 2
+      },
+      {
+        "id": "データ量と画像",
+        "title": "データ量と画像",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "slide/lifecycle",
+    "title": "保存・編集許可・イベント",
+    "component": "slide",
+    "section": "親アプリとの連携",
+    "output": "slide/lifecycle/index.html",
+    "sources": [
+      "packages/slide/src/docs/lifecycle.md"
+    ],
+    "keywords": [
+      "LikeSlide",
+      "SlideDeck"
+    ],
+    "headings": [
+      {
+        "id": "コールバック",
+        "title": "コールバック",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "slide/powerpoint",
+    "title": "PowerPoint・JSONの入出力",
+    "component": "slide",
+    "section": "読み込みと出力",
+    "output": "slide/powerpoint/index.html",
+    "sources": [
+      "packages/slide/src/docs/powerpoint.md"
+    ],
+    "keywords": [
+      "LikeSlide",
+      "SlideDeck",
+      "pptx"
+    ],
+    "headings": [
+      {
+        "id": "apiから使う",
+        "title": "APIから使う",
+        "depth": 2
+      },
+      {
+        "id": "対応範囲",
+        "title": "対応範囲",
+        "depth": 2
+      },
+      {
+        "id": "読み込みの上限",
+        "title": "読み込みの上限",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "core/getting-started",
     "title": "導入",
     "component": "core",

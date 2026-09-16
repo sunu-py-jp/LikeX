@@ -55,7 +55,7 @@ function rewriteLink(page, source, href) {
   if (target.startsWith('../')) throw new Error(`Link escapes repository: ${source}: ${href}`);
   let candidates = bySource.get(target) ?? [];
   // Module guide indexes lead to the first page of that component.
-  if (!candidates.length && /packages\/(explorer|spreadsheet)\/src\/docs\/README\.md$/.test(target)) candidates = pages.filter(p => p.component === target.split('/')[1]).slice(0, 1);
+  if (!candidates.length && /packages\/(explorer|spreadsheet|slide)\/src\/docs\/README\.md$/.test(target)) candidates = pages.filter(p => p.component === target.split('/')[1]).slice(0, 1);
   if (fragment && candidates.length) {
     const id = decodeURIComponent(fragment);
     const owner = candidates.find(candidate => candidate.headings.some(h => h.id === id) || candidate.markdown.some(part => part.markdown.includes(`id="${id}"`)));

@@ -6,9 +6,10 @@
 | --- | --- | --- |
 | **Explorer** | ファイル・フォルダを表示し、アップロードや移動の結果を下書きに保持します。 | [導入と初期表示](../../packages/explorer/src/docs/getting-started.md) |
 | **Spreadsheet** | セル・数式・書式・画像などを編集し、ブックをJSONで受け渡します。 | [導入](../../packages/spreadsheet/src/docs/README.md) |
-| **Core** | 保存・編集許可・通知など、両コンポーネントが使う共通の契約です。 | [Coreの導入](../../packages/core/docs/getting-started.md) |
+| **LikeSlide** | スライド・テキスト・図形・画像をJSONで編集し、PPTXを読み書きします。 | [導入](../../packages/slide/src/docs/README.md) |
+| **Core** | 保存・編集許可・通知など、各コンポーネントが使う共通の契約です。 | [Coreの導入](../../packages/core/docs/getting-started.md) |
 
-ExplorerとSpreadsheetはReact / React DOM **19.2.6以降の19系**を利用します。CSSはパッケージに含まれ、利用先のTailwind CSS設定は不要です。
+Explorer・Spreadsheet・LikeSlideはReact / React DOM **19.2.6以降の19系**を利用します。CSSはパッケージに含まれ、利用先のTailwind CSS設定は不要です。
 
 ## まず読み取り専用で表示する
 
@@ -46,7 +47,7 @@ npm run pack:library -- --all
 
 生成されたCoreと利用するUIのtarballを、利用先のプロジェクトへインストールします。コマンドの詳細は [Explorerのパッケージ導入](../../packages/explorer/README.md) または [Spreadsheetのパッケージ導入](../../packages/spreadsheet/README.md) を参照してください。
 
-コピーする場合は `packages/core/src/` と利用するUIの `src/` を隣り合うフォルダへ置きます。UI側の `core.ts` を `export * from "../core";` に変更し、UIのCSSを1回読み込んでください。表示枠の高さも親側で指定します。
+コピーする場合は `packages/core/src/` と利用するUIの `src/` を隣り合うフォルダへ置きます。UI側の `core.ts` を `export * from "../core";` に変更し、UIのCSSを1回読み込んでください。Spreadsheet・LikeSlideでは `ooxml.ts` も `export * from "../core/ooxml";` に変更します。表示枠の高さも親側で指定します。
 
 ## APIと利用例の読み方
 

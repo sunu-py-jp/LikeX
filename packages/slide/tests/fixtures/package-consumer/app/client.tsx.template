@@ -1,0 +1,7 @@
+"use client";
+import { useRef } from "react";
+import LikeSlide, { createSlideDeck, type SlideHandle } from "__LIBRARY_IMPORT__";
+export default function ClientSlide() {
+  const ref = useRef<SlideHandle>(null);
+  return <LikeSlide ref={ref} initialDeck={createSlideDeck()} onSave={async deck => deck} onBeforeSave={() => true} style={{ height: 400 }} />;
+}

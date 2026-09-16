@@ -57,7 +57,8 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
     const code = await readFile(path.join(packageRoot, `dist/${name}.js`), 'utf8');
     if (/^['"]use client['"];/.test(code)) throw new Error(`Headless entry ${name} must not be a client boundary.`);
     for (const output of Object.values(built.metafile.outputs))
-      if (output.imports.length) throw new Error(`Headless entry ${name} must not load runtime dependencies.`);
+      for (const imported of output.imports)
+        if (!profile.headlessDependencies?.includes(imported.path)) throw new Error(`Headless entry ${name} loads an unapproved runtime dependency: ${imported.path}`);
     headlessEntries[name] = { source, javascriptBytes: Buffer.byteLength(code), gzipBytes: gzipSync(code).length };
     headlessResults.push(built);
   }

@@ -1,0 +1,12 @@
+{
+  "title": "スライド・図形・画像の編集",
+  "summary": "スライドを並べ、テキスト・図形・画像を配置します。",
+  "source": "packages/slide/src/docs/editing.md",
+  "order": 10,
+  "section": "編集と発表",
+  "keywords": [
+    "LikeSlide",
+    "SlideDeck"
+  ],
+  "screenshots": []
+}

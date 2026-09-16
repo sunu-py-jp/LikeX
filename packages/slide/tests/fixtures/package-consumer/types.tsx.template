@@ -1,0 +1,16 @@
+import { createRef } from "react";
+import LikeSlide, { createSlideDeck, createSlideElement, applySlideCommands, createSlideSession, type SlideProps, type SlideHandle, type SlideCommand } from "__LIBRARY_IMPORT__";
+const deck = createSlideDeck();
+const command: SlideCommand = { type: "element.add", slideId: deck.slides[0].id, element: { type: "text", text: "API" } };
+const updated = applySlideCommands(deck, command);
+const session = createSlideSession(updated.deck);
+session.undo(); session.markSaved();
+const props: SlideProps = { initialDeck: deck, colorMode: "system", features: { images: false }, onSave: async current => current, onEditRequest: async (_request, { signal }) => !signal.aborted, onBeforeSave: () => true };
+const ref = createRef<SlideHandle>();
+const view = <LikeSlide ref={ref} {...props} />;
+void view; void createSlideElement({ type: "shape", shape: "ellipse" });
+// @ts-expect-error Only supported element kinds can be created.
+createSlideElement({ type: "video" });
+// @ts-expect-error Unknown patch fields are rejected by the public command type.
+const badPatch: SlideCommand = { type: "element.update", slideId: "slide", elementId: "title", patch: { fontSzie: 48 } };
+void badPatch;

@@ -1,0 +1,7 @@
+import { createSlideDeck, applySlideCommands, getElement, createSlideSession, type SlideCommand } from "__MODEL_IMPORT__";
+const deck = createSlideDeck();
+const command: SlideCommand = { type: "slide.add", slide: { name: "Second" } };
+const result = applySlideCommands(deck, command);
+const element = getElement(result.deck, result.deck.slides[0].id, "element");
+if (element?.type === "text") { const value: string = element.text; void value; }
+createSlideSession(deck).execute(command);

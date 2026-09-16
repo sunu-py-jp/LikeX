@@ -1,6 +1,6 @@
 # LikeXのモジュール構成
 
-npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explorer` と `@likex/spreadsheet` に分けます。リポジトリの名前はLikeX、npmの名前は小文字のscope付きにします。scopeの取得・公開先の設定は公開時に確認します。
+npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explorer`、`@likex/spreadsheet`、`@likex/slide` に分けます。リポジトリの名前はLikeX、npmの名前は小文字のscope付きにします。scopeの取得・公開先の設定は公開時に確認します。
 
 ## 責務
 
@@ -10,7 +10,8 @@ npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explore
 | `packages/<module>/tests` | モジュールの振る舞いと公開型を検証します。利用先へは配布しません。 |
 | `packages/<module>/package.json` | 配布する名前・公開入口・依存・バージョン・ライセンスを宣言します。 |
 | `packages/core/src` | 保存・編集許可・通知・機能設定などの共通契約とヘルパーの唯一の編集元。 |
-| `packages/{explorer,spreadsheet}/src/core.ts` | `@likex/core` の公開入口を再export。コピー導入時はこの1行だけ相対importに変更します。 |
+| `packages/{explorer,spreadsheet,slide}/src/core.ts` | `@likex/core` の公開入口を再export。コピー導入時は相対importに変更します。 |
+| `packages/{spreadsheet,slide}/src/ooxml.ts` | `@likex/core/ooxml` のZIP・XML・参照関係処理の入口。コピー時はこちらも相対importへ変更します。 |
 | `apps/playground` | サンプルデータとデモの保存先を持つ利用者側の例です。ライブラリには含めません。 |
 | `scripts` | ビルド・型生成・配布物検査・導入検証をまとめます。 |
 | `docs` | リポジトリ全体の方針、公開手順、レビュー記録を置きます。 |
@@ -21,13 +22,13 @@ npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explore
 
 配布用にもう一つ実装を持ちません。`src/` から `dist/` のESMと型宣言を生成し、`src/README.md` と `src/docs/` の利用ガイドを同じ配置で配布物へ同梱します。READMEは導入と詳細への入口、`docs/` は責務ごとの詳細です。
 
-コピー導入ではUIの `src/` 全体と `packages/core/src/` を隣接フォルダへ配置し、UI側の `core.ts` 1行だけimport先を変更します。リポジトリ固有のパスエイリアスや共通Providerは不要です。Reactなどの外部依存は明示します。更新時は取得元バージョンと利用側での変更差分を管理します。
+コピー導入ではUIの `src/` 全体と `packages/core/src/` を隣接フォルダへ配置し、UI側の `core.ts` のimport先を変更します。Spreadsheet・LikeSlideでは `ooxml.ts` も `export * from "../core/ooxml";` に変更します。リポジトリ固有のパスエイリアスや共通Providerは不要です。Reactなどの外部依存は明示します。更新時は取得元バージョンと利用側での変更差分を管理します。
 
 共通のホスト契約と小さなヘルパーは `@likex/core` で管理します。各UIは通常のnpm依存として利用し、生成コピーは作りません。coreの詳細とコピー導入手順は [共通基盤](core.md) を参照してください。React状態や個別の保存データは各コンポーネントが管理します。
 
 ## Tailwindとデザイン
 
-Explorerの開発ではTailwind CSS v4を使い、TSXの専用クラスとテーマ設定から生成したCSSを同梱します。Spreadsheetは専用の `lxs-` クラスに限定したCSSを同梱します。利用側は各パッケージの `styles.css`、コピー導入ではコピーした `styles.css` を読み込みます。どちらも利用側へのTailwind導入や専用PostCSS設定は不要です。
+Explorerの開発ではTailwind CSS v4を使い、TSXの専用クラスとテーマ設定から生成したCSSを同梱します。Spreadsheetは `lxs-`、LikeSlideは `lxp-` クラスに限定したCSSを同梱します。利用側は各パッケージの `styles.css`、コピー導入ではコピーした `styles.css` を読み込みます。どちらも利用側へのTailwind導入や専用PostCSS設定は不要です。
 
 `packages/explorer/styles/input.css` とTSXが原本で、`src/styles.css` は自動生成します。コピー導入のため生成済みCSSをGit管理しますが、手編集しません。配布時は同じ内容を `dist/styles.css` へ配置します。`check:styles` が原本との不一致を検出し、配布ビルドとplaygroundのソース編集時にも再生成します。
 
@@ -58,7 +59,8 @@ LikeX/
 │   ├── dist/              # 生成されるESM・型宣言・CSS
 │   ├── package.json
 │   └── README.md          # パッケージ導入と利用ガイドの入口
-├── packages/spreadsheet/  # 同じ責務分担のUIモジュール（Reactとcoreに依存）
+├── packages/spreadsheet/  # セル編集（Reactとcoreに依存）
+├── packages/slide/        # スライド編集・PPTX入出力（Reactとcoreに依存）
 ├── apps/playground/       # Vite + Reactのメモリ保存デモ
 ├── scripts/               # ビルド・配布・導入検証
 ├── docs/                  # 開発方針・公開手順・レビュー
@@ -67,3 +69,5 @@ LikeX/
 ```
 
 デモは認証や永続ストレージを内蔵しません。旧API等を削除した経緯は [レビュー記録](release-review.md) にあります。Spreadsheetの保存・検索サービスは、利用側で必要に応じて接続します。Excel出力は `spreadsheet/export/` が担当し、ZIPの組み立てはExplorerとCoreで共有します。
+
+LikeSlideの `model/` はJSONとコマンド、`session/` は履歴、`state/` は編集許可・保存とUI状態、`ui/` はリボン・キャンバス・スライド一覧・プロパティ表示、`import/` と `export/` はPPTX変換を担当します。Officeファイル共通の安全なZIP・XML読み取りは `core/ooxml/` を使います。

@@ -9,11 +9,14 @@ const { applySpreadsheetCommands: apply, createWorkbook, setCellValues, normaliz
   parseWorkbook, calculateWorkbook, setCellDataValidation, MAX_SPREADSHEET_COMMANDS, SPREADSHEET_LIMITS } = api;
 const first = result => result.workbook.sheets[0];
 
-test('model entry runs in Node with no React, DOM, CSS, UI, lifecycle or core imports', () => {
+test('model entry runs without React, DOM, CSS or lifecycle imports; only the shared OOXML reader is allowed', () => {
   assert.equal(typeof globalThis.document, 'undefined');
   assert.equal(typeof globalThis.window, 'undefined');
-  for (const input of Object.keys(output.metafile.inputs))
+  for (const input of Object.keys(output.metafile.inputs)) {
+    // Office parsing lives in its own ES2022-only Core entry, never the UI-facing barrel.
+    if (/\/core\/dist\/ooxml\.js$/.test(input)) continue;
     assert.doesNotMatch(input, /node_modules|\/(?:ui|state|core)\/|\/(?:core|props|spreadsheet)\.tsx?$|\.(?:css|tsx)$/);
+  }
   assert.ok(Object.values(output.metafile.outputs).every(file => file.imports.length === 0));
   assert.doesNotMatch(output.outputFiles[0].text, /["']use client["']/);
   for (const excluded of ['Spreadsheet', 'prepareSpreadsheetImage', 'exportSpreadsheetXlsx']) assert.equal(excluded in api, false);

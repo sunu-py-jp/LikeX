@@ -1,0 +1,12 @@
+{
+  "title": "JSON・コマンド・履歴",
+  "summary": "画面なしで資料を作成し、表示中の画面もAPIから操作できます。",
+  "source": "packages/slide/src/docs/commands.md",
+  "order": 20,
+  "section": "親アプリとの連携",
+  "keywords": [
+    "LikeSlide",
+    "SlideDeck"
+  ],
+  "screenshots": []
+}

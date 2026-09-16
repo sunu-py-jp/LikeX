@@ -1,0 +1,19 @@
+{
+  "title": "PowerPoint・JSONの入出力",
+  "summary": "PPTXの読み込みと出力、対応内容と制約。",
+  "source": "packages/slide/src/docs/powerpoint.md",
+  "order": 40,
+  "section": "読み込みと出力",
+  "keywords": [
+    "LikeSlide",
+    "SlideDeck",
+    "pptx"
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshots/slide/pptx-import.jpg",
+      "alt": "PPTXから取り込んだ日本語テキスト、回転した図形、画像",
+      "caption": "独立したツールで作成したPPTXを読み込んだ結果。対応しない装飾は下部に通知します。"
+    }
+  ]
+}

@@ -8,17 +8,19 @@ import { libraryModule } from './modules.mjs';
 import { run } from './run.mjs';
 
 /** Verify the model in a project that cannot resolve React or browser typings. */
-export async function checkSpreadsheetModelConsumer({ installed, sourceDirectory }) {
-  const { packageRoot } = libraryModule('spreadsheet');
-  const consumer = await mkdtemp(path.join(tmpdir(), 'likex-spreadsheet-model-'));
+export async function checkModelConsumer({ module, installed, sourceDirectory }) {
+  const { packageRoot } = libraryModule(module);
+  const consumer = await mkdtemp(path.join(tmpdir(), `likex-${module}-model-`));
   let passed = false;
   try {
     await writeFile(path.join(consumer, 'package.json'), '{"private":true,"type":"module"}');
     let imported;
     if (installed) {
       await mkdir(path.join(consumer, 'node_modules/@likex'), { recursive: true });
-      await cp(installed, path.join(consumer, 'node_modules/@likex/spreadsheet'), { recursive: true });
-      imported = '@likex/spreadsheet/model';
+      await cp(installed, path.join(consumer, `node_modules/@likex/${module}`), { recursive: true });
+      const core = path.join(path.dirname(installed), 'core');
+      await cp(core, path.join(consumer, 'node_modules/@likex/core'), { recursive: true });
+      imported = `@likex/${module}/model`;
     } else {
       assert.ok(sourceDirectory, 'A copied source directory or installed tarball is required');
       const result = await build({ entryPoints: [path.join(sourceDirectory, 'model-entry.ts')],

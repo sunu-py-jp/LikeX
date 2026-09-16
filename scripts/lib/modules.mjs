@@ -4,7 +4,7 @@ import { artifactRoot, projectRoot } from './run.mjs';
 
 // Distribution differences live here; build/pack/consumer checks are shared.
 const modules = {
-  core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [] },
+  core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [], headlessEntries: { ooxml: 'ooxml.ts' } },
   explorer: {
     ui: true,
     moduleDependencies: ['core'],
@@ -16,11 +16,21 @@ const modules = {
   spreadsheet: {
     ui: true,
     headlessEntries: { model: 'model-entry.ts' },
+    headlessDependencies: ['@likex/core/ooxml'],
     moduleDependencies: ['core'],
     generatedStyles: false, bundledDependencies: [],
     marker: 'data-likex-spreadsheet', classPrefix: '.lxs-', propertyPrefix: '--lxs-', keyframePrefix: 'lxs',
     requiredClasses: ['.lxs-root', '.lxs-grid', '.lxs-cell'],
     background: '--lxs-background', foreground: '--lxs-foreground', serverText: 'Spreadsheet consumer cell',
+  },
+  slide: {
+    ui: true,
+    headlessEntries: { model: 'model-entry.ts' },
+    moduleDependencies: ['core'],
+    generatedStyles: false, bundledDependencies: [],
+    marker: 'data-likex-slide', classPrefix: '.lxp-', propertyPrefix: '--lxp-', keyframePrefix: 'lxp',
+    requiredClasses: ['.lxp-root', '.lxp-ribbon'],
+    background: '--lxp-background', foreground: '--lxp-foreground', serverText: 'LikeSlide consumer',
   },
 };
 export const moduleNames = Object.freeze(Object.keys(modules));
