@@ -1,3 +1,5 @@
+import type { ExplorerNavigationHandle } from "./navigation";
+
 export type ExplorerNotificationKind = "success" | "error" | "info" | "progress";
 
 /** One file or result in a notification. All fields are plain text. */
@@ -27,7 +29,7 @@ export type ExplorerNotification = Readonly<{
   progress?: never;
 })>;
 
-export type ExplorerHandle = Readonly<{
+export type ExplorerHandle = ExplorerNavigationHandle & Readonly<{
   /** Add or replace a message and return its ID. This is a full replacement, not a patch. Text is never interpreted as HTML. */
   notify: (notification: ExplorerNotification) => string;
   dismissNotification: (id: string) => void;

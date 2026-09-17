@@ -15,6 +15,7 @@ import { createMediaCache } from "./media-cache";
 import { createDownloadManager } from "./download-manager";
 import { createUnsavedChangesGuard } from "../model/unsaved-changes";
 import { useExplorerNotifications } from "./use-explorer-notifications";
+import { createExplorerNavigationBridge } from "./navigation-bridge";
 
 type DetachedView = {
   id: string; window: Window; container: HTMLElement; dispose: () => void; position?: WindowPosition;
@@ -34,7 +35,8 @@ function closeDetachedView(view: DetachedView) {
 export function useExplorerWorkspace(props: ExplorerProps) {
   const notifications = useExplorerNotifications();
   const { notify, dismiss, clear } = notifications;
-  useImperativeHandle(props.ref, () => ({ notify, dismissNotification: dismiss, clearNotifications: clear }), [notify, dismiss, clear]);
+  const [navigation] = useState(createExplorerNavigationBridge);
+  useImperativeHandle(props.ref, () => ({ ...navigation.handle, notify, dismissNotification: dismiss, clearNotifications: clear }), [navigation, notify, dismiss, clear]);
   const draft = useExplorerDraft(props);
   const [unsavedChangesGuard] = useState(createUnsavedChangesGuard);
   useLayoutEffect(() => {
@@ -324,7 +326,7 @@ export function useExplorerWorkspace(props: ExplorerProps) {
       hostDocument.current = null;
     };
   }, []);
-  return { draft: { ...draft, save, refresh, discard, endEdit }, registerImport, tabs, defaultStart, initialStart, takeInitialPreview, clipboard, setClipboard, getClipboard, draggedIds, workspaceId, windows, detachTab, reattachWindow, closeDetachedWindows, mediaCache, downloads, unsavedChangesGuard, notifications };
+  return { draft: { ...draft, save, refresh, discard, endEdit }, registerImport, tabs, defaultStart, initialStart, takeInitialPreview, clipboard, setClipboard, getClipboard, draggedIds, workspaceId, windows, detachTab, reattachWindow, closeDetachedWindows, mediaCache, downloads, unsavedChangesGuard, notifications, navigation };
 }
 
 export type ExplorerWorkspace = ReturnType<typeof useExplorerWorkspace>;

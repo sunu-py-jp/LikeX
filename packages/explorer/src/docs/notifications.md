@@ -57,7 +57,8 @@ type ExplorerNotification = Readonly<{
   | { kind: "success" | "error" | "info"; progress?: never }
 )>;
 
-type ExplorerHandle = Readonly<{
+// ExplorerHandleのうち、通知を操作するメソッドだけを抜粋しています。
+type NotificationMethods = Readonly<{
   notify: (notification: ExplorerNotification) => string;
   dismissNotification: (id: string) => void;
   clearNotifications: () => void;

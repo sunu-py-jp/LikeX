@@ -146,4 +146,55 @@ export default function FileManager() {
 
 初期選択・プレビューは読み取り専用でも使え、保存対象の変更にはなりません。`features.preview: false` ならプレビューせず選択だけ行います。`selection.mode: "none"` なら選択を行いませんが、プレビューを有効にしていれば開けます。
 
-これらのpropsは初回マウント時だけ読みます。後からのprop変更、再取得、「＋」の新規タブで初期選択・プレビューを繰り返しません。別のファイルを指定して開き直す場合は `<Explorer key={fileId} selectedFile={fileId} ... />` のように再マウントします。未保存の変更がある場合は、親が `key` を変える前に確認してください。
+これらのpropsは初回マウント時だけ読みます。後からのprop変更、再取得、「＋」の新規タブで初期選択・プレビューを繰り返しません。表示後に別の場所やファイルを開く場合は、次の `ref` APIを使います。`key` による再マウントは不要で、未保存の変更も保持します。
+
+<a id="dynamic-navigation"></a>
+
+## 表示後に移動・選択する
+
+親画面のボタンや検索結果から移動するには、`ExplorerHandle` の `navigate()`・`selectFiles()`・`showFile()` を呼びます。次の例は、渡した一覧に `/記事/画像` とID `file-cover` のファイルがある前提です。保存処理を省略した読み取り専用でも利用できます。
+
+```tsx
+"use client";
+
+import { useRef, useState } from "react";
+import Explorer, {
+  type ExplorerEntry,
+  type ExplorerHandle,
+  type ExplorerNavigationResult,
+} from "@likex/explorer";
+
+export function FileBrowser({ entries }: { entries: readonly ExplorerEntry[] }) {
+  const explorerRef = useRef<ExplorerHandle>(null);
+  const [error, setError] = useState("");
+  const check = (result: ExplorerNavigationResult | undefined) => {
+    setError(!result ? "画面の準備ができていません。" : result.ok ? "" : result.message);
+  };
+
+  return <>
+    <button onClick={() => check(explorerRef.current?.navigate("/記事/画像"))}>
+      画像フォルダを開く
+    </button>
+    <button onClick={() => check(explorerRef.current?.selectFiles([{ id: "file-cover" }]))}>
+      表紙を選択
+    </button>
+    <button onClick={() => check(explorerRef.current?.showFile(
+      { id: "file-cover" }, { mode: "preview" },
+    ))}>
+      表紙をプレビュー
+    </button>
+    {error && <p role="alert">{error}</p>}
+    <Explorer ref={explorerRef} initialEntries={entries} />
+  </>;
+}
+```
+
+`{ path: "/記事/画像/表紙.png" }` のような絶対パスでもファイルを指定できます。同名ファイルが別フォルダにあり得るため、ファイル名だけは受け付けません。改名・移動後も追う場合は `{ id }` を使います。
+
+`selectFiles()` に複数の対象を渡す場合は、全ファイルが同じ親フォルダにある必要があります。親フォルダを自動で開き、最初のファイルを画面内に表示します。`selectFiles([])` は現在地を変えずに選択を解除します。
+
+戻り値は同期の `{ ok: true }` または `{ ok: false, code, message }` です。成功は要求の受付を表し、Reactの次の描画で表示を反映します。プレビュー処理の完了は待ちません。対象が存在しない、選択・プレビューが無効などの場合は、表示を途中まで変更せず失敗します。
+
+操作対象はメイン表示領域の現在のタブです。タブを追加・切り替えず、検索を解除して移動します。`ExplorerPopup` はメインポップアップが開いている場合だけ操作でき、未起動なら `not-ready` です。切り離したウィンドウは対象にしません。
+
+選択方式による制限、初期表示との違い、エラーコードの一覧は[外部からの移動・選択](./api-reference.md#external-navigation)を参照してください。

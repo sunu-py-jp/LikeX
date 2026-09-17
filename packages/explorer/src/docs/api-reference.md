@@ -13,7 +13,7 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | prop | 契約 |
 | --- | --- |
 | `initialEntries` | 初回マウント時の保存済み一覧。`readonly ExplorerEntry[]`。後からのprop変更で編集中の内容を上書きしません。別のワークスペースへ切り替える場合は `key` を変えて再マウントします。 |
-| `ref` | 任意の `React.Ref<ExplorerHandle>`。`notify()` で親の処理結果・進捗を通知領域へ表示し、`dismissNotification(id)` / `clearNotifications()` で閉じます。同じIDで通知を更新できます。[通知の表示](./notifications.md) |
+| `ref` | 任意の `React.Ref<ExplorerHandle>`。`navigate()` / `selectFiles()` / `showFile()` で現在の表示を操作します。[移動・選択](#external-navigation)。`notify()` / `dismissNotification()` / `clearNotifications()` は親のメッセージを表示・更新・削除します。[通知の表示](./notifications.md) |
 | `onSave` | 保存時に `ExplorerSavePayload` を受け取る任意のコールバック。省略すると読み取り専用になります。`void` または保存後の `readonly ExplorerEntry[]` を返します。どちらもPromiseにできます。 |
 | `onRefresh` | 任意の `() => readonly ExplorerEntry[] \| Promise<readonly ExplorerEntry[]>`。アドレスバー直前の更新ボタンから最新一覧を取得します。未指定ならボタンを隠します。初回の自動読込は行わず、読み取り専用でも利用できます。 |
 | `onEditRequest` | `ExplorerEditHandler`。最初の有効な変更を適用する直前に親へ許可を求めます。入力欄やダイアログを開くだけでは呼びません。許可後は保存・破棄等までセッションを共有し、未指定なら同期で許可します。 |
@@ -49,7 +49,7 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 
 `title` はマウント後の変更にも追従し、子・孫ウィンドウにも同じ表示名を使います。現在地のタブ名、`rootLabel`、ブラウザの `document.title`、`aria-label` とは独立しています。タブバーを非表示にした場合や表示幅が狭い場合は表示しません。[指定例](./getting-started.md#右上のタイトルを指定する) を参照してください。
 
-`initialPath`・`selectedFile`・`selectedFileMode` は初回マウント時のみ評価します。初期表示を変えて開き直すにはReactの `key` を変えます。無効なパスはルート表示と通知、無効なファイルID・フォルダID・指定先にないファイルIDは無選択と通知になります。`features.preview: false` なら初期プレビューを行わず、`selection.mode: "none"` なら初期選択を行いません。選択を無効にしていてもプレビューは有効にできます。[優先順位と指定例](./getting-started.md#initial-file)
+`initialPath`・`selectedFile`・`selectedFileMode` は初回マウント時のみ評価します。表示後の移動・選択には `ref` のAPIを使い、`key` による再マウントは不要です。初期指定で無効なパスはルート表示と通知、無効なファイルID・フォルダID・指定先にないファイルIDは無選択と通知になります。`features.preview: false` なら初期プレビューを行わず、`selection.mode: "none"` なら初期選択を行いません。選択を無効にしていてもプレビューは有効にできます。[優先順位と指定例](./getting-started.md#initial-file)
 
 保存成功時は、返された一覧を次の編集の基準にします。戻り値を省略した場合は、送信した一覧を基準にします。新しく保存したファイルは `source` を既存ファイル参照に正規化した一覧を返すと、次の保存でローカルファイルとして再送する必要がなくなります。保存コールバックが例外を投げる・Promiseをrejectする場合、下書きと選択したローカルファイルを保持して再試行できます。
 
@@ -64,3 +64,84 @@ Next.js等のSPA遷移やReactの `key` 差し替えは、親が `onDirtyChange`
 ホストが渡す関数は `ExplorerFileReader`、`ExplorerSaveHandler`、`ExplorerRefreshHandler` で型付けできます。ブラウザ標準の `FileReader` クラスと紛らわしくならないよう、Explorerの型であることを名前に含めています。
 
 旧公開名の `FileReader`、`SaveHandler`、`RefreshHandler` は同じ型の非推奨エイリアスとして残しています。既存の公開入口からのimportは動きますが、新規コードではExplorer接頭辞付きの名前を使ってください。`initialEntries`、`onSave`、`onRefresh`、`readFile` などのprops名や挙動は変更していません。
+
+<a id="external-navigation"></a>
+
+## 外部からの移動・選択
+
+`ExplorerHandle` は通知APIに加え、次の `ExplorerNavigationHandle` を含みます。いずれも読み取り専用で利用でき、下書き・ファイルID・保存の比較元を変更しません。
+
+```ts
+type ExplorerFileTarget =
+  | Readonly<{ id: string; path?: never }>
+  | Readonly<{ path: string; id?: never }>;
+
+type ExplorerShowFileOptions = Readonly<{
+  mode?: "select" | "preview";
+}>;
+
+type ExplorerNavigationErrorCode =
+  | "not-ready" | "invalid-target" | "invalid-path"
+  | "not-found" | "not-file" | "not-folder" | "ambiguous-path"
+  | "different-folders" | "invalid-hierarchy"
+  | "selection-disabled" | "selection-limit"
+  | "preview-disabled" | "invalid-mode";
+
+type ExplorerNavigationResult =
+  | Readonly<{ ok: true }>
+  | Readonly<{ ok: false; code: ExplorerNavigationErrorCode; message: string }>;
+
+type ExplorerNavigationHandle = Readonly<{
+  navigate(path: string): ExplorerNavigationResult;
+  selectFiles(targets: readonly ExplorerFileTarget[]): ExplorerNavigationResult;
+  showFile(target: ExplorerFileTarget, options?: ExplorerShowFileOptions): ExplorerNavigationResult;
+}>;
+```
+
+上記の型は `@likex/explorer` からimportできます。
+
+| メソッド | 動作 |
+| --- | --- |
+| `navigate("/記事/画像")` | 現在のタブで既存フォルダを開きます。`"/"` はルートです。 |
+| `selectFiles([{ id: "file-a" }, { path: "/記事/画像/表紙.png" }])` | 対象の親フォルダを開き、指定ファイルを選択します。複数指定は同じ親フォルダにあるファイルに限ります。 |
+| `selectFiles([])` | 選択だけを解除します。現在地は変えません。 |
+| `showFile({ id: "file-a" })` | 対象の親フォルダを開き、1ファイルを選択します。`mode` の既定は `"select"` です。 |
+| `showFile({ path: "/記事/画像/表紙.png" }, { mode: "preview" })` | 対象の親フォルダを開き、ファイルを選択してプレビューを要求します。`onPreviewRequest` があれば親へ渡し、なければ内蔵プレビューを開きます。 |
+
+`id` は `ExplorerEntry.id` の完全一致です。ファイル名だけや本体参照の `source.id` は指定しません。`path` は**現在の下書き上の絶対パス**です。`/` から始まる表記を推奨し、アドレスバーと同様に `\` 区切りも受け付けます。Blobキー・URL・ローカルPCのパスではありません。`initialPath` と異なり、相対パスや `rootLabel` を先頭に置く表記は受け付けません。改名や移動を追いたい場合はIDを使います。同じファイルをIDとパス等で重複指定した場合は、先頭の順序を保って1件として選択します。
+
+対象はメイン表示領域のアクティブなタブです。新しいタブは作らず、切り離した子・孫ウィンドウの表示も操作しません。`ExplorerPopup` では開いているメインポップアップを操作し、未起動なら `not-ready` を返します。
+
+移動や対象ファイルの表示では検索を解除し、最初の選択ファイルが見える位置までスクロールします。移動履歴を追加するのは現在地が変わったときだけです。表示が変われば既存の `onEvent` の移動・選択等のイベントで通知します。保存や編集許可は発生しません。
+
+### 結果とエラー
+
+戻り値はPromiseではなく、同期の `ExplorerNavigationResult` です。`ok: true` は要求が受け付けられたことを表し、画面はReactの次の描画で反映されます。外部プレビューの完了は待ちません。その後のプレビュー失敗は通常の通知領域に表示します。
+
+```ts
+const result = explorerRef.current?.selectFiles([
+  { id: "file-a" },
+  { id: "file-b" },
+]);
+if (result && !result.ok) {
+  setError(result.message);
+}
+```
+
+対象と設定をすべて検証してから反映します。1件でも不正なら、フォルダ・検索・選択・プレビューを途中まで変更することはありません。
+
+`selectFiles()` と `showFile()` は選択する操作のため、`selection.mode: "none"` なら `selection-disabled` です。選択解除の `selectFiles([])` は例外として利用できます。`showFile(..., { mode: "preview" })` も同様に失敗し、プレビューだけを開くことはありません。初期表示の `selectedFileMode` とはこの点が異なります。
+
+| `code` | 原因 |
+| --- | --- |
+| `not-ready` | 操作対象の表示領域が準備されていない、またはポップアップが開いていない。 |
+| `invalid-target` / `invalid-path` / `invalid-mode` | 対象・絶対パス・表示モードの指定が不正。 |
+| `not-found` | 指定したIDまたはパスが現在の下書きにない。 |
+| `not-file` / `not-folder` | ファイルを指定する操作にフォルダを渡した、またはフォルダ移動にファイルを指定した。 |
+| `ambiguous-path` / `invalid-hierarchy` | パスから対象を一意に解決できない、または親子関係が不正。 |
+| `different-folders` | 複数選択の対象が異なる親フォルダにある。 |
+| `selection-disabled` | 選択する操作が `selection.mode: "none"` で無効。 |
+| `selection-limit` | `selection.mode: "single"` で複数ファイルを選択しようとした。 |
+| `preview-disabled` | `features.preview: false` でプレビューを要求した。選択だけに切り替えず、操作全体を行いません。 |
+
+[`ref` を接続する利用例](./getting-started.md#dynamic-navigation)も参照してください。

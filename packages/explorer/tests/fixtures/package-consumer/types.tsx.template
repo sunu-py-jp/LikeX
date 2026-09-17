@@ -1,12 +1,36 @@
+import { createRef } from "react";
 import Explorer, { ExplorerPopup, useExplorerDraft, createExplorerUploadSession,
   type ExplorerProps, type ExplorerEntry, type ExplorerEvent,
   type ExplorerFileReader, type ExplorerSaveHandler, type ExplorerRefreshHandler,
   type ExplorerSearchOptions, type ExplorerSearchHandler, type ExplorerSearchRequest,
   type ExplorerSearchContext, type ExplorerUploadOptions,
+  type ExplorerHandle, type ExplorerFileTarget, type ExplorerNavigationResult,
+  type ExplorerNavigationErrorCode, type ExplorerShowFileOptions,
   type FileReader as LegacyFileReader, type SaveHandler as LegacySaveHandler,
   type RefreshHandler as LegacyRefreshHandler } from "__EXPLORER_IMPORT__";
 
 const entries: readonly ExplorerEntry[] = [];
+const explorerRef = createRef<ExplorerHandle>();
+const targets: readonly ExplorerFileTarget[] = [{ id: "file-a" }, { path: "/資料/b.txt" }];
+const previewOptions = { mode: "preview" } satisfies ExplorerShowFileOptions;
+function navigateFromHost() {
+  const api = explorerRef.current;
+  if (!api) return;
+  const result: ExplorerNavigationResult = api.navigate("/資料");
+  if (!result.ok) { const code: ExplorerNavigationErrorCode = result.code; void code; }
+  api.selectFiles(targets);
+  api.selectFiles([]);
+  api.showFile({ id: "file-a" }, previewOptions);
+  api.notify({ kind: "info", message: "表示しました" });
+  // @ts-expect-error ID and path cannot both be specified.
+  api.showFile({ id: "file-a", path: "/資料/a.txt" });
+  // @ts-expect-error Bare strings cannot ambiguously mean file names, paths or IDs.
+  api.showFile("file-a");
+  // @ts-expect-error selectFiles requires typed targets, not bare IDs.
+  api.selectFiles(["file-a"]);
+  // @ts-expect-error Mode names are a strict union.
+  api.showFile({ path: "/資料/a.txt" }, { mode: "open" });
+}
 const onRefresh: ExplorerRefreshHandler = async () => entries;
 const onSave: ExplorerSaveHandler = payload => payload.entries;
 const readFile: ExplorerFileReader = async () => new Blob(['example']);
@@ -42,7 +66,7 @@ const valid: ExplorerProps = { initialEntries: entries, onSave, onRefresh, readF
     }
   },
 };
-const readOnly = <Explorer initialEntries={entries} />;
+const readOnly = <Explorer ref={explorerRef} initialEntries={entries} />;
 const popup = <ExplorerPopup {...valid} renderTrigger={({ close }) => <button onClick={close}>Close</button>} />;
 const submitSearch = <Explorer initialEntries={entries} search={{ trigger: "submit" }} onSearchRequest={synchronousSearch} />;
 // @ts-expect-error Published search options accept input or submit only.
@@ -70,4 +94,4 @@ function useConsumerDraft() {
   const busy: boolean = draft.refreshing;
   return { result, busy, session: createExplorerUploadSession() };
 }
-void [readOnly, popup, submitSearch, wrongSearchTrigger, wrongSearchResult, wrongSizeExtension, wrongExtensionSize, rejected, wrongFeature, legacyProps, rejectSearchMutation, useConsumerDraft];
+void [readOnly, popup, submitSearch, wrongSearchTrigger, wrongSearchResult, wrongSizeExtension, wrongExtensionSize, rejected, wrongFeature, legacyProps, rejectSearchMutation, useConsumerDraft, navigateFromHost];

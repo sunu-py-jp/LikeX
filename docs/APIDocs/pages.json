@@ -59,7 +59,11 @@
       "selectedFile",
       "selectedFileMode",
       "rootLabel",
-      "title"
+      "title",
+      "ExplorerHandle",
+      "navigate",
+      "selectFiles",
+      "showFile"
     ],
     "headings": [
       {
@@ -91,6 +95,11 @@
         "id": "最初に開くパスとファイルを指定する",
         "title": "最初に開くパスとファイルを指定する",
         "depth": 3
+      },
+      {
+        "id": "表示後に移動選択する",
+        "title": "表示後に移動・選択する",
+        "depth": 2
       }
     ]
   },
@@ -433,6 +442,43 @@
         "id": "キーボードショートカット",
         "title": "キーボードショートカット",
         "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "explorer/navigation",
+    "title": "移動とファイル選択",
+    "component": "explorer",
+    "section": "表示と操作設定",
+    "output": "explorer/navigation/index.html",
+    "sources": [
+      "packages/explorer/src/docs/api-reference.md"
+    ],
+    "keywords": [
+      "ExplorerHandle",
+      "ExplorerNavigationHandle",
+      "ExplorerNavigationResult",
+      "ExplorerNavigationErrorCode",
+      "ExplorerFileTarget",
+      "ExplorerShowFileOptions",
+      "navigate",
+      "selectFiles",
+      "showFile",
+      "ref",
+      "初期表示",
+      "選択",
+      "プレビュー"
+    ],
+    "headings": [
+      {
+        "id": "外部からの移動選択",
+        "title": "外部からの移動・選択",
+        "depth": 2
+      },
+      {
+        "id": "結果とエラー",
+        "title": "結果とエラー",
+        "depth": 3
       }
     ]
   },

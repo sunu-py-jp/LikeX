@@ -439,6 +439,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     selectedSet,
     activeTabId,
     focusEntryRef,
+    revealRequest,
     clipboard,
     disabled,
     busy,
@@ -478,7 +479,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     renamingEntryId,
     previewTrigger,
     canEditFavorites,
-  } = useExplorerFields("rootLabel", "entries", "visible", "pendingImportEntries", "openPendingImportFolder", "selectedSet", "activeTabId", "focusEntryRef", "clipboard", "disabled", "busy", "view", "compact", "query", "searchPending", "searchError", "retrySearch", "canSort", "location", "special", "provisionalLocation", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "chooseFiles", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "showModal", "renamingEntryId", "previewTrigger", "canEditFavorites");
+  } = useExplorerFields("rootLabel", "entries", "visible", "pendingImportEntries", "openPendingImportFolder", "selectedSet", "activeTabId", "focusEntryRef", "revealRequest", "clipboard", "disabled", "busy", "view", "compact", "query", "searchPending", "searchError", "retrySearch", "canSort", "location", "special", "provisionalLocation", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "chooseFiles", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "showModal", "renamingEntryId", "previewTrigger", "canEditFavorites");
   const { scheduleRename, cancelPendingRename } = useEntryRenameDelay();
   const suppressNamePreview = useRef(false);
   const horizontal = view === "small" || view === "list";
@@ -508,7 +509,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     ? [...pendingImportEntries.map(preview => preview.entry), ...visible] : visible, [pendingImportEntries, visible]);
   const { enabled: virtualEnabled, scrollRef: scrollContainerRef, items: virtualItems, layout: virtualLayout,
     pin: pinVirtualEntry, contentStyle: virtualContentStyle } = useExplorerVirtualList(displayedEntries, view, compact, showLocation, showCardControls,
-    JSON.stringify([activeTabId, String(location), query, displayedSort, view]), renamingEntryId, focusEntryRef);
+    JSON.stringify([activeTabId, String(location), query, displayedSort, view]), renamingEntryId, focusEntryRef, revealRequest);
   const canUpload = !provisionalLocation && (features.uploadFiles || features.uploadFolders);
   const acceptsDrop = (event: DragEvent<HTMLElement>) =>
     !provisionalLocation && !busy &&

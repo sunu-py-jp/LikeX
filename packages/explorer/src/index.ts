@@ -14,6 +14,8 @@ export type {
 } from "./props";
 export type { ExplorerItemInfo } from "./model/item-info";
 export type { ExplorerHandle, ExplorerNotification, ExplorerNotificationDetail, ExplorerNotificationKind } from "./model/notifications";
+export type { ExplorerFileTarget, ExplorerShowFileOptions, ExplorerNavigationHandle,
+  ExplorerNavigationResult, ExplorerNavigationErrorCode } from "./model/navigation";
 export type { ExplorerContextMenuContext, ExplorerContextMenuChange, ExplorerContextMenuItem, ExplorerContextMenuProvider } from "./model/context-menu";
 export type { ContextMenuExecutionMode } from "./core";
 export type {

@@ -3,12 +3,13 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import type { ExplorerEntry } from "../model/draft";
 import type { ExplorerViewMode } from "../model/config";
+import type { ExplorerRevealRequest } from "./use-explorer-navigation";
 import { EXPLORER_VIRTUAL_THRESHOLD, explorerListCell, explorerListLayout, explorerListRange, explorerListWindow, explorerListScrollTarget,
   type ExplorerListViewport } from "../model/virtual-list";
 
 export function useExplorerVirtualList(entries: readonly ExplorerEntry[], view: ExplorerViewMode, compact: boolean,
   showLocation: boolean, showCardControls: boolean, resetKey: string, renamingEntryId: string | null,
-  focusEntryRef: RefObject<((id: string) => void) | null>) {
+  focusEntryRef: RefObject<((id: string) => void) | null>, revealRequest?: ExplorerRevealRequest | null) {
   const enabled = entries.length > EXPLORER_VIRTUAL_THRESHOLD;
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef<string | null>(null);
@@ -65,18 +66,59 @@ export function useExplorerVirtualList(entries: readonly ExplorerEntry[], view: 
     const element = scrollRef.current;
     if (!element || !enabled || !entries[index]) return;
     if (focus) pendingFocus.current = entries[index].id;
-    const next = explorerListScrollTarget(layout, { ...viewport, top: element.scrollTop, left: element.scrollLeft }, index);
+    // Navigation can switch from a short list before the first ResizeObserver
+    // update. Use current DOM geometry, not the previous folder's viewport.
+    const liveViewport = { width: element.clientWidth || 800, height: element.clientHeight || 600,
+      lineHeight: Number.parseFloat(element.ownerDocument.defaultView?.getComputedStyle(element).lineHeight ?? "21") || 21,
+      top: element.scrollTop, left: element.scrollLeft };
+    const liveLayout = explorerListLayout(entries.length, view, compact, showLocation, showCardControls, liveViewport);
+    const next = explorerListScrollTarget(liveLayout, liveViewport, index);
     element.scrollTop = next.top;
     element.scrollLeft = next.left;
     if (focus) pin("focus", entries[index].id);
     measure();
-  }, [enabled, entries, layout, viewport, measure, pin]);
+  }, [enabled, entries, view, compact, showLocation, showCardControls, measure, pin]);
   useLayoutEffect(() => {
     if (!enabled) return;
     const focus = (id: string) => { const index = positions.get(id); if (index !== undefined) reveal(index, true); };
     focusEntryRef.current = focus;
     return () => { if (focusEntryRef.current === focus) focusEntryRef.current = null; };
   }, [enabled, focusEntryRef, positions, reveal]);
+  const completedReveal = useRef<ExplorerRevealRequest | null>(null);
+  useLayoutEffect(() => {
+    if (!revealRequest || completedReveal.current === revealRequest) return;
+    const index = positions.get(revealRequest.id);
+    const element = scrollRef.current;
+    if (index === undefined || !element) return;
+    if (enabled) {
+      const liveLineHeight = Number.parseFloat(element.ownerDocument.defaultView?.getComputedStyle(element).lineHeight ?? "21") || 21;
+      if (viewport.width !== (element.clientWidth || 800) || viewport.height !== (element.clientHeight || 600) ||
+        viewport.lineHeight !== liveLineHeight) {
+        // Commit the new content dimensions before scrolling, or the browser
+        // could clamp the offset against the previous, shorter layout.
+        measure();
+        return;
+      }
+      completedReveal.current = revealRequest;
+      // The new listing and its scroll reset are committed before revealing.
+      // Do not focus a row: a preview dialog may already own keyboard focus.
+      reveal(index);
+      return;
+    }
+    const target = Array.from(element.querySelectorAll<HTMLElement>("[data-explorer-entry-id]"))
+      .find(row => row.dataset.explorerEntryId === revealRequest.id);
+    if (!target) return;
+    completedReveal.current = revealRequest;
+    const bounds = element.getBoundingClientRect();
+    const row = target.getBoundingClientRect();
+    const header = view === "details" ? element.querySelector("thead")?.getBoundingClientRect().height ?? 0 : 0;
+    const top = bounds.top + header;
+    // Scroll only this Explorer, never the host page or another window.
+    if (row.top < top) element.scrollTop -= top - row.top;
+    else if (row.bottom > bounds.bottom) element.scrollTop += Math.min(row.bottom - bounds.bottom, row.top - top);
+    if (row.left < bounds.left) element.scrollLeft -= bounds.left - row.left;
+    else if (row.right > bounds.right) element.scrollLeft += Math.min(row.right - bounds.right, row.left - bounds.left);
+  }, [revealRequest, enabled, positions, reveal, view, measure, viewport.width, viewport.height, viewport.lineHeight]);
   useLayoutEffect(() => {
     if (!renamingEntryId || !enabled) return;
     const index = positions.get(renamingEntryId);

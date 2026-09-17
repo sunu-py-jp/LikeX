@@ -1,0 +1,23 @@
+{
+  "title": "移動とファイル選択",
+  "summary": "refから現在のタブを移動し、IDや絶対パスでファイルを選択・プレビューします。",
+  "source": "packages/explorer/src/docs/api-reference.md",
+  "sections": ["外部からの移動・選択"],
+  "order": 95,
+  "keywords": [
+    "ExplorerHandle",
+    "ExplorerNavigationHandle",
+    "ExplorerNavigationResult",
+    "ExplorerNavigationErrorCode",
+    "ExplorerFileTarget",
+    "ExplorerShowFileOptions",
+    "navigate",
+    "selectFiles",
+    "showFile",
+    "ref",
+    "初期表示",
+    "選択",
+    "プレビュー"
+  ],
+  "section": "表示と操作設定"
+}

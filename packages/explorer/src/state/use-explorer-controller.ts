@@ -37,6 +37,8 @@ import { useExplorerContextMenu } from "./use-explorer-context-menu";
 import { useExplorerListing } from "./use-explorer-listing";
 import { useExplorerSearch } from "./use-explorer-search";
 import { useExplorerMouseNavigation } from "./use-explorer-mouse-navigation";
+import { useExplorerNavigation } from "./use-explorer-navigation";
+import { explorerLocationPatch } from "./navigation-state";
 import { captureClipboardImport, type ClipboardImport } from "./clipboard-import";
 import { describeImportProgress } from "./import-progress";
 import { EMPTY_IMPORT_ENTRIES, projectExplorerImportPreview, useExplorerImportPreview, type ExplorerImportPreviewWriter } from "./import-preview";
@@ -224,6 +226,7 @@ export function useExplorerViewController({
   }
   function setQuery(action: SetStateAction<string>) {
     if (!features.search) return;
+    hostNavigation.cancelReveal();
     const commit = searchTrigger === "input" && !composingSearch.current;
     tabState.patchTabState(previous => {
       const text = typeof action === "function" ? action(previous.searchText) : action;
@@ -341,6 +344,7 @@ export function useExplorerViewController({
     nameInput = useRef<HTMLInputElement>(null),
     workspaceRef = useRef<HTMLDivElement>(null);
   const focusEntryRef = useRef<((id: string) => void) | null>(null);
+  const previewRequestRevision = useRef(0);
   useEffect(() => {
     const file = fileInput.current, folder = folderInput.current;
     const cancelFile = () => cancelFilePicker("file");
@@ -465,14 +469,19 @@ export function useExplorerViewController({
       : locationTitle(resolveLocation(tab.requestedLocation)),
   })), [features.tabs, features.search, tabState.tabs, tabState.activeTab, locationTitle, resolveLocation]);
   function clearTransientState() {
+    previewRequestRevision.current++;
+    hostNavigation.cancelReveal();
     composingSearch.current = false;
-    cancelBrowsingEditRequest();
-    cancelRename();
-    setModal(null);
+    // Clear local state before notifying the host about cancelled edit requests.
+    // A notification handler may immediately navigate or open another preview.
+    modalRef.current = null;
+    updateModal(null);
     setPreviewId(null);
     setDetailId(null);
     endDrag();
     setOpenMobile(false);
+    cancelRename();
+    cancelBrowsingEditRequest();
   }
   function addTab() {
     if (!features.tabs) return;
@@ -685,19 +694,14 @@ export function useExplorerViewController({
   function navigate(id: ExplorerLocation, record = true) {
     if ((id === FAVORITES && !features.favorites) || (id === RECENT && !features.recent)) return;
     id = resolveLocation(id);
+    previewRequestRevision.current++;
     cancelBrowsingEditRequest();
     cancelRename();
+    hostNavigation.cancelReveal();
     composingSearch.current = false;
-    tabState.patchTabState(previous => {
-      const nextHistory = record ? [...previous.history.slice(0, previous.historyIndex + 1), id] : previous.history;
-      return {
-        requestedLocation: id, selectedIds: [], anchor: null, query: "", searchText: "",
-        history: nextHistory, historyIndex: record ? nextHistory.length - 1 : previous.historyIndex,
-        expanded: typeof id === "string" && id !== "root"
-          ? [...new Set([...previous.expanded, ...getEntryPath(navigationEntries, id).map(entry => entry.id)])]
-          : previous.expanded,
-      };
-    });
+    const expandedIds = typeof id === "string" && id !== "root"
+      ? getEntryPath(navigationEntries, id).map(entry => entry.id) : [];
+    tabState.patchTabState(previous => explorerLocationPatch(previous, id, expandedIds, [], record));
     setOpenMobile(false);
   }
   function openPendingImportFolder(id: string) {
@@ -911,25 +915,29 @@ export function useExplorerViewController({
   }
   function openEntry(entry: Entry) {
     cancelRename();
-    const currentEntry = entryIndex.byId.get(entry.id);
+    const currentEntries = currentDraft.current.getEntries();
+    const currentEntry = getEntryIndex(currentEntries).byId.get(entry.id);
     if (!currentEntry) return;
     if (currentEntry.kind === "folder") {
       navigate(currentEntry.id);
       return;
     }
     if (!features.preview) return;
-    const eventRequest = createPreviewRequest(entries, currentEntry.id);
+    const eventRequest = createPreviewRequest(currentEntries, currentEntry.id);
     if (!eventRequest) return;
+    const revision = ++previewRequestRevision.current;
     emitEvent({ type: "preview", request: eventRequest, external: Boolean(onPreviewRequest) });
+    // Host event handlers may immediately navigate or request another preview.
+    if (!mounted.current || revision !== previewRequestRevision.current) return;
     if (!onPreviewRequest) {
       setPreviewId(currentEntry.id);
       return;
     }
     setPreviewId(null);
-    const request = createPreviewRequest(entries, currentEntry.id);
+    const request = createPreviewRequest(currentEntries, currentEntry.id);
     if (!request) return;
     const failed = (error: unknown) => {
-      if (!mounted.current) return;
+      if (!mounted.current || revision !== previewRequestRevision.current) return;
       notify("error", error instanceof Error ? error.message : "プレビューを開けませんでした");
     };
     try {
@@ -938,12 +946,12 @@ export function useExplorerViewController({
       failed(error);
     }
   }
+  const hostNavigation = useExplorerNavigation({ workspace, windowId, options, prepare: clearTransientState, preview: openEntry });
   useEffect(() => {
     const id = workspace.takeInitialPreview(tabState.activeTabId);
     if (!id || !features.preview) return;
     const entry = entryIndex.byId.get(id);
     // Dispatch once after the view mounts, through the same UI/host boundary as a user preview.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (entry?.kind === "file" && entry.parent === currentParent) openEntry(entry);
   });
   function rowKey(event: React.KeyboardEvent, entry: Entry) {
@@ -1414,6 +1422,7 @@ export function useExplorerViewController({
     nameInput,
     workspaceRef,
     focusEntryRef,
+    revealRequest: hostNavigation.revealRequest?.tabId === tabState.activeTabId ? hostNavigation.revealRequest : null,
     instanceId,
     entryId,
     mobileOpen,
