@@ -27,7 +27,10 @@ export type SpreadsheetCommand = DeepReadonly<
   | SpreadsheetFormattingCommand | SpreadsheetEditingCommand | SpreadsheetDataValidationCommand | SpreadsheetTableCommand | SpreadsheetNamedRangeCommand
   | { type: "cells.set"; sheetId: string; values: Record<string, string>; onConflict?: SpreadsheetWriteConflictPolicy }
   | { type: "cells.clear"; sheetId: string; range: SpreadsheetCellRangeInput; mode?: SpreadsheetClearMode }
-  | { type: "cells.delete"; sheetId: string; range: SpreadsheetCellRangeInput }
+  /** Open a rectangular gap, shifting only cells in the selected columns or rows. */
+  | { type: "cells.insert"; sheetId: string; range: SpreadsheetCellRangeInput; shift: "down" | "right" }
+  /** Omit shift to retain the legacy clear-all operation without moving surrounding cells. */
+  | { type: "cells.delete"; sheetId: string; range: SpreadsheetCellRangeInput; shift?: "up" | "left" }
   | { type: "cells.format"; sheetId: string; addresses: readonly string[]; format: SpreadsheetCellFormat }
   /** Each outer item is one inserted row; values start at column A. Omitted count uses values.length or 1. */
   | { type: "rows.insert"; sheetId: string; index: number; count?: number; values?: readonly (readonly SpreadsheetInsertValue[])[] }
@@ -65,7 +68,7 @@ type DrawingPlacementCommand = "drawings.paste" | "images.insert" | "images.upda
 export type SpreadsheetWriteReport = Readonly<{ changedCount: number; skippedCount: number; skippedAddresses: readonly string[] }>;
 
 type CommandReceiptPlacement<Type extends SpreadsheetCommand["type"]> =
-  Type extends DrawingPlacementCommand | "cells.fill" | "cells.move" | "tables.insert" | "cells.writeTable" ? { placement: SpreadsheetCommandPlacement }
+  Type extends DrawingPlacementCommand | "cells.fill" | "cells.move" | "cells.insert" | "tables.insert" | "cells.writeTable" ? { placement: SpreadsheetCommandPlacement }
     : Type extends "cells.set" | "cells.paste" ? { placement?: SpreadsheetCommandPlacement }
       : Type extends "rows.insert" ? { placement: Readonly<{ nextRow: number; nextColumn?: never }> }
         : Type extends "columns.insert" ? { placement: Readonly<{ nextRow?: never; nextColumn: number }> }
@@ -91,7 +94,8 @@ export type SpreadsheetCommandReceipt = {
     & (Type extends SpreadsheetNamedRangeCommand["type"] ? { namedRangeId: string } : object)
     & (Type extends "tables.insert" | "tables.delete" ? { tableId: string } : object)
     & (Type extends "tables.insert" | "tables.delete" | "cells.writeTable" ? { range: SpreadsheetMergedRange } : object)
-    & (Type extends "cells.set" | "cells.paste" | "cells.fill" | "cells.move" | "cells.replace" | "cells.clear" | "cells.delete" | "tables.insert" | "cells.writeTable"
+    & (Type extends "cells.insert" ? { range: SpreadsheetMergedRange } : object)
+    & (Type extends "cells.set" | "cells.paste" | "cells.fill" | "cells.move" | "cells.replace" | "cells.clear" | "cells.insert" | "cells.delete" | "tables.insert" | "cells.writeTable"
       ? { write: SpreadsheetWriteReport } : object)>;
 }[SpreadsheetCommand["type"]];
 

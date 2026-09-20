@@ -3,9 +3,10 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { SpreadsheetCommand, SpreadsheetCommandSuccess } from "../api/types";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
+import type { SpreadsheetSelection } from "../props";
 
 /** Keeps a form's captured target valid while an editing-permission request is pending. */
-export function useSpreadsheetDialogCommand(controller: SpreadsheetController, revision: number) {
+export function useSpreadsheetDialogCommand(controller: SpreadsheetController, revision: number, historySelection?: SpreadsheetSelection) {
   const mounted = useRef(false), running = useRef(false);
   const cancelEditRequest = useRef(controller.cancelEditRequest);
   useLayoutEffect(() => { cancelEditRequest.current = controller.cancelEditRequest; });
@@ -30,6 +31,7 @@ export function useSpreadsheetDialogCommand(controller: SpreadsheetController, r
     running.current = true; setPending(true); setError(null);
     try {
       const result = await controller.executeCommands([command], {
+        ...(historySelection ? { historySelection } : {}),
         isCurrent: () => mounted.current && controller.getRevision() === revision,
       });
       if (mounted.current) {

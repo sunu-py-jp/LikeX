@@ -21,6 +21,8 @@ export function resolveSpreadsheetFeatures(features: SpreadsheetFeatures | undef
     checkboxes: features?.checkboxes !== false,
     mergeCells: features?.mergeCells !== false,
     rowColumnOperations: features?.rowColumnOperations !== false,
+    insertCells: features?.rowColumnOperations !== false && features?.insertCells !== false,
+    deleteCells: features?.rowColumnOperations !== false && features?.deleteCells !== false,
     insertRows: features?.rowColumnOperations !== false && features?.insertRows !== false,
     deleteRows: features?.rowColumnOperations !== false && features?.deleteRows !== false,
     insertColumns: features?.rowColumnOperations !== false && features?.insertColumns !== false,

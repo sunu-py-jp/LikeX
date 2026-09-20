@@ -2,6 +2,8 @@ import { applyDrawingPasteCommand } from "./drawing-paste";
 import { stageNamedRangeCommand } from "./named-ranges";
 import { stageTableCommand } from "./tables";
 import { clearCommandCells } from "./clear-cells";
+import { resolveCellRange } from "../model/workbook/clear";
+import { insertCellRange, deleteCellRange } from "../model/workbook/shift-cells";
 import { cellWriteReport } from "./cell-write-report";
 import { insertCommandAxis } from "./insert-axis";
 import { filterCellValueWrites, WriteConflictError } from "../model/workbook/write-conflicts";
@@ -43,7 +45,19 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
       return stageNamedRangeCommand(workbook, command, features, nextId);
     case "tables.insert": case "cells.writeTable": case "tables.delete":
       return stageTableCommand(workbook, command, features, nextId);
+    case "cells.insert": {
+      requireCommandFeature(features, "insertCells");
+      const range = resolveCellRange(sheet, command.range);
+      const next = insertCellRange(workbook, sheet.id, range, command.shift);
+      return result(next, { range, write: cellWriteReport(workbook, next) });
+    }
     case "cells.clear": case "cells.delete": {
+      if (command.type === "cells.delete" && command.shift !== undefined) {
+        requireCommandFeature(features, "deleteCells");
+        const range = resolveCellRange(sheet, command.range);
+        const next = deleteCellRange(workbook, sheet.id, range, command.shift);
+        return result(next, { range, write: cellWriteReport(workbook, next) });
+      }
       const next = clearCommandCells(workbook, sheet.id, command.range, command.type === "cells.delete" ? "all" : command.mode ?? "values", features);
       return result(next, { write: cellWriteReport(workbook, next) });
     }

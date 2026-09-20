@@ -69,6 +69,8 @@ const json = serializeWorkbook(table.workbook);
 | `images.update` / `shapes.update` / `textBoxes.update` | 更新後の配置枠から求めた `nextRow` / `nextColumn` |
 | `cells.set` | 指定したセル群の最終行＋1、最終列＋1。空の `values` では省略 |
 | `cells.paste` | 貼り付け先の最終行＋1、最終列＋1。空の貼り付けでは省略 |
+| `cells.insert` | 挿入範囲の最終行＋1、最終列＋1。移動した既存セルの末尾ではありません |
+| `cells.clear` / `cells.delete` | 省略 |
 | `cells.fill` | 展開先範囲の最終行＋1、最終列＋1 |
 | `cells.move` | 移動先範囲の最終行＋1、最終列＋1 |
 | `rows.insert` | `nextRow` のみ。`index + 実際の挿入行数`。`values` ありで `count` を省略した場合は `values.length` を使う |

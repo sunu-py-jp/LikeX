@@ -1300,6 +1300,48 @@
     ]
   },
   {
+    "id": "spreadsheet/cell-shifts",
+    "title": "セルの挿入・削除",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/cell-shifts/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/cell-shifts.md"
+    ],
+    "keywords": [
+      "cells.insert",
+      "cells.delete",
+      "shift",
+      "insertCells",
+      "deleteCells",
+      "挿入",
+      "削除",
+      "セルをずらす"
+    ],
+    "headings": [
+      {
+        "id": "どのセルが動くか",
+        "title": "どのセルが動くか",
+        "depth": 2
+      },
+      {
+        "id": "外部コマンド",
+        "title": "外部コマンド",
+        "depth": 2
+      },
+      {
+        "id": "データの扱いと制限",
+        "title": "データの扱いと制限",
+        "depth": 2
+      },
+      {
+        "id": "機能の設定",
+        "title": "機能の設定",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/clipboard-and-fill",
     "title": "コピー・貼り付け・オートフィル",
     "component": "spreadsheet",

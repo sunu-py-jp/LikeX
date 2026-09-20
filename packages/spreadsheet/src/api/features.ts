@@ -27,8 +27,12 @@ export type SpreadsheetFeatures = Readonly<{
   checkboxes?: boolean;
   /** Existing merged cells still render when merging/unmerging is disabled. */
   mergeCells?: boolean;
-  /** Master switch for row and column insertion/deletion. */
+  /** Master switch for partial cell shifts and whole row/column insertion/deletion. */
   rowColumnOperations?: boolean;
+  /** Insert a cell range, shifting down or right. Also requires rowColumnOperations. */
+  insertCells?: boolean;
+  /** Delete a cell range, shifting up or left. Does not control clear-all. */
+  deleteCells?: boolean;
   insertRows?: boolean;
   deleteRows?: boolean;
   insertColumns?: boolean;

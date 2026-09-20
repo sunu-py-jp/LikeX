@@ -41,7 +41,8 @@ const features = {
 | `dataValidation` | 入力規則の設定・解除、セル内のプルダウン・チェックボックス操作。既存の規則は保存・検証し続けます。[詳細](./input-validation.md) |
 | `checkboxes` | チェックボックスの設定・操作。既存セルは `TRUE` / `FALSE` の値として表示し、規則は維持します。規則の解除には `dataValidation` を使います。 |
 | `mergeCells` | セルの結合・解除。既存の結合配置は表示します。 |
-| `rowColumnOperations` | 行・列の挿入・削除全体。 |
+| `rowColumnOperations` | セル範囲をずらす挿入・削除、行・列全体の挿入・削除。 |
+| `insertCells` / `deleteCells` | セル範囲を下・右へずらす挿入／上・左へ詰める削除。`rowColumnOperations` も必要。値・書式のクリアは別操作です。 |
 | `insertRows` / `deleteRows` | 行の挿入／削除。 |
 | `insertColumns` / `deleteColumns` | 列の挿入／削除。 |
 | `sheets` | シートタブ、シート切り替え、シート管理。 |

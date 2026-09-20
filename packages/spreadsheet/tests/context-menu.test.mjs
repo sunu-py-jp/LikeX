@@ -53,6 +53,18 @@ async function mount(t, overrides = {}) {
       assert.equal(item.props.disabled, false);
       await act(async () => item.props.onClick());
     },
+    get dialog() { return renderer.root.find(node => typeof node.type === 'function' && node.type.name === 'SpreadsheetDialog'); },
+    get shiftOptions() { return this.dialog.props.children.find(child => child?.props?.role === 'radiogroup').props.children; },
+    async applyShift(method) {
+      if (method) {
+        const radio = this.shiftOptions.find(label => label.props.children[1] === method)?.props.children[0];
+        assert.ok(radio, `missing shift method: ${method}`);
+        await act(async () => radio.props.onChange());
+      }
+      const button = this.dialog.props.actions.props.children[1];
+      assert.equal(button.props.disabled, false);
+      await act(async () => button.props.onClick());
+    },
     async openSheet(sheetId = 'other', keyboard = false) {
       let prevented = false, stopped = false;
       const tab = { dataset: { lxsSheetId: sheetId }, closest: selector => selector === '[data-lxs-sheet-id]' ? tab : null,
@@ -437,4 +449,130 @@ test('right clicking a merged cell expands the built-in target to the whole merg
   await ui.open(1, 1);
   const context = ui.root.findAll(node => node.props.controller?.selectBuiltin)[0].props.controller;
   assert.deepEqual(context.menu.actionSelection.ranges[0], {anchor: {row: 1, column: 1}, focus: {row: 2, column: 2}});
+});
+
+test('cell insertion and deletion use four-choice dialogs while header menus retain their direct actions', async t => {
+  const ui = await mount(t);
+  await ui.open(1, 0);
+  const labels = ui.root.findAllByProps({role: 'menuitem'}).map(item => item.children[0]);
+  assert.ok(labels.includes('挿入…'));
+  assert.ok(labels.includes('削除…'));
+  assert.ok(!labels.includes('上に行を挿入'));
+  await ui.choose('挿入…');
+  assert.equal(ui.dialog.props.title, 'セルの挿入');
+  assert.deepEqual(ui.shiftOptions.map(label => label.props.children[1]), ['下方向にシフト', '右方向にシフト', '行全体', '列全体']);
+  await act(async () => ui.dialog.props.onClose());
+  await ui.open(1, 0);
+  await ui.choose('削除…');
+  assert.equal(ui.dialog.props.title, 'セルの削除');
+  assert.deepEqual(ui.shiftOptions.map(label => label.props.children[1]), ['上方向にシフト', '左方向にシフト', '行全体', '列全体']);
+});
+
+test('partial insertion preserves the full selected rectangle through Undo and Redo', async t => {
+  const ui = await mount(t);
+  await act(async () => ui.controller.selectRange({row: 0, column: 0}, {row: 2, column: 1}));
+  const expected = ui.controller.selection.ranges;
+  await ui.open(1, 0);
+  await ui.choose('挿入…');
+  await ui.applyShift('下方向にシフト');
+  assert.equal(ui.value('A1'), undefined);
+  assert.equal(ui.value('A4'), '1');
+  assert.deepEqual(ui.controller.selection.ranges, expected);
+  assert.equal(ui.root.findAll(node => typeof node.type === 'function' && node.type.name === 'SpreadsheetDialog').length, 0);
+  await act(async () => ui.controller.undo());
+  assert.equal(ui.value('A1'), '1');
+  assert.deepEqual(ui.controller.selection.ranges, expected);
+  await act(async () => ui.controller.redo());
+  assert.equal(ui.value('A4'), '1');
+  assert.deepEqual(ui.controller.selection.ranges, expected);
+});
+
+for (const [method, insertion, before, after, expected] of [
+  ['右方向にシフト', true, 'B2', 'C2', 'target'],
+  ['上方向にシフト', false, 'B3', 'B2', 'target'],
+  ['左方向にシフト', false, 'C2', 'B2', 'target'],
+]) test(`cell shift dialog executes ${method} through the shared command API`, async t => {
+  const book = structuredClone(initialWorkbook);
+  book.sheets[0].cells[before] = {value: 'target'};
+  const ui = await mount(t, {initialWorkbook: book});
+  await ui.open(1, 1);
+  await ui.choose(insertion ? '挿入…' : '削除…');
+  await ui.applyShift(method);
+  assert.equal(ui.value(after), expected);
+  assert.equal(ui.value('A1'), '1');
+});
+
+test('deletion selects a complete merge moved into the deleted region', async t => {
+  const book = structuredClone(initialWorkbook);
+  book.sheets[0].cells.B3 = {value: 'merged'};
+  book.sheets[0].merges = [{top: 2, left: 1, bottom: 3, right: 2}];
+  const ui = await mount(t, {initialWorkbook: book});
+  await act(async () => ui.controller.selectRange({row: 1, column: 1}, {row: 1, column: 2}));
+  await ui.open(1, 1);
+  await ui.choose('削除…');
+  await ui.applyShift('上方向にシフト');
+  assert.equal(ui.value('B2'), 'merged');
+  assert.deepEqual(ui.controller.selection.ranges, [{anchor: {row: 1, column: 1}, focus: {row: 2, column: 2}}]);
+});
+
+for (const insert of [true, false]) for (const row of [true, false])
+  test(`cell dialog supports ${insert ? 'inserting' : 'deleting'} entire ${row ? 'rows' : 'columns'}`, async t => {
+    const ui = await mount(t);
+    await act(async () => ui.controller.selectRange({row: 1, column: 1}, {row: 2, column: 2}));
+    await ui.open(1, 1);
+    await ui.choose(insert ? '挿入…' : '削除…');
+    await ui.applyShift(row ? '行全体' : '列全体');
+    const sheet = ui.ref.current.getWorkbook().sheets[0];
+    assert.equal(row ? sheet.rowCount : sheet.columnCount, (row ? 10 : 5) + (insert ? 2 : -2));
+    assert.equal(ui.controller.selection.ranges[0].kind, row ? 'row' : 'column');
+    await act(async () => ui.controller.undo());
+    assert.equal(ui.ref.current.getWorkbook().sheets[0].rowCount, 10);
+    assert.equal(ui.ref.current.getWorkbook().sheets[0].columnCount, 5);
+  });
+
+test('cell shift choices hide disabled features and disjoint selections explain their disabled actions', async t => {
+  const ui = await mount(t, {features: {insertCells: false, insertRows: false}});
+  await ui.open(0, 0);
+  await ui.choose('挿入…');
+  assert.deepEqual(ui.shiftOptions.map(label => label.props.children[1]), ['列全体']);
+  await act(async () => ui.dialog.props.onClose());
+  await ui.update({features: {rowColumnOperations: false}});
+  await ui.open();
+  let items = ui.root.findAllByProps({role: 'menuitem'});
+  assert.ok(!items.some(item => item.children[0] === '挿入…' || item.children[0] === '削除…'));
+  await ui.update({features: {}});
+  await act(async () => ui.controller.selectRange({row: 0, column: 0}, {row: 0, column: 0}));
+  await act(async () => ui.controller.selectRange({row: 2, column: 0}, {row: 2, column: 0}, true));
+  await ui.open(2, 0);
+  items = ui.root.findAllByProps({role: 'menuitem'});
+  for (const label of ['挿入…', '削除…']) {
+    const item = items.find(item => item.children[0] === label);
+    assert.equal(item.props.disabled, true);
+    assert.equal(item.props.title, '一続きのセル範囲を選択してください');
+  }
+});
+
+test('cell shift form rejects stale workbook targets without moving data', async t => {
+  const ui = await mount(t);
+  await ui.open(1, 0);
+  await ui.choose('挿入…');
+  await act(async () => ui.ref.current.execute(command('B1', 'concurrent edit')));
+  await ui.applyShift('下方向にシフト');
+  assert.equal(ui.value('A2'), '2');
+  assert.equal(ui.value('B1'), 'concurrent edit');
+  assert.match(ui.dialog.props.children.at(-1).props.children, /ブックの状態が変わりました/);
+});
+
+test('closing a cell shift form cancels its pending editing permission and ignores late approval', async t => {
+  const permission = deferred(); let operation;
+  const ui = await mount(t, {onEditRequest(_request, context) { operation = context; return permission.promise; }});
+  await ui.open(1, 0);
+  await ui.choose('挿入…');
+  await ui.applyShift('下方向にシフト');
+  assert.equal(operation.signal.aborted, false);
+  await act(async () => ui.dialog.props.onClose());
+  assert.equal(operation.signal.aborted, true);
+  await act(async () => permission.resolve(true));
+  assert.equal(ui.value('A2'), '2');
+  assert.equal(ui.controller.canUndo, false);
 });

@@ -5,9 +5,9 @@ import type { SpreadsheetController } from "../use-spreadsheet";
 import { axisSelectionRange, isCellSelected, isMultiRangeSelection, rangeBounds, selectionForSheet, selectionRanges } from "../selection";
 
 export type CellMenuAction = "copy" | "cut" | "paste" | "paste-values" | "paste-formats" |
-  "insert-rows" | "insert-columns" | "delete-rows" | "delete-columns" | "clear" | "delete-cells" |
+  "insert-rows" | "insert-columns" | "delete-rows" | "delete-columns" | "insert-cells" | "shift-delete-cells" | "clear" | "delete-cells" |
   "format" | "comment" | "delete-comment" | "resize" | "autofit";
-export type CellMenuItem = Readonly<{ id: CellMenuAction; label: string; group: number; disabled: boolean; destructive?: boolean }>;
+export type CellMenuItem = Readonly<{ id: CellMenuAction; label: string; group: number; disabled: boolean; disabledReason?: string; destructive?: boolean }>;
 export type GridMenuTarget = Exclude<SpreadsheetContextMenuContext["target"], {kind: "sheet"}>;
 
 /** Built-ins target the clicked cell/header; host callbacks retain their independent original selection. */
@@ -54,8 +54,10 @@ export function contextStructureCommands(sheetId: string, selection: Spreadsheet
 export function cellMenuItems(c: SpreadsheetController, target: GridMenuTarget, selection: SpreadsheetSelection): CellMenuItem[] {
   const f = c.features, items: CellMenuItem[] = [];
   const busy = c.disabled || c.requesting || c.pendingObjectEdit || !!c.editing;
-  const add = (id: CellMenuAction, label: string, group: number, disabled = busy, destructive = false) => items.push({id,label,group,disabled,destructive});
+  const add = (id: CellMenuAction, label: string, group: number, disabled = busy, destructive = false, disabledReason?: string) =>
+    items.push({id,label,group,disabled,destructive,...(disabledReason ? {disabledReason} : {})});
   const multiple = isMultiRangeSelection(selection);
+  const singleRangeReason = multiple ? "一続きのセル範囲を選択してください" : undefined;
   if (f.cut && !c.readOnly) add("cut", "切り取り", 0, busy || multiple);
   if (f.copy) add("copy", "コピー", 0, c.saving || c.refreshing || c.requesting || c.pendingObjectEdit || multiple);
   if (f.paste && !c.readOnly) {
@@ -63,8 +65,10 @@ export function cellMenuItems(c: SpreadsheetController, target: GridMenuTarget, 
     if (f.pasteSpecial) { add("paste-values", "値のみ貼り付け", 0, busy || multiple); if (f.formatting) add("paste-formats", "書式のみ貼り付け", 0, busy || multiple); }
   }
   if (!c.readOnly) {
-    if (target.kind !== "column" && f.insertRows) add("insert-rows", "上に行を挿入", 1);
-    if (target.kind !== "row" && f.insertColumns) add("insert-columns", "左に列を挿入", 1);
+    if (target.kind === "cell" && (f.insertCells || f.insertRows || f.insertColumns))
+      add("insert-cells", "挿入…", 1, busy || multiple, false, singleRangeReason);
+    if (target.kind === "row" && f.insertRows) add("insert-rows", "上に行を挿入", 1);
+    if (target.kind === "column" && f.insertColumns) add("insert-columns", "左に列を挿入", 1);
     add("clear", "値をクリア", 2);
     if (f.formatting) add("format", "セルの書式設定…", 2);
     if (target.kind !== "cell" && f.resize) {
@@ -78,6 +82,8 @@ export function cellMenuItems(c: SpreadsheetController, target: GridMenuTarget, 
     }
     if (target.kind === "row" && f.deleteRows) add("delete-rows", "行を削除", 4, busy, true);
     if (target.kind === "column" && f.deleteColumns) add("delete-columns", "列を削除", 4, busy, true);
+    if (target.kind === "cell" && (f.deleteCells || f.deleteRows || f.deleteColumns))
+      add("shift-delete-cells", "削除…", 4, busy || multiple, true, singleRangeReason);
     if (target.kind === "cell" && f.formatting) add("delete-cells", "すべてクリア（書式も削除）", 4, busy, true);
   }
   return items;

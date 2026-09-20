@@ -2,7 +2,7 @@
 
 [利用ガイドへ戻る](./README.md)
 
-セルへ値を入れるときは `cells.set`、値だけを消すときは `cells.clear`、書式なども取り除くときは `cells.delete` を使います。クリア・削除では周囲のセルを移動しません。行や列そのものを削除する操作とは別です。
+セルへ値を入れるときは `cells.set`、値だけを消すときは `cells.clear`、書式なども取り除くときは `cells.delete` を使います。`cells.delete` の `shift` を省略した場合、周囲のセルは移動しません。上・左に詰めて削除する場合は[セルの挿入・削除](./cell-shifts.md)を参照してください。
 
 ## 既存の値を上書きするか
 
@@ -49,9 +49,9 @@ console.log(result.results[0].write);
 | --- | --- | --- | --- | --- |
 | `cells.clear` | 消す | 残す | 残す | しない |
 | `cells.clear` + `mode: "all"` | 消す | 消す | 消す | しない |
-| `cells.delete` | 消す | 消す | 消す | しない |
+| `cells.delete`（`shift` 省略） | 消す | 消す | 消す | しない |
 
-どのコマンドも `sheetId` と `range` を指定します。`range` は `"A1:C10"`、または0始まり・両端を含む `{ top, left, bottom, right }` です。`cells.clear.mode` の既定は `"values"`。`cells.delete` はセル情報を削除する `all` と同じです。
+どのコマンドも `sheetId` と `range` を指定します。`range` は `"A1:C10"`、または0始まり・両端を含む `{ top, left, bottom, right }` です。`cells.clear.mode` の既定は `"values"`。`shift` を省略した `cells.delete` はセル情報を削除する `all` と同じです。
 
 ```ts
 // 値・数式だけを消す。罫線や入力規則は残す。
@@ -63,7 +63,7 @@ const deleted = session.execute({ type: "cells.delete", sheetId, range: "D1:E10"
 if (!deleted.ok) throw new Error(deleted.message);
 ```
 
-`all` / `cells.delete` は範囲内のセルレコードを取り除きます。範囲に完全に含まれる結合・テーブル定義も削除し、条件付き書式は対象部分を除きます。行高・列幅、画像・図形・テキストボックス、名前付き範囲の定義は残します。
+`all` / `cells.delete`（`shift` 省略）は範囲内のセルレコードを取り除きます。範囲に完全に含まれる結合・テーブル定義も削除し、条件付き書式は対象部分を除きます。行高・列幅、画像・図形・テキストボックス、名前付き範囲の定義は残します。
 
 結合セルは全体を含めて指定してください。テーブルの一部だけを `all` で削除する操作も拒否します。テーブルのヘッダーを値だけで空にすることはできません。テーブル全体の定義と値を外す場合は `tables.delete` の `clear: "values"` を使います。
 

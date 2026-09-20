@@ -28,7 +28,7 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
   const mounted = useRef(false);
   const owner = useRef({});
   const [menu, setMenu] = useState<SpreadsheetOpenContextMenu | null>(null);
-  const [dialog, setDialog] = useState<{kind: "format" | "dimension"; axis: "row" | "column"; sheetId: string; selection: SpreadsheetSelection; revision: number} | null>(null);
+  const [dialog, setDialog] = useState<{kind: "format" | "dimension" | "insert-cells" | "delete-cells"; axis: "row" | "column"; sheetId: string; selection: SpreadsheetSelection; revision: number} | null>(null);
   const [state, setState] = useState<ContextMenuExecutionState>({ phase: "idle", mode: "block", requestId: null,
     itemId: null, label: "", description: "", error: null, blocksChanges: false });
   const executorRef = useRef<ContextMenuExecutor<CapturedContext, SpreadsheetContextMenuChange> | null>(null);
@@ -189,6 +189,9 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
       }
       if (action === "clear" || action === "delete-cells") {
         execute(selectionRanges(selection).map(range => ({type: "cells.clear", sheetId, range: rangeBounds(range), mode: action === "clear" ? "values" : "all"}))); return;
+      }
+      if (action === "insert-cells" || action === "shift-delete-cells") {
+        setDialog({kind: action === "insert-cells" ? "insert-cells" : "delete-cells", axis: "row", sheetId, selection, revision: captured.revision}); return;
       }
       if (action === "format" || action === "resize") {
         setDialog({kind: action === "format" ? "format" : "dimension", axis: target.kind === "row" ? "row" : "column", sheetId, selection, revision: captured.revision}); return;

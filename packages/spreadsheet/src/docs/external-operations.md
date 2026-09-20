@@ -93,7 +93,9 @@ if (result.ok) {
 | `type` | 主な引数 |
 | --- | --- |
 | `cells.set` | `values: { A1: "値", B1: "=A1*2" }`、`onConflict?`。数値・数式も文字列 |
-| `cells.clear` / `cells.delete` | `range`。値だけのクリア／セル情報の削除。周囲のセル位置は移動しません。[書き込みとクリア](./cell-writing.md) |
+| `cells.clear` | `range`, `mode?`。位置を動かさずクリア。[書き込みとクリア](./cell-writing.md) |
+| `cells.insert` | `range`, `shift: "down" / "right"`。指定範囲に空白を挿入。[セルの挿入・削除](./cell-shifts.md) |
+| `cells.delete` | `range`, `shift?: "up" / "left"`。指定方向へ詰めて削除。`shift` 省略時は従来どおり位置を動かさずすべてクリア。[セルの挿入・削除](./cell-shifts.md) |
 | `namedRanges.add` / `update` / `clear` / `delete` | 定義の追加・変更・対象セルのクリア・定義削除。[名前付き範囲](./named-ranges.md) |
 | `tables.insert` / `cells.writeTable` / `tables.delete` | 構造化テーブルと罫線付きの表。[表の書き込み](./tables.md) |
 | `cells.format` | `addresses: ["A1", "B1"]`, `format: { bold: true, ... }` |

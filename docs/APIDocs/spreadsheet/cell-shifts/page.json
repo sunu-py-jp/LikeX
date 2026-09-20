@@ -1,0 +1,9 @@
+{
+  "title": "セルの挿入・削除",
+  "summary": "選択範囲だけを下・右へずらして挿入し、上・左へ詰めて削除します。",
+  "source": "packages/spreadsheet/src/docs/cell-shifts.md",
+  "order": 86,
+  "section": "セルとシート",
+  "keywords": ["cells.insert", "cells.delete", "shift", "insertCells", "deleteCells", "挿入", "削除", "セルをずらす"],
+  "screenshots": []
+}

@@ -24,7 +24,7 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "cells.fill": ["source", "target", "mode", "onConflict"],
   "cells.paste": ["target", "payload", "mode", "onConflict", "partialMerges"],
   "cells.move": ["source", "target", "onConflict"],
-  "cells.clear": ["range", "mode"], "cells.delete": ["range"],
+  "cells.clear": ["range", "mode"], "cells.insert": ["range", "shift"], "cells.delete": ["range", "shift"],
   "namedRanges.add": ["name", "range"],
   "namedRanges.update": ["namedRangeId", "name", "range"],
   "namedRanges.delete": ["namedRangeId", "clear"],
@@ -66,6 +66,10 @@ export function validateCommand(value: unknown): SpreadsheetCommand {
     return rejectCommand("INVALID_COMMAND", "rotationは有限の数値で指定してください");
   if (input.onConflict !== undefined && !["error", "overwrite", "skip"].includes(input.onConflict as string))
     return rejectCommand("INVALID_COMMAND", "onConflictはerror、overwrite、skipのいずれかで指定してください");
+  if (type === "cells.insert" && input.shift !== "down" && input.shift !== "right")
+    return rejectCommand("INVALID_COMMAND", "挿入時のshiftはdownまたはrightで指定してください");
+  if (type === "cells.delete" && input.shift !== undefined && input.shift !== "up" && input.shift !== "left")
+    return rejectCommand("INVALID_COMMAND", "削除時のshiftはupまたはleftで指定してください");
   return input as SpreadsheetCommand;
 }
 

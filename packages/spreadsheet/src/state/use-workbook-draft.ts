@@ -104,7 +104,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   const publishChange = useCallback((next: Workbook, source: SpreadsheetChangeSource, commands?: SpreadsheetEditIntent["commands"]) => {
     const before = workbookRef.current;
     revisionRef.current++;
-    if (source === "undo" || source === "redo" || commands?.some(command => /^(rows\.|columns\.(insert|delete)|sheets\.(add|delete)|cells\.(merge|unmerge))/.test(command)) ||
+    if (source === "undo" || source === "redo" || commands?.some(command => /^(rows\.|columns\.(insert|delete)|sheets\.(add|delete)|cells\.(insert|delete|merge|unmerge))/.test(command)) ||
       before.sheets.length !== next.sheets.length || before.sheets.some((sheet, index) => {
         const current = next.sheets[index];
         return !current || current.id !== sheet.id || current.rowCount !== sheet.rowCount || current.columnCount !== sheet.columnCount || current.merges !== sheet.merges;
