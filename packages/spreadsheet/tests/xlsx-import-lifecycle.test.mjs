@@ -217,7 +217,7 @@ test('File ribbon contains import/export, preserves quick save/history, and conf
   assert.equal(events.filter(event => event.type === 'change').at(-1).source, 'ui');
   await ui.update({ readOnly: true }); assert.equal(ui.root.findAllByProps({ 'aria-label': 'Excelからインポート' }).length, 0);
   assert.equal(ui.root.findAllByProps({ 'aria-label': 'Excelにエクスポート' }).length, 1);
-  await ui.update({ features: { exportExcel: false, importExcel: false } });
+  await ui.update({ features: { exportExcel: false, importExcel: false, exportNative: false, importNative: false } });
   assert.equal(ui.root.findByProps({ 'aria-label': 'リボンのタブ' }).findAllByProps({ role: 'tab' }).some(tab => tab.children[0] === 'ファイル'), false);
 });
 
@@ -237,4 +237,14 @@ test('warning review can be cancelled after tab navigation without replacing the
   assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.A1.value, 'before');
   assert.equal(ui.ref.current.getHistoryState().canUndo, false); assert.equal(reads, 1);
   assert.equal(ui.root.findAllByProps({ 'aria-label': 'Excel取り込みをキャンセル' }).length, 0);
+});
+
+test('disabling native import leaves an active Excel UI import running', async t => {
+  const events = [], ui = await mount(t, { onEvent: e => events.push(e) });
+  const read = deferred(); globalThis[decoderKey] = () => read.promise;
+  await act(async () => { ui.root.findByProps({ 'aria-label': '取り込むExcelファイル' }).props.onChange({ currentTarget: { files: [input()], value: 'example.xlsx' } }); await tick(); });
+  await ui.update({ features: { importNative: false } });
+  assert.equal(events.filter(e => e.type === 'import' && e.status === 'cancelled').length, 0);
+  await act(async () => { read.resolve(decoded()); await tick(); });
+  assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.A1.value, 'imported');
 });

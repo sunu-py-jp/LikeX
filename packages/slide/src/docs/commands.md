@@ -6,6 +6,7 @@
 
 ```ts
 type SlideDeck = {
+  format?: "likex.slide";
   version: 1;
   id: string;
   title: string;
@@ -23,6 +24,25 @@ type Slide = {
 ```
 
 座標・寸法は96dpiのピクセル、角度は時計回りの度数、色はsRGBの16進数です。GUIではカラーピッカーを使います。要素は `type: "text" | "shape" | "image"` で区別し、共通の `id`、`name`、`x`、`y`、`width`、`height`、`rotation`、`opacity`、`locked` を持ちます。
+
+## `.slon` ファイル
+
+LikeSlideの標準ファイル拡張子は `.slon` です。中身はUTF-8のJSONで、ZIPや暗号化形式ではありません。既存の `parseSlideDeck` / `serializeSlideDeck` をそのまま使います。
+
+```ts
+import { parseSlideDeck, serializeSlideDeck } from "@likex/slide/model";
+
+const deck = parseSlideDeck(await file.text()); // .slon または従来の .json
+const output = new File([serializeSlideDeck(deck)], "提案資料.slon", {
+  type: "application/json",
+});
+```
+
+作成・正規化・出力されたデータには `format: "likex.slide"` と `version: 1` が入ります。`format` が型上optionalなのは、従来のマーカーなしJSONを引き続き入力できるためです。異なる `format` や未対応のバージョン、不正なデータ構造は拒否します。拡張子だけを変更しても、他形式のJSONがスライドとして読み込まれることはありません。
+
+ファイルタブでは `.slon` を標準で書き出し、読み込みでは `.slon` と従来の `.json` を受け付けます。読み込んだデータは下書きになり、Undoで元の資料へ戻せます。保存先の通信やファイル名は `onSave` を実装する親側が管理し、コールバックに渡る値は引き続き `SlideDeck` です。出力や読み込みだけでは `onSave` を呼びません。
+
+ブラウザーやストレージが独自拡張子のMIMEタイプを推測できるとは限らないため、アップロード時も `Content-Type: application/json` を指定してください。既存のBlobの名前や保存場所をコンポーネントが変更することはありません。新しい出力には `format` が追加されるため、旧版のLikeSlideでの読み込みは保証しません。
 
 ## テキストを追加する
 

@@ -1,6 +1,6 @@
 import { formatsEqual } from "./formatting";
 import { conditionalFormatsEqual } from "./conditional-formatting";
-import type { SpreadsheetCell, SpreadsheetWorkbook } from "./types";
+import { SPREADSHEET_FORMAT, type SpreadsheetCell, type SpreadsheetWorkbook } from "./types";
 import { commentsEqual, drawingsEqual } from "./annotations";
 import { dataValidationsEqual } from "./data-validation";
 import { mergesEqual } from "./merges";
@@ -52,7 +52,7 @@ function annotationsEqual(left: SpreadsheetWorkbook["sheets"][number], right: Sp
  * Sheet order matters. Explicit default sizes and false/general styles equal their omitted defaults. */
 export function workbooksEqual(left: SpreadsheetWorkbook, right: SpreadsheetWorkbook): boolean {
   if (left === right) return true;
-  if ((left.schemaVersion ?? 1) !== (right.schemaVersion ?? 1) || left.sheets.length !== right.sheets.length ||
+  if ((left.format ?? SPREADSHEET_FORMAT) !== (right.format ?? SPREADSHEET_FORMAT) || (left.schemaVersion ?? 1) !== (right.schemaVersion ?? 1) || left.sheets.length !== right.sheets.length ||
     !resourcesEqual(left.resources, right.resources) || !namedRangesEqual(left.namedRanges, right.namedRanges)) return false;
   return left.sheets.every((sheet, index) => {
     const other = right.sheets[index];

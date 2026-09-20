@@ -14,6 +14,7 @@
 | PDF（`pdf`） | 赤 |
 | Word（`doc`・`docx`・`docm`・`dot`・`dotx`・`dotm`） | 青 |
 | PowerPoint（`ppt`・`pptx`・`pptm`・`pot`・`potx`・`potm`・`pps`・`ppsx`・`ppsm`） | 橙 |
+| LikeX Spreadsheet（`spon`） / LikeSlide（`slon`） | 緑 / 橙 |
 | フォント（`ttf`・`otf`・`woff`・`woff2`・`ttc`・`eot`） | 灰青色の拡張子のみ |
 | `json`・`csv`・`tsv`・`xml`・`yaml`・`yml` | 紫 |
 | テキスト（`txt`・`md`） | 従来の中立色で拡張子を表示 |

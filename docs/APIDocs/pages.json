@@ -2094,6 +2094,45 @@
     ]
   },
   {
+    "id": "spreadsheet/native-files",
+    "title": "SPON・JSONの読み書き",
+    "component": "spreadsheet",
+    "section": "親アプリとの連携",
+    "output": "spreadsheet/native-files/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/native-files.md"
+    ],
+    "keywords": [
+      "spon",
+      "json",
+      "format",
+      "parseWorkbook",
+      "serializeWorkbook",
+      "importNative",
+      "exportNative",
+      "SpreadsheetImportNativeOptions",
+      "SpreadsheetNativeImportResult",
+      "SpreadsheetNativeExportOptions"
+    ],
+    "headings": [
+      {
+        "id": "データと互換性",
+        "title": "データと互換性",
+        "depth": 2
+      },
+      {
+        "id": "操作と保存",
+        "title": "操作と保存",
+        "depth": 2
+      },
+      {
+        "id": "表示中のブックをapiから操作する",
+        "title": "表示中のブックをAPIから操作する",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/excel-import",
     "title": "Excel取り込み",
     "component": "spreadsheet",
@@ -2257,6 +2296,11 @@
       {
         "id": "jsonの構造",
         "title": "JSONの構造",
+        "depth": 2
+      },
+      {
+        "id": "slon-ファイル",
+        "title": ".slon ファイル",
         "depth": 2
       },
       {

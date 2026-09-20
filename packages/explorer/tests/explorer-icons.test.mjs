@@ -53,11 +53,11 @@ const baseContext = {
   view: 'large',
 };
 const iconFamilies = [
-  ['#3e7359', '#87af99', ['xls', 'xlsx', 'xlsm', 'xlsb', 'xlt', 'xltx', 'xltm', 'xla', 'xlam']],
+  ['#3e7359', '#87af99', ['xls', 'xlsx', 'xlsm', 'xlsb', 'xlt', 'xltx', 'xltm', 'xla', 'xlam', 'spon']],
   ['#a05d5d', '#c89595', ['pdf']],
   ['#496f94', '#8da9c4', ['doc', 'docx', 'docm', 'dot', 'dotx', 'dotm']],
   ['#806794', '#b5a1cb', ['json', 'csv', 'tsv', 'xml', 'yaml', 'yml']],
-  ['#946538', '#c8a07e', ['ppt', 'pptx', 'pptm', 'pot', 'potx', 'potm', 'pps', 'ppsx', 'ppsm']],
+  ['#946538', '#c8a07e', ['ppt', 'pptx', 'pptm', 'pot', 'potx', 'potm', 'pps', 'ppsx', 'ppsm', 'slon']],
   ['#637182', '#a0aab7', ['ttf', 'otf', 'woff', 'woff2', 'ttc', 'eot']],
   ['#80694f', '#c3ae92', ['zip', '7z', 'rar', 'tar', 'gz', 'tgz', 'bz2', 'xz', 'zst', 'lzh']],
 ];

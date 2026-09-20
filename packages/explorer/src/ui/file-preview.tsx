@@ -46,7 +46,7 @@ function previewMode(entry: ExplorerEntry): PreviewMode {
   if (extension === "pdf") return "pdf";
   if (/^(mp4|webm)$/.test(extension)) return "video";
   if (
-    /^(txt|md|csv|tsv|json|js|jsx|ts|tsx|xml|yaml|yml|html|css|vb|cs|py|log|sql|sh|ini|cfg)$/.test(
+    /^(txt|md|csv|tsv|json|spon|slon|js|jsx|ts|tsx|xml|yaml|yml|html|css|vb|cs|py|log|sql|sh|ini|cfg)$/.test(
       extension,
     )
   )

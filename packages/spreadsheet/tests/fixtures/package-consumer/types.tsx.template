@@ -5,6 +5,7 @@ import Spreadsheet, {
   type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps,
   type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSelectionRange, type SpreadsheetSaveHandler,
   type SpreadsheetDrawing, type SpreadsheetMergedRange,
+  type SpreadsheetImportNativeOptions, type SpreadsheetNativeExportOptions, type SpreadsheetNativeImportResult, SPREADSHEET_FORMAT,
   prepareSpreadsheetImage, type SpreadsheetHandle, type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot,
 } from "__LIBRARY_IMPORT__";
 import { createRef } from "react";
@@ -113,3 +114,13 @@ async function controlLifecycle(api: SpreadsheetHandle) {
   void saved;
 }
 void [lifecycleView, controlLifecycle];
+
+function useNativeFiles(handle: SpreadsheetHandle, file: Blob) {
+  const inputOptions: SpreadsheetImportNativeOptions = { discardChanges: true };
+  const outputOptions: SpreadsheetNativeExportOptions = { signal: new AbortController().signal };
+  const imported: Promise<SpreadsheetNativeImportResult> = handle.importNative(file, inputOptions);
+  const exported: Promise<Blob> = handle.exportNative(outputOptions);
+  const format: "likex.spreadsheet" = SPREADSHEET_FORMAT;
+  return [imported, exported, format];
+}
+void useNativeFiles;

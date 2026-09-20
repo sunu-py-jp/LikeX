@@ -140,6 +140,8 @@ if (!result.ok) showMessage(result.message);
 | `cancelEditRequest()` | 待機中の編集許可要求を取り消す |
 | `endEdit()` | 未保存の変更がなければセッションを終了する |
 | `save()` | 保存前検証と保存を実行し、成功したかをPromiseで返す |
+| `exportNative(options?)` | 現在の下書きから `.spon` 用JSON Blobを生成。保存・ダウンロードは行いません。[ネイティブ形式](./native-files.md) |
+| `importNative(blob, options?)` | `.spon`・旧JSONを1回のUndo可能な編集として取り込み。保存は行いません。[ネイティブ形式](./native-files.md) |
 | `exportExcel(options?)` | 確定済みの下書きからXLSXのBlobを生成。保存やダウンロードは行いません。[Excel出力](./excel-export.md) |
 | `importExcel(input, options?)` | XLSXを下書きへ取り込み。未保存確認・編集許可・Undoに対応し、保存は行いません。[Excel取り込み](./excel-import.md) |
 | `refresh(options?)` | 最新ブックを読み込み、成功したかをPromiseで返す |

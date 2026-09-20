@@ -23,7 +23,7 @@ export type {
 export { readImageResource as prepareSpreadsheetImage } from "./state/read-image";
 export type { SpreadsheetImagePreparationOptions } from "./state/read-image";
 export { exportSpreadsheetXlsx } from "./export/export-xlsx";
-export type { SpreadsheetExcelExportOptions } from "./export/types";
+export type { SpreadsheetExcelExportOptions, SpreadsheetNativeExportOptions } from "./export/types";
 export type {
   SpreadsheetBeforeSaveHandler, SpreadsheetRefreshHandler,
   SpreadsheetEditHandler, SpreadsheetEditIntent, SpreadsheetEditRequest, SpreadsheetEditResult,
@@ -49,5 +49,5 @@ export type { SpreadsheetTableCommand, SpreadsheetTableData, SpreadsheetTableWri
 export type { SpreadsheetNamedRangeCommand } from "./api/named-range-commands";
 export type { SpreadsheetWriteReport } from "./commands/types";
 export { importSpreadsheetXlsx } from "./import/import-xlsx";
-export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, SpreadsheetExcelImportWarning } from "./import/types";
-export type { SpreadsheetImportExcelOptions } from "./api/lifecycle";
+export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, SpreadsheetNativeImportResult, SpreadsheetExcelImportWarning } from "./import/types";
+export type { SpreadsheetImportExcelOptions, SpreadsheetImportNativeOptions } from "./api/lifecycle";

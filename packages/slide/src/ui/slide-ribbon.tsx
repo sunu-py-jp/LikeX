@@ -32,7 +32,7 @@ const shapes: { shape: SlideShapeKind; label: string; icon: ReactNode }[] = [
 ];
 
 export function SlideRibbon({ editor, onImage, onImport, onPresent, propertiesOpen, notesOpen, onProperties, onNotes, onFit, ownerDocument }: {
-  editor: SlideEditor; onImage(): void; onImport(format: "pptx" | "json"): void; onPresent(): void;
+  editor: SlideEditor; onImage(): void; onImport(format: "pptx" | "slon"): void; onPresent(): void;
   propertiesOpen: boolean; notesOpen: boolean; onProperties(): void; onNotes(): void; onFit(): void; ownerDocument: Document | null;
 }) {
   const [tab, setTab] = useState<RibbonTab>("home");
@@ -57,8 +57,8 @@ export function SlideRibbon({ editor, onImage, onImport, onPresent, propertiesOp
     <SlideScrollStrip>
       {tab === "file" && <>
         {!editor.readOnly && <Group name="保存"><Action label="保存" icon={<Save size={22} />} big disabled={!!editor.busy} onClick={() => void editor.save()} /></Group>}
-        {editor.features.import && !editor.readOnly && <Group name="開く"><Action label="PowerPoint" icon={<Upload size={22} />} big disabled={disabled} onClick={() => onImport("pptx")} /><Action label="JSON" icon={<FileJson size={22} />} big disabled={disabled} onClick={() => onImport("json")} /></Group>}
-        {editor.features.export && <Group name="エクスポート"><Action label="PowerPoint (.pptx)" icon={<ArrowDownToLine size={22} />} big disabled={!!editor.busy} onClick={() => { if (ownerDocument) void editor.download("pptx", ownerDocument); }} /><Action label="JSON (.json)" icon={<FileJson size={22} />} big disabled={!!editor.busy} onClick={() => { if (ownerDocument) void editor.download("json", ownerDocument); }} /></Group>}
+        {editor.features.import && !editor.readOnly && <Group name="開く"><Action label="PowerPoint" icon={<Upload size={22} />} big disabled={disabled} onClick={() => onImport("pptx")} /><Action label="LikeSlide" icon={<FileJson size={22} />} big disabled={disabled} onClick={() => onImport("slon")} /></Group>}
+        {editor.features.export && <Group name="エクスポート"><Action label="PowerPoint (.pptx)" icon={<ArrowDownToLine size={22} />} big disabled={!!editor.busy} onClick={() => { if (ownerDocument) void editor.download("pptx", ownerDocument); }} /><Action label="LikeSlide (.slon)" icon={<FileJson size={22} />} big disabled={!!editor.busy} onClick={() => { if (ownerDocument) void editor.download("slon", ownerDocument); }} /></Group>}
         {!editor.readOnly && <Group name="変更"><Action label="変更を破棄" icon={<RotateCcw size={20} />} big disabled={disabled || !editor.dirty} onClick={() => { if (ownerDocument?.defaultView?.confirm("未保存の変更を破棄しますか？")) editor.discard(); }} /></Group>}
       </>}
       {tab === "home" && <>

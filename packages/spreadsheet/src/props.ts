@@ -68,7 +68,7 @@ export type SpreadsheetProps = {
   /** UI accent color in #RGB or #RRGGBB. Omitted or invalid values use the default green theme. */
   primaryColor?: string;
   title?: string;
-  /** Suggested Excel download name. Defaults to title, then spreadsheet.xlsx. */
+  /** Suggested native/Excel download name. Defaults to title, then spreadsheet; each export applies its extension. */
   exportFileName?: string;
   className?: string;
   style?: CSSProperties;

@@ -1,7 +1,7 @@
 import type { MaybePromise } from "../core";
-import type { SpreadsheetDiscardOptions, SpreadsheetEditIntent, SpreadsheetEditState, SpreadsheetImportExcelOptions } from "./lifecycle";
-import type { SpreadsheetExcelImportResult } from "../import/types";
-import type { SpreadsheetExcelExportOptions } from "../export/types";
+import type { SpreadsheetDiscardOptions, SpreadsheetEditIntent, SpreadsheetEditState, SpreadsheetImportExcelOptions, SpreadsheetImportNativeOptions } from "./lifecycle";
+import type { SpreadsheetExcelImportResult, SpreadsheetNativeImportResult } from "../import/types";
+import type { SpreadsheetExcelExportOptions, SpreadsheetNativeExportOptions } from "../export/types";
 import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetWorkbookSnapshot } from "../commands/types";
 import type { SpreadsheetReadApi } from "../model/query-reader";
 import type { SpreadsheetHistoryState } from "../history/workbook-history";
@@ -31,6 +31,10 @@ export type SpreadsheetHandle = SpreadsheetReadApi & Readonly<{
   exportExcel(options?: SpreadsheetExcelExportOptions): Promise<Blob>;
   /** Replaces the draft as one undoable edit; never saves. Dirty/pending input requires explicit consent. */
   importExcel(input: Blob | ArrayBuffer | Uint8Array, options?: SpreadsheetImportExcelOptions): Promise<SpreadsheetExcelImportResult>;
+  /** Generates a self-contained .spon JSON Blob; does not save or download. */
+  exportNative(options?: SpreadsheetNativeExportOptions): Promise<Blob>;
+  /** Reads native or legacy JSON regardless of filename; warnings are empty for native imports. */
+  importNative(input: Blob, options?: SpreadsheetImportNativeOptions): Promise<SpreadsheetNativeImportResult>;
   refresh(options?: SpreadsheetDiscardOptions): Promise<boolean>;
   discard(options?: SpreadsheetDiscardOptions): boolean;
 }>;

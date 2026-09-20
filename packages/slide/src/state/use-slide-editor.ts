@@ -287,7 +287,7 @@ export function useSlideEditor(props: SlideProps) {
     if (!blob) throw new Error("別の処理中、または画面が閉じられたためエクスポートできませんでした。");
     return blob;
   }, [withSnapshot]);
-  const download = useCallback(async (format: "pptx" | "json", document: Document) => {
+  const download = useCallback(async (format: "pptx" | "slon", document: Document) => {
     const exportEnabled = () => propsRef.current.features?.export !== false;
     if (!exportEnabled()) return;
     try {
@@ -298,7 +298,8 @@ export function useSlideEditor(props: SlideProps) {
         if (!mounted.current) return;
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        link.href = url; link.download = `${(propsRef.current.exportFileName ?? deck.title ?? "presentation").replace(/\.(pptx|json)$/i, "")}.${format}`;
+        const filename = (propsRef.current.exportFileName ?? deck.title ?? "presentation").replace(/\.(pptx|slon|json)$/i, "") || "presentation";
+        link.href = url; link.download = `${filename}.${format}`;
         document.body.append(link); link.click(); link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       });

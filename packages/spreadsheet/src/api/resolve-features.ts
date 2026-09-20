@@ -42,5 +42,7 @@ export function resolveSpreadsheetFeatures(features: SpreadsheetFeatures | undef
     refresh: features?.refresh !== false,
     exportExcel: features?.exportExcel !== false,
     importExcel: features?.importExcel !== false,
+    importNative: features?.importNative !== false,
+    exportNative: features?.exportNative !== false,
   };
 }

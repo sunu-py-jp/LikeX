@@ -42,7 +42,7 @@ export default function LikeSlide(props: SlideProps) {
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [notesOpen, setNotesOpen] = useState(true);
   const [presenting, setPresenting] = useState(false);
-  const imageInput = useRef<HTMLInputElement>(null), pptxInput = useRef<HTMLInputElement>(null), jsonInput = useRef<HTMLInputElement>(null);
+  const imageInput = useRef<HTMLInputElement>(null), pptxInput = useRef<HTMLInputElement>(null), nativeInput = useRef<HTMLInputElement>(null);
   const slide = editor.deck.slides.find(item => item.id === editor.selection.slideId);
   const slideIndex = editor.deck.slides.findIndex(item => item.id === editor.selection.slideId);
   const adjustZoom = (value: number) => setZoom(Math.max(25, Math.min(200, Math.round(value))));
@@ -84,9 +84,9 @@ export default function LikeSlide(props: SlideProps) {
         patch: { x: element.x + (key === "arrowright" ? step : key === "arrowleft" ? -step : 0), y: element.y + (key === "arrowdown" ? step : key === "arrowup" ? -step : 0) } })));
     }
   };
-  const importFile = (format: "pptx" | "json") => {
+  const importFile = (format: "pptx" | "slon") => {
     if (editor.dirty && !ownerDocument?.defaultView?.confirm("現在のスライドを読み込むファイルで置き換えますか？変更は元に戻す操作で復元できます。")) return;
-    (format === "pptx" ? pptxInput : jsonInput).current?.click();
+    (format === "pptx" ? pptxInput : nativeInput).current?.click();
   };
   return <div ref={attach} data-likex-slide="" className={`lxp-root ${props.className ?? ""}`} style={{ ...theme, ...props.style }} role="region" aria-label={props["aria-label"] ?? "スライド エディター"} tabIndex={-1} onKeyDown={keyDown} {...inputTracking}>
     <header className="lxp-titlebar"><div className="lxp-document-mark" aria-hidden="true">P</div><span className="lxp-document-title">{props.title ?? editor.deck.title}</span>
@@ -125,7 +125,14 @@ export default function LikeSlide(props: SlideProps) {
         return { type: "element.add", slideId, element: { type: "image", name: file.name, src: image.src, alt: file.name, x: (deckWidth - width) / 2, y: (deckHeight - height) / 2, width, height } }; });
     }} />
     <input ref={pptxInput} hidden type="file" accept=".pptx" aria-label="読み込むPowerPointファイル" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void editor.importPptx(file); }} />
-    <input ref={jsonInput} hidden type="file" accept=".json,application/json" aria-label="読み込むJSONファイル" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) { if (file.size > SLIDE_LIMITS.jsonLength) editor.reportError(new Error("JSONファイルが大きすぎます。")); else void file.text().then(editor.importJson).catch(editor.reportError); } }} />
+    <input ref={nativeInput} hidden type="file" accept=".slon,.json,application/json" aria-label="読み込むLikeSlideファイル" onChange={event => {
+      const file = event.target.files?.[0]; event.target.value = "";
+      if (!file) return;
+      // UTF-8 can use three bytes per JavaScript string code unit. The parser
+      // separately enforces jsonLength after decoding, including ASCII files.
+      if (file.size > SLIDE_LIMITS.jsonLength * 3) editor.reportError(new Error("LikeSlideファイルが大きすぎます。"));
+      else void file.text().then(editor.importJson).catch(editor.reportError);
+    }} />
     {presenting && editor.features.presentation && ownerDocument && <SlidePresentation deck={editor.deck} initialSlideId={editor.selection.slideId} ownerDocument={ownerDocument} theme={{ ...theme, ...props.style }} onClose={() => setPresenting(false)} />}
   </div>;
 }

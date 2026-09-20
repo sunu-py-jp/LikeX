@@ -7,7 +7,7 @@ import type { SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, Sprea
 export type SpreadsheetChangeSource = "ui" | "api" | "undo" | "redo";
 export type SpreadsheetEditIntent = Readonly<{
   source?: "ui" | "api";
-  action?: SpreadsheetCommand["type"] | "batch" | "paste" | "undo" | "redo" | "save" | "edit" | "importExcel";
+  action?: SpreadsheetCommand["type"] | "batch" | "paste" | "undo" | "redo" | "save" | "edit" | "importExcel" | "importNative";
   sheetId?: string;
   commands?: readonly SpreadsheetCommand["type"][];
 }>;
@@ -35,6 +35,8 @@ export type SpreadsheetImportExcelOptions = SpreadsheetExcelImportOptions & Spre
   /** Runs once after parsing and before permission/application. False cancels the import. */
   onReview?: (result: SpreadsheetExcelImportResult) => MaybePromise<boolean>;
 }>;
+/** Native JSON has no conversion review; malformed data rejects before changing the draft. */
+export type SpreadsheetImportNativeOptions = SpreadsheetDiscardOptions & Readonly<{ signal?: AbortSignal }>;
 export type SpreadsheetEvent =
   | Readonly<{ type: "zoom-change"; zoom: number; previousZoom: number }>
   | ContextMenuExecutionEvent
@@ -47,14 +49,14 @@ export type SpreadsheetEvent =
   | Readonly<{ type: "refresh"; status: "error"; requestId: string; message: string }>
   | Readonly<{ type: "refresh"; status: "cancelled"; requestId: string }>
   | Readonly<{ type: "discard"; workbook: SpreadsheetWorkbookSnapshot }>
-  | Readonly<{ type: "export"; format: "xlsx"; status: "start"; requestId: string; workbook: SpreadsheetWorkbookSnapshot }>
+  | Readonly<{ type: "export"; format: "xlsx" | "spon"; status: "start"; requestId: string; workbook: SpreadsheetWorkbookSnapshot }>
   /** Success means file generation finished, not that the browser wrote a download to disk. */
-  | Readonly<{ type: "export"; format: "xlsx"; status: "success"; requestId: string; size: number }>
-  | Readonly<{ type: "export"; format: "xlsx"; status: "error"; requestId: string; message: string }>
-  | Readonly<{ type: "export"; format: "xlsx"; status: "cancelled"; requestId: string }>
-  | Readonly<{ type: "import"; format: "xlsx"; status: "start" | "cancelled"; requestId: string; fileName?: string }>
-  | Readonly<{ type: "import"; format: "xlsx"; status: "success"; requestId: string; fileName?: string; workbook: SpreadsheetWorkbookSnapshot; warnings: readonly SpreadsheetExcelImportWarning[] }>
-  | Readonly<{ type: "import"; format: "xlsx"; status: "error"; requestId: string; fileName?: string; message: string }>
+  | Readonly<{ type: "export"; format: "xlsx" | "spon"; status: "success"; requestId: string; size: number }>
+  | Readonly<{ type: "export"; format: "xlsx" | "spon"; status: "error"; requestId: string; message: string }>
+  | Readonly<{ type: "export"; format: "xlsx" | "spon"; status: "cancelled"; requestId: string }>
+  | Readonly<{ type: "import"; format: "xlsx" | "spon"; status: "start" | "cancelled"; requestId: string; fileName?: string }>
+  | Readonly<{ type: "import"; format: "xlsx" | "spon"; status: "success"; requestId: string; fileName?: string; workbook: SpreadsheetWorkbookSnapshot; warnings: readonly SpreadsheetExcelImportWarning[] }>
+  | Readonly<{ type: "import"; format: "xlsx" | "spon"; status: "error"; requestId: string; fileName?: string; message: string }>
   | Readonly<{ type: "edit-mode"; mode: EditMode; reason: "request" | "granted" | "denied" | "error" | EditEndReason; requestId: string; request: SpreadsheetEditRequest; message?: string }>
   | Readonly<{ type: "selection"; selection: SpreadsheetSelection }>
   | Readonly<{ type: "drawing-selection"; sheetId: string; drawingId: string | null }>

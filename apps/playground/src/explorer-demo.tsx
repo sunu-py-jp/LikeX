@@ -184,7 +184,7 @@ export default function ExplorerDemo() {
         view={{ defaultMode: "medium" }}
         features={{ favorites: false, copy: false, createFile: false }}
         upload={{
-          allowedExtensions: [".csv", ".md", ".txt", ".json", ".xlsx", ".xls", ".docx", ".doc", ".pptx", ".ppt"],
+          allowedExtensions: [".csv", ".md", ".txt", ".json", ".spon", ".slon", ".xlsx", ".xls", ".docx", ".doc", ".pptx", ".ppt"],
         }}
         selection={{ checkboxes: false }}
         getContextMenuItems={contextMenuItems}

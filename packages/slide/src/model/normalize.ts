@@ -17,7 +17,7 @@ export const ELEMENT_KEYS = {
   image: [...BASE_KEYS, "src", "alt"],
 } as const;
 export const SLIDE_KEYS = ["id", "name", "background", "notes", "elements"];
-const DECK_KEYS = ["version", "id", "title", "width", "height", "slides"];
+const DECK_KEYS = ["format", "version", "id", "title", "width", "height", "slides"];
 
 function imageSource(value: unknown): { src: string; bytes: number } {
   if (typeof value === "string" && imageSources.has(value)) {
@@ -114,6 +114,7 @@ export function createSlide(input: Partial<Slide> = {}): Slide {
 export function normalizeSlideDeck(input: unknown): SlideDeck {
   if (decks.has(input as SlideDeck)) return input as SlideDeck;
   const raw = record(input, "プレゼンテーション", DECK_KEYS);
+  if (raw.format !== undefined && raw.format !== "likex.slide") throw new Error("LikeSlideのファイル形式ではありません");
   if (raw.version !== 1) throw new Error("対応していないプレゼンテーションのバージョンです");
   const accepted = list(raw.slides, "スライド", SLIDE_LIMITS.slides, 1).map(normalizeSlide);
   const slideIds = new Set<string>(), elementIds = new Set<string>();
@@ -133,7 +134,7 @@ export function normalizeSlideDeck(input: unknown): SlideDeck {
   if (count > SLIDE_LIMITS.totalElements) throw new Error("プレゼンテーション全体の要素数が上限を超えています");
   if (bytes > SLIDE_LIMITS.totalImageBytes) throw new Error("プレゼンテーション全体の画像サイズが上限を超えています");
   if (characters > SLIDE_LIMITS.totalTextLength) throw new Error("プレゼンテーション全体の文字数が上限を超えています");
-  const result: SlideDeck = { version: 1, id: identifier(raw.id), title: text(raw.title, "タイトル", 1000),
+  const result: SlideDeck = { format: "likex.slide", version: 1, id: identifier(raw.id), title: text(raw.title, "タイトル", 1000),
     width: number(raw.width, "スライドの幅", 1, 10_000), height: number(raw.height, "スライドの高さ", 1, 10_000), slides: accepted };
   Object.freeze(result.slides);
   Object.freeze(result);

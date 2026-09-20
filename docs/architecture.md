@@ -18,6 +18,23 @@ npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explore
 
 各モジュールの `model` はReactの表示状態に依存しないデータ・検証・操作を担当し、`state` はReactの状態と親へのコールバックをつなぎ、`ui` は表示を担当します。公開入口の `index.ts` から利用し、内部ファイルのパスを利用側の契約にしません。Spreadsheetの数式はモデル内の限定した構文解析器で評価し、JavaScriptとして実行しません。
 
+## ネイティブ保存形式
+
+SpreadsheetとLikeSlideの標準保存ファイルは、次の拡張子を使うUTF-8の純粋なJSONです。ZIPなどのコンテナーや独自の構文は使いません。
+
+| モジュール | 拡張子 | 出力の形式識別子 | スキーマのバージョン |
+| --- | --- | --- | --- |
+| Spreadsheet | `.spon` | `format: "likex.spreadsheet"` | `schemaVersion: 1` |
+| LikeSlide | `.slon` | `format: "likex.slide"` | `version: 1` |
+
+従来の `.json` ファイルと、`format` を持たない既存JSONも読み込めます。`parseWorkbook` / `serializeWorkbook`、`parseSlideDeck` / `serializeSlideDeck` は引き続きJSON文字列を扱います。`onSave` は既存どおりJSONモデルを親アプリへ渡し、保存先とファイル名は親が決めます。ファイルへ出力するBlobのMIMEタイプは `application/json` です。
+
+拡張子だけの変更ではファイル内容のハッシュは変わりません。ただし、再出力で `format` が追加されたりJSONの表記が正規化されたりすると、バイト列とハッシュは変わります。既存Blobの名前や内容を自動で移行する処理はありません。
+
+Explorerでは `.spon` を緑の表計算アイコン、`.slon` をオレンジのスライドアイコンで表示し、内蔵プレビューはJSONテキストを表示します。SpreadsheetやLikeSlideで開く専用ビューは、親アプリが `onPreviewRequest` で選択します。接続方法は [プレビュー](../packages/explorer/src/docs/previews.md) を参照してください。
+
+読み込み時は拡張子やMIMEタイプだけで内容を判断せず、各モジュールのparse APIで形式・バージョン・データを検証します。独自拡張子のOS関連付けやエディタのJSON認識は利用環境での設定が必要です。Excel・PowerPointとの受け渡しには、それぞれXLSX・PPTXの入出力を使います。
+
 ## パッケージとコピーで原本を共用する
 
 配布用にもう一つ実装を持ちません。`src/` から `dist/` のESMと型宣言を生成し、`src/README.md` と `src/docs/` の利用ガイドを同じ配置で配布物へ同梱します。READMEは導入と詳細への入口、`docs/` は責務ごとの詳細です。

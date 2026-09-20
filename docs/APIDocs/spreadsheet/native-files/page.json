@@ -1,0 +1,9 @@
+{
+  "title": "SPON・JSONの読み書き",
+  "summary": "専用拡張子.sponでブック全体を読み込み・書き出しします。従来のJSONファイルも利用できます。",
+  "source": "packages/spreadsheet/src/docs/native-files.md",
+  "order": 164,
+  "section": "親アプリとの連携",
+  "keywords": ["spon", "json", "format", "parseWorkbook", "serializeWorkbook", "importNative", "exportNative", "SpreadsheetImportNativeOptions", "SpreadsheetNativeImportResult", "SpreadsheetNativeExportOptions"],
+  "screenshots": []
+}

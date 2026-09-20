@@ -73,7 +73,10 @@ export type SpreadsheetSheet = {
   conditionalFormats?: readonly SpreadsheetConditionalFormatRule[];
   tables?: readonly SpreadsheetTable[];
 };
+export const SPREADSHEET_FORMAT = "likex.spreadsheet" as const;
 export type SpreadsheetWorkbook = {
+  /** Omitted only by legacy JSON input; normalized workbooks always include the format. */
+  format?: typeof SPREADSHEET_FORMAT;
   schemaVersion?: 1;
   sheets: readonly SpreadsheetSheet[];
   resources?: { images?: Readonly<Record<string, SpreadsheetImageResource>> };

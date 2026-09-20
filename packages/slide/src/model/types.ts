@@ -48,6 +48,8 @@ export type Slide = {
   elements: SlideElement[];
 };
 export type SlideDeck = {
+  /** Native .slon format. Optional only when reading legacy JSON; normalized output always includes it. */
+  format?: "likex.slide";
   version: 1;
   id: string;
   title: string;

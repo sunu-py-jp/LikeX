@@ -368,6 +368,7 @@ type WorkbookResult = ReturnType<SpreadsheetHandle["getWorkbook"]>;
 
 | フィールド | 型 | 内容 |
 | --- | --- | --- |
+| `format?` | `"likex.spreadsheet"` | 旧データ入力では省略可。正規化・シリアライズした出力には常に含む |
 | `schemaVersion?` | `1` | 型上は旧データ用に任意。コンポーネント／セッションの正規化済みブックでは`1` |
 | `sheets` | `SpreadsheetSheet[]` | 表示順のシート一覧。各要素は[`getSheet`](#getsheet)と同じデータ構造 |
 | `namedRanges?` | `SpreadsheetNamedRange[]` | [名前付き範囲](./named-ranges.md)の定義。保存データには派生値の`address`は含まない |

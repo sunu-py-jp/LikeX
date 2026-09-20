@@ -15,7 +15,7 @@ import type {
   SpreadsheetCommand, SpreadsheetHandle, SpreadsheetCommandResult, SpreadsheetWorkbookSnapshot,
 } from "../src";
 import { createRef } from "react";
-import { prepareSpreadsheetImage, exportSpreadsheetXlsx, type SpreadsheetExcelExportOptions } from "../src";
+import { prepareSpreadsheetImage, exportSpreadsheetXlsx, type SpreadsheetExcelExportOptions, type SpreadsheetImportNativeOptions, type SpreadsheetNativeExportOptions, type SpreadsheetNativeImportResult } from "../src";
 
 const excelOptions = { signal: new AbortController().signal } satisfies SpreadsheetExcelExportOptions;
 const excelProps = { features: { exportExcel: false }, exportFileName: "売上.xlsx" } satisfies SpreadsheetProps;
@@ -212,3 +212,13 @@ const invalidMenuMode: SpreadsheetProps = { contextMenuExecutionMode: "concurren
 // @ts-expect-error Menu handlers return proposed commands, not an entire workbook.
 const invalidMenuResult: SpreadsheetProps = { getContextMenuItems: () => [{ id: "wrong", label: "wrong", onSelect: () => ({ change: workbook }) }] };
 void [contextMenus, sheetContextMenus, invalidMenuMode, invalidMenuResult];
+
+const nativeOptions: SpreadsheetImportNativeOptions = { discardChanges: true, signal: new AbortController().signal };
+const nativeExportOptions: SpreadsheetNativeExportOptions = { signal: new AbortController().signal };
+const nativeProps = { features: { importNative: true, exportNative: false }, exportFileName: "売上.spon" } satisfies SpreadsheetProps;
+function useNativeFiles(handle: SpreadsheetHandle, file: Blob): [Promise<SpreadsheetNativeImportResult>, Promise<Blob>] {
+  return [handle.importNative(file, nativeOptions), handle.exportNative(nativeExportOptions)];
+}
+// @ts-expect-error A workbook's format is a specific identifier.
+const invalidNativeFormat: SpreadsheetWorkbook = { format: "likex.slide", sheets: [] };
+void [nativeProps, useNativeFiles, invalidNativeFormat];

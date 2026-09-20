@@ -27,11 +27,11 @@ export type FileIconStyle = Readonly<{
 export function fileIconStyle(extension: string, colorScheme: "light" | "dark" = "light"): FileIconStyle {
   const key = extension.trim().normalize("NFC").toLowerCase();
   const palette = palettes[colorScheme];
-  const ink = excel.has(key) ? palette.excel
+  const ink = excel.has(key) || key === "spon" ? palette.excel
     : key === "pdf" ? palette.pdf
     : word.has(key) ? palette.blue
     : data.has(key) ? palette.data
-    : powerpoint.has(key) ? palette.powerpoint
+    : powerpoint.has(key) || key === "slon" ? palette.powerpoint
     : fonts.has(key) ? palette.font
     : archives.has(key) ? palette.archive
     : text.has(key) ? palette.neutral : null;

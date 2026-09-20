@@ -1,6 +1,6 @@
 # @likex/slide
 
-PowerPoint風のReactスライドエディターです。Spreadsheetと同じグループ付きリボンを使い、テキスト・図形・画像、スライドの並べ替え、発表表示を扱えます。編集データの基本形式はJSONです。
+PowerPoint風のReactスライドエディターです。Spreadsheetと同じグループ付きリボンを使い、テキスト・図形・画像、スライドの並べ替え、発表表示を扱えます。標準ファイルは `.slon`、中身はJSONです。従来の `.json` も読み込めます。
 
 ```tsx
 "use client";

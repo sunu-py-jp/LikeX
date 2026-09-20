@@ -157,7 +157,7 @@ export function WorkbookView({ savedJson, revision }: { savedJson: string; revis
 
 認証、権限、JSONを保存するDBやファイル、競合の検知は親アプリが担当します。`initialWorkbook` はマウント時だけ読み込むため、別の保存データを開く場合は `key` を変更します。変更前に未保存データの扱いを親で確認してください。
 
-`schemaVersion: 1` を保存します。以前の `{ sheets: [...] }` 形式も読み込めます。未対応のバージョン番号はエラーとし、無理に読み替えません。
+`format: "likex.spreadsheet"` と `schemaVersion: 1` を保存します。以前の `{ sheets: [...] }` 形式も読み込めます。異なる形式識別子や未対応のバージョン番号はエラーとし、無理に読み替えません。ファイルとしては [`.spon` 形式](./native-files.md)で読み書きでき、旧 `.json` の入力も維持します。
 
 ## APIと機能のOFF指定
 

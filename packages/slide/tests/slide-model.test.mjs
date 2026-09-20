@@ -16,6 +16,7 @@ const deck = () => createSlideDeck({ id: 'deck', title: 'Example', slides: [slid
 
 test('factories create one usable slide and JSON-only immutable isolated values', () => {
   const empty = createSlideDeck();
+  assert.equal(empty.format, 'likex.slide');
   assert.equal(empty.version, 1);
   assert.equal(empty.slides.length, 1);
   assert.equal(empty.width / empty.height, 16 / 9);
@@ -30,6 +31,25 @@ test('factories create one usable slide and JSON-only immutable isolated values'
   assert.equal(getSlide(accepted, 'two').name, 'two');
   assert.equal(getElement(accepted, 'one', 'a').text, 'a');
   assert.equal(getElement(accepted, 'missing', 'a'), undefined);
+});
+
+test('native SLON JSON carries a format marker and accepts legacy unmarked decks', () => {
+  const original = deck();
+  const { format, ...legacy } = JSON.parse(serializeSlideDeck(original));
+  assert.equal(format, 'likex.slide');
+  assert.deepEqual(parseSlideDeck(JSON.stringify(legacy)), original);
+  assert.deepEqual(createSlideDeck(legacy), original);
+  assert.equal(JSON.parse(serializeSlideDeck(legacy)).format, 'likex.slide');
+  const session = createSlideSession(legacy);
+  assert.equal(session.getSnapshot().deck.format, 'likex.slide');
+  assert.equal(session.getSnapshot().dirty, false);
+  session.replace(original);
+  assert.equal(session.getSnapshot().dirty, false);
+  assert.equal(session.getSnapshot().canUndo, false);
+  for (const marker of ['likex.spreadsheet', 'another.slide', '', null, 1, {}]) {
+    assert.throws(() => parseSlideDeck(JSON.stringify({ ...legacy, format: marker })), /LikeSlideのファイル形式/);
+    assert.throws(() => createSlideDeck({ ...legacy, format: marker }), /LikeSlideのファイル形式/);
+  }
 });
 
 test('all element types retain JSON formatting, text, image and geometry without DOM dependencies', () => {

@@ -1,6 +1,6 @@
 # LikeSlideの導入
 
-LikeSlideはスライドをJSONで保持するReactコンポーネントです。保存先への通信は親アプリに任せ、編集はクライアント側の下書きとして扱います。
+LikeSlideはスライドをJSONで保持するReactコンポーネントです。標準ファイルは `.slon` で、中身はJSONです。従来の `.json` も読み込めます。保存先への通信は親アプリに任せ、編集はクライアント側の下書きとして扱います。
 
 ## パッケージで使う
 
@@ -47,6 +47,7 @@ CSSはアプリの入口で1回importします。Next.js App Routerでは `app/l
 | `colorMode` | `"light" / "dark" / "system"` | ライト |
 | `primaryColor` | `string`（`#RGB` / `#RRGGBB`） | オレンジ |
 | `title` | `string` | 資料のタイトルを利用 |
+| `exportFileName` | `string` | 資料のタイトルをダウンロード名に利用。`.slon` / `.json` / `.pptx` の末尾は出力形式に合わせて置換 |
 | `style` / `className` | Reactの標準型 | 親側で高さを指定 |
 | `features` | `SlideFeatures` | 全機能有効 |
 | `warnOnUnsavedChanges` | `boolean` | 未保存の離脱確認を有効化 |

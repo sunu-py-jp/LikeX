@@ -20,6 +20,8 @@ export type SpreadsheetExcelImportSignal = {
   removeEventListener(type: "abort", listener: () => void): void;
 };
 export type SpreadsheetExcelImportOptions = { signal?: SpreadsheetExcelImportSignal };
+/** Native imports share the snapshot contract; their warnings array is always empty. */
+export type SpreadsheetNativeImportResult = SpreadsheetExcelImportResult;
 export type SpreadsheetExcelImportResult = Readonly<{
   workbook: SpreadsheetWorkbook;
   warnings: readonly SpreadsheetExcelImportWarning[];

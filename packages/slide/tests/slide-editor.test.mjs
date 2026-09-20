@@ -408,7 +408,7 @@ test('handle and GUI exports await buffered input permission and preserve unsave
   let downloadedBlob;
   t.mock.method(URL, 'createObjectURL', blob => { downloadedBlob = blob; return 'blob:export-test'; });
   t.mock.method(URL, 'revokeObjectURL', () => {});
-  for (const mode of ['handle-pptx', 'download-pptx', 'download-json']) {
+  for (const mode of ['handle-pptx', 'download-pptx', 'download-slon']) {
     const permission = deferred(), events = [], dirtyChanges = [];
     const ref = { current: null }; let saves = 0, clicks = 0, exporting, finished = false;
     downloadedBlob = undefined;
@@ -421,7 +421,7 @@ test('handle and GUI exports await buffered input permission and preserve unsave
     await change(() => input.type());
     await change(() => {
       exporting = (mode === 'handle-pptx' ? ref.current.exportPptx()
-        : app.editor.download(mode === 'download-json' ? 'json' : 'pptx', document)).then(result => { finished = true; return result; });
+        : app.editor.download(mode === 'download-slon' ? 'slon' : 'pptx', document)).then(result => { finished = true; return result; });
     });
     assert.equal(app.editor.busy, 'export');
     assert.equal(app.editor.deck.slides[0].elements[0].text, 'Before export');
@@ -435,7 +435,9 @@ test('handle and GUI exports await buffered input permission and preserve unsave
     });
     const blob = mode === 'handle-pptx' ? result : downloadedBlob;
     assert.ok(blob instanceof Blob);
-    if (mode === 'download-json') {
+    if (mode === 'download-slon') {
+      assert.equal(blob.type, 'application/json');
+      assert.equal(JSON.parse(await blob.text()).format, 'likex.slide');
       assert.equal(JSON.parse(await blob.text()).slides[0].elements[0].text, 'Latest buffered text');
     } else {
       const archive = await openOfficePackage(blob);
@@ -457,6 +459,27 @@ test('handle and GUI exports await buffered input permission and preserve unsave
     assert.equal(app.editor.canUndo, false);
     assert.equal(app.editor.canRedo, true);
     input.unregister();
+  }
+});
+
+test('native downloads use .slon with JSON MIME and replace recognized filename suffixes', async t => {
+  let blob;
+  t.mock.method(URL, 'createObjectURL', value => { blob = value; return 'blob:slon-test'; });
+  t.mock.method(URL, 'revokeObjectURL', () => {});
+  const app = await mount(t);
+  for (const [exportFileName, expected] of [
+    [undefined, 'Original.slon'], ['報告書', '報告書.slon'], ['報告書.json', '報告書.slon'],
+    ['報告書.SLON', '報告書.slon'], ['報告書.pptx', '報告書.slon'], ['.slon', 'presentation.slon'],
+  ]) {
+    await app.update({ exportFileName });
+    let filename;
+    const document = { createElement: () => ({ click() { filename = this.download; }, remove() {} }), body: { append() {} } };
+    await change(() => app.editor.download('slon', document));
+    assert.equal(filename, expected);
+    assert.equal(blob.type, 'application/json');
+    assert.deepEqual(JSON.parse(await blob.text()), app.editor.deck);
+    assert.equal(app.editor.dirty, false);
+    assert.equal(app.editor.canUndo, false);
   }
 });
 

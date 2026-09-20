@@ -118,6 +118,8 @@ const explorerOptions = {
 
 内蔵プレビューはテキスト（1 MiBまで）、CSV/TSV（200行・50列・合計10,000セルまで、各セル2,000文字まで）、PNG・JPEG・GIF・WebP・AVIF・BMP、PDF、MP4/WebMに対応します。SVGは画像として描画せず、ソースをテキスト表示します。画像のプレビューは `features.preview`、一覧の画像サムネイルは `ui.thumbnails` で独立して制御できます。PDFはブラウザーのiframeで表示します。Excel・Word・PowerPoint（`xlsx` / `xls` / `docx` / `doc` / `pptx` / `ppt`）の内蔵プレビューは未対応です。ダウンロードが有効な場合は、取得して対応アプリで開けます。
 
+LikeXの `.spon`（Spreadsheet）と `.slon`（Slide）は、内蔵プレビューではJSONのテキストとして表示します（1 MiBまで）。シートやスライドとして描画する場合は `onPreviewRequest` で親の専用ビューを開き、対応する `parseWorkbook` / `parseSlideDeck` で内容を検証してください。Explorer自体はSpreadsheetやSlideを読み込みません。アップロードに許可リストを設定している場合は、`upload.allowedExtensions` に `.spon` / `.slon` を追加します。
+
 ## マウスのサイドボタンで戻る・進む
 
 `features.mouseNavigation` は既定で `true` です。Explorer上でマウスの「戻る」「進む」サイドボタンを押すと、現在のタブにその方向のフォルダ履歴がある場合だけ、Explorer内で1つ戻る・進む操作を行い、ブラウザーのページ移動を抑止します。戻る方向の履歴がなければ「戻る」、進む方向の履歴がなければ「進む」のイベントを抑止せず、ブラウザー標準の動作に任せます。Explorer外でもブラウザー標準の動作を維持します。

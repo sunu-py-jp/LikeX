@@ -59,4 +59,8 @@ export type SpreadsheetFeatures = Readonly<{
   exportExcel?: boolean;
   /** Imports .xlsx files into the editable draft as one undoable change. */
   importExcel?: boolean;
+  /** Imports native .spon and legacy JSON into the draft as one undoable change. */
+  importNative?: boolean;
+  /** Native JSON output is available even in read-only mode. */
+  exportNative?: boolean;
 }>;

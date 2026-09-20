@@ -1,4 +1,4 @@
-import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, type SpreadsheetNamedRange, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
+import { SPREADSHEET_FORMAT, SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, type SpreadsheetNamedRange, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
 import { fail } from "./validation";
 import { assertWorkbookDataValidation, type SpreadsheetDataValidation } from "../data-validation";
 import { normalizeNamedRanges } from "../named-ranges";
@@ -22,7 +22,7 @@ export function finishWorkbook(sheets: readonly SpreadsheetSheet[], workbook?: S
   if (sheets.reduce((count, sheet) => count + (sheet.merges?.length ?? 0), 0) > SPREADSHEET_LIMITS.merges)
     fail("結合範囲の数が上限を超えています");
   const names = normalizeNamedRanges(namedRanges, sheets);
-  const result = Object.freeze({ schemaVersion: 1 as const, sheets: Object.freeze([...reconcileWorkbookTables(sheets)]),
+  const result = Object.freeze({ format: SPREADSHEET_FORMAT, schemaVersion: 1 as const, sheets: Object.freeze([...reconcileWorkbookTables(sheets)]),
     ...(resources ? { resources } : {}), ...(names ? { namedRanges: names } : {}) });
   assertWorkbookTables(result);
   assertWorkbookDataValidation(result);

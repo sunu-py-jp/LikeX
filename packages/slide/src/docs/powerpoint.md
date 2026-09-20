@@ -1,6 +1,6 @@
 # PowerPointの読み込みと出力
 
-ファイルタブにPowerPoint（`.pptx`）の読み込み・出力とJSONの読み込み・出力をまとめています。内部の編集形式は常に `SlideDeck` のJSONです。古い `.ppt`、マクロを含む形式、暗号化されたファイルには対応しません。
+ファイルタブにPowerPoint（`.pptx`）とLikeSlide（`.slon`）の読み込み・出力をまとめています。`.slon` の中身は `SlideDeck` のJSONで、従来の `.json` も読み込めます。[ネイティブ形式の仕様](commands.md)も参照してください。古い `.ppt`、マクロを含む形式、暗号化されたファイルには対応しません。
 
 ## APIから使う
 

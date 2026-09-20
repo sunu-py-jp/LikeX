@@ -38,6 +38,7 @@ export type SlideProps = {
   /** UI primary color in #RGB or #RRGGBB. Omit for the default orange. Does not change slide contents. */
   primaryColor?: string;
   title?: string;
+  /** Download basename for .slon and .pptx; an existing .slon/.json/.pptx suffix is replaced. */
   exportFileName?: string;
   className?: string;
   style?: CSSProperties;

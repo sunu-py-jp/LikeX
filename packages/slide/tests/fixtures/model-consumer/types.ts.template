@@ -1,5 +1,10 @@
 import { createSlideDeck, applySlideCommands, getElement, createSlideSession, type SlideCommand } from "__MODEL_IMPORT__";
 const deck = createSlideDeck();
+const format: "likex.slide" | undefined = deck.format;
+void format;
+createSlideDeck({ format: "likex.slide" });
+// @ts-expect-error A spreadsheet marker is not a slide format.
+createSlideDeck({ format: "likex.spreadsheet" });
 const command: SlideCommand = { type: "slide.add", slide: { name: "Second" } };
 const result = applySlideCommands(deck, command);
 const element = getElement(result.deck, result.deck.slides[0].id, "element");

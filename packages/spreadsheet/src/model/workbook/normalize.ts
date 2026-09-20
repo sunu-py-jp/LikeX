@@ -4,7 +4,7 @@ import { normalizeResources } from "../image-resources";
 import { normalizeDataValidation } from "../data-validation";
 import { normalizeMerges, validateMergedContents } from "../merges";
 import { normalizeTables } from "../tables/normalize";
-import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetWorkbook } from "../types";
+import { SPREADSHEET_FORMAT, SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetWorkbook } from "../types";
 import { DEFAULT_SHEET_SIZE } from "../sheet-dimensions";
 import { finishWorkbook, freezeCell } from "./snapshot";
 import { canonicalCellAddress, fail, normalizeCellFormat, normalizeSheetName, normalizeSizes, validateCellValue, validateDimension } from "./validation";
@@ -14,6 +14,7 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
   if (input === undefined) return createWorkbook();
   if (!input || !Array.isArray(input.sheets) || input.sheets.length < 1 || input.sheets.length > SPREADSHEET_LIMITS.sheets)
     return fail("ブックには1〜100枚のシートが必要です");
+  if (input.format !== undefined && input.format !== SPREADSHEET_FORMAT) return fail("スプレッドシートのファイル形式ではありません");
   if (input.schemaVersion !== undefined && input.schemaVersion !== 1) return fail("未対応のブック形式です");
   const resources = normalizeResources(input.resources);
   const ids = new Set<string>(), names = new Set<string>();

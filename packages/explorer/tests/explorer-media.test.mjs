@@ -260,6 +260,17 @@ test('preview and thumbnail share reads, and metadata-only changes do not rebuil
   await preview.unmount(); assert.deepEqual(revoked, [made[0].value]);
 });
 
+test('native LikeX files preview as inert JSON text even without a MIME type', async t => {
+  for (const extension of ['spon', 'SLON']) {
+    const cache = cacheFor(t), content = '{"title":"<img src=x onerror=alert(1)>"}';
+    const file = entry(`Native.${extension}`);
+    const preview = await mount(t, h(FilePreview, { entry: file, readFile: async () => new Blob([content]) }), cache);
+    assert.equal(preview.root.findByType('pre').children.join(''), content);
+    assert.equal(preview.root.findAllByType('img').length, 0);
+    assert.equal(preview.root.findAllByType('iframe').length, 0);
+  }
+});
+
 test('save invalidation refreshes visible thumbnail and preview together with no change to source ID or reader', async t => {
   const cache = cacheFor(t); const { made, revoked } = urlsFor(t);
   let reads = 0, content = 'before';

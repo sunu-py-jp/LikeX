@@ -5,11 +5,13 @@
 | コンポーネント | 用途 | はじめのページ |
 | --- | --- | --- |
 | **Explorer** | ファイル・フォルダを表示し、アップロードや移動の結果を下書きに保持します。 | [導入と初期表示](../../packages/explorer/src/docs/getting-started.md) |
-| **Spreadsheet** | セル・数式・書式・画像などを編集し、ブックをJSONで受け渡します。 | [導入](../../packages/spreadsheet/src/docs/README.md) |
-| **LikeSlide** | スライド・テキスト・図形・画像をJSONで編集し、PPTXを読み書きします。 | [導入](../../packages/slide/src/docs/README.md) |
+| **Spreadsheet** | セル・数式・書式・画像などを編集し、ブックをJSONで受け渡します。標準保存ファイルは `.spon` です。 | [導入](../../packages/spreadsheet/src/docs/README.md) |
+| **LikeSlide** | スライド・テキスト・図形・画像をJSONで編集し、PPTXを読み書きします。標準保存ファイルは `.slon` です。 | [導入](../../packages/slide/src/docs/README.md) |
 | **Core** | 保存・編集許可・通知など、各コンポーネントが使う共通の契約です。 | [Coreの導入](../../packages/core/docs/getting-started.md) |
 
 Explorer・Spreadsheet・LikeSlideはReact / React DOM **19.2.6以降の19系**を利用します。CSSはパッケージに含まれ、利用先のTailwind CSS設定は不要です。
+
+`.spon` と `.slon` の内容は純粋なJSONで、従来の `.json` も読み込めます。`onSave` では引き続きJSONモデルを親アプリへ渡します。形式の詳細は [SpreadsheetのJSON保存](../../packages/spreadsheet/src/docs/insertions-and-json.md) と [LikeSlideのコマンドとJSON](../../packages/slide/src/docs/commands.md) を参照してください。
 
 ## まず読み取り専用で表示する
 

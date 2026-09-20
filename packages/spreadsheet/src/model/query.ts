@@ -2,7 +2,7 @@ import { cellAddress, parseCellAddress } from "./address";
 import { copyQuerySnapshot, type QuerySnapshot } from "./query-snapshot";
 import { namedRangeAddress, normalizeNamedRangeRectangle, normalizeRangeName, type SpreadsheetNamedRangeInfo } from "./named-ranges";
 import type { SpreadsheetTable } from "./tables/types";
-import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetComment, type SpreadsheetDrawing,
+import { SPREADSHEET_FORMAT, SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetComment, type SpreadsheetDrawing,
   type SpreadsheetImageDrawing, type SpreadsheetImageResource, type SpreadsheetMergedRange, type SpreadsheetShapeDrawing,
   type SpreadsheetSheet, type SpreadsheetTextDrawing, type SpreadsheetWorkbook } from "./types";
 
@@ -20,6 +20,7 @@ function validateId(id: string): void {
 
 function requireWorkbook(workbook: QueryWorkbook): void {
   if (!workbook || !Array.isArray(workbook.sheets) || !workbook.sheets.length || workbook.sheets.length > SPREADSHEET_LIMITS.sheets ||
+    (workbook.format !== undefined && workbook.format !== SPREADSHEET_FORMAT) ||
     (workbook.schemaVersion !== undefined && workbook.schemaVersion !== 1)) throw new Error("ブックの形式が正しくありません");
 }
 
