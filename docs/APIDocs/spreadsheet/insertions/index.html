@@ -63,7 +63,7 @@
   }],
 };</code></pre></div>
 <p>この画像は構造を示すための1ピクセルのサンプルです。実際の画像は「挿入 → 画像」で読み込めます。テキストの <code>currentColor</code> はテーマの文字色を使い、明示した色・背景色はそのまま保持します。</p>
-<p>図形の <code>text</code>・<code>fontSize</code>・<code>color</code>・<code>bold</code> は任意です。未指定なら文字なし・16px・濃いグレー（<code>#1f2937</code>）・通常の太さとなり、従来のJSONも変更せず読み込めます。図形の既定の塗りは淡色のため、ダークモードでも文字が読める既定色にしています。外部APIの <code>shapes.insert</code> に同じ項目を渡すか、<code>shapes.update</code> の <code>patch</code> で変更できます。</p>
+<p>図形の <code>text</code>・<code>fontSize</code>・<code>color</code>・<code>bold</code> は任意です。未指定なら文字なし・16px・濃いグレー（<code>#1f2937</code>）・通常の太さになります。図形の既定の塗りは淡色のため、ダークモードでも文字が読める既定色にしています。外部APIの <code>shapes.insert</code> に同じ項目を渡すか、<code>shapes.update</code> の <code>patch</code> で変更できます。</p>
 <h2 id="保存と復元">保存と復元<a class="heading-link" href="#%E4%BF%9D%E5%AD%98%E3%81%A8%E5%BE%A9%E5%85%83" aria-label="この見出しへのリンク">#</a></h2>
 <p><code>serializeWorkbook</code> は検証したモデルを行ごとの保存形式へ変換し、固定書式のJSON文字列を返します。<code>parseWorkbook</code> はJSONの構文・形式・サイズを検証し、編集用モデルへ復元します。ファイルへの保存・読み込みはこの2つを使ってください。<code>normalizeWorkbook</code> は編集用モデルの検証用で、保存形式の変換は行いません。</p>
 <div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-string">&quot;use client&quot;</span>;
@@ -87,7 +87,7 @@
   /&gt;;
 }</code></pre></div>
 <p>認証、権限、JSONを保存するDBやファイル、競合の検知は親アプリが担当します。<code>initialWorkbook</code> はマウント時だけ読み込むため、別の保存データを開く場合は <code>key</code> を変更します。変更前に未保存データの扱いを親で確認してください。</p>
-<p>このページの <code>SpreadsheetWorkbook</code> は編集用モデル（<code>schemaVersion: 1</code>）です。<code>serializeWorkbook</code> はこれを、行オブジェクトの配列を持つ保存用 <code>SpreadsheetFile</code>（<code>format: &quot;likex.spreadsheet&quot;</code>、<code>schemaVersion: 2</code>）へ変換して、一定の順序・書式で出力します。<code>parseWorkbook</code> で編集用モデルへ戻せます。以前の <code>{ sheets: [...] }</code> 形式も読み込めます。保存構造と固定ルールは <a href="../native-files/index.html"><code>.spon</code> 形式</a>を参照してください。</p>
+<p>このページの <code>SpreadsheetWorkbook</code> は編集用モデルです。<code>serializeWorkbook</code> はこれを、行オブジェクトの配列を持つ保存用 <code>SpreadsheetFile</code>（<code>format: &quot;likex.spreadsheet&quot;</code>、<code>schemaVersion: 1</code>）へ変換して、一定の順序・書式で出力します。<code>parseWorkbook</code> で編集用モデルへ戻せます。保存構造と固定ルールは <a href="../native-files/index.html"><code>.spon</code> 形式</a>を参照してください。</p>
 <h2 id="apiと機能のoff指定">APIと機能のOFF指定<a class="heading-link" href="#api%E3%81%A8%E6%A9%9F%E8%83%BD%E3%81%AEoff%E6%8C%87%E5%AE%9A" aria-label="この見出しへのリンク">#</a></h2>
 <p><code>SpreadsheetDrawing</code> は <code>type</code> による判別可能なunionで、画像・図形・テキストの必要なフィールドを型で区別します。<code>SpreadsheetImageResource</code>、<code>SpreadsheetDrawingAnchor</code>、<code>SpreadsheetDrawingPatch</code>、<code>SpreadsheetComment</code> も公開しています。</p>
 <p><code>addDrawing</code>、<code>insertImage</code>、<code>updateDrawing</code>、<code>deleteDrawing</code>、<code>setCellComment</code>、<code>setCellComments</code> は入力ブックを変更せず、新しいスナップショットを返します。<code>updateDrawing</code> でIDや種類は変更できません。セルコメントの削除には <code>null</code> を指定します。</p>

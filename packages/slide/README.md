@@ -1,17 +1,17 @@
 # @likex/slide
 
-PowerPoint風のReactスライドエディターです。Spreadsheetと同じグループ付きリボンを使い、テキスト・図形・画像、スライドの並べ替え、発表表示を扱えます。標準ファイルは `.slon`、中身はJSONです。従来の `.json` も読み込めます。
+PowerPoint風のReactスライドエディターです。Spreadsheetと同じグループ付きリボンを使い、テキスト・図形・画像、スライドの並べ替え、発表表示を扱えます。標準ファイルは `.slon`、中身はJSONです。
 
 ```tsx
 "use client";
-import LikeSlide, { createSlideDeck } from "@likex/slide";
+import LikeSlide, { createSlideDeck, serializeSlideDeck } from "@likex/slide";
 import "@likex/slide/styles.css";
 
 export default function Presentation() {
   return <LikeSlide initialDeck={createSlideDeck()}
     onSave={async deck => {
       const response = await fetch("/api/presentation", {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(deck),
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: serializeSlideDeck(deck),
       });
       if (!response.ok) throw new Error("保存できませんでした");
     }} style={{ height: 720 }} />;

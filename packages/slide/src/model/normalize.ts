@@ -3,7 +3,6 @@ import { SLIDE_LIMITS } from "./limits";
 import { validateSlideImageSource } from "./image-source";
 import { boolean, choice, color, fontFamily, identifier, list, number, record, text } from "./validation";
 import { DECK_KEYS, ELEMENT_KEYS, SLIDE_KEYS } from "./schema";
-import { restoreSlideFilePage } from "./file-format";
 export { ELEMENT_KEYS } from "./schema";
 
 const decks = new WeakSet<SlideDeck>();
@@ -109,11 +108,10 @@ export function createSlide(input: Partial<Slide> = {}): Slide {
 export function normalizeSlideDeck(input: unknown): SlideDeck {
   if (decks.has(input as SlideDeck)) return input as SlideDeck;
   const raw = record(input, "プレゼンテーション", DECK_KEYS);
-  if ((raw.format !== undefined && raw.format !== "likex.slide") || (raw.version === 2 && raw.format !== "likex.slide"))
+  if (raw.format !== undefined && raw.format !== "likex.slide")
     throw new Error("LikeSlideのファイル形式ではありません");
-  if (raw.version !== 1 && raw.version !== 2) throw new Error("対応していないプレゼンテーションのバージョンです");
-  const accepted = list(raw.slides, "スライド", SLIDE_LIMITS.slides, 1)
-    .map(slide => normalizeSlide(raw.version === 2 ? restoreSlideFilePage(slide) : slide));
+  if (raw.version !== 1) throw new Error("対応していないプレゼンテーションのバージョンです");
+  const accepted = list(raw.slides, "スライド", SLIDE_LIMITS.slides, 1).map(normalizeSlide);
   const slideIds = new Set<string>(), elementIds = new Set<string>();
   let count = 0, bytes = 0, characters = 0;
   for (const slide of accepted) {

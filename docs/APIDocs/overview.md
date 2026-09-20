@@ -11,7 +11,7 @@
 
 Explorer・Spreadsheet・LikeSlideはReact / React DOM **19.2.6以降の19系**を利用します。CSSはパッケージに含まれ、利用先のTailwind CSS設定は不要です。
 
-`.spon` と `.slon` の内容は純粋なJSONで、従来の `.json` も読み込めます。`onSave` では引き続きJSONモデルを親アプリへ渡します。形式の詳細は [SpreadsheetのJSON保存](../../packages/spreadsheet/src/docs/insertions-and-json.md) と [LikeSlideのコマンドとJSON](../../packages/slide/src/docs/commands.md) を参照してください。
+`.spon` と `.slon` の内容は純粋なJSONで、現在の保存構造をバージョン1としています。`.json` も選択できますが、内容は同じ形式が必要です。`onSave` は編集用モデルを親アプリへ渡し、各モジュールのserialize APIで保存形式へ変換します。形式の詳細は [SpreadsheetのJSON保存](../../packages/spreadsheet/src/docs/insertions-and-json.md) と [LikeSlideのコマンドとJSON](../../packages/slide/src/docs/commands.md) を参照してください。
 
 ## まず読み取り専用で表示する
 

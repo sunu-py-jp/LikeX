@@ -1,7 +1,7 @@
 import { parseCellAddress } from "./address";
 import { SPREADSHEET_FORMAT, SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetSheet, type SpreadsheetWorkbook } from "./types";
 
-export const SPREADSHEET_FILE_VERSION = 2 as const;
+export const SPREADSHEET_FILE_VERSION = 1 as const;
 
 /** One row in file order (index 0 is row 1). Columns use A, B, ..., Z, AA, ... keys. */
 export type SpreadsheetFileRow = {
@@ -47,14 +47,11 @@ const object = (input: unknown): Record<string, unknown> => {
   return input as Record<string, unknown>;
 };
 
-/** Decode v2 row-oriented files; validation of every cell/format/resource remains in normalizeWorkbook. */
+/** Decode row-oriented SPON v1 files; validation of every cell/format/resource remains in normalizeWorkbook. */
 export function fileToWorkbook(input: unknown): SpreadsheetWorkbook {
   const file = object(input);
-  if (file.schemaVersion !== SPREADSHEET_FILE_VERSION) {
-    if (Array.isArray(file.sheets) && file.sheets.some(sheet => sheet && typeof sheet === "object" && Object.hasOwn(sheet, "rows"))) return invalidFile();
-    return input as SpreadsheetWorkbook;
-  }
   if (file.format !== SPREADSHEET_FORMAT) throw new Error("スプレッドシートのファイル形式ではありません");
+  if (file.schemaVersion !== SPREADSHEET_FILE_VERSION) throw new Error("未対応のブック形式です");
   if (!Array.isArray(file.sheets) || file.sheets.length < 1 || file.sheets.length > SPREADSHEET_LIMITS.sheets) return invalidFile();
   let cellCount = 0;
   const sheets = file.sheets.map(inputSheet => {

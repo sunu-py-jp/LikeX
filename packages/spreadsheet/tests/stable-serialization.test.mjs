@@ -44,7 +44,7 @@ test('SPON bytes and hashes ignore all object-key insertion order, including cel
   assert.equal(hash(reordered), hash(saved));
   assert.deepEqual(reversed, before, 'serialization must not reorder caller-owned data');
   const wire = JSON.parse(saved);
-  assert.equal(wire.schemaVersion, SPREADSHEET_FILE_VERSION); assert.equal(SPREADSHEET_FILE_VERSION, 2);
+  assert.equal(wire.schemaVersion, SPREADSHEET_FILE_VERSION); assert.equal(SPREADSHEET_FILE_VERSION, 1);
   assert.deepEqual(Object.keys(wire.sheets[0].rows[1].cells), ['A', 'B']);
   assert.match(saved, /"columnWidths": \{\n +"2": 80,\n +"10": 120\n +\}/);
   assert.deepEqual(Object.keys(wire.resources.images), ['a-image', 'z-image']);
@@ -80,7 +80,7 @@ test('native save-load-save remains byte-identical without changing text, images
   assert.equal(hash(serializeWorkbook(parsed)), hash(saved));
   assert.equal(saved.endsWith('\n'), false); assert.equal(saved.charCodeAt(0), 123);
   assert.equal(saved.includes('\r'), false, 'file indentation uses LF; content CRLF stays escaped');
-  assert.match(saved, /^\{\n  "format": "likex.spreadsheet",\n  "schemaVersion": 2,/);
+  assert.match(saved, /^\{\n  "format": "likex.spreadsheet",\n  "schemaVersion": 1,/);
   assert.deepEqual(parsed, workbook());
   assert.equal(parsed.sheets[0].cells.A1.value, content);
   assert.equal(parsed.resources.images['z-image'].dataUrl, dataUrl);
@@ -118,11 +118,12 @@ test('file rows follow display order, keep blank rows and heights, and omit trai
   assert.equal(serializeWorkbook(session.getWorkbook()), serializeWorkbook(input));
 });
 
-test('v2 parser rejects ambiguous legacy fields, invalid row and column containers, bounds and metadata', () => {
+test('SPON v1 parser rejects flat sheet fields, invalid row and column containers, bounds and metadata', () => {
   const valid = JSON.parse(serializeWorkbook(workbook()));
   const rejects = mutate => { const input = structuredClone(valid); mutate(input); assert.throws(() => parseWorkbook(JSON.stringify(input))); };
   rejects(input => { input.sheets[0].cells = {}; });
   rejects(input => { input.sheets[0].rowHeights = {}; });
+  rejects(input => { delete input.sheets[0].rows; });
   rejects(input => { input.sheets[0].rows = { 1: { cells: { A: { value: 'ambiguous' } } } }; });
   for (const value of [null, [], 'row']) rejects(input => { input.sheets[0].rows[0] = value; });
   rejects(input => { input.sheets[0].rows[0].unknown = true; });
@@ -133,20 +134,25 @@ test('v2 parser rejects ambiguous legacy fields, invalid row and column containe
   for (const height of [null, '30', 0, 1001]) rejects(input => { input.sheets[0].rows[0].height = height; });
   rejects(input => { input.sheets[0].rows = Array.from({ length: 31 }, () => ({})); });
   rejects(input => { input.sheets[0].rows[0].cells.A.value = 1; });
-  rejects(input => { input.format = 'likex.slide'; });
+  for (const format of ['likex.slide', null, 1]) rejects(input => { input.format = format; });
   rejects(input => { delete input.format; });
-  rejects(input => { input.schemaVersion = 1; input.sheets[0].cells = {}; });
+  rejects(input => { delete input.schemaVersion; });
+  for (const version of [0, 2, 999, '1', null]) rejects(input => { input.schemaVersion = version; });
   assert.equal(Object.prototype.bad, undefined);
 });
 
-test('legacy flat JSON upgrades once to v2 and subsequent saves keep identical bytes', () => {
-  const legacy = structuredClone(workbook());
-  delete legacy.format; delete legacy.schemaVersion;
-  const first = serializeWorkbook(parseWorkbook(JSON.stringify(legacy)));
-  assert.equal(JSON.parse(first).schemaVersion, 2);
-  assert.equal(serializeWorkbook(parseWorkbook(first)), first);
-  const explicitV1 = { ...legacy, format: 'likex.spreadsheet', schemaVersion: 1 };
-  assert.equal(serializeWorkbook(parseWorkbook(JSON.stringify(explicitV1))), first);
+test('file parsing rejects former flat v1 and unidentified JSON while runtime models remain usable', () => {
+  const runtime = workbook(), before = serializeWorkbook(runtime);
+  const unidentified = structuredClone(runtime);
+  delete unidentified.format; delete unidentified.schemaVersion;
+  for (const input of [runtime, unidentified, { ...unidentified, schemaVersion: 1 },
+    { ...unidentified, format: 'likex.spreadsheet' }]) {
+    assert.throws(() => parseWorkbook(JSON.stringify(input)));
+  }
+  assert.deepEqual(normalizeWorkbook(unidentified), runtime);
+  assert.equal(serializeWorkbook(unidentified), before);
+  assert.equal(serializeWorkbook(parseWorkbook(before)), before);
+  assert.equal(serializeWorkbook(runtime), before, 'rejected parses never change the caller-owned runtime model');
 });
 
 test('repeated saves add no timestamps or IDs, and Undo restores the original file hash', t => {

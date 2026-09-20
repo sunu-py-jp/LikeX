@@ -2,12 +2,12 @@ import { serializeStableJson } from "../json";
 import type { SlideDeck } from "./types";
 import { SLIDE_LIMITS } from "./limits";
 import { normalizeSlideDeck } from "./normalize";
-import { compareSlideFileKeys, toSlideFile } from "./file-format";
+import { compareSlideFileKeys, restoreSlideFile, toSlideFile } from "./file-format";
 
-/** Reads native version 2 files and legacy version 1 .slon/.json documents. */
+/** Reads only native version 1 files with a format marker and explicit element stacking. */
 export function parseSlideDeck(json: string): SlideDeck {
   if (typeof json !== "string" || json.length > SLIDE_LIMITS.jsonLength) throw new Error("JSONのサイズが上限を超えています");
-  return normalizeSlideDeck(JSON.parse(json));
+  return normalizeSlideDeck(restoreSlideFile(JSON.parse(json)));
 }
 
 /** Stable, readable JSON: page order, then top-to-bottom/left-to-right elements with explicit stacking. */

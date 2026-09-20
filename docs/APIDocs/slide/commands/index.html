@@ -28,26 +28,26 @@
 <p>LikeSlideの標準ファイル拡張子は <code>.slon</code> です。中身はUTF-8のJSONで、ZIPや暗号化形式ではありません。既存の <code>parseSlideDeck</code> / <code>serializeSlideDeck</code> をそのまま使います。</p>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> { parseSlideDeck, serializeSlideDeck } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/slide/model&quot;</span>;
 
-<span class="syntax-keyword">const</span> deck = parseSlideDeck(<span class="syntax-keyword">await</span> file.text()); <span class="syntax-comment">// .slon または従来の .json</span>
+<span class="syntax-keyword">const</span> deck = parseSlideDeck(<span class="syntax-keyword">await</span> file.text()); <span class="syntax-comment">// 現在のSLON形式のJSON</span>
 <span class="syntax-keyword">const</span> output = <span class="syntax-keyword">new</span> File([serializeSlideDeck(deck)], <span class="syntax-string">&quot;提案資料.slon&quot;</span>, {
   <span class="syntax-keyword">type</span>: <span class="syntax-string">&quot;application/json&quot;</span>,
 });</code></pre></div>
-<p>編集用の <code>SlideDeck</code> は <code>format: &quot;likex.slide&quot;</code> と <code>version: 1</code> を持ちます。ファイルへの出力は、位置順に並べる保存用の <code>SlideFile</code>（<code>version: 2</code>）です。<code>parseSlideDeck</code> がversion 2を編集用モデルに復元し、<code>format</code> のないJSONを含む従来のversion 1も読み込めます。異なる <code>format</code> や未対応のバージョン、不正なデータ構造は拒否します。</p>
+<p>保存形式は <code>format: &quot;likex.slide&quot;</code> と <code>version: 1</code> を持つ <code>SlideFile</code> です。要素は位置順に並び、各要素に <code>stackOrder</code> が必要です。<code>parseSlideDeck</code> はこれを、要素が描画順に並ぶ編集用 <code>SlideDeck</code> へ復元します。<code>onSave</code> やコマンドは編集用モデルを扱います。形式・バージョンの省略、<code>stackOrder</code> のない要素を持つ旧構造、version 2、不正なデータ構造は拒否します。</p>
 <h3 id="ページと要素の保存順">ページと要素の保存順<a class="heading-link" href="#%E3%83%9A%E3%83%BC%E3%82%B8%E3%81%A8%E8%A6%81%E7%B4%A0%E3%81%AE%E4%BF%9D%E5%AD%98%E9%A0%86" aria-label="この見出しへのリンク">#</a></h3>
 <p><code>slides</code> はページ順です。各ページの <code>elements</code> は、上から下（<code>y</code>）、同じ高さなら左から右（<code>x</code>）に並べます。位置が同じ場合は重なり順で決めます。各要素の <code>stackOrder</code> に元の描画順を記録するため、ファイルの配列順が変わっても見た目の前後関係は保たれます。<code>stackOrder: 0</code> が最背面です。</p>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">type</span> SlideFileElement = SlideElement &amp; { stackOrder: <span class="syntax-keyword">number</span> };
 <span class="syntax-keyword">type</span> SlideFilePage = Omit&lt;Slide, <span class="syntax-string">&quot;elements&quot;</span>&gt; &amp; { elements: SlideFileElement[] };
 <span class="syntax-keyword">type</span> SlideFile = Omit&lt;SlideDeck, <span class="syntax-string">&quot;format&quot;</span> | <span class="syntax-string">&quot;version&quot;</span> | <span class="syntax-string">&quot;slides&quot;</span>&gt; &amp; {
   format: <span class="syntax-string">&quot;likex.slide&quot;</span>;
-  version: <span class="syntax-number">2</span>;
+  version: <span class="syntax-number">1</span>;
   slides: SlideFilePage[];
 };</code></pre></div>
 <p>これらの型は <code>@likex/slide/model</code> からimportできます。保存データを操作APIへ渡す前に <code>parseSlideDeck</code> を呼んでください。復元後の <code>elements</code> は描画順で、<code>stackOrder</code> は編集用モデルには残りません。重複・欠落・範囲外の重なり順を持つファイルは拒否します。</p>
 <h3 id="毎回同じ書式で保存する">毎回同じ書式で保存する<a class="heading-link" href="#%E6%AF%8E%E5%9B%9E%E5%90%8C%E3%81%98%E6%9B%B8%E5%BC%8F%E3%81%A7%E4%BF%9D%E5%AD%98%E3%81%99%E3%82%8B" aria-label="この見出しへのリンク">#</a></h3>
 <p>フィールド順、2スペースのインデント、LF改行を固定します。BOM・末尾の改行は付けず、文字列の中の改行やUnicodeは保持します。保存のためにIDや日時を生成しません。同じページ・要素・重なり順・データを <code>serializeSlideDeck</code> でUTF-8に保存すれば、毎回同じバイト列・ハッシュになります。</p>
-<p>親の <code>onSave</code> でも <code>JSON.stringify</code> の代わりに <code>serializeSlideDeck</code> を使ってください。旧形式を初めて書き出す場合は、version 2への変換によってハッシュが変わります。以降は同じ規則で安定します。内容が同じ場合のBlob書き込み省略は親側で管理します。</p>
-<p>ファイルタブでは <code>.slon</code> を標準で書き出し、読み込みでは <code>.slon</code> と従来の <code>.json</code> を受け付けます。読み込んだデータは下書きになり、Undoで元の資料へ戻せます。保存先の通信やファイル名は <code>onSave</code> を実装する親側が管理し、コールバックに渡る値は引き続き <code>SlideDeck</code> です。出力や読み込みだけでは <code>onSave</code> を呼びません。</p>
-<p>ブラウザーやストレージが独自拡張子のMIMEタイプを推測できるとは限らないため、アップロード時も <code>Content-Type: application/json</code> を指定してください。既存のBlobの名前や保存場所をコンポーネントが変更することはありません。新しい出力はversion 2のため、旧版のLikeSlideでの読み込みは保証しません。</p>
+<p>親の <code>onSave</code> でも <code>serializeSlideDeck</code> を使ってください。描画順から保存順への変換と、<code>stackOrder</code> の付与もこのAPIが担当します。内容が同じ場合のBlob書き込み省略は親側で管理します。</p>
+<p>ファイルタブでは <code>.slon</code> を標準で書き出します。読み込み時は <code>.json</code> も選べますが、内容は同じSLON形式が必要です。読み込んだデータは下書きになり、Undoで元の資料へ戻せます。保存先の通信やファイル名は <code>onSave</code> を実装する親側が管理し、コールバックに渡る値は <code>SlideDeck</code> です。出力や読み込みだけでは <code>onSave</code> を呼びません。</p>
+<p>ブラウザーやストレージが独自拡張子のMIMEタイプを推測できるとは限らないため、アップロード時も <code>Content-Type: application/json</code> を指定してください。既存のBlobの名前や保存場所をコンポーネントが変更することはありません。</p>
 <h2 id="テキストを追加する">テキストを追加する<a class="heading-link" href="#%E3%83%86%E3%82%AD%E3%82%B9%E3%83%88%E3%82%92%E8%BF%BD%E5%8A%A0%E3%81%99%E3%82%8B" aria-label="この見出しへのリンク">#</a></h2>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> { createSlideDeck, applySlideCommands, serializeSlideDeck } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/slide/model&quot;</span>;
 

@@ -12,7 +12,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Spreadsheet, { createWorkbook, type SpreadsheetHandle } from "@likex/spreadsheet";
+import Spreadsheet, { createWorkbook, serializeWorkbook, type SpreadsheetHandle } from "@likex/spreadsheet";
 import "@likex/spreadsheet/styles.css";
 
 export default function Report() {
@@ -38,7 +38,7 @@ export default function Report() {
       onSave={async workbook => {
         const response = await fetch("/api/workbooks/report", {
           method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(workbook),
+          body: serializeWorkbook(workbook),
         });
         if (!response.ok) throw new Error("保存に失敗しました");
       }}

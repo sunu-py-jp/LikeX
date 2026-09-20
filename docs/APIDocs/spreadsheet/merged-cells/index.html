@@ -21,7 +21,7 @@
 <p>公開APIの <code>copySpreadsheetCells(..., { partialMerges: &quot;skip&quot; })</code> は、コピー範囲に一部しか含まれない結合の中を空セルとして扱います。<code>cells.paste</code> の <code>partialMerges: &quot;skip&quot;</code> は、貼り付け範囲を横断する既存の結合を内容ごと維持し、そこへの書き込みを飛ばします。完全に含まれる結合には通常のコピー・貼り付けのルールを適用します。両方の既定値は <code>&quot;reject&quot;</code> で、コピー範囲や複数セルの貼り付け範囲が結合の一部だけに重なる場合は全体を中止します。結合セルへの1セルの貼り付けは、上表のとおり左上の内容を更新します。GUIの行・列全体のコピーには <code>&quot;skip&quot;</code> を使いますが、切り取りでは部分的な結合を許可しません。</p>
 <p>外部へ渡すTSVには結合情報がありません。別コンポーネントへのコピーや、内部のコピー情報を失った場合もTSVの値として扱います。</p>
 <h2 id="jsonと公開型">JSONと公開型<a class="heading-link" href="#json%E3%81%A8%E5%85%AC%E9%96%8B%E5%9E%8B" aria-label="この見出しへのリンク">#</a></h2>
-<p>シートの <code>merges</code> に0始まり・両端を含む矩形を保存します。旧形式のブックは変更せず読み込めます。</p>
+<p>シートの <code>merges</code> に0始まり・両端を含む矩形を保存します。</p>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> { mergeCells, unmergeCells, <span class="syntax-keyword">type</span> SpreadsheetWorkbook, <span class="syntax-keyword">type</span> SpreadsheetMergedRange } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/spreadsheet&quot;</span>;
 
 <span class="syntax-keyword">const</span> range: SpreadsheetMergedRange = { top: <span class="syntax-number">0</span>, left: <span class="syntax-number">0</span>, bottom: <span class="syntax-number">1</span>, right: <span class="syntax-number">2</span> }; <span class="syntax-comment">// A1:C2</span>

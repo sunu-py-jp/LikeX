@@ -16,9 +16,12 @@ const nativeRow: SpreadsheetFileRow = { height: 32, cells: { A: { value: '商品
 const nativeFile: SpreadsheetFile = { format: SPREADSHEET_FORMAT, schemaVersion: SPREADSHEET_FILE_VERSION,
   sheets: [{ id: 'sheet-1', name: 'Sheet1', rowCount: 300, columnCount: 26, rows: [nativeRow] }] };
 const nativeProps: SpreadsheetProps = { initialWorkbook: parseWorkbook(JSON.stringify(nativeFile)) };
+const nativeVersion: 1 = SPREADSHEET_FILE_VERSION;
+// @ts-expect-error SPON file versions other than 1 are unsupported.
+const invalidNativeVersion: SpreadsheetFile = { ...nativeFile, schemaVersion: 2 };
 // @ts-expect-error Native files need decoding before they become initialWorkbook.
 const unsupportedNativeProps: SpreadsheetProps = { initialWorkbook: nativeFile };
-void [nativeProps, unsupportedNativeProps];
+void [nativeProps, unsupportedNativeProps, nativeVersion, invalidNativeVersion];
 const sheet: SpreadsheetSheet = workbook.sheets[0];
 const cell: SpreadsheetCell = { value: "=SUM(A1:A3)", format: { bold: true, numberFormat: "number" } };
 const format: SpreadsheetCellFormat = { align: "right", color: "#123456" };

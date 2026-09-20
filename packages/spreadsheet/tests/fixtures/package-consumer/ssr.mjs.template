@@ -28,7 +28,15 @@ const annotated = setCellComment(addDrawing(workbook, "sheet-consumer", {
   id: "note", type: "text", text: "JSON persisted note", fontSize: 14, color: "#333333", background: "transparent",
   anchor: { row: 1, column: 1, offsetX: 4, offsetY: 8 }, width: 180, height: 90,
 }), "sheet-consumer", "A1", { id: "review", text: "Reviewed comment" });
-const restored = parseWorkbook(serializeWorkbook(annotated));
+const saved = serializeWorkbook(annotated), nativeFile = JSON.parse(saved);
+assert.equal(nativeFile.format, "likex.spreadsheet");
+assert.equal(nativeFile.schemaVersion, 1);
+assert.equal(nativeFile.sheets[0].rows[1].cells.A.value, '=ROUND(1.005,2)');
+assert.equal('cells' in nativeFile.sheets[0], false);
+assert.throws(() => parseWorkbook(JSON.stringify(annotated)));
+assert.throws(() => parseWorkbook(JSON.stringify({ ...nativeFile, schemaVersion: 2 })));
+const restored = parseWorkbook(saved);
+assert.equal(serializeWorkbook(restored), saved);
 assert.equal(restored.schemaVersion, 1);
 assert.equal(restored.sheets[0].drawings[0].text, "JSON persisted note");
 assert.equal(restored.sheets[0].comments.A1.text, "Reviewed comment");

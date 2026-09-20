@@ -10,9 +10,12 @@ const result = applySlideCommands(deck, command);
 const element = getElement(result.deck, result.deck.slides[0].id, "element");
 if (element?.type === "text") { const value: string = element.text; void value; }
 createSlideSession(deck).execute(command);
-const nativeFile: SlideFile = { ...deck, format: "likex.slide", version: 2, slides: [] };
+const nativeFile: SlideFile = { ...deck, format: "likex.slide", version: 1, slides: [] };
 const nativeElement: SlideFileElement | undefined = nativeFile.slides[0]?.elements[0];
 if (nativeElement) { const layer: number = nativeElement.stackOrder; void layer; }
-// @ts-expect-error Storage schema version differs from the runtime editing model.
+// @ts-expect-error Runtime elements do not contain required saved stackOrder fields.
 const invalidFile: SlideFile = deck;
 void invalidFile;
+// @ts-expect-error Version 2 is not a supported native file version.
+const unsupportedFile: SlideFile = { ...nativeFile, version: 2 };
+void unsupportedFile;

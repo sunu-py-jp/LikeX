@@ -9,15 +9,15 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
   export { default as LikeSlide } from './src/slide.tsx';
-  export { createSlideDeck, SLIDE_LIMITS } from './src/model/index.ts';
+  export { createSlideDeck, createSlideElement, serializeSlideDeck, SLIDE_LIMITS } from './src/model/index.ts';
 `, resolveDir: packageRoot }, bundle: true, platform: 'node', format: 'esm', write: false,
 plugins: [{ name: 'shared-react', setup(builder) {
   builder.onResolve({ filter: /^(react|react-dom|lucide-react)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
 } }] });
-const { LikeSlide, createSlideDeck, SLIDE_LIMITS } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { LikeSlide, createSlideDeck, createSlideElement, serializeSlideDeck, SLIDE_LIMITS } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const change = async callback => { await act(async () => { await callback(); }); };
 
-test('native file UI opens .slon and legacy .json but rejects foreign format markers', async t => {
+test('native file UI opens current .slon and .json files and rejects former formats atomically', async t => {
   const ref = createRef(), events = [];
   let renderer;
   await change(() => { renderer = create(h(LikeSlide, { ref, onSave() {}, onEvent: event => events.push(event) })); });
@@ -26,11 +26,10 @@ test('native file UI opens .slon and legacy .json but rejects foreign format mar
   assert.equal(fileInput().props.accept, '.slon,.json,application/json');
   await change(() => renderer.root.findAllByType('button').find(button => button.props.role === 'tab' && button.props.children === 'ファイル').props.onClick());
   assert.ok(renderer.root.findAllByType('button').some(button => button.props['aria-label'] === 'LikeSlide (.slon)'));
-  for (const name of ['native.slon', 'legacy.json']) {
-    const deck = createSlideDeck({ title: name });
-    const value = { ...deck };
-    if (name.endsWith('.json')) delete value.format;
-    const json = JSON.stringify(value);
+  for (const name of ['native.slon', 'native.json']) {
+    const deck = createSlideDeck({ title: name, slides: [{ id: 'one', name: 'One', notes: '', background: '#fff',
+      elements: [createSlideElement({ type: 'text', id: 'title', text: name })] }] });
+    const json = serializeSlideDeck(deck);
     const target = { files: [new File([json], name, { type: name.endsWith('.json') ? 'application/json' : '' })], value: name };
     await change(() => fileInput().props.onChange({ target }));
     assert.equal(target.value, '');
@@ -39,11 +38,18 @@ test('native file UI opens .slon and legacy .json but rejects foreign format mar
   }
   const before = ref.current.getDeck();
   const imported = events.filter(event => event.type === 'import').length;
-  await change(() => fileInput().props.onChange({ target: { files: [new File([
-    JSON.stringify({ ...before, format: 'likex.spreadsheet' }),
-  ], 'incorrect.slon')], value: '' } }));
-  assert.deepEqual(ref.current.getDeck(), before);
-  assert.equal(events.filter(event => event.type === 'import').length, imported);
+  const file = JSON.parse(serializeSlideDeck(before));
+  const { format, ...unmarked } = file;
+  const { format: runtimeFormat, ...formerUnmarked } = before;
+  const missingLayer = structuredClone(file);
+  delete missingLayer.slides[0].elements[0].stackOrder;
+  for (const invalid of [unmarked, formerUnmarked, before, missingLayer, { ...file, version: 2 }, { ...file, format: 'likex.spreadsheet' }]) {
+    await change(() => fileInput().props.onChange({ target: {
+      files: [new File([JSON.stringify(invalid)], 'incorrect.slon')], value: '',
+    } }));
+    assert.deepEqual(ref.current.getDeck(), before);
+    assert.equal(events.filter(event => event.type === 'import').length, imported);
+  }
   assert.ok(renderer.root.findAllByType('span').some(span => span.props.children === 'LikeSlideのファイル形式ではありません'));
 });
 
@@ -57,7 +63,7 @@ test('native file byte preflight permits UTF-8 expansion and still enforces deco
   let reads = 0;
   for (const size of [SLIDE_LIMITS.jsonLength + 1, SLIDE_LIMITS.jsonLength * 3]) {
     const deck = createSlideDeck({ title: `日本語 ${size}` });
-    const file = { size, async text() { reads++; return JSON.stringify(deck); } };
+    const file = { size, async text() { reads++; return serializeSlideDeck(deck); } };
     await change(() => input().props.onChange({ target: { files: [file], value: '日本語.slon' } }));
     assert.equal(ref.current.getDeck().title, deck.title);
   }

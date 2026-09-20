@@ -11,7 +11,7 @@
 <div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-string">&quot;use client&quot;</span>;
 
 <span class="syntax-keyword">import</span> { useRef, useState } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;react&quot;</span>;
-<span class="syntax-keyword">import</span> Spreadsheet, { createWorkbook, <span class="syntax-keyword">type</span> SpreadsheetHandle } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/spreadsheet&quot;</span>;
+<span class="syntax-keyword">import</span> Spreadsheet, { createWorkbook, serializeWorkbook, <span class="syntax-keyword">type</span> SpreadsheetHandle } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/spreadsheet&quot;</span>;
 <span class="syntax-keyword">import</span> <span class="syntax-string">&quot;@likex/spreadsheet/styles.css&quot;</span>;
 
 <span class="syntax-keyword">export</span> <span class="syntax-keyword">default</span> <span class="syntax-keyword">function</span> Report() {
@@ -37,7 +37,7 @@
       onSave={<span class="syntax-keyword">async</span> workbook =&gt; {
         <span class="syntax-keyword">const</span> response = <span class="syntax-keyword">await</span> fetch(<span class="syntax-string">&quot;/api/workbooks/report&quot;</span>, {
           method: <span class="syntax-string">&quot;PUT&quot;</span>, headers: { <span class="syntax-string">&quot;Content-Type&quot;</span>: <span class="syntax-string">&quot;application/json&quot;</span> },
-          body: JSON.stringify(workbook),
+          body: serializeWorkbook(workbook),
         });
         <span class="syntax-keyword">if</span> (!response.ok) <span class="syntax-keyword">throw</span> <span class="syntax-keyword">new</span> Error(<span class="syntax-string">&quot;保存に失敗しました&quot;</span>);
       }}

@@ -25,13 +25,15 @@ function populated() {
   return setCellValue(wb, id, 'B2', '=1+2');
 }
 
-test('complete JSON roundtrip keeps images, ordered drawings, comments and old sheets-only input', () => {
+test('complete JSON roundtrip keeps images, ordered drawings and comments; sheets-only input remains a runtime convenience', () => {
   const wb = populated(), json = serializeWorkbook(wb), restored = parseWorkbook(json);
   assert.equal(wb.schemaVersion, 1); assert.ok(workbooksEqual(wb, restored));
   assert.deepEqual(restored, normalizeWorkbook(wb)); assert.equal(restored.resources.images.image.dataUrl, image().dataUrl);
   assert.deepEqual(restored.sheets[0].drawings.map(item => item.type), ['image', 'shape', 'text']);
   assert.equal(restored.sheets[0].comments.B2.id, 'comment');
-  assert.equal(parseWorkbook(JSON.stringify({ sheets: createWorkbook().sheets })).schemaVersion, 1);
+  const sheetsOnly = { sheets: createWorkbook().sheets };
+  assert.equal(normalizeWorkbook(sheetsOnly).schemaVersion, 1);
+  assert.throws(() => parseWorkbook(JSON.stringify(sheetsOnly)));
 });
 
 test('normalization clones and freezes all annotation boundaries without exposing host references', () => {

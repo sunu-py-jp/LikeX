@@ -20,7 +20,7 @@ test('factories create one usable slide and JSON-only immutable isolated values'
   assert.equal(empty.version, 1);
   assert.equal(empty.slides.length, 1);
   assert.equal(empty.width / empty.height, 16 / 9);
-  const supplied = JSON.parse(serializeSlideDeck(deck()));
+  const supplied = structuredClone(deck());
   const accepted = normalizeSlideDeck(supplied);
   supplied.slides[0].elements[0].text = 'host mutation';
   assert.equal(accepted.slides[0].elements[0].text, 'a');
@@ -33,22 +33,27 @@ test('factories create one usable slide and JSON-only immutable isolated values'
   assert.equal(getElement(accepted, 'missing', 'a'), undefined);
 });
 
-test('native SLON JSON carries a format marker and accepts legacy unmarked decks', () => {
+test('runtime inputs remain independent from the strict native file boundary', () => {
   const original = deck();
-  const { format, ...legacy } = JSON.parse(JSON.stringify(original));
+  const { format, ...runtime } = structuredClone(original);
   assert.equal(format, 'likex.slide');
-  assert.deepEqual(parseSlideDeck(JSON.stringify(legacy)), original);
-  assert.deepEqual(createSlideDeck(legacy), original);
-  assert.equal(JSON.parse(serializeSlideDeck(legacy)).format, 'likex.slide');
-  const session = createSlideSession(legacy);
+  assert.throws(() => parseSlideDeck(JSON.stringify(runtime)), /LikeSlideのファイル形式/);
+  assert.throws(() => parseSlideDeck(JSON.stringify(original)), /要素の重なり順/);
+  assert.deepEqual(createSlideDeck(runtime), original);
+  const file = JSON.parse(serializeSlideDeck(runtime));
+  assert.equal(file.format, 'likex.slide');
+  assert.equal(file.version, 1);
+  assert.throws(() => normalizeSlideDeck(file), /対応していない項目/);
+  assert.throws(() => normalizeSlideDeck({ ...runtime, version: 2 }), /バージョン/);
+  const session = createSlideSession(runtime);
   assert.equal(session.getSnapshot().deck.format, 'likex.slide');
   assert.equal(session.getSnapshot().dirty, false);
   session.replace(original);
   assert.equal(session.getSnapshot().dirty, false);
   assert.equal(session.getSnapshot().canUndo, false);
   for (const marker of ['likex.spreadsheet', 'another.slide', '', null, 1, {}]) {
-    assert.throws(() => parseSlideDeck(JSON.stringify({ ...legacy, format: marker })), /LikeSlideのファイル形式/);
-    assert.throws(() => createSlideDeck({ ...legacy, format: marker }), /LikeSlideのファイル形式/);
+    assert.throws(() => parseSlideDeck(JSON.stringify({ ...file, format: marker })), /LikeSlideのファイル形式/);
+    assert.throws(() => createSlideDeck({ ...runtime, format: marker }), /LikeSlideのファイル形式/);
   }
 });
 
@@ -66,7 +71,7 @@ test('all element types retain JSON formatting, text, image and geometry without
 });
 
 test('untrusted JSON rejects malformed models, unsupported properties, sparse arrays and duplicate IDs', () => {
-  const original = JSON.parse(serializeSlideDeck(deck()));
+  const original = structuredClone(deck());
   for (const patch of [{ version: 3 }, { slides: [] }, { width: Infinity }, { height: 0 }, { id: ' bad' }, { unknown: true }])
     assert.throws(() => normalizeSlideDeck({ ...original, ...patch }));
   assert.throws(() => createSlideDeck({ slides: Array(1) }));

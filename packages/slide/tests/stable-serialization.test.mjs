@@ -33,7 +33,7 @@ test('SLON bytes and hashes ignore object-key insertion order and never mutate c
   assert.equal(second, saved); assert.equal(hash(second), hash(saved));
   assert.deepEqual(reordered, before);
   assert.deepEqual(Object.keys(JSON.parse(saved)), ['format', 'version', 'id', 'title', 'width', 'height', 'slides']);
-  assert.match(saved, /^\{\n  "format": "likex.slide",\n  "version": 2,/);
+  assert.match(saved, /^\{\n  "format": "likex.slide",\n  "version": 1,/);
 });
 
 test('native save-load-save is byte-identical and preserves Unicode, images and stacking order', () => {
@@ -61,12 +61,12 @@ test('SLON groups by page, sorts elements by position, and keeps drawing layers 
   ]);
   assert.deepEqual(Object.keys(file.slides[0]), ['id', 'name', 'background', 'notes', 'elements']);
   assert.deepEqual(Object.keys(file.slides[0].elements[0]).slice(0, 8), ['id', 'type', 'name', 'stackOrder', 'x', 'y', 'width', 'height']);
-  assert.equal(file.version, 2);
+  assert.equal(file.version, 1);
   const restored = parseSlideDeck(saved);
   assert.deepEqual(restored, original);
   assert.equal(restored.version, 1);
   assert.ok(restored.slides.every(slide => slide.elements.every(element => !Object.hasOwn(element, 'stackOrder'))));
-  // Array order in imported v2 files is spatial/editorial: stackOrder alone controls visual overlap.
+  // File array order is spatial/editorial: stackOrder alone controls visual overlap.
   file.slides[0].elements.reverse();
   assert.equal(serializeSlideDeck(parseSlideDeck(JSON.stringify(file))), saved);
   const samePosition = createSlideDeck({ ...original, slides: original.slides.map(slide => ({ ...slide,
@@ -76,12 +76,12 @@ test('SLON groups by page, sorts elements by position, and keeps drawing layers 
     ['z-text', 'm-image', 'a-shape']);
 });
 
-test('legacy v1 files remain readable; v2 rejects ambiguous or malformed layer information', () => {
+test('native v1 rejects former files and ambiguous or malformed layer information', () => {
   const original = deck();
   const { format, ...legacy } = original;
   assert.equal(format, 'likex.slide');
-  assert.deepEqual(parseSlideDeck(JSON.stringify(legacy)), original);
-  assert.deepEqual(parseSlideDeck(JSON.stringify(original)), original);
+  assert.throws(() => parseSlideDeck(JSON.stringify(legacy)), /LikeSlideのファイル形式/);
+  assert.throws(() => parseSlideDeck(JSON.stringify(original)), /要素の重なり順/);
   const valid = JSON.parse(serializeSlideDeck(original));
   const expectInvalid = mutate => {
     const file = structuredClone(valid); mutate(file);
@@ -94,11 +94,34 @@ test('legacy v1 files remain readable; v2 rejects ambiguous or malformed layer i
   expectInvalid(file => { delete file.format; });
   expectInvalid(file => { file.slides[0].elements[0].unexpected = true; });
   expectInvalid(file => { file.slides[0].elements[0].src = pixel; }); // Wrong type-specific field.
-  expectInvalid(file => { file.version = 3; });
-  expectInvalid(file => { file.version = 1; }); // V1 must not silently discard v2 layers.
+  for (const version of [0, 2, 3, '1', null]) expectInvalid(file => { file.version = version; });
+  expectInvalid(file => { delete file.version; });
   expectInvalid(file => { delete file.slides[0].elements; });
   const empty = createSlideDeck({ id: 'empty', slides: [{ id: 'empty-slide', name: '空', background: '#fff', notes: '', elements: [] }] });
   assert.deepEqual(parseSlideDeck(serializeSlideDeck(empty)), empty);
+  // Marked empty former decks have exactly the current file shape; there are no layers to distinguish.
+  assert.deepEqual(parseSlideDeck(JSON.stringify(empty)), empty);
+});
+
+test('rejected native files leave session data, saved baseline and undo/redo unchanged', () => {
+  const session = createSlideSession(deck());
+  session.execute({ type: 'deck.rename', title: 'Saved change' });
+  session.markSaved();
+  session.undo();
+  const before = session.getSnapshot(), bytes = serializeSlideDeck(before.deck);
+  const valid = JSON.parse(bytes);
+  const { format, ...unmarked } = valid;
+  const missingLayer = structuredClone(valid);
+  delete missingLayer.slides[0].elements[0].stackOrder;
+  const invalidFiles = [unmarked, { ...valid, version: 2 }, before.deck, missingLayer];
+  for (const file of invalidFiles) {
+    assert.throws(() => session.replace(parseSlideDeck(JSON.stringify(file)), { saved: true }));
+    assert.equal(session.getSnapshot(), before);
+    assert.equal(serializeSlideDeck(session.getSnapshot().deck), bytes);
+  }
+  assert.equal(session.redo(), true);
+  assert.equal(session.getSnapshot().deck.title, 'Saved change');
+  assert.equal(session.getSnapshot().dirty, false);
 });
 
 test('readable serialization keeps a pre-allocation output bound and the same read bound', async () => {

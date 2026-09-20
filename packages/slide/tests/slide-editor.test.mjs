@@ -9,13 +9,13 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
   export { useSlideEditor } from './src/state/use-slide-editor.ts';
-  export { createSlideDeck, createSlideElement, parseSlideDeck } from './src/model/index.ts';
+  export { createSlideDeck, createSlideElement, parseSlideDeck, serializeSlideDeck } from './src/model/index.ts';
   export { openOfficePackage } from './src/ooxml.ts';
 `, resolveDir: packageRoot }, bundle: true, platform: 'node', format: 'esm', write: false,
 plugins: [{ name: 'shared-react', setup(builder) {
   builder.onResolve({ filter: /^(react|react-dom)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
 } }] });
-const { useSlideEditor, createSlideDeck, createSlideElement, parseSlideDeck, openOfficePackage } = await import(
+const { useSlideEditor, createSlideDeck, createSlideElement, parseSlideDeck, serializeSlideDeck, openOfficePackage } = await import(
   `data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const change = async callback => { await act(async () => { await callback(); }); };
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
@@ -283,7 +283,7 @@ test('no-op and rejected imports do not add selection history without a matching
   await change(() => app.editor.execute(rename('One edit')));
   await change(() => app.editor.select({ slideId: 'one', elementIds: ['second'] }));
   const before = app.editor.deck;
-  await change(() => app.editor.importJson(JSON.stringify(before)));
+  await change(() => app.editor.importJson(serializeSlideDeck(before)));
   assert.equal(app.editor.deck, before);
   await change(() => app.editor.importJson('{"version":2}'));
   assert.equal(app.editor.deck, before);
@@ -295,6 +295,40 @@ test('no-op and rejected imports do not add selection history without a matching
   assert.equal(app.editor.deck.title, 'Original');
   assert.deepEqual(app.editor.selection, { slideId: 'one', elementIds: ['first'] });
   assert.equal(app.editor.canUndo, false);
+});
+
+test('rejected native imports preserve selection, the saved baseline and redo history', async t => {
+  const initialDeck = createSlideDeck({ title: 'Original', slides: [{ id: 'one', name: 'One', background: '#fff', notes: '',
+    elements: [createSlideElement({ type: 'text', id: 'first' }), createSlideElement({ type: 'text', id: 'second' })] }] });
+  const events = [];
+  const app = await mount(t, { initialDeck, onEvent: event => events.push(event) });
+  await change(() => app.editor.execute(rename('Saved title')));
+  await change(() => app.editor.save());
+  await change(() => app.editor.execute(rename('Future title')));
+  await change(() => app.editor.history('undo'));
+  await change(() => app.editor.select({ slideId: 'one', elementIds: ['second'] }));
+  const before = app.editor.deck, selection = structuredClone(app.editor.selection);
+  const valid = JSON.parse(serializeSlideDeck(before));
+  const { format, ...unmarked } = valid;
+  const missingLayer = structuredClone(valid);
+  delete missingLayer.slides[0].elements[0].stackOrder;
+  const changes = events.filter(event => event.type === 'change').length;
+  for (const file of [unmarked, { ...valid, version: 2 }, before, missingLayer]) {
+    await change(() => app.editor.importJson(JSON.stringify(file)));
+    assert.equal(app.editor.deck, before);
+    assert.deepEqual(app.editor.selection, selection);
+    assert.equal(app.editor.dirty, false);
+    assert.equal(app.editor.canUndo, true);
+    assert.equal(app.editor.canRedo, true);
+    assert.equal(events.filter(event => event.type === 'import').length, 0);
+    assert.equal(events.filter(event => event.type === 'change').length, changes);
+  }
+  await change(() => app.editor.history('redo'));
+  assert.equal(app.editor.deck.title, 'Future title');
+  assert.equal(app.editor.dirty, true);
+  await change(() => app.editor.history('undo'));
+  assert.equal(app.editor.deck.title, 'Saved title');
+  assert.equal(app.editor.dirty, false);
 });
 
 test('typing reports dirty before blur and an accepted async commit never emits a clean gap', async t => {
@@ -477,7 +511,7 @@ test('native downloads use .slon with JSON MIME and replace recognized filename 
     await change(() => app.editor.download('slon', document));
     assert.equal(filename, expected);
     assert.equal(blob.type, 'application/json');
-    assert.equal(JSON.parse(await blob.text()).version, 2);
+    assert.equal(JSON.parse(await blob.text()).version, 1);
     assert.deepEqual(parseSlideDeck(await blob.text()), app.editor.deck);
     assert.equal(app.editor.dirty, false);
     assert.equal(app.editor.canUndo, false);

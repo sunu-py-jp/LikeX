@@ -75,8 +75,9 @@ export type SpreadsheetSheet = {
 };
 export const SPREADSHEET_FORMAT = "likex.spreadsheet" as const;
 export type SpreadsheetWorkbook = {
-  /** Omitted only by legacy JSON input; normalized workbooks always include the format. */
+  /** Optional for host-created runtime models; normalized workbooks always include the format. */
   format?: typeof SPREADSHEET_FORMAT;
+  /** Runtime model version; serialized files use the separate SpreadsheetFile layout. */
   schemaVersion?: 1;
   sheets: readonly SpreadsheetSheet[];
   resources?: { images?: Readonly<Record<string, SpreadsheetImageResource>> };

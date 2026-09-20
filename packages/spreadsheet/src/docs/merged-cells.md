@@ -37,7 +37,7 @@
 
 ## JSONと公開型
 
-シートの `merges` に0始まり・両端を含む矩形を保存します。旧形式のブックは変更せず読み込めます。
+シートの `merges` に0始まり・両端を含む矩形を保存します。
 
 ```ts
 import { mergeCells, unmergeCells, type SpreadsheetWorkbook, type SpreadsheetMergedRange } from "@likex/spreadsheet";

@@ -16,7 +16,7 @@ const { Spreadsheet, normalizeWorkbook, parseWorkbook, serializeWorkbook, SPREAD
 const namesOutput = await build({ entryPoints: [new URL('../src/export/download-workbook.ts', import.meta.url).pathname], bundle: true, platform: 'node', format: 'esm', write: false });
 const { workbookDownloadName, downloadWorkbook } = await import(`data:text/javascript;base64,${Buffer.from(namesOutput.outputFiles[0].text).toString('base64')}`);
 const book = value => ({ sheets: [{ id: 'main', name: 'Main', rowCount: 10, columnCount: 5, cells: { A1: { value }, B1: { value: '=A1*2' } } }] });
-const file = (value = 'imported', name = 'legacy.json') => new File([JSON.stringify(book(value))], name, { type: 'application/json' });
+const file = (value = 'imported', name = 'workbook.json') => new File([serializeWorkbook(book(value))], name, { type: 'application/json' });
 const set = value => ({ type: 'cells.set', sheetId: 'main', values: { A1: value } });
 const deferred = () => { let resolve; const promise = new Promise(yes => { resolve = yes; }); return { promise, resolve }; };
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -30,14 +30,24 @@ async function mount(t, overrides = {}) {
     async update(patch) { props = { ...props, ...patch }; await act(async () => renderer.update(createElement(Spreadsheet, props))); } };
 }
 
-test('native snapshots identify their format, accept legacy JSON and reject another format/version', () => {
-  for (const legacy of [book('legacy'), { ...book('legacy'), schemaVersion: 1 }]) {
-    const restored = parseWorkbook(JSON.stringify(legacy));
-    assert.equal(restored.format, SPREADSHEET_FORMAT); assert.equal(restored.schemaVersion, 1);
-    assert.deepEqual(parseWorkbook(serializeWorkbook(restored)), restored);
-  }
+test('native snapshots require the row-oriented v1 format and reject legacy JSON and other versions', () => {
+  const workbook = normalizeWorkbook(book('native')), json = serializeWorkbook(workbook), wire = JSON.parse(json);
+  assert.equal(wire.format, SPREADSHEET_FORMAT); assert.equal(wire.schemaVersion, 1);
+  assert.equal(wire.sheets[0].rows[0].cells.A.value, 'native');
+  assert.equal(Object.hasOwn(wire.sheets[0], 'cells'), false); assert.equal(Object.hasOwn(wire.sheets[0], 'rowHeights'), false);
+  assert.deepEqual(parseWorkbook(json), workbook);
+  for (const legacy of [book('legacy'), { ...book('legacy'), schemaVersion: 1 },
+    { ...book('legacy'), format: SPREADSHEET_FORMAT, schemaVersion: 1 },
+    { ...wire, format: undefined }, { ...wire, schemaVersion: undefined },
+    { ...wire, sheets: wire.sheets.map(({ rows, ...sheet }) => sheet) },
+    { ...wire, sheets: [{ ...wire.sheets[0], cells: {} }] },
+    { ...wire, sheets: [{ ...wire.sheets[0], rowHeights: {} }] }])
+    assert.throws(() => parseWorkbook(JSON.stringify(legacy)));
+  for (const schemaVersion of [2, 999, null, '1'])
+    assert.throws(() => parseWorkbook(JSON.stringify({ ...wire, schemaVersion })), /未対応/);
+  for (const format of ['likex.slide', 'other', null, 1])
+    assert.throws(() => parseWorkbook(JSON.stringify({ ...wire, format })), /形式/);
   for (const format of ['likex.slide', 'other', null, 1]) assert.throws(() => normalizeWorkbook({ ...book('bad'), format }), /形式/);
-  assert.throws(() => parseWorkbook(JSON.stringify({ ...book('bad'), schemaVersion: 999 })), /未対応/);
   assert.throws(() => parseWorkbook('{broken'), /JSON/);
   assert.throws(() => parseWorkbook(' '.repeat(SPREADSHEET_LIMITS.serializedCharacters + 1)), /64 Mi/);
 });
@@ -80,7 +90,7 @@ test('native export emits JSON and preserves dirty history without save or edit 
   assert.equal(blob.type, 'application/json'); assert.equal(serializeWorkbook(parseWorkbook(await blob.text())), serializeWorkbook(before));
   assert.equal(await blob.text(), serializeWorkbook(before));
   const wire = JSON.parse(await blob.text());
-  assert.equal(wire.schemaVersion, 2); assert.equal(wire.sheets[0].rows[0].cells.A.value, 'draft');
+  assert.equal(wire.schemaVersion, 1); assert.equal(wire.sheets[0].rows[0].cells.A.value, 'draft');
   assert.equal(ui.ref.current.getWorkbook(), before); assert.equal(ui.ref.current.getHistoryState().canUndo, true); assert.equal(saves, 0);
   assert.deepEqual(events.filter(e => e.type === 'export').map(e => [e.format, e.status]), [['spon', 'start'], ['spon', 'success']]);
   let repeated;
@@ -101,12 +111,12 @@ test('native read cancellation blocks overlapping native/Excel operations and st
   assert.equal(await ui.ref.current.save(), false);
   await act(async () => controller.abort()); assert.equal((await outcome).name, 'AbortError');
   await act(async () => ui.ref.current.execute(set('newer')));
-  await act(async () => read.resolve(JSON.stringify(book('late'))));
+  await act(async () => read.resolve(serializeWorkbook(book('late'))));
   assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.A1.value, 'newer');
   const otherRead = deferred(); blob.text = () => otherRead.promise;
   await act(async () => { outcome = ui.ref.current.importNative(blob, { discardChanges: true }).catch(e => e); });
   await act(async () => ui.ref.current.execute(set('newest')));
-  await act(async () => otherRead.resolve(JSON.stringify(book('stale'))));
+  await act(async () => otherRead.resolve(serializeWorkbook(book('stale'))));
   assert.equal((await outcome).name, 'AbortError'); assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.A1.value, 'newest');
   assert.equal(events.filter(e => e.type === 'import' && e.status === 'success').length, 0);
 });
@@ -120,7 +130,7 @@ test('native feature changes, readonly and unmount cancel waiting imports; reado
     await ui.update({ features: {}, readOnly: false }); const read = deferred(), blob = new Blob(); blob.text = () => read.promise; let outcome;
     await act(async () => { outcome = ui.ref.current.importNative(blob).catch(e => e); });
     await ui.update(patch); assert.equal((await outcome).name, 'AbortError');
-    await act(async () => read.resolve(JSON.stringify(book('late'))));
+    await act(async () => read.resolve(serializeWorkbook(book('late'))));
   }
   await ui.update({ readOnly: false, features: { importNative: false, exportNative: false } });
   await assert.rejects(ui.ref.current.importNative(file()), /無効/); await assert.rejects(ui.ref.current.exportNative(), /無効/);
@@ -149,20 +159,45 @@ test('native export supports abort and rejects concurrent Excel export', async t
   assert.deepEqual(events.filter(e => e.type === 'export').map(e => e.status), ['start', 'cancelled', 'start', 'success']);
 });
 
-test('native file controls accept legacy JSON, confirm dirty input and publish through UI source', async t => {
+test('native file controls accept SPON in a JSON file, confirm dirty input and publish through UI source', async t => {
   const events = [], ui = await mount(t, { onEvent: e => events.push(e) });
   const native = ui.root.findByProps({ 'aria-label': '取り込むSPONファイル' });
   assert.equal(native.props.accept, '.spon,.json,application/json');
   assert.equal(ui.root.findAllByProps({ 'aria-label': 'Excelからインポート' }).length, 1);
   assert.equal(ui.root.findAllByProps({ 'aria-label': 'SPONにエクスポート' }).length, 1);
   await act(async () => ui.ref.current.execute(set('local')));
-  const target = { files: [file()], value: 'legacy.json' };
+  const target = { files: [file()], value: 'workbook.json' };
   await act(async () => native.props.onChange({ currentTarget: target }));
   assert.equal(target.value, ''); assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.A1.value, 'local');
   assert.match(ui.root.findByProps({ role: 'alertdialog' }).findByType('h2').children.join(''), /SPON/);
   await act(async () => { ui.root.findByProps({ className: 'lxs-dialog-confirm' }).props.onClick(); await tick(); });
   assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.A1.value, 'imported');
   assert.equal(events.filter(e => e.type === 'change').at(-1).source, 'ui');
+});
+
+for (const [name, snapshot] of [
+  ['old flat v1', () => ({ ...book('rejected'), format: SPREADSHEET_FORMAT, schemaVersion: 1 })],
+  ['old row-oriented v2', () => ({ ...JSON.parse(serializeWorkbook(book('rejected'))), schemaVersion: 2 })],
+]) test(`native UI rejection of ${name} preserves the dirty workbook, unfinished input and undo/redo history`, async t => {
+  const events = [], dirty = [], changes = [];
+  const ui = await mount(t, { onEvent: e => events.push(e), onDirtyChange: value => dirty.push(value), onChange: value => changes.push(value) });
+  await act(async () => ui.ref.current.execute(set('local')));
+  await act(async () => ui.ref.current.execute(set('later')));
+  await act(async () => assert.equal(await ui.ref.current.undo(), true));
+  await act(async () => ui.root.findByProps({ 'aria-label': 'A1の値' }).props.onChange({ target: { value: 'unfinished' } }));
+  const before = ui.ref.current.getWorkbook(), history = ui.ref.current.getHistoryState(), changeCount = changes.length;
+  assert.deepEqual(history, { canUndo: true, canRedo: true, undoCount: 1, redoCount: 1 });
+  assert.deepEqual(dirty, [false, true]);
+  const target = { files: [new File([JSON.stringify(snapshot())], 'rejected.spon', { type: 'application/json' })], value: 'rejected.spon' };
+  await act(async () => ui.root.findByProps({ 'aria-label': '取り込むSPONファイル' }).props.onChange({ currentTarget: target }));
+  assert.equal(target.value, '');
+  assert.match(ui.root.findByProps({ role: 'alertdialog' }).findByType('h2').children.join(''), /SPON/);
+  await act(async () => { ui.root.findByProps({ className: 'lxs-dialog-confirm' }).props.onClick(); await tick(); });
+  assert.equal(ui.ref.current.getWorkbook(), before); assert.equal(before.sheets[0].cells.A1.value, 'local');
+  assert.equal(ui.root.findByProps({ 'aria-label': 'A1の値' }).props.value, 'unfinished');
+  assert.deepEqual(ui.ref.current.getHistoryState(), history); assert.equal(changes.length, changeCount);
+  assert.deepEqual(dirty, [false, true]);
+  assert.deepEqual(events.filter(e => e.type === 'import').map(e => [e.format, e.status]), [['spon', 'start'], ['spon', 'error']]);
 });
 
 test('native download names replace existing extensions and trigger the owner document download', () => {
@@ -177,9 +212,9 @@ test('native download names replace existing extensions and trigger the owner do
 test('disabling Excel import leaves an active native UI import running', async t => {
   const events = [], ui = await mount(t, { onEvent: e => events.push(e) });
   const read = deferred(), pending = file(); pending.text = () => read.promise;
-  await act(async () => ui.root.findByProps({ 'aria-label': '取り込むSPONファイル' }).props.onChange({ currentTarget: { files: [pending], value: 'legacy.json' } }));
+  await act(async () => ui.root.findByProps({ 'aria-label': '取り込むSPONファイル' }).props.onChange({ currentTarget: { files: [pending], value: 'workbook.json' } }));
   await ui.update({ features: { importExcel: false } });
   assert.equal(events.filter(e => e.type === 'import' && e.status === 'cancelled').length, 0);
-  await act(async () => { read.resolve(JSON.stringify(book('native after flag change'))); await tick(); });
+  await act(async () => { read.resolve(serializeWorkbook(book('native after flag change'))); await tick(); });
   assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.A1.value, 'native after flag change');
 });

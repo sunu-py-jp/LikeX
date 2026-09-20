@@ -33,7 +33,7 @@ export type SpreadsheetHandle = SpreadsheetReadApi & Readonly<{
   importExcel(input: Blob | ArrayBuffer | Uint8Array, options?: SpreadsheetImportExcelOptions): Promise<SpreadsheetExcelImportResult>;
   /** Generates a self-contained .spon JSON Blob; does not save or download. */
   exportNative(options?: SpreadsheetNativeExportOptions): Promise<Blob>;
-  /** Reads native or legacy JSON regardless of filename; warnings are empty for native imports. */
+  /** Reads native SPON v1 JSON regardless of filename; warnings are empty for native imports. */
   importNative(input: Blob, options?: SpreadsheetImportNativeOptions): Promise<SpreadsheetNativeImportResult>;
   refresh(options?: SpreadsheetDiscardOptions): Promise<boolean>;
   discard(options?: SpreadsheetDiscardOptions): boolean;

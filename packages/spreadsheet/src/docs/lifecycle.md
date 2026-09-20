@@ -21,7 +21,7 @@ Spreadsheetはクライアント側の下書きと操作を担当し、認証・
 
 ## 保存と再読み込みの例
 
-以下のURL・データ形式は**親アプリケーションの実装例**です。これらのサーバーAPIはライブラリに含まれません。
+以下のURL・データ形式は**親アプリケーションの実装例**です。これらのサーバーAPIはライブラリに含まれません。この例では、レスポンスの `workbook` に保存用の `SpreadsheetFile`、`version` にサーバー側の更新バージョンを返します。
 
 ```tsx
 "use client";
@@ -56,7 +56,7 @@ export function Report({ initial, initialVersion }: {
       if (!response.ok) throw new Error("保存に失敗しました");
       const saved = await response.json();
       version.current = saved.version;
-      return parseWorkbook(JSON.stringify(saved.workbook)); // 旧形式・行中心の新形式のどちらも編集用モデルへ復元。
+      return parseWorkbook(JSON.stringify(saved.workbook)); // 保存用の行構造から編集用モデルへ復元。
     }}
     onRefresh={async ({ signal }) => {
       const response = await fetch("/api/report", { signal });
@@ -141,7 +141,7 @@ if (!result.ok) showMessage(result.message);
 | `endEdit()` | 未保存の変更がなければセッションを終了する |
 | `save()` | 保存前検証と保存を実行し、成功したかをPromiseで返す |
 | `exportNative(options?)` | 現在の下書きから `.spon` 用JSON Blobを生成。保存・ダウンロードは行いません。[ネイティブ形式](./native-files.md) |
-| `importNative(blob, options?)` | `.spon`・旧JSONを1回のUndo可能な編集として取り込み。保存は行いません。[ネイティブ形式](./native-files.md) |
+| `importNative(blob, options?)` | 現在のSPON形式を1回のUndo可能な編集として取り込み。保存は行いません。[ネイティブ形式](./native-files.md) |
 | `exportExcel(options?)` | 確定済みの下書きからXLSXのBlobを生成。保存やダウンロードは行いません。[Excel出力](./excel-export.md) |
 | `importExcel(input, options?)` | XLSXを下書きへ取り込み。未保存確認・編集許可・Undoに対応し、保存は行いません。[Excel取り込み](./excel-import.md) |
 | `refresh(options?)` | 最新ブックを読み込み、成功したかをPromiseで返す |

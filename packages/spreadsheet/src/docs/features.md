@@ -55,7 +55,7 @@ const features = {
 | `comments` | コメントの挿入・表示・編集・削除。 |
 | `save` | 保存ボタン、保存ショートカット、`ref.current.save()`。編集は引き続き可能です。 |
 | `refresh` | 更新操作。更新ボタンは `onRefresh` が指定されている場合だけ表示します。 |
-| `importNative` | `.spon`・旧JSONの取り込みと `ref.current.importNative()`。既定ON、読み取り専用では不可。[詳細](./native-files.md) |
+| `importNative` | 現在のSPON形式の取り込みと `ref.current.importNative()`。既定ON、読み取り専用では不可。[詳細](./native-files.md) |
 | `exportNative` | `.spon`出力と `ref.current.exportNative()`。既定ON、読み取り専用でも利用可能。[詳細](./native-files.md) |
 | `importExcel` | Excel取り込みボタンと `ref.current.importExcel()`。既定ONで、読み取り専用では利用できません。[詳細](./excel-import.md) |
 | `exportExcel` | Excel出力ボタンと `ref.current.exportExcel()`。既定ONで、読み取り専用でも利用できます。[詳細](./excel-export.md) |

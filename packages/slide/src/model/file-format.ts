@@ -6,24 +6,32 @@ import { list, number, record } from "./validation";
 /** An element in a .slon file; stackOrder is back-to-front, zero-based within its page. */
 export type SlideFileElement = SlideElement & { stackOrder: number };
 export type SlideFilePage = Omit<Slide, "elements"> & { elements: SlideFileElement[] };
-/** Version 2 is the storage format. The editing/onSave model remains SlideDeck (version 1). */
+/** Native version 1 storage format; unlike the editing model, each element has explicit stacking. */
 export type SlideFile = Omit<SlideDeck, "format" | "version" | "slides"> & {
   format: "likex.slide";
-  version: 2;
+  version: 1;
   slides: SlideFilePage[];
 };
 
 /** Converts a validated runtime deck without changing its page or stacking order. */
 export function toSlideFile(deck: SlideDeck): SlideFile {
-  return { ...deck, format: "likex.slide", version: 2, slides: deck.slides.map(slide => ({
+  return { ...deck, format: "likex.slide", version: 1, slides: deck.slides.map(slide => ({
     ...slide,
     elements: slide.elements.map((element, stackOrder) => ({ ...element, stackOrder }))
       .sort((left, right) => left.y - right.y || left.x - right.x || left.stackOrder - right.stackOrder),
   })) };
 }
 
-/** Restore drawing order before normal model validation; wire-only fields never enter editor state. */
-export function restoreSlideFilePage(input: unknown): Record<string, unknown> {
+/** Validate the file envelope and restore drawing order before runtime model validation. */
+export function restoreSlideFile(input: unknown): Record<string, unknown> {
+  const raw = record(input, "プレゼンテーション", DECK_KEYS);
+  if (raw.format !== "likex.slide") throw new Error("LikeSlideのファイル形式ではありません");
+  if (raw.version !== 1) throw new Error("対応していないプレゼンテーションのバージョンです");
+  return { ...raw, slides: list(raw.slides, "スライド", SLIDE_LIMITS.slides, 1).map(restoreSlideFilePage) };
+}
+
+/** Wire-only fields never enter editor state. */
+function restoreSlideFilePage(input: unknown): Record<string, unknown> {
   const raw = record(input, "スライド", SLIDE_KEYS);
   const entries = list(raw.elements, "スライドの要素", SLIDE_LIMITS.elementsPerSlide);
   const restored: Record<string, unknown>[] = new Array(entries.length);

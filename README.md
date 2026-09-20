@@ -11,7 +11,7 @@
 | `@likex/spreadsheet` | Excel風のセル編集・基本数式・複数シート | [Spreadsheet](packages/spreadsheet/README.md) |
 | `@likex/slide` | PowerPoint風のスライド編集・発表・PPTX入出力 | [LikeSlide](packages/slide/README.md) |
 
-標準保存ファイルはSpreadsheetが `.spon`、LikeSlideが `.slon` で、どちらも内容は純粋なJSONです。従来の `.json` も読み込めます。保存APIとExplorerでの扱いは [ネイティブ保存形式](docs/architecture.md#ネイティブ保存形式) を参照してください。
+標準保存ファイルはSpreadsheetが `.spon`、LikeSlideが `.slon` で、どちらも内容は純粋なJSONです。現在の保存構造をバージョン1とし、読み込みにも同じ形式を使います。保存APIとExplorerでの扱いは [ネイティブ保存形式](docs/architecture.md#ネイティブ保存形式) を参照してください。
 
 [機能別APIリファレンス](docs/APIDocs/index.html) · [ドキュメントの開き方](docs/APIDocs/README.md)
 

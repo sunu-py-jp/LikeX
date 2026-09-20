@@ -32,13 +32,13 @@ LikeSlideの標準ファイル拡張子は `.slon` です。中身はUTF-8のJSO
 ```ts
 import { parseSlideDeck, serializeSlideDeck } from "@likex/slide/model";
 
-const deck = parseSlideDeck(await file.text()); // .slon または従来の .json
+const deck = parseSlideDeck(await file.text()); // 現在のSLON形式のJSON
 const output = new File([serializeSlideDeck(deck)], "提案資料.slon", {
   type: "application/json",
 });
 ```
 
-編集用の `SlideDeck` は `format: "likex.slide"` と `version: 1` を持ちます。ファイルへの出力は、位置順に並べる保存用の `SlideFile`（`version: 2`）です。`parseSlideDeck` がversion 2を編集用モデルに復元し、`format` のないJSONを含む従来のversion 1も読み込めます。異なる `format` や未対応のバージョン、不正なデータ構造は拒否します。
+保存形式は `format: "likex.slide"` と `version: 1` を持つ `SlideFile` です。要素は位置順に並び、各要素に `stackOrder` が必要です。`parseSlideDeck` はこれを、要素が描画順に並ぶ編集用 `SlideDeck` へ復元します。`onSave` やコマンドは編集用モデルを扱います。形式・バージョンの省略、`stackOrder` のない要素を持つ旧構造、version 2、不正なデータ構造は拒否します。
 
 ### ページと要素の保存順
 
@@ -49,7 +49,7 @@ type SlideFileElement = SlideElement & { stackOrder: number };
 type SlideFilePage = Omit<Slide, "elements"> & { elements: SlideFileElement[] };
 type SlideFile = Omit<SlideDeck, "format" | "version" | "slides"> & {
   format: "likex.slide";
-  version: 2;
+  version: 1;
   slides: SlideFilePage[];
 };
 ```
@@ -60,11 +60,11 @@ type SlideFile = Omit<SlideDeck, "format" | "version" | "slides"> & {
 
 フィールド順、2スペースのインデント、LF改行を固定します。BOM・末尾の改行は付けず、文字列の中の改行やUnicodeは保持します。保存のためにIDや日時を生成しません。同じページ・要素・重なり順・データを `serializeSlideDeck` でUTF-8に保存すれば、毎回同じバイト列・ハッシュになります。
 
-親の `onSave` でも `JSON.stringify` の代わりに `serializeSlideDeck` を使ってください。旧形式を初めて書き出す場合は、version 2への変換によってハッシュが変わります。以降は同じ規則で安定します。内容が同じ場合のBlob書き込み省略は親側で管理します。
+親の `onSave` でも `serializeSlideDeck` を使ってください。描画順から保存順への変換と、`stackOrder` の付与もこのAPIが担当します。内容が同じ場合のBlob書き込み省略は親側で管理します。
 
-ファイルタブでは `.slon` を標準で書き出し、読み込みでは `.slon` と従来の `.json` を受け付けます。読み込んだデータは下書きになり、Undoで元の資料へ戻せます。保存先の通信やファイル名は `onSave` を実装する親側が管理し、コールバックに渡る値は引き続き `SlideDeck` です。出力や読み込みだけでは `onSave` を呼びません。
+ファイルタブでは `.slon` を標準で書き出します。読み込み時は `.json` も選べますが、内容は同じSLON形式が必要です。読み込んだデータは下書きになり、Undoで元の資料へ戻せます。保存先の通信やファイル名は `onSave` を実装する親側が管理し、コールバックに渡る値は `SlideDeck` です。出力や読み込みだけでは `onSave` を呼びません。
 
-ブラウザーやストレージが独自拡張子のMIMEタイプを推測できるとは限らないため、アップロード時も `Content-Type: application/json` を指定してください。既存のBlobの名前や保存場所をコンポーネントが変更することはありません。新しい出力はversion 2のため、旧版のLikeSlideでの読み込みは保証しません。
+ブラウザーやストレージが独自拡張子のMIMEタイプを推測できるとは限らないため、アップロード時も `Content-Type: application/json` を指定してください。既存のBlobの名前や保存場所をコンポーネントが変更することはありません。
 
 ## テキストを追加する
 

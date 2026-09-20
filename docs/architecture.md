@@ -25,16 +25,16 @@ SpreadsheetとLikeSlideの標準保存ファイルは、次の拡張子を使う
 
 | モジュール | 拡張子 | 出力の形式識別子 | スキーマのバージョン |
 | --- | --- | --- | --- |
-| Spreadsheet | `.spon` | `format: "likex.spreadsheet"` | `schemaVersion: 2` |
-| LikeSlide | `.slon` | `format: "likex.slide"` | `version: 2` |
+| Spreadsheet | `.spon` | `format: "likex.spreadsheet"` | `schemaVersion: 1` |
+| LikeSlide | `.slon` | `format: "likex.slide"` | `version: 1` |
 
-従来の `.json` ファイルと、`format` を持たない既存JSONも読み込めます。`parseWorkbook` / `serializeWorkbook`、`parseSlideDeck` / `serializeSlideDeck` は引き続きJSON文字列を扱います。編集用モデルと `onSave` は従来のversion 1を維持し、parse APIが保存形式を編集用へ変換します。保存先とファイル名は親が決めます。ファイルへ出力するBlobのMIMEタイプは `application/json` です。
+現在の保存構造をバージョン1とし、旧構造への互換読み込みは提供しません。形式識別子とバージョンは必須です。ファイル選択では `.json` も選べますが、内容は同じ保存形式が必要です。`parseWorkbook` / `serializeWorkbook`、`parseSlideDeck` / `serializeSlideDeck` はJSON文字列と編集用モデルを相互に変換します。`onSave` と操作APIは編集用モデルを扱い、保存先とファイル名は親が決めます。ファイルへ出力するBlobのMIMEタイプは `application/json` です。
 
 保存時の並びは表示に合わせます。Spreadsheetはシートの表示順で、各シートの `rows` 配列に行を並べ、行の `cells` に `A, B, …, Z, AA, …` の列順でセルを置きます。LikeSlideはページの表示順で、ページ内の要素を上から下、同じ高さでは左から右に並べます。要素の重なり順は `stackOrder` に保持し、読み込み時に復元します。
 
 両方のserialize APIは2スペース・LF・末尾改行なしの書式に固定し、同じデータから同じ文字列を生成します。親の `onSave` でもこのAPIを使えば、オブジェクトのキーの追加順で保存内容が変わりません。共通の出力処理は [`@likex/core/json`](../packages/core/docs/stable-json.md) が担当し、各モジュールが並び順と保存形式を定義します。詳細は [SPONの構造](../packages/spreadsheet/src/docs/native-files.md) と [SLONの構造](../packages/slide/src/docs/commands.md) を参照してください。
 
-拡張子だけの変更ではファイル内容のハッシュは変わりません。ただし、旧形式をversion 2へ書き出す最初の保存では、構造や書式が変わるためハッシュも変わります。既存Blobの名前や内容を自動で移行する処理はありません。データが同じときのBlob書き込み省略は親側で管理します。
+拡張子だけの変更ではファイル内容のハッシュは変わりません。既存Blobの名前や内容を自動で移行する処理はありません。データが同じときのBlob書き込み省略は親側で管理します。
 
 Explorerでは `.spon` を緑の表計算アイコン、`.slon` をオレンジのスライドアイコンで表示し、内蔵プレビューはJSONテキストを表示します。SpreadsheetやLikeSlideで開く専用ビューは、親アプリが `onPreviewRequest` で選択します。接続方法は [プレビュー](../packages/explorer/src/docs/previews.md) を参照してください。
 

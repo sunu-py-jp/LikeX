@@ -6,7 +6,7 @@
 
 ## データと互換性
 
-出力は `format: "likex.spreadsheet"` と `schemaVersion: 2` を持つ `SpreadsheetFile` です。`format` や `schemaVersion` のない従来のJSON、version 1のフラットな `cells` 形式も読み込めます。指定された `format` が異なる場合、未対応のバージョン、壊れたJSON、構造・サイズ制限違反はエラーにします。入力ファイルの名前やMIMEだけでは内容を判定しません。
+保存形式は `format: "likex.spreadsheet"` と `schemaVersion: 1` を持つ、行単位の `SpreadsheetFile` です。読み込みでもこの形式を必須とし、形式・バージョンの省略、シート直下に `cells` を持つ旧構造、version 2は受け付けません。壊れたJSONや構造・サイズ制限違反もエラーにします。入力ファイルの名前やMIMEだけでは内容を判定しません。
 
 セル・数式・書式・結合・入力規則・条件付き書式・名前付き範囲・テーブル・図形・コメント・埋め込み画像など、現在のブックモデルの内容を保持して保存します。画像はBase64を含む `resources.images` に保持するため、別ファイルの同梱は不要です。画面の倍率、選択位置、Undo履歴、コンポーネントの `title` はブックに保存しません。
 
@@ -19,7 +19,7 @@
 ```json
 {
   "format": "likex.spreadsheet",
-  "schemaVersion": 2,
+  "schemaVersion": 1,
   "sheets": [
     {
       "id": "sales",
@@ -63,7 +63,7 @@ function createSaveFile(workbook: SpreadsheetWorkbook) {
 }
 ```
 
-旧形式のファイルを初めて書き出すと、構造や書式の変更でハッシュは変わります。以後は同じ規則で安定します。旧ファイルや保存先Blobをコンポーネントが自動で書き換えることはありません。内容が同じときにBlobへの書き込みを省略する処理は親側の責務です。
+保存先Blobをコンポーネントが自動で書き換えることはありません。内容が同じときにBlobへの書き込みを省略する処理は親側の責務です。
 
 ## 操作と保存
 
@@ -106,6 +106,6 @@ async function generateFile(handle: SpreadsheetHandle) {
 }
 ```
 
-`importNative` はBlobを受け取り、`.spon` と旧 `.json` を同じ内容検証で読み込みます。未保存または入力中の編集がある場合、APIでは `discardChanges: true` が必要です。`exportNative` は未確定入力があると拒否します。UIから出力する場合は、セル入力を確定してから生成します。
+`importNative` はBlobを受け取り、現在の保存形式を内容検証して読み込みます。ファイル選択では `.json` も選べますが、内容は同じSPON形式が必要です。未保存または入力中の編集がある場合、APIでは `discardChanges: true` が必要です。`exportNative` は未確定入力があると拒否します。UIから出力する場合は、セル入力を確定してから生成します。
 
 Excelと同じ処理ロック・キャンセル・編集許可・状態の再確認を使います。取り込み中に新しい編集が発生した場合、古い読み込み結果を適用せずキャンセルします。`onEvent` の `import` / `export` は `format: "spon"`、状態は `start` / `success` / `error` / `cancelled` です。出力の `success` はBlob生成の完了を示し、ブラウザーでのディスク保存完了を意味しません。

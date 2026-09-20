@@ -24,7 +24,7 @@ export function createExplorerIconSamples(): ExplorerEntry[] {
       mime: "", createdAt: date, updatedAt: date, favorite: 0, source: null },
     ...names.map((name, index): ExplorerEntry => {
       const native = name.endsWith(".spon")
-        ? { format: "likex.spreadsheet", schemaVersion: 1, sheets: [{ id: "sample-sheet", name: "Sheet1", cells: {}, rowCount: 300, columnCount: 26 }] }
+        ? { format: "likex.spreadsheet", schemaVersion: 1, sheets: [{ id: "sample-sheet", name: "Sheet1", rows: [], rowCount: 300, columnCount: 26 }] }
         : name.endsWith(".slon")
           ? { format: "likex.slide", version: 1, id: "sample-deck", title: "LikeX", width: 1280, height: 720,
             slides: [{ id: "sample-slide", name: "スライド1", background: "#ffffff", notes: "", elements: [] }] }

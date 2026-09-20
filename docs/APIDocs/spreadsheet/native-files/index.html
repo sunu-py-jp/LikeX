@@ -7,14 +7,14 @@
 <button class="mobile-backdrop" aria-label="メニューを閉じる" hidden></button>
 <main id="main" tabindex="-1"><div class="page-topline"><a href="../../index.html">ドキュメント</a><span aria-hidden="true">/</span><span>Spreadsheet</span></div><div class="reading-layout"><article><header class="article-header"><p class="package-name">@likex/spreadsheet</p><h1>SPON・JSONの読み書き</h1><p class="page-summary">専用拡張子.sponでブック全体を読み込み・書き出しします。従来のJSONファイルも利用できます。</p></header><p>「ファイル」タブの「Spreadsheet (.spon)」で、ブック全体をJSONファイルとして読み書きできます。拡張子は <code>.spon</code>、内容はUTF-8のJSON、出力BlobのMIMEは <code>application/json</code> です。Excelとの交換には引き続き <code>.xlsx</code> を使います。</p>
 <h2 id="データと互換性">データと互換性<a class="heading-link" href="#%E3%83%87%E3%83%BC%E3%82%BF%E3%81%A8%E4%BA%92%E6%8F%9B%E6%80%A7" aria-label="この見出しへのリンク">#</a></h2>
-<p>出力は <code>format: &quot;likex.spreadsheet&quot;</code> と <code>schemaVersion: 2</code> を持つ <code>SpreadsheetFile</code> です。<code>format</code> や <code>schemaVersion</code> のない従来のJSON、version 1のフラットな <code>cells</code> 形式も読み込めます。指定された <code>format</code> が異なる場合、未対応のバージョン、壊れたJSON、構造・サイズ制限違反はエラーにします。入力ファイルの名前やMIMEだけでは内容を判定しません。</p>
+<p>保存形式は <code>format: &quot;likex.spreadsheet&quot;</code> と <code>schemaVersion: 1</code> を持つ、行単位の <code>SpreadsheetFile</code> です。読み込みでもこの形式を必須とし、形式・バージョンの省略、シート直下に <code>cells</code> を持つ旧構造、version 2は受け付けません。壊れたJSONや構造・サイズ制限違反もエラーにします。入力ファイルの名前やMIMEだけでは内容を判定しません。</p>
 <p>セル・数式・書式・結合・入力規則・条件付き書式・名前付き範囲・テーブル・図形・コメント・埋め込み画像など、現在のブックモデルの内容を保持して保存します。画像はBase64を含む <code>resources.images</code> に保持するため、別ファイルの同梱は不要です。画面の倍率、選択位置、Undo履歴、コンポーネントの <code>title</code> はブックに保存しません。</p>
 <p><code>parseWorkbook(json)</code> と <code>serializeWorkbook(workbook)</code> のAPIは同じです。<code>parseWorkbook</code> は保存形式を編集用の <code>SpreadsheetWorkbook</code>（<code>schemaVersion: 1</code>、A1形式の <code>cells</code>）へ変換します。<code>onSave</code> やセル操作APIもこの編集用モデルを受け取ります。<code>JSON.parse</code> だけではこの変換を行わないため、ファイルを開くときは <code>parseWorkbook</code> を使ってください。</p>
 <h2 id="行ごとの保存構造">行ごとの保存構造<a class="heading-link" href="#%E8%A1%8C%E3%81%94%E3%81%A8%E3%81%AE%E4%BF%9D%E5%AD%98%E6%A7%8B%E9%80%A0" aria-label="この見出しへのリンク">#</a></h2>
 <p><code>rows</code> は行オブジェクトの配列で、先頭が1行目です。各行の <code>cells</code> に、列名をキーとしてセルを置きます。数値・数式も従来どおり文字列で指定します。</p>
 <div class="code-example"><div class="code-toolbar"><span>json</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>{
   <span class="syntax-string">&quot;format&quot;</span>: <span class="syntax-string">&quot;likex.spreadsheet&quot;</span>,
-  <span class="syntax-string">&quot;schemaVersion&quot;</span>: <span class="syntax-number">2</span>,
+  <span class="syntax-string">&quot;schemaVersion&quot;</span>: <span class="syntax-number">1</span>,
   <span class="syntax-string">&quot;sheets&quot;</span>: [
     {
       <span class="syntax-string">&quot;id&quot;</span>: <span class="syntax-string">&quot;sales&quot;</span>,
@@ -48,7 +48,7 @@
 <span class="syntax-keyword">function</span> createSaveFile(workbook: SpreadsheetWorkbook) {
   <span class="syntax-keyword">return</span> <span class="syntax-keyword">new</span> Blob([serializeWorkbook(workbook)], { <span class="syntax-keyword">type</span>: <span class="syntax-string">&quot;application/json&quot;</span> });
 }</code></pre></div>
-<p>旧形式のファイルを初めて書き出すと、構造や書式の変更でハッシュは変わります。以後は同じ規則で安定します。旧ファイルや保存先Blobをコンポーネントが自動で書き換えることはありません。内容が同じときにBlobへの書き込みを省略する処理は親側の責務です。</p>
+<p>保存先Blobをコンポーネントが自動で書き換えることはありません。内容が同じときにBlobへの書き込みを省略する処理は親側の責務です。</p>
 <h2 id="操作と保存">操作と保存<a class="heading-link" href="#%E6%93%8D%E4%BD%9C%E3%81%A8%E4%BF%9D%E5%AD%98" aria-label="この見出しへのリンク">#</a></h2>
 <p>取り込みはブック全体を置き換える1回のUndo可能な編集です。未保存の変更や入力中の編集があれば、UIで確認してから読み込みます。解析・検証に失敗した場合は、元のブックと入力を維持します。編集許可は通常の <code>onEditRequest</code> を通し、<code>action</code> は <code>importNative</code> です。</p>
 <p>取り込み・出力は <code>onSave</code> を呼びません。取り込んだ内容を永続化する場合は、通常の「保存」を実行します。出力は現在の下書きのスナップショットを生成し、未保存状態やUndo履歴を変更しません。出力名は <code>exportFileName</code> → <code>title</code> → <code>spreadsheet</code> の順で決め、既存の <code>.xlsx</code>・<code>.spon</code>・<code>.json</code> を取り除いて <code>.spon</code> を付けます。</p>
@@ -79,6 +79,6 @@
   <span class="syntax-keyword">const</span> options: SpreadsheetNativeExportOptions = { signal: <span class="syntax-keyword">new</span> AbortController().signal };
   <span class="syntax-keyword">return</span> handle.exportNative(options); <span class="syntax-comment">// application/json のBlob。保存・ダウンロードは行わない</span>
 }</code></pre></div>
-<p><code>importNative</code> はBlobを受け取り、<code>.spon</code> と旧 <code>.json</code> を同じ内容検証で読み込みます。未保存または入力中の編集がある場合、APIでは <code>discardChanges: true</code> が必要です。<code>exportNative</code> は未確定入力があると拒否します。UIから出力する場合は、セル入力を確定してから生成します。</p>
+<p><code>importNative</code> はBlobを受け取り、現在の保存形式を内容検証して読み込みます。ファイル選択では <code>.json</code> も選べますが、内容は同じSPON形式が必要です。未保存または入力中の編集がある場合、APIでは <code>discardChanges: true</code> が必要です。<code>exportNative</code> は未確定入力があると拒否します。UIから出力する場合は、セル入力を確定してから生成します。</p>
 <p>Excelと同じ処理ロック・キャンセル・編集許可・状態の再確認を使います。取り込み中に新しい編集が発生した場合、古い読み込み結果を適用せずキャンセルします。<code>onEvent</code> の <code>import</code> / <code>export</code> は <code>format: &quot;spon&quot;</code>、状態は <code>start</code> / <code>success</code> / <code>error</code> / <code>cancelled</code> です。出力の <code>success</code> はBlob生成の完了を示し、ブラウザーでのディスク保存完了を意味しません。</p>
 <nav class="page-navigation" aria-label="前後のページ"><a href="../context-menu/index.html"><span>前のページ</span>右クリックメニュー</a><a href="../excel-import/index.html"><span>次のページ</span>Excel取り込み</a></nav><footer class="article-footer">編集元: <a href="https://github.com/sunu-py-jp/LikeX/blob/main/packages/spreadsheet/src/docs/native-files.md">native-files.md</a><br>本文は公開APIと利用ガイドから生成しています。</footer></article><aside class="page-toc" aria-label="このページの見出し"><p>このページ</p><ol><li><a href="#%E3%83%87%E3%83%BC%E3%82%BF%E3%81%A8%E4%BA%92%E6%8F%9B%E6%80%A7">データと互換性</a></li><li><a href="#%E8%A1%8C%E3%81%94%E3%81%A8%E3%81%AE%E4%BF%9D%E5%AD%98%E6%A7%8B%E9%80%A0">行ごとの保存構造</a></li><li><a href="#%E6%AF%8E%E5%9B%9E%E5%90%8C%E3%81%98%E6%9B%B8%E5%BC%8F%E3%81%A7%E4%BF%9D%E5%AD%98%E3%81%99%E3%82%8B">毎回同じ書式で保存する</a></li><li><a href="#%E6%93%8D%E4%BD%9C%E3%81%A8%E4%BF%9D%E5%AD%98">操作と保存</a></li><li><a href="#%E8%A1%A8%E7%A4%BA%E4%B8%AD%E3%81%AE%E3%83%96%E3%83%83%E3%82%AF%E3%82%92api%E3%81%8B%E3%82%89%E6%93%8D%E4%BD%9C%E3%81%99%E3%82%8B">表示中のブックをAPIから操作する</a></li></ol></aside></div></main></div><p class="copy-status" role="status" aria-live="polite"></p></body></html>

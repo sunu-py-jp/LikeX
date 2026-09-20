@@ -126,7 +126,7 @@ const snapshot: SpreadsheetWorkbook = {
 
 この画像は構造を示すための1ピクセルのサンプルです。実際の画像は「挿入 → 画像」で読み込めます。テキストの `currentColor` はテーマの文字色を使い、明示した色・背景色はそのまま保持します。
 
-図形の `text`・`fontSize`・`color`・`bold` は任意です。未指定なら文字なし・16px・濃いグレー（`#1f2937`）・通常の太さとなり、従来のJSONも変更せず読み込めます。図形の既定の塗りは淡色のため、ダークモードでも文字が読める既定色にしています。外部APIの `shapes.insert` に同じ項目を渡すか、`shapes.update` の `patch` で変更できます。
+図形の `text`・`fontSize`・`color`・`bold` は任意です。未指定なら文字なし・16px・濃いグレー（`#1f2937`）・通常の太さになります。図形の既定の塗りは淡色のため、ダークモードでも文字が読める既定色にしています。外部APIの `shapes.insert` に同じ項目を渡すか、`shapes.update` の `patch` で変更できます。
 
 ## 保存と復元
 
@@ -157,7 +157,7 @@ export function WorkbookView({ savedJson, revision }: { savedJson: string; revis
 
 認証、権限、JSONを保存するDBやファイル、競合の検知は親アプリが担当します。`initialWorkbook` はマウント時だけ読み込むため、別の保存データを開く場合は `key` を変更します。変更前に未保存データの扱いを親で確認してください。
 
-このページの `SpreadsheetWorkbook` は編集用モデル（`schemaVersion: 1`）です。`serializeWorkbook` はこれを、行オブジェクトの配列を持つ保存用 `SpreadsheetFile`（`format: "likex.spreadsheet"`、`schemaVersion: 2`）へ変換して、一定の順序・書式で出力します。`parseWorkbook` で編集用モデルへ戻せます。以前の `{ sheets: [...] }` 形式も読み込めます。保存構造と固定ルールは [`.spon` 形式](./native-files.md)を参照してください。
+このページの `SpreadsheetWorkbook` は編集用モデルです。`serializeWorkbook` はこれを、行オブジェクトの配列を持つ保存用 `SpreadsheetFile`（`format: "likex.spreadsheet"`、`schemaVersion: 1`）へ変換して、一定の順序・書式で出力します。`parseWorkbook` で編集用モデルへ戻せます。保存構造と固定ルールは [`.spon` 形式](./native-files.md)を参照してください。
 
 ## APIと機能のOFF指定
 
