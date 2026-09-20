@@ -2121,6 +2121,16 @@
         "depth": 2
       },
       {
+        "id": "行ごとの保存構造",
+        "title": "行ごとの保存構造",
+        "depth": 2
+      },
+      {
+        "id": "毎回同じ書式で保存する",
+        "title": "毎回同じ書式で保存する",
+        "depth": 2
+      },
+      {
         "id": "操作と保存",
         "title": "操作と保存",
         "depth": 2
@@ -2302,6 +2312,16 @@
         "id": "slon-ファイル",
         "title": ".slon ファイル",
         "depth": 2
+      },
+      {
+        "id": "ページと要素の保存順",
+        "title": "ページと要素の保存順",
+        "depth": 3
+      },
+      {
+        "id": "毎回同じ書式で保存する",
+        "title": "毎回同じ書式で保存する",
+        "depth": 3
       },
       {
         "id": "テキストを追加する",
@@ -2612,6 +2632,32 @@
       {
         "id": "制約とエラー",
         "title": "制約とエラー",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "core/stable-json",
+    "title": "JSONの固定書式",
+    "component": "core",
+    "output": "core/stable-json/index.html",
+    "sources": [
+      "packages/core/docs/stable-json.md"
+    ],
+    "keywords": [
+      "serializeStableJson",
+      "StableJsonOptions",
+      "compareKeys",
+      "space",
+      "maxLength",
+      "ハッシュ",
+      "差分",
+      "固定書式"
+    ],
+    "headings": [
+      {
+        "id": "likexの保存で使う場合",
+        "title": "LikeXの保存で使う場合",
         "depth": 2
       }
     ]

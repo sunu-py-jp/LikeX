@@ -2,6 +2,9 @@ import type { Slide, SlideDeck, SlideElement, SlideElementInput } from "./types"
 import { SLIDE_LIMITS } from "./limits";
 import { validateSlideImageSource } from "./image-source";
 import { boolean, choice, color, fontFamily, identifier, list, number, record, text } from "./validation";
+import { DECK_KEYS, ELEMENT_KEYS, SLIDE_KEYS } from "./schema";
+import { restoreSlideFilePage } from "./file-format";
+export { ELEMENT_KEYS } from "./schema";
 
 const decks = new WeakSet<SlideDeck>();
 const slides = new WeakSet<Slide>();
@@ -10,14 +13,6 @@ const imageBytes = new WeakMap<SlideElement, number>();
 // Repositioning an image should not repeatedly decode its immutable data URL.
 const imageSources = new Map<string, number>();
 let cachedImageBytes = 0;
-const BASE_KEYS = ["id", "name", "x", "y", "width", "height", "rotation", "opacity", "locked", "type"];
-export const ELEMENT_KEYS = {
-  text: [...BASE_KEYS, "text", "fontSize", "fontFamily", "color", "bold", "italic", "align", "verticalAlign", "fill"],
-  shape: [...BASE_KEYS, "shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "textColor"],
-  image: [...BASE_KEYS, "src", "alt"],
-} as const;
-export const SLIDE_KEYS = ["id", "name", "background", "notes", "elements"];
-const DECK_KEYS = ["format", "version", "id", "title", "width", "height", "slides"];
 
 function imageSource(value: unknown): { src: string; bytes: number } {
   if (typeof value === "string" && imageSources.has(value)) {
@@ -114,9 +109,11 @@ export function createSlide(input: Partial<Slide> = {}): Slide {
 export function normalizeSlideDeck(input: unknown): SlideDeck {
   if (decks.has(input as SlideDeck)) return input as SlideDeck;
   const raw = record(input, "プレゼンテーション", DECK_KEYS);
-  if (raw.format !== undefined && raw.format !== "likex.slide") throw new Error("LikeSlideのファイル形式ではありません");
-  if (raw.version !== 1) throw new Error("対応していないプレゼンテーションのバージョンです");
-  const accepted = list(raw.slides, "スライド", SLIDE_LIMITS.slides, 1).map(normalizeSlide);
+  if ((raw.format !== undefined && raw.format !== "likex.slide") || (raw.version === 2 && raw.format !== "likex.slide"))
+    throw new Error("LikeSlideのファイル形式ではありません");
+  if (raw.version !== 1 && raw.version !== 2) throw new Error("対応していないプレゼンテーションのバージョンです");
+  const accepted = list(raw.slides, "スライド", SLIDE_LIMITS.slides, 1)
+    .map(slide => normalizeSlide(raw.version === 2 ? restoreSlideFilePage(slide) : slide));
   const slideIds = new Set<string>(), elementIds = new Set<string>();
   let count = 0, bytes = 0, characters = 0;
   for (const slide of accepted) {
@@ -147,13 +144,4 @@ export function createSlideDeck(input: Partial<SlideDeck> = {}): SlideDeck {
   const supplied = Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== undefined));
   return normalizeSlideDeck({ version: 1, id: crypto.randomUUID(), title: "新しいプレゼンテーション", width: 1280, height: 720,
     slides: [createSlide({ name: "スライド 1" })], ...supplied });
-}
-
-export function parseSlideDeck(json: string): SlideDeck {
-  if (typeof json !== "string" || json.length > SLIDE_LIMITS.jsonLength) throw new Error("JSONのサイズが上限を超えています");
-  return normalizeSlideDeck(JSON.parse(json));
-}
-
-export function serializeSlideDeck(deck: SlideDeck): string {
-  return JSON.stringify(normalizeSlideDeck(deck), null, 2);
 }

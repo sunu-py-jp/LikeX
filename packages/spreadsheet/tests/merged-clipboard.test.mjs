@@ -275,7 +275,7 @@ test('undo and JSON save round trip a copied merge without separating its histor
   await act(async () => ui.c.redo());
   await act(async () => ui.c.save());
   assert.deepEqual(JSON.parse(json).sheets[0].merges, [sourceMerge, pastedMerge]);
-  assert.equal(JSON.parse(json).sheets[0].cells.G4.format.background, '#abcdef');
+  assert.equal(parseWorkbook(json).sheets[0].cells.G4.format.background, '#abcdef');
   assert.equal(ui.c.dirty, false);
 });
 

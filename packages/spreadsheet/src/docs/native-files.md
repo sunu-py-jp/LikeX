@@ -6,11 +6,64 @@
 
 ## データと互換性
 
-出力は `format: "likex.spreadsheet"` と `schemaVersion: 1` を持ちます。`format` や `schemaVersion` のない従来のJSONも読み込めます。指定された `format` が異なる場合、未対応のバージョン、壊れたJSON、構造・サイズ制限違反はエラーにします。入力ファイルの名前やMIMEだけでは内容を判定しません。
+出力は `format: "likex.spreadsheet"` と `schemaVersion: 2` を持つ `SpreadsheetFile` です。`format` や `schemaVersion` のない従来のJSON、version 1のフラットな `cells` 形式も読み込めます。指定された `format` が異なる場合、未対応のバージョン、壊れたJSON、構造・サイズ制限違反はエラーにします。入力ファイルの名前やMIMEだけでは内容を判定しません。
 
-セル・数式・書式・結合・入力規則・条件付き書式・名前付き範囲・テーブル・図形・コメント・埋め込み画像を、現在のブックモデルのまま保存します。画像はBase64を含む `resources.images` に保持するため、別ファイルの同梱は不要です。画面の倍率、選択位置、Undo履歴、コンポーネントの `title` はブックに保存しません。
+セル・数式・書式・結合・入力規則・条件付き書式・名前付き範囲・テーブル・図形・コメント・埋め込み画像など、現在のブックモデルの内容を保持して保存します。画像はBase64を含む `resources.images` に保持するため、別ファイルの同梱は不要です。画面の倍率、選択位置、Undo履歴、コンポーネントの `title` はブックに保存しません。
 
-`parseWorkbook(json)` と `serializeWorkbook(workbook)` のAPIは同じです。正規化・シリアライズした出力には常に形式識別子を付けます。入力互換のためTypeScript型の `format` と `schemaVersion` は任意です。読み込みで新しい形式へ正規化されますが、保存先の旧ファイルを自動で変更することはありません。
+`parseWorkbook(json)` と `serializeWorkbook(workbook)` のAPIは同じです。`parseWorkbook` は保存形式を編集用の `SpreadsheetWorkbook`（`schemaVersion: 1`、A1形式の `cells`）へ変換します。`onSave` やセル操作APIもこの編集用モデルを受け取ります。`JSON.parse` だけではこの変換を行わないため、ファイルを開くときは `parseWorkbook` を使ってください。
+
+## 行ごとの保存構造
+
+`rows` は行オブジェクトの配列で、先頭が1行目です。各行の `cells` に、列名をキーとしてセルを置きます。数値・数式も従来どおり文字列で指定します。
+
+```json
+{
+  "format": "likex.spreadsheet",
+  "schemaVersion": 2,
+  "sheets": [
+    {
+      "id": "sales",
+      "name": "売上",
+      "rowCount": 300,
+      "columnCount": 26,
+      "rows": [
+        { "cells": { "A": { "value": "商品" }, "B": { "value": "数量" } } },
+        { "height": 28, "cells": { "A": { "value": "りんご" }, "B": { "value": "10" } } },
+        {},
+        { "cells": { "A": { "value": "合計" }, "B": { "value": "=SUM(B2:B3)" } } }
+      ]
+    }
+  ]
+}
+```
+
+上の例は構造を見やすくするため行内を短く表記しています。実際の出力は全体を2スペースでインデントします。
+
+- 途中の空行は `{}` で位置を保ちます。上の例では3行目が空行です。
+- 末尾の空行は省略し、シートの表示行数は `rowCount` で保持します。
+- 行の高さは `height`（ピクセル）です。高さだけ指定された行も残します。
+- 列は `A, B, …, Z, AA, …` の順で書き出します。未使用セルを埋める必要はありません。
+- 画像、図形、結合、入力規則などの情報も保持します。列幅はシートの `columnWidths`（0始まりの列番号キー）です。
+
+公開型は `SpreadsheetFile`、`SpreadsheetFileSheet`、`SpreadsheetFileRow` です。行の追加・削除による差分は配列の要素単位で追えます。ただし、JSONを直接編集しただけでは数式・結合・名前付き範囲の参照は自動調整されません。参照を保つ編集には、`parseWorkbook` → `rows.insert` などの[外部コマンド](./external-operations.md) → `serializeWorkbook` を使います。
+
+## 毎回同じ書式で保存する
+
+シートは表示順、セルは行順・列順で書き出し、そのほかの項目も定義した順序に固定します。改行はLF、インデントは2スペースで、BOM・末尾の改行は付けません。セル文字列内の改行やUnicodeは変更しません。保存時刻を追加したりIDを振り直したりしません。
+
+同じ編集データを `serializeWorkbook` で保存し、その文字列をUTF-8にすれば、キーの追加順に左右されず同じバイト列・ハッシュになります。見た目が似ていても、ID・数式・画像・書式・コメントなどのデータが違えば同一とは扱いません。
+
+親の `onSave` でも同じAPIを使ってください。ファイルタブの出力と同じ保存形式になります。
+
+```ts
+import { serializeWorkbook, type SpreadsheetWorkbook } from "@likex/spreadsheet/model";
+
+function createSaveFile(workbook: SpreadsheetWorkbook) {
+  return new Blob([serializeWorkbook(workbook)], { type: "application/json" });
+}
+```
+
+旧形式のファイルを初めて書き出すと、構造や書式の変更でハッシュは変わります。以後は同じ規則で安定します。旧ファイルや保存先Blobをコンポーネントが自動で書き換えることはありません。内容が同じときにBlobへの書き込みを省略する処理は親側の責務です。
 
 ## 操作と保存
 

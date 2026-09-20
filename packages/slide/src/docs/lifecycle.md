@@ -3,6 +3,8 @@
 コンポーネント内の操作はJSONの下書きに反映します。保存ボタンを押すと `onBeforeSave`、`onSave` の順で呼び、返されたPromiseが完了するまで待機します。保存に失敗した場合は下書きと未保存状態を残します。
 
 ```tsx
+import { serializeSlideDeck } from "@likex/slide/model";
+
 <LikeSlide initialDeck={deck}
   onBeforeSave={current => current.title.trim().length > 0}
   onEditRequest={async (_request, { signal }) => {
@@ -10,7 +12,7 @@
     return response.ok;
   }}
   onSave={async current => {
-    const response = await fetch("/api/deck", { method: "PUT", body: JSON.stringify(current),
+    const response = await fetch("/api/deck", { method: "PUT", body: serializeSlideDeck(current),
       headers: { "Content-Type": "application/json" } });
     if (!response.ok) throw new Error("保存できませんでした");
   }}

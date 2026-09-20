@@ -38,11 +38,33 @@ const output = new File([serializeSlideDeck(deck)], "提案資料.slon", {
 });
 ```
 
-作成・正規化・出力されたデータには `format: "likex.slide"` と `version: 1` が入ります。`format` が型上optionalなのは、従来のマーカーなしJSONを引き続き入力できるためです。異なる `format` や未対応のバージョン、不正なデータ構造は拒否します。拡張子だけを変更しても、他形式のJSONがスライドとして読み込まれることはありません。
+編集用の `SlideDeck` は `format: "likex.slide"` と `version: 1` を持ちます。ファイルへの出力は、位置順に並べる保存用の `SlideFile`（`version: 2`）です。`parseSlideDeck` がversion 2を編集用モデルに復元し、`format` のないJSONを含む従来のversion 1も読み込めます。異なる `format` や未対応のバージョン、不正なデータ構造は拒否します。
+
+### ページと要素の保存順
+
+`slides` はページ順です。各ページの `elements` は、上から下（`y`）、同じ高さなら左から右（`x`）に並べます。位置が同じ場合は重なり順で決めます。各要素の `stackOrder` に元の描画順を記録するため、ファイルの配列順が変わっても見た目の前後関係は保たれます。`stackOrder: 0` が最背面です。
+
+```ts
+type SlideFileElement = SlideElement & { stackOrder: number };
+type SlideFilePage = Omit<Slide, "elements"> & { elements: SlideFileElement[] };
+type SlideFile = Omit<SlideDeck, "format" | "version" | "slides"> & {
+  format: "likex.slide";
+  version: 2;
+  slides: SlideFilePage[];
+};
+```
+
+これらの型は `@likex/slide/model` からimportできます。保存データを操作APIへ渡す前に `parseSlideDeck` を呼んでください。復元後の `elements` は描画順で、`stackOrder` は編集用モデルには残りません。重複・欠落・範囲外の重なり順を持つファイルは拒否します。
+
+### 毎回同じ書式で保存する
+
+フィールド順、2スペースのインデント、LF改行を固定します。BOM・末尾の改行は付けず、文字列の中の改行やUnicodeは保持します。保存のためにIDや日時を生成しません。同じページ・要素・重なり順・データを `serializeSlideDeck` でUTF-8に保存すれば、毎回同じバイト列・ハッシュになります。
+
+親の `onSave` でも `JSON.stringify` の代わりに `serializeSlideDeck` を使ってください。旧形式を初めて書き出す場合は、version 2への変換によってハッシュが変わります。以降は同じ規則で安定します。内容が同じ場合のBlob書き込み省略は親側で管理します。
 
 ファイルタブでは `.slon` を標準で書き出し、読み込みでは `.slon` と従来の `.json` を受け付けます。読み込んだデータは下書きになり、Undoで元の資料へ戻せます。保存先の通信やファイル名は `onSave` を実装する親側が管理し、コールバックに渡る値は引き続き `SlideDeck` です。出力や読み込みだけでは `onSave` を呼びません。
 
-ブラウザーやストレージが独自拡張子のMIMEタイプを推測できるとは限らないため、アップロード時も `Content-Type: application/json` を指定してください。既存のBlobの名前や保存場所をコンポーネントが変更することはありません。新しい出力には `format` が追加されるため、旧版のLikeSlideでの読み込みは保証しません。
+ブラウザーやストレージが独自拡張子のMIMEタイプを推測できるとは限らないため、アップロード時も `Content-Type: application/json` を指定してください。既存のBlobの名前や保存場所をコンポーネントが変更することはありません。新しい出力はversion 2のため、旧版のLikeSlideでの読み込みは保証しません。
 
 ## テキストを追加する
 

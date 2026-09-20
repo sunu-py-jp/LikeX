@@ -2,7 +2,7 @@
 
 Spreadsheetは、ブックを変更する純粋な処理、React上の編集状態、画面とブラウザ操作を分けています。機能を追加するときも、UIからブックを直接書き換えず、この境界に沿って実装します。
 
-公開入口はUI用の `index.ts` と、画面なしでJSONを加工する `model-entry.ts` です。パッケージではそれぞれ `@likex/spreadsheet` と `@likex/spreadsheet/model` からimportします。利用側への契約は `props.ts`・`api/`・`model/types.ts`・`commands/` の公開型に定義します。内部ファイルの配置は公開APIではなく、将来変更できます。コピー導入ではSpreadsheetの `src/` 全体とcoreの `src/` を隣接フォルダに配置し、`core.ts` のimport先1か所を変更します。
+公開入口はUI用の `index.ts` と、画面なしでJSONを加工する `model-entry.ts` です。パッケージではそれぞれ `@likex/spreadsheet` と `@likex/spreadsheet/model` からimportします。利用側への契約は `props.ts`・`api/`・`model/types.ts`・`commands/` の公開型に定義します。内部ファイルの配置は公開APIではなく、将来変更できます。コピー導入ではSpreadsheetの `src/` 全体とcoreの `src/` を隣接フォルダに配置し、`core.ts`・`ooxml.ts`・`json.ts` のimport先を変更します。
 
 ## 依存の方向
 
@@ -42,7 +42,7 @@ flowchart TD
 | `model/query.ts`・`query-reader.ts` | 番地やIDによる読み取りと、最新ブックを参照するメソッドの接続 |
 | `api/types.ts`・`api/use-spreadsheet-handle.ts` | 公開コマンド型・結果型・読み取り専用snapshotと、安定したrefの接続 |
 | `api/lifecycle.ts`・`api/features.ts` | 注入する処理・イベント・編集許可・機能設定の公開型 |
-| `core.ts` | `@likex/core` への入口。コピー導入時の参照先変更もここだけで行う |
+| `core.ts` | `@likex/core` への入口。ホスト連携に使う共通APIの参照先 |
 | `model/types.ts` | 保存できるJSONの型と上限 |
 | `model/workbook.ts` | ブック操作の公開用export。実装は下記に分離 |
 | `model/workbook/normalize.ts`・`validation.ts`・`snapshot.ts` | 外部データの正規化、入力検証、不変なスナップショットの生成 |

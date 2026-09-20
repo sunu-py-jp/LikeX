@@ -1,5 +1,12 @@
-import { notifyHost, resolveFeatureFlags, chainResult, createContextMenuExecutor, resolveContextMenuItems } from '__LIBRARY_IMPORT__';
-import type { EditRequestHandler, EventHandler, SaveHandler, RequestHandler, MaybePromise, ContextMenuProvider, ContextMenuExecutionMode } from '__LIBRARY_IMPORT__';
+import { notifyHost, resolveFeatureFlags, chainResult, createContextMenuExecutor, resolveContextMenuItems, serializeStableJson } from '__LIBRARY_IMPORT__';
+import type { EditRequestHandler, EventHandler, SaveHandler, RequestHandler, MaybePromise, ContextMenuProvider, ContextMenuExecutionMode, StableJsonOptions } from '__LIBRARY_IMPORT__';
+import { serializeStableJson as serializeJsonWithoutUi } from '__LIBRARY_IMPORT__/json';
+
+const jsonOptions: StableJsonOptions = { maxLength: 1024, space: 2, compareKeys: () => 0 };
+const stableJson: string = serializeStableJson({ b: 2, a: 1 }, jsonOptions);
+// @ts-expect-error Limits are numeric UTF-16 character counts.
+serializeStableJson({}, { maxLength: '1024' });
+void [stableJson, serializeJsonWithoutUi({ nested: [1, 2] })];
 
 const permission: EditRequestHandler<{ action: string }, readonly string[], 'entries'> =
   (_request, context) => context.signal.aborted ? false : { allowed: true, entries: [] };

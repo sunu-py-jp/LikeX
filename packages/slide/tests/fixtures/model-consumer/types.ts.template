@@ -1,4 +1,4 @@
-import { createSlideDeck, applySlideCommands, getElement, createSlideSession, type SlideCommand } from "__MODEL_IMPORT__";
+import { createSlideDeck, applySlideCommands, getElement, createSlideSession, type SlideCommand, type SlideFile, type SlideFileElement } from "__MODEL_IMPORT__";
 const deck = createSlideDeck();
 const format: "likex.slide" | undefined = deck.format;
 void format;
@@ -10,3 +10,9 @@ const result = applySlideCommands(deck, command);
 const element = getElement(result.deck, result.deck.slides[0].id, "element");
 if (element?.type === "text") { const value: string = element.text; void value; }
 createSlideSession(deck).execute(command);
+const nativeFile: SlideFile = { ...deck, format: "likex.slide", version: 2, slides: [] };
+const nativeElement: SlideFileElement | undefined = nativeFile.slides[0]?.elements[0];
+if (nativeElement) { const layer: number = nativeElement.stackOrder; void layer; }
+// @ts-expect-error Storage schema version differs from the runtime editing model.
+const invalidFile: SlideFile = deck;
+void invalidFile;

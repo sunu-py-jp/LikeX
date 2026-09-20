@@ -12,7 +12,7 @@ const source = () => m.normalizeWorkbook({ ...m.createWorkbook(), sheets: [{ ...
   comments: { C2: { id: 'original', text: '確認', author: 'Alice' } }, merges: [range] }] });
 
 test('headless copy captures relative merges, comments without identity, typed values and metadata in a JSON roundtrip', () => {
-  const mutable = JSON.parse(m.serializeWorkbook(source())), before = JSON.stringify(mutable);
+  const mutable = structuredClone(m.parseWorkbook(m.serializeWorkbook(source()))), before = JSON.stringify(mutable);
   const payload = m.copySpreadsheetCells(mutable, id, range);
   assert.deepEqual(payload.source, { sheetId: id, row: 1, column: 2 });
   assert.deepEqual(payload.values, [['=F2+1', '']]);

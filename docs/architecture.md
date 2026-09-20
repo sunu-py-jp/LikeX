@@ -11,6 +11,7 @@ npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explore
 | `packages/<module>/package.json` | 配布する名前・公開入口・依存・バージョン・ライセンスを宣言します。 |
 | `packages/core/src` | 保存・編集許可・通知・機能設定などの共通契約とヘルパーの唯一の編集元。 |
 | `packages/{explorer,spreadsheet,slide}/src/core.ts` | `@likex/core` の公開入口を再export。コピー導入時は相対importに変更します。 |
+| `packages/{spreadsheet,slide}/src/json.ts` | `@likex/core/json` の固定JSON出力への入口。コピー時は `../core/json` へ変更します。 |
 | `packages/{spreadsheet,slide}/src/ooxml.ts` | `@likex/core/ooxml` のZIP・XML・参照関係処理の入口。コピー時はこちらも相対importへ変更します。 |
 | `apps/playground` | サンプルデータとデモの保存先を持つ利用者側の例です。ライブラリには含めません。 |
 | `scripts` | ビルド・型生成・配布物検査・導入検証をまとめます。 |
@@ -24,12 +25,16 @@ SpreadsheetとLikeSlideの標準保存ファイルは、次の拡張子を使う
 
 | モジュール | 拡張子 | 出力の形式識別子 | スキーマのバージョン |
 | --- | --- | --- | --- |
-| Spreadsheet | `.spon` | `format: "likex.spreadsheet"` | `schemaVersion: 1` |
-| LikeSlide | `.slon` | `format: "likex.slide"` | `version: 1` |
+| Spreadsheet | `.spon` | `format: "likex.spreadsheet"` | `schemaVersion: 2` |
+| LikeSlide | `.slon` | `format: "likex.slide"` | `version: 2` |
 
-従来の `.json` ファイルと、`format` を持たない既存JSONも読み込めます。`parseWorkbook` / `serializeWorkbook`、`parseSlideDeck` / `serializeSlideDeck` は引き続きJSON文字列を扱います。`onSave` は既存どおりJSONモデルを親アプリへ渡し、保存先とファイル名は親が決めます。ファイルへ出力するBlobのMIMEタイプは `application/json` です。
+従来の `.json` ファイルと、`format` を持たない既存JSONも読み込めます。`parseWorkbook` / `serializeWorkbook`、`parseSlideDeck` / `serializeSlideDeck` は引き続きJSON文字列を扱います。編集用モデルと `onSave` は従来のversion 1を維持し、parse APIが保存形式を編集用へ変換します。保存先とファイル名は親が決めます。ファイルへ出力するBlobのMIMEタイプは `application/json` です。
 
-拡張子だけの変更ではファイル内容のハッシュは変わりません。ただし、再出力で `format` が追加されたりJSONの表記が正規化されたりすると、バイト列とハッシュは変わります。既存Blobの名前や内容を自動で移行する処理はありません。
+保存時の並びは表示に合わせます。Spreadsheetはシートの表示順で、各シートの `rows` 配列に行を並べ、行の `cells` に `A, B, …, Z, AA, …` の列順でセルを置きます。LikeSlideはページの表示順で、ページ内の要素を上から下、同じ高さでは左から右に並べます。要素の重なり順は `stackOrder` に保持し、読み込み時に復元します。
+
+両方のserialize APIは2スペース・LF・末尾改行なしの書式に固定し、同じデータから同じ文字列を生成します。親の `onSave` でもこのAPIを使えば、オブジェクトのキーの追加順で保存内容が変わりません。共通の出力処理は [`@likex/core/json`](../packages/core/docs/stable-json.md) が担当し、各モジュールが並び順と保存形式を定義します。詳細は [SPONの構造](../packages/spreadsheet/src/docs/native-files.md) と [SLONの構造](../packages/slide/src/docs/commands.md) を参照してください。
+
+拡張子だけの変更ではファイル内容のハッシュは変わりません。ただし、旧形式をversion 2へ書き出す最初の保存では、構造や書式が変わるためハッシュも変わります。既存Blobの名前や内容を自動で移行する処理はありません。データが同じときのBlob書き込み省略は親側で管理します。
 
 Explorerでは `.spon` を緑の表計算アイコン、`.slon` をオレンジのスライドアイコンで表示し、内蔵プレビューはJSONテキストを表示します。SpreadsheetやLikeSlideで開く専用ビューは、親アプリが `onPreviewRequest` で選択します。接続方法は [プレビュー](../packages/explorer/src/docs/previews.md) を参照してください。
 
@@ -39,7 +44,7 @@ Explorerでは `.spon` を緑の表計算アイコン、`.slon` をオレンジ�
 
 配布用にもう一つ実装を持ちません。`src/` から `dist/` のESMと型宣言を生成し、`src/README.md` と `src/docs/` の利用ガイドを同じ配置で配布物へ同梱します。READMEは導入と詳細への入口、`docs/` は責務ごとの詳細です。
 
-コピー導入ではUIの `src/` 全体と `packages/core/src/` を隣接フォルダへ配置し、UI側の `core.ts` のimport先を変更します。Spreadsheet・LikeSlideでは `ooxml.ts` も `export * from "../core/ooxml";` に変更します。リポジトリ固有のパスエイリアスや共通Providerは不要です。Reactなどの外部依存は明示します。更新時は取得元バージョンと利用側での変更差分を管理します。
+コピー導入ではUIの `src/` 全体と `packages/core/src/` を隣接フォルダへ配置し、UI側の `core.ts` のimport先を変更します。Spreadsheet・LikeSlideでは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更します。リポジトリ固有のパスエイリアスや共通Providerは不要です。Reactなどの外部依存は明示します。更新時は取得元バージョンと利用側での変更差分を管理します。
 
 共通のホスト契約と小さなヘルパーは `@likex/core` で管理します。各UIは通常のnpm依存として利用し、生成コピーは作りません。coreの詳細とコピー導入手順は [共通基盤](core.md) を参照してください。React状態や個別の保存データは各コンポーネントが管理します。
 

@@ -35,7 +35,7 @@ test('complete JSON roundtrip keeps images, ordered drawings, comments and old s
 });
 
 test('normalization clones and freezes all annotation boundaries without exposing host references', () => {
-  const source = JSON.parse(serializeWorkbook(populated())), wb = normalizeWorkbook(source);
+  const source = structuredClone(parseWorkbook(serializeWorkbook(populated()))), wb = normalizeWorkbook(source);
   source.resources.images.image.name = 'changed'; source.sheets[0].drawings[0].anchor.row = 8;
   source.sheets[0].comments.B2.text = 'changed';
   assert.equal(wb.resources.images.image.name, 'sample.png'); assert.equal(wb.sheets[0].drawings[0].anchor.row, 1);
@@ -257,7 +257,7 @@ test('invalid object identities, anchors, sizes, paint URLs, comments and dangli
 });
 
 test('JSON loading rejects malformed input and future schemas, and both directions enforce serialized size', () => {
-  for (const value of ['{', 'null', '[]', '{"schemaVersion":2,"sheets":[]}', JSON.stringify({ ...createWorkbook(), schemaVersion: 2 })]) assert.throws(() => parseWorkbook(value));
+  for (const value of ['{', 'null', '[]', '{"schemaVersion":3,"sheets":[]}', JSON.stringify({ ...createWorkbook(), schemaVersion: 3 })]) assert.throws(() => parseWorkbook(value));
   assert.throws(() => parseWorkbook(' '.repeat(SPREADSHEET_LIMITS.serializedCharacters + 1)), /64/);
   const wb = createWorkbook(), cells = Object.fromEntries(Array.from({ length: 700 }, (_, index) => [`A${index + 1}`, { value: 'x'.repeat(100_000) }]));
   assert.throws(() => serializeWorkbook({ sheets: [{ ...wb.sheets[0], rowCount: 1000, cells }] }), /64/);

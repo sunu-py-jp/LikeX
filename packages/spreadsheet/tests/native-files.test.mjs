@@ -37,7 +37,7 @@ test('native snapshots identify their format, accept legacy JSON and reject anot
     assert.deepEqual(parseWorkbook(serializeWorkbook(restored)), restored);
   }
   for (const format of ['likex.slide', 'other', null, 1]) assert.throws(() => normalizeWorkbook({ ...book('bad'), format }), /形式/);
-  assert.throws(() => parseWorkbook(JSON.stringify({ ...book('bad'), schemaVersion: 2 })), /未対応/);
+  assert.throws(() => parseWorkbook(JSON.stringify({ ...book('bad'), schemaVersion: 999 })), /未対応/);
   assert.throws(() => parseWorkbook('{broken'), /JSON/);
   assert.throws(() => parseWorkbook(' '.repeat(SPREADSHEET_LIMITS.serializedCharacters + 1)), /64 Mi/);
 });
@@ -78,8 +78,14 @@ test('native export emits JSON and preserves dirty history without save or edit 
   const before = ui.ref.current.getWorkbook(); let blob;
   await act(async () => { blob = await ui.ref.current.exportNative(); });
   assert.equal(blob.type, 'application/json'); assert.equal(serializeWorkbook(parseWorkbook(await blob.text())), serializeWorkbook(before));
+  assert.equal(await blob.text(), serializeWorkbook(before));
+  const wire = JSON.parse(await blob.text());
+  assert.equal(wire.schemaVersion, 2); assert.equal(wire.sheets[0].rows[0].cells.A.value, 'draft');
   assert.equal(ui.ref.current.getWorkbook(), before); assert.equal(ui.ref.current.getHistoryState().canUndo, true); assert.equal(saves, 0);
   assert.deepEqual(events.filter(e => e.type === 'export').map(e => [e.format, e.status]), [['spon', 'start'], ['spon', 'success']]);
+  let repeated;
+  await act(async () => { repeated = await ui.ref.current.exportNative(); });
+  assert.equal(await repeated.text(), await blob.text());
   await act(async () => ui.root.findByProps({ 'aria-label': 'A1の値' }).props.onChange({ target: { value: 'unfinished' } }));
   await assert.rejects(ui.ref.current.exportNative(), /確定/);
 });

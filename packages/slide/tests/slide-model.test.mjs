@@ -35,7 +35,7 @@ test('factories create one usable slide and JSON-only immutable isolated values'
 
 test('native SLON JSON carries a format marker and accepts legacy unmarked decks', () => {
   const original = deck();
-  const { format, ...legacy } = JSON.parse(serializeSlideDeck(original));
+  const { format, ...legacy } = JSON.parse(JSON.stringify(original));
   assert.equal(format, 'likex.slide');
   assert.deepEqual(parseSlideDeck(JSON.stringify(legacy)), original);
   assert.deepEqual(createSlideDeck(legacy), original);
@@ -67,7 +67,7 @@ test('all element types retain JSON formatting, text, image and geometry without
 
 test('untrusted JSON rejects malformed models, unsupported properties, sparse arrays and duplicate IDs', () => {
   const original = JSON.parse(serializeSlideDeck(deck()));
-  for (const patch of [{ version: 2 }, { slides: [] }, { width: Infinity }, { height: 0 }, { id: ' bad' }, { unknown: true }])
+  for (const patch of [{ version: 3 }, { slides: [] }, { width: Infinity }, { height: 0 }, { id: ' bad' }, { unknown: true }])
     assert.throws(() => normalizeSlideDeck({ ...original, ...patch }));
   assert.throws(() => createSlideDeck({ slides: Array(1) }));
   assert.throws(() => createSlideDeck({ slides: [slide('same'), slide('same')] }));

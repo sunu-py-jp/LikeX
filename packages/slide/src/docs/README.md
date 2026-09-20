@@ -12,13 +12,13 @@ npm install ./likex-core-0.1.0.tgz ./likex-slide-0.1.0.tgz
 
 ```tsx
 "use client";
-import LikeSlide, { createSlideDeck } from "@likex/slide";
+import LikeSlide, { createSlideDeck, serializeSlideDeck } from "@likex/slide";
 import "@likex/slide/styles.css";
 
 const initialDeck = createSlideDeck({ title: "提案資料" });
 export default function Editor() {
   return <LikeSlide initialDeck={initialDeck} onSave={async deck => {
-    const response = await fetch("/api/deck", { method: "PUT", body: JSON.stringify(deck),
+    const response = await fetch("/api/deck", { method: "PUT", body: serializeSlideDeck(deck),
       headers: { "Content-Type": "application/json" } });
     if (!response.ok) throw new Error("保存できませんでした");
   }} colorMode="system" style={{ height: 720 }} />;
@@ -33,7 +33,8 @@ CSSはアプリの入口で1回importします。Next.js App Routerでは `app/l
 2. `packages/slide/src/` を `components/slide/` にコピーします。
 3. `slide/core.ts` を `export * from "../core";` に変更します。
 4. `slide/ooxml.ts` を `export * from "../core/ooxml";` に変更します。
-5. `react`、`react-dom`、`lucide-react` を利用先へインストールし、`components/slide` と `components/slide/styles.css` をimportします。
+5. `slide/json.ts` を `export * from "../core/json";` に変更します。
+6. `react`、`react-dom`、`lucide-react` を利用先へインストールし、`components/slide` と `components/slide/styles.css` をimportします。
 
 `LICENSE` と `THIRD_PARTY_NOTICES.md` は両方のフォルダに残してください。
 

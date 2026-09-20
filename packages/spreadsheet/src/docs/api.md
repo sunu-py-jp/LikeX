@@ -26,7 +26,7 @@ const workbook: SpreadsheetWorkbook = {
 
 `cells` はA1形式のアドレスをキーにした疎なオブジェクトです。空セルをすべて列挙する必要はありません。値は数値・数式も含めて文字列で指定します。シートには一意な `id` と名前が必要です。`columnWidths` / `rowHeights` は0始まりの位置をキーとするサイズ情報です。列幅・行高とも、画面上のグリップや外部コマンドで変更できます。内容に合わせた自動調整も使えます。[書式・行列サイズ](./formatting.md)に指定値と操作をまとめています。
 
-画像の実体は `resources.images`、配置と図形・テキストはシートの `drawings`、セルの注記は `comments` に保持します。`format: "likex.spreadsheet"`・`schemaVersion: 1` を持つJSON（`.spon`）へ保存でき、旧形式も読み込めます。[挿入機能とJSON保存](./insertions-and-json.md) に構造・公開型・`serializeWorkbook` / `parseWorkbook` の例をまとめています。
+画像の実体は `resources.images`、配置と図形・テキストはシートの `drawings`、セルの注記は `comments` に保持します。編集用モデルは `schemaVersion: 1`、`.spon` 保存用モデルは行中心の `schemaVersion: 2` です。`serializeWorkbook` / `parseWorkbook` で相互に変換し、旧ファイルも読み込めます。[挿入機能とJSON保存](./insertions-and-json.md)と[保存形式](./native-files.md)に構造・公開型・例をまとめています。
 
 結合セルはシートの `merges` に保持します。[セルの結合・解除](./merged-cells.md) に `SpreadsheetMergedRange`、`mergeCells` / `unmergeCells` の例とデータ保持のルールをまとめています。
 

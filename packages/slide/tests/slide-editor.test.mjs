@@ -9,13 +9,13 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
   export { useSlideEditor } from './src/state/use-slide-editor.ts';
-  export { createSlideDeck, createSlideElement } from './src/model/index.ts';
+  export { createSlideDeck, createSlideElement, parseSlideDeck } from './src/model/index.ts';
   export { openOfficePackage } from './src/ooxml.ts';
 `, resolveDir: packageRoot }, bundle: true, platform: 'node', format: 'esm', write: false,
 plugins: [{ name: 'shared-react', setup(builder) {
   builder.onResolve({ filter: /^(react|react-dom)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
 } }] });
-const { useSlideEditor, createSlideDeck, createSlideElement, openOfficePackage } = await import(
+const { useSlideEditor, createSlideDeck, createSlideElement, parseSlideDeck, openOfficePackage } = await import(
   `data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const change = async callback => { await act(async () => { await callback(); }); };
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
@@ -477,7 +477,8 @@ test('native downloads use .slon with JSON MIME and replace recognized filename 
     await change(() => app.editor.download('slon', document));
     assert.equal(filename, expected);
     assert.equal(blob.type, 'application/json');
-    assert.deepEqual(JSON.parse(await blob.text()), app.editor.deck);
+    assert.equal(JSON.parse(await blob.text()).version, 2);
+    assert.deepEqual(parseSlideDeck(await blob.text()), app.editor.deck);
     assert.equal(app.editor.dirty, false);
     assert.equal(app.editor.canUndo, false);
   }

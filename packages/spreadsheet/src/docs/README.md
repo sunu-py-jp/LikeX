@@ -6,7 +6,7 @@
 
 ## コピー導入
 
-リポジトリの `packages/spreadsheet/src/` 全体を `components/spreadsheet/`、`packages/core/src/` 全体を `components/core/` にコピーします。`components/spreadsheet/core.ts` の1行を `export * from "../core";` に変更します。`spreadsheet/ooxml.ts` も `export * from "../core/ooxml";` に変更します。`model/`・`state/`・`ui/`・CSSを含めてください。React / React DOM `^19.2.6` と、TypeScript環境では対応する型定義が必要です。
+リポジトリの `packages/spreadsheet/src/` 全体を `components/spreadsheet/`、`packages/core/src/` 全体を `components/core/` にコピーします。`components/spreadsheet/core.ts` の1行を `export * from "../core";` に変更します。`spreadsheet/ooxml.ts` も `export * from "../core/ooxml";` に変更します。 `spreadsheet/json.ts` も `export * from "../core/json";` に変更します。`model/`・`state/`・`ui/`・CSSを含めてください。React / React DOM `^19.2.6` と、TypeScript環境では対応する型定義が必要です。
 
 ```tsx
 "use client";

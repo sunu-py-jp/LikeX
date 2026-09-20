@@ -140,7 +140,7 @@ test('basic functions recalculate through editing, undo and JSON save without re
   assert.equal(hook.current.calculated.one.C1, 0.67);
   await act(async () => hook.current.redo());
   await act(async () => hook.current.save());
-  assert.equal(JSON.parse(json).sheets[0].cells.D1.value, '=IFERROR(C1/A1,"未入力")');
+  assert.equal(parseWorkbook(json).sheets[0].cells.D1.value, '=IFERROR(C1/A1,"未入力")');
   assert.equal(hook.current.calculated.one.D1, '未入力');
   assert.equal(hook.current.dirty, false);
 });
@@ -323,7 +323,7 @@ test('save round trips embedded image data, comments, text, and cell formulas as
     { type: 'images.insert', sheetId: 'one', resource, alt: '画像', anchor: { row: 1, column: 1 }, width: 40, height: 40 }]).results[1]; });
   await act(async () => hook.current.executeCommand({ type: 'comments.set', sheetId: 'one', address: 'A1', comment: { text: '要確認' } }));
   await act(async () => hook.current.save());
-  const restored = JSON.parse(json);
+  const restored = parseWorkbook(json);
   assert.equal(restored.schemaVersion, 1);
   assert.equal(restored.resources.images[image.resourceId].dataUrl, resource.dataUrl);
   assert.equal(restored.sheets[0].drawings.length, 2);
@@ -335,7 +335,7 @@ test('save round trips embedded image data, comments, text, and cell formulas as
   assert.equal(hook.current.activeSheet.drawings, undefined);
   assert.equal(hook.current.dirty, true);
   await act(async () => { hook.current.redo(); hook.current.redo(); });
-  assert.deepEqual(JSON.parse(serializeWorkbook(hook.current.getWorkbook())), restored);
+  assert.deepEqual(parseWorkbook(serializeWorkbook(hook.current.getWorkbook())), restored);
   assert.equal(hook.current.dirty, false);
 });
 

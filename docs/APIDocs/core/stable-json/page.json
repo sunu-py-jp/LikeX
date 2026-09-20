@@ -1,0 +1,7 @@
+{
+  "title": "JSONの固定書式",
+  "summary": "JSONの並び順・インデント・改行を固定し、同じデータの保存結果を安定させます。",
+  "source": "packages/core/docs/stable-json.md",
+  "order": 65,
+  "keywords": ["serializeStableJson", "StableJsonOptions", "compareKeys", "space", "maxLength", "ハッシュ", "差分", "固定書式"]
+}

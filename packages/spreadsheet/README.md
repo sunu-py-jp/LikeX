@@ -46,6 +46,6 @@ export default function Budget() {
 
 [セル・範囲・画像の取得](./src/docs/data-access.md)には `getCell` / `getRange` / `getImage`、画面なしでUndo／Redoを使う場合には[編集セッション](./src/docs/history-session.md)の `createSpreadsheetSession` を使えます。GUIも同じコマンド処理と履歴エンジンを使用します。
 
-[利用ガイド](./src/docs/README.md) に、コピー導入、公開型、保存、機能設定と制約をまとめています。[対応関数と数式](./src/docs/functions.md)、[挿入機能とJSONの具体例](./src/docs/insertions-and-json.md) も参照できます。コピー導入では `packages/core/src/` と `packages/spreadsheet/src/` をそれぞれ `components/core/` と `components/spreadsheet/` へコピーし、`spreadsheet/core.ts` の1行を `export * from "../core";` へ変更します。`spreadsheet/ooxml.ts` も `export * from "../core/ooxml";` へ変更します。
+[利用ガイド](./src/docs/README.md) に、コピー導入、公開型、保存、機能設定と制約をまとめています。[対応関数と数式](./src/docs/functions.md)、[挿入機能とJSONの具体例](./src/docs/insertions-and-json.md) も参照できます。コピー導入では `packages/core/src/` と `packages/spreadsheet/src/` をそれぞれ `components/core/` と `components/spreadsheet/` へコピーし、`spreadsheet/core.ts` の1行を `export * from "../core";` へ変更します。`spreadsheet/ooxml.ts` も `export * from "../core/ooxml";` へ変更します。 `spreadsheet/json.ts` も `export * from "../core/json";` に変更します。
 
 `.xlsx` の[取り込み](./src/docs/excel-import.md)と[出力](./src/docs/excel-export.md)に対応します。保存・復元の基本形式はJSONです。Excelの完全互換ではなく、グラフ、ピボットテーブル、マクロは含みません。認証・認可・保存先との競合解決は利用側の責務です。[MITライセンス](LICENSE)で、コピーする場合は`src/LICENSE`と`src/THIRD_PARTY_NOTICES.md`も保持してください。npm公開は未実施で、`private: true`は誤公開防止のため維持しています。

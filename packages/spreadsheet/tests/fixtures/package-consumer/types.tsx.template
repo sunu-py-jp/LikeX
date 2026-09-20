@@ -6,11 +6,19 @@ import Spreadsheet, {
   type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSelectionRange, type SpreadsheetSaveHandler,
   type SpreadsheetDrawing, type SpreadsheetMergedRange,
   type SpreadsheetImportNativeOptions, type SpreadsheetNativeExportOptions, type SpreadsheetNativeImportResult, SPREADSHEET_FORMAT,
+  SPREADSHEET_FILE_VERSION, type SpreadsheetFile, type SpreadsheetFileRow,
   prepareSpreadsheetImage, type SpreadsheetHandle, type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot,
 } from "__LIBRARY_IMPORT__";
 import { createRef } from "react";
 
 const workbook: SpreadsheetWorkbook = createWorkbook();
+const nativeRow: SpreadsheetFileRow = { height: 32, cells: { A: { value: '商品' } } };
+const nativeFile: SpreadsheetFile = { format: SPREADSHEET_FORMAT, schemaVersion: SPREADSHEET_FILE_VERSION,
+  sheets: [{ id: 'sheet-1', name: 'Sheet1', rowCount: 300, columnCount: 26, rows: [nativeRow] }] };
+const nativeProps: SpreadsheetProps = { initialWorkbook: parseWorkbook(JSON.stringify(nativeFile)) };
+// @ts-expect-error Native files need decoding before they become initialWorkbook.
+const unsupportedNativeProps: SpreadsheetProps = { initialWorkbook: nativeFile };
+void [nativeProps, unsupportedNativeProps];
 const sheet: SpreadsheetSheet = workbook.sheets[0];
 const cell: SpreadsheetCell = { value: "=SUM(A1:A3)", format: { bold: true, numberFormat: "number" } };
 const format: SpreadsheetCellFormat = { align: "right", color: "#123456" };

@@ -130,7 +130,7 @@ const snapshot: SpreadsheetWorkbook = {
 
 ## 保存と復元
 
-`serializeWorkbook` は検証したJSON文字列を返し、`parseWorkbook` はJSONの構文・形式・サイズを検証してブックを復元します。通常の `JSON.stringify(workbook)` でもJSON化できますが、読み込み時は `parseWorkbook` または `normalizeWorkbook` を使ってください。
+`serializeWorkbook` は検証したモデルを行ごとの保存形式へ変換し、固定書式のJSON文字列を返します。`parseWorkbook` はJSONの構文・形式・サイズを検証し、編集用モデルへ復元します。ファイルへの保存・読み込みはこの2つを使ってください。`normalizeWorkbook` は編集用モデルの検証用で、保存形式の変換は行いません。
 
 ```tsx
 "use client";
@@ -157,7 +157,7 @@ export function WorkbookView({ savedJson, revision }: { savedJson: string; revis
 
 認証、権限、JSONを保存するDBやファイル、競合の検知は親アプリが担当します。`initialWorkbook` はマウント時だけ読み込むため、別の保存データを開く場合は `key` を変更します。変更前に未保存データの扱いを親で確認してください。
 
-`format: "likex.spreadsheet"` と `schemaVersion: 1` を保存します。以前の `{ sheets: [...] }` 形式も読み込めます。異なる形式識別子や未対応のバージョン番号はエラーとし、無理に読み替えません。ファイルとしては [`.spon` 形式](./native-files.md)で読み書きでき、旧 `.json` の入力も維持します。
+このページの `SpreadsheetWorkbook` は編集用モデル（`schemaVersion: 1`）です。`serializeWorkbook` はこれを、行オブジェクトの配列を持つ保存用 `SpreadsheetFile`（`format: "likex.spreadsheet"`、`schemaVersion: 2`）へ変換して、一定の順序・書式で出力します。`parseWorkbook` で編集用モデルへ戻せます。以前の `{ sheets: [...] }` 形式も読み込めます。保存構造と固定ルールは [`.spon` 形式](./native-files.md)を参照してください。
 
 ## APIと機能のOFF指定
 

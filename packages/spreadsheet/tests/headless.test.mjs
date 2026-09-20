@@ -9,12 +9,12 @@ const { applySpreadsheetCommands: apply, createWorkbook, setCellValues, normaliz
   parseWorkbook, calculateWorkbook, setCellDataValidation, MAX_SPREADSHEET_COMMANDS, SPREADSHEET_LIMITS } = api;
 const first = result => result.workbook.sheets[0];
 
-test('model entry runs without React, DOM, CSS or lifecycle imports; only the shared OOXML reader is allowed', () => {
+test('model entry runs without React, DOM, CSS or lifecycle imports; shared JSON and OOXML entries are pure', () => {
   assert.equal(typeof globalThis.document, 'undefined');
   assert.equal(typeof globalThis.window, 'undefined');
   for (const input of Object.keys(output.metafile.inputs)) {
     // Office parsing lives in its own ES2022-only Core entry, never the UI-facing barrel.
-    if (/\/core\/dist\/ooxml\.js$/.test(input)) continue;
+    if (/\/core\/dist\/(?:ooxml|json)\.js$/.test(input)) continue;
     assert.doesNotMatch(input, /node_modules|\/(?:ui|state|core)\/|\/(?:core|props|spreadsheet)\.tsx?$|\.(?:css|tsx)$/);
   }
   assert.ok(Object.values(output.metafile.outputs).every(file => file.imports.length === 0));
@@ -39,7 +39,7 @@ test('parsed workbook and AI command JSON insert populated rows in order and pre
 });
 
 test('a later rejected command returns no partial data and leaves mutable caller JSON untouched', () => {
-  const workbook = JSON.parse(serializeWorkbook(createWorkbook()));
+  const workbook = structuredClone(parseWorkbook(serializeWorkbook(createWorkbook())));
   const commands = [{ type: 'rows.insert', sheetId: 'sheet-1', index: 0 },
     { type: 'cells.set', sheetId: 'sheet-1', values: { A1: '一時値', A99999: '範囲外' } }];
   const before = JSON.stringify({ workbook, commands });
@@ -51,7 +51,7 @@ test('a later rejected command returns no partial data and leaves mutable caller
 });
 
 test('normalization isolates mutable input and changed describes commands, not copy identity', () => {
-  const workbook = JSON.parse(serializeWorkbook(setCellValues(createWorkbook(), 'sheet-1', { A1: '1' })));
+  const workbook = structuredClone(parseWorkbook(serializeWorkbook(setCellValues(createWorkbook(), 'sheet-1', { A1: '1' }))));
   const commands = [{ type: 'cells.format', sheetId: 'sheet-1', addresses: ['A1'], format: { bold: true } }];
   const result = apply(workbook, commands);
   assert.equal(result.ok, true);

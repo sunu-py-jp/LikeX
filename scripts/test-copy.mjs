@@ -40,6 +40,8 @@ async function testConsumer(module) {
     if (ui) await writeFile(path.join(copiedSource, 'core.ts'), 'export * from "../core";\n');
     if (ui && await access(path.join(copiedSource, 'ooxml.ts')).then(() => true, () => false))
       await writeFile(path.join(copiedSource, 'ooxml.ts'), 'export * from "../core/ooxml";\n');
+    if (ui && await access(path.join(copiedSource, 'json.ts')).then(() => true, () => false))
+      await writeFile(path.join(copiedSource, 'json.ts'), 'export * from "../core/json";\n');
     const copiedSourceFiles = await assertSourceBoundary(copiedSource, manifest,
       { allowedSourceRoots: copiedDependencies.map(dependency => dependency.directory) });
     if (ui) assert.match(await readFile(path.join(copiedSource, 'index.ts'), 'utf8'), /^['"]use client['"];/);
@@ -87,7 +89,7 @@ async function testConsumer(module) {
     const headlessModel = libraryModule(module).headlessEntries?.model ? await checkModelConsumer({ module, sourceDirectory: copiedSource }) : undefined;
     const report = {
       source: `packages/${module}/src copied to components/${module} in a temporary project outside the repository`,
-      ...(ui ? { coreSource: 'packages/core/src copied unchanged to components/core', adapterChange: 'core.ts → ../core; ooxml.ts (when present) → ../core/ooxml' } : {}),
+      ...(ui ? { coreSource: 'packages/core/src copied unchanged to components/core', adapterChange: 'core.ts → ../core; ooxml.ts / json.ts (when present) → ../core/ooxml / ../core/json' } : {}),
       copiedSourceFiles, packageImportAvailable: false, installMode, linkedDependencies, testedVersions, dependencyLocations,
       networkInstallationTested: online, typeResolution: 'Bundler, strict, skipLibCheck=false; no aliases', ...(headlessModel ? { headlessModel } : {}),
       ...(ui ? { ssrBytes: ssr.renderedBytes, stylesheetImport: `components/${module}/styles.css` } : { nodeImport: 'passed without React or browser globals' }), ...styles, ...nextStyles,

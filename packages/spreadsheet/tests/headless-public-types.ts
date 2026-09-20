@@ -1,9 +1,19 @@
-import { applySpreadsheetCommands, createWorkbook, serializeWorkbook,
+import { applySpreadsheetCommands, createWorkbook, serializeWorkbook, parseWorkbook, SPREADSHEET_FILE_VERSION,
+  type SpreadsheetFile, type SpreadsheetFileRow, type SpreadsheetFileSheet,
   type SpreadsheetApplyCommandsOptions, type SpreadsheetApplyCommandsResult,
   type SpreadsheetCommand, type SpreadsheetCommandReceipt, type SpreadsheetCommandPlacement, type SpreadsheetInsertValue,
   type SpreadsheetWorkbookSnapshot } from "../src/model-entry";
 
 const workbook: SpreadsheetWorkbookSnapshot = createWorkbook();
+const nativeRow: SpreadsheetFileRow = { height: 28, cells: { A: { value: "商品" }, AA: { value: "右端" } } };
+const nativeSheet: SpreadsheetFileSheet = { id: "sheet-1", name: "Sheet1", rowCount: 300, columnCount: 30, rows: [{}, nativeRow] };
+const nativeFile: SpreadsheetFile = { format: "likex.spreadsheet", schemaVersion: SPREADSHEET_FILE_VERSION, sheets: [nativeSheet] };
+const runtimeWorkbook: SpreadsheetWorkbookSnapshot = parseWorkbook(JSON.stringify(nativeFile));
+// @ts-expect-error Native v2 rows are decoded before being passed to model commands.
+applySpreadsheetCommands(nativeFile, []);
+// @ts-expect-error Native rows are arrays, not a flat address map or one-based row map.
+const invalidRows: SpreadsheetFileSheet["rows"] = { "1": nativeRow };
+void [runtimeWorkbook, invalidRows];
 const commands = [
   { type: "rows.insert", sheetId: "sheet-1", index: 2, count: 2 },
   { type: "rows.insert", sheetId: "sheet-1", index: 2, values: [["商品A", 100, true], ["商品B", 200, null]] },

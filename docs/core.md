@@ -2,7 +2,7 @@
 
 `@likex/core` はコンポーネントと親アプリの接続に使う型・ヘルパーの共通基盤です。保存先、認証、サーバーロック、データモデル、Reactの状態は持ちません。Providerの追加や抽象クラスの継承も不要です。
 
-機能別のAPIと利用例は、[Coreの導入](../packages/core/docs/getting-started.md)、[保存・編集許可](../packages/core/docs/host-contracts.md)、[通知・機能設定](../packages/core/docs/events-and-features.md)、[右クリックの非同期処理](../packages/core/docs/context-menu.md)、[離脱確認](../packages/core/docs/unsaved-changes.md)、[ZIPの生成](../packages/core/docs/zip.md)を参照してください。
+機能別のAPIと利用例は、[Coreの導入](../packages/core/docs/getting-started.md)、[保存・編集許可](../packages/core/docs/host-contracts.md)、[通知・機能設定](../packages/core/docs/events-and-features.md)、[右クリックの非同期処理](../packages/core/docs/context-menu.md)、[離脱確認](../packages/core/docs/unsaved-changes.md)、[ZIPの生成](../packages/core/docs/zip.md)、[JSONの固定書式](../packages/core/docs/stable-json.md)を参照してください。
 
 | 共通部分 | 役割 |
 | --- | --- |
@@ -12,6 +12,7 @@
 | `FeatureFlags` / `resolveFeatureFlags` | 指定されない設定はデフォルトを使い、`false` は機能を無効化 |
 | `chainResult` / `isPromiseLike` | 同期処理の即時性を保ち、必要なときだけPromiseを待つ |
 | `createUnsavedChangesGuard` | dirty時だけウィンドウのネイティブ離脱確認を登録 |
+| `serializeStableJson` | 順序・インデントを固定してJSONを出力。ネイティブ文書では各モジュールのserialize APIから利用 |
 | `createZipArchive` | パス検証・CRC32・UTF-8・無圧縮ZIPの組み立て。ファイル取得・ツリー列挙・ファイル形式の生成は各利用側が担当 |
 | `ContextMenuProvider` / `ContextMenuItem` / `ContextMenuResult` | 条件付きのメニュー項目と、親が準備する変更計画 |
 | `createContextMenuExecutor` | 変更計画の準備・確認・反映・キャンセルを管理する。データ変更と描画は各UIへ委譲 |
@@ -57,7 +58,7 @@ packages/spreadsheet/src/core.ts     export * from "@likex/core"
 
 1. `packages/core/src/` を利用先の `components/core/` へコピーする。
 2. UIの `src/` を `components/explorer/` または `components/spreadsheet/` へコピーする。
-3. UIフォルダの `core.ts` を `export * from "../core";` に変更する。Spreadsheet・LikeSlideは `ooxml.ts` も `export * from "../core/ooxml";` に変更する。
+3. UIフォルダの `core.ts` を `export * from "../core";` に変更する。Spreadsheet・LikeSlideは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更する。
 
 coreは両UIで1つを共有できます。コピー後も元の `@likex/core` に依存させる選択は可能ですが、上記手順ではLikeXパッケージのインストールは不要です。Reactなどの外部依存とUIのCSS読み込みは引き続き必要です。共通実装の自動複製・生成確認・特殊なパス解決は行いません。
 

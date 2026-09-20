@@ -4,7 +4,7 @@ import { artifactRoot, projectRoot } from './run.mjs';
 
 // Distribution differences live here; build/pack/consumer checks are shared.
 const modules = {
-  core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [], headlessEntries: { ooxml: 'ooxml.ts' } },
+  core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [], headlessEntries: { ooxml: 'ooxml.ts', json: 'json.ts' } },
   explorer: {
     ui: true,
     moduleDependencies: ['core'],
@@ -16,7 +16,7 @@ const modules = {
   spreadsheet: {
     ui: true,
     headlessEntries: { model: 'model-entry.ts' },
-    headlessDependencies: ['@likex/core/ooxml'],
+    headlessDependencies: ['@likex/core/ooxml', '@likex/core/json'],
     moduleDependencies: ['core'],
     generatedStyles: false, bundledDependencies: [],
     marker: 'data-likex-spreadsheet', classPrefix: '.lxs-', propertyPrefix: '--lxs-', keyframePrefix: 'lxs',
@@ -26,6 +26,7 @@ const modules = {
   slide: {
     ui: true,
     headlessEntries: { model: 'model-entry.ts' },
+    headlessDependencies: ['@likex/core/json'],
     moduleDependencies: ['core'],
     generatedStyles: false, bundledDependencies: [],
     marker: 'data-likex-slide', classPrefix: '.lxp-', propertyPrefix: '--lxp-', keyframePrefix: 'lxp',

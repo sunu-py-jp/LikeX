@@ -10,6 +10,7 @@
   "types": "./dist/types/index.d.ts",
   "exports": {
     ".": { "types": "./dist/types/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" },
+    "./json": { "types": "./dist/types/json.d.ts", "import": "./dist/json.js", "default": "./dist/json.js" },
     "./ooxml": { "types": "./dist/types/ooxml.d.ts", "import": "./dist/ooxml.js", "default": "./dist/ooxml.js" },
     "./package.json": "./package.json"
   },

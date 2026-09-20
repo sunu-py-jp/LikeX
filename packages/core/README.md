@@ -4,6 +4,8 @@ LikeXコンポーネントの保存・編集許可・通知・機能設定に使
 
 `createPrimaryColorPalette(color, "light" | "dark")` は `#RGB` / `#RRGGBB` のUI色から `{ primary, onPrimary, primaryHover, accent, selection }` を返します。未指定・不正な色は `undefined` です。SpreadsheetとLikeSlideでは `primaryColor` Propsに指定すると内部で適用され、文書の配色は変更しません。
 
+`serializeStableJson(value, { maxLength?, compareKeys?, space? })` は、オブジェクトのキーを全階層でUTF-16昇順に揃え、配列順を保ってJSON文字列を返します。`@likex/core/json` からも読み込めます。`space` は0〜10の整数で、既定の0はコンパクト、2は2スペースのインデントです。書式上の改行はLF、BOM・末尾改行は追加せず、文字列の内容も変えません。`compareKeys(left, right, path)` でドメイン固有のキー順を指定でき、0または非有限の戻り値はUTF-16順になります。`path` は対象オブジェクトまでのキー・配列添字です。`maxLength` は正の整数のUTF-16文字数（インデントを含む）で、上限超過は全体文字列の生成前に `RangeError` になります。循環参照、非有限数、BigInt、関数、Symbolの値・キー、Date等の通常のJSONでない値は拒否します。`undefined` はオブジェクト内なら省略し、配列内なら `null`、ルートならエラーです。LikeXの保存用ルールであり、RFC 8785への完全準拠は表明していません。
+
 ```ts
 import { notifyHost, resolveFeatureFlags } from "@likex/core";
 import type { SaveHandler, EditRequestHandler, EventHandler } from "@likex/core";
@@ -44,6 +46,6 @@ const zip = await createZipArchive([
 
 全パスを検証してから本体を順番に読み、1件でも失敗した場合は全体を中止します。絶対パス・`..`・バックスラッシュ・NUL・不正Unicode・重複・ファイルと親フォルダの衝突を拒否します。ZIP64や圧縮には未対応で、全体は4 GiB未満、65,534項目まで、各パスはUTF-8で65,535バイトまでです。未指定・無効な日時は1980年1月1日、範囲外の将来日時は2107年末に丸めます。端末メモリ内で生成し、ダウンロード開始やストレージ通信は行いません。`signal` による中止は処理境界で確認するため、中止できない外部読込の完了は待ちます。
 
-ExplorerとSpreadsheetは通常のnpm依存として `@likex/core` を利用します。tarballで導入する際はcoreとUIの両tarballをnpmに渡してください。コピー導入では `core/src/` とUIの `src/` を隣接フォルダへ置き、UI側の `core.ts` 1行を `export * from "../core";` へ変更します。自動生成や特殊な解決設定はありません。core単体も `src/` のコピーで利用できます。
+各UIは通常のnpm依存として `@likex/core` を利用します。tarballで導入する際はcoreとUIの両tarballをnpmに渡してください。コピー導入では `core/src/` とUIの `src/` を隣接フォルダへ置き、UI側の `core.ts` を `export * from "../core";` へ変更します。Spreadsheet・Slideは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更します。自動生成や特殊な解決設定はありません。core単体も `src/` のコピーで利用できます。
 
 [MITライセンス](LICENSE)です。コピーする場合は`src/LICENSE`と`src/THIRD_PARTY_NOTICES.md`も保持してください。npm公開は未実施で、`private: true`は誤公開防止のため維持しています。

@@ -27,7 +27,7 @@ Spreadsheetはクライアント側の下書きと操作を担当し、認証・
 "use client";
 
 import { useRef, useState } from "react";
-import Spreadsheet, { type SpreadsheetHandle, type SpreadsheetWorkbook } from "@likex/spreadsheet";
+import Spreadsheet, { parseWorkbook, serializeWorkbook, type SpreadsheetHandle, type SpreadsheetWorkbook } from "@likex/spreadsheet";
 import "@likex/spreadsheet/styles.css";
 
 export function Report({ initial, initialVersion }: {
@@ -50,20 +50,20 @@ export function Report({ initial, initialVersion }: {
       const response = await fetch("/api/report", {
         method: "PUT", signal,
         headers: { "Content-Type": "application/json", "If-Match": version.current },
-        body: JSON.stringify(workbook),
+        body: serializeWorkbook(workbook),
       });
       if (response.status === 412) throw new Error("ほかの利用者が更新しました。内容を確認してください");
       if (!response.ok) throw new Error("保存に失敗しました");
       const saved = await response.json();
       version.current = saved.version;
-      return saved.workbook; // 正規化後のブックを返せます。返さなければ保存時のブックを採用。
+      return parseWorkbook(JSON.stringify(saved.workbook)); // 旧形式・行中心の新形式のどちらも編集用モデルへ復元。
     }}
     onRefresh={async ({ signal }) => {
       const response = await fetch("/api/report", { signal });
       if (!response.ok) throw new Error("再読み込みに失敗しました");
       const latest = await response.json();
       version.current = latest.version;
-      return latest.workbook;
+      return parseWorkbook(JSON.stringify(latest.workbook));
     }}
     onEvent={event => {
       if (event.type === "save" && event.status === "success") setMessage("保存しました");
@@ -182,8 +182,8 @@ const state = api.getEditState();
 | --- | --- |
 | `change` | 確定ブック、変更元 `ui` / `api` / `undo` / `redo`、コマンドの種類 |
 | `save` | `start` / `success` / `error` / `cancelled` |
-| `export` | Excel生成の `start` / `success` / `error` / `cancelled`。[詳細](./excel-export.md) |
-| `import` | Excel取り込みの `start` / `success` / `error` / `cancelled`。[詳細](./excel-import.md) |
+| `export` | Excel・ネイティブ形式の生成の `start` / `success` / `error` / `cancelled`。[Excel出力](./excel-export.md) / [ネイティブ形式](./native-files.md) |
+| `import` | Excel・ネイティブ形式の取り込みの `start` / `success` / `error` / `cancelled`。[Excel取り込み](./excel-import.md) / [ネイティブ形式](./native-files.md) |
 | `refresh` | `start` / `success` / `error` / `cancelled` |
 | `edit-mode` | モード、開始・許可・拒否・終了理由、要求IDと要求内容 |
 | `discard` | 破棄後のブック |
@@ -196,4 +196,4 @@ const state = api.getEditState();
 
 ブラウザの再読み込み・タブやウィンドウを閉じる操作は、未保存時に標準の確認を表示します。`warnOnUnsavedChanges: false` でOFFにできます。文言や確認が表示される条件はブラウザが管理します。SPA内の画面遷移や親によるアンマウントは、`onUnsavedChangesChange` を使って親が確認してください。
 
-この共通契約の型・通知の例外隔離・離脱ガード・機能解決は `@likex/core` が担当します。パッケージでは通常の依存関係として利用します。ソースコピーでは `core` とコンポーネントを並べて配置し、コンポーネントの `core.ts` 一か所を相対参照へ変更します。生成・同期するコードはありません。
+この共通契約の型・通知の例外隔離・離脱ガード・機能解決は `@likex/core` が担当します。パッケージでは通常の依存関係として利用します。ソースコピーでは `core` とコンポーネントを並べて配置し、コンポーネントの `core.ts`・`ooxml.ts`・`json.ts` を隣接するcoreへの相対参照へ変更します。生成・同期するコードはありません。

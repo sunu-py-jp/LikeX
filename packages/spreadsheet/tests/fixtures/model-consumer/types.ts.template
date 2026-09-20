@@ -6,8 +6,17 @@ import {
   type SpreadsheetTable, type SpreadsheetTableColumn, type SpreadsheetSheetReadApi,
   type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot, type SpreadsheetReadApi, type SpreadsheetReadRange, type SpreadsheetInsertValue,
   type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult,
+  SPREADSHEET_FILE_VERSION, type SpreadsheetFile, type SpreadsheetFileRow,
   type SpreadsheetSession, type SpreadsheetSessionOptions, type SpreadsheetHistoryState, type SpreadsheetPastePayload,
 } from '__MODEL_IMPORT__';
+
+const fileRow: SpreadsheetFileRow = { cells: { A: { value: '行 1' } } };
+const nativeFile: SpreadsheetFile = { format: 'likex.spreadsheet', schemaVersion: SPREADSHEET_FILE_VERSION,
+  sheets: [{ id: 'sheet-1', name: 'Sheet1', rowCount: 300, columnCount: 26, rows: [fileRow] }] };
+const decodedFile: SpreadsheetWorkbookSnapshot = parseWorkbook(JSON.stringify(nativeFile));
+// @ts-expect-error Native file rows must be decoded before model commands.
+applySpreadsheetCommands(nativeFile, []);
+void decodedFile;
 
 async function readExcel(bytes: Uint8Array, signal?: SpreadsheetExcelImportOptions['signal']) {
   const options: SpreadsheetExcelImportOptions = { signal };

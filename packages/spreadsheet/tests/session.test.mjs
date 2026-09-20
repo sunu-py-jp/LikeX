@@ -3,18 +3,20 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 
 const output = await build({ stdin: {
-  contents: 'export * from "./src/session/create-spreadsheet-session"; export { createWorkbook, serializeWorkbook } from "./src/model";',
+  contents: 'export * from "./src/session/create-spreadsheet-session"; export { createWorkbook, serializeWorkbook, parseWorkbook } from "./src/model";',
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'session-test.ts',
 }, bundle: true, platform: 'node', format: 'esm', write: false, metafile: true });
-const { createSpreadsheetSession, createWorkbook, serializeWorkbook } = await import(
+const { createSpreadsheetSession, createWorkbook, serializeWorkbook, parseWorkbook } = await import(
   `data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const set = value => ({ type: 'cells.set', sheetId: 'sheet-1', values: { A1: value } });
 const value = session => session.getWorkbook().sheets[0].cells.A1?.value;
 
-test('a headless session imports no React, DOM, component state, UI, CSS or Core runtime', () => {
+test('a headless session imports only model code and the pure Core JSON encoder', () => {
   assert.equal(typeof globalThis.document, 'undefined');
-  for (const input of Object.keys(output.metafile.inputs))
+  for (const input of Object.keys(output.metafile.inputs)) {
+    if (/\/core\/dist\/json\.js$/.test(input)) continue;
     assert.doesNotMatch(input, /node_modules|\/(?:ui|state|core)\/|\/(?:core|props|spreadsheet)\.tsx?$|\.(?:css|tsx)$/);
+  }
   assert.ok(Object.values(output.metafile.outputs).every(file => file.imports.length === 0));
   assert.doesNotMatch(output.outputFiles[0].text, /["']use client["']/);
 });
@@ -99,7 +101,7 @@ test('feature policies are captured at creation and disabled Undo leaves normal 
 });
 
 test('mutable caller data is isolated and clear/replace never serialize or accidentally retain history', () => {
-  const input = JSON.parse(serializeWorkbook(createWorkbook()));
+  const input = structuredClone(parseWorkbook(serializeWorkbook(createWorkbook())));
   const session = createSpreadsheetSession(input);
   input.sheets[0].name = 'Mutated';
   assert.equal(session.getWorkbook().sheets[0].name, 'Sheet1');
@@ -113,7 +115,7 @@ test('mutable caller data is isolated and clear/replace never serialize or accid
     assert.equal(session.getWorkbook(), valid); assert.deepEqual(session.getHistoryState(), history);
     assert.throws(() => createSpreadsheetSession(invalid));
   }
-  const replacement = JSON.parse(serializeWorkbook(createWorkbook()));
+  const replacement = structuredClone(parseWorkbook(serializeWorkbook(createWorkbook())));
   session.replaceWorkbook(replacement); replacement.sheets[0].name = 'Changed again';
   assert.equal(session.getWorkbook().sheets[0].name, 'Sheet1'); assert.equal(value(session), undefined);
   assert.equal(session.undo(), false); assert.equal(session.redo(), false);
