@@ -8,6 +8,8 @@ import { dependencyOrder, libraryModule, requestedModules } from './lib/modules.
 import { consumerDevDependencies, consumerDependencies, copyConsumerFixtures,
   checkConsumerTypes, checkConsumerStyles, checkConsumerNext } from './lib/consumer.mjs';
 import { checkModelConsumer } from './lib/model-consumer.mjs';
+import { allowedPackageFile } from './lib/package-files.mjs';
+import { checkSkillConsumer } from './lib/skill-consumer.mjs';
 
 async function testConsumer(module) {
   const { artifactRoot, packageRoot, npmCacheRoot, ui } = libraryModule(module);
@@ -26,7 +28,7 @@ async function testConsumer(module) {
   const archiveFiles = (await run('tar', ['-tzf', tarball], { capture: true })).trim().split('\n');
   for (const file of archiveFiles) {
     assert.ok(file.startsWith('package/') && !file.includes('\\') && !file.split('/').includes('..'), `Unsafe packed path: ${file}`);
-    assert.match(file, /^package\/(?:(?:package\.json|README\.md|src\/README\.md|src\/(LICENSE|THIRD_PARTY_NOTICES\.md)|src\/docs\/[^/]+\.md|THIRD_PARTY_NOTICES\.md|LICENSE)$|dist(?:\/|$))/);
+    assert.ok(allowedPackageFile(file.slice('package/'.length), module), `Unexpected packed path: ${file}`);
   }
   for (const file of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) {
     assert.equal(await run('tar', ['-xOzf', tarball, `package/${file}`], { capture: true }),
@@ -49,7 +51,7 @@ async function testConsumer(module) {
 
   // Check the packaged documents, not the checkout: relative links must still
   // work after installation. Code examples are not document navigation links.
-  const documentFiles = archiveFiles.filter(file => /^package\/(?:README\.md|src\/README\.md|src\/docs\/[^/]+\.md)$/.test(file));
+  const documentFiles = archiveFiles.filter(file => /^package\/(?:README\.md|src\/README\.md|src\/docs\/[^/]+\.md|skills\/[^/]+\/(?:SKILL\.md|references\/[^/]+\.md))$/.test(file));
   const documents = await Promise.all(documentFiles.map(async file => ({ file,
     markdown: await run('tar', ['-xOzf', tarball, file], { capture: true }),
   })));
@@ -141,10 +143,11 @@ async function testConsumer(module) {
     tsconfig, testedVersions, reportPrefix: 'package-consumer', dependencies: { [packageName]: `file:${tarball}` },
   }) : undefined;
   const headlessModel = libraryModule(module).headlessEntries?.model ? await checkModelConsumer({ module, installed }) : undefined;
+  const skill = await checkSkillConsumer({ module, installed, consumer });
   const report = { packageName, tarball: packed.filename, integrity: packed.integrity, installMode, linkedDependencies, testedVersions, dependencyLocations,
     documentationFiles: documentFiles.length, documentationLinks,
     source: 'unpacked tarball', dependencyTarballs: dependenciesToInstall.map(dependency => dependency.name), networkInstallationTested: online,
-    typeResolution: 'NodeNext, strict, skipLibCheck=false', ...(headlessModel ? { headlessModel } : {}),
+    typeResolution: 'NodeNext, strict, skipLibCheck=false', ...(headlessModel ? { headlessModel } : {}), ...(skill ? { skill } : {}),
     ...(ui ? { ssrBytes: ssr.renderedBytes, stylesheetImport: `${packageName}/styles.css` } : { nodeImport: 'passed without React or browser globals' }), ...styles, ...nextStyles,
     nextProductionBuild: !ui ? 'not applicable (headless core)' : withNext ? 'passed (standard Next App Router, webpack, Next default skipLibCheck=true)' : 'not requested; add --next',
   };

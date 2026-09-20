@@ -15,6 +15,8 @@
 
 [機能別APIリファレンス](docs/APIDocs/index.html) · [ドキュメントの開き方](docs/APIDocs/README.md)
 
+LLMやAIエージェントから `.spon`／`.slon` を操作するための [スキルとCLI](docs/skills.md) も同梱します。`SKILL.md` を入口に、スキーマ参照と公開APIを呼ぶスクリプトを利用できます。
+
 ## Explorerを使う
 
 ```tsx

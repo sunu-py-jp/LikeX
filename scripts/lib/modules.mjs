@@ -15,6 +15,7 @@ const modules = {
   },
   spreadsheet: {
     ui: true,
+    skillName: 'likex-spreadsheet',
     headlessEntries: { model: 'model-entry.ts' },
     headlessDependencies: ['@likex/core/ooxml', '@likex/core/json'],
     moduleDependencies: ['core'],
@@ -25,6 +26,7 @@ const modules = {
   },
   slide: {
     ui: true,
+    skillName: 'likex-slide',
     headlessEntries: { model: 'model-entry.ts' },
     headlessDependencies: ['@likex/core/json'],
     moduleDependencies: ['core'],

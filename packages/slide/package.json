@@ -14,7 +14,7 @@
     "./styles.css": "./dist/styles.css",
     "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md", "src/README.md", "src/docs/*.md", "THIRD_PARTY_NOTICES.md", "LICENSE"],
+  "files": ["dist", "README.md", "src/README.md", "src/docs/*.md", "skills", "THIRD_PARTY_NOTICES.md", "LICENSE"],
   "sideEffects": ["**/*.css"],
   "peerDependencies": { "react": "^19.2.6", "react-dom": "^19.2.6" },
   "dependencies": { "@likex/core": "0.1.0", "lucide-react": "^1.31.0" },

@@ -38,6 +38,8 @@ export default function Budget() {
 
 ## 詳細ガイド
 
+LLM向けの [likex-spreadsheetスキル](./skills/likex-spreadsheet/SKILL.md) を同梱しています。`references/` に保存形式・コマンドのスキーマ、`scripts/document.mjs` に作成・照会・編集・検証のCLIがあります。Node.js 22.13以上と同じバージョンのパッケージを使い、Reactを描画せず操作できます。
+
 `ref` 経由の `execute` / `batch` で、セル・行列・画像・図形などを外側から操作できます。[外部操作API](./src/docs/external-operations.md) に型、具体例、一括処理と保存のルールをまとめています。
 
 画面を用意せずにJSONを編集する場合は `@likex/spreadsheet/model` を使えます。[画面なしでJSONを編集する](./src/docs/headless.md)に、セル設定、値を伴う行挿入、AIの操作JSONをまとめて適用する例があります。

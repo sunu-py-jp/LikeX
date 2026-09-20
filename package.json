@@ -37,7 +37,9 @@
     "test:scripts": "node --test scripts/tests/*.test.mjs",
     "prebenchmark:explorer": "npm run build --workspace @likex/core",
     "docs:build": "node scripts/build-api-docs.mjs",
-    "docs:check": "node scripts/build-api-docs.mjs --check"
+    "docs:check": "node scripts/build-api-docs.mjs --check",
+    "build:skills": "node scripts/build-skill-schemas.mjs && node scripts/build-skill-scripts.mjs",
+    "check:skills": "node scripts/build-skill-schemas.mjs --check && node scripts/build-skill-scripts.mjs --check"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",

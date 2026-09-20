@@ -28,7 +28,8 @@
     "src/README.md",
     "src/docs/*.md",
     "THIRD_PARTY_NOTICES.md",
-    "LICENSE"
+    "LICENSE",
+    "skills"
   ],
   "sideEffects": [
     "**/*.css"
