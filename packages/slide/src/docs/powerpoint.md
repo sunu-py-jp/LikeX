@@ -5,20 +5,25 @@
 ## APIから使う
 
 ```ts
-import { importSlidePptx, exportSlidePptx } from "@likex/slide";
+import { importSlidePptx, exportSlidePptx } from "@likex/slide/model";
 
 const { deck, warnings } = await importSlidePptx(file);
 // warningsを利用側の通知へ表示できます。
-const output: Blob = await exportSlidePptx(deck);
+const output = await exportSlidePptx(deck, {
+  onWarning: message => console.warn(message),
+});
+const bytes = new Uint8Array(await output.arrayBuffer());
 ```
 
 `importSlidePptx` の入力は `Blob | ArrayBuffer | Uint8Array`、第2引数は `{ signal?: AbortSignal }` です。戻り値は `Promise<{ deck: SlideDeck; warnings: string[] }>` です。不正な構造や上限を超えるデータは例外にし、対応しない表現の主な省略・簡略化は `warnings` に返します。
 
 この関数自体はJSONを返すだけで、エディターの下書きや保存先を変更しません。ファイルタブ経由では読み込みに成功した結果を下書きへ反映します。読み込みや出力だけで `onSave` は呼ばれません。
 
-`exportSlidePptx(deck)` はPPTXの `Blob` を返します。親側でダウンロード、サーバー送信、Blob / S3への保存に使えます。
+`exportSlidePptx(deck, options?)` はPPTXの `Blob` を返します。`SlidePptxExportOptions` の `onWarning?: (warning: string) => void` で出力時の変換による欠落を受け取ります。このコールバックは同期で呼ばれ、例外を投げると出力も失敗します。`/model` の公開型はDOM型のないNode.js / Workerでも扱える `SlidePptxExportBlob`（`size`、`type`、`arrayBuffer()`、`text()`）です。実体は通常のBlobで、Reactを読み込まずに変換できます。従来の `@likex/slide` の同名APIは引き続き `Promise<Blob>` を返します。ブラウザーでダウンロードや送信にそのまま渡す場合はこちらも利用できます。
 
 ```tsx
+import { exportSlidePptx } from "@likex/slide";
+
 <LikeSlide initialDeck={deck} onSave={async current => {
   const pptx = await exportSlidePptx(current);
   const response = await fetch("/api/deck.pptx", { method: "PUT", body: pptx });
@@ -34,14 +39,18 @@ const output: Blob = await exportSlidePptx(deck);
 | テキスト | 内容・改行、共通のフォント・サイズ・色・太字・斜体、左右中央揃え、上下中央配置を取り込み、出力 |
 | 基本図形 | 長方形・角丸長方形・楕円・三角形・ひし形・右矢印・直線。位置・サイズ・回転、単色の塗りと線、線幅、図形内の文字を保持 |
 | 埋め込み画像 | PNG・JPEG・GIF・WebPをJSONへ埋め込み。配置枠・回転・不透明度・代替テキストを保持し、出力時も画像を埋め込み |
+| LikeSlideの要素アニメーション | 出力時は全ステップ完了後の静止状態へ変換。タイミング・トリガー・繰り返しは保持せず、定義がある資料では `onWarning` を1度呼ぶ |
+| PPTXのアニメーション・画面切り替え | 読み込みでは省略し、`warnings` へ通知 |
 | 発表者ノート | 本文をテキストとして保持し、ノートとして出力 |
 | レイアウト・マスター・テーマ | プレースホルダーの位置と基本書式、テーマの色・フォントを継承。対応する背景図形も各スライドの要素へ取り込み |
 
 文字の一部分ごとの書式は共通書式へまとめます。箇条書き・段落間隔・縦書き、図形内の細かな文字書式、図形の調整値、破線や線端の装飾は簡略化します。未対応の図形・自由曲線は長方形へ変換します。画像のトリミングは解除して元画像を元の配置枠へ入れ、反転は省略します。SVG・EMF・WMFなどの画像は取り込みません。
 
-グループは内側の要素も含めて省略します。表・グラフ・SmartArt・音声・動画・埋め込みファイル、アニメーション・画面切り替え、影・立体効果なども保持しません。非表示のオブジェクトは省略し、非表示のスライドは表示状態で取り込みます。
+グループは内側の要素も含めて省略します。表・グラフ・SmartArt・音声・動画・埋め込みファイル、影・立体効果なども保持しません。非表示のオブジェクトは省略し、非表示のスライドは表示状態で取り込みます。
 
 マスター・レイアウト・テーマを共有設定として編集・保存するモデルではありません。読み込み時に各スライドへ反映し、出力時は共通のマスター・空のレイアウト・テーマを新しく作ります。ノートの装飾や元のテンプレート構造は復元しません。
+
+アニメーションを編集可能なまま保存する場合はSLONを使います。PPTX出力は最終状態の位置・サイズ・色などを通常の静止オブジェクトへ変換するため、LikeSlideへ再読込してもアニメーション定義は戻りません。独自XMLへの定義埋め込みも行いません。`onWarning` を省略した関数呼び出しでは出力警告を受け取れないため、必要な通知は利用側で接続してください。標準のPresentationMLには[アニメーションと画面切り替えの構造](https://learn.microsoft.com/en-us/office/open-xml/presentation/working-with-animation)がありますが、今回の出力ではそのタイムラインへの変換を提供しません。
 
 `warnings` は主な省略・簡略化の通知であり、完全な互換性の判定ではありません。文字枠の余白・自動調整・改行位置や、フォント・画像の表示はPowerPointのバージョンや表示先環境でも変わります。元のPPTXを再現できる情報をすべて保持するわけではないため、必要なら元ファイルを親側で別に保管してください。
 

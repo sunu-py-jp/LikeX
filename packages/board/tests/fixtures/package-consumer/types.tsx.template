@@ -1,0 +1,7 @@
+import { createRef } from "react";
+import LikeBoard, { createBoard, type BoardHandle, type BoardProps } from "__LIBRARY_IMPORT__";
+const ref = createRef<BoardHandle>();
+const props: BoardProps = { initialBoard: createBoard(), primaryColor: "#2563eb", colorMode: "dark", onSave: async model => model, onBeforeSave: () => true, onEditRequest: async (_request, { signal }) => !signal.aborted, features: { import: false } };
+const view = <LikeBoard ref={ref} {...props} />;
+void ref.current?.execute({ type: "card.update", cardId: "card-1", patch: { title: "Updated" } }); void ref.current?.importNative(new Blob());
+const blob: Blob | undefined = ref.current?.exportNative(); void blob; void view;

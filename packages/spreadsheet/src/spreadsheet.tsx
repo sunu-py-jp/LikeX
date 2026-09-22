@@ -7,7 +7,7 @@ import { useSpreadsheet } from "./state/use-spreadsheet";
 import { useSpreadsheetClipboard } from "./state/use-spreadsheet-clipboard";
 import { SpreadsheetGrid } from "./ui/spreadsheet-grid";
 import { SpreadsheetFormulaBar, SpreadsheetToolbar } from "./ui/spreadsheet-toolbar";
-import { SpreadsheetFooter } from "./ui/spreadsheet-footer";
+import { SpreadsheetFooter, type SpreadsheetFooterHandle } from "./ui/spreadsheet-footer";
 import { SpreadsheetComments } from "./ui/spreadsheet-comments";
 import { useSpreadsheetHandle } from "./api/use-spreadsheet-handle";
 import { useUnsavedChangesGuard } from "./state/use-unsaved-changes-guard";
@@ -36,7 +36,8 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
     (drawing ?? root.current.querySelector<HTMLTextAreaElement>(".lxs-cell-input"))?.focus({ preventScroll: true });
   }, [c.viewRevision, c.selectedDrawingId]);
   const clipboard = useSpreadsheetClipboard(c);
-  const contextMenu = useSpreadsheetContextMenu(c, props, root, clipboard);
+  const sheetRename = useRef<SpreadsheetFooterHandle>(null);
+  const contextMenu = useSpreadsheetContextMenu(c, props, root, clipboard, id => sheetRename.current?.renameSheet(id));
   useUnsavedChangesGuard(root, props.warnOnUnsavedChanges !== false && c.hasUnsavedChanges);
   const [systemDark, setSystemDark] = useState(false);
   useEffect(() => {
@@ -94,7 +95,7 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
       <SpreadsheetComments key={`comments-${c.viewRevision}`} controller={c} />
       <SpreadsheetNamedRangePanel controller={c} manager={namedRangeManager} />
     </div>
-    <SpreadsheetFooter key={`footer-${c.viewRevision}`} controller={c} />
+    <SpreadsheetFooter key={`footer-${c.viewRevision}`} controller={c} renameRef={sheetRename} />
     {namedRangeTarget && <NamedRangeDialog key={JSON.stringify([namedRangeTarget.id, namedRangeTarget.sheetId, namedRangeTarget.revision])}
       controller={c} target={namedRangeTarget} onClose={namedRangeManager.closeDialog} />}
     <SpreadsheetContextMenu controller={contextMenu} root={root} />

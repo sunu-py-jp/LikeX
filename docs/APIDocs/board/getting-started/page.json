@@ -1,0 +1,11 @@
+{
+  "title": "導入・ホスト連携",
+  "summary": "LikeBoardの導入・ホスト連携",
+  "source": "packages/board/src/docs/getting-started.md",
+  "order": 0,
+  "section": "はじめに",
+  "keywords": [
+    "board",
+    "導入・ホスト連携"
+  ]
+}

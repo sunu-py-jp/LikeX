@@ -1,0 +1,8 @@
+{
+  "title": "JSONエディターの共通制御",
+  "summary": "保存・編集許可・履歴・非同期処理を共通controllerで扱います。",
+  "source": "packages/core/docs/model-editor.md",
+  "order": 15,
+  "section": "ホストとの連携",
+  "keywords": ["createModelEditorController", "ModelEditorAdapter", "runTask", "prepare", "Undo"]
+}

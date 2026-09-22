@@ -33,8 +33,8 @@ export type ExplorerIconRenderer = (
 
 export type ExplorerSelectedFileMode = "select" | "preview";
 
-export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave" | "onRefresh" | "onEditRequest"> & {
-  /** Navigate/select files in the main pane and manage host notifications. */
+export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave" | "onRefresh" | "onEditRequest" | "getEntryPermissions"> & {
+  /** Read/edit the main pane's draft, navigate/select/preview, and manage host notifications. */
   ref?: Ref<ExplorerHandle>;
   /** Read on mount only. Change the React key to open another workspace. */
   initialEntries: readonly Entry[];
@@ -48,7 +48,7 @@ export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave
   previewTrigger?: ExplorerPreviewTrigger;
   /** Observe local operations and lifecycle notifications; does not persist or veto them. */
   onEvent?: ExplorerEventHandler;
-  /** Restrictions checked before staging local files; omitted values are unrestricted. */
+  /** Restrictions checked before staging local files. Videos default to a four-hour limit. */
   upload?: ExplorerUploadOptions;
   /** Search on input (default) or submit. Optional debounce applies to external input searches. */
   search?: ExplorerSearchOptions;

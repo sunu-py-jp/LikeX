@@ -1,0 +1,9 @@
+{
+  "title": "外部からの編集・取得",
+  "summary": "refを通して表示中の下書きへ編集・取込・保存・破棄・再取得・ダウンロードを要求します。",
+  "source": "packages/explorer/src/docs/api-reference.md",
+  "sections": ["表示中の一覧取得・編集"],
+  "order": 96,
+  "keywords": ["ExplorerHandle", "ExplorerCommandHandle", "getEntries", "execute", "upload", "save", "discard", "refresh", "download"],
+  "section": "表示と操作設定"
+}

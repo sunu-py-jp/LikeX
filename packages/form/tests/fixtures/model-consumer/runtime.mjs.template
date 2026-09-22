@@ -1,0 +1,6 @@
+import assert from "node:assert/strict";
+import { createForm, executeFormCommands, parseForm, serializeForm, validateFormAnswers } from "__MODEL_IMPORT__";
+const form = executeFormCommands(createForm(), [{ type: "field.add", field: { id: "name", type: "text", label: "Name", required: true } }]);
+assert.equal(typeof window, "undefined"); assert.equal(validateFormAnswers(form, {}).valid, false);
+assert.equal(validateFormAnswers(form, { name: "Alex" }).valid, true); assert.deepEqual(parseForm(serializeForm(form)), form);
+console.log(JSON.stringify({ headless: "passed", fields: form.fields.length }));

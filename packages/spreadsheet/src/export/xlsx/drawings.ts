@@ -6,6 +6,7 @@ import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "../../model/sheet-dime
 import { SPREADSHEET_LIMITS, type SpreadsheetDrawing, type SpreadsheetDrawingAnchor, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../../model/types";
 import { checkImageExportCancellation, createXlsxMediaRegistry, prepareXlsxMedia, type XlsxImage, type XlsxMediaRegistry } from "./images";
 import type { XlsxContentType, XlsxPart } from "./types";
+import type { SpreadsheetImageRasterizer } from "../portable-types";
 import { xml, xlsxColor } from "./xml";
 
 const DRAWING_NS = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing";
@@ -135,7 +136,7 @@ function textBox(drawing: Extract<SpreadsheetDrawing, { type: "text" }>, id: num
 
 /** Build native DrawingML parts. sheetIndex is the one-based OOXML sheet number. */
 export async function prepareWorksheetDrawings(sheet: SpreadsheetSheet, inputResources: SpreadsheetWorkbook["resources"],
-  { sheetIndex, signal, media = createXlsxMediaRegistry() }: { sheetIndex: number; signal?: AbortSignal; media?: XlsxMediaRegistry }): Promise<XlsxWorksheetDrawings> {
+  { sheetIndex, signal, media = createXlsxMediaRegistry(), rasterizeImage }: { sheetIndex: number; signal?: AbortSignal; media?: XlsxMediaRegistry; rasterizeImage?: SpreadsheetImageRasterizer }): Promise<XlsxWorksheetDrawings> {
   checkImageExportCancellation(signal);
   if (!Number.isInteger(sheetIndex) || sheetIndex < 1) throw new Error("シートの番号が正しくありません");
   const resources = normalizeResources(inputResources);
@@ -152,7 +153,7 @@ export async function prepareWorksheetDrawings(sheet: SpreadsheetSheet, inputRes
     if (drawing.type === "image") {
       let record = images.get(drawing.resourceId);
       if (!record) {
-        const prepared = await prepareXlsxMedia(drawing.resourceId, resources!.images![drawing.resourceId], sheetIndex, media, signal);
+        const prepared = await prepareXlsxMedia(drawing.resourceId, resources!.images![drawing.resourceId], sheetIndex, media, signal, rasterizeImage);
         const { image, filename } = prepared.media;
         const number = images.size + 1;
         record = { image, relationship: `rIdImage${number}`, filename };

@@ -2,6 +2,7 @@
 
 import { useCallback, useLayoutEffect, useRef, type FocusEvent, type InputEvent, type KeyboardEvent, type RefObject } from "react";
 import { cellAddress } from "../../model/address";
+import { getDrawingBounds } from "../../model/drawing-placement";
 import { getMergedRange, mergedCellPosition } from "../../model/merges";
 import type { SpreadsheetCellPosition, SpreadsheetSheet } from "../../model/types";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
@@ -38,7 +39,7 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
     const previous = replacedFocusedInput.current;
     replacedFocusedInput.current = null;
     const input = activeInput.current;
-    if (!previous || !input || c.selectedDrawingId) return;
+    if (!previous || !input || c.selectedDrawingId || c.selectionFocus === false) return;
     const document = input.ownerDocument;
     // A host callback or pending permission may move focus outside the grid.
     if (document.activeElement && document.activeElement !== document.body && document.activeElement !== previous) return;
@@ -49,28 +50,41 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
   const editAtEnd = useRef(false);
   const editCaret = useRef<number | null>(null);
   const lastFocusRequest = useRef(c.gridFocusRequest);
+  const lastRevealRequest = useRef(c.gridRevealRequest);
+  const lastSelection = useRef<SpreadsheetController["selection"] | null>(null);
   useLayoutEffect(() => {
     if (!scrollerRef.current) return;
-    const left = widths.slice(0, c.selection.focus.column).reduce((sum, width) => sum + width, ROW_HEADER_WIDTH);
-    const right = left + widths[c.selection.focus.column];
-    const top = rowOffsets[c.selection.focus.row];
-    const bottom = rowOffsets[c.selection.focus.row + 1];
+    const focusRequested = lastFocusRequest.current !== c.gridFocusRequest;
+    const revealRequested = lastRevealRequest.current !== c.gridRevealRequest;
+    const selectionChanged = lastSelection.current !== c.selection;
     const element = scrollerRef.current;
-    if (top < element.scrollTop + ROW_HEIGHT) element.scrollTop = top - ROW_HEIGHT;
-    else if (bottom > element.scrollTop + element.clientHeight) element.scrollTop = bottom - element.clientHeight;
-    if (left < element.scrollLeft + ROW_HEADER_WIDTH) element.scrollLeft = left - ROW_HEADER_WIDTH;
-    else if (right > element.scrollLeft + element.clientWidth) element.scrollLeft = right - element.clientWidth;
-    // A drawing lives inside this scroller too. A repeated mount effect (such
-    // as StrictMode history restoration) must not take its focus back to a cell.
-    if (!c.selectedDrawingId && (focusIntent.current || lastFocusRequest.current !== c.gridFocusRequest || element.contains(element.ownerDocument.activeElement))) {
+    if (c.selectionReveal !== false || revealRequested || focusRequested) {
+      let left = widths.slice(0, c.selection.focus.column).reduce((sum, width) => sum + width, ROW_HEADER_WIDTH);
+      let right = left + widths[c.selection.focus.column];
+      let top = rowOffsets[c.selection.focus.row], bottom = rowOffsets[c.selection.focus.row + 1];
+      if (c.selectedDrawingId) {
+        const bounds = getDrawingBounds(c.workbook, c.activeSheet.id, c.selectedDrawingId);
+        left = bounds.left + ROW_HEADER_WIDTH; right = bounds.right + ROW_HEADER_WIDTH;
+        top = bounds.top + ROW_HEIGHT; bottom = bounds.bottom + ROW_HEIGHT;
+      }
+      if (top < element.scrollTop + ROW_HEIGHT || bottom - top > element.clientHeight - ROW_HEIGHT) element.scrollTop = Math.max(0, top - ROW_HEIGHT);
+      else if (bottom > element.scrollTop + element.clientHeight) element.scrollTop = bottom - element.clientHeight;
+      if (left < element.scrollLeft + ROW_HEADER_WIDTH || right - left > element.clientWidth - ROW_HEADER_WIDTH) element.scrollLeft = Math.max(0, left - ROW_HEADER_WIDTH);
+      else if (right > element.scrollLeft + element.clientWidth) element.scrollLeft = right - element.clientWidth;
+    }
+    // External selection and explicit reveal never steal keyboard focus.
+    if (!c.selectedDrawingId && (focusRequested || (c.selectionFocus !== false && selectionChanged &&
+      (focusIntent.current || element.contains(element.ownerDocument.activeElement))))) {
       activeInput.current?.focus({ preventScroll: true });
       activeInput.current?.setSelectionRange(0, 0);
     }
     focusIntent.current = false;
     lastFocusRequest.current = c.gridFocusRequest;
+    lastRevealRequest.current = c.gridRevealRequest;
+    lastSelection.current = c.selection;
     // Column sizes are independent of changing the selected position.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [c.selection.sheetId, c.selection.focus.row, c.selection.focus.column, c.gridFocusRequest]);
+  }, [c.selection.sheetId, c.selection.focus.row, c.selection.focus.column, c.selectedDrawingId, c.gridFocusRequest, c.gridRevealRequest]);
   useLayoutEffect(() => {
     if (!c.editing) return;
     if (editCaret.current !== null) { activeInput.current?.setSelectionRange(editCaret.current, editCaret.current); editCaret.current = null; return; }

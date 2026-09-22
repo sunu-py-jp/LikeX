@@ -8,6 +8,9 @@
     "SpreadsheetCellFormat",
     "cells.format",
     "dimensions.resize",
+    "dimensions.autoFit",
+    "createSpreadsheetAutoFitCommand",
+    "createSpreadsheetTextMeasurer",
     "rows.resize",
     "conditionalFormats.set",
     "SpreadsheetConditionalFormatRule"

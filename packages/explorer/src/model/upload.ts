@@ -1,5 +1,12 @@
 import { fileExtension } from "./text";
 import type { ExplorerEntry } from "./draft";
+import {
+  compareUploadContentMetadata, contentInspectionFailedRejection,
+  createExplorerUploadInspectionContext, ensureUploadContentInspection,
+  getUploadContentRule, normalizeUploadContentLimits, readUploadContentInspection,
+  type ExplorerUploadContentLimitsByExtension, type ExplorerUploadContentRejectionReason,
+  type ExplorerUploadInspectFile, type ExplorerUploadInspectionContext,
+} from "./upload-content";
 
 export type ExplorerUploadInvalidFileBehavior = "reject-batch" | "skip";
 
@@ -9,6 +16,10 @@ export type ExplorerUploadOptions = Readonly<{
   maxFileSizeBytes?: number;
   /** Matching suffixes override maxFileSizeBytes; the longest compound suffix wins. */
   maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
+  /** Videos default to 14,400 seconds. False disables one suffix's content limit. */
+  contentLimitsByExtension?: ExplorerUploadContentLimitsByExtension;
+  /** Override metadata inspection; undefined results delegate to the built-in reader. */
+  inspectFile?: ExplorerUploadInspectFile;
   /** Files actually added or overwritten by one import, excluding rejected or skipped files. */
   maxFilesPerUpload?: number;
   /** Files across the entire draft, including unsaved additions. */
@@ -20,6 +31,8 @@ export type ResolvedExplorerUploadOptions = Readonly<{
   allowedExtensions: readonly `.${string}`[] | undefined;
   maxFileSizeBytes: number | undefined;
   maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
+  contentLimitsByExtension?: ExplorerUploadContentLimitsByExtension;
+  inspectFile?: ExplorerUploadInspectFile;
   maxFilesPerUpload?: number;
   maxTotalFiles?: number;
   invalidFileBehavior: ExplorerUploadInvalidFileBehavior;
@@ -27,6 +40,7 @@ export type ResolvedExplorerUploadOptions = Readonly<{
 }>;
 
 export type ExplorerUploadRejectionReason =
+  | ExplorerUploadContentRejectionReason
   | Readonly<{
       code: "extension-not-allowed";
       allowedExtensions: readonly string[];
@@ -68,7 +82,7 @@ export type ExplorerUploadResult = Readonly<{
 
 /** Work completed so far while inspecting or preparing a local import, not byte transfer. */
 export type ExplorerImportProgress = Readonly<{
-  phase: "discovering" | "checking" | "preparing";
+  phase: "discovering" | "checking" | "inspecting" | "preparing";
   completed: number;
   /** Directory enumeration cannot know its total until every reader is exhausted. */
   total?: number;
@@ -100,6 +114,27 @@ function cloneUploadConflict(conflict: ExplorerUploadConflict): ExplorerUploadCo
 
 const uploadSessionBrand: unique symbol = Symbol("ExplorerUploadSession");
 const uploadSessions = new WeakSet<object>();
+const inspections = new WeakMap<ExplorerUploadSession, ExplorerUploadInspectionContext>();
+
+// Loading this model never touches the DOM or imports a parser. The reader is
+// selected lazily only when the asynchronous import actually needs metadata.
+const builtinInspector: ExplorerUploadInspectFile = async request =>
+  (await import("../inspection/index")).inspectExplorerUploadFile(request);
+
+function inspectionContext(session: ExplorerUploadSession): ExplorerUploadInspectionContext {
+  if (!isExplorerUploadSession(session)) throw new Error("アップロードの確認セッションが正しくありません");
+  let context = inspections.get(session);
+  if (!context) { context = createExplorerUploadInspectionContext(); inspections.set(session, context); }
+  return context;
+}
+
+/** Synchronous imports must never silently omit a requested content check. */
+export class ExplorerUploadInspectionRequiredError extends Error {
+  constructor() {
+    super("ファイルの内容確認が必要です。addFilesWithResultAsync または非同期の追加APIを使用してください");
+    this.name = "ExplorerUploadInspectionRequiredError";
+  }
+}
 
 /** An opaque, caller-scoped token that keeps one batch's provisional IDs stable. */
 export type ExplorerUploadSession = Readonly<{ [uploadSessionBrand]: true }>;
@@ -190,6 +225,10 @@ export function resolveUploadOptions(options?: ExplorerUploadOptions): ResolvedE
   if (maxFileSizeBytes !== undefined) validateUploadLimit(maxFileSizeBytes, "maxFileSizeBytes");
   const extensionLimits = options?.maxFileSizeBytesByExtension;
   const maxFileSizeBytesByExtension = extensionLimits === undefined ? undefined : normalizeExtensionSizeLimits(extensionLimits);
+  const contentLimitsByExtension = options?.contentLimitsByExtension === undefined ? undefined
+    : normalizeUploadContentLimits(options.contentLimitsByExtension);
+  const inspectFile = options?.inspectFile;
+  if (inspectFile !== undefined && typeof inspectFile !== "function") throw new Error("inspectFile は関数で指定してください");
   const maxFilesPerUpload = options?.maxFilesPerUpload;
   if (maxFilesPerUpload !== undefined) validateUploadLimit(maxFilesPerUpload, "maxFilesPerUpload");
   const maxTotalFiles = options?.maxTotalFiles;
@@ -201,6 +240,8 @@ export function resolveUploadOptions(options?: ExplorerUploadOptions): ResolvedE
     allowedExtensions,
     maxFileSizeBytes,
     ...(maxFileSizeBytesByExtension ? { maxFileSizeBytesByExtension } : {}),
+    ...(contentLimitsByExtension ? { contentLimitsByExtension } : {}),
+    ...(inspectFile ? { inspectFile } : {}),
     ...(maxFilesPerUpload === undefined ? {} : { maxFilesPerUpload }),
     ...(maxTotalFiles === undefined ? {} : { maxTotalFiles }),
     invalidFileBehavior: invalidFileBehavior ?? "reject-batch",
@@ -249,6 +290,7 @@ export function createUploadRejection(
 export function validateUploadFiles<T extends Readonly<{ file: File; name: string; relativePath: string }>>(
   files: readonly T[],
   options: ResolvedExplorerUploadOptions,
+  session?: ExplorerUploadSession,
 ): { accepted: T[]; rejections: ExplorerUploadRejection[] } {
   const accepted: T[] = [];
   const rejections: ExplorerUploadRejection[] = [];
@@ -278,10 +320,55 @@ export function validateUploadFiles<T extends Readonly<{ file: File; name: strin
         message: `${file.size}バイトは1ファイルの上限${maxFileSizeBytes}バイトを超えています`,
       });
     }
+    const rule = getUploadContentRule(name, options.contentLimitsByExtension);
+    if (!reasons.length && rule) {
+      if (file.size === 0) reasons.push({ ...contentInspectionFailedRejection(rule),
+        message: "空ファイルは内容を確認できません。実際のファイルをアップロードしてください" });
+      else {
+        const inspected = session && readUploadContentInspection({ context: inspectionContext(session), file, rule,
+          inspectFile: options.inspectFile, builtinInspector });
+        if (!inspected) throw new ExplorerUploadInspectionRequiredError();
+        const reason = inspected.status === "failed" ? inspected.reason : compareUploadContentMetadata(rule, inspected.metadata);
+        if (reason) reasons.push(reason);
+      }
+    }
     if (reasons.length) rejections.push(createUploadRejection(candidate, reasons));
     else accepted.push(candidate);
   }
   if (rejections.length && options.invalidFileBehavior !== "skip")
     throw new ExplorerUploadValidationError(rejections);
   return { accepted, rejections };
+}
+
+/** Default video rules also apply when upload options are omitted. */
+export function requiresUploadContentInspection(files: readonly File[], upload?: ExplorerUploadOptions): boolean {
+  const options = resolveUploadOptions(upload);
+  return files.some(file => {
+    if (typeof file?.name !== "string") return false;
+    const path = typeof file.webkitRelativePath === "string" && file.webkitRelativePath ? file.webkitRelativePath : file.name;
+    return getUploadContentRule(path.split("/").at(-1)!.trim().normalize("NFC"), options.contentLimitsByExtension) !== undefined;
+  });
+}
+
+/** Facts are private to this batch; staging still compares the current limits. */
+export async function* inspectUploadCandidates(files: readonly Readonly<{ file: File; name: string; relativePath: string }>[],
+  options: ResolvedExplorerUploadOptions, session: ExplorerUploadSession, signal: AbortSignal): AsyncGenerator<ExplorerImportProgress, void> {
+  const context = inspectionContext(session);
+  signal.throwIfAborted();
+  yield { phase: "inspecting", completed: 0, total: files.length };
+  for (const [index, candidate] of files.entries()) {
+    signal.throwIfAborted();
+    const rule = getUploadContentRule(candidate.name, options.contentLimitsByExtension);
+    if (rule && candidate.file.size !== 0) {
+      // Only suppress the content check while applying the exact same cheap
+      // extension/size rules; rejected bytes are never parsed.
+      const unchecked = { ...options, invalidFileBehavior: "skip" as const,
+        contentLimitsByExtension: { ...options.contentLimitsByExtension, [rule.extension]: false as const } };
+      if (validateUploadFiles([candidate], unchecked).accepted.length) {
+        await ensureUploadContentInspection({ context, file: candidate.file, rule, inspectFile: options.inspectFile, builtinInspector, signal });
+        signal.throwIfAborted();
+      }
+    }
+    yield { phase: "inspecting", completed: index + 1, total: files.length };
+  }
 }

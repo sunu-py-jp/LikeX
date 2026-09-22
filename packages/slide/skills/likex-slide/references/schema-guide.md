@@ -117,3 +117,12 @@ IDは空白を含まない1〜200文字。スライドIDは資料内で一意、
 | コマンド配列 | 1,000件 |
 
 `createSlideDeck` / `slide.add` / `element.add` ではIDを指定でき、省略時は生成する。追加したものを同じバッチ内で参照するなら、一意のIDを明示する。`slide.duplicate` は新しいスライドIDと全要素の新しいIDを生成し、`element.duplicate` も新しい要素IDを生成する。生成されたIDを予測しない。保存操作自体は既存IDを変えない。
+
+
+## アニメーションの保存
+
+`SlideFilePage.animations` は省略可能なステップ配列。version 1の追加フィールドで、元の要素値とアニメーションの全定義を保存する。`parseSlideDeck` / `serializeSlideDeck` は定義を保持するが、get APIの既定値は全ステップ終了後の静止値で定義を除く。原本は `getDeck(deck, { includeAnimations: true })` で取得する。`getSlide/getSlides` も同オプションでページの定義を保持するが、`getElement/getElements` は元の要素値だけを返す。定義だけなら `getAnimations(deck, slideId)` を使う。
+
+各ステップは `id`, `name?`, `trigger?`, `animation`。`animation` はsequence/parallelのchildrenを持つ再帰木か、要素IDと開始・終了プロパティを持つtween。ステップ順とchildren順は意味があるため並べ替えない。参照先ID・同一プロパティの重複時間帯・深さ・数値の上限をランタイムが検証する。構造は生成JSON Schema、操作例と評価方法は [アニメーション](commands.md#アニメーション)を参照する。
+
+JSON内のアニメーションは宣言的データであり、JavaScriptや数式を実行しない。PPTXへは最終静止状態だけを変換するため、アニメーション編集用の原本保存にはSLONを使う。

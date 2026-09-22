@@ -1,5 +1,5 @@
 import { createRef } from "react";
-import LikeSlide, { createSlideDeck, createSlideElement, applySlideCommands, createSlideSession, type SlideProps, type SlideHandle, type SlideCommand } from "__LIBRARY_IMPORT__";
+import LikeSlide, { createSlideDeck, createSlideElement, applySlideCommands, createSlideSession, exportImage, exportImages, type SlideImageResult, type SlideProps, type SlideHandle, type SlideCommand } from "__LIBRARY_IMPORT__";
 const deck = createSlideDeck();
 const command: SlideCommand = { type: "element.add", slideId: deck.slides[0].id, element: { type: "text", text: "API" } };
 const updated = applySlideCommands(deck, command);
@@ -8,9 +8,41 @@ session.undo(); session.markSaved();
 const props: SlideProps = { initialDeck: deck, colorMode: "system", primaryColor: "#2563eb", features: { images: false }, onSave: async current => current, onEditRequest: async (_request, { signal }) => !signal.aborted, onBeforeSave: () => true };
 const ref = createRef<SlideHandle>();
 const view = <LikeSlide ref={ref} {...props} />;
+const nativeExport: Promise<Blob> | undefined = ref.current?.exportNative();
+void nativeExport;
+void ref.current?.importNative('{"format":"likex.slide"}');
+void ref.current?.importNative(new Blob());
 void view; void createSlideElement({ type: "shape", shape: "ellipse" });
 // @ts-expect-error Only supported element kinds can be created.
 createSlideElement({ type: "video" });
 // @ts-expect-error Unknown patch fields are rejected by the public command type.
 const badPatch: SlideCommand = { type: "element.update", slideId: "slide", elementId: "title", patch: { fontSzie: 48 } };
 void badPatch;
+const png: Promise<SlideImageResult<Blob>> = exportImage(deck, { pageNumber: 1 });
+const pages: Promise<SlideImageResult<Blob>[]> = exportImages(deck, { range: { from: 1, to: 2 }, scale: 2 });
+void png; void pages;
+void ref.current?.exportImage({ slideId: deck.slides[0].id });
+void ref.current?.exportImages({ pageNumbers: [2, 1] });
+void ref.current?.exportImages();
+// @ts-expect-error Exactly one single-page target is required.
+void exportImage(deck, {});
+// @ts-expect-error Page range and individual page selectors cannot be combined.
+void exportImages(deck, { range: { from: 1, to: 2 }, pageNumbers: [1] });
+// @ts-expect-error PNG is the supported image output format.
+void exportImage(deck, { pageNumber: 1, format: "jpeg" });
+void ref.current?.getDeck({ includeAnimations: true });
+void ref.current?.getSlides();
+void ref.current?.getSlide(deck.slides[0].id, { includeAnimations: true });
+void ref.current?.getElements(deck.slides[0].id);
+void ref.current?.getElement(deck.slides[0].id, 'box');
+void ref.current?.getAnimations(deck.slides[0].id);
+void ref.current?.exportPptx({ onWarning: warning => { void warning.toUpperCase(); } });
+void exportImage(deck, { pageNumber: 1, animationState: 'initial' });
+const animationCommand: SlideCommand = { type: 'animation.set', slideId: deck.slides[0].id, animations: [{
+  id: 'entrance', trigger: { type: 'click' }, animation: { type: 'tween', elementId: 'box', durationMs: 600, easing: 'spring', to: { x: 400, opacity: 1 } },
+}] };
+void animationCommand;
+// @ts-expect-error Animation query flag must be boolean.
+void ref.current?.getDeck({ includeAnimations: 'full' });
+// @ts-expect-error Animation state is explicit, not an arbitrary timestamp.
+void exportImage(deck, { pageNumber: 1, animationState: 'playing' });

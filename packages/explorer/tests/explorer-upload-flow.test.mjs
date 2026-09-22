@@ -348,3 +348,204 @@ test('aborting after asynchronous preparation invalidates its uncommitted candid
   assert.equal(app.requests.length, 0);
   assert.equal(app.events.filter(e => e.type === 'change').length, 0);
 });
+
+test('one video uses asynchronous content validation, shows a local preview and rejects before requesting permission', async t => {
+  const started = deferred(), metadata = deferred();
+  const inspections = [];
+  const app = await mount(t, { upload: { inspectFile(request) {
+    inspections.push(request); started.resolve(); return metadata.promise;
+  } } });
+  const before = app.main.entries, incoming = file('Too-long.mp4');
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles([incoming], 'file', 'root'); });
+  await change(() => started.promise);
+  assert.equal(inspections.length, 1);
+  assert.equal(inspections[0].file, incoming);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.notification.kind, 'progress');
+  assert.match(app.main.notification.message, /内容/);
+  assert.ok(app.main.pendingImportEntries.some(item => item.entry.name === incoming.name));
+  assert.equal(app.child.pendingImportEntries.length, 0);
+  assert.equal(app.requests.length, 0);
+  await change(() => metadata.resolve({ kind: 'video', durationSeconds: 14_401 }));
+  await change(() => pending);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.pendingImportEntries.length, 0);
+  assert.equal(app.main.notification.kind, 'error');
+  const rejections = app.events.filter(event => event.type === 'upload' && event.status === 'rejected');
+  assert.equal(rejections.length, 1);
+  assert.equal(rejections[0].rejections[0].reasons[0].code, 'duration-exceeded');
+  assert.equal(app.requests.length, 0);
+});
+
+test('the public upload handle awaits the same content check and permission flow as file selection', async t => {
+  const started = deferred(), metadata = deferred(), ref = { current: null };
+  const app = await mount(t, { ref, upload: { inspectFile() { started.resolve(); return metadata.promise; } } });
+  const incoming = file('At-limit.mp4'), before = app.main.entries;
+  let pending, result;
+  await change(() => { pending = ref.current.upload([incoming], 'root').then(value => { result = value; }); });
+  await change(() => started.promise);
+  assert.equal(result, undefined);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.requests.length, 0);
+  await change(() => metadata.resolve({ kind: 'video', durationSeconds: 14_400 }));
+  await change(() => pending);
+  assert.equal(result, true);
+  assert.equal(app.main.entries.find(item => item.name === incoming.name).source.file, incoming);
+  assert.equal(app.requests.length, 1);
+  assert.equal(app.events.filter(event => event.type === 'change' && event.action === 'upload').length, 1);
+  assert.equal(app.saves.length, 0);
+});
+
+test('the low-level addAsync hook validates content before its atomic commit and reports progress', async t => {
+  const app = await mount(t, { onEditRequest: undefined, upload: { inspectFile: () => ({ kind: 'video', durationSeconds: 20 }) } });
+  const incoming = file('Checked.mp4'), progress = [];
+  let result;
+  await change(async () => { result = await app.workspace.draft.addAsync([incoming], 'root', [], undefined, { onProgress: value => progress.push(value) }); });
+  assert.equal(result.addedCount, 1);
+  assert.equal(app.main.entries.find(item => item.name === incoming.name).source.file, incoming);
+  assert.ok(progress.some(value => value.phase === 'inspecting'));
+  assert.equal(app.events.filter(event => event.type === 'change' && event.action === 'upload').length, 1);
+});
+
+for (const reason of ['signal', 'readonly', 'save', 'discard']) test(`low-level addAsync stops a pending inspector after ${reason}`, async t => {
+  const started = deferred(), metadata = deferred(), controller = new AbortController();
+  let inspectionSignal;
+  const app = await mount(t, { onEditRequest: undefined, upload: { inspectFile({ signal }) {
+    inspectionSignal = signal; started.resolve(); return metadata.promise;
+  } } });
+  const before = app.main.entries;
+  let pending;
+  await change(() => { pending = app.workspace.draft.addAsync([file('Pending.mp4')], 'root', [], undefined, { signal: controller.signal })
+    .then(value => ({ value }), error => ({ error })); });
+  await change(() => started.promise);
+  if (reason === 'signal') await change(() => controller.abort());
+  if (reason === 'readonly') await app.update({ readOnly: true });
+  if (reason === 'save') await change(() => app.workspace.draft.save());
+  if (reason === 'discard') await change(() => app.workspace.draft.discard());
+  let result;
+  await change(async () => { result = await pending; });
+  assert.equal(result.error?.name, 'AbortError');
+  assert.equal(inspectionSignal.aborted, true);
+  assert.equal(app.main.entries, before);
+  await change(() => metadata.resolve({ kind: 'video', durationSeconds: 20 }));
+  assert.equal(app.main.entries, before);
+  assert.equal(app.events.filter(event => event.type === 'upload' || event.type === 'change').length, 0);
+});
+
+test('relaxing a page limit during inspection reuses metadata without reporting the obsolete rejection', async t => {
+  const started = deferred(), metadata = deferred();
+  let inspections = 0;
+  const inspectFile = () => { inspections++; started.resolve(); return metadata.promise; };
+  const app = await mount(t, { upload: { contentLimitsByExtension: { '.pdf': { maxPages: 3 } }, inspectFile } });
+  const incoming = file('Pages.pdf');
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles([incoming], 'file', 'root'); });
+  await change(() => started.promise);
+  await app.update({ upload: { contentLimitsByExtension: { '.pdf': { maxPages: 10 } }, inspectFile } });
+  await change(() => metadata.resolve({ kind: 'pdf', pages: 8 }));
+  await change(() => pending);
+  assert.equal(inspections, 1);
+  assert.equal(app.main.entries.find(item => item.name === incoming.name).source.file, incoming);
+  assert.equal(app.events.filter(event => event.type === 'upload' && event.status === 'rejected').length, 0);
+  assert.equal(app.events.filter(event => event.type === 'change' && event.action === 'upload').length, 1);
+});
+
+test('tightening a page limit during permission compares cached content before committing', async t => {
+  const started = deferred(), permission = deferred();
+  let inspections = 0;
+  const inspectFile = () => { inspections++; return { kind: 'pdf', pages: 8 }; };
+  const app = await mount(t, { upload: { contentLimitsByExtension: { '.pdf': { maxPages: 10 } }, inspectFile },
+    onEditRequest() { started.resolve(); return permission.promise; } });
+  const before = app.main.entries;
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles([file('Pages.pdf')], 'file', 'root'); });
+  await change(() => started.promise);
+  await app.update({ upload: { contentLimitsByExtension: { '.pdf': { maxPages: 3 } }, inspectFile } });
+  await change(() => permission.resolve(true));
+  await change(() => pending);
+  assert.equal(inspections, 1);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.events.filter(event => event.type === 'change').length, 0);
+  const rejected = app.events.filter(event => event.type === 'upload' && event.status === 'rejected');
+  assert.equal(rejected.length, 1);
+  assert.equal(rejected[0].rejections[0].reasons[0].maxPages, 3);
+});
+
+test('a replacement inspector received during permission is awaited before the pending upload can commit', async t => {
+  const permissionStarted = deferred(), permission = deferred(), inspectionStarted = deferred(), metadata = deferred();
+  let originalReads = 0, replacementReads = 0;
+  const inspectFile = () => { originalReads++; return { kind: 'pdf', pages: 1 }; };
+  const app = await mount(t, { upload: { contentLimitsByExtension: { '.pdf': { maxPages: 10 } }, inspectFile },
+    onEditRequest() { permissionStarted.resolve(); return permission.promise; } });
+  const before = app.main.entries;
+  let pending;
+  await change(() => { pending = app.main.addLocalFiles([file('Pages.pdf')], 'file', 'root'); });
+  await change(() => permissionStarted.promise);
+  await app.update({ upload: { contentLimitsByExtension: { '.pdf': { maxPages: 10 } }, inspectFile() {
+    replacementReads++; inspectionStarted.resolve(); return metadata.promise;
+  } } });
+  await change(() => permission.resolve(true));
+  await change(() => inspectionStarted.promise);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.uploadApplying, true);
+  assert.equal(app.events.filter(event => event.type === 'upload' && event.status === 'rejected').length, 0);
+  await change(() => metadata.resolve({ kind: 'pdf', pages: 20 }));
+  await change(() => pending);
+  assert.equal(originalReads, 1);
+  assert.equal(replacementReads, 1);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.notification.kind, 'error');
+  const rejected = app.events.filter(event => event.type === 'upload' && event.status === 'rejected');
+  assert.equal(rejected.length, 1);
+  assert.equal(rejected[0].rejections[0].reasons[0].code, 'page-count-exceeded');
+});
+
+test('content rejections and overwrite decisions preserve original indexes and reuse inspection across prompts', async t => {
+  const reads = new Map();
+  const app = await mount(t, { upload: { invalidFileBehavior: 'skip', inspectFile({ file }) {
+    reads.set(file, (reads.get(file) ?? 0) + 1);
+    return { kind: 'video', durationSeconds: file.name === 'Long.mp4' ? 20_000 : 30 };
+  } } });
+  const invalid = file('Long.mp4', 'Rejected/Long.mp4'), overwrite = file('A.txt', '資料/A.txt'), accepted = file('Short.mp4', 'Accepted/Short.mp4');
+  const before = app.main.entries;
+  await change(() => app.main.addLocalFiles([invalid, overwrite, accepted], 'folder', 'root'));
+  assert.equal(app.main.entries, before);
+  assert.equal(app.main.uploadPrompt.conflict.fileIndex, 1);
+  await change(() => app.main.answerUploadConflict('overwrite', false));
+  assert.equal(app.main.entries.find(item => item.id === 'a').source.file, overwrite);
+  assert.equal(app.main.entries.find(item => item.name === 'Short.mp4').source.file, accepted);
+  assert.equal(app.main.entries.some(item => item.name === 'Rejected'), false);
+  assert.equal(reads.get(invalid), 1);
+  assert.equal(reads.get(accepted), 1);
+  assert.equal(app.events.filter(event => event.type === 'change' && event.action === 'upload').length, 1);
+  const skipped = app.events.filter(event => event.type === 'upload' && event.status === 'skipped');
+  assert.equal(skipped.length, 1);
+  assert.equal(skipped[0].rejections[0].file, invalid);
+});
+
+for (const reason of ['cancel', 'readonly', 'feature', 'close', 'save', 'discard']) test(`${reason} aborts one pending content inspection without a late edit or error notice`, async t => {
+  const started = deferred(), metadata = deferred();
+  let inspectionSignal;
+  const app = await mount(t, { upload: { inspectFile({ signal }) {
+    inspectionSignal = signal; started.resolve(); return metadata.promise;
+  } } });
+  const before = app.main.entries;
+  let pending;
+  await change(() => { pending = app.child.addLocalFiles([file('Pending.mp4')], 'file', 'root'); });
+  await change(() => started.promise);
+  if (reason === 'cancel') await change(() => app.child.cancelUpload());
+  if (reason === 'readonly') await app.update({ readOnly: true });
+  if (reason === 'feature') await app.update({ features: { uploadFiles: false } });
+  if (reason === 'close') await app.closeChild();
+  if (reason === 'save') await change(() => app.workspace.draft.save());
+  if (reason === 'discard') await change(() => app.workspace.draft.discard());
+  await change(() => pending);
+  assert.equal(inspectionSignal.aborted, true);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.requests.length, 0);
+  assert.equal(app.events.filter(event => event.type === 'upload' || event.type === 'change').length, 0);
+  await change(() => metadata.resolve({ kind: 'video', durationSeconds: 30 }));
+  assert.equal(app.main.entries, before);
+  assert.equal(app.events.filter(event => event.type === 'upload' || event.type === 'change').length, 0);
+});

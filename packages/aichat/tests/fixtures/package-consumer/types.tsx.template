@@ -1,0 +1,48 @@
+import { createRef } from "react";
+import LikeAIChat, {
+  createAIChat, createAIChatSession, executeAIChatCommands,
+  type AIChatCommand, type AIChatHandle, type AIChatProps, type AIChatSendHandler,
+} from "__LIBRARY_IMPORT__";
+
+const aichat = createAIChat({ id: "consumer-aichat", title: "LikeAIChat consumer" });
+const command: AIChatCommand = { type: "aichat.update", title: "Updated aichat" };
+const updated = executeAIChatCommands(aichat, command);
+const onSend: AIChatSendHandler = async function* ({ prompt, messages, retry }, { signal, requestId }) {
+  if (!signal.aborted) yield `${requestId}:${retry}:${messages.length}:${prompt.content}`;
+};
+const props: AIChatProps = {
+  initialAIChat: updated.aichat, initialConversationId: "conversation-1", colorMode: "system", primaryColor: "#2563eb",
+  features: { attachments: false }, onSend, onSave: async current => current,
+  onBeforeSave: () => true, onEditRequest: async ({ aichat: current }, { signal }) => !!current.id && !signal.aborted,
+  onConversationChange: conversation => { void conversation.messages; },
+  onAttachmentUpload: async (files, { signal }) => signal.aborted ? [] : files.map((file, index) => ({
+    id: `attachment-${index}`, name: file.name, mediaType: file.type, size: file.size,
+  })),
+  onAttachmentClick: attachment => { void attachment.url; },
+  onEvent: event => { if (event.type === "change") { void event.model; void event.source; } },
+};
+const session = createAIChatSession(aichat, { onSave: async current => current, onSend });
+void session.send("conversation-1", "Session content");
+session.cancel();
+session.dispose();
+const ref = createRef<AIChatHandle>();
+const view = <LikeAIChat ref={ref} {...props} />;
+const selection: boolean | undefined = ref.current?.selectConversation("conversation-1");
+const nativeExport: string | null | undefined = ref.current?.exportNative();
+void ref.current?.execute(command);
+void ref.current?.send("UI content");
+void ref.current?.retry("assistant-1");
+void ref.current?.getAIChat();
+void ref.current?.getAIChatConversation();
+void ref.current?.importNative("{}");
+void ref.current?.save();
+void ref.current?.undo();
+void ref.current?.redo();
+ref.current?.cancel();
+ref.current?.discard();
+void view; void selection; void nativeExport;
+// @ts-expect-error Messages accept defined roles only.
+const badRole: AIChatCommand = { type: "message.add", conversationId: "conversation-1", message: { role: "developer", content: "No" } };
+// @ts-expect-error Streaming callbacks must return text or text chunks.
+const badResponse: AIChatSendHandler = async () => ({ content: "No" });
+void badRole; void badResponse;

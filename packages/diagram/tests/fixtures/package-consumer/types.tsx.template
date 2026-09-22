@@ -1,0 +1,8 @@
+import { createRef } from "react";
+import LikeDiagram, { createDiagram, executeDiagramCommands, type DiagramHandle, type DiagramProps } from "__LIBRARY_IMPORT__";
+const model = createDiagram({title:"LikeDiagram consumer"});
+const props: DiagramProps = { initialDiagram: model, onSave: async current => current, features: {edges: false}, primaryColor:"#2563eb" };
+const ref = createRef<DiagramHandle>();
+const view = <LikeDiagram ref={ref} {...props} />;
+const current = executeDiagramCommands(model, {type:"diagram.update",title:"Changed"});
+void ref.current?.getModel();void ref.current?.exportSvg();void ref.current?.select([]);void current;void view;

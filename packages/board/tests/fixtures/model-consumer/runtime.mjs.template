@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import { createBoard, executeBoardCommands, serializeBoard, parseBoard, createBoardController, getCard } from "__MODEL_IMPORT__";
+assert.equal(typeof window, "undefined"); assert.equal(typeof document, "undefined");
+const original = createBoard({ id: "board-1", title: "LikeBoard consumer", columns: [{ id: "todo", title: "To do", cards: [{ id: "card-1", title: "Board consumer content" }] }] });
+const before = serializeBoard(original);
+const updated = executeBoardCommands(original, { type: "card.update", cardId: "card-1", patch: { title: "Updated" } });
+assert.equal(getCard(updated.board, "card-1").card.title, "Updated");
+assert.equal(serializeBoard(original), before);
+assert.deepEqual(parseBoard(serializeBoard(updated.board)), updated.board);
+assert.throws(() => parseBoard(JSON.stringify({ ...original, version: 2 })));
+const controller = createBoardController(original, { onSave: async current => current });
+await controller.execute({ type: "card.update", cardId: "card-1", patch: { title: "Updated" } }); assert.equal(controller.getSnapshot().dirty, true);
+await controller.save(); assert.equal(controller.getSnapshot().dirty, false);
+assert.equal(await controller.undo(), true); assert.equal(controller.getSnapshot().dirty, true);
+assert.equal(await controller.redo(), true); assert.equal(controller.getSnapshot().dirty, false);
+console.log(JSON.stringify({ noReact: true, noDOM: true, commandsAndHistory: "passed", nativeRoundtrip: "passed" }));

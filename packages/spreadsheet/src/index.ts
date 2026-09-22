@@ -19,11 +19,14 @@ export type {
   SpreadsheetCommandErrorCode, SpreadsheetCommandReceipt, SpreadsheetCommandPlacement, SpreadsheetWorkbookSnapshot,
   SpreadsheetImageCommandPatch, SpreadsheetShapeCommandPatch, SpreadsheetTextBoxCommandPatch,
   SpreadsheetInsertValue,
+  SpreadsheetSelectionApi, SpreadsheetSelectionOptions, SpreadsheetSelectedDrawing,
 } from "./api/types";
 export { readImageResource as prepareSpreadsheetImage } from "./state/read-image";
+export { createTextMeasurer as createSpreadsheetTextMeasurer } from "./state/sizing/text-measurer";
 export type { SpreadsheetImagePreparationOptions } from "./state/read-image";
 export { exportSpreadsheetXlsx } from "./export/export-xlsx";
 export type { SpreadsheetExcelExportOptions, SpreadsheetNativeExportOptions } from "./export/types";
+export type { SpreadsheetXlsxExportOptions, SpreadsheetImageRasterizeRequest, SpreadsheetImageRasterizer } from "./export/portable-types";
 export type {
   SpreadsheetBeforeSaveHandler, SpreadsheetRefreshHandler,
   SpreadsheetEditHandler, SpreadsheetEditIntent, SpreadsheetEditRequest, SpreadsheetEditResult,

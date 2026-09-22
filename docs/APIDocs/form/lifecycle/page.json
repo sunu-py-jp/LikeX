@@ -1,0 +1,13 @@
+{
+  "title": "保存と編集許可",
+  "summary": "LikeFormの保存と編集許可を公開APIと利用例で説明します。",
+  "source": "packages/form/src/docs/lifecycle.md",
+  "order": 3,
+  "section": "機能",
+  "keywords": [
+    "LikeForm",
+    "FormProps",
+    "FormHandle",
+    "lifecycle"
+  ]
+}

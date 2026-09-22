@@ -4,6 +4,7 @@ import Explorer, { ExplorerPopup, useExplorerDraft, createExplorerUploadSession,
   type ExplorerFileReader, type ExplorerSaveHandler, type ExplorerRefreshHandler,
   type ExplorerSearchOptions, type ExplorerSearchHandler, type ExplorerSearchRequest,
   type ExplorerSearchContext, type ExplorerUploadOptions,
+  type ExplorerEntryPermissionsResolver, type ExplorerEntryPermissions,
   type ExplorerHandle, type ExplorerFileTarget, type ExplorerNavigationResult,
   type ExplorerNavigationErrorCode, type ExplorerShowFileOptions,
   type FileReader as LegacyFileReader, type SaveHandler as LegacySaveHandler,
@@ -33,6 +34,12 @@ function navigateFromHost() {
 }
 const onRefresh: ExplorerRefreshHandler = async () => entries;
 const onSave: ExplorerSaveHandler = payload => payload.entries;
+const getEntryPermissions: ExplorerEntryPermissionsResolver = entry => entry.kind === "root" ? undefined
+  : { delete: { allowed: false, message: "編集中です" }, save: false };
+// @ts-expect-error Permission lookup reads current host state synchronously.
+const asyncPermissions: ExplorerEntryPermissionsResolver = async () => ({ delete: false });
+// @ts-expect-error Permission operations are strictly named.
+const invalidPermissions: ExplorerEntryPermissions = { erase: false };
 const readFile: ExplorerFileReader = async () => new Blob(['example']);
 const search = { trigger: "input", debounceMs: 300 } satisfies ExplorerSearchOptions;
 const upload = { maxFileSizeBytes: 10 * 1024 * 1024,
@@ -58,7 +65,7 @@ const legacyReadFile: LegacyFileReader = readFile;
 const legacySave: LegacySaveHandler = onSave;
 const legacyRefresh: LegacyRefreshHandler = onRefresh;
 const legacyProps = { initialEntries: entries, readFile: legacyReadFile, onSave: legacySave, onRefresh: legacyRefresh } satisfies ExplorerProps;
-const valid: ExplorerProps = { initialEntries: entries, onSave, onRefresh, readFile, search, onSearchRequest, upload,
+const valid: ExplorerProps = { initialEntries: entries, onSave, onRefresh, readFile, search, onSearchRequest, upload, getEntryPermissions,
   onEvent(event: ExplorerEvent) {
     if (event.type === "refresh" && event.status === "success") {
       const path: string = event.entries[0]?.path ?? "/";
@@ -94,4 +101,4 @@ function useConsumerDraft() {
   const busy: boolean = draft.refreshing;
   return { result, busy, session: createExplorerUploadSession() };
 }
-void [readOnly, popup, submitSearch, wrongSearchTrigger, wrongSearchResult, wrongSizeExtension, wrongExtensionSize, rejected, wrongFeature, legacyProps, rejectSearchMutation, useConsumerDraft, navigateFromHost];
+void [readOnly, popup, submitSearch, wrongSearchTrigger, wrongSearchResult, wrongSizeExtension, wrongExtensionSize, rejected, wrongFeature, legacyProps, rejectSearchMutation, useConsumerDraft, navigateFromHost, asyncPermissions, invalidPermissions];

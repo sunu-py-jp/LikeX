@@ -58,7 +58,7 @@ export async function exportSpreadsheetXlsx(input: SpreadsheetWorkbook, options:
     const tables = worksheetTableParts(sheet, nextTableNumber);
     nextTableNumber += tables.parts.length;
     const comments = commentParts(sheet, number);
-    const drawing = await prepareWorksheetDrawings(sheet, workbook.resources, { sheetIndex: number, signal, media });
+    const drawing = await prepareWorksheetDrawings(sheet, workbook.resources, { sheetIndex: number, signal, media, rasterizeImage: options.rasterizeImage });
     signal?.throwIfAborted();
     for (const image of drawing.parts.filter(item => item.path.startsWith("xl/media/"))) imageBytes += image.content.size;
     if (imageBytes > SPREADSHEET_LIMITS.totalImageBytes) throw new Error("Excel出力用に変換した画像の合計が20 MiBを超えています");

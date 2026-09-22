@@ -38,6 +38,46 @@ test('large preparation yields to other tasks, throttles updates and keeps the c
   assert.ok(progress.length < 40, 'progress updates must not mirror every file');
 });
 
+test('asynchronous generators await content work while preserving progress and the final result', async () => {
+  const progress = [], candidate = { accepted: 1 };
+  let finishInspection, inspectionStarted;
+  const inspection = new Promise(resolve => { finishInspection = resolve; });
+  const started = new Promise(resolve => { inspectionStarted = resolve; });
+  async function* operation() {
+    yield { phase: 'inspecting', completed: 0, total: 1 };
+    inspectionStarted();
+    await inspection;
+    yield { phase: 'inspecting', completed: 1, total: 1 };
+    return candidate;
+  }
+  const pending = prepareImport(operation(), new AbortController().signal, value => progress.push(value));
+  await started;
+  assert.deepEqual(progress, [{ phase: 'inspecting', completed: 0, total: 1 }]);
+  finishInspection();
+  assert.equal(await pending, candidate);
+  assert.deepEqual(progress.at(-1), { phase: 'inspecting', completed: 1, total: 1 });
+});
+
+test('cancellation during an awaited generator result cannot publish or return its late value', async () => {
+  const controller = new AbortController(), progress = [];
+  let finishInspection, inspectionStarted;
+  const inspection = new Promise(resolve => { finishInspection = resolve; });
+  const started = new Promise(resolve => { inspectionStarted = resolve; });
+  async function* operation() {
+    yield { phase: 'inspecting', completed: 0, total: 1 };
+    inspectionStarted();
+    await inspection;
+    return { accepted: 1 };
+  }
+  const pending = prepareImport(operation(), controller.signal, value => progress.push(value));
+  const rejected = assert.rejects(pending, { name: 'AbortError' });
+  await started;
+  controller.abort();
+  finishInspection();
+  await rejected;
+  assert.deepEqual(progress, [{ phase: 'inspecting', completed: 0, total: 1 }]);
+});
+
 test('task-boundary cancellation stops preparation before completion and suppresses pending updates', async () => {
   const controller = new AbortController(), progress = [];
   let visited = 0;

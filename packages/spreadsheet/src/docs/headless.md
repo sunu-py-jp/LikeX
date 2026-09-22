@@ -8,6 +8,8 @@ AIエージェントが生成した操作を適用する場合も、画面を準
 
 履歴を使って編集を続ける場合は[編集セッションとUndo／Redo](./history-session.md)、データを調べる場合は[セル・範囲・画像の取得](./data-access.md)を参照してください。
 
+内容に合わせた行高・列幅の計算は [`dimensions.autoFit` と公開ヘルパー](./formatting.md#内容に合わせて自動調整するapi)、`/model` のXLSX入出力と画像変換の注入は[Excel出力](./excel-export.md)・[Excel取り込み](./excel-import.md)を参照してください。
+
 ## セルに値を入れる
 
 ```ts

@@ -1,6 +1,6 @@
 # LikeXの配布と公開
 
-Explorer、Spreadsheet、LikeSlide、coreは独立したパッケージです。各配布設定は `packages/<module>/package.json`、実装の原本は `packages/<module>/src/` です。ビルドは同じパッケージ内の `dist/` に生成します。デモとテスト、`src/` のTypeScriptファイルは配布一覧から除外します。デバッグ用source mapにはソース内容を含みます。コピー用の原本はリポジトリから取得します。
+各UIモジュールとcoreは独立したパッケージです。各配布設定は `packages/<module>/package.json`、実装の原本は `packages/<module>/src/` です。ビルドは同じパッケージ内の `dist/` に生成します。デモとテスト、`src/` のTypeScriptファイルは配布一覧から除外します。デバッグ用source mapにはソース内容を含みます。コピー用の原本はリポジトリから取得します。
 
 ## 配布物を検証する
 
@@ -32,16 +32,19 @@ CIでは `npm run check:release -- --online` を実行し、パッケージ・�
 | `artifacts/likex-explorer-0.1.0.tgz` | 現在の名前・バージョンでの配布物 |
 | `artifacts/spreadsheet/likex-spreadsheet-0.1.0.tgz` | Spreadsheetの配布物 |
 | `artifacts/slide/likex-slide-0.1.0.tgz` | LikeSlideの配布物 |
+| `artifacts/document/likex-document-0.1.0.tgz` | LikeDocumentの配布物 |
+| `artifacts/aichat/likex-aichat-0.1.0.tgz` | AI会話を扱うLikeAIChatの配布物 |
+| `artifacts/chat/likex-chat-0.1.0.tgz` | 人同士の会話を扱うLikeChatの配布物 |
 | `artifacts/core/likex-core-0.1.0.tgz` | coreの配布物 |
 | `artifacts/*-report.json` / `artifacts/spreadsheet/*-report.json` | 各モジュールの導入検証結果 |
 | `artifacts/release-check.json` | 全検証の実行結果。成果物はGit管理せず再生成します。 |
 | `artifacts/license-check.json` | 実行時依存・生成CSSの許可ライセンスと配布通知の確認結果 |
 
-ソースコピーはUIの `styles.css` を含む `packages/<module>/src/` と `packages/core/src/` を隣接フォルダへ持ち出し、UIの `core.ts` を相対importへ変更します。Spreadsheet・LikeSlideでは `ooxml.ts` も `export * from "../core/ooxml";` に変更します。利用側はパッケージの `@likex/<module>/styles.css` またはコピーした `styles.css` を読み込みます。両方とも利用先でTailwindの導入・専用設定は不要です。[Explorerの導入手順](../packages/explorer/README.md) または [Spreadsheetの導入手順](../packages/spreadsheet/README.md) を参照してください。
+ソースコピーはUIの `styles.css` を含む `packages/<module>/src/` と `packages/core/src/` を隣接フォルダへ持ち出し、UIの `core.ts` を相対importへ変更します。Spreadsheet・LikeSlide・LikeDocumentでは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更します。利用側はパッケージの `@likex/<module>/styles.css` またはコピーした `styles.css` を読み込みます。両方とも利用先でTailwindの導入・専用設定は不要です。詳細は各モジュールの導入手順を参照してください。
 
 ## 公開前に決めるもの
 
-LikeXはMITライセンスです。ルート・Core・Explorer・Spreadsheet・LikeSlideの `private: true` は、npmへの誤公開を防ぐため維持しています。tarballの作成は公開の実行を意味しません。[ライセンスの検査と開発依存の扱い](licensing.md)も確認してください。
+LikeXはMITライセンスです。ルート・各パッケージの `private: true` は、npmへの誤公開を防ぐため維持しています。tarballの作成は公開の実行を意味しません。[ライセンスの検査と開発依存の扱い](licensing.md)も確認してください。
 
 1. `@likex` scopeの利用権と公開先、パッケージ名を確定します。
 2. `npm run check:licenses` と、配布ビルド後の `npm run check:licenses -- --artifacts` でライセンス・通知の整合性を確認します。
@@ -68,3 +71,10 @@ npm publish artifacts/likex-explorer-0.1.0.tgz --access public
 ```
 
 このリポジトリのCIは検証と成果物保存だけを行い、自動公開しません。
+
+
+## AIチャット分離の配布確認
+
+旧AI向け `@likex/chat` の利用者は `@likex/aichat` へ切り替えます。新しい `@likex/chat` は人同士の会話用で、旧AI APIと互換ではありません。現在はレジストリ公開前の `0.1.0` を維持していますが、公開時の変更記録にパッケージ分離・API名変更・保存形式の扱いを明記してください。
+
+AIChatは `likex.aichat` / version 1を出力し、旧AIの `likex.chat` / version 1を構造検証して移行します。新Chatは `likex.chat` / version 2のみを読み書きします。両モジュールを個別に `pack:library` → `test:package` / `test:copy` で検証し、各 `/model`、CLI、CSSと旧AIファイルの移行を確認します。詳しい利用コードの変更は [AIChatの移行手順](../packages/aichat/src/docs/native-files.md#旧likechatからの移行)を参照してください。

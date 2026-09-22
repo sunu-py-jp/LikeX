@@ -44,7 +44,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   const activeValue = c.calculated[c.activeSheet.id]?.[activeAddress];
   const activeFormat = conditional(c.selection.focus.row, c.selection.focus.column, activeValue, effectiveCellFormat(c.activeSheet.cells[activeAddress])).format;
   useGridEditorSize(activeInput, JSON.stringify({ focus: c.selection.focus, sheet: c.activeSheet.id, value: activeValue, editing: c.editing?.value, format: activeFormat, width: columnOffsets[(activeMerge?.right ?? c.selection.focus.column) + 1] - columnOffsets[activeMerge?.left ?? c.selection.focus.column] }), activeHeight, !!c.editing);
-  const { startSelection, extendSelection, selectHeaderWithKeyboard } = useGridSelection(c, focus);
+  const { startSelection, extendSelection, selectHeaderWithKeyboard } = useGridSelection(c, focus, { columnOffsets, rowOffsets });
   const selectedBounds = useMemo(() => selectionRanges(c.selection).map(rangeBounds), [c.selection]);
 
   return <div className="lxs-grid-surface"><SpreadsheetDrawingInspector controller={c} /><div ref={scroller} tabIndex={-1} className="lxs-grid-scroll" style={{ zoom: (c.zoom ?? 100) / 100 }} onBlurCapture={focus.onBlurCapture} onScroll={layout.onScroll}>

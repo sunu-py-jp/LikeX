@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useState } from "react";
+import { useImperativeHandle, useLayoutEffect, useMemo, useState, type Ref } from "react";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { MAX_SELECTION_CELLS, selectedAddresses } from "../state/selection";
 import { selectionCellCount, selectionRanges } from "../state/selection";
@@ -10,7 +10,8 @@ import { useSheetTabReorder } from "./sheets/use-sheet-tab-reorder";
 import { SpreadsheetZoomControls } from "./spreadsheet-zoom-controls";
 import { HorizontalScrollStrip } from "./horizontal-scroll-strip";
 
-export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetController }) {
+export type SpreadsheetFooterHandle = { renameSheet(sheetId: string): void };
+export function SpreadsheetFooter({ controller: c, renameRef }: { controller: SpreadsheetController; renameRef?: Ref<SpreadsheetFooterHandle> }) {
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const reorder = useSheetTabReorder(c, renaming !== null);
   const markPending = useObjectEditPending(c);
@@ -39,6 +40,10 @@ export function SpreadsheetFooter({ controller: c }: { controller: SpreadsheetCo
     if (c.readOnly || c.disabled || c.requesting || !c.features.renameSheet) return;
     c.afterCommit(() => setRenaming({ id: sheet.id, value: sheet.name }));
   };
+  useImperativeHandle(renameRef, () => ({ renameSheet(sheetId) {
+    const sheet = c.getWorkbook().sheets.find(item => item.id === sheetId);
+    if (sheet) beginRename(sheet);
+  } }));
   return <>
     <footer className="lxs-footer">
       {c.features.sheets ? <HorizontalScrollStrip className="lxs-sheet-tabs" role="tablist" aria-label="ワークシート"

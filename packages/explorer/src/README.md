@@ -7,7 +7,7 @@ React向けのファイルエクスプローラーです。表示・クライア
 このフォルダを `components/explorer/`、リポジトリの `packages/core/src/` を `components/core/` へコピーします。`components/explorer/core.ts` の1行を `export * from "../core";` に変更してください。React / React DOM 19.2.6以降の19系と実行時依存を用意し、生成済みCSSをアプリの入口で1回読み込んでください。Tailwind CSSの導入・専用設定は不要です。
 
 ```bash
-npm install radix-ui@1.6.7 lucide-react@1.31.0 tailwind-merge@3.6.0
+npm install radix-ui@1.6.7 lucide-react@1.31.0 tailwind-merge@3.6.0 pdf-lib@1.17.1
 ```
 
 ```tsx
@@ -23,6 +23,7 @@ import "@/components/explorer/styles.css";
 ## 重要事項
 
 - `onSave` を省略すると読み取り専用です。下書きとローカル `File` はメモリで保持し、自動で永続化しません。
+- 動画の取り込みは既定で4時間以下です。時間・PDFページ数・PPTXスライド数は[拡張子ごとの内容制限](./docs/upload-content-limits.md)で指定できます。PDFの検査時だけ`pdf-lib`を読み込みます。
 - `initialEntries` は初回のみ反映します。`initialPath`・`selectedFile` で最初の表示先と選択ファイルを指定でき、`selectedFileMode="preview"` ならプレビューも開きます。[初期表示](./docs/getting-started.md#initial-file)と、最新一覧の取得に使う `onRefresh` は別の設定です。
 - `onEvent` は通知専用です。保存前検証、認証・認可、複数人の競合解決は親とサーバーが担当します。
 - Officeファイルは親のプレビューUIへ委譲できます。内蔵ZIPは4 GiB未満・65,534項目までで、端末メモリに収まる規模が前提です。内蔵ダウンロードの成功はブラウザへの引渡しを表します。

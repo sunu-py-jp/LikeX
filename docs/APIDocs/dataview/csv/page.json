@@ -1,0 +1,11 @@
+{
+  "title": "CSV・TSV入出力",
+  "summary": "LikeDataViewのCSV・TSV入出力",
+  "source": "packages/dataview/src/docs/csv.md",
+  "order": 11,
+  "section": "データと操作",
+  "keywords": [
+    "dataview",
+    "CSV・TSV入出力"
+  ]
+}

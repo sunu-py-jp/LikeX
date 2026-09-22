@@ -1,0 +1,4 @@
+"use client";
+import { useRef } from "react";
+import LikeChat, { createChat, type ChatHandle } from "__LIBRARY_IMPORT__";
+export default function ClientView() { const ref = useRef<ChatHandle>(null); return <LikeChat ref={ref} initialChat={createChat()} currentUserId="me" onSave={async model => model} style={{ height: 400 }} />; }

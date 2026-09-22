@@ -1,0 +1,9 @@
+import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import LikeBoard, { LikeBoard as NamedLikeBoard, createBoard } from "__LIBRARY_IMPORT__";
+assert.equal(LikeBoard, NamedLikeBoard); assert.equal(typeof window, "undefined");
+const model = createBoard({ id: "board-1", title: "LikeBoard consumer", columns: [{ id: "todo", title: "To do", cards: [{ id: "card-1", title: "Board consumer content" }] }] });
+const markup = renderToStaticMarkup(createElement(LikeBoard, { initialBoard: model, style: { height: 360 } }));
+assert.match(markup, /data-likex-board/); assert.match(markup, /Board consumer content/); assert.match(markup, /height:360px/);
+console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

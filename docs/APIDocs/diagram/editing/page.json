@@ -1,0 +1,15 @@
+{
+  "title": "画面の編集機能",
+  "summary": "保存・編集許可・機能設定・ソースコピーの手順。",
+  "source": "packages/diagram/src/docs/editing.md",
+  "order": 10,
+  "section": "編集・モデルAPI",
+  "keywords": [
+    "LikeDiagram",
+    "DiagramProps",
+    "onSave",
+    "onEditRequest",
+    "readOnly",
+    "primaryColor"
+  ]
+}

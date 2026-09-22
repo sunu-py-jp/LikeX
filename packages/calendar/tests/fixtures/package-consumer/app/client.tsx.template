@@ -1,0 +1,7 @@
+"use client";
+import { useRef } from "react";
+import LikeCalendar, { createCalendar, type CalendarHandle } from "__LIBRARY_IMPORT__";
+export default function ClientCalendar() {
+  const ref = useRef<CalendarHandle>(null);
+  return <LikeCalendar ref={ref} initialCalendar={createCalendar()} initialDate="2026-09-22" onSave={async calendar => calendar} style={{ height: 600 }} />;
+}

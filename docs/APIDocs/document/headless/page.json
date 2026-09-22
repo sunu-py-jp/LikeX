@@ -1,0 +1,8 @@
+{
+  "title": "モデルAPI・コマンド・履歴",
+  "summary": "画面なしの文書作成・取得・編集と、表示中コンポーネントのref操作。",
+  "source": "packages/document/src/docs/headless.md",
+  "order": 20,
+  "section": "親アプリとの連携",
+  "keywords": ["DocumentCommand", "DocumentHandle", "executeDocumentCommands", "getBlocks", "createDocumentSession", "transaction.apply"]
+}

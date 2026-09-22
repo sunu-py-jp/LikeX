@@ -590,3 +590,17 @@ test('new shape text and its editor share the reflected native text frame while 
   const editor = ui.drawing('shape').findByProps({ className: 'lxs-shape-text-edit-frame' }).props.style;
   for (const key of ['left', 'top', 'width', 'height']) assert.equal(editor[key], read[key]);
 });
+
+test('switching drawings flushes an object property before the shared selection guard runs', async t => {
+  const ui = await mount(t);
+  await act(async () => ui.c.selectDrawing('shape'));
+  await act(async () => ui.property('幅').props.onChange(event({ target: { value: '240' } })));
+  const editor = { matches: () => true, blur: () => ui.property('幅').props.onBlur() };
+  const pointerTarget = { ownerDocument: { activeElement: editor }, closest: () => ({ contains: element => element === editor }),
+    focus() {}, setPointerCapture() {}, hasPointerCapture: () => false, releasePointerCapture() {} };
+  await act(async () => ui.drawing('text').props.onPointerDown(event({ button: 0, pointerId: 4, clientX: 40, clientY: 90, currentTarget: pointerTarget })));
+  assert.equal(ui.c.pendingObjectEdit, false);
+  assert.equal(ui.c.activeSheet.drawings.find(drawing => drawing.id === 'shape').width, 240);
+  assert.equal(ui.c.selectedDrawingId, 'text');
+  await act(async () => ui.drawing('text').props.onPointerCancel());
+});

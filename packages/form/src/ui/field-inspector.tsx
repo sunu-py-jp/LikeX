@@ -1,0 +1,15 @@
+import type { FormField, FormModel } from "../model/types";
+export function FieldInspector({ field, form, disabled, update }: { field: FormField; form: FormModel; disabled: boolean; update: (patch: Partial<Omit<FormField, "id">>) => void }) {
+  return <aside className="lxf-inspector" aria-label="項目の設定"><h3>項目の設定</h3><fieldset disabled={disabled}>
+    <label>項目名<input value={field.label} onChange={event => update({ label: event.target.value })} /></label>
+    <label>説明<textarea value={field.description} onChange={event => update({ description: event.target.value })} /></label>
+    <label>入力のヒント<input value={field.placeholder} onChange={event => update({ placeholder: event.target.value })} /></label>
+    <label className="lxf-check"><input type="checkbox" checked={field.required} onChange={event => update({ required: event.target.checked })} />必須</label>
+    {["select", "radio"].includes(field.type) && <label>選択肢（1行に1つ）<textarea value={field.options.map(option => option.label).join("\n")} onChange={event => { const labels = event.target.value.split("\n"); update({ options: labels.map((label, index) => ({ value: field.options[index]?.value ?? crypto.randomUUID(), label })) }); }} /></label>}
+    {field.type === "number" && <div className="lxf-pair">{(["min", "max"] as const).map((key, index) => <label key={key}>{index ? "最大値" : "最小値"}<input type="number" value={field[key] ?? ""} onChange={event => update({ [key]: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>)}</div>}
+    {["text", "textarea"].includes(field.type) && <div className="lxf-pair">{(["minLength", "maxLength"] as const).map((key, index) => <label key={key}>{index ? "最大文字数" : "最小文字数"}<input type="number" min={0} max={10000} value={field[key] ?? ""} onChange={event => update({ [key]: event.target.value === "" ? undefined : Number(event.target.value) })} /></label>)}</div>}
+    <h4>表示条件</h4><label>参照する項目<select value={field.visibleWhen?.fieldId ?? ""} onChange={event => update({ visibleWhen: event.target.value ? { fieldId: event.target.value, operator: "notEmpty" } : undefined })}><option value="">常に表示</option>{form.fields.filter(item => item.id !== field.id).map(item => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label>
+    {field.visibleWhen && <><label>条件<select value={field.visibleWhen.operator} onChange={event => update({ visibleWhen: { ...field.visibleWhen!, operator: event.target.value as NonNullable<FormField["visibleWhen"]>["operator"] } })}><option value="notEmpty">入力されている</option><option value="equals">次の値と一致</option><option value="notEquals">次の値と不一致</option><option value="contains">次の文字列を含む</option></select></label>
+      {field.visibleWhen.operator !== "notEmpty" && <label>比較する値<input value={String(field.visibleWhen.value ?? "")} onChange={event => { const target = form.fields.find(item => item.id === field.visibleWhen!.fieldId); update({ visibleWhen: { ...field.visibleWhen!, value: target?.type === "number" ? Number(event.target.value) : target?.type === "checkbox" ? event.target.value === "true" : event.target.value } }); }} /></label>}</>}
+  </fieldset></aside>;
+}

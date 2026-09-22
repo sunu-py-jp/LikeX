@@ -1,0 +1,4 @@
+"use client";
+import { useRef } from "react";
+import LikeBoard, { createBoard, type BoardHandle } from "__LIBRARY_IMPORT__";
+export default function ClientView() { const ref = useRef<BoardHandle>(null); return <LikeBoard ref={ref} initialBoard={createBoard()} onSave={async model => model} style={{ height: 400 }} />; }

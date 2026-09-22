@@ -1,0 +1,32 @@
+import assert from "node:assert/strict";
+import { createChat, createChatMessage, executeChatCommands, getConversation, getConversations, getMessage, getMessages, getThreadMessages, getUnreadCount, normalizeChatAttachment, parseChat, serializeChat } from "__MODEL_IMPORT__";
+assert.equal(typeof window, "undefined");
+assert.equal(typeof document, "undefined");
+const original = createChat({ id: "headless-chat", participants: [{ id: "me", name: "Me" }, { id: "other", name: "Other" }] });
+const message = createChatMessage({ id: "root", authorId: "me", text: "Headless content", createdAt: "2026-09-22T00:00:00.000Z" });
+const attachment = normalizeChatAttachment({ id: "attachment-1", name: "notes.txt", mediaType: "text/plain", size: 128 });
+const result = executeChatCommands(original, [
+  { type: "message.add", conversationId: "conversation-1", message: { ...message, attachments: [attachment] } },
+  { type: "message.add", conversationId: "conversation-1", message: { id: "reply", authorId: "other", text: "Headless reply", replyTo: "root", createdAt: "2026-09-22T00:00:01.000Z" } },
+  { type: "reaction.toggle", conversationId: "conversation-1", messageId: "root", participantId: "other", emoji: "👍" },
+]);
+assert.equal(result.changed, true);
+assert.equal(getMessages(original, "conversation-1").length, 0);
+assert.equal(getConversations(result.chat).length, 1);
+assert.equal(getConversation(result.chat, "conversation-1").kind, "space");
+assert.equal(getMessage(result.chat, "conversation-1", "reply").text, "Headless reply");
+assert.equal(getThreadMessages(result.chat, "conversation-1", "root").length, 1);
+assert.equal(getUnreadCount(result.chat, "conversation-1", "me"), 1);
+assert.equal(Object.isFrozen(getMessages(result.chat, "conversation-1")), true);
+const snapshot = serializeChat(result.chat);
+assert.equal(serializeChat(parseChat(snapshot)), snapshot);
+assert.throws(() => parseChat(JSON.stringify({ format: "likex.chat", version: 1, id: "old", title: "Old AI", conversations: [] })), /aichat/);
+assert.throws(() => executeChatCommands(result.chat, [
+  { type: "chat.update", title: "Must not persist" },
+  { type: "message.update", conversationId: "conversation-1", messageId: "missing", patch: { text: "Invalid" } },
+]));
+assert.equal(serializeChat(result.chat), snapshot);
+assert.throws(() => executeChatCommands(result.chat, { type: "message.delete", conversationId: "conversation-1", messageId: "root" }));
+const deleted = executeChatCommands(result.chat, { type: "message.delete", conversationId: "conversation-1", messageId: "root", cascadeReplies: true });
+assert.equal(getMessages(deleted.chat, "conversation-1").length, 0);
+console.log(JSON.stringify({ noReact: true, noDOM: true, commands: "passed", nativeRoundtrip: "passed", threadIntegrity: "passed" }));

@@ -19,3 +19,11 @@ export { createZipArchive } from "./zip";
 export type { ZipArchiveContent, ZipArchiveEntry, ZipArchiveOptions } from "./zip";
 
 export * from "./ooxml";
+
+export { createModelEditorController } from "./editor/create-model-editor-controller";
+export type { ModelEditorController } from "./editor/create-model-editor-controller";
+export type { ModelEditorAdapter, ModelEditorOptions, ModelEditorSnapshot, ModelEditorEvent, ModelEditorNotice, ModelEditorExecuteOptions, ModelEditorTaskContext } from "./editor/types";
+export { inspectEmbeddedImage } from "./embedded-image";
+export type { EmbeddedImageOptions } from "./embedded-image";
+export { getDragScrollDelta, getDragInsertionIndex } from "./drag";
+export type { DragPoint, DragBounds, DragScrollOptions } from "./drag";

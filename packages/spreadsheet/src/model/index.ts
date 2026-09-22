@@ -31,3 +31,6 @@ export type { SpreadsheetDrawingPastePayload, SpreadsheetDrawingCopyOptions } fr
 
 export { SUPPORTED_SPREADSHEET_FUNCTIONS } from "./function-definitions";
 export type { SpreadsheetFunctionName, SpreadsheetFunctionCategory } from "./function-definitions";
+export { createSpreadsheetAutoFitCommand } from "./sizing/create-auto-fit-command";
+export type { SpreadsheetAutoFitTarget, SpreadsheetAutoFitOptions, SpreadsheetAutoFitCommand } from "./sizing/create-auto-fit-command";
+export type { TextMeasurer as SpreadsheetTextMeasurer, CellMeasurementStyle as SpreadsheetCellMeasurementStyle } from "./sizing/text-measurer";

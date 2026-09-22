@@ -1,0 +1,13 @@
+import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import LikeChat, { LikeChat as NamedLikeChat, createChat } from "__LIBRARY_IMPORT__";
+assert.equal(LikeChat, NamedLikeChat);
+assert.equal(typeof window, "undefined");
+const chat = createChat({ id: "consumer-chat", participants: [{ id: "me", name: "Me" }], conversations: [{ id: "conversation-1", kind: "space", title: "Consumer conversation", memberIds: ["me"], messages: [{ id: "message-1", authorId: "me", text: "Chat consumer content <script>alert(1)</script>", createdAt: "2026-09-22T00:00:00.000Z" }] }] });
+const markup = renderToStaticMarkup(createElement(LikeChat, { initialChat: chat, currentUserId: "me", title: "LikeChat consumer", style: { height: 360 } }));
+assert.match(markup, /data-likex-chat/);
+assert.match(markup, /Chat consumer content &lt;script&gt;/);
+assert.doesNotMatch(markup, /<script>alert/);
+assert.match(markup, /height:360px/);
+console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

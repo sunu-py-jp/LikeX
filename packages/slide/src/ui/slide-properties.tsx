@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Lock, Unlock, X } from "lucide-react";
 import type { SlideCommand, SlideElement, SlideElementPatch } from "../model/types";
 import type { SlideEditor } from "../state/use-slide-editor";
+import { SlideAnimations } from "./slide-animations";
 
 function NumericField({ label, value, min, max, onCommit, disabled }: { label: string; value: number; min?: number; max?: number; disabled: boolean; onCommit(value: number): void }) {
   const [draft, setDraft] = useState<string | null>(null);
@@ -82,6 +83,7 @@ export function SlideProperties({ editor, onClose }: { editor: SlideEditor; onCl
         {first.type === "image" && <Section title="画像"><TextValue key={first.id} label="代替テキスト" value={first.alt} disabled={disabled} onCommit={alt => update({ alt }, elements.filter(item => item.type === "image"))} />
           <p className="lxp-muted">角をドラッグすると縦横比を保ってサイズを変更できます。</p></Section>}
       </>}
+      <SlideAnimations editor={editor} />
     </div>
   </aside>;
 }

@@ -1,0 +1,11 @@
+import { createDataView, executeDataViewCommands, serializeDataView, parseDataView, createDataViewController, type DataViewModel, type DataViewCommand } from "__MODEL_IMPORT__";
+const model: DataViewModel = createDataView({ id: "data-1", title: "LikeDataView consumer", fields: [{ id: "name", name: "Name", type: "text" }], rows: [{ id: "row-1", values: { name: "DataView consumer content" } }] });
+const command: DataViewCommand = { type: "cell.set", rowId: "row-1", fieldId: "name", value: "Updated" };
+const updated = executeDataViewCommands(model, [command]);
+const controller = createDataViewController(parseDataView(serializeDataView(updated.data)), { onSave: async value => value });
+void controller.execute(command); void controller.save();
+// @ts-expect-error Unsupported file version.
+const wrongVersion: DataViewModel = { ...model, version: 2 };
+// @ts-expect-error Unsupported command.
+const wrongCommand: DataViewCommand = { type: "not-supported" };
+void wrongVersion; void wrongCommand;

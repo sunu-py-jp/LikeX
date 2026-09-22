@@ -1,0 +1,11 @@
+{
+  "title": "カードと列の操作API",
+  "summary": "LikeBoardのカードと列の操作API",
+  "source": "packages/board/src/docs/commands.md",
+  "order": 10,
+  "section": "データと操作",
+  "keywords": [
+    "board",
+    "カードと列の操作API"
+  ]
+}

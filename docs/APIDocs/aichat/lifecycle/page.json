@@ -1,0 +1,8 @@
+{
+  "title": "保存・編集許可・イベント",
+  "summary": "保存先の接続、編集許可、機能設定、未保存状態と非同期処理。",
+  "source": "packages/aichat/src/docs/lifecycle.md",
+  "order": 40,
+  "section": "親アプリとの連携",
+  "keywords": ["onSave", "onBeforeSave", "onEditRequest", "onDirtyChange", "features", "onEvent"]
+}

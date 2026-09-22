@@ -88,3 +88,92 @@ test('image preparation is available from the same public entry and rejects URLs
   assert.equal(typeof prepareSpreadsheetImage, 'function');
   await assert.rejects(prepareSpreadsheetImage('https://example.invalid/image.png'), /File または Blob/);
 });
+
+test('selection APIs expose cells, disjoint ranges, axes, sheets and drawings without workbook/history changes', async t => {
+  const changes = [], selections = [], events = [];
+  const initial = initialWorkbook();
+  initial.sheets[0].merges = [{ top: 1, left: 1, bottom: 2, right: 2 }];
+  initial.sheets.push({ id: 'other', name: 'Other', rowCount: 10, columnCount: 6, cells: {}, drawings: [{
+    id: 'drawing', type: 'shape', shape: 'rectangle', anchor: { row: 4, column: 2, offsetX: 0, offsetY: 0 },
+    width: 100, height: 60, fill: '#fff', stroke: '#000', strokeWidth: 1,
+  }] });
+  const view = await mount(t, { initialWorkbook: initial, onChange: value => changes.push(value),
+    onSelectionChange: value => selections.push(value), onEvent: event => events.push(event), readOnly: true });
+  const api = view.ref.current, workbook = api.getWorkbook(), history = api.getHistoryState();
+  await act(async () => {
+    assert.equal(api.selectCell('main', { row: 2, column: 2 }), true);
+    assert.deepEqual(api.getSelection().focus, { row: 1, column: 1 });
+    assert.deepEqual(api.getSelection().ranges, [{ anchor: { row: 1, column: 1 }, focus: { row: 2, column: 2 } }]);
+  });
+  const ranges = [{ anchor: { row: 0, column: 0 }, focus: { row: 0, column: 1 } },
+    { anchor: { row: 7, column: 4 }, focus: { row: 6, column: 3 } }];
+  await act(async () => assert.equal(api.selectRanges('main', ranges), true));
+  ranges[0].anchor.row = 19;
+  const snapshot = api.getSelection(); snapshot.ranges[0].anchor.row = 18;
+  assert.equal(api.getSelection().ranges[0].anchor.row, 0);
+  await act(async () => assert.equal(api.selectRows('main', 2, 3), true));
+  assert.equal(api.getSelection().ranges[0].kind, 'row');
+  assert.deepEqual(api.getSelection().ranges[0].anchor, { row: 2, column: 7 });
+  await act(async () => assert.equal(api.selectColumns('main', 2, 2), true));
+  assert.equal(api.getSelection().ranges[0].kind, 'column');
+  assert.equal(api.getSelection().focus.column, 2, 'header selection does not expand into the merge anchor outside this column');
+  await act(async () => assert.equal(api.selectSheet('other'), true));
+  await act(async () => assert.equal(api.selectDrawing('other', 'drawing'), true));
+  assert.deepEqual(api.getSelectedDrawing(), { sheetId: 'other', drawingId: 'drawing' });
+  await act(async () => assert.equal(api.clearSelection(), true));
+  assert.equal(api.getSelectedDrawing(), null);
+  assert.equal(api.getSelection().ranges.length, 1);
+  assert.strictEqual(api.getWorkbook(), workbook);
+  assert.deepEqual(api.getHistoryState(), history);
+  assert.equal(changes.length, 0);
+  assert.equal(events.filter(event => event.type === 'change').length, 0);
+  assert.ok(selections.length > 1);
+});
+
+test('selection APIs reject invalid/disabled targets and preserve unfinished cell/object input', async t => {
+  const view = await mount(t), api = view.ref.current;
+  const before = api.getSelection();
+  for (const action of [() => api.selectSheet('missing'), () => api.selectCell('main', { row: -1, column: 0 }),
+    () => api.selectCell('main', { row: NaN, column: 0 }), () => api.selectCell('main', { row: 0, column: 8 }),
+    () => api.selectRanges('main', []), () => api.selectRows('main', 0, 20),
+    () => api.selectRange('main', { anchor: { row: 0, column: 0 }, focus: { row: 1, column: 1 } }, { reveal: 'yes' }),
+    () => api.selectDrawing('main', 'missing')]) assert.equal(action(), false);
+  assert.deepEqual(api.getSelection(), before);
+  await act(async () => view.root.findByProps({ 'aria-label': 'A1の値' }).props.onChange({ target: { value: 'unfinished' } }));
+  assert.equal(api.selectCell('main', { row: 1, column: 1 }), false);
+  assert.equal(api.clearSelection(), false);
+  assert.equal(api.revealSelection(), false);
+  assert.equal(api.getWorkbook().sheets[0].cells.A1.value, 'before');
+  assert.equal(api.getHistoryState().undoCount, 0);
+  await act(async () => view.root.findByProps({ 'aria-label': 'A1の値' }).props.onKeyDown({ key: 'Enter', nativeEvent: {}, preventDefault() {} }));
+  assert.equal(api.getWorkbook().sheets[0].cells.A1.value, 'unfinished', 'GUI navigation still commits before using the shared selection path');
+  assert.equal(api.getSelection().focus.row, 1);
+  let drawingId;
+  await act(async () => { drawingId = api.execute({ type: 'shapes.insert', sheetId: 'main', shape: 'rectangle', anchor: { row: 3, column: 3 } }).results[0].drawingId; });
+  await act(async () => assert.equal(api.selectDrawing('main', drawingId), true));
+  await act(async () => view.root.findByProps({ 'aria-label': '幅' }).props.onChange({ target: { value: '240' } }));
+  assert.equal(api.selectSheet('main'), false);
+  assert.equal(api.clearSelection(), false);
+  await act(async () => view.root.findByProps({ 'aria-label': '幅' }).props.onBlur());
+  await act(async () => assert.equal(api.selectCell('main', { row: 0, column: 0 }), true));
+  await view.update({ features: { shapes: false } });
+  assert.equal(api.selectDrawing('main', drawingId), false);
+  await view.unmount();
+  assert.equal(api.selectCell('main', { row: 1, column: 1 }), false);
+  assert.equal(api.revealSelection(), false);
+});
+
+test('selection sheet switching obeys the current sheets feature before React rerenders', async t => {
+  const initial = initialWorkbook();
+  initial.sheets.push({ id: 'other', name: 'Other', rowCount: 8, columnCount: 4, cells: {} });
+  const view = await mount(t, { initialWorkbook: initial, features: { sheets: false } }), api = view.ref.current;
+  assert.equal(api.selectSheet('other'), false);
+  assert.equal(api.selectCell('other', { row: 0, column: 0 }), false);
+  await view.update({ features: { sheets: true } });
+  await act(async () => {
+    assert.equal(api.selectSheet('other'), true);
+    assert.equal(api.selectRows('other', 2), true);
+    assert.equal(api.getSelection().sheetId, 'other');
+    assert.equal(api.getSelection().focus.row, 2);
+  });
+});

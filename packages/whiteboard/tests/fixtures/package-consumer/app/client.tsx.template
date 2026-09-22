@@ -1,0 +1,3 @@
+"use client";
+import LikeWhiteboard, {createWhiteboard} from "__LIBRARY_IMPORT__";
+export default function Client() { return <LikeWhiteboard initialWhiteboard={createWhiteboard({title:"LikeWhiteboard consumer"})} onSave={async model=>model} style={{height:480}} />; }

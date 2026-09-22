@@ -43,7 +43,7 @@ function Menu({ c, root }: { c: SpreadsheetContextMenuController; root: RefObjec
   }, [captured, root]);
   const ordinary = captured.builtIns.filter(item => !item.destructive), destructive = captured.builtIns.filter(item => item.destructive);
   const kind = captured.context.target.kind;
-  return <div ref={element} className="lxs-context-menu" role="menu" tabIndex={-1} aria-label={kind === "sheet" ? "シートの操作" : kind === "row" ? "行の操作" : kind === "column" ? "列の操作" : "セルの操作"} onContextMenu={event => event.preventDefault()}
+  return <div ref={element} className="lxs-context-menu" role="menu" tabIndex={-1} aria-label={kind === "sheet" ? "シートの操作" : kind === "drawing" ? "画像・図形の操作" : kind === "row" ? "行の操作" : kind === "column" ? "列の操作" : "セルの操作"} onContextMenu={event => event.preventDefault()}
     onKeyDown={event => {
       event.stopPropagation();
       if (event.key === "Escape" || event.key === "Tab") { event.preventDefault(); c.closeMenu(); return; }
@@ -62,6 +62,7 @@ function Menu({ c, root }: { c: SpreadsheetContextMenuController; root: RefObjec
         }
       }
     }}>
+    {captured.renameSheet && <button type="button" role="menuitem" disabled={captured.renameSheet.disabled} onClick={c.renameSheet}>名前の変更</button>}
     {captured.duplicateSheet && <button type="button" role="menuitem" disabled={captured.duplicateSheet.disabled} onClick={c.duplicateSheet}>複製</button>}
     {ordinary.map((item, index) => <Fragment key={item.id}>
       {index > 0 && ordinary[index - 1].group !== item.group && <div role="separator" className="lxs-context-menu-separator" />}
@@ -73,7 +74,7 @@ function Menu({ c, root }: { c: SpreadsheetContextMenuController; root: RefObjec
       {item.icon != null && <span aria-hidden="true">{item.icon}</span>}<span>{item.label}</span>
     </button>)}
     {captured.deleteSheet && <>
-      {(captured.items.length > 0 || captured.duplicateSheet) && <div role="separator" className="lxs-context-menu-separator" />}
+      {(captured.items.length > 0 || captured.duplicateSheet || captured.renameSheet) && <div role="separator" className="lxs-context-menu-separator" />}
       <button type="button" role="menuitem" disabled={captured.deleteSheet.disabled} onClick={c.deleteSheet}>削除</button>
     </>}
     {destructive.length > 0 && <>

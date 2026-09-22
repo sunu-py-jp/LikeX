@@ -1,0 +1,26 @@
+import { createDocument, executeDocumentCommands, getBlocks, getImages, getDocumentText, parseDocument,
+  serializeDocument, createDocumentSession, importDocumentDocx, exportDocumentDocx,
+  type DocumentModel, type DocumentCommand, type DocumentSelection, type DocumentDocxOptions } from "__MODEL_IMPORT__";
+
+const document: DocumentModel = createDocument({ title: "Headless", page: { margins: { left: 25 } } });
+const marker: "likex.document" = document.format;
+const command: DocumentCommand = { type: "text.insert", from: 1, text: "Text" };
+const result = executeDocumentCommands(document, [command]);
+const selection: DocumentSelection | undefined = result.selection;
+const text: string = getDocumentText(result.document);
+const id: string = getBlocks(result.document)[0].id;
+const images = getImages(result.document);
+const session = createDocumentSession(parseDocument(serializeDocument(result.document)));
+session.select({ from: 1, to: 1 });
+session.execute({ type: "document.update", title: "Updated" });
+const options: DocumentDocxOptions = {};
+void exportDocumentDocx(document, options).then(result => importDocumentDocx(result.blob, options));
+void importDocumentDocx(new Uint8Array());
+void marker; void selection; void text; void id; void images;
+// @ts-expect-error Numeric ProseMirror positions are required.
+const badPosition: DocumentCommand = { type: "text.insert", from: "A1", text: "No" };
+// @ts-expect-error Only supported native format versions may be authored.
+const badVersion: DocumentModel = { ...document, version: 2 };
+// @ts-expect-error Unknown mark names are not accepted.
+const badMark: DocumentCommand = { type: "mark.set", from: 1, to: 2, mark: "script" };
+void badPosition; void badVersion; void badMark;

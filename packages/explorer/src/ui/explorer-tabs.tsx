@@ -11,6 +11,7 @@ import { FileIcon } from "./explorer-file-icon";
 import { useExplorerDom } from "./explorer-dom-context";
 import { useExplorerTheme } from "./explorer-theme";
 import { hasKeyModifiers, isComposingKeyEvent } from "../model/keyboard";
+import { createExplorerViewportScroller } from "./explorer-drag-feedback";
 
 type TabDrag = {
   id: string;
@@ -62,6 +63,8 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
   const theme = useExplorerTheme();
   const { document: ownerDocument, portalContainer } = useExplorerDom();
   const bar = useRef<HTMLDivElement>(null);
+  const tabViewport = useRef<HTMLDivElement>(null);
+  const dragScroller = useRef<ReturnType<typeof createExplorerViewportScroller> | null>(null);
   const tabButtons = useRef(new Map<string, HTMLButtonElement>());
   const pendingFocus = useRef<{ id: string } | "active" | null>(null);
   const drag = useRef<TabDrag | null>(null);
@@ -103,7 +106,7 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
     const destination = motion.source.getBoundingClientRect();
     element.dataset.returning = "true";
     motion.animation = element.animate([
-      { transform: `translate3d(${motion.x}px, ${motion.y}px, 0)`, opacity: 0.82 },
+      { transform: `translate3d(${motion.x}px, ${motion.y}px, 0)`, opacity: 0.7 },
       { transform: `translate3d(${destination.left}px, ${destination.top}px, 0)`, opacity: 0.25 },
     ], { duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "forwards" });
     motion.animation.onfinish = () => {
@@ -112,6 +115,8 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
   }, [disposeGhost]);
 
   const clearDrag = useCallback(() => {
+    dragScroller.current?.stop();
+    dragScroller.current = null;
     const current = drag.current;
     drag.current = null;
     if (!current) return;
@@ -207,6 +212,7 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
     disposeGhost();
     const source = event.currentTarget.closest<HTMLElement>("[data-explorer-tab]") ?? event.currentTarget;
     const bounds = source.getBoundingClientRect();
+    if (tabViewport.current?.ownerDocument) dragScroller.current = createExplorerViewportScroller(tabViewport.current, "x");
     drag.current = {
       id,
       pointerId: event.pointerId,
@@ -231,8 +237,8 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
       setGhost({
         id: current.id,
         title: tabs.find((tab) => tab.id === current.id)?.title ?? "",
-        width: bounds.width,
-        height: bounds.height,
+        width: Math.min(180, bounds.width * .86),
+        height: Math.min(28, bounds.height),
       });
     }
     const motion = ghostMotion.current;
@@ -247,6 +253,7 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
     if (!current || current.pointerId !== event.pointerId) return;
     if (current.moved || Math.hypot(event.clientX - current.startX, event.clientY - current.startY) >= 8) {
       updateGhost(current, event);
+      dragScroller.current?.update({ x: event.clientX, y: event.clientY });
       event.preventDefault();
     }
   }
@@ -290,6 +297,7 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
     <>
     <div ref={bar} className="lxe:flex lxe:min-w-0 lxe:flex-1 lxe:items-end lxe:gap-1">
       <div
+        ref={tabViewport}
         role="tablist"
         aria-label="開いているフォルダ"
         aria-orientation="horizontal"
@@ -444,7 +452,7 @@ export const ExplorerTabs = memo(function ExplorerTabs() {
         data-likex-explorer=""
         aria-hidden="true"
         className="lxe:pointer-events-none lxe:fixed lxe:top-0 lxe:left-0 lxe:z-[100] lxe:flex lxe:items-center lxe:gap-2 lxe:rounded-md lxe:border lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-panel)] lxe:px-3 lxe:text-[13px] lxe:leading-normal lxe:text-[var(--explorer-foreground)] lxe:shadow-[0_12px_28px_#0f274540]"
-        style={{ ...theme, width: ghost.width, height: ghost.height, opacity: 0.82, willChange: "transform" }}
+        style={{ ...theme, width: ghost.width, height: ghost.height, opacity: 0.7, willChange: "transform" }}
       >
         {(() => {
           const folder = entries.find((entry) => entry.kind === "folder" && entry.id === tabLocations[ghost.id]);

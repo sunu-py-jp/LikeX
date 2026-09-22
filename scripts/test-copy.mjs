@@ -36,6 +36,8 @@ async function testConsumer(module) {
       copiedDependencies.push({ name: dependencyManifest.name, directory: target });
       delete declared[dependencyManifest.name];
     }
+    if (ui && await access(path.join(copiedSource, 'browser.ts')).then(() => true, () => false))
+      await writeFile(path.join(copiedSource, 'browser.ts'), 'export * from "../core/browser";\n');
     // Change only the adapters documented for source-copy installation.
     if (ui) await writeFile(path.join(copiedSource, 'core.ts'), 'export * from "../core";\n');
     if (ui && await access(path.join(copiedSource, 'ooxml.ts')).then(() => true, () => false))
@@ -89,7 +91,7 @@ async function testConsumer(module) {
     const headlessModel = libraryModule(module).headlessEntries?.model ? await checkModelConsumer({ module, sourceDirectory: copiedSource }) : undefined;
     const report = {
       source: `packages/${module}/src copied to components/${module} in a temporary project outside the repository`,
-      ...(ui ? { coreSource: 'packages/core/src copied unchanged to components/core', adapterChange: 'core.ts → ../core; ooxml.ts / json.ts (when present) → ../core/ooxml / ../core/json' } : {}),
+      ...(ui ? { coreSource: 'packages/core/src copied unchanged to components/core', adapterChange: 'core.ts → ../core; browser.ts / ooxml.ts / json.ts (when present) → ../core/browser / ../core/ooxml / ../core/json' } : {}),
       copiedSourceFiles, packageImportAvailable: false, installMode, linkedDependencies, testedVersions, dependencyLocations,
       networkInstallationTested: online, typeResolution: 'Bundler, strict, skipLibCheck=false; no aliases', ...(headlessModel ? { headlessModel } : {}),
       ...(ui ? { ssrBytes: ssr.renderedBytes, stylesheetImport: `components/${module}/styles.css` } : { nodeImport: 'passed without React or browser globals' }), ...styles, ...nextStyles,

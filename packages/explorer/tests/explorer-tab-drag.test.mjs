@@ -114,6 +114,9 @@ test('a lone main tab has no detach menu but follows the pointer and returns asy
   await ui.start();
   assert.equal(ui.ghosts().length, 1);
   assert.equal(ui.ghosts()[0].props['aria-hidden'], 'true');
+  assert.ok(ui.ghosts()[0].props.style.width < 120);
+  assert.ok(ui.ghosts()[0].props.style.height <= 28);
+  assert.equal(ui.ghosts()[0].props.style.opacity, 0.7);
   assert.equal(ui.ghostNodes.at(-1).style.transform, 'translate3d(280px, 150px, 0)');
   assert.equal(ui.sources.get('tab-1').dataset.ghostSource, 'true');
   assert.equal(ui.state.portalContainers.at(-1), ui.state.environment.document.body);

@@ -94,3 +94,20 @@ const zip = await createZipArchive([
 | 途中の失敗 | 全体がreject。部分的なZIPは返さない |
 
 絶対パス、`.` / `..`、空のパス区間、バックスラッシュ、コロン、制御文字、不正なUnicode、末尾がドットまたは空白のパス区間、重複パス、ファイルと親フォルダの衝突を拒否します。大きなファイル群はメモリ使用量を確認し、必要なら利用側のサーバーでZIPを生成してください。
+
+## Office出力の型
+
+各モジュールの `/model` からOfficeファイルを書き出した結果は、実体がBlobの `OfficePackageBlob` として取得できます。この型は `@likex/core/ooxml` からも公開し、DOMの型宣言に依存せず `size`, `type`, `arrayBuffer()`, `text()` を利用できます。キャンセルには `OfficePackageSignal` を使い、ブラウザーやNode.jsの `AbortSignal` をそのまま渡せます。
+
+## Officeメタデータの部分読み込み
+
+`@likex/core/ooxml` の `openOfficePackageMetadata(input, signal?)` は、File・Blobなど、`size` と `slice(start, end).arrayBuffer()` を備える `OfficePackageMetadataInput` を受け取り、`paths`・`has(path)`・`read(path)` を持つアーカイブを返します。ZIP目録とすべてのローカルヘッダーを確認してから、`read()` で指定したパーツだけを展開します。ファイル全体や埋め込み動画を一括で読み込まずに、PPTXのスライド一覧などを確認できます。
+
+```ts
+import { openOfficePackageMetadata, officeXml } from "@likex/core/ooxml";
+
+const archive = await openOfficePackageMetadata(file, controller.signal);
+const presentation = officeXml.parseXml(await archive.read("ppt/presentation.xml"));
+```
+
+入力は512 MiB、ZIP目録は8 MiB、項目数は4,096件までです。読み込むパーツは圧縮前後とも1件16 MiB、展開後の合計64 MiBまでに制限します。読み込まないパーツの本文・CRC・展開後サイズは検証しないため、文書全体が正常であることを保証するAPIではありません。XMLの構造制限、危険なパス、暗号化、ZIP64、重複や不整合なヘッダーの拒否は従来どおりです。中止時は進行中のslice読み込みを待たずにrejectし、後から返った結果を反映しません。通常の `openOfficePackage` は従来の入力32 MiBなどの上限と全パーツの検証を維持します。

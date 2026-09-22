@@ -1,0 +1,11 @@
+import { createBoard, executeBoardCommands, serializeBoard, parseBoard, createBoardController, type BoardModel, type BoardCommand } from "__MODEL_IMPORT__";
+const model: BoardModel = createBoard({ id: "board-1", title: "LikeBoard consumer", columns: [{ id: "todo", title: "To do", cards: [{ id: "card-1", title: "Board consumer content" }] }] });
+const command: BoardCommand = { type: "card.update", cardId: "card-1", patch: { title: "Updated" } };
+const updated = executeBoardCommands(model, [command]);
+const controller = createBoardController(parseBoard(serializeBoard(updated.board)), { onSave: async value => value });
+void controller.execute(command); void controller.save();
+// @ts-expect-error Unsupported file version.
+const wrongVersion: BoardModel = { ...model, version: 2 };
+// @ts-expect-error Unsupported command.
+const wrongCommand: BoardCommand = { type: "not-supported" };
+void wrongVersion; void wrongCommand;

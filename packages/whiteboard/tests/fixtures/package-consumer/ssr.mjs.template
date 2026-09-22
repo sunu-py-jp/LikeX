@@ -1,0 +1,9 @@
+import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import LikeWhiteboard, { LikeWhiteboard as Named, createWhiteboard } from "__LIBRARY_IMPORT__";
+assert.equal(LikeWhiteboard,Named);assert.equal(typeof window,"undefined");
+const model = createWhiteboard({title:"LikeWhiteboard consumer"});
+const markup = renderToStaticMarkup(createElement(LikeWhiteboard,{initialWhiteboard:model,style:{height:360}}));
+assert.match(markup,/data-likex-whiteboard/);assert.match(markup,/LikeWhiteboard consumer/);assert.match(markup,/height:360px/);
+console.log(JSON.stringify({resolved:import.meta.resolve("__LIBRARY_RESOLVE__"),renderedBytes:markup.length}));

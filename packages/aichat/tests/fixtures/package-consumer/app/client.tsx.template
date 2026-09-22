@@ -1,0 +1,11 @@
+"use client";
+import { useRef, useState } from "react";
+import LikeAIChat, { createAIChat, type AIChatHandle } from "__LIBRARY_IMPORT__";
+
+export default function ClientAIChat() {
+  const ref = useRef<AIChatHandle>(null);
+  const [aichat] = useState(() => createAIChat({ id: "client-aichat", title: "Client aichat" }));
+  return <LikeAIChat ref={ref} initialAIChat={aichat} onSave={async current => current}
+    onSend={async ({ prompt }) => `Response: ${prompt.content}`}
+    onBeforeSave={() => true} style={{ height: 400 }} />;
+}

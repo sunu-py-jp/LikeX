@@ -81,7 +81,7 @@ Handle／GUIの出力は `onEvent` に `type: "export", format: "xlsx"` を通�
 ## 互換性と実行環境
 
 - 画像・数式・文字組みを含めたExcel全機能との完全互換を意味しません。Excelのフォントや列幅の単位により、画面と配置・折り返しが多少変わることがあります。
-- 通常のPNG／JPEGはそのまま内包します。WebP・GIF・向き情報付きJPEGはブラウザのCanvasでPNGへ変換します。アニメーションは静止画像になります。変換が必要な画像をDOMのない環境で渡した場合は、画像を省略せずエラーにします。
+- 通常のPNG／JPEGはそのまま内包します。WebP・GIF・向き情報付きJPEGは既定ではブラウザのCanvasでPNGへ変換します。アニメーションは静止画像になります。Node.jsでは下記の `rasterizeImage` を指定します。変換が必要なのに実行環境や変換関数がない場合は、対象画像の名前・リソースIDを含むエラーにします。
 - 画像変換後にも1枚5 MiB、合計20 MiBの上限を適用します。画像取得の外部通信は行いません。
 - Excelの上限を超えるセル（32,767文字／253改行）、大きすぎる行高や書式数、不正なXML文字は明示的にエラーになります。黙って切り詰めません。
 - 色はHEX・RGB・HSL・OKLab／OKLCH・一般的な色名からRGBへ変換します。CSS変数など解決できない色は既定色へ戻します。セルの半透明色は白地に合成し、図形では透明度を保持します。
@@ -89,3 +89,42 @@ Handle／GUIの出力は `onEvent` に `type: "export", format: "xlsx"` を通�
 - JSONのIDや編集履歴・ロック情報はExcel独自の管理情報へ変換しません。アプリケーションの保存・復元にはJSONを使ってください。
 
 出力はSpreadsheetML／DrawingMLの必要な部分を生成し、CoreのZIP処理で組み立てます。追加の実行時パッケージは不要です。形式の参考: [SpreadsheetML](https://learn.microsoft.com/en-us/office/open-xml/spreadsheet/structure-of-a-spreadsheetml-document)、[DrawingMLのシート上の描画](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.spreadsheet.worksheetdrawing)。
+
+## Node.js・画面なしでの出力
+
+`@likex/spreadsheet/model` から読み込み・書き出しの両方を利用できます。Reactやコンポーネントの準備は不要です。Node.js 22.13以降で、通常のPNG／JPEGを含むブックは追加設定なく変換できます。
+
+```ts
+import { readFile, writeFile } from "node:fs/promises";
+import { parseWorkbook, exportSpreadsheetXlsx } from "@likex/spreadsheet/model";
+
+const workbook = parseWorkbook(await readFile("売上.spon", "utf8"));
+const file = await exportSpreadsheetXlsx(workbook);
+await writeFile("売上.xlsx", new Uint8Array(await file.arrayBuffer()));
+```
+
+`/model` の戻り値も実体は `Blob` です。DOMの型宣言を必要としないよう、型上はCoreの `OfficePackageBlob`（`size`, `type`, `arrayBuffer()`, `text()`）を公開しています。出力オプションの型は `SpreadsheetXlsxExportOptions` です。UI入口の `SpreadsheetExcelExportOptions` と同じ意味で、キャンセル通知も `AbortSignal` を渡せます。
+
+WebP・GIF・回転情報付きJPEGを扱う場合は、利用側の画像変換処理を指定します。下記の `convertToPng` は利用側が用意する関数です。ブラウザーのrefにも同じ関数を渡せます。
+
+```ts
+import {
+  exportSpreadsheetXlsx,
+  type SpreadsheetImageRasterizer,
+} from "@likex/spreadsheet/model";
+
+async function exportWithConverter(convertToPng: SpreadsheetImageRasterizer) {
+  return exportSpreadsheetXlsx(workbook, { rasterizeImage: convertToPng });
+}
+```
+
+| 変換関数への引数 | 内容 |
+| --- | --- |
+| `resourceId`, `name` | 変換対象を識別するリソースIDと画像名。 |
+| `source` | 元の画像Blob。`type` で形式、`arrayBuffer()` でバイト列を取得。 |
+| `width`, `height` | EXIFの向きを反映した出力幅・高さ。縦横を入れ替える場合もこの寸法に合わせる。 |
+| `signal` | キャンセル通知。利用側の変換処理にも伝える。 |
+
+戻り値は指定寸法のPNG Blob、またはそのPromiseです。透過とアニメーションの先頭フレームを維持してください。ライブラリはMIME、PNGのヘッダー、寸法、1枚5 MiB・合計20 MiBのサイズ上限を検証します。通常のPNG／JPEGでは変換関数を呼びません。同じリソースを複数シートで使っていても変換は1回です。
+
+キャンセル時は変換関数の完了を待たずに出力を中止し、遅れて返った結果を採用しません。変換関数自身の処理を停止する責任は利用側にあります。画像変換ライブラリの追加や外部サービスへの通信はLikeXでは行いません。

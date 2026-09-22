@@ -7,11 +7,22 @@
 | **Explorer** | ファイル・フォルダを表示し、アップロードや移動の結果を下書きに保持します。 | [導入と初期表示](../../packages/explorer/src/docs/getting-started.md) |
 | **Spreadsheet** | セル・数式・書式・画像などを編集し、ブックをJSONで受け渡します。標準保存ファイルは `.spon` です。 | [導入](../../packages/spreadsheet/src/docs/README.md) |
 | **LikeSlide** | スライド・テキスト・図形・画像をJSONで編集し、PPTXを読み書きします。標準保存ファイルは `.slon` です。 | [導入](../../packages/slide/src/docs/README.md) |
+| **LikeDocument** | 文章・段落・表・画像を編集し、DOCXを読み書きします。標準保存ファイルは `.dcon` です。 | [導入](../../packages/document/src/docs/getting-started.md) |
+| **LikeBoard** | カードとタスクのかんばん。JSONと画面なしのAPIを提供します。 | [導入](../../packages/board/src/docs/getting-started.md) |
+| **LikeDiagram** | ノード・接続線の図。JSONと画面なしのAPIを提供します。 | [導入](../../packages/diagram/src/docs/getting-started.md) |
+| **LikeCalendar** | 月・週・日の予定管理。JSONと画面なしのAPIを提供します。 | [導入](../../packages/calendar/src/docs/getting-started.md) |
+| **LikeWhiteboard** | 付箋・図形・画像のキャンバス。JSONと画面なしのAPIを提供します。 | [導入](../../packages/whiteboard/src/docs/getting-started.md) |
+| **LikeAIChat** | AIとの会話・ストリーミング応答。JSONと画面なしのAPIを提供します。 | [導入](../../packages/aichat/src/docs/getting-started.md) |
+| **LikeChat** | 人同士のDM・グループ・スペース・スレッド。JSONと画面なしのAPIを提供します。 | [導入](../../packages/chat/src/docs/getting-started.md) |
+| **LikeDataView** | 型付きレコード・検索・集計表示。JSONと画面なしのAPIを提供します。 | [導入](../../packages/dataview/src/docs/getting-started.md) |
+| **LikeForm** | フォーム設計・回答・検証。JSONと画面なしのAPIを提供します。 | [導入](../../packages/form/src/docs/getting-started.md) |
 | **Core** | 保存・編集許可・通知など、各コンポーネントが使う共通の契約です。 | [Coreの導入](../../packages/core/docs/getting-started.md) |
 
-Explorer・Spreadsheet・LikeSlideはReact / React DOM **19.2.6以降の19系**を利用します。CSSはパッケージに含まれ、利用先のTailwind CSS設定は不要です。
+各UIはReact / React DOM **19.2.6以降の19系**を利用します。CSSはパッケージに含まれ、利用先のTailwind CSS設定は不要です。
 
-`.spon` と `.slon` の内容は純粋なJSONで、現在の保存構造をバージョン1としています。`.json` も選択できますが、内容は同じ形式が必要です。`onSave` は編集用モデルを親アプリへ渡し、各モジュールのserialize APIで保存形式へ変換します。形式の詳細は [SpreadsheetのJSON保存](../../packages/spreadsheet/src/docs/insertions-and-json.md) と [LikeSlideのコマンドとJSON](../../packages/slide/src/docs/commands.md) を参照してください。
+`.spon`・`.slon`・`.dcon` の内容は純粋なJSONで、現在の保存構造をバージョン1としています。`.json` も選択できますが、内容は同じ形式が必要です。`onSave` は編集用モデルを親アプリへ渡し、各モジュールのserialize APIで保存形式へ変換します。形式の詳細は [SpreadsheetのJSON保存](../../packages/spreadsheet/src/docs/insertions-and-json.md)、[LikeSlideのコマンドとJSON](../../packages/slide/src/docs/commands.md)、[LikeDocumentのDCON保存](../../packages/document/src/docs/native-files.md) を参照してください。
+
+旧AI向けLikeChatは `@likex/aichat` / `LikeAIChat` に移りました。AI会話は `likex.aichat` / version 1、人同士のLikeChatは `likex.chat` / version 2を保存します。旧AIファイルは [AIChatの移行API](../../packages/aichat/src/docs/native-files.md#旧likechatからの移行)で検証して読み込めます。
 
 ## まず読み取り専用で表示する
 
@@ -49,7 +60,7 @@ npm run pack:library -- --all
 
 生成されたCoreと利用するUIのtarballを、利用先のプロジェクトへインストールします。コマンドの詳細は [Explorerのパッケージ導入](../../packages/explorer/README.md) または [Spreadsheetのパッケージ導入](../../packages/spreadsheet/README.md) を参照してください。
 
-コピーする場合は `packages/core/src/` と利用するUIの `src/` を隣り合うフォルダへ置きます。UI側の `core.ts` を `export * from "../core";` に変更し、UIのCSSを1回読み込んでください。Spreadsheet・LikeSlideでは `ooxml.ts` も `export * from "../core/ooxml";` に変更します。表示枠の高さも親側で指定します。
+コピーする場合は `packages/core/src/` と利用するUIの `src/` を隣り合うフォルダへ置きます。UI側の `core.ts` を `export * from "../core";` に変更し、UIのCSSを1回読み込んでください。Spreadsheet・LikeSlide・LikeDocumentでは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更します。表示枠の高さも親側で指定します。
 
 ## APIと利用例の読み方
 

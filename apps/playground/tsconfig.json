@@ -4,13 +4,56 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
-    "types": ["vite/client", "node"],
+    "types": [
+      "vite/client",
+      "node"
+    ],
     "paths": {
-      "@likex/explorer": ["../../packages/explorer/src/index.ts"],
-      "@likex/spreadsheet": ["../../packages/spreadsheet/src/index.ts"],
-      "@likex/slide": ["../../packages/slide/src/index.ts"]
+      "@likex/explorer": [
+        "../../packages/explorer/src/index.ts"
+      ],
+      "@likex/spreadsheet": [
+        "../../packages/spreadsheet/src/index.ts"
+      ],
+      "@likex/slide": [
+        "../../packages/slide/src/index.ts"
+      ],
+      "@likex/document": [
+        "../../packages/document/src/index.ts"
+      ],
+      "@likex/board": [
+        "../../packages/board/src/index.ts"
+      ],
+      "@likex/dataview": [
+        "../../packages/dataview/src/index.ts"
+      ],
+      "@likex/diagram": [
+        "../../packages/diagram/src/index.ts"
+      ],
+      "@likex/whiteboard": [
+        "../../packages/whiteboard/src/index.ts"
+      ],
+      "@likex/calendar": [
+        "../../packages/calendar/src/index.ts"
+      ],
+      "@likex/chat": [
+        "../../packages/chat/src/index.ts"
+      ],
+      "@likex/form": [
+        "../../packages/form/src/index.ts"
+      ],
+      "@likex/aichat": [
+        "../../packages/aichat/src/index.ts"
+      ]
     }
   },
-  "include": ["src", "build", "vite.config.ts"],
-  "exclude": ["dist", "node_modules"]
+  "include": [
+    "src",
+    "build",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
 }

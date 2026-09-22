@@ -1,0 +1,78 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { PDFDocument } from 'pdf-lib';
+import {
+  createDraftSnapshot, applyAction, addFilesWithResult, addFilesWithResultAsync, addFilesAsync, prepareFilesWithProgress,
+  createExplorerUploadSession, ExplorerUploadConflictError, getSavePayload, hasChanges,
+  ExplorerUploadValidationError, ExplorerUploadInspectionRequiredError,
+  EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS, describeEntries, resolveExplorerEntryTargets, readEntryFile,
+  assertExplorerEntryPermissions, checksForExplorerAction, ExplorerOperationDeniedError,
+} from '__MODEL_IMPORT__';
+
+const require = createRequire(import.meta.url);
+assert.throws(() => require.resolve('react'), { code: 'MODULE_NOT_FOUND' });
+assert.throws(() => require.resolve('react-dom'), { code: 'MODULE_NOT_FOUND' });
+assert.equal(typeof window, 'undefined');
+assert.equal(typeof document, 'undefined');
+const baseline = createDraftSnapshot([]);
+const folder = applyAction(baseline, { action: 'create', name: 'Documents' });
+const parent = folder.entries[0].id;
+const file = new File(['first'], 'report.txt', { type: 'text/plain' });
+const added = addFilesWithResult(folder, [file], parent);
+const id = added.snapshot.entries.find(entry => entry.kind === 'file').id;
+const permissionChecks = checksForExplorerAction(added.snapshot.entries, { action: 'delete', ids: [parent] });
+let locked = true;
+const getEntryPermissions = entry => entry.id === id && locked ? { delete: { allowed: false, message: '編集中です' } } : undefined;
+assert.throws(() => assertExplorerEntryPermissions(added.snapshot.entries, permissionChecks, getEntryPermissions),
+  error => error instanceof ExplorerOperationDeniedError && error.entryId === id && error.operation === 'delete' && error.message === '編集中です');
+locked = false;
+assertExplorerEntryPermissions(added.snapshot.entries, permissionChecks, getEntryPermissions);
+assert.equal(added.result.addedCount, 1);
+assert.equal(await (await readEntryFile(added.snapshot.entries.find(entry => entry.id === id))).text(), 'first');
+assert.equal(hasChanges(baseline, added.snapshot), true);
+assert.equal(getSavePayload(baseline, added.snapshot).changes.created.length, 2);
+assert.deepEqual(baseline.entries, []);
+assert.throws(() => applyAction(added.snapshot, { action: 'rename', ids: [id], name: 'report.csv' }), /拡張子/);
+const renamed = applyAction(added.snapshot, { action: 'rename', ids: [id], name: 'renamed.txt' });
+assert.equal(describeEntries(renamed.entries).find(entry => entry.id === id).path, '/Documents/renamed.txt');
+assert.deepEqual(resolveExplorerEntryTargets(renamed.entries, [{ id: parent }, { id }]).value.entryIds, [parent, id]);
+const replacement = new File(['second'], 'renamed.txt', { type: 'text/plain' });
+const session = createExplorerUploadSession();
+let conflict;
+try { addFilesWithResult(renamed, [replacement], parent, undefined, [], session); }
+catch (error) { assert.ok(error instanceof ExplorerUploadConflictError); conflict = error.conflict; }
+assert.ok(conflict);
+assert.equal(renamed.entries.find(entry => entry.id === id).source.file, file);
+const staged = prepareFilesWithProgress(renamed, [replacement], parent, undefined,
+  [{ fileIndex: conflict.fileIndex, existing: conflict.existing, action: 'overwrite' }], session);
+let progress = 0, result;
+for (;;) { const step = staged.next(); if (step.done) { result = step.value; break; } progress++; }
+assert.ok(progress > 0);
+assert.equal(result.result.overwrittenCount, 1);
+assert.equal(result.snapshot.entries.find(entry => entry.id === id).source.file, replacement);
+assert.equal(renamed.entries.find(entry => entry.id === id).source.file, file);
+const video = new File(['video metadata supplied by the host'], 'clip.mp4');
+assert.throws(() => addFilesWithResult(baseline, [video], 'root'), ExplorerUploadInspectionRequiredError);
+const videoSnapshot = await addFilesAsync(baseline, [video], 'root', {
+  inspectFile: () => ({ kind: 'video', durationSeconds: EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS }),
+});
+assert.equal(videoSnapshot.entries[0].source.file, video);
+await assert.rejects(() => addFilesWithResultAsync(baseline, [video], 'root', {
+  inspectFile: () => ({ kind: 'video', durationSeconds: EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS + 1 }),
+}), error => error instanceof ExplorerUploadValidationError && error.rejections[0].reasons[0].code === 'duration-exceeded');
+const pdf = await PDFDocument.create();
+pdf.addPage();
+pdf.addPage();
+const pdfFile = new File([await pdf.save()], 'two-pages.pdf', { type: 'application/pdf' });
+await assert.rejects(() => addFilesWithResultAsync(baseline, [pdfFile], 'root', {
+  contentLimitsByExtension: { '.pdf': { maxPages: 1 } },
+}), error => error instanceof ExplorerUploadValidationError && error.rejections[0].reasons[0].pages === 2);
+const pdfResult = await addFilesWithResultAsync(baseline, [pdfFile], 'root', {
+  contentLimitsByExtension: { '.pdf': { maxPages: 2 } },
+});
+assert.equal(pdfResult.result.addedCount, 1);
+assert.equal(pdfResult.snapshot.entries[0].source.file, pdfFile);
+assert.deepEqual(baseline.entries, []);
+assert.equal(typeof document, 'undefined');
+console.log(JSON.stringify({ model: 'explorer', entries: result.snapshot.entries.length, overwrite: result.result.overwrittenCount,
+  contentValidation: { videoDuration: EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS, pdfPages: 2 }, entryPermissions: true, reactFree: true }));

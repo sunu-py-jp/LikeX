@@ -24,3 +24,5 @@ export type { SpreadsheetTableCommand, SpreadsheetTableData, SpreadsheetTableWri
 export type { SpreadsheetNamedRangeCommand } from "./api/named-range-commands";
 export { importSpreadsheetXlsx } from "./import/import-xlsx";
 export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, SpreadsheetExcelImportWarning } from "./import/types";
+export { exportSpreadsheetXlsx } from "./export/model-export";
+export type { SpreadsheetXlsxExportOptions, SpreadsheetImageRasterizeRequest, SpreadsheetImageRasterizer } from "./export/portable-types";

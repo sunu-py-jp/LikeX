@@ -8,6 +8,8 @@
 
 `onPreviewRequest` で、ファイルを開いたときの表示を親画面へ任せられます。コールバックを指定すると内蔵プレビューダイアログの代わりに要求を渡し、指定しなければ内蔵プレビューを使います。
 
+[`getEntryPermissions`](./entry-permissions.md) の `preview` が拒否された場合は、内蔵表示・外部コールバックとも実行せず、指定された理由を表示します。すでに親が開いたビューの閉じる処理や編集ロックは親が管理します。
+
 | prop | 動作 |
 | --- | --- |
 | `onPreviewRequest?: ExplorerPreviewHandler` | 開くファイルの情報を受け取ります。戻り値は `void` または `Promise<void>`。同期例外・PromiseのrejectはExplorerがエラー通知します。 |

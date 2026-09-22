@@ -1,0 +1,8 @@
+{
+  "title": "モデルAPI・コマンド・履歴",
+  "summary": "画面なしの会話作成・取得・編集と表示中コンポーネントのref操作。",
+  "source": "packages/aichat/src/docs/headless.md",
+  "order": 10,
+  "section": "親アプリとの連携",
+  "keywords": ["AIChatCommand", "AIChatHandle", "executeAIChatCommands", "createAIChatSession", "getAIChatMessages"]
+}

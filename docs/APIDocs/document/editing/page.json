@@ -1,0 +1,8 @@
+{
+  "title": "文章・書式・表・画像",
+  "summary": "本文と見出しの編集、リスト、表、埋め込み画像、改ページ、機能設定。",
+  "source": "packages/document/src/docs/editing.md",
+  "order": 10,
+  "section": "文書の編集",
+  "keywords": ["DocumentFeatures", "文字書式", "見出し", "表", "画像", "改ページ", "positions"]
+}

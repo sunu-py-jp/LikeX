@@ -1,0 +1,7 @@
+import assert from "node:assert/strict";
+import {createWhiteboard,executeWhiteboardCommands,parseWhiteboard,serializeWhiteboard,exportWhiteboardSvg} from "__MODEL_IMPORT__";
+assert.equal(typeof window,"undefined");const model=createWhiteboard({title:"Before"});
+const next=executeWhiteboardCommands(model,{type:"whiteboard.update",title:"After"});
+assert.equal(model.title,"Before");assert.equal(next.title,"After");
+assert.equal(serializeWhiteboard(parseWhiteboard(serializeWhiteboard(next))),serializeWhiteboard(next));assert.match(exportWhiteboardSvg(next),/^<svg/);
+console.log(JSON.stringify({ noReact: true, noDOM: true, commands: "passed", nativeRoundtrip: "passed", svg: "passed" }));

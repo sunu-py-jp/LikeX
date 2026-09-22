@@ -39,7 +39,7 @@ export function useSpreadsheetExport(draft: ReturnType<typeof useWorkbookDraft>,
     current.emitEvent({ type: "export", format, status: "start", requestId, workbook });
     try {
       controller.signal.throwIfAborted();
-      const blob = await (format === "xlsx" ? exportSpreadsheetXlsx(workbook, { signal: controller.signal })
+      const blob = await (format === "xlsx" ? exportSpreadsheetXlsx(workbook, { ...options, signal: controller.signal })
         : new Blob([serializeWorkbook(workbook)], { type: "application/json" }));
       controller.signal.throwIfAborted();
       if (latest.current.draft.propsRef.current.features?.[feature] === false) throw new DOMException("Export cancelled", "AbortError");

@@ -1,0 +1,32 @@
+import type { CSSProperties } from "react";
+import type { MaybePromise, OperationContext } from "./core";
+import type { ChatAttachment, ChatCommand, ChatConversation, ChatModel } from "./model";
+import type { ChatSessionOptions } from "./state/session";
+export type ChatProps = ChatSessionOptions & {
+  initialChat?: ChatModel;
+  initialConversationId?: string;
+  onConversationChange?: (conversation: ChatConversation) => void;
+  onAttachmentUpload?: (files: readonly File[], context: OperationContext) => MaybePromise<readonly ChatAttachment[]>;
+  onAttachmentClick?: (attachment: ChatAttachment) => void;
+  colorMode?: "light" | "dark" | "system";
+  primaryColor?: string;
+  title?: string;
+  exportFileName?: string;
+  className?: string;
+  style?: CSSProperties;
+};
+export type ChatHandle = {
+  getChat(): ChatModel;
+  getConversation(): ChatConversation | undefined;
+  selectConversation(id: string): boolean;
+  execute(command: ChatCommand | readonly ChatCommand[]): Promise<ChatModel | null>;
+  send(text: string, attachments?: readonly ChatAttachment[], replyTo?: string): Promise<boolean>;
+  cancel(): void;
+  save(): Promise<boolean>;
+  undo(): Promise<boolean>;
+  redo(): Promise<boolean>;
+  discard(): void;
+  importNative(input: string): Promise<ChatModel | null>;
+  exportNative(): string | null;
+  syncChat(chat: ChatModel, options?: { discardLocalChanges?: boolean }): boolean;
+};

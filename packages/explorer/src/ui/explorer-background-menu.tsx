@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactElement } from "react";
-import { FilePlus, FolderPlus, FolderUp, Upload } from "lucide-react";
+import { ClipboardPaste, FilePlus, FolderPlus, FolderUp, Upload } from "lucide-react";
 import { useExplorerFields } from "../state/explorer-context";
 import { ContextMenu } from "./explorer-overlays";
 import { useExplorerTheme } from "./explorer-theme";
@@ -10,31 +10,35 @@ import { menuContentClass, menuItemClass, menuSeparatorClass } from "./explorer-
 import { ExplorerCustomMenuItems } from "./explorer-custom-menu-items";
 import type { ExplorerCustomMenu } from "../state/use-explorer-context-menu";
 import { useMenuActionHandoff } from "./use-menu-action-handoff";
+import { preserveNativeContextMenu } from "./explorer-menu-target";
 
 /** Add to the displayed folder, only from the list's empty space. */
 export function ExplorerBackgroundMenu({ children }: { children: ReactElement }) {
-  const { features, uiOptions, special, provisionalLocation, query, busy, showModal, chooseFiles, setSelected, instanceId, hasCustomContextMenu, getCustomContextMenu } =
-    useExplorerFields("features", "uiOptions", "special", "provisionalLocation", "query", "busy", "showModal", "chooseFiles", "setSelected", "instanceId", "hasCustomContextMenu", "getCustomContextMenu");
+  const { features, uiOptions, special, provisionalLocation, query, busy, disabled, canPaste, paste, currentParent, showModal, chooseFiles, setSelected, instanceId, hasCustomContextMenu, getCustomContextMenu } =
+    useExplorerFields("features", "uiOptions", "special", "provisionalLocation", "query", "busy", "disabled", "canPaste", "paste", "currentParent", "showModal", "chooseFiles", "setSelected", "instanceId", "hasCustomContextMenu", "getCustomContextMenu");
   const [customMenu, setCustomMenu] = useState<ExplorerCustomMenu | null>(null);
   const [open, setOpen] = useState(false);
+  const [targetParent, setTargetParent] = useState(currentParent);
   const actionHandoff = useMenuActionHandoff();
   const theme = useExplorerTheme();
   const { portalContainer } = useExplorerDom();
   const allowBuiltins = !special && !query.trim();
   const hasCreate = allowBuiltins && (features.createFile || features.createFolder);
   const hasUpload = allowBuiltins && (features.uploadFiles || features.uploadFolders);
-  if (provisionalLocation || !uiOptions.contextMenu || (!hasCreate && !hasUpload && !hasCustomContextMenu)) return children;
+  const hasPaste = allowBuiltins && (features.copy || features.move);
+  if (provisionalLocation || !uiOptions.contextMenu || (!hasCreate && !hasUpload && !hasPaste && !hasCustomContextMenu)) return children;
 
   return (
     <ContextMenu.Root open={open} onOpenChange={nextOpen => {
       const menu = nextOpen ? getCustomContextMenu() : customMenu;
-      if (nextOpen) setCustomMenu(menu);
-      const allowed = nextOpen && (hasCreate || hasUpload || !!menu?.items.length);
+      if (nextOpen) { setCustomMenu(menu); setTargetParent(currentParent); }
+      const allowed = nextOpen && (hasCreate || hasUpload || hasPaste || !!menu?.items.length);
       actionHandoff.onOpenChange(allowed);
       setOpen(allowed);
     }}>
       <ContextMenu.Trigger
         asChild
+        onContextMenuCapture={preserveNativeContextMenu}
         onContextMenu={(event) => {
           // Entry menus and controls keep their own context menus. Prevent only
           // this outer trigger, after the descendant received the event.
@@ -76,7 +80,13 @@ export function ExplorerBackgroundMenu({ children }: { children: ReactElement })
               <FolderUp />フォルダをアップロード
             </ContextMenu.Item>
           )}
-          <ExplorerCustomMenuItems menu={customMenu} separate={hasCreate || hasUpload} defer={actionHandoff.defer} />
+          {hasPaste && <>
+            {(hasCreate || hasUpload) && <ContextMenu.Separator className={menuSeparatorClass} />}
+            <ContextMenu.Item className={menuItemClass} disabled={disabled || !canPaste} onSelect={() => void paste(targetParent)}>
+              <ClipboardPaste />貼り付け
+            </ContextMenu.Item>
+          </>}
+          <ExplorerCustomMenuItems menu={customMenu} separate={hasCreate || hasUpload || hasPaste} defer={actionHandoff.defer} />
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

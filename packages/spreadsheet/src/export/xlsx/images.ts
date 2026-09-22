@@ -1,6 +1,8 @@
 import { imageMetadata, normalizeImageResource } from "../../model/image-resources";
 import { jpegOrientation } from "../../model/image-orientation";
 import { SPREADSHEET_LIMITS, type SpreadsheetImageResource } from "../../model/types";
+import type { SpreadsheetImageRasterizer } from "../portable-types";
+import { rasterizeXlsxImage } from "../rasterize-image";
 
 export type XlsxImage = Readonly<{
   content: Blob;
@@ -17,7 +19,7 @@ export type XlsxMediaRegistry = Map<string, { dataUrl: string; media: Promise<Xl
 export function createXlsxMediaRegistry(): XlsxMediaRegistry { return new Map(); }
 
 export async function prepareXlsxMedia(id: string, image: SpreadsheetImageResource, sheetIndex: number,
-  registry: XlsxMediaRegistry, signal?: AbortSignal): Promise<{ media: XlsxMedia; firstUse: boolean }> {
+  registry: XlsxMediaRegistry, signal?: AbortSignal, rasterizeImage?: SpreadsheetImageRasterizer): Promise<{ media: XlsxMedia; firstUse: boolean }> {
   checkImageExportCancellation(signal);
   const existing = registry.get(id);
   if (existing && existing.dataUrl !== image.dataUrl) throw new Error("画像リソースが書き出し中に変更されました");
@@ -25,7 +27,7 @@ export async function prepareXlsxMedia(id: string, image: SpreadsheetImageResour
   let entry = existing;
   if (!entry) {
     const number = registry.size + 1;
-    entry = { dataUrl: image.dataUrl, media: prepareXlsxImage(image, signal).then(prepared => ({
+    entry = { dataUrl: image.dataUrl, media: prepareXlsxImage(image, signal, rasterizeImage, id).then(prepared => ({
       image: prepared, filename: `image${sheetIndex}_${number}.${prepared.extension}`,
     })) };
     registry.set(id, entry);
@@ -50,7 +52,7 @@ function checkedSize(width: number, height: number): void {
 function rasterizePng(source: Blob, width: number, height: number, signal?: AbortSignal): Promise<Blob> {
   checkImageExportCancellation(signal);
   if (typeof document === "undefined" || typeof Image === "undefined" || typeof URL.createObjectURL !== "function")
-    throw new Error("WebP・GIF・回転情報付きJPEGのExcel書き出しには、Canvasを利用できるブラウザーが必要です");
+    throw new Error("WebP・GIF・回転情報付きJPEGのExcel書き出しには、Canvasを利用できるブラウザーか rasterizeImage の指定が必要です");
   checkedSize(width, height);
   return new Promise((resolve, reject) => {
     const canvas = document.createElement("canvas");
@@ -109,7 +111,8 @@ function rasterizePng(source: Blob, width: number, height: number, signal?: Abor
 }
 
 /** Validated inline data only; no fetch, remote URL or host storage dependency. */
-export async function prepareXlsxImage(input: SpreadsheetImageResource, signal?: AbortSignal): Promise<XlsxImage> {
+export async function prepareXlsxImage(input: SpreadsheetImageResource, signal?: AbortSignal,
+  rasterizeImage?: SpreadsheetImageRasterizer, resourceId = input.name): Promise<XlsxImage> {
   checkImageExportCancellation(signal);
   const image = normalizeImageResource(input);
   const payload = image.dataUrl.slice(image.dataUrl.indexOf(",") + 1);
@@ -122,7 +125,16 @@ export async function prepareXlsxImage(input: SpreadsheetImageResource, signal?:
   const source = new Blob([bytes], { type: image.mimeType });
   if (image.mimeType === "image/png" || (image.mimeType === "image/jpeg" && jpegOrientation(bytes) === 1))
     return { content: source, extension: image.mimeType === "image/png" ? "png" : "jpeg", contentType: image.mimeType, width, height };
-  const content = await rasterizePng(source, width, height, signal);
+  let content: Blob;
+  try {
+    content = rasterizeImage
+      ? await rasterizeXlsxImage(rasterizeImage, { source, width, height, resourceId, name: image.name, signal })
+      : await rasterizePng(source, width, height, signal);
+  } catch (error) {
+    checkImageExportCancellation(signal);
+    if (error instanceof Error && error.name === "AbortError") throw error;
+    throw new Error(`画像「${image.name}」 (${resourceId}): ${error instanceof Error ? error.message : "PNG変換に失敗しました"}`, { cause: error });
+  }
   checkImageExportCancellation(signal);
   return { content, extension: "png", contentType: "image/png", width, height };
 }

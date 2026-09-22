@@ -8,6 +8,9 @@
     "exportSpreadsheetXlsx",
     "exportExcel",
     "SpreadsheetExcelExportOptions",
+    "SpreadsheetXlsxExportOptions",
+    "rasterizeImage",
+    "Node.js",
     "exportFileName",
     "Blob",
     "xlsx"

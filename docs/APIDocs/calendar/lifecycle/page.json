@@ -1,0 +1,14 @@
+{
+  "title": "保存・編集許可・操作API",
+  "summary": "CalendarPropsとCalendarHandle、保存・編集許可・Undo/Redo。",
+  "source": "packages/calendar/src/docs/lifecycle.md",
+  "order": 2,
+  "section": "機能とAPI",
+  "keywords": [
+    "LikeCalendar",
+    "CalendarProps",
+    "CalendarHandle",
+    "Calendar",
+    "lifecycle"
+  ]
+}

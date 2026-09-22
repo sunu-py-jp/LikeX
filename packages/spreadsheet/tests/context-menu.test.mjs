@@ -47,6 +47,16 @@ async function mount(t, overrides = {}) {
         preventDefault() { prevented = true; } }));
       return prevented;
     },
+    async openDrawing(drawingId = 'shape', keyboard = false) {
+      let prevented = false;
+      const drawing = { dataset: { lxsDrawing: drawingId }, closest: selector => selector === '[data-lxs-drawing]' ? drawing : null,
+        getBoundingClientRect: () => ({ left: 40, bottom: 100, width: 80 }) };
+      await act(async () => renderer.root.findByType('section').props[keyboard ? 'onKeyDownCapture' : 'onContextMenu']({
+        target: drawing, clientX: 100, clientY: 100, key: 'F10', shiftKey: true, nativeEvent: {},
+        preventDefault() { prevented = true; }, stopPropagation() {},
+      }));
+      return prevented;
+    },
     async choose(label) {
       const item = renderer.root.findAllByProps({ role: 'menuitem' }).find(item => item.children[0] === label);
       assert.ok(item, `missing menu item: ${label}`);
@@ -129,8 +139,8 @@ test('sheet tabs offer duplicate and delete without a provider and delete the ri
   const menu = ui.root.findByProps({ role: 'menu' });
   assert.equal(menu.props['aria-label'], 'シートの操作');
   const items = ui.root.findAllByProps({ role: 'menuitem' });
-  assert.deepEqual(items.map(item => item.children), [['複製'], ['削除']]);
-  const item = items[1];
+  assert.deepEqual(items.map(item => item.children), [['名前の変更'], ['複製'], ['削除']]);
+  const item = items[2];
   assert.equal(item.props.disabled, false);
   assert.equal(ui.root.findByProps({ role: 'grid' }).props['aria-label'], 'Main');
   const selection = ui.root.findAll(node => node.props.controller?.selection)[0].props.controller.selection;
@@ -155,11 +165,12 @@ test('sheet custom entries precede delete and capture the clicked tab independen
   assert.equal(captured.selection.sheetId, 'main');
   assert.deepEqual(captured.selection.ranges[0], { anchor: { row: 0, column: 0 }, focus: { row: 2, column: 0 } });
   const items = ui.root.findAllByProps({ role: 'menuitem' });
-  assert.deepEqual(items[0].children, ['複製']);
-  assert.deepEqual(items[1].findByType('span').children, ['シートを確認']);
-  assert.deepEqual(items[2].children, ['削除']);
+  assert.deepEqual(items[0].children, ['名前の変更']);
+  assert.deepEqual(items[1].children, ['複製']);
+  assert.deepEqual(items[2].findByType('span').children, ['シートを確認']);
+  assert.deepEqual(items[3].children, ['削除']);
   assert.equal(ui.root.findByProps({ className: 'lxs-context-menu-separator' }).props.role, 'separator');
-  await act(async () => items[1].props.onClick());
+  await act(async () => items[2].props.onClick());
   assert.ok(ui.events.some(event => event.type === 'context-menu' && event.status === 'success'));
 });
 
@@ -169,7 +180,7 @@ test('sheet delete is disabled for the last sheet and hidden for readonly or a d
   assert.equal(ui.root.findAllByProps({ role: 'menuitem' }).find(item => item.children[0] === '削除').props.disabled, true);
   await ui.update({ features: { deleteSheet: false } });
   await ui.openSheet('main');
-  assert.deepEqual(ui.root.findAllByProps({ role: 'menuitem' }).map(item => item.children), [['複製']]);
+  assert.deepEqual(ui.root.findAllByProps({ role: 'menuitem' }).map(item => item.children), [['名前の変更'], ['複製']]);
   await ui.update({ features: {}, onSave: undefined, getContextMenuItems: () => [{ id: 'view', label: '表示', onSelect() {} }] });
   await ui.openSheet('main');
   assert.equal(ui.root.findAllByProps({ role: 'menuitem' }).length, 1);
@@ -321,7 +332,7 @@ test('sheet duplication selects a new identity and supports undo, disabled featu
   assert.deepEqual(ui.ref.current.getWorkbook().sheets.map(sheet => sheet.id), ['main', 'other']);
   await ui.update({ features: { duplicateSheet: false } });
   await ui.openSheet('other');
-  assert.deepEqual(ui.root.findAllByProps({ role: 'menuitem' }).map(item => item.children), [['削除']]);
+  assert.deepEqual(ui.root.findAllByProps({ role: 'menuitem' }).map(item => item.children), [['名前の変更'], ['削除']]);
   const denied = await mount(t, { initialWorkbook: multipleSheets, onEditRequest: () => false });
   await denied.openSheet('other');
   await act(async () => denied.root.findAllByProps({ role: 'menuitem' }).find(item => item.children[0] === '複製').props.onClick());
@@ -575,4 +586,137 @@ test('closing a cell shift form cancels its pending editing permission and ignor
   await act(async () => permission.resolve(true));
   assert.equal(ui.value('A2'), '2');
   assert.equal(ui.controller.canUndo, false);
+});
+
+
+test('sheet rename opens the existing inline editor for an inactive tab and keeps its undo and permission behavior', async t => {
+  const ui = await mount(t, { initialWorkbook: multipleSheets });
+  await ui.openSheet('other'); await ui.choose('名前の変更');
+  assert.equal(ui.root.findByProps({ 'aria-label': 'シート名' }).props.value, 'Other');
+  assert.equal(ui.controller.activeSheet.id, 'main');
+  await act(async () => ui.root.findByProps({ 'aria-label': 'シート名' }).props.onChange({ target: { value: 'Renamed' } }));
+  await act(async () => ui.root.findByProps({ 'aria-label': 'シート名' }).props.onKeyDown({ key: 'Enter', nativeEvent: {}, preventDefault() {} }));
+  assert.equal(ui.ref.current.getWorkbook().sheets[1].name, 'Renamed');
+  await act(async () => ui.controller.undo());
+  assert.equal(ui.ref.current.getWorkbook().sheets[1].name, 'Other');
+  await ui.update({ features: { renameSheet: false } }); await ui.openSheet('other');
+  assert.equal(ui.root.findAllByProps({ role: 'menuitem' }).some(item => item.children[0] === '名前の変更'), false);
+  const denied = await mount(t, { initialWorkbook: multipleSheets, onEditRequest: () => false });
+  await denied.openSheet('other'); await denied.choose('名前の変更');
+  await act(async () => denied.root.findByProps({ 'aria-label': 'シート名' }).props.onChange({ target: { value: 'Denied' } }));
+  await act(async () => denied.root.findByProps({ 'aria-label': 'シート名' }).props.onKeyDown({ key: 'Enter', nativeEvent: {}, preventDefault() {} }));
+  assert.equal(denied.ref.current.getWorkbook().sheets[1].name, 'Other');
+  assert.equal(denied.root.findByProps({ 'aria-label': 'シート名' }).props.value, 'Denied');
+});
+
+const drawingBook = () => ({ ...initialWorkbook, resources: { images: { resource: {
+  name: 'test.png', mimeType: 'image/png', width: 1, height: 1,
+  dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVZkAAAAASUVORK5CYII=',
+} } }, sheets: [{ ...initialWorkbook.sheets[0], drawings: [
+  { id: 'shape', type: 'shape', shape: 'ellipse', anchor: { row: 1, column: 1, offsetX: 5, offsetY: 7 }, width: 100, height: 70, fill: '#ffffff', stroke: '#217346', strokeWidth: 2, text: 'snapshot', rotation: 45 },
+  { id: 'text', type: 'text', anchor: { row: 1, column: 1, offsetX: 0, offsetY: 0 }, width: 150, height: 80, text: 'text snapshot', color: 'currentColor', background: 'transparent', fontSize: 16 },
+  { id: 'image', type: 'image', resourceId: 'resource', anchor: { row: 1, column: 1, offsetX: 0, offsetY: 0 }, width: 40, height: 50, alt: 'image snapshot' },
+] }] });
+const drawingLabels = ui => ui.root.findAllByProps({ role: 'menuitem' }).map(item => item.children[0]);
+
+test('drawing menu captures the clicked object and duplicates every kind through shared commands and undo', async t => {
+  let captured;
+  const ui = await mount(t, { initialWorkbook: drawingBook(), getContextMenuItems: context => { captured = context; return []; } });
+  for (const id of ['shape', 'text', 'image']) {
+    await act(async () => ui.controller.selectRange({ row: 2, column: 0 }, { row: 0, column: 0 }));
+    const selection = structuredClone(ui.controller.selection);
+    await ui.openDrawing(id, true);
+    assert.deepEqual(captured.target, { kind: 'drawing', sheetId: 'main', drawingId: id, drawingType: id });
+    assert.equal(ui.controller.selectedDrawingId, id);
+    assert.deepEqual(ui.controller.selection, selection);
+    assert.deepEqual(drawingLabels(ui), ['コピー', '貼り付け', '複製', '左右反転', '上下反転', '回転をリセット', '削除']);
+    await ui.choose('複製');
+    const drawings = ui.ref.current.getWorkbook().sheets[0].drawings, source = drawings.find(item => item.id === id), duplicate = drawings.at(-1);
+    assert.equal(drawings.length, 4); assert.notEqual(duplicate.id, id); assert.equal(duplicate.type, source.type);
+    assert.equal(duplicate.anchor.offsetX, source.anchor.offsetX + 16);
+    assert.equal(ui.controller.selectedDrawingId, duplicate.id);
+    if (id === 'image') assert.equal(duplicate.resourceId, source.resourceId);
+    await act(async () => ui.controller.undo()); assert.equal(ui.ref.current.getWorkbook().sheets[0].drawings.length, 3);
+  }
+});
+
+test('drawing flip, rotation reset and delete are undoable and target only the clicked drawing', async t => {
+  const ui = await mount(t, { initialWorkbook: drawingBook() });
+  for (const [label, field, value] of [['左右反転', 'flipX', true], ['上下反転', 'flipY', true], ['回転をリセット', 'rotation', 0]]) {
+    await ui.openDrawing(); await ui.choose(label);
+    assert.equal(ui.ref.current.getWorkbook().sheets[0].drawings[0][field] ?? 0, value);
+    await act(async () => ui.controller.undo());
+  }
+  await ui.openDrawing('image'); await ui.choose('削除');
+  assert.deepEqual(ui.ref.current.getWorkbook().sheets[0].drawings.map(item => item.id), ['shape', 'text']);
+  assert.equal(ui.controller.selectedDrawingId, null);
+  await act(async () => ui.controller.undo()); assert.equal(ui.ref.current.getWorkbook().sheets[0].drawings.length, 3);
+});
+
+test('drawing menus honor readonly, independent features and native text editing', async t => {
+  const ui = await mount(t, { initialWorkbook: drawingBook(), readOnly: true });
+  await ui.openDrawing(); assert.deepEqual(drawingLabels(ui), ['コピー']);
+  await ui.update({ readOnly: false, features: { copy: false, paste: false, resize: false } });
+  await ui.openDrawing(); assert.deepEqual(drawingLabels(ui), ['削除']);
+  await ui.update({ features: { shapes: false } }); await ui.openDrawing();
+  assert.equal(ui.root.findAllByProps({ role: 'menu' }).length, 0);
+  let prevented = false;
+  const editor = { classList: { contains: () => false }, closest: selector => selector.startsWith('input,textarea') ? editor : null };
+  await act(async () => ui.root.findByType('section').props.onContextMenu({ target: editor, preventDefault() { prevented = true; } }));
+  assert.equal(prevented, false);
+});
+
+test('drawing menu rejects changed targets and permission denial without modifying the workbook', async t => {
+  const ui = await mount(t, { initialWorkbook: drawingBook() });
+  await ui.openDrawing();
+  const staleDelete = ui.root.findAllByProps({ role: 'menuitem' }).find(item => item.children[0] === '削除').props.onClick;
+  await act(async () => ui.controller.selectDrawing('text'));
+  await act(async () => staleDelete());
+  assert.equal(ui.ref.current.getWorkbook().sheets[0].drawings.length, 3);
+  await ui.openDrawing();
+  const staleDuplicate = ui.root.findAllByProps({ role: 'menuitem' }).find(item => item.children[0] === '複製').props.onClick;
+  await act(async () => ui.ref.current.execute(command('A1', 'changed')));
+  await act(async () => staleDuplicate());
+  assert.equal(ui.ref.current.getWorkbook().sheets[0].drawings.length, 3);
+  let request;
+  const denied = await mount(t, { initialWorkbook: drawingBook(), onEditRequest: intent => { request = intent; return false; } });
+  await denied.openDrawing('image'); await denied.choose('削除');
+  assert.equal(request.action, 'drawings.delete');
+  assert.equal(denied.ref.current.getWorkbook().sheets[0].drawings.length, 3);
+});
+
+
+test('drawing copy and paste use browser clipboard metadata and preserve the original drawing', async t => {
+  let content = [];
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const originalItem = Object.getOwnPropertyDescriptor(globalThis, 'ClipboardItem');
+  Object.defineProperty(globalThis, 'ClipboardItem', { configurable: true, value: class {
+    constructor(parts) { this.parts = parts; this.types = Object.keys(parts); }
+    async getType(type) { return this.parts[type]; }
+  } });
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: {
+    async writeText() {}, async readText() { return ''; }, async write(items) { content = items; }, async read() { return content; },
+  } } });
+  t.after(() => {
+    if (originalNavigator) Object.defineProperty(globalThis, 'navigator', originalNavigator); else delete globalThis.navigator;
+    if (originalItem) Object.defineProperty(globalThis, 'ClipboardItem', originalItem); else delete globalThis.ClipboardItem;
+  });
+  const ui = await mount(t, { initialWorkbook: drawingBook() });
+  await ui.openDrawing('image'); await ui.choose('コピー');
+  assert.equal(content.length, 1);
+  assert.match(await (await content[0].getType('text/html')).text(), /data-likex-spreadsheet=/);
+  await ui.openDrawing('image'); await ui.choose('貼り付け');
+  const drawings = ui.ref.current.getWorkbook().sheets[0].drawings;
+  assert.equal(drawings.length, 4); assert.equal(drawings.at(-1).type, 'image');
+  assert.notEqual(drawings.at(-1).id, 'image'); assert.equal(drawings.at(-1).resourceId, 'resource');
+  await act(async () => ui.controller.undo()); assert.equal(ui.ref.current.getWorkbook().sheets[0].drawings.length, 3);
+});
+
+test('drawing menu ignores a delayed editing approval after the selected object changes', async t => {
+  const permission = deferred();
+  const ui = await mount(t, { initialWorkbook: drawingBook(), onEditRequest: () => permission.promise });
+  await ui.openDrawing('shape'); await ui.choose('削除');
+  await act(async () => ui.controller.selectDrawing('image'));
+  await act(async () => permission.resolve(true));
+  assert.equal(ui.ref.current.getWorkbook().sheets[0].drawings.length, 3);
 });

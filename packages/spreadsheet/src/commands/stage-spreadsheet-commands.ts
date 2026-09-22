@@ -65,6 +65,7 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
       return applyDataValidationCommand(workbook, command, features);
     case "rows.resize":
     case "dimensions.resize":
+    case "dimensions.autoFit":
       requireCommandFeature(features, "resize");
       return result(stageFormattingCommand(workbook, command));
     case "conditionalFormats.set":

@@ -12,4 +12,9 @@ export const SLIDE_LIMITS = Object.freeze({
   jsonLength: 80 * 1024 * 1024,
   commands: 1_000,
   history: 100,
+  animationNodesPerSlide: 500,
+  animationDepth: 8,
+  animationDurationMs: 600_000,
+  animationRepeat: 100,
+  animationClicks: 10_000,
 });

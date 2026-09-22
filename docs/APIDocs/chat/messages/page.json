@@ -1,0 +1,13 @@
+{
+  "title": "メッセージとスレッド",
+  "summary": "送信、返信、編集、リアクション、添付の操作。",
+  "order": 20,
+  "keywords": [
+    "LikeChat",
+    "ChatModel",
+    "DM",
+    "スペース",
+    "スレッド"
+  ],
+  "source": "packages/chat/src/docs/messages.md"
+}

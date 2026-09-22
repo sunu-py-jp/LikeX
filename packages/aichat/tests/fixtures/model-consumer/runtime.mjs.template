@@ -1,0 +1,47 @@
+import assert from "node:assert/strict";
+import {
+  createAIChat, createAIChatMessage, executeAIChatCommands, getAIChatConversation, getAIChatConversations,
+  getAIChatMessage, getAIChatMessages, migrateLegacyAIChat, normalizeAIChatAttachment, parseAIChat, serializeAIChat,
+} from "__MODEL_IMPORT__";
+
+assert.equal(typeof window, "undefined");
+assert.equal(typeof document, "undefined");
+const original = createAIChat({ id: "headless-aichat", title: "Headless aichat", conversations: [
+  { id: "planning", title: "Planning", messages: [] },
+] });
+const prompt = createAIChatMessage({ id: "prompt-1", role: "user", content: "Headless content", createdAt: "2026-09-22T00:00:00.000Z" });
+const attachment = normalizeAIChatAttachment({ id: "attachment-1", name: "notes.txt", mediaType: "text/plain", size: 128 });
+const result = executeAIChatCommands(original, [
+  { type: "message.add", conversationId: "planning", message: { ...prompt, attachments: [attachment] } },
+  { type: "message.add", conversationId: "planning", message: {
+    id: "answer-1", role: "assistant", content: "", status: "streaming", replyTo: "prompt-1", createdAt: "2026-09-22T00:00:01.000Z",
+  } },
+  { type: "message.respond", conversationId: "planning", messageId: "answer-1", content: "Headless response", status: "complete" },
+]);
+assert.equal(result.changed, true);
+assert.equal(getAIChatMessages(original, "planning").length, 0, "commands leave the source unchanged");
+assert.equal(getAIChatConversations(result.aichat).length, 1);
+assert.equal(getAIChatConversation(result.aichat, "planning").title, "Planning");
+assert.equal(getAIChatMessage(result.aichat, "planning", "answer-1").content, "Headless response");
+assert.equal(getAIChatMessage(result.aichat, "planning", "answer-1").replyTo, "prompt-1");
+assert.deepEqual(result.results.map(item => item.messageId), ["prompt-1", "answer-1", "answer-1"]);
+assert.equal(Object.isFrozen(getAIChatMessages(result.aichat, "planning")), true);
+const snapshot = serializeAIChat(result.aichat);
+assert.deepEqual(parseAIChat(snapshot), result.aichat);
+const legacy = { ...JSON.parse(snapshot), format: "likex.chat" };
+assert.deepEqual(migrateLegacyAIChat(legacy), result.aichat);
+assert.deepEqual(parseAIChat(JSON.stringify(legacy)), result.aichat);
+assert.throws(() => migrateLegacyAIChat({ ...legacy, members: [] }));
+assert.equal(serializeAIChat(parseAIChat(snapshot)), snapshot);
+assert.throws(() => parseAIChat(JSON.stringify({ ...result.aichat, version: 2 })));
+assert.throws(() => parseAIChat(JSON.stringify({ ...result.aichat, format: "likex.document" })));
+assert.throws(() => executeAIChatCommands(result.aichat, [
+  { type: "aichat.update", title: "Must not persist" },
+  { type: "message.update", conversationId: "planning", messageId: "missing", patch: { content: "Invalid" } },
+]));
+assert.equal(serializeAIChat(result.aichat), snapshot);
+assert.throws(() => executeAIChatCommands(result.aichat, { type: "message.delete", conversationId: "planning", messageId: "prompt-1" }));
+const deleted = executeAIChatCommands(result.aichat, { type: "message.delete", conversationId: "planning", messageId: "prompt-1", cascadeReplies: true });
+assert.equal(getAIChatMessages(deleted.aichat, "planning").length, 0);
+assert.equal(serializeAIChat(result.aichat), snapshot);
+console.log(JSON.stringify({ noReact: true, noDOM: true, commands: "passed", nativeRoundtrip: "passed", replyIntegrity: "passed" }));

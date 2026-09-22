@@ -16,6 +16,7 @@ import { ExplorerStatusBar } from "./ui/explorer-status-bar";
 import { ExplorerFileList } from "./ui/explorer-file-list";
 import { ExplorerDialogs } from "./ui/explorer-dialogs";
 import { ExplorerNotifications } from "./ui/explorer-notifications";
+import { installExplorerDragAutoScroll } from "./ui/explorer-drag-feedback";
 import type { ExplorerProps } from "./props";
 
 export type { ExplorerProps } from "./props";
@@ -74,6 +75,8 @@ const ExplorerPane = memo(function ExplorerPane({ props, workspace, windowId, ow
     workspaceRef.current = element;
     setDialogContainer(element);
   }, [workspaceRef]);
+  const canScrollDrag = !controller.disabled && (features.copy || features.move || features.uploadFiles || features.uploadFolders);
+  useEffect(() => { const root = workspaceRef.current; if (root && canScrollDrag) return installExplorerDragAutoScroll(root); }, [workspaceRef, canScrollDrag, ownerDocument]);
   const colorScheme = useExplorerColorScheme(props.colorMode, props.theme, ownerDocument);
   const themeStyle = useMemo(() => ({
     ...explorerThemeStyle(props.theme, colorScheme),

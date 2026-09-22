@@ -174,6 +174,42 @@
     ]
   },
   {
+    "id": "explorer/model-api",
+    "title": "画面なしのモデルAPI",
+    "component": "explorer",
+    "section": "基本",
+    "output": "explorer/model-api/index.html",
+    "sources": [
+      "packages/explorer/src/docs/model-api.md"
+    ],
+    "keywords": [
+      "model",
+      "model-entry",
+      "applyAction",
+      "createDraftSnapshot",
+      "addFilesWithResult",
+      "prepareFilesWithProgress",
+      "getSavePayload"
+    ],
+    "headings": [
+      {
+        "id": "初期化編集取得",
+        "title": "初期化・編集・取得",
+        "depth": 2
+      },
+      {
+        "id": "画面なしの同名競合解決",
+        "title": "画面なしの同名競合解決",
+        "depth": 2
+      },
+      {
+        "id": "uiとの責務と互換性",
+        "title": "UIとの責務と互換性",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "explorer/uploads",
     "title": "作成・アップロード",
     "component": "explorer",
@@ -227,6 +263,67 @@
     ]
   },
   {
+    "id": "explorer/content-limits",
+    "title": "再生時間・ページ数の制限",
+    "component": "explorer",
+    "section": "ファイル操作",
+    "output": "explorer/content-limits/index.html",
+    "sources": [
+      "packages/explorer/src/docs/upload-content-limits.md"
+    ],
+    "keywords": [
+      "contentLimitsByExtension",
+      "maxDurationSeconds",
+      "maxPages",
+      "maxSlides",
+      "inspectFile",
+      "ExplorerUploadInspectFile",
+      "ExplorerUploadContentMetadata",
+      "addFilesAsync",
+      "addFilesWithResultAsync",
+      "prepareFilesWithProgressAsync",
+      "addAsync",
+      "ExplorerUploadInspectionRequiredError",
+      "動画",
+      "音声",
+      "PDF",
+      "PowerPoint",
+      "4時間"
+    ],
+    "headings": [
+      {
+        "id": "対象と指定方法",
+        "title": "対象と指定方法",
+        "depth": 2
+      },
+      {
+        "id": "動画の既定値を変更解除する",
+        "title": "動画の既定値を変更・解除する",
+        "depth": 2
+      },
+      {
+        "id": "検査中と検査失敗の扱い",
+        "title": "検査中と検査失敗の扱い",
+        "depth": 2
+      },
+      {
+        "id": "解析処理を利用側で差し替える",
+        "title": "解析処理を利用側で差し替える",
+        "depth": 2
+      },
+      {
+        "id": "標準の情報取得と上限",
+        "title": "標準の情報取得と上限",
+        "depth": 2
+      },
+      {
+        "id": "画面なしの追加と互換性",
+        "title": "画面なしの追加と互換性",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "explorer/clipboard",
     "title": "コピー・切り取り・貼り付け",
     "component": "explorer",
@@ -249,6 +346,11 @@
         "id": "explorer内でコピー移動する",
         "title": "Explorer内でコピー・移動する",
         "depth": 2
+      },
+      {
+        "id": "ドラッグで移動コピーする",
+        "title": "ドラッグで移動・コピーする",
+        "depth": 3
       },
       {
         "id": "コピーだけを無効にする",
@@ -463,7 +565,9 @@
       "ExplorerShowFileOptions",
       "navigate",
       "selectFiles",
+      "selectEntries",
       "showFile",
+      "previewFile",
       "ref",
       "初期表示",
       "選択",
@@ -479,6 +583,34 @@
         "id": "結果とエラー",
         "title": "結果とエラー",
         "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/commands",
+    "title": "外部からの編集・取得",
+    "component": "explorer",
+    "section": "表示と操作設定",
+    "output": "explorer/commands/index.html",
+    "sources": [
+      "packages/explorer/src/docs/api-reference.md"
+    ],
+    "keywords": [
+      "ExplorerHandle",
+      "ExplorerCommandHandle",
+      "getEntries",
+      "execute",
+      "upload",
+      "save",
+      "discard",
+      "refresh",
+      "download"
+    ],
+    "headings": [
+      {
+        "id": "表示中の一覧取得編集",
+        "title": "表示中の一覧取得・編集",
+        "depth": 2
       }
     ]
   },
@@ -792,6 +924,62 @@
     ]
   },
   {
+    "id": "explorer/entry-permissions",
+    "title": "ファイルごとの操作可否",
+    "component": "explorer",
+    "section": "親アプリとの連携",
+    "output": "explorer/entry-permissions/index.html",
+    "sources": [
+      "packages/explorer/src/docs/entry-permissions.md"
+    ],
+    "keywords": [
+      "getEntryPermissions",
+      "ExplorerEntryPermissionsResolver",
+      "ExplorerEntryPermissions",
+      "ExplorerEntryPermission",
+      "ExplorerEntryOperation",
+      "ExplorerEntryPermissionTarget",
+      "ExplorerOperationDeniedError",
+      "assertExplorerEntryPermissions",
+      "checksForExplorerAction",
+      "checksForExplorerChanges",
+      "ファイル単位",
+      "排他制御"
+    ],
+    "headings": [
+      {
+        "id": "ロック中のファイルを変更できなくする",
+        "title": "ロック中のファイルを変更できなくする",
+        "depth": 2
+      },
+      {
+        "id": "型と判定結果",
+        "title": "型と判定結果",
+        "depth": 2
+      },
+      {
+        "id": "操作と確認対象",
+        "title": "操作と確認対象",
+        "depth": 2
+      },
+      {
+        "id": "表示と外部プレビュー",
+        "title": "表示と外部プレビュー",
+        "depth": 2
+      },
+      {
+        "id": "編集セッションサーバーとの分担",
+        "title": "編集セッション・サーバーとの分担",
+        "depth": 2
+      },
+      {
+        "id": "画面なしのapi",
+        "title": "画面なしのAPI",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "explorer/context-menu",
     "title": "右クリックメニュー",
     "component": "explorer",
@@ -1015,6 +1203,18 @@
       "onSelectionChange",
       "SpreadsheetSelection",
       "SpreadsheetSelectionRange",
+      "SpreadsheetSelectionApi",
+      "getSelection",
+      "getSelectedDrawing",
+      "selectSheet",
+      "selectCell",
+      "selectRange",
+      "selectRanges",
+      "selectRows",
+      "selectColumns",
+      "selectDrawing",
+      "clearSelection",
+      "revealSelection",
       "anchor",
       "focus",
       "ranges",
@@ -1035,6 +1235,11 @@
       {
         "id": "複数範囲に対する操作",
         "title": "複数範囲に対する操作",
+        "depth": 2
+      },
+      {
+        "id": "refから表示中の選択を変更する",
+        "title": "refから表示中の選択を変更する",
         "depth": 2
       },
       {
@@ -1537,6 +1742,9 @@
       "SpreadsheetCellFormat",
       "cells.format",
       "dimensions.resize",
+      "dimensions.autoFit",
+      "createSpreadsheetAutoFitCommand",
+      "createSpreadsheetTextMeasurer",
       "rows.resize",
       "conditionalFormats.set",
       "SpreadsheetConditionalFormatRule"
@@ -1555,6 +1763,11 @@
       {
         "id": "データとapiの例",
         "title": "データとAPIの例",
+        "depth": 2
+      },
+      {
+        "id": "内容に合わせて自動調整するapi",
+        "title": "内容に合わせて自動調整するAPI",
         "depth": 2
       },
       {
@@ -1878,6 +2091,16 @@
       "alt"
     ],
     "headings": [
+      {
+        "id": "画面上で配置を調整する",
+        "title": "画面上で配置を調整する",
+        "depth": 2
+      },
+      {
+        "id": "モデルapiで配置位置を取得する",
+        "title": "モデルAPIで配置位置を取得する",
+        "depth": 2
+      },
       {
         "id": "画像の下に表を作る",
         "title": "画像の下に表を作る",
@@ -2237,6 +2460,9 @@
       "exportSpreadsheetXlsx",
       "exportExcel",
       "SpreadsheetExcelExportOptions",
+      "SpreadsheetXlsxExportOptions",
+      "rasterizeImage",
+      "Node.js",
       "exportFileName",
       "Blob",
       "xlsx"
@@ -2260,6 +2486,11 @@
       {
         "id": "互換性と実行環境",
         "title": "互換性と実行環境",
+        "depth": 2
+      },
+      {
+        "id": "nodejs画面なしでの出力",
+        "title": "Node.js・画面なしでの出力",
         "depth": 2
       }
     ]
@@ -2325,6 +2556,11 @@
         "depth": 2
       },
       {
+        "id": "右クリックメニュー",
+        "title": "右クリックメニュー",
+        "depth": 2
+      },
+      {
         "id": "履歴と発表",
         "title": "履歴と発表",
         "depth": 2
@@ -2342,7 +2578,11 @@
     ],
     "keywords": [
       "LikeSlide",
-      "SlideDeck"
+      "SlideDeck",
+      "SlideHandle",
+      "importNative",
+      "exportNative",
+      "slon"
     ],
     "headings": [
       {
@@ -2398,6 +2638,50 @@
     ]
   },
   {
+    "id": "slide/animations",
+    "title": "要素のアニメーション",
+    "component": "slide",
+    "section": "親アプリとの連携",
+    "output": "slide/animations/index.html",
+    "sources": [
+      "packages/slide/src/docs/animations.md"
+    ],
+    "keywords": [
+      "LikeSlide",
+      "animation.set",
+      "animation.remove",
+      "SlideAnimationStep",
+      "includeAnimations",
+      "evaluateSlideAnimations",
+      "resolveSlideAnimations",
+      "tween",
+      "sequence",
+      "parallel"
+    ],
+    "headings": [
+      {
+        "id": "モデルと公開コマンド",
+        "title": "モデルと公開コマンド",
+        "depth": 2
+      },
+      {
+        "id": "取得と保存を区別する",
+        "title": "取得と保存を区別する",
+        "depth": 2
+      },
+      {
+        "id": "画面なしで再生状態を評価する",
+        "title": "画面なしで再生状態を評価する",
+        "depth": 2
+      },
+      {
+        "id": "pngpptxとの関係",
+        "title": "PNG・PPTXとの関係",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "slide/lifecycle",
     "title": "保存・編集許可・イベント",
     "component": "slide",
@@ -2430,7 +2714,10 @@
     "keywords": [
       "LikeSlide",
       "SlideDeck",
-      "pptx"
+      "pptx",
+      "importSlidePptx",
+      "exportSlidePptx",
+      "SlidePptxExportBlob"
     ],
     "headings": [
       {
@@ -2446,6 +2733,1132 @@
       {
         "id": "読み込みの上限",
         "title": "読み込みの上限",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "slide/image-export",
+    "title": "PNG画像の書き出し",
+    "component": "slide",
+    "section": "読み込みと出力",
+    "output": "slide/image-export/index.html",
+    "sources": [
+      "packages/slide/src/docs/image-export.md"
+    ],
+    "keywords": [
+      "LikeSlide",
+      "PNG",
+      "exportImage",
+      "exportImages",
+      "SlideImageResult",
+      "SlideImageRenderer",
+      "renderer",
+      "pageNumber",
+      "scale"
+    ],
+    "headings": [
+      {
+        "id": "ブラウザーから使う",
+        "title": "ブラウザーから使う",
+        "depth": 2
+      },
+      {
+        "id": "対象と解像度",
+        "title": "対象と解像度",
+        "depth": 2
+      },
+      {
+        "id": "表示中の下書きを出力する",
+        "title": "表示中の下書きを出力する",
+        "depth": 2
+      },
+      {
+        "id": "nodeなど画面なしの環境",
+        "title": "Nodeなど画面なしの環境",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "document/getting-started",
+    "title": "導入と初期表示",
+    "component": "document",
+    "section": "はじめに",
+    "output": "document/getting-started/index.html",
+    "sources": [
+      "packages/document/src/docs/getting-started.md"
+    ],
+    "keywords": [
+      "LikeDocument",
+      "DocumentProps",
+      "initialDocument",
+      "ProseMirror"
+    ],
+    "headings": [
+      {
+        "id": "パッケージを導入する",
+        "title": "パッケージを導入する",
+        "depth": 2
+      },
+      {
+        "id": "ソースをコピーする",
+        "title": "ソースをコピーする",
+        "depth": 2
+      },
+      {
+        "id": "表示設定",
+        "title": "表示設定",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "document/editing",
+    "title": "文章・書式・表・画像",
+    "component": "document",
+    "section": "文書の編集",
+    "output": "document/editing/index.html",
+    "sources": [
+      "packages/document/src/docs/editing.md"
+    ],
+    "keywords": [
+      "DocumentFeatures",
+      "文字書式",
+      "見出し",
+      "表",
+      "画像",
+      "改ページ",
+      "positions"
+    ],
+    "headings": [
+      {
+        "id": "文章と書式",
+        "title": "文章と書式",
+        "depth": 2
+      },
+      {
+        "id": "表画像改ページ",
+        "title": "表・画像・改ページ",
+        "depth": 2
+      },
+      {
+        "id": "本文画像をドラッグで移動する",
+        "title": "本文・画像をドラッグで移動する",
+        "depth": 2
+      },
+      {
+        "id": "右クリック",
+        "title": "右クリック",
+        "depth": 2
+      },
+      {
+        "id": "機能を無効にする",
+        "title": "機能を無効にする",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "document/headless",
+    "title": "モデルAPI・コマンド・履歴",
+    "component": "document",
+    "section": "親アプリとの連携",
+    "output": "document/headless/index.html",
+    "sources": [
+      "packages/document/src/docs/headless.md"
+    ],
+    "keywords": [
+      "DocumentCommand",
+      "DocumentHandle",
+      "executeDocumentCommands",
+      "getBlocks",
+      "createDocumentSession",
+      "transaction.apply"
+    ],
+    "headings": [
+      {
+        "id": "文書を作成編集する",
+        "title": "文書を作成・編集する",
+        "depth": 2
+      },
+      {
+        "id": "取得と位置",
+        "title": "取得と位置",
+        "depth": 2
+      },
+      {
+        "id": "ローカルの履歴",
+        "title": "ローカルの履歴",
+        "depth": 2
+      },
+      {
+        "id": "表示中の文書を操作する",
+        "title": "表示中の文書を操作する",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "document/native-files",
+    "title": "DCON・JSON保存",
+    "component": "document",
+    "section": "親アプリとの連携",
+    "output": "document/native-files/index.html",
+    "sources": [
+      "packages/document/src/docs/native-files.md"
+    ],
+    "keywords": [
+      "dcon",
+      "DocumentModel",
+      "parseDocument",
+      "serializeDocument",
+      "保存形式"
+    ],
+    "headings": [
+      {
+        "id": "読み込みと保存",
+        "title": "読み込みと保存",
+        "depth": 2
+      },
+      {
+        "id": "保存するデータ",
+        "title": "保存するデータ",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "document/docx",
+    "title": "Word・DOCX入出力",
+    "component": "document",
+    "section": "ファイルの受け渡し",
+    "output": "document/docx/index.html",
+    "sources": [
+      "packages/document/src/docs/docx.md"
+    ],
+    "keywords": [
+      "docx",
+      "Word",
+      "importDocumentDocx",
+      "exportDocumentDocx",
+      "warnings"
+    ],
+    "headings": [
+      {
+        "id": "画面なしで変換する",
+        "title": "画面なしで変換する",
+        "depth": 2
+      },
+      {
+        "id": "対応範囲",
+        "title": "対応範囲",
+        "depth": 2
+      },
+      {
+        "id": "表示中コンポーネントとの連携",
+        "title": "表示中コンポーネントとの連携",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "document/lifecycle",
+    "title": "保存・編集許可・イベント",
+    "component": "document",
+    "section": "親アプリとの連携",
+    "output": "document/lifecycle/index.html",
+    "sources": [
+      "packages/document/src/docs/lifecycle.md"
+    ],
+    "keywords": [
+      "onSave",
+      "onEditRequest",
+      "onBeforeSave",
+      "onDirtyChange",
+      "DocumentEvent"
+    ],
+    "headings": [
+      {
+        "id": "コールバック",
+        "title": "コールバック",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "board/getting-started",
+    "title": "導入・ホスト連携",
+    "component": "board",
+    "section": "はじめに",
+    "output": "board/getting-started/index.html",
+    "sources": [
+      "packages/board/src/docs/getting-started.md"
+    ],
+    "keywords": [
+      "board",
+      "導入・ホスト連携"
+    ],
+    "headings": [
+      {
+        "id": "コンポーネント",
+        "title": "コンポーネント",
+        "depth": 2
+      },
+      {
+        "id": "機能指定",
+        "title": "機能指定",
+        "depth": 2
+      },
+      {
+        "id": "キーボードと表示",
+        "title": "キーボードと表示",
+        "depth": 2
+      },
+      {
+        "id": "ドラッグで並べ替える",
+        "title": "ドラッグで並べ替える",
+        "depth": 2
+      },
+      {
+        "id": "右クリックメニュー",
+        "title": "右クリックメニュー",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "board/commands",
+    "title": "カードと列の操作API",
+    "component": "board",
+    "section": "データと操作",
+    "output": "board/commands/index.html",
+    "sources": [
+      "packages/board/src/docs/commands.md"
+    ],
+    "keywords": [
+      "board",
+      "カードと列の操作API"
+    ],
+    "headings": [
+      {
+        "id": "取得",
+        "title": "取得",
+        "depth": 2
+      },
+      {
+        "id": "json構造",
+        "title": "JSON構造",
+        "depth": 2
+      },
+      {
+        "id": "右クリックメニューとの対応",
+        "title": "右クリックメニューとの対応",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "dataview/getting-started",
+    "title": "導入・表示条件",
+    "component": "dataview",
+    "section": "はじめに",
+    "output": "dataview/getting-started/index.html",
+    "sources": [
+      "packages/dataview/src/docs/getting-started.md"
+    ],
+    "keywords": [
+      "dataview",
+      "導入・表示条件"
+    ],
+    "headings": [
+      {
+        "id": "表示条件",
+        "title": "表示条件",
+        "depth": 2
+      },
+      {
+        "id": "機能onoff",
+        "title": "機能ON/OFF",
+        "depth": 2
+      },
+      {
+        "id": "右クリックメニュー",
+        "title": "右クリックメニュー",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "dataview/commands",
+    "title": "型付きデータの操作API",
+    "component": "dataview",
+    "section": "データと操作",
+    "output": "dataview/commands/index.html",
+    "sources": [
+      "packages/dataview/src/docs/commands.md"
+    ],
+    "keywords": [
+      "dataview",
+      "型付きデータの操作API"
+    ],
+    "headings": [
+      {
+        "id": "型と保存形式",
+        "title": "型と保存形式",
+        "depth": 2
+      },
+      {
+        "id": "取得検索",
+        "title": "取得・検索",
+        "depth": 2
+      },
+      {
+        "id": "右クリックメニューとの対応",
+        "title": "右クリックメニューとの対応",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "dataview/csv",
+    "title": "CSV・TSV入出力",
+    "component": "dataview",
+    "section": "データと操作",
+    "output": "dataview/csv/index.html",
+    "sources": [
+      "packages/dataview/src/docs/csv.md"
+    ],
+    "keywords": [
+      "dataview",
+      "CSV・TSV入出力"
+    ],
+    "headings": []
+  },
+  {
+    "id": "diagram/getting-started",
+    "title": "導入・保存・権限",
+    "component": "diagram",
+    "section": "使い始める",
+    "output": "diagram/getting-started/index.html",
+    "sources": [
+      "packages/diagram/src/docs/getting-started.md"
+    ],
+    "keywords": [
+      "LikeDiagram",
+      "DiagramProps",
+      "onSave",
+      "onEditRequest",
+      "readOnly",
+      "primaryColor"
+    ],
+    "headings": [
+      {
+        "id": "ref",
+        "title": "ref",
+        "depth": 2
+      },
+      {
+        "id": "ソースコピー",
+        "title": "ソースコピー",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "diagram/editing",
+    "title": "画面の編集機能",
+    "component": "diagram",
+    "section": "編集・モデルAPI",
+    "output": "diagram/editing/index.html",
+    "sources": [
+      "packages/diagram/src/docs/editing.md"
+    ],
+    "keywords": [
+      "LikeDiagram",
+      "DiagramProps",
+      "onSave",
+      "onEditRequest",
+      "readOnly",
+      "primaryColor"
+    ],
+    "headings": [
+      {
+        "id": "対応範囲",
+        "title": "対応範囲",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "diagram/model",
+    "title": "JSONモデル・コマンド",
+    "component": "diagram",
+    "section": "編集・モデルAPI",
+    "output": "diagram/model/index.html",
+    "sources": [
+      "packages/diagram/src/docs/headless.md"
+    ],
+    "keywords": [
+      "LikeDiagram",
+      "DiagramProps",
+      "onSave",
+      "onEditRequest",
+      "readOnly",
+      "primaryColor"
+    ],
+    "headings": []
+  },
+  {
+    "id": "whiteboard/getting-started",
+    "title": "導入・保存・権限",
+    "component": "whiteboard",
+    "section": "使い始める",
+    "output": "whiteboard/getting-started/index.html",
+    "sources": [
+      "packages/whiteboard/src/docs/getting-started.md"
+    ],
+    "keywords": [
+      "LikeWhiteboard",
+      "WhiteboardProps",
+      "onSave",
+      "onEditRequest",
+      "readOnly",
+      "primaryColor"
+    ],
+    "headings": [
+      {
+        "id": "ref",
+        "title": "ref",
+        "depth": 2
+      },
+      {
+        "id": "ソースコピー",
+        "title": "ソースコピー",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "whiteboard/editing",
+    "title": "画面の編集機能",
+    "component": "whiteboard",
+    "section": "編集・モデルAPI",
+    "output": "whiteboard/editing/index.html",
+    "sources": [
+      "packages/whiteboard/src/docs/editing.md"
+    ],
+    "keywords": [
+      "LikeWhiteboard",
+      "WhiteboardProps",
+      "onSave",
+      "onEditRequest",
+      "readOnly",
+      "primaryColor"
+    ],
+    "headings": [
+      {
+        "id": "対応範囲",
+        "title": "対応範囲",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "whiteboard/model",
+    "title": "JSONモデル・コマンド",
+    "component": "whiteboard",
+    "section": "編集・モデルAPI",
+    "output": "whiteboard/model/index.html",
+    "sources": [
+      "packages/whiteboard/src/docs/headless.md"
+    ],
+    "keywords": [
+      "LikeWhiteboard",
+      "WhiteboardProps",
+      "onSave",
+      "onEditRequest",
+      "readOnly",
+      "primaryColor"
+    ],
+    "headings": []
+  },
+  {
+    "id": "calendar/getting-started",
+    "title": "導入と初期表示",
+    "component": "calendar",
+    "section": "はじめに",
+    "output": "calendar/getting-started/index.html",
+    "sources": [
+      "packages/calendar/src/docs/getting-started.md"
+    ],
+    "keywords": [
+      "LikeCalendar",
+      "CalendarProps",
+      "CalendarHandle",
+      "Calendar",
+      "getting-started"
+    ],
+    "headings": [
+      {
+        "id": "ソースコピー",
+        "title": "ソースコピー",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "calendar/editing",
+    "title": "表示と予定の編集",
+    "component": "calendar",
+    "section": "機能とAPI",
+    "output": "calendar/editing/index.html",
+    "sources": [
+      "packages/calendar/src/docs/editing.md"
+    ],
+    "keywords": [
+      "LikeCalendar",
+      "CalendarProps",
+      "CalendarHandle",
+      "Calendar",
+      "editing"
+    ],
+    "headings": [
+      {
+        "id": "保存される日時",
+        "title": "保存される日時",
+        "depth": 2
+      },
+      {
+        "id": "予定のドラッグ移動",
+        "title": "予定のドラッグ移動",
+        "depth": 2
+      },
+      {
+        "id": "予定の長さを変える",
+        "title": "予定の長さを変える",
+        "depth": 2
+      },
+      {
+        "id": "右クリック",
+        "title": "右クリック",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "calendar/lifecycle",
+    "title": "保存・編集許可・操作API",
+    "component": "calendar",
+    "section": "機能とAPI",
+    "output": "calendar/lifecycle/index.html",
+    "sources": [
+      "packages/calendar/src/docs/lifecycle.md"
+    ],
+    "keywords": [
+      "LikeCalendar",
+      "CalendarProps",
+      "CalendarHandle",
+      "Calendar",
+      "lifecycle"
+    ],
+    "headings": []
+  },
+  {
+    "id": "calendar/headless",
+    "title": "ヘッドレスAPIとJSON",
+    "component": "calendar",
+    "section": "機能とAPI",
+    "output": "calendar/headless/index.html",
+    "sources": [
+      "packages/calendar/src/docs/headless.md"
+    ],
+    "keywords": [
+      "LikeCalendar",
+      "CalendarProps",
+      "CalendarHandle",
+      "Calendar",
+      "headless"
+    ],
+    "headings": [
+      {
+        "id": "開始または終了だけを変える",
+        "title": "開始または終了だけを変える",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "aichat/getting-started",
+    "title": "導入と初期表示",
+    "component": "aichat",
+    "section": "はじめに",
+    "output": "aichat/getting-started/index.html",
+    "sources": [
+      "packages/aichat/src/docs/getting-started.md"
+    ],
+    "keywords": [
+      "LikeAIChat",
+      "AIChatProps",
+      "initialAIChat",
+      "initialConversationId",
+      "Next.js"
+    ],
+    "headings": [
+      {
+        "id": "右クリックメニュー",
+        "title": "右クリックメニュー",
+        "depth": 2
+      },
+      {
+        "id": "パッケージを導入する",
+        "title": "パッケージを導入する",
+        "depth": 2
+      },
+      {
+        "id": "ソースをコピーする",
+        "title": "ソースをコピーする",
+        "depth": 2
+      },
+      {
+        "id": "表示設定",
+        "title": "表示設定",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "aichat/headless",
+    "title": "モデルAPI・コマンド・履歴",
+    "component": "aichat",
+    "section": "親アプリとの連携",
+    "output": "aichat/headless/index.html",
+    "sources": [
+      "packages/aichat/src/docs/headless.md"
+    ],
+    "keywords": [
+      "AIChatCommand",
+      "AIChatHandle",
+      "executeAIChatCommands",
+      "createAIChatSession",
+      "getAIChatMessages"
+    ],
+    "headings": [
+      {
+        "id": "会話を取得編集する",
+        "title": "会話を取得・編集する",
+        "depth": 2
+      },
+      {
+        "id": "reactなしで編集セッションを使う",
+        "title": "Reactなしで編集セッションを使う",
+        "depth": 2
+      },
+      {
+        "id": "表示中のコンポーネントを操作する",
+        "title": "表示中のコンポーネントを操作する",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "aichat/native-files",
+    "title": "JSON保存形式",
+    "component": "aichat",
+    "section": "親アプリとの連携",
+    "output": "aichat/native-files/index.html",
+    "sources": [
+      "packages/aichat/src/docs/native-files.md"
+    ],
+    "keywords": [
+      "AIChatModel",
+      "parseAIChat",
+      "serializeAIChat",
+      "migrateLegacyAIChat",
+      "replyTo",
+      "JSON"
+    ],
+    "headings": [
+      {
+        "id": "メッセージとメタデータ",
+        "title": "メッセージとメタデータ",
+        "depth": 2
+      },
+      {
+        "id": "検証と保存",
+        "title": "検証と保存",
+        "depth": 2
+      },
+      {
+        "id": "旧likechatからの移行",
+        "title": "旧LikeChatからの移行",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "aichat/streaming",
+    "title": "ストリーミング・添付",
+    "component": "aichat",
+    "section": "親アプリとの連携",
+    "output": "aichat/streaming/index.html",
+    "sources": [
+      "packages/aichat/src/docs/streaming.md"
+    ],
+    "keywords": [
+      "onSend",
+      "AIChatSendHandler",
+      "AsyncIterable",
+      "retry",
+      "cancel",
+      "onAttachmentUpload"
+    ],
+    "headings": [
+      {
+        "id": "応答を返す",
+        "title": "応答を返す",
+        "depth": 2
+      },
+      {
+        "id": "停止エラー再試行",
+        "title": "停止・エラー・再試行",
+        "depth": 2
+      },
+      {
+        "id": "添付ファイルを受け取る",
+        "title": "添付ファイルを受け取る",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "aichat/lifecycle",
+    "title": "保存・編集許可・イベント",
+    "component": "aichat",
+    "section": "親アプリとの連携",
+    "output": "aichat/lifecycle/index.html",
+    "sources": [
+      "packages/aichat/src/docs/lifecycle.md"
+    ],
+    "keywords": [
+      "onSave",
+      "onBeforeSave",
+      "onEditRequest",
+      "onDirtyChange",
+      "features",
+      "onEvent"
+    ],
+    "headings": [
+      {
+        "id": "保存と編集許可",
+        "title": "保存と編集許可",
+        "depth": 2
+      },
+      {
+        "id": "機能を制御する",
+        "title": "機能を制御する",
+        "depth": 2
+      },
+      {
+        "id": "通知と未保存状態",
+        "title": "通知と未保存状態",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "chat/getting-started",
+    "title": "LikeChatを組み込む",
+    "component": "chat",
+    "output": "chat/getting-started/index.html",
+    "sources": [
+      "packages/chat/src/docs/getting-started.md"
+    ],
+    "keywords": [
+      "LikeChat",
+      "ChatModel",
+      "DM",
+      "スペース",
+      "スレッド"
+    ],
+    "headings": [
+      {
+        "id": "最小構成",
+        "title": "最小構成",
+        "depth": 2
+      },
+      {
+        "id": "props",
+        "title": "Props",
+        "depth": 2
+      },
+      {
+        "id": "機能のonoff",
+        "title": "機能のON/OFF",
+        "depth": 2
+      },
+      {
+        "id": "右クリックメニュー",
+        "title": "右クリックメニュー",
+        "depth": 2
+      },
+      {
+        "id": "ソースコピー",
+        "title": "ソースコピー",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "chat/messages",
+    "title": "メッセージとスレッド",
+    "component": "chat",
+    "output": "chat/messages/index.html",
+    "sources": [
+      "packages/chat/src/docs/messages.md"
+    ],
+    "keywords": [
+      "LikeChat",
+      "ChatModel",
+      "DM",
+      "スペース",
+      "スレッド"
+    ],
+    "headings": [
+      {
+        "id": "会話を選ぶ",
+        "title": "会話を選ぶ",
+        "depth": 2
+      },
+      {
+        "id": "送信返信",
+        "title": "送信・返信",
+        "depth": 2
+      },
+      {
+        "id": "編集削除リアクション",
+        "title": "編集・削除・リアクション",
+        "depth": 2
+      },
+      {
+        "id": "添付",
+        "title": "添付",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "chat/lifecycle",
+    "title": "保存・送信・同期",
+    "component": "chat",
+    "output": "chat/lifecycle/index.html",
+    "sources": [
+      "packages/chat/src/docs/lifecycle.md"
+    ],
+    "keywords": [
+      "LikeChat",
+      "ChatModel",
+      "DM",
+      "スペース",
+      "スレッド"
+    ],
+    "headings": [
+      {
+        "id": "送信を親で扱う",
+        "title": "送信を親で扱う",
+        "depth": 2
+      },
+      {
+        "id": "保存と編集許可",
+        "title": "保存と編集許可",
+        "depth": 2
+      },
+      {
+        "id": "親から最新データを同期する",
+        "title": "親から最新データを同期する",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "chat/headless",
+    "title": "画面なしのAPI",
+    "component": "chat",
+    "output": "chat/headless/index.html",
+    "sources": [
+      "packages/chat/src/docs/headless.md"
+    ],
+    "keywords": [
+      "LikeChat",
+      "ChatModel",
+      "DM",
+      "スペース",
+      "スレッド"
+    ],
+    "headings": [
+      {
+        "id": "コマンド",
+        "title": "コマンド",
+        "depth": 2
+      },
+      {
+        "id": "get-apiの戻り値",
+        "title": "get APIの戻り値",
+        "depth": 2
+      },
+      {
+        "id": "コンポーネントref",
+        "title": "コンポーネントref",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "chat/native-files",
+    "title": "JSONと互換性",
+    "component": "chat",
+    "output": "chat/native-files/index.html",
+    "sources": [
+      "packages/chat/src/docs/native-files.md"
+    ],
+    "keywords": [
+      "LikeChat",
+      "ChatModel",
+      "DM",
+      "スペース",
+      "スレッド"
+    ],
+    "headings": [
+      {
+        "id": "aiチャットの移行",
+        "title": "AIチャットの移行",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "form/getting-started",
+    "title": "導入と設定",
+    "component": "form",
+    "section": "はじめに",
+    "output": "form/getting-started/index.html",
+    "sources": [
+      "packages/form/src/docs/getting-started.md"
+    ],
+    "keywords": [
+      "LikeForm",
+      "FormProps",
+      "FormHandle",
+      "getting-started"
+    ],
+    "headings": [
+      {
+        "id": "ソースコピー",
+        "title": "ソースコピー",
+        "depth": 2
+      },
+      {
+        "id": "props",
+        "title": "Props",
+        "depth": 2
+      },
+      {
+        "id": "対応範囲",
+        "title": "対応範囲",
+        "depth": 2
+      },
+      {
+        "id": "右クリックメニュー",
+        "title": "右クリックメニュー",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "form/answers",
+    "title": "回答と送信",
+    "component": "form",
+    "section": "機能",
+    "output": "form/answers/index.html",
+    "sources": [
+      "packages/form/src/docs/answers.md"
+    ],
+    "keywords": [
+      "LikeForm",
+      "FormProps",
+      "FormHandle",
+      "answers"
+    ],
+    "headings": [
+      {
+        "id": "条件付き表示",
+        "title": "条件付き表示",
+        "depth": 2
+      },
+      {
+        "id": "画面なしで検証",
+        "title": "画面なしで検証",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "form/commands",
+    "title": "データ取得と操作",
+    "component": "form",
+    "section": "機能",
+    "output": "form/commands/index.html",
+    "sources": [
+      "packages/form/src/docs/commands.md"
+    ],
+    "keywords": [
+      "LikeForm",
+      "FormProps",
+      "FormHandle",
+      "commands"
+    ],
+    "headings": [
+      {
+        "id": "画面から項目を並べ替える",
+        "title": "画面から項目を並べ替える",
+        "depth": 2
+      },
+      {
+        "id": "取得apiと戻り値",
+        "title": "取得APIと戻り値",
+        "depth": 2
+      },
+      {
+        "id": "表示中コンポーネントのref",
+        "title": "表示中コンポーネントのref",
+        "depth": 2
+      },
+      {
+        "id": "右クリックメニューとの対応",
+        "title": "右クリックメニューとの対応",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "form/lifecycle",
+    "title": "保存と編集許可",
+    "component": "form",
+    "section": "機能",
+    "output": "form/lifecycle/index.html",
+    "sources": [
+      "packages/form/src/docs/lifecycle.md"
+    ],
+    "keywords": [
+      "LikeForm",
+      "FormProps",
+      "FormHandle",
+      "lifecycle"
+    ],
+    "headings": [
+      {
+        "id": "保存構造",
+        "title": "保存構造",
         "depth": 2
       }
     ]
@@ -2479,6 +3892,40 @@
       {
         "id": "どのページを読むか",
         "title": "どのページを読むか",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "core/model-editor",
+    "title": "JSONエディターの共通制御",
+    "component": "core",
+    "section": "ホストとの連携",
+    "output": "core/model-editor/index.html",
+    "sources": [
+      "packages/core/docs/model-editor.md"
+    ],
+    "keywords": [
+      "createModelEditorController",
+      "ModelEditorAdapter",
+      "runTask",
+      "prepare",
+      "Undo"
+    ],
+    "headings": [
+      {
+        "id": "adapter",
+        "title": "Adapter",
+        "depth": 2
+      },
+      {
+        "id": "状態と通知",
+        "title": "状態と通知",
+        "depth": 2
+      },
+      {
+        "id": "非同期処理",
+        "title": "非同期処理",
         "depth": 2
       }
     ]
@@ -2600,6 +4047,11 @@
         "id": "状態結果終了処理",
         "title": "状態・結果・終了処理",
         "depth": 2
+      },
+      {
+        "id": "共通の右クリック表示",
+        "title": "共通の右クリック表示",
+        "depth": 2
       }
     ]
   },
@@ -2674,6 +4126,45 @@
       {
         "id": "制約とエラー",
         "title": "制約とエラー",
+        "depth": 2
+      },
+      {
+        "id": "office出力の型",
+        "title": "Office出力の型",
+        "depth": 2
+      },
+      {
+        "id": "officeメタデータの部分読み込み",
+        "title": "Officeメタデータの部分読み込み",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "core/drag",
+    "title": "ドラッグの表示計算",
+    "component": "core",
+    "output": "core/drag/index.html",
+    "sources": [
+      "packages/core/docs/drag.md"
+    ],
+    "keywords": [
+      "drag",
+      "scroll",
+      "getDragScrollDelta",
+      "getDragInsertionIndex",
+      "ドラッグ",
+      "並べ替え"
+    ],
+    "headings": [
+      {
+        "id": "自動スクロール",
+        "title": "自動スクロール",
+        "depth": 2
+      },
+      {
+        "id": "挿入位置",
+        "title": "挿入位置",
         "depth": 2
       }
     ]

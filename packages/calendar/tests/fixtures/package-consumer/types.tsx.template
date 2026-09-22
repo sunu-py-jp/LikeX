@@ -1,0 +1,13 @@
+import { createRef } from "react";
+import LikeCalendar, { createCalendar, executeCalendarCommands, type CalendarProps, type CalendarHandle, type CalendarCommand } from "__LIBRARY_IMPORT__";
+const calendar = createCalendar({ timeZone: "Asia/Tokyo" });
+const command: CalendarCommand = { type: "event.create", event: { title: "Review", allDay: false, start: "2026-09-22T09:00:00+09:00", end: "2026-09-22T10:00:00+09:00" } };
+const result = executeCalendarCommands(calendar, command);
+const props: CalendarProps = { initialCalendar: result.calendar, initialDate: "2026-09-22", initialView: "week", weekStartsOn: 1, colorMode: "system", primaryColor: "#2563eb", features: { metadata: false }, onSave: async current => current, onEditRequest: async (_request, { signal }) => !signal.aborted, onVisibleRangeChange: range => console.log(range.start), onEventClick: event => console.log(event.id) };
+const ref = createRef<CalendarHandle>();
+const view = <LikeCalendar ref={ref} {...props} />;
+void ref.current?.execute(command); void ref.current?.importNative(new Blob()); void ref.current?.exportNative();
+void ref.current?.setDate("2026-09-22"); void ref.current?.setView("day"); void view;
+// @ts-expect-error Recurrence is outside the supported event model.
+const invalid: CalendarCommand = { type: "event.update", id: "x", changes: { recurrence: "daily" } };
+void invalid;

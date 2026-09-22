@@ -60,6 +60,7 @@ export default function Report() {
 | `undo()` / `redo()` | 編集許可を待って履歴を移動。`boolean` または `Promise<boolean>` を返す |
 | `getHistoryState()` | `canUndo` / `canRedo` / `undoCount` / `redoCount` |
 | `getZoom()` / `setZoom(percent)` | 現在の表示倍率を取得／変更。保存データ・履歴・未保存状態は変えません。[表示倍率](./zoom.md) |
+| `getSelection()` / `selectCell(...)` / `selectRanges(...)` など | セル・範囲・行列・シート・図形の表示上の選択。既定ではスクロールしません。[選択API](./selection.md#refから表示中の選択を変更する) |
 | `executeAsync(command)` / `batchAsync(commands)` | 外部の編集許可を待てる操作。結果をPromiseで返す |
 
 `execute` / `batch` はPromiseを返しません。成功直後の `getWorkbook()` には、Reactの再描画を待たず変更が反映されています。スナップショットは凍結されており、直接書き換えずコマンドを使います。入力中でまだ確定していない文字列は含まれません。
@@ -103,6 +104,7 @@ if (result.ok) {
 | `rows.delete` / `columns.delete` | `index`, `count?`（既定1） |
 | `rows.resize` | `row`, `height`（px） |
 | `dimensions.resize` | `rowHeights`, `columnWidths`。0始まりのインデックスをキーにした寸法マップ。一括変更用 |
+| `dimensions.autoFit` | `axis: "row" / "column"`, `indices: number[]`。内容から行高／列幅を推定。[自動調整](./formatting.md#内容に合わせて自動調整するapi) |
 | `cells.replace` / `cells.fill` / `cells.paste` | [編集操作](./editing-tools.md)の型と例を参照 |
 | `cells.move` | `source: { sheetId, top, left, bottom, right }`, `target: { row, column }`。外側の `sheetId` は移動先。値・参照・コメント・結合を一括で移動 |
 | `cells.validation` | `addresses`, `validation`。[入力規則](./input-validation.md)を設定／解除 |

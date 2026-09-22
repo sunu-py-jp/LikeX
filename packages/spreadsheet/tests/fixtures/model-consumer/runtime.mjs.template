@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { applySpreadsheetCommands, parseWorkbook, serializeWorkbook, createWorkbook, setCellValues,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
   createSpreadsheetSession, copySpreadsheetCells, getSheets, getSheetReader, getNamedRange, getRangeByName,
-  importSpreadsheetXlsx } from '__MODEL_IMPORT__';
+  importSpreadsheetXlsx, exportSpreadsheetXlsx } from '__MODEL_IMPORT__';
 
 const require = createRequire(import.meta.url);
 assert.throws(() => require.resolve('react'), { code: 'MODULE_NOT_FOUND' });
@@ -13,6 +13,9 @@ assert.equal(typeof document, 'undefined');
 assert.equal(typeof importSpreadsheetXlsx, 'function');
 await assert.rejects(importSpreadsheetXlsx(new Uint8Array([1, 2, 3])), /xlsx|Excel/);
 const original = setCellValues(createWorkbook(), 'sheet-1', { A1: '既存', B2: '10', C1: '=B2*2' });
+const excelFile = await exportSpreadsheetXlsx(original);
+assert.ok(excelFile instanceof Blob);
+assert.equal((await importSpreadsheetXlsx(excelFile)).workbook.sheets[0].cells.A1.value, '既存');
 const before = serializeWorkbook(original);
 const nativeFile = JSON.parse(before);
 assert.equal(nativeFile.format, 'likex.spreadsheet');

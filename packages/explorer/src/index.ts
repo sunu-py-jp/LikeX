@@ -13,8 +13,14 @@ export type {
   ExplorerIconRenderer,
 } from "./props";
 export type { ExplorerItemInfo } from "./model/item-info";
+export { assertExplorerEntryPermissions, checksForExplorerAction, checksForExplorerChanges, ExplorerOperationDeniedError } from "./model/entry-permissions";
+export type {
+  ExplorerEntryOperation, ExplorerEntryPermission, ExplorerEntryPermissions, ExplorerEntryPermissionTarget,
+  ExplorerEntryPermissionsResolver, ExplorerEntryPermissionCheck,
+} from "./model/entry-permissions";
 export type { ExplorerHandle, ExplorerNotification, ExplorerNotificationDetail, ExplorerNotificationKind } from "./model/notifications";
-export type { ExplorerFileTarget, ExplorerShowFileOptions, ExplorerNavigationHandle,
+export type { ExplorerCommandHandle } from "./model/commands";
+export type { ExplorerEntryTarget, ExplorerFileTarget, ExplorerShowFileOptions, ExplorerNavigationHandle,
   ExplorerNavigationResult, ExplorerNavigationErrorCode } from "./model/navigation";
 export type { ExplorerContextMenuContext, ExplorerContextMenuChange, ExplorerContextMenuItem, ExplorerContextMenuProvider } from "./model/context-menu";
 export type { ContextMenuExecutionMode } from "./core";
@@ -39,7 +45,13 @@ export type {
   ExplorerUploadRejectedEvent,
   ExplorerUploadSkippedEvent,
 } from "./model/events";
-export { ExplorerUploadValidationError, ExplorerUploadConflictError, createExplorerUploadSession } from "./model/upload";
+export { ExplorerUploadValidationError, ExplorerUploadConflictError, ExplorerUploadInspectionRequiredError, createExplorerUploadSession } from "./model/upload";
+export { EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS } from "./model/upload-content";
+export type {
+  ExplorerUploadContentLimitsByExtension, ExplorerUploadContentMetadata, ExplorerUploadContentRejectionReason,
+  ExplorerUploadContentExtension, ExplorerUploadContentKind, ExplorerUploadVideoExtension, ExplorerUploadAudioExtension,
+  ExplorerUploadInspectFile, ExplorerUploadInspectFileRequest,
+} from "./model/upload-content";
 export type {
   ExplorerUploadOptions,
   ExplorerUploadConflict,

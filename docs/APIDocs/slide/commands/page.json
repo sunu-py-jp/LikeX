@@ -6,7 +6,11 @@
   "section": "親アプリとの連携",
   "keywords": [
     "LikeSlide",
-    "SlideDeck"
+    "SlideDeck",
+    "SlideHandle",
+    "importNative",
+    "exportNative",
+    "slon"
   ],
   "screenshots": []
 }

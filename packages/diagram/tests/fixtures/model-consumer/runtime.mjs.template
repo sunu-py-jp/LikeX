@@ -1,0 +1,7 @@
+import assert from "node:assert/strict";
+import {createDiagram,executeDiagramCommands,parseDiagram,serializeDiagram,exportDiagramSvg} from "__MODEL_IMPORT__";
+assert.equal(typeof window,"undefined");const model=createDiagram({title:"Before"});
+const next=executeDiagramCommands(model,{type:"diagram.update",title:"After"});
+assert.equal(model.title,"Before");assert.equal(next.title,"After");
+assert.equal(serializeDiagram(parseDiagram(serializeDiagram(next))),serializeDiagram(next));assert.match(exportDiagramSvg(next),/^<svg/);
+console.log(JSON.stringify({ noReact: true, noDOM: true, commands: "passed", nativeRoundtrip: "passed", svg: "passed" }));

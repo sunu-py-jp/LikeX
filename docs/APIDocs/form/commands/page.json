@@ -1,0 +1,13 @@
+{
+  "title": "データ取得と操作",
+  "summary": "LikeFormのデータ取得と操作を公開APIと利用例で説明します。",
+  "source": "packages/form/src/docs/commands.md",
+  "order": 2,
+  "section": "機能",
+  "keywords": [
+    "LikeForm",
+    "FormProps",
+    "FormHandle",
+    "commands"
+  ]
+}

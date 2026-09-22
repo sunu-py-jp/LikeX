@@ -9,6 +9,7 @@ export type SpreadsheetContextMenuContext = Readonly<{
   target: Readonly<{ kind: "cell"; sheetId: string; row: number; column: number; address: string }> |
     Readonly<{ kind: "row"; sheetId: string; row: number }> |
     Readonly<{ kind: "column"; sheetId: string; column: number }> |
+    Readonly<{ kind: "drawing"; sheetId: string; drawingId: string; drawingType: "image" | "shape" | "text" }> |
     Readonly<{ kind: "sheet"; sheetId: string; name: string; index: number }>;
   selection: SpreadsheetSelection;
   workbook: SpreadsheetWorkbookSnapshot;

@@ -1,0 +1,4 @@
+import LikeBoard from "__LIBRARY_IMPORT__";
+import { createBoard } from "__LIBRARY_MODEL__";
+import ClientView from "./client";
+export default function Page() { const model = createBoard({ id: "board-1", title: "LikeBoard consumer", columns: [{ id: "todo", title: "To do", cards: [{ id: "card-1", title: "Board consumer content" }] }] }); return <main><LikeBoard initialBoard={model} style={{ height: 360 }} /><ClientView /></main>; }

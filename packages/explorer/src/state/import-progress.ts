@@ -3,7 +3,8 @@ import type { ExplorerNotification } from "../model/notifications";
 
 export function describeImportProgress(value: ExplorerImportProgress): ExplorerNotification {
   const message = value.phase === "discovering" ? "フォルダ内のファイルを確認しています"
-    : value.phase === "checking" ? "ファイル情報を確認しています" : "一覧への追加を準備しています";
+    : value.phase === "checking" ? "ファイル情報を確認しています"
+    : value.phase === "inspecting" ? "ファイルの内容を確認しています" : "一覧への追加を準備しています";
   const count = value.total === undefined
     ? `${value.completed}ファイルを検出`
     : `${value.completed} / ${value.total}ファイル`;
@@ -64,7 +65,7 @@ export function createImportProgress(
 }
 
 export async function prepareImport<T>(
-  operation: Generator<ExplorerImportProgress, T>,
+  operation: Generator<ExplorerImportProgress, T> | AsyncGenerator<ExplorerImportProgress, T>,
   signal: AbortSignal,
   publish: (value: ExplorerImportProgress) => void,
 ): Promise<T> {
@@ -73,12 +74,18 @@ export async function prepareImport<T>(
   // immediately exposes its real total and an animated progress indicator.
   try {
     checkAbort(signal);
-    const first = operation.next();
+    const firstStep = operation.next();
+    // Preserve immediate publication for synchronous generators. Awaiting their
+    // plain iterator result would defer the first progress update to a microtask.
+    const first = "then" in firstStep ? await firstStep : firstStep;
+    checkAbort(signal);
     if (first.done) return first.value;
     await (checkpoint(first.value, true) ?? yieldImportTask(signal));
     for (;;) {
       checkAbort(signal);
-      const step = operation.next();
+      const next = operation.next();
+      const step = "then" in next ? await next : next;
+      checkAbort(signal);
       if (step.done) return step.value;
       const pause = checkpoint(step.value, step.value.completed === step.value.total);
       if (pause) await pause;

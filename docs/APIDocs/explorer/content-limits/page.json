@@ -1,0 +1,9 @@
+{
+  "title": "再生時間・ページ数の制限",
+  "summary": "動画は既定4時間。音声・PDF・PPTXの内容制限、解析処理の差し替え、非同期追加APIを説明します。",
+  "source": "packages/explorer/src/docs/upload-content-limits.md",
+  "order": 45,
+  "section": "ファイル操作",
+  "keywords": ["contentLimitsByExtension", "maxDurationSeconds", "maxPages", "maxSlides", "inspectFile", "ExplorerUploadInspectFile", "ExplorerUploadContentMetadata", "addFilesAsync", "addFilesWithResultAsync", "prepareFilesWithProgressAsync", "addAsync", "ExplorerUploadInspectionRequiredError", "動画", "音声", "PDF", "PowerPoint", "4時間"],
+  "screenshots": []
+}

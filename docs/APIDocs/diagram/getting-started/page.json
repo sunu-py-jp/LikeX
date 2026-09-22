@@ -1,0 +1,15 @@
+{
+  "title": "導入・保存・権限",
+  "summary": "保存・編集許可・機能設定・ソースコピーの手順。",
+  "source": "packages/diagram/src/docs/getting-started.md",
+  "order": 0,
+  "section": "使い始める",
+  "keywords": [
+    "LikeDiagram",
+    "DiagramProps",
+    "onSave",
+    "onEditRequest",
+    "readOnly",
+    "primaryColor"
+  ]
+}

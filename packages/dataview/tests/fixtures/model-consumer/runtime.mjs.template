@@ -1,0 +1,18 @@
+import assert from "node:assert/strict";
+import { createDataView, executeDataViewCommands, serializeDataView, parseDataView, createDataViewController, getDataViewCell, importDataViewCsv, exportDataViewCsv } from "__MODEL_IMPORT__";
+assert.equal(typeof window, "undefined"); assert.equal(typeof document, "undefined");
+const original = createDataView({ id: "data-1", title: "LikeDataView consumer", fields: [{ id: "name", name: "Name", type: "text" }], rows: [{ id: "row-1", values: { name: "DataView consumer content" } }] });
+const before = serializeDataView(original);
+const updated = executeDataViewCommands(original, { type: "cell.set", rowId: "row-1", fieldId: "name", value: "Updated" });
+assert.equal(getDataViewCell(updated.data, "row-1", "name"), "Updated");
+assert.equal(serializeDataView(original), before);
+assert.deepEqual(parseDataView(serializeDataView(updated.data)), updated.data);
+assert.throws(() => parseDataView(JSON.stringify({ ...original, version: 2 })));
+const controller = createDataViewController(original, { onSave: async current => current });
+await controller.execute({ type: "cell.set", rowId: "row-1", fieldId: "name", value: "Updated" }); assert.equal(controller.getSnapshot().dirty, true);
+await controller.save(); assert.equal(controller.getSnapshot().dirty, false);
+assert.equal(await controller.undo(), true); assert.equal(controller.getSnapshot().dirty, true);
+assert.equal(await controller.redo(), true); assert.equal(controller.getSnapshot().dirty, false);
+const csvRoundtrip = importDataViewCsv(exportDataViewCsv(original));
+assert.equal(csvRoundtrip.rows[0].values[csvRoundtrip.fields[0].id], "DataView consumer content");
+console.log(JSON.stringify({ noReact: true, noDOM: true, commandsAndHistory: "passed", nativeRoundtrip: "passed" }));

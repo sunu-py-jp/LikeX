@@ -1,0 +1,3 @@
+"use client";
+import LikeForm, { createForm } from "__LIBRARY_IMPORT__";
+export default function ClientForm() { return <LikeForm initialForm={createForm()} onSave={async form => form} style={{ height: 600 }} />; }

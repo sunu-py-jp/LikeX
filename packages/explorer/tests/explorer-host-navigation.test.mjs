@@ -89,6 +89,169 @@ async function mount(t, supplied = {}) {
   };
 }
 const previewEvents = hook => hook.events.filter(event => event.type === 'preview');
+const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
+
+test('ref reads isolated live metadata and edits explicit targets through the shared GUI draft', async t => {
+  const hook = await mount(t);
+  const api = hook.ref.current;
+  const observed = api.getEntries();
+  observed[0].name = 'External';
+  observed.find(item => item.id === 'note').source.id = 'External';
+  assert.equal(api.getEntries()[0].name, 'Projects');
+  assert.equal(api.getEntries().find(item => item.id === 'note').source.id, 'content-note');
+  await change(() => api.selectFiles([{ id: 'root-file' }]));
+  await change(async () => {
+    assert.equal(await api.execute({ action: 'delete' }), false, 'omitted IDs must not use the current selection');
+    assert.equal(await api.execute({ action: 'delete', ids: 123 }), false, 'malformed JSON arguments follow the normal failure contract');
+    assert.equal(await api.execute({ action: 'rename', ids: ['note'], name: 'Renamed.txt' }), true);
+    assert.equal(api.getEntries().find(item => item.id === 'note').path, '/Projects/資料/Renamed.txt');
+    assert.equal(await api.execute({ action: 'rename', ids: ['note'], name: 'Renamed.csv' }), false);
+    assert.equal(await api.execute({ action: 'move', ids: ['note'], parent: 'archive' }), true);
+    assert.equal(await api.execute({ action: 'favorite', ids: ['note'] }), true);
+    assert.equal(await api.execute({ action: 'create', parent: 'docs', name: 'Created' }), true);
+  });
+  assert.equal(hook.current.dirty, true);
+  assert.deepEqual(hook.events.filter(event => event.type === 'change').map(event => event.action), ['rename', 'move', 'favorite', 'create']);
+  await change(async () => assert.equal(await api.save(), true));
+  assert.equal(hook.saves.length, 1);
+  assert.equal(hook.saves[0].entries.find(item => item.id === 'note').parent, 'archive');
+  assert.equal(hook.current.dirty, false);
+  await change(async () => {
+    assert.equal(await api.execute({ action: 'delete', ids: ['note'] }), true);
+    assert.equal(await api.discard(), true);
+  });
+  assert.ok(api.getEntries().some(item => item.id === 'note'));
+  assert.equal(hook.current.dirty, false);
+});
+
+test('retained edit refs respect updated feature, read-only, permission and active-view gates', async t => {
+  const permission = deferred();
+  const requests = [];
+  const hook = await mount(t, { onEditRequest: request => { requests.push(request); return permission.promise; } });
+  const api = hook.ref.current;
+  await hook.update({ features: { rename: false } });
+  await change(async () => assert.equal(await api.execute({ action: 'rename', ids: ['note'], name: 'Blocked.txt' }), false));
+  assert.equal(requests.length, 0);
+  await hook.update({ features: { rename: true } });
+  let pending;
+  await change(() => { pending = api.execute({ action: 'rename', ids: ['note'], name: 'Stale.txt' }); });
+  assert.equal(requests.length, 1);
+  await change(() => api.navigate('/Archive'));
+  await change(async () => { permission.resolve(true); assert.equal(await pending, false); });
+  assert.equal(api.getEntries().find(item => item.id === 'note').name, 'Notes.TXT');
+  await hook.update({ onEditRequest: undefined, readOnly: true });
+  await change(async () => {
+    assert.equal(await api.execute({ action: 'delete', ids: ['note'] }), false);
+    assert.equal(await api.upload([new File(['x'], 'new.txt')], 'root'), false);
+    assert.equal(await api.save(), false);
+    assert.equal(await api.discard(), false);
+  });
+  assert.equal(hook.current.dirty, false);
+});
+
+test('save locks all ref mutations and closed panes never queue retained commands', async t => {
+  const saving = deferred();
+  const hook = await mount(t, { onSave: () => saving.promise });
+  const api = hook.ref.current;
+  await change(() => api.execute({ action: 'rename', ids: ['note'], name: 'Saved.txt' }));
+  let pending;
+  await change(() => { pending = api.save(); });
+  await change(async () => {
+    assert.equal(await api.execute({ action: 'delete', ids: ['note'] }), false);
+    assert.equal(await api.upload([new File(['x'], 'new.txt')], 'root'), false);
+    assert.equal(await api.discard(), false);
+    assert.equal(await api.refresh(), false);
+  });
+  await change(async () => { saving.resolve(); assert.equal(await pending, true); });
+  await hook.showPane(false);
+  assert.equal(api.getEntries(), null);
+  assert.equal(await api.execute({ action: 'delete', ids: ['note'] }), false);
+  assert.equal(await api.upload([new File(['x'], 'new.txt')], 'root'), false);
+  assert.equal(await api.save(), false);
+  assert.equal(await api.discard(), false);
+  assert.equal(await api.download({ id: 'note' }), false);
+  await hook.showPane(true);
+  assert.equal(api.getEntries().find(item => item.id === 'note').name, 'Saved.txt');
+  await hook.unmount();
+  assert.equal(api.getEntries(), null);
+  assert.equal(await api.execute({ action: 'delete', ids: ['note'] }), false);
+});
+
+test('ref upload shares conflict confirmation, validation, cancellation and feature gates', async t => {
+  const hook = await mount(t);
+  const api = hook.ref.current;
+  const replacement = new File(['replacement'], 'Notes.TXT', { type: 'text/plain' });
+  let pending;
+  await change(() => { pending = api.upload([replacement], 'docs'); });
+  assert.equal(hook.current.uploadPrompt.conflict.existing.id, 'note');
+  assert.equal(hook.current.dirty, false);
+  await change(async () => { await hook.current.answerUploadConflict('overwrite', false); assert.equal(await pending, true); });
+  assert.equal(api.getEntries().find(item => item.id === 'note').source.file, replacement);
+  await change(() => { pending = api.upload([replacement], 'docs'); });
+  await change(async () => { hook.current.cancelUpload(); assert.equal(await pending, false); });
+  await hook.update({ upload: { allowedExtensions: ['.txt'] } });
+  await change(async () => assert.equal(await api.upload([new File(['x'], 'blocked.csv')], 'root'), false));
+  assert.equal(api.getEntries().some(item => item.name === 'blocked.csv'), false);
+  await hook.update({ features: { uploadFiles: false } });
+  await change(async () => assert.equal(await api.upload([new File(['x'], 'blocked.txt')], 'root'), false));
+  assert.equal(api.getEntries().some(item => item.name === 'blocked.txt'), false);
+});
+
+test('ref refresh preserves dirty data until the shared confirmation succeeds', async t => {
+  let calls = 0;
+  const hook = await mount(t, { onRefresh: () => { calls++; return initialEntries(); } });
+  const api = hook.ref.current;
+  await change(async () => {
+    assert.equal(await api.execute({ action: 'rename', ids: ['note'], name: 'Dirty.txt' }), true);
+    assert.equal(await api.refresh(), false, 'same-tick edits must still require discard confirmation');
+  });
+  assert.equal(calls, 0);
+  assert.equal(hook.current.modal.type, 'refresh');
+  assert.equal(api.getEntries().find(item => item.id === 'note').name, 'Dirty.txt');
+  await change(async () => assert.equal(await hook.current.submitModal(), true));
+  assert.equal(calls, 1);
+  assert.equal(hook.current.dirty, false);
+});
+
+test('ref download resolves current file/folder targets and shares the GUI host lifecycle', async t => {
+  const requests = [];
+  const hook = await mount(t, { onDownloadRequest: (request, context) => {
+    requests.push({ request, context }); return { status: 'completed' };
+  } });
+  const api = hook.ref.current;
+  await change(async () => {
+    assert.equal(await api.execute({ action: 'rename', ids: ['note'], name: 'Current.txt' }), true);
+    assert.equal(await api.download({ path: '/Projects/資料/Current.txt' }), true);
+    assert.equal(await api.download({ id: 'docs' }), true);
+  });
+  assert.equal(requests[0].request.name, 'Current.txt');
+  assert.equal(requests[1].request.kind, 'folder');
+  assert.equal(requests[1].context.items.some(item => item.name === 'Current.txt'), true);
+  await hook.update({ features: { download: false } });
+  assert.equal(await api.download({ id: 'note' }), false);
+  assert.equal(requests.length, 2);
+});
+
+test('selectEntries supports folders and mixed-parent search results without changing the search', async t => {
+  const hook = await mount(t);
+  const api = hook.ref.current;
+  await change(() => assert.equal(api.selectEntries([{ id: 'docs' }]).ok, true));
+  assert.equal(hook.current.location, 'projects');
+  assert.deepEqual(hook.current.selected, ['docs']);
+  await change(() => hook.current.setQuery('Notes'));
+  await change(() => assert.equal(api.selectEntries([{ id: 'note' }, { id: 'archived' }]).ok, true));
+  assert.equal(hook.current.query, 'Notes');
+  assert.deepEqual(hook.current.selected, ['note', 'archived']);
+  await change(() => {
+    api.navigate('/');
+    assert.equal(api.selectEntries([{ id: 'note' }, { id: 'archived' }]).code, 'not-visible', 'stale search results cannot authorize an invisible selection');
+  });
+  assert.deepEqual(hook.current.selected, []);
+  await hook.update({ selection: { mode: 'none' } });
+  await change(() => assert.equal(api.previewFile({ id: 'note' }).ok, true));
+  assert.equal(hook.current.preview.id, 'note');
+  assert.deepEqual(hook.current.selected, []);
+});
 
 test('ref navigates and selects by ID or path without resetting the dirty draft', async t => {
   const hook = await mount(t);
@@ -236,9 +399,11 @@ test('read-only mode and disabled address editing still permit navigation withou
 test('selection and preview policies reject the whole command and use updated props', async t => {
   const hook = await mount(t, { selection: { mode: 'none' } });
   const api = hook.ref.current;
-  assert.equal(api.showFile({ id: 'note' }, { mode: 'preview' }).code, 'selection-disabled');
+  await change(() => assert.deepEqual(api.showFile({ id: 'note' }, { mode: 'preview' }), { ok: true }));
+  assert.deepEqual(hook.current.selected, []);
+  assert.equal(hook.current.preview.id, 'note');
   assert.equal(api.selectFiles([{ id: 'note' }]).code, 'selection-disabled');
-  assert.equal(hook.current.location, 'root');
+  assert.equal(hook.current.location, 'docs');
   await hook.update({ selection: { mode: 'single' } });
   assert.equal(api.selectFiles([{ id: 'note' }, { id: 'second' }]).code, 'selection-limit');
   await change(() => assert.equal(api.selectFiles([{ id: 'note' }, { path: '/Projects/資料/Notes.TXT' }]).ok, true));

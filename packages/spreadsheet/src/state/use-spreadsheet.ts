@@ -29,7 +29,8 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const features = resolveSpreadsheetFeatures(props.features);
   const draft = useWorkbookDraft(props);
   const zoom = useSpreadsheetZoom(props, draft.emitEvent);
-  const view = useSpreadsheetSelection(draft.workbook, features, draft.reportError, draft.propsRef);
+  const view = useSpreadsheetSelection(draft.workbook, features, draft.reportError, draft.propsRef,
+    () => draft.workbookRef.current, () => !cellEdit.editingRef.current && !pending.pendingObjectEditRef.current);
   const { selectionRef, setSelection } = view;
   // The editor only calls this after initialization; command guards can then inspect its live ref.
   const executeGuiCommands = (items: readonly SpreadsheetCommand[], options?: SpreadsheetGuiCommandOptions): MaybePromise<SpreadsheetCommandResult> =>
@@ -58,11 +59,11 @@ export function useSpreadsheet(props: SpreadsheetProps) {
 
   const selectDrawing = (id: string | null): MaybePromise<boolean> => {
     const result = cellEdit.commitEdit();
-    const finish = (accepted: boolean) => { if (accepted) view.selectDrawing(id); return accepted; };
+    const finish = (accepted: boolean) => accepted && view.selectDrawing(id);
     return typeof result === "boolean" ? finish(result) : result.then(finish);
   };
   const switchSheet = (id: string) => {
-    afterCommit(() => view.switchSheet(id, draft.workbookRef.current));
+    afterCommit(() => view.switchSheet(id));
   };
   const resetWorkbookView = (workbook: Workbook) => {
     cellEdit.cancelEdit();
@@ -104,6 +105,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     [emitEvent, dirty, pendingInput, hasUnsavedChanges]);
 
   return { ...zoom, workbook: draft.workbook, activeSheet: view.activeSheet, selection: view.selection,
+    selectionApi: view.selectionApi, selectionFocus: view.selectionFocus, selectionReveal: view.selectionReveal, gridRevealRequest: view.gridRevealRequest,
     select: view.select, selectRange: view.selectRange, selectAxisRange: view.selectAxisRange, toggleAxisRange: view.toggleAxisRange,
     toggleSelection: view.toggleSelection, toggleSelectionRange: view.toggleSelectionRange,
     switchSheet, selectCellInSheet: view.selectCellInSheet,

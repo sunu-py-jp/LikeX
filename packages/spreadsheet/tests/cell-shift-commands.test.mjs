@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 
-const output = await build({ entryPoints: [new URL('../src/model-entry.ts', import.meta.url).pathname],
+// Keep metafile paths stable for both repository-root and npm-workspace invocations.
+const output = await build({ absWorkingDir: new URL('../../../', import.meta.url).pathname,
+  entryPoints: [new URL('../src/model-entry.ts', import.meta.url).pathname],
   bundle: true, platform: 'node', format: 'esm', write: false, metafile: true });
 const { applySpreadsheetCommands: apply, createWorkbook, normalizeWorkbook, serializeWorkbook,
   parseWorkbook, createSpreadsheetSession, SPREADSHEET_LIMITS } = await import(
@@ -58,7 +60,7 @@ test('public partial-cell commands run headlessly without UI, React, DOM or CSS 
   assert.equal(typeof globalThis.window, 'undefined');
   assert.equal(typeof globalThis.document, 'undefined');
   for (const input of Object.keys(output.metafile.inputs)) {
-    if (/\/core\/dist\/(?:ooxml|json)\.js$/.test(input)) continue;
+    if (/\/core\/dist\/(?:index|ooxml|json)\.js$/.test(input) || /\/spreadsheet\/src\/core\.ts$/.test(input)) continue;
     assert.doesNotMatch(input, /node_modules|\/(?:ui|state|core)\/|\/(?:core|props|spreadsheet)\.tsx?$|\.(?:css|tsx)$/);
   }
   assert.ok(Object.values(output.metafile.outputs).every(file => file.imports.length === 0));

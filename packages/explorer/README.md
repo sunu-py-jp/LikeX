@@ -49,6 +49,8 @@ CSSはアプリの入口で1回読み込みます。Next.js App Routerでは `ap
 
 ## 詳細ガイド
 
+画面なしの処理は `@likex/explorer/model` の `createDraftSnapshot` / `applyAction` / `addFilesWithResult` / `getSavePayload` を使えます。Node.js 22.13以上でReactやDOMを実行せず利用できます。型には既存の `File` / `Blob` を使うためTypeScriptの `DOM` libが必要です。[モデルAPI](./src/docs/model-api.md)と、表示中の下書きを操作する[ref API](./src/docs/api-reference.md#mounted-commands)を参照してください。
+
 [利用ガイドの目次](./src/docs/README.md) から、公開型、機能ON/OFF、検索、保存・更新、プレビュー・ダウンロード、テーマ、ポップアップ、制約、運用例を参照できます。ガイドの `@/components/explorer` はコピー導入の例で、パッケージ利用時は `@likex/explorer` に読み替えます。
 
 Azure等の構成例は設計サンプルであり、バックエンドの実装ではありません。LikeXは[MITライセンス](LICENSE)です。コピーする場合は`src/LICENSE`と`src/THIRD_PARTY_NOTICES.md`も保持してください。npm公開は未実施で、`private: true`は誤公開防止のため維持しています。

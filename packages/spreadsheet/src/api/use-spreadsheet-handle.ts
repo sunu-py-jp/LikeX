@@ -12,6 +12,17 @@ export function useSpreadsheetHandle(ref: Ref<SpreadsheetHandle> | undefined, co
   const reader = useMemo(() => createSpreadsheetReader(controller.getWorkbook), [controller.getWorkbook]);
   const handle = useMemo<SpreadsheetHandle>(() => ({
     ...reader,
+    getSelection: () => latest.current.selectionApi.getSelection(),
+    getSelectedDrawing: () => latest.current.selectionApi.getSelectedDrawing(),
+    selectSheet: (...args) => latest.current.selectionApi.selectSheet(...args),
+    selectCell: (...args) => latest.current.selectionApi.selectCell(...args),
+    selectRange: (...args) => latest.current.selectionApi.selectRange(...args),
+    selectRanges: (...args) => latest.current.selectionApi.selectRanges(...args),
+    selectRows: (...args) => latest.current.selectionApi.selectRows(...args),
+    selectColumns: (...args) => latest.current.selectionApi.selectColumns(...args),
+    selectDrawing: (...args) => latest.current.selectionApi.selectDrawing(...args),
+    clearSelection: (...args) => latest.current.selectionApi.clearSelection(...args),
+    revealSelection: () => latest.current.selectionApi.revealSelection(),
     execute: command => latest.current.externalExecute(command),
     batch: commands => latest.current.externalBatch(commands),
     executeAsync: command => latest.current.externalExecuteAsync(command),

@@ -48,9 +48,9 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
   const result = await build({ ...buildOptions,
     entryPoints: [path.join(sourceRoot, 'index.ts')], outfile: path.join(packageRoot, 'dist/index.js'),
   });
-  const headlessEntries = {};
+  const headlessEntries = {}, browserEntries = {};
   const headlessResults = [];
-  for (const [name, source] of Object.entries(profile.headlessEntries ?? {})) {
+  for (const [name, source] of Object.entries({ ...profile.headlessEntries, ...profile.browserEntries })) {
     const built = await build({ ...buildOptions, platform: 'neutral',
       entryPoints: [path.join(sourceRoot, source)], outfile: path.join(packageRoot, `dist/${name}.js`),
     });
@@ -59,7 +59,7 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
     for (const output of Object.values(built.metafile.outputs))
       for (const imported of output.imports)
         if (!profile.headlessDependencies?.includes(imported.path)) throw new Error(`Headless entry ${name} loads an unapproved runtime dependency: ${imported.path}`);
-    headlessEntries[name] = { source, javascriptBytes: Buffer.byteLength(code), gzipBytes: gzipSync(code).length };
+    (profile.browserEntries?.[name] ? browserEntries : headlessEntries)[name] = { source, javascriptBytes: Buffer.byteLength(code), gzipBytes: gzipSync(code).length };
     headlessResults.push(built);
   }
   const buildResults = [result, ...headlessResults];
@@ -80,7 +80,7 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
   if (!profile.ui && /^['"]use client['"];/.test(javascript)) throw new Error('The core entry must remain usable outside React clients.');
 
   const declarationRoot = path.join(packageRoot, 'dist/types');
-  const program = ts.createProgram(['index.ts', ...Object.values(profile.headlessEntries ?? {})].map(source => path.join(sourceRoot, source)), {
+  const program = ts.createProgram(['index.ts', ...Object.values({ ...profile.headlessEntries, ...profile.browserEntries })].map(source => path.join(sourceRoot, source)), {
     target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler, jsx: ts.JsxEmit.ReactJSX,
     strict: true, skipLibCheck: true, esModuleInterop: true,
@@ -121,7 +121,7 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
     gzipBytes: gzipSync(javascript).length, declarationFiles: (await declarationFiles(declarationRoot)).length,
     stylesheetBytes: Buffer.byteLength(css), stylesheetGzipBytes: profile.ui ? gzipSync(css).length : 0,
     publishBlocked: manifest.private === true, license: manifest.license, dependencies: [...declared].sort(),
-    sourceFiles: sourceFiles.size, ...(headlessResults.length ? { headlessEntries } : {}) };
+    sourceFiles: sourceFiles.size, ...(Object.keys(headlessEntries).length ? { headlessEntries } : {}), ...(Object.keys(browserEntries).length ? { browserEntries } : {}) };
   await writeFile(path.join(artifactRoot, 'library-build.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify(report, null, 2));
   return report;

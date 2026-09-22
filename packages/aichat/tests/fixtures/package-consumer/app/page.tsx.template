@@ -1,0 +1,11 @@
+import LikeAIChat from "__LIBRARY_IMPORT__";
+import { createAIChat, executeAIChatCommands } from "__LIBRARY_MODEL__";
+import ClientAIChat from "./client";
+
+export default function Page() {
+  const aichat = createAIChat({ id: "server-aichat", title: "LikeAIChat consumer" });
+  const result = executeAIChatCommands(aichat, { type: "message.add", conversationId: "conversation-1", message: {
+    id: "server-message", role: "user", content: "Server aichat content", createdAt: "2026-09-22T00:00:00.000Z",
+  } });
+  return <main><LikeAIChat initialAIChat={result.aichat} title="LikeAIChat consumer" style={{ height: 360 }} /><ClientAIChat /></main>;
+}

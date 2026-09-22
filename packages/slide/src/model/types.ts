@@ -40,12 +40,32 @@ export type SlideImageElement = SlideElementBase & {
   alt: string;
 };
 export type SlideElement = SlideTextElement | SlideShapeElement | SlideImageElement;
+/** Only properties supported by the referenced element type may be animated. */
+export type SlideAnimationProperties = Partial<Pick<SlideElementBase, "x" | "y" | "width" | "height" | "rotation" | "opacity"> & {
+  fontSize: number; strokeWidth: number; fill: string; stroke: string; color: string; textColor: string;
+}>;
+export type SlideAnimationEasing = "linear" | "ease-in" | "ease-out" | "ease-in-out" | "spring" | "bounce";
+export type SlideAnimationNode =
+  | { type: "sequence" | "parallel"; children: SlideAnimationNode[] }
+  | { type: "tween"; elementId: string; durationMs: number; delayMs?: number; easing?: SlideAnimationEasing;
+    from?: SlideAnimationProperties; to: SlideAnimationProperties; repeat?: number; yoyo?: boolean };
+export type SlideAnimationTrigger = { type: "immediate" } | { type: "after-delay"; delayMs: number } | { type: "click"; elementId?: string };
+export type SlideAnimationStep = { id: string; name?: string; trigger?: SlideAnimationTrigger; animation: SlideAnimationNode };
+export type SlideQueryOptions = { includeAnimations?: boolean };
+export type SlideAnimationClick = { elapsedMs: number; elementId?: string };
+export type SlideAnimationEvaluationOptions = { elapsedMs: number; clicks?: SlideAnimationClick[] };
+export type SlideAnimationFrame = {
+  slide: Slide; finished: boolean; waitingForClick: boolean; stepId?: string;
+  /** Page-relative times; unavailable while a step is waiting for a click. */
+  stepStartMs?: number; stepEndMs?: number; waitingTargetId?: string;
+};
 export type Slide = {
   id: string;
   name: string;
   background: string;
   notes: string;
   elements: SlideElement[];
+  animations?: SlideAnimationStep[];
 };
 export type SlideDeck = {
   /** Optional for programmatic runtime input; normalized output and native files always include it. */
@@ -75,6 +95,8 @@ export type SlideCommand =
   | { type: "slide.duplicate"; slideId: string }
   | { type: "slide.move"; slideId: string; index: number }
   | { type: "slide.update"; slideId: string; patch: Partial<Pick<Slide, "name" | "background" | "notes">> }
+  | { type: "animation.set"; slideId: string; animations: SlideAnimationStep[] }
+  | { type: "animation.remove"; slideId: string; animationId: string }
   | { type: "element.add"; slideId: string; element: SlideElementInput }
   | { type: "element.update"; slideId: string; elementId: string; patch: SlideElementPatch }
   | { type: "element.delete"; slideId: string; elementIds: string[] }

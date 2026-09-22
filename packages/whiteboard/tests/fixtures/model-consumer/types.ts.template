@@ -1,0 +1,9 @@
+import {createWhiteboard,executeWhiteboardCommands,parseWhiteboard,serializeWhiteboard,exportWhiteboardSvg,type WhiteboardModel,type WhiteboardCommand} from "__MODEL_IMPORT__";
+const model: WhiteboardModel = createWhiteboard();
+const command: WhiteboardCommand = {type:"whiteboard.update",title:"Updated"};
+const updated = executeWhiteboardCommands(model,command);
+const native = parseWhiteboard(serializeWhiteboard(updated));
+const svg:string = exportWhiteboardSvg(native);
+// @ts-expect-error unknown commands are rejected
+const bad: WhiteboardCommand = {type:"run-script"};
+void svg;void bad;

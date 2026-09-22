@@ -1,0 +1,39 @@
+{
+  "name": "@likex/document",
+  "version": "0.1.0",
+  "description": "A Word-like React document editor with a JSON model and DOCX import/export.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/types/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" },
+    "./model": { "types": "./dist/types/model-entry.d.ts", "import": "./dist/model.js", "default": "./dist/model.js" },
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "src/README.md", "src/docs/*.md", "skills", "THIRD_PARTY_NOTICES.md", "LICENSE"],
+  "sideEffects": ["**/*.css"],
+  "peerDependencies": { "react": "^19.2.6", "react-dom": "^19.2.6" },
+  "dependencies": {
+    "@likex/core": "0.1.0",
+    "lucide-react": "^1.31.0",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.42.5",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-transform": "^1.12.1"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-library.mjs --module document",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "node ../../scripts/build-library.mjs --module core",
+    "pretypecheck": "node ../../scripts/build-library.mjs --module core"
+  },
+  "keywords": ["react", "word", "document", "docx", "typescript"]
+}

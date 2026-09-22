@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Check, CircleAlert, Loader2, Maximize, Minus, MonitorPlay, Plus, Redo2, Save, Undo2, X } from "lucide-react";
 import type { SlideProps } from "./props";
 import { createSlideElement, SLIDE_LIMITS } from "./model/index";
+import type { SlideDeck } from "./model/types";
 import { useSlideEditor } from "./state/use-slide-editor";
 import { useSlideTheme } from "./state/use-slide-theme";
 import { useSlideInputTracking } from "./state/use-slide-input-tracking";
@@ -43,10 +44,16 @@ export default function LikeSlide(props: SlideProps) {
   const [notesOpen, setNotesOpen] = useState(true);
   const [presenting, setPresenting] = useState(false);
   const imageInput = useRef<HTMLInputElement>(null), pptxInput = useRef<HTMLInputElement>(null), nativeInput = useRef<HTMLInputElement>(null);
+  const imageTarget = useRef<{ deck: SlideDeck; slideId: string } | null>(null);
   const slide = editor.deck.slides.find(item => item.id === editor.selection.slideId);
   const slideIndex = editor.deck.slides.findIndex(item => item.id === editor.selection.slideId);
   const adjustZoom = (value: number) => setZoom(Math.max(25, Math.min(200, Math.round(value))));
   const inputTracking = useSlideInputTracking(root, editor);
+  useLayoutEffect(() => { imageTarget.current = null; }, [editor.deck, editor.selection.slideId, editor.editable, editor.features.images]);
+  const requestImage = (target: { deck: SlideDeck; slideId: string }) => {
+    imageTarget.current = target;
+    imageInput.current?.click();
+  };
 
   useEffect(() => {
     const view = ownerDocument?.defaultView;
@@ -100,9 +107,9 @@ export default function LikeSlide(props: SlideProps) {
       </div>
       <span className="lxp-title-context">LikeX</span>
     </header>
-    <SlideRibbon editor={editor} onImage={() => imageInput.current?.click()} onImport={importFile} onPresent={() => setPresenting(true)} propertiesOpen={propertiesOpen} notesOpen={notesOpen}
+    <SlideRibbon editor={editor} onImage={() => { if (slide) requestImage({ deck: editor.deck, slideId: slide.id }); }} onImport={importFile} onPresent={() => setPresenting(true)} propertiesOpen={propertiesOpen} notesOpen={notesOpen}
       onProperties={() => setPropertiesOpen(value => !value)} onNotes={() => setNotesOpen(value => !value)} onFit={() => setZoom(100)} ownerDocument={ownerDocument} />
-    <div className="lxp-workspace"><SlideFilmstrip editor={editor} /><div className="lxp-slide-workspace"><SlideCanvas key={slide?.id} deck={editor.deck} slide={slide} editor={editor} zoom={zoom} />
+    <div className="lxp-workspace"><SlideFilmstrip editor={editor} /><div className="lxp-slide-workspace"><SlideCanvas key={slide?.id} deck={editor.deck} slide={slide} editor={editor} zoom={zoom} onImage={requestImage} />
       {editor.features.notes && notesOpen && <div className="lxp-notes"><label htmlFor={`${editor.deck.id}-notes`}>ノート</label><textarea key={`${slide?.id}:${slide?.notes}`} id={`${editor.deck.id}-notes`} aria-label="発表者ノート" defaultValue={slide?.notes ?? ""} placeholder="クリックしてノートを入力" disabled={!editor.editable || !slide}
         onBlur={event => {
           const notes = event.target.value;
@@ -119,20 +126,17 @@ export default function LikeSlide(props: SlideProps) {
     </footer>
     <input ref={imageInput} hidden type="file" accept="image/png,image/jpeg,image/gif,image/webp" aria-label="挿入する画像" onChange={event => {
       const file = event.target.files?.[0]; event.target.value = "";
-      if (!file || !slide || !ownerDocument) return;
-      const slideId = slide.id, deckWidth = editor.deck.width, deckHeight = editor.deck.height;
+      const target = imageTarget.current; imageTarget.current = null;
+      if (!file || !target || !ownerDocument || !editor.editable || !editor.features.images || target.deck !== editor.deck || target.slideId !== slide?.id) return;
+      const slideId = target.slideId, deckWidth = target.deck.width, deckHeight = target.deck.height;
       void editor.prepareCommands(async () => { const image = await imageData(file, ownerDocument); const scale = Math.min(1, deckWidth * .7 / image.width, deckHeight * .7 / image.height); const width = image.width * scale, height = image.height * scale;
-        return { type: "element.add", slideId, element: { type: "image", name: file.name, src: image.src, alt: file.name, x: (deckWidth - width) / 2, y: (deckHeight - height) / 2, width, height } }; });
+        return { type: "element.add", slideId, element: { type: "image", name: file.name, src: image.src, alt: file.name, x: (deckWidth - width) / 2, y: (deckHeight - height) / 2, width, height } }; }, target);
     }} />
     <input ref={pptxInput} hidden type="file" accept=".pptx" aria-label="読み込むPowerPointファイル" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void editor.importPptx(file); }} />
     <input ref={nativeInput} hidden type="file" accept=".slon,.json,application/json" aria-label="読み込むLikeSlideファイル" onChange={event => {
       const file = event.target.files?.[0]; event.target.value = "";
-      if (!file) return;
-      // UTF-8 can use three bytes per JavaScript string code unit. The parser
-      // separately enforces jsonLength after decoding, including ASCII files.
-      if (file.size > SLIDE_LIMITS.jsonLength * 3) editor.reportError(new Error("LikeSlideファイルが大きすぎます。"));
-      else void file.text().then(editor.importJson).catch(editor.reportError);
+      if (file) void editor.importNative(file);
     }} />
-    {presenting && editor.features.presentation && ownerDocument && <SlidePresentation deck={editor.deck} initialSlideId={editor.selection.slideId} ownerDocument={ownerDocument} theme={{ ...theme, ...props.style }} onClose={() => setPresenting(false)} />}
+    {presenting && editor.features.presentation && ownerDocument && <SlidePresentation deck={editor.deck} initialSlideId={editor.selection.slideId} ownerDocument={ownerDocument} animationsEnabled={editor.features.animations} theme={{ ...theme, ...props.style }} onClose={() => setPresenting(false)} />}
   </div>;
 }

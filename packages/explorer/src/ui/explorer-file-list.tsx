@@ -47,6 +47,7 @@ import { ExplorerBackgroundMenu } from "./explorer-background-menu";
 import { ExplorerCustomMenuItems } from "./explorer-custom-menu-items";
 import type { ExplorerCustomMenu } from "../state/use-explorer-context-menu";
 import { useMenuActionHandoff } from "./use-menu-action-handoff";
+import { preserveNativeContextMenu } from "./explorer-menu-target";
 import {
   formatSize,
   getEntryPath,
@@ -90,11 +91,13 @@ function EntryMenuItems({
   context = false,
   onRename,
   customItems,
+  singleTarget = false,
 }: {
   entry: Entry;
   context?: boolean;
   onRename: (ids: string[]) => void;
   customItems?: ReactElement;
+  singleTarget?: boolean;
 }) {
   const {
     selected,
@@ -109,7 +112,7 @@ function EntryMenuItems({
     externalDownload,
     canEditFavorites,
   } = useExplorerFields("selected", "disabled", "features", "openEntry", "setDetailId", "copyToClipboard", "showModal", "act", "download", "externalDownload", "canEditFavorites");
-  const ids = context && selected.includes(entry.id) ? selected : [entry.id];
+  const ids = context && !singleTarget && selected.includes(entry.id) ? selected : [entry.id];
   const Item = context ? ContextMenu.Item : DropdownMenu.Item;
   const Separator = context ? ContextMenu.Separator : DropdownMenu.Separator;
   const shortcutClass = "lxe:ml-auto lxe:pl-5 lxe:text-xs lxe:text-[var(--explorer-muted)]";
@@ -253,18 +256,20 @@ function EntryMenuItems({
   ));
 }
 
-function EntryContext({
+export function EntryContext({
   entry,
   children,
   onOpenChange,
+  source = "list",
 }: {
   entry: Entry;
   children: ReactElement;
   onOpenChange?: (open: boolean) => void;
+  source?: "list" | "tree";
 }) {
   const theme = useExplorerTheme();
   const { portalContainer } = useExplorerDom();
-  const renameMenuFocus = useRenameMenuFocus();
+  const renameMenuFocus = useRenameMenuFocus(source);
   const actionHandoff = useMenuActionHandoff();
   const { instanceId, features, uiOptions, canEditFavorites, hasCustomContextMenu, getCustomContextMenu } = useExplorerFields("instanceId", "features", "uiOptions", "canEditFavorites", "hasCustomContextMenu", "getCustomContextMenu");
   const [customMenu, setCustomMenu] = useState<ExplorerCustomMenu | null>(null);
@@ -273,14 +278,14 @@ function EntryContext({
   if (!uiOptions.contextMenu || (!hasBuiltins && !hasCustomContextMenu)) return children;
   return (
     <ContextMenu.Root open={open} onOpenChange={nextOpen => {
-      const menu = nextOpen ? getCustomContextMenu(entry) : customMenu;
+      const menu = nextOpen ? getCustomContextMenu(entry, source === "tree" ? [entry.id] : undefined) : customMenu;
       if (nextOpen) setCustomMenu(menu);
       const allowed = nextOpen && (hasBuiltins || !!menu?.items.length);
       actionHandoff.onOpenChange(allowed);
       setOpen(allowed);
       onOpenChange?.(allowed);
     }}>
-      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
+      <ContextMenu.Trigger asChild onContextMenuCapture={preserveNativeContextMenu}>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal container={portalContainer}>
         <ContextMenu.Content
           data-explorer-portal={instanceId}
@@ -295,6 +300,7 @@ function EntryContext({
           <EntryMenuItems
             entry={entry}
             context
+            singleTarget={source === "tree"}
             onRename={renameMenuFocus.startRename}
             customItems={customMenu?.items.length ? (
               <ExplorerCustomMenuItems key="custom" menu={customMenu} defer={actionHandoff.defer} />
@@ -626,6 +632,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     >
       <ExplorerBackgroundMenu><div
         ref={scrollContainerRef}
+        data-explorer-drag-scroll="both"
         data-explorer-virtualized={virtualEnabled || undefined}
         className={`lxe:relative lxe:min-h-0 lxe:flex-1 lxe:overflow-auto lxe:px-2 lxe:pb-3 lxe:[scrollbar-width:thin] ${(canDrag || canUpload) && dragOver === currentParent ? "lxe:ring-2 lxe:ring-[var(--explorer-accent)] lxe:ring-inset" : ""}`}
         onClick={(event) => {

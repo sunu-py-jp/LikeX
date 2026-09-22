@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 
-const output = await build({ entryPoints: [new URL('../src/model-entry.ts', import.meta.url).pathname],
+// Keep metafile paths stable for both repository-root and npm-workspace invocations.
+const output = await build({ absWorkingDir: new URL('../../../', import.meta.url).pathname,
+  entryPoints: [new URL('../src/model-entry.ts', import.meta.url).pathname],
   bundle: true, platform: 'node', format: 'esm', write: false, metafile: true });
 const api = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const { applySpreadsheetCommands: apply, createWorkbook, setCellValues, normalizeWorkbook, serializeWorkbook,
@@ -13,13 +15,14 @@ test('model entry runs without React, DOM, CSS or lifecycle imports; shared JSON
   assert.equal(typeof globalThis.document, 'undefined');
   assert.equal(typeof globalThis.window, 'undefined');
   for (const input of Object.keys(output.metafile.inputs)) {
-    // Office parsing lives in its own ES2022-only Core entry, never the UI-facing barrel.
-    if (/\/core\/dist\/(?:ooxml|json)\.js$/.test(input)) continue;
+    // Office import uses OOXML/JSON; export also uses Core's React-free ZIP writer.
+    if (/\/core\/dist\/(?:index|ooxml|json)\.js$/.test(input) || /\/spreadsheet\/src\/core\.ts$/.test(input)) continue;
     assert.doesNotMatch(input, /node_modules|\/(?:ui|state|core)\/|\/(?:core|props|spreadsheet)\.tsx?$|\.(?:css|tsx)$/);
   }
   assert.ok(Object.values(output.metafile.outputs).every(file => file.imports.length === 0));
   assert.doesNotMatch(output.outputFiles[0].text, /["']use client["']/);
-  for (const excluded of ['Spreadsheet', 'prepareSpreadsheetImage', 'exportSpreadsheetXlsx']) assert.equal(excluded in api, false);
+  for (const excluded of ['Spreadsheet', 'prepareSpreadsheetImage']) assert.equal(excluded in api, false);
+  assert.equal(typeof api.exportSpreadsheetXlsx, 'function');
 });
 
 test('parsed workbook and AI command JSON insert populated rows in order and preserve formula references', () => {

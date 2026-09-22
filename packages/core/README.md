@@ -49,3 +49,7 @@ const zip = await createZipArchive([
 各UIは通常のnpm依存として `@likex/core` を利用します。tarballで導入する際はcoreとUIの両tarballをnpmに渡してください。コピー導入では `core/src/` とUIの `src/` を隣接フォルダへ置き、UI側の `core.ts` を `export * from "../core";` へ変更します。Spreadsheet・Slideは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更します。自動生成や特殊な解決設定はありません。core単体も `src/` のコピーで利用できます。
 
 [MITライセンス](LICENSE)です。コピーする場合は`src/LICENSE`と`src/THIRD_PARTY_NOTICES.md`も保持してください。npm公開は未実施で、`private: true`は誤公開防止のため維持しています。
+
+## ブラウザー用のメニュー
+
+`@likex/core/browser` は任意のDOMヘルパーの入口です。`openContextMenu` でLikeXの共通メニューを表示できます。Reactには依存しませんがDOMを使うため、純粋モデルからはimportしません。通常の `@likex/core` と `/json` はこの入口を読み込みません。UI側に `browser.ts` がある場合、ソースコピーでは `export * from "../core/browser";` に変更します。

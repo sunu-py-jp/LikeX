@@ -14,6 +14,11 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./model": {
+      "types": "./dist/types/model-entry.d.ts",
+      "import": "./dist/model.js",
+      "default": "./dist/model.js"
+    },
     "./package.json": "./package.json",
     "./styles.css": "./dist/styles.css"
   },
@@ -33,10 +38,11 @@
     "react-dom": "^19.2.6"
   },
   "dependencies": {
+    "@likex/core": "0.1.0",
     "lucide-react": "^1.31.0",
+    "pdf-lib": "^1.17.1",
     "radix-ui": "^1.6.7",
-    "tailwind-merge": "^3.6.0",
-    "@likex/core": "0.1.0"
+    "tailwind-merge": "^3.6.0"
   },
   "keywords": [
     "react",

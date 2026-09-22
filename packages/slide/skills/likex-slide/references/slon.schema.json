@@ -61,6 +61,9 @@
         "notes": {
           "type": "string"
         },
+        "animations": {
+          "$ref": "#/$defs/SlideFilePage_animations"
+        },
         "elements": {
           "$ref": "#/$defs/SlideFilePage_elements"
         }
@@ -73,6 +76,222 @@
         "elements"
       ],
       "additionalProperties": false
+    },
+    "SlideFilePage_animations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SlideAnimationStep"
+      }
+    },
+    "SlideAnimationStep": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/$defs/SlideAnimationStep_trigger"
+        },
+        "animation": {
+          "$ref": "#/$defs/SlideAnimationNode"
+        }
+      },
+      "required": [
+        "id",
+        "animation"
+      ],
+      "additionalProperties": false
+    },
+    "SlideAnimationStep_trigger": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SlideAnimationStep_trigger_1"
+        },
+        {
+          "$ref": "#/$defs/SlideAnimationStep_trigger_2"
+        },
+        {
+          "$ref": "#/$defs/SlideAnimationStep_trigger_3"
+        }
+      ]
+    },
+    "SlideAnimationStep_trigger_1": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "immediate"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "SlideAnimationStep_trigger_2": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "after-delay"
+        },
+        "delayMs": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "type",
+        "delayMs"
+      ],
+      "additionalProperties": false
+    },
+    "SlideAnimationStep_trigger_3": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "click"
+        },
+        "elementId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "SlideAnimationNode": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SlideAnimationNode_1"
+        },
+        {
+          "$ref": "#/$defs/SlideAnimationNode_2"
+        }
+      ]
+    },
+    "SlideAnimationNode_1": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/SlideAnimationNode_1_type"
+        },
+        "children": {
+          "$ref": "#/$defs/SlideAnimationNode_1_children"
+        }
+      },
+      "required": [
+        "type",
+        "children"
+      ],
+      "additionalProperties": false
+    },
+    "SlideAnimationNode_1_type": {
+      "enum": [
+        "sequence",
+        "parallel"
+      ]
+    },
+    "SlideAnimationNode_1_children": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SlideAnimationNode"
+      }
+    },
+    "SlideAnimationNode_2": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "tween"
+        },
+        "elementId": {
+          "type": "string"
+        },
+        "durationMs": {
+          "type": "number"
+        },
+        "delayMs": {
+          "type": "number"
+        },
+        "easing": {
+          "$ref": "#/$defs/SlideAnimationNode_2_easing"
+        },
+        "from": {
+          "$ref": "#/$defs/SlideAnimationNode_2_from"
+        },
+        "to": {
+          "$ref": "#/$defs/SlideAnimationNode_2_from"
+        },
+        "repeat": {
+          "type": "number"
+        },
+        "yoyo": {
+          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+        }
+      },
+      "required": [
+        "type",
+        "elementId",
+        "durationMs",
+        "to"
+      ],
+      "additionalProperties": false
+    },
+    "SlideAnimationNode_2_easing": {
+      "enum": [
+        "linear",
+        "ease-in",
+        "ease-out",
+        "ease-in-out",
+        "spring",
+        "bounce"
+      ]
+    },
+    "SlideAnimationNode_2_from": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "fontSize": {
+          "type": "number"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "fill": {
+          "type": "string"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "textColor": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SlideAnimationNode_2_yoyo": {
+      "type": "boolean"
     },
     "SlideFilePage_elements": {
       "type": "array",

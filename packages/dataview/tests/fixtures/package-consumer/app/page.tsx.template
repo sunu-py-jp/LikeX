@@ -1,0 +1,4 @@
+import LikeDataView from "__LIBRARY_IMPORT__";
+import { createDataView } from "__LIBRARY_MODEL__";
+import ClientView from "./client";
+export default function Page() { const model = createDataView({ id: "data-1", title: "LikeDataView consumer", fields: [{ id: "name", name: "Name", type: "text" }], rows: [{ id: "row-1", values: { name: "DataView consumer content" } }] }); return <main><LikeDataView initialData={model} style={{ height: 360 }} /><ClientView /></main>; }

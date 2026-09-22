@@ -1,4 +1,4 @@
-import { createSlideDeck, applySlideCommands, getElement, createSlideSession, type SlideCommand, type SlideFile, type SlideFileElement } from "__MODEL_IMPORT__";
+import { createSlideDeck, applySlideCommands, getElement, createSlideSession, importSlidePptx, exportSlidePptx, type SlidePptxImportOptions, type SlidePptxExportBlob, type SlideCommand, type SlideFile, type SlideFileElement } from "__MODEL_IMPORT__";
 const deck = createSlideDeck();
 const format: "likex.slide" | undefined = deck.format;
 void format;
@@ -19,3 +19,28 @@ void invalidFile;
 // @ts-expect-error Version 2 is not a supported native file version.
 const unsupportedFile: SlideFile = { ...nativeFile, version: 2 };
 void unsupportedFile;
+const pptxOptions: SlidePptxImportOptions = {};
+const pptx: Promise<SlidePptxExportBlob> = exportSlidePptx(deck);
+void pptx.then(blob => importSlidePptx(blob, pptxOptions));
+void importSlidePptx(new Uint8Array());
+import { exportImage, exportImages, type SlideImageRenderer } from "__MODEL_IMPORT__";
+declare const renderer: SlideImageRenderer;
+void exportImage(deck, { pageNumber: 1, renderer });
+void exportImages(deck, { range: { from: 1, to: 2 }, renderer });
+// @ts-expect-error Node/model output requires an explicit renderer.
+void exportImage(deck, { pageNumber: 1 });
+// @ts-expect-error Single-image targets cannot be combined.
+void exportImage(deck, { pageNumber: 1, slideId: "one", renderer });
+
+import { getDeck, getSlide, getAnimations, evaluateSlideAnimations, resolveSlideAnimations, type SlideAnimationStep } from '__MODEL_IMPORT__';
+const animated: SlideAnimationStep = { id: 'move', trigger: { type: 'after-delay', delayMs: 100 }, animation: {
+  type: 'parallel', children: [{ type: 'tween', elementId: 'box', durationMs: 800, easing: 'linear', to: { x: 400 } }],
+} };
+void animated;
+void getDeck(deck, { includeAnimations: true });
+void getSlide(deck, deck.slides[0].id);
+void getElement(deck, deck.slides[0].id, 'box');
+void getAnimations(deck, deck.slides[0].id);
+void evaluateSlideAnimations(deck.slides[0], { elapsedMs: 200, clicks: [{ elapsedMs: 50 }] });
+void resolveSlideAnimations(deck.slides[0]);
+void exportSlidePptx(deck, { onWarning: warning => { const text: string = warning; void text; } });

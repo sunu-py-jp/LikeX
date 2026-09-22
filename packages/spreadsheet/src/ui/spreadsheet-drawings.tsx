@@ -24,14 +24,14 @@ export function SpreadsheetDrawings({ controller: c, geometry }: { controller: S
   const { layer, preview, editingText, setEditingText, start, move, finish, cancelGesture, lostPointerCapture, keyDown, resizeKeyDown, rotateKeyDown } = useDrawingInteractions(c, geometry);
   useLayoutEffect(() => {
     const element = layer.current, selectedId = c.selectedDrawingId;
-    if (!element || !selectedId) return;
+    if (!element || !selectedId || c.selectionFocus === false) return;
     const active = element.ownerDocument?.activeElement;
     // Pasting selects a new object. Move keyboard focus with it, without taking
     // focus from a text/property editor or a different component on the page.
     if (!active || isOtherTextControl(active) || !element.closest?.("[data-likex-spreadsheet]")?.contains(active)) return;
     Array.from(element.querySelectorAll<HTMLElement>("[data-lxs-drawing]"))
       .find(drawing => drawing.dataset.lxsDrawing === selectedId)?.focus({ preventScroll: true });
-  }, [c.selectedDrawingId, layer]);
+  }, [c.selectedDrawingId, c.selectionFocus, layer]);
   const currentDrawings = (c.activeSheet.drawings ?? []).filter(drawing => visibleDrawing(drawing, c));
   return <div ref={layer} className="lxs-drawing-layer" role="group" aria-label="シート上のオブジェクト">
     {currentDrawings.map(drawing => {

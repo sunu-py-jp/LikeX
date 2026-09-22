@@ -1,0 +1,13 @@
+{
+  "title": "導入と設定",
+  "summary": "LikeFormの導入と設定を公開APIと利用例で説明します。",
+  "source": "packages/form/src/docs/getting-started.md",
+  "order": 0,
+  "section": "はじめに",
+  "keywords": [
+    "LikeForm",
+    "FormProps",
+    "FormHandle",
+    "getting-started"
+  ]
+}

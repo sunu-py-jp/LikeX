@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createSlideDeck, applySlideCommands, getSlide, getElement, serializeSlideDeck, parseSlideDeck, createSlideSession } from "__MODEL_IMPORT__";
+import { createSlideDeck, applySlideCommands, getSlide, getElement, serializeSlideDeck, parseSlideDeck, createSlideSession, importSlidePptx, exportSlidePptx } from "__MODEL_IMPORT__";
 assert.equal(typeof window, "undefined");
 const original = createSlideDeck();
 assert.equal(original.format, "likex.slide");
@@ -20,4 +20,9 @@ const session = createSlideSession(original);
 session.execute({ type: "deck.rename", title: "Changed" }); session.markSaved();
 assert.equal(session.undo(), true); assert.equal(session.getSnapshot().dirty, true);
 assert.equal(session.redo(), true); assert.equal(session.getSnapshot().dirty, false);
-console.log(JSON.stringify({ noReact: true, noDOM: true, commandsAndHistory: "passed" }));
+const pptx = await exportSlidePptx(result.deck);
+assert.ok(pptx instanceof Blob);
+const imported = await importSlidePptx(pptx);
+assert.equal(imported.deck.slides[0].elements[0].text, "Headless content");
+assert.deepEqual(imported.warnings, []);
+console.log(JSON.stringify({ noReact: true, noDOM: true, commandsAndHistory: "passed", officeRoundtrip: "passed" }));

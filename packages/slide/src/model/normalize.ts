@@ -3,6 +3,7 @@ import { SLIDE_LIMITS } from "./limits";
 import { validateSlideImageSource } from "./image-source";
 import { boolean, choice, color, fontFamily, identifier, list, number, record, text } from "./validation";
 import { DECK_KEYS, ELEMENT_KEYS, SLIDE_KEYS } from "./schema";
+import { normalizeSlideAnimations } from "./animation-validation";
 export { ELEMENT_KEYS } from "./schema";
 
 const decks = new WeakSet<SlideDeck>();
@@ -92,6 +93,8 @@ export function normalizeSlide(input: unknown): Slide {
   }
   const result: Slide = { id: identifier(raw.id), name: text(raw.name, "スライド名", 1000),
     background: color(raw.background, "スライドの背景"), notes: text(raw.notes, "ノート", SLIDE_LIMITS.textLength), elements: accepted };
+  const animations = normalizeSlideAnimations(raw.animations, accepted);
+  if (animations) result.animations = animations;
   Object.freeze(result.elements);
   Object.freeze(result);
   slides.add(result);

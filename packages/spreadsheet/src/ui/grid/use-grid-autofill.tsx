@@ -1,22 +1,17 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type RefObject } from "react";
-import { chainResult } from "../../core";
+import { chainResult, getDragScrollDelta } from "../../core";
 import type { SpreadsheetMergedRange } from "../../model/types";
 import { rangesIntersect } from "../../model/merges";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 import { isMultiRangeSelection, selectionBounds } from "../../state/selection";
-import { ROW_HEADER_WIDTH, ROW_HEIGHT } from "./grid-geometry";
+import { gridBodyBounds, gridCellAtPointer, type GridPointerGeometry } from "./grid-pointer-geometry";
 
-type Geometry = { columnOffsets: readonly number[]; rowOffsets: readonly number[] };
+type Geometry = GridPointerGeometry;
 type Drag = { source: SpreadsheetMergedRange; target: SpreadsheetMergedRange; sheetId: string; pointerId: number;
-  workbook: SpreadsheetController["workbook"]; selection: SpreadsheetController["selection"];
+  workbook: SpreadsheetController["workbook"]; selection: SpreadsheetController["selection"]; zoom: number;
   x: number; y: number; mode: "auto" | "copy" | "series" };
-function cellAt(offsets: readonly number[], coordinate: number): number {
-  let low = 0, high = offsets.length - 2;
-  while (low < high) { const middle = Math.ceil((low + high) / 2); if (offsets[middle] <= coordinate) low = middle; else high = middle - 1; }
-  return low;
-}
 export function autoFillTarget(source: SpreadsheetMergedRange, row: number, column: number): SpreadsheetMergedRange {
   const vertical = Math.max(source.top - row, row - source.bottom, 0), horizontal = Math.max(source.left - column, column - source.right, 0);
   return vertical >= horizontal ? { ...source, top: Math.min(source.top, row), bottom: Math.max(source.bottom, row) } :
@@ -33,30 +28,35 @@ export function useGridAutofill(c: SpreadsheetController, scroller: RefObject<HT
   useEffect(() => {
     const element = scroller.current, document = element?.ownerDocument, view = document?.defaultView;
     if (!element || !document || !view) return;
-    let frame = 0;
+    let frame = 0, previousTime = 0;
     const cancel = () => { drag.current = null; setPreview(null); if (frame) view.cancelAnimationFrame(frame); frame = 0; };
     cancelRef.current = cancel;
+    const valid = () => {
+      const active = drag.current, current = latest.current.c;
+      if (!active) return null;
+      if (current.disabled || current.requesting || current.editing || current.pendingObjectEdit || current.selectedDrawingId || !current.features.autoFill ||
+        current.activeSheet.id !== active.sheetId || current.getWorkbook() !== active.workbook || current.selection !== active.selection || current.zoom !== active.zoom) { cancel(); return null; }
+      return active;
+    };
     const update = () => {
-      const active = drag.current;
+      const active = valid();
       if (!active) return;
       const { c: current, geometry: sizes } = latest.current;
-      if (current.disabled || current.requesting || !current.features.autoFill || current.activeSheet.id !== active.sheetId || current.getWorkbook() !== active.workbook) { cancel(); return; }
       const bounds = element.getBoundingClientRect();
       const scale = (current.zoom ?? 100) / 100;
-      const row = cellAt(sizes.rowOffsets, (active.y - bounds.top) / scale + element.scrollTop);
-      const column = cellAt(sizes.columnOffsets, (active.x - bounds.left) / scale + element.scrollLeft);
+      const { row, column } = gridCellAtPointer(sizes, active, bounds, element, scale);
       const target = autoFillTarget(active.source, row, column);
       active.target = target; setPreview(target);
     };
-    const scroll = () => {
+    const scroll = (time: number) => {
       frame = 0;
-      const active = drag.current;
+      const active = valid();
       if (!active) return;
-      const bounds = element.getBoundingClientRect(), edge = 28;
-      const scale = (latest.current.c.zoom ?? 100) / 100;
-      const dy = active.y < bounds.top + ROW_HEIGHT * scale + edge ? -16 : active.y > bounds.bottom - edge ? 16 : 0;
-      const dx = active.x < bounds.left + ROW_HEADER_WIDTH * scale + edge ? -16 : active.x > bounds.right - edge ? 16 : 0;
-      if (dy || dx) { element.scrollTop += dy; element.scrollLeft += dx; update(); }
+      const current = latest.current.c;
+      const bounds = element.getBoundingClientRect(), scale = (current.zoom ?? 100) / 100;
+      const delta = getDragScrollDelta(active, gridBodyBounds(bounds, scale), previousTime ? time - previousTime : 16, { edge: 32 });
+      previousTime = time;
+      if (delta.x || delta.y) { element.scrollTop += delta.y / scale; element.scrollLeft += delta.x / scale; update(); }
       if (drag.current) frame = view.requestAnimationFrame(scroll);
     };
     const move = (event: globalThis.PointerEvent) => {
@@ -67,14 +67,17 @@ export function useGridAutofill(c: SpreadsheetController, scroller: RefObject<HT
       active.x = event.clientX; active.y = event.clientY;
       active.mode = event.altKey ? "series" : event.ctrlKey || event.metaKey ? "copy" : "auto";
       update();
-      if (!frame && drag.current) frame = view.requestAnimationFrame(scroll);
+      if (!frame && drag.current) { previousTime = 0; frame = view.requestAnimationFrame(scroll); }
     };
     const finish = (event: globalThis.PointerEvent) => {
       const active = drag.current;
       if (!active || active.pointerId !== event.pointerId) return;
+      if (!valid()) return;
+      if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) { active.x = event.clientX; active.y = event.clientY; }
+      active.mode = event.altKey ? "series" : event.ctrlKey || event.metaKey ? "copy" : "auto";
+      update();
       const current = latest.current.c;
       cancel();
-      if (current.getWorkbook() !== active.workbook || current.activeSheet.id !== active.sheetId || current.disabled || !current.features.autoFill) return;
       void chainResult(current.executeCommand({ type: "cells.fill", sheetId: active.sheetId, source: active.source, target: active.target, mode: active.mode }), result => {
         if (result.ok && latest.current.c.activeSheet.id === active.sheetId) latest.current.c.selectRange({ row: active.target.top, column: active.target.left }, { row: active.target.bottom, column: active.target.right });
       });
@@ -91,14 +94,14 @@ export function useGridAutofill(c: SpreadsheetController, scroller: RefObject<HT
       document.removeEventListener("pointercancel", cancel); document.removeEventListener("keydown", escape, true); view.removeEventListener("blur", cancel);
     };
   }, [scroller]);
-  useLayoutEffect(() => { cancelRef.current(); }, [c.workbook, c.selection, c.activeSheet.id, c.features.autoFill, c.disabled, c.zoom]);
+  useLayoutEffect(() => { cancelRef.current(); }, [c.workbook, c.selection, c.activeSheet.id, c.features.autoFill, c.disabled, c.requesting, c.zoom, c.editing, c.pendingObjectEdit, c.selectedDrawingId]);
   const source = selectionBounds(c.selection);
   const enabled = c.features.autoFill && !c.disabled && !c.requesting && !c.editing && !c.pendingObjectEdit && !c.selectedDrawingId &&
     !isMultiRangeSelection(c.selection) && !(c.activeSheet.merges?.some(merge => rangesIntersect(merge, source)));
   const start = (event: PointerEvent<HTMLButtonElement>) => {
     if (!enabled || event.button !== 0) return;
     event.preventDefault(); event.stopPropagation();
-    drag.current = { source, target: source, sheetId: c.activeSheet.id, workbook: c.getWorkbook(), selection: c.selection,
+    drag.current = { source, target: source, sheetId: c.activeSheet.id, workbook: c.getWorkbook(), selection: c.selection, zoom: c.zoom,
       pointerId: event.pointerId, x: event.clientX, y: event.clientY, mode: event.altKey ? "series" : event.ctrlKey || event.metaKey ? "copy" : "auto" };
     setPreview(source);
   };

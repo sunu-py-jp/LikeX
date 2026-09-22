@@ -1,0 +1,14 @@
+{
+  "title": "ヘッドレスAPIとJSON",
+  "summary": "Reactなしの予定編集とネイティブJSON。",
+  "source": "packages/calendar/src/docs/headless.md",
+  "order": 3,
+  "section": "機能とAPI",
+  "keywords": [
+    "LikeCalendar",
+    "CalendarProps",
+    "CalendarHandle",
+    "Calendar",
+    "headless"
+  ]
+}

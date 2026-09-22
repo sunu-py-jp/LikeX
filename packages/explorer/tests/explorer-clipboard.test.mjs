@@ -697,15 +697,24 @@ test('a folder read failure stays atomic under skip and does not reclassify unre
 });
 
 test('all-skipped folder paste is a no-op and a behavior change during read applies to the final batch', async t => {
-  const hook = await mount(t, { upload: { allowedExtensions: ['.pdf'] } });
+  let now = 0, finishUpload;
+  t.mock.method(performance, 'now', () => now);
+  const events = [], uploaded = new Promise(resolve => { finishUpload = resolve; });
+  const hook = await mount(t, { upload: { allowedExtensions: ['.pdf'] }, onEvent: event => {
+    events.push(event);
+    if (event.type === 'upload') finishUpload(event);
+  } });
   const before = hook.current.entries;
   const delayed = delayedDirectory();
   await hook.paste([], { clipboardData: directoryClipboard([delayed.directory]) });
   await hook.update({ upload: { allowedExtensions: ['.pdf'], invalidFileBehavior: 'skip' } });
-  await change(() => delayed.complete());
+  // A delayed native read may cross discovery's CPU time budget. Await the
+  // terminal event, including the task-queue yield, instead of only microtasks.
+  now = 20;
+  let event;
+  await change(async () => { delayed.complete(); event = await uploaded; });
   assert.equal(hook.current.entries, before); assert.equal(hook.current.dirty, false);
-  assert.equal(hook.events.filter(event => event.type === 'change').length, 0);
-  const event = hook.events.find(event => event.type === 'upload');
+  assert.equal(events.filter(event => event.type === 'change').length, 0);
   assert.equal(event.status, 'skipped'); assert.equal(event.addedCount, 0); assert.equal(event.attemptedCount, 1);
   assert.match(hook.current.notification.message, /1ファイルを除外/);
 });

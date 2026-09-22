@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { act, createElement, createRef } from 'react';
 import { create } from 'react-test-renderer';
+import { pngHeader } from './image-fixtures.mjs';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = await build({ entryPoints: [new URL('../src/index.ts', import.meta.url).pathname],
@@ -116,3 +117,46 @@ test('unmount aborts an export already started and never reports a late success'
   assert.equal(await outcome, 'AbortError');
   assert.equal(events.filter(e => e.type === 'export' && e.status === 'success').length, 0);
 });
+
+for (const reason of ['feature disabled', 'unmount', 'caller cancellation']) {
+  test(`ref forwards its image converter and ignores late results after ${reason}`, { timeout: 2000 }, async t => {
+    const initialWorkbook = book('before');
+    initialWorkbook.resources = { images: { asset: {
+      name: 'Injected GIF', mimeType: 'image/gif', width: 1, height: 1,
+      dataUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+    } } };
+    initialWorkbook.sheets[0].drawings = [{ id: 'picture', type: 'image', resourceId: 'asset', alt: 'sample',
+      anchor: { row: 0, column: 0, offsetX: 0, offsetY: 0 }, width: 100, height: 100 }];
+    const events = [], caller = new AbortController();
+    const ui = await mount(t, { initialWorkbook, onEvent: event => events.push(event) });
+    const api = ui.ref.current, before = api.getWorkbook();
+    let task, complete, started, conversionSignal;
+    const ready = new Promise(resolve => { started = resolve; });
+    await act(async () => {
+      task = api.exportExcel({ signal: caller.signal, rasterizeImage(request) {
+        assert.equal(request.resourceId, 'asset');
+        assert.equal(request.source.type, 'image/gif');
+        assert.deepEqual([request.width, request.height], [1, 1]);
+        conversionSignal = request.signal;
+        started();
+        return new Promise(resolve => { complete = resolve; });
+      } }).then(() => ({ ok: true }), error => ({ ok: false, error }));
+      await ready;
+    });
+    assert.equal(conversionSignal.aborted, false);
+    if (reason === 'feature disabled') await ui.update({ features: { exportExcel: false } });
+    else if (reason === 'unmount') await ui.unmount();
+    else await act(async () => caller.abort());
+    const outcome = await task;
+    assert.equal(outcome.ok, false);
+    assert.equal(outcome.error.name, 'AbortError');
+    assert.equal(conversionSignal.aborted, true);
+    assert.equal(api.getWorkbook(), before);
+    const statuses = () => events.filter(event => event.type === 'export').map(event => event.status);
+    assert.deepEqual(statuses(), reason === 'unmount' ? ['start'] : ['start', 'cancelled']);
+    const completedStatuses = statuses();
+    await act(async () => { complete(new Blob([pngHeader(1, 1)], { type: 'image/png' })); });
+    assert.deepEqual(statuses(), completedStatuses, 'a late converter result must not emit success or another outcome');
+    assert.equal(api.getWorkbook(), before);
+  });
+}

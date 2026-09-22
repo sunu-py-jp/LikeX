@@ -1,0 +1,6 @@
+import { useEffect, useRef, type ReactNode } from "react";
+export function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose(): void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { const previous = ref.current?.ownerDocument.activeElement as HTMLElement | null; ref.current?.querySelector<HTMLElement>("input,select,textarea,button")?.focus(); return () => previous?.focus(); }, []);
+  return <div className="lxv-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><div ref={ref} className="lxv-dialog" role="dialog" aria-modal="true" aria-label={title} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } if (event.key === "Tab") { const targets = [...event.currentTarget.querySelectorAll<HTMLElement>("input:not(:disabled),select:not(:disabled),textarea:not(:disabled),button:not(:disabled),[tabindex='0']")]; const first = targets[0], last = targets.at(-1); if (event.shiftKey && event.target === first) { event.preventDefault(); last?.focus(); } else if (!event.shiftKey && event.target === last) { event.preventDefault(); first?.focus(); } } }}><header><h2>{title}</h2><button type="button" aria-label="閉じる" onClick={onClose}>×</button></header>{children}</div></div>;
+}

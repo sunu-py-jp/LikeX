@@ -1,0 +1,13 @@
+{
+  "title": "回答と送信",
+  "summary": "LikeFormの回答と送信を公開APIと利用例で説明します。",
+  "source": "packages/form/src/docs/answers.md",
+  "order": 1,
+  "section": "機能",
+  "keywords": [
+    "LikeForm",
+    "FormProps",
+    "FormHandle",
+    "answers"
+  ]
+}

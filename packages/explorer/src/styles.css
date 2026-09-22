@@ -247,6 +247,35 @@ SOFTWARE.
   :where([hidden]:where(:not([hidden="until-found"]))):is([data-likex-explorer], [data-likex-explorer] *) {
     display: none !important;
   }
+  .lxe\:drag-preview:where([data-likex-explorer], [data-likex-explorer] *) {
+    position: fixed;
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 220px;
+    height: 32px;
+    padding: 5px 10px;
+    pointer-events: none;
+    overflow: hidden;
+    border: 1px solid var(--explorer-border, #cbd5e1);
+    border-radius: 7px;
+    background: var(--explorer-panel, #fff);
+    color: var(--explorer-foreground, #1e293b);
+    box-shadow: 0 4px 12px #0f274526;
+    opacity: .7;
+    font: 12px/20px system-ui, sans-serif;
+    white-space: nowrap;
+  }
+  .lxe\:drag-preview>span:where([data-likex-explorer], [data-likex-explorer] *) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .lxe\:drag-preview>strong:where([data-likex-explorer], [data-likex-explorer] *) {
+    flex-shrink: 0;
+    color: var(--explorer-accent, #2563eb);
+    font-size: 11px;
+  }
   .lxe\:\@container\/explorer:where([data-likex-explorer], [data-likex-explorer] *) {
     container-type: inline-size;
     container-name: explorer;

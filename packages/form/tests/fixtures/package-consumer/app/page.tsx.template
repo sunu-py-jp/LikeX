@@ -1,0 +1,4 @@
+import LikeForm from "__LIBRARY_IMPORT__";
+import { createForm } from "__LIBRARY_MODEL__";
+import ClientForm from "./client";
+export default function Page() { return <main><LikeForm initialForm={createForm({ title: "LikeForm consumer" })} style={{ height: 600 }} /><ClientForm /></main>; }

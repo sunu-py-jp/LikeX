@@ -1,0 +1,33 @@
+import {
+  createChat, createChatMessage, createChatSession, executeChatCommands, getConversation,
+  getConversations, getMessage, getMessages, getParticipants, getParticipant, getThreadMessages, getUnreadCount, parseChat, serializeChat,
+  type ChatAttachment, type ChatCommand, type ChatModel, type ChatSendHandler,
+} from "__MODEL_IMPORT__";
+const chat: ChatModel = createChat({ id: "headless-chat", participants: [{ id: "me", name: "Me" }, { id: "other", name: "Other" }] });
+const marker: "likex.chat" = chat.format;
+const version: 2 = chat.version;
+const attachment: ChatAttachment = { id: "attachment-1", name: "notes.txt", mediaType: "text/plain", size: 12 };
+const message = createChatMessage({ id: "message-1", authorId: "me", text: "Text", createdAt: "2026-09-22T00:00:00.000Z", attachments: [attachment] });
+const command: ChatCommand = { type: "message.add", conversationId: "conversation-1", message };
+const result = executeChatCommands(chat, [command]);
+const text: string | undefined = getMessage(result.chat, "conversation-1", "message-1")?.text;
+const conversation = getConversation(result.chat, "conversation-1");
+const conversations = getConversations(result.chat);
+const messages = getMessages(result.chat, "conversation-1");
+const participants = getParticipants(result.chat);
+const participant = getParticipant(result.chat, "me");
+const replies = getThreadMessages(result.chat, "conversation-1", "message-1");
+const unread: number = getUnreadCount(result.chat, "conversation-1", "other");
+const onSend: ChatSendHandler = async ({ message: current }, { signal }) => { if (!signal.aborted) { void current.text; } };
+const session = createChatSession(parseChat(serializeChat(result.chat)), { currentUserId: "me", onSave: async current => current, onSend });
+void session.getChat();
+const synced: boolean = session.syncChat(chat);
+session.dispose();
+void marker; void version; void text; void conversation; void conversations; void messages; void participants; void participant; void replies; void unread; void synced;
+// @ts-expect-error The old AI format version is not human messaging.
+const badVersion: ChatModel = { ...chat, version: 1 };
+// @ts-expect-error Message patches cannot replace authorship.
+const badPatch: ChatCommand = { type: "message.update", conversationId: "conversation-1", messageId: "message-1", patch: { authorId: "other" } };
+// @ts-expect-error Human messages have authors and text, no AI roles.
+const badMessage: ChatCommand = { type: "message.add", conversationId: "conversation-1", message: { role: "assistant", content: "No" } };
+void badVersion; void badPatch; void badMessage;

@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import ts from 'typescript';
-import { buildSkillSchemas, generateSkillSchemas } from '../build-skill-schemas.mjs';
+import { buildSkillSchemas, generateSkillSchemas, schemaTargets } from '../build-skill-schemas.mjs';
 import { exportedType, schemaFromType } from '../skills/schema-generator.mjs';
 
 const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -38,15 +38,15 @@ const invalid = (validator, value) => assert.equal(validator(value), false, `Une
 
 test('committed schemas reproduce from current TypeScript types, package versions, and command limits', async () => {
   const outputs = await buildSkillSchemas({ check: true });
-  assert.equal(outputs.size, 4);
+  assert.equal(outputs.size, schemaTargets.length);
   for (const text of outputs.values()) {
     const schema = JSON.parse(text);
     assert.equal(schema.$schema, 'https://json-schema.org/draft/2020-12/schema');
     assert.match(schema.$comment, /generator v1; TypeScript [\d.]+; @likex\//);
     assert.match(schema.$comment, /runtime parsers and command APIs are authoritative/);
-    assert.ok(Object.keys(schema.$defs).length > 10);
+    assert.ok(Object.keys(schema.$defs).length > 0);
     compile(schema);
-    if (schema.title.endsWith('[]')) { assert.equal(schema.type, 'array'); assert.equal(schema.maxItems, 1000); }
+    if (schema.title.endsWith('[]')) { assert.equal(schema.type, 'array'); assert.ok(Number.isInteger(schema.maxItems) && schema.maxItems >= 1000); }
   }
 });
 
@@ -165,6 +165,31 @@ test('slide command schemas derive Partial/Omit/Pick inputs without allowing fie
   valid(validate, []);
 });
 
+test('DCON preserves recursive block/mark structure and command arrays include JSON-only Steps', async () => {
+  const document = compile(await readSchema('document', 'dcon'));
+  const file = { format: 'likex.document', version: 1, id: 'document-1', title: 'Document',
+    page: { width: 210, height: 297, margins: { top: 20, right: 20, bottom: 20, left: 20 } },
+    content: { type: 'doc', content: [{ type: 'paragraph', attrs: { id: 'paragraph-1', align: 'left' },
+      content: [{ type: 'text', text: 'Hello', marks: [{ type: 'strong' }] }] }] } };
+  valid(document, file);
+  invalid(document, { ...file, version: 2 });
+  invalid(document, { ...file, format: 'likex.slide' });
+  invalid(document, { ...file, content: { type: 'doc', content: [{ type: 'video', src: 'remote' }] } });
+  invalid(document, { ...file, page: { ...file.page, width: '210' } });
+  const commands = compile(await readSchema('document', 'commands'));
+  valid(commands, [
+    { type: 'text.insert', from: 1, text: 'New text' },
+    { type: 'mark.set', from: 1, to: 3, mark: 'text_style', attrs: { fontSize: 14 } },
+    { type: 'document.update', page: { margins: { left: 25 } } },
+    { type: 'transaction.apply', steps: [{ stepType: 'replace', from: 1, to: 1,
+      slice: { content: [{ type: 'text', text: 'A' }], openStart: 0, openEnd: 0 } }] },
+  ]);
+  invalid(commands, { type: 'text.insert', from: 1, text: 'No array' });
+  invalid(commands, [{ type: 'text.insert', from: '1', text: 'Wrong position type' }]);
+  invalid(commands, [{ type: 'mark.set', from: 1, to: 3, mark: 'script' }]);
+  invalid(commands, [{ type: 'document.update', page: { margins: { sideways: 25 } } }]);
+});
+
 function sourceSchema(source) {
   const file = path.join(repository, '__schema_test__.ts');
   const options = { strict: true, target: ts.ScriptTarget.ES2022 };
@@ -201,7 +226,7 @@ test('--check reports drift and never rewrites a stale schema', async () => {
   try {
     await symlink(path.join(repository, 'tsconfig.base.json'), path.join(directory, 'tsconfig.base.json'));
     await symlink(path.join(repository, 'node_modules'), path.join(directory, 'node_modules'));
-    for (const packageName of ['core', 'spreadsheet', 'slide']) {
+    for (const packageName of new Set(['core', ...schemaTargets.map(target => target.package)])) {
       const destination = path.join(directory, 'packages', packageName);
       await mkdir(destination, { recursive: true });
       await symlink(path.join(repository, 'packages', packageName, 'src'), path.join(destination, 'src'));

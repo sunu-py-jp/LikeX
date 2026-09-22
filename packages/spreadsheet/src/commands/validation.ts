@@ -36,6 +36,7 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "conditionalFormats.set": ["rules"],
   "rows.resize": ["row", "height"],
   "dimensions.resize": ["rowHeights", "columnWidths"],
+  "dimensions.autoFit": ["axis", "indices"],
   "rows.insert": ["index", "count", "values"], "rows.delete": ["index", "count"],
   "columns.insert": ["index", "count", "values"], "columns.delete": ["index", "count"], "columns.resize": ["column", "width"],
   "cells.merge": ["range", "discardContent"], "cells.unmerge": ["range"],

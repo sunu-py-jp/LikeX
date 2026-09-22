@@ -1,6 +1,6 @@
 # JSONと画面なしの操作API
 
-`@likex/slide/model` はReactやDOMなしで利用できます。GUIも同じコマンド処理と編集セッションを使います。永続データに関数・Blob・DOM要素は含まれません。
+`@likex/slide/model` はReactやDOMなしで利用できます。GUIも同じコマンド処理と編集セッションを使います。PPTXの読み込み・出力もこの入口から利用できます。永続データに関数・Blob・DOM要素は含まれません。
 
 ## JSONの構造
 
@@ -20,6 +20,7 @@ type Slide = {
   background: string;
   notes: string;
   elements: SlideElement[];
+  animations?: SlideAnimationStep[];
 };
 ```
 
@@ -143,8 +144,25 @@ const result = await ref.current?.execute({ type: "element.add",
   slideId: deck.slides[0].id, element: { type: "text", text: "外部から追加" } });
 ```
 
-`SlideHandle` の `getDeck()`、`getSelection()`、`select(selection)`、`execute()`、`undo()`、`redo()`、`save()`、`discard()`、`importPptx()`、`exportPptx()` が使えます。`execute` は拒否時に `null`、`undo` / `redo` / `save` は成功をbooleanで返します。`execute` と履歴操作は編集許可・読み取り専用・機能設定を通ります。ヘッドレスAPIには認証の責務はありません。
+`SlideHandle` の `getDeck()`、`getSlides()`、`getSlide()`、`getElements()`、`getElement()`、`getAnimations()`、`getSelection()`、`select(selection)`、`execute()`、`undo()`、`redo()`、`save()`、`discard()`、`importNative()`、`exportNative()`、`importPptx()`、`exportPptx()`、`exportImage()`、`exportImages()` が使えます。`execute` は拒否時に `null`、`undo` / `redo` / `save` は成功をbooleanで返します。`execute` と履歴操作は編集許可・読み取り専用・機能設定を通ります。ヘッドレスAPIには認証の責務はありません。
+
+```ts
+await ref.current?.importNative(file); // Blob / File または現在のSLON形式のJSON文字列
+const native: Blob | undefined = await ref.current?.exportNative();
+```
+
+`importNative(input: string | Blob): Promise<void>` はGUIと同じ検証・編集許可・機能設定を通り、資料全体を未保存の下書きとして置き換えます。入力途中の編集と実行中の操作を先に確定するため、Undoで読み込み直前の内容と選択へ戻せます。不正なJSONは元の資料を維持し、エラーを画面の通知へ表示します。読み取り専用・機能無効・別の入出力処理中・編集許可の拒否では適用せず、既存の `importPptx` と同様に成功値や例外を返しません。成功時は `import` イベント、内容が変わった場合は `change` イベントも通知します。
+
+`exportNative(): Promise<Blob>` は入力途中の編集と実行中の操作を待って、`application/json` のSLONを返します。ダウンロード・保存済み化・`onSave` の呼び出しは行いません。読み取り専用でも利用できますが、`features.export === false`、別の入出力処理中、アンマウント後はPromiseをrejectします。`getDeck({ includeAnimations: true })` は確定済みの元の値と定義を同期取得するため、入力途中の内容も含むファイルが必要なら `exportNative()` を使います。
+
+GUIのファイル選択では未保存の置き換え確認を表示します。refによる読み込みでは確認ダイアログを出さないため、必要な確認は呼び出し側で行ってください。ネイティブとPPTXのいずれも読み込み・出力だけで `onSave` は呼びません。
 
 ## データ量と画像
 
 モデルは最大500スライド、1スライド1,000要素、資料全体10,000要素です。画像はPNG / JPEG / GIF / WebPのdata URLのみを受け付けます。上限値は公開定数 `SLIDE_LIMITS` で確認できます。外部から渡されたJSONも `parseSlideDeck` で検証してから利用してください。
+
+画像出力の `exportImage` / `exportImages` は、ブラウザーでは `@likex/slide/render` からReactなしで呼べます。`/model` 版では `renderer` を注入します。表示中の入力を含める場合はrefの `exportImage` / `exportImages` を使います。[対象ページ、解像度、結果の型、制限](image-export.md)を参照してください。
+
+アニメーション付きモデルのget APIは既定で最終静止状態を返します。`{ includeAnimations: true }` を渡すと、`getDeck` / `getSlides` / `getSlide` は元の要素値とページの定義を保持します。`getElements` / `getElement` は元の要素値だけを返し、定義は含みません。定義だけなら `getAnimations(deck, slideId)` を使います。ネイティブ保存は全定義を保持します。[アニメーションの設定・取得・評価](animations.md)
+
+refのget APIも上記と同じ取得規則です。`onSave`、`exportNative`、イベントのdeck、セッションの `getSnapshot()` は元の値と全定義を保持するため、get APIの最終静止表示と区別してください。

@@ -21,6 +21,8 @@
 
 選択範囲の外周を太い枠線で表示します。太枠は選択状態の表示で、セルに保存する罫線や書式は変更しません。
 
+範囲をドラッグしている間、セル表示領域の端や外側でポインターを止めると、その方向へスクロールしながら選択を広げます。行番号からの選択は上下、列名からの選択は左右だけをスクロールします。読み取り専用でも選択できます。ポインターを離すか、Escape、ウィンドウのフォーカス喪失、シート・データ・表示倍率の変更で連続スクロールを停止します。
+
 行番号・列名からの選択は、別の行・列にまたがる結合セルがあっても広がりません。たとえばC1:AH1が結合されていても、C列の見出しを選ぶとC列だけを選択します。通常のセル選択では、触れた結合セル全体を含めます。
 
 ## キーボードで移動する
@@ -49,6 +51,40 @@ Ctrl／Cmd＋矢印は、セルの入力値で空かどうかを判断します�
 複数範囲に切り替えると、セルの内部コピー／切り取り情報は無効になります。OSのクリップボードのテキストは消しません。1つの範囲に戻ってから以前のセル内容を貼ると値のみの貼り付けになり、古い切り取り元の削除や数式参照の移動は実行しません。画像・図形・テキストボックスのコピー情報は、この切り替えでは消しません。
 
 選択は閲覧中でも使えます。選択だけでは未保存の変更にならず、`onSave` やブックの `onChange` を発火しません。書式や値を変更した場合は、従来どおりUndo／Redo・JSON保存の対象です。
+
+## refから表示中の選択を変更する
+
+`SpreadsheetHandle` の選択APIは同期の `boolean` を返します。成功時は `getSelection()` に即座に反映し、通常の `onSelectionChange`／`selection`・`drawing-selection` イベントで通知します。保存データ、未保存判定、Undo／Redo履歴、編集許可は変更しません。読み取り専用でも利用できます。
+
+| API | 対象 |
+| --- | --- |
+| `getSelection()` | 現在のシートID、セル・範囲・行列選択のコピー |
+| `getSelectedDrawing()` | `{ sheetId, drawingId }` または `null` |
+| `selectSheet(sheetId, options?)` | シートを表示してA1を選択 |
+| `selectCell(sheetId, { row, column }, options?)` | 0始まりのセル位置 |
+| `selectRange(sheetId, { anchor, focus, kind? }, options?)` | 1つの範囲 |
+| `selectRanges(sheetId, ranges, options?)` | 同じシート内の複数範囲。最後がアクティブ |
+| `selectRows(sheetId, start, end?, options?)` / `selectColumns(...)` | 両端を含む0始まりの行／列。`end` の省略時は1行／列 |
+| `selectDrawing(sheetId, drawingId, options?)` | 画像・図形・テキストボックス |
+| `clearSelection(options?)` | 図形と追加範囲を解除し、現在のアクティブセルを残す。セルの内容は消去しない |
+| `revealSelection()` | 現在選択しているセル／図形へスクロール |
+
+選択APIの既定動作はスクロール位置とDOMフォーカスを維持します。必要な場合だけ `options: { reveal: true }` または `revealSelection()` を使います。表示位置を動かしてもキーボードフォーカスを奪いません。
+
+```ts
+const api = spreadsheetRef.current;
+if (api?.selectRanges("sheet-1", [
+  { anchor: { row: 0, column: 0 }, focus: { row: 1, column: 1 } },
+  { anchor: { row: 3, column: 3 }, focus: { row: 4, column: 4 } },
+])) {
+  console.log(api.getSelection());
+  api.revealSelection();
+}
+```
+
+不明なID、範囲外・小数の座標、空または129個以上の範囲、無効な `options`、無効化された図形種別、`features.sheets: false` で別シートへ移る操作は `false` です。元の選択を維持し、座標を黙って丸めません。結合セルと行列選択の解決はGUIと同じです。
+
+セル・図形・コメント・シート名等に未確定入力がある場合やアンマウント後も `false` を返します。未確定入力を保存・破棄せず、先にGUIで確定またはキャンセルしてから選択します。GUIのクリック／キー操作は既存の入力確定後、同じ選択処理を使います。これらは表示中のref APIで、保存JSONやヘッドレスsessionには選択状態を追加しません。
 
 ## 親への通知
 

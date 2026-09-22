@@ -1,0 +1,8 @@
+{
+  "title": "JSON保存形式",
+  "summary": "likex.aichatの保存構造、旧AI LikeChatからの移行、メタデータと検証。",
+  "source": "packages/aichat/src/docs/native-files.md",
+  "order": 20,
+  "section": "親アプリとの連携",
+  "keywords": ["AIChatModel", "parseAIChat", "serializeAIChat", "migrateLegacyAIChat", "replyTo", "JSON"]
+}

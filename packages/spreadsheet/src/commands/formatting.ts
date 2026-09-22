@@ -3,7 +3,10 @@ import { conditionalFormatsEqual, normalizeConditionalFormats } from "../model/c
 import { normalizeSizes } from "../model/workbook/validation";
 import type { SpreadsheetWorkbook } from "../model/types";
 import { getWorkbookSheet, replaceWorkbookSheet } from "../model/workbook/snapshot";
+import { autoFitCommandForWorkbook } from "../model/sizing/create-auto-fit-command";
 export function stageFormattingCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetFormattingCommand): SpreadsheetWorkbook {
+  if (command.type === "dimensions.autoFit") return stageFormattingCommand(workbook,
+    autoFitCommandForWorkbook(workbook, { sheetId: command.sheetId, axis: command.axis, indices: command.indices }));
   const sheet = getWorkbookSheet(workbook, command.sheetId);
   if (command.type === "dimensions.resize") {
     const rows = normalizeSizes(command.rowHeights, sheet.rowCount, true), columns = normalizeSizes(command.columnWidths, sheet.columnCount);

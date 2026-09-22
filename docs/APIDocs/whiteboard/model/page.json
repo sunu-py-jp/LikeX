@@ -1,0 +1,15 @@
+{
+  "title": "JSONモデル・コマンド",
+  "summary": "保存・編集許可・機能設定・ソースコピーの手順。",
+  "source": "packages/whiteboard/src/docs/headless.md",
+  "order": 20,
+  "section": "編集・モデルAPI",
+  "keywords": [
+    "LikeWhiteboard",
+    "WhiteboardProps",
+    "onSave",
+    "onEditRequest",
+    "readOnly",
+    "primaryColor"
+  ]
+}

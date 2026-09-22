@@ -889,11 +889,11 @@ test('preview uses the current unsaved hierarchy and name while retaining the or
   });
   await act(async () => { hook.current.act('rename', ['target'], { name: '記事' }); });
   await act(async () => { hook.current.act('move', ['alpha'], { parent: 'nested' }); });
-  await act(async () => { hook.current.act('rename', ['alpha'], { name: 'test.PDF' }); });
+  await act(async () => { hook.current.act('rename', ['alpha'], { name: 'test.TXT' }); });
   await act(async () => { hook.current.navigate(FAVORITES); });
   await act(async () => { hook.current.openEntry(byId(hook, 'alpha')); });
   assert.deepEqual(requests[0], {
-    ...byId(hook, 'alpha'), path: '/記事/設計稿/test.PDF', extension: 'pdf',
+    ...byId(hook, 'alpha'), path: '/記事/設計稿/test.TXT', extension: 'txt',
   });
   assert.equal(requests[0].id, 'alpha');
   assert.deepEqual(requests[0].source, { kind: 'existing', id: 'content-alpha' });
@@ -1085,6 +1085,21 @@ test('moving into the current parent clears the drop highlight and leaves draft 
   assert.deepEqual(hook.current.entries, before.entries);
   assert.equal(hook.current.dirty, before.dirty);
   assert.equal(hook.current.notification, before.notification);
+});
+
+test('folder drag hover rejects itself, descendants and files without accepting an invalid destination', async t => {
+  const initial = [...initialEntries(), { ...entry('nested', 'Nested', 0, 'folder', ''), parent: 'target' }];
+  const hook = await mountController(t, { initialEntries: initial });
+  const drag = dragEvent();
+  await act(async () => { hook.current.startDrag(drag, byId(hook, 'target')); });
+  for (const target of ['target', 'nested', 'alpha']) {
+    for (const ctrlKey of [false, true]) {
+      drag.ctrlKey = ctrlKey;
+      await hoverWithProtectedData(hook, drag, target);
+      assert.equal(hook.current.dragOver, null, target); assert.equal(drag.dataTransfer.dropEffect, 'none', target);
+    }
+  }
+  assert.equal(hook.current.dirty, false);
 });
 
 test('dragging without selection still rejects the current parent and allows a different parent', async t => {

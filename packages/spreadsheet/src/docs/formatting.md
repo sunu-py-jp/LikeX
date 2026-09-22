@@ -72,6 +72,31 @@ await spreadsheetRef.current?.executeAsync({
 
 「文字列」（`numberFormat: "text"`）では、`00123` の先頭ゼロや `=1+2` をそのまま表示し、数値・数式として解釈しません。入力値は書き換えず、標準（`general`）へ戻すと通常のルールで再解釈します。たとえば `00123` は数値の `123`、`=1+2` は計算結果の `3` になります。従来の先頭アポストロフィ（`'`）による文字列指定も維持し、指定用の最初の1文字は表示から除外します。XLSXには書式コード `@` と文字列セルで出力するため、先頭ゼロや式の形をした文字列も保持されます。
 
+## 内容に合わせて自動調整するAPI
+
+`dimensions.autoFit` はGUI・ref・ヘッドレスsession・CLIで使えるJSONコマンドです。`axis` は `row` または `column`、`indices` は空でない0始まりの番号配列です。バッチ途中で指定すると、それまでのセル・数式・書式変更後の内容から計算します。`features.resize`、入力検証、Undo／Redoは `dimensions.resize` と同じ経路です。
+
+```ts
+await spreadsheetRef.current?.executeAsync({
+  type: "dimensions.autoFit", sheetId: "sheet-1", axis: "column", indices: [0, 1, 2],
+});
+```
+
+JSONコマンドはDOMや端末のフォントに依存しない推定幅を使います。GUIは同じ計算にブラウザの文字幅・セルCSSを注入します。ブラウザでGUIと同じ測定をしたい場合は、公開ヘルパーから既存の `dimensions.resize` コマンドを作れます。
+
+```ts
+import { createSpreadsheetAutoFitCommand, createSpreadsheetTextMeasurer } from "@likex/spreadsheet";
+
+const command = createSpreadsheetAutoFitCommand(api.getWorkbook(),
+  { sheetId: "sheet-1", axis: "row", indices: [0, 1] },
+  { measureText: createSpreadsheetTextMeasurer(spreadsheetElement.ownerDocument, spreadsheetElement) });
+await api.executeAsync(command);
+```
+
+`createSpreadsheetAutoFitCommand`、`SpreadsheetAutoFitTarget`、`SpreadsheetAutoFitOptions`、`SpreadsheetTextMeasurer` は `/model` からも利用できます。`measureText` を省略すればJSONコマンドと同じ決定的な推定値です。注入する関数は文字列とセル書式から0以上の有限のCSS px幅を返します。`createSpreadsheetTextMeasurer` はブラウザ用の入口からのみ公開し、DOMをモデルへ持ち込みません。
+
+保存するのは計算済みの `rowHeights`／`columnWidths` です。SPON・XLSXは通常のサイズ変更と同じ往復で保持します。Excel自身に再計算を要求する自動調整フラグは保存しません。推定と実フォントの測定結果は異なるため、画面との一致が必要ならブラウザ測定を注入してください。
+
 ## 条件付き書式の例
 
 ```ts

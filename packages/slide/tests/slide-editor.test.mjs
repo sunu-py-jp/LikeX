@@ -21,6 +21,36 @@ const change = async callback => { await act(async () => { await callback(); });
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const rename = title => ({ type: 'deck.rename', title });
 
+test('prepared image commands reject changed targets during decoding and permission waits', async t => {
+  for (const changed of ['slide', 'slide-return', 'deck']) {
+    let permissions = 0;
+    const app = await mount(t, { onEditRequest: () => { permissions++; return true; } });
+    await change(() => app.editor.execute({ type: 'slide.add', slide: { id: 'other' } }));
+    const target = { deck: app.editor.deck, slideId: app.editor.selection.slideId };
+    const image = deferred(); let pending;
+    await change(() => { pending = app.editor.prepareCommands(() => image.promise, target); });
+    if (changed.startsWith('slide')) {
+      await change(() => app.editor.select({ slideId: app.editor.deck.slides[0].id, elementIds: [] }));
+      if (changed === 'slide-return') await change(() => app.editor.select({ slideId: target.slideId, elementIds: [] }));
+    }
+    else await change(() => app.editor.execute(rename('Updated while decoding')));
+    const before = app.editor.deck;
+    await change(async () => { image.resolve({ type: 'element.add', slideId: target.slideId, element: { type: 'shape' } }); assert.equal(await pending, null); });
+    assert.equal(app.editor.deck, before);
+    assert.equal(permissions, 1);
+  }
+  const decision = deferred();
+  const deck = createSlideDeck({ slides: ['one', 'two'].map(id => ({ id, name: id, notes: '', background: '#fff', elements: [] })) });
+  const app = await mount(t, { initialDeck: deck, onEditRequest: () => decision.promise });
+  let pending;
+  await change(() => { pending = app.editor.prepareCommands(async () => ({ type: 'element.add', slideId: 'one', element: { type: 'shape' } }), { deck: app.editor.deck, slideId: 'one' }); });
+  assert.equal(app.editor.requesting, true);
+  await change(() => app.editor.select({ slideId: 'two', elementIds: [] }));
+  await change(async () => { decision.resolve(true); assert.equal(await pending, null); });
+  assert.equal(app.editor.deck.slides[0].elements.length, 0);
+  assert.equal(app.editor.canUndo, false);
+});
+
 async function mount(t, supplied = {}) {
   let editor, renderer, unmounted = false;
   let props = { initialDeck: createSlideDeck({ id: 'deck', title: 'Original' }), onSave() {}, ...supplied };
@@ -283,9 +313,9 @@ test('no-op and rejected imports do not add selection history without a matching
   await change(() => app.editor.execute(rename('One edit')));
   await change(() => app.editor.select({ slideId: 'one', elementIds: ['second'] }));
   const before = app.editor.deck;
-  await change(() => app.editor.importJson(serializeSlideDeck(before)));
+  await change(() => app.editor.importNative(serializeSlideDeck(before)));
   assert.equal(app.editor.deck, before);
-  await change(() => app.editor.importJson('{"version":2}'));
+  await change(() => app.editor.importNative('{"version":2}'));
   assert.equal(app.editor.deck, before);
   assert.equal(events.filter(event => event.type === 'change' && event.source === 'import').length, 0);
   await change(() => app.editor.execute(rename('Two edits')));
@@ -300,8 +330,8 @@ test('no-op and rejected imports do not add selection history without a matching
 test('rejected native imports preserve selection, the saved baseline and redo history', async t => {
   const initialDeck = createSlideDeck({ title: 'Original', slides: [{ id: 'one', name: 'One', background: '#fff', notes: '',
     elements: [createSlideElement({ type: 'text', id: 'first' }), createSlideElement({ type: 'text', id: 'second' })] }] });
-  const events = [];
-  const app = await mount(t, { initialDeck, onEvent: event => events.push(event) });
+  const events = [], ref = { current: null };
+  const app = await mount(t, { ref, initialDeck, onEvent: event => events.push(event) });
   await change(() => app.editor.execute(rename('Saved title')));
   await change(() => app.editor.save());
   await change(() => app.editor.execute(rename('Future title')));
@@ -314,7 +344,7 @@ test('rejected native imports preserve selection, the saved baseline and redo hi
   delete missingLayer.slides[0].elements[0].stackOrder;
   const changes = events.filter(event => event.type === 'change').length;
   for (const file of [unmarked, { ...valid, version: 2 }, before, missingLayer]) {
-    await change(() => app.editor.importJson(JSON.stringify(file)));
+    await change(() => ref.current.importNative(JSON.stringify(file)));
     assert.equal(app.editor.deck, before);
     assert.deepEqual(app.editor.selection, selection);
     assert.equal(app.editor.dirty, false);
@@ -329,6 +359,106 @@ test('rejected native imports preserve selection, the saved baseline and redo hi
   await change(() => app.editor.history('undo'));
   assert.equal(app.editor.deck.title, 'Saved title');
   assert.equal(app.editor.dirty, false);
+});
+
+test('native ref import flushes queued edits and restores their selection and content on undo', async t => {
+  const ref = { current: null }, permission = deferred(), events = [];
+  let saves = 0, importing;
+  const initialDeck = createSlideDeck({ title: 'Original', slides: [{ id: 'original', name: 'Original', background: '#fff', notes: '',
+    elements: [createSlideElement({ type: 'text', id: 'text', text: 'Before' })] }] });
+  const incoming = createSlideDeck({ id: 'incoming', title: 'Imported', slides: [{ id: 'new-slide', name: 'Imported', background: '#fff', notes: 'Imported notes', elements: [] }] });
+  const app = await mount(t, { ref, initialDeck, onEditRequest: () => permission.promise,
+    onSave: () => { saves++; }, onEvent: event => events.push(event) });
+  await change(() => ref.current.select({ slideId: 'original', elementIds: ['text'] }));
+  const input = inputBuffer(app, { type: 'element.update', slideId: 'original', elementId: 'text', patch: { text: 'Before import' } });
+  await change(() => input.type());
+  await change(() => { importing = ref.current.importNative(new Blob([serializeSlideDeck(incoming)], { type: 'application/json' })); });
+  assert.equal(app.editor.busy, 'import');
+  assert.equal(app.editor.deck, initialDeck);
+  await change(async () => {
+    assert.equal(await ref.current.execute(rename('Overlap')), null);
+    assert.equal(await ref.current.save(), false);
+    assert.equal(await ref.current.undo(), false);
+    await assert.rejects(ref.current.exportNative(), /別の処理中/);
+    permission.resolve(true);
+    await importing;
+  });
+  assert.deepEqual(ref.current.getDeck(), incoming);
+  assert.deepEqual(ref.current.getSelection(), { slideId: 'new-slide', elementIds: [] });
+  assert.equal(app.editor.dirty, true);
+  assert.equal(saves, 0);
+  assert.equal(events.filter(event => event.type === 'import').length, 1);
+  assert.deepEqual(events.filter(event => event.type === 'change').map(event => event.source), ['command', 'import']);
+  await change(async () => { assert.equal(await ref.current.undo(), true); });
+  assert.equal(ref.current.getDeck().slides[0].elements[0].text, 'Before import');
+  assert.deepEqual(ref.current.getSelection(), { slideId: 'original', elementIds: ['text'] });
+  await change(async () => { assert.equal(await ref.current.undo(), true); });
+  assert.deepEqual(ref.current.getDeck(), initialDeck);
+  assert.equal(app.editor.dirty, false);
+  await change(async () => { await ref.current.redo(); await ref.current.redo(); });
+  assert.deepEqual(ref.current.getDeck(), incoming);
+  input.unregister();
+});
+
+test('native ref import respects read-only, feature and permission guards before reading the file', async t => {
+  for (const options of [{ readOnly: true }, { onSave: undefined }, { features: { import: false } }, { onEditRequest: () => false }]) {
+    const ref = { current: null }, events = []; let reads = 0;
+    const app = await mount(t, { ref, ...options, onEvent: event => events.push(event) });
+    const before = app.editor.deck;
+    const file = { size: 1, async text() { reads++; return serializeSlideDeck(createSlideDeck()); } };
+    await change(() => ref.current.importNative(file));
+    assert.equal(reads, 0);
+    assert.equal(app.editor.deck, before);
+    assert.equal(app.editor.busy, null);
+    assert.equal(app.editor.dirty, false);
+    assert.equal(app.editor.canUndo, false);
+    assert.deepEqual(events.filter(event => event.type === 'import' || event.type === 'change'), []);
+  }
+});
+
+test('native file reads hold the operation reservation and discard stale results after permission or lifecycle changes', async t => {
+  for (const reason of ['readonly', 'disabled', 'unmount']) {
+    const ref = { current: null }, reading = deferred(), events = [];
+    const incoming = serializeSlideDeck(createSlideDeck({ title: 'Late import' }));
+    const app = await mount(t, { ref, onEvent: event => events.push(event) });
+    const before = app.editor.deck; let importing, reads = 0;
+    await change(() => { importing = ref.current.importNative({ size: incoming.length, text: () => reading.promise }); });
+    assert.equal(app.editor.busy, 'import');
+    await change(async () => {
+      await ref.current.importNative({ size: 1, async text() { reads++; return incoming; } });
+      assert.equal(await ref.current.execute(rename('During read')), null);
+      await assert.rejects(ref.current.exportNative(), /別の処理中/);
+    });
+    assert.equal(reads, 0);
+    if (reason === 'readonly') {
+      await app.update({ readOnly: true });
+      await app.update({ readOnly: false }); // Reopening editing must not revive the old operation.
+    } else if (reason === 'disabled') await app.update({ features: { import: false } });
+    else await app.unmount();
+    const previousEvents = events.length;
+    await change(async () => { reading.resolve(incoming); await importing; });
+    assert.equal(app.editor.deck, before);
+    assert.equal(app.editor.dirty, false);
+    assert.equal(events.length, previousEvents);
+    assert.equal(events.filter(event => event.type === 'import' || event.type === 'change').length, 0);
+  }
+});
+
+test('native ref export enforces the current feature flag including changes while awaiting buffered input', async t => {
+  const ref = { current: null }, permission = deferred();
+  const app = await mount(t, { ref, features: { export: false }, onEditRequest: () => permission.promise });
+  await change(() => assert.rejects(ref.current.exportNative(), /機能は無効/));
+  await app.update({ features: { export: true } });
+  const input = inputBuffer(app);
+  await change(() => input.type());
+  let exporting;
+  await change(() => { exporting = ref.current.exportNative(); });
+  await app.update({ features: { export: false } });
+  await change(async () => { permission.resolve(true); await assert.rejects(exporting, /機能は無効/); });
+  assert.equal(app.editor.busy, null);
+  assert.equal(app.editor.deck.title, 'Buffered edit');
+  assert.equal(app.editor.dirty, true);
+  input.unregister();
 });
 
 test('typing reports dirty before blur and an accepted async commit never emits a clean gap', async t => {
@@ -442,7 +572,7 @@ test('handle and GUI exports await buffered input permission and preserve unsave
   let downloadedBlob;
   t.mock.method(URL, 'createObjectURL', blob => { downloadedBlob = blob; return 'blob:export-test'; });
   t.mock.method(URL, 'revokeObjectURL', () => {});
-  for (const mode of ['handle-pptx', 'download-pptx', 'download-slon']) {
+  for (const mode of ['handle-pptx', 'handle-slon', 'download-pptx', 'download-slon']) {
     const permission = deferred(), events = [], dirtyChanges = [];
     const ref = { current: null }; let saves = 0, clicks = 0, exporting, finished = false;
     downloadedBlob = undefined;
@@ -454,7 +584,7 @@ test('handle and GUI exports await buffered input permission and preserve unsave
     const document = { createElement: () => ({ click() { clicks++; }, remove() {} }), body: { append() {} } };
     await change(() => input.type());
     await change(() => {
-      exporting = (mode === 'handle-pptx' ? ref.current.exportPptx()
+      exporting = (mode === 'handle-pptx' ? ref.current.exportPptx() : mode === 'handle-slon' ? ref.current.exportNative()
         : app.editor.download(mode === 'download-slon' ? 'slon' : 'pptx', document)).then(result => { finished = true; return result; });
     });
     assert.equal(app.editor.busy, 'export');
@@ -467,9 +597,9 @@ test('handle and GUI exports await buffered input permission and preserve unsave
       assert.equal((await input.commit).changed, true);
       result = await exporting;
     });
-    const blob = mode === 'handle-pptx' ? result : downloadedBlob;
+    const blob = mode.startsWith('handle-') ? result : downloadedBlob;
     assert.ok(blob instanceof Blob);
-    if (mode === 'download-slon') {
+    if (mode.endsWith('-slon')) {
       assert.equal(blob.type, 'application/json');
       assert.equal(JSON.parse(await blob.text()).format, 'likex.slide');
       assert.equal(JSON.parse(await blob.text()).slides[0].elements[0].text, 'Latest buffered text');
@@ -479,7 +609,7 @@ test('handle and GUI exports await buffered input permission and preserve unsave
       assert.match(xml, /<a:t(?:\s[^>]*)?>Latest buffered text<\/a:t>/);
       assert.doesNotMatch(xml, /Before export/);
     }
-    assert.equal(clicks, mode === 'handle-pptx' ? 0 : 1);
+    assert.equal(clicks, mode.startsWith('handle-') ? 0 : 1);
     assert.equal(saves, 0);
     assert.equal(events.filter(event => event.type === 'save').length, 0);
     assert.equal(app.editor.busy, null);
@@ -527,6 +657,8 @@ test('read-only and omitted onSave allow export without edit permission or histo
     await change(async () => { blob = await ref.current.exportPptx(); });
     const archive = await openOfficePackage(blob);
     assert.ok(archive.paths.includes('ppt/slides/slide1.xml'));
+    await change(async () => { blob = await ref.current.exportNative(); });
+    assert.deepEqual(parseSlideDeck(await blob.text()), before);
     assert.equal(app.editor.deck, before);
     assert.equal(app.editor.dirty, false);
     assert.equal(app.editor.canUndo, false);
@@ -535,4 +667,31 @@ test('read-only and omitted onSave allow export without edit permission or histo
     assert.equal(requests, 0);
     assert.deepEqual(events.filter(event => event.type === 'save' || event.type === 'change'), []);
   }
+});
+
+test('drag commands with an internal baseline cancel when another queued command changes the deck', async t => {
+  const decision = deferred();
+  const initialDeck = createSlideDeck({ slides: ['one', 'two'].map(id => ({ id, name: id, notes: '', background: '#fff', elements: [] })) });
+  const app = await mount(t, { initialDeck, onEditRequest: () => decision.promise });
+  const expectedDeck = app.editor.deck;
+  let first, drag;
+  await change(() => {
+    first = app.editor.execute(rename('Concurrent edit'));
+    drag = app.editor.execute({ type: 'slide.move', slideId: 'one', index: 1 }, expectedDeck);
+  });
+  await change(async () => { decision.resolve(true); assert.ok((await first)?.changed); assert.equal(await drag, null); });
+  assert.equal(app.editor.deck.title, 'Concurrent edit');
+  assert.deepEqual(app.editor.deck.slides.map(slide => slide.id), ['one', 'two']);
+  await change(async () => { assert.equal(await app.editor.execute({ type: 'slide.move', slideId: 'one', index: 1 }, expectedDeck), null); });
+  await change(async () => { assert.equal(await app.editor.history('undo'), true); assert.equal(await app.editor.history('undo'), false); });
+});
+
+test('a drag baseline permits the unchanged deck after asynchronous permission', async t => {
+  const decision = deferred();
+  const initialDeck = createSlideDeck({ slides: ['one', 'two'].map(id => ({ id, name: id, notes: '', background: '#fff', elements: [] })) });
+  const app = await mount(t, { initialDeck, onEditRequest: () => decision.promise });
+  let drag;
+  await change(() => { drag = app.editor.execute({ type: 'slide.move', slideId: 'one', index: 1 }, app.editor.deck); });
+  await change(async () => { decision.resolve(true); assert.ok((await drag)?.changed); });
+  assert.deepEqual(app.editor.deck.slides.map(slide => slide.id), ['two', 'one']);
 });

@@ -1,0 +1,15 @@
+import { createCalendar, executeCalendarCommands, parseCalendar, serializeCalendar, getCalendarEvents,
+  getCalendarVisibleRange, createCalendarRescheduleCommand, type Calendar, type CalendarCommand } from "__MODEL_IMPORT__";
+const calendar: Calendar = createCalendar({ timeZone: "Asia/Tokyo" });
+const marker: "likex.calendar" = calendar.format;
+const command: CalendarCommand = { type: "event.create", event: { id: "meeting", title: "Review", allDay: false, start: "2026-09-22T09:00:00+09:00", end: "2026-09-22T10:00:00+09:00" } };
+const changed = executeCalendarCommands(calendar, command).calendar;
+const roundtrip = parseCalendar(serializeCalendar(changed));
+const events = getCalendarEvents(roundtrip, getCalendarVisibleRange("2026-09-22", "week", roundtrip.timeZone));
+void executeCalendarCommands(roundtrip, createCalendarRescheduleCommand(roundtrip, "meeting", "2026-09-23"));
+void marker; void events;
+// @ts-expect-error Native version is fixed.
+const badVersion: Calendar = { ...calendar, version: 2 };
+// @ts-expect-error Event identifiers cannot be changed.
+const badCommand: CalendarCommand = { type: "event.update", id: "meeting", changes: { id: "other" } };
+void badVersion; void badCommand;

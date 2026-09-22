@@ -1,0 +1,13 @@
+{
+  "title": "JSONと互換性",
+  "summary": "人同士のChat version 2と、旧AIチャットからの移行。",
+  "order": 50,
+  "keywords": [
+    "LikeChat",
+    "ChatModel",
+    "DM",
+    "スペース",
+    "スレッド"
+  ],
+  "source": "packages/chat/src/docs/native-files.md"
+}

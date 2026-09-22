@@ -1,0 +1,7 @@
+import { createRef } from "react";
+import LikeDataView, { createDataView, type DataViewHandle, type DataViewProps } from "__LIBRARY_IMPORT__";
+const ref = createRef<DataViewHandle>();
+const props: DataViewProps = { initialData: createDataView(), primaryColor: "#2563eb", colorMode: "dark", onSave: async model => model, onBeforeSave: () => true, onEditRequest: async (_request, { signal }) => !signal.aborted, features: { import: false } };
+const view = <LikeDataView ref={ref} {...props} />;
+void ref.current?.execute({ type: "cell.set", rowId: "row-1", fieldId: "name", value: "Updated" }); void ref.current?.importNative(new Blob());
+const blob: Blob | undefined = ref.current?.exportNative(); void blob; void view;

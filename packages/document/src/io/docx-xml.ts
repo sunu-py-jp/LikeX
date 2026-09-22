@@ -1,0 +1,12 @@
+export const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+export const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+export const A = "http://schemas.openxmlformats.org/drawingml/2006/main";
+export const WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+export const PIC = "http://schemas.openxmlformats.org/drawingml/2006/picture";
+export const header = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+export const namespaces = `xmlns:w="${W}" xmlns:r="${R}" xmlns:a="${A}" xmlns:wp="${WP}" xmlns:pic="${PIC}"`;
+export const xml = (value: string): string => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;").replace(/\r/g, "&#13;");
+export const twips = (mm: number): number => Math.round(mm * 1440 / 25.4);
+export const millimetres = (value: string | undefined, fallback: number): number => value !== undefined && Number.isFinite(Number(value)) ? Number(value) * 25.4 / 1440 : fallback;
+export type Link = { id: string; type: string; target: string; external?: boolean };
+export const relationships = (links: Link[]): string => `${header}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${links.map(link => `<Relationship Id="${xml(link.id)}" Type="${xml(link.type)}" Target="${xml(link.target)}"${link.external ? ' TargetMode="External"' : ""}/>`).join("")}</Relationships>`;

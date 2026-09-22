@@ -5,32 +5,45 @@ const text = (text: string, x: number, y: number, width: number, height: number,
   createSlideElement({ type: "text", text, x, y, width, height, fontSize: 28, fontFamily: "Yu Gothic UI", color: "#243242", ...extra });
 const shape = (x: number, y: number, width: number, height: number, fill: string, extra: Partial<Extract<SlideElementInput, { type: "shape" }>> = {}) =>
   createSlideElement({ type: "shape", shape: "rect", x, y, width, height, fill, stroke: "transparent", ...extra });
-const page = (id: string, name: string, background: string, elements: Slide["elements"], notes = ""): Slide => ({ id, name, background, elements, notes });
+const page = (id: string, name: string, background: string, elements: Slide["elements"], notes = "", animations?: Slide["animations"]): Slide =>
+  ({ id, name, background, elements, notes, ...(animations ? { animations } : {}) });
 
 export function createDemoSlideDeck() {
   return createSlideDeck({ title: "プロジェクト計画 2026", width: 1280, height: 720, slides: [
     page("cover", "プロジェクト計画", "#f7f5f0", [
-      shape(880, 0, 400, 720, "#22364a"), shape(936, 138, 210, 210, "#d56a43", { shape: "ellipse" }),
-      shape(1030, 330, 190, 190, "#a9c8b6", { shape: "roundRect", rotation: 14 }),
+      shape(880, 0, 400, 720, "#22364a"), shape(936, 138, 210, 210, "#d56a43", { id: "cover-orb", name: "オレンジの円", shape: "ellipse" }),
+      shape(1030, 330, 190, 190, "#a9c8b6", { id: "cover-card", shape: "roundRect", rotation: 14 }),
       text("PROJECT PLAN  /  2026", 76, 68, 680, 44, { fontSize: 20, bold: true, color: "#b64b2b" }),
-      text("プロジェクト計画", 72, 208, 800, 102, { fontSize: 64, bold: true }),
-      text("チームのアイデアを、次の一歩へ。", 78, 340, 780, 80, { fontSize: 32 }),
+      text("プロジェクト計画", 72, 208, 800, 102, { id: "cover-title", fontSize: 64, bold: true }),
+      text("チームのアイデアを、次の一歩へ。", 78, 340, 780, 80, { id: "cover-subtitle", fontSize: 32 }),
       shape(80, 486, 70, 5, "#d56a43"),
       text("対象範囲・スケジュール・判断事項", 80, 536, 720, 56, { fontSize: 23, color: "#637383" }),
       text("企画チーム  /  2026.09", 80, 628, 700, 35, { fontSize: 18, color: "#637383" }),
-    ], "目的と今回決めたいことを共有します。テキストはダブルクリックで編集できます。"),
+    ], "見出しは自動再生します。オレンジの円をクリックすると強調表示します。各動きの設定はアニメーションタブから編集できます。", [
+      { id: "cover-entrance", name: "見出しを同時に表示", animation: { type: "parallel", children: [
+        { type: "tween", elementId: "cover-title", durationMs: 850, easing: "ease-out", from: { x: 24, opacity: 0 }, to: { x: 72, opacity: 1 } },
+        { type: "tween", elementId: "cover-subtitle", durationMs: 850, easing: "ease-out", from: { y: 372, opacity: 0 }, to: { y: 340, opacity: 1 } },
+      ] } },
+      { id: "cover-swing", name: "時間をおいて図形を強調", trigger: { type: "after-delay", delayMs: 200 },
+        animation: { type: "tween", elementId: "cover-card", durationMs: 450, easing: "spring", to: { rotation: 32 }, yoyo: true } },
+      { id: "cover-click", name: "円をクリックして強調", trigger: { type: "click", elementId: "cover-orb" },
+        animation: { type: "tween", elementId: "cover-orb", durationMs: 400, easing: "ease-in-out", to: { fill: "#f3bc6e", x: 925, y: 127, width: 232, height: 232 }, yoyo: true } },
+    ]),
     page("milestones", "進め方とマイルストーン", "#ffffff", [
       text("進め方とマイルストーン", 68, 54, 1130, 76, { fontSize: 44, bold: true }),
       text("小さく試し、確認しながら段階的に進めます。", 72, 144, 1100, 55, { fontSize: 25, color: "#637383" }),
       ...["要件の整理", "試作と検証", "運用へ移行"].flatMap((label, index) => [
-        shape(74 + index * 400, 266, 332, 300, ["#eff3f5", "#fdf0e9", "#edf4ee"][index], { shape: "roundRect" }),
+        shape(74 + index * 400, 266, 332, 300, ["#eff3f5", "#fdf0e9", "#edf4ee"][index], { id: `milestone-card-${index + 1}`, shape: "roundRect" }),
         text(`0${index + 1}`, 96 + index * 400, 286, 270, 66, { fontSize: 38, color: "#b64b2b", bold: true }),
         text(label, 96 + index * 400, 374, 285, 58, { fontSize: 30, bold: true }),
         text(["目的と制約をそろえる\n成果物を決める", "サンプルを動かす\n利用者と確認する", "手順を整理する\n改善を続ける"][index], 96 + index * 400, 456, 285, 94, { fontSize: 23 }),
       ]),
       shape(416, 388, 45, 34, "#94a3b8", { shape: "arrow" }), shape(816, 388, 45, 34, "#94a3b8", { shape: "arrow" }),
       text("9月                                      10月                                      11月", 100, 605, 1100, 48, { fontSize: 23, color: "#637383" }),
-    ], "図形・矢印・テキストは独立した要素です。位置や色、重なり順を変更できます。"),
+    ], "クリックすると3つの段階を順に強調します。順番のグループには同時のグループを入れ子で配置できます。", [
+      { id: "milestones-sequence", name: "3つの段階を順番に強調", trigger: { type: "click" }, animation: { type: "sequence", children:
+        [1, 2, 3].map(index => ({ type: "tween" as const, elementId: `milestone-card-${index}`, durationMs: 320, easing: "ease-in-out" as const, to: { fill: "#ffd7bd" }, yoyo: true })) } },
+    ]),
     page("images", "画像と説明を組み合わせる", "#f7f5f0", [
       text("画像と説明を組み合わせる", 68, 50, 1150, 78, { fontSize: 44, bold: true }),
       createSlideElement({ type: "image", src: imageSamples.wide.dataUrl, alt: "横長画像の縦横比を確認するサンプル", name: "画像サンプル", x: 72, y: 210, width: 670, height: 670 * imageSamples.wide.height / imageSamples.wide.width }),

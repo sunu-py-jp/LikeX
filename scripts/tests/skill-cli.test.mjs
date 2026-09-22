@@ -8,6 +8,7 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { buildSkillScripts, generatedSkillScript, skillKinds } from '../build-skill-scripts.mjs';
+import { checkSkillConsumer } from '../lib/skill-consumer.mjs';
 
 const exec = promisify(execFile);
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -53,9 +54,24 @@ async function paths(kind) {
   const directory = await mkdtemp(path.join(temporary, `${kind}-`));
   return { directory, input: path.join(directory, 'input.json'), output: path.join(directory, 'output.json'), commands: path.join(directory, 'commands.json') };
 }
-const renameCommand = (kind, summary, title) => kind === 'spreadsheet'
-  ? { type: 'sheets.rename', sheetId: summary.sheets[0].id, name: title }
-  : { type: 'deck.rename', title };
+const renameCommand = (kind, summary, title) => ({
+  spreadsheet: () => ({ type: 'sheets.rename', sheetId: summary.sheets[0].id, name: title }),
+  slide: () => ({ type: 'deck.rename', title }), document: () => ({ type: 'document.update', title }),
+  board: () => ({ type: 'board.rename', title }), dataview: () => ({ type: 'data.rename', title }),
+  diagram: () => ({ type: 'diagram.update', title }), whiteboard: () => ({ type: 'whiteboard.update', title }),
+  calendar: () => ({ type: 'calendar.update', title }), chat: () => ({ type: 'chat.update', title }), aichat: () => ({ type: 'aichat.update', title }),
+  form: () => ({ type: 'form.update', patch: { title } }),
+}[kind]());
+const modelFunctions = (kind, model) => {
+  const [suffix, applyName, resultKey] = {
+    spreadsheet: ['Workbook', 'applySpreadsheetCommands', 'workbook'], slide: ['SlideDeck', 'applySlideCommands', 'deck'],
+    document: ['Document', 'executeDocumentCommands', 'document'], board: ['Board', 'executeBoardCommands', 'board'],
+    dataview: ['DataView', 'executeDataViewCommands', 'data'], diagram: ['Diagram', 'executeDiagramCommands'],
+    whiteboard: ['Whiteboard', 'executeWhiteboardCommands'], calendar: ['Calendar', 'executeCalendarCommands', 'calendar'],
+    chat: ['Chat', 'executeChatCommands', 'chat'], aichat: ['AIChat', 'executeAIChatCommands', 'aichat'], form: ['Form', 'executeFormCommands'],
+  }[kind];
+  return { parse: model[`parse${suffix}`], serialize: model[`serialize${suffix}`], apply: model[applyName], result: value => resultKey ? value[resultKey] : value };
+};
 
 test('committed standalone scripts match the one canonical source and current package versions', async () => {
   await buildSkillScripts({ check: true });
@@ -69,21 +85,24 @@ test('documented native files and command examples execute through the public mo
     const [native] = await examples('schema-guide.md');
     assert.ok(native, `${kind} native example`);
     const model = fixtures[kind].model;
-    const parse = kind === 'spreadsheet' ? model.parseWorkbook : model.parseSlideDeck;
-    const serialize = kind === 'spreadsheet' ? model.serializeWorkbook : model.serializeSlideDeck;
-    const apply = kind === 'spreadsheet' ? model.applySpreadsheetCommands : model.applySlideCommands;
+    const { parse, serialize, apply, result: resultDocument } = modelFunctions(kind, model);
     const commands = await examples('commands.md');
     assert.ok(commands.length, `${kind} command examples`);
     for (const example of commands) {
       const result = apply(parse(native), JSON.parse(example));
       if (kind === 'spreadsheet') assert.equal(result.ok, true, JSON.stringify(result));
-      const saved = serialize(kind === 'spreadsheet' ? result.workbook : result.deck);
+      const saved = serialize(resultDocument(result));
       assert.equal(serialize(parse(saved)), saved);
     }
   }
 });
 
 for (const kind of skillKinds) {
+  test(`${kind}: packaged consumer skill verification uses the same public runtime`, async () => {
+    const result = await checkSkillConsumer({ module: kind, installed: fixtures[kind].installed, consumer: project });
+    assert.equal(result.createApplyValidate, 'passed'); assert.equal(result.copiedSkill, 'passed');
+  });
+
   test(`${kind}: self-contained installed script creates, inspects, applies, and validates native files`, async () => {
     const files = await paths(kind);
     const created = await run(kind, ['create', '--output', files.input]);
@@ -105,8 +124,7 @@ for (const kind of skillKinds) {
     assert.equal(await readFile(files.input, 'utf8'), original, 'separate output leaves source untouched');
     assert.equal(kind === 'spreadsheet' ? applied.json.summary.sheets[0].name : applied.json.summary.title, 'New title');
     assert.equal((await run(kind, ['validate', '--input', files.output])).json.valid, true);
-    const parse = kind === 'spreadsheet' ? fixtures[kind].model.parseWorkbook : fixtures[kind].model.parseSlideDeck;
-    const serialize = kind === 'spreadsheet' ? fixtures[kind].model.serializeWorkbook : fixtures[kind].model.serializeSlideDeck;
+    const { parse, serialize } = modelFunctions(kind, fixtures[kind].model);
     const saved = await readFile(files.output, 'utf8');
     assert.equal(serialize(parse(saved)), saved, 'writes the dedicated stable serializer output');
     assert.deepEqual((await readdir(files.directory)).sort(), ['commands.json', 'input.json', 'output.json']);
@@ -181,11 +199,13 @@ for (const kind of skillKinds) {
     }
     const files = await paths(kind);
     const handle = await open(files.input, 'w');
-    await handle.truncate((kind === 'spreadsheet' ? 64 : 80) * 1024 * 1024 * 3 + 1);
+    await handle.truncate(({ spreadsheet: 192, slide: 240, document: 40, board: 48, dataview: 96, diagram: 24, whiteboard: 120, calendar: 5, chat: 32, aichat: 32, form: 8 }[kind]) * 1024 * 1024 + 1);
     await handle.close();
     assert.equal((await run(kind, ['validate', '--input', files.input])).json.error.code, 'FILE_TOO_LARGE');
     await writeFile(files.input, 'not JSON');
     assert.notEqual((await run(kind, ['validate', '--input', files.input])).status, 0);
+    await writeFile(files.input, Buffer.from([0x7b, 0x22, 0x78, 0x22, 0x3a, 0x22, 0xff, 0x22, 0x7d]));
+    assert.equal((await run(kind, ['validate', '--input', files.input])).json.error.code, 'INVALID_UTF8');
   });
 }
 
@@ -248,4 +268,36 @@ test('slide selectors expose IDs and bounds while never printing embedded image 
   assert.equal(image.json.selection.element.alt, 'Image description');
   assert.doesNotMatch(JSON.stringify(image), /base64/);
   assert.equal((await run('slide', ['inspect', '--input', files.input, '--slide-id', 'page-1', '--element-id', 'missing'])).json.error.code, 'NOT_FOUND');
+});
+
+test('document inspection pages through current block positions and strips nested image bytes', async () => {
+  const files = await paths('document');
+  const model = fixtures.document.model;
+  const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6xkAAAAASUVORK5CYII=';
+  const document = model.createDocument({ content: { type: 'doc', content: [
+    { type: 'paragraph', attrs: { id: 'paragraph-1' }, content: [{ type: 'text', text: 'secret body' }] },
+    { type: 'bullet_list', attrs: { id: 'list-1' }, content: [{ type: 'list_item', attrs: { id: 'item-1' }, content: [
+      { type: 'paragraph', attrs: { id: 'nested-1' }, content: [{ type: 'text', text: 'private nested text' }] },
+      { type: 'image', attrs: { id: 'image-1', src: image, alt: 'private image description' } },
+    ] }] },
+  ] } });
+  await writeFile(files.input, model.serializeDocument(document));
+  const original = await readFile(files.input, 'utf8');
+  const overview = await run('document', ['inspect', '--input', files.input]);
+  assert.equal(overview.status, 0);
+  assert.equal(overview.json.summary.imageCount, 1);
+  assert.doesNotMatch(JSON.stringify(overview), /secret|private|base64/);
+  assert.equal(overview.json.selection.blocks[0].id, 'paragraph-1');
+  assert.equal(overview.json.selection.blocks[0].contentFrom, 1);
+  const page = await run('document', ['inspect', '--input', files.input, '--offset', '1', '--limit', '1']);
+  assert.equal(page.json.selection.blocks.length, 1);
+  assert.equal(page.json.selection.blocks[0].id, 'list-1');
+  assert.equal(page.json.selection.hasMore, true);
+  const selected = await run('document', ['inspect', '--input', files.input, '--block-id', 'list-1', '--include-data']);
+  assert.match(JSON.stringify(selected), /private nested text/);
+  assert.doesNotMatch(JSON.stringify(selected), /base64/);
+  assert.equal(await readFile(files.input, 'utf8'), original);
+  assert.equal((await run('document', ['inspect', '--input', files.input, '--block-id', 'missing'])).json.error.code, 'NOT_FOUND');
+  assert.equal((await run('document', ['inspect', '--input', files.input, '--limit', '1001'])).json.error.code, 'USAGE');
+  assert.equal((await run('document', ['inspect', '--input', files.input, '--block-id', 'list-1', '--offset', '1'])).json.error.code, 'USAGE');
 });

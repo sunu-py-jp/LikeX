@@ -1,0 +1,7 @@
+{
+  "title": "ドラッグの表示計算",
+  "summary": "端での自動スクロール量と、並べ替え時の挿入位置を求めます。",
+  "source": "packages/core/docs/drag.md",
+  "order": 65,
+  "keywords": ["drag", "scroll", "getDragScrollDelta", "getDragInsertionIndex", "ドラッグ", "並べ替え"]
+}

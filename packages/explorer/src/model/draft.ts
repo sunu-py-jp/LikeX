@@ -4,7 +4,7 @@ import { fileExtension } from "./text";
 import { countFiles, totalFileCountRejection, uploadFileCountRejections } from "./file-count-limits";
 import {
   createExplorerUploadSession, createUploadRejection, ExplorerUploadConflictError, ExplorerUploadValidationError, isExplorerUploadSession,
-  resolveUploadOptions, validateUploadFiles,
+  resolveUploadOptions, validateUploadFiles, inspectUploadCandidates, requiresUploadContentInspection,
   type ExplorerUploadConflict, type ExplorerUploadDecision, type ExplorerUploadOptions, type ExplorerUploadRejection, type ExplorerUploadResult, type ExplorerUploadSession,
 } from "./upload";
 
@@ -240,6 +240,8 @@ export function applyAction(
       if (ids.length !== 1) throw new Error("名前を変更する項目を1つ選択してください");
       const entry = byId.get(ids[0])!;
       const name = normalizeEntryName(action.name);
+      if (entry.kind === "file" && fileExtension(entry.name) !== fileExtension(name))
+        throw new Error("名前の変更で拡張子を変更することはできません");
       const duplicate = namesAt(entry.parent).get(nameKey(name));
       if (duplicate && duplicate.id !== entry.id) throw new Error("同じ名前の項目がすでにあります");
       if (entry.name !== name) replace({ ...entry, name, updatedAt: now });
@@ -314,6 +316,21 @@ type UploadInput = Readonly<{
   name: string;
   relativePath: string;
 }>;
+
+function* normalizeUploadInputs(files: readonly File[]): Generator<import("./upload").ExplorerImportProgress, UploadInput[]> {
+  const prepared: UploadInput[] = [];
+  yield { phase: "checking", completed: 0, total: files.length };
+  for (const [fileIndex, file] of files.entries()) {
+    if (!file || typeof file.name !== "string" || !Number.isSafeInteger(file.size) || file.size < 0 ||
+      typeof file.arrayBuffer !== "function" ||
+      (file.webkitRelativePath !== undefined && typeof file.webkitRelativePath !== "string"))
+      throw new Error("ファイルを選択してください");
+    const parts = (file.webkitRelativePath || file.name).split("/").map(normalizeEntryName);
+    prepared.push({ file, fileIndex, parts, name: parts[parts.length - 1], relativePath: parts.join("/") });
+    yield { phase: "checking", completed: fileIndex + 1, total: files.length };
+  }
+  return prepared;
+}
 type UploadSessionState = {
   parent: string;
   inputs: readonly Readonly<{ file: File; relativePath: string; size: number; mime: string }>[];
@@ -321,6 +338,13 @@ type UploadSessionState = {
   allocations: Map<string, string>;
 };
 const uploadSessionStates = new WeakMap<ExplorerUploadSession, UploadSessionState>();
+const preparedUploadTargets = new WeakMap<ExplorerUploadResult, readonly string[]>();
+const noPreparedUploadTargets: readonly string[] = Object.freeze([]);
+
+/** @internal Exact accepted writes, including unchanged overwrites; never infer these from File identity. */
+export function getPreparedUploadTargets(result: ExplorerUploadResult): readonly string[] {
+  return preparedUploadTargets.get(result) ?? noPreparedUploadTargets;
+}
 
 /** Retry metadata is scoped to an explicit batch token, never to committed entries. */
 function uploadSessionState(session: ExplorerUploadSession, parent: string, inputs: readonly UploadInput[]) {
@@ -361,6 +385,62 @@ export function addFilesWithResult(
   }
 }
 
+/** Inspect content before staging a single atomic batch; does not persist bytes. */
+export async function addFilesWithResultAsync(...args: Parameters<typeof prepareFilesWithProgressAsync>): Promise<{
+  snapshot: ExplorerSnapshot; result: ExplorerUploadResult;
+}> {
+  const operation = prepareFilesWithProgressAsync(...args);
+  for (;;) {
+    const step = await operation.next();
+    if (step.done) return step.value;
+  }
+}
+
+export async function addFilesAsync(...args: Parameters<typeof prepareFilesWithProgressAsync>): Promise<ExplorerSnapshot> {
+  return (await addFilesWithResultAsync(...args)).snapshot;
+}
+
+/** Shared by headless callers and GUI/ref imports, including one-file batches. */
+export async function* prepareFilesWithProgressAsync(
+  snapshot: ExplorerSnapshot,
+  files: readonly File[],
+  parent: string,
+  upload?: ExplorerUploadOptions,
+  decisions: readonly ExplorerUploadDecision[] = [],
+  session: ExplorerUploadSession = createExplorerUploadSession(),
+  execution: Readonly<{ signal?: AbortSignal }> = {},
+): AsyncGenerator<import("./upload").ExplorerImportProgress, { snapshot: ExplorerSnapshot; result: ExplorerUploadResult }> {
+  const signal = execution.signal ?? new AbortController().signal;
+  signal.throwIfAborted();
+  const source = editSnapshot(snapshot);
+  assertDestination(source.entries, parent);
+  const captured = [...files], options = resolveUploadOptions(upload);
+  if (!Array.isArray(decisions)) throw new Error("アップロードの確認結果を配列で指定してください");
+  const answers = decisions.map(decision => decision && typeof decision === "object" ? {
+    ...decision, existing: decision.existing ? cloneEntry(decision.existing) : decision.existing,
+  } : decision);
+  const normalization = normalizeUploadInputs(captured);
+  let prepared: UploadInput[];
+  for (;;) {
+    signal.throwIfAborted();
+    const step = normalization.next();
+    if (step.done) { prepared = step.value; break; }
+    yield step.value;
+  }
+  uploadSessionState(session, parent, prepared);
+  if (requiresUploadContentInspection(captured, options))
+    yield* inspectUploadCandidates(prepared, options, session, signal);
+  signal.throwIfAborted();
+  const operation = prepareFilesWithProgress(source, captured, parent, options, answers, session);
+  for (;;) {
+    signal.throwIfAborted();
+    const step = operation.next();
+    if (step.done) return step.value;
+    // Normalization already reported progress before inspection.
+    if (step.value.phase !== "checking") yield step.value;
+  }
+}
+
 /** One private candidate shared by synchronous callers and cooperative UI imports. */
 export function* prepareFilesWithProgress(
   snapshot: ExplorerSnapshot,
@@ -373,22 +453,7 @@ export function* prepareFilesWithProgress(
   const source = editSnapshot(snapshot);
   assertDestination(source.entries, parent);
   const options = resolveUploadOptions(upload);
-  const prepared: UploadInput[] = [];
-  yield { phase: "checking", completed: 0, total: files.length };
-  for (const [fileIndex, file] of files.entries()) {
-    if (
-      !file ||
-      typeof file.name !== "string" ||
-      !Number.isSafeInteger(file.size) || file.size < 0 ||
-      typeof file.arrayBuffer !== "function" ||
-      (file.webkitRelativePath !== undefined && typeof file.webkitRelativePath !== "string")
-    ) {
-      throw new Error("ファイルを選択してください");
-    }
-    const parts = (file.webkitRelativePath || file.name).split("/").map(normalizeEntryName);
-    prepared.push({ file, fileIndex, parts, name: parts[parts.length - 1], relativePath: parts.join("/") });
-    yield { phase: "checking", completed: fileIndex + 1, total: files.length };
-  }
+  const prepared = yield* normalizeUploadInputs(files);
   const state = uploadSessionState(session, parent, prepared);
   if (!Array.isArray(decisions)) throw new Error("アップロードの確認結果を配列で指定してください");
   const decisionsByIndex = new Map<number, ExplorerUploadDecision>();
@@ -401,7 +466,7 @@ export function* prepareFilesWithProgress(
       throw new Error("アップロードの確認結果が正しくありません");
     decisionsByIndex.set(decision.fileIndex, decision);
   }
-  const { accepted, rejections } = validateUploadFiles(prepared, options);
+  const { accepted, rejections } = validateUploadFiles(prepared, options, session);
   // Keep initial file validation and later quota rejections in original input order.
   const rejectionsByIndex = new Map<number, ExplorerUploadRejection>();
   if (rejections.length) {
@@ -414,9 +479,12 @@ export function* prepareFilesWithProgress(
   let addedCount = 0;
   let overwrittenCount = 0;
   let skippedCount = 0;
-  const result = (): ExplorerUploadResult => ({
-    attemptedCount: files.length, addedCount, overwrittenCount, skippedCount, rejections: orderedRejections(),
-  });
+  const acceptedTargetIds = new Set<string>();
+  const result = (): ExplorerUploadResult => {
+    const summary = { attemptedCount: files.length, addedCount, overwrittenCount, skippedCount, rejections: orderedRejections() };
+    preparedUploadTargets.set(summary, Object.freeze([...acceptedTargetIds]));
+    return summary;
+  };
   if (!accepted.length) return { snapshot, result: result() };
   const entries = [...source.entries];
   const positions = new Map(entries.map((entry, index) => [entry.id, index]));
@@ -498,6 +566,7 @@ export function* prepareFilesWithProgress(
         changed = true;
       }
       overwrittenCount++;
+      acceptedTargetIds.add(existing.id);
       continue;
     }
     const reasons = uploadFileCountRejections(options, addedCount + overwrittenCount, initialFileCount + addedCount, true);
@@ -529,6 +598,7 @@ export function* prepareFilesWithProgress(
     insert(added);
     namesAt(destination).set(nameKey(name), added);
     addedCount++;
+    acceptedTargetIds.add(added.id);
     changed = true;
   }
   yield { phase: "preparing", completed: preparedCount, total: accepted.length };

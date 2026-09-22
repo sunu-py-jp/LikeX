@@ -2,12 +2,13 @@
 
 import { useInsertionEffect, useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { ExplorerEntry } from "../model/draft";
+import type { ExplorerEntryPermissionCheck } from "../model/entry-permissions";
 import type { ExplorerViewEvent } from "../model/events";
 import type { ExplorerFileReader } from "../model/file-content";
 import { readEntryFile } from "../model/file-content";
 import { createFolderArchive } from "../model/archive";
 import { describeEntry } from "../model/item-info";
-import { getEntryIndex } from "../model/entry-index";
+import { getEntryIndex, subtreeEntries } from "../model/entry-index";
 import { cloneDownloadRequest, createDownloadItems, type ExplorerDownloadHandler, type ExplorerDownloadProgress, type ExplorerDownloadResult } from "../model/download";
 import type { DownloadManager } from "./download-manager";
 import type { ExplorerNotification } from "./view-state";
@@ -22,6 +23,8 @@ const progressLabels: Record<ExplorerDownloadProgress["phase"], string> = {
 
 type Options = {
   entries: readonly ExplorerEntry[];
+  getEntries?: () => readonly ExplorerEntry[];
+  assertPermissions?: (checks: readonly ExplorerEntryPermissionCheck[]) => void;
   enabled: boolean;
   readFile?: ExplorerFileReader;
   onDownloadRequest?: ExplorerDownloadHandler;
@@ -53,14 +56,21 @@ export function useExplorerDownload(options: Options) {
     if (!enabled) manager.cancelWindow(windowId, "disabled");
   }, [enabled, manager, windowId]);
 
-  return async function download(entry: Pick<ExplorerEntry, "id">): Promise<void> {
+  return async function download(entry: Pick<ExplorerEntry, "id">): Promise<boolean> {
     const start = current.current;
-    if (!mounted.current || !start.enabled || start.ownerDocument?.defaultView?.closed) return;
-    const target = getEntryIndex(start.entries).byId.get(entry.id);
-    if (!target) return;
+    if (!mounted.current || !start.enabled || start.ownerDocument?.defaultView?.closed) return false;
+    const entries = start.getEntries?.() ?? start.entries;
+    const target = getEntryIndex(entries).byId.get(entry.id);
+    if (!target) return false;
+    const assertAllowed = () => current.current.assertPermissions?.([{ id: target.id, operation: "download", recursive: true }]);
+    try { assertAllowed(); }
+    catch (error) {
+      start.setNotification({ kind: "error", message: error instanceof Error ? error.message : "ダウンロードが許可されていません" });
+      return false;
+    }
     const lease = manager.begin(target.id, windowId);
-    if (!lease) return;
-    const request = describeEntry(start.entries, target);
+    if (!lease) return false;
+    const request = describeEntry(entries, target);
     const external = !!start.onDownloadRequest;
     const common = { requestId: lease.requestId, external };
     const emit = (event: ExplorerViewEvent) => current.current.emitEvent(event);
@@ -110,20 +120,35 @@ export function useExplorerDownload(options: Options) {
     };
     try {
       emit({ type: "download", status: "start", ...common, request: eventRequest() });
-      if (!active()) return;
+      if (!active()) return false;
+      assertAllowed();
       // Invoke synchronously with the user gesture. Waiting for server jobs is
       // entirely inside the host promise; no fixed timeout is imposed here.
       const run = async (): Promise<ExplorerDownloadResult> => {
         if (start.onDownloadRequest) {
           return start.onDownloadRequest(cloneDownloadRequest(request), {
             requestId: lease.requestId, windowId, ownerDocument: start.ownerDocument, signal: lease.signal,
-            items: createDownloadItems(start.entries, target.id), reportProgress,
+            items: createDownloadItems(entries, target.id), reportProgress,
           });
         }
+        const contentEntries = new Map<string, string[]>();
+        for (const item of subtreeEntries(entries, target.id)) if (item.source?.kind === "existing") {
+          const ids = contentEntries.get(item.source.id) ?? [];
+          ids.push(item.id);
+          contentEntries.set(item.source.id, ids);
+        }
+        const reader: ExplorerFileReader | undefined = start.readFile && (async sourceId => {
+          const checks = (contentEntries.get(sourceId) ?? []).map(id => ({ id, operation: "download" as const }));
+          current.current.assertPermissions?.(checks);
+          const content = await start.readFile!(sourceId);
+          current.current.assertPermissions?.(checks);
+          return content;
+        });
         const blob = target.kind === "folder"
-          ? await createFolderArchive(start.entries, target.id, start.readFile, lease.signal)
-          : await readEntryFile(target, start.readFile);
+          ? await createFolderArchive(entries, target.id, reader, lease.signal)
+          : await readEntryFile(target, reader);
         if (!active()) return { status: "cancelled" };
+        assertAllowed();
         const owner = start.ownerDocument;
         if (!owner) throw new Error("ダウンロードを開始する画面が見つかりません");
         const url = URL.createObjectURL(blob);
@@ -140,23 +165,26 @@ export function useExplorerDownload(options: Options) {
         return { status: "handed-off" };
       };
       const result = await Promise.race([run(), cancellation]);
-      if (result === cancelled || !active()) return;
+      if (result === cancelled || !active()) return false;
+      assertAllowed();
       if (!result || !["handed-off", "completed", "cancelled"].includes(result.status) ||
         (result.message !== undefined && typeof result.message !== "string"))
         throw new Error("ダウンロード処理の結果が返されませんでした");
       // Capture only public fields; a URL/token accidentally returned by the
       // host must not become a lifecycle event or notification.
       const terminal: ExplorerDownloadResult = { status: result.status, ...(result.message !== undefined ? { message: result.message } : {}) };
-      if (!lease.finish()) return;
+      if (!lease.finish()) return false;
       if (terminal.status === "cancelled") {
         emitCancelled("cancelled", terminal.message);
+        return false;
       } else {
         notice(terminal.status === "completed" ? "success" : "info", terminal.message ??
           (terminal.status === "completed" ? "ダウンロードが完了しました" : "ダウンロードの開始をブラウザーに依頼しました"));
         emit({ type: "download", status: "success", ...common, request: eventRequest(), result: { ...terminal, status: terminal.status } });
+        return true;
       }
     } catch (error) {
-      if (!active() || !lease.finish()) return;
+      if (!active() || !lease.finish()) return false;
       if (error && typeof error === "object" && "name" in error && error.name === "AbortError") {
         emitCancelled("cancelled");
       } else {
@@ -167,6 +195,7 @@ export function useExplorerDownload(options: Options) {
         start.setNotification(previous => previous?.downloadRequestId === lease.requestId ? { ...previous, description: message } : previous);
         emit({ type: "download", status: "error", ...common, request: eventRequest(), message });
       }
+      return false;
     } finally {
       lease.signal.removeEventListener("abort", onAbort);
       lease.finish();

@@ -1,0 +1,11 @@
+{
+  "title": "型付きデータの操作API",
+  "summary": "LikeDataViewの型付きデータの操作API",
+  "source": "packages/dataview/src/docs/commands.md",
+  "order": 10,
+  "section": "データと操作",
+  "keywords": [
+    "dataview",
+    "型付きデータの操作API"
+  ]
+}

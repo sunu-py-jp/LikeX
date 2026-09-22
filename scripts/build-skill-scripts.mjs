@@ -2,9 +2,10 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { moduleNames, libraryModule } from './lib/modules.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const skillKinds = ['spreadsheet', 'slide'];
+export const skillKinds = moduleNames.filter(name => libraryModule(name).skillName);
 
 export async function generatedSkillScript(kind) {
   if (!skillKinds.includes(kind)) throw new Error(`Unsupported skill: ${kind}`);
@@ -13,6 +14,14 @@ export async function generatedSkillScript(kind) {
   return source.replace('// Canonical CLI source. Generate distributable scripts with scripts/build-skill-scripts.mjs.',
     '// Generated from scripts/skills/document-cli.mjs. Do not edit; run node scripts/build-skill-scripts.mjs.')
     .replace("'__DOCUMENT_KIND__'", JSON.stringify(kind)).replace("'__LIBRARY_VERSION__'", JSON.stringify(metadata.version));
+}
+
+export async function generatedRenderImagesScript() {
+  const metadata = JSON.parse(await readFile(path.join(repo, 'packages/slide/package.json'), 'utf8'));
+  const source = await readFile(path.join(repo, 'scripts/skills/render-images-cli.mjs'), 'utf8');
+  return source.replace('// Canonical CLI source. Generate distributable scripts with scripts/build-skill-scripts.mjs.',
+    '// Generated from scripts/skills/render-images-cli.mjs. Do not edit; run node scripts/build-skill-scripts.mjs.')
+    .replace("'__LIBRARY_VERSION__'", JSON.stringify(metadata.version));
 }
 
 export async function buildSkillScripts({ check = false } = {}) {
@@ -25,6 +34,12 @@ export async function buildSkillScripts({ check = false } = {}) {
       if (existing !== generated) stale.push(path.relative(repo, destination));
     } else { await mkdir(path.dirname(destination), { recursive: true }); await writeFile(destination, generated); }
   }
+  const renderDestination = path.join(repo, 'packages/slide/skills/likex-slide/scripts/render-images.mjs');
+  const renderGenerated = await generatedRenderImagesScript();
+  if (check) {
+    const existing = await readFile(renderDestination, 'utf8').catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+    if (existing !== renderGenerated) stale.push(path.relative(repo, renderDestination));
+  } else { await mkdir(path.dirname(renderDestination), { recursive: true }); await writeFile(renderDestination, renderGenerated); }
   if (stale.length) throw new Error(`Generated skill scripts are stale. Run node scripts/build-skill-scripts.mjs: ${stale.join(', ')}`);
 }
 

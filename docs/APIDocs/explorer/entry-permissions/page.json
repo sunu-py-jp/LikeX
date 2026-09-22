@@ -1,0 +1,8 @@
+{
+  "title": "ファイルごとの操作可否",
+  "summary": "getEntryPermissionsで操作直前に項目別ルールを確認し、拒否理由を親から指定します。",
+  "source": "packages/explorer/src/docs/entry-permissions.md",
+  "order": 145,
+  "keywords": ["getEntryPermissions", "ExplorerEntryPermissionsResolver", "ExplorerEntryPermissions", "ExplorerEntryPermission", "ExplorerEntryOperation", "ExplorerEntryPermissionTarget", "ExplorerOperationDeniedError", "assertExplorerEntryPermissions", "checksForExplorerAction", "checksForExplorerChanges", "ファイル単位", "排他制御"],
+  "section": "親アプリとの連携"
+}

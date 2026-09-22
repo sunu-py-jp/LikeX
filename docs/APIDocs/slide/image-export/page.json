@@ -1,0 +1,9 @@
+{
+  "title": "PNG画像の書き出し",
+  "summary": "単一ページ・範囲・任意ページを画像に変換し、ブラウザーとNodeの描画環境を選べます。",
+  "source": "packages/slide/src/docs/image-export.md",
+  "order": 45,
+  "section": "読み込みと出力",
+  "keywords": ["LikeSlide", "PNG", "exportImage", "exportImages", "SlideImageResult", "SlideImageRenderer", "renderer", "pageNumber", "scale"],
+  "screenshots": []
+}

@@ -1,0 +1,8 @@
+{
+  "title": "ストリーミング・添付",
+  "summary": "親アプリの応答生成、停止・再試行、添付アップロードと参照・ツール表示。",
+  "source": "packages/aichat/src/docs/streaming.md",
+  "order": 30,
+  "section": "親アプリとの連携",
+  "keywords": ["onSend", "AIChatSendHandler", "AsyncIterable", "retry", "cancel", "onAttachmentUpload"]
+}

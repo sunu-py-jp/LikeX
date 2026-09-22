@@ -37,9 +37,11 @@ const AddressBarSession = memo(function AddressBarSession() {
     instanceId,
     workspaceRef,
     features,
+    dragOver,
+    setDragOver,
   } = useExplorerFields(
     "rootLabel", "addressPath", "addressInput", "navigatePath", "navigate", "crumbs", "special",
-    "title", "allowDrop", "drop", "instanceId", "workspaceRef", "features",
+    "title", "allowDrop", "drop", "instanceId", "workspaceRef", "features", "dragOver", "setDragOver",
   );
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(addressPath);
@@ -125,15 +127,17 @@ const AddressBarSession = memo(function AddressBarSession() {
               : undefined
           }
         >
-          <div className="lxe:flex lxe:min-w-0 lxe:items-center lxe:gap-1 lxe:overflow-x-auto lxe:[scrollbar-width:none]">
+          <div data-explorer-drag-scroll="x" className="lxe:flex lxe:min-w-0 lxe:items-center lxe:gap-1 lxe:overflow-x-auto lxe:[scrollbar-width:none]">
             <button
               type="button"
               className={mergeExplorerClasses(
                 buttonClass,
                 "lxe:h-6 lxe:min-h-6 lxe:shrink-0 lxe:border-0 lxe:bg-transparent lxe:px-1.5 lxe:py-0 lxe:text-[13px] lxe:font-normal",
+                dragOver === "root" && "lxe:outline lxe:outline-[var(--explorer-accent)] lxe:bg-[var(--explorer-selection)]",
               )}
               onClick={() => navigate("root")}
               onDragOver={(event) => allowDrop(event, "root")}
+              onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragOver(null); }}
               onDrop={(event) => void drop(event, "root")}
             >
               <HardDrive size={15} />
@@ -150,9 +154,11 @@ const AddressBarSession = memo(function AddressBarSession() {
                   className={mergeExplorerClasses(
                     buttonClass,
                     "lxe:h-6 lxe:min-h-6 lxe:border-0 lxe:bg-transparent lxe:px-1.5 lxe:py-0 lxe:text-[13px] lxe:font-normal",
+                    dragOver === entry.id && "lxe:outline lxe:outline-[var(--explorer-accent)] lxe:bg-[var(--explorer-selection)]",
                   )}
                   onClick={() => navigate(entry.id)}
                   onDragOver={(event) => allowDrop(event, entry.id)}
+                  onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragOver(null); }}
                   onDrop={(event) => void drop(event, entry.id)}
                 >
                   {entry.name}

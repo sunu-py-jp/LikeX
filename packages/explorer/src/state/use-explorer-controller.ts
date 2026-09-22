@@ -21,13 +21,16 @@ import {
   type ExplorerNotification,
 } from "./view-state";
 import type { ExplorerProps } from "../props";
-import { getEntryPath, normalizeEntryName } from "../model/entries";
+import { getEntryPath, normalizeEntryName, selectionRoots, validateDestination } from "../model/entries";
+import { createExplorerDragPreview } from "../ui/explorer-drag-feedback";
 import { isSameFolderMove, type ExplorerAction, type ExplorerEntry as Entry } from "../model/draft";
 import { resolveExplorerOptions, type ExplorerViewMode } from "../model/config";
 import { useExplorerWorkspace, type ExplorerWorkspace, type WindowPosition } from "./use-explorer-workspace";
 import { useExplorerDownload } from "./use-explorer-download";
 import type { ExplorerEditIntent } from "../model/edit-session";
-import { describeEntry } from "../model/item-info";
+import { describeEntry, describeEntries } from "../model/item-info";
+import { resolveExplorerEntryTargets } from "../model/navigation";
+import type { ExplorerCommandHandle } from "../model/commands";
 import { createPreviewRequest } from "../model/preview";
 import { dispatchExplorerEvent, type ExplorerViewEvent, type ExplorerLocationInfo } from "../model/events";
 import { useExplorerWindowTabs, type TabViewState } from "./use-explorer-tabs";
@@ -52,6 +55,7 @@ import {
 const DEFAULT_SORT: TabViewState["sort"] = { key: "name", asc: true };
 type RenameSession = {
   id: string;
+  source: "list" | "tree";
   revision: number;
   tabId: string;
   value: string;
@@ -99,6 +103,8 @@ export function useExplorerViewController({
   useInsertionEffect(() => { currentOptions.current = options; }, [options]);
   const eventObserver = useRef(onEvent);
   useLayoutEffect(() => { eventObserver.current = onEvent; }, [onEvent]);
+  const previewHandler = useRef(onPreviewRequest);
+  useInsertionEffect(() => { previewHandler.current = onPreviewRequest; }, [onPreviewRequest]);
   function emitEvent(event: ExplorerViewEvent) {
     dispatchExplorerEvent(eventObserver.current, windowId === "main" ? event : { ...event, windowId });
   }
@@ -121,7 +127,6 @@ export function useExplorerViewController({
     editRevision,
     saveError,
     save,
-    discard,
   } = workspace.draft;
   const busy = saving || refreshing || editMode === "requesting" || workspace.draft.mutationBlocked;
   const currentDraft = useRef(workspace.draft);
@@ -306,8 +311,9 @@ export function useExplorerViewController({
   }, [features.uploadFiles, features.uploadFolders]);
   const [renameSession, setRenameSession] = useState<RenameSession | null>(null);
   const renameSessionRef = useRef<RenameSession | null>(null);
-  const cancelRename = useCallback((id?: string) => {
-    if (!renameSessionRef.current || (id && renameSessionRef.current.id !== id)) return;
+  const cancelRename = useCallback((id?: string, source?: RenameSession["source"]) => {
+    if (!renameSessionRef.current || (id && renameSessionRef.current.id !== id) ||
+      (source && renameSessionRef.current.source !== source)) return;
     renameSessionRef.current = null;
     setRenameSession(null);
     cancelEditRequest(windowId);
@@ -315,6 +321,9 @@ export function useExplorerViewController({
   const pendingRename = useRef<RenameSession | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null),
     [externalDrag, setExternalDrag] = useState(false);
+  const removeDragPreview = useRef<(() => void) | null>(null);
+  useEffect(() => () => { removeDragPreview.current?.(); }, []);
+  useEffect(() => { if (readOnly || (!features.copy && !features.move)) { removeDragPreview.current?.(); removeDragPreview.current = null; } }, [readOnly, features.copy, features.move]);
   const [previousEditRevision, setPreviousEditRevision] = useState(editRevision);
   const endedEdit = previousEditRevision !== editRevision;
   if (endedEdit) setPreviousEditRevision(editRevision);
@@ -384,7 +393,7 @@ export function useExplorerViewController({
   /** Preserve the gesture's targets across authorization; never replay a stale view. */
   function runEdit(intent: ExplorerEditIntent, operation: () => boolean, onError?: (error: unknown) => void): boolean | Promise<boolean> {
     const draft = currentDraft.current;
-    if (!mounted.current || !draft.canMutate() || draft.saving || draft.refreshing || currentOptions.current.readOnly) return false;
+    if (!mounted.current || draft.isBusy() || currentOptions.current.readOnly) return false;
     if (intent.action !== "upload" && intent.action !== "save" && !canAct(intent.action, currentOptions.current)) return false;
     const origin = workspace.tabs.forWindow(windowId);
     const tabId = origin.activeTabId;
@@ -409,7 +418,7 @@ export function useExplorerViewController({
       const viewChanged = currentTab.activeTabId !== tabId || currentTab.activeTab.requestedLocation !== requestedLocation;
       if (session.mode !== "edit" || session.requestId !== requestId ||
         (intent.action !== "upload" && viewChanged) ||
-        currentDraft.current.saving || currentDraft.current.refreshing || (intent.action !== "upload" && intent.action !== "save" && !canAct(intent.action, currentOptions.current))) return false;
+        currentDraft.current.isBusy() || (intent.action !== "upload" && intent.action !== "save" && !canAct(intent.action, currentOptions.current))) return false;
       try {
         const latest = getEntryIndex(draft.getEntries());
         if (intent.ids?.some(id => !latest.byId.has(id) || latest.byId.get(id)?.kind !== targetKinds.get(id)))
@@ -430,7 +439,8 @@ export function useExplorerViewController({
     const timeout = setTimeout(() => setNotification(null), 5000);
     return () => clearTimeout(timeout);
   }, [notification]);
-  const download = useExplorerDownload({ entries, enabled: features.download, readFile, onDownloadRequest,
+  const download = useExplorerDownload({ entries, getEntries: workspace.draft.getEntries,
+    assertPermissions: checks => currentDraft.current.assertEntryPermissions(checks), enabled: features.download, readFile, onDownloadRequest,
     manager: workspace.downloads, windowId, ownerDocument, emitEvent, setNotification });
   const instanceId = useId();
   const entryId = (id: string) => `${instanceId}-entry-${id}`;
@@ -558,7 +568,7 @@ export function useExplorerViewController({
   const renamingEntryId = features.rename && !readOnly && !saving && !refreshing &&
     renameSession?.revision === editRevision &&
     renameSession?.tabId === tabState.activeTabId &&
-    visiblePositions.has(renameSession.id)
+    (renameSession.source === "tree" ? entryIndex.byId.get(renameSession.id)?.kind === "folder" : visiblePositions.has(renameSession.id))
     ? renameSession.id
     : null;
 
@@ -598,16 +608,22 @@ export function useExplorerViewController({
     for (const event of events) emitEvent(event);
   });
 
-  function startRename(ids = selected) {
+  function startRename(ids = selected, source: RenameSession["source"] = "list") {
     if (busy || !canAct("rename", currentOptions.current) || ids.length !== 1) return;
-    const entry = visible.find((item) => item.id === ids[0]);
-    if (!entry) return;
+    const entry = source === "tree" ? entryIndex.byId.get(ids[0]) : visible.find((item) => item.id === ids[0]);
+    if (!entry || (source === "tree" && entry.kind !== "folder")) return;
+    try { currentDraft.current.assertEntryPermissions([{ id: entry.id, operation: "rename", recursive: true }]); }
+    catch (error) {
+      notify("error", error instanceof Error ? error.message : "名前を変更できませんでした");
+      return false;
+    }
     clearTransientState();
-    setSelected([entry.id]);
+    if (source === "list") setSelected([entry.id]);
     const dot = entry.kind === "file" ? entry.name.lastIndexOf(".") : -1;
     const extension = dot > 0 && dot < entry.name.length - 1 ? entry.name.slice(dot) : "";
     const session = {
       id: entry.id,
+      source,
       revision: currentDraft.current.getEditRevision(),
       tabId: tabState.activeTabId,
       value: extension ? entry.name.slice(0, -extension.length) : entry.name,
@@ -718,7 +734,7 @@ export function useExplorerViewController({
 
   function showModal(type: ExplorerDialogState["type"], ids = selected) {
     const creating = type === "create" || type === "createFile";
-    if (busy || !canShowModal(type, currentOptions.current, currentDraft.current.canRefresh) || (creating && (special || provisionalLocation))) return;
+    if (currentDraft.current.isBusy() || !canShowModal(type, currentOptions.current, currentDraft.current.canRefresh) || (creating && (special || provisionalLocation))) return;
     const capturedIds = creating ? [] : [...ids];
     cancelRename();
     setModalRevision(currentDraft.current.getEditRevision());
@@ -734,9 +750,9 @@ export function useExplorerViewController({
     extra: { name?: string; parent?: string } = {},
     message = "変更しました",
   ) {
-    if (busy || !canAct(action, currentOptions.current)) return false;
-    const command = { action, ids: [...ids], ...extra };
+    if (currentDraft.current.isBusy() || !canAct(action, currentOptions.current)) return false;
     try {
+      const command = { action, ids: [...ids], ...extra };
       const commit = currentDraft.current.prepareAction(command);
       if (!commit) return false;
       return runEdit({ action, ids: command.ids, parent: command.parent }, () => {
@@ -752,7 +768,7 @@ export function useExplorerViewController({
     }
   }
   function submitModal(): boolean | Promise<boolean> {
-    if (!modal || busy || modal.type === "help" || !canShowModal(modal.type, currentOptions.current, currentDraft.current.canRefresh) || modalRef.current !== modal) return false;
+    if (!modal || currentDraft.current.isBusy() || modal.type === "help" || !canShowModal(modal.type, currentOptions.current, currentDraft.current.canRefresh) || modalRef.current !== modal) return false;
     const submitted = modal;
     const fail = (error: unknown) => {
       if (modalRef.current === submitted)
@@ -760,13 +776,7 @@ export function useExplorerViewController({
     };
     try {
       if (modal.type === "discard") {
-        discard();
-        setSelected([]);
-        setAnchor(null);
-        setClipboard(null);
-        setPreviewId(null);
-        setDetailId(null);
-        notify("info", "未保存の変更を破棄しました");
+        if (!discardChanges()) return false;
         setModal(null);
         return true;
       }
@@ -807,14 +817,30 @@ export function useExplorerViewController({
     }
   }
 
-  async function saveChanges() {
-    if (currentOptions.current.readOnly) return;
+  function discardChanges(): boolean {
+    const draft = currentDraft.current;
+    if (!mounted.current || ownerDocument?.defaultView?.closed || currentOptions.current.readOnly || draft.isBusy()) return false;
+    try {
+      draft.discard();
+      clearTransientState();
+      setSelected([]);
+      setAnchor(null);
+      setClipboard(null);
+      notify("info", "未保存の変更を破棄しました");
+      return true;
+    } catch (error) {
+      notify("error", error instanceof Error ? error.message : "変更を破棄できませんでした");
+      return false;
+    }
+  }
+  async function saveChanges(): Promise<boolean> {
+    if (!mounted.current || ownerDocument?.defaultView?.closed || currentOptions.current.readOnly) return false;
     const notificationRevision = workspace.notifications.getRevision();
     setNotification(null);
     const completion = save(windowId);
     const request = currentDraft.current.getEditState();
     const saved = await completion;
-    if (!mounted.current) return;
+    if (!mounted.current) return saved;
     if (saved) {
       // A host can report its own progress/results while saving. Do not repeat
       // that result with a second generic completion notice.
@@ -825,12 +851,12 @@ export function useExplorerViewController({
       if (failure.error && failure.errorRequestId === (request.requestId ?? request.errorRequestId))
         notify("error", failure.error);
     }
+    return saved;
   }
   async function refreshEntries(): Promise<boolean> {
     const draft = currentDraft.current;
-    if (!mounted.current || !draft.canRefresh || draft.saving || draft.refreshing ||
-      draft.getEditState().mode === "requesting") return false;
-    if (draft.dirty) {
+    if (!mounted.current || ownerDocument?.defaultView?.closed || !draft.canRefresh || draft.isBusy()) return false;
+    if (draft.getDirty()) {
       // The user confirms in this pane; no data is discarded until refresh succeeds.
       showModal("refresh", []);
       return false;
@@ -856,9 +882,14 @@ export function useExplorerViewController({
     cancelEditRequest();
   }
   function copyToClipboard(action: "move" | "copy", ids = selected, transfer?: DataTransfer) {
-    if (!canAct(action, currentOptions.current) || !ids.length || busy) return;
+    if (!mounted.current || !canAct(action, currentOptions.current) || !ids.length || currentDraft.current.isBusy()) return;
     ids = [...ids];
     if (ids.some(id => !getEntryIndex(currentDraft.current.getEntries()).byId.has(id))) return false;
+    try { currentDraft.current.assertEntryPermissions(ids.map(id => ({ id, operation: action, recursive: true }))); }
+    catch (error) {
+      notify("error", error instanceof Error ? error.message : "クリップボードに追加できませんでした");
+      return false;
+    }
     {
       const nextClipboard = { action, ids: [...ids] };
       currentClipboard.current = nextClipboard;
@@ -900,11 +931,11 @@ export function useExplorerViewController({
       return true;
     }
   }
-  function paste() {
+  function paste(parentId?: string) {
     const copied = workspace.getClipboard();
-    const currentLocation = resolveLocation(workspace.tabs.forWindow(windowId).activeTab.requestedLocation);
+    const currentLocation = parentId ?? resolveLocation(workspace.tabs.forWindow(windowId).activeTab.requestedLocation);
     if (!copied || typeof currentLocation !== "string" || currentDraft.current.saving || currentDraft.current.refreshing ||
-      (currentLocation !== "root" && !getEntryIndex(currentDraft.current.getEntries()).byId.has(currentLocation)) ||
+      (currentLocation !== "root" && getEntryIndex(currentDraft.current.getEntries()).byId.get(currentLocation)?.kind !== "folder") ||
       currentDraft.current.getEditState().mode === "requesting" || !canAct(copied.action, currentOptions.current)) return false;
     return act(
       copied.action,
@@ -914,6 +945,7 @@ export function useExplorerViewController({
     );
   }
   function openEntry(entry: Entry) {
+    if (!mounted.current || ownerDocument?.defaultView?.closed) return;
     cancelRename();
     const currentEntries = currentDraft.current.getEntries();
     const currentEntry = getEntryIndex(currentEntries).byId.get(entry.id);
@@ -922,14 +954,26 @@ export function useExplorerViewController({
       navigate(currentEntry.id);
       return;
     }
-    if (!features.preview) return;
+    if (!currentOptions.current.features.preview) return;
+    try { currentDraft.current.assertEntryPermissions([{ id: currentEntry.id, operation: "preview" }]); }
+    catch (error) {
+      notify("error", error instanceof Error ? error.message : "プレビューを開けませんでした");
+      return;
+    }
+    const handler = previewHandler.current;
     const eventRequest = createPreviewRequest(currentEntries, currentEntry.id);
     if (!eventRequest) return;
     const revision = ++previewRequestRevision.current;
-    emitEvent({ type: "preview", request: eventRequest, external: Boolean(onPreviewRequest) });
+    emitEvent({ type: "preview", request: eventRequest, external: Boolean(handler) });
     // Host event handlers may immediately navigate or request another preview.
     if (!mounted.current || revision !== previewRequestRevision.current) return;
-    if (!onPreviewRequest) {
+    // A host event can synchronously replace the access policy.
+    try { currentDraft.current.assertEntryPermissions([{ id: currentEntry.id, operation: "preview" }]); }
+    catch (error) {
+      notify("error", error instanceof Error ? error.message : "プレビューを開けませんでした");
+      return;
+    }
+    if (!handler) {
       setPreviewId(currentEntry.id);
       return;
     }
@@ -941,17 +985,21 @@ export function useExplorerViewController({
       notify("error", error instanceof Error ? error.message : "プレビューを開けませんでした");
     };
     try {
-      void Promise.resolve(onPreviewRequest(request)).catch(failed);
+      void Promise.resolve(handler(request)).catch(failed);
     } catch (error) {
       failed(error);
     }
   }
-  const hostNavigation = useExplorerNavigation({ workspace, windowId, options, prepare: clearTransientState, preview: openEntry });
+  const hostNavigation = useExplorerNavigation({ workspace, windowId, options, prepare: clearTransientState, preview: openEntry,
+    onPermissionError: message => notify("error", message),
+    visibleIds: visible.map(entry => entry.id) });
   useEffect(() => {
     const id = workspace.takeInitialPreview(tabState.activeTabId);
     if (!id || !features.preview) return;
     const entry = entryIndex.byId.get(id);
     // Dispatch once after the view mounts, through the same UI/host boundary as a user preview.
+    // The consumed initial command may open a dialog or report denial, but cannot replay on rerender.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (entry?.kind === "file" && entry.parent === currentParent) openEntry(entry);
   });
   function rowKey(event: React.KeyboardEvent, entry: Entry) {
@@ -1033,9 +1081,13 @@ export function useExplorerViewController({
       JSON.stringify({ instanceId: workspaceId, ids }),
     );
     event.dataTransfer.effectAllowed = features.copy && features.move ? "copyMove" : features.copy ? "copy" : "move";
+    removeDragPreview.current?.();
+    removeDragPreview.current = createExplorerDragPreview(event.currentTarget as HTMLElement, event.dataTransfer, entry.name, ids.length);
   }
   function endDrag() {
     draggedIdsRef.current = null;
+    removeDragPreview.current?.();
+    removeDragPreview.current = null;
     setDragOver(null);
     setExternalDrag(false);
   }
@@ -1047,9 +1099,12 @@ export function useExplorerViewController({
     event.stopPropagation();
     const sameFolder = internal && !event.ctrlKey && draggedIdsRef.current !== null &&
       isSameFolderMove(entries, draggedIdsRef.current, id);
+    let invalidDestination = false;
+    try { validateDestination(entries, internal && draggedIdsRef.current ? selectionRoots(entries, draggedIdsRef.current) : [], id); }
+    catch { invalidDestination = true; }
     // During dragover the protected transfer may expose only "Files". Allow
     // either import kind here, then validate the actual file/folder mix on drop.
-    if (busy || currentOptions.current.readOnly || (id !== "root" && !entryIndex.byId.has(id)) || sameFolder || (internal ? !canAct(event.ctrlKey ? "copy" : "move", currentOptions.current) : !(currentOptions.current.features.uploadFiles || currentOptions.current.features.uploadFolders))) {
+    if (busy || currentOptions.current.readOnly || invalidDestination || sameFolder || (internal ? !canAct(event.ctrlKey ? "copy" : "move", currentOptions.current) : !(currentOptions.current.features.uploadFiles || currentOptions.current.features.uploadFolders))) {
       event.dataTransfer.dropEffect = "none";
       setDragOver(null);
       return;
@@ -1108,6 +1163,50 @@ export function useExplorerViewController({
       return importPreview.begin(parent);
     },
   });
+  const commands: ExplorerCommandHandle = {
+    getEntries: () => mounted.current && !ownerDocument?.defaultView?.closed ? describeEntries(currentDraft.current.getEntries()) : null,
+    async execute(command) {
+      if (!command || !mounted.current || ownerDocument?.defaultView?.closed) return false;
+      // Omitted IDs are deliberately empty; a host command cannot accidentally
+      // act on a selection that changed while it was being prepared.
+      return act(command.action, command.ids ?? [], { name: command.name, parent: command.parent });
+    },
+    async upload(files, parentId) {
+      if (!mounted.current || ownerDocument?.defaultView?.closed) return false;
+      if (!Array.isArray(files) || files.some(file => !file || typeof file.name !== "string" || typeof file.slice !== "function")) {
+        notify("error", "追加するファイルが正しくありません");
+        return false;
+      }
+      try {
+        return await uploadImport.startAsync(files, parentId, files.some(file => !!file.webkitRelativePath), {
+          signal: new AbortController().signal,
+        });
+      } catch { return false; } // The shared import workflow has already notified the user.
+    },
+    save: saveChanges,
+    discard: async () => discardChanges(),
+    refresh: refreshEntries,
+    async download(target) {
+      if (!mounted.current || !currentOptions.current.features.download) return false;
+      const resolved = resolveExplorerEntryTargets(currentDraft.current.getEntries(), [target]);
+      if (!resolved.ok) { notify("error", resolved.message); return false; }
+      return download({ id: resolved.value.entryIds[0] });
+    },
+  };
+  const committedCommands = useRef(commands);
+  useInsertionEffect(() => { committedCommands.current = commands; });
+  useLayoutEffect(() => {
+    if (windowId !== "main") return;
+    return workspace.commands.register({
+      getEntries: () => committedCommands.current.getEntries(),
+      execute: action => committedCommands.current.execute(action),
+      upload: (files, parentId) => committedCommands.current.upload(files, parentId),
+      save: () => committedCommands.current.save(),
+      discard: () => committedCommands.current.discard(),
+      refresh: () => committedCommands.current.refresh(),
+      download: target => committedCommands.current.download(target),
+    });
+  }, [workspace.commands, windowId]);
   const customMenu = useExplorerContextMenu({ workspace, options, provider: getContextMenuItems,
     mode: contextMenuExecutionMode, readFile, windowId, ownerDocument,
     tabId: tabState.activeTabId, selected, location: locationInfo,
@@ -1397,6 +1496,7 @@ export function useExplorerViewController({
     modalError,
     setModalError,
     renamingEntryId,
+    renameSource: renameSession?.source ?? "list",
     renameValue: renameSession?.value ?? "",
     renameExtension: renameSession?.extension ?? "",
     renameError: renameSession?.error ?? "",
@@ -1468,7 +1568,7 @@ export function useExplorerViewController({
     addLocalFiles,
     uploadPrompt: uploadImport.prompt,
     hasCustomContextMenu: !!getContextMenuItems,
-    getCustomContextMenu: (entry?: Entry) => provisionalLocation ? null : customMenu.getMenu(entry),
+    getCustomContextMenu: (entry?: Entry, selection?: readonly string[]) => provisionalLocation ? null : customMenu.getMenu(entry, selection),
     runCustomContextMenu: customMenu.run,
     customContextMenuState: customMenu.state,
     customContextMenuBusy: workspace.draft.contextMenuBusy,

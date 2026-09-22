@@ -38,12 +38,12 @@ function resizeTextarea(textarea: HTMLTextAreaElement) {
 }
 
 /** Keep a menu's closing focus restoration from taking focus out of the editor. */
-export function useRenameMenuFocus() {
+export function useRenameMenuFocus(source: "list" | "tree" = "list") {
   const { startRename: beginRename, workspaceRef } = useExplorerFields("startRename", "workspaceRef");
   const requested = useRef(false);
   function startRename(ids?: string[]) {
     requested.current = true;
-    beginRename(ids);
+    beginRename(ids, source);
   }
   function onCloseAutoFocus(event: Event) {
     if (!requested.current) return;
@@ -150,11 +150,13 @@ export const ExplorerEntryName = memo(function ExplorerEntryName({
   className,
   editorClassName,
   multiline = false,
+  source = "list",
 }: {
   entry: ExplorerEntry;
   className?: string;
   editorClassName?: string;
   multiline?: boolean;
+  source?: "list" | "tree";
 }) {
   const { document: ownerDocument } = useExplorerDom();
   const {
@@ -170,7 +172,7 @@ export const ExplorerEntryName = memo(function ExplorerEntryName({
     features,
     busy,
   } = useExplorerSelector(value => ({
-    renamingEntryId: value.renamingEntryId === entry.id ? entry.id : null,
+    renamingEntryId: value.renamingEntryId === entry.id && value.renameSource === source ? entry.id : null,
     renameValue: value.renamingEntryId === entry.id ? value.renameValue : "",
     renameExtension: value.renamingEntryId === entry.id ? value.renameExtension : "",
     renameError: value.renamingEntryId === entry.id ? value.renameError : "",
@@ -246,10 +248,10 @@ export const ExplorerEntryName = memo(function ExplorerEntryName({
       // StrictMode reconnects the input during its effect replay. Only an
       // editor that is still absent after that replay cancels the session.
       queueMicrotask(() => {
-        if (!editorMounted.current) cancelRename(entry.id);
+        if (!editorMounted.current) cancelRename(entry.id, source);
       });
     };
-  }, [editing, entry.id, multiline, cancelRename]);
+  }, [editing, entry.id, multiline, cancelRename, source]);
 
   if (!editing) {
     return (
@@ -297,7 +299,8 @@ export const ExplorerEntryName = memo(function ExplorerEntryName({
   }
 
   function focusRow() {
-    ownerDocument?.getElementById(entryId(entry.id))?.focus();
+    if (source === "tree") inputRef.current?.closest<HTMLElement>("[data-explorer-tree-entry]")?.focus();
+    else ownerDocument?.getElementById(entryId(entry.id))?.focus();
   }
 
   const controlProps = {

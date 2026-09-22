@@ -8,12 +8,12 @@ export type CellMenuAction = "copy" | "cut" | "paste" | "paste-values" | "paste-
   "insert-rows" | "insert-columns" | "delete-rows" | "delete-columns" | "insert-cells" | "shift-delete-cells" | "clear" | "delete-cells" |
   "format" | "comment" | "delete-comment" | "resize" | "autofit";
 export type CellMenuItem = Readonly<{ id: CellMenuAction; label: string; group: number; disabled: boolean; disabledReason?: string; destructive?: boolean }>;
-export type GridMenuTarget = Exclude<SpreadsheetContextMenuContext["target"], {kind: "sheet"}>;
+export type GridMenuTarget = Exclude<SpreadsheetContextMenuContext["target"], {kind: "sheet" | "drawing"}>;
 
 /** Built-ins target the clicked cell/header; host callbacks retain their independent original selection. */
 export function selectionForContextTarget(context: SpreadsheetContextMenuContext): SpreadsheetSelection {
   const target = context.target, sheet = context.workbook.sheets.find(item => item.id === target.sheetId)!;
-  if (target.kind === "sheet") return context.selection;
+  if (target.kind === "sheet" || target.kind === "drawing") return context.selection;
   const bounds = selectionRanges(context.selection).map(rangeBounds);
   if (context.selection.sheetId === sheet.id) {
     if (target.kind === "cell" && isCellSelected(context.selection, target)) return context.selection;

@@ -1,0 +1,42 @@
+import assert from "node:assert/strict";
+import { createDocument, executeDocumentCommands, getDocumentText, getBlock, getBlocks, getImages,
+  serializeDocument, parseDocument, createDocumentSession, importDocumentDocx, exportDocumentDocx } from "__MODEL_IMPORT__";
+
+assert.equal(typeof window, "undefined");
+assert.equal(typeof document, "undefined");
+const original = createDocument({ title: "Headless document" });
+const first = getBlocks(original)[0];
+assert.equal(first.contentFrom, 1);
+assert.equal(getDocumentText(original), "");
+const result = executeDocumentCommands(original, [
+  { type: "text.insert", from: 1, text: "Headless content" },
+  { type: "mark.set", from: 1, to: 9, mark: "strong", enabled: true },
+]);
+assert.equal(getDocumentText(original), "", "commands leave the source unchanged");
+assert.equal(getDocumentText(result.document), "Headless content");
+assert.equal(getBlock(result.document, first.id).contentTo, 17);
+assert.deepEqual(getImages(result.document), []);
+assert.deepEqual(parseDocument(serializeDocument(result.document)), result.document);
+assert.equal(serializeDocument(parseDocument(serializeDocument(result.document))), serializeDocument(result.document));
+assert.throws(() => parseDocument(JSON.stringify({ ...result.document, version: 2 })));
+assert.throws(() => parseDocument(JSON.stringify({ ...result.document, format: "likex.slide" })));
+const snapshot = serializeDocument(result.document);
+assert.throws(() => executeDocumentCommands(result.document, [
+  { type: "document.update", title: "Must not persist" }, { type: "text.delete", from: -1, to: 100 },
+]));
+assert.equal(serializeDocument(result.document), snapshot);
+
+const session = createDocumentSession(original);
+session.execute({ type: "document.update", title: "Saved title" });
+session.markSaved();
+assert.equal(session.undo(), true);
+assert.equal(session.getSnapshot().dirty, true);
+assert.equal(session.redo(), true);
+assert.equal(session.getSnapshot().dirty, false);
+const exported = await exportDocumentDocx(result.document);
+assert.equal(typeof exported.blob.arrayBuffer, "function");
+const imported = await importDocumentDocx(exported.blob);
+assert.equal(getDocumentText(imported.document), "Headless content");
+assert.deepEqual(exported.warnings, []);
+assert.deepEqual(imported.warnings, []);
+console.log(JSON.stringify({ noReact: true, noDOM: true, commandsAndHistory: "passed", nativeRoundtrip: "passed", officeRoundtrip: "passed" }));

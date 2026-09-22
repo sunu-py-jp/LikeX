@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDownToLine, ArrowRight, Bold, BringToFront, Circle,
   ClipboardPaste, Copy, Diamond, FileJson, Image as ImageIcon, Italic, Minus, MonitorPlay, PanelBottom,
@@ -10,8 +10,9 @@ import {
 import type { SlideCommand, SlideElementPatch, SlideShapeKind } from "../model/types";
 import type { SlideEditor } from "../state/use-slide-editor";
 import { SlideScrollStrip } from "./slide-scroll-strip";
+import { createMoveAnimation } from "./slide-animations";
 
-export type RibbonTab = "home" | "file" | "insert" | "design" | "view";
+export type RibbonTab = "home" | "file" | "insert" | "design" | "animations" | "view";
 function Group({ name, children }: { name: string; children: ReactNode }) {
   return <section className="lxp-ribbon-group" role="group" aria-label={name}><div className="lxp-ribbon-group-controls">{children}</div><div className="lxp-ribbon-group-label">{name}</div></section>;
 }
@@ -36,6 +37,8 @@ export function SlideRibbon({ editor, onImage, onImport, onPresent, propertiesOp
   propertiesOpen: boolean; notesOpen: boolean; onProperties(): void; onNotes(): void; onFit(): void; ownerDocument: Document | null;
 }) {
   const [tab, setTab] = useState<RibbonTab>("home");
+  const root = useRef<HTMLDivElement>(null);
+  const activeTab = tab === "animations" && !editor.features.animations ? "home" : tab;
   const slide = editor.deck.slides.find(item => item.id === editor.selection.slideId);
   const selected = slide?.elements.filter(element => editor.selection.elementIds.includes(element.id)) ?? [];
   const text = selected.find(element => element.type === "text");
@@ -48,20 +51,24 @@ export function SlideRibbon({ editor, onImage, onImport, onPresent, propertiesOp
   const addShape = (shape: SlideShapeKind) => { if (slide) void editor.execute({ type: "element.add", slideId: slide.id,
     element: { type: "shape", shape, name: shapes.find(item => item.shape === shape)?.label ?? "図形", x: editor.deck.width * .35, y: editor.deck.height * .3, width: 280, height: shape === "line" ? 6 : 160, fill: "#f5b39c", stroke: "#bd5030", strokeWidth: 2 } }); };
   const remove = () => { if (slide && hasSelection) void editor.execute({ type: "element.delete", slideId: slide.id, elementIds: editor.selection.elementIds }); };
-  const tabs: { id: RibbonTab; label: string }[] = [{ id: "file", label: "ファイル" }, { id: "home", label: "ホーム" }, { id: "insert", label: "挿入" }, { id: "design", label: "デザイン" }, { id: "view", label: "表示" }];
-  return <div className="lxp-ribbon">
+  const tabs: { id: RibbonTab; label: string }[] = [{ id: "file", label: "ファイル" }, { id: "home", label: "ホーム" }, { id: "insert", label: "挿入" }, { id: "design", label: "デザイン" }, ...(editor.features.animations ? [{ id: "animations" as const, label: "アニメーション" }] : []), { id: "view", label: "表示" }];
+  const showAnimationSettings = () => {
+    if (!propertiesOpen) onProperties();
+    ownerDocument?.defaultView?.requestAnimationFrame(() => root.current?.closest("[data-likex-slide]")?.querySelector<HTMLElement>("[data-slide-animations]")?.scrollIntoView({ block: "nearest" }));
+  };
+  return <div className="lxp-ribbon" ref={root}>
     <div className="lxp-ribbon-tabs" role="tablist" aria-label="リボンのタブ">
-      {tabs.map(item => <button type="button" key={item.id} role="tab" aria-selected={tab === item.id} className={tab === item.id ? "is-active" : ""}
+      {tabs.map(item => <button type="button" key={item.id} role="tab" aria-selected={activeTab === item.id} className={activeTab === item.id ? "is-active" : ""}
         onClick={() => setTab(item.id)}>{item.label}</button>)}
     </div>
     <SlideScrollStrip>
-      {tab === "file" && <>
+      {activeTab === "file" && <>
         {!editor.readOnly && <Group name="保存"><Action label="保存" icon={<Save size={22} />} big disabled={!!editor.busy} onClick={() => void editor.save()} /></Group>}
         {editor.features.import && !editor.readOnly && <Group name="開く"><Action label="PowerPoint" icon={<Upload size={22} />} big disabled={disabled} onClick={() => onImport("pptx")} /><Action label="LikeSlide" icon={<FileJson size={22} />} big disabled={disabled} onClick={() => onImport("slon")} /></Group>}
         {editor.features.export && <Group name="エクスポート"><Action label="PowerPoint (.pptx)" icon={<ArrowDownToLine size={22} />} big disabled={!!editor.busy} onClick={() => { if (ownerDocument) void editor.download("pptx", ownerDocument); }} /><Action label="LikeSlide (.slon)" icon={<FileJson size={22} />} big disabled={!!editor.busy} onClick={() => { if (ownerDocument) void editor.download("slon", ownerDocument); }} /></Group>}
         {!editor.readOnly && <Group name="変更"><Action label="変更を破棄" icon={<RotateCcw size={20} />} big disabled={disabled || !editor.dirty} onClick={() => { if (ownerDocument?.defaultView?.confirm("未保存の変更を破棄しますか？")) editor.discard(); }} /></Group>}
       </>}
-      {tab === "home" && <>
+      {activeTab === "home" && <>
         <Group name="クリップボード">
           {!editor.readOnly && <Action label="貼り付け" icon={<ClipboardPaste size={25} />} big disabled={disabled || !slide} onClick={() => void editor.pasteElements()} />}
           <div className="lxp-ribbon-stack"><Action label="コピー" icon={<Copy size={15} />} disabled={!hasSelection} onClick={editor.copyElements} />
@@ -92,12 +99,12 @@ export function SlideRibbon({ editor, onImage, onImport, onPresent, propertiesOp
           <Action label="最背面へ" icon={<SendToBack size={16} />} disabled={disabled || !hasSelection} onClick={() => { if (slide) void editor.execute({ type: "element.order", slideId: slide.id, elementIds: editor.selection.elementIds, direction: "back" }); }} /></div></Group>}
         {!editor.readOnly && <Group name="編集"><Action label="削除" icon={<Trash2 size={22} />} big disabled={disabled || !hasSelection} onClick={remove} /></Group>}
       </>}
-      {tab === "insert" && <>
+      {activeTab === "insert" && <>
         {editor.features.text && !editor.readOnly && <Group name="テキスト"><Action label="テキスト ボックス" icon={<Type size={25} />} big disabled={disabled || !slide} onClick={addText} /></Group>}
         {editor.features.images && !editor.readOnly && <Group name="画像"><Action label="画像" icon={<ImageIcon size={25} />} big disabled={disabled || !slide} onClick={onImage} /></Group>}
         {editor.features.shapes && !editor.readOnly && <Group name="図形">{shapes.map(item => <Action key={item.shape} label={item.label} icon={item.icon} big disabled={disabled || !slide} onClick={() => addShape(item.shape)} />)}</Group>}
       </>}
-      {tab === "design" && editor.features.formatting && <>
+      {activeTab === "design" && editor.features.formatting && <>
         <Group name="背景"><div className="lxp-background-gallery">{["#ffffff", "#fff6ef", "#f0f5fa", "#142c45", "#263528", "#ca542f"].map(background => <button type="button" key={background} disabled={disabled || !slide}
           style={{ background }} aria-label={`背景色 ${background}`} title={`背景色 ${background}`} aria-pressed={slide?.background === background}
           onClick={() => { if (slide) void editor.execute({ type: "slide.update", slideId: slide.id, patch: { background } }); }} />)}</div>
@@ -107,7 +114,15 @@ export function SlideRibbon({ editor, onImage, onImport, onPresent, propertiesOp
         <Group name="ページ設定"><Action label="ワイド 16:9" icon={<RectangleHorizontal size={24} />} big disabled={disabled} onClick={() => void editor.execute({ type: "deck.resize", width: 1280, height: 720 })} />
           <Action label="標準 4:3" icon={<RectangleHorizontal size={24} />} big disabled={disabled} onClick={() => void editor.execute({ type: "deck.resize", width: 960, height: 720 })} /></Group>
       </>}
-      {tab === "view" && <>
+      {activeTab === "animations" && editor.features.animations && <>
+        {!editor.readOnly && <Group name="アニメーション"><Action label="移動を追加" icon={<Plus size={25} />} big disabled={disabled || !slide || !selected.length || selected.some(element => element.locked)} onClick={() => {
+          if (!slide || !selected.length || selected.some(element => element.locked)) return;
+          void editor.execute({ type: "animation.set", slideId: slide.id, animations: [...(slide.animations ?? []), createMoveAnimation(selected)] }, editor.deck);
+        }} /></Group>}
+        <Group name="設定"><Action label="アニメーションの詳細設定" icon={<PanelRight size={24} />} big disabled={!slide} onClick={showAnimationSettings} /></Group>
+        {editor.features.presentation && <Group name="確認"><Action label="アニメーションを再生" icon={<MonitorPlay size={25} />} big disabled={!slide} onClick={onPresent} /></Group>}
+      </>}
+      {activeTab === "view" && <>
         {editor.features.presentation && <Group name="スライドショー"><Action label="現在のスライドから" icon={<MonitorPlay size={25} />} big disabled={!slide} onClick={onPresent} /></Group>}
         <Group name="表示"><Action label="書式設定" icon={<PanelRight size={24} />} big active={propertiesOpen} onClick={onProperties} />
           {editor.features.notes && <Action label="ノート" icon={<PanelBottom size={24} />} big active={notesOpen} onClick={onNotes} />}

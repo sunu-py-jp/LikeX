@@ -1,0 +1,14 @@
+{
+  "title": "導入と初期表示",
+  "summary": "LikeCalendarのパッケージ・ソースコピー導入と表示設定。",
+  "source": "packages/calendar/src/docs/getting-started.md",
+  "order": 0,
+  "section": "はじめに",
+  "keywords": [
+    "LikeCalendar",
+    "CalendarProps",
+    "CalendarHandle",
+    "Calendar",
+    "getting-started"
+  ]
+}

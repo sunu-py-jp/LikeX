@@ -1,6 +1,8 @@
 "use client";
 
 import { matchesExplorerShortcut } from "../model/keyboard";
+import { EntryContext } from "./explorer-file-list";
+import { ExplorerEntryName } from "./explorer-entry-name";
 
 import { memo, useEffect, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
 import { mergeExplorerClasses } from "./explorer-classnames";
@@ -47,7 +49,9 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
     instanceId,
     workspaceRef,
     features,
-  } = useExplorerFields("entries", "navigationEntries", "processingEntryIds", "openPendingImportFolder", "expanded", "setExpanded", "location", "rootLabel", "dragOver", "allowDrop", "setDragOver", "drop", "navigate", "fileCount", "totalSize", "mobileOpen", "setOpenMobile", "instanceId", "workspaceRef", "features");
+    renamingEntryId,
+    renameSource,
+  } = useExplorerFields("entries", "navigationEntries", "processingEntryIds", "openPendingImportFolder", "expanded", "setExpanded", "location", "rootLabel", "dragOver", "allowDrop", "setDragOver", "drop", "navigate", "fileCount", "totalSize", "mobileOpen", "setOpenMobile", "instanceId", "workspaceRef", "features", "renamingEntryId", "renameSource");
   const rootPendingUpload = useOptionalExplorerSelector(context => context?.pendingUploadEntryIds?.has("root") ?? false);
 
   const asideRef = useRef<HTMLElement>(null);
@@ -88,9 +92,10 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
         const open = expandedSet.has(entry.id);
         const hasChildren = foldersByParent.has(entry.id);
         const pending = !committedIndex.byId.has(entry.id);
-        return (
-          <li key={entry.id}>
+        const row = (
             <div
+              data-explorer-tree-entry={entry.id}
+              tabIndex={-1}
               className={`lxe:flex lxe:h-8 lxe:min-w-0 lxe:items-center lxe:gap-0.5 lxe:pr-2 lxe:hover:bg-[var(--explorer-hover)] ${location === entry.id ? "lxe:bg-[var(--explorer-selection)]" : ""} ${dragOver === entry.id ? "lxe:bg-[var(--explorer-selection)] lxe:outline-1 lxe:-outline-offset-1 lxe:outline-[var(--explorer-accent)]" : ""}`}
               style={{ paddingLeft: 24 + depth * 14 }}
               aria-busy={processingEntryIds?.has(entry.id) || undefined}
@@ -120,8 +125,11 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
               >
                 <ChevronRight size={13} className={open ? "lxe:rotate-90" : ""} />
               </button>
-              <button
+              {renamingEntryId === entry.id && renameSource === "tree" ? (
+                <ExplorerEntryName entry={entry} source="tree" className="lxe:truncate" />
+              ) : <button
                 type="button"
+                data-explorer-tree-open
                 className="lxe:flex lxe:h-full lxe:min-w-0 lxe:flex-1 lxe:items-center lxe:gap-2 lxe:rounded-sm lxe:text-left lxe:text-[13px] lxe:outline-offset-[-2px] lxe:focus-visible:outline-2 lxe:focus-visible:outline-[var(--explorer-accent)]"
                 aria-current={location === entry.id ? "page" : undefined}
                 onClick={() => goTo(entry.id)}
@@ -136,8 +144,12 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
                   className="lxe:size-4"
                 />}
                 <span className="lxe:truncate">{entry.name}</span>
-              </button>
+              </button>}
             </div>
+        );
+        return (
+          <li key={entry.id}>
+            {pending ? row : <EntryContext entry={entry} source="tree">{row}</EntryContext>}
             {open && hasChildren && <ul>{tree(entry.id, depth + 1)}</ul>}
           </li>
         );
@@ -186,6 +198,7 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
           </button>
         </div>
         <nav
+          data-explorer-drag-scroll="y"
           className="lxe:min-h-0 lxe:flex-1 lxe:overflow-y-auto lxe:py-2 lxe:[scrollbar-width:thin]"
           aria-label="ファイルの場所"
         >

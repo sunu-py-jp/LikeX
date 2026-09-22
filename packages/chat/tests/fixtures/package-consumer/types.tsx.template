@@ -1,0 +1,30 @@
+import { createRef } from "react";
+import LikeChat, { createChat, createChatSession, executeChatCommands, type ChatCommand, type ChatHandle, type ChatProps, type ChatSendHandler } from "__LIBRARY_IMPORT__";
+const chat = createChat({ id: "consumer-chat", title: "LikeChat consumer" });
+const command: ChatCommand = { type: "chat.update", title: "Updated chat" };
+const updated = executeChatCommands(chat, command);
+const onSend: ChatSendHandler = async ({ message, conversation }, { signal, requestId }) => { if (!signal.aborted) { void message.authorId; void conversation.kind; void requestId; } };
+const props: ChatProps = {
+  initialChat: updated.chat, currentUserId: "me", initialConversationId: "conversation-1", colorMode: "system", primaryColor: "#2563eb",
+  features: { attachments: false }, onSend, onSave: async current => current,
+  onBeforeSave: () => true, onEditRequest: async ({ chat: current }, { signal }) => !!current.id && !signal.aborted,
+  onConversationChange: conversation => { void conversation.messages; },
+  onAttachmentUpload: async (files, { signal }) => signal.aborted ? [] : files.map((file, index) => ({ id: `attachment-${index}`, name: file.name, mediaType: file.type, size: file.size })),
+  onAttachmentClick: attachment => { void attachment.url; },
+  onEvent: event => { if (event.type === "change") { void event.model; void event.source; } },
+};
+const session = createChatSession(chat, { currentUserId: "me", onSave: async current => current, onSend });
+void session.send("conversation-1", "Session content"); session.cancel(); session.dispose();
+const ref = createRef<ChatHandle>();
+const view = <LikeChat ref={ref} {...props} />;
+void ref.current?.selectConversation("conversation-1");
+void ref.current?.exportNative(); void ref.current?.execute(command); void ref.current?.send("UI content");
+void ref.current?.getChat(); void ref.current?.getConversation(); void ref.current?.importNative("{}");
+void ref.current?.save(); void ref.current?.undo(); void ref.current?.redo();
+ref.current?.cancel(); ref.current?.discard(); void ref.current?.syncChat(chat);
+void view;
+// @ts-expect-error Human messages require authorId and text.
+const badRole: ChatCommand = { type: "message.add", conversationId: "conversation-1", message: { role: "user", content: "No" } };
+// @ts-expect-error Human delivery callbacks acknowledge without generating an assistant response.
+const badResponse: ChatSendHandler = async () => "AI response";
+void badRole; void badResponse;

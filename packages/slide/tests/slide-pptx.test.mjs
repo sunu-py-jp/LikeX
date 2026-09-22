@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
 
-const output = await build({ stdin: { contents: 'export {importSlidePptx} from "./src/import/import-pptx";export {exportSlidePptx,PPTX_MIME_TYPE} from "./src/export/export-pptx";export * from "./src/model";export {openOfficePackage,officeXml} from "./src/ooxml";export {createZipArchive} from "./src/core";', resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
+const output = await build({ stdin: { contents: 'export {importSlidePptx,exportSlidePptx} from "./src/model-entry";export {PPTX_MIME_TYPE} from "./src/export/export-pptx";export * from "./src/model";export {openOfficePackage,officeXml} from "./src/ooxml";export {createZipArchive} from "./src/core";', resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
 const { importSlidePptx, exportSlidePptx, PPTX_MIME_TYPE, createSlideDeck, createSlideElement, normalizeSlideDeck, openOfficePackage, officeXml, createZipArchive } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const fixture = new Uint8Array(await readFile(new URL('fixtures/powerpoint-basic.pptx', import.meta.url)));
 const { child, children, parseXml } = officeXml;

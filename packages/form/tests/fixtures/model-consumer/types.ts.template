@@ -1,0 +1,5 @@
+import { createForm, executeFormCommands, getFormField, type FormModel, type FormCommand } from "__MODEL_IMPORT__";
+const command: FormCommand = { type: "field.add", field: { type: "text", label: "Name" } };
+const form: FormModel = executeFormCommands(createForm(), [command]); void getFormField(form, "name");
+// @ts-expect-error unsupported field type
+const bad: FormCommand = { type: "field.add", field: { type: "file", label: "File" } }; void bad;

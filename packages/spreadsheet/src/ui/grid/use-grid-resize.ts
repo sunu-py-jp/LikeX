@@ -1,8 +1,7 @@
 "use client";
 import { useRef, useState, type HTMLAttributes } from "react";
-import { calculateWorkbook } from "../../model";
 import type { SpreadsheetController, Workbook } from "../../state/use-spreadsheet";
-import { autoFitColumnWidth, autoFitRowHeight, createTextMeasurer } from "../../state/sizing/auto-fit";
+import { autoFitCommand } from "../../state/sizing/auto-fit-command";
 
 type Session = { index: number; start: number; size: number; value: number; workbook: Workbook; sheetId: string; pointerId: number; scale: number };
 /** Both axes share cancellation, keyboard and optimistic preview behavior. */
@@ -20,8 +19,7 @@ export function useGridResize(c: SpreadsheetController, axis: "row" | "column") 
       const target = event.currentTarget, ownerDocument = target.ownerDocument;
       c.afterCommit(() => {
         const workbook = c.getWorkbook(), sheet = workbook.sheets.find(sheet => sheet.id === c.activeSheet.id); if (!sheet) return;
-        const values = (workbook === c.workbook ? c.calculated : calculateWorkbook(workbook))[sheet.id] ?? {}, measure = createTextMeasurer(ownerDocument, target);
-        resize(sheet.id, index, axis === "row" ? autoFitRowHeight(sheet, index, values, measure) : autoFitColumnWidth(sheet, index, values, measure)); });
+        c.afterCommand(autoFitCommand(workbook, sheet.id, axis, [index], ownerDocument, undefined, target)); });
     },
     onKeyDown: event => {
       const negative = axis === "row" ? "ArrowUp" : "ArrowLeft", positive = axis === "row" ? "ArrowDown" : "ArrowRight";

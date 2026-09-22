@@ -1,0 +1,35 @@
+[data-likex-whiteboard], [data-likex-whiteboard] *::before, [data-likex-whiteboard] *::after { box-sizing:border-box; }
+.lxw-root { --lxw-background:#ffffff; --lxw-foreground:#263548; --lxw-panel:#f8f9fb; --lxw-border:#d9dfe7; --lxw-canvas:#ffffff; --lxw-muted:#64748b; display:flex; flex-direction:column; position:relative; width:100%; height:640px; min-width:0; min-height:240px; overflow:hidden; background:var(--lxw-background); color:var(--lxw-foreground); font:13px/1.45 system-ui,sans-serif; isolation:isolate; }
+.lxw-root.lxw-dark { --lxw-background:#222a34; --lxw-foreground:#e8edf4; --lxw-panel:#29323d; --lxw-border:#424c5a; --lxw-canvas:#ffffff; --lxw-muted:#acb7c6; color-scheme:dark; }
+.lxw-root *, .lxw-root *::before, .lxw-root *::after { box-sizing:border-box; }
+.lxw-root button, .lxw-root input, .lxw-root textarea { font:inherit; color:inherit; }
+.lxw-root button { display:inline-flex; align-items:center; justify-content:center; gap:6px; border:1px solid transparent; border-radius:4px; background:transparent; padding:6px 8px; cursor:pointer; white-space:nowrap; }
+.lxw-root button:hover:not(:disabled), .lxw-root button[aria-pressed=true] { background:color-mix(in srgb,var(--lxw-primary) 13%,transparent); }
+.lxw-root button:disabled { cursor:default; opacity:.4; }
+.lxw-root button:focus-visible, .lxw-root input:focus-visible, .lxw-root textarea:focus-visible { outline:2px solid var(--lxw-accent); outline-offset:2px; }
+.lxw-header { display:flex; flex:none; height:44px; align-items:center; gap:10px; padding:0 14px; background:var(--lxw-primary); color:var(--lxw-on-primary); }
+.lxw-header strong { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lxw-header button:hover:not(:disabled) { background:#ffffff24; }
+.lxw-toolbar { display:flex; align-items:center; gap:5px; padding:8px 10px; flex:none; overflow-x:auto; background:var(--lxw-panel); border-bottom:1px solid var(--lxw-border); }
+.lxw-tool-group { display:flex; align-items:center; gap:3px; padding-right:9px; margin-right:3px; border-right:1px solid var(--lxw-border); }
+.lxw-spacer { flex:1; }
+.lxw-workspace { display:flex; min-height:0; flex:1; }
+.lxw-canvas { display:block; min-width:0; min-height:0; flex:1; width:100%; height:100%; background:var(--lxw-canvas); touch-action:none; user-select:none; }
+.lxw-canvas g[data-node-id], .lxw-canvas g[data-element-id] { cursor:move; }
+.lxw-inspector { flex:0 0 224px; border-left:1px solid var(--lxw-border); padding:18px 16px; background:var(--lxw-panel); overflow:auto; }
+.lxw-inspector h2 { font-size:13px; font-weight:600; margin:0 0 20px; }
+.lxw-inspector p { font-size:12px; line-height:1.9; color:var(--lxw-muted); }
+.lxw-inspector label { display:flex; flex-direction:column; gap:7px; margin-bottom:15px; font-size:12px; }
+.lxw-inspector input:not([type=color]), .lxw-inspector textarea { width:100%; min-width:0; border:1px solid var(--lxw-border); border-radius:4px; padding:7px 8px; background:var(--lxw-background); }
+.lxw-inspector textarea { min-height:98px; resize:vertical; }
+.lxw-field-row { display:flex; gap:10px; }
+.lxw-field-row label { min-width:0; flex:1; }
+.lxw-inspector .lxw-color { flex-direction:row; align-items:center; justify-content:space-between; }
+.lxw-color input { width:38px; height:27px; padding:2px; border:1px solid var(--lxw-border); border-radius:3px; background:var(--lxw-background); }
+.lxw-status { display:flex; flex:none; align-items:center; gap:9px; height:34px; padding:0 10px; border-top:1px solid var(--lxw-border); background:var(--lxw-panel); font-size:12px; }
+.lxw-notice { min-width:0; display:flex; gap:5px; align-items:center; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lxw-status button { padding:3px 5px; }
+.lxw-spin { animation:lxw-spin 1s linear infinite; }
+@keyframes lxw-spin { to { transform:rotate(360deg); } }
+@media (max-width:640px) { .lxw-inspector { flex-basis:170px; padding:12px; } .lxw-toolbar button { font-size:12px; } }
+@media (prefers-reduced-motion:reduce) { .lxw-spin { animation:none; } }

@@ -1,11 +1,12 @@
 import {
   applySpreadsheetCommands, createWorkbook, parseWorkbook, serializeWorkbook,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
-  createSpreadsheetSession, copySpreadsheetCells, importSpreadsheetXlsx,
+  createSpreadsheetSession, copySpreadsheetCells, importSpreadsheetXlsx, exportSpreadsheetXlsx,
   getSheets, getSheetReader, getNamedRange, getRangeByName,
   type SpreadsheetTable, type SpreadsheetTableColumn, type SpreadsheetSheetReadApi,
   type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot, type SpreadsheetReadApi, type SpreadsheetReadRange, type SpreadsheetInsertValue,
   type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult,
+  type SpreadsheetXlsxExportOptions,
   SPREADSHEET_FILE_VERSION, type SpreadsheetFile, type SpreadsheetFileRow,
   type SpreadsheetSession, type SpreadsheetSessionOptions, type SpreadsheetHistoryState, type SpreadsheetPastePayload,
 } from '__MODEL_IMPORT__';
@@ -30,6 +31,20 @@ async function readExcel(bytes: Uint8Array, signal?: SpreadsheetExcelImportOptio
   return [imported.workbook, warning];
 }
 void readExcel;
+
+async function writeExcel() {
+  const options: SpreadsheetXlsxExportOptions = { rasterizeImage: async request => {
+    const bytes: ArrayBuffer = await request.source.arrayBuffer();
+    const resourceId: string = request.resourceId;
+    void [bytes, resourceId];
+    throw new Error('The host converts the input into a PNG');
+  } };
+  const file = await exportSpreadsheetXlsx(createWorkbook(), options);
+  const bytes: ArrayBuffer = await file.arrayBuffer();
+  const mime: string = file.type;
+  return { bytes, mime };
+}
+void writeExcel;
 
 const commands: readonly SpreadsheetCommand[] = [
   { type: 'rows.insert', sheetId: 'sheet-1', index: 1, count: 2 },

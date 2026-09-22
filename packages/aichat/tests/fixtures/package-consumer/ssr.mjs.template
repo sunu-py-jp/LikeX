@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import LikeAIChat, { LikeAIChat as NamedLikeAIChat, createAIChat } from "__LIBRARY_IMPORT__";
+
+assert.equal(LikeAIChat, NamedLikeAIChat);
+assert.equal(typeof window, "undefined");
+const aichat = createAIChat({ id: "consumer-aichat", title: "LikeAIChat consumer", conversations: [{
+  id: "conversation-1", title: "Consumer conversation", messages: [{
+    id: "message-1", role: "user", content: "AIChat consumer content <script>alert(1)</script>",
+    createdAt: "2026-09-22T00:00:00.000Z", status: "complete",
+  }],
+}] });
+const markup = renderToStaticMarkup(createElement(LikeAIChat, {
+  initialAIChat: aichat, title: "LikeAIChat consumer", style: { height: 360 },
+}));
+assert.match(markup, /data-likex-aichat/);
+assert.match(markup, /class="lxai-root/);
+assert.match(markup, /class="lxai-sidebar"/);
+assert.match(markup, /class="lxai-composer"/);
+assert.match(markup, /AIChat consumer content &lt;script&gt;/);
+assert.doesNotMatch(markup, /<script>alert/);
+assert.match(markup, /height:360px/);
+console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

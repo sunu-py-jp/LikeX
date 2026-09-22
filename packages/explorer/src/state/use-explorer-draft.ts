@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   prepareFilesWithProgress,
+  prepareFilesWithProgressAsync,
   applyAction,
   createDraftSnapshot,
   getSavePayload,
+  getPreparedUploadTargets,
   hasChanges,
   type ExplorerAction,
   type ExplorerEntry,
@@ -20,8 +22,9 @@ import {
 import { describeEntries } from "../model/item-info";
 import { formatExplorerPath } from "../model/path";
 import { getPendingUploadEntryIds } from "../model/pending-uploads";
+import { assertExplorerEntryPermissions, checksForExplorerAction, checksForExplorerChanges, type ExplorerEntryPermissionCheck, type ExplorerEntryPermissionsResolver } from "../model/entry-permissions";
 import type { ExplorerOptions } from "../model/config";
-import { cloneUploadRejections, ExplorerUploadValidationError, formatUploadRejections, resolveUploadOptions, type ExplorerUploadDecision, type ExplorerUploadSession, createExplorerUploadSession, type ExplorerUploadOptions, type ExplorerUploadResult } from "../model/upload";
+import { cloneUploadRejections, ExplorerUploadInspectionRequiredError, ExplorerUploadValidationError, formatUploadRejections, requiresUploadContentInspection, resolveUploadOptions, type ExplorerUploadDecision, type ExplorerUploadSession, createExplorerUploadSession, type ExplorerUploadOptions, type ExplorerUploadResult, type ResolvedExplorerUploadOptions } from "../model/upload";
 import { cloneEditRequest, createEditRequest, type ExplorerEditHandler, type ExplorerEditIntent, type ExplorerEditModeEvent, type ExplorerEditRequest, type ExplorerEditResult, type ExplorerEditState } from "../model/edit-session";
 import type { SaveHandler as CoreSaveHandler, RefreshHandler as CoreRefreshHandler } from "../core";
 import { prepareImport } from "./import-progress";
@@ -46,6 +49,8 @@ export type ExplorerDraftOptions = Pick<ExplorerOptions, "readOnly"> & {
   onRefresh?: ExplorerRefreshHandler;
   /** Acquire permission before the first edit. Omission permits local editing synchronously. */
   onEditRequest?: ExplorerEditHandler;
+  /** Resolve the latest host-owned entry permissions synchronously for every operation. */
+  getEntryPermissions?: ExplorerEntryPermissionsResolver;
   onDirtyChange?: (dirty: boolean) => void;
   /** Observe completed operations without participating in persistence. */
   onEvent?: ExplorerEventHandler;
@@ -71,19 +76,22 @@ type EditSession = {
   cancelWait?: (allowed: boolean) => void;
 };
 type EditFinishReason = Exclude<ExplorerEditModeEvent["reason"], "request" | "granted">;
+type PreparedUpload = ReturnType<typeof prepareFilesWithProgress> extends Generator<ExplorerImportProgress, infer T> ? T : never;
+type StagedUpload = { source: ExplorerSnapshot; options: ResolvedExplorerUploadOptions; candidate: PreparedUpload };
 
 export function useExplorerDraft({
   initialEntries,
   onSave,
   onRefresh,
   onEditRequest,
+  getEntryPermissions,
   onDirtyChange,
   onEvent,
   upload,
   readOnly: requestedReadOnly,
 }: ExplorerDraftOptions) {
   const readOnly = requestedReadOnly === true || onSave === undefined;
-  const currentPolicy = useRef({ readOnly, onSave, onRefresh, onEditRequest });
+  const currentPolicy = useRef({ readOnly, onSave, onRefresh, onEditRequest, getEntryPermissions });
   const uploadOptions = useMemo(() => resolveUploadOptions(upload), [upload]);
   const currentUploadOptions = useRef(uploadOptions);
   const [state, setState] = useState<DraftState>(() => {
@@ -94,6 +102,12 @@ export function useExplorerDraft({
   // Keep synchronous operations ordered even before React renders the next frame.
   const current = useRef(state);
   const mounted = useRef(true);
+  const pendingAsyncAdds = useRef(new Set<AbortController>());
+  const cancelAsyncAdds = useCallback(() => {
+    const pending = [...pendingAsyncAdds.current];
+    pendingAsyncAdds.current.clear();
+    for (const controller of pending) controller.abort();
+  }, []);
   // Save and refresh are mutually exclusive and share the same effect lifetime.
   const persistenceRequest = useRef<object | null>(null);
   const observer = useRef(onEvent);
@@ -132,8 +146,8 @@ export function useExplorerDraft({
   useInsertionEffect(() => {
     observer.current = onEvent;
     currentUploadOptions.current = uploadOptions;
-    currentPolicy.current = { readOnly, onSave, onRefresh, onEditRequest };
-  }, [onEvent, uploadOptions, readOnly, onSave, onRefresh, onEditRequest]);
+    currentPolicy.current = { readOnly, onSave, onRefresh, onEditRequest, getEntryPermissions };
+  }, [onEvent, uploadOptions, readOnly, onSave, onRefresh, onEditRequest, getEntryPermissions]);
 
   const publishEdit = useCallback((next: ExplorerEditState) => {
     currentEditState.current = next;
@@ -174,6 +188,7 @@ export function useExplorerDraft({
     setMutationBlocked(menuOperation.current?.blocking ?? false);
     return () => {
       mounted.current = false;
+      cancelAsyncAdds();
       persistenceRequest.current = null;
       // React can reuse hook state after cleaning up its effects. A response
       // from the old lifetime must not retain a lock or overwrite newer edits.
@@ -181,10 +196,10 @@ export function useExplorerDraft({
         current.current = { ...current.current, saving: false, refreshing: false };
       finishEdit("unmounted");
     };
-  }, [finishEdit, publishEdit]);
+  }, [finishEdit, publishEdit, cancelAsyncAdds]);
   useLayoutEffect(() => {
-    if (readOnly) finishEdit("read-only");
-  }, [readOnly, finishEdit]);
+    if (readOnly) { cancelAsyncAdds(); finishEdit("read-only"); }
+  }, [readOnly, finishEdit, cancelAsyncAdds]);
 
   const commit = useCallback((next: DraftState) => {
     if (!mounted.current) return;
@@ -232,6 +247,18 @@ export function useExplorerDraft({
   }, [dirty, onDirtyChange]);
 
   const getEntries = useCallback(() => current.current.draft.entries, []);
+  const assertEntryPermissions = useCallback((checks: readonly ExplorerEntryPermissionCheck[]) => {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const source = current.current.draft;
+      const policy = currentPolicy.current;
+      assertExplorerEntryPermissions(source.entries, checks, policy.getEntryPermissions);
+      if (source === current.current.draft && policy === currentPolicy.current) return;
+    }
+    throw new Error("項目の状態が変更されたため、もう一度操作してください");
+  }, []);
+  const getDirty = useCallback(() => hasChanges(current.current.baseline, current.current.draft), []);
+  const isBusy = useCallback((owner?: symbol, allowEditRequest = false) => !mounted.current || current.current.saving || current.current.refreshing ||
+    (!allowEditRequest && session.current?.phase === "requesting") || !canMutate(owner), [canMutate]);
   const getEditRevision = useCallback(() => currentEditRevision.current, []);
   const getEditState = useCallback((): ExplorerEditState => {
     const latest = currentEditState.current;
@@ -319,8 +346,9 @@ export function useExplorerDraft({
     if (current.current.refreshing) throw new Error("再読み込みが完了するまで操作をお待ちください");
     if (hasChanges(current.current.baseline, current.current.draft))
       throw new Error("未保存の変更を保存または破棄してください");
+    cancelAsyncAdds();
     return finishEdit("ended");
-  }, [finishEdit, canMutate]);
+  }, [finishEdit, canMutate, cancelAsyncAdds]);
   const requireEdit = useCallback((intent: ExplorerEditIntent, owner?: symbol) => {
     if (endingEdit.current) throw new Error("編集を開始してから変更してください");
     if (session.current?.phase === "edit") return;
@@ -358,23 +386,40 @@ export function useExplorerDraft({
       return hasChanges(source, candidate);
     };
     if (!hasChanges(source, candidate)) return null;
+    const validatePermissions = () => {
+      for (let attempt = 0; attempt < 8; attempt++) {
+        if (!checkWritable(owner) || !refresh()) return false;
+        const policy = currentPolicy.current;
+        assertExplorerEntryPermissions(source.entries, [
+          ...checksForExplorerAction(source.entries, command),
+          ...checksForExplorerChanges(source.entries, candidate.entries),
+        ], policy.getEntryPermissions);
+        if (!checkWritable(owner)) return false;
+        if (source === current.current.draft && options === currentUploadOptions.current && policy === currentPolicy.current) return true;
+      }
+      throw new Error("項目の状態が変更されたため、もう一度操作してください");
+    };
+    if (!validatePermissions()) return null;
     let completed = false;
     let committing = false;
     return () => {
       if (completed || committing || !checkWritable(owner)) return false;
       committing = true;
       try {
-        if (!refresh()) {
+        if (!validatePermissions()) {
           completed = true;
           return false;
         }
         requireEdit(command, owner);
+        const editingSession = session.current;
         // A synchronous permission observer can also change the current draft.
         if (!checkWritable(owner)) return false;
-        if (!refresh()) {
+        if (!validatePermissions()) {
           completed = true;
           return false;
         }
+        if (!editingSession || editingSession !== session.current || editingSession.phase !== "edit")
+          throw new Error("編集を開始してから変更してください");
         const previous = current.current;
         completed = true;
         commit({ ...previous, draft: candidate, saveError: null });
@@ -387,7 +432,7 @@ export function useExplorerDraft({
   }, [checkWritable, requireEdit, commit, emitChange]);
 
   /** Classify first; rejected/empty batches never need an edit session. */
-  const prepareAddSteps = useCallback(function* (files: readonly File[], parent: string, decisions: readonly ExplorerUploadDecision[] = [], uploadSession: ExplorerUploadSession = createExplorerUploadSession(), owner?: symbol, signal?: AbortSignal): Generator<ExplorerImportProgress, {
+  const prepareAddSteps = useCallback(function* (files: readonly File[], parent: string, decisions: readonly ExplorerUploadDecision[] = [], uploadSession: ExplorerUploadSession = createExplorerUploadSession(), owner?: symbol, signal?: AbortSignal, staged?: StagedUpload): Generator<ExplorerImportProgress, {
     result: ExplorerUploadResult;
     changed: boolean;
     commit: () => ExplorerUploadResult | undefined;
@@ -395,8 +440,8 @@ export function useExplorerDraft({
     if (!checkWritable(owner)) return;
     const captured = [...files];
     const answers = decisions.map(decision => ({ ...decision, existing: { ...decision.existing, source: decision.existing.source ? { ...decision.existing.source } : null } }));
-    let source = current.current.draft;
-    let options = currentUploadOptions.current;
+    let source = staged?.source ?? current.current.draft;
+    let options = staged?.options ?? currentUploadOptions.current;
     const stage = function* (snapshot: ExplorerSnapshot, upload: typeof options) {
       try {
         return yield* prepareFilesWithProgress(snapshot, captured, parent, upload, answers, uploadSession);
@@ -413,7 +458,7 @@ export function useExplorerDraft({
         throw error;
       }
     };
-    let candidate = yield* stage(source, options);
+    let candidate = staged?.candidate ?? (yield* stage(source, options));
     const refresh = () => {
       const latest = current.current.draft;
       const latestOptions = currentUploadOptions.current;
@@ -427,6 +472,35 @@ export function useExplorerDraft({
         options = latestOptions;
       }
     };
+    const validatePermissions = () => {
+      for (let attempt = 0; attempt < 8; attempt++) {
+        if (signal?.aborted || !checkWritable(owner)) return false;
+        refresh();
+        const policy = currentPolicy.current;
+        const checks = checksForExplorerChanges(source.entries, candidate.snapshot.entries);
+        if (candidate.result.addedCount || candidate.result.overwrittenCount) {
+          checks.push({ id: parent, operation: "upload" });
+          const before = new Map(source.entries.map(entry => [entry.id, entry]));
+          const after = new Map(candidate.snapshot.entries.map(entry => [entry.id, entry]));
+          // An overwrite can reuse the same File and have no model diff. Its
+          // accepted target remains distinct from skipped/rejected inputs even
+          // when the same File object appears at multiple input indexes.
+          for (const id of getPreparedUploadTargets(candidate.result)) {
+            if (before.has(id)) checks.push({ id, operation: "overwrite" });
+            let destination = after.get(id)!.parent;
+            // Newly imported folders have no host identity yet. Apply the
+            // destination policy at their nearest pre-existing ancestor.
+            while (destination !== "root" && !before.has(destination)) destination = after.get(destination)!.parent;
+            checks.push({ id: destination, operation: "upload" });
+          }
+        }
+        assertExplorerEntryPermissions(source.entries, checks, policy.getEntryPermissions);
+        if (signal?.aborted || !checkWritable(owner)) return false;
+        if (source === current.current.draft && options === currentUploadOptions.current && policy === currentPolicy.current) return true;
+      }
+      throw new Error("項目の状態が変更されたため、もう一度操作してください");
+    };
+    if (!validatePermissions()) return;
     let completed = false;
     let committing = false;
     return {
@@ -436,11 +510,14 @@ export function useExplorerDraft({
         if (completed || committing || signal?.aborted || !checkWritable(owner)) return;
         committing = true;
         try {
-          refresh();
+          if (!validatePermissions()) return;
           if (hasChanges(source, candidate.snapshot)) {
             requireEdit({ action: "upload", parent }, owner);
+            const editingSession = session.current;
             if (signal?.aborted || !checkWritable(owner)) return;
-            refresh();
+            if (!validatePermissions()) return;
+            if (!editingSession || editingSession !== session.current || editingSession.phase !== "edit")
+              throw new Error("編集を開始してから変更してください");
           }
           const { snapshot, result } = candidate;
           const previous = current.current;
@@ -480,18 +557,38 @@ export function useExplorerDraft({
     execution: { signal: AbortSignal; onProgress: (value: ExplorerImportProgress) => void; owner?: symbol },
   ) => {
     const { signal, onProgress, owner } = execution;
+    const captured = [...files];
+    const answers = decisions.map(decision => ({ ...decision, existing: { ...decision.existing, source: decision.existing.source ? { ...decision.existing.source } : null } }));
     for (;;) {
+      if (!checkWritable(owner)) return;
       const source = current.current.draft, options = currentUploadOptions.current;
       try {
-        const prepared = await prepareImport(prepareAddSteps(files, parent, decisions, uploadSession, owner, signal), signal, onProgress);
-        if (source === current.current.draft && options === currentUploadOptions.current) return prepared;
+        const candidate = await prepareImport(prepareFilesWithProgressAsync(source, captured, parent, options, answers, uploadSession, { signal }), signal, onProgress);
+        if (source === current.current.draft && options === currentUploadOptions.current) {
+          const operation = prepareAddSteps(captured, parent, answers, uploadSession, owner, signal, { source, options, candidate });
+          for (;;) {
+            const step = operation.next();
+            if (step.done) return step.value;
+          }
+        }
       } catch (error) {
-        if (signal.aborted || (source === current.current.draft && options === currentUploadOptions.current)) throw error;
+        if (signal.aborted || (source === current.current.draft && options === currentUploadOptions.current)) {
+          if (error instanceof ExplorerUploadValidationError && !signal.aborted && mounted.current && !currentPolicy.current.readOnly) {
+            emit(() => ({
+              type: "upload", status: "rejected", parentId: parent,
+              parentPath: formatExplorerPath(source.entries, parent),
+              attemptedCount: captured.length, message: error.message,
+              rejections: cloneUploadRejections(error.rejections),
+            }));
+          }
+          throw error;
+        }
       }
       // A yielded task may change the destination or upload restrictions. Retry
       // privately before reporting errors from a snapshot that is no longer current.
     }
-  }, [prepareAddSteps]);
+  }, [prepareAddSteps, checkWritable, emit]);
+  const requiresAsyncUpload = useCallback((files: readonly File[]) => requiresUploadContentInspection(files, currentUploadOptions.current), []);
 
   const apply = useCallback((action: ExplorerAction) => {
     prepareAction(action)?.();
@@ -499,6 +596,34 @@ export function useExplorerDraft({
 
   const add = useCallback((files: readonly File[], parent: string, decisions: readonly ExplorerUploadDecision[] = [], uploadSession?: ExplorerUploadSession): ExplorerUploadResult | undefined =>
     prepareAdd(files, parent, decisions, uploadSession)?.commit(), [prepareAdd]);
+  /** The low-level add contract with asynchronous inspection and optional cancellation. */
+  const addAsync = useCallback(async (files: readonly File[], parent: string,
+    decisions: readonly ExplorerUploadDecision[] = [], uploadSession: ExplorerUploadSession = createExplorerUploadSession(),
+    execution: { signal?: AbortSignal; onProgress?: (value: ExplorerImportProgress) => void } = {},
+  ): Promise<ExplorerUploadResult | undefined> => {
+    if (!checkWritable()) return;
+    const captured = [...files];
+    const answers = decisions.map(decision => ({ ...decision, existing: { ...decision.existing, source: decision.existing.source ? { ...decision.existing.source } : null } }));
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (execution.signal?.aborted) abort();
+    else execution.signal?.addEventListener("abort", abort, { once: true });
+    pendingAsyncAdds.current.add(controller);
+    try {
+      for (;;) {
+        const prepared = await prepareAddAsync(captured, parent, answers, uploadSession, {
+          signal: controller.signal, onProgress: execution.onProgress ?? (() => {}),
+        });
+        try { return prepared?.commit(); }
+        catch (error) {
+          if (!(error instanceof ExplorerUploadInspectionRequiredError) || controller.signal.aborted) throw error;
+        }
+      }
+    } finally {
+      pendingAsyncAdds.current.delete(controller);
+      execution.signal?.removeEventListener("abort", abort);
+    }
+  }, [checkWritable, prepareAddAsync]);
 
   const discard = useCallback(() => {
     if (!mounted.current) return;
@@ -511,6 +636,7 @@ export function useExplorerDraft({
     if (previous.refreshing)
       throw new Error("再読み込みが完了するまで操作をお待ちください");
     if (endingEdit.current) return;
+    cancelAsyncAdds();
     endingEdit.current++;
     try {
       const draft = previous.baseline;
@@ -522,12 +648,13 @@ export function useExplorerDraft({
     } finally {
       endingEdit.current--;
     }
-  }, [commit, emit, finishEdit, canMutate]);
+  }, [commit, emit, finishEdit, canMutate, cancelAsyncAdds]);
 
   const save = useCallback(async (windowId = "main"): Promise<boolean> => {
     if (!mounted.current || !canMutate()) return false;
     if (currentPolicy.current.readOnly || currentPolicy.current.onSave === undefined ||
       current.current.saving || current.current.refreshing || endingEdit.current) return false;
+    cancelAsyncAdds();
     if (!hasChanges(current.current.baseline, current.current.draft)) {
       finishEdit("saved");
       return true;
@@ -558,7 +685,27 @@ export function useExplorerDraft({
     }));
     try {
       if (!isCurrent()) return false;
-      const persistedEntries = await saveHandler(payload);
+      let permittedSaveHandler: ExplorerSaveHandler | undefined;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const policy = currentPolicy.current;
+        if (policy.readOnly || !policy.onSave) throw new Error("読み取り専用のため変更できません");
+        if (!canMutate() || session.current !== savingSession || session.current?.phase !== "edit" ||
+          current.current.draft !== snapshot || current.current.baseline !== previous.baseline)
+          throw new Error("項目の状態が変更されたため、もう一度操作してください");
+        assertExplorerEntryPermissions(previous.baseline.entries,
+          checksForExplorerChanges(previous.baseline.entries, snapshot.entries), policy.getEntryPermissions);
+        assertExplorerEntryPermissions(previous.baseline.entries,
+          payload.changes.deleted.map(entry => ({ id: entry.id, operation: "save" })), policy.getEntryPermissions);
+        assertExplorerEntryPermissions(snapshot.entries,
+          [...payload.changes.created, ...payload.changes.updated].map(entry => ({ id: entry.id, operation: "save" })), policy.getEntryPermissions);
+        if (!isCurrent()) return false;
+        if (policy === currentPolicy.current) {
+          permittedSaveHandler = policy.onSave;
+          break;
+        }
+      }
+      if (!permittedSaveHandler) throw new Error("項目の状態が変更されたため、もう一度操作してください");
+      const persistedEntries = await permittedSaveHandler(payload);
       // The host may already have saved successfully after the view was torn
       // down. Preserve that result without changing a new lifetime's draft.
       if (!isCurrent()) return true;
@@ -595,12 +742,13 @@ export function useExplorerDraft({
     } finally {
       if (persistenceRequest.current === request) persistenceRequest.current = null;
     }
-  }, [commit, emit, finishEdit, requestEdit, canMutate]);
+  }, [commit, emit, finishEdit, requestEdit, canMutate, cancelAsyncAdds]);
 
   const refresh = useCallback(async (): Promise<boolean> => {
     const refreshHandler = currentPolicy.current.onRefresh;
     if (!mounted.current || !canMutate() || typeof refreshHandler !== "function" || current.current.saving || current.current.refreshing ||
       session.current?.phase === "requesting" || endingEdit.current) return false;
+    cancelAsyncAdds();
     const previous = current.current;
     const previousSession = session.current;
     const request = {};
@@ -646,7 +794,7 @@ export function useExplorerDraft({
     } finally {
       if (persistenceRequest.current === request) persistenceRequest.current = null;
     }
-  }, [commit, emit, finishEdit, canMutate]);
+  }, [commit, emit, finishEdit, canMutate, cancelAsyncAdds]);
 
   return {
     readOnly,
@@ -670,6 +818,9 @@ export function useExplorerDraft({
     getEditState,
     getEditRevision,
     getEntries,
+    assertEntryPermissions,
+    getDirty,
+    isBusy,
     contextMenuBusy,
     mutationBlocked,
     canMutate,
@@ -679,8 +830,10 @@ export function useExplorerDraft({
     prepareAction,
     prepareAdd,
     prepareAddAsync,
+    requiresAsyncUpload,
     apply,
     add,
+    addAsync,
     save,
     refresh,
     discard,

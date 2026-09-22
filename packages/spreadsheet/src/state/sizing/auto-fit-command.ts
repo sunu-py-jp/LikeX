@@ -1,13 +1,11 @@
 import type { SpreadsheetCommand } from "../../api/types";
 import type { SpreadsheetWorkbook, SpreadsheetCalculatedValue } from "../../model/types";
-import { calculateWorkbook } from "../../model";
-import { autoFitDimensions, createTextMeasurer } from "./auto-fit";
+import { createSpreadsheetAutoFitCommand } from "../../model/sizing/create-auto-fit-command";
+import { createTextMeasurer } from "./text-measurer";
 
-/** Toolbar and header menus share measurement and the same dimensions command. */
+/** Browser adapter; toolbar, header menus and public helpers share the content calculation. */
 export function autoFitCommand(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" | "column",
-  indices: Iterable<number>, document: Document, values?: Readonly<Record<string, SpreadsheetCalculatedValue>>, source?: Element | null): SpreadsheetCommand {
-  const sheet = workbook.sheets.find(item => item.id === sheetId);
-  if (!sheet) throw new Error("対象のシートがありません");
-  const sizes = Object.fromEntries(autoFitDimensions(sheet, axis, new Set(indices), values ?? calculateWorkbook(workbook)[sheetId] ?? {}, createTextMeasurer(document, source)));
-  return {type: "dimensions.resize", sheetId, ...(axis === "row" ? {rowHeights: sizes} : {columnWidths: sizes})};
+  indices: Iterable<number>, document: Document, _values?: Readonly<Record<string, SpreadsheetCalculatedValue>>, source?: Element | null): SpreadsheetCommand {
+  return createSpreadsheetAutoFitCommand(workbook, { sheetId, axis, indices: [...new Set(indices)] },
+    { measureText: createTextMeasurer(document, source) });
 }

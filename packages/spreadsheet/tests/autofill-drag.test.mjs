@@ -16,7 +16,7 @@ async function mount(t, overrides = {}) {
     requestAnimationFrame: callback => { frames.set(++frameId, callback); return frameId; }, cancelAnimationFrame: id => frames.delete(id) };
   const element = { scrollTop: 0, scrollLeft: 0, ownerDocument: {
     defaultView: view, addEventListener: (type, fn) => listeners.set(type, fn), removeEventListener: type => listeners.delete(type),
-  }, getBoundingClientRect: () => ({ left: 0, top: 0, right: 300, bottom: 200 }) };
+  }, getBoundingClientRect: () => ({ left: 0, top: 0, right: 300 * (current?.c.zoom ?? 100) / 100, bottom: 200 * (current?.c.zoom ?? 100) / 100 }) };
   const scroller = { current: element };
   const geometry = { columnOffsets: [48, 148, 248, 348, 448, 548], rowOffsets: Array.from({ length: 13 }, (_, i) => (i + 1) * 28) };
   function Probe() {
@@ -62,7 +62,7 @@ for (const zoom of [50, 200]) test(`autofill at ${zoom}% targets the same logica
   const hook = await mount(t, { initialZoom: zoom });
   await hook.start();
   await hook.dispatch('pointermove', { clientX: 80 * zoom / 100, clientY: 130 * zoom / 100 });
-  await hook.dispatch('pointerup');
+  await hook.dispatch('pointerup', { clientX: 80 * zoom / 100, clientY: 130 * zoom / 100 });
   assert.equal(hook.current.c.workbook.sheets[0].cells.A4.value, '4');
   assert.equal(hook.current.c.workbook.sheets[0].cells.A5, undefined);
   await act(async () => hook.current.c.undo());
@@ -70,5 +70,23 @@ for (const zoom of [50, 200]) test(`autofill at ${zoom}% targets the same logica
   await act(async () => hook.current.c.setZoom(100));
   assert.equal(hook.current.fill.preview, null);
   await hook.dispatch('pointerup');
+  assert.equal(hook.current.c.workbook.sheets[0].cells.A3, undefined);
+});
+
+test('release coordinates and modifiers determine the final fill even without a final pointermove', async t => {
+  const hook = await mount(t); await hook.start();
+  await hook.dispatch('pointermove', { clientY: 100 });
+  await hook.dispatch('pointerup', { clientY: 158, ctrlKey: true });
+  const cells = hook.current.c.workbook.sheets[0].cells;
+  assert.equal(cells.A3.value, '1'); assert.equal(cells.A4.value, '2'); assert.equal(cells.A5.value, '1');
+  await act(async () => hook.current.c.undo());
+  assert.equal(hook.current.c.workbook.sheets[0].cells.A3, undefined);
+});
+
+for (const reason of ['editor', 'object editor']) test(`opening an ${reason} cancels a pending fill and continuous scrolling`, async t => {
+  const hook = await mount(t); await hook.start(); await hook.dispatch('pointermove', { clientY: 240 }); await hook.tick();
+  await act(async () => reason === 'editor' ? hook.current.c.beginEdit({ row: 0, column: 0 }, 'pending') : hook.current.c.setContextMenuLock({}));
+  assert.equal(hook.current.fill.preview, null); assert.equal(hook.frames.size, 0);
+  await hook.dispatch('pointerup', { clientY: 240 });
   assert.equal(hook.current.c.workbook.sheets[0].cells.A3, undefined);
 });

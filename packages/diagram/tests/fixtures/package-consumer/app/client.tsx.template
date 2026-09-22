@@ -1,0 +1,3 @@
+"use client";
+import LikeDiagram, {createDiagram} from "__LIBRARY_IMPORT__";
+export default function Client() { return <LikeDiagram initialDiagram={createDiagram({title:"LikeDiagram consumer"})} onSave={async model=>model} style={{height:480}} />; }

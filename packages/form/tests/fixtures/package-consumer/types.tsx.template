@@ -1,0 +1,6 @@
+import { createRef } from "react";
+import LikeForm, { createForm, type FormHandle, type FormProps } from "__LIBRARY_IMPORT__";
+const ref = createRef<FormHandle>(); const props: FormProps = { initialForm: createForm(), onSave: form => form, features: { fields: false }, mode: "fill", onSubmit: async (answers, { signal }) => { void answers; void signal; } };
+const view = <LikeForm ref={ref} {...props} />; void view; void ref.current?.setAnswers({ name: "Alex" });
+// @ts-expect-error unknown feature
+const bad: FormProps = { initialForm: createForm(), features: { unknown: false } }; void bad;

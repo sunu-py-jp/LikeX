@@ -1,0 +1,7 @@
+import LikeWhiteboard from "__LIBRARY_IMPORT__";
+import { createWhiteboard, executeWhiteboardCommands } from "__LIBRARY_MODEL__";
+import Client from "./client";
+export default function Page() {
+  const model = executeWhiteboardCommands(createWhiteboard(), { type: "whiteboard.update", title: "LikeWhiteboard consumer" });
+  return <main><LikeWhiteboard initialWhiteboard={model} style={{ height: 360 }} /><Client /></main>;
+}

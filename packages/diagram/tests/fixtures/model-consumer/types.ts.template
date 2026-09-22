@@ -1,0 +1,9 @@
+import {createDiagram,executeDiagramCommands,parseDiagram,serializeDiagram,exportDiagramSvg,type DiagramModel,type DiagramCommand} from "__MODEL_IMPORT__";
+const model: DiagramModel = createDiagram();
+const command: DiagramCommand = {type:"diagram.update",title:"Updated"};
+const updated = executeDiagramCommands(model,command);
+const native = parseDiagram(serializeDiagram(updated));
+const svg:string = exportDiagramSvg(native);
+// @ts-expect-error unknown commands are rejected
+const bad: DiagramCommand = {type:"run-script"};
+void svg;void bad;

@@ -53,7 +53,7 @@ CSSはアプリの入口で1回importします。Next.js App Routerでは `app/l
 | `features` | `SlideFeatures` | 全機能有効 |
 | `warnOnUnsavedChanges` | `boolean` | 未保存の離脱確認を有効化 |
 
-`features` のキーは `addSlides`、`deleteSlides`、`reorderSlides`、`text`、`shapes`、`images`、`formatting`、`notes`、`import`、`export`、`presentation`、`history` です。`false` の機能は画面から隠し、対応する操作も受け付けません。
+`features` のキーは `addSlides`、`deleteSlides`、`reorderSlides`、`text`、`shapes`、`images`、`formatting`、`animations`、`notes`、`import`、`export`、`presentation`、`history` です。`false` の機能は画面から隠し、対応する操作も受け付けません。
 
 ```tsx
 <LikeSlide initialDeck={deck} onSave={saveDeck}
@@ -71,4 +71,4 @@ CSSはアプリの入口で1回importします。Next.js App Routerでは `app/l
 
 `primaryColor` は一番上のタイトルバー・保存ボタン・選択表示などのUI色です。文字色や選択色は読みやすさに合わせて調整します。値を変更すれば表示へ即時反映され、スライド内の文字・図形・背景の色や保存するJSONは変わりません。未指定・不正な値は既定色を使用します。`style` で明示したCSS変数は優先します。
 
-[編集](editing.md) · [保存とイベント](lifecycle.md) · [コマンドとJSON](commands.md) · [PowerPoint入出力](powerpoint.md)
+[編集](editing.md) · [保存とイベント](lifecycle.md) · [コマンドとJSON](commands.md) · [PowerPoint入出力](powerpoint.md) · [PNG画像の書き出し](image-export.md) · [アニメーション](animations.md)

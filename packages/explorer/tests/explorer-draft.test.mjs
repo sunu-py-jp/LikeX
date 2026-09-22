@@ -52,15 +52,27 @@ test('create, upload, low-level rename, copy and move keep extensions aligned wi
   const file = upload('Archive.TAR.GZ');
   snapshot = addFiles(snapshot, [file], 'root');
   const uploaded = snapshot.entries.at(-1); assert.equal(uploaded.extension, 'gz');
-  snapshot = applyAction(snapshot, { action: 'rename', ids: [uploaded.id], name: 'Changed.PDF' });
-  assert.equal(byId(snapshot, uploaded.id).extension, 'pdf'); assert.equal(byId(snapshot, uploaded.id).source.file, file);
+  snapshot = applyAction(snapshot, { action: 'rename', ids: [uploaded.id], name: 'Changed.GZ' });
+  assert.equal(byId(snapshot, uploaded.id).extension, 'gz'); assert.equal(byId(snapshot, uploaded.id).source.file, file);
   snapshot = applyAction(snapshot, { action: 'move', ids: [uploaded.id], parent: folder.id });
   snapshot = applyAction(snapshot, { action: 'copy', ids: [uploaded.id], parent: 'root' });
-  const copied = snapshot.entries.at(-1); assert.equal(copied.extension, 'pdf'); assert.equal(copied.source.file, file);
-  snapshot = applyAction(snapshot, { action: 'rename', ids: [uploaded.id], name: '.env' });
-  assert.equal(byId(snapshot, uploaded.id).extension, '');
+  const copied = snapshot.entries.at(-1); assert.equal(copied.extension, 'gz'); assert.equal(copied.source.file, file);
+  assert.throws(() => applyAction(snapshot, { action: 'rename', ids: [uploaded.id], name: '.env' }), /拡張子/);
   assert.equal(byId(snapshot, 'keep'), baseline.entries[0], 'normalizing a changed entry does not clone unchanged entries');
   assert.ok(getSavePayload(baseline, snapshot).entries.every(item => Object.hasOwn(item, 'extension')));
+});
+
+test('all file renames preserve the extension, including extensionless and dotfile inputs, without mutation on failure', () => {
+  const baseline = createDraftSnapshot([entry('file', 'root', 'report.TXT', 'file'),
+    entry('plain', 'root', 'README', 'file'), entry('dot', 'root', '.env', 'file'), entry('folder', 'root', 'Folder')]);
+  for (const [id, name] of [['file', 'report.csv'], ['file', 'report'], ['plain', 'README.txt'], ['dot', '.env.txt']]) {
+    const before = JSON.stringify(baseline);
+    assert.throws(() => applyAction(baseline, { action: 'rename', ids: [id], name }), /拡張子/);
+    assert.equal(JSON.stringify(baseline), before);
+  }
+  assert.equal(byId(applyAction(baseline, { action: 'rename', ids: ['plain'], name: 'LICENSE' }), 'plain').name, 'LICENSE');
+  assert.equal(byId(applyAction(baseline, { action: 'rename', ids: ['file'], name: 'renamed.txt' }), 'file').extension, 'txt');
+  assert.equal(byId(applyAction(baseline, { action: 'rename', ids: ['folder'], name: 'Folder.txt' }), 'folder').extension, '');
 });
 
 test('derived-extension differences alone are not dirty and save boundary copies repair stale values', () => {

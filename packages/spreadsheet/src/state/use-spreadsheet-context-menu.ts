@@ -1,8 +1,8 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type RefObject, type ReactNode } from "react";
-import { createContextMenuExecutor, resolveContextMenuItems, type ContextMenuExecutor, type ContextMenuExecutionState } from "../core";
-import { cellAddress } from "../model";
+import { chainResult, createContextMenuExecutor, resolveContextMenuItems, type ContextMenuExecutor, type ContextMenuExecutionState } from "../core";
+import { cellAddress, copySpreadsheetDrawing } from "../model";
 import type { SpreadsheetProps, SpreadsheetSelection } from "../props";
 import type { SpreadsheetContextMenuChange, SpreadsheetContextMenuContext, SpreadsheetContextMenuItem } from "../api/context-menu";
 import type { SpreadsheetController } from "./use-spreadsheet";
@@ -11,20 +11,22 @@ import type { SpreadsheetCommand } from "../api/types";
 import { rangeBounds, selectionRanges } from "./selection";
 import { cellMenuItems, contextStructureCommands, selectionAxisIndices, selectionForContextTarget, type CellMenuAction, type CellMenuItem } from "./context-menu/builtin-items";
 import { autoFitCommand } from "./sizing/auto-fit-command";
+import { drawingMenuItems, type DrawingMenuAction, type DrawingMenuItem } from "./context-menu/drawing-items";
 
 type CapturedContext = SpreadsheetContextMenuContext & { readonly structureRevision: number };
 export type SpreadsheetOpenContextMenu = {
   context: CapturedContext; items: readonly SpreadsheetContextMenuItem[];
-  actionSelection: SpreadsheetSelection; builtIns: readonly CellMenuItem[]; revision: number;
+  actionSelection: SpreadsheetSelection; builtIns: readonly (CellMenuItem | DrawingMenuItem)[]; revision: number;
   deleteSheet: { disabled: boolean } | null;
   duplicateSheet: { disabled: boolean } | null;
+  renameSheet: { disabled: boolean } | null;
   x: number; y: number; returnFocus: HTMLElement | null;
 };
 
 /** Captures targets separately from selection and sends only proposed commands to the shared executor. */
-export function useSpreadsheetContextMenu(c: SpreadsheetController, props: SpreadsheetProps, root: RefObject<HTMLElement | null>, clipboard: ReturnType<typeof useSpreadsheetClipboard>) {
-  const latest = useRef({ c, props, clipboard });
-  useLayoutEffect(() => { latest.current = { c, props, clipboard }; });
+export function useSpreadsheetContextMenu(c: SpreadsheetController, props: SpreadsheetProps, root: RefObject<HTMLElement | null>, clipboard: ReturnType<typeof useSpreadsheetClipboard>, onRenameSheet?: (sheetId: string) => void) {
+  const latest = useRef({ c, props, clipboard, onRenameSheet });
+  useLayoutEffect(() => { latest.current = { c, props, clipboard, onRenameSheet }; });
   const mounted = useRef(false);
   const owner = useRef({});
   const [menu, setMenu] = useState<SpreadsheetOpenContextMenu | null>(null);
@@ -44,6 +46,11 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
       if (!sheet || (context.target.kind !== "sheet" && (current.getStructureRevision() !== context.structureRevision ||
         ("row" in context.target && context.target.row >= sheet.rowCount) || ("column" in context.target && context.target.column >= sheet.columnCount))))
         throw new Error("シートや行・列の構成が変わりました。対象を確認して操作し直してください");
+      if (context.target.kind === "drawing") {
+        const target = context.target;
+        if (!sheet.drawings?.some(item => item.id === target.drawingId && item.type === target.drawingType))
+          throw new Error("画像・図形が変更されました。対象を確認して操作し直してください");
+      }
     },
     apply: async (change, _context, operation, guard) => {
       const current = latest.current.c;
@@ -84,10 +91,10 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
   const eligibleTarget = (target: EventTarget | null): HTMLElement | null => {
     const element = target as HTMLElement | null;
     if (!element?.closest || c.editing || c.pendingObjectEdit || dialog || element.closest("[role='separator']")) return null;
-    const editor = element.closest("input,textarea,select,[contenteditable='true']");
+    const editor = element.closest("input,textarea,select,[contenteditable]:not([contenteditable='false'])");
     if (editor && !editor.classList.contains("lxs-cell-input")) return null;
     const tab = c.features.sheets ? element.closest<HTMLElement>("[data-lxs-sheet-id]") : null;
-    return tab ?? element.closest<HTMLElement>("[data-lxs-row][data-lxs-column]") ??
+    return tab ?? element.closest<HTMLElement>("[data-lxs-drawing]") ?? element.closest<HTMLElement>("[data-lxs-row][data-lxs-column]") ??
       element.closest<HTMLElement>("[data-lxs-row-header]") ?? element.closest<HTMLElement>("[data-lxs-column-header]");
   };
   const open = (element: HTMLElement, x: number, y: number) => {
@@ -99,6 +106,12 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
       if (index < 0) return;
       const sheet = workbook.sheets[index];
       target = { kind: "sheet", sheetId: sheet.id, name: sheet.name, index };
+    } else if (element.dataset.lxsDrawing !== undefined) {
+      const drawing = c.activeSheet.drawings?.find(item => item.id === element.dataset.lxsDrawing);
+      if (!drawing || !c.features[drawing.type === "image" ? "images" : drawing.type === "shape" ? "shapes" : "textBoxes"]) return;
+      // A right-click selects the object without replacing the underlying cell ranges.
+      if (c.selectDrawing(drawing.id) !== true) return;
+      target = { kind: "drawing", sheetId: c.activeSheet.id, drawingId: drawing.id, drawingType: drawing.type };
     } else if (element.dataset.lxsRowHeader !== undefined || element.dataset.lxsColumnHeader !== undefined) {
       const row = element.dataset.lxsRowHeader !== undefined;
       const index = Number(row ? element.dataset.lxsRowHeader : element.dataset.lxsColumnHeader);
@@ -122,10 +135,12 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
         { disabled: c.disabled || workbook.sheets.length < 2 } : null;
       const duplicateSheet = target.kind === "sheet" && c.features.duplicateSheet && !c.readOnly ?
         { disabled: c.disabled || workbook.sheets.length >= 100 } : null;
+      const renameSheet = target.kind === "sheet" && c.features.renameSheet && !c.readOnly && onRenameSheet ?
+        { disabled: c.disabled } : null;
       const actionSelection = selectionForContextTarget(context);
-      const builtIns = target.kind === "sheet" ? [] : cellMenuItems(c, target, actionSelection);
-      if (items.length || deleteSheet || duplicateSheet || builtIns.length) setMenu({ context, items, deleteSheet, duplicateSheet, actionSelection, builtIns, revision: c.getRevision(), x, y,
-        returnFocus: root.current?.ownerDocument.activeElement as HTMLElement | null });
+      const builtIns = target.kind === "sheet" ? [] : target.kind === "drawing" ? drawingMenuItems(c, target) : cellMenuItems(c, target, actionSelection);
+      if (items.length || deleteSheet || duplicateSheet || renameSheet || builtIns.length) setMenu({ context, items, deleteSheet, duplicateSheet, renameSheet, actionSelection, builtIns, revision: c.getRevision(), x, y,
+        returnFocus: target.kind === "drawing" ? element : root.current?.ownerDocument.activeElement as HTMLElement | null });
     } catch (error) { c.reportError(error); }
   };
   const onContextMenu = (event: MouseEvent<HTMLElement>) => {
@@ -170,10 +185,49 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
       if (copied) latest.current.c.switchSheet(copied);
     }));
   };
+  const renameSheet = () => {
+    if (!menu?.renameSheet || menu.renameSheet.disabled || menu.context.target.kind !== "sheet") return;
+    const captured = menu, current = latest.current.c, sheetId = captured.context.target.sheetId;
+    closeMenu();
+    if (!current.features.renameSheet || current.readOnly || current.disabled || current.requesting || current.pendingObjectEdit ||
+      current.getRevision() !== captured.revision || !current.getWorkbook().sheets.some(sheet => sheet.id === sheetId)) return;
+    latest.current.onRenameSheet?.(sheetId);
+  };
+  const selectDrawingBuiltin = (action: DrawingMenuAction) => {
+    if (!menu || menu.context.target.kind !== "drawing") return;
+    const captured = menu, target = menu.context.target, current = latest.current.c;
+    const item = drawingMenuItems(current, target).find(item => item.id === action);
+    closeMenu();
+    const isCurrent = () => mounted.current && latest.current.c.getRevision() === captured.revision &&
+      latest.current.c.getStructureRevision() === captured.context.structureRevision &&
+      latest.current.c.activeSheet.id === target.sheetId && latest.current.c.selectedDrawingId === target.drawingId;
+    if (!item || item.disabled || !isCurrent()) return;
+    const drawing = current.getWorkbook().sheets.find(sheet => sheet.id === target.sheetId)?.drawings?.find(item => item.id === target.drawingId);
+    if (!drawing) return;
+    const execute = (command: SpreadsheetCommand, after?: (drawingId?: string) => void) => {
+      void chainResult(current.executeCommands([command], { isCurrent }), result => {
+        if (result.ok && mounted.current && latest.current.c.activeSheet.id === target.sheetId) after?.(result.results[0]?.drawingId);
+      });
+    };
+    try {
+      if (action === "drawing-copy") { void latest.current.clipboard.copy(); return; }
+      if (action === "drawing-paste") { void latest.current.clipboard.paste(); return; }
+      if (action === "drawing-duplicate") {
+        const payload = copySpreadsheetDrawing(current.getWorkbook(), target.sheetId, drawing.id, { features: current.features });
+        execute({ type: "drawings.paste", sheetId: target.sheetId, payload, anchor: { ...drawing.anchor, offsetX: Math.min(10_000, drawing.anchor.offsetX + 16), offsetY: Math.min(10_000, drawing.anchor.offsetY + 16) } }, id => { if (id) void latest.current.c.selectDrawing(id); }); return;
+      }
+      if (action === "drawing-delete") {
+        execute({ type: "drawings.delete", sheetId: target.sheetId, drawingId: drawing.id }, () => { void latest.current.c.selectDrawing(null); latest.current.c.requestGridFocus(); }); return;
+      }
+      const type = drawing.type === "image" ? "images.update" : drawing.type === "shape" ? "shapes.update" : "textBoxes.update";
+      const patch = action === "drawing-flip-x" ? { flipX: !drawing.flipX } : action === "drawing-flip-y" ? { flipY: !drawing.flipY } : { rotation: 0 };
+      execute({ type, sheetId: target.sheetId, drawingId: drawing.id, patch });
+    } catch (cause) { current.reportError(cause); }
+  };
   const selectBuiltin = (action: CellMenuAction) => {
-    if (!menu || menu.context.target.kind === "sheet") return;
+    if (!menu || menu.context.target.kind === "sheet" || menu.context.target.kind === "drawing") return;
     const captured = menu, target = captured.context.target, current = latest.current.c, selection = captured.actionSelection;
-    if (target.kind === "sheet") return;
+    if (target.kind === "sheet" || target.kind === "drawing") return;
     const item = cellMenuItems(current, target, selection).find(item => item.id === action);
     closeMenu();
     if (!item || item.disabled || current.getRevision() !== captured.revision || current.getStructureRevision() !== captured.context.structureRevision) return;
@@ -210,7 +264,9 @@ export function useSpreadsheetContextMenu(c: SpreadsheetController, props: Sprea
     } catch (cause) { current.reportError(cause); }
   };
   const visibleMenu = menu?.context.target.kind === "sheet" ? (c.features.sheets ? menu : null) : menu;
-  return { menu: visibleMenu, state, closeMenu, selectItem, selectBuiltin, deleteSheet, duplicateSheet, spreadsheet: c,
+  return { menu: visibleMenu, state, closeMenu, selectItem,
+    selectBuiltin: (action: CellMenuAction | DrawingMenuAction) => action.startsWith("drawing-") ? selectDrawingBuiltin(action as DrawingMenuAction) : selectBuiltin(action as CellMenuAction),
+    deleteSheet, duplicateSheet, renameSheet, spreadsheet: c,
     dialog: c.readOnly ? null : dialog, closeDialog: () => { c.cancelEditRequest(); setDialog(null); },
     cancel: () => executorRef.current?.cancel(), confirm: () => { void executorRef.current?.confirm(); },
     onContextMenu, onPointerDownCapture, onKeyDownCapture };

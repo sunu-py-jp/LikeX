@@ -1,0 +1,4 @@
+"use client";
+import { useRef } from "react";
+import LikeDataView, { createDataView, type DataViewHandle } from "__LIBRARY_IMPORT__";
+export default function ClientView() { const ref = useRef<DataViewHandle>(null); return <LikeDataView ref={ref} initialData={createDataView()} onSave={async model => model} style={{ height: 400 }} />; }

@@ -1,0 +1,61 @@
+import {
+  createDraftSnapshot, applyAction, addFilesWithResult, prepareFilesWithProgress,
+  addFilesAsync, addFilesWithResultAsync, prepareFilesWithProgressAsync,
+  createExplorerUploadSession, getSavePayload, describeEntries, resolveExplorerEntryTargets,
+  type ExplorerEntry, type ExplorerSnapshot, type ExplorerAction, type ExplorerUploadDecision,
+  type ExplorerItemInfo, type ExplorerImportProgress, type ExplorerEntryTarget, type ExplorerUploadOptions,
+  type ExplorerUploadContentLimitsByExtension, type ExplorerUploadContentMetadata, type ExplorerUploadInspectFile,
+  type ExplorerUploadResult,
+  assertExplorerEntryPermissions, checksForExplorerAction, type ExplorerEntryPermissionsResolver,
+} from '__MODEL_IMPORT__';
+
+const initial: readonly ExplorerEntry[] = [];
+const snapshot: ExplorerSnapshot = createDraftSnapshot(initial);
+const action: ExplorerAction = { action: 'create', parent: 'root', name: 'Documents' };
+const changed: ExplorerSnapshot = applyAction(snapshot, action);
+const getEntryPermissions: ExplorerEntryPermissionsResolver = entry => entry.kind === 'root' ? { upload: false }
+  : { delete: { allowed: false, message: '編集中です' } };
+assertExplorerEntryPermissions(snapshot.entries, checksForExplorerAction(snapshot.entries, action), getEntryPermissions);
+const files: readonly File[] = [new File(['hello'], 'hello.txt')];
+const decisions: readonly ExplorerUploadDecision[] = [];
+const session = createExplorerUploadSession();
+const added = addFilesWithResult(changed, files, 'root', undefined, decisions, session);
+const count: number = added.result.addedCount;
+const changes: ExplorerEntry[] = getSavePayload(snapshot, added.snapshot).changes.created;
+const descriptions: readonly ExplorerItemInfo[] = describeEntries(added.snapshot.entries);
+const target: ExplorerEntryTarget = { path: '/hello.txt' };
+const resolved = resolveExplorerEntryTargets(added.snapshot.entries, [target]);
+if (resolved.ok) { const ids: readonly string[] = resolved.value.entryIds; void ids; }
+const staged = prepareFilesWithProgress(snapshot, files, 'root');
+const step = staged.next();
+if (!step.done) { const progress: ExplorerImportProgress = step.value; void progress; }
+const contentLimits: ExplorerUploadContentLimitsByExtension = {
+  '.mp4': { maxDurationSeconds: 14_400 }, '.mp3': { maxDurationSeconds: 120.5 },
+  '.pdf': { maxPages: 10 }, '.pptx': { maxSlides: 30 }, '.webm': false,
+};
+const inspectFile: ExplorerUploadInspectFile = ({ file, kind, signal }) => {
+  const metadata: ExplorerUploadContentMetadata = kind === 'pdf' ? { kind, pages: 2 }
+    : kind === 'presentation' ? { kind, slides: 3 } : { kind, durationSeconds: 60 };
+  void [file, signal];
+  return metadata;
+};
+const upload: ExplorerUploadOptions = { contentLimitsByExtension: contentLimits, inspectFile };
+const execution = { signal: new AbortController().signal };
+const asynchronous: Promise<{ snapshot: ExplorerSnapshot; result: ExplorerUploadResult }> =
+  addFilesWithResultAsync(snapshot, files, 'root', upload, decisions, session, execution);
+const asynchronousSnapshot: Promise<ExplorerSnapshot> = addFilesAsync(snapshot, files, 'root', upload);
+const asynchronousSteps: AsyncGenerator<ExplorerImportProgress, { snapshot: ExplorerSnapshot; result: ExplorerUploadResult }> =
+  prepareFilesWithProgressAsync(snapshot, files, 'root', upload, decisions, session, execution);
+const inspectionProgress: ExplorerImportProgress = { phase: 'inspecting', completed: 0, total: 1 };
+// @ts-expect-error PDF limits require page counts, not playback duration.
+const invalidPdf: ExplorerUploadContentLimitsByExtension = { '.pdf': { maxDurationSeconds: 1 } };
+// @ts-expect-error Video limits require playback duration, not page counts.
+const invalidVideo: ExplorerUploadContentLimitsByExtension = { '.mp4': { maxPages: 1 } };
+// @ts-expect-error Content inspectors return typed metadata, not raw numbers.
+const invalidInspector: ExplorerUploadInspectFile = () => 3;
+// @ts-expect-error Entry target must contain exactly one locator.
+const invalidTarget: ExplorerEntryTarget = { id: 'a', path: '/a' };
+// @ts-expect-error Unknown edits are not supported.
+const invalidAction: ExplorerAction = { action: 'undo' };
+void [count, changes, descriptions, asynchronous, asynchronousSnapshot, asynchronousSteps, inspectionProgress,
+  invalidPdf, invalidVideo, invalidInspector, invalidTarget, invalidAction];

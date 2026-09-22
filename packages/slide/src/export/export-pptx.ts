@@ -1,7 +1,10 @@
 import { createZipArchive, type ZipArchiveEntry } from "../core";
-import { normalizeSlideDeck } from "../model";
+import { normalizeSlideDeck, resolveSlideAnimations } from "../model";
 import type { SlideDeck, SlideElement } from "../model/types";
 import { R, header, namespaces, xml, emu, group, colorMap, relationships, fill, themeXml, type Link } from "./pptx-xml";
+
+import type { SlidePptxExportOptions } from "./types";
+export type { SlidePptxExportOptions } from "./types";
 
 export const PPTX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 const contentPrefix = "application/vnd.openxmlformats-officedocument.presentationml.";
@@ -24,8 +27,11 @@ function elementXml(element: SlideElement, id: number, imageId?: string): string
 }
 
 /** Writes standard PresentationML only; no downloads, persistence, or network requests. */
-export async function exportSlidePptx(input: SlideDeck): Promise<Blob> {
-  const deck = normalizeSlideDeck(input), parts: ZipArchiveEntry[] = [], types = new Map<string, string>();
+export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExportOptions = {}): Promise<Blob> {
+  const source = normalizeSlideDeck(input);
+  if (source.slides.some(slide => slide.animations?.length))
+    options.onWarning?.("アニメーションは最終静止状態に変換され、タイミング・トリガー・繰り返しはPowerPointに保持されません。");
+  const deck = { ...source, slides: source.slides.map(slide => resolveSlideAnimations(slide)) }, parts: ZipArchiveEntry[] = [], types = new Map<string, string>();
   const add = (path: string, type: string, value: string) => { parts.push(part(path, value)); types.set(`/${path}`, type); };
   const links: Link[] = [{ id: "rIdMaster", type: `${R}/slideMaster`, target: "slideMasters/slideMaster1.xml" }];
   const imageRegistry = new Map<string, { path: string; mime: string }>();

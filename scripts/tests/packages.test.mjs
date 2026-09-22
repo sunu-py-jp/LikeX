@@ -68,3 +68,19 @@ test('does not hide invalid package metadata behind resolution fallback', async 
   });
   await assert.rejects(installedPackage('invalid-metadata'), { code: 'ERR_INVALID_PACKAGE_CONFIG' });
 });
+
+test('consumer-relative lookup follows the nested version even when its manifest is private', async t => {
+  const nested = { name: 'private-metadata', version: '1.4.0', exports: { '.': './dist/index.js' } };
+  const { installedPackage, directory } = await fixture(t, {
+    'private-metadata': { 'package.json': { ...nested, version: '2.0.0' }, 'dist/index.js': 'module.exports = true;' },
+    parser: {
+      'package.json': { name: 'parser', version: '1.0.0' },
+      'node_modules/private-metadata/package.json': nested,
+      'node_modules/private-metadata/dist/package.json': { name: 'unrelated', type: 'commonjs' },
+      'node_modules/private-metadata/dist/index.js': 'module.exports = true;',
+    },
+  });
+  assert.deepEqual(await installedPackage('private-metadata', path.join(directory, 'node_modules/parser')), {
+    directory: path.join(directory, 'node_modules/parser/node_modules/private-metadata'), manifest: nested,
+  });
+});

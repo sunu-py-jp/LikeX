@@ -1,0 +1,22 @@
+import { createRef } from "react";
+import LikeDocument, { createDocument, executeDocumentCommands, createDocumentSession,
+  type DocumentProps, type DocumentHandle, type DocumentCommand } from "__LIBRARY_IMPORT__";
+const document = createDocument({ title: "LikeDocument consumer" });
+const command: DocumentCommand = { type: "text.insert", from: 1, text: "Document consumer content" };
+const updated = executeDocumentCommands(document, command);
+const session = createDocumentSession(updated.document);
+session.undo(); session.markSaved();
+const props: DocumentProps = { initialDocument: document, colorMode: "system", primaryColor: "#2563eb",
+  features: { images: false }, onSave: async current => current,
+  onEditRequest: async (_request, { signal }) => !signal.aborted, onBeforeSave: () => true };
+const ref = createRef<DocumentHandle>();
+const view = <LikeDocument ref={ref} {...props} />;
+const nativeExport: Promise<Blob> | undefined = ref.current?.exportNative();
+const docxExport: Promise<Blob> | undefined = ref.current?.exportDocx();
+void ref.current?.importNative(new Blob());
+void ref.current?.importDocx(new Uint8Array());
+void ref.current?.select({ from: 1, to: 1 });
+void nativeExport; void docxExport; void view;
+// @ts-expect-error Commands reject unknown text mark names.
+const badCommand: DocumentCommand = { type: "mark.set", from: 1, to: 2, mark: "video" };
+void badCommand;

@@ -1,0 +1,8 @@
+import LikeDocument from "__LIBRARY_IMPORT__";
+import { createDocument, executeDocumentCommands } from "__LIBRARY_MODEL__";
+import ClientDocument from "./client";
+export default function Page() {
+  const document = createDocument({ title: "LikeDocument consumer" });
+  const result = executeDocumentCommands(document, { type: "text.insert", from: 1, text: "Server document content" });
+  return <main><LikeDocument initialDocument={result.document} title="LikeDocument consumer" style={{ height: 360 }} /><ClientDocument /></main>;
+}

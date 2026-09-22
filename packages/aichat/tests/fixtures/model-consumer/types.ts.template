@@ -1,0 +1,35 @@
+import {
+  createAIChat, createAIChatMessage, createAIChatSession, executeAIChatCommands, getAIChatConversation,
+  getAIChatConversations, getAIChatMessage, getAIChatMessages, migrateLegacyAIChat, parseAIChat, serializeAIChat,
+  type AIChatAttachment, type AIChatCommand, type AIChatModel, type AIChatSendHandler,
+} from "__MODEL_IMPORT__";
+
+const aichat: AIChatModel = createAIChat({ id: "headless-aichat", title: "Headless", conversations: [
+  { id: "planning", title: "Planning", messages: [] },
+] });
+const marker: "likex.aichat" = aichat.format;
+const migrated: AIChatModel = migrateLegacyAIChat({ ...aichat, format: "likex.chat" });
+void migrated;
+const attachment: AIChatAttachment = { id: "attachment-1", name: "notes.txt", mediaType: "text/plain", size: 12 };
+const prompt = createAIChatMessage({ id: "prompt-1", role: "user", content: "Text", createdAt: "2026-09-22T00:00:00.000Z", attachments: [attachment] });
+const command: AIChatCommand = { type: "message.add", conversationId: "planning", message: prompt };
+const result = executeAIChatCommands(aichat, [command]);
+const changed: boolean = result.changed;
+const text: string | undefined = getAIChatMessage(result.aichat, "planning", "prompt-1")?.content;
+const conversation = getAIChatConversation(result.aichat, "planning");
+const conversations = getAIChatConversations(result.aichat);
+const messages = getAIChatMessages(result.aichat, "planning");
+const onSend: AIChatSendHandler = async function* ({ prompt: current }, { signal }) {
+  if (!signal.aborted) yield current.content;
+};
+const session = createAIChatSession(parseAIChat(serializeAIChat(result.aichat)), { onSave: async current => current, onSend });
+void session.getAIChat();
+session.dispose();
+void marker; void changed; void text; void conversation; void conversations; void messages;
+// @ts-expect-error Native format versions are explicit.
+const badVersion: AIChatModel = { ...aichat, version: 2 };
+// @ts-expect-error Message patches cannot replace message identity.
+const badPatch: AIChatCommand = { type: "message.update", conversationId: "planning", messageId: "prompt-1", patch: { id: "different" } };
+// @ts-expect-error Tool status values are constrained.
+const badTool: AIChatCommand = { type: "message.update", conversationId: "planning", messageId: "prompt-1", patch: { toolCalls: [{ id: "tool-1", name: "Lookup", status: "finished" }] } };
+void badVersion; void badPatch; void badTool;

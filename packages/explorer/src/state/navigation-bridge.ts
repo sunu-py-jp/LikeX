@@ -9,7 +9,9 @@ export function createExplorerNavigationBridge() {
   const handle: ExplorerNavigationHandle = {
     navigate: path => current?.navigate(path) ?? unavailable(),
     selectFiles: targets => current?.selectFiles(targets) ?? unavailable(),
+    selectEntries: targets => current?.selectEntries(targets) ?? unavailable(),
     showFile: (target, options) => current?.showFile(target, options) ?? unavailable(),
+    previewFile: target => current?.previewFile(target) ?? unavailable(),
   };
   return {
     handle,

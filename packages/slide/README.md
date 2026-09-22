@@ -26,6 +26,8 @@ export default function Presentation() {
 - [画面なしでJSONを操作するAPI](src/docs/commands.md)
 - [LLM向けスキル・スキーマ参照・操作CLI](skills/likex-slide/SKILL.md)
 - [PowerPointの読み込み・出力と対応範囲](src/docs/powerpoint.md)
+- [PNG画像の書き出し（単一・範囲・任意ページ）](src/docs/image-export.md)
+- [要素のアニメーションと最終静止状態の取得](src/docs/animations.md)
 
 配布用tarballは `npm run pack:library -- --module slide` で作ります。利用先ではCoreとSlideの両方をインストールしてください。npmレジストリへの公開は未実施です。
 

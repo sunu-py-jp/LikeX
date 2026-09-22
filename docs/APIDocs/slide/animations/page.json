@@ -1,0 +1,9 @@
+{
+  "title": "要素のアニメーション",
+  "summary": "順次・並列の補間、クリック開始、繰り返しと、最終静止状態の取得。",
+  "source": "packages/slide/src/docs/animations.md",
+  "order": 25,
+  "section": "親アプリとの連携",
+  "keywords": ["LikeSlide", "animation.set", "animation.remove", "SlideAnimationStep", "includeAnimations", "evaluateSlideAnimations", "resolveSlideAnimations", "tween", "sequence", "parallel"],
+  "screenshots": []
+}

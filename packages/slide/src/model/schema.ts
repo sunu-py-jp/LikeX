@@ -4,5 +4,5 @@ export const ELEMENT_KEYS = {
   shape: [...BASE_KEYS, "shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "textColor"],
   image: [...BASE_KEYS, "src", "alt"],
 } as const;
-export const SLIDE_KEYS = ["id", "name", "background", "notes", "elements"];
+export const SLIDE_KEYS = ["id", "name", "background", "notes", "elements", "animations"];
 export const DECK_KEYS = ["format", "version", "id", "title", "width", "height", "slides"];

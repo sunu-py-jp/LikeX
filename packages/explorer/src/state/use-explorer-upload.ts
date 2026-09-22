@@ -4,6 +4,7 @@ import { useInsertionEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   createExplorerUploadSession,
   ExplorerUploadConflictError,
+  ExplorerUploadInspectionRequiredError,
   ExplorerUploadValidationError,
   type ExplorerUploadConflict,
   type ExplorerUploadDecision,
@@ -72,8 +73,8 @@ export function useExplorerUpload(options: UploadOptions) {
   function alive(batch: Batch) {
     const latest = current.current;
     return mounted.current && pending.current === batch && !batch.controller.signal.aborted &&
-      latest.draft.canMutate(batch.owner) &&
-      !latest.draft.readOnly && !latest.draft.saving && !latest.draft.refreshing && !latest.ownerDocument?.defaultView?.closed &&
+      !latest.draft.isBusy(batch.owner, true) &&
+      !latest.draft.readOnly && !latest.ownerDocument?.defaultView?.closed &&
       (!batch.directory || latest.uploadFolders) && (!batch.requiresFiles || latest.uploadFiles);
   }
   function release(batch: Batch, changed = false) {
@@ -196,7 +197,7 @@ export function useExplorerUpload(options: UploadOptions) {
       batch.applyAll = null;
       batch.observedEntries = draft.getEntries();
     }
-    if (batch.files.length >= 200) return prepareAsync(batch);
+    if (batch.files.length >= 200 || draft.requiresAsyncUpload(batch.files)) return prepareAsync(batch);
     batch.preview.include(batch.files, batch.files.length);
     let prepared: ReturnType<typeof draft.prepareAdd>;
     // Rebuild from the original snapshot/Files and approved decisions. Nothing
@@ -237,27 +238,38 @@ export function useExplorerUpload(options: UploadOptions) {
         description: `${batch.files.length}ファイルの確認が終わりました`,
       }, () => cancelBatch(batch));
       const previousEdit = current.current.draft.getEditState();
-      const result = (batch.runEdit ?? current.current.runEdit)({ action: "upload", parent: batch.parent }, commit, error => fail(batch, error));
+      let inspectionRequired = false;
+      const result = (batch.runEdit ?? current.current.runEdit)({ action: "upload", parent: batch.parent }, commit, error => {
+        if (error instanceof ExplorerUploadInspectionRequiredError) inspectionRequired = true;
+        else fail(batch, error);
+      });
       const requestedEdit = current.current.draft.getEditState();
       if (previousEdit.mode !== "requesting" && requestedEdit.mode === "requesting" && requestedEdit.requestId) {
         batch.editRequestId = requestedEdit.requestId;
       }
       const finish = (changed: boolean) => {
+        // Permission callbacks can replace the content inspector or introduce a
+        // new rule. Acquire that evidence before attempting the same batch again.
+        if (inspectionRequired && alive(batch)) return prepareAsync(batch);
         // Navigation or cancellation can invalidate authorization without an error.
         if (pending.current === batch && batch.applying) release(batch);
         return changed;
       };
       return typeof result === "boolean" ? finish(result) : result.then(finish);
-    } catch (error) { fail(batch, error); return false; }
+    } catch (error) {
+      if (error instanceof ExplorerUploadInspectionRequiredError && alive(batch)) return prepareAsync(batch);
+      fail(batch, error);
+      return false;
+    }
   }
   function start(files: readonly File[], parent: string, directory: boolean, execution?: {
-    owner: symbol; signal: AbortSignal; runEdit: UploadOptions["runEdit"];
+    owner?: symbol; signal: AbortSignal; runEdit?: UploadOptions["runEdit"];
     complete: (changed: boolean) => void; reject: (error: unknown) => void;
     onCancel?: () => void;
   }, preview?: ExplorerImportPreviewWriter) {
     const latest = current.current;
-    if (!files.length || pending.current || !mounted.current || !latest.draft.canMutate(execution?.owner) || execution?.signal.aborted || latest.draft.readOnly || latest.draft.saving || latest.draft.refreshing ||
-      latest.draft.editMode === "requesting" || !(directory ? latest.uploadFolders : latest.uploadFiles)) { preview?.clear(); execution?.complete(false); return false; }
+    if (!files.length || pending.current || !mounted.current || latest.draft.isBusy(execution?.owner) || execution?.signal.aborted || latest.draft.readOnly ||
+      !(directory ? latest.uploadFolders : latest.uploadFiles)) { preview?.clear(); execution?.complete(false); return false; }
     const requiresFiles = !directory || (files.some(file => !!file.webkitRelativePath) && files.some(file => !file.webkitRelativePath));
     if (requiresFiles && !latest.uploadFiles) { preview?.clear(); execution?.complete(false); return false; }
     const controller = new AbortController();
@@ -287,7 +299,7 @@ export function useExplorerUpload(options: UploadOptions) {
     return process(batch);
   }
   function startAsync(files: readonly File[], parent: string, directory: boolean, execution: {
-    owner: symbol; signal: AbortSignal; runEdit: UploadOptions["runEdit"];
+    owner?: symbol; signal: AbortSignal; runEdit?: UploadOptions["runEdit"];
     onCancel?: () => void;
   }): Promise<boolean> {
     return new Promise((complete, reject) => {

@@ -1,0 +1,8 @@
+"use client";
+import { useRef } from "react";
+import LikeDocument, { createDocument, type DocumentHandle } from "__LIBRARY_IMPORT__";
+export default function ClientDocument() {
+  const ref = useRef<DocumentHandle>(null);
+  return <LikeDocument ref={ref} initialDocument={createDocument()} onSave={async document => document}
+    onBeforeSave={() => true} style={{ height: 400 }} />;
+}

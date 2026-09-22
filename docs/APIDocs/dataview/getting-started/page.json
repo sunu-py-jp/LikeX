@@ -1,0 +1,11 @@
+{
+  "title": "導入・表示条件",
+  "summary": "LikeDataViewの導入・表示条件",
+  "source": "packages/dataview/src/docs/getting-started.md",
+  "order": 0,
+  "section": "はじめに",
+  "keywords": [
+    "dataview",
+    "導入・表示条件"
+  ]
+}

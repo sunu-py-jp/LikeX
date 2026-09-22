@@ -39,8 +39,9 @@ test('core builds first for a single UI package and is deduplicated for all modu
   assert.deepEqual(dependencyOrder(moduleNames), moduleNames);
 });
 
-test('Spreadsheet exposes a separate headless model entry without changing its UI entry', () => {
-  assert.deepEqual(libraryModule('spreadsheet').headlessEntries, { model: 'model-entry.ts' });
-  assert.equal(libraryModule('spreadsheet').ui, true);
-  assert.equal(libraryModule('explorer').headlessEntries, undefined);
+test('each UI module exposes a separate headless model entry without changing its UI entry', () => {
+  for (const name of moduleNames.filter(name => name !== 'core')) {
+    assert.deepEqual(libraryModule(name).headlessEntries, { model: 'model-entry.ts' });
+    assert.equal(libraryModule(name).ui, true);
+  }
 });

@@ -1,0 +1,14 @@
+{
+  "title": "表示と予定の編集",
+  "summary": "月・週・日表示、日時・タイムゾーン・ドラッグ移動。",
+  "source": "packages/calendar/src/docs/editing.md",
+  "order": 1,
+  "section": "機能とAPI",
+  "keywords": [
+    "LikeCalendar",
+    "CalendarProps",
+    "CalendarHandle",
+    "Calendar",
+    "editing"
+  ]
+}

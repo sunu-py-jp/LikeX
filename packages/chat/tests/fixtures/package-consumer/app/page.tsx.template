@@ -1,0 +1,7 @@
+import LikeChat from "__LIBRARY_IMPORT__";
+import { createChat } from "__LIBRARY_MODEL__";
+import ClientView from "./client";
+export default function Page() {
+  const model = createChat({ id: "chat-1", title: "LikeChat consumer", participants: [{ id: "me", name: "Me" }], conversations: [{ id: "conversation-1", kind: "space", title: "Consumer conversation", memberIds: ["me"], messages: [{ id: "message-1", authorId: "me", text: "Chat consumer content", createdAt: "2026-09-22T00:00:00.000Z" }] }] });
+  return <main><LikeChat initialChat={model} currentUserId="me" style={{ height: 360 }} /><ClientView /></main>;
+}

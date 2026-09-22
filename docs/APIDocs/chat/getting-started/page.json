@@ -1,0 +1,13 @@
+{
+  "title": "LikeChatを組み込む",
+  "summary": "DMとスペースを持つ、人同士のチャットUI。導入、見た目、機能の切り替え。",
+  "order": 10,
+  "keywords": [
+    "LikeChat",
+    "ChatModel",
+    "DM",
+    "スペース",
+    "スレッド"
+  ],
+  "source": "packages/chat/src/docs/getting-started.md"
+}

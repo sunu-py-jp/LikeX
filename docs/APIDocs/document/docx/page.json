@@ -1,0 +1,8 @@
+{
+  "title": "Word・DOCX入出力",
+  "summary": "DOCXの読み込み・出力、対応範囲と変換警告、画面なしの変換。",
+  "source": "packages/document/src/docs/docx.md",
+  "order": 40,
+  "section": "ファイルの受け渡し",
+  "keywords": ["docx", "Word", "importDocumentDocx", "exportDocumentDocx", "warnings"]
+}

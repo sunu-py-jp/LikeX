@@ -4,6 +4,8 @@
 
 親とサーバーで楽観ロック・悲観ロックを実装する例と、編集セッション・低レベルフックの契約です。
 
+ファイル単位の操作禁止には [`getEntryPermissions`](./entry-permissions.md) を使います。`onEditRequest` の許可後も、個別の操作可否は実行のたびに確認します。ロック取得・延長の通信は親が行い、最新の状態を同期的に返します。
+
 <a id="concurrency-control"></a>
 
 ## 楽観ロック・悲観ロックを選ぶ
@@ -245,6 +247,8 @@ export default function LockedExplorer(props: Props) {
 
 `onEditRequest` を指定した状態で、有効な変更を許可前に直接 `apply()` / `add()` すると「編集を開始してから変更してください」というエラーになります。変更なし・不正入力・取り込みの全件拒否・全件除外は、先に検証して許可を要求しません。`onEditRequest` 未指定なら、従来どおり同期の `apply()` / `add()` で有効な変更を適用できます。
 
+動画等の内容検査には低レベルフックの `addAsync(files, parent, decisions?, session?, { signal?, onProgress? }?)` を使います。編集許可の取得は同期 `add` と同じく呼び出し側が担当します。`onEditRequest` の承認待ちから含めて画面と同じ経路に任せる場合は、`ref.upload()` を使います。[時間・ページ数の制限](./upload-content-limits.md)
+
 ```ts
 type ExplorerEditIntent = Readonly<{
   action: ExplorerAction["action"] | "upload" | "save";
@@ -263,6 +267,7 @@ type ExplorerEditIntent = Readonly<{
 | `cancelEditRequest(windowId?)` | 取得中の要求を取り消します。ウィンドウIDを渡すとその操作元の要求だけが対象です。取得済みセッションの終了には使いません。 |
 | `endEdit()` | 変更がなければセッションを終了します。保存中・未保存変更がある場合はthrowします。 |
 | `getEditState()` / `getEntries()` | 非同期の許可取得後に、現在のセッションと一覧を取得します。状態は `mode` / `requestId` / `error` / `errorRequestId` を持ち、取得失敗の表示は `errorRequestId` で要求を照合できます。古いrender時の値で操作を再開しないために使います。 |
+| `getDirty()` / `isBusy()` | Reactの次の描画を待たず、現在の未保存状態と処理中・許可待ち・変更禁止状態を取得します。連続した外部操作の確認や制御に使います。 |
 | `save(windowId?)` / `discard()` | 保存成功・破棄でセッションを終了します。許可を取り直す保存では、任意の `windowId` を操作元として渡せます。変更がない状態の `save()` は `onSave` を呼ばずセッションを終了します。保存失敗は保持します。 |
 
 例えば独自の名前変更UIからは、入力確定時に準備し、同じ要求の許可がまだ有効かと対象IDを確認してから適用します。準備した確定処理も、許可取得後に一覧やアップロード設定が変わっていれば最新状態で再検証します。

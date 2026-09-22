@@ -1,0 +1,9 @@
+import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import LikeDataView, { LikeDataView as NamedLikeDataView, createDataView } from "__LIBRARY_IMPORT__";
+assert.equal(LikeDataView, NamedLikeDataView); assert.equal(typeof window, "undefined");
+const model = createDataView({ id: "data-1", title: "LikeDataView consumer", fields: [{ id: "name", name: "Name", type: "text" }], rows: [{ id: "row-1", values: { name: "DataView consumer content" } }] });
+const markup = renderToStaticMarkup(createElement(LikeDataView, { initialData: model, style: { height: 360 } }));
+assert.match(markup, /data-likex-dataview/); assert.match(markup, /DataView consumer content/); assert.match(markup, /height:360px/);
+console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

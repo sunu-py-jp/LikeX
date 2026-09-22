@@ -101,6 +101,8 @@ type ExplorerUploadOptions = Readonly<{
   allowedExtensions?: readonly `.${string}`[];
   maxFileSizeBytes?: number;
   maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
+  contentLimitsByExtension?: ExplorerUploadContentLimitsByExtension;
+  inspectFile?: ExplorerUploadInspectFile;
   maxFilesPerUpload?: number;
   maxTotalFiles?: number;
   invalidFileBehavior?: ExplorerUploadInvalidFileBehavior;
@@ -109,19 +111,21 @@ type ExplorerUploadOptions = Readonly<{
 
 | 設定 | 動作 |
 | --- | --- |
-| `upload` または制限の項目を省略 | 省略した制限は適用しません。拡張子・サイズ・件数はそれぞれ独立して指定できます。 |
+| `upload` または制限の項目を省略 | 許可拡張子・サイズ・件数は省略した条件を適用しません。動画の再生時間は既定で4時間以下です。[内容制限](./upload-content-limits.md) |
 | `allowedExtensions` | `.pdf` のように先頭にピリオドを付けます。前後の空白を除去し、UnicodeをNFCに正規化し、大小文字を区別せず判定します。重複指定はまとめます。 |
 | `allowedExtensions: []` | すべてのファイルが拡張子の条件に違反します。アップロードは既定で全体を拒否、`"skip"` では全件を除外します。空ファイル作成は入力エラーです。機能自体を隠す場合は `features.createFile` / `uploadFiles` / `uploadFolders` を無効にします。 |
 | 複合拡張子 | `.tar.gz` のような指定も可能です。正規化した取り込み元の名前がその末尾と一致するか判定します。 |
 | 拡張子なし | 許可リストを指定した場合、`README` や `.env` は拒否します。サイズだけの制限なら追加できます。 |
 | `maxFileSizeBytes` | バイト単位の、0以上の安全な整数を指定します。上限と同じサイズは許可し、0なら空ファイルだけを許可します。負数・小数・NaN・Infinityは設定エラーです。 |
 | `maxFileSizeBytesByExtension` | 拡張子ごとの上限を指定します。一致する指定があれば共通の `maxFileSizeBytes` を上書きし、小さくも大きくもできます。未一致なら共通上限を使い、共通上限もなければサイズは無制限です。値の単位・有効範囲は共通上限と同じです。 |
+| `contentLimitsByExtension` | 動画・音声の `maxDurationSeconds`、PDFの `maxPages`、PPTXの `maxSlides`。動画の既定値は14,400秒で、拡張子に `false` を指定するとその内容制限を解除します。[型と例](./upload-content-limits.md) |
+| `inspectFile` | 内容検査のためのメタデータ取得を差し替えます。秒数・ページ数・スライド数を返し、上限比較は共通処理が担当します。 |
 | `maxFilesPerUpload` | 1回の選択・ドロップ・貼り付け・API追加で取り込む、新規と上書きの合計件数。フォルダや除外・競合スキップしたファイルは数えません。 |
 | `maxTotalFiles` | 下書き全階層の `kind: "file"` の上限。保存済み・未保存を合算します。上書き・移動は増えず、削除すると空きができます。空ファイル作成や内部コピー・複製にも適用します。 |
 | `invalidFileBehavior: "reject-batch"` | 既定値。1件でも拡張子・サイズ・件数に違反すれば、その回の取り込みをすべて中止します。 |
 | `invalidFileBehavior: "skip"` | 拡張子・サイズ・件数に違反したファイルを除外し、残りを一括で取り込みます。件数は入力順で判定します。指定できる型は `ExplorerUploadInvalidFileBehavior` です。 |
 
-MIME指定や `image/*` のようなワイルドカードはこの設定では受け付けません。拡張子はファイル名の条件であり、内容の形式を解析するものではありません。サイズは `File.size` で判定するため、検証のために本体を読み込む必要はありません。
+MIME指定や `image/*` のようなワイルドカードはこの設定では受け付けません。許可拡張子はファイル名、容量は `File.size` で判定します。この2条件だけでは本体を読みません。再生時間・ページ数等の内容制限がある場合は、必要な情報を非同期で取得してから取り込みます。
 
 拡張子別上限のキーも先頭にピリオドを付け、前後の空白を除去・NFC正規化・小文字化して比較します。`.tar.gz` と `.gz` の両方を設定した場合は、名前の末尾に一致する最も長いキーを優先します。`README` や `.env` のような拡張子のない名前には共通上限を使います。空のマップ `{}` は個別指定なしと同じです。
 

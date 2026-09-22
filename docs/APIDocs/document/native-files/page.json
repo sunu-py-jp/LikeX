@@ -1,0 +1,8 @@
+{
+  "title": "DCON・JSON保存",
+  "summary": "ネイティブ.dconファイルの構造、検証、安定したJSON出力。",
+  "source": "packages/document/src/docs/native-files.md",
+  "order": 30,
+  "section": "親アプリとの連携",
+  "keywords": ["dcon", "DocumentModel", "parseDocument", "serializeDocument", "保存形式"]
+}

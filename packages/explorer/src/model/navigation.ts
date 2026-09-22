@@ -4,16 +4,18 @@ import { getEntryIndex, type EntryIndex } from "./entry-index";
 import { formatExplorerPath } from "./path";
 
 /** IDs are exact. Paths are absolute addresses inside this Explorer's virtual root. */
-export type ExplorerFileTarget =
+export type ExplorerEntryTarget =
   | Readonly<{ id: string; path?: never }>
   | Readonly<{ path: string; id?: never }>;
+/** File-only target used by selectFiles, showFile and previewFile. */
+export type ExplorerFileTarget = ExplorerEntryTarget;
 
 export type ExplorerShowFileOptions = Readonly<{ mode?: "select" | "preview" }>;
 
 export type ExplorerNavigationErrorCode =
   | "invalid-target" | "invalid-path" | "not-found" | "not-file" | "not-folder"
   | "ambiguous-path" | "different-folders" | "invalid-hierarchy"
-  | "not-ready" | "selection-disabled" | "selection-limit" | "preview-disabled" | "invalid-mode";
+  | "not-ready" | "selection-disabled" | "selection-limit" | "preview-disabled" | "permission-denied" | "invalid-mode" | "not-visible";
 
 export type ExplorerNavigationResult =
   | Readonly<{ ok: true }>
@@ -23,7 +25,11 @@ export type ExplorerNavigationResult =
 export type ExplorerNavigationHandle = Readonly<{
   navigate(path: string): ExplorerNavigationResult;
   selectFiles(targets: readonly ExplorerFileTarget[]): ExplorerNavigationResult;
+  /** Select files or folders. Mixed parents must already be visible in the current listing. */
+  selectEntries(targets: readonly ExplorerEntryTarget[]): ExplorerNavigationResult;
   showFile(target: ExplorerFileTarget, options?: ExplorerShowFileOptions): ExplorerNavigationResult;
+  /** Preview without requiring selection to be enabled. */
+  previewFile(target: ExplorerFileTarget): ExplorerNavigationResult;
 }>;
 
 type NavigationEntry = Pick<Entry, "id" | "parent" | "name" | "kind">;
@@ -96,7 +102,7 @@ function pathEntry(index: EntryIndex<NavigationEntry>, value: string, ambiguousN
   return entry;
 }
 
-function fileEntry(index: EntryIndex<NavigationEntry>, target: ExplorerFileTarget, ambiguousNamesByParent: Map<string, ReadonlySet<string>>): NavigationEntry {
+function targetEntry(index: EntryIndex<NavigationEntry>, target: ExplorerEntryTarget, ambiguousNamesByParent: Map<string, ReadonlySet<string>>, filesOnly: boolean): NavigationEntry {
   if (!target || typeof target !== "object" || Array.isArray(target) ||
     (Object.getPrototypeOf(target) !== Object.prototype && Object.getPrototypeOf(target) !== null)) {
     fail("invalid-target", "ファイルのIDまたは絶対パスを指定してください");
@@ -113,7 +119,7 @@ function fileEntry(index: EntryIndex<NavigationEntry>, target: ExplorerFileTarge
   if (keys[0] === "id" && descriptor.value === "root") fail("not-file", "ルートはフォルダです。ファイルを指定してください");
   if (entry === null) fail("not-file", "ルートはフォルダです。ファイルを指定してください");
   if (!entry) fail("not-found", "指定されたファイルが見つかりません");
-  if (entry.kind !== "file") fail("not-file", `「${entry.name}」はフォルダです。ファイルを指定してください`);
+  if (filesOnly && entry.kind !== "file") fail("not-file", `「${entry.name}」はフォルダです。ファイルを指定してください`);
   return entry;
 }
 
@@ -147,11 +153,31 @@ export function resolveExplorerFileTargets(entries: readonly NavigationEntry[], 
     const ids = new Set<string>();
     let parent: string | undefined;
     for (const target of targets) {
-      const file = fileEntry(index, target, ambiguousNamesByParent);
+      const file = targetEntry(index, target, ambiguousNamesByParent, true);
       if (parent !== undefined && file.parent !== parent) fail("different-folders", "一度に選択するファイルは、同じフォルダ内で指定してください");
       parent = file.parent;
       if (!ids.has(file.id)) { ids.add(file.id); files.push(file); }
     }
     return resolved(entries, index, parent!, files.map(file => file.id));
+  } catch (error) { return failure(error); }
+}
+
+export type ExplorerEntryTargetResolution =
+  | Readonly<{ ok: true; value: Readonly<{ entryIds: readonly string[] }> }>
+  | NavigationFailure;
+
+/** Resolve files and folders atomically, without restricting them to one parent. */
+export function resolveExplorerEntryTargets(entries: readonly NavigationEntry[], targets: readonly ExplorerEntryTarget[]): ExplorerEntryTargetResolution {
+  try {
+    if (!Array.isArray(targets)) fail("invalid-target", "選択する項目を配列で指定してください");
+    const index = navigationIndex(entries);
+    const ambiguousNamesByParent = new Map<string, ReadonlySet<string>>();
+    const ids = new Set<string>();
+    for (const target of targets) {
+      const entry = targetEntry(index, target, ambiguousNamesByParent, false);
+      formatExplorerPath(entries, entry.parent, index);
+      ids.add(entry.id);
+    }
+    return Object.freeze({ ok: true, value: Object.freeze({ entryIds: Object.freeze([...ids]) }) });
   } catch (error) { return failure(error); }
 }

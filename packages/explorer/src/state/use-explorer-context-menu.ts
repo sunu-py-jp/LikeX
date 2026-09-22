@@ -133,13 +133,14 @@ export function useExplorerContextMenu(options: Options) {
   const editRevision = options.workspace.draft.editRevision;
   useLayoutEffect(() => { executor.cancel(); }, [executor, editRevision, options.options.ui.contextMenu, options.options.readOnly]);
 
-  function getMenu(entry?: ExplorerEntry): ExplorerCustomMenu | null {
+  function getMenu(entry?: ExplorerEntry, selection?: readonly string[]): ExplorerCustomMenu | null {
     const latest = current.current;
     if (!latest.provider || !latest.options.ui.contextMenu) return null;
     const entries = latest.workspace.draft.getEntries();
     const target = entry ? entries.find(item => item.id === entry.id) : undefined;
     if (entry && !target) return null;
-    const selectedIds = target && !latest.selected.includes(target.id) ? [target.id] : target ? latest.selected : [];
+    const selected = selection ?? latest.selected;
+    const selectedIds = target && !selected.includes(target.id) ? [target.id] : target ? selected : [];
     const reader = latest.readFile;
     const freezeInfo = (item: ExplorerEntry) => {
       const info = describeEntry(entries, item);
@@ -157,7 +158,15 @@ export function useExplorerContextMenu(options: Options) {
       readFile: async (id: string) => {
         const item = entries.find(item => item.id === id);
         if (!item) throw new Error("ファイルが見つかりません");
-        return readEntryFile(item, reader);
+        const assertAllowed = () => {
+          if (!mounted.current || current.current.ownerDocument?.defaultView?.closed)
+            throw new Error("ファイルを読み込む画面が閉じられました");
+          current.current.workspace.draft.assertEntryPermissions([{ id, operation: "preview" }]);
+        };
+        assertAllowed();
+        const content = await readEntryFile(item, reader);
+        assertAllowed();
+        return content;
       },
     });
     try {

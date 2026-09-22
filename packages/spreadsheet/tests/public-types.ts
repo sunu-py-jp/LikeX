@@ -222,3 +222,21 @@ function useNativeFiles(handle: SpreadsheetHandle, file: Blob): [Promise<Spreads
 // @ts-expect-error A workbook's format is a specific identifier.
 const invalidNativeFormat: SpreadsheetWorkbook = { format: "likex.slide", sheets: [] };
 void [nativeProps, useNativeFiles, invalidNativeFormat];
+
+const drawingContextMenus: SpreadsheetProps = {
+  getContextMenuItems: context => {
+    if (context.target.kind !== "drawing") return [];
+    const id: string = context.target.drawingId;
+    const kind: "image" | "shape" | "text" = context.target.drawingType;
+    // @ts-expect-error Drawing targets do not have cell coordinates.
+    void context.target.address;
+    // @ts-expect-error Captured drawing targets are readonly.
+    context.target.drawingId = "other";
+    void [id, kind];
+    return [{ id: "delete-drawing", label: "描画を削除", onSelect: captured => {
+      if (captured.target.kind !== "drawing") return;
+      return { change: [{ type: "drawings.delete", sheetId: captured.target.sheetId, drawingId: captured.target.drawingId }] };
+    } }];
+  },
+};
+void drawingContextMenus;

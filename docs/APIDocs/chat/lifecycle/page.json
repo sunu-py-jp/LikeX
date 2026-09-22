@@ -1,0 +1,13 @@
+{
+  "title": "保存・送信・同期",
+  "summary": "親の送信確認、保存、編集許可、最新データの同期。",
+  "order": 30,
+  "keywords": [
+    "LikeChat",
+    "ChatModel",
+    "DM",
+    "スペース",
+    "スレッド"
+  ],
+  "source": "packages/chat/src/docs/lifecycle.md"
+}

@@ -1,8 +1,9 @@
-import type { Slide, SlideCommand, SlideCommandResult, SlideDeck, SlideElement, SlideElementInput } from "./types";
+import type { Slide, SlideAnimationStep, SlideCommand, SlideCommandResult, SlideDeck, SlideElement, SlideElementInput } from "./types";
 import { createSlide, createSlideElement, ELEMENT_KEYS, normalizeSlide, normalizeSlideDeck, normalizeSlideElement } from "./normalize";
 import { getSlide, sameSlideDeck, sameSlideElement } from "./query";
 import { choice, identifier, list, number, record } from "./validation";
 import { SLIDE_LIMITS } from "./limits";
+import { animationTargetIds, filterAnimationNode, normalizeSlideAnimations, sameAnimations } from "./animation-validation";
 
 const COMMAND_KEYS: Record<SlideCommand["type"], readonly string[]> = {
   "deck.rename": ["type", "title"], "deck.resize": ["type", "width", "height"],
@@ -11,10 +12,11 @@ const COMMAND_KEYS: Record<SlideCommand["type"], readonly string[]> = {
   "slide.update": ["type", "slideId", "patch"], "element.add": ["type", "slideId", "element"],
   "element.update": ["type", "slideId", "elementId", "patch"], "element.delete": ["type", "slideId", "elementIds"],
   "element.duplicate": ["type", "slideId", "elementIds"], "element.order": ["type", "slideId", "elementIds", "direction"],
+  "animation.set": ["type", "slideId", "animations"], "animation.remove": ["type", "slideId", "animationId"],
 };
 
 function requiredSlide(deck: SlideDeck, value: unknown): Slide {
-  const slide = getSlide(deck, identifier(value));
+  const slide = getSlide(deck, identifier(value), { includeAnimations: true });
   if (!slide) throw new Error("操作するスライドが見つかりません");
   return slide;
 }
@@ -33,6 +35,28 @@ function requireUnlocked(elements: readonly SlideElement[]) {
 function updateSlide(deck: SlideDeck, slide: Slide, patch: Partial<Slide>): SlideDeck {
   const updated = normalizeSlide({ ...slide, ...patch });
   return normalizeSlideDeck({ ...deck, slides: deck.slides.map(current => current.id === slide.id ? updated : current) });
+}
+
+function copyAnimations(slide: Slide, remap: ReadonlyMap<string, string>, offset = 0): SlideAnimationStep[] {
+  return (slide.animations ?? []).flatMap(step => {
+    const animation = filterAnimationNode(step.animation, id => remap.has(id), remap, offset);
+    if (!animation) return [];
+    const trigger = step.trigger?.type === "click" && step.trigger.elementId
+      ? { ...step.trigger, elementId: remap.get(step.trigger.elementId) ?? step.trigger.elementId } : step.trigger;
+    return [{ ...step, id: crypto.randomUUID(), ...(trigger ? { trigger } : {}), animation }];
+  });
+}
+function requireUnlockedAnimations(slide: Slide, next: SlideAnimationStep[] | undefined): void {
+  const before = new Map((slide.animations ?? []).map(step => [step.id, step]));
+  const after = new Map((next ?? []).map(step => [step.id, step]));
+  const beforeOrder = [...before.keys()].filter(id => after.has(id));
+  const afterOrder = [...after.keys()].filter(id => before.has(id));
+  for (const id of new Set([...before.keys(), ...after.keys()])) {
+    const old = before.get(id), updated = after.get(id);
+    if (old && updated && beforeOrder.indexOf(id) === afterOrder.indexOf(id) && sameAnimations([old], [updated])) continue;
+    const targets = new Set([...(old ? animationTargetIds(old) : []), ...(updated ? animationTargetIds(updated) : [])]);
+    requireUnlocked(slide.elements.filter(element => targets.has(element.id)));
+  }
 }
 
 function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "changed"> {
@@ -57,8 +81,10 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
     return { deck: normalizeSlideDeck({ ...deck, slides: next }), slideId: next[Math.min(slideIndex, next.length - 1)].id, elementIds: [] };
   }
   if (type === "slide.duplicate") {
+    const remap = new Map(slide.elements.map(element => [element.id, crypto.randomUUID()]));
     const duplicate = createSlide({ ...slide, id: crypto.randomUUID(), name: `${slide.name.slice(0, 995)} のコピー`,
-      elements: slide.elements.map(element => normalizeSlideElement({ ...element, id: crypto.randomUUID() })) });
+      elements: slide.elements.map(element => normalizeSlideElement({ ...element, id: remap.get(element.id)! })),
+      animations: copyAnimations(slide, remap) });
     const next = [...deck.slides];
     next.splice(slideIndex + 1, 0, duplicate);
     return { deck: normalizeSlideDeck({ ...deck, slides: next }), slideId: duplicate.id, elementIds: [] };
@@ -73,6 +99,19 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
   if (type === "slide.update") {
     const patch = record(raw.patch, "スライドの変更", ["name", "background", "notes"]);
     return { deck: updateSlide(deck, slide, patch), slideId: slide.id, elementIds: [] };
+  }
+  if (type === "animation.set" || type === "animation.remove") {
+    let animations: SlideAnimationStep[] | undefined;
+    if (type === "animation.set") {
+      if (raw.animations === undefined) throw new Error("アニメーションを配列で指定してください");
+      animations = normalizeSlideAnimations(raw.animations, slide.elements);
+    } else {
+      const id = identifier(raw.animationId);
+      if (!slide.animations?.some(step => step.id === id)) throw new Error("操作するアニメーションが見つかりません");
+      animations = slide.animations.filter(step => step.id !== id);
+    }
+    requireUnlockedAnimations(slide, animations);
+    return { deck: updateSlide(deck, slide, { animations }), slideId: slide.id, elementIds: [] };
   }
   if (type === "element.add") {
     const element = createSlideElement(raw.element as SlideElementInput);
@@ -92,11 +131,22 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
   const selected = selectedElements(slide, raw.elementIds);
   requireUnlocked(selected);
   const ids = new Set(selected.map(element => element.id));
-  if (type === "element.delete") return { deck: updateSlide(deck, slide, { elements: slide.elements.filter(element => !ids.has(element.id)) }), slideId: slide.id, elementIds: [] };
+  if (type === "element.delete") {
+    const animations = (slide.animations ?? []).flatMap(step => {
+      if (step.trigger?.type === "click" && step.trigger.elementId && ids.has(step.trigger.elementId)) return [];
+      const animation = filterAnimationNode(step.animation, id => !ids.has(id));
+      return animation ? [{ ...step, animation }] : [];
+    });
+    requireUnlockedAnimations(slide, animations);
+    return { deck: updateSlide(deck, slide, { elements: slide.elements.filter(element => !ids.has(element.id)), animations }), slideId: slide.id, elementIds: [] };
+  }
   if (type === "element.duplicate") {
     const copies = selected.map(element => normalizeSlideElement({ ...element, id: crypto.randomUUID(),
       x: element.x + 20, y: element.y + 20 }));
-    return { deck: updateSlide(deck, slide, { elements: [...slide.elements, ...copies] }), slideId: slide.id, elementIds: copies.map(element => element.id) };
+    const remap = new Map(selected.map((element, index) => [element.id, copies[index].id]));
+    const animations = [...(slide.animations ?? []), ...copyAnimations(slide, remap, 20)];
+    requireUnlockedAnimations(slide, animations);
+    return { deck: updateSlide(deck, slide, { elements: [...slide.elements, ...copies], animations }), slideId: slide.id, elementIds: copies.map(element => element.id) };
   }
   const direction = choice(raw.direction, ["front", "back", "forward", "backward"], "重なり順");
   let ordered = [...slide.elements];

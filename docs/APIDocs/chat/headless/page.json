@@ -1,0 +1,13 @@
+{
+  "title": "画面なしのAPI",
+  "summary": "JSONを操作するコマンドと取得API、コンポーネントref。",
+  "order": 40,
+  "keywords": [
+    "LikeChat",
+    "ChatModel",
+    "DM",
+    "スペース",
+    "スレッド"
+  ],
+  "source": "packages/chat/src/docs/headless.md"
+}

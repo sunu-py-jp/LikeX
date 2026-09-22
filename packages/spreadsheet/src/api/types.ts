@@ -5,10 +5,12 @@ import type { SpreadsheetExcelExportOptions, SpreadsheetNativeExportOptions } fr
 import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetWorkbookSnapshot } from "../commands/types";
 import type { SpreadsheetReadApi } from "../model/query-reader";
 import type { SpreadsheetHistoryState } from "../history/workbook-history";
+import type { SpreadsheetSelectionApi } from "./selection";
+export type { SpreadsheetSelectionApi, SpreadsheetSelectionOptions, SpreadsheetSelectedDrawing } from "./selection";
 
 export type * from "../commands/types";
 
-export type SpreadsheetHandle = SpreadsheetReadApi & Readonly<{
+export type SpreadsheetHandle = SpreadsheetReadApi & SpreadsheetSelectionApi & Readonly<{
   execute(command: SpreadsheetCommand): SpreadsheetCommandResult;
   batch(commands: readonly SpreadsheetCommand[]): SpreadsheetCommandResult;
   executeAsync(command: SpreadsheetCommand): Promise<SpreadsheetCommandResult>;

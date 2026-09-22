@@ -3,6 +3,15 @@ export const components = [
   { id: 'explorer', name: 'Explorer', note: 'ファイルとフォルダ' },
   { id: 'spreadsheet', name: 'Spreadsheet', note: 'セルとワークブック' },
   { id: 'slide', name: 'LikeSlide', note: 'スライドとプレゼンテーション' },
+  { id: 'document', name: 'LikeDocument', note: '文章とページ' },
+  { id: 'board', name: 'LikeBoard', note: 'カードとタスク' },
+  { id: 'dataview', name: 'LikeDataView', note: 'レコードと表' },
+  { id: 'diagram', name: 'LikeDiagram', note: 'ノードと接続' },
+  { id: 'whiteboard', name: 'LikeWhiteboard', note: '自由なキャンバス' },
+  { id: 'calendar', name: 'LikeCalendar', note: '予定と日付' },
+  { id: 'aichat', name: 'LikeAIChat', note: 'AIとの会話' },
+  { id: 'chat', name: 'LikeChat', note: 'DMとスペース' },
+  { id: 'form', name: 'LikeForm', note: 'フォームと回答' },
   { id: 'core', name: 'Core', note: '共通の型とヘルパー' },
 ];
 

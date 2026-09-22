@@ -19,7 +19,16 @@
     "@likex/spreadsheet": "0.1.0",
     "@likex/slide": "0.1.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "@likex/document": "0.1.0",
+    "@likex/board": "0.1.0",
+    "@likex/dataview": "0.1.0",
+    "@likex/diagram": "0.1.0",
+    "@likex/whiteboard": "0.1.0",
+    "@likex/calendar": "0.1.0",
+    "@likex/chat": "0.2.0",
+    "@likex/form": "0.1.0",
+    "@likex/aichat": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "22.19.19",

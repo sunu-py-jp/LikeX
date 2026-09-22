@@ -15,6 +15,19 @@ const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
 `, resolveDir: packageRoot }, bundle: true, platform: 'node', format: 'esm', write: false,
 plugins: [{ name: 'shared-react', setup(builder) {
   builder.onResolve({ filter: /^(react|react-dom|lucide-react)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+  // These badge tests render the sidebar without a browser. Keep its closed
+  // menus transparent; their interaction contracts have dedicated UI tests.
+  builder.onResolve({ filter: /^radix-ui$/ }, () => ({ path: 'radix', namespace: 'pending-badges' }));
+  builder.onLoad({ filter: /.*/, namespace: 'pending-badges' }, () => ({ loader: 'tsx', resolveDir: packageRoot, contents: `
+    import { cloneElement } from 'react';
+    const primitives = {
+      Root: ({ children }) => children,
+      Trigger: ({ children, asChild, ...props }) => asChild ? cloneElement(children, props) : children,
+      Portal: () => null,
+    };
+    export const ContextMenu = primitives, DropdownMenu = primitives, Dialog = primitives,
+      AlertDialog = primitives, Tooltip = primitives;
+  ` }));
 } }] });
 const { useExplorerWorkspace, useExplorerViewController, ExplorerProvider, FileIcon, FileThumbnail, ExplorerSidebar } = await import(
   `data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);

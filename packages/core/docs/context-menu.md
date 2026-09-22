@@ -146,3 +146,28 @@ if (outcome === "confirmation-required") {
 イベントは `type: "context-menu"` に加え、`status`、`requestId`、`itemId`、`label`、任意の `message` を持ちます。`status` は `start / confirmation-required / success / cancelled / error`。イベントの `error` と実行結果の `failed` は名称が異なります。
 
 終了時は成功の場合もsignalがabortされます。アンマウント時は `cancel()` と `canRun` のガードで未完了の処理を止めます。React StrictModeなどで同じインスタンスを再接続する場合、`dispose()` を使うと以後再利用できません。
+
+## 共通の右クリック表示
+
+各ビューの組み込みメニューには `@likex/core/browser` の `openContextMenu` を利用できます。これは表示のみのヘルパーで、データ変更・権限確認は各コンポーネントの既存コマンド経路で行います。ホストの非同期拡張契約である `ContextMenuProvider` / `createContextMenuExecutor` とは役割が異なります。
+
+```ts
+import { openContextMenu } from "@likex/core/browser";
+
+const close = openContextMenu({
+  anchor: clickedElement,
+  x: event.clientX,
+  y: event.clientY,
+  items: [
+    { id: "edit", label: "編集", onSelect: () => editTarget() },
+    { id: "delete", label: "削除", danger: true, separatorBefore: true,
+      onSelect: () => deleteTarget() },
+  ],
+  onError: error => showError(error),
+});
+// 対象の変更・画面破棄時に close()。呼出側は対象IDと権限を再確認する。
+```
+
+`items` の各項目は `id / label / onSelect` が必須で、`disabled / danger / shortcut / separatorBefore` は任意です。機能OFFの項目は呼出側が配列に含めません。空配列で標準メニューを奪わないよう、イベントの `preventDefault()` は表示項目がある場合にだけ呼びます。入力欄・選択テキストなどブラウザー標準操作が必要な対象も呼出側で除外します。
+
+メニューは画面内へ収め、上下矢印・Home/End・Enter・Escapeに対応します。外側クリック、リサイズ、背景スクロール、ウィンドウのフォーカス喪失、対象要素の破棄で閉じます。メニュー自身のスクロールは維持します。描画とイベントは `anchor.ownerDocument` を使うため、別ウィンドウにも対応できます。モデル/APIの純粋な入口へDOM型を混ぜないため `/browser` は独立しています。

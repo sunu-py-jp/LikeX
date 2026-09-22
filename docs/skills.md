@@ -1,11 +1,22 @@
 # LLM向けのドキュメント操作スキル
 
-SpreadsheetとLikeSlideには、画面を用意せずネイティブJSONを操作するスキルを同梱しています。
+保存用JSONを持つ各モジュールには、画面を用意せずネイティブJSONを操作するスキルを同梱しています。
 
 | スキル | 対象 |
 | --- | --- |
 | [likex-spreadsheet](../packages/spreadsheet/skills/likex-spreadsheet/SKILL.md) | `.spon`のブック、セル、行列、書式、図形など |
 | [likex-slide](../packages/slide/skills/likex-slide/SKILL.md) | `.slon`のページ、テキスト、図形、画像など |
+| [likex-document](../packages/document/skills/likex-document/SKILL.md) | `.dcon`の文章、段落、書式、表、画像など |
+| [likex-board](../packages/board/skills/likex-board/SKILL.md) | カードとタスクのかんばんのJSON |
+| [likex-diagram](../packages/diagram/skills/likex-diagram/SKILL.md) | ノード・接続線の図のJSON |
+| [likex-calendar](../packages/calendar/skills/likex-calendar/SKILL.md) | 月・週・日の予定管理のJSON |
+| [likex-whiteboard](../packages/whiteboard/skills/likex-whiteboard/SKILL.md) | 付箋・図形・画像のキャンバスのJSON |
+| [likex-aichat](../packages/aichat/skills/likex-aichat/SKILL.md) | AI会話・ストリーミング応答のJSON（`likex.aichat` / version 1） |
+| [likex-chat](../packages/chat/skills/likex-chat/SKILL.md) | 人同士のDM・グループ・スペース・返信のJSON（`likex.chat` / version 2） |
+| [likex-dataview](../packages/dataview/skills/likex-dataview/SKILL.md) | 型付きレコード・検索・集計表示のJSON |
+| [likex-form](../packages/form/skills/likex-form/SKILL.md) | フォーム設計・回答・検証のJSON |
+
+旧AI LikeChatの `likex.chat` / version 1ファイルは `likex-aichat` スキルとAIChatのパーサーを使って検証・移行します。人同士の会話には `likex-chat` スキルを選び、形式名だけで互換性を判断しないでください。
 
 ## 利用する
 
@@ -25,9 +36,9 @@ node /path/to/likex-spreadsheet/scripts/document.mjs apply \
   --input report.spon --commands changes.json --output report-edited.spon
 ```
 
-利用できる操作と引数は各スキルの `SKILL.md` と `references/commands.md`、CLIの `--help` にあります。既存のファイルを編集する場合は先に `inspect` でIDを調べてください。CLIは外部ストレージとの同期、認証、ロック、PPTX／XLSX変換を行いません。
+利用できる操作と引数は各スキルの `SKILL.md` と `references/commands.md`、CLIの `--help` にあります。既存のファイルを編集する場合は先に `inspect` でIDや文書位置を調べてください。CLIは外部ストレージとの同期、認証、ロック、PPTX／XLSX／DOCX変換を行いません。
 
-リポジトリ内で使う場合は、最初に `npm ci` と `npm run build:library -- --module spreadsheet`（または `slide`）を実行します。その後、対象パッケージのスキル内にあるCLIを呼び出します。
+リポジトリ内で使う場合は、最初に `npm ci` と `npm run build:library -- --module spreadsheet`（または `slide`、`document`、`board`、`diagram`、`calendar`、`whiteboard`、`aichat`、`chat`、`dataview`、`form`）を実行します。その後、対象パッケージのスキル内にあるCLIを呼び出します。
 
 ## 更新する
 

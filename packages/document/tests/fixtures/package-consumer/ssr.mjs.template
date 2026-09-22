@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import LikeDocument, { LikeDocument as NamedLikeDocument, createDocument } from "__LIBRARY_IMPORT__";
+assert.equal(LikeDocument, NamedLikeDocument);
+assert.equal(typeof window, "undefined");
+const document = createDocument({ title: "LikeDocument consumer", content: { type: "doc", content: [
+  { type: "paragraph", content: [{ type: "text", text: "Document consumer content" }] },
+] } });
+const markup = renderToStaticMarkup(createElement(LikeDocument, { initialDocument: document, title: "LikeDocument consumer", style: { height: 360 } }));
+assert.match(markup, /data-likex-document/);
+assert.match(markup, /Document consumer content/);
+assert.match(markup, /height:360px/);
+console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

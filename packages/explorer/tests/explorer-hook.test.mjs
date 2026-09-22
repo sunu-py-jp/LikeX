@@ -103,20 +103,21 @@ test('hook data, save deltas and a canonical response retain filename-derived ex
   assert.equal(hook.current.dirty, false); assert.equal(supplied[0].extension, 'stale');
   const file = new File(['new body'], 'New.TAR.GZ');
   await act(async () => {
-    hook.current.apply({ action: 'rename', ids: ['one'], name: 'Changed.JSON' });
+    assert.throws(() => hook.current.apply({ action: 'rename', ids: ['one'], name: 'Changed.JSON' }), /拡張子/);
+    hook.current.apply({ action: 'rename', ids: ['one'], name: 'Changed.TXT' });
     hook.current.apply({ action: 'delete', ids: ['remove'] });
     hook.current.add([file], 'folder');
   });
-  assert.equal(hook.current.entries.find(item => item.id === 'one').extension, 'json');
+  assert.equal(hook.current.entries.find(item => item.id === 'one').extension, 'txt');
   assert.equal(hook.current.entries.at(-1).extension, 'gz');
   await act(async () => { assert.equal(await hook.current.save(), true); });
-  assert.equal(saves[0].changes.updated[0].extension, 'json');
+  assert.equal(saves[0].changes.updated[0].extension, 'txt');
   assert.equal(saves[0].changes.deleted[0].extension, 'csv');
   assert.equal(saves[0].changes.created[0].extension, 'gz');
   assert.equal(saves[0].changes.created[0].source.file, file);
   assert.deepEqual(hook.current.entries.map(item => item.extension), ['pdf', '', 'gz']);
-  await act(async () => { hook.current.apply({ action: 'rename', ids: ['one'], name: 'Temporary.XML' }); });
-  assert.equal(hook.current.entries[0].extension, 'xml');
+  await act(async () => { hook.current.apply({ action: 'rename', ids: ['one'], name: 'Temporary.PDF' }); });
+  assert.equal(hook.current.entries[0].extension, 'pdf');
   await act(async () => { hook.current.discard(); });
   assert.equal(hook.current.entries[0].name, 'Canonical.PDF'); assert.equal(hook.current.entries[0].extension, 'pdf');
   assert.equal(hook.current.entries.at(-1).source.file, file); assert.equal(hook.current.dirty, false);
