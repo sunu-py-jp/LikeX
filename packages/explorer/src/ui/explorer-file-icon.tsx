@@ -48,6 +48,8 @@ function useIconEntry(entry: Entry): Entry {
 }
 
 function DocumentFileIcon({ appearance }: { appearance: FileIconStyle }) {
+  const characters = Array.from(appearance.label);
+  const label = characters.length > 5 ? `${characters.slice(0, 4).join("")}…` : appearance.label;
   return (
     <svg viewBox="0 0 40 48" fill="none" aria-hidden="true" focusable="false"
       data-explorer-file-extension={appearance.label || undefined}>
@@ -57,8 +59,9 @@ function DocumentFileIcon({ appearance }: { appearance: FileIconStyle }) {
         fill={appearance.ink} stroke={appearance.ink} strokeWidth={1.3} strokeLinejoin="round" />
       {appearance.label && <text x={20} y={29} fill={appearance.ink}
         fontFamily="Arial, sans-serif" fontWeight={500}
-        fontSize={appearance.label.length > 4 ? 8 : 9.5} textAnchor="middle"
-        letterSpacing={0}>{appearance.label}</text>}
+        fontSize={characters.length > 4 ? 8 : 9.5} textAnchor="middle"
+        textLength={Math.min(characters.length * 6, 24)} lengthAdjust="spacingAndGlyphs"
+        letterSpacing={0}>{label}</text>}
     </svg>
   );
 }
@@ -72,7 +75,7 @@ export function DefaultFileIcon({
 }: FileIconProps) {
   const theme = useExplorerTheme();
   const folder = entry.kind === "folder";
-  const appearance = fileIconStyle(entryExtension(entry), theme.colorScheme === "dark" ? "dark" : "light");
+  const appearance = fileIconStyle(entryExtension(entry), theme.colorScheme === "dark" ? "dark" : "light", entry.mime);
   return (
     <span
       aria-hidden="true"

@@ -1,6 +1,6 @@
 import type { ExplorerEntry } from "@likex/explorer";
 
-/** Display fixtures; LikeX files contain minimal JSON, Office/font/archive files are icon samples only. */
+/** Display fixtures; LikeX files contain minimal JSON, binary formats are icon samples only. */
 export function createExplorerIconSamples(): ExplorerEntry[] {
   const groups = [
     ["Excel", ["xls", "xlsx", "xlsm", "xlsb", "xlt", "xltx", "xltm", "xla", "xlam"]],
@@ -10,6 +10,9 @@ export function createExplorerIconSamples(): ExplorerEntry[] {
     ["LikeX", ["spon", "slon"]],
     ["データ", ["json", "csv", "tsv", "xml", "yaml", "yml"]],
     ["Font", ["ttf", "otf", "woff", "woff2", "ttc", "eot"]],
+    ["動画", ["mp4", "webm", "mov", "mkv", "avi", "m4v", "wmv", "mpeg", "ogv", "3gp"]],
+    ["音声", ["mp3", "wav", "m4a", "aac", "flac", "ogg", "opus", "aiff", "mid"]],
+    ["コード", ["js", "jsx", "ts", "tsx", "py", "rb", "java", "c", "cpp", "cs", "go", "rs", "php", "swift", "kt", "html", "css", "sql", "sh", "ps1"]],
     ["その他", ["unknown"]],
   ] as const;
   const date = "2026-09-07T00:00:00.000Z";
@@ -17,6 +20,7 @@ export function createExplorerIconSamples(): ExplorerEntry[] {
     ...groups.flatMap(([group, extensions]) => extensions.map(extension => `${group}.${extension}`)),
     "README",
     "テキスト.txt", "テキスト.md",
+    "独自形式.customformat",
     ...["zip", "7z", "rar", "tar", "gz", "tgz", "bz2", "xz", "zst", "lzh"].map(extension => `圧縮.${extension}`),
   ];
   return [

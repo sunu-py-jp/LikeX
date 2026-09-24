@@ -60,6 +60,9 @@ const iconFamilies = [
   ['#946538', '#c8a07e', ['ppt', 'pptx', 'pptm', 'pot', 'potx', 'potm', 'pps', 'ppsx', 'ppsm', 'slon']],
   ['#637182', '#a0aab7', ['ttf', 'otf', 'woff', 'woff2', 'ttc', 'eot']],
   ['#80694f', '#c3ae92', ['zip', '7z', 'rar', 'tar', 'gz', 'tgz', 'bz2', 'xz', 'zst', 'lzh']],
+  ['#4f7180', '#93b0bc', ['mp4', 'mov', 'webm', 'mkv', 'avi', 'm4v', 'wmv', 'mpg', 'mpeg', 'ogv', '3gp', '3g2', 'flv', 'm2ts']],
+  ['#886477', '#bfa0b2', ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'opus', 'aiff', 'mid']],
+  ['#646f91', '#a3accb', ['rb', 'py', 'ts', 'tsx', 'mts', 'cpp', 'rs', 'go', 'php', 'java', 'js', 'html', 'css', 'sh', 'ps1']],
 ];
 const textIconFamily = ['#7b8794', '#aeb8c5', ['txt', 'md']];
 const change = async callback => { await act(async () => { await callback(); }); };
@@ -125,7 +128,7 @@ test('font extensions display only the extension at either size', async t => {
   }
 });
 
-test('unrecognized files keep a white generic paper icon and folders stay yellow', async t => {
+test('any nonempty extension receives a label while extensionless files and folders retain their shapes', async t => {
   const view = await mount(t, h(FileIcon, { entry: { ...file, name: 'Readme' } }));
   const generic = view.json();
   const genericPaths = view.root.findAllByType('path').map(node => node.props);
@@ -134,17 +137,60 @@ test('unrecognized files keep a white generic paper icon and folders stay yellow
   assert.equal(view.root.findByType('svg').props.viewBox, generic.children[0].props.viewBox);
   assert.deepEqual(view.root.findAllByType('path').map(node => ({ d: node.props.d, strokeWidth: node.props.strokeWidth })),
     genericPaths.map(({ d, strokeWidth }) => ({ d, strokeWidth })), 'generic and labeled files share the same outline');
-  for (const [name, mime] of [['Photo.png', 'image/png'], ['Code.ts', 'text/typescript'],
-    ['Unknown.bin', 'application/octet-stream'], ['Video.mp4', 'video/mp4'], ['Readme', 'text/plain'], ['.env', 'text/plain']]) {
+  for (const [name, mime] of [['Readme', 'text/plain'], ['.env', 'text/plain']]) {
     await view.update({ node: h(FileIcon, { entry: { ...file, name, mime } }) });
     assert.deepEqual(view.json(), generic, name);
     assert.equal(view.root.findAllByType('text').length, 0);
+  }
+  for (const extension of ['png', 'bin', 'custom', 'xyz', '独自']) {
+    await view.update({ node: h(FileIcon, { entry: { ...file, name: `Unknown.${extension}`, mime: 'application/octet-stream' } }) });
+    assert.equal(view.root.findByType('svg').props['data-explorer-file-extension'], extension.toUpperCase());
+    const label = view.root.findByType('text');
+    assert.equal(label.children.join(''), extension.length > 5 ? `${extension.slice(0, 4).toUpperCase()}…` : extension.toUpperCase());
+    assert.equal(label.props.fill, '#7b8794', 'unclassified extensions keep neutral ink');
+    assert.equal(view.root.findAllByType('path')[0].props.fill, '#ffffff');
+    assert.equal(fileIconStyle(extension).label, extension.toUpperCase());
   }
   await view.update({ node: h(FileIcon, { entry: { ...folder, name: 'フォルダ.pdf', extension: 'pdf' } }) });
   assert.match(view.root.findByType('svg').props.className, /\blucide-folder\b/);
   assert.match(view.json().props.className, /explorer-folder/);
   assert.equal(view.root.findAllByType('text').length, 0);
   assert.notDeepEqual(view.json(), generic);
+});
+
+test('media MIME prefixes and programming MIME aliases color unlisted extensions without replacing existing families', async t => {
+  const view = await mount(t, h(FileIcon, { entry: file }));
+  for (const [extension, mime, light, dark] of [
+    ['clip', ' VIDEO/X-EXAMPLE ; version=1', '#4f7180', '#93b0bc'],
+    ['sound', 'audio/x-example', '#886477', '#bfa0b2'],
+    ['script', 'text/x-python', '#646f91', '#a3accb'],
+    ['script', 'application/x-httpd-php', '#646f91', '#a3accb'],
+    ['ts', 'video/mp2t', '#4f7180', '#93b0bc'],
+    ['xlsx', 'video/x-example', '#3e7359', '#87af99'],
+    ['md', 'audio/x-example', '#7b8794', '#aeb8c5'],
+    ['json', 'text/typescript', '#806794', '#b5a1cb'],
+  ]) {
+    await view.update({ node: h(FileIcon, { entry: { ...file, name: `File.${extension}`, mime } }) });
+    assert.equal(view.root.findByType('text').props.fill, light, `${extension}: ${mime}`);
+    assert.equal(fileIconStyle(extension, 'dark', mime).ink, dark);
+    assert.equal(fileIconStyle(extension, 'dark', mime).label, extension.toUpperCase());
+  }
+});
+
+test('long and wide extension labels fit the paper while retaining the complete extension metadata', async t => {
+  const view = await mount(t, h(FileIcon, { entry: file }));
+  for (const extension of ['wwww', 'woff2', 'extremelylongextension', '😀😀😀😀😀😀', 'a'.repeat(200)]) {
+    for (const large of [false, true]) {
+      await view.update({ node: h(FileIcon, { entry: { ...file, name: `File.${extension}` }, large }) });
+      assert.equal(view.root.findByType('svg').props['data-explorer-file-extension'], extension.toUpperCase());
+      const label = view.root.findByType('text');
+      const visible = label.children.join('');
+      assert.ok(Array.from(visible).length <= 5);
+      assert.equal(visible.endsWith('…'), Array.from(extension).length > 5);
+      assert.equal(label.props.lengthAdjust, 'spacingAndGlyphs');
+      assert.ok(label.props.textLength <= 24, 'fit between x=6 and x=34 with padding');
+    }
+  }
 });
 
 test('light and dark defaults use theme-matched paper and high contrast extension labels', async t => {
