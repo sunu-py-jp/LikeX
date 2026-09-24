@@ -118,7 +118,7 @@ const explorerOptions = {
 
 内蔵プレビューはテキスト（1 MiBまで）、CSV/TSV（200行・50列・合計10,000セルまで、各セル2,000文字まで）、PNG・JPEG・GIF・WebP・AVIF・BMP、PDF、MP4/WebMに対応します。SVGは画像として描画せず、ソースをテキスト表示します。画像のプレビューは `features.preview`、一覧の画像サムネイルは `ui.thumbnails` で独立して制御できます。PDFはブラウザーのiframeで表示します。Excel・Word・PowerPoint（`xlsx` / `xls` / `docx` / `doc` / `pptx` / `ppt`）の内蔵プレビューは未対応です。ダウンロードが有効な場合は、取得して対応アプリで開けます。
 
-LikeXの `.spon`（Spreadsheet）と `.slon`（Slide）は、内蔵プレビューではJSONのテキストとして表示します（1 MiBまで）。シートやスライドとして描画する場合は `onPreviewRequest` で親の専用ビューを開き、対応する `parseWorkbook` / `parseSlideDeck` で内容を検証してください。Explorer自体はSpreadsheetやSlideを読み込みません。アップロードに許可リストを設定している場合は、`upload.allowedExtensions` に `.spon` / `.slon` を追加します。
+LikeXの `.spon`（Spreadsheet）と `.slon`（Slide）は、内蔵プレビューではJSONのテキストとして表示します（1 MiBまで）。シートやスライドとして描画する場合は `renderPreview` でダイアログの本文を差し替えるか、`onPreviewRequest` で親の専用ビューを開き、対応する `parseWorkbook` / `parseSlideDeck` で内容を検証してください。Explorer自体はSpreadsheetやSlideを読み込みません。アップロードに許可リストを設定している場合は、`upload.allowedExtensions` に `.spon` / `.slon` を追加します。
 
 ## マウスのサイドボタンで戻る・進む
 

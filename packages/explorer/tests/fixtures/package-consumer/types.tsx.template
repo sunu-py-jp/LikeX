@@ -1,6 +1,8 @@
 import { createRef } from "react";
 import Explorer, { ExplorerPopup, useExplorerDraft, createExplorerUploadSession,
   type ExplorerProps, type ExplorerEntry, type ExplorerEvent,
+  type ExplorerPreviewHandler, type ExplorerPreviewRenderer, type ExplorerPreviewSourceResolver,
+  type ExplorerPreviewOptions, type ExplorerPreviewSource,
   type ExplorerFileReader, type ExplorerSaveHandler, type ExplorerRefreshHandler,
   type ExplorerSearchOptions, type ExplorerSearchHandler, type ExplorerSearchRequest,
   type ExplorerSearchContext, type ExplorerUploadOptions,
@@ -9,6 +11,28 @@ import Explorer, { ExplorerPopup, useExplorerDraft, createExplorerUploadSession,
   type ExplorerNavigationErrorCode, type ExplorerShowFileOptions,
   type FileReader as LegacyFileReader, type SaveHandler as LegacySaveHandler,
   type RefreshHandler as LegacyRefreshHandler } from "__EXPLORER_IMPORT__";
+
+const previewConfig = { pdfSandbox: false, formatsByExtension: { ".mov": { mode: "video", mime: "video/quicktime" } } } satisfies ExplorerPreviewOptions;
+const previewSource: ExplorerPreviewSourceResolver = (entry, { signal, processing }) => {
+  signal.throwIfAborted();
+  if (entry.extension !== "pptx") return null;
+  if (processing) return { kind: "pending", message: "プレビューを準備しています" };
+  return { kind: "blob", cacheKey: `${entry.id}:pdf:v1`, mime: "application/pdf", read: async ({ signal: readSignal }) => {
+    readSignal.throwIfAborted();
+    return new Blob(["%PDF-1.7"], { type: "application/pdf" });
+  } };
+};
+const previewHandler: ExplorerPreviewHandler = entry => entry.extension === "txt" ? "handled" : "default";
+const legacyPreviewHandler: ExplorerPreviewHandler = () => {};
+const previewRenderer: ExplorerPreviewRenderer = ({ entry, defaultPreview, processing, allowDownload }) =>
+  entry.extension === "custom" ? <div>{processing ? "準備中" : allowDownload ? "表示" : "閲覧"}</div> : defaultPreview;
+// @ts-expect-error Preview source descriptors are explicit; HTML is not an embeddable mode.
+const unsafePreviewSource: ExplorerPreviewSource = { kind: "url", url: "/page", mode: "html" };
+// @ts-expect-error Render callbacks are synchronous; return a component for async work.
+const asyncPreviewRenderer: ExplorerPreviewRenderer = async () => <div />;
+// @ts-expect-error New preview outcomes are a literal union, not arbitrary route names.
+const invalidPreviewHandler: ExplorerPreviewHandler = () => "new-tab";
+void [previewConfig, previewSource, previewHandler, legacyPreviewHandler, previewRenderer, unsafePreviewSource, asyncPreviewRenderer, invalidPreviewHandler];
 
 const entries: readonly ExplorerEntry[] = [];
 const explorerRef = createRef<ExplorerHandle>();
@@ -65,7 +89,8 @@ const legacyReadFile: LegacyFileReader = readFile;
 const legacySave: LegacySaveHandler = onSave;
 const legacyRefresh: LegacyRefreshHandler = onRefresh;
 const legacyProps = { initialEntries: entries, readFile: legacyReadFile, onSave: legacySave, onRefresh: legacyRefresh } satisfies ExplorerProps;
-const valid: ExplorerProps = { initialEntries: entries, onSave, onRefresh, readFile, search, onSearchRequest, upload, getEntryPermissions,
+const valid: ExplorerProps = { preview: previewConfig, resolvePreviewSource: previewSource, onPreviewRequest: previewHandler, renderPreview: previewRenderer,
+  getProcessingLabel: entry => `${entry.name}を処理しています`, initialEntries: entries, onSave, onRefresh, readFile, search, onSearchRequest, upload, getEntryPermissions,
   onEvent(event: ExplorerEvent) {
     if (event.type === "refresh" && event.status === "success") {
       const path: string = event.entries[0]?.path ?? "/";

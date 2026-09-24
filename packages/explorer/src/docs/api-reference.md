@@ -20,7 +20,11 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `getEntryPermissions` | `ExplorerEntryPermissionsResolver`。操作のたびにファイル・フォルダごとの許可を同期的に返します。拒否時のメッセージを指定でき、確認後の反映直前にも再確認します。[操作と指定例](./entry-permissions.md) |
 | `readOnly` | 任意の `boolean`。`true` なら `onSave` があっても読み取り専用です。`false` でも `onSave` がなければ編集できません。 |
 | `readFile` | 既存のファイル本体を読み出す任意の `(sourceId: string) => Promise<Blob>`。内蔵プレビュー・内蔵ダウンロード・画像サムネイルに利用します。ローカル追加ファイルには不要です。 |
-| `onPreviewRequest` | `ExplorerPreviewHandler`。指定時は内蔵プレビューの代わりにファイル情報を親へ渡します。未指定なら内蔵プレビューを使います。 |
+| `onPreviewRequest` | `ExplorerPreviewHandler`。ファイル情報を親へ渡します。`"default"` は内蔵ダイアログ、`"handled"` または戻り値なしは親の表示を使います。Promiseにも対応します。[プレビュー](./previews.md) |
+| `renderPreview` | `ExplorerPreviewRenderer`。内蔵ダイアログの中身だけを差し替えます。`null` / `undefined` は既定の本文を使い、`false` は本文を表示しません。 |
+| `resolvePreviewSource` | `ExplorerPreviewSourceResolver`。表示専用のBlob・URL・準備中状態を指定します。`null` / `undefined` は元ファイルの内蔵読込です。ダウンロード対象は変更しません。 |
+| `preview` | `ExplorerPreviewOptions`。`formatsByExtension` で内蔵表示の形式を追加・上書きし、`pdfSandbox` でPDF iframeのsandboxを設定します。 |
+| `getProcessingLabel` | 処理中のファイル情報からプレビューに表示する文字列を返します。`processingEntryIds` と組み合わせます。 |
 | `onDownloadRequest` | `ExplorerDownloadHandler`。指定時はファイル・フォルダのダウンロードを親へ委譲します。要求情報と進捗通知・取消し用contextを受け取り、結果を明示して返します。未指定なら内蔵処理です。 |
 | `onSearchRequest` | `ExplorerSearchHandler`。指定時は検索を親へ委譲し、現在の下書きにある項目のIDを順位順に受け取ります。未指定なら全項目の名前を内蔵検索します。 |
 | `getContextMenuItems` | `ExplorerContextMenuProvider`。ファイル・フォルダ・空白の右クリック時の情報から、条件付きの追加メニューを返します。ハンドラーは変更プランを返し、反映はExplorerが担当します。[使い方](./context-menu.md) |
@@ -110,7 +114,7 @@ type ExplorerNavigationHandle = Readonly<{
 | `selectFiles([])` | 選択だけを解除します。現在地は変えません。 |
 | `selectEntries([{ id: "folder-a" }, { id: "file-a" }])` | ファイル・フォルダを選択します。全対象が現在の一覧にあれば検索・お気に入り表示を保ちます。表示外の項目があれば、同じ親の項目に限りその親へ移動します。別々の親を持つ対象は、全件が現在の検索結果等に見えている場合に限ります。 |
 | `showFile({ id: "file-a" })` | 対象の親フォルダを開き、1ファイルを選択します。`mode` の既定は `"select"` です。 |
-| `showFile({ path: "/記事/画像/表紙.png" }, { mode: "preview" })` | 対象の親フォルダを開き、ファイルを選択してプレビューを要求します。`onPreviewRequest` があれば親へ渡し、なければ内蔵プレビューを開きます。 |
+| `showFile({ path: "/記事/画像/表紙.png" }, { mode: "preview" })` | 対象の親フォルダを開き、ファイルを選択してプレビューを要求します。`onPreviewRequest` があれば親へ渡し、未指定または `"default"` が返った場合は内蔵プレビューを開きます。 |
 | `previewFile({ id: "file-a" })` | `showFile(target, { mode: "preview" })` と同じです。選択を無効にしている場合もプレビューできます。 |
 
 `id` は `ExplorerEntry.id` の完全一致です。ファイル名だけや本体参照の `source.id` は指定しません。`path` は**現在の下書き上の絶対パス**です。`/` から始まる表記を推奨し、アドレスバーと同様に `\` 区切りも受け付けます。Blobキー・URL・ローカルPCのパスではありません。`initialPath` と異なり、相対パスや `rootLabel` を先頭に置く表記は受け付けません。改名や移動を追いたい場合はIDを使います。同じファイルをIDとパス等で重複指定した場合は、先頭の順序を保って1件として選択します。

@@ -1,5 +1,6 @@
 import type { ExplorerEntry } from "../model/draft";
 import type { ExplorerFileReader } from "../model/file-content";
+import { createPreviewSourceCache } from "./preview-source-cache";
 
 type Source = NonNullable<ExplorerEntry["source"]>;
 type ObjectUrl = { value: string; users: number };
@@ -31,6 +32,7 @@ export type MediaCacheOptions = {
 
 /** Shared by one workspace. Active consumers pin content; only idle blobs are cached. */
 export function createMediaCache({ concurrency = 4, maxEntries = 64, maxBytes = 32 * 1024 * 1024 }: MediaCacheOptions = {}) {
+  const previewSources = createPreviewSourceCache({ concurrency, maxEntries, maxBytes });
   const remote = new Map<ExplorerFileReader | undefined, Map<string, CacheRecord>>();
   const local = new WeakMap<File, CacheRecord>();
   const records = new Set<CacheRecord>();
@@ -49,14 +51,20 @@ export function createMediaCache({ concurrency = 4, maxEntries = 64, maxBytes = 
     activeUrls.delete(url);
   }
 
-  function forget(record: CacheRecord) {
+  function detach(record: CacheRecord) {
     records.delete(record);
-    if (record.source.kind === "local") local.delete(record.source.file);
+    if (record.source.kind === "local") {
+      if (local.get(record.source.file) === record) local.delete(record.source.file);
+    }
     else {
       const bucket = remote.get(record.reader);
-      bucket?.delete(record.source.id);
+      if (bucket?.get(record.source.id) === record) bucket.delete(record.source.id);
       if (!bucket?.size) remote.delete(record.reader);
     }
+  }
+
+  function forget(record: CacheRecord) {
+    detach(record);
     for (const url of record.urls.values()) revoke(url.value);
     record.urls.clear();
     record.blob = undefined;
@@ -183,6 +191,12 @@ export function createMediaCache({ concurrency = 4, maxEntries = 64, maxBytes = 
 
   return {
     acquire,
+    previewSources,
+    /** Retry one failed preview after host processing without invalidating other active consumers. */
+    discard(source: Source, reader?: ExplorerFileReader) {
+      const record = source.kind === "local" ? local.get(source.file) : remote.get(reader)?.get(source.id);
+      if (record) { detach(record); if (!record.users) forget(record); }
+    },
     hasObjectUrl: (url: string) => activeUrls.has(url),
     getRevision: () => revision,
     subscribe(listener: () => void) {
@@ -192,12 +206,14 @@ export function createMediaCache({ concurrency = 4, maxEntries = 64, maxBytes = 
     invalidateExisting(contentRevision?: number) {
       if (contentRevision !== undefined && contentRevision === lastContentRevision) return;
       lastContentRevision = contentRevision;
+      previewSources.invalidateExisting();
       for (const record of [...records]) if (record.source.kind === "existing") cancel(record);
       revision++;
       for (const listener of [...listeners]) listener();
     },
     // Reusable after disposal so React StrictMode can mount effects again.
     dispose() {
+      previewSources.dispose();
       for (const record of [...records]) cancel(record);
       queue.length = 0;
     },

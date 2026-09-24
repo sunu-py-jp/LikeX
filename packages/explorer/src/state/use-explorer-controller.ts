@@ -72,6 +72,11 @@ export function useExplorerViewController({
   readFile,
   onDownloadRequest,
   onPreviewRequest,
+  renderPreview,
+  resolvePreviewSource,
+  preview: previewOptions,
+  getProcessingLabel,
+  getEntryPermissions,
   onSearchRequest,
   getContextMenuItems,
   contextMenuExecutionMode,
@@ -105,6 +110,8 @@ export function useExplorerViewController({
   useLayoutEffect(() => { eventObserver.current = onEvent; }, [onEvent]);
   const previewHandler = useRef(onPreviewRequest);
   useInsertionEffect(() => { previewHandler.current = onPreviewRequest; }, [onPreviewRequest]);
+  const previewRequestRevision = useRef(0);
+  const previewRequestView = useRef<{ revision: number; tabId: string; location: ExplorerLocation } | null>(null);
   function emitEvent(event: ExplorerViewEvent) {
     dispatchExplorerEvent(eventObserver.current, windowId === "main" ? event : { ...event, windowId });
   }
@@ -142,11 +149,14 @@ export function useExplorerViewController({
       pendingTransfer.current?.controller.abort();
       cancelEditRequest(windowId);
     };
-    ownerDocument?.defaultView?.addEventListener?.("pagehide", cancelPending);
+    const pagehide = () => { previewRequestRevision.current++; cancelPending(); };
+    ownerDocument?.defaultView?.addEventListener?.("pagehide", pagehide);
     return () => {
+      // Keep an initial host preview alive across StrictMode's effect replay.
+      // A real unmount stays guarded by mounted=false in its continuation.
       mounted.current = false;
       cancelPending();
-      ownerDocument?.defaultView?.removeEventListener?.("pagehide", cancelPending);
+      ownerDocument?.defaultView?.removeEventListener?.("pagehide", pagehide);
     };
   }, [cancelEditRequest, windowId, ownerDocument]);
   const tabState = useExplorerWindowTabs(workspace.tabs, windowId);
@@ -202,6 +212,19 @@ export function useExplorerViewController({
     sort: storedSort,
     expanded,
   } = tabState.activeTab;
+  // Invalidate pending host decisions on a committed policy change, including
+  // a disable/re-enable cycle before the promise finishes.
+  useInsertionEffect(() => {
+    previewRequestRevision.current++;
+  }, [features.preview, getEntryPermissions, onPreviewRequest, ownerDocument, windowId]);
+  useInsertionEffect(() => {
+    const requested = previewRequestView.current;
+    // Host navigation can patch the folder and request its file in one batch.
+    // That request already belongs to the new view before React commits it.
+    if (requested?.revision === previewRequestRevision.current &&
+      (requested.tabId !== tabState.activeTabId || requested.location !== requestedLocation))
+      previewRequestRevision.current++;
+  }, [tabState.activeTabId, requestedLocation]);
   const query = features.search ? storedQuery.trim() : "";
   const searchText = features.search ? storedSearchText : "";
   const searchTrigger = searchOptions?.trigger ?? "input";
@@ -281,7 +304,11 @@ export function useExplorerViewController({
     (storedModal.type === "help" || storedModal.type === "discard" ||
       modalRevision === editRevision) ? storedModal : null;
   const [detailId, setDetailId] = useState<string | null>(null),
-    [previewId, setPreviewId] = useState<string | null>(null);
+    [previewId, updatePreviewId] = useState<string | null>(null);
+  const setPreviewId = useCallback((id: SetStateAction<string | null>) => {
+    previewRequestRevision.current++;
+    updatePreviewId(id);
+  }, []);
   const clipboard = storedClipboard && features[storedClipboard.action] ? storedClipboard : null;
   const currentClipboard = useRef(storedClipboard);
   useLayoutEffect(() => { currentClipboard.current = storedClipboard; }, [storedClipboard]);
@@ -353,7 +380,6 @@ export function useExplorerViewController({
     nameInput = useRef<HTMLInputElement>(null),
     workspaceRef = useRef<HTMLDivElement>(null);
   const focusEntryRef = useRef<((id: string) => void) | null>(null);
-  const previewRequestRevision = useRef(0);
   useEffect(() => {
     const file = fileInput.current, folder = folderInput.current;
     const cancelFile = () => cancelFilePicker("file");
@@ -550,7 +576,7 @@ export function useExplorerViewController({
     navigate(resolveExplorerPath(navigationEntries, value, currentParent, rootLabel));
   }
   const details = features.details ? entryIndex.byId.get(detailId ?? "") : undefined,
-    preview = features.preview && !onPreviewRequest ? entryIndex.byId.get(previewId ?? "") : undefined;
+    preview = features.preview ? entryIndex.byId.get(previewId ?? "") : undefined;
   const { totalSize, fileCount } = entryIndex;
   const locationInfo = useMemo<ExplorerLocationInfo>(() => typeof location === "string"
     ? { kind: "folder", id: location, name: title, path: addressPath }
@@ -955,37 +981,61 @@ export function useExplorerViewController({
       return;
     }
     if (!currentOptions.current.features.preview) return;
-    try { currentDraft.current.assertEntryPermissions([{ id: currentEntry.id, operation: "preview" }]); }
-    catch (error) {
-      notify("error", error instanceof Error ? error.message : "プレビューを開けませんでした");
-      return;
-    }
-    const handler = previewHandler.current;
-    const eventRequest = createPreviewRequest(currentEntries, currentEntry.id);
-    if (!eventRequest) return;
     const revision = ++previewRequestRevision.current;
-    emitEvent({ type: "preview", request: eventRequest, external: Boolean(handler) });
-    // Host event handlers may immediately navigate or request another preview.
-    if (!mounted.current || revision !== previewRequestRevision.current) return;
-    // A host event can synchronously replace the access policy.
     try { currentDraft.current.assertEntryPermissions([{ id: currentEntry.id, operation: "preview" }]); }
     catch (error) {
       notify("error", error instanceof Error ? error.message : "プレビューを開けませんでした");
       return;
     }
-    if (!handler) {
-      setPreviewId(currentEntry.id);
-      return;
-    }
-    setPreviewId(null);
-    const request = createPreviewRequest(currentEntries, currentEntry.id);
-    if (!request) return;
+    if (!mounted.current || ownerDocument?.defaultView?.closed || revision !== previewRequestRevision.current) return;
+    const handler = previewHandler.current;
+    const eventRequest = createPreviewRequest(currentDraft.current.getEntries(), currentEntry.id);
+    if (!eventRequest) return;
+    const requestedView = workspace.tabs.forWindow(windowId);
+    const requestedTabId = requestedView.activeTabId;
+    const requestedLocation = requestedView.activeTab.requestedLocation;
+    previewRequestView.current = { revision, tabId: requestedTabId, location: requestedLocation };
+    const isCurrent = () => {
+      if (!mounted.current || ownerDocument?.defaultView?.closed ||
+        revision !== previewRequestRevision.current || !currentOptions.current.features.preview) return false;
+      const view = workspace.tabs.forWindow(windowId);
+      return view.activeTabId === requestedTabId && view.activeTab.requestedLocation === requestedLocation;
+    };
     const failed = (error: unknown) => {
-      if (!mounted.current || revision !== previewRequestRevision.current) return;
+      if (!isCurrent()) return;
       notify("error", error instanceof Error ? error.message : "プレビューを開けませんでした");
     };
+    const openDefault = () => {
+      if (!isCurrent()) return;
+      try { currentDraft.current.assertEntryPermissions([{ id: currentEntry.id, operation: "preview" }]); }
+      catch (error) { failed(error); return; }
+      // Permissions and host callbacks can update the draft synchronously.
+      // Resolve the current entry again instead of retaining its old metadata.
+      if (!isCurrent()) return;
+      const latest = getEntryIndex(currentDraft.current.getEntries()).byId.get(currentEntry.id);
+      if (latest?.kind === "file") updatePreviewId(latest.id);
+    };
+    emitEvent({ type: "preview", request: eventRequest, external: Boolean(handler) });
+    // Host event handlers may immediately navigate or request another preview.
+    if (!isCurrent()) return;
+    if (!handler) {
+      openDefault();
+      return;
+    }
+    // A host event can synchronously replace the access policy.
+    try { currentDraft.current.assertEntryPermissions([{ id: currentEntry.id, operation: "preview" }]); }
+    catch (error) { failed(error); return; }
+    if (!isCurrent()) return;
+    updatePreviewId(null);
+    const request = createPreviewRequest(currentDraft.current.getEntries(), currentEntry.id);
+    if (!request) return;
     try {
-      void Promise.resolve(handler(request)).catch(failed);
+      // Invoke immediately so a host may call window.open in this user event.
+      const result = handler(request);
+      if (result === "default") openDefault();
+      else if (result) void Promise.resolve(result).then(decision => {
+        if (decision === "default") openDefault();
+      }).catch(failed);
     } catch (error) {
       failed(error);
     }
@@ -1454,6 +1504,10 @@ export function useExplorerViewController({
     cancelEditPermission,
     saveError,
     readFile,
+    renderPreview,
+    resolvePreviewSource,
+    previewOptions,
+    getProcessingLabel,
     externalDownload: !!onDownloadRequest,
     previewTrigger,
     renderIcon,

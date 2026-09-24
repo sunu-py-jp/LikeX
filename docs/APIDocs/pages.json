@@ -425,6 +425,12 @@
       "ExplorerPreviewTrigger",
       "ExplorerItemInfo",
       "onPreviewRequest",
+      "renderPreview",
+      "resolvePreviewSource",
+      "formatsByExtension",
+      "pdfSandbox",
+      "processingEntryIds",
+      "getProcessingLabel",
       "previewTrigger",
       "selectedFileMode",
       "readFile"
@@ -444,6 +450,46 @@
         "id": "親stateで受け取り横にカードを表示する",
         "title": "親stateで受け取り、横にカードを表示する",
         "depth": 3
+      },
+      {
+        "id": "内蔵ダイアログの本文を拡張する",
+        "title": "内蔵ダイアログの本文を拡張する",
+        "depth": 2
+      },
+      {
+        "id": "表示用データを差し替える",
+        "title": "表示用データを差し替える",
+        "depth": 2
+      },
+      {
+        "id": "変換済みpdfを遅延取得する",
+        "title": "変換済みPDFを遅延取得する",
+        "depth": 3
+      },
+      {
+        "id": "変換中の表示を切り替える",
+        "title": "変換中の表示を切り替える",
+        "depth": 3
+      },
+      {
+        "id": "長い動画をurlで配信する",
+        "title": "長い動画をURLで配信する",
+        "depth": 3
+      },
+      {
+        "id": "対応拡張子とpdfの埋め込み設定",
+        "title": "対応拡張子とPDFの埋め込み設定",
+        "depth": 2
+      },
+      {
+        "id": "別タブで開く",
+        "title": "別タブで開く",
+        "depth": 2
+      },
+      {
+        "id": "実行できるサンプル",
+        "title": "実行できるサンプル",
+        "depth": 2
       }
     ]
   },

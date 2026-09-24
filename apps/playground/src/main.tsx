@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 const demos = {
   explorer: lazy(() => import("./explorer-demo")),
+  "explorer-preview": lazy(() => import("./explorer-preview-demo")),
   spreadsheet: lazy(() => import("./spreadsheet-demo")),
   slide: lazy(() => import("./slide-demo")),
   document: lazy(() => import("./document-demo")),

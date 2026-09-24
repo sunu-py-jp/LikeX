@@ -25,7 +25,7 @@ import {
   selectionRoots,
   formatEntryDate,
 } from "../model/entries";
-import FilePreview from "./file-preview";
+import { ExplorerPreviewContent } from "./explorer-preview-content";
 import { getEntryIndex } from "../model/entry-index";
 import { isComposingKeyEvent, shortcutLabel } from "../model/keyboard";
 import type { ExplorerUploadPrompt } from "../state/use-explorer-upload";
@@ -193,11 +193,16 @@ export const ExplorerDialogs = memo(function ExplorerDialogs() {
     preview,
     setPreviewId,
     readFile,
+    renderPreview,
+    resolvePreviewSource,
+    previewOptions,
+    getProcessingLabel,
+    processingEntryIds,
     features,
     selectionOptions,
     readOnly,
     canRefresh,
-  } = useExplorerFields("rootLabel", "modal", "setModal", "busy", "saving", "name", "setName", "nameInput", "modalError", "title", "submitModal", "destination", "setDestination", "entries", "selected", "details", "setDetailId", "openEntry", "download", "externalDownload", "preview", "setPreviewId", "readFile", "features", "selectionOptions", "readOnly", "canRefresh");
+  } = useExplorerFields("rootLabel", "modal", "setModal", "busy", "saving", "name", "setName", "nameInput", "modalError", "title", "submitModal", "destination", "setDestination", "entries", "selected", "details", "setDetailId", "openEntry", "download", "externalDownload", "preview", "setPreviewId", "readFile", "renderPreview", "resolvePreviewSource", "previewOptions", "getProcessingLabel", "processingEntryIds", "features", "selectionOptions", "readOnly", "canRefresh");
   const entryIndex = getEntryIndex(entries);
   const destinations = useMemo(() => {
     if (modal?.type !== "move" && modal?.type !== "copy") return [];
@@ -648,10 +653,16 @@ export const ExplorerDialogs = memo(function ExplorerDialogs() {
           </header>
           {preview && (
             <>
-              <FilePreview
+              <ExplorerPreviewContent
+                entries={entries}
                 entry={preview}
                 readFile={readFile}
                 allowDownload={features.download}
+                renderPreview={renderPreview}
+                resolvePreviewSource={resolvePreviewSource}
+                previewOptions={previewOptions}
+                processing={processingEntryIds.has(preview.id)}
+                getProcessingLabel={getProcessingLabel}
               />
               {features.download && (
                 <div className="lxe:flex lxe:shrink-0 lxe:items-center lxe:justify-between lxe:pt-0.5 lxe:text-xs lxe:text-[var(--explorer-muted)]">

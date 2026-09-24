@@ -26,7 +26,8 @@ import "@/components/explorer/styles.css";
 - 動画の取り込みは既定で4時間以下です。時間・PDFページ数・PPTXスライド数は[拡張子ごとの内容制限](./docs/upload-content-limits.md)で指定できます。PDFの検査時だけ`pdf-lib`を読み込みます。
 - `initialEntries` は初回のみ反映します。`initialPath`・`selectedFile` で最初の表示先と選択ファイルを指定でき、`selectedFileMode="preview"` ならプレビューも開きます。[初期表示](./docs/getting-started.md#initial-file)と、最新一覧の取得に使う `onRefresh` は別の設定です。
 - `onEvent` は通知専用です。保存前検証、認証・認可、複数人の競合解決は親とサーバーが担当します。
-- Officeファイルは親のプレビューUIへ委譲できます。内蔵ZIPは4 GiB未満・65,534項目までで、端末メモリに収まる規模が前提です。内蔵ダウンロードの成功はブラウザへの引渡しを表します。
+- [プレビュー連携](./docs/previews.md)では、`renderPreview` で本文を拡張し、`resolvePreviewSource` でOfficeの変換済みPDFや動画URLを指定できます。変換・認証・配信は親が担当し、ダウンロードは元ファイルを取得します。`onPreviewRequest` で親のUI・別タブへ渡し、`"default"` で内蔵表示へ戻すこともできます。
+- 内蔵ZIPは4 GiB未満・65,534項目までで、端末メモリに収まる規模が前提です。内蔵ダウンロードの成功はブラウザへの引渡しを表します。
 - ポップアップ・OS貼り付けはブラウザやOSに依存します。SPA遷移やアンマウント前の未保存確認は親が行います。
 - 公開入口 `index.ts` からimportし、内部ファイルへ直接依存しないでください。`styles.css` は生成物で、手編集しません。
 

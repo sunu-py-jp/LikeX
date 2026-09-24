@@ -5,7 +5,7 @@ import type { ExplorerFileReader } from "./model/file-content";
 import type { ExplorerColorMode, ExplorerThemeOptions } from "./ui/explorer-theme";
 import type { ExplorerOptions, ExplorerViewMode } from "./model/config";
 import type { ExplorerItemInfo } from "./model/item-info";
-import type { ExplorerPreviewHandler, ExplorerPreviewTrigger } from "./model/preview";
+import type { ExplorerPreviewHandler, ExplorerPreviewTrigger, ExplorerPreviewRequest, ExplorerPreviewOptions, ExplorerPreviewSourceResolver } from "./model/preview";
 import type { ExplorerEventHandler } from "./model/events";
 import type { ExplorerUploadOptions } from "./model/upload";
 import type { ExplorerDownloadHandler } from "./model/download";
@@ -33,6 +33,17 @@ export type ExplorerIconRenderer = (
 
 export type ExplorerSelectedFileMode = "select" | "preview";
 
+export type ExplorerPreviewContext = Readonly<{
+  entry: ExplorerPreviewRequest;
+  processing: boolean;
+  processingLabel?: string;
+  allowDownload: boolean;
+  defaultPreview: ReactElement;
+}>;
+/** Synchronous presentation only. Return a component for hooks or asynchronous UI.
+ * Null/undefined use defaultPreview; false renders no preview body. */
+export type ExplorerPreviewRenderer = (context: ExplorerPreviewContext) => Exclude<ReactNode, Promise<unknown>>;
+
 export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave" | "onRefresh" | "onEditRequest" | "getEntryPermissions"> & {
   /** Read/edit the main pane's draft, navigate/select/preview, and manage host notifications. */
   ref?: Ref<ExplorerHandle>;
@@ -42,8 +53,14 @@ export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave
   readFile?: ExplorerFileReader;
   /** Delegate downloads to the host, with progress and an explicit terminal result. */
   onDownloadRequest?: ExplorerDownloadHandler;
-  /** Replace the built-in preview with a host-owned dialog, card, or viewer. */
+  /** Delegate to a host dialog, tab or viewer. Return "default" for the built-in dialog. */
   onPreviewRequest?: ExplorerPreviewHandler;
+  /** Override only the dialog body, preserving its close controls and download action. */
+  renderPreview?: ExplorerPreviewRenderer;
+  /** Resolve a preview variant or media URL, without changing the original file. */
+  resolvePreviewSource?: ExplorerPreviewSourceResolver;
+  /** Built-in format overrides and PDF iframe configuration. */
+  preview?: ExplorerPreviewOptions;
   /** Add single-click preview on file names. Defaults to doubleClick. */
   previewTrigger?: ExplorerPreviewTrigger;
   /** Observe local operations and lifecycle notifications; does not persist or veto them. */
@@ -63,6 +80,8 @@ export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave
   /** Display a spinner on these entries and their ancestors. Live, display-only state:
    * does not lock editing or affect saves/dirty state. Unknown IDs are ignored. */
   processingEntryIds?: readonly string[];
+  /** Display-only processing text for the preview. Does not lock file operations. */
+  getProcessingLabel?: (entry: ExplorerItemInfo) => string | undefined;
   /** Optional label at the right of the tab bar. Omitted or blank values are hidden. */
   title?: string;
   /** Display name of the virtual root. Defaults to "ファイル". */

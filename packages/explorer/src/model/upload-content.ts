@@ -1,8 +1,7 @@
 import { fileExtension } from "./text";
+import { EXPLORER_VIDEO_MIME_TYPES } from "./preview-formats";
 
-export type ExplorerUploadVideoExtension =
-  | ".mp4" | ".webm" | ".m4v" | ".mov" | ".mkv" | ".avi"
-  | ".wmv" | ".mpg" | ".mpeg" | ".ogv" | ".3gp";
+export type ExplorerUploadVideoExtension = keyof typeof EXPLORER_VIDEO_MIME_TYPES;
 export type ExplorerUploadAudioExtension = ".mp3" | ".wav" | ".m4a" | ".aac" | ".ogg" | ".flac";
 export type ExplorerUploadContentExtension = ExplorerUploadVideoExtension | ExplorerUploadAudioExtension | ".pdf" | ".pptx";
 export type ExplorerUploadContentKind = "video" | "audio" | "pdf" | "presentation";
@@ -45,7 +44,7 @@ export type ExplorerUploadContentRejectionReason =
 /** Four hours; supported video suffixes use this limit unless explicitly overridden. */
 export const EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS = 14_400;
 
-const videoExtensions = new Set<string>([".mp4", ".webm", ".m4v", ".mov", ".mkv", ".avi", ".wmv", ".mpg", ".mpeg", ".ogv", ".3gp"]);
+const videoExtensions = new Set<string>(Object.keys(EXPLORER_VIDEO_MIME_TYPES));
 const audioExtensions = new Set<string>([".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"]);
 type ContentMetric = "maxDurationSeconds" | "maxPages" | "maxSlides";
 

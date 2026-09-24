@@ -31,7 +31,7 @@ explorer/
 │   ├── sidebar-size.ts         サイドバー幅の上限・下限
 │   ├── window-placement.ts     切り離したウィンドウの表示位置
 │   ├── item-info.ts            保存・操作・アイコン等に共通する項目情報
-│   ├── preview.ts              外部プレビュー専用の要求型と生成
+│   ├── preview.ts              プレビュー要求・取得元・設定の型と要求生成
 │   ├── preview-table.ts        上限付きCSV/TSV解析
 │   ├── virtual-list.ts         表示範囲・行列・スクロール位置の計算
 │   └── events.ts               外側へ渡す操作・状態イベント型

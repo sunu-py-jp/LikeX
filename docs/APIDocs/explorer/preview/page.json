@@ -1,6 +1,6 @@
 {
   "title": "プレビュー",
-  "summary": "内蔵プレビューを使うか、onPreviewRequestでファイル情報を親のビューへ渡します。",
+  "summary": "内蔵本文の拡張、変換済みPDF・動画URLの表示、処理中表示、親のビューや別タブへの連携を説明します。",
   "source": "packages/explorer/src/docs/previews.md",
   "order": 70,
   "keywords": [
@@ -9,6 +9,12 @@
     "ExplorerPreviewTrigger",
     "ExplorerItemInfo",
     "onPreviewRequest",
+    "renderPreview",
+    "resolvePreviewSource",
+    "formatsByExtension",
+    "pdfSandbox",
+    "processingEntryIds",
+    "getProcessingLabel",
     "previewTrigger",
     "selectedFileMode",
     "readFile"

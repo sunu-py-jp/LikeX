@@ -11,6 +11,8 @@ export type {
   ExplorerIconContext,
   ExplorerIconLocation,
   ExplorerIconRenderer,
+  ExplorerPreviewContext,
+  ExplorerPreviewRenderer,
 } from "./props";
 export type { ExplorerItemInfo } from "./model/item-info";
 export { assertExplorerEntryPermissions, checksForExplorerAction, checksForExplorerChanges, ExplorerOperationDeniedError } from "./model/entry-permissions";
@@ -34,6 +36,14 @@ export type {
   ExplorerPreviewRequest,
   ExplorerPreviewHandler,
   ExplorerPreviewTrigger,
+  ExplorerPreviewResult,
+  ExplorerPreviewMode,
+  ExplorerPreviewFormat,
+  ExplorerPreviewOptions,
+  ExplorerPreviewReadContext,
+  ExplorerPreviewSourceContext,
+  ExplorerPreviewSource,
+  ExplorerPreviewSourceResolver,
 } from "./model/preview";
 export type {
   ExplorerEvent,
