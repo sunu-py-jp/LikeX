@@ -23,17 +23,25 @@ GUIなしでコピー・貼り付け・移動する例は[編集セッション�
 `features.search: false` で検索と置換を無効にできます。検索を残して置換だけを止める場合は `features.replace: false` を指定します。
 
 ```ts
-import { findSpreadsheetCells } from "@likex/spreadsheet";
+import { findSpreadsheetCells, findSpreadsheetSheets } from "@likex/spreadsheet/model";
 
 const matches = findSpreadsheetCells(workbook, {
   text: "売上",
   lookIn: "formulas", // "values"（既定）または "formulas"
   matchCase: false,
   wholeCell: false,
-}, { sheetId: "sales" }); // sheetId省略でブック全体
+}, { sheetId: "sales", range: "B2:F6" }); // range省略でシート全体、sheetIdも省略でブック全体
 
 // 各一致: { sheetId, address, value: 入力値, matchedText: 検索した文字列 }
+const sheets = findSpreadsheetSheets(workbook, { text: "売上", wholeName: false });
+// 各一致: { sheetId, name, index: 0始まりのタブ位置, rowCount, columnCount }
 ```
+
+`findSpreadsheetSheets` はシート名を部分一致で検索します。`matchCase: true` で大文字・小文字を区別し、`wholeName: true` で名前全体を一致させます。結果は元のタブ順で、セル本体を含まない軽量な配列です。`findSpreadsheetCells` はシートのタブ順、各シートの行・列順で一致を返します。両方とも通常の文字列検索で、空の検索文字列や一致なしは `[]` です。結果の配列と要素は元のモデルから独立して凍結されます。
+
+セル検索の第3引数は `SpreadsheetSearchOptions` です。`range` は `"B2"`、`"B2:F6"`、または0始まりの `{ top, left, bottom, right }` を指定でき、`sheetId` も必要です。不正なシートIDや逆順・シート外の範囲は、検索文字列が空でも例外になります。保存されたセルだけを調べるので、検索範囲には `getRange` の10,000セル制限はありません。`lookIn: "values"` は表示値、`"formulas"` は元の入力値を検索し、`value` はいずれも数式を含む元の文字列です。
+
+表示中のref・ヘッドレスセッションでも `findSheets(query)` と `findCells(query, options?)` を使えます。`sheet(sheetId).findCells(query, { range? })` はシートIDを固定して読みます。どれも同期の読み取りで、選択・履歴・ブックを変更しません。戻り値のJSON例は[取得APIの検索](./data-access.md#キーワードでシートセルを探す)を参照してください。
 
 外部操作APIから置換する例です。`addresses` を省略すると指定シートのすべての一致セルを対象にします。
 

@@ -37,6 +37,32 @@ console.log(formula, calculated); // "=SUM(B2:B2)", 1200
 
 `getRange` の範囲は両端を含みます。`"A1:C5"` の代わりに `{ top: 0, left: 0, bottom: 4, right: 2 }` も渡せます。数値座標は0始まり、配列は指定範囲の左上から行・列の順です。未格納セルは `null` になります。
 
+スキルCLIとPlayground AIの範囲取得は、この二次元配列を `selection.rows` に入れて返します。単一セルも `[[{ value: "..." }]]`、未格納なら `[[null]]` です。範囲取得の旧キー `selection.cells` は `rows` へ変更し、両方は出力しません。保存セル一覧の一次元 `selection.cells` と検索の `selection.matches` はそのままです。公開 `getRange` 自体は配列を直接返す契約を維持し、SPONの保存形式も変わりません。
+
+## 1シートの保存セルを取得する
+
+`getSheetCells(workbook, sheetId)` は、指定した1シートに格納されたセルだけを `readonly SpreadsheetStoredCell[]` として返します。番地順は物理的な行・列の順で、未格納セルの空欄を埋めません。値が空でも、書式や入力規則を持つ保存セルは含まれます。数式は計算せず `value` に元の入力文字列を残し、結合セルも保存位置をそのまま返します。
+
+```ts
+import { getSheetCells, type SpreadsheetStoredCell } from "@likex/spreadsheet/model";
+
+const cells: readonly SpreadsheetStoredCell[] = getSheetCells(workbook, sheetId);
+// [{ address: "A1", value: "商品" }, { address: "B1", value: "金額" }, ...]
+```
+
+```json
+[
+  { "address": "A1", "value": "商品", "format": { "bold": true } },
+  { "address": "B2", "value": "1200", "validation": { "type": "number", "min": 0 } },
+  { "address": "B3", "value": "=SUM(B2:B2)" },
+  { "address": "C4", "value": "", "format": { "background": "#eeeeee" } }
+]
+```
+
+`SpreadsheetStoredCell` は深いreadonlyの `{ address: string, value: string, format?, validation? }` です。戻り値はコピーして凍結され、保存セルがなければ `[]`、不正なシートIDやセルでは例外になります。対象は保存セルの件数なので、`getRange` の10,000セルの矩形上限は適用しません。シート自体の定義・行高・列幅・結合・コメント・図形・画像データは含みません。必要に応じて `getSheet` / `getCellComment` / `getDrawings` / `getImageResource` を使います。行・列の共通書式や条件付き書式を合成した表示結果ではなく、セルが直接保持する書式です。
+
+表示中の `ref.current.getSheetCells(sheetId)`、`session.getSheetCells(sheetId)`、シートを固定した `session.sheet(sheetId).getCells()` / `getSheetReader(workbook, sheetId).getCells()` でも同じ取得ができます。読み取りだけなので、選択・履歴・保存状態は変えません。
+
 ## IDで画像・図形を取得する
 
 ```ts
@@ -68,6 +94,7 @@ export function readImage(workbook: SpreadsheetWorkbookSnapshot, sheetId: string
 | 関数 | 配列の要素 |
 | --- | --- |
 | `getSheets(workbook)` | `SpreadsheetSheet`。タブの順序で取得 |
+| `getSheetCells(workbook, sheetId)` | `SpreadsheetStoredCell`。番地付きの保存セルを行・列順で取得 |
 | `getNamedRanges(workbook, sheetId?)` | `SpreadsheetNamedRangeInfo`。ID・名前・シートID・範囲・A1表記 |
 | `getDrawings(workbook, sheetId)` | `SpreadsheetDrawing`。画像・図形・テキストを描画順で取得 |
 | `getImages(workbook, sheetId)` | `SpreadsheetImageDrawing`。画像の配置情報。実体は`resourceId`で参照 |
@@ -90,6 +117,45 @@ for (const sheet of getSheets(workbook)) {
 
 `getSheet` / `getSheets` は保存するシートJSONを返します。これらの結果へ `.getImages()` などのメソッドを追加することはありません。対象シートを先に決めて繰り返し取得したい場合は、次の `sheet(sheetId)` を使います。
 
+## キーワードでシート・セルを探す
+
+名前によるシート検索と、ブック・シート・範囲内のセル検索を画面なしで実行できます。シート一覧の全データは `getSheets`、一致したシートのID・名前・位置だけが必要なら `findSpreadsheetSheets` を使います。
+
+```ts
+import { findSpreadsheetSheets, findSpreadsheetCells } from "@likex/spreadsheet/model";
+
+const sheets = findSpreadsheetSheets(workbook, { text: "売上" });
+// 例: [{ sheetId: "sales", name: "売上速報", index: 2, rowCount: 300, columnCount: 26 }]
+
+const cells = findSpreadsheetCells(workbook, {
+  text: "ノート", lookIn: "values", wholeCell: true,
+}, { sheetId: "sales", range: "B2:F6" });
+// 例: [{ sheetId: "sales", address: "C3", value: "ノート", matchedText: "ノート" }]
+
+const formulas = findSpreadsheetCells(workbook, {
+  text: "D3", lookIn: "formulas",
+}, { sheetId: "sales", range: "F3" });
+// 例: [{ sheetId: "sales", address: "F3", value: "=D3*E3", matchedText: "=D3*E3" }]
+```
+
+`SpreadsheetSheetSearchQuery` は `{ text, matchCase?, wholeName? }`、結果の `SpreadsheetSheetSearchMatch` は次の形式です。`index` は検索結果内の位置ではなく、元のタブ位置（0始まり）です。
+
+```json
+[{ "sheetId": "sales", "name": "売上速報", "index": 2, "rowCount": 300, "columnCount": 26 }]
+```
+
+`SpreadsheetSearchQuery` は `{ text, matchCase?, wholeCell?, lookIn? }`、セル検索の `SpreadsheetSearchMatch` は次の形式です。`value` は保存された入力文字列、`matchedText` は実際に検索した表示文字列または入力文字列です。たとえば数式の表示結果で検索した場合は、両者が異なります。
+
+```json
+[{ "sheetId": "sales", "address": "F3", "value": "=D3*E3", "matchedText": "2160" }]
+```
+
+上記の `"2160"` は数値書式で桁区切りを付けていない例です。通貨・日付などの表示値はそのセルの書式に従います。結果はブックのタブ順、セルは行・列順です。両APIとも既定は大文字・小文字を区別しない部分一致で、正規表現ではありません。空文字列・一致なしは凍結された空配列です。
+
+セル検索の第3引数 `SpreadsheetSearchOptions` では、`sheetId` を省略すると全シート、指定するとそのシートを検索します。`range` を指定する場合は `sheetId` が必要で、A1表記・単一セル・0始まりの長方形オブジェクトに対応します。範囲外・逆順・不明なシートIDは空検索でも例外になります。検索は保存セルだけを走査するため、大きな範囲でも `getRange` の配列生成上限（10,000セル）は適用しません。`calculated` に同じブックの `calculateWorkbook` の結果を渡すと、表示値検索の計算を再利用できます。
+
+表示中の `ref.current.findSheets(query)` / `findCells(query, options?)`、`session.findSheets(query)` / `findCells(query, options?)` も同じ結果を返します。シートを固定した `session.sheet(id).findCells(query, { range? })` や `getSheetReader(workbook, id).findCells(...)` も使えます。検索では選択・編集状態・履歴を変更しません。画面の検索・置換機能は[検索と置換](./editing-tools.md#検索と置換)を参照してください。
+
 ## シートを指定して読み続ける
 
 ```ts
@@ -108,7 +174,7 @@ session.execute({ type: "cells.set", sheetId, values: { B2: "1200" } });
 console.log(sheet.getCell("B2")?.value); // "1200"。呼ぶたびに現在のブックを読む
 ```
 
-`session.sheet(sheetId)` と表示中の `ref.current.sheet(sheetId)` は `SpreadsheetSheetReadApi` を返します。`getInfo`、`getCell`、`getRange`、`getDrawing`、`getImage`、`getShape`、`getTextBox`、`getCellComment`、`getNamedRanges`、`getDrawings`、`getImages`、`getShapes`、`getTextBoxes`、`getTables` を使えます。シートIDを毎回渡す必要はありません。
+`session.sheet(sheetId)` と表示中の `ref.current.sheet(sheetId)` は `SpreadsheetSheetReadApi` を返します。`getInfo`、`getCell`、`getCells`、`getRange`、`findCells`、`getDrawing`、`getImage`、`getShape`、`getTextBox`、`getCellComment`、`getNamedRanges`、`getDrawings`、`getImages`、`getShapes`、`getTextBoxes`、`getTables` を使えます。シートIDを毎回渡す必要はありません。
 
 取得用のオブジェクトを保持していても、各呼び出しは最新の下書き・セッションを読みます。過去に取得した配列やセルの値が後から書き換わることはありません。対象シートが削除された後は例外になります。
 
@@ -119,8 +185,11 @@ console.log(sheet.getCell("B2")?.value); // "1200"。呼ぶたびに現在のブ
 | 関数 | 戻り値のデータ型（深いreadonly） | 対象がない場合 |
 | --- | --- | --- |
 | `getCell(workbook, sheetId, address)` | [`SpreadsheetCell`](#getcell) | `undefined` |
+| `getSheetCells(workbook, sheetId)` | `readonly SpreadsheetStoredCell[]`。番地付きの保存セル | `[]` |
 | `getRange(workbook, sheetId, range)` | [`SpreadsheetReadRange`](#getrange)。セルまたは`null`の二次元配列 | 未格納セルは `null` |
 | `getSheet(workbook, sheetId)` | [`SpreadsheetSheet`](#getsheet) | 例外 |
+| `findSpreadsheetSheets(workbook, query)` | `readonly SpreadsheetSheetSearchMatch[]`。名前・ID・タブ位置など | `[]` |
+| `findSpreadsheetCells(workbook, query, options?)` | `readonly SpreadsheetSearchMatch[]`。番地・入力値・一致した文字列 | `[]` |
 | `getDrawing(workbook, sheetId, drawingId)` | [`SpreadsheetDrawing`](#getdrawing)。3種類のunion | `undefined` |
 | `getImage(workbook, sheetId, drawingId)` | [`SpreadsheetImageDrawing`](#getimage) | `undefined` |
 | `getShape(workbook, sheetId, drawingId)` | [`SpreadsheetShapeDrawing`](#getshape) | `undefined` |
@@ -133,7 +202,7 @@ console.log(sheet.getCell("B2")?.value); // "1200"。呼ぶたびに現在のブ
 
 `getImage` に図形のIDを渡すなど、種類が一致しない場合も `undefined` です。存在しないシートID、不正な番地、シート外の番地、逆順や上限を超えた範囲は例外になります。外部のJSONは先に `parseWorkbook` / `normalizeWorkbook` で検証してください。
 
-範囲は1回あたり `SPREADSHEET_LIMITS.rangeCells` セルまでです。大きなシート全体が必要な場合は `getSheet`、一部分だけなら `getCell` / `getRange` を使います。取得結果は深くコピーして凍結するため、大きなシートの全取得をセルごとに繰り返す必要はありません。
+範囲は1回あたり `SPREADSHEET_LIMITS.rangeCells` セルまでです。大きなシート全体が必要な場合は `getSheet`、保存セルだけなら `getSheetCells`、一部分だけなら `getCell` / `getRange` を使います。取得結果は深くコピーして凍結するため、大きなシートの全取得をセルごとに繰り返す必要はありません。
 
 結合セルも保存データの位置をそのまま読みます。左上以外のセルを指定しても、左上の値へ自動で読み替えません。結合範囲は `getMergedRange`、左上の位置は `mergedCellPosition` で確認できます。
 

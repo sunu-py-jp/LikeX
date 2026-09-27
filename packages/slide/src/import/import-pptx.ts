@@ -2,11 +2,17 @@ import { openOfficePackage, resolveOfficePart, type OfficePackageInput, type Off
 import { normalizeSlideDeck } from "../model";
 import { SLIDE_LIMITS } from "../model/limits";
 import type { Slide, SlideDeck } from "../model/types";
-import { createContext, child, children, localName, textContent, shapes, placeholder, readTheme, readFill, color, plainText, relationship, type Node } from "./pptx-reader";
+import { createContext, child, children, localName, textContent, shapes, placeholder, nonVisual, readTheme, readFill, color, plainText, relationship, type Node } from "./pptx-reader";
 import { readElement } from "./pptx-elements";
+import { readSlideAnimations } from "./pptx-animations";
+import type { SlidePptxDiagnostic } from "../office/types";
 
-export type SlidePptxImportOptions = { signal?: OfficePackageSignal };
-export type SlidePptxImportResult = { deck: SlideDeck; warnings: string[] };
+export type SlidePptxImportOptions = {
+  signal?: OfficePackageSignal;
+  /** Called after a complete, validated import. Throwing rejects the import. */
+  onDiagnostic?: (diagnostic: SlidePptxDiagnostic) => void;
+};
+export type SlidePptxImportResult = { deck: SlideDeck; warnings: string[]; diagnostics: readonly SlidePptxDiagnostic[] };
 const mainType = "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml";
 const fail = (message: string): never => { throw new Error(`PowerPointを読み込めません: ${message}`); };
 function placeholderIndex(root: Node | undefined) {
@@ -67,13 +73,15 @@ export async function importSlidePptx(input: OfficePackageInput, options: SlideP
     if (!link || link.external || !link.type.endsWith("/slide") || seen.has(link.target)) return fail("スライドの参照が不正または重複しています");
     seen.add(link.target);
     const root = await context.root(link.target), links = await context.links(link.target);
+    const slideLocation = { slideIndex: index, slideId: `pptx-slide-${index + 1}`, slideName: child(root, "cSld")?.attributes.name || `スライド ${index + 1}`, sourcePart: link.target };
+    context.location = slideLocation;
     if (localName(root.name) !== "sld") return fail("スライドの構造が不正です");
     const layoutLink = relationship(links, "slideLayout");
     const layout = layoutLink ? await context.root(layoutLink.target) : undefined;
     const layoutLinks = layoutLink ? await context.links(layoutLink.target) : new Map();
     const masterLink = relationship(layoutLinks, "slideMaster");
     const master = masterLink ? await context.root(masterLink.target) : undefined;
-    if (!layout || !master) context.warn("マスター・レイアウトのないスライドは、スライド内の書式のみで読み込みました");
+    if (!layout || !master) context.warn("マスター・レイアウトのないスライドは、スライド内の書式のみで読み込みました", { code: "appearance-adjusted", action: "adjustment" });
     const theme = await readTheme(context, masterLink?.target);
     const mapping = { bg1: "lt1", tx1: "dk1", bg2: "lt2", tx2: "dk2", ...child(master, "clrMap")?.attributes,
       ...child(child(layout, "clrMapOvr"), "overrideClrMapping")?.attributes, ...child(child(root, "clrMapOvr"), "overrideClrMapping")?.attributes };
@@ -88,6 +96,8 @@ export async function importSlidePptx(input: OfficePackageInput, options: SlideP
       background = readFill(child(bg, "bgPr"), theme, mapping, context) ?? color(child(bg, "bgRef"), theme, mapping, context) ?? background;
     }
     const elements: Slide["elements"] = [];
+    const animationTargets = new Map<string, Slide["elements"][number]>(), ambiguousIds = new Set<string>();
+    const localShapes = new Set(shapes(root));
     const showMaster = !["0", "false"].includes(root.attributes.showMasterSp ?? "") && !["0", "false"].includes(layout?.attributes.showMasterSp ?? "");
     const ordered = [...(showMaster ? masterIndex.nodes.filter(node => !placeholder(node)).map(node => ({ node, links: masterLink ? context.relations.get(masterLink.target)! : links })) : []),
       ...layoutIndex.nodes.filter(node => !placeholder(node)).map(node => ({ node, links: layoutLinks })), ...shapes(root).map(node => ({ node, links }))];
@@ -101,9 +111,20 @@ export async function importSlidePptx(input: OfficePackageInput, options: SlideP
       const chain = [source.node, inherited, masterShape].filter((node): node is Node => !!node);
       const styleName = !ph ? "otherStyle" : ["title", "ctrTitle"].includes(type) ? "titleStyle" : type === "body" || type === "obj" ? "bodyStyle" : "otherStyle";
       const defaults = [child(child(child(presentation, "defaultTextStyle"), "lvl1pPr"), "defRPr"), child(child(child(master, "txStyles"), styleName), "lvl1pPr")].flatMap(node => node ? localName(node.name) === "defRPr" ? [node] : children(node, "defRPr") : []);
+      context.location = { ...slideLocation, elementId: `pptx-${index + 1}-${elementIndex + 1}`, elementName: nonVisual(source.node)?.attributes.name };
       const element = await readElement(chain, { context, theme, mapping, links: source.links, defaults }, `pptx-${index + 1}-${elementIndex + 1}`);
-      if (element) elements.push(element);
+      if (element) {
+        elements.push(element);
+        if (localShapes.has(source.node)) {
+          const shapeId = nonVisual(source.node)?.attributes.id;
+          if (shapeId) {
+            if (animationTargets.has(shapeId) || ambiguousIds.has(shapeId)) { animationTargets.delete(shapeId); ambiguousIds.add(shapeId); }
+            else animationTargets.set(shapeId, element);
+          }
+        }
+      }
     }
+    context.location = slideLocation;
     let notes = "";
     const notesLink = relationship(links, "notesSlide");
     if (notesLink) {
@@ -111,13 +132,23 @@ export async function importSlidePptx(input: OfficePackageInput, options: SlideP
       notes = shapes(notesRoot).filter(node => placeholder(node)?.attributes.type === "body").map(node => plainText(child(node, "txBody"))).join("\n");
       if (notes.length > SLIDE_LIMITS.textLength || (context.textCharacters += notes.length) > SLIDE_LIMITS.totalTextLength) return fail("ノートのテキスト量が読み込み上限を超えています");
     }
-    if (child(root, "timing") || child(root, "transition")) context.warn("アニメーション・画面切り替えを省略しました");
-    if (["0", "false"].includes(root.attributes.show ?? "")) context.warn("非表示のスライドを表示状態で読み込みました");
+    const animations = await readSlideAnimations(child(root, "timing"), { context, theme, mapping, targets: animationTargets, width, height, pageNumber: index + 1,
+      applyInitialValues(element) { const index = elements.findIndex(item => item.id === element.id); if (index !== -1) elements[index] = element; } });
+    if (child(root, "transition")) context.warn("画面切り替えを省略しました");
+    if (["0", "false"].includes(root.attributes.show ?? "")) context.warn("非表示のスライドを表示状態で読み込みました", { code: "appearance-adjusted", action: "adjustment" });
     const name = child(root, "cSld")?.attributes.name || elements.find(element => element.type === "text" && element.text)?.name || `スライド ${index + 1}`;
-    slides.push({ id: `pptx-slide-${index + 1}`, name, background, notes, elements });
+    slides.push({ id: `pptx-slide-${index + 1}`, name, background, notes, elements, ...(animations ? { animations } : {}) });
   }
+  context.location = {};
   if (archive.paths.some(path => /(?:^|\/)(?:charts|diagrams|embeddings|activeX|media\/.*\.(?:mp4|mp3|wav|avi))(?:\/|\.|$)/i.test(path))) context.warn("グラフ・SmartArt・埋め込みファイル・音声・動画を省略しました");
   signal?.throwIfAborted();
   const deck = normalizeSlideDeck({ version: 1, id: "pptx-deck", title: title || "取り込んだプレゼンテーション", width, height, slides });
-  return { deck, warnings: [...context.warnings] };
+  const diagnostics = Object.freeze(context.diagnostics.map(item => {
+    const slide = item.slideIndex === undefined ? undefined : deck.slides[item.slideIndex];
+    const element = slide?.elements.find(element => element.id === item.elementId);
+    return Object.freeze({ ...item, ...(slide ? { slideName: slide.name } : {}), ...(element ? { elementName: element.name } : {}) });
+  }));
+  for (const diagnostic of diagnostics) { signal?.throwIfAborted(); options.onDiagnostic?.(diagnostic); }
+  signal?.throwIfAborted();
+  return { deck, warnings: [...context.warnings], diagnostics };
 }

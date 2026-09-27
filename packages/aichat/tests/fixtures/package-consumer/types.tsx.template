@@ -1,7 +1,7 @@
 import { createRef } from "react";
 import LikeAIChat, {
   createAIChat, createAIChatSession, executeAIChatCommands,
-  type AIChatCommand, type AIChatHandle, type AIChatProps, type AIChatSendHandler,
+  type AIChatCommand, type AIChatContentPart, type AIChatHandle, type AIChatPartRenderer, type AIChatPartRendererContext, type AIChatPartRenderers, type AIChatProps, type AIChatSendHandler,
 } from "__LIBRARY_IMPORT__";
 
 const aichat = createAIChat({ id: "consumer-aichat", title: "LikeAIChat consumer" });
@@ -9,7 +9,11 @@ const command: AIChatCommand = { type: "aichat.update", title: "Updated aichat" 
 const updated = executeAIChatCommands(aichat, command);
 const onSend: AIChatSendHandler = async function* ({ prompt, messages, retry }, { signal, requestId }) {
   if (!signal.aborted) yield `${requestId}:${retry}:${messages.length}:${prompt.content}`;
+  yield { type: "part", part: { id: "tool", type: "host.tool", data: { status: "complete" } } };
 };
+const part: AIChatContentPart = { id: "image", type: "host.image", data: { url: "/image.png" } };
+const renderer: AIChatPartRenderer = (part, context: AIChatPartRendererContext) => <span>{context.message.id}:{part.type}</span>;
+const partRenderers: AIChatPartRenderers = { "host.image": renderer };
 const props: AIChatProps = {
   initialAIChat: updated.aichat, initialConversationId: "conversation-1", colorMode: "system", primaryColor: "#2563eb",
   features: { attachments: false }, onSend, onSave: async current => current,
@@ -19,6 +23,7 @@ const props: AIChatProps = {
     id: `attachment-${index}`, name: file.name, mediaType: file.type, size: file.size,
   })),
   onAttachmentClick: attachment => { void attachment.url; },
+  partRenderers,
   onEvent: event => { if (event.type === "change") { void event.model; void event.source; } },
 };
 const session = createAIChatSession(aichat, { onSave: async current => current, onSend });
@@ -43,6 +48,6 @@ ref.current?.discard();
 void view; void selection; void nativeExport;
 // @ts-expect-error Messages accept defined roles only.
 const badRole: AIChatCommand = { type: "message.add", conversationId: "conversation-1", message: { role: "developer", content: "No" } };
-// @ts-expect-error Streaming callbacks must return text or text chunks.
-const badResponse: AIChatSendHandler = async () => ({ content: "No" });
-void badRole; void badResponse;
+// @ts-expect-error Direct structured responses require the content field.
+const badResponse: AIChatSendHandler = async () => ({ text: "No" });
+void badRole; void badResponse; void part;

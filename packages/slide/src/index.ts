@@ -9,4 +9,5 @@ export { importSlidePptx } from "./import/import-pptx";
 export type { SlidePptxImportOptions, SlidePptxImportResult } from "./import/import-pptx";
 export { exportSlidePptx } from "./export/export-pptx";
 export type { SlidePptxExportOptions } from "./export/types";
+export type { SlidePptxDiagnostic, SlidePptxDiagnosticCode, SlidePptxDiagnosticLocation } from "./office/types";
 export * from "./render-entry";

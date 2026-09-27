@@ -68,3 +68,37 @@ test('attachment preparation rejects disabled send and releases an uncooperative
  const session=createAIChatSession(seed(),{onSave(){},features:{send:false}});let calls=0;assert.equal(await session.prepareAttachments(async()=>{calls++;return[]}),null);assert.equal(calls,0);
  session.configure({onSave(){}});const pending=session.prepareAttachments(()=>new Promise(()=>{}));await tick();session.cancel();assert.equal(await Promise.race([pending,new Promise(resolve=>setTimeout(()=>resolve('timed-out'),100))]),null);
 });
+
+test('structured text and part chunks use stable upserts, native persistence and one shared history entry',async()=>{
+ const observed=[];const session=createAIChatSession(seed(),{onSave(){},features:{edit:false},onChange(aichat){observed.push(aichat)},onSend:async function*(){
+  yield {type:'text',text:'Starting '};yield {type:'part',part:{id:'tool',type:'acme.tool',data:{status:'running',input:{commands:[{type:'sheet.add'}]}}}};
+  yield {type:'part',part:{id:'image',type:'acme.image',data:{url:'https://example.com/chart.png'}}};
+  yield {type:'part',part:{id:'tool',type:'acme.tool',data:{status:'complete',output:{changed:true}}}};yield 'done';
+ }});
+ assert.equal(await session.send('a','Create'),true);const response=messages(session)[1];
+ assert.equal(response.content,'Starting done');assert.equal(response.status,'complete');assert.deepEqual(response.parts.map(part=>part.id),['tool','image']);assert.equal(response.parts[0].data.status,'complete');
+ assert.ok(observed.some(aichat=>aichat.conversations[0].messages[1]?.parts?.[0]?.data.status==='running'));
+ assert.deepEqual(JSON.parse(session.exportNative()).conversations[0].messages[1].parts,response.parts);
+ await session.undo();assert.equal(messages(session).length,0);await session.redo();assert.deepEqual(messages(session)[1],response);
+});
+
+test('final structured responses persist parts, and retry clears earlier parts while pending',async()=>{
+ const pending=deferred();let calls=0;
+ const session=createAIChatSession(seed(),{onSave(){},onSend(){return calls++?pending.promise:{content:'Image',parts:[{id:'image',type:'acme.image',data:{url:'https://example.com/chart.png'}}]}}});
+ await session.send('a','Chart');assert.equal(messages(session)[1].parts[0].type,'acme.image');
+ const retry=session.retry('a',messages(session)[1].id);await tick();assert.equal(messages(session)[1].content,'');assert.deepEqual(messages(session)[1].parts,[]);
+ pending.resolve({content:'Replaced',parts:[{id:'table',type:'acme.table',data:[[1,2],[3,4]]}]});await retry;assert.deepEqual(messages(session)[1].parts.map(part=>part.id),['table']);
+});
+
+test('invalid structured updates preserve committed text and parts and report a terminal error',async()=>{
+ for(const bad of [{type:'part',part:{id:'tool',type:'acme.tool',data:{bad:undefined}}},{type:'text',text:42},{type:'text',text:'bad',extra:true},{type:'unknown'}]){
+  const session=createAIChatSession(seed(),{onSave(){},onSend:async function*(){yield 'Safe';yield {type:'part',part:{id:'tool',type:'acme.tool',data:{status:'running'}}};yield bad}});
+  await session.send('a','Run');assert.equal(messages(session)[1].content,'Safe');assert.equal(messages(session)[1].status,'error');assert.deepEqual(messages(session)[1].parts,[{id:'tool',type:'acme.tool',data:{status:'running'}}]);
+ }
+});
+
+test('cancel retains the last valid part and ignores late structured chunks',async()=>{
+ const pending=deferred();const session=createAIChatSession(seed(),{onSave(){},onSend:async function*(){yield {type:'part',part:{id:'tool',type:'acme.tool',data:{status:'running'}}};await pending.promise;yield {type:'part',part:{id:'tool',type:'acme.tool',data:{status:'complete'}}}}});
+ const task=session.send('a','Run');await tick();session.cancel();const cancelled=serializeAIChat(session.getAIChat());
+ assert.equal(messages(session)[1].status,'cancelled');assert.equal(messages(session)[1].parts[0].data.status,'running');pending.resolve();await task;assert.equal(serializeAIChat(session.getAIChat()),cancelled);
+});

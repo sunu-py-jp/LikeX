@@ -28,3 +28,8 @@ test('only Slide distributes its dedicated image export instructions and CLI', (
       assert.equal(allowedPackageFile(`skills/likex-${moduleName}/${relative}`, moduleName), moduleName === 'slide');
   }
 });
+
+test('Spreadsheet and Slide distribute their dedicated inspect references', () => {
+  for (const moduleName of ['spreadsheet', 'slide', 'document'])
+    assert.equal(allowedPackageFile(`skills/likex-${moduleName}/references/inspect.md`, moduleName), ['spreadsheet', 'slide'].includes(moduleName));
+});

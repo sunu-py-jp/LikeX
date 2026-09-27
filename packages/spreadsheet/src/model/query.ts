@@ -1,8 +1,9 @@
 import { cellAddress, parseCellAddress } from "./address";
 import { copyQuerySnapshot, type QuerySnapshot } from "./query-snapshot";
+import { requireRange, requireSheet, requireWorkbook, validateId } from "./query-validation";
 import { namedRangeAddress, normalizeNamedRangeRectangle, normalizeRangeName, type SpreadsheetNamedRangeInfo } from "./named-ranges";
 import type { SpreadsheetTable } from "./tables/types";
-import { SPREADSHEET_FORMAT, SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetComment, type SpreadsheetDrawing,
+import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetComment, type SpreadsheetDrawing,
   type SpreadsheetImageDrawing, type SpreadsheetImageResource, type SpreadsheetMergedRange, type SpreadsheetShapeDrawing,
   type SpreadsheetSheet, type SpreadsheetTextDrawing, type SpreadsheetWorkbook } from "./types";
 
@@ -10,30 +11,11 @@ import { SPREADSHEET_FORMAT, SPREADSHEET_LIMITS, type SpreadsheetCell, type Spre
 export type SpreadsheetReadRangeInput = SpreadsheetMergedRange | string;
 /** Rows followed by columns; absent stored cells are null, and formulas retain their raw input text. */
 export type SpreadsheetReadRange = readonly (readonly (QuerySnapshot<SpreadsheetCell> | null)[])[];
+/** One physically stored cell with its canonical A1 address; no calculated or inherited formatting. */
+export type SpreadsheetStoredCell = Readonly<{ address: string }> & QuerySnapshot<SpreadsheetCell>;
 type QueryWorkbook = QuerySnapshot<SpreadsheetWorkbook>;
 type QuerySheet = QuerySnapshot<SpreadsheetSheet>;
 export type SpreadsheetTableInfo = SpreadsheetTable & Readonly<{ sheetId: string; address: string }>;
-
-function validateId(id: string): void {
-  if (typeof id !== "string" || !id || id.length > 200 || /\0/.test(id)) throw new Error("読み取る対象のIDが正しくありません");
-}
-
-function requireWorkbook(workbook: QueryWorkbook): void {
-  if (!workbook || !Array.isArray(workbook.sheets) || !workbook.sheets.length || workbook.sheets.length > SPREADSHEET_LIMITS.sheets ||
-    (workbook.format !== undefined && workbook.format !== SPREADSHEET_FORMAT) ||
-    (workbook.schemaVersion !== undefined && workbook.schemaVersion !== 1)) throw new Error("ブックの形式が正しくありません");
-}
-
-function requireSheet(workbook: QueryWorkbook, sheetId: string): QuerySheet {
-  requireWorkbook(workbook); validateId(sheetId);
-  const matches: readonly QuerySheet[] = workbook.sheets.filter(sheet => sheet?.id === sheetId);
-  if (matches.length !== 1) throw new Error("シートが見つからないか、同じIDのシートが重複しています");
-  const sheet = matches[0];
-  if (!Number.isInteger(sheet.rowCount) || sheet.rowCount < 1 || sheet.rowCount > SPREADSHEET_LIMITS.rows ||
-    !Number.isInteger(sheet.columnCount) || sheet.columnCount < 1 || sheet.columnCount > SPREADSHEET_LIMITS.columns)
-    throw new Error("シートの行数または列数が正しくありません");
-  return sheet;
-}
 
 function record(value: unknown, label: string): void {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label}の形式が正しくありません`);
@@ -54,24 +36,6 @@ function storedCell(sheet: QuerySheet, address: string): QuerySnapshot<Spreadshe
   return cell;
 }
 
-function requireRange(sheet: QuerySheet, input: SpreadsheetReadRangeInput): SpreadsheetMergedRange {
-  let range: SpreadsheetMergedRange;
-  if (typeof input === "string") {
-    const parts = input.split(":");
-    if (parts.length > 2) throw new Error("読み取る範囲は同じシート内のA1表記で指定してください");
-    const first = parseCellAddress(parts[0]), last = parseCellAddress(parts[1] ?? parts[0]);
-    if (!first || !last) throw new Error("読み取る範囲は同じシート内のA1表記で指定してください");
-    range = { top: first.row, left: first.column, bottom: last.row, right: last.column };
-  } else range = input;
-  if (!range || typeof range !== "object" || Array.isArray(range) ||
-    ![range.top, range.left, range.bottom, range.right].every(Number.isInteger) ||
-    range.top < 0 || range.left < 0 || range.bottom < range.top || range.right < range.left ||
-    range.bottom >= sheet.rowCount || range.right >= sheet.columnCount) throw new Error("読み取る範囲はシート内の長方形で指定してください");
-  if ((range.bottom - range.top + 1) * (range.right - range.left + 1) > SPREADSHEET_LIMITS.rangeCells)
-    throw new Error("一度に読み取る範囲は10,000セルまでです");
-  return range;
-}
-
 /**
  * Read a stored physical cell. Empty/unrecorded cells are undefined; merged children are not redirected.
  * The value is raw input (including = formulas), not a calculated value. Invalid addresses/sheets throw.
@@ -82,9 +46,25 @@ export function getCell(workbook: QueryWorkbook, sheetId: string, address: strin
   return copyQuerySnapshot(storedCell(sheet, key));
 }
 
+/** Enumerate only stored cells in physical row/column order, including empty values with stored metadata. */
+export function getSheetCells(workbook: QueryWorkbook, sheetId: string): readonly SpreadsheetStoredCell[] {
+  const sheet = requireSheet(workbook, sheetId);
+  record(sheet.cells, "セル一覧");
+  const addresses = Object.keys(sheet.cells);
+  if (addresses.length > SPREADSHEET_LIMITS.cells) throw new Error("保存セルの件数が上限を超えています");
+  const entries = addresses.map(address => {
+    if (requireAddress(sheet, address) !== address) throw new Error("保存セルのアドレスは正規化したA1表記で指定してください");
+    const cell = storedCell(sheet, address);
+    if (cell === undefined) throw new Error("保存セルの形式が正しくありません");
+    return { address, position: parseCellAddress(address)!, cell: copyQuerySnapshot(cell) };
+  });
+  entries.sort((left, right) => left.position.row - right.position.row || left.position.column - right.position.column);
+  return Object.freeze(entries.map(({ address, cell }) => Object.freeze({ ...cell, address })));
+}
+
 /** Read a rectangular matrix of physical cells, retaining blanks as null. Does not expand merged ranges. */
 export function getRange(workbook: QueryWorkbook, sheetId: string, input: SpreadsheetReadRangeInput): SpreadsheetReadRange {
-  const sheet = requireSheet(workbook, sheetId), range = requireRange(sheet, input);
+  const sheet = requireSheet(workbook, sheetId), range = requireRange(sheet, input, SPREADSHEET_LIMITS.rangeCells);
   record(sheet.cells, "セル一覧");
   const rows: (QuerySnapshot<SpreadsheetCell> | null)[][] = [];
   for (let row = range.top; row <= range.bottom; row++) {

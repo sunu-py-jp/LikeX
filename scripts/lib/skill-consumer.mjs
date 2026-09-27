@@ -64,6 +64,10 @@ export async function checkSkillConsumer({ module, installed, consumer }) {
     await cp(skill, copied, { recursive: true });
     const copiedScript = path.join(copied, 'scripts/document.mjs');
     assert.equal((await execute(copiedScript, ['inspect', '--input', file, '--project', consumer])).ok, true);
+    if (module === 'spreadsheet') {
+      const range = await execute(copiedScript, ['inspect', '--input', file, '--project', consumer, '--sheet-id', initial.sheets[0].id, '--range', 'A1:C1']);
+      assert.deepEqual(range.selection, { sheetId: initial.sheets[0].id, range: 'A1:C1', rows: [[{ value: 'Skill consumer' }, { value: '42' }, null]] });
+    }
     const committed = await readFile(file, 'utf8');
     await writeFile(commandFile, JSON.stringify([{ type: 'not-a-command' }]));
     await assert.rejects(execute(copiedScript, ['apply', '--input', file, '--commands', commandFile, '--output', file, '--project', consumer]));

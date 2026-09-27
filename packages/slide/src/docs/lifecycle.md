@@ -42,7 +42,8 @@ import { serializeSlideDeck } from "@likex/slide/model";
 type SlideEvent =
   | { type: "change"; source: "command" | "import" | "undo" | "redo"; deck: SlideDeck }
   | { type: "save"; phase: "start" | "success" | "error" | "cancelled"; error?: string }
-  | { type: "import"; warnings: readonly string[] }
+  | { type: "import"; warnings: readonly string[]; diagnostics?: readonly SlidePptxDiagnostic[] }
+  | { type: "conversion"; phase: "import" | "export"; warnings: readonly string[]; diagnostics: readonly SlidePptxDiagnostic[] }
   | { type: "edit-mode"; mode: "view" | "requesting" | "edit" };
 ```
 
@@ -51,3 +52,5 @@ type SlideEvent =
 refの `importNative` / `exportNative` とGUIのSLON入出力は同じ処理を使います。保存・出力は入力途中の値を確定して操作の完了を待ち、読み込みはその内容を履歴に残してから新しい資料へ置き換えます。読み込み待ちの間に編集許可が取り消された場合やアンマウントされた場合は結果を反映しません。詳しい引数と戻り値は[表示中のコンポーネントの操作API](commands.md)を参照してください。
 
 `warnOnUnsavedChanges` はブラウザーの再読み込み・タブを閉じる操作への標準確認を有効にします。テキストやノートの入力途中も未保存として扱います。ブラウザーの制約により文言は指定できません。アプリ内のページ遷移は `onDirtyChange` を使って親側で確認します。
+
+`conversion` はPPTX変換に成功したときの通知です。近似・省略の場所は `diagnostics` に含まれます。`ref.current.getPptxDiagnostics()` からも最後の結果を取得できます。[変換結果の形式](powerpoint.md#変換結果を確認する)を参照してください。

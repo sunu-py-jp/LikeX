@@ -1,4 +1,6 @@
 import { officeXml, type OfficeXmlNode, type OfficePackageArchive, type OfficeRelationship, type OfficePackageSignal, readOfficeRelationships } from "../ooxml";
+import { createPptxDiagnosticCollector } from "../office/pptx-diagnostics";
+import type { SlidePptxDiagnostic, SlidePptxDiagnosticDetails, SlidePptxDiagnosticLocation } from "../office/types";
 
 export const { child, children, attribute, localName, textContent, spreadsheetText } = officeXml;
 export type Node = OfficeXmlNode;
@@ -6,15 +8,17 @@ export type Relations = ReadonlyMap<string, OfficeRelationship>;
 export type Theme = { colors: Record<string, string>; majorFont: string; minorFont: string };
 export type PptxContext = {
   archive: OfficePackageArchive; signal?: OfficePackageSignal; warnings: Set<string>;
+  diagnostics: SlidePptxDiagnostic[]; location: SlidePptxDiagnosticLocation;
   roots: Map<string, Node>; relations: Map<string, Relations>; images: Map<string, string>;
   textCharacters: number; totalElements: number;
-  warn(message: string): void;
+  warn(message: string, details?: SlidePptxDiagnosticDetails): void;
   root(path: string): Promise<Node>;
   links(path: string): Promise<Relations>;
 };
 export function createContext(archive: OfficePackageArchive, signal?: OfficePackageSignal): PptxContext {
-  const context: PptxContext = { archive, signal, warnings: new Set(), roots: new Map(), relations: new Map(), images: new Map(), textCharacters: 0, totalElements: 0,
-    warn(message) { this.warnings.add(message); },
+  const collector = createPptxDiagnosticCollector("import");
+  const context: PptxContext = { archive, signal, warnings: collector.warnings, diagnostics: collector.diagnostics, location: {}, roots: new Map(), relations: new Map(), images: new Map(), textCharacters: 0, totalElements: 0,
+    warn(message, details) { collector.warn(message, { ...this.location, ...details }); },
     async root(path) { signal?.throwIfAborted(); let root = this.roots.get(path); if (!root) { root = officeXml.parseXml(await archive.read(path)); this.roots.set(path, root); } return root; },
     async links(path) { let links = this.relations.get(path); if (!links) { links = await readOfficeRelationships(archive, path); this.relations.set(path, links); } return links; } };
   return context;
@@ -59,8 +63,8 @@ export function color(node: Node | undefined, theme: Theme, mapping: Record<stri
       case "alphaMod": alpha *= amount; break;
       case "tint": rgb = rgb.map(channel => channel * amount + 255 * (1 - amount)); break;
       case "shade": rgb = rgb.map(channel => channel * amount); break;
-      case "lumMod": rgb = rgb.map(channel => channel * amount); context.warn("テーマ色の明度をRGB色へ近似しました"); break;
-      case "lumOff": rgb = rgb.map(channel => channel + 255 * amount); context.warn("テーマ色の明度をRGB色へ近似しました"); break;
+      case "lumMod": rgb = rgb.map(channel => channel * amount); context.warn("テーマ色の明度をRGB色へ近似しました", { code: "content-approximated", action: "approximation" }); break;
+      case "lumOff": rgb = rgb.map(channel => channel + 255 * amount); context.warn("テーマ色の明度をRGB色へ近似しました", { code: "content-approximated", action: "approximation" }); break;
       default: context.warn("未対応の色変換を省略しました");
     }
   }
@@ -71,7 +75,7 @@ export function readFill(properties: Node | undefined, theme: Theme, mapping: Re
   if (!properties) return;
   if (child(properties, "noFill")) return "transparent";
   const solid = child(properties, "solidFill"); if (solid) return color(solid, theme, mapping, context);
-  if (["gradFill", "pattFill", "blipFill"].some(key => child(properties, key))) context.warn("グラデーション・模様・画像の塗りつぶしを単色へ変更しました");
+  if (["gradFill", "pattFill", "blipFill"].some(key => child(properties, key))) context.warn("グラデーション・模様・画像の塗りつぶしを単色へ変更しました", { code: "content-approximated", action: "approximation" });
 }
 export function plainText(body: Node | undefined): string {
   return children(body, "p").map(paragraph => paragraph.children.map(item => localName(item.name) === "br" ? "\n" : ["r", "fld"].includes(localName(item.name)) ? textContent(child(item, "t")) : "").join("")).join("\n");

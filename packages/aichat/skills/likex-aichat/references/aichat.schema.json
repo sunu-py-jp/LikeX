@@ -96,6 +96,9 @@
         },
         "toolCalls": {
           "$ref": "#/$defs/AIChatMessage_toolCalls"
+        },
+        "parts": {
+          "$ref": "#/$defs/AIChatMessage_parts"
         }
       },
       "required": [
@@ -220,6 +223,70 @@
         "running",
         "complete"
       ]
+    },
+    "AIChatMessage_parts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AIChatContentPart"
+      }
+    },
+    "AIChatContentPart": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/AIChatJSONValue"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "AIChatJSONValue": {
+      "anyOf": [
+        {
+          "const": null
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "const": false
+        },
+        {
+          "const": true
+        },
+        {
+          "$ref": "#/$defs/AIChatJSONValue_6"
+        },
+        {
+          "$ref": "#/$defs/AIChatJSONValue_7"
+        }
+      ]
+    },
+    "AIChatJSONValue_6": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AIChatJSONValue"
+      }
+    },
+    "AIChatJSONValue_7": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": {
+        "$ref": "#/$defs/AIChatJSONValue"
+      }
     }
   }
 }

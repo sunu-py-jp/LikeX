@@ -177,3 +177,64 @@ test('navigation tracks slide IDs across reorder and deletion, backwards shows f
   await change(() => app.renderer.unmount()); assert.equal(app.frames.size, 0);
   assert.equal(app.focuses, 1); assert.equal(app.observers, 0);
 });
+
+test('running timelines keep requesting frames while another waits and targeted clicks preserve their progress', async t => {
+  const source = deck([
+    { ...step('target', tween({ x: 100 }), { type: 'click', elementId: 'title' }), timelineId: 'targeted' },
+    step('automatic', tween({ opacity: 0 })),
+  ]).slides[0];
+  const app = await hook(t, source);
+  assert.equal(app.value.waitingForClick, true); assert.equal(app.frames.size, 1);
+  await app.tick(1000); await app.tick(1050);
+  assert.equal(app.value.slide.elements[0].opacity, .5); assert.equal(app.value.slide.elements[0].x, 0);
+  await app.advance('title');
+  assert.equal(app.value.waitingForClick, false); assert.equal(app.value.activeSteps.length, 2);
+  await app.tick(1050); await app.tick(1100);
+  assert.equal(app.value.slide.elements[0].opacity, 0); assert.equal(app.value.slide.elements[0].x, 50);
+  assert.equal(app.frames.size, 1);
+  await app.tick(1150);
+  assert.equal(app.value.finished, true); assert.equal(app.frames.size, 0);
+});
+
+test('reduced motion completes independent running lanes and preserves every targeted wait', async t => {
+  const source = deck([
+    { ...step('target', tween({ x: 100 }), { type: 'click', elementId: 'title' }), timelineId: 'targeted' },
+    step('automatic', tween({ opacity: 0 }), { type: 'after-delay', delayMs: 500 }),
+    step('after-auto', tween({ opacity: 1 }), { type: 'click' }),
+  ]).slides[0];
+  const app = await hook(t, source, { reduced: true });
+  assert.equal(app.value.slide.elements[0].opacity, 0);
+  assert.equal(app.value.waitingSteps.length, 2); assert.equal(app.frames.size, 0);
+  await app.advance();
+  assert.equal(app.value.slide.elements[0].opacity, 1); assert.equal(app.value.waitingTargetId, 'title');
+  assert.equal(app.value.waitingSteps.length, 1); assert.equal(app.value.finished, false);
+  await app.advance('title');
+  assert.equal(app.value.finished, true); assert.equal(app.value.slide.elements[0].x, 100);
+  assert.equal(app.frames.size, 0);
+});
+
+test('presentation exposes every independent target to keyboards and lets automatic lanes advance', async t => {
+  const animations = [
+    { ...step('first', tween({ x: 100 }), { type: 'click', elementId: 'title' }), timelineId: 'first' },
+    { ...step('second', tween({ opacity: 0 }), { type: 'click', elementId: 'other' }), timelineId: 'second' },
+    step('automatic', tween({ y: 100 })),
+  ];
+  const initial = deck([]);
+  const source = createSlideDeck({ ...initial, slides: initial.slides.map(slide => ({ ...slide,
+    elements: [...slide.elements, createSlideElement({ type: 'shape', id: 'other', name: 'Other' })],
+    animations,
+  })) });
+  const app = await presentation(t, source);
+  assert.equal(app.button('次のアニメーション').props.disabled, false);
+  assert.ok(app.button('Titleのクリック操作を実行')); assert.ok(app.button('Otherのクリック操作を実行'));
+  await app.key('ArrowRight');
+  assert.equal(app.button('次のアニメーション').props.disabled, true);
+  await change(() => app.button('Otherのクリック操作を実行').props.onClick());
+  assert.equal(app.button('次のアニメーション').props.disabled, false);
+  assert.ok(app.button('Titleのクリック操作を実行'));
+  await app.key('ArrowRight');
+  assert.equal(app.button('次のアニメーション').props.disabled, true);
+  await change(() => app.button('Titleのクリック操作を実行').props.onClick());
+  await app.key('ArrowRight');
+  assert.equal(app.button('次のスライド').props.disabled, true);
+});

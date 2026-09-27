@@ -4,6 +4,20 @@
   "source": "packages/slide/src/docs/animations.md",
   "order": 25,
   "section": "親アプリとの連携",
-  "keywords": ["LikeSlide", "animation.set", "animation.remove", "SlideAnimationStep", "includeAnimations", "evaluateSlideAnimations", "resolveSlideAnimations", "tween", "sequence", "parallel"],
+  "keywords": [
+    "LikeSlide",
+    "animation.set",
+    "animation.remove",
+    "SlideAnimationStep",
+    "includeAnimations",
+    "evaluateSlideAnimations",
+    "resolveSlideAnimations",
+    "tween",
+    "sequence",
+    "parallel",
+    "timelineId",
+    "waitingSteps",
+    "activeSteps"
+  ],
   "screenshots": []
 }

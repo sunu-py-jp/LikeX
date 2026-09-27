@@ -52,11 +52,14 @@ const elementOrder = ["id", "type", "name", "stackOrder", "x", "y", "width", "he
 const deckOrder = new Map(DECK_KEYS.map((key, index) => [key, index]));
 const slideOrder = new Map(SLIDE_KEYS.map((key, index) => [key, index]));
 const elementsOrder = new Map(elementOrder.map((key, index) => [key, index]));
+// Preserve existing animation bytes while placing the optional timeline beside its ID/name.
+const animationOrder = new Map(["animation", "id", "name", "timelineId", "trigger"].map((key, index) => [key, index]));
 
 /** Fields follow document structure, rather than arbitrary ID or alphabetical order. */
 export function compareSlideFileKeys(left: string, right: string, path: readonly (string | number)[]): number {
   const order = path.length === 0 ? deckOrder
     : path.length === 2 && path[0] === "slides" ? slideOrder
-    : path.length === 4 && path[0] === "slides" && path[2] === "elements" ? elementsOrder : undefined;
+    : path.length === 4 && path[0] === "slides" && path[2] === "elements" ? elementsOrder
+    : path.length === 4 && path[0] === "slides" && path[2] === "animations" ? animationOrder : undefined;
   return order ? (order.get(left) ?? Number.MAX_SAFE_INTEGER) - (order.get(right) ?? Number.MAX_SAFE_INTEGER) : 0;
 }

@@ -1542,6 +1542,9 @@
       "findSpreadsheetCells",
       "SpreadsheetSearchQuery",
       "SpreadsheetSearchMatch",
+      "SpreadsheetSearchOptions",
+      "findCells",
+      "range",
       "cells.replace",
       "search",
       "replace"
@@ -2199,6 +2202,9 @@
     ],
     "keywords": [
       "getCell",
+      "getSheetCells",
+      "getCells",
+      "SpreadsheetStoredCell",
       "getRange",
       "getImage",
       "getImageResource",
@@ -2211,6 +2217,14 @@
       "drawingId",
       "resourceId",
       "getSheets",
+      "findSpreadsheetSheets",
+      "findSpreadsheetCells",
+      "SpreadsheetSheetSearchQuery",
+      "SpreadsheetSheetSearchMatch",
+      "SpreadsheetSearchOptions",
+      "SpreadsheetSearchMatch",
+      "findSheets",
+      "findCells",
       "getNamedRanges",
       "getDrawings",
       "getImages",
@@ -2228,6 +2242,11 @@
         "depth": 2
       },
       {
+        "id": "1シートの保存セルを取得する",
+        "title": "1シートの保存セルを取得する",
+        "depth": 2
+      },
+      {
         "id": "idで画像図形を取得する",
         "title": "IDで画像・図形を取得する",
         "depth": 2
@@ -2235,6 +2254,11 @@
       {
         "id": "一覧を取得する",
         "title": "一覧を取得する",
+        "depth": 2
+      },
+      {
+        "id": "キーワードでシートセルを探す",
+        "title": "キーワードでシート・セルを探す",
         "depth": 2
       },
       {
@@ -2706,12 +2730,20 @@
       "resolveSlideAnimations",
       "tween",
       "sequence",
-      "parallel"
+      "parallel",
+      "timelineId",
+      "waitingSteps",
+      "activeSteps"
     ],
     "headings": [
       {
         "id": "モデルと公開コマンド",
         "title": "モデルと公開コマンド",
+        "depth": 2
+      },
+      {
+        "id": "独立した系列を動かす",
+        "title": "独立した系列を動かす",
         "depth": 2
       },
       {
@@ -2767,7 +2799,11 @@
       "pptx",
       "importSlidePptx",
       "exportSlidePptx",
-      "SlidePptxExportBlob"
+      "SlidePptxExportBlob",
+      "SlidePptxDiagnostic",
+      "onDiagnostic",
+      "getPptxDiagnostics",
+      "conversion"
     ],
     "headings": [
       {
@@ -2778,6 +2814,26 @@
       {
         "id": "対応範囲",
         "title": "対応範囲",
+        "depth": 2
+      },
+      {
+        "id": "アニメーションの変換",
+        "title": "アニメーションの変換",
+        "depth": 2
+      },
+      {
+        "id": "文字サイズ線幅透明色の近似",
+        "title": "文字サイズ・線幅・透明色の近似",
+        "depth": 3
+      },
+      {
+        "id": "件数と処理量",
+        "title": "件数と処理量",
+        "depth": 2
+      },
+      {
+        "id": "変換結果を確認する",
+        "title": "変換結果を確認する",
         "depth": 2
       },
       {
@@ -3500,6 +3556,11 @@
         "depth": 2
       },
       {
+        "id": "外部で定義した表示データを履歴に入れる",
+        "title": "外部で定義した表示データを履歴に入れる",
+        "depth": 2
+      },
+      {
         "id": "reactなしで編集セッションを使う",
         "title": "Reactなしで編集セッションを使う",
         "depth": 2
@@ -3548,7 +3609,7 @@
   },
   {
     "id": "aichat/streaming",
-    "title": "ストリーミング・添付",
+    "title": "ストリーミング・拡張表示・添付",
     "component": "aichat",
     "section": "親アプリとの連携",
     "output": "aichat/streaming/index.html",
@@ -3558,6 +3619,9 @@
     "keywords": [
       "onSend",
       "AIChatSendHandler",
+      "AIChatContentPart",
+      "AIChatResponseChunk",
+      "partRenderers",
       "AsyncIterable",
       "retry",
       "cancel",
@@ -3567,6 +3631,21 @@
       {
         "id": "応答を返す",
         "title": "応答を返す",
+        "depth": 2
+      },
+      {
+        "id": "パーツを外部で定義する",
+        "title": "パーツを外部で定義する",
+        "depth": 2
+      },
+      {
+        "id": "ツール進捗と結果をストリームで更新する",
+        "title": "ツール進捗と結果をストリームで更新する",
+        "depth": 2
+      },
+      {
+        "id": "履歴のスクロール",
+        "title": "履歴のスクロール",
         "depth": 2
       },
       {

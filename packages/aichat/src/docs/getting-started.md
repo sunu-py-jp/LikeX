@@ -54,9 +54,14 @@ export * from "../core/json";
 | `primaryColor` | #RGB / #RRGGBB。ボタンの文字色とリンク・選択色のコントラストを自動調整 |
 | `className` / `style` | 表示枠のクラス・サイズ |
 | `exportFileName` | JSONダウンロード名。既定は `aichat.json` |
+| `partRenderers` | `message.parts[].type` ごとの表示関数。画像・ツール・独自カードなどを利用側で定義 |
 | `readOnly` | 編集を無効にする |
 | `features` | [機能を個別に無効にする](lifecycle.md) |
 
-本文はプレーンテキストです。Markdown構文やHTML文字列も文字として表示します。参照リンク・添付・ツール進捗は専用のメタデータから表示します。
+本文 `content` はプレーンテキストです。Markdown構文やHTML文字列も文字として表示します。参照リンク・添付・従来のツール進捗は専用のメタデータから表示します。
+
+画像・ツールの引数と実行結果・独自カードなどは、型名とJSONデータを持つ `message.parts` に保存できます。`partRenderers` の表示関数を親アプリで登録してください。本文の後にパーツを配列順で表示します。パーツだけのメッセージも表示でき、空本文の案内は出ません。登録されていない型は、型名と展開可能なJSONを表示し、データを捨てません。表示関数が失敗した場合も、そのパーツはJSON表示へ戻ります。
+
+登録関数は会話のJSONに含めません。チャットの再読み込み時も同じレジストリを渡します。保存・読み込み・外部サービスとの接続は引き続き親アプリが担当します。詳しくは [パーツを外部で定義する](streaming.md#パーツを外部で定義する) を参照してください。
 
 Next.js App RouterではCSSを `app/layout.tsx` で読み込み、コールバックを渡す親コンポーネントに `"use client"` を付けます。Server Componentからモデルを作る場合は `@likex/aichat/model` を使ってください。

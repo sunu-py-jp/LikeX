@@ -25,9 +25,27 @@
 ]
 ```
 
-`message.update.patch` は `content`、`status`、`error`、`attachments`、`references`、`toolCalls` を変更する。配列は差分追加ではなく全体置き換えで、`[]` で空にできる。ID・role・createdAt・replyToは変更対象外。
+`message.update.patch` は `content`、`status`、`error`、`attachments`、`references`、`toolCalls`、`parts` を変更する。配列は差分追加ではなく全体置き換えで、`[]` で空にできる。ID・role・createdAt・replyToは変更対象外。
 
-`message.respond` はassistantメッセージだけを対象にし、`conversationId`、`messageId`、`content`、`status` と任意の `error` を指定する。本文は全文置き換えで、文字列断片の追加や外部サービスへの問い合わせはしない。
+`message.respond` はassistantメッセージだけを対象にし、`conversationId`、`messageId`、`content`、`status` と任意の `error`、`parts` を指定する。本文は全文置き換えで、文字列断片の追加や外部サービスへの問い合わせはしない。`parts` を省略すると既存のパートを保持する。
+
+## 外部定義のパート
+
+`message.add` の `message.parts` と、更新・応答コマンドで構造化データを保存できる。`type` と `data` の意味は親アプリの契約に従う。
+
+```json
+[
+  {
+    "type": "message.add", "conversationId": "planning",
+    "message": { "id": "rich-answer", "role": "assistant", "content": "処理結果を確認できます。", "replyTo": "question-1", "parts": [
+      { "id": "operation-1", "type": "app.tool-call", "data": { "name": "apply", "input": { "commands": [] }, "output": { "changed": false } } },
+      { "id": "image-1", "type": "app.image", "data": { "url": "https://example.com/chart.png", "alt": "売上グラフ" } }
+    ] }
+  }
+]
+```
+
+パートIDは同じメッセージ内で一意。`data` はJSON値のみで、未知の `type` も配列順を保って保存する。既存の他のパートを残す場合は配列全体を取得して含める。保存だけでツールやリンク先を実行・取得しない。機密値の除去とURL等の型固有の検証は親アプリが担当する。
 
 ## 添付・参照・ツール情報
 

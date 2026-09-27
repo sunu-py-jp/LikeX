@@ -7,11 +7,12 @@ import { create } from 'react-test-renderer';
 const output = await build({ stdin: { contents: `
   export { useSlideEditor } from './src/state/use-slide-editor';
   export { createSlideDeck, createSlideElement, parseSlideDeck } from './src/model';
+  export { openOfficePackage, officeXml } from './src/ooxml';
 `, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false,
 plugins: [{ name: 'shared-react', setup(builder) {
   builder.onResolve({ filter: /^(react|react-dom)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
 } }] });
-const { useSlideEditor, createSlideDeck, createSlideElement, parseSlideDeck } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { useSlideEditor, createSlideDeck, createSlideElement, parseSlideDeck, openOfficePackage, officeXml } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const change = async callback => { await act(async () => { await callback(); }); };
 const animation = () => ({ id:'move', trigger:{type:'click'}, animation:{type:'tween', elementId:'box', durationMs:500, easing:'ease-in-out', to:{x:500,fill:'#ff0000',opacity:.5}} });
@@ -65,13 +66,16 @@ test('animation commands obey feature flags, readonly and latest permission-time
   assert.equal(app.ref.current.getAnimations('page').length,1);
 });
 
-test('image output chooses final or initial properties while PPTX warns about static conversion',async t=>{
+test('image output chooses final or initial properties while PPTX preserves native animation timing',async t=>{
   const app=await mount(t),seen=[],warnings=[];
   const renderer=request=>{seen.push(request.slide);return png(request);};
   await change(()=>app.ref.current.exportImage({pageNumber:1,renderer}));
   await change(()=>app.ref.current.exportImages({animationState:'initial',renderer}));
   assert.equal(seen[0].elements[0].x,500);assert.equal(seen[1].elements[0].x,10);assert.equal(seen[0].animations,undefined);assert.equal(seen[1].animations,undefined);
-  await change(()=>app.ref.current.exportPptx({onWarning:message=>warnings.push(message)}));
-  assert.equal(warnings.length,1);assert.match(warnings[0],/アニメーション/);assert.equal(app.editor.notice.kind,'info');
+  let pptx; await change(async()=>{pptx=await app.ref.current.exportPptx({onWarning:message=>warnings.push(message)});});
+  const archive=await openOfficePackage(pptx),root=officeXml.parseXml(await archive.read('ppt/slides/slide1.xml'));
+  assert.ok(officeXml.child(root,'timing'));
+  assert.ok(warnings.every(message=>!/最終静止状態/.test(message)));
+  if(warnings.length) assert.equal(app.editor.notice.kind,'info');
   assert.equal(app.ref.current.getDeck({includeAnimations:true}).slides[0].animations.length,1);assert.equal(app.editor.dirty,false);
 });

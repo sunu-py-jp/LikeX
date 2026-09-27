@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const output = await build({ stdin: { contents: `export * from './query'; export * from './query-reader';`,
   resolveDir: fileURLToPath(new URL('../src/model', import.meta.url)), loader: 'ts' },
   bundle: true, platform: 'node', format: 'esm', write: false, metafile: true });
-const { getCell, getRange, getSheet, getDrawing, getImage, getShape, getTextBox, getImageResource,
+const { getCell, getRange, getSheet, getSheetCells, getDrawing, getImage, getShape, getTextBox, getImageResource,
   getCellComment, createSpreadsheetReader } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const sheetId = 'sheet-1';
 const makeWorkbook = () => ({ schemaVersion: 1, sheets: [{ id: sheetId, name: 'Data', rowCount: 20, columnCount: 10,
@@ -51,6 +51,50 @@ test('range reads preserve its exact rectangular shape and represent missing cel
   assert.deepEqual(getRange(workbook, sheetId, '$a$1:c3'), actual);
   assert.deepEqual(getRange(workbook, sheetId, 'B2'), [[workbook.sheets[0].cells.B2]]);
   assert.deepEqual(getRange(workbook, sheetId, 'J20'), [[null]]);
+});
+
+test('stored sheet cells are sparse and physically ordered while retaining formulas and empty-cell metadata', () => {
+  const workbook = makeWorkbook(), sheet = workbook.sheets[0];
+  sheet.cells = { J20: { value: 'last' }, B2: sheet.cells.B2, A2: sheet.cells.A2, B1: sheet.cells.B1, A1: sheet.cells.A1 };
+  sheet.merges = [{ top: 0, left: 0, bottom: 0, right: 1 }];
+  const result = getSheetCells(workbook, sheetId);
+  assert.deepEqual(result, ['A1', 'B1', 'A2', 'B2', 'J20'].map(address => ({ address, ...sheet.cells[address] })));
+  assert.equal(result[1].value, '=A1*2', 'formulas remain raw and merged children keep their physical address');
+  assert.equal(result[2].value, '');
+  assert.equal(result[2].format.background, '#fff');
+  assert.equal(Object.hasOwn(result[0], 'comments'), false);
+  sheet.rowCount = 10_000; sheet.columnCount = 1_000;
+  assert.equal(getSheetCells(workbook, sheetId).length, 5, 'blank matrix size does not limit sparse enumeration');
+  sheet.cells = {};
+  assert.deepEqual(getSheetCells(workbook, sheetId), []);
+  assert.ok(Object.isFrozen(getSheetCells(workbook, sheetId)));
+});
+
+test('stored cell enumeration returns detached deeply frozen snapshots and live scoped readers', () => {
+  let workbook = makeWorkbook();
+  const reader = createSpreadsheetReader(() => workbook), scoped = reader.sheet(sheetId);
+  const result = reader.getSheetCells(sheetId);
+  assert.ok(Object.isFrozen(result)); assert.ok(Object.isFrozen(result[0]));
+  assert.ok(Object.isFrozen(result[0].format.borders.bottom)); assert.ok(Object.isFrozen(result[3].validation.values));
+  assert.throws(() => { result[0].address = 'J20'; }, TypeError);
+  assert.throws(() => { result[3].validation.values.push('bad'); }, TypeError);
+  workbook.sheets[0].cells.A1.format.borders.bottom.color = '#456';
+  assert.equal(result[0].format.borders.bottom.color, '#123');
+  assert.equal(Object.isFrozen(workbook.sheets[0].cells.A1), false);
+  assert.equal(scoped.getCells()[0].format.borders.bottom.color, '#456');
+  workbook = { ...workbook, sheets: [{ ...workbook.sheets[0], id: 'other' }] };
+  assert.throws(() => scoped.getCells(), /シート/);
+});
+
+test('stored cell enumeration rejects invalid IDs, physical addresses and malformed cells', () => {
+  assert.throws(() => getSheetCells(makeWorkbook(), 'missing'), /シート/);
+  for (const cells of [null, [], { K1: { value: 'outside' } }, { A21: { value: 'outside' } }, { a1: { value: 'not canonical' } }, { A0: { value: 'invalid' } }, { A1: undefined }, { A1: null }, { A1: { value: 42 } }]) {
+    const workbook = makeWorkbook(); workbook.sheets[0].cells = cells;
+    assert.throws(() => getSheetCells(workbook, sheetId));
+  }
+  const workbook = makeWorkbook();
+  workbook.sheets[0].cells = Object.assign(Object.create({ C3: { value: 'inherited' } }), workbook.sheets[0].cells);
+  assert.equal(getSheetCells(workbook, sheetId).some(cell => cell.address === 'C3'), false);
 });
 
 test('merged children are not redirected and ranges are not expanded to contain a merge', () => {
@@ -154,7 +198,7 @@ test('range queries enforce the 10000 cell limit before allocating the matrix', 
 
 test('invalid or duplicate sheet IDs throw for all sheet-scoped getters', () => {
   const workbook = makeWorkbook();
-  for (const getter of [getCell, getCellComment, getRange, getSheet, getDrawing, getImage, getShape, getTextBox]) {
+  for (const getter of [getCell, getCellComment, getRange, getSheet, getSheetCells, getDrawing, getImage, getShape, getTextBox]) {
     assert.throws(() => getter(workbook, 'missing', 'A1'));
     assert.throws(() => getter(workbook, '', 'A1'));
   }

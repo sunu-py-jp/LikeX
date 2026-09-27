@@ -70,3 +70,44 @@ test('dark UI and a bright primary color use contrasting button foregrounds',()=
  const html=renderToStaticMarkup(h(LikeAIChat,{initialAIChat:seed(),colorMode:'dark',primaryColor:'#fff'}));
  assert.match(html,/data-color-mode="dark"/);assert.match(html,/--lxai-primary:#ffffff/);assert.match(html,/--lxai-on-primary:#000000/);
 });
+
+test('external parts render in saved order with message context and no empty text placeholder',()=>{
+ const aichat=structuredClone(seed());aichat.conversations[0].messages=[createAIChatMessage({id:'rich',role:'assistant',content:'',parts:[{id:'image',type:'host.image',data:{url:'/preview.svg',alt:'Preview'}},{id:'card',type:'host.card',data:{title:'Sales'}}]})];
+ const contexts=[];
+ const html=renderToStaticMarkup(h(LikeAIChat,{initialAIChat:aichat,partRenderers:{
+  'host.image':(part,context)=>{contexts.push(context.message.id);return h('img',{src:part.data.url,alt:part.data.alt})},
+  'host.card':(part,context)=>{contexts.push(context.message.id);return h('section',null,part.data.title)},
+ }}));
+ assert.ok(html.indexOf('alt="Preview"')<html.indexOf('<section>Sales</section>'));assert.deepEqual(contexts,['rich','rich']);
+ assert.doesNotMatch(html,/空のメッセージ|応答を待っています|lxai-message-content/);
+});
+
+test('unknown part types retain escaped JSON and ignore inherited renderer properties',()=>{
+ const aichat=structuredClone(seed());aichat.conversations[0].messages=[createAIChatMessage({id:'unknown',role:'assistant',content:'',parts:[{id:'part',type:'toString',data:{html:'<img src=x onerror=alert(1)>',nested:{ok:true}}}]})];
+ const html=renderToStaticMarkup(h(LikeAIChat,{initialAIChat:aichat,partRenderers:{}}));
+ assert.match(html,/lxai-part-fallback/);assert.match(html,/toString/);assert.match(html,/&lt;img src=x onerror=alert\(1\)&gt;/);assert.match(html,/nested/);assert.doesNotMatch(html,/<img src=x/);
+});
+
+test('structured streams update the same tool part without duplicate rows or a waiting placeholder',async t=>{
+ const finish=deferred();const app=await mount(t,{onSave(){},partRenderers:{'host.tool':part=>h('output',{'data-tool':part.id},part.data.status)},onSend:async function*(){yield {type:'part',part:{id:'call-1',type:'host.tool',data:{status:'running'}}};await finish.promise;yield {type:'part',part:{id:'call-1',type:'host.tool',data:{status:'complete'}}}}});
+ let task;await update(()=>{task=app.ref.current.send('Run tool')});await update(async()=>await tick());
+ assert.equal(app.renderer.root.findAllByType('output').length,1);assert.deepEqual(app.renderer.root.findByType('output').children,['running']);
+ const assistant=app.renderer.root.findByProps({'aria-label':'アシスタントのメッセージ'});assert.equal(assistant.findAllByProps({className:'lxai-message-content'}).length,0);
+ await update(async()=>{finish.resolve();await task});assert.equal(app.renderer.root.findAllByType('output').length,1);assert.deepEqual(app.renderer.root.findByType('output').children,['complete']);
+});
+
+test('a failing external renderer falls back to data without dropping neighboring parts',async t=>{
+ const aichat=structuredClone(seed());aichat.conversations[0].messages=[createAIChatMessage({id:'failure',role:'assistant',content:'Still usable',parts:[{id:'bad',type:'host.bad',data:{preserved:true}},{id:'good',type:'host.good',data:null}]})];
+ const app=await mount(t,{initialAIChat:aichat,partRenderers:{'host.bad':()=>{throw new Error('render failure')},'host.good':()=>h('mark',null,'Other part')}});
+ assert.equal(app.renderer.root.findAllByProps({className:'lxai-part-fallback'}).length,1);assert.deepEqual(app.renderer.root.findByType('mark').children,['Other part']);assert.match(JSON.stringify(app.renderer.toJSON()),/preserved/);
+});
+
+test('an external component failure is isolated and corrected part data can render again',async t=>{
+ t.mock.method(console,'error',()=>{});
+ const aichat=structuredClone(seed());aichat.conversations[0].messages=[createAIChatMessage({id:'component',role:'assistant',content:'Parent remains',parts:[{id:'card',type:'host.component',data:false}]})];
+ function Card({part}){if(!part.data)throw new Error('Child failed');return h('mark',null,'Recovered')}
+ const app=await mount(t,{initialAIChat:aichat,onSave(){},partRenderers:{'host.component':part=>h(Card,{part})}});
+ assert.equal(app.renderer.root.findAllByProps({className:'lxai-part-fallback'}).length,1);assert.ok(app.ref.current);
+ await update(()=>app.ref.current.execute({type:'message.update',conversationId:'a',messageId:'component',patch:{parts:[{id:'card',type:'host.component',data:true}]}}));
+ assert.equal(app.renderer.root.findAllByProps({className:'lxai-part-fallback'}).length,0);assert.deepEqual(app.renderer.root.findByType('mark').children,['Recovered']);
+});

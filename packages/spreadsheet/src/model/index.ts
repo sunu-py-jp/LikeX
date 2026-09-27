@@ -9,12 +9,15 @@ export { getDrawingBounds, getDrawingPlacement } from "./drawing-placement";
 export type { SpreadsheetDrawingBounds, SpreadsheetDrawingPlacement, SpreadsheetDrawingPlacementOptions } from "./drawing-placement";
 export { getCell, getRange, getSheet, getDrawing, getImage, getShape, getTextBox, getImageResource, getCellComment,
   getNamedRange, getRangeByName, getTable, getTableByName,
-  getSheets, getNamedRanges, getDrawings, getImages, getShapes, getTextBoxes, getTables } from "./query";
-export type { SpreadsheetReadRangeInput, SpreadsheetReadRange, SpreadsheetTableInfo } from "./query";
+  getSheets, getSheetCells, getNamedRanges, getDrawings, getImages, getShapes, getTextBoxes, getTables } from "./query";
+export type { SpreadsheetReadRangeInput, SpreadsheetReadRange, SpreadsheetStoredCell, SpreadsheetTableInfo } from "./query";
 export type { SpreadsheetNamedRangeInput, SpreadsheetNamedRangeInfo } from "./named-ranges";
 export type { SpreadsheetReadApi } from "./query-reader";
 export { getSheetReader } from "./sheet-reader";
 export type { SpreadsheetSheetReadApi } from "./sheet-reader";
+export { findSpreadsheetSheets, findSpreadsheetCells } from "./editing/search";
+export type { SpreadsheetSheetSearchQuery, SpreadsheetSheetSearchMatch, SpreadsheetSearchOptions } from "./editing/search";
+export type { SpreadsheetSearchQuery, SpreadsheetSearchMatch } from "../api/editing-commands";
 export { copySpreadsheetCells } from "./editing/copy";
 export type { SpreadsheetCopyOptions } from "./editing/copy";
 export { getMergedRange, mergedCellPosition, expandRangeForMerges, rangesIntersect, rangeContains, mergedContentWouldBeDiscarded } from "./merges";

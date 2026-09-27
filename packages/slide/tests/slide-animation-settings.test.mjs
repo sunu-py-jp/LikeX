@@ -83,6 +83,23 @@ test('step trigger, timing, easing, repeat, yoyo and removal preserve model hist
   await change(() => app.editor.history('undo')); assert.equal(app.animations[0].id, step.id);
 });
 
+test('nested timing controls accept fractional time and repeats above the former maximum with undo', async t => {
+  let animation = { type: 'tween', elementId: 'text', durationMs: 600, to: { x: 100 } };
+  for (let index = 0; index < 12; index++) animation = { type: 'sequence', children: [animation] };
+  const initial = fixture(), initialDeck = createSlideDeck({ ...initial, slides: initial.slides.map((slide, index) => index ? slide : {
+    ...slide, animations: [{ id: 'nested', animation }],
+  }) });
+  const app = await mount(t, { initialDeck });
+  assert.equal(app.field('繰り返し回数').props.max, undefined);
+  await app.commit('繰り返し回数', 101);
+  await app.commit('所要時間 (ms)', .5);
+  const leaf = () => { let node = app.animations[0].animation; while (node.type !== 'tween') node = node.children[0]; return node; };
+  assert.equal(leaf().repeat, 101); assert.equal(leaf().durationMs, .5);
+  await change(() => app.editor.history('undo')); assert.equal(leaf().durationMs, 600); assert.equal(leaf().repeat, 101);
+  await change(() => app.editor.history('undo')); assert.equal(leaf().repeat, undefined);
+  assert.equal(app.editor.dirty, false);
+});
+
 test('typed targets expose supported properties and changing to an image removes incompatible values', async t => {
   const app = await mount(t);
   await app.click('ステップを追加');
@@ -239,4 +256,21 @@ test('color controls show six-digit colors and preserve saved alpha until explic
   assert.equal(app.animations[0].animation.from.color, '#abcdef40');
   await change(() => app.editor.history('undo'));
   assert.equal(app.animations[0].animation.to.color, '#12345680');
+});
+
+test('timeline assignment uses public commands, supports undo and respects stale drafts and read-only state', async t => {
+  const app = await mount(t);
+  const label = 'タイムラインID（空欄はメイン）';
+  await app.click('ステップを追加');
+  const id = app.animations[0].id;
+  await app.commit(label, 'independent');
+  assert.equal(app.animations[0].id, id); assert.equal(app.animations[0].timelineId, 'independent');
+  await change(() => app.editor.history('undo')); assert.equal(app.animations[0].timelineId, undefined);
+  await change(() => app.editor.history('redo')); assert.equal(app.animations[0].timelineId, 'independent');
+  await app.set(label, 'stale');
+  await change(() => app.editor.execute({ type: 'deck.rename', title: 'Changed elsewhere' }));
+  await change(() => app.field(label).props.onBlur());
+  assert.equal(app.animations[0].timelineId, 'independent');
+  await app.commit(label, ''); assert.equal(app.animations[0].timelineId, undefined);
+  await app.update({ readOnly: true }); assert.equal(app.field(label).props.disabled, true);
 });

@@ -89,6 +89,21 @@ test('image preparation is available from the same public entry and rejects URLs
   await assert.rejects(prepareSpreadsheetImage('https://example.invalid/image.png'), /File または Blob/);
 });
 
+test('mounted search queries read current committed cells without selecting or changing history', async t => {
+  const view = await mount(t, { readOnly: true });
+  const api = view.ref.current, selection = api.getSelection(), history = api.getHistoryState();
+  assert.deepEqual(api.findSheets({ text: 'main' }), [{ sheetId: 'main', name: 'Main', index: 0, rowCount: 20, columnCount: 8 }]);
+  assert.deepEqual(api.findCells({ text: 'before', wholeCell: true }, { sheetId: 'main', range: 'A1' }), [{ sheetId: 'main', address: 'A1', value: 'before', matchedText: 'before' }]);
+  assert.deepEqual(api.getSheetCells('main'), [{ address: 'A1', value: 'before' }]);
+  assert.deepEqual(api.getSelection(), selection); assert.deepEqual(api.getHistoryState(), history);
+  const scoped = api.sheet('main');
+  await view.update({ readOnly: false });
+  await act(async () => api.execute({ type: 'cells.set', sheetId: 'main', values: { A1: 'after' } }));
+  assert.equal(scoped.findCells({ text: 'after' }, { range: 'A1' }).length, 1);
+  assert.deepEqual(scoped.getCells(), [{ address: 'A1', value: 'after' }]);
+  assert.equal(api.findCells({ text: 'before' }).length, 0);
+});
+
 test('selection APIs expose cells, disjoint ranges, axes, sheets and drawings without workbook/history changes', async t => {
   const changes = [], selections = [], events = [];
   const initial = initialWorkbook();

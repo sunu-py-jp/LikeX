@@ -13,6 +13,7 @@ import { SlideFilmstrip } from "./ui/slide-filmstrip";
 import { SlideProperties } from "./ui/slide-properties";
 import { SlidePresentation } from "./ui/slide-presentation";
 import { SlideRibbon } from "./ui/slide-ribbon";
+import { SlideConversionReport } from "./ui/slide-conversion-report";
 
 async function imageData(file: File, ownerDocument: Document) {
   if (file.size > SLIDE_LIMITS.imageBytes) throw new Error("画像は10 MB以下で指定してください。");
@@ -43,6 +44,7 @@ export default function LikeSlide(props: SlideProps) {
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [notesOpen, setNotesOpen] = useState(true);
   const [presenting, setPresenting] = useState(false);
+  const [conversionOpen, setConversionOpen] = useState(false);
   const imageInput = useRef<HTMLInputElement>(null), pptxInput = useRef<HTMLInputElement>(null), nativeInput = useRef<HTMLInputElement>(null);
   const imageTarget = useRef<{ deck: SlideDeck; slideId: string } | null>(null);
   const slide = editor.deck.slides.find(item => item.id === editor.selection.slideId);
@@ -117,11 +119,12 @@ export default function LikeSlide(props: SlideProps) {
           // An edit can be rejected asynchronously without changing the model/key.
           event.target.value = slide?.notes ?? "";
         }} /></div>}
-    </div>{propertiesOpen && <SlideProperties editor={editor} onClose={() => setPropertiesOpen(false)} />}</div>
+    </div>{conversionOpen && editor.conversionReport ? <SlideConversionReport editor={editor} onClose={() => setConversionOpen(false)} /> : propertiesOpen && <SlideProperties editor={editor} onClose={() => setPropertiesOpen(false)} />}</div>
     <footer className="lxp-statusbar"><span>スライド {Math.max(0, slideIndex + 1)} / {editor.deck.slides.length}</span>
       {editor.readOnly && <span className="lxp-readonly-label">読み取り専用</span>}
       <div className="lxp-status-message" role="status" aria-live="polite">{editor.busy || editor.requesting ? <><Loader2 size={13} className="lxp-spin" />{editor.requesting ? "編集の許可を確認しています…" : editor.busy === "save" ? "保存しています…" : editor.busy === "import" ? "読み込んでいます…" : "書き出しています…"}</>
         : editor.notice ? <><span className={editor.notice.kind === "error" ? "lxp-error" : ""}>{editor.notice.kind === "success" ? <Check size={13} /> : editor.notice.kind === "error" ? <CircleAlert size={13} /> : null}</span><span className="lxp-status-text" title={editor.notice.text}>{editor.notice.text}</span><button type="button" aria-label="メッセージを閉じる" onClick={() => editor.setNotice(null)}><X size={12} /></button></> : editor.selection.elementIds.length ? `${editor.selection.elementIds.length} 個のオブジェクトを選択` : null}</div>
+      {!!editor.conversionReport?.diagnostics.length && <button type="button" className="lxp-conversion-toggle" aria-expanded={conversionOpen} onClick={() => setConversionOpen(value => !value)}>変換結果 ({editor.conversionReport.diagnostics.length})</button>}
       <div className="lxp-zoom"><button type="button" aria-label="縮小" onClick={() => adjustZoom(zoom - 10)}><Minus size={14} /></button><input type="range" min={25} max={200} step={5} aria-label="ズーム" value={zoom} onChange={event => adjustZoom(Number(event.target.value))} /><button type="button" aria-label="拡大" onClick={() => adjustZoom(zoom + 10)}><Plus size={14} /></button><span>{zoom}%</span><button type="button" aria-label="画面に合わせる" onClick={() => setZoom(100)}><Maximize size={14} /></button></div>
     </footer>
     <input ref={imageInput} hidden type="file" accept="image/png,image/jpeg,image/gif,image/webp" aria-label="挿入する画像" onChange={event => {

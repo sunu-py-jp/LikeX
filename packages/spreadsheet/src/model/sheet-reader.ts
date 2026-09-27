@@ -1,13 +1,17 @@
 import { getCell, getCellComment, getDrawing, getDrawings, getImage, getImages, getNamedRanges, getRange,
-  getShape, getShapes, getSheet, getTables, getTextBox, getTextBoxes, type SpreadsheetReadRangeInput } from "./query";
+  getShape, getShapes, getSheet, getSheetCells, getTables, getTextBox, getTextBoxes, type SpreadsheetReadRangeInput } from "./query";
 import { copyQuerySnapshot, type QuerySnapshot } from "./query-snapshot";
 import type { SpreadsheetWorkbook } from "./types";
+import { findSpreadsheetCells, type SpreadsheetSearchOptions } from "./editing/search";
+import type { SpreadsheetSearchQuery } from "../api/editing-commands";
 
 /** A sheet-scoped read facade. It has methods, while getInfo() always returns plain immutable sheet JSON. */
 export type SpreadsheetSheetReadApi = Readonly<{
   getInfo(): ReturnType<typeof getSheet>;
   getCell(address: string): ReturnType<typeof getCell>;
+  getCells(): ReturnType<typeof getSheetCells>;
   getRange(range: SpreadsheetReadRangeInput): ReturnType<typeof getRange>;
+  findCells(query: SpreadsheetSearchQuery, options?: Omit<SpreadsheetSearchOptions, "sheetId">): ReturnType<typeof findSpreadsheetCells>;
   getDrawing(drawingId: string): ReturnType<typeof getDrawing>;
   getImage(drawingId: string): ReturnType<typeof getImage>;
   getShape(drawingId: string): ReturnType<typeof getShape>;
@@ -27,7 +31,9 @@ export function createSpreadsheetSheetReader(getWorkbook: () => QuerySnapshot<Sp
   return Object.freeze({
     getInfo: () => getSheet(getWorkbook(), sheetId),
     getCell: (address: string) => getCell(getWorkbook(), sheetId, address),
+    getCells: () => getSheetCells(getWorkbook(), sheetId),
     getRange: (range: SpreadsheetReadRangeInput) => getRange(getWorkbook(), sheetId, range),
+    findCells: (query: SpreadsheetSearchQuery, options?: Omit<SpreadsheetSearchOptions, "sheetId">) => findSpreadsheetCells(getWorkbook(), query, { ...options, sheetId }),
     getDrawing: (drawingId: string) => getDrawing(getWorkbook(), sheetId, drawingId),
     getImage: (drawingId: string) => getImage(getWorkbook(), sheetId, drawingId),
     getShape: (drawingId: string) => getShape(getWorkbook(), sheetId, drawingId),

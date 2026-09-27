@@ -6,6 +6,7 @@ export { importSlidePptx } from "./import/import-pptx";
 export type { SlidePptxImportOptions, SlidePptxImportResult } from "./import/import-pptx";
 export { exportSlidePptx } from "./export/export-pptx-headless";
 export type { SlidePptxExportOptions } from "./export/types";
+export type { SlidePptxDiagnostic, SlidePptxDiagnosticCode, SlidePptxDiagnosticLocation } from "./office/types";
 export type { OfficePackageBlob as SlidePptxExportBlob } from "./ooxml";
 /** Image output on a server/worker requires an explicitly supplied renderer. */
 export { exportImage, exportImages } from "./render/export-images";

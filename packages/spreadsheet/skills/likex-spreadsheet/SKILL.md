@@ -13,7 +13,7 @@ Node.js **22.13以降**と、このskillに対応する版の `@likex/spreadshee
 
 ## 進め方
 
-新規作成には `create`、既存ファイルには `inspect` を使う。対象のシートID・描画ID・表・名前付き範囲を取得し、[コマンドの説明](references/commands.md)の該当部分を読んでJSON配列を作る。ファイル全体を手書きする場合や保存構造を確認する場合は、[SPONの構造](references/schema-guide.md)を読む。
+新規作成には `create` を使う。既存ファイルはまず `inspect --overview` でブック全体の件数だけを確認する。続いて必要なシートを `inspect --search sheets --text ...` で探すか、通常の `inspect` でID一覧を取得し、対象シートのセルだけを `--sheet-id ID --include-data` でページ取得する。単一セル・特定範囲は `--range` で読む。[取得・検索の説明](references/inspect.md)で用途に合う読み方を選び、全シートの本文を最初から展開しない。対象のシートID・描画ID・表・名前付き範囲を取得し、[コマンドの説明](references/commands.md)の該当部分を読んでJSON配列を作る。ファイル全体を手書きする場合や保存構造を確認する場合は、[SPONの構造](references/schema-guide.md)を読む。
 
 以下の `skill_dir` はこのSKILL.mdのあるフォルダ、`project_dir` は対応ランタイムを利用できるプロジェクトの**絶対パス**に置き換える。入力・出力・コマンドファイルの相対パスは、実行時の作業ディレクトリから解決される。`--project` はその基準を変えない。
 
@@ -21,7 +21,7 @@ Node.js **22.13以降**と、このskillに対応する版の `@likex/spreadshee
 skill_dir="/absolute/path/to/likex-spreadsheet"
 project_dir="/absolute/path/to/project"
 node "$skill_dir/scripts/document.mjs" create --project "$project_dir" --output workbook.spon
-node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input workbook.spon
+node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input workbook.spon --overview
 ```
 
 取得したIDを使って `commands.json` を用意してから実行する。`commands.json` のルートはコマンドの**配列**。`{ "commands": [...] }` ではない。
@@ -39,14 +39,24 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 | 操作 | 引数 |
 | --- | --- |
 | 空のブックを作る | `create --output PATH [--commands FILE] [--dry-run]` |
-| 概要・IDを読む | `inspect --input PATH` |
+| ブック全体の件数だけを読む | `inspect --input PATH --overview` |
+| 全シートの概要・IDを読む | `inspect --input PATH` |
+| シート名から探す | `inspect --input PATH --search sheets --text KEYWORD [--match-case] [--exact]` |
+| 全シートのセル内容から探す | `inspect --input PATH --search cells --text KEYWORD [--look-in values\|formulas]` |
+| シート・範囲を絞ってセルを探す | `inspect --input PATH --search cells --text KEYWORD --sheet-id ID [--range A1:C5]` |
 | シートの描画・名前付き範囲・表のIDと範囲を読む | `inspect --input PATH --sheet-id ID` |
+| 必要なシートの保存セルをページ取得する | `inspect --input PATH --sheet-id ID --include-data [--offset N --limit N]` |
+| 単一セルを読む | `inspect --input PATH --sheet-id ID --range B2` |
 | セル範囲を読む | `inspect --input PATH --sheet-id ID --range A1:C5` |
 | 描画を読む | `inspect --input PATH --sheet-id ID --drawing-id ID [--include-data]` |
 | コマンドを適用する | `apply --input PATH --commands FILE --output PATH [--dry-run]` |
 | ネイティブファイルを検証する | `validate --input PATH` |
 
-共通引数は `--project DIRECTORY`、`--help`、`--version`。dry-runでは `--output` を省略できる。通常の概要はセル本文や画像のBase64を展開しない。範囲取得は対象を絞り、1 MiBの出力上限に収まる範囲へ分割する。描画の本文が必要な場合に `--include-data` を使う。成功結果は標準出力のJSONで確認し、失敗は終了コードとエラーを読む。
+共通引数は `--project DIRECTORY`、`--help`、`--version`。dry-runでは `--output` を省略できる。`--overview` はシート一覧もセル本文も返さず、他の取得オプションと併用しない。通常の概要もセル本文や画像のBase64は展開しない。シート内容の取得は指定シートの保存セルだけを行・列順に返し、既定100件、上限1,000件で、他シートの本文は含めない。書式だけを持つ空文字セルも保存セルに含む。範囲取得は対象を絞り、1 MiBの出力上限に収まる範囲へ分割する。描画の本文が必要な場合は描画IDと `--include-data` を使う。成功結果は標準出力のJSONで確認し、失敗は終了コードとエラーを読む。
+
+範囲取得の結果は `selection.rows` の行優先の二次元配列。単一セルでも `[[{ value: "..." }]]`、未格納セルは `null`（単一なら `[[null]]`）になる。`--sheet-id ID --include-data` の保存セル一覧は番地付きの一次元配列 `selection.cells`、検索は `selection.matches` を使う。旧範囲取得の `selection.cells` は `selection.rows` へ変更したため、読み取り側も変更する。両キーの二重出力はしない。公開モデルAPI `getRange` の配列とSPON保存形式は変更しない。
+
+検索は読み取り専用で、既定は大文字・小文字を区別しない部分一致。`--exact` はシート名またはセル文字列全体との一致、`--match-case` は大小文字の区別を指定する。セルの `--look-in values` は表示文字列（数式の計算結果を含む）、`formulas` は保存された文字列・数式を検索する。検索結果も `--offset N --limit N` でページ取得でき、既定100件、上限1,000件。通常の `inspect` や範囲取得にはページ指定を付けない。セル検索の値は既定200文字のプレビューで、省略時は元の長さと省略フラグを付ける。`--preview-length N`（1〜10,000）で変更し、全文が必要なセルは通常の `--range B2` で読む。`selection.matches` に対象IDが返るので、編集前に対象を確認する。
 
 ## 編集時の契約
 

@@ -121,7 +121,7 @@ CLIは処理概要のJSONを標準出力へ返す。共通情報は `ok`, `kind`
 
 ## 入出力APIと表示中の下書き
 
-`@likex/slide/model` は `parseSlideDeck` / `serializeSlideDeck` に加え、`importSlidePptx` / `exportSlidePptx` をReactなしで公開する。PPTX読み込みは `{ deck, warnings }` を返すので、省略・簡略化を含む `warnings` を確認する。出力は実体がBlobで、DOM型のない環境では `SlidePptxExportBlob` の `size` / `type` / `arrayBuffer()` / `text()` を使う。Office変換はコマンドやCLIサブコマンドではなく、公開関数を直接呼ぶ。
+`@likex/slide/model` は `parseSlideDeck` / `serializeSlideDeck` に加え、`importSlidePptx` / `exportSlidePptx` をReactなしで公開する。PPTX読み込みは `{ deck, warnings, diagnostics }` を返す。省略・簡略化の `warnings` と、対象箇所付きの `diagnostics` を確認する。第2引数の `onDiagnostic` は検証成功後に各診断を受け取る。出力は実体がBlobで、DOM型のない環境では `SlidePptxExportBlob` の `size` / `type` / `arrayBuffer()` / `text()` を使う。Office変換はコマンドやCLIサブコマンドではなく、公開関数を直接呼ぶ。
 
 表示中のLikeSlideに反映する場合はホストが保持する `SlideHandle` を使う。`importNative(input: string | Blob): Promise<void>` は現在のSLONを読み、編集許可・機能設定・検証を通してUndo可能な下書きとして置き換える。失敗は元の資料を保って画面通知へ出し、拒否時も戻り値はvoidなので、完了だけを成功とみなさず `import` / `change` イベントや `getDeck()` で結果を確認する。ref呼び出し自体は確認ダイアログを出さない。
 
@@ -148,20 +148,40 @@ CLIは処理概要のJSONを標準出力へ返す。共通情報は `ok`, `kind`
 ]
 ```
 
-ステップは `{ id, name?, trigger?, animation }`。前ステップが完了してから次の開始条件へ進む。`trigger` は `{ type: "immediate" }`、`{ type: "after-delay", delayMs }`、`{ type: "click", elementId? }`。対象を省略したclickはスライドクリックを待つ。
+ステップは `{ id, name?, timelineId?, trigger?, animation }`。同じ系列の前ステップが完了してから次の開始条件へ進む。`timelineId` の省略は既定系列。別のIDの系列はページの再生開始から独立して動き、クリック待ちが別系列の進行を止めない。クリックは系列ごとに判定し、同じクリックで複数系列が開始する場合がある。同じ要素の同じプロパティを複数系列へ分けることは、時間帯にかかわらず拒否する。`trigger` は `{ type: "immediate" }`、`{ type: "after-delay", delayMs }`、`{ type: "click", elementId? }`。対象を省略したclickはスライドクリックを待つ。
 
-`animation` は再帰的な `{ type: "sequence" | "parallel", children }` または `{ type: "tween", elementId, durationMs, delayMs?, easing?, from?, to, repeat?, yoyo? }`。sequenceは順番、parallelは同時。補間プロパティは `x,y,width,height,rotation,opacity,fontSize,strokeWidth,fill,stroke,color,textColor` のうち対象要素が持つもの。`from` は開始時に適用し、省略分は開始時の値を使う。クリック待ち・遅延中は先行する動きの結果を維持し、最初の動きの前は元値を使う。最初から隠す場合は元の要素のopacityも0にする。fromだけで開始前の状態が変わるとは扱わない。`easing` は `linear,ease-in,ease-out,ease-in-out,spring,bounce`。`repeat` は1〜100、`yoyo: true` は1回を往復として開始値へ戻る。同じ要素・同じプロパティの時間帯が並列で重なる設定は拒否される。
+`animation` は再帰的な `{ type: "sequence" | "parallel", children }` または `{ type: "tween", elementId, durationMs, delayMs?, easing?, from?, to, repeat?, yoyo? }`。sequenceは順番、parallelは同時。補間プロパティは `x,y,width,height,rotation,opacity,fontSize,strokeWidth,fill,stroke,color,textColor` のうち対象要素が持つもの。`from` は開始時に適用し、省略分は開始時の値を使う。クリック待ち・遅延中は先行する動きの結果を維持し、最初の動きの前は元値を使う。最初から隠す場合は元の要素のopacityも0にする。fromだけで開始前の状態が変わるとは扱わない。`easing` は `linear,ease-in,ease-out,ease-in-out,spring,bounce`。`repeat` は正の安全な整数、`yoyo: true` は1回を往復として開始値へ戻る。同じ要素・同じプロパティの時間帯が並列で重なる設定は拒否される。
 
 `getDeck/getSlides/getSlide/getElements/getElement` は既定で最終静止状態を返す。最後の引数に `{ includeAnimations: true }` を渡すと、`getDeck/getSlides/getSlide` は元の要素値とページの `animations` を保持する。`getElements/getElement` は元の要素値だけを返し、定義は含まない。定義が必要ならページを返すget APIか、対象ページの全定義を返す `getAnimations(deck, slideId)` を使う。
 
-`resolveSlideAnimations(slide)` は全ステップ終了後のスライド、`evaluateSlideAnimations(slide,{elapsedMs,clicks:[{elapsedMs,elementId?}]})` は時刻における `{slide,finished,waitingForClick,stepId?}` を返す。入力は変更しない。
+`resolveSlideAnimations(slide)` は全ステップ終了後のスライド、`evaluateSlideAnimations(slide,{elapsedMs,clicks:[{elapsedMs,elementId?}]})` は時刻における `{slide,finished,waitingForClick,stepId?}` を返す。名前付きまたは複数系列では `waitingSteps: {stepId,timelineId?,waitingTargetId?}[]` と `activeSteps: {stepId,timelineId?,stepStartMs,stepEndMs}[]` も返す。待機と進行が併存する場合がある。単一の既定系列ではこれらを省略する。入力は変更しない。
 
 CLIの `inspect --include-animations` は全体取得なら `animations: [{slideId,animations}]`、スライド・要素取得なら `selection.animations` に対象スライドの定義を返す。要素の本文・色・不透明度など全フィールドを読むには `--element-id ID --include-data` も付ける。画像のBase64は引き続き省略する。このフラグはslideのinspect専用で、create/apply/validateや他モジュールでは使わない。
 
-PPTX書き出しはアニメーションを最終静止状態へ変換する。`exportSlidePptx(deck,{onWarning})` の同期コールバックは定義を含む資料で1度呼ばれ、タイミング・トリガー・繰り返しの欠落を知らせる。コールバックの例外は出力も失敗させる。PPTXの再読込で定義は復元されないため、編集を継続する原本は `serializeSlideDeck` でSLON保存する。既定getの静止結果を原本として上書きしない。
+PPTX書き出しは元の要素と標準PresentationMLのタイムラインを出力する。`exportSlidePptx(deck,{onWarning,onDiagnostic})` の同期コールバックで近似・省略を確認する。位置・回転・大きさ・RGB色と、時間・クリック・順次/並列・有限反復を変換する。ばね・バウンド・不透明度は中間値へ近似する。文字サイズ・線幅・アルファ値付き色は、最大32分割の編集可能な図形と表示切り替えへ近似する。追加図形・切替・キーフレームの量を理由に間引く処理はない。ファイル全体の要素・文字数上限を超えた場合は、動きを省略せず出力が失敗する。コールバックの例外も出力を失敗させる。
+
+近似図形はPPTXの編集画面と再読み込みで複数要素になり、元の1要素へ戻らない。同一要素の複数独立系列が近似対象のスタイルを変える場合は該当スタイルを省略して警告する。位置と寸法を異なる系列で変える場合は中心座標の補正が省略され、端の位置が変わる場合がある。同じ系列のopacityは図形切り替えへ統合するが、別系列のopacityと表示切り替えの合成は再読み込みで省略する。
+
+読み込み・出力には `signal` を指定でき、中止すると途中の資料・ファイルを返さない。
+
+読み込みは複数の主系列・独立系列と、対応する標準効果を解析する。未知効果・任意数式・複雑な移動パス・部分文字への効果・無限反復は警告して省略する。厳密に冗長なキーフレームは統合し、対応する兄弟の動作を残す。省略動作の有限の時間を確定でき、他の動作と競合せず表現できる場合は待ち時間を残す。保持できない場合は診断し、後続の開始時刻が変わり得る。件数を理由に反復・表示切替を削ったり最終静止状態へ変換したりしない。参照イベントは推測せず省略し、複数のOR開始条件は先頭へ近似する。SLONのIDやノードのグループ構成を完全に復元する契約ではない。
+
+`SlidePptxDiagnostic` は `{phase, severity:"warning", code, action, message, slideIndex?, slideId?, slideName?, elementId?, elementName?, animationId?, timelineId?, timingId?, property?, sourcePart?}`。slideIndexは0始まり。`action` は `approximation | omission | adjustment`。`code` は `unsupported-animation | animation-approximated | animation-limit | animation-conflict | unsupported-content | content-approximated | appearance-adjusted`。位置は判定できる項目だけ付く。表示文言で処理を分岐しない。GUIには変換結果の一覧、refには `getPptxDiagnostics()`、`onEvent` には `{type:"conversion",phase,warnings,diagnostics}` がある。
+
+タイミングID重複などの不正構造は警告して省略する。アニメーション専用の件数・深さ・時間の上限はないが、ファイル全体のXML検証は維持する。出力できたPPTXでも再読み込み時に動きが欠落し得る。PPTX出力は全体32MiB・1項目16MiB・4,096項目を超えると例外になる。不透明度を動かす要素と半透明のままRGB色を動かす要素は、元の不透明度を再生開始時に設定するため、PPTX編集画面では不透明に見える場合がある。
+
+出力には元データまたは `getDeck(deck,{includeAnimations:true})` を渡す。`exportSlidePptx(getDeck(deck))` では最終静止状態を出せる。元の定義は `serializeSlideDeck` によるSLON保存で保つ。
+
+```ts
+import { readFile, writeFile } from "node:fs/promises";
+import { parseSlideDeck, exportSlidePptx } from "@likex/slide/model";
+const deck = parseSlideDeck(await readFile("edited.slon", "utf8"));
+const pptx = await exportSlidePptx(deck, { onWarning: message => console.warn(message) });
+await writeFile("edited.pptx", new Uint8Array(await pptx.arrayBuffer()));
+```
 
 表示中のrefにも同じget APIと `includeAnimations` オプションがある。保存・`onSave`・`exportNative`・イベントのdeck・session.getSnapshotは元値と定義の全量を維持する。PNGは既定final、`animationState: "initial"` で元値の画像になる。
 
-1スライドのノードは合計500、深さ8、クリック待ちを除く合計時間600,000ms、評価クリック10,000件まで。ロック対象に影響するステップの変更・削除には解除が必要。要素削除では対応tweenと空のグループを除き、クリック対象を削除したステップは全体を除く。複製では新IDへ参照を更新する。`features.animations` は表示中の編集可否を制御し、無効化自体では定義を削除しない。
+ノード数・深さ・再生時間・反復回数・クリック数の固定上限はない。有限の時間・正の安全な整数の反復・積算の有限性・循環のない構造を検証する。旧 `SLIDE_LIMITS.animation*` キーは互換性のためInfinityとなる。ロック対象に影響するステップの変更・削除には解除が必要。要素削除では対応tweenと空のグループを除き、クリック対象を削除したステップは全体を除く。複製では新IDへ参照を更新する。`features.animations` は表示中の編集可否を制御し、無効化自体では定義を削除しない。
 
-`element.duplicate` は要素のx/yに加え、複製するtweenのfrom/toに明示したx/yにも各20pxを加算する。`slide.duplicate` は要素とtweenの座標を維持する。複製で座標上限を超える場合もバッチ全体を拒否する。
+`element.duplicate` は独立系列IDを複製内で一貫した新IDへ置き換える。`slide.duplicate` はページ内の系列IDを維持する。`element.duplicate` は要素のx/yに加え、複製するtweenのfrom/toに明示したx/yにも各20pxを加算する。`slide.duplicate` は要素とtweenの座標を維持する。複製で座標上限を超える場合もバッチ全体を拒否する。

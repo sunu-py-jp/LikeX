@@ -40,11 +40,29 @@ const restored = parseAIChat(json);
 | `aichat.update` / `aichat.replace` | タイトル変更 / チャット全体の置き換え |
 | `conversation.add` / `conversation.update` / `conversation.delete` | 会話の追加 / 名前変更 / 削除 |
 | `message.add` | メッセージを末尾へ追加 |
-| `message.update` | 本文、状態、エラー、添付、参照、ツール情報を変更 |
-| `message.respond` | assistantメッセージの本文・状態を置き換える |
+| `message.update` | 本文、状態、エラー、添付、参照、ツール情報、`parts` を変更 |
+| `message.respond` | assistantメッセージの本文・状態と、指定した場合は `parts` を置き換える |
 | `message.delete` | メッセージを削除。`cascadeReplies: true` でその返信も再帰的に削除 |
 
 会話は最低1件必要です。最後の会話の削除は拒否します。返信のあるメッセージを単独で削除すると参照が壊れるため拒否します。`replyTo` は同じ会話内の先行メッセージIDで、メッセージIDはチャット全体で一意です。
+
+## 外部で定義した表示データを履歴に入れる
+
+`AIChatContentPart` は `{ id, type, data }` で、`data` は再帰的なJSON値 `AIChatJSONValue` です。`type` の意味と表示方法は親アプリが決めます。ツール実行の入力・結果、画像URL、表などを同じメッセージに保存できます。
+
+```ts
+const withTool = executeAIChatCommands(result.aichat, {
+  type: "message.update", conversationId: "planning", messageId: "answer-1",
+  patch: { parts: [{
+    id: "operation-1", type: "app.tool-call",
+    data: { name: "update_document", status: "complete", input: { title: "提案" }, output: { changed: true } },
+  }] },
+});
+```
+
+`message.add` の `message.parts`、`message.update` の `patch.parts`、`message.respond` の `parts` が利用できます。指定した配列は全体を置き換え、`[]` で空にします。省略した場合は既存の値を保持します。IDは同一メッセージの `parts` 内で一意で、未知の `type` と配列順も保存・読み込みで保持します。`normalizeAIChatContentPart(unknown)` は単一パートを検証・深いコピー・凍結して返します。パートの保存でツールを実行したり画像を取得したりはしません。
+
+JSONとしての安全性・構造はライブラリが検証し、各 `type` の必須フィールド、URL、権限などは親アプリが検証します。表示は `partRenderers`、生成中の更新は [構造化ストリーミング](streaming.md) を使います。コンポーネント関数や画像バイナリは保存せず、JSONデータと外部の表示定義を分けてください。
 
 ## Reactなしで編集セッションを使う
 

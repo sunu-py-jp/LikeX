@@ -18,6 +18,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .vercel/
+.likex-ai/
 
 # Generated package documentation/notices; source is checked in.
 /packages/*/THIRD_PARTY_NOTICES.md

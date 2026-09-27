@@ -1,7 +1,8 @@
 import {
   createAIChat, createAIChatMessage, createAIChatSession, executeAIChatCommands, getAIChatConversation,
   getAIChatConversations, getAIChatMessage, getAIChatMessages, migrateLegacyAIChat, parseAIChat, serializeAIChat,
-  type AIChatAttachment, type AIChatCommand, type AIChatModel, type AIChatSendHandler,
+  normalizeAIChatContentPart,
+  type AIChatAttachment, type AIChatCommand, type AIChatModel, type AIChatSendHandler, type AIChatContentPart, type AIChatJSONValue, type AIChatResponse, type AIChatResponseChunk,
 } from "__MODEL_IMPORT__";
 
 const aichat: AIChatModel = createAIChat({ id: "headless-aichat", title: "Headless", conversations: [
@@ -11,6 +12,12 @@ const marker: "likex.aichat" = aichat.format;
 const migrated: AIChatModel = migrateLegacyAIChat({ ...aichat, format: "likex.chat" });
 void migrated;
 const attachment: AIChatAttachment = { id: "attachment-1", name: "notes.txt", mediaType: "text/plain", size: 12 };
+const partData: AIChatJSONValue = { rows: [["A", 2]], finished: true, output: null };
+const part: AIChatContentPart = normalizeAIChatContentPart({ id: "tool-1", type: "app.tool", data: partData });
+const structured: AIChatResponse = { content: "Done", parts: [part] };
+const partChunk: AIChatResponseChunk = { type: "part", part };
+const structuredSend: AIChatSendHandler = () => structured;
+void structuredSend;
 const prompt = createAIChatMessage({ id: "prompt-1", role: "user", content: "Text", createdAt: "2026-09-22T00:00:00.000Z", attachments: [attachment] });
 const command: AIChatCommand = { type: "message.add", conversationId: "planning", message: prompt };
 const result = executeAIChatCommands(aichat, [command]);
@@ -21,6 +28,8 @@ const conversations = getAIChatConversations(result.aichat);
 const messages = getAIChatMessages(result.aichat, "planning");
 const onSend: AIChatSendHandler = async function* ({ prompt: current }, { signal }) {
   if (!signal.aborted) yield current.content;
+  if (!signal.aborted) yield { type: "text", text: "more" };
+  if (!signal.aborted) yield partChunk;
 };
 const session = createAIChatSession(parseAIChat(serializeAIChat(result.aichat)), { onSave: async current => current, onSend });
 void session.getAIChat();
@@ -32,4 +41,6 @@ const badVersion: AIChatModel = { ...aichat, version: 2 };
 const badPatch: AIChatCommand = { type: "message.update", conversationId: "planning", messageId: "prompt-1", patch: { id: "different" } };
 // @ts-expect-error Tool status values are constrained.
 const badTool: AIChatCommand = { type: "message.update", conversationId: "planning", messageId: "prompt-1", patch: { toolCalls: [{ id: "tool-1", name: "Lookup", status: "finished" }] } };
-void badVersion; void badPatch; void badTool;
+// @ts-expect-error Persisted part data cannot contain functions.
+const badPart: AIChatContentPart = { id: "bad", type: "app.bad", data: { render: () => "no" } };
+void badVersion; void badPatch; void badTool; void badPart;

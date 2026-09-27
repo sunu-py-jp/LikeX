@@ -74,3 +74,20 @@ PY
 ```
 
 2026-09-16に上記の出力・再読込を実施し、スライド数・寸法（EMU）、タイトル・日本語・図形内の文字、発表者ノート、図形と画像の回転、画像の比率・形式・デコードを確認しました。これは別のパーサーによる構造と内容の検証です。PowerPointデスクトップアプリでの表示や、あらゆるPPTXとの互換性を確認するものではありません。
+
+## Open XML SDKのPowerPoint作成情報を持つ実ファイル
+
+`openxml-sdk-powerpoint-fly-in.pptx` は、.NET Foundationの公式 [dotnet/Open-XML-SDK](https://github.com/dotnet/Open-XML-SDK) に含まれる検証ファイルを、**ファイル名以外は変更せず**収録したものです。LikeSlideのexportや、手書きのタイミングXMLで生成・加工したファイルではありません。
+
+- 固定コミット: `431ab05cf160248cc3885a4a766026d4f8243792`
+- 元のパス: `test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/Text_100chars+Animation (Fly In, all at once).pptx`
+- [固定版ファイル](https://github.com/dotnet/Open-XML-SDK/blob/431ab05cf160248cc3885a4a766026d4f8243792/test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/Text_100chars%2BAnimation%20%28Fly%20In%2C%20all%20at%20once%29.pptx)・[元のバイト列](https://raw.githubusercontent.com/dotnet/Open-XML-SDK/431ab05cf160248cc3885a4a766026d4f8243792/test/DocumentFormat.OpenXml.Tests.Assets/assets/TestDataStorage/v2FxTestFiles/presentation/Text_100chars%2BAnimation%20%28Fly%20In%2C%20all%20at%20once%29.pptx)
+- 取得日: 2026-09-23。サイズ: 50,034 bytes。
+- SHA-256: `67554040bbcae362b91b9fab72b58dfce5bd885307ed28a1777ac319e5528233`
+- ライセンス: [上流MIT License](https://github.com/dotnet/Open-XML-SDK/blob/431ab05cf160248cc3885a4a766026d4f8243792/LICENSE)。原文を [`openxml-sdk.LICENSE.txt`](openxml-sdk.LICENSE.txt) に同梱しています。著作権表記は `.NET Foundation and Contributors` です。上流の `NOTICE` はStyleCopAnalyzersに関するもので、このPPTXへの別のライセンス指定はありません。
+
+`docProps/app.xml` は `Application=Microsoft Office PowerPoint`、`AppVersion=12.0000` を記録しています。`docProps/core.xml` には作成者 `officese`、最終更新者 `GPU Test Lab`、作成日時 `2006-07-06T22:20:04Z`、更新日時 `2006-08-28T23:28:29Z` が残っています。これは上流の出所とファイル内の作成情報による来歴確認です。この作業でPowerPointアプリを起動したり、作成工程や実再生を観察したりしたという意味ではありません。
+
+`slide-pptx-native-fixture.test.mjs` はネットワークを使わず、SHA-256と作成情報、1ページ・2つのテキスト要素、標準 `mainSeq` のクリック開始と500msの `ppt_x` キーフレームを検証します。元ファイルの `ppt_x` は開始・終了とも `#ppt_x` のため、取り込まれる横位置は一定です。縦方向のFly Inで使う `1+#ppt_h/2` という数式と、段落単位の対象は未対応です。テストでは、その省略診断が元のXMLパート・タイミングID・プロパティ・対象要素を指すことも確認します。**Fly In全体の動作再現やPowerPoint実再生との一致を確認するテストではありません。**
+
+このfixtureとライセンスはテスト専用です。`@likex/slide` の配布パッケージや実行時依存には追加しません。

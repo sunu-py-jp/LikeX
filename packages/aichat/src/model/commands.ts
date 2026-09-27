@@ -5,7 +5,7 @@ const commandKeys: Record<AIChatCommand["type"], readonly string[]> = {
   "aichat.update": ["type", "title"], "aichat.replace": ["type", "aichat"],
   "conversation.add": ["type", "id", "title"], "conversation.update": ["type", "conversationId", "title"], "conversation.delete": ["type", "conversationId"],
   "message.add": ["type", "conversationId", "message"], "message.update": ["type", "conversationId", "messageId", "patch"], "message.delete": ["type", "conversationId", "messageId", "cascadeReplies"],
-  "message.respond": ["type", "conversationId", "messageId", "content", "status", "error"],
+  "message.respond": ["type", "conversationId", "messageId", "content", "status", "error", "parts"],
 };
 export function executeAIChatCommands(input: AIChatModel, commands: AIChatCommand | readonly AIChatCommand[]): AIChatCommandResult {
   const original = normalizeAIChat(input), batch = Array.isArray(commands) ? list(commands, "Commands", AICHAT_LIMITS.commands) : [commands];
@@ -38,9 +38,9 @@ export function executeAIChatCommands(input: AIChatModel, commands: AIChatComman
       if (command.type === "message.respond") {
         const target = messages.find(item => item.id === messageId)!;
         if (target.role !== "assistant") throw new Error("Only assistant messages can receive a response.");
-        messages = messages.map(item => item.id === messageId ? { ...item, content: command.content, status: command.status, error: command.error } : item);
+        messages = messages.map(item => item.id === messageId ? { ...item, content: command.content, status: command.status, error: command.error, ...(command.parts !== undefined ? { parts: command.parts } : {}) } : item);
       } else if (command.type === "message.update") {
-        record(command.patch, "Message patch", ["content", "status", "error", "attachments", "references", "toolCalls"]);
+        record(command.patch, "Message patch", ["content", "status", "error", "attachments", "references", "toolCalls", "parts"]);
         messages = messages.map(item => item.id === messageId ? { ...item, ...command.patch } : item);
       } else {
         if (command.cascadeReplies !== undefined && typeof command.cascadeReplies !== "boolean") throw new Error("cascadeReplies must be boolean.");

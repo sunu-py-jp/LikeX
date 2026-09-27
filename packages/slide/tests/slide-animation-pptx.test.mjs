@@ -22,23 +22,25 @@ function source() {
   ] }] });
 }
 
-test('PPTX exports final static tween values and reports dropped timing once without changing the source', async () => {
+test('PPTX emits native timing, preserves source geometry and imports animations without flattening', async () => {
   const deck = source(), before = JSON.stringify(deck), warnings = [];
   const file = await exportSlidePptx(deck, { onWarning: warning => warnings.push(warning) });
-  assert.equal(warnings.length, 1); assert.match(warnings[0], /最終静止状態/); assert.match(warnings[0], /タイミング・トリガー・繰り返し/);
+  assert.ok(warnings.some(warning => /近似/.test(warning)));
+  assert.ok(warnings.every(warning => !/最終静止状態/.test(warning)));
   assert.equal(JSON.stringify(deck), before);
   const imported = await importSlidePptx(file);
-  assert.deepEqual(imported.warnings, []);
-  const actual = imported.deck.slides[0].elements[0], final = resolveSlideAnimations(deck.slides[0]).elements[0];
-  for (const key of ['x', 'y', 'width', 'height', 'rotation', 'fontSize']) assert.equal(actual[key], final[key], key);
-  assert.equal(actual.color, '#0000ff'); assert.equal(actual.text, 'Animated'); assert.equal(actual.height, 60);
-  assert.equal(imported.deck.slides[0].animations?.length ?? 0, 0);
+  assert.ok(imported.deck.slides[0].animations?.length > 0);
+  assert.equal(imported.deck.slides[0].elements[0].x, 10);
+  assert.equal(imported.deck.slides[0].elements[0].color, '#ff0000');
+  const actual = resolveSlideAnimations(imported.deck.slides[0]).elements[0], final = resolveSlideAnimations(deck.slides[0]).elements[0];
+  for (const key of ['x', 'y', 'width', 'height', 'rotation']) assert.ok(Math.abs(actual[key] - final[key]) < .02, `${key}: ${actual[key]} ≈ ${final[key]}`);
+  assert.equal(actual.color, '#0000ff'); assert.equal(actual.text, 'Animated');
   const archive = await openOfficePackage(file);
   const root = parseXml(await archive.read('ppt/slides/slide1.xml'));
-  assert.equal(child(root, 'timing'), undefined); assert.equal(child(root, 'transition'), undefined);
+  assert.ok(child(root, 'timing'));  assert.equal(child(root, 'transition'), undefined);
   assert.equal(archive.paths.some(path => /customXml|animation/i.test(path)), false);
   const shape = children(child(child(root, 'cSld'), 'spTree'), 'sp')[0];
-  assert.equal(child(child(shape, 'spPr'), 'xfrm').attributes.rot, String(45 * 60000));
+  assert.equal(child(child(shape, 'spPr'), 'xfrm').attributes.rot, '0');
 });
 
 test('static PPTX exports do not warn and warning callback rejection fails without modifying animation data', async () => {

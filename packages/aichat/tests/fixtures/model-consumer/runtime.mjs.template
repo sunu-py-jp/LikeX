@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {
   createAIChat, createAIChatMessage, executeAIChatCommands, getAIChatConversation, getAIChatConversations,
-  getAIChatMessage, getAIChatMessages, migrateLegacyAIChat, normalizeAIChatAttachment, parseAIChat, serializeAIChat,
+  getAIChatMessage, getAIChatMessages, migrateLegacyAIChat, normalizeAIChatAttachment, normalizeAIChatContentPart, parseAIChat, serializeAIChat,
 } from "__MODEL_IMPORT__";
 
 assert.equal(typeof window, "undefined");
@@ -11,12 +11,13 @@ const original = createAIChat({ id: "headless-aichat", title: "Headless aichat",
 ] });
 const prompt = createAIChatMessage({ id: "prompt-1", role: "user", content: "Headless content", createdAt: "2026-09-22T00:00:00.000Z" });
 const attachment = normalizeAIChatAttachment({ id: "attachment-1", name: "notes.txt", mediaType: "text/plain", size: 128 });
+const part = normalizeAIChatContentPart({ id: "tool-1", type: "app.tool", data: { commands: [{ type: "inspect" }], result: { changed: false } } });
 const result = executeAIChatCommands(original, [
   { type: "message.add", conversationId: "planning", message: { ...prompt, attachments: [attachment] } },
   { type: "message.add", conversationId: "planning", message: {
     id: "answer-1", role: "assistant", content: "", status: "streaming", replyTo: "prompt-1", createdAt: "2026-09-22T00:00:01.000Z",
   } },
-  { type: "message.respond", conversationId: "planning", messageId: "answer-1", content: "Headless response", status: "complete" },
+  { type: "message.respond", conversationId: "planning", messageId: "answer-1", content: "Headless response", status: "complete", parts: [part] },
 ]);
 assert.equal(result.changed, true);
 assert.equal(getAIChatMessages(original, "planning").length, 0, "commands leave the source unchanged");
@@ -24,6 +25,7 @@ assert.equal(getAIChatConversations(result.aichat).length, 1);
 assert.equal(getAIChatConversation(result.aichat, "planning").title, "Planning");
 assert.equal(getAIChatMessage(result.aichat, "planning", "answer-1").content, "Headless response");
 assert.equal(getAIChatMessage(result.aichat, "planning", "answer-1").replyTo, "prompt-1");
+assert.deepEqual(getAIChatMessage(result.aichat, "planning", "answer-1").parts, [part]);
 assert.deepEqual(result.results.map(item => item.messageId), ["prompt-1", "answer-1", "answer-1"]);
 assert.equal(Object.isFrozen(getAIChatMessages(result.aichat, "planning")), true);
 const snapshot = serializeAIChat(result.aichat);

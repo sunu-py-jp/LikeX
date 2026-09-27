@@ -48,6 +48,7 @@ function createFixture(kind, model) {
   if (kind === 'aichat') return model.createAIChat({ id: 'aichat', title: 'Chat', conversations: [
     { id: 'conversation-0', title: 'Conversation', messages: Array.from({ length: count }, (_, index) => model.createAIChatMessage({ id: `message-${index}`, role: index % 2 ? 'assistant' : 'user', content: `private message body ${index}`, createdAt: '2026-09-22T00:00:00Z',
       ...(index === 1 ? { replyTo: 'message-0' } : {}),
+      ...(index === 0 ? { parts: [{ id: 'custom-0', type: 'host.card', data: { title: 'private part body', count: 4 } }] } : {}),
       ...(index === 0 ? { attachments: [{ id: 'attachment-0', name: 'private attachment name', mediaType: 'image/png', size: 68, url: 'https://example.test/image.png' }], references: [{ id: 'reference-0', title: 'Reference', description: 'private reference description' }], toolCalls: [{ id: 'tool-0', name: 'search', status: 'complete', detail: 'private tool detail' }] } : {}),
     })) },
     { id: 'conversation-1', title: 'Other conversation', messages: [model.createAIChatMessage({ id: 'other-message', role: 'user', content: 'private other conversation body', createdAt: '2026-09-22T01:00:00Z' })] },
@@ -186,10 +187,11 @@ test('chat requires conversation context for messages and does not leak message 
   assert.equal(overview.selection.conversations.items[0].id, 'conversation-1'); assert.equal(overview.selection.conversations.hasMore, false);
   const listed = await ok('aichat', ['--conversation-id', 'conversation-0', '--limit', '2']);
   const first = listed.selection.messages.items[0];
-  assert.equal(first.attachmentCount, 1); assert.equal(first.referenceCount, 1); assert.equal(first.toolCallCount, 1);
+  assert.equal(first.attachmentCount, 1); assert.equal(first.referenceCount, 1); assert.equal(first.toolCallCount, 1); assert.equal(first.partCount, 1);
   assert.equal(listed.selection.messages.items[1].replyTo, 'message-0'); assert.doesNotMatch(JSON.stringify(listed), /private/);
   const selected = await ok('aichat', ['--conversation-id', 'conversation-0', '--message-id', 'message-0', '--include-data']);
   assert.equal(selected.selection.message.content, 'private message body 0'); assert.equal(selected.selection.message.toolCalls[0].detail, 'private tool detail');
+  assert.equal(selected.selection.message.parts[0].data.title, 'private part body');
   await failure('aichat', ['--message-id', 'message-0'], 'USAGE');
   await failure('aichat', ['--message-id', 'message-0', '--include-data'], 'USAGE');
   await failure('aichat', ['--conversation-id', 'conversation-0', '--include-data'], 'USAGE');

@@ -1,0 +1,41 @@
+<!-- Independently authored PresentationML timing. Applied to slide 2 of
+     powerpoint-basic.pptx (shape 3). See openxml-validator/README.md. -->
+<p:timing xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+  <p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">
+    <p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq">
+      <p:childTnLst>
+        <p:par><p:cTn id="3" fill="hold">
+          <p:stCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:stCondLst>
+          <p:childTnLst><p:par><p:cTn id="4" dur="1000" fill="hold" nodeType="clickEffect">
+            <p:childTnLst>
+              <p:anim calcmode="lin" valueType="num">
+                <p:cBhvr><p:cTn id="5" dur="1000" fill="hold"/><p:tgtEl><p:spTgt spid="3"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_x</p:attrName></p:attrNameLst></p:cBhvr>
+                <p:tavLst>
+                  <p:tav tm="0"><p:val><p:fltVal val="0.1875"/></p:val></p:tav>
+                  <p:tav tm="50000"><p:val><p:fltVal val="0.25"/></p:val></p:tav>
+                  <p:tav tm="100000"><p:val><p:fltVal val="0.5"/></p:val></p:tav>
+                </p:tavLst>
+              </p:anim>
+              <p:animRot from="900000" to="5400000">
+                <p:cBhvr><p:cTn id="6" dur="1000" fill="hold"/><p:tgtEl><p:spTgt spid="3"/></p:tgtEl><p:attrNameLst><p:attrName>style.rotation</p:attrName></p:attrNameLst></p:cBhvr>
+              </p:animRot>
+              <p:animClr clrSpc="rgb" dir="cw">
+                <p:cBhvr><p:cTn id="7" dur="1000" fill="hold"/><p:tgtEl><p:spTgt spid="3"/></p:tgtEl><p:attrNameLst><p:attrName>fill.color</p:attrName></p:attrNameLst></p:cBhvr>
+                <p:from><a:srgbClr val="339966"/></p:from><p:to><a:srgbClr val="FF0000"/></p:to>
+              </p:animClr>
+            </p:childTnLst>
+          </p:cTn></p:par></p:childTnLst>
+        </p:cTn></p:par>
+        <p:par><p:cTn id="8" fill="hold">
+          <p:stCondLst><p:cond delay="200"/></p:stCondLst>
+          <p:childTnLst><p:par><p:cTn id="9" dur="500" fill="hold" nodeType="afterEffect">
+            <p:childTnLst><p:animScale>
+              <p:cBhvr><p:cTn id="10" dur="500" fill="hold"/><p:tgtEl><p:spTgt spid="3"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_w</p:attrName><p:attrName>ppt_h</p:attrName></p:attrNameLst></p:cBhvr>
+              <p:from x="100000" y="100000"/><p:to x="150000" y="50000"/>
+            </p:animScale></p:childTnLst>
+          </p:cTn></p:par></p:childTnLst>
+        </p:cTn></p:par>
+      </p:childTnLst>
+    </p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq></p:childTnLst>
+  </p:cTn></p:par></p:tnLst>
+</p:timing>

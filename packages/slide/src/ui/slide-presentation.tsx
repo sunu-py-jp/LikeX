@@ -37,8 +37,10 @@ export function SlidePresentation({ deck, initialSlideId, ownerDocument, theme, 
     setNavigation(previous => ({ deck, slideId: deck.slides[target]?.id ?? "", index: target, final, visit: previous.visit + 1 }));
   };
   const next = (elementId?: string) => { if (!playback.advance(elementId) && index < deck.slides.length - 1) go(index + 1); };
-  const target = playback.waitingTargetId === undefined ? undefined : source.elements.find(element => element.id === playback.waitingTargetId);
-  const step = source.animations?.find(step => step.id === playback.stepId);
+  const targets = [...new Set(playback.waitingSteps.flatMap(step => step.waitingTargetId === undefined ? [] : [step.waitingTargetId]))]
+    .map(id => source.elements.find(element => element.id === id)!).filter(Boolean);
+  const canAdvance = playback.activeSteps.length > 0 || playback.waitingSteps.some(step => step.waitingTargetId === undefined);
+  const step = source.animations?.find(step => step.id === playback.activeSteps[0]?.stepId);
   return createPortal(<div ref={container} data-likex-slide="" className="lxp-presentation" style={theme} role="dialog" aria-modal="true" aria-label="スライドショー" tabIndex={-1}
     onKeyDown={event => {
       // Portals keep React ancestry; presentation keys must never edit the deck.
@@ -65,8 +67,12 @@ export function SlidePresentation({ deck, initialSlideId, ownerDocument, theme, 
     <button type="button" className="lxp-presentation-close" aria-label="スライドショーを終了" title="終了 (Esc)" onClick={onClose}><X size={22} /></button>
     <div className="lxp-presentation-controls"><button type="button" aria-label="前のスライド" disabled={index === 0} onClick={() => go(index - 1, true)}><ChevronLeft size={20} /></button>
       <span>{index + 1} / {deck.slides.length}</span>
-      {!playback.finished && <span role="status" aria-live="polite" style={{ maxWidth: 220 }}>{playback.waitingForClick ? target ? `${target.name}をクリック` : "クリックで再生" : step?.name ?? "アニメーション再生中"}</span>}
-      {target && <button type="button" style={{ width: "auto", padding: "0 8px" }} aria-label={`${target.name}のクリック操作を実行`} onClick={() => { container.current?.focus({ preventScroll: true }); next(target.id); }}>実行</button>}
-      <button type="button" aria-label={playback.finished ? "次のスライド" : "次のアニメーション"} disabled={!!target || (playback.finished && index >= deck.slides.length - 1)} onClick={() => next()}><ChevronRight size={20} /></button></div>
+      {!playback.finished && <span role="status" aria-live="polite" style={{ maxWidth: 220 }}>{[
+        playback.activeSteps.length ? step?.name ?? "アニメーション再生中" : "",
+        targets.length ? `${targets.map(target => target.name).join("・")}をクリック` : "",
+        playback.waitingSteps.some(step => step.waitingTargetId === undefined) ? "クリックで再生" : "",
+      ].filter(Boolean).join(" / ")}</span>}
+      {targets.map(target => <button key={target.id} type="button" style={{ width: "auto", padding: "0 8px" }} aria-label={`${target.name}のクリック操作を実行`} onClick={() => { container.current?.focus({ preventScroll: true }); next(target.id); }}>{targets.length > 1 ? target.name : "実行"}</button>)}
+      <button type="button" aria-label={playback.finished ? "次のスライド" : "次のアニメーション"} disabled={playback.finished ? index >= deck.slides.length - 1 : !canAdvance} onClick={() => next()}><ChevronRight size={20} /></button></div>
   </div>, ownerDocument.body);
 }

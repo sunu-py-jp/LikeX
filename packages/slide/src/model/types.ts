@@ -50,14 +50,22 @@ export type SlideAnimationNode =
   | { type: "tween"; elementId: string; durationMs: number; delayMs?: number; easing?: SlideAnimationEasing;
     from?: SlideAnimationProperties; to: SlideAnimationProperties; repeat?: number; yoyo?: boolean };
 export type SlideAnimationTrigger = { type: "immediate" } | { type: "after-delay"; delayMs: number } | { type: "click"; elementId?: string };
-export type SlideAnimationStep = { id: string; name?: string; trigger?: SlideAnimationTrigger; animation: SlideAnimationNode };
+/** Steps in the same timeline run sequentially; omitted timelineId selects the main timeline. */
+export type SlideAnimationStep = { id: string; name?: string; timelineId?: string; trigger?: SlideAnimationTrigger; animation: SlideAnimationNode };
 export type SlideQueryOptions = { includeAnimations?: boolean };
 export type SlideAnimationClick = { elapsedMs: number; elementId?: string };
 export type SlideAnimationEvaluationOptions = { elapsedMs: number; clicks?: SlideAnimationClick[] };
+export type SlideAnimationWaitingStep = { stepId: string; timelineId?: string; waitingTargetId?: string };
+export type SlideAnimationActiveStep = { stepId: string; timelineId?: string; stepStartMs: number; stepEndMs: number };
 export type SlideAnimationFrame = {
+  /** waitingForClick is true if any timeline waits, even while another is active. */
   slide: Slide; finished: boolean; waitingForClick: boolean; stepId?: string;
-  /** Page-relative times; unavailable while a step is waiting for a click. */
+  /** Legacy singular fields describe the first waiting step, otherwise the first active step, in authored order. Times are page-relative. */
   stepStartMs?: number; stepEndMs?: number; waitingTargetId?: string;
+  /** Present for named/independent timelines; legacy main-only frames keep their original shape. */
+  waitingSteps?: readonly SlideAnimationWaitingStep[];
+  /** Includes scheduled delays; motion can continue while another timeline waits for a click. */
+  activeSteps?: readonly SlideAnimationActiveStep[];
 };
 export type Slide = {
   id: string;

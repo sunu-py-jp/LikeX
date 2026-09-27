@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="250" viewBox="0 0 560 250" role="img" aria-label="4商品の売上グラフ">
+  <rect width="560" height="250" fill="#f5f9f6"/>
+  <g font-family="sans-serif" fill="#234236">
+    <text x="28" y="36" font-size="17" font-weight="700">売上速報</text>
+    <text x="28" y="57" font-size="11" fill="#667e70">サンプルデータ · 商品別売上</text>
+    <g font-size="12"><text x="28" y="95">商品 A</text><text x="28" y="135">商品 B</text><text x="28" y="175">商品 C</text><text x="28" y="215">商品 D</text></g>
+    <g fill="#397263"><rect x="97" y="80" width="240" height="23" rx="4"/><rect x="97" y="120" width="180" height="23" rx="4"/><rect x="97" y="160" width="300" height="23" rx="4"/><rect x="97" y="200" width="336" height="23" rx="4"/></g>
+    <g font-size="12"><text x="347" y="95">¥60,000</text><text x="287" y="135">¥45,000</text><text x="407" y="175">¥75,000</text><text x="443" y="215">¥84,000</text></g>
+  </g>
+</svg>

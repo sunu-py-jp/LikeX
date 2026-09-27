@@ -8,11 +8,11 @@ assert.equal(typeof window, "undefined");
 const aichat = createAIChat({ id: "consumer-aichat", title: "LikeAIChat consumer", conversations: [{
   id: "conversation-1", title: "Consumer conversation", messages: [{
     id: "message-1", role: "user", content: "AIChat consumer content <script>alert(1)</script>",
-    createdAt: "2026-09-22T00:00:00.000Z", status: "complete",
+    createdAt: "2026-09-22T00:00:00.000Z", status: "complete", parts: [{ id: "card", type: "host.card", data: { title: "Custom card" } }],
   }],
 }] });
 const markup = renderToStaticMarkup(createElement(LikeAIChat, {
-  initialAIChat: aichat, title: "LikeAIChat consumer", style: { height: 360 },
+  initialAIChat: aichat, title: "LikeAIChat consumer", style: { height: 360 }, partRenderers: { "host.card": part => createElement("section", null, part.data.title) },
 }));
 assert.match(markup, /data-likex-aichat/);
 assert.match(markup, /class="lxai-root/);
@@ -21,4 +21,5 @@ assert.match(markup, /class="lxai-composer"/);
 assert.match(markup, /AIChat consumer content &lt;script&gt;/);
 assert.doesNotMatch(markup, /<script>alert/);
 assert.match(markup, /height:360px/);
+assert.match(markup, /<section>Custom card<\/section>/);
 console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

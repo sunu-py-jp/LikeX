@@ -12,9 +12,14 @@ export const SLIDE_LIMITS = Object.freeze({
   jsonLength: 80 * 1024 * 1024,
   commands: 1_000,
   history: 100,
-  animationNodesPerSlide: 500,
-  animationDepth: 8,
-  animationDurationMs: 600_000,
-  animationRepeat: 100,
-  animationClicks: 10_000,
+  /** @deprecated Animation node counts no longer have an application limit. */
+  animationNodesPerSlide: Infinity,
+  /** @deprecated Animation nesting no longer has an application limit. */
+  animationDepth: Infinity,
+  /** @deprecated Finite, representable animation times have no application limit. */
+  animationDurationMs: Infinity,
+  /** @deprecated Positive safe-integer repeats have no application limit. */
+  animationRepeat: Infinity,
+  /** @deprecated Click history length no longer has an application limit. */
+  animationClicks: Infinity,
 });

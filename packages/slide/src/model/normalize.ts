@@ -4,6 +4,7 @@ import { validateSlideImageSource } from "./image-source";
 import { boolean, choice, color, fontFamily, identifier, list, number, record, text } from "./validation";
 import { DECK_KEYS, ELEMENT_KEYS, SLIDE_KEYS } from "./schema";
 import { normalizeSlideAnimations } from "./animation-validation";
+import { slideTextLength } from "./text-length";
 export { ELEMENT_KEYS } from "./schema";
 
 const decks = new WeakSet<SlideDeck>();
@@ -120,12 +121,11 @@ export function normalizeSlideDeck(input: unknown): SlideDeck {
   for (const slide of accepted) {
     if (slideIds.has(slide.id)) throw new Error("スライドのIDが重複しています");
     slideIds.add(slide.id);
-    characters += slide.notes.length + slide.name.length;
+    characters += slideTextLength(slide);
     for (const element of slide.elements) {
       if (elementIds.has(element.id)) throw new Error("プレゼンテーション内の要素のIDが重複しています");
       elementIds.add(element.id);
       count++;
-      characters += element.name.length + (element.type === "image" ? element.alt.length : element.text.length);
       bytes += imageBytes.get(element) ?? 0;
     }
   }

@@ -1,0 +1,9 @@
+.aichat-demo-tool{border:1px solid var(--lxai-border);border-radius:9px;padding:10px 13px;font-size:12px}
+.aichat-demo-tool summary{display:flex;justify-content:space-between;gap:12px;cursor:pointer}
+.aichat-demo-tool summary small{color:var(--lxai-accent)}
+.aichat-demo-tool pre{white-space:pre-wrap;max-height:240px;overflow:auto;font:11px/1.6 monospace}
+.aichat-demo-image{margin:0;border:1px solid var(--lxai-border);border-radius:10px;overflow:hidden;max-width:560px}
+.aichat-demo-image img{display:block;width:100%;height:auto}
+.aichat-demo-image figcaption{padding:8px 12px;font-size:10px;color:var(--lxai-muted)}
+.aichat-demo-sales{display:flex;flex-direction:column;gap:6px;border:1px solid var(--lxai-border);border-left:4px solid var(--lxai-primary);border-radius:9px;padding:15px 18px;max-width:560px;background:var(--lxai-user)}
+.aichat-demo-sales>span{font-size:12px}.aichat-demo-sales>strong{font-size:27px;font-variant-numeric:tabular-nums}.aichat-demo-sales>small{font-size:10px;color:var(--lxai-muted)}

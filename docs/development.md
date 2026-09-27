@@ -11,6 +11,8 @@ npm run dev
 
 デモの親コンポーネント、初期データ、機能設定、単独ビルドは [playgroundのREADME](../apps/playground/README.md) を参照してください。
 
+`/spreadsheet/ai` と `/slide/ai` はLikeAIChatから本体を操作するデモです。ルートの `.env` にOpenAIまたはAzure OpenAIを設定します（[設定例](../.env.example)）。起動時に両モジュールのCLIランタイムもビルドし、対象スキル・参照資料の読み込みと同梱CLI実行をサーバー側で行います。詳細は [AIデモの設定と動作](../apps/playground/README.md#spreadsheet／slideのaiデモ) を参照してください。
+
 ## コマンド
 
 | コマンド | 用途 |

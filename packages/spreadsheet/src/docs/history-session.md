@@ -44,6 +44,7 @@ const json = serializeWorkbook(session.getWorkbook());
 | `session.clearHistory()` | ブックを変えずに履歴だけを消す |
 | `session.replaceWorkbook(workbook)` | 新しいブックを検証して置き換え、履歴を消す |
 | `session.getCell(...)` / `getRange(...)` / `getImage(...)` など | 現在のブックから対象を取得。[読み取りAPI](./data-access.md)と同じ契約 |
+| `session.findSheets(query)` / `findCells(query, options?)` | 現在のブックのシート名・セルをキーワード検索。検索結果は凍結済みで、履歴を変更しません |
 
 オプションは `features?: SpreadsheetFeatures` と `historyLimit?: number` です。機能設定はGUIと同じ名前・依存関係で解決します。履歴上限は既定50、0〜1,000の整数です。`historyLimit: 0` または `features: { undoRedo: false }` では履歴を記録しません。
 

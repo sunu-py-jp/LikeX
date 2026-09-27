@@ -5,7 +5,9 @@ const demos = {
   explorer: lazy(() => import("./explorer-demo")),
   "explorer-preview": lazy(() => import("./explorer-preview-demo")),
   spreadsheet: lazy(() => import("./spreadsheet-demo")),
+  "spreadsheet/ai": lazy(() => import("./spreadsheet-ai-demo")),
   slide: lazy(() => import("./slide-demo")),
+  "slide/ai": lazy(() => import("./slide-ai-demo")),
   document: lazy(() => import("./document-demo")),
   board: lazy(() => import("./board-demo")),
   diagram: lazy(() => import("./diagram-demo")),
@@ -16,7 +18,7 @@ const demos = {
   dataview: lazy(() => import("./dataview-demo")),
   form: lazy(() => import("./form-demo")),
 };
-const pathname = window.location.pathname.replace(/^\/+|\/+$/g, ""), key = pathname === "slides" ? "slide" : pathname;
+const pathname = window.location.pathname.replace(/^\/+|\/+$/g, ""), key = pathname === "slides" ? "slide" : pathname === "like-slide/ai" || pathname === "slides/ai" ? "slide/ai" : pathname;
 const name = Object.hasOwn(demos, key) ? key as keyof typeof demos : "explorer";
 const Demo = demos[name];
 document.title = `LikeX — ${name}`;

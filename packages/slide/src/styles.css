@@ -132,6 +132,22 @@
 .lxp-status-message { flex:1; display:flex; align-items:center; gap:5px; min-width:0; overflow:hidden; }
 .lxp-status-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .lxp-status-message button { display:grid; place-items:center; flex:none; width:18px; height:18px; }
+.lxp-conversion-toggle { flex:none; padding:2px 5px; color:var(--lxp-accent); white-space:nowrap; }
+.lxp-conversion-report { flex:0 1 330px; min-width:190px; min-height:0; display:flex; flex-direction:column; border-left:1px solid var(--lxp-border); background:var(--lxp-panel); color:var(--lxp-foreground); }
+.lxp-conversion-report>header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px 4px; }
+.lxp-conversion-report h2 { margin:0; font-size:14px; font-weight:600; }
+.lxp-conversion-report button { flex:none; display:inline-flex; align-items:center; justify-content:center; padding:4px; border-radius:4px; }
+.lxp-conversion-report button:hover { background:var(--lxp-hover); }
+.lxp-conversion-summary { margin:4px 14px 10px; color:var(--lxp-muted); font-size:11px; }
+.lxp-conversion-list { overflow:auto; min-height:0; padding:0 14px 14px; overflow-wrap:anywhere; }
+.lxp-conversion-list h3 { margin:12px 0 6px; font-size:12px; font-weight:600; }
+.lxp-conversion-list ul { list-style:none; padding:0; margin:0; }
+.lxp-conversion-list li { padding:10px 0; border-bottom:1px solid var(--lxp-border); }
+.lxp-conversion-item-heading { display:flex; align-items:center; gap:5px; font-size:11px; }
+.lxp-conversion-item-heading>span:nth-child(2) { flex:1; min-width:0; }
+.lxp-conversion-action { flex:none; padding:1px 5px; border:1px solid var(--lxp-border); border-radius:3px; color:var(--lxp-muted); }
+.lxp-conversion-list p { font-size:12px; line-height:1.6; margin:5px 0 0; }
+.lxp-conversion-list small { display:block; font-size:10px; line-height:1.5; margin-top:5px; color:var(--lxp-muted); }
 .lxp-error { color:#d14535; }
 .lxp-zoom { display:flex; align-items:center; gap:5px; margin-left:auto; flex:none; }
 .lxp-zoom button { display:grid; place-items:center; width:23px; height:23px; border-radius:2px; }

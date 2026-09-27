@@ -13,7 +13,7 @@ Node.js **22.13以降**と、このskillに対応する版の `@likex/slide` が
 
 ## 進め方
 
-新規作成には `create`、既存ファイルには `inspect` を使う。スライドと要素のIDを取得し、[コマンドの説明](references/commands.md)の該当部分を読んでJSON配列を作る。ファイル全体を手書きする場合や保存構造を確認する場合は、[SLONの構造](references/schema-guide.md)を読む。
+新規作成には `create` を使う。既存ファイルはまず `inspect --overview` でタイトルと全体の件数だけを確認する。続いて通常の `inspect` でスライドID一覧、`--slide-id ID` で必要なページの要素ID、`--element-id ID --include-data` で対象本文を取得する。[段階的な取得](references/inspect.md)に従い、最初から全ページの本文やアニメーションを展開しない。対象IDを取得し、[コマンドの説明](references/commands.md)の該当部分を読んでJSON配列を作る。ファイル全体を手書きする場合や保存構造を確認する場合は、[SLONの構造](references/schema-guide.md)を読む。
 
 以下の `skill_dir` はこのSKILL.mdのあるフォルダ、`project_dir` は対応ランタイムを利用できるプロジェクトの**絶対パス**に置き換える。入力・出力・コマンドファイルの相対パスは、実行時の作業ディレクトリから解決される。`--project` はその基準を変えない。
 
@@ -21,7 +21,7 @@ Node.js **22.13以降**と、このskillに対応する版の `@likex/slide` が
 skill_dir="/absolute/path/to/likex-slide"
 project_dir="/absolute/path/to/project"
 node "$skill_dir/scripts/document.mjs" create --project "$project_dir" --output deck.slon
-node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input deck.slon
+node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input deck.slon --overview
 ```
 
 取得したIDを使って `commands.json` を用意してから実行する。`commands.json` のルートはコマンドの**配列**。`{ "commands": [...] }` ではない。
@@ -39,7 +39,8 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 | 操作 | 引数 |
 | --- | --- |
 | 空の資料を作る | `create --output PATH [--commands FILE] [--dry-run]` |
-| 概要・IDを読む | `inspect --input PATH` |
+| タイトルと全体の件数だけを読む | `inspect --input PATH --overview` |
+| 全スライドの概要・IDを読む | `inspect --input PATH` |
 | 最終静止状態のスライドを読む | `inspect --input PATH --slide-id ID` |
 | 元の値とアニメーション定義を読む | `inspect --input PATH [--slide-id ID] --include-animations` |
 | 要素を読む | `inspect --input PATH --slide-id ID --element-id ID [--include-data]` |
@@ -48,9 +49,11 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 
 共通引数は `--project DIRECTORY`、`--help`、`--version`。dry-runでは `--output` を省略できる。通常の概要は要素本文や画像のBase64を展開しない。要素の本文が必要な場合に `--include-data` を使う。成功結果は標準出力のJSONで確認し、失敗は終了コードとエラーを読む。
 
+`--overview` は `format`、`title`、`slideCount`、`elementCount` だけを `summary` に返し、ページ一覧や要素情報は返さない。他の取得セレクター、`--include-data`、`--include-animations` と併用しない。必要な対象を選んだ後の通常の `inspect` で詳細を取得する。
+
 画像出力は `scripts/render-images.mjs` に分ける。単一ページ・範囲・任意ページを指定でき、Nodeでは `--renderer` が必須。引数と実行環境は [画像出力の参照](references/image-export.md)を確認する。既存のcreate/applyに画像出力オプションを混ぜない。
 
-`inspect` とget APIは既定で全アニメーション完了後の静止値を返す。アニメーションを編集するときは `inspect --include-animations` または `getDeck/getSlides/getSlide` の `{ includeAnimations: true }` で元の値と定義を取得し、`animation.set` / `animation.remove` を使う。`getElements/getElement` は同オプションでも元の要素値だけを返すため、定義には `getAnimations` などを使う。SLON保存とcreate/applyは全定義を保持する。PPTXは最終静止状態へ変換し、定義を保持しない。[アニメーションのコマンドと取得](references/commands.md#アニメーション)を参照する。
+`inspect` とget APIは既定で全アニメーション完了後の静止値を返す。アニメーションを編集するときは `inspect --include-animations` または `getDeck/getSlides/getSlide` の `{ includeAnimations: true }` で元の値と定義を取得し、`animation.set` / `animation.remove` を使う。`getElements/getElement` は同オプションでも元の要素値だけを返すため、定義には `getAnimations` などを使う。SLON保存とcreate/applyは全定義を保持する。PPTXは標準アニメーションへ変換する。透明度・ばねに加え、文字サイズ・線幅・透明色は近似される。`diagnostics` / `onDiagnostic` でページ・要素・プロパティと省略・近似の扱いを確認する。独立系列は省略可能な `timelineId` で指定し、同じ要素の同じプロパティを複数の系列へ分けない。[アニメーションのコマンドと取得](references/commands.md#アニメーション)を参照する。
 
 ## 編集時の契約
 

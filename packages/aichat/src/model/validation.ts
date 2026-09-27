@@ -1,5 +1,6 @@
 export const AICHAT_LIMITS = Object.freeze({ commands: 1000, jsonLength: 32 * 1024 * 1024, jsonBytes: 32 * 1024 * 1024, conversations: 500, messages: 20_000,
-  contentLength: 1_000_000, totalContentLength: 8_000_000, metadataItems: 100, nameLength: 1000 });
+  contentLength: 1_000_000, totalContentLength: 8_000_000, metadataItems: 100, nameLength: 1000,
+  parts: 100, partDepth: 32, partNodes: 50_000, partDataLength: 1_000_000, totalPartDataLength: 8_000_000 });
 export function record(value: unknown, label: string, allowed?: readonly string[]): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) throw new Error(`${label} must be a plain object.`);
   for (const key of Reflect.ownKeys(value)) if (typeof key !== "string" || (allowed && !allowed.includes(key)) || !Object.hasOwn(Object.getOwnPropertyDescriptor(value, key)!, "value")) throw new Error(`${label} contains an unsupported property.`);

@@ -241,13 +241,184 @@ test('spreadsheet selectors discover drawing IDs and explicitly read a bounded c
   assert.equal(await readFile(files.input, 'utf8'), beforeInspect, 'metadata inspection never writes');
   const drawing = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'sheet-1', '--drawing-id', drawingId, '--include-data']);
   assert.equal(drawing.json.selection.drawing.text, 'secret drawing');
-  const range = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'sheet-1', '--range', 'A1:C1']);
-  assert.deepEqual(range.json.selection.cells, [[{ value: 'secret cell' }, { value: '=1+2' }, null]]);
+  const range = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'sheet-1', '--range', 'A1:C2']);
+  assert.deepEqual(range.json.selection, { sheetId: 'sheet-1', range: 'A1:C2', rows: [
+    [{ value: 'secret cell' }, { value: '=1+2' }, null], [null, null, null],
+  ] });
   assert.equal((await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'missing'])).json.error.code, 'NOT_FOUND');
   const values = Object.fromEntries(Array.from({ length: 12 }, (_, index) => [`A${index + 1}`, 'x'.repeat(100_000)]));
   await writeFile(files.commands, JSON.stringify([{ type: 'cells.set', sheetId: 'sheet-1', values }]));
   await run('spreadsheet', ['apply', '--input', files.input, '--commands', files.commands, '--output', files.input]);
   assert.equal((await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'sheet-1', '--range', 'A1:A12'])).json.error.code, 'RESPONSE_TOO_LARGE');
+});
+
+async function spreadsheetSearchFixture() {
+  const files = await paths('spreadsheet'), model = fixtures.spreadsheet.model;
+  const sheet = (id, name, cells) => ({ id, name, rowCount: 300, columnCount: 26, cells });
+  const workbook = model.normalizeWorkbook({ sheets: [
+    sheet('sales', 'Sales', { A1: { value: 'Revenue' }, B2: { value: 'Revenue forecast' }, B3: { value: 'REVENUE' }, C2: { value: '=2+3' }, D4: { value: '--help' } }),
+    sheet('sales-old', 'Sales archive', { A1: { value: 'Revenue' } }),
+    sheet('notes', 'Notes', Object.fromEntries(Array.from({ length: 103 }, (_, index) => [`A${index + 1}`, { value: `page-${index}` }]))),
+  ] });
+  await writeFile(files.input, model.serializeWorkbook(workbook));
+  return files;
+}
+
+test('spreadsheet and slide overview return only document counts and title without lists or content', async () => {
+  const files = await spreadsheetSearchFixture();
+  const spreadsheet = await run('spreadsheet', ['inspect', '--input', files.input, '--overview']);
+  assert.equal(spreadsheet.status, 0); assert.deepEqual(spreadsheet.json.summary, { format: 'likex.spreadsheet', sheetCount: 3, imageCount: 0, namedRangeCount: 0 });
+  assert.equal(spreadsheet.json.selection, undefined); assert.doesNotMatch(JSON.stringify(spreadsheet), /Revenue|Sales|sales|Notes|page-/);
+  const slideFiles = await paths('slide'), model = fixtures.slide.model, deck = { ...model.createSlideDeck(), title: 'Overview deck' };
+  await writeFile(slideFiles.input, model.serializeSlideDeck(deck));
+  const slide = await run('slide', ['inspect', '--input', slideFiles.input, '--overview']);
+  assert.equal(slide.status, 0); assert.deepEqual(slide.json.summary, { format: 'likex.slide', title: 'Overview deck', slideCount: deck.slides.length, elementCount: deck.slides.reduce((sum, item) => sum + item.elements.length, 0) });
+  assert.equal(slide.json.selection, undefined); assert.equal(slide.json.animations, undefined);
+  assert.equal((await run('slide', ['inspect', '--input', slideFiles.input])).json.summary.slides.length, deck.slides.length, 'ordinary inspect retains the list');
+  for (const [kind, input, selectors] of [
+    ['spreadsheet', files.input, ['--sheet-id', 'sales']], ['spreadsheet', files.input, ['--include-data']], ['spreadsheet', files.input, ['--search', 'cells', '--text', 'Revenue']],
+    ['spreadsheet', files.input, ['--offset', '0']], ['spreadsheet', files.input, ['--match-case']], ['spreadsheet', files.input, ['--range', 'A1']],
+    ['slide', slideFiles.input, ['--slide-id', 'slide-1']], ['slide', slideFiles.input, ['--include-animations']], ['slide', slideFiles.input, ['--include-data']],
+  ]) assert.equal((await run(kind, ['inspect', '--input', input, '--overview', ...selectors])).json.error.code, 'USAGE');
+  assert.equal((await run('spreadsheet', ['validate', '--input', files.input, '--overview'])).json.error.code, 'USAGE');
+  assert.equal((await run('aichat', ['inspect', '--input', files.input, '--overview'])).json.error.code, 'USAGE');
+});
+
+test('spreadsheet sheet content lists sorted stored cells from only the selected sheet with bounded pagination', async () => {
+  const files = await spreadsheetSearchFixture(), original = await readFile(files.input, 'utf8');
+  const inspect = async (...options) => { const result = await run('spreadsheet', ['inspect', '--input', files.input, ...options]); assert.equal(result.status, 0, JSON.stringify(result.json)); return result.json; };
+  const selected = (await inspect('--sheet-id', 'sales', '--include-data')).selection;
+  assert.deepEqual(selected.cells.map(cell => cell.address), ['A1', 'B2', 'C2', 'B3', 'D4']);
+  assert.equal(selected.sheet.id, 'sales'); assert.equal(selected.cells[2].value, '=2+3'); assert.equal(selected.offset, 0); assert.equal(selected.limit, 100); assert.equal(selected.total, 5); assert.equal(selected.hasMore, false);
+  assert.doesNotMatch(JSON.stringify(selected), /page-/); assert.equal(selected.drawings, undefined);
+  const paged = (await inspect('--sheet-id', 'notes', '--include-data')).selection;
+  assert.equal(paged.cells.length, 100); assert.equal(paged.total, 103); assert.equal(paged.hasMore, true);
+  const last = (await inspect('--sheet-id', 'notes', '--include-data', '--offset', '102', '--limit', '2')).selection;
+  assert.deepEqual(last.cells, [{ address: 'A103', value: 'page-102' }]); assert.equal(last.hasMore, false);
+  assert.deepEqual((await inspect('--sheet-id', 'notes', '--include-data', '--offset', '200')).selection.cells, []);
+  const metadata = (await inspect('--sheet-id', 'sales')).selection; assert.equal(metadata.cells, undefined); assert.doesNotMatch(JSON.stringify(metadata), /Revenue/);
+  assert.equal(await readFile(files.input, 'utf8'), original, 'content inspection preserves the native file');
+  for (const args of [['--include-data'], ['--sheet-id', 'sales', '--limit', '1'], ['--sheet-id', 'sales', '--include-data', '--range', 'A1'], ['--sheet-id', 'sales', '--include-data', '--search', 'cells', '--text', 'Revenue'], ['--sheet-id', 'sales', '--include-data', '--limit', '1001']]) {
+    assert.equal((await run('spreadsheet', ['inspect', '--input', files.input, ...args])).json.error.code, 'USAGE');
+  }
+  assert.equal((await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'missing', '--include-data'])).json.error.code, 'NOT_FOUND');
+});
+
+test('spreadsheet sheet content preserves formatting and empty stored cells while enforcing output limits', async () => {
+  const files = await paths('spreadsheet'), model = fixtures.spreadsheet.model;
+  const sheet = (id, cells) => ({ id, name: id, rowCount: 300, columnCount: 26, cells });
+  const workbook = model.normalizeWorkbook({ sheets: [sheet('data', { D4: { value: '', format: { bold: true } }, B2: { value: 'Text', format: { italic: true } } }), sheet('empty', {}),
+    sheet('large', Object.fromEntries(Array.from({ length: 12 }, (_, index) => [`A${index + 1}`, { value: 'x'.repeat(100_000) }])))] });
+  await writeFile(files.input, model.serializeWorkbook(workbook));
+  const result = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'data', '--include-data']);
+  assert.equal(result.status, 0); assert.deepEqual(result.json.selection.cells, [{ address: 'B2', value: 'Text', format: { italic: true } }, { address: 'D4', value: '', format: { bold: true } }]);
+  assert.equal(Object.hasOwn(result.json.selection, 'rows'), false, 'stored-cell lists remain flat cells, without a matrix alias');
+  const range = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'data', '--range', 'B2:D4']);
+  assert.equal(range.status, 0);
+  assert.deepEqual(range.json.selection, { sheetId: 'data', range: 'B2:D4', rows: [
+    [{ value: 'Text', format: { italic: true } }, null, null],
+    [null, null, null],
+    [null, null, { value: '', format: { bold: true } }],
+  ] });
+  const empty = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'empty', '--include-data']); assert.deepEqual(empty.json.selection.cells, []); assert.equal(empty.json.selection.total, 0);
+  const large = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'large', '--include-data']); assert.equal(large.json.error.code, 'RESPONSE_TOO_LARGE');
+  const bounded = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'large', '--include-data', '--limit', '1']); assert.equal(bounded.status, 0); assert.equal(bounded.json.selection.cells[0].value.length, 100_000);
+});
+
+test('compact inspect summaries omit unrelated lists before output size limits while preserving selected content', async () => {
+  const files = await paths('slide'), model = fixtures.slide.model, base = model.createSlideDeck();
+  const element = model.createSlideElement({ type: 'text', id: 'target', text: 'Only the requested content' });
+  const deck = model.createSlideDeck({ ...base, slides: Array.from({ length: 400 }, (_, index) => ({ ...base.slides[0], id: `page-${index}`, name: '界'.repeat(1000), elements: index === 0 ? [element] : [] })) });
+  const original = model.serializeSlideDeck(deck); await writeFile(files.input, original);
+  const args = ['inspect', '--input', files.input, '--slide-id', 'page-0', '--element-id', 'target', '--include-data'];
+  const tooLarge = await run('slide', args); assert.equal(tooLarge.json.error.code, 'RESPONSE_TOO_LARGE', 'legacy full summary exceeds 1MiB even for one short target');
+  const compact = await run('slide', [...args, '--compact-summary']); assert.equal(compact.status, 0, JSON.stringify(compact.json));
+  assert.equal(compact.json.summary.slides, undefined); assert.equal(compact.json.summary.slideCount, 400); assert.equal(compact.json.summary.width, deck.width); assert.equal(compact.json.summary.id, deck.id);
+  assert.equal(compact.json.selection.element.text, 'Only the requested content'); assert.ok(Buffer.byteLength(JSON.stringify(compact.json)) < 4000); assert.doesNotMatch(JSON.stringify(compact.json), /界/);
+  assert.equal(await readFile(files.input, 'utf8'), original);
+  const spreadsheetFiles = await spreadsheetSearchFixture();
+  const regular = await run('spreadsheet', ['inspect', '--input', spreadsheetFiles.input, '--sheet-id', 'sales', '--include-data', '--limit', '1']);
+  const reduced = await run('spreadsheet', ['inspect', '--input', spreadsheetFiles.input, '--sheet-id', 'sales', '--include-data', '--limit', '1', '--compact-summary']);
+  assert.equal(reduced.status, 0); assert.equal(reduced.json.summary.sheets, undefined); assert.equal(regular.json.summary.sheets.length, 3); assert.deepEqual(reduced.json.selection, regular.json.selection);
+  for (const [kind, operation, flags] of [['spreadsheet', 'inspect', ['--overview']], ['slide', 'validate', []], ['aichat', 'inspect', []]]) {
+    const result = await run(kind, [operation, '--input', files.input, '--compact-summary', ...flags]); assert.equal(result.json.error.code, 'USAGE');
+  }
+});
+
+test('spreadsheet search discovers sheet names and cell values with exact and case-sensitive matching', async () => {
+  const files = await spreadsheetSearchFixture(), original = await readFile(files.input, 'utf8');
+  const inspect = async (...options) => { const result = await run('spreadsheet', ['inspect', '--input', files.input, ...options]); assert.equal(result.status, 0, JSON.stringify(result.json)); return result.json; };
+  const sheets = await inspect('--search', 'sheets', '--text', 'sales');
+  assert.deepEqual(sheets.selection, { search: 'sheets', text: 'sales', matches: [
+    { sheetId: 'sales', name: 'Sales', index: 0, rowCount: 300, columnCount: 26 },
+    { sheetId: 'sales-old', name: 'Sales archive', index: 1, rowCount: 300, columnCount: 26 },
+  ], offset: 0, limit: 100, total: 2, hasMore: false });
+  assert.deepEqual((await inspect('--search', 'sheets', '--text', 'Sales', '--exact')).selection.matches.map(item => item.sheetId), ['sales']);
+  assert.deepEqual((await inspect('--search', 'sheets', '--text', 'sales', '--match-case')).selection.matches, []);
+  const cells = await inspect('--search', 'cells', '--text', 'revenue');
+  assert.equal(cells.selection.total, 4); assert.deepEqual(cells.selection.matches.map(item => [item.sheetId, item.address]), [['sales', 'A1'], ['sales', 'B2'], ['sales', 'B3'], ['sales-old', 'A1']]);
+  assert.deepEqual(cells.selection.matches[0], { sheetId: 'sales', address: 'A1', value: 'Revenue', matchedText: 'Revenue' });
+  assert.equal((await inspect('--search', 'cells', '--text', 'Revenue', '--exact', '--match-case')).selection.total, 2);
+  assert.equal((await inspect('--search', 'cells', '--text', '--help')).selection.matches[0].address, 'D4');
+  assert.equal((await inspect('--search', 'cells', '--text', 'not present')).selection.total, 0);
+  assert.equal(await readFile(files.input, 'utf8'), original, 'search does not modify the native workbook');
+});
+
+test('spreadsheet search filters one sheet or range, chooses formulas versus displayed values and paginates', async () => {
+  const files = await spreadsheetSearchFixture();
+  const inspect = async (...options) => { const result = await run('spreadsheet', ['inspect', '--input', files.input, ...options]); assert.equal(result.status, 0, JSON.stringify(result.json)); return result.json; };
+  assert.equal((await inspect('--search', 'cells', '--text', 'revenue', '--sheet-id', 'sales')).selection.total, 3);
+  assert.deepEqual((await inspect('--search', 'cells', '--text', 'revenue', '--sheet-id', 'sales', '--range', 'B2:C2')).selection.matches.map(item => item.address), ['B2']);
+  assert.deepEqual((await inspect('--search', 'cells', '--text', 'revenue', '--sheet-id', 'sales', '--range', 'A1')).selection.matches.map(item => item.address), ['A1']);
+  const formula = await inspect('--search', 'cells', '--text', '=2+3', '--look-in', 'formulas');
+  assert.deepEqual(formula.selection.matches, [{ sheetId: 'sales', address: 'C2', value: '=2+3', matchedText: '=2+3' }]);
+  assert.equal((await inspect('--search', 'cells', '--text', '=2+3', '--look-in', 'values')).selection.total, 0);
+  assert.equal((await inspect('--search', 'cells', '--text', '5', '--exact', '--sheet-id', 'sales')).selection.matches[0].address, 'C2');
+  const first = (await inspect('--search', 'cells', '--text', 'page-')).selection;
+  assert.equal(first.matches.length, 100); assert.equal(first.total, 103); assert.equal(first.hasMore, true);
+  const last = (await inspect('--search', 'cells', '--text', 'page-', '--offset', '100', '--limit', '2')).selection;
+  assert.equal(last.matches[0].address, 'A101'); assert.equal(last.matches.length, 2); assert.equal(last.hasMore, true);
+  assert.deepEqual((await inspect('--search', 'cells', '--text', 'page-', '--offset', '103')).selection.matches, []);
+  const unchanged = await inspect(); assert.equal(unchanged.selection, undefined); assert.equal(unchanged.summary.sheetCount, 3);
+  assert.deepEqual((await inspect('--sheet-id', 'sales', '--range', 'A1')).selection, { sheetId: 'sales', range: 'A1', rows: [[{ value: 'Revenue' }]] });
+  assert.deepEqual((await inspect('--sheet-id', 'sales', '--range', 'C1')).selection, { sheetId: 'sales', range: 'C1', rows: [[null]] });
+});
+
+test('spreadsheet search rejects missing, unused, incompatible and cross-module arguments', async () => {
+  const files = await spreadsheetSearchFixture();
+  const invalid = [
+    ['--search', 'cells'], ['--search', 'rows', '--text', 'x'], ['--text', 'x'], ['--match-case'], ['--exact'], ['--look-in', 'values'], ['--offset', '0'], ['--limit', '1'],
+    ['--search', 'sheets', '--text', 'x', '--sheet-id', 'sales'], ['--search', 'sheets', '--text', 'x', '--look-in', 'values'],
+    ['--search', 'cells', '--text', 'x', '--range', 'A1'], ['--search', 'cells', '--text', 'x', '--include-data'],
+    ['--search', 'cells', '--text', 'x', '--sheet-id', 'sales', '--drawing-id', 'drawing'], ['--search', 'cells', '--text', 'x', '--look-in', 'raw'],
+    ['--search', 'cells', '--text', 'x', '--offset', '-1'], ['--search', 'cells', '--text', 'x', '--limit', '1001'],
+    ['--search', 'cells', '--text', 'x', '--limit', '0'], ['--search', 'cells', '--text', ''], ['--search', 'cells', '--text'],
+    ['--preview-length', '10'], ['--search', 'sheets', '--text', 'x', '--preview-length', '10'],
+    ...['0', '10001', '-1', '1.5', 'NaN'].map(value => ['--search', 'cells', '--text', 'x', '--preview-length', value]),
+  ];
+  for (const args of invalid) { const result = await run('spreadsheet', ['inspect', '--input', files.input, ...args]); assert.equal(result.json.error.code, 'USAGE', JSON.stringify({ args, result })); }
+  const missing = await run('spreadsheet', ['inspect', '--input', files.input, '--search', 'cells', '--text', 'x', '--sheet-id', 'missing']); assert.equal(missing.json.error.code, 'NOT_FOUND');
+  for (const kind of ['slide', 'aichat']) { const result = await run(kind, ['inspect', '--input', files.input, '--search', 'cells', '--text', 'x']); assert.equal(result.json.error.code, 'USAGE'); }
+  for (const operation of ['validate', 'apply']) { const result = await run('spreadsheet', [operation, '--input', files.input, ...(operation === 'apply' ? ['--commands', files.commands, '--dry-run'] : []), '--search', 'cells', '--text', 'x']); assert.equal(result.json.error.code, 'USAGE'); }
+});
+
+test('spreadsheet search previews long cells explicitly without changing matching or splitting surrogate pairs', async () => {
+  const files = await paths('spreadsheet'), model = fixtures.spreadsheet.model, long = `${'Z'.repeat(25_000)}TAIL`;
+  const workbook = model.normalizeWorkbook({ sheets: [{ id: 'sheet-1', name: 'Data', rowCount: 10, columnCount: 10, cells: { A1: { value: long }, A2: { value: 'A😀B' } } }] });
+  await writeFile(files.input, model.serializeWorkbook(workbook));
+  const inspect = async (...options) => { const result = await run('spreadsheet', ['inspect', '--input', files.input, '--search', 'cells', ...options]); assert.equal(result.status, 0, JSON.stringify(result.json)); return result.json; };
+  const preview = await inspect('--text', 'TAIL', '--limit', '1');
+  assert.equal(preview.selection.total, 1); assert.deepEqual(preview.selection.matches, [{
+    sheetId: 'sheet-1', address: 'A1', value: 'Z'.repeat(200), matchedText: 'Z'.repeat(200),
+    valueLength: long.length, valueTruncated: true, matchedTextLength: long.length, matchedTextTruncated: true,
+  }]);
+  assert.ok(Buffer.byteLength(JSON.stringify(preview)) < 2000, 'one long cell stays small enough for AI tool output');
+  const larger = await inspect('--text', 'TAIL', '--preview-length', '10000'); assert.equal(larger.selection.matches[0].value.length, 10000);
+  const unicode = await inspect('--text', '😀', '--preview-length', '2');
+  assert.equal(unicode.selection.matches[0].value, 'A'); assert.equal(unicode.selection.matches[0].valueLength, 4); assert.equal(unicode.selection.matches[0].valueTruncated, true);
+  const exact = await inspect('--text', 'A😀B', '--exact', '--preview-length', '4');
+  assert.deepEqual(exact.selection.matches, [{ sheetId: 'sheet-1', address: 'A2', value: 'A😀B', matchedText: 'A😀B' }]);
+  const full = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', 'sheet-1', '--range', 'A1']); assert.equal(full.json.selection.rows[0][0].value, long);
 });
 
 test('slide selectors expose IDs and bounds while never printing embedded image bytes', async () => {

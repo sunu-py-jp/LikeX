@@ -1,6 +1,6 @@
 {
   "title": "検索・置換",
-  "summary": "表示値または数式・入力値を検索し、一件ずつ、またはまとめて置換します。",
+  "summary": "表示値または数式・入力値を、全ブック・指定シート・指定範囲から検索し、セル番地と一致内容を取得できます。",
   "source": "packages/spreadsheet/src/docs/editing-tools.md",
   "order": 80,
   "section": "セルとシート",
@@ -8,6 +8,9 @@
     "findSpreadsheetCells",
     "SpreadsheetSearchQuery",
     "SpreadsheetSearchMatch",
+    "SpreadsheetSearchOptions",
+    "findCells",
+    "range",
     "cells.replace",
     "search",
     "replace"

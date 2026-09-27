@@ -152,7 +152,7 @@ test('overlapping writes reject nested parallel conflicts while disjoint propert
 test('definition validation rejects unknown keys, accessors, sparse lists and target-incompatible properties', () => {
   for (const animation of [tween('missing'), tween('a', {}), tween('a', { color: '#fff' }), tween('a', { x: Infinity }),
     tween('a', { width: 0 }), tween('a', { opacity: 2 }), tween('a', { fill: 'url(https://evil)' }), tween('a', { x: 1 }, { durationMs: 0 }),
-    tween('a', { x: 1 }, { repeat: 1.2 }), tween('a', { x: 1 }, { repeat: 101 }), tween('a', { x: 1 }, { yoyo: 1 }),
+    tween('a', { x: 1 }, { repeat: 1.2 }), tween('a', { x: 1 }, { repeat: Number.MAX_SAFE_INTEGER + 1 }), tween('a', { x: 1 }, { yoyo: 1 }),
     tween('a', { x: 1 }, { easing: 'custom' }), { type: 'parallel', children: [] }, { type: 'sequence', children: Array(1) }]) throwsAnimation([step('s', animation)]);
   throwsAnimation([{ ...step(), extra: true }]);
   throwsAnimation([step(), step()]);
@@ -166,15 +166,44 @@ test('definition validation rejects unknown keys, accessors, sparse lists and ta
   assert.throws(() => deck([step('s', tween('a', { stroke: '#fff' }))], [m.createSlideElement({ type: 'text', id: 'a' })]));
 });
 
-test('node count, recursion depth and aggregate intrinsic duration are bounded before evaluation', () => {
+test('former animation node, depth, duration and repeat caps no longer limit valid definitions', () => {
   let nested = tween();
-  for (let i = 0; i < 8; i++) nested = { type: 'sequence', children: [nested] };
-  throwsAnimation([step('s', nested)], /深さ/);
-  throwsAnimation([step('s', { type: 'parallel', children: Array.from({ length: 500 }, () => tween()) })], /ノード数/);
-  throwsAnimation([step('s', tween('a', { x: 1 }, { durationMs: 400000, yoyo: true }))], /時間/);
-  throwsAnimation([step('s1', tween('a', { x: 1 }, { durationMs: 300001 })), step('s2', tween('a', { x: 2 }, { durationMs: 300000 }))], /時間/);
-  throwsAnimation([step('s', tween('a', { x: 1 }, { durationMs: 300000 }), { type: 'after-delay', delayMs: 300001 })], /時間/);
-  assert.doesNotThrow(() => deck([step('s', tween('a', { x: 1 }, { durationMs: 600000 }))]));
+  for (let i = 0; i < 64; i++) nested = { type: 'sequence', children: [nested] };
+  const deep = deck([step('s', nested)]), saved = m.serializeSlideDeck(deep);
+  assert.equal(m.serializeSlideDeck(m.parseSlideDeck(saved)), saved);
+  assert.equal(value(frame(deep, 50)), 50);
+  assert.equal(m.applySlideCommands(deep, { type: 'animation.set', slideId: 'page', animations: m.parseSlideDeck(saved).slides[0].animations }).deck, deep);
+  const copied = m.applySlideCommands(deep, { type: 'slide.duplicate', slideId: 'page' }).deck;
+  assert.equal(m.resolveSlideAnimations(copied.slides[1]).elements[0].x, 100);
+  assert.equal(m.applySlideCommands(deep, { type: 'element.delete', slideId: 'page', elementIds: ['a'] }).deck.slides[0].animations, undefined);
+  const many = deck(Array.from({ length: 501 }, (_, i) => step(`s${i}`, tween('a', { x: i + 1 }, { durationMs: .5 }))));
+  assert.equal(value(frame(many, 250.5)), 501);
+  const children = deck([step('s', { type: 'sequence', children: Array.from({ length: 501 }, (_, i) => tween('a', { x: i + 1 }, { durationMs: .5 })) })]);
+  assert.equal(value(frame(children, 250.5)), 501);
+  const long = deck([step('s', tween('a', { x: 100 }, { durationMs: 600001, repeat: 101, yoyo: true }), { type: 'after-delay', delayMs: 600001 })]);
+  assert.equal(value(frame(long, 600001 * 1.5)), 50);
+  assert.equal(frame(long, 600001 * 203).finished, true);
+  assert.equal(value(frame(long, 600001 * 203)), 0);
+});
+
+test('nonfinite times, unsafe arithmetic and cyclic definitions remain invalid', () => {
+  for (const patch of [{ durationMs: Infinity }, { durationMs: NaN }, { delayMs: Infinity }, { repeat: Infinity },
+    { durationMs: Number.MAX_VALUE, repeat: 2 }, { durationMs: 1, delayMs: Number.MAX_VALUE }]) throwsAnimation([step('s', tween('a', { x: 1 }, patch))]);
+  throwsAnimation([step('s1', tween('a', { x: 1 }, { durationMs: Number.MAX_VALUE })), step('s2', tween('a', { x: 2 }))], /時間/);
+  const cycle = { type: 'sequence', children: [] }; cycle.children.push(cycle);
+  throwsAnimation([step('s', cycle)], /循環/);
+  const shared = tween();
+  assert.doesNotThrow(() => deck([step('s', { type: 'sequence', children: [shared, shared] })]));
+  const click = deck([step('s', tween(), { type: 'click' })]);
+  assert.throws(() => frame(click, Number.MAX_VALUE, [{ elapsedMs: Number.MAX_VALUE }]), /時間/);
+});
+
+test('click histories have no application count cap and retain chronological target matching', () => {
+  const source = deck([step('s', tween(), { type: 'click', elementId: 'a' })]);
+  const clicks = Array.from({ length: 10001 }, (_, elapsedMs) => ({ elapsedMs, elementId: 'other' }));
+  clicks.push({ elapsedMs: 10001, elementId: 'a' });
+  assert.equal(value(frame(source, 10051, clicks)), 50);
+  assert.equal(frame(source, 10101, clicks).finished, true);
 });
 
 test('evaluation rejects invalid time and unsorted clicks without changing the immutable input', () => {

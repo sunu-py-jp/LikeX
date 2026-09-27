@@ -2,7 +2,8 @@ import {
   applySpreadsheetCommands, createWorkbook, parseWorkbook, serializeWorkbook,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
   createSpreadsheetSession, copySpreadsheetCells, importSpreadsheetXlsx, exportSpreadsheetXlsx,
-  getSheets, getSheetReader, getNamedRange, getRangeByName,
+  getSheets, getSheetCells, type SpreadsheetStoredCell, getSheetReader, getNamedRange, getRangeByName, findSpreadsheetSheets, findSpreadsheetCells,
+  type SpreadsheetSheetSearchQuery, type SpreadsheetSheetSearchMatch, type SpreadsheetSearchOptions, type SpreadsheetSearchMatch,
   type SpreadsheetTable, type SpreadsheetTableColumn, type SpreadsheetSheetReadApi,
   type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot, type SpreadsheetReadApi, type SpreadsheetReadRange, type SpreadsheetInsertValue,
   type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult,
@@ -146,10 +147,26 @@ createSpreadsheetSession(snapshot, { historyLimit: '20' });
 void [didUndo, didRedo, history, latest];
 
 const sheets = getSheets(snapshot);
+const storedCells: readonly SpreadsheetStoredCell[] = getSheetCells(snapshot, sheets[0].id);
+readApi.getSheetCells(sheets[0].id);
+// @ts-expect-error Stored cell results are deeply readonly.
+storedCells[0].format!.bold = false;
 const reader: SpreadsheetSheetReadApi = getSheetReader(snapshot, sheets[0].id);
 const tables: readonly SpreadsheetTable[] = reader.getTables();
 const columns: readonly SpreadsheetTableColumn[] | undefined = tables[0]?.columns;
 const liveReader: SpreadsheetSheetReadApi = session.sheet('sheet-1');
+liveReader.getCells(); reader.getCells(); session.getSheetCells('sheet-1');
+const sheetSearch: SpreadsheetSheetSearchQuery = { text: 'Sales', wholeName: false };
+const sheetMatches: readonly SpreadsheetSheetSearchMatch[] = findSpreadsheetSheets(snapshot, sheetSearch);
+const searchOptions: SpreadsheetSearchOptions = { sheetId: 'sheet-1', range: 'A1:C5' };
+const cellMatches: readonly SpreadsheetSearchMatch[] = findSpreadsheetCells(snapshot, { text: 'Sales' }, searchOptions);
+session.findSheets(sheetSearch); session.findCells({ text: 'Sales' }, searchOptions);
+liveReader.findCells({ text: 'Sales' }, { range: { top: 0, left: 0, bottom: 4, right: 2 } });
+// @ts-expect-error Search results cannot be modified.
+sheetMatches[0].index = 1;
+// @ts-expect-error Sheet-scoped queries cannot target a different sheet.
+liveReader.findCells({ text: 'Sales' }, { sheetId: 'other' });
+void cellMatches;
 void [columns, liveReader.getNamedRanges(), liveReader.getImages(), reader.getInfo(),
   getNamedRange(snapshot, 'Sales'), getRangeByName(snapshot, 'Sales')];
 const rangeCommands: readonly SpreadsheetCommand[] = [

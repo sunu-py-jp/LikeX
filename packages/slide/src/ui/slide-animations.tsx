@@ -22,7 +22,13 @@ function allowedProperties(element: SlideElement): Property[] {
   return ["x", "y", "width", "height", "rotation", "opacity", ...(element.type === "image" ? [] : ["fontSize", "fill", element.type === "text" ? "color" : "textColor"]), ...(element.type === "shape" ? ["strokeWidth", "stroke"] : [])] as Property[];
 }
 function lockedNode(node: SlideAnimationNode, elements: readonly SlideElement[]): boolean {
-  return node.type === "tween" ? !!elements.find(element => element.id === node.elementId)?.locked : node.children.some(child => lockedNode(child, elements));
+  const work = [node], locked = new Set(elements.filter(element => element.locked).map(element => element.id));
+  while (work.length) {
+    const current = work.pop()!;
+    if (current.type === "tween") { if (locked.has(current.elementId)) return true; }
+    else for (const child of current.children) work.push(child);
+  }
+  return false;
 }
 function lockedStep(step: SlideAnimationStep, elements: readonly SlideElement[]): boolean {
   const clickTarget = step.trigger?.type === "click" ? step.trigger.elementId : undefined;
@@ -36,13 +42,14 @@ function moveItem<T>(items: readonly T[], index: number, direction: -1 | 1): T[]
 function additionalTween(node: SlideAnimationNode, elements: readonly SlideElement[]): Tween | undefined {
   if (node.type !== "parallel") { const target = elements.find(element => !element.locked); return target ? tween(target) : undefined; }
   const used = new Map<string, Set<string>>();
-  const visit = (item: SlideAnimationNode) => {
-    if (item.type !== "tween") { item.children.forEach(visit); return; }
+  const work: SlideAnimationNode[] = [node];
+  while (work.length) {
+    const item = work.pop()!;
+    if (item.type !== "tween") { for (const child of item.children) work.push(child); continue; }
     const keys = used.get(item.elementId) ?? new Set<string>();
     for (const key of [...Object.keys(item.to), ...Object.keys(item.from ?? {})]) keys.add(key);
     used.set(item.elementId, keys);
-  };
-  visit(node);
+  }
   for (const target of elements.filter(element => !element.locked)) {
     const key = allowedProperties(target).find(key => !used.get(target.id)?.has(key));
     if (key) return key === "x" ? tween(target) : { type: "tween", elementId: target.id, durationMs: 600, to: { [key]: key === "y" ? moved(target.y) : Reflect.get(target, key) } };
@@ -97,26 +104,35 @@ function Properties({ label, value, element, revision, disabled, required, onCha
   </fieldset>;
 }
 
-function NodeEditor({ node, elements, revision, disabled, onChange, level = 0 }: {
+type AnimationParent = { node: Extract<SlideAnimationNode, { children: SlideAnimationNode[] }>; index: number; parent?: AnimationParent };
+function NodeEditor({ node, elements, revision, disabled, onChange, level = 0, parent }: {
   node: SlideAnimationNode; elements: readonly SlideElement[]; revision: SlideDeck; disabled: boolean; level?: number;
   onChange(node: SlideAnimationNode, revision?: SlideDeck): void;
+  parent?: AnimationParent;
 }) {
   const element = node.type === "tween" ? elements.find(item => item.id === node.elementId) : undefined;
   const first = elements.find(item => !item.locked);
   const addition = node.type === "tween" ? undefined : additionalTween(node, elements);
+  const update = (next: SlideAnimationNode, baseline?: SlideDeck) => {
+    for (let ancestor = parent; ancestor; ancestor = ancestor.parent) {
+      const children = [...ancestor.node.children]; children[ancestor.index] = next;
+      next = { ...ancestor.node, children };
+    }
+    onChange(next, baseline);
+  };
   return <div className="lxp-animation-node" data-animation-node={node.type}>
     <label className="lxp-field"><span>構成</span><select aria-label={`構成 ${level + 1}`} value={node.type} disabled={disabled} onChange={event => {
       const type = event.target.value as SlideAnimationNode["type"];
-      if (type === "tween") { if (first) onChange(node.type === "tween" ? node : firstTween(node) ?? tween(first)); }
-      else onChange({ type, children: node.type === "tween" ? [node] : node.children });
+      if (type === "tween") { if (first) update(node.type === "tween" ? node : firstTween(node) ?? tween(first)); }
+      else update({ type, children: node.type === "tween" ? [node] : node.children });
     }}><option value="tween">1つの動き</option><option value="sequence">順番に再生</option><option value="parallel">同時に再生</option></select></label>
     {node.type !== "tween" ? <>
       {node.children.map((child, index) => <div className="lxp-animation-child" key={index}><div className="lxp-animation-child-heading"><span>動き {index + 1}</span><div className="lxp-animation-order">
-        <button type="button" disabled={disabled || index === 0} aria-label={`動き ${index + 1} を上へ`} onClick={() => onChange({ ...node, children: moveItem(node.children, index, -1) })}>↑</button>
-        <button type="button" disabled={disabled || index === node.children.length - 1} aria-label={`動き ${index + 1} を下へ`} onClick={() => onChange({ ...node, children: moveItem(node.children, index, 1) })}>↓</button>
-        <button type="button" disabled={disabled || node.children.length <= 1} aria-label={`動き ${index + 1} を削除`} onClick={() => onChange({ ...node, children: node.children.filter((_, i) => i !== index) })}>削除</button></div></div>
-        <NodeEditor node={child} elements={elements} revision={revision} disabled={disabled} level={level + 1} onChange={(next, baseline) => onChange({ ...node, children: node.children.map((item, i) => i === index ? next : item) }, baseline)} /></div>)}
-      <button type="button" className="lxp-property-button" disabled={disabled || !addition} onClick={() => { if (addition) onChange({ ...node, children: [...node.children, addition] }); }}>動きを追加</button>
+        <button type="button" disabled={disabled || index === 0} aria-label={`動き ${index + 1} を上へ`} onClick={() => update({ ...node, children: moveItem(node.children, index, -1) })}>↑</button>
+        <button type="button" disabled={disabled || index === node.children.length - 1} aria-label={`動き ${index + 1} を下へ`} onClick={() => update({ ...node, children: moveItem(node.children, index, 1) })}>↓</button>
+        <button type="button" disabled={disabled || node.children.length <= 1} aria-label={`動き ${index + 1} を削除`} onClick={() => update({ ...node, children: node.children.filter((_, i) => i !== index) })}>削除</button></div></div>
+        <NodeEditor node={child} elements={elements} revision={revision} disabled={disabled} level={level + 1} parent={{ node, index, parent }} onChange={onChange} /></div>)}
+      <button type="button" className="lxp-property-button" disabled={disabled || !addition} onClick={() => { if (addition) update({ ...node, children: [...node.children, addition] }); }}>動きを追加</button>
     </> : <>
       <label className="lxp-field"><span>対象</span><select aria-label="動きの対象" value={node.elementId} disabled={disabled} onChange={event => {
         const nextElement = elements.find(item => item.id === event.target.value);
@@ -124,29 +140,33 @@ function NodeEditor({ node, elements, revision, disabled, onChange, level = 0 }:
         const allowed = allowedProperties(nextElement);
         const retain = (properties: SlideAnimationProperties) => Object.fromEntries(Object.entries(properties).filter(([key]) => allowed.includes(key as Property)));
         const to = retain(node.to), from = node.from ? retain(node.from) : undefined;
-        onChange({ ...node, elementId: nextElement.id, to: Object.keys(to).length ? to : { opacity: nextElement.opacity }, ...(from && Object.keys(from).length ? { from } : { from: undefined }) });
+        update({ ...node, elementId: nextElement.id, to: Object.keys(to).length ? to : { opacity: nextElement.opacity }, ...(from && Object.keys(from).length ? { from } : { from: undefined }) });
       }}>{elements.map(item => <option key={item.id} value={item.id} disabled={item.locked}>{elementLabel(item)}{item.locked ? "（ロック）" : ""}</option>)}</select></label>
-      <ValueField label="所要時間 (ms)" value={node.durationMs} revision={revision} disabled={disabled} min={1} step={50} onCommit={(value, baseline) => onChange({ ...node, durationMs: Number(value) }, baseline)} />
-      <ValueField label="開始までの待ち時間 (ms)" value={node.delayMs ?? 0} revision={revision} disabled={disabled} min={0} step={50} onCommit={(value, baseline) => onChange({ ...node, delayMs: Number(value) }, baseline)} />
-      <label className="lxp-field"><span>速度の変化</span><select aria-label="速度の変化" value={node.easing ?? "linear"} disabled={disabled} onChange={event => onChange({ ...node, easing: event.target.value as Tween["easing"] })}>
+      <ValueField label="所要時間 (ms)" value={node.durationMs} revision={revision} disabled={disabled} min={0} step={50} onCommit={(value, baseline) => update({ ...node, durationMs: Number(value) }, baseline)} />
+      <ValueField label="開始までの待ち時間 (ms)" value={node.delayMs ?? 0} revision={revision} disabled={disabled} min={0} step={50} onCommit={(value, baseline) => update({ ...node, delayMs: Number(value) }, baseline)} />
+      <label className="lxp-field"><span>速度の変化</span><select aria-label="速度の変化" value={node.easing ?? "linear"} disabled={disabled} onChange={event => update({ ...node, easing: event.target.value as Tween["easing"] })}>
         {Object.entries(easingNames).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
       </select></label>
-      <ValueField label="繰り返し回数" value={node.repeat ?? 1} revision={revision} disabled={disabled} min={1} max={100} step={1} onCommit={(value, baseline) => onChange({ ...node, repeat: Number(value) }, baseline)} />
-      <label className="lxp-checkbox-label"><input type="checkbox" aria-label="往復して再生" checked={node.yoyo ?? false} disabled={disabled} onChange={event => onChange({ ...node, yoyo: event.target.checked })} />往復して再生</label>
+      <ValueField label="繰り返し回数" value={node.repeat ?? 1} revision={revision} disabled={disabled} min={1} step={1} onCommit={(value, baseline) => update({ ...node, repeat: Number(value) }, baseline)} />
+      <label className="lxp-checkbox-label"><input type="checkbox" aria-label="往復して再生" checked={node.yoyo ?? false} disabled={disabled} onChange={event => update({ ...node, yoyo: event.target.checked })} />往復して再生</label>
       {element && <>
-        <Properties label="終了値" value={node.to} element={element} revision={revision} disabled={disabled} required onChange={(to, baseline) => onChange({ ...node, to }, baseline)} />
+        <Properties label="終了値" value={node.to} element={element} revision={revision} disabled={disabled} required onChange={(to, baseline) => update({ ...node, to }, baseline)} />
         <label className="lxp-checkbox-label"><input type="checkbox" aria-label="開始値を指定" checked={!!node.from} disabled={disabled} onChange={event => {
           const { from: _from, ...rest } = node; void _from;
-          onChange(event.target.checked ? { ...rest, from: Object.fromEntries(Object.keys(node.to).map(key => [key, Reflect.get(element, key)])) } : rest);
+          update(event.target.checked ? { ...rest, from: Object.fromEntries(Object.keys(node.to).map(key => [key, Reflect.get(element, key)])) } : rest);
         }} />開始値を指定</label>
-        {node.from && <Properties label="開始値" value={node.from} element={element} revision={revision} disabled={disabled} required onChange={(from, baseline) => onChange({ ...node, from }, baseline)} />}
+        {node.from && <Properties label="開始値" value={node.from} element={element} revision={revision} disabled={disabled} required onChange={(from, baseline) => update({ ...node, from }, baseline)} />}
       </>}
     </>}
   </div>;
 }
 function firstTween(node: SlideAnimationNode): Tween | undefined {
-  if (node.type === "tween") return node;
-  for (const child of node.children) { const result = firstTween(child); if (result) return result; }
+  const work = [node];
+  while (work.length) {
+    const current = work.pop()!;
+    if (current.type === "tween") return current;
+    for (let index = current.children.length - 1; index >= 0; index--) work.push(current.children[index]);
+  }
 }
 
 function AnimationPanel({ editor }: { editor: SlideEditor }) {
@@ -164,7 +184,7 @@ function AnimationPanel({ editor }: { editor: SlideEditor }) {
     void editor.execute({ type: "animation.set", slideId: slide.id, animations: animations.map(item => item.id === selected.id ? next : item) }, baseline);
   };
   return <>
-    <p className="lxp-muted">動きをステップ順に再生します。各ステップを順番・同時のグループにまとめられます。</p>
+    <p className="lxp-muted">同じタイムラインの動きをステップ順に再生します。別のタイムラインは独立して進み、クリックも個別に待機します。</p>
     <p className="lxp-muted">開始値は動きの開始時に適用します。クリック待機中は元の表示を保ちます。透明な状態から始めたい場合は、開始値に不透明度0を指定してください。</p>
     <label className="lxp-field"><span>追加する対象</span><select aria-label="アニメーションを追加する対象" value={target?.id ?? ""} disabled={!editor.editable} onChange={event => setTargetId(event.target.value)}>
       {!slide.elements.length && <option value="">オブジェクトなし</option>}
@@ -188,6 +208,9 @@ function AnimationPanel({ editor }: { editor: SlideEditor }) {
             onClick={() => void editor.execute({ type: "animation.set", slideId: slide.id, animations: moveItem(animations, selectedIndex, 1) }, editor.deck)}>ステップを下へ</button>
         </div>}
         <ValueField label="ステップ名" type="text" value={selected.name ?? ""} revision={editor.deck} disabled={disabled} onCommit={(name, baseline) => update({ ...selected, name }, baseline)} />
+        <ValueField label="タイムラインID（空欄はメイン）" type="text" value={selected.timelineId ?? ""} revision={editor.deck} disabled={disabled}
+          onCommit={(timelineId, baseline) => update({ ...selected, timelineId: timelineId || undefined }, baseline)} />
+        <p className="lxp-muted">同じIDのステップを順番に再生します。別のタイムラインでは、同じ対象の同じプロパティを変更できません。</p>
         <label className="lxp-field"><span>再生開始</span><select aria-label="再生開始" disabled={disabled} value={selected.trigger?.type ?? "immediate"} onChange={event => {
           const type = event.target.value;
           update({ ...selected, trigger: type === "after-delay" ? { type, delayMs: 500 } : type === "click" ? { type } : { type: "immediate" } });

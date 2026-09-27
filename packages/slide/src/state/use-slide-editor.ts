@@ -10,13 +10,15 @@ import { createSlideSession } from "../session/create-slide-session";
 import { awaitSlideImageTask, throwIfSlideImageAborted } from "../render/async";
 import type { SlideImageExportOptions, SlideImagesExportOptions } from "../render/browser-export";
 import type { SlideImageCommonOptions } from "../render/types";
+import type { SlidePptxDiagnostic } from "../office/types";
 
 const featureDefaults = {
   addSlides: true, deleteSlides: true, reorderSlides: true, text: true, shapes: true, images: true,
   formatting: true, animations: true, notes: true, import: true, export: true, presentation: true, history: true,
 };
 export type SlideFeatureState = typeof featureDefaults;
-export type SlideNotice = { kind: "info" | "error" | "success"; text: string } | null;
+export type SlideNotice = { kind: "info" | "error" | "success"; text: string; conversion?: true } | null;
+export type SlideConversionReport = { phase: "import" | "export"; warnings: readonly string[]; diagnostics: readonly SlidePptxDiagnostic[] };
 const copy = <T,>(value: T): T => structuredClone(value);
 
 function permitted(command: SlideCommand, features: SlideFeatureState, deck: SlideDeck): boolean {
@@ -51,6 +53,8 @@ export function useSlideEditor(props: SlideProps) {
   const slideSelectionVersion = useRef(0);
   useLayoutEffect(() => { selectionRef.current = selection; }, [selection]);
   const [notice, setNotice] = useState<SlideNotice>(null);
+  const [conversionReport, setConversionReport] = useState<SlideConversionReport | null>(null);
+  const conversionReportRef = useRef<SlideConversionReport | null>(null);
   const [busy, setBusy] = useState<"save" | "import" | "export" | null>(null);
   const busyRef = useRef(false);
   const snapshotPending = useRef(false);
@@ -62,7 +66,7 @@ export function useSlideEditor(props: SlideProps) {
   const [requesting, setRequesting] = useState(false);
   const permission = useRef<{ granted: boolean; controller: AbortController | null; promise: Promise<boolean> | null }>({ granted: false, controller: null, promise: null });
   const clipboard = useRef<SlideElement[]>([]);
-  const imageExports = useRef(new Set<AbortController>());
+  const exportControllers = useRef(new Set<AbortController>());
   const features = { ...featureDefaults, ...props.features };
   const readOnly = props.readOnly ?? !props.onSave;
   const [wasReadOnly, setWasReadOnly] = useState(readOnly);
@@ -82,6 +86,12 @@ export function useSlideEditor(props: SlideProps) {
     if (!mounted.current) return;
     try { void Promise.resolve(propsRef.current.onEvent?.(copy(event))).catch(() => {}); } catch { /* Observer errors do not undo completed edits. */ }
   }, []);
+  const recordConversion = useCallback((report: SlideConversionReport) => {
+    if (!mounted.current) return;
+    const captured = copy(report);
+    conversionReportRef.current = captured; setConversionReport(captured);
+    emit({ type: "conversion", ...captured });
+  }, [emit]);
   const reportError = useCallback((error: unknown) => {
     if (mounted.current) setNotice({ kind: "error", text: error instanceof Error ? error.message : "操作を完了できませんでした。" });
   }, []);
@@ -95,11 +105,11 @@ export function useSlideEditor(props: SlideProps) {
   }, [emit, invalidateOperations]);
   useEffect(() => {
     mounted.current = true;
-    const exports = imageExports.current;
+    const exports = exportControllers.current;
     return () => { mounted.current = false; invalidateOperations(); permission.current.controller?.abort(); for (const controller of exports) controller.abort(); };
   }, [invalidateOperations]);
   useLayoutEffect(() => {
-    if (props.features?.export === false) for (const controller of imageExports.current)
+    if (props.features?.export === false) for (const controller of exportControllers.current)
       controller.abort(new Error("エクスポート機能は無効です。"));
   }, [props.features?.export]);
   useEffect(() => { if (readOnly) { inputRegistration.current?.reset?.(); endEdit(); } }, [readOnly, endEdit]);
@@ -284,7 +294,7 @@ export function useSlideEditor(props: SlideProps) {
     session.discard(); selectionPast.current = []; selectionFuture.current = []; setInputPending(false);
   }, [endEdit, session]);
 
-  const importDeck = useCallback(async (loader: () => Promise<{ deck: SlideDeck; warnings: readonly string[] }>) => {
+  const importDeck = useCallback(async (loader: () => Promise<{ deck: SlideDeck; warnings: readonly string[]; diagnostics?: readonly SlidePptxDiagnostic[] }>) => {
     const importEnabled = () => propsRef.current.features?.import !== false;
     if (snapshotPending.current || busyRef.current || !mounted.current || !importEnabled() || (propsRef.current.readOnly ?? !propsRef.current.onSave)) return;
     const generation = operationGeneration.current;
@@ -306,12 +316,14 @@ export function useSlideEditor(props: SlideProps) {
       const changed = session.getSnapshot().deck !== before;
       if (changed) rememberSelection(previous);
       if (result.deck.slides[0]) select({ slideId: result.deck.slides[0].id, elementIds: [] });
-      setNotice({ kind: result.warnings.length ? "info" : "success", text: result.warnings.length ? `読み込みました。${result.warnings.join(" ")}` : "読み込みました。" });
-      emit({ type: "import", warnings: result.warnings });
+      if (result.diagnostics) recordConversion({ phase: "import", warnings: result.warnings, diagnostics: result.diagnostics });
+      setNotice({ kind: result.warnings.length ? "info" : "success", text: result.warnings.length ? `読み込みました。${result.diagnostics?.length ?? result.warnings.length}件の変換内容を確認してください。` : "読み込みました。",
+        ...(result.diagnostics?.length ? { conversion: true } : {}) });
+      emit({ type: "import", warnings: result.warnings, ...(result.diagnostics ? { diagnostics: result.diagnostics } : {}) });
       if (changed) emit({ type: "change", source: "import", deck: session.getSnapshot().deck });
     } catch (error) { reportError(error); }
     finally { busyRef.current = false; snapshotPending.current = false; if (mounted.current) setBusy(null); }
-  }, [authorize, emit, rememberSelection, reportError, select, session]);
+  }, [authorize, emit, recordConversion, rememberSelection, reportError, select, session]);
   const importPptx = useCallback(async (input: Blob | ArrayBuffer | Uint8Array) => {
     await importDeck(async () => (await import("../import/import-pptx")).importSlidePptx(input));
   }, [importDeck]);
@@ -323,38 +335,14 @@ export function useSlideEditor(props: SlideProps) {
       return { deck: parseSlideDeck(typeof input === "string" ? input : await input.text()), warnings: [] };
     });
   }, [importDeck]);
-  const exportFile = useCallback(async (format: "pptx" | "slon", options?: SlidePptxExportOptions) => {
-    const exportEnabled = () => propsRef.current.features?.export !== false;
-    if (!exportEnabled()) throw new Error("エクスポート機能は無効です。");
-    const result = await withSnapshot("export", async deck => {
-      if (!exportEnabled()) throw new Error("エクスポート機能は無効です。");
-      const warnings: string[] = [];
-      const blob = format === "pptx" ? await (await import("../export/export-pptx")).exportSlidePptx(deck, { onWarning: warning => {
-        warnings.push(warning); options?.onWarning?.(warning);
-      } })
-        : new Blob([serializeSlideDeck(deck)], { type: "application/json" });
-      if (!mounted.current) return null;
-      if (!exportEnabled()) throw new Error("エクスポート機能は無効です。");
-      const filename = (propsRef.current.exportFileName ?? deck.title ?? "presentation").replace(/\.(pptx|slon|json)$/i, "") || "presentation";
-      return { blob, filename: `${filename}.${format}`, warnings };
-    });
-    if (!result) throw new Error("別の処理中、または画面が閉じられたためエクスポートできませんでした。");
-    return result;
-  }, [withSnapshot]);
-  const exportPptx = useCallback(async (options?: SlidePptxExportOptions) => {
-    const result = await exportFile("pptx", options);
-    if (result.warnings.length) setNotice({ kind: "info", text: result.warnings.join(" ") });
-    return result.blob;
-  }, [exportFile]);
-  const exportNative = useCallback(async () => (await exportFile("slon")).blob, [exportFile]);
-  const withImageSnapshot = useCallback(async <T,>(signal: SlideImageCommonOptions["signal"], consume: (deck: SlideDeck, signal: AbortSignal) => Promise<T>): Promise<T> => {
+  const withExportSnapshot = useCallback(async <T,>(signal: SlideImageCommonOptions["signal"], consume: (deck: SlideDeck, signal: AbortSignal) => Promise<T>): Promise<T> => {
     if (propsRef.current.features?.export === false) throw new Error("エクスポート機能は無効です。");
     throwIfSlideImageAborted(signal);
     const controller = new AbortController();
     const abort = () => controller.abort(signal?.reason);
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
-    imageExports.current.add(controller);
+    exportControllers.current.add(controller);
     try {
       const result = await withSnapshot("export", async deck => {
         if (propsRef.current.features?.export === false) throw new Error("エクスポート機能は無効です。");
@@ -362,35 +350,67 @@ export function useSlideEditor(props: SlideProps) {
         throwIfSlideImageAborted(controller.signal);
         return rendered;
       }, controller.signal);
-      if (result === null) throw new Error("別の処理中、または画面が閉じられたため画像を取得できませんでした。");
+      if (result === null) throw new Error("別の処理中、または画面が閉じられたためエクスポートできませんでした。");
       return result;
     } finally {
       signal?.removeEventListener("abort", abort);
-      imageExports.current.delete(controller);
+      exportControllers.current.delete(controller);
     }
   }, [withSnapshot]);
+  const exportFile = useCallback(async (format: "pptx" | "slon", options?: SlidePptxExportOptions) => {
+    const exportEnabled = () => propsRef.current.features?.export !== false;
+    if (!exportEnabled()) throw new Error("エクスポート機能は無効です。");
+    const consume = async (deck: SlideDeck, signal?: AbortSignal) => {
+      if (!exportEnabled()) throw new Error("エクスポート機能は無効です。");
+      const warnings: string[] = [], diagnostics: SlidePptxDiagnostic[] = [];
+      const blob = format === "pptx" ? await (await import("../export/export-pptx")).exportSlidePptx(deck, { ...options, signal, onWarning: warning => {
+        warnings.push(warning); options?.onWarning?.(warning);
+      }, onDiagnostic: diagnostic => { diagnostics.push(diagnostic); options?.onDiagnostic?.(diagnostic); } })
+        : new Blob([serializeSlideDeck(deck)], { type: "application/json" });
+      signal?.throwIfAborted();
+      if (!mounted.current) return null;
+      if (!exportEnabled()) throw new Error("エクスポート機能は無効です。");
+      const filename = (propsRef.current.exportFileName ?? deck.title ?? "presentation").replace(/\.(pptx|slon|json)$/i, "") || "presentation";
+      if (format === "pptx") recordConversion({ phase: "export", warnings, diagnostics });
+      return { blob, filename: `${filename}.${format}`, warnings, diagnostics };
+    };
+    // Native serialization is synchronous. Preserve pending input commits before
+    // checking the current feature flag; Office conversion can also be cancelled
+    // while it is running.
+    const result = format === "pptx"
+      ? await withExportSnapshot(options?.signal, consume)
+      : await withSnapshot("export", consume);
+    if (!result) throw new Error("別の処理中、または画面が閉じられたためエクスポートできませんでした。");
+    return result;
+  }, [recordConversion, withExportSnapshot, withSnapshot]);
+  const exportPptx = useCallback(async (options?: SlidePptxExportOptions) => {
+    const result = await exportFile("pptx", options);
+    setNotice(result.warnings.length ? { kind: "info", text: `書き出しました。${result.diagnostics.length || result.warnings.length}件の変換内容を確認してください。`, conversion: true } : { kind: "success", text: "書き出しました。" });
+    return result.blob;
+  }, [exportFile]);
+  const exportNative = useCallback(async () => (await exportFile("slon")).blob, [exportFile]);
   const exportImage = useCallback((options: SlideImageExportOptions) => {
     const { renderer, signal, ...target } = options;
     const captured = copy(target);
-    return withImageSnapshot(signal, async (deck, signal) => (await import("../render/browser-export")).exportImage(deck, { ...captured, renderer, signal }));
-  }, [withImageSnapshot]);
+    return withExportSnapshot(signal, async (deck, signal) => (await import("../render/browser-export")).exportImage(deck, { ...captured, renderer, signal }));
+  }, [withExportSnapshot]);
   const exportImages = useCallback((options: SlideImagesExportOptions = {}) => {
     const { renderer, signal, ...target } = options;
     const captured = copy(target);
-    return withImageSnapshot(signal, async (deck, signal) => (await import("../render/browser-export")).exportImages(deck, { ...captured, renderer, signal }));
-  }, [withImageSnapshot]);
+    return withExportSnapshot(signal, async (deck, signal) => (await import("../render/browser-export")).exportImages(deck, { ...captured, renderer, signal }));
+  }, [withExportSnapshot]);
   const download = useCallback(async (format: "pptx" | "slon", document: Document) => {
     const exportEnabled = () => propsRef.current.features?.export !== false;
     if (!exportEnabled()) return;
     try {
-      const { blob, filename, warnings } = await exportFile(format);
+      const { blob, filename, warnings, diagnostics } = await exportFile(format);
       if (!mounted.current || !exportEnabled()) return;
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url; link.download = filename;
       document.body.append(link); link.click(); link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      if (warnings.length) setNotice({ kind: "info", text: warnings.join(" ") });
+      setNotice(warnings.length ? { kind: "info", text: `書き出しました。${diagnostics.length || warnings.length}件の変換内容を確認してください。`, conversion: true } : { kind: "success", text: "書き出しました。" });
     } catch (error) { reportError(error); }
   }, [exportFile, reportError]);
 
@@ -418,13 +438,14 @@ export function useSlideEditor(props: SlideProps) {
     getElements: (slideId, options) => copy(getElements(session.getSnapshot().deck, slideId, options)),
     getElement: (slideId, elementId, options) => copy(getElement(session.getSnapshot().deck, slideId, elementId, options)),
     getAnimations: slideId => copy(getAnimations(session.getSnapshot().deck, slideId)),
+    getPptxDiagnostics: () => copy(conversionReportRef.current?.diagnostics ?? []),
     execute: command => execute(command),
     undo: () => history("undo"), redo: () => history("redo"), save, discard,
     getSelection: () => copy(selectionRef.current), select, importNative, exportNative, importPptx, exportPptx, exportImage, exportImages,
   }), [discard, execute, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, save, select, session]);
 
   return { ...snapshot, dirty, selection, select, execute, save, discard, history, importPptx, importNative, exportImage, exportImages, download,
-    copyElements, pasteElements, canPasteElements, prepareCommands, registerInputFlush, refreshPendingInput, notice, setNotice, reportError, features, readOnly, busy, requesting,
+    copyElements, pasteElements, canPasteElements, prepareCommands, registerInputFlush, refreshPendingInput, notice, setNotice, conversionReport, reportError, features, readOnly, busy, requesting,
     editable: !readOnly && !busy && !requesting };
 }
 

@@ -1,0 +1,16 @@
+<!-- Independently authored element-click sequence with two autoreversing
+     iterations. PowerPoint repeatCount is measured in thousandths. -->
+<p:timing xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">
+    <p:childTnLst><p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="interactiveSeq" evtFilter="cancelBubble">
+      <p:stCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="3"/></p:tgtEl></p:cond></p:stCondLst>
+      <p:childTnLst><p:par><p:cTn id="3" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst>
+        <p:childTnLst><p:par><p:cTn id="4" dur="2000" fill="hold" nodeType="clickEffect">
+          <p:childTnLst><p:animRot from="900000" to="5400000">
+            <p:cBhvr><p:cTn id="5" dur="500" repeatCount="2000" autoRev="1" fill="hold"/><p:tgtEl><p:spTgt spid="3"/></p:tgtEl><p:attrNameLst><p:attrName>style.rotation</p:attrName></p:attrNameLst></p:cBhvr>
+          </p:animRot></p:childTnLst>
+        </p:cTn></p:par></p:childTnLst>
+      </p:cTn></p:par></p:childTnLst>
+    </p:cTn></p:seq></p:childTnLst>
+  </p:cTn></p:par></p:tnLst>
+</p:timing>

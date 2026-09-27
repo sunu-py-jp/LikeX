@@ -408,6 +408,9 @@
         "name": {
           "type": "string"
         },
+        "timelineId": {
+          "type": "string"
+        },
         "trigger": {
           "$ref": "#/$defs/SlideAnimationStep_trigger"
         },

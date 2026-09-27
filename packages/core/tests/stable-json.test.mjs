@@ -120,3 +120,17 @@ test('fixed indentation uses LF without a trailing newline and counts toward siz
     assert.throws(() => serializeStableJson(input, { space }), RangeError);
   }
 });
+
+
+test('deep acyclic documents serialize without depending on the JavaScript call stack', () => {
+  let value = 'leaf';
+  for (let index = 0; index < 12_000; index++) value = { child: [value] };
+  const expected = '{"child":['.repeat(12_000) + '"leaf"' + ']}'.repeat(12_000);
+  assert.equal(serializeStableJson(value), expected);
+  assert.equal(serializeStableJson(value, { maxLength: expected.length }), expected);
+  assert.throws(() => serializeStableJson(value, { maxLength: expected.length - 1 }), /maxLength/);
+  let inner = value;
+  for (let index = 0; index < 11_999; index++) inner = inner.child[0];
+  inner.child[0] = value;
+  assert.throws(() => serializeStableJson(value), /circular/);
+});

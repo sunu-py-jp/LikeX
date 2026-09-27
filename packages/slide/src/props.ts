@@ -5,13 +5,15 @@ import type { SlideAnimationStep, SlideQueryOptions } from "./model";
 import type { SlidePptxExportOptions } from "./export/types";
 import type { SlideImageExportOptions, SlideImagesExportOptions } from "./render/browser-export";
 import type { SlideImageResult } from "./render/types";
+import type { SlidePptxDiagnostic } from "./office/types";
 
 export type SlideFeatures = Partial<Record<"addSlides" | "deleteSlides" | "reorderSlides" | "text" | "shapes" | "images" | "formatting" | "animations" | "notes" | "import" | "export" | "presentation" | "history", boolean>>;
 export type SlideSelection = { slideId: string; elementIds: string[] };
 export type SlideEvent =
   | { type: "change"; source: "command" | "import" | "undo" | "redo"; deck: SlideDeck }
   | { type: "save"; phase: "start" | "success" | "error" | "cancelled"; error?: string }
-  | { type: "import"; warnings: readonly string[] }
+  | { type: "import"; warnings: readonly string[]; diagnostics?: readonly SlidePptxDiagnostic[] }
+  | { type: "conversion"; phase: "import" | "export"; warnings: readonly string[]; diagnostics: readonly SlidePptxDiagnostic[] }
   | { type: "edit-mode"; mode: "view" | "requesting" | "edit" };
 export type SlideHandle = {
   /** Defaults to the final static state. Pass includeAnimations:true for editable source data. */
@@ -21,6 +23,8 @@ export type SlideHandle = {
   getElements(slideId: string, options?: SlideQueryOptions): SlideElement[];
   getElement(slideId: string, elementId: string, options?: SlideQueryOptions): SlideElement | undefined;
   getAnimations(slideId: string): SlideAnimationStep[];
+  /** Details from the latest successful PPTX import/export; empty before the first conversion. */
+  getPptxDiagnostics(): readonly SlidePptxDiagnostic[];
   execute(command: SlideCommand | readonly SlideCommand[]): Promise<SlideCommandResult | null>;
   undo(): Promise<boolean>;
   redo(): Promise<boolean>;

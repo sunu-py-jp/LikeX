@@ -1,12 +1,16 @@
 import { createModelEditorController } from "../core";
 import type { MaybePromise, ModelEditorAdapter, ModelEditorOptions, ModelEditorTaskContext, OperationContext } from "../core";
 import { createAIChatMessage, executeAIChatCommands, getAIChatConversation, normalizeAIChat, normalizeAIChatAttachment, parseAIChat, serializeAIChat } from "../model";
-import type { AIChatAttachment, AIChatCommand, AIChatConversation, AIChatMessage, AIChatModel } from "../model";
+import { record } from "../model/validation";
+import type { AIChatAttachment, AIChatCommand, AIChatContentPart, AIChatConversation, AIChatMessage, AIChatModel } from "../model";
 
 export type AIChatFeature = "send" | "retry" | "attachments" | "edit" | "delete" | "conversations" | "history" | "import" | "export";
 export type AIChatFeatures = Partial<Record<AIChatFeature, boolean>>;
 export type AIChatSendRequest = { aichat: AIChatModel; conversation: AIChatConversation; messages: readonly AIChatMessage[]; prompt: AIChatMessage; retry: boolean };
-export type AIChatSendHandler = (request: AIChatSendRequest, context: OperationContext) => MaybePromise<string | AsyncIterable<string>>;
+export type AIChatResponse = { content: string; parts?: AIChatContentPart[] };
+/** Text appends; a part replaces the same ID in place or appends a new ID. */
+export type AIChatResponseChunk = string | { type: "text"; text: string } | { type: "part"; part: AIChatContentPart };
+export type AIChatSendHandler = (request: AIChatSendRequest, context: OperationContext) => MaybePromise<string | AIChatResponse | AsyncIterable<AIChatResponseChunk>>;
 export type AIChatSessionOptions = Omit<ModelEditorOptions<AIChatModel, AIChatFeature>, "onEditRequest"> & {
   onEditRequest?: (request: { aichat: AIChatModel }, context: OperationContext) => MaybePromise<boolean>;
   onSend?: AIChatSendHandler;
@@ -46,12 +50,18 @@ export function createAIChatSession(initialAIChat: AIChatModel, initialOptions: 
   function editorOptions(value: AIChatSessionOptions): ModelEditorOptions<AIChatModel, AIChatFeature> {
     return { ...value, onEditRequest: value.onEditRequest ? ({ model }, context) => value.onEditRequest!({ aichat: model }, context) : undefined };
   }
-  const editor = createModelEditorController(aiChatEditorAdapter, initialAIChat, editorOptions(options));
+  const editor = createModelEditorController(aiChatEditorAdapter, normalizeAIChat(initialAIChat), editorOptions(options));
   let active: { conversationId: string; messageId: string; cancel(): void } | null = null;
   async function respond(context: ModelEditorTaskContext<AIChatModel, AIChatCommand>, conversationId: string, prompt: AIChatMessage, assistantId: string, retry: boolean, handler: AIChatSendHandler) {
     if (context.signal.aborted) return;
-    let content = "";
-    const apply = (status: "streaming" | "complete" | "cancelled" | "error", error?: string) => context.apply({ type: "message.respond", conversationId, messageId: assistantId, content, status, ...(error ? { error } : {}) });
+    const responseMessage = () => getAIChatConversation(editor.getModel(), conversationId)?.messages.find(message => message.id === assistantId);
+    // Read committed values for each update: invalid chunks and reentrant cancellation retain the last valid state.
+    const apply = (status: "streaming" | "complete" | "cancelled" | "error", patch: Partial<AIChatResponse> = {}, error?: string) => {
+      const message = responseMessage();
+      if (!message) return null;
+      return context.apply({ type: "message.respond", conversationId, messageId: assistantId, content: message.content,
+        ...(message.parts !== undefined ? { parts: message.parts } : {}), ...patch, status, ...(error ? { error } : {}) });
+    };
     const current = { conversationId, messageId: assistantId, cancel() { apply("cancelled"); } };
     active = current;
     editor.setNotice(null);
@@ -62,9 +72,13 @@ export function createAIChatSession(initialAIChat: AIChatModel, initialOptions: 
       const pending = await waitForResponse(handler({ aichat, conversation, messages, prompt, retry }, { signal: context.signal, requestId: context.requestId }), context.signal);
       if (!pending) return;
       const response = pending.value;
-      if (typeof response === "string") { content = response; apply("complete"); return; }
-      if (!response || typeof response[Symbol.asyncIterator] !== "function") throw new Error("onSend must return text or an AsyncIterable of text chunks.");
-      const iterator = response[Symbol.asyncIterator]();
+      if (typeof response === "string") { apply("complete", { content: response }); return; }
+      if (!response || typeof (response as Partial<AsyncIterable<AIChatResponseChunk>>)[Symbol.asyncIterator] !== "function") {
+        const value = record(response, "AIChat response", ["content", "parts"]);
+        apply("complete", { content: value.content as string, ...(value.parts !== undefined ? { parts: value.parts as AIChatContentPart[] } : {}) });
+        return;
+      }
+      const iterator = (response as AsyncIterable<AIChatResponseChunk>)[Symbol.asyncIterator]();
       let finished = false;
       try {
         for (;;) {
@@ -72,9 +86,23 @@ export function createAIChatSession(initialAIChat: AIChatModel, initialOptions: 
           if (!result) return;
           if (result.value.done) { finished = true; break; }
           const chunk = result.value.value;
-          if (typeof chunk !== "string") throw new Error("Response chunks must be strings.");
-          content += chunk;
-          if (!apply("streaming") && context.signal.aborted) return;
+          let patch: Partial<AIChatResponse>;
+          if (typeof chunk === "string") patch = { content: (responseMessage()?.content ?? "") + chunk };
+          else {
+            const value = record(chunk, "Response chunk", ["type", "text", "part"]);
+            if (value.type === "text") {
+              record(value, "Text response chunk", ["type", "text"]);
+              if (typeof value.text !== "string") throw new Error("Text response chunks require a string.");
+              patch = { content: (responseMessage()?.content ?? "") + value.text };
+            } else if (value.type === "part") {
+              record(value, "Part response chunk", ["type", "part"]);
+              const part = record(value.part, "Content part", ["id", "type", "data"]) as AIChatContentPart;
+              const parts = [...responseMessage()?.parts ?? []], index = parts.findIndex(item => item.id === part.id);
+              if (index < 0) parts.push(part); else parts[index] = part;
+              patch = { parts };
+            } else throw new Error("Response chunks must be text or content parts.");
+          }
+          if (!apply("streaming", patch) && context.signal.aborted) return;
         }
       } finally {
         // A suspended generator's return() can also wait indefinitely, so do not block cancellation.
@@ -84,8 +112,7 @@ export function createAIChatSession(initialAIChat: AIChatModel, initialOptions: 
     } catch (cause) {
       if (!context.signal.aborted) {
         const error = cause instanceof Error ? cause.message : "応答を取得できませんでした。";
-        content = getAIChatConversation(editor.getModel(), conversationId)?.messages.find(message => message.id === assistantId)?.content ?? "";
-        apply("error", error.slice(0, 10_000));
+        apply("error", {}, error.slice(0, 10_000));
         editor.setNotice({ kind: "error", text: error });
       }
     } finally { if (active === current) active = null; }
@@ -113,7 +140,7 @@ export function createAIChatSession(initialAIChat: AIChatModel, initialOptions: 
       const conversation = getAIChatConversation(context.model, conversationId), message = conversation?.messages.find(item => item.id === messageId);
       const prompt = conversation?.messages.find(item => item.id === message?.replyTo);
       if (!message || message.role !== "assistant" || !prompt || prompt.role !== "user") throw new Error("再試行する応答が見つかりません。");
-      context.apply({ type: "message.respond", conversationId, messageId, content: "", status: "streaming" });
+      if (!context.apply({ type: "message.respond", conversationId, messageId, content: "", parts: [], status: "streaming" }) && context.signal.aborted) return;
       accepted = true;
       await respond(context, conversationId, prompt, messageId, true, handler);
     });

@@ -1,15 +1,34 @@
 "use client";
-import { forwardRef, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Component, forwardRef, useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, ForwardRefExoticComponent, MouseEvent, PropsWithoutRef, RefAttributes } from "react";
 import { ArrowDownToLine, ArrowUp, Bot, Check, FileText, LoaderCircle, MessageSquare, Paperclip, Pencil, Plus, Redo2, RefreshCw, Save, Square, Trash2, Undo2, Upload, UserRound, X } from "lucide-react";
 import { createPrimaryColorPalette } from "./core";
 import { openContextMenu, type ContextMenuAction } from "./browser";
 import { AICHAT_LIMITS, createAIChat, getAIChatConversation, parseAIChat } from "./model";
-import type { AIChatAttachment, AIChatCommand, AIChatMessage } from "./model";
+import type { AIChatAttachment, AIChatCommand, AIChatContentPart, AIChatMessage } from "./model";
 import { createAIChatSession } from "./state/session";
-import type { AIChatHandle, AIChatProps } from "./aichat-types";
+import { observeAIChatTranscript } from "./transcript-scroll";
+import type { AIChatHandle, AIChatPartRenderer, AIChatProps } from "./aichat-types";
 const roleNames = { user: "あなた", assistant: "アシスタント", system: "システム", tool: "ツール" };
 const toolNames = { pending: "待機中", running: "実行中", complete: "完了", error: "エラー" };
+
+function UnknownPart({ part, failed = false }: { part: AIChatContentPart; failed?: boolean }) {
+  return <details className="lxai-part-fallback"><summary><FileText size={13} /><span>{part.type}</span><small>{failed ? "表示できませんでした・データを確認" : "データを表示"}</small></summary><pre>{JSON.stringify(part.data, null, 2)}</pre></details>;
+}
+type PartViewProps = { part: AIChatContentPart; message: AIChatMessage; renderer?: AIChatPartRenderer };
+class PartView extends Component<PartViewProps, { failed: boolean; part: AIChatContentPart; renderer?: AIChatPartRenderer }> {
+  state = { failed: false, part: this.props.part, renderer: this.props.renderer };
+  static getDerivedStateFromError() { return { failed: true }; }
+  static getDerivedStateFromProps(props: PartViewProps, state: PartView["state"]) {
+    return props.part !== state.part || props.renderer !== state.renderer ? { failed: false, part: props.part, renderer: props.renderer } : null;
+  }
+  render() {
+    const { part, message, renderer } = this.props;
+    if (!renderer || this.state.failed) return <UnknownPart part={part} failed={this.state.failed} />;
+    // Catch callback failures during server rendering too. The boundary handles returned components.
+    try { return renderer(part, { message }); } catch { return <UnknownPart part={part} failed />; }
+  }
+}
 
 export const LikeAIChat: ForwardRefExoticComponent<PropsWithoutRef<AIChatProps> & RefAttributes<AIChatHandle>> = forwardRef<AIChatHandle, AIChatProps>(function LikeAIChat(props, ref) {
   const [session] = useState(() => createAIChatSession(props.initialAIChat ?? createAIChat(), props));
@@ -18,6 +37,8 @@ export const LikeAIChat: ForwardRefExoticComponent<PropsWithoutRef<AIChatProps> 
   useEffect(() => { session.activate(); return () => session.dispose(); }, [session]);
   const [selectedId, setSelectedId] = useState(props.initialConversationId ?? snapshot.model.conversations[0].id);
   const conversation = getAIChatConversation(snapshot.model, selectedId) ?? snapshot.model.conversations[0];
+  // Selection callbacks also observe synchronous imports and deletion fallback before effects run.
+  // eslint-disable-next-line react-hooks/refs
   const selectedRef = useRef(conversation.id); selectedRef.current = conversation.id;
   const [systemDark, setSystemDark] = useState(false);
   useEffect(() => { const media = typeof window !== "undefined" ? window.matchMedia?.("(prefers-color-scheme: dark)") : undefined; if (!media) return; const changed = () => setSystemDark(media.matches); changed(); media.addEventListener("change", changed); return () => media.removeEventListener("change", changed); }, []);
@@ -36,6 +57,8 @@ export const LikeAIChat: ForwardRefExoticComponent<PropsWithoutRef<AIChatProps> 
   const previousTarget = useRef({ chatId: snapshot.model.id, conversationId: conversation.id });
   function clearTransientState() { composerVersion.current++; setDraft(""); setAttachments([]); setEditing(null); setRenaming(null); setDeleting(null); }
   useLayoutEffect(() => {
+    // The external session can replace/delete a conversation; synchronize its effective selection before paint.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (selectedId !== conversation.id) setSelectedId(conversation.id);
     const target = previousTarget.current;
     if (target.chatId !== snapshot.model.id || target.conversationId !== conversation.id) {
@@ -93,7 +116,7 @@ export const LikeAIChat: ForwardRefExoticComponent<PropsWithoutRef<AIChatProps> 
   }));
   useEffect(() => {
     const element = transcriptRef.current;
-    if (element) element.scrollTop = element.scrollHeight;
+    if (element) return observeAIChatTranscript(element, conversation.id, conversation.messages.filter(message => message.role === "user").map(message => message.id));
   }, [conversation.id, conversation.messages]);
   async function submit() {
     const id = conversation.id, text = draft, files = attachments, version = composerVersion.current;
@@ -137,7 +160,8 @@ export const LikeAIChat: ForwardRefExoticComponent<PropsWithoutRef<AIChatProps> 
     return <article className={`lxai-message lxai-message-${message.role}`} key={message.id} aria-label={`${roleNames[message.role]}のメッセージ`} onContextMenu={event => messageMenu(event, message)}>
       <div className={`lxai-avatar lxai-avatar-${message.role}`}>{message.role === "user" ? <UserRound size={17} /> : <Bot size={18} />}</div>
       <div className="lxai-message-main"><div className="lxai-message-meta"><strong>{roleNames[message.role]}</strong><time dateTime={message.createdAt}>{message.createdAt.slice(11, 16)} UTC</time>{streaming && <span className="lxai-stream-status"><LoaderCircle size={12} />生成中</span>}</div>
-        <div className="lxai-message-content">{message.content || (streaming ? "応答を待っています…" : message.status === "complete" ? "（空のメッセージ）" : "")}</div>
+        {(message.content || !message.parts?.length) && <div className="lxai-message-content">{message.content || (streaming ? "応答を待っています…" : message.status === "complete" ? "（空のメッセージ）" : "")}</div>}
+        {!!message.parts?.length && <div className="lxai-message-parts">{message.parts.map(part => <div className="lxai-message-part" key={part.id} data-part-type={part.type}><PartView part={part} message={message} renderer={props.partRenderers && Object.hasOwn(props.partRenderers, part.type) ? props.partRenderers[part.type] : undefined} /></div>)}</div>}
         {!!message.attachments?.length && <div className="lxai-attachments">{message.attachments.map(item => attachmentView(item))}</div>}
         {!!message.references?.length && <div className="lxai-references"><span>参照</span>{message.references.map(item => <div key={item.id}>{item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title} ↗</a> : <strong>{item.title}</strong>}{item.description && <p>{item.description}</p>}</div>)}</div>}
         {!!message.toolCalls?.length && <div className="lxai-tools">{message.toolCalls.map(item => <details key={item.id}><summary><FileText size={13} />{item.name}<span>{toolNames[item.status]}</span></summary>{item.detail && <pre>{item.detail}</pre>}</details>)}</div>}

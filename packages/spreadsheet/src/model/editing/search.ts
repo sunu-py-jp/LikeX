@@ -8,8 +8,38 @@ import { effectiveCellFormat, formatCellValue } from "../formatting";
 import { createConditionalFormatter } from "../conditional-formatting";
 import type { SpreadsheetCalculatedValue, SpreadsheetWorkbook } from "../types";
 import { setCellValues } from "../workbook/cells";
+import type { SpreadsheetReadRangeInput } from "../query";
+import { copyQuerySnapshot, type QuerySnapshot } from "../query-snapshot";
+import { requireRange, requireSheet, requireWorkbook } from "../query-validation";
 
 type Calculated = Readonly<Record<string, Readonly<Record<string, SpreadsheetCalculatedValue>>>>;
+export type SpreadsheetSearchOptions = Readonly<{
+  sheetId?: string;
+  /** Inclusive same-sheet rectangle. Requires sheetId; searches populated cells without a 10,000-cell allocation limit. */
+  range?: SpreadsheetReadRangeInput;
+  calculated?: Calculated;
+}>;
+export type SpreadsheetSheetSearchQuery = Readonly<{ text: string; matchCase?: boolean; wholeName?: boolean }>;
+export type SpreadsheetSheetSearchMatch = Readonly<{ sheetId: string; name: string; index: number; rowCount: number; columnCount: number }>;
+
+/** Literal name search in workbook/tab order; index is zero-based and results are immutable snapshots. */
+export function findSpreadsheetSheets(workbook: QuerySnapshot<SpreadsheetWorkbook>, query: SpreadsheetSheetSearchQuery): readonly SpreadsheetSheetSearchMatch[] {
+  requireWorkbook(workbook);
+  if (!query || typeof query.text !== "string" || query.text.length > 100_000 ||
+    query.matchCase !== undefined && typeof query.matchCase !== "boolean" || query.wholeName !== undefined && typeof query.wholeName !== "boolean")
+    throw new Error("シート名の検索条件が正しくありません");
+  const expected = query.matchCase ? query.text : query.text.toLocaleLowerCase("en-US");
+  const matches: SpreadsheetSheetSearchMatch[] = [];
+  workbook.sheets.forEach((item, index) => {
+    const sheet = requireSheet(workbook, item.id);
+    if (typeof sheet.name !== "string") throw new Error("シート名が正しくありません");
+    const name = query.matchCase ? sheet.name : sheet.name.toLocaleLowerCase("en-US");
+    if (expected && (query.wholeName ? name === expected : name.includes(expected)))
+      matches.push({ sheetId: sheet.id, name: sheet.name, index, rowCount: sheet.rowCount, columnCount: sheet.columnCount });
+  });
+  return copyQuerySnapshot(matches);
+}
+
 function pattern(query: SpreadsheetSearchQuery): RegExp | null {
   if (!query || typeof query.text !== "string" || query.text.length > 100_000) throw new Error("検索する文字列を正しく指定してください");
   if (query.matchCase !== undefined && typeof query.matchCase !== "boolean" || query.wholeCell !== undefined && typeof query.wholeCell !== "boolean" ||
@@ -19,14 +49,20 @@ function pattern(query: SpreadsheetSearchQuery): RegExp | null {
   return new RegExp(query.wholeCell ? `^${escaped}$` : escaped, query.matchCase ? "gu" : "giu");
 }
 /** Literal text search over populated cells; formula mode searches raw expressions. */
-export function findSpreadsheetCells(workbook: SpreadsheetWorkbook, query: SpreadsheetSearchQuery,
-  options: { sheetId?: string; calculated?: Calculated } = {}): readonly SpreadsheetSearchMatch[] {
+export function findSpreadsheetCells(workbook: QuerySnapshot<SpreadsheetWorkbook>, query: SpreadsheetSearchQuery,
+  options: SpreadsheetSearchOptions = {}): readonly SpreadsheetSearchMatch[] {
+  requireWorkbook(workbook);
+  if (!options || typeof options !== "object" || Array.isArray(options)) throw new Error("検索の対象が正しくありません");
+  if (options.range !== undefined && options.sheetId === undefined) throw new Error("範囲を検索する場合はシートIDも指定してください");
+  const sheets = options.sheetId === undefined ? workbook.sheets.map(sheet => requireSheet(workbook, sheet.id)) : [requireSheet(workbook, options.sheetId)];
+  const range = options.range === undefined ? undefined : requireRange(sheets[0], options.range);
   const matcher = pattern(query);
-  if (!matcher) return [];
+  if (!matcher) return Object.freeze([]);
   const calculated = query.lookIn === "formulas" ? undefined : options.calculated ?? calculateWorkbook(workbook);
-  return workbook.sheets.filter(sheet => !options.sheetId || sheet.id === options.sheetId).flatMap(sheet => {
+  const matches = sheets.flatMap(sheet => {
     const display = query.lookIn === "formulas" ? undefined : createConditionalFormatter(sheet, calculated?.[sheet.id]);
     return Object.entries(sheet.cells).map(([address, cell]) => ({ address, cell, position: parseCellAddress(address)! }))
+      .filter(({ position }) => !range || position.row >= range.top && position.row <= range.bottom && position.column >= range.left && position.column <= range.right)
       .sort((a, b) => a.position.row - b.position.row || a.position.column - b.position.column).flatMap(({ address, cell, position }) => {
       const calculatedValue = calculated?.[sheet.id]?.[address];
       const format = display?.(position.row, position.column, calculatedValue, effectiveCellFormat(cell)).format;
@@ -35,6 +71,7 @@ export function findSpreadsheetCells(workbook: SpreadsheetWorkbook, query: Sprea
       return matcher.test(matchedText) ? [{ sheetId: sheet.id, address, value: cell.value, matchedText }] : [];
     });
   });
+  return copyQuerySnapshot(matches);
 }
 export function replaceSpreadsheetText(value: string, query: SpreadsheetSearchQuery, replacement: string): string {
   if (typeof replacement !== "string" || replacement.length > 100_000) throw new Error("置換後の文字列を正しく指定してください");

@@ -1,4 +1,5 @@
 import { serializeStableJson } from "../json";
+import { normalizeAIChatContentParts } from "./content-parts";
 import { AICHAT_LIMITS, choice, date, freeze, identifier, list, record, safeUrl, string } from "./validation";
 import type { AIChatAttachment, AIChatInput, AIChatMessage, AIChatMessageInput, AIChatModel, AIChatReference, AIChatToolCall } from "./types";
 const models = new WeakSet<AIChatModel>();
@@ -17,23 +18,24 @@ function toolCall(input: unknown): AIChatToolCall {
   return { id: identifier(raw.id), name: string(raw.name, "Tool name", 1000, false), status: choice(raw.status, ["pending", "running", "complete", "error"], "Tool status"), ...(raw.detail !== undefined ? { detail: string(raw.detail, "Tool details", 100_000) } : {}) };
 }
 function message(input: unknown): AIChatMessage {
-  const raw = record(input, "Message", ["id", "role", "content", "createdAt", "status", "replyTo", "error", "attachments", "references", "toolCalls"]);
+  const raw = record(input, "Message", ["id", "role", "content", "createdAt", "status", "replyTo", "error", "attachments", "references", "toolCalls", "parts"]);
   return { id: identifier(raw.id), role: choice(raw.role, ["user", "assistant", "system", "tool"], "Message role"),
     content: string(raw.content, "Message content", AICHAT_LIMITS.contentLength), createdAt: date(raw.createdAt),
     status: choice(raw.status, ["complete", "streaming", "error", "cancelled"], "Message status"),
     ...(raw.replyTo !== undefined ? { replyTo: identifier(raw.replyTo) } : {}), ...(raw.error !== undefined ? { error: string(raw.error, "Message error", 10_000) } : {}),
     ...(raw.attachments !== undefined ? { attachments: unique(list(raw.attachments, "Attachments", AICHAT_LIMITS.metadataItems).map(normalizeAIChatAttachment), "attachment") } : {}),
     ...(raw.references !== undefined ? { references: unique(list(raw.references, "References", AICHAT_LIMITS.metadataItems).map(reference), "reference") } : {}),
-    ...(raw.toolCalls !== undefined ? { toolCalls: unique(list(raw.toolCalls, "Tool calls", AICHAT_LIMITS.metadataItems).map(toolCall), "tool") } : {}) };
+    ...(raw.toolCalls !== undefined ? { toolCalls: unique(list(raw.toolCalls, "Tool calls", AICHAT_LIMITS.metadataItems).map(toolCall), "tool") } : {}),
+    ...(raw.parts !== undefined ? { parts: normalizeAIChatContentParts(raw.parts) } : {}) };
 }
 export function createAIChatMessage(input: AIChatMessageInput): AIChatMessage {
-  const raw = record(input, "Message input", ["id", "role", "content", "createdAt", "status", "replyTo", "error", "attachments", "references", "toolCalls"]);
+  const raw = record(input, "Message input", ["id", "role", "content", "createdAt", "status", "replyTo", "error", "attachments", "references", "toolCalls", "parts"]);
   return freeze(message({ ...raw, id: raw.id ?? crypto.randomUUID(), createdAt: raw.createdAt ?? new Date().toISOString(), status: raw.status ?? "complete" }));
 }
 function normalizeAIChatFormat(input: unknown, format: "likex.aichat" | "likex.chat"): AIChatModel {
   const raw = record(input, "AIChat", ["format", "version", "id", "title", "conversations"]);
   if (raw.format !== format || raw.version !== 1) throw new Error("Unsupported LikeAIChat format or version.");
-  let count = 0, characters = 0;
+  let count = 0, characters = 0, partCharacters = 0;
   const allIds = new Set<string>();
   const conversations = unique(list(raw.conversations, "Conversations", AICHAT_LIMITS.conversations).map(item => {
     const conversation = record(item, "Conversation", ["id", "title", "messages"]);
@@ -45,6 +47,8 @@ function normalizeAIChatFormat(input: unknown, format: "likex.aichat" | "likex.c
       previous.add(item.id); count++; characters += item.content.length;
       characters += (item.error?.length ?? 0) + (item.references ?? []).reduce((sum, ref) => sum + ref.title.length + (ref.description?.length ?? 0), 0)
         + (item.toolCalls ?? []).reduce((sum, tool) => sum + tool.name.length + (tool.detail?.length ?? 0), 0);
+      partCharacters += (item.parts ?? []).reduce((sum, part) => sum + JSON.stringify(part.data).length, 0);
+      if (partCharacters > AICHAT_LIMITS.totalPartDataLength) throw new Error("AIChat content parts exceed the total data limit.");
     }
     return { id: identifier(conversation.id), title: string(conversation.title, "Conversation title", 1000, false), messages };
   }), "conversation");

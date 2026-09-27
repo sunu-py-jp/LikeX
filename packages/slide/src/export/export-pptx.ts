@@ -1,7 +1,13 @@
 import { createZipArchive, type ZipArchiveEntry } from "../core";
-import { normalizeSlideDeck, resolveSlideAnimations } from "../model";
+import { normalizeSlideDeck } from "../model";
 import type { SlideDeck, SlideElement } from "../model/types";
 import { R, header, namespaces, xml, emu, group, colorMap, relationships, fill, themeXml, type Link } from "./pptx-xml";
+import { exportPptxAnimations } from "./pptx-animations";
+import { OFFICE_PACKAGE_LIMITS } from "../ooxml";
+import { createPptxDiagnosticCollector } from "../office/pptx-diagnostics";
+import { SLIDE_LIMITS } from "../model/limits";
+import { slideElementTextLength, slideTextLength } from "../model/text-length";
+import { createOfficeTaskCheckpoint } from "../office/cooperative-task";
 
 import type { SlidePptxExportOptions } from "./types";
 export type { SlidePptxExportOptions } from "./types";
@@ -28,18 +34,30 @@ function elementXml(element: SlideElement, id: number, imageId?: string): string
 
 /** Writes standard PresentationML only; no downloads, persistence, or network requests. */
 export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExportOptions = {}): Promise<Blob> {
-  const source = normalizeSlideDeck(input);
-  if (source.slides.some(slide => slide.animations?.length))
-    options.onWarning?.("アニメーションは最終静止状態に変換され、タイミング・トリガー・繰り返しはPowerPointに保持されません。");
-  const deck = { ...source, slides: source.slides.map(slide => resolveSlideAnimations(slide)) }, parts: ZipArchiveEntry[] = [], types = new Map<string, string>();
+  options.signal?.throwIfAborted();
+  const checkpoint = createOfficeTaskCheckpoint(options.signal);
+  const deck = normalizeSlideDeck(input), parts: ZipArchiveEntry[] = [], types = new Map<string, string>();
+  const diagnostics = createPptxDiagnosticCollector("export", options);
   const add = (path: string, type: string, value: string) => { parts.push(part(path, value)); types.set(`/${path}`, type); };
   const links: Link[] = [{ id: "rIdMaster", type: `${R}/slideMaster`, target: "slideMasters/slideMaster1.xml" }];
   const imageRegistry = new Map<string, { path: string; mime: string }>();
-  let hasNotes = false;
+  let hasNotes = false, elementCount = 0;
+  // Reserve all source text before sampling any page, including names, notes and
+  // image alt on later pages. Only added snapshots consume the remaining budget.
+  let textLength = deck.slides.reduce((total, slide) => total + slideTextLength(slide), 0);
   for (const [index, slide] of deck.slides.entries()) {
     const number = index + 1, slideLinks: Link[] = [{ id: "rIdLayout", type: `${R}/slideLayout`, target: "../slideLayouts/slideLayout1.xml" }];
-    const elements = slide.elements.map((element, i) => {
-      if (element.type !== "image") return elementXml(element, i + 2);
+    await checkpoint();
+    const animations = await exportPptxAnimations(slide, deck.width, deck.height, new Map(slide.elements.map((element, index) => [element.id, index + 2])),
+      (message, details) => diagnostics.warn(message, { slideIndex: index, slideId: slide.id, slideName: slide.name, sourcePart: `ppt/slides/slide${number}.xml`, ...details }),
+      SLIDE_LIMITS.totalTextLength - textLength, checkpoint);
+    for (const snapshots of animations.snapshots.values()) for (const snapshot of snapshots) textLength += slideElementTextLength(snapshot.element);
+    if (textLength > SLIDE_LIMITS.totalTextLength) throw new Error("PowerPointのアニメーション近似を含むテキスト量が上限を超えています");
+    const elements = slide.elements.flatMap((sourceElement, i) => [{ element: sourceElement, shapeId: i + 2 }, ...(animations.snapshots.get(sourceElement.id) ?? [])]
+      .map(({ element: snapshot, shapeId }) => {
+      const element = animations.opacityTargets.has(sourceElement.id) ? { ...snapshot, opacity: 1 } : snapshot;
+      if (++elementCount > SLIDE_LIMITS.totalElements) throw new Error("PowerPointのアニメーション近似を含む図形数が上限を超えています");
+      if (element.type !== "image") return elementXml(element, shapeId);
       let image = imageRegistry.get(element.src);
       if (!image) {
         const match = /^data:(image\/(?:png|jpeg|gif|webp));base64,([A-Za-z0-9+/=]+)$/.exec(element.src);
@@ -49,9 +67,9 @@ export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExport
         const bytes = Uint8Array.from(atob(match[2]), character => character.charCodeAt(0));
         parts.push({ path: image.path, content: new Blob([bytes], { type: mime }) }); types.set(`/${image.path}`, mime);
       }
-      const id = `rIdImage${i}`; slideLinks.push({ id, type: `${R}/image`, target: `../media/${image.path.split("/").at(-1)}` });
-      return elementXml(element, i + 2, id);
-    }).join("");
+      const id = `rIdImage${shapeId}`; slideLinks.push({ id, type: `${R}/image`, target: `../media/${image.path.split("/").at(-1)}` });
+      return elementXml(element, shapeId, id);
+    })).join("");
     if (slide.notes) {
       hasNotes = true;
       slideLinks.push({ id: "rIdNotes", type: `${R}/notesSlide`, target: `../notesSlides/notesSlide${number}.xml` });
@@ -62,7 +80,7 @@ export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExport
         { id: "rIdMaster", type: `${R}/notesMaster`, target: "../notesMasters/notesMaster1.xml" },
       ])));
     }
-    add(`ppt/slides/slide${number}.xml`, `${contentPrefix}slide+xml`, `${header}<p:sld ${namespaces}><p:cSld name="${xml(slide.name)}"><p:bg><p:bgPr>${fill(slide.background)}<a:effectLst/></p:bgPr></p:bg><p:spTree>${group}${elements}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`);
+    add(`ppt/slides/slide${number}.xml`, `${contentPrefix}slide+xml`, `${header}<p:sld ${namespaces}><p:cSld name="${xml(slide.name)}"><p:bg><p:bgPr>${fill(slide.background)}<a:effectLst/></p:bgPr></p:bg><p:spTree>${group}${elements}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${animations.timing}</p:sld>`);
     parts.push(part(`ppt/slides/_rels/slide${number}.xml.rels`, relationships(slideLinks)));
     links.push({ id: `rIdSlide${number}`, type: `${R}/slide`, target: `slides/slide${number}.xml` });
     if (index % 8 === 7) await new Promise<void>(resolve => setTimeout(resolve, 0));
@@ -87,5 +105,15 @@ export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExport
     { id: "rIdProperties", type: "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties", target: "docProps/core.xml" },
   ])));
   parts.push(part("[Content_Types].xml", `${header}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${[...types].map(([path, type]) => `<Override PartName="${xml(path)}" ContentType="${type}"/>`).join("")}</Types>`));
-  return createZipArchive(parts, { type: PPTX_MIME_TYPE });
+  // This writer uses ZIP STORE, so the final size can be checked before reading
+  // or allocating entry buffers. Never produce a file our bounded reader rejects.
+  if (parts.length > OFFICE_PACKAGE_LIMITS.entries) throw new Error("PowerPointのパッケージ項目数が上限を超えています");
+  let archiveBytes = 22;
+  for (const entry of parts) if (!entry.directory && typeof entry.content !== "function") {
+    if (entry.content.size > OFFICE_PACKAGE_LIMITS.entryBytes) throw new Error("PowerPointのパッケージ項目のサイズが上限を超えています");
+    archiveBytes += entry.content.size + 76 + new TextEncoder().encode(entry.path).byteLength * 2;
+    if (archiveBytes > OFFICE_PACKAGE_LIMITS.inputBytes) throw new Error("PowerPointの出力サイズが読み込み可能な上限を超えています");
+  }
+  options.signal?.throwIfAborted();
+  return createZipArchive(parts, { type: PPTX_MIME_TYPE, signal: options.signal as AbortSignal | undefined });
 }

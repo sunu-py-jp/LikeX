@@ -8,10 +8,23 @@ import Spreadsheet, {
   type SpreadsheetImportNativeOptions, type SpreadsheetNativeExportOptions, type SpreadsheetNativeImportResult, SPREADSHEET_FORMAT,
   SPREADSHEET_FILE_VERSION, type SpreadsheetFile, type SpreadsheetFileRow,
   prepareSpreadsheetImage, type SpreadsheetHandle, type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot,
+  findSpreadsheetSheets, findSpreadsheetCells, type SpreadsheetSheetSearchMatch, type SpreadsheetSearchOptions,
+  getSheetCells, type SpreadsheetStoredCell,
 } from "__LIBRARY_IMPORT__";
 import { createRef } from "react";
 
 const workbook: SpreadsheetWorkbook = createWorkbook();
+const storedCells: readonly SpreadsheetStoredCell[] = getSheetCells(workbook, workbook.sheets[0].id);
+// @ts-expect-error Stored cell addresses cannot be changed.
+storedCells[0].address = 'B2';
+const foundSheets: readonly SpreadsheetSheetSearchMatch[] = findSpreadsheetSheets(workbook, { text: 'Sheet', matchCase: true });
+const searchOptions: SpreadsheetSearchOptions = { sheetId: workbook.sheets[0].id, range: 'A1:C5' };
+const foundCells = findSpreadsheetCells(workbook, { text: '42', lookIn: 'values' }, searchOptions);
+declare const searchHandle: SpreadsheetHandle;
+searchHandle.findSheets({ text: 'Sheet' }); searchHandle.findCells({ text: '42' }, searchOptions);
+searchHandle.getSheetCells(workbook.sheets[0].id); searchHandle.sheet(workbook.sheets[0].id).getCells();
+searchHandle.sheet(workbook.sheets[0].id).findCells({ text: '42' }, { range: 'B2' });
+void [foundSheets, foundCells];
 const nativeRow: SpreadsheetFileRow = { height: 32, cells: { A: { value: '商品' } } };
 const nativeFile: SpreadsheetFile = { format: SPREADSHEET_FORMAT, schemaVersion: SPREADSHEET_FILE_VERSION,
   sheets: [{ id: 'sheet-1', name: 'Sheet1', rowCount: 300, columnCount: 26, rows: [nativeRow] }] };

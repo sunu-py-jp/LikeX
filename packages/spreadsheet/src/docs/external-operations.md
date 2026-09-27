@@ -57,6 +57,7 @@ export default function Report() {
 | `batch(commands)` | 配列の順番でまとめて同期実行。同じ結果型を返す |
 | `getWorkbook()` | 現在の下書きの `SpreadsheetWorkbookSnapshot`。深い読み取り専用のスナップショット |
 | `getCell(sheetId, address)` / `getRange(sheetId, range)` など | セルやIDで対象を取得。[読み取りAPI](./data-access.md)を参照 |
+| `findSheets(query)` / `findCells(query, options?)` | 現在の下書きからシート名・セルをキーワード検索。選択や履歴を変更しません |
 | `undo()` / `redo()` | 編集許可を待って履歴を移動。`boolean` または `Promise<boolean>` を返す |
 | `getHistoryState()` | `canUndo` / `canRedo` / `undoCount` / `redoCount` |
 | `getZoom()` / `setZoom(percent)` | 現在の表示倍率を取得／変更。保存データ・履歴・未保存状態は変えません。[表示倍率](./zoom.md) |

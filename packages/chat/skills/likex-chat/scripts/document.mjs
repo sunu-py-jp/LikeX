@@ -27,7 +27,7 @@ const adapters = {
   form: ['Form', 'executeFormCommands', null, 8],
 };
 const selectorsByKind = {
-  spreadsheet: ['sheet-id', 'range', 'drawing-id'], slide: ['slide-id', 'element-id'], document: ['block-id', 'offset', 'limit'],
+  spreadsheet: ['overview', 'compact-summary', 'sheet-id', 'range', 'drawing-id', 'search', 'text', 'match-case', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'slide-id', 'element-id'], document: ['block-id', 'offset', 'limit'],
   board: ['column-id', 'card-id', 'offset', 'limit'], dataview: ['row-id', 'field-id', 'offset', 'limit'],
   diagram: ['node-id', 'edge-id', 'offset', 'limit'], whiteboard: ['element-id', 'offset', 'limit'],
   calendar: ['event-id', 'start', 'end', 'offset', 'limit'], chat: ['conversation-id', 'message-id', 'offset', 'limit'],
@@ -44,7 +44,7 @@ const identity = value => value && [value.dev, value.ino, value.size, value.mtim
 const sameFile = (a, b) => a && b && a.dev === b.dev && a.ino === b.ino;
 
 function usage(kind, version) {
-  const selectors = selectorsByKind[kind].map(key => `--${key} ${['offset', 'limit'].includes(key) ? 'N' : ['start', 'end'].includes(key) ? 'YYYY-MM-DD' : key === 'range' ? 'A1:C5' : 'ID'}`).join(' | ');
+  const selectors = selectorsByKind[kind].map(key => ['overview', 'compact-summary', 'match-case', 'exact'].includes(key) ? `--${key}` : `--${key} ${['offset', 'limit', 'preview-length'].includes(key) ? 'N' : ['start', 'end'].includes(key) ? 'YYYY-MM-DD' : key === 'range' ? 'A1:C5' : key === 'search' ? 'sheets|cells' : key === 'text' ? 'KEYWORD' : key === 'look-in' ? 'values|formulas' : 'ID'}`).join(' | ');
   return {
     ok: true, kind, libraryVersion: version,
     usage: [
@@ -54,8 +54,15 @@ function usage(kind, version) {
       'node document.mjs validate --input FILE',
       'All commands accept --project DIRECTORY. --help and --version need no installed library.',
       '--commands must contain a JSON array. --dry-run permits omitting --output and never writes.',
-      '--range returns stored cells. --include-data adds the selected item content; embedded image bytes are always omitted.',
-      ...(selectorsByKind[kind].includes('offset') ? ['Lists return 100 items by default; --offset and --limit (1–1000) control pagination. Item selectors cannot be combined with pagination.'] : []),
+      '--range returns stored cells in selection.rows as a row-major matrix, with null for unstored cells. --include-data adds the selected item content; embedded image bytes are always omitted.',
+      ...(['spreadsheet', 'slide'].includes(kind) ? ['--overview returns only document-level counts and the slide title, without sheet/slide lists. It cannot be combined with other inspect selectors or flags.',
+        '--compact-summary omits sheet/slide lists from summary before the response-size check while preserving selected results. Use with targeted inspect reads; cannot combine with --overview.'] : []),
+      ...(kind !== 'spreadsheet' && selectorsByKind[kind].includes('offset') ? ['Lists return 100 items by default; --offset and --limit (1–1000) control pagination. Item selectors cannot be combined with pagination.'] : []),
+      ...(kind === 'spreadsheet' ? ['--search sheets|cells requires --text KEYWORD. Search is literal, case-insensitive and partial by default; --match-case and --exact narrow matches.',
+        'Cell searches accept --look-in values|formulas (default values), optional --sheet-id, and --range with --sheet-id. Sheet-name searches cannot use these selectors.',
+        'Cell search previews use --preview-length N (default 200, 1–10000). Truncated fields explicitly include original lengths and truncation flags; matching uses the full values.',
+        '--sheet-id ID --include-data lists stored cells in selection.cells as a flat address-bearing array, in row/column order. It cannot be combined with a range, drawing selector, or search.',
+        'Search and sheet-content lists accept --offset and --limit (default 100, maximum 1000). Ordinary inspect summaries and range reads do not use pagination.'] : []),
       ...(['chat', 'aichat'].includes(kind) ? ['--message-id requires --conversation-id. Select a conversation to list its messages.'] : []),
       ...(kind === 'calendar' ? ['--start and --end must be supplied together; end is exclusive and dates use calendar.timeZone.'] : []),
       ...(kind === 'slide' ? ['inspect defaults to final static values. --include-animations returns original values and the animation definitions; it does not modify the file.'] : []),
@@ -71,7 +78,7 @@ function argumentsFor(argv, kind) {
   if (argv.length === 0 || (argv.length === 1 && argv[0] === '--help')) return { operation: 'help' };
   if (argv.length === 1 && argv[0] === '--version') return { operation: 'version' };
   if (!['create', 'inspect', 'apply', 'validate'].includes(args.operation)) fail('USAGE', 'Expected create, inspect, apply, or validate. Use --help.');
-  const flags = new Set(['dry-run', 'include-data', 'include-animations', 'help']);
+  const flags = new Set(['dry-run', 'include-data', 'include-animations', 'overview', 'compact-summary', 'match-case', 'exact', 'help']);
   const values = new Set(['input', 'output', 'commands', 'project', ...Object.values(selectorsByKind).flat()]);
   for (let index = 1; index < argv.length; index++) {
     const raw = argv[index];
@@ -81,7 +88,7 @@ function argumentsFor(argv, kind) {
     if (flags.has(key)) args[key] = true;
     else {
       const value = argv[++index];
-      if (!value || value.startsWith('--')) fail('USAGE', `Option --${key} requires a value.`);
+      if (!value || key !== 'text' && value.startsWith('--')) fail('USAGE', `Option --${key} requires a value.`);
       args[key] = value;
     }
   }
@@ -97,11 +104,30 @@ function argumentsFor(argv, kind) {
   const ownKeys = selectorsByKind[kind];
   const wrongKeys = queryKeys.filter(key => !['include-data', 'include-animations'].includes(key) && !ownKeys.includes(key));
   if (wrongKeys.some(key => args[key])) fail('USAGE', `Unsupported selector for ${kind}.`);
+  if (args.overview && queryKeys.some(key => key !== 'overview' && args[key] !== undefined)) fail('USAGE', '--overview cannot be combined with other inspection selectors or flags.');
+  const sheetData = kind === 'spreadsheet' && Boolean(args['sheet-id'] && args['include-data'] && !args['drawing-id']);
+  if (kind === 'spreadsheet') {
+    if (args.search) {
+      if (!['sheets', 'cells'].includes(args.search)) fail('USAGE', '--search must be sheets or cells.');
+      if (typeof args.text !== 'string' || !args.text.length || args.text.length > 100_000) fail('USAGE', '--search requires --text with 1 to 100000 characters.');
+      if (args['drawing-id'] || args['include-data']) fail('USAGE', 'Search cannot be combined with --drawing-id or --include-data.');
+      if (args.search === 'sheets' && (args['sheet-id'] || args.range || args['look-in'] || args['preview-length'])) fail('USAGE', 'Sheet-name search cannot use --sheet-id, --range, --look-in, or --preview-length.');
+      if (args['look-in'] !== undefined && !['values', 'formulas'].includes(args['look-in'])) fail('USAGE', '--look-in must be values or formulas.');
+      if (args['preview-length'] !== undefined) {
+        if (!/^\d+$/.test(args['preview-length']) || !Number.isSafeInteger(Number(args['preview-length'])) || Number(args['preview-length']) < 1 || Number(args['preview-length']) > 10_000) fail('USAGE', '--preview-length must be an integer from 1 to 10000.');
+        args['preview-length'] = Number(args['preview-length']);
+      }
+    } else {
+      if (['text', 'match-case', 'exact', 'look-in', 'preview-length'].some(key => args[key] !== undefined)) fail('USAGE', 'Spreadsheet search options require --search.');
+      if (!sheetData && (args.offset !== undefined || args.limit !== undefined)) fail('USAGE', 'Spreadsheet pagination requires --search or --sheet-id with --include-data.');
+    }
+    if (sheetData && args.range) fail('USAGE', 'Choose --sheet-id with --include-data or a cell range.');
+  }
   if ((args.range || args['drawing-id']) && !args['sheet-id']) fail('USAGE', '--range and --drawing-id require --sheet-id.');
   if (args.range && args['drawing-id']) fail('USAGE', 'Choose --range or --drawing-id.');
   if (kind === 'slide' && args['element-id'] && !args['slide-id']) fail('USAGE', '--element-id requires --slide-id.');
   if (args['include-animations'] && kind !== 'slide') fail('USAGE', '--include-animations is only supported for slide inspect.');
-  if (args['include-data'] && !dataSelectors.some(key => args[key])) fail('USAGE', '--include-data requires an explicit item selector.');
+  if (args['include-data'] && !sheetData && !dataSelectors.some(key => args[key])) fail('USAGE', '--include-data requires an explicit item selector.');
   if (dataSelectors.some(key => args[key]) && (args.offset !== undefined || args.limit !== undefined)) fail('USAGE', 'Choose an item selector or list pagination.');
   for (const [first, second] of [['column-id', 'card-id'], ['row-id', 'field-id'], ['node-id', 'edge-id']]) if (args[first] && args[second]) fail('USAGE', `Choose --${first} or --${second}.`);
   if (args['message-id'] && !args['conversation-id']) fail('USAGE', '--message-id requires --conversation-id.');
@@ -198,10 +224,12 @@ function sheetSummary(sheet) {
     commentCount: Object.keys(sheet.comments ?? {}).length, mergeCount: sheet.merges?.length ?? 0, tableCount: sheet.tables?.length ?? 0 };
 }
 
-function summaryFor(kind, document, model) {
+function summaryFor(kind, document, model, overview = false, compactSummary = false) {
   if (kind === 'spreadsheet') return { format: 'likex.spreadsheet', sheetCount: document.sheets.length,
     imageCount: Object.keys(document.resources?.images ?? {}).length, namedRangeCount: document.namedRanges?.length ?? 0,
-    sheets: document.sheets.map(sheetSummary) };
+    ...(!overview && !compactSummary ? { sheets: document.sheets.map(sheetSummary) } : {}) };
+  if (kind === 'slide' && overview) return { format: 'likex.slide', title: document.title,
+    slideCount: document.slides.length, elementCount: document.slides.reduce((sum, slide) => sum + slide.elements.length, 0) };
   if (kind === 'document') return { format: 'likex.document', id: document.id, title: document.title, page: document.page,
     blockCount: model.getBlocks(document).length, characterCount: model.getDocumentText(document).length, imageCount: model.getImages(document).length };
   const common = { format: document.format, id: document.id, title: document.title };
@@ -216,7 +244,7 @@ function summaryFor(kind, document, model) {
   if (kind === 'form') return { ...common, fieldCount: document.fields.length, requiredFieldCount: document.fields.filter(field => field.required).length };
   return { format: 'likex.slide', id: document.id, title: document.title, width: document.width, height: document.height,
     slideCount: document.slides.length, elementCount: document.slides.reduce((sum, slide) => sum + slide.elements.length, 0),
-    slides: document.slides.map(slide => ({ id: slide.id, name: slide.name, elementCount: slide.elements.length })) };
+    ...(!compactSummary ? { slides: document.slides.map(slide => ({ id: slide.id, name: slide.name, elementCount: slide.elements.length })) } : {}) };
 }
 
 function objectSummary(item) {
@@ -242,6 +270,18 @@ function blockSummary(block) {
 function withoutImageBytes(node) {
   return { ...node, ...(node.attrs ? { attrs: Object.fromEntries(Object.entries(node.attrs).filter(([key]) => key !== 'src')) } : {}),
     ...(node.content ? { content: node.content.map(withoutImageBytes) } : {}) };
+}
+
+function cellSearchPreview(match, limit) {
+  const result = { ...match };
+  for (const key of ['value', 'matchedText']) {
+    const text = match[key];
+    if (text.length <= limit) continue;
+    const last = text.charCodeAt(limit - 1), next = text.charCodeAt(limit);
+    const end = last >= 0xd800 && last <= 0xdbff && next >= 0xdc00 && next <= 0xdfff ? limit - 1 : limit;
+    result[key] = text.slice(0, end); result[`${key}Length`] = text.length; result[`${key}Truncated`] = true;
+  }
+  return result;
 }
 
 function selectionFor(kind, model, document, args) {
@@ -292,7 +332,8 @@ function selectionFor(kind, model, document, args) {
     const conversationSummary = conversation => ({ id: conversation.id, title: conversation.title, messageCount: conversation.messages.length });
     const messageSummary = message => ({ id: message.id, role: message.role, status: message.status, createdAt: message.createdAt,
       ...(message.replyTo ? { replyTo: message.replyTo } : {}), contentLength: message.content.length,
-      attachmentCount: message.attachments?.length ?? 0, referenceCount: message.references?.length ?? 0, toolCallCount: message.toolCalls?.length ?? 0 });
+      attachmentCount: message.attachments?.length ?? 0, referenceCount: message.references?.length ?? 0, toolCallCount: message.toolCalls?.length ?? 0,
+      partCount: message.parts?.length ?? 0 });
     if (args['conversation-id']) {
       const conversation = required(model.getAIChatConversation(document, args['conversation-id']), 'conversation');
       if (args['message-id']) return { conversationId: conversation.id, message: selected(required(model.getAIChatMessage(document, conversation.id, args['message-id']), 'message'), messageSummary) };
@@ -328,11 +369,25 @@ function selectionFor(kind, model, document, args) {
     return { blocks: blocks.slice(offset, offset + limit).map(blockSummary), offset, limit,
       total: blocks.length, hasMore: offset + limit < blocks.length };
   }
+  if (kind === 'spreadsheet' && args.search) {
+    if (args['sheet-id']) required(document.sheets.find(sheet => sheet.id === args['sheet-id']), 'sheet');
+    const query = { text: args.text, matchCase: Boolean(args['match-case']) };
+    const matches = args.search === 'sheets'
+      ? model.findSpreadsheetSheets(document, { ...query, wholeName: Boolean(args.exact) })
+      : model.findSpreadsheetCells(document, { ...query, wholeCell: Boolean(args.exact), lookIn: args['look-in'] ?? 'values' },
+        { ...(args['sheet-id'] ? { sheetId: args['sheet-id'] } : {}), ...(args.range ? { range: args.range } : {}) });
+    const { items, ...pagination } = page(matches, args.search === 'cells' ? match => cellSearchPreview(match, args['preview-length'] ?? 200) : undefined);
+    return { search: args.search, text: args.text, matches: items, ...pagination };
+  }
   if (kind === 'spreadsheet' && args['sheet-id']) {
     const sheet = document.sheets.find(item => item.id === args['sheet-id']);
     if (!sheet) fail('NOT_FOUND', 'The selected sheet was not found.');
-    if (args.range) return { sheetId: sheet.id, range: args.range, cells: model.getRange(document, sheet.id, args.range) };
+    if (args.range) return { sheetId: sheet.id, range: args.range, rows: model.getRange(document, sheet.id, args.range) };
     if (args['drawing-id']) return { sheetId: sheet.id, drawing: selectedObject(model.getDrawing(document, sheet.id, args['drawing-id']), args['include-data']) };
+    if (args['include-data']) {
+      const { items, ...pagination } = page(model.getSheetCells(document, sheet.id));
+      return { sheet: sheetSummary(sheet), cells: items, ...pagination };
+    }
     return { sheet: sheetSummary(sheet), drawings: (sheet.drawings ?? []).map(objectSummary),
       namedRanges: model.getNamedRanges(document, sheet.id),
       tables: model.getTables(document, sheet.id).map(table => ({ id: table.id, name: table.name, sheetId: table.sheetId,
@@ -353,7 +408,7 @@ function selectionFor(kind, model, document, args) {
 
 function encodedResponse(value) {
   const json = JSON.stringify(value);
-  if (Buffer.byteLength(json) > MAX_RESPONSE_BYTES) fail('RESPONSE_TOO_LARGE', 'Result exceeds 1 MiB. Inspect a smaller range or omit --include-data.');
+  if (Buffer.byteLength(json) > MAX_RESPONSE_BYTES) fail('RESPONSE_TOO_LARGE', 'Result exceeds 1 MiB. Inspect a smaller range, lower --limit for paged reads, or omit --include-data.');
   return json;
 }
 
@@ -390,9 +445,9 @@ export async function runDocumentCli({ argv = process.argv.slice(2), kind = DOCU
       } catch (error) { if (error instanceof CliError) throw error; fail('COMMAND_FAILED', error.message); }
     }
     if (operation === 'inspect') {
-      const inspected = kind === 'slide' ? model.getDeck(document, { includeAnimations: Boolean(args['include-animations']) }) : document;
-      const selection = selectionFor(kind, model, inspected, args);
-      stdout.write(`${encodedResponse({ ...base, summary: summaryFor(kind, inspected, model), ...(selection ? { selection } : {}),
+      const inspected = kind === 'slide' && !args.overview ? model.getDeck(document, { includeAnimations: Boolean(args['include-animations']) }) : document;
+      const selection = args.overview ? undefined : selectionFor(kind, model, inspected, args);
+      stdout.write(`${encodedResponse({ ...base, summary: summaryFor(kind, inspected, model, Boolean(args.overview), Boolean(args['compact-summary'])), ...(selection ? { selection } : {}),
         ...(kind === 'slide' && args['include-animations'] && !args['slide-id'] ? { animations: inspected.slides.map(slide => ({ slideId: slide.id, animations: model.getAnimations(inspected, slide.id) })) } : {}) })}\n`);
       return 0;
     }

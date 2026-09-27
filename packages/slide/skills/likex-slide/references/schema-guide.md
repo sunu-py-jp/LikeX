@@ -123,6 +123,6 @@ IDは空白を含まない1〜200文字。スライドIDは資料内で一意、
 
 `SlideFilePage.animations` は省略可能なステップ配列。version 1の追加フィールドで、元の要素値とアニメーションの全定義を保存する。`parseSlideDeck` / `serializeSlideDeck` は定義を保持するが、get APIの既定値は全ステップ終了後の静止値で定義を除く。原本は `getDeck(deck, { includeAnimations: true })` で取得する。`getSlide/getSlides` も同オプションでページの定義を保持するが、`getElement/getElements` は元の要素値だけを返す。定義だけなら `getAnimations(deck, slideId)` を使う。
 
-各ステップは `id`, `name?`, `trigger?`, `animation`。`animation` はsequence/parallelのchildrenを持つ再帰木か、要素IDと開始・終了プロパティを持つtween。ステップ順とchildren順は意味があるため並べ替えない。参照先ID・同一プロパティの重複時間帯・深さ・数値の上限をランタイムが検証する。構造は生成JSON Schema、操作例と評価方法は [アニメーション](commands.md#アニメーション)を参照する。
+各ステップは `id`, `name?`, `timelineId?`, `trigger?`, `animation`。`timelineId` は省略すると既定系列。同じIDは順次に進み、異なるIDはページの再生開始から独立して進む。IDは空白なしの1〜200文字。同じ要素・同じプロパティを異なる系列で変える設定は時間帯を問わず拒否する。`animation` はsequence/parallelのchildrenを持つ再帰木か、要素IDと開始・終了プロパティを持つtween。ステップ順とchildren順は意味があるため並べ替えない。参照先ID・同一プロパティの重複時間帯・循環・有限な時間と数値をランタイムが検証する。アニメーション固有の件数・深さ・再生時間の固定上限はない。構造は生成JSON Schema、操作例と評価方法は [アニメーション](commands.md#アニメーション)を参照する。
 
-JSON内のアニメーションは宣言的データであり、JavaScriptや数式を実行しない。PPTXへは最終静止状態だけを変換するため、アニメーション編集用の原本保存にはSLONを使う。
+JSON内のアニメーションは宣言的データであり、JavaScriptや数式を実行しない。PPTXへは標準タイムラインを出力する。近似・省略の警告を確認し、元の構成やIDを保つ編集原本にはSLONを使う。

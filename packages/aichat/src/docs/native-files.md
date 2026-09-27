@@ -35,13 +35,20 @@
 | `attachments` | `id`、`name`、`mediaType`、バイト数の `size`、任意の `url` |
 | `references` | `id`、`title`、任意の `url` と `description` |
 | `toolCalls` | `id`、`name`、`status`、任意の `detail` |
+| `parts` | `{ id, type, data }` の順序付き配列。`type` とJSONの `data` は親アプリが定義 |
 | `error` | 応答に関連するエラーメッセージ |
 
 ツールの状態は `pending` / `running` / `complete` / `error` です。添付のファイル本体や認証情報は含めません。添付と参照のURLは、ユーザー名・パスワードを含まないHTTP(S)のみ受け付けます。期限付きURLの更新やリンク先へのアクセス制御は親アプリの責務です。
 
+`parts` は任意の拡張フィールドです。従来の `content`、添付、参照、ツール情報をそのまま利用でき、`parts` のない既存ファイルも読み込めます。IDはパート配列内で一意で、保存時にパートを並べ替えたり未知の `type` を削除したりしません。`data` はnull・真偽値・有限の数・文字列・配列・プレーンなオブジェクトで構成する `AIChatJSONValue` です。関数、undefined、非有限数、循環参照、独自prototype、アクセサー、疎な配列は受け付けません。親アプリのレンダラーや通信クライアントは保存対象外です。
+
+例えば `{ "id": "run-1", "type": "app.tool-call", "data": { "name": "apply", "input": { "commands": [] }, "output": { "changed": false } } }` を保存できます。ライブラリは `data` の型固有の意味を解釈しません。URLの安全性やツール引数の秘匿情報を除く処理は親アプリ側で行い、保存済みのデータを自動実行しないでください。
+
 ## 検証と保存
 
 `parseAIChat` は未知の形式・バージョン、未知の属性、重複ID、不正な返信参照、日時、URL、サイズ上限を検証します。JSONはUTF-8で32 MiBまで、会話は1〜500件、メッセージはチャット全体で20,000件まで、本文は1件1,000,000文字までです。本文・エラー・参照説明・ツール情報の合計にも上限があります。正確な値は公開定数 `AICHAT_LIMITS` を参照してください。
+
+`parts` は1メッセージ100件までです。各 `data` はJSON化した長さ1,000,000文字、50,000値、深さ32まで、全チャットの `data` 合計は8,000,000文字までです。これらは本文の上限とは別に数え、ファイル全体の32 MiB制限も適用します。パートの `type` は未知でも保持しますが、パートの外枠に未知の属性は許可しません。
 
 ```ts
 import { parseAIChat, serializeAIChat } from "@likex/aichat/model";

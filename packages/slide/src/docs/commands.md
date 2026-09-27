@@ -166,3 +166,5 @@ GUIのファイル選択では未保存の置き換え確認を表示します�
 アニメーション付きモデルのget APIは既定で最終静止状態を返します。`{ includeAnimations: true }` を渡すと、`getDeck` / `getSlides` / `getSlide` は元の要素値とページの定義を保持します。`getElements` / `getElement` は元の要素値だけを返し、定義は含みません。定義だけなら `getAnimations(deck, slideId)` を使います。ネイティブ保存は全定義を保持します。[アニメーションの設定・取得・評価](animations.md)
 
 refのget APIも上記と同じ取得規則です。`onSave`、`exportNative`、イベントのdeck、セッションの `getSnapshot()` は元の値と全定義を保持するため、get APIの最終静止表示と区別してください。
+
+PowerPoint変換の詳細は `ref.current.getPptxDiagnostics(): readonly SlidePptxDiagnostic[]` で取得できます。最後に成功した読み込み・出力が対象で、初回は空配列です。[変換診断の型と通知](powerpoint.md#変換結果を確認する)を参照してください。

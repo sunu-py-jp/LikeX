@@ -37,13 +37,19 @@ function updateSlide(deck: SlideDeck, slide: Slide, patch: Partial<Slide>): Slid
   return normalizeSlideDeck({ ...deck, slides: deck.slides.map(current => current.id === slide.id ? updated : current) });
 }
 
-function copyAnimations(slide: Slide, remap: ReadonlyMap<string, string>, offset = 0): SlideAnimationStep[] {
+function copyAnimations(slide: Slide, remap: ReadonlyMap<string, string>, offset = 0, separateTimelines = false): SlideAnimationStep[] {
+  const timelines = new Map<string, string>();
   return (slide.animations ?? []).flatMap(step => {
     const animation = filterAnimationNode(step.animation, id => remap.has(id), remap, offset);
     if (!animation) return [];
     const trigger = step.trigger?.type === "click" && step.trigger.elementId
       ? { ...step.trigger, elementId: remap.get(step.trigger.elementId) ?? step.trigger.elementId } : step.trigger;
-    return [{ ...step, id: crypto.randomUUID(), ...(trigger ? { trigger } : {}), animation }];
+    let timelineId = step.timelineId;
+    if (separateTimelines && timelineId !== undefined) {
+      if (!timelines.has(timelineId)) timelines.set(timelineId, crypto.randomUUID());
+      timelineId = timelines.get(timelineId)!;
+    }
+    return [{ ...step, id: crypto.randomUUID(), ...(timelineId === undefined ? {} : { timelineId }), ...(trigger ? { trigger } : {}), animation }];
   });
 }
 function requireUnlockedAnimations(slide: Slide, next: SlideAnimationStep[] | undefined): void {
@@ -144,7 +150,7 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
     const copies = selected.map(element => normalizeSlideElement({ ...element, id: crypto.randomUUID(),
       x: element.x + 20, y: element.y + 20 }));
     const remap = new Map(selected.map((element, index) => [element.id, copies[index].id]));
-    const animations = [...(slide.animations ?? []), ...copyAnimations(slide, remap, 20)];
+    const animations = [...(slide.animations ?? []), ...copyAnimations(slide, remap, 20, true)];
     requireUnlockedAnimations(slide, animations);
     return { deck: updateSlide(deck, slide, { elements: [...slide.elements, ...copies], animations }), slideId: slide.id, elementIds: copies.map(element => element.id) };
   }

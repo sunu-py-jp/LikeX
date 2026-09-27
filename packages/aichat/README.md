@@ -1,6 +1,6 @@
 # @likex/aichat
 
-会話一覧、メッセージ、入力欄を備えたReact AIチャットUIです。応答の生成、通信、添付ファイルのアップロード、保存は親アプリが担当します。文字列または `AsyncIterable<string>` を返すコールバックで応答を表示できます。
+会話一覧、メッセージ、入力欄を備えたReact AIチャットUIです。応答の生成、通信、ツール実行、添付ファイルのアップロード、保存は親アプリが担当します。文字列・`{ content, parts? }`・文字列とパーツのストリームを返すコールバックで応答を表示できます。従来の `AsyncIterable<string>` も使えます。
 
 ```tsx
 "use client";
@@ -23,6 +23,8 @@ export default function AIChatView() {
 ```
 
 `onSave` 未指定では読み取り専用です。React / React DOM 19.2.6以降の19系と表示枠の高さを用意してください。同梱CSSを使い、Tailwind CSSは不要です。本文はプレーンテキストで表示し、MarkdownやHTMLを解析しません。
+
+画像・ツールの引数と結果・独自カードなどは `message.parts` に `{ id, type, data }` として保存し、親アプリの `partRenderers` で表示を定義できます。未知の型もJSONとして保持します。登録した表示関数は保存モデルに含めません。使用例は [ストリーミング・パーツ・添付](src/docs/streaming.md) を参照してください。
 
 リポジトリで `npm ci` の後に `npm run pack:library -- --module aichat` で配布用tarballを作り、利用先にCoreとAIChatを導入します。npmレジストリへの公開は未実施です。
 
