@@ -1,15 +1,27 @@
 "use client";
 
 import type { ConnectorArrowhead } from "../core";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { SPREADSHEET_SHAPES, type SpreadsheetShapeCategory, type SpreadsheetShapeKind } from "../model/shapes";
 import { Shape } from "./drawings/shape";
+import { LineMarker } from "./drawings/line-marker";
 import { Command, Icon } from "./spreadsheet-controls";
 import { SpreadsheetDialog } from "./spreadsheet-dialog";
 
 const categories: readonly { id: SpreadsheetShapeCategory; label: string }[] = [
   { id: "basic", label: "基本図形" }, { id: "arrows", label: "ブロック矢印" }, { id: "lines", label: "線" },
 ];
+
+function LinePreview({ startArrow, endArrow }: { startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead }) {
+  const marker = useId().replace(/:/g, "");
+  return <svg width="44" height="32" viewBox="0 0 44 32" aria-hidden="true">
+    <defs><LineMarker id={`${marker}-start`} kind={startArrow} color="currentColor" />
+      <LineMarker id={`${marker}-end`} kind={endArrow} color="currentColor" /></defs>
+    <line x1="4" y1="16" x2="40" y2="16" stroke="currentColor" strokeWidth="1.5"
+      markerStart={startArrow !== "none" ? `url(#${marker}-start)` : undefined}
+      markerEnd={endArrow !== "none" ? `url(#${marker}-end)` : undefined} />
+  </svg>;
+}
 
 export function SpreadsheetShapeGallery({ disabled, onSelect }: { disabled: boolean; onSelect: (kind: SpreadsheetShapeKind, markers?: { startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead }) => void }) {
   const [open, setOpen] = useState(false);
@@ -39,8 +51,7 @@ export function SpreadsheetShapeGallery({ disabled, onSelect }: { disabled: bool
               { id: "both", label: "双方向矢印線", startArrow: "triangle", endArrow: "triangle" },
             ] as const).map(preset => <button type="button" key={preset.id} className="lxs-shape-gallery-item" aria-label={preset.label} title={preset.label}
               onClick={() => { if (!disabled) { setOpen(false); onSelect("line", { startArrow: preset.startArrow, endArrow: preset.endArrow }); } }}>
-              <span className="lxs-shape-gallery-preview"><Shape drawing={{ id: preset.id, type: "shape", shape: "line", anchor: { row: 0, column: 0, offsetX: 0, offsetY: 0 },
-                width: 44, height: 8, fill: "transparent", stroke: "currentColor", strokeWidth: 1.5, startArrow: preset.startArrow, endArrow: preset.endArrow }} /></span><span>{preset.label}</span>
+              <span className="lxs-shape-gallery-preview"><LinePreview startArrow={preset.startArrow} endArrow={preset.endArrow} /></span><span>{preset.label}</span>
             </button>)}
           </div>
         </section>)}
