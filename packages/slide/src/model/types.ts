@@ -1,3 +1,6 @@
+import type { ConnectorEndpoint, ConnectorArrowhead } from "./core-connectors";
+export type { ConnectorPoint, ConnectorPort, ConnectorBinding, ConnectorEndpoint, ConnectorArrowhead } from "./core-connectors";
+export type SlideLineGeometry = { start: ConnectorEndpoint; end: ConnectorEndpoint };
 /** All persistent values are JSON: pixels at 96 dpi, degrees clockwise, and sRGB hex colors. */
 export type SlideElementBase = {
   id: string;
@@ -7,12 +10,16 @@ export type SlideElementBase = {
   width: number;
   height: number;
   rotation: number;
+  /** @minimum 0
+   * @maximum 1 */
   opacity: number;
   locked: boolean;
 };
 export type SlideTextElement = SlideElementBase & {
   type: "text";
   text: string;
+  /** @minimum 1
+   * @maximum 1000 */
   fontSize: number;
   fontFamily: string;
   color: string;
@@ -22,14 +29,23 @@ export type SlideTextElement = SlideElementBase & {
   verticalAlign: "top" | "middle" | "bottom";
   fill: string;
 };
-export type SlideShapeKind = "rect" | "roundRect" | "ellipse" | "triangle" | "diamond" | "arrow" | "line";
+export type SlideShapeKind = "rect" | "roundRect" | "ellipse" | "triangle" | "diamond" | "arrow" | "leftArrow" | "line";
 export type SlideShapeElement = SlideElementBase & {
   type: "shape";
   shape: SlideShapeKind;
+  /** Only shape:line. Absolute document coordinates; bound points follow their target. */
+  line?: SlideLineGeometry;
+  /** Line endpoint decoration. Missing fields preserve legacy plain lines. */
+  startArrow?: ConnectorArrowhead;
+  endArrow?: ConnectorArrowhead;
   fill: string;
   stroke: string;
+  /** @minimum 0
+   * @maximum 100 */
   strokeWidth: number;
   text: string;
+  /** @minimum 1
+   * @maximum 1000 */
   fontSize: number;
   textColor: string;
 };
@@ -90,11 +106,10 @@ export type SlideElementInput =
   | ({ type: "shape" } & Partial<Omit<SlideShapeElement, "type">>)
   | ({ type: "image"; src: string } & Partial<Omit<SlideImageElement, "type" | "src">>);
 /** Fields are validated against the target element's type when the command is applied. */
-export type SlideElementPatch = Partial<
-  Omit<SlideTextElement, "id" | "type"> &
-  Omit<SlideShapeElement, "id" | "type"> &
-  Omit<SlideImageElement, "id" | "type">
->;
+export type SlideElementPatch =
+  | Partial<Omit<SlideTextElement, "id" | "type">>
+  | Partial<Omit<SlideShapeElement, "id" | "type">>
+  | Partial<Omit<SlideImageElement, "id" | "type">>;
 export type SlideCommand =
   | { type: "deck.rename"; title: string }
   | { type: "deck.resize"; width: number; height: number }
@@ -103,8 +118,12 @@ export type SlideCommand =
   | { type: "slide.duplicate"; slideId: string }
   | { type: "slide.move"; slideId: string; index: number }
   | { type: "slide.update"; slideId: string; patch: Partial<Pick<Slide, "name" | "background" | "notes">> }
+  /** Rebuild one page atomically. Omitted metadata is kept; omitted animations are cleared. */
+  | { type: "slide.replaceContent"; slideId: string; elements: SlideElementInput[]; name?: string; background?: string; notes?: string; animations?: SlideAnimationStep[] }
   | { type: "animation.set"; slideId: string; animations: SlideAnimationStep[] }
   | { type: "animation.remove"; slideId: string; animationId: string }
+  | { type: "line.add"; slideId: string; start: ConnectorEndpoint; end: ConnectorEndpoint; id?: string; name?: string; stroke?: string; strokeWidth?: number; startArrow?: ConnectorArrowhead; endArrow?: ConnectorArrowhead }
+  | { type: "line.update"; slideId: string; elementId: string; start?: ConnectorEndpoint; end?: ConnectorEndpoint; startArrow?: ConnectorArrowhead; endArrow?: ConnectorArrowhead }
   | { type: "element.add"; slideId: string; element: SlideElementInput }
   | { type: "element.update"; slideId: string; elementId: string; patch: SlideElementPatch }
   | { type: "element.delete"; slideId: string; elementIds: string[] }

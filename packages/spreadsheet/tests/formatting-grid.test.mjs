@@ -143,3 +143,92 @@ for (const [label, title, commitLabel] of [['罫線と数値の書式', 'セル�
     assert.equal(ui.c.activeSheet.conditionalFormats, undefined);
   });
 }
+
+const gridCell = (ui, row, column) => ui.renderer.root.findByProps({ role: 'gridcell', 'data-lxs-row': row, 'data-lxs-column': column });
+const borderWorkbook = (cells = {}, extra = {}) => ({ sheets: [{ id: 's', name: 'Borders', rowCount: 8, columnCount: 6, cells, ...extra }] });
+const grayBorder = { color: '#808080', width: 1, style: 'solid' };
+
+for (const width of [1, 3]) test(`grid renders a ${width}px shared border only once without changing the stored opposite edges`, async t => {
+  const ui = await mount(t, { initialWorkbook: borderWorkbook() });
+  await act(async () => ui.c.executeCommand({ type: 'cells.borders', sheetId: 's',
+    ranges: [{ top: 0, left: 0, bottom: 1, right: 1 }], preset: 'all', border: { ...grayBorder, width } }));
+  const line = `${width}px solid #808080`;
+  assert.equal(gridCell(ui, 0, 0).props.style.borderTop, line);
+  assert.equal(gridCell(ui, 0, 0).props.style.borderLeft, line);
+  assert.equal(gridCell(ui, 0, 0).props.style.borderRight, line);
+  assert.equal(gridCell(ui, 0, 1).props.style.borderLeft, 0);
+  assert.equal(gridCell(ui, 0, 0).props.style.borderBottom, line);
+  assert.equal(gridCell(ui, 1, 0).props.style.borderTop, 0);
+  assert.equal(gridCell(ui, 1, 1).props.style.borderTop, 0);
+  assert.equal(gridCell(ui, 1, 1).props.style.borderLeft, 0);
+  assert.equal(gridCell(ui, 1, 1).props.style.borderBottom, line);
+  assert.equal(gridCell(ui, 1, 1).props.style.borderRight, line);
+  assert.equal(ui.c.activeSheet.cells.A1.format.borders.right.width, width);
+  assert.equal(ui.c.activeSheet.cells.B1.format.borders.left.width, width);
+});
+
+test('existing one-sided borders and different shared borders remain visible', async t => {
+  const ui = await mount(t, { initialWorkbook: borderWorkbook({
+    B1: { value: '', format: { borders: { left: grayBorder } } },
+    A2: { value: '', format: { borders: { bottom: { ...grayBorder, color: '#ff0000' } } } },
+    A3: { value: '', format: { borders: { top: { ...grayBorder, color: '#0000ff' } } } },
+  }) });
+  assert.equal(gridCell(ui, 0, 1).props.style.borderLeft, '1px solid #808080');
+  assert.equal(gridCell(ui, 1, 0).props.style.borderBottom, '1px solid #ff0000');
+  assert.equal(gridCell(ui, 2, 0).props.style.borderTop, '1px solid #0000ff');
+});
+
+test('merged boundaries use the displayed anchor and collapse matching borders along the entire edge', async t => {
+  const ui = await mount(t, { initialWorkbook: borderWorkbook({}, { merges: [{ top: 1, left: 1, bottom: 2, right: 2 }] }) });
+  await act(async () => ui.c.executeCommand({ type: 'cells.borders', sheetId: 's',
+    ranges: [{ top: 0, left: 0, bottom: 3, right: 3 }], preset: 'all' }));
+  const merge = gridCell(ui, 1, 1);
+  assert.equal(merge.props['aria-colspan'], 2);
+  assert.equal(merge.props['aria-rowspan'], 2);
+  assert.equal(merge.props.style.borderTop, 0);
+  assert.equal(merge.props.style.borderLeft, 0);
+  assert.equal(merge.props.style.borderBottom, '1px solid #808080');
+  assert.equal(merge.props.style.borderRight, '1px solid #808080');
+  for (const column of [1, 2]) {
+    assert.equal(gridCell(ui, 0, column).props.style.borderBottom, '1px solid #808080');
+    assert.equal(gridCell(ui, 3, column).props.style.borderTop, 0);
+  }
+  for (const row of [1, 2]) {
+    assert.equal(gridCell(ui, row, 0).props.style.borderRight, '1px solid #808080');
+    assert.equal(gridCell(ui, row, 3).props.style.borderLeft, 0);
+  }
+});
+
+test('a partially matched merged edge is preserved rather than losing its uncovered segment', async t => {
+  const ui = await mount(t, { initialWorkbook: borderWorkbook({
+    B1: { value: '', format: { borders: { bottom: grayBorder } } },
+    B2: { value: '', format: { borders: { top: grayBorder, left: grayBorder } } },
+    A2: { value: '', format: { borders: { right: grayBorder } } },
+  }, { merges: [{ top: 1, left: 1, bottom: 2, right: 2 }] }) });
+  assert.equal(gridCell(ui, 1, 1).props.style.borderTop, '1px solid #808080');
+  assert.equal(gridCell(ui, 1, 1).props.style.borderLeft, '1px solid #808080');
+});
+
+test('shared border comparison uses conditional formatting actually shown on both cells', async t => {
+  const ui = await mount(t, { initialWorkbook: borderWorkbook({
+    A1: { value: '1', format: { borders: { right: grayBorder } } },
+    B1: { value: '2', format: { borders: { left: grayBorder } } },
+    A2: { value: '1', format: { borders: { right: { color: '#ff0000' } } } },
+    B2: { value: '2', format: { borders: { left: grayBorder } } },
+  }, { conditionalFormats: [
+    { id: 'blue', type: 'comparison', operator: 'gt', value: 0, ranges: [{ top: 0, left: 1, bottom: 0, right: 1 }], format: { borders: { left: { color: '#0000ff' } } } },
+    { id: 'gray', type: 'comparison', operator: 'gt', value: 0, ranges: [{ top: 1, left: 0, bottom: 1, right: 0 }], format: { borders: { right: grayBorder } } },
+  ] }) });
+  assert.equal(gridCell(ui, 0, 1).props.style.borderLeft, '1px solid #0000ff');
+  assert.equal(gridCell(ui, 1, 1).props.style.borderLeft, 0);
+});
+
+test('a separately mounted focused row retains its border when the matching neighbour is virtualized out', async t => {
+  const ui = await mount(t, { initialWorkbook: borderWorkbook({
+    A100: { value: '', format: { borders: { bottom: grayBorder } } },
+    A101: { value: '', format: { borders: { top: grayBorder } } },
+  }, { rowCount: 200 }) });
+  await act(async () => ui.c.select({ row: 100, column: 0 }));
+  assert.equal(ui.renderer.root.findAllByProps({ role: 'gridcell', 'data-lxs-row': 99, 'data-lxs-column': 0 }).length, 0);
+  assert.equal(gridCell(ui, 100, 0).props.style.borderTop, '1px solid #808080');
+});

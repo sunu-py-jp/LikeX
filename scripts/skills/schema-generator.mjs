@@ -5,7 +5,7 @@ const OMITTED = ts.TypeFlags.Undefined | ts.TypeFlags.Never;
 const utilityNames = new Set(['Readonly', 'Partial', 'Pick', 'Omit', 'Record', 'DeepReadonly', 'Array', 'ReadonlyArray']);
 const own = (value, key) => Object.hasOwn(value, key);
 
-/** Generate only the JSON-representable structural portion of a resolved TypeScript type. */
+/** Generate JSON structure and explicitly documented numeric bounds from a resolved TypeScript type. */
 export function schemaFromType(checker, rootType, { title, comment, maxItems } = {}) {
   const definitions = Object.create(null);
   const names = new Map();
@@ -39,6 +39,35 @@ export function schemaFromType(checker, rootType, { title, comment, maxItems } =
     }
     return { anyOf: members.map((type, index) => visit(type, `${hint}_${index + 1}`)) };
   };
+  const numericBounds = (property, type, hint) => {
+    const tags = property.getJsDocTags(checker).filter(tag => tag.name === 'minimum' || tag.name === 'maximum');
+    if (!tags.length) return {};
+    const members = (type.isUnion() ? type.types : [type]).filter(member => !(member.flags & (OMITTED | ts.TypeFlags.Null)));
+    if (!members.length || members.some(member => !(member.flags & ts.TypeFlags.NumberLike)))
+      return fail(type, hint, '@minimum/@maximum require a numeric property');
+    const result = {};
+    for (const tag of tags) {
+      const text = ts.displayPartsToString(tag.text).trim();
+      if (!/^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$/.test(text) || !Number.isFinite(Number(text)))
+        return fail(type, hint, `@${tag.name} must be one finite JSON number`);
+      const value = Number(text);
+      if (own(result, tag.name) && result[tag.name] !== value)
+        return fail(type, hint, `conflicting @${tag.name} annotations`);
+      result[tag.name] = value;
+    }
+    if (own(result, 'minimum') && own(result, 'maximum') && result.minimum > result.maximum)
+      return fail(type, hint, '@minimum must not exceed @maximum');
+    return result;
+  };
+  const withNumericBounds = (schema, bounds) => {
+    // Numeric nullable aliases are represented by refs/unions. Put constraints
+    // on their numeric alternatives so both strict consumers and older JSON
+    // Schema validators enforce them without relying on $ref siblings.
+    if (schema.$ref) return withNumericBounds(definitions[schema.$ref.split('/').at(-1)], bounds);
+    if (schema.anyOf) return { ...schema, anyOf: schema.anyOf.map(member => withNumericBounds(member, bounds)) };
+    return schema.type === 'number' || typeof schema.const === 'number' || schema.enum?.some(value => typeof value === 'number')
+      ? { ...schema, ...bounds } : schema;
+  };
   const object = (type, hint) => {
     if (checker.getSignaturesOfType(type, ts.SignatureKind.Call).length ||
       checker.getSignaturesOfType(type, ts.SignatureKind.Construct).length)
@@ -51,6 +80,8 @@ export function schemaFromType(checker, rootType, { title, comment, maxItems } =
       // symbols without declarations; the checker still resolves their types.
       const propertyType = checker.getTypeOfSymbol(property);
       properties[property.name] = visit(propertyType, `${hint}_${property.name}`);
+      const bounds = numericBounds(property, propertyType, `${hint}_${property.name}`);
+      if (Object.keys(bounds).length) properties[property.name] = withNumericBounds(properties[property.name], bounds);
       const description = ts.displayPartsToString(property.getDocumentationComment(checker));
       if (description && properties[property.name] !== false) properties[property.name] = { ...properties[property.name], description };
       if (!(property.flags & ts.SymbolFlags.Optional)) required.push(property.name);

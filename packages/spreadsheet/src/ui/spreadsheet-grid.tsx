@@ -20,7 +20,7 @@ import { useGridResize } from "./grid/use-grid-resize";
 import { useGridAutofill } from "./grid/use-grid-autofill";
 import { CellDataControl } from "./grid/cell-data-control";
 import { SelectionOutline } from "./grid/selection-outline";
-import { cellFormatStyle } from "./grid/cell-style";
+import { cellFormatStyle, collapseSharedCellBorders } from "./grid/cell-style";
 import { createConditionalFormatter } from "../model/conditional-formatting";
 
 export { displayCell } from "./grid/cell-display";
@@ -46,6 +46,16 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   useGridEditorSize(activeInput, JSON.stringify({ focus: c.selection.focus, sheet: c.activeSheet.id, value: activeValue, editing: c.editing?.value, format: activeFormat, width: columnOffsets[(activeMerge?.right ?? c.selection.focus.column) + 1] - columnOffsets[activeMerge?.left ?? c.selection.focus.column] }), activeHeight, !!c.editing);
   const { startSelection, extendSelection, selectHeaderWithKeyboard } = useGridSelection(c, focus, { columnOffsets, rowOffsets });
   const selectedBounds = useMemo(() => selectionRanges(c.selection).map(rangeBounds), [c.selection]);
+  const visibleRows = new Set(virtualRows);
+  const neighbourFormat = (row: number, column: number) => {
+    const merge = getMergedRange(c.activeSheet, { row, column });
+    const anchorRow = merge?.top ?? row, anchorColumn = merge?.left ?? column;
+    // An off-screen neighbour cannot own a visible border, including when the
+    // focused cell is kept mounted separately from the virtual row window.
+    if (!visibleRows.has(anchorRow)) return undefined;
+    const address = cellAddress(anchorRow, anchorColumn);
+    return conditional(anchorRow, anchorColumn, c.calculated[c.activeSheet.id]?.[address], effectiveCellFormat(c.activeSheet.cells[address])).format;
+  };
 
   return <div className="lxs-grid-surface"><SpreadsheetDrawingInspector controller={c} /><div ref={scroller} tabIndex={-1} className="lxs-grid-scroll" style={{ zoom: (c.zoom ?? 100) / 100 }} onBlurCapture={focus.onBlurCapture} onScroll={layout.onScroll}>
     <div className="lxs-grid-canvas" style={{ width: gridWidth, height: rowOffsets.at(-1) }}><div role="grid" aria-label={c.activeSheet.name} aria-readonly={c.disabled || c.requesting} aria-rowcount={c.activeSheet.rowCount + 1} aria-colcount={c.activeSheet.columnCount + 1} aria-multiselectable="true" className="lxs-grid" style={{ width: gridWidth, height: rowOffsets.at(-1) }}>
@@ -82,7 +92,8 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
           const editing = focused && !!c.editing;
           const rendered = <div key={column} role="gridcell" data-lxs-row={row} data-lxs-column={column} aria-colindex={column + 2} aria-colspan={merge ? merge.right - merge.left + 1 : undefined} aria-rowspan={merge ? merge.bottom - merge.top + 1 : undefined} aria-selected={selected} aria-label={`${address}${text ? ` ${text}` : ""}${comment ? ", コメントあり" : ""}`} title={error ? value : undefined}
             className={`lxs-cell ${merge ? "lxs-cell-merged" : ""} ${format?.background ? "lxs-cell-filled" : ""} ${format?.wrap ? "lxs-cell-wrap" : ""} ${checkbox ? "lxs-cell-has-checkbox" : ""} ${selected ? "lxs-cell-selected" : ""} ${focused ? "lxs-cell-active" : ""} ${error ? "lxs-cell-error" : ""}`}
-            style={{ width: cellWidth, height: merge ? cellHeight : undefined, ...cellFormatStyle(format, value) }}
+            style={{ width: cellWidth, height: merge ? cellHeight : undefined,
+              ...collapseSharedCellBorders(cellFormatStyle(format, value), merge ?? { top: row, bottom: row, left: column, right: column }, neighbourFormat) }}
             onPointerDown={event => {
               if (event.button !== 0 || (focused && c.editing)) return;
               // A later click in the selected input uses native caret placement.

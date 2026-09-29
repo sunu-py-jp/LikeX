@@ -84,6 +84,8 @@ const json = serializeSlideDeck(result.deck);
 
 戻り値は `{ deck: SlideDeck, slideId?: string, elementIds: string[], changed: boolean }` です。元のJSONは変更しません。配列で複数のコマンドを渡すとまとめて検証し、途中に不正な操作があれば全体を適用しません。
 
+`element.update.patch` の `SlideElementPatch` はtext・shape・imageそれぞれの部分更新型のunionです。対象の種類に合うフィールドを使い、例えばテキスト更新へ図形専用の `shape` や画像専用の `src` を混ぜません。生成JSON Schemaも種類別の分岐になり、実際の対象種類との一致はモデルAPIが検証します。既存の有効な部分更新はそのまま利用できます。
+
 ## 操作一覧
 
 | `type` | 主な引数 |
@@ -94,6 +96,9 @@ const json = serializeSlideDeck(result.deck);
 | `slide.delete` / `slide.duplicate` | `slideId` |
 | `slide.move` | `slideId`, `index`（0始まりの移動先） |
 | `slide.update` | `slideId`, `patch: { name?, background?, notes? }` |
+| `slide.replaceContent` | `slideId`, `elements: SlideElementInput[]`, `name?`, `background?`, `notes?`, `animations?` |
+| `line.add` | `slideId`, `start`, `end`, `id?`, `name?`, `stroke?`, `strokeWidth?`, `startArrow?`, `endArrow?` |
+| `line.update` | `slideId`, `elementId`, `start?`, `end?`, `startArrow?`, `endArrow?`（1項目以上） |
 | `element.add` | `slideId`, `element` |
 | `element.update` | `slideId`, `elementId`, `patch` |
 | `element.delete` / `element.duplicate` | `slideId`, `elementIds` |
@@ -106,6 +111,75 @@ const next = applySlideCommands(result.deck, [
 ]);
 ```
 
+## 1ページの内容を置き換える
+
+全面的に作り直す場合は、旧要素のIDを列挙して削除する代わりに `slide.replaceContent` を使います。ページID・ページ順・他ページを保持し、本文を一度に検証して置換します。旧要素はすべて除去されるため、背景の裏に残りません。省略した `name` / `background` / `notes` は保持します。古い要素への参照を残さないため、`animations` は省略時にクリアし、指定時は新しい要素に対して検証します。
+
+```ts
+const rebuilt = applySlideCommands(deck, {
+  type: "slide.replaceContent", slideId: deck.slides[0].id,
+  background: "#101c2f",
+  elements: [
+    { type: "text", id: "new-heading", text: "次の成長を、ここから。",
+      x: 64, y: 100, width: 1000, height: 170, fontSize: 60, color: "#ffffff", bold: true },
+    { type: "shape", shape: "rect", x: 80, y: 300, width: 160, height: 6, fill: "#5eead4", strokeWidth: 0 },
+  ],
+});
+```
+
+要素の `type` は必須で、その他は `createSlideElement` と同じ既定値を補います。新しいIDを省略すれば自動生成します。既存のロックされた要素を破棄する置換は拒否し、無効な要素・重複ID・不正なアニメーションがあれば全体を適用しません。`SlideHandle.execute` では編集許可、読み取り専用、書式・該当する要素型・ノート・アニメーションの機能設定を確認し、選択を新しい要素へ変更します。Undoは内容と選択を一度で戻します。モデルAPIにはホスト固有のページ数制限はありません。AIホストが1回1ページに制限する場合、複数ページを1回の依頼で順に処理できます。
+
+## 2点の直線と接続
+
+線は `line.add` で始点と終点を指定し、`line.update` で片方または両方を変更します。矩形の幅・高さや回転から端点を逆算する必要はありません。`shape: "arrow"` は面を持つ矢印図形で、この直線とは別です。
+
+```ts
+const connected = applySlideCommands(deck, {
+  type: "line.add", slideId: "architecture", id: "api-data",
+  start: { x: 0, y: 0, binding: { targetId: "api", port: "right" } },
+  end: { x: 0, y: 0, binding: { targetId: "data", port: "left" } },
+  stroke: "#0b817d", strokeWidth: 2,
+});
+// bindingを省略した端点は自由な座標になり、その端だけ接続を解除します。
+const detached = applySlideCommands(connected.deck, {
+  type: "line.update", slideId: "architecture", elementId: "api-data", end: { x: 900, y: 400 },
+});
+```
+
+端点はズームに依存しない資料内のpx座標です。`binding` があれば `x/y` は現在の接続先から解決します。`port` は回転前の `top/topRight/right/bottomRight/bottom/bottomLeft/left/topLeft` の8方向で、楕円・角丸・三角形・ひし形・矢印では輪郭上の位置を使います。接続先は同じページの線以外の要素です。存在しないID・他ページ・線自身・他の線への接続を拒否するため、循環接続は作れません。接続先の移動・サイズ変更・回転に追従し、削除時はその時点の座標で接続だけを解除します。線をロックしても接続先からの追従は維持します。
+
+水平・垂直・逆方向の直線、始終点が同じ点も指定できます。同一点の線は丸い点として表示します。保存用の外接矩形は従来の正寸法契約に合わせ最小1pxですが、線の実際の端点は変更しません。端点の座標は−100,000〜100,000、両端の差は各軸100,000px以下です。旧 `shape: "line"` は読み込み時に描画を変えず、端点編集時に任意の `line: { start, end }` を追加します。`getSlideLineEndpoints` は旧線も含めた現在の端点を返します。
+
+矢印は線直属の `startArrow` / `endArrow` で `none/triangle/openArrow/diamond/oval/stealth` を指定します（省略時none）。`line.update` は矢印だけの更新も可能です。GUIの線メニューは直線・右向き矢印線・左向き矢印線・双方向矢印線を用意し、書式パネルで各端を変更できます。図形の太い右矢印 `shape: "arrow"`・左矢印 `shape: "leftArrow"` とは別です。
+
+GUIは端点の2ハンドルを使い、ドラッグ中に近づいた最寄りの図形だけ8接続点を表示します。表示は32画面px以内、吸着は12画面px以内です。点から離して移動するとその端を解除します。線本体の移動は両端を解除し、接続先と一緒に移動した場合はその接続を保持します。線だけの複製・コピーでは接続を解除し、接続先も一緒なら新しいIDへ張り替えます。`line.add` は `features.shapes`、`line.update` は `features.formatting`、編集許可・ロック・Undo/Redoは既存の操作経路を使います。
+
+## 文字の収まり
+
+以下は `@likex/slide/model` と通常の公開入口から利用できる、React・DOMに依存しない補助APIです。測定関数だけをホストから注入します。文字レイアウトはPNG描画と同じ余白・行高・折り返し処理を使います。フォントの用意やCanvasの管理はホストが担当します。
+
+```ts
+import { measureSlideText, fitSlideText, getSlideLayoutDiagnostics } from "@likex/slide/model";
+import type { SlideTextMeasure } from "@likex/slide/model";
+
+const measureText: SlideTextMeasure = (text, style) => {
+  context.font = `${style.italic ? "italic " : ""}${style.bold ? "bold " : ""}${style.fontSize}px ${style.fontFamily}`;
+  return context.measureText(text).width;
+};
+const diagnostics = getSlideLayoutDiagnostics(page, { width: deck.width, height: deck.height, measureText });
+const layout = measureSlideText(textElement, measureText);
+const fitted = fitSlideText(textElement, { measureText, minFontSize: 20 });
+// fitted.fits が false なら最小文字サイズでも収まらない。文章を短くするか領域を拡大する。
+
+```
+
+- `measureSlideText` は `lines`, `measuredWidth`, `measuredHeight`, `availableWidth`, `availableHeight`, `overflow` を返します。画像には使えません。
+- `fitSlideText` は入力を変更せず `{ element, layout, fits }` を返し、最大0.1px単位で文字を縮小します。既定の最小値は12px（元の文字がそれ未満なら元のサイズ）。文章自体や配置は変更しません。
+- `getSlideLayoutDiagnostics` は `{ code: "text-overflow" | "out-of-bounds", elementId, message, ...測定値 }[]` を返します。回転した要素のはみ出しも調べます。背景や図形内ラベルなど、意図した重なりをエラーにしません。静止したページに対する助言であり、アニメーション途中の状態や見た目全体を保証するものではありません。
+- `getSlideElementBounds(element)` は回転を考慮した外接矩形 `{ left, top, right, bottom }` を返します。
+
+旧 `element.connect` / `createSlideConnector` / `SlideConnectorOptions` / `SlideConnectorSide` は削除しました。接続関係を持つ線は `line.add/update` を使います。旧SLONに保存済みの線の集合は引き続き読み込めます。折れ線の自動生成・経路探索は提供しません。文字測定とレイアウト診断は保存されず、選択・認証・通信にも依存しません。
+
 ## 取得と復元
 
 | API | 戻り値 |
@@ -113,12 +187,17 @@ const next = applySlideCommands(result.deck, [
 | `createSlideDeck(input?)` | 既定値を補った `SlideDeck` |
 | `createSlideElement(input)` | 既定値を補った `SlideElement` |
 | `getSlide(deck, slideId)` | `Slide` または `undefined` |
+| `getElements(deck, slideId)` | 指定ページの `SlideElement[]` |
 | `getElement(deck, slideId, elementId)` | `SlideElement` または `undefined` |
 | `normalizeSlideDeck(value)` | 検証済みの `SlideDeck`。不正な値は例外 |
 | `parseSlideDeck(json)` | JSON文字列を検証した `SlideDeck` |
 | `serializeSlideDeck(deck)` | JSON文字列 |
 
 `deck.slides` が順序付きのスライド一覧、`slide.elements` が背面から前面への要素一覧です。画像には `src`（data URL）と `alt`、テキストには `text` などの書式情報があります。取得後に編集する場合もコマンドを使ってください。
+
+スキルCLIでは `inspect --slide-id ID --include-data` で、指定ページの全要素の本文・書式・配置を `selection.elements` にまとめて取得できます。公開モデルのページ取得と同じ要素順を保ち、画像の `src` / `dataUrl` は応答から除きます。`selection.slide` は従来のメタデータのまま、ノートは本文ではなく `notesLength` です。`--include-data` を省略した要約取得、`--element-id ID --include-data` による単一要素取得は従来どおりです。
+
+元の値とアニメーション定義が必要なら `--include-animations` を併用し、`selection.elements` と `selection.animations` を読みます。対象ページを編集する際は一括取得を優先し、CLIの1 MiBの応答上限を超えた場合だけ必要な要素へ絞ってください。結果を切り詰めたり要素を省略したりはしません。公開get API、SLON保存形式、PPTX入出力の契約は変更していません。[スキルCLIの取得手順](../../skills/likex-slide/references/inspect.md)
 
 ## 履歴を持つセッション
 
@@ -144,7 +223,18 @@ const result = await ref.current?.execute({ type: "element.add",
   slideId: deck.slides[0].id, element: { type: "text", text: "外部から追加" } });
 ```
 
-`SlideHandle` の `getDeck()`、`getSlides()`、`getSlide()`、`getElements()`、`getElement()`、`getAnimations()`、`getSelection()`、`select(selection)`、`execute()`、`undo()`、`redo()`、`save()`、`discard()`、`importNative()`、`exportNative()`、`importPptx()`、`exportPptx()`、`exportImage()`、`exportImages()` が使えます。`execute` は拒否時に `null`、`undo` / `redo` / `save` は成功をbooleanで返します。`execute` と履歴操作は編集許可・読み取り専用・機能設定を通ります。ヘッドレスAPIには認証の責務はありません。
+`SlideHandle` の `getDeck()`、`getSlides()`、`getSlide()`、`getElements()`、`getElement()`、`getAnimations()`、`getSelection()`、`select(selection)`、`deleteSelection(scope)`、`execute()`、`undo()`、`redo()`、`save()`、`discard()`、`importNative()`、`exportNative()`、`importPptx()`、`exportPptx()`、`exportImage()`、`exportImages()` が使えます。`execute` は拒否時に `null`、`undo` / `redo` / `save` は成功をbooleanで返します。`execute` と履歴操作は編集許可・読み取り専用・機能設定を通ります。ヘッドレスAPIには認証の責務はありません。
+
+`SlideSelection` は `{ slideId, elementIds, slideIds? }` です。`slideId` はキャンバスで表示するページ、`slideIds` は複数選択したページを表します。存在しないIDと重複は取り除き、アクティブな `slideId` を含めて資料順に揃えます。2枚以上のときだけ `slideIds` を返し、`elementIds` は空にします。単一ページは従来の `{ slideId, elementIds }` のままです。選択自体は未保存状態や履歴を増やしません。
+
+```ts
+ref.current?.select({ slideId: "page-2", slideIds: ["page-1", "page-2"], elementIds: [] });
+await ref.current?.deleteSelection("slides");
+ref.current?.select({ slideId: "page-3", elementIds: ["title", "box"] });
+await ref.current?.deleteSelection("elements");
+```
+
+`deleteSelection("slides" | "elements")` はGUIと同じ選択削除で、`Promise<SlideCommandResult | null>` を返します。既存の `slide.delete` の配列または `element.delete` を通り、1回のUndoで内容と選択を復元します。編集許可・機能設定・読み取り専用・処理中の制御を維持し、許可待ち中に選択や資料が変わった場合も `null` で取り消します。全ページの削除は拒否し、最低1枚を残します。UIを使わない編集では同じ既存コマンドに対象IDを明示してください。選択情報はSLONに保存せず、PPTX入出力の契約も変わりません。
 
 ```ts
 await ref.current?.importNative(file); // Blob / File または現在のSLON形式のJSON文字列

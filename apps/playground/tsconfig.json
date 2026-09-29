@@ -18,6 +18,12 @@
       "@likex/slide": [
         "../../packages/slide/src/index.ts"
       ],
+      "@likex/slide/model": [
+        "../../packages/slide/src/model-entry.ts"
+      ],
+      "@likex/slide/render": [
+        "../../packages/slide/src/render-entry.ts"
+      ],
       "@likex/document": [
         "../../packages/document/src/index.ts"
       ],

@@ -20,7 +20,9 @@ export type SpreadsheetPastePayload = Readonly<{
   source?: Readonly<SpreadsheetCellPosition & { sheetId: string }>;
 }>;
 export type SpreadsheetEditingCommand =
-  | Readonly<{ type: "cells.replace"; sheetId: string; query: SpreadsheetSearchQuery; replacement: string; addresses?: readonly string[]; onConflict?: SpreadsheetWriteConflictPolicy }>
+  | Readonly<{ type: "cells.replace"; sheetId: string; query: SpreadsheetSearchQuery; replacement: string;
+      /** Same-sheet A1 cells/ranges. With any range, expansion is limited to 10,000 unique cells. Omit to replace across the sheet. */
+      addresses?: readonly string[]; onConflict?: SpreadsheetWriteConflictPolicy }>
   | Readonly<{ type: "cells.fill"; sheetId: string; source: SpreadsheetMergedRange; target: SpreadsheetMergedRange; mode?: "auto" | "copy" | "series"; onConflict?: SpreadsheetWriteConflictPolicy }>
   | Readonly<{ type: "cells.paste"; sheetId: string; target: Readonly<SpreadsheetCellPosition>; payload: SpreadsheetPastePayload; mode?: SpreadsheetPasteMode; onConflict?: SpreadsheetWriteConflictPolicy; partialMerges?: SpreadsheetPartialMergePolicy }>
   /** Cut/paste preserves cell identity and updates references, including across sheets. */

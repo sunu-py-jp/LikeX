@@ -1,8 +1,8 @@
 import Spreadsheet, {
-  createWorkbook, setCellValue, calculateWorkbook, parseTsv, stringifyTsv,
+  createWorkbook, setCellBorders, type SpreadsheetBorderPreset, setCellValue, calculateWorkbook, parseTsv, stringifyTsv, expandCellAddresses, CellAddressExpansionError,
   serializeWorkbook, parseWorkbook, addDrawing, setCellComment, mergeCells, unmergeCells,
   type SpreadsheetWorkbook, type SpreadsheetSheet, type SpreadsheetCell,
-  type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps,
+  type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps, type SpreadsheetCellGridWriteOptions,
   type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSelectionRange, type SpreadsheetSaveHandler,
   type SpreadsheetDrawing, type SpreadsheetMergedRange,
   type SpreadsheetImportNativeOptions, type SpreadsheetNativeExportOptions, type SpreadsheetNativeImportResult, SPREADSHEET_FORMAT,
@@ -14,6 +14,9 @@ import Spreadsheet, {
 import { createRef } from "react";
 
 const workbook: SpreadsheetWorkbook = createWorkbook();
+const expandedAddresses: readonly string[] = expandCellAddresses(workbook.sheets[0], ['A1', '$b$2:$c$3']);
+const expansionFailure: Error = new CellAddressExpansionError(1, 'A0:B2', 'invalid range');
+void [expandedAddresses, expansionFailure];
 const storedCells: readonly SpreadsheetStoredCell[] = getSheetCells(workbook, workbook.sheets[0].id);
 // @ts-expect-error Stored cell addresses cannot be changed.
 storedCells[0].address = 'B2';
@@ -101,6 +104,16 @@ merged.sheets[0].merges?.push(mergedRange);
 void separated;
 
 const apiRef = createRef<SpreadsheetHandle>();
+const gridOptions: SpreadsheetCellGridWriteOptions = {
+  sheetId: sheet.id, target: { row: 1, column: 1 }, headers: ["商品", "金額"],
+  data: { type: "rows", values: [["商品A", "100"]] },
+  border: { color: "#334155", width: 1 }, headerStyle: { background: "#0f172a", color: "#ffffff" },
+};
+const gridCommand: SpreadsheetCommand = { type: "cells.writeGrid", ...gridOptions };
+apiRef.current?.execute(gridCommand);
+// @ts-expect-error Grid borders use supported line widths.
+const invalidGridOptions: SpreadsheetCellGridWriteOptions = { ...gridOptions, border: { width: 4 } };
+void invalidGridOptions;
 const apiView = <Spreadsheet ref={apiRef} initialWorkbook={workbook} onSave={save} />;
 function usePublicCommands(api: SpreadsheetHandle, source: Blob) {
   const commands: readonly SpreadsheetCommand[] = [
@@ -148,3 +161,11 @@ function useNativeFiles(handle: SpreadsheetHandle, file: Blob) {
   return [imported, exported, format];
 }
 void useNativeFiles;
+
+const borderPreset: SpreadsheetBorderPreset = "outside";
+const borderTarget = { top: 1, left: 1, bottom: 3, right: 4 };
+const borderedWorkbook = setCellBorders(createWorkbook(), "sheet-1", [borderTarget], borderPreset, { color: "#217346" });
+const borderCommand: SpreadsheetCommand = { type: "cells.borders", sheetId: "sheet-1", ranges: [borderTarget], preset: borderPreset };
+// @ts-expect-error Diagonal borders are not a preset.
+const invalidBorderPreset: SpreadsheetBorderPreset = "diagonal";
+void [borderedWorkbook, borderCommand, invalidBorderPreset];

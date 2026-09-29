@@ -1,6 +1,7 @@
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "./sheet-dimensions";
 import { rotatedDrawingBounds } from "./drawing-transform";
-import { SPREADSHEET_LIMITS, type SpreadsheetDrawingAnchor, type SpreadsheetSheet } from "./types";
+import { SPREADSHEET_LIMITS, type SpreadsheetDrawingAnchor, type SpreadsheetLine, type SpreadsheetSheet } from "./types";
+import { getSpreadsheetLinePoints } from "./lines";
 
 /** CSS pixels from the top-left of A1; row and column headers are excluded. */
 export type SpreadsheetDrawingBounds = Readonly<{
@@ -23,6 +24,7 @@ export type SpreadsheetDrawingPlacement = Readonly<{
 
 type PositionedDrawing = Readonly<{
   id: string; anchor: Readonly<SpreadsheetDrawingAnchor>; width: number; height: number; rotation?: number;
+  line?: SpreadsheetLine;
 }>;
 type GeometrySheet = Readonly<Pick<SpreadsheetSheet, "id" | "rowCount" | "columnCount" | "rowHeights" | "columnWidths"> & {
   drawings?: readonly PositionedDrawing[];
@@ -78,7 +80,12 @@ function drawingGeometry(workbook: GeometryWorkbook, sheetId: string, drawingId:
   const left = columns.offsets[anchor.column] + boundedNumber(anchor.offsetX, 0, 10_000),
     top = rows.offsets[anchor.row] + boundedNumber(anchor.offsetY, 0, 10_000),
     width = boundedNumber(drawing.width, Number.MIN_VALUE, 10_000), height = boundedNumber(drawing.height, Number.MIN_VALUE, 10_000);
-  const bounds: SpreadsheetDrawingBounds = Object.freeze(rotatedDrawingBounds({ left, top, width, height }, drawing.rotation));
+  let bounds: SpreadsheetDrawingBounds = Object.freeze(rotatedDrawingBounds({ left, top, width, height }, drawing.rotation));
+  if (drawing.line) {
+    const points = getSpreadsheetLinePoints(sheet as SpreadsheetSheet, drawing.id, { columns: [...columns.offsets], rows: [...rows.offsets] });
+    const left = Math.min(points.start.x, points.end.x), top = Math.min(points.start.y, points.end.y), right = Math.max(points.start.x, points.end.x), bottom = Math.max(points.start.y, points.end.y);
+    bounds = Object.freeze({ left, top, right, bottom, width: right - left, height: bottom - top });
+  }
   return { rows, columns, bounds, anchor };
 }
 

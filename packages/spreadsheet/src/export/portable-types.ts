@@ -15,9 +15,13 @@ export type SpreadsheetImageRasterizer = (
   request: SpreadsheetImageRasterizeRequest,
 ) => OfficePackageBlob | Promise<OfficePackageBlob>;
 
+export type SpreadsheetXlsxExportWarning = Readonly<{ code: "adjusted"; sheetId: string; drawingId: string; message: string }>;
+
 /** Framework-independent options for XLSX conversion. */
 export type SpreadsheetXlsxExportOptions = Readonly<{
   signal?: OfficePackageSignal;
+  /** Receives conversion changes such as connector labels becoming independent text boxes. */
+  onWarning?: (warning: SpreadsheetXlsxExportWarning) => void;
   /** Used only for GIF, WebP and JPEG with EXIF orientation. Defaults to browser Canvas. */
   rasterizeImage?: SpreadsheetImageRasterizer;
 }>;

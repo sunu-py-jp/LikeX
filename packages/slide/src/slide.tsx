@@ -1,4 +1,6 @@
 "use client";
+import { isSlideLine, translateSlideLine } from "./model/lines";
+import type { SlideCommand } from "./model/types";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Check, CircleAlert, Loader2, Maximize, Minus, MonitorPlay, Plus, Redo2, Save, Undo2, X } from "lucide-react";
@@ -41,7 +43,7 @@ export default function LikeSlide(props: SlideProps) {
   const attach = useCallback((node: HTMLDivElement | null) => { root.current = node; setOwnerDocument(node?.ownerDocument ?? null); }, []);
   const theme = useSlideTheme(props.colorMode, ownerDocument, props.primaryColor);
   const [zoom, setZoom] = useState(100);
-  const [propertiesOpen, setPropertiesOpen] = useState(true);
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(true);
   const [presenting, setPresenting] = useState(false);
   const [conversionOpen, setConversionOpen] = useState(false);
@@ -72,25 +74,38 @@ export default function LikeSlide(props: SlideProps) {
   const keyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.defaultPrevented || event.nativeEvent.isComposing) return;
     const target = event.target as HTMLElement;
-    const editing = target.closest("input:not([type=color]):not([type=range]):not([type=checkbox]),textarea,[contenteditable=true]");
+    const editing = target.closest("input,textarea,select,[contenteditable=true]");
+    const scope = target.closest<HTMLElement>("[data-slide-selection-scope]")?.dataset?.slideSelectionScope;
+    const selectionScope = target.closest("button:not(.lxp-slide-thumbnail)") ? undefined : scope;
     const modifier = event.ctrlKey || event.metaKey;
     if (modifier && event.key.toLowerCase() === "s") { event.preventDefault(); void editor.save(); return; }
     if (editing) return;
     const key = event.key.toLowerCase();
     if (modifier && key === "z") { event.preventDefault(); void editor.history(event.shiftKey ? "redo" : "undo"); }
     else if (modifier && key === "y") { event.preventDefault(); void editor.history("redo"); }
-    else if (modifier && key === "c") { event.preventDefault(); editor.copyElements(); }
-    else if (modifier && key === "v") { event.preventDefault(); void editor.pasteElements(); }
-    else if (modifier && key === "x" && slide && editor.editable) { event.preventDefault(); editor.copyElements(); void editor.execute({ type: "element.delete", slideId: slide.id, elementIds: editor.selection.elementIds }); }
-    else if (modifier && key === "a" && slide) { event.preventDefault(); editor.select({ slideId: slide.id, elementIds: slide.elements.map(element => element.id) }); }
-    else if (modifier && key === "d" && slide) { event.preventDefault(); if (editor.selection.elementIds.length) void editor.execute({ type: "element.duplicate", slideId: slide.id, elementIds: editor.selection.elementIds }); else void editor.execute({ type: "slide.duplicate", slideId: slide.id }); }
-    else if ((key === "delete" || key === "backspace") && slide && editor.selection.elementIds.length) { event.preventDefault(); void editor.execute({ type: "element.delete", slideId: slide.id, elementIds: editor.selection.elementIds }); }
-    else if (key === "escape" && slide) editor.select({ slideId: slide.id, elementIds: [] });
+    else if (modifier && key === "c" && selectionScope === "elements") { event.preventDefault(); editor.copyElements(); }
+    else if (modifier && key === "v" && selectionScope === "elements") { event.preventDefault(); void editor.pasteElements(); }
+    else if (modifier && key === "x" && selectionScope === "elements" && slide && editor.editable) { event.preventDefault(); editor.copyElements(); void editor.deleteSelection("elements"); }
+    else if (modifier && key === "a" && selectionScope && slide) { event.preventDefault(); editor.select(selectionScope === "slides"
+      ? { slideId: slide.id, slideIds: editor.deck.slides.map(item => item.id), elementIds: [] }
+      : { slideId: slide.id, elementIds: slide.elements.map(element => element.id) }); }
+    else if (modifier && key === "d" && selectionScope && slide) { event.preventDefault(); if (selectionScope === "elements" && editor.selection.elementIds.length) void editor.execute({ type: "element.duplicate", slideId: slide.id, elementIds: editor.selection.elementIds }); else void editor.execute({ type: "slide.duplicate", slideId: slide.id }); }
+    else if ((key === "delete" || key === "backspace") && (selectionScope === "slides" || selectionScope === "elements") && slide) {
+      event.preventDefault();
+      // Keep keyboard focus inside the list when its focused thumbnail is removed.
+      if (selectionScope === "slides") target.closest<HTMLElement>("[data-slide-selection-scope]")?.focus?.({ preventScroll: true });
+      void editor.deleteSelection(selectionScope);
+    }
+    else if (key === "escape" && selectionScope && slide) editor.select({ slideId: slide.id, elementIds: [] });
     else if (key === "f5" && editor.features.presentation) { event.preventDefault(); setPresenting(true); }
-    else if (["arrowleft", "arrowright", "arrowup", "arrowdown"].includes(key) && slide && editor.selection.elementIds.length && editor.editable && editor.features.formatting) {
+    else if (["arrowleft", "arrowright", "arrowup", "arrowdown"].includes(key) && selectionScope === "elements" && slide && editor.selection.elementIds.length && editor.editable && editor.features.formatting) {
       event.preventDefault(); const step = event.shiftKey ? 10 : 1;
-      void editor.execute(slide.elements.filter(element => editor.selection.elementIds.includes(element.id) && !element.locked).map(element => ({ type: "element.update", slideId: slide.id, elementId: element.id,
-        patch: { x: element.x + (key === "arrowright" ? step : key === "arrowleft" ? -step : 0), y: element.y + (key === "arrowdown" ? step : key === "arrowup" ? -step : 0) } })));
+      const moving = slide.elements.filter(element => editor.selection.elementIds.includes(element.id) && !element.locked), ids = new Set(moving.map(element => element.id));
+      const dx = key === "arrowright" ? step : key === "arrowleft" ? -step : 0, dy = key === "arrowdown" ? step : key === "arrowup" ? -step : 0;
+      void editor.execute(moving.map((element): SlideCommand => {
+        if (isSlideLine(element)) { const line = translateSlideLine(element, dx, dy, ids); return { type: "line.update", slideId: slide.id, elementId: element.id, ...line }; }
+        return { type: "element.update", slideId: slide.id, elementId: element.id, patch: { x: element.x + dx, y: element.y + dy } };
+      }));
     }
   };
   const importFile = (format: "pptx" | "slon") => {
@@ -111,7 +126,8 @@ export default function LikeSlide(props: SlideProps) {
     </header>
     <SlideRibbon editor={editor} onImage={() => { if (slide) requestImage({ deck: editor.deck, slideId: slide.id }); }} onImport={importFile} onPresent={() => setPresenting(true)} propertiesOpen={propertiesOpen} notesOpen={notesOpen}
       onProperties={() => setPropertiesOpen(value => !value)} onNotes={() => setNotesOpen(value => !value)} onFit={() => setZoom(100)} ownerDocument={ownerDocument} />
-    <div className="lxp-workspace"><SlideFilmstrip editor={editor} /><div className="lxp-slide-workspace"><SlideCanvas key={slide?.id} deck={editor.deck} slide={slide} editor={editor} zoom={zoom} onImage={requestImage} />
+    <div className="lxp-workspace"><SlideFilmstrip editor={editor} /><div className="lxp-slide-workspace"><SlideCanvas key={slide?.id} deck={editor.deck} slide={slide} editor={editor} zoom={zoom} onImage={requestImage}
+      onProperties={() => { setConversionOpen(false); setPropertiesOpen(true); }} />
       {editor.features.notes && notesOpen && <div className="lxp-notes"><label htmlFor={`${editor.deck.id}-notes`}>ノート</label><textarea key={`${slide?.id}:${slide?.notes}`} id={`${editor.deck.id}-notes`} aria-label="発表者ノート" defaultValue={slide?.notes ?? ""} placeholder="クリックしてノートを入力" disabled={!editor.editable || !slide}
         onBlur={event => {
           const notes = event.target.value;
@@ -123,7 +139,7 @@ export default function LikeSlide(props: SlideProps) {
     <footer className="lxp-statusbar"><span>スライド {Math.max(0, slideIndex + 1)} / {editor.deck.slides.length}</span>
       {editor.readOnly && <span className="lxp-readonly-label">読み取り専用</span>}
       <div className="lxp-status-message" role="status" aria-live="polite">{editor.busy || editor.requesting ? <><Loader2 size={13} className="lxp-spin" />{editor.requesting ? "編集の許可を確認しています…" : editor.busy === "save" ? "保存しています…" : editor.busy === "import" ? "読み込んでいます…" : "書き出しています…"}</>
-        : editor.notice ? <><span className={editor.notice.kind === "error" ? "lxp-error" : ""}>{editor.notice.kind === "success" ? <Check size={13} /> : editor.notice.kind === "error" ? <CircleAlert size={13} /> : null}</span><span className="lxp-status-text" title={editor.notice.text}>{editor.notice.text}</span><button type="button" aria-label="メッセージを閉じる" onClick={() => editor.setNotice(null)}><X size={12} /></button></> : editor.selection.elementIds.length ? `${editor.selection.elementIds.length} 個のオブジェクトを選択` : null}</div>
+        : editor.notice ? <><span className={editor.notice.kind === "error" ? "lxp-error" : ""}>{editor.notice.kind === "success" ? <Check size={13} /> : editor.notice.kind === "error" ? <CircleAlert size={13} /> : null}</span><span className="lxp-status-text" title={editor.notice.text}>{editor.notice.text}</span><button type="button" aria-label="メッセージを閉じる" onClick={() => editor.setNotice(null)}><X size={12} /></button></> : editor.selection.slideIds?.length ? `${editor.selection.slideIds.length} 枚のスライドを選択` : editor.selection.elementIds.length ? `${editor.selection.elementIds.length} 個のオブジェクトを選択` : null}</div>
       {!!editor.conversionReport?.diagnostics.length && <button type="button" className="lxp-conversion-toggle" aria-expanded={conversionOpen} onClick={() => setConversionOpen(value => !value)}>変換結果 ({editor.conversionReport.diagnostics.length})</button>}
       <div className="lxp-zoom"><button type="button" aria-label="縮小" onClick={() => adjustZoom(zoom - 10)}><Minus size={14} /></button><input type="range" min={25} max={200} step={5} aria-label="ズーム" value={zoom} onChange={event => adjustZoom(Number(event.target.value))} /><button type="button" aria-label="拡大" onClick={() => adjustZoom(zoom + 10)}><Plus size={14} /></button><span>{zoom}%</span><button type="button" aria-label="画面に合わせる" onClick={() => setZoom(100)}><Maximize size={14} /></button></div>
     </footer>

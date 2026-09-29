@@ -4,13 +4,16 @@
 /* eslint-disable @next/next/no-img-element */
 
 import type { SpreadsheetController } from "../state/use-spreadsheet";
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import { isOtherTextControl } from "../state/clipboard/browser-clipboard";
 import { drawingRectangle, type DrawingGeometry, type DrawingResizeCorner } from "../state/drawing-geometry";
 import { drawingResizeCursor } from "../state/drawing-rotation";
 import { drawingLabel, visibleDrawing } from "./drawings/drawing-helpers";
 import { Shape, DrawingText, DrawingTextEditor } from "./drawings/drawing-content";
 import { useDrawingInteractions } from "./drawings/use-drawing-interactions";
+import { isSpreadsheetLine } from "../model/lines";
+import { SpreadsheetLineDrawing } from "./drawings/spreadsheet-line";
+import { drawingAnchor } from "../state/drawing-geometry";
 
 export { visibleDrawing } from "./drawings/drawing-helpers";
 export { SpreadsheetDrawingInspector } from "./drawings/drawing-inspector";
@@ -32,9 +35,15 @@ export function SpreadsheetDrawings({ controller: c, geometry }: { controller: S
     Array.from(element.querySelectorAll<HTMLElement>("[data-lxs-drawing]"))
       .find(drawing => drawing.dataset.lxsDrawing === selectedId)?.focus({ preventScroll: true });
   }, [c.selectedDrawingId, c.selectionFocus, layer]);
+  const lineGrid = useMemo(() => ({ columns: geometry.columnOffsets.map(value => value - geometry.columnOffsets[0]), rows: geometry.rowOffsets.map(value => value - geometry.rowOffsets[0]) }), [geometry]);
   const currentDrawings = (c.activeSheet.drawings ?? []).filter(drawing => visibleDrawing(drawing, c));
+  const displayedSheet = preview && preview.workbook === c.workbook && !c.disabled ? { ...c.activeSheet,
+    drawings: c.activeSheet.drawings?.map(drawing => drawing.id === preview.id ? { ...drawing,
+      anchor: drawingAnchor(preview.preview.left, preview.preview.top, geometry), width: preview.preview.width, height: preview.preview.height,
+      rotation: preview.preview.rotation, flipX: preview.preview.flipX, flipY: preview.preview.flipY } : drawing) } : c.activeSheet;
   return <div ref={layer} className="lxs-drawing-layer" role="group" aria-label="シート上のオブジェクト">
     {currentDrawings.map(drawing => {
+      if (isSpreadsheetLine(drawing)) return <SpreadsheetLineDrawing key={drawing.id} drawing={drawing} sheet={displayedSheet} controller={c} geometry={geometry} grid={lineGrid} layer={layer} editing={editingText === drawing.id} onEditText={() => setEditingText(drawing.id)} onDone={() => setEditingText(null)} />;
       const currentPreview = preview?.id === drawing.id && preview.workbook === c.workbook && !c.disabled && (preview.kind === "move" || c.features.resize) ? preview : null;
       const rectangle = currentPreview?.preview ?? drawingRectangle(drawing, geometry);
       const flipX = currentPreview?.preview.flipX ?? !!drawing.flipX, flipY = currentPreview?.preview.flipY ?? !!drawing.flipY;

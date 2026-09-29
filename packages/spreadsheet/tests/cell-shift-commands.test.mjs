@@ -60,7 +60,7 @@ test('public partial-cell commands run headlessly without UI, React, DOM or CSS 
   assert.equal(typeof globalThis.window, 'undefined');
   assert.equal(typeof globalThis.document, 'undefined');
   for (const input of Object.keys(output.metafile.inputs)) {
-    if (/\/core\/dist\/(?:index|ooxml|json)\.js$/.test(input) || /\/spreadsheet\/src\/core\.ts$/.test(input)) continue;
+    if (/\/core\/dist\/(?:index|ooxml|json|connectors)\.js$/.test(input) || /\/spreadsheet\/src\/core\.ts$/.test(input)) continue;
     assert.doesNotMatch(input, /node_modules|\/(?:ui|state|core)\/|\/(?:core|props|spreadsheet)\.tsx?$|\.(?:css|tsx)$/);
   }
   assert.ok(Object.values(output.metafile.outputs).every(file => file.imports.length === 0));

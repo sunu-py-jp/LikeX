@@ -3,6 +3,7 @@ import { fail } from "./validation";
 import { assertWorkbookDataValidation, type SpreadsheetDataValidation } from "../data-validation";
 import { normalizeNamedRanges } from "../named-ranges";
 import { assertWorkbookTables, reconcileWorkbookTables } from "../tables/normalize";
+import { validateLineBindings } from "../lines";
 
 export function freezeCell(value: string, format?: SpreadsheetCellFormat, validation?: SpreadsheetDataValidation): SpreadsheetCell {
   return Object.freeze({ value, ...(format ? { format } : {}), ...(validation ? { validation } : {}) });
@@ -22,6 +23,7 @@ export function finishWorkbook(sheets: readonly SpreadsheetSheet[], workbook?: S
   if (sheets.reduce((count, sheet) => count + (sheet.merges?.length ?? 0), 0) > SPREADSHEET_LIMITS.merges)
     fail("結合範囲の数が上限を超えています");
   const names = normalizeNamedRanges(namedRanges, sheets);
+  for (const sheet of sheets) if (sheet.drawings) validateLineBindings(sheet.drawings);
   const result = Object.freeze({ format: SPREADSHEET_FORMAT, schemaVersion: 1 as const, sheets: Object.freeze([...reconcileWorkbookTables(sheets)]),
     ...(resources ? { resources } : {}), ...(names ? { namedRanges: names } : {}) });
   assertWorkbookTables(result);

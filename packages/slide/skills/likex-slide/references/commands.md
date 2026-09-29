@@ -42,6 +42,7 @@
 | `slide.duplicate` | `slideId` | 直後へ複製。ページと全要素に新しいID |
 | `slide.move` | `slideId`, `index` | 最終的な0始まりの位置へ移動 |
 | `slide.update` | `slideId`, `patch: { name?, background?, notes? }` | ページの指定項目を更新 |
+| `slide.replaceContent` | `slideId`, `elements: SlideElementInput[]`, `name?`, `background?`, `notes?`, `animations?` | 1ページの全要素を検証して置換 |
 
 `slide.add.slide` のフィールドは `id`, `name`, `background`, `notes`, `elements`。省略値は空の要素配列、白背景、空ノートなどの既定値を使う。`elements` を渡す場合、その各要素は完全な編集用 `SlideElement` であり、部分的な `SlideElementInput` ではない。手軽な追加は空のページを作り、`element.add` を続ける。
 
@@ -55,11 +56,28 @@
 
 `details` / `details-heading` が既に存在する場合は別の一意のIDを選ぶ。`slide.move.index` は0〜`deck.slides.length - 1`。ページの更新patchで `id` や `elements` を変更しない。要素を変更する場合は要素コマンドを使う。
 
+## 1ページを作り直す
+
+全体を描き直す場合は `slide.replaceContent` を優先する。旧要素のIDを全部コピーして削除する必要がなく、背景の裏に旧要素が残ることもない。ページID・ページ順・他ページは保持し、省略した `name` / `background` / `notes` も保持する。`animations` は省略でクリア、指定時は新要素だけを参照できる。アニメーションを保持したい場合は新要素に適合する定義を明示する。
+
+```json
+[
+  { "type": "slide.replaceContent", "slideId": "cover", "background": "#101c2f", "elements": [
+    { "type": "text", "id": "new-heading", "text": "次の成長を、ここから。", "x": 64, "y": 100, "width": 1000, "height": 170, "fontSize": 60, "color": "#ffffff", "bold": true },
+    { "type": "shape", "shape": "rect", "x": 80, "y": 300, "width": 160, "height": 6, "fill": "#5eead4", "strokeWidth": 0 }
+  ] }
+]
+```
+
+各要素は `element.add` と同じ `SlideElementInput`。`type` は必須、ID省略時は自動生成。`elements: []` は内容のクリア。ロックされた旧要素がある場合は拒否する。新しいIDの重複・無効な要素・古いアニメーション参照もバッチ全体を失敗させる。結果の `elementIds` は新しい全要素のID。モデルの失敗は `commands[0]: ...` のように0始まりの位置を含む。IDが見つからない場合、同じ誤記を繰り返さず対象ページを再取得する。
+
 ## 要素の追加・更新
 
 | `type` | 引数 |
 | --- | --- |
 | `element.add` | `slideId`, `element: SlideElementInput` |
+| `line.add` | `slideId`, `start: ConnectorEndpoint`, `end: ConnectorEndpoint`, `id?`, `name?`, `stroke?`, `strokeWidth?`, `startArrow?`, `endArrow?` |
+| `line.update` | `slideId`, `elementId`, `start?`, `end?`, `startArrow?`, `endArrow?`（1項目以上） |
 | `element.update` | `slideId`, `elementId`, `patch: SlideElementPatch` |
 
 追加では `type` が必須で、画像はさらに `src` が必須。その他は任意で既定値を補う。共通フィールドは `id`, `name`, `x`, `y`, `width`, `height`, `rotation`, `opacity`, `locked`。保存専用の `stackOrder` をコマンドに入れない。
@@ -70,7 +88,7 @@
 | `shape` | `shape`, `fill`, `stroke`, `strokeWidth`, `text`, `fontSize`, `textColor` |
 | `image` | 必須 `src`、任意 `alt` |
 
-`shape` は `rect` / `roundRect` / `ellipse` / `triangle` / `diamond` / `arrow` / `line`。図形文字の色は `textColor`、テキストの色は `color`。図形にテキスト用の `bold` / `fontFamily` などは渡さない。画像はPNG / JPEG / GIF / WebPのBase64 data URLのみ。画像と座標の上限は [schema-guide.md](schema-guide.md) を参照する。
+`shape` は `rect` / `roundRect` / `ellipse` / `triangle` / `diamond` / `arrow` / `leftArrow` / `line`。図形文字の色は `textColor`、テキストの色は `color`。図形にテキスト用の `bold` / `fontFamily` などは渡さない。画像はPNG / JPEG / GIF / WebPのBase64 data URLのみ。画像と座標の上限は [schema-guide.md](schema-guide.md) を参照する。
 
 ```json
 [
@@ -81,6 +99,8 @@
 
 要素は追加時に最前面へ入る。更新patchに `id` / `type` は指定できず、対象の型にないフィールドも拒否する。サイズを更新しても文字サイズは自動調整されない。寸法・文字サイズを意図に合わせて指定する。
 
+`SlideElementPatch` の生成Schemaはtext・shape・imageそれぞれの分岐を持つ。対象に合う分岐を1つ使い、textの更新へshape専用の `shape` / `strokeWidth` やimage専用の `src` を混ぜない。構造がSchemaを通っても、実際の対象要素の種類と一致するかは公開モデルAPIが最終検証する。
+
 ロックされた要素を変更する場合、先にロックだけ解除する。解除と位置変更を同じpatchに混ぜると拒否される。以下は実際にロックされた `heading` を移動し、再びロックする場合の例。
 
 ```json
@@ -90,6 +110,22 @@
   { "type": "element.update", "slideId": "cover", "elementId": "heading", "patch": { "locked": true } }
 ]
 ```
+
+## 構成図の接続線
+
+追従する直線には `line.add` / `line.update` を優先する。端点は `{ "x": 0, "y": 0, "binding": { "targetId": "api-box", "port": "right" } }` の形。接続があれば座標は対象図形から解決される。portは回転前の `top/topRight/right/bottomRight/bottom/bottomLeft/left/topLeft`、楕円や三角形などでは輪郭上の8点。接続先は同一ページの非線要素に限る。追加は `start/end` が必須、更新は片方以上を指定し、端点にbindingを省略するとその端を解除する。線の移動は両端を解除、接続先と同時の複製ではIDを張り替え、接続先の削除では現在座標に固定して解除する。`line.add` の線は普通のshape要素なので、重なり順と削除は `element.order/delete` を使う。
+
+```json
+[
+  { "type": "element.add", "slideId": "cover", "element": { "type": "shape", "id": "api-box", "shape": "roundRect", "x": 100, "y": 260, "width": 260, "height": 100, "text": "API" } },
+  { "type": "element.add", "slideId": "cover", "element": { "type": "shape", "id": "worker-box", "shape": "roundRect", "x": 520, "y": 260, "width": 260, "height": 100, "text": "Worker" } },
+  { "type": "line.add", "slideId": "cover", "id": "api-worker", "start": { "x": 0, "y": 0, "binding": { "targetId": "api-box", "port": "right" } }, "end": { "x": 0, "y": 0, "binding": { "targetId": "worker-box", "port": "left" } }, "stroke": "#64748b", "strokeWidth": 2 }
+]
+```
+
+矩形のwidth/heightを使わず、水平・垂直・逆方向の線をそのまま2点で指定できる。同一点は丸い点になる。端点は各座標±100,000px、両端の差は各軸100,000pxまで。`shape: "arrow"` は面を持つ矢印で直線とは別。新線のSLONには任意の `line: {start,end}` を保存する。接続先の移動・resize・回転に自動追従し、第三の図形を避ける自動経路探索は行わない。
+
+`startArrow/endArrow` は線の各端の形で `none/triangle/openArrow/diamond/oval/stealth`、省略時none。`line.update` は矢印だけでも呼び出せる。右向き矢印線はend、左向きはstart、双方向は両方にtriangleを指定する。図形 `shape: "arrow"`（右）/ `"leftArrow"`（左）は太いブロック矢印で直線とは別。旧 `element.connect` と `createSlideConnector` は削除済み。旧保存ファイルの線の集合は読み込めるが、静的折れ線の自動生成は提供しない。
 
 ## 要素の削除・複製・重なり順
 
@@ -112,6 +148,8 @@
 ## 右クリック操作とコマンド
 
 GUIの要素メニューは `element.update`（テキスト・ロック）、`element.duplicate`、`element.order`、`element.delete` を使う。キャンバスの追加・貼り付けは `element.add`、スライド一覧は `slide.add` / `slide.duplicate` / `slide.move` / `slide.delete` に対応する。モデルやCLIへGUIの選択状態は渡らないため、`inspect` した `slideId` / `elementIds` と追加要素を指定する。GUIのコピー用バッファや文字入力の開始は表示中の操作で、保存形式の変更はない。
+
+一覧の複数ページ選択は表示中の `SlideSelection.slideIds?`、キャンバスの範囲選択は `elementIds` で取得できる。`SlideHandle.deleteSelection("slides" | "elements")` は選択した対象を既存コマンドで一括削除し、1回のUndoで内容と選択を戻す。CLIでは複数の `slide.delete` を配列にするか、複数IDを持つ `element.delete` を使う。全ページの削除やロック要素を含む削除は全体を拒否する。これらの選択状態はSLON・PPTXへ保存しない。
 
 ## CLIの出力と失敗
 
@@ -156,7 +194,7 @@ CLIは処理概要のJSONを標準出力へ返す。共通情報は `ok`, `kind`
 
 `resolveSlideAnimations(slide)` は全ステップ終了後のスライド、`evaluateSlideAnimations(slide,{elapsedMs,clicks:[{elapsedMs,elementId?}]})` は時刻における `{slide,finished,waitingForClick,stepId?}` を返す。名前付きまたは複数系列では `waitingSteps: {stepId,timelineId?,waitingTargetId?}[]` と `activeSteps: {stepId,timelineId?,stepStartMs,stepEndMs}[]` も返す。待機と進行が併存する場合がある。単一の既定系列ではこれらを省略する。入力は変更しない。
 
-CLIの `inspect --include-animations` は全体取得なら `animations: [{slideId,animations}]`、スライド・要素取得なら `selection.animations` に対象スライドの定義を返す。要素の本文・色・不透明度など全フィールドを読むには `--element-id ID --include-data` も付ける。画像のBase64は引き続き省略する。このフラグはslideのinspect専用で、create/apply/validateや他モジュールでは使わない。
+CLIの `inspect --include-animations` は全体取得なら `animations: [{slideId,animations}]`、スライド・要素取得なら `selection.animations` に対象スライドの定義を返す。要素の本文・色・不透明度など詳細フィールドをまとめて読むには `--slide-id ID --include-data --include-animations` とし、`selection.elements` から1ページ分を取得する。特定の1要素だけ必要な場合は `--element-id ID` も付け、`selection.element` を読む。画像の `src` / `dataUrl` は引き続き省略する。`--include-animations` はslideのinspect専用で、create/apply/validateや他モジュールでは使わない。
 
 PPTX書き出しは元の要素と標準PresentationMLのタイムラインを出力する。`exportSlidePptx(deck,{onWarning,onDiagnostic})` の同期コールバックで近似・省略を確認する。位置・回転・大きさ・RGB色と、時間・クリック・順次/並列・有限反復を変換する。ばね・バウンド・不透明度は中間値へ近似する。文字サイズ・線幅・アルファ値付き色は、最大32分割の編集可能な図形と表示切り替えへ近似する。追加図形・切替・キーフレームの量を理由に間引く処理はない。ファイル全体の要素・文字数上限を超えた場合は、動きを省略せず出力が失敗する。コールバックの例外も出力を失敗させる。
 

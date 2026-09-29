@@ -695,3 +695,53 @@ test('a drag baseline permits the unchanged deck after asynchronous permission',
   await change(async () => { decision.resolve(true); assert.ok((await drag)?.changed); });
   assert.deepEqual(app.editor.deck.slides.map(slide => slide.id), ['two', 'one']);
 });
+
+test('page replacement obeys content/format/notes/animation features and read-only before asking permission', async t => {
+  const elements = [createSlideElement({ type: 'text', id: 'title', text: 'Old title' }), createSlideElement({ type: 'shape', id: 'box' })];
+  const initialDeck = createSlideDeck({ slides: [{ id: 'page', name: 'Page', background: '#fff', notes: '', elements,
+    animations: [{ id: 'fade', animation: { type: 'tween', elementId: 'title', durationMs: 100, to: { opacity: 0 } } }] }] });
+  for (const props of [{ readOnly: true }, { features: { formatting: false } }, { features: { text: false } }, { features: { shapes: false } },
+    { features: { notes: false } }, { features: { animations: false } }]) {
+    let requested = 0;
+    const app = await mount(t, { initialDeck, ...props, onEditRequest() { requested++; return true; } });
+    await change(async () => assert.equal(await app.editor.execute({ type: 'slide.replaceContent', slideId: 'page', notes: 'New notes', elements: [{ type: 'text', id: 'new', text: 'New' }] }), null));
+    assert.equal(app.editor.deck, initialDeck);
+    assert.equal(app.editor.canUndo, false);
+    assert.equal(requested, 0);
+  }
+});
+
+test('page replacement is one undoable UI command and cannot apply after read-only changes during authorization', async t => {
+  const initialDeck = createSlideDeck({ slides: [{ id: 'page', name: 'Page', background: '#fff', notes: '', elements: [createSlideElement({ type: 'text', id: 'old' })] }] });
+  const app = await mount(t, { initialDeck, features: { addSlides: false, deleteSlides: false } });
+  await change(() => app.editor.select({ slideId: 'page', elementIds: ['old'] }));
+  await change(async () => assert.ok(await app.editor.execute({ type: 'slide.replaceContent', slideId: 'page', elements: [{ type: 'text', id: 'fresh', text: 'New title' }] })));
+  assert.deepEqual(app.editor.selection, { slideId: 'page', elementIds: ['fresh'] });
+  assert.equal(app.editor.deck.slides[0].elements.length, 1);
+  await change(() => app.editor.history('undo'));
+  assert.deepEqual(app.editor.deck, initialDeck);
+  assert.deepEqual(app.editor.selection, { slideId: 'page', elementIds: ['old'] });
+  await change(() => app.editor.history('redo'));
+  assert.equal(app.editor.deck.slides[0].elements[0].id, 'fresh');
+  const pendingPermission = deferred();
+  const guarded = await mount(t, { initialDeck, onEditRequest: () => pendingPermission.promise });
+  let result;
+  await change(() => { result = guarded.editor.execute({ type: 'slide.replaceContent', slideId: 'page', elements: [] }); });
+  await guarded.update({ readOnly: true });
+  await change(async () => { pendingPermission.resolve(true); assert.equal(await result, null); });
+  assert.equal(guarded.editor.deck, initialDeck);
+});
+
+test('connection command uses the shape permission gate and shared undo history', async t => {
+  const initialDeck = createSlideDeck({ slides: [{ id: 'page', name: 'Page', background: '#fff', notes: '', elements: [
+    createSlideElement({ type: 'text', id: 'from', x: 50, width: 200 }), createSlideElement({ type: 'text', id: 'to', x: 600, width: 200 })] }] });
+  const app = await mount(t, { initialDeck, features: { shapes: false } });
+  const command = { type: 'line.add', slideId: 'page', start: { x: 0, y: 0, binding: { targetId: 'from', port: 'right' } }, end: { x: 0, y: 0, binding: { targetId: 'to', port: 'left' } } };
+  await change(async () => assert.equal(await app.editor.execute(command), null));
+  assert.equal(app.editor.deck, initialDeck);
+  await app.update({ features: { shapes: true } });
+  await change(async () => assert.ok(await app.editor.execute(command)));
+  assert.ok(app.editor.deck.slides[0].elements.length > 2);
+  await change(() => app.editor.history('undo'));
+  assert.equal(app.editor.deck, initialDeck);
+});

@@ -98,6 +98,7 @@ export function duplicateSheetWithIds(workbook: SpreadsheetWorkbook, sheetId: st
   })]));
   const tableNames = new Set([...(workbook.namedRanges ?? []).map(item => item.name.toLocaleLowerCase("en-US")),
     ...workbook.sheets.flatMap(sheet => (sheet.tables ?? []).map(item => item.name.toLocaleLowerCase("en-US")))]);
+  const drawingIds = new Map(source.drawings?.map(drawing => [drawing.id, identity()]) ?? []);
   const duplicated: SpreadsheetSheet = Object.freeze({ ...source, id, name, cells: Object.freeze(cells),
     ...(source.tables ? { tables: Object.freeze(source.tables.map(table => {
       let tableName: string, suffix = 2;
@@ -107,7 +108,10 @@ export function duplicateSheetWithIds(workbook: SpreadsheetWorkbook, sheetId: st
       return Object.freeze({ ...table, id: identity(), name: tableName,
         columns: Object.freeze(table.columns.map(column => Object.freeze({ ...column, id: identity() }))) });
     })) } : {}),
-    ...(source.drawings ? { drawings: Object.freeze(source.drawings.map(drawing => Object.freeze({ ...drawing, id: identity(), anchor: Object.freeze({ ...drawing.anchor }) }))) } : {}),
+    ...(source.drawings ? { drawings: Object.freeze(source.drawings.map(drawing => Object.freeze({ ...drawing, id: drawingIds.get(drawing.id)!, anchor: Object.freeze({ ...drawing.anchor }),
+      ...(drawing.type === "shape" && drawing.line ? { line: Object.freeze(Object.fromEntries((["start", "end"] as const).map(key => [key,
+        Object.freeze({ anchor: Object.freeze({ ...drawing.line![key].anchor }), ...(drawing.line![key].binding ? {
+          binding: Object.freeze({ ...drawing.line![key].binding!, targetId: drawingIds.get(drawing.line![key].binding!.targetId)! }) } : {}) })]))) as typeof drawing.line } : {}) }))) } : {}),
     ...(source.comments ? { comments: Object.freeze(Object.fromEntries(Object.entries(source.comments).map(([address, comment]) => [address, Object.freeze({ ...comment, id: identity() })]))) } : {}),
   });
   const sheets = [...workbook.sheets];

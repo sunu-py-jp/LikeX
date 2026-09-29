@@ -16,7 +16,7 @@ test('model entry runs without React, DOM, CSS or lifecycle imports; shared JSON
   assert.equal(typeof globalThis.window, 'undefined');
   for (const input of Object.keys(output.metafile.inputs)) {
     // Office import uses OOXML/JSON; export also uses Core's React-free ZIP writer.
-    if (/\/core\/dist\/(?:index|ooxml|json)\.js$/.test(input) || /\/spreadsheet\/src\/core\.ts$/.test(input)) continue;
+    if (/\/core\/dist\/(?:index|ooxml|json|connectors)\.js$/.test(input) || /\/spreadsheet\/src\/core\.ts$/.test(input)) continue;
     assert.doesNotMatch(input, /node_modules|\/(?:ui|state|core)\/|\/(?:core|props|spreadsheet)\.tsx?$|\.(?:css|tsx)$/);
   }
   assert.ok(Object.values(output.metafile.outputs).every(file => file.imports.length === 0));

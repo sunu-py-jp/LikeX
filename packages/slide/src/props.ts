@@ -8,7 +8,13 @@ import type { SlideImageResult } from "./render/types";
 import type { SlidePptxDiagnostic } from "./office/types";
 
 export type SlideFeatures = Partial<Record<"addSlides" | "deleteSlides" | "reorderSlides" | "text" | "shapes" | "images" | "formatting" | "animations" | "notes" | "import" | "export" | "presentation" | "history", boolean>>;
-export type SlideSelection = { slideId: string; elementIds: string[] };
+export type SlideSelection = {
+  /** The active page displayed on the canvas. */
+  slideId: string;
+  elementIds: string[];
+  /** Multiple selected pages, in deck order. Omitted for a single page; includes slideId. */
+  slideIds?: string[];
+};
 export type SlideEvent =
   | { type: "change"; source: "command" | "import" | "undo" | "redo"; deck: SlideDeck }
   | { type: "save"; phase: "start" | "success" | "error" | "cancelled"; error?: string }
@@ -32,6 +38,8 @@ export type SlideHandle = {
   discard(): void;
   getSelection(): SlideSelection;
   select(selection: SlideSelection): void;
+  /** Delete the selected pages or elements as one undoable edit. At least one page must remain. */
+  deleteSelection(scope: "slides" | "elements"): Promise<SlideCommandResult | null>;
   /** Load current .slon JSON as an undoable draft; failures are reported through the editor notice. */
   importNative(input: string | Blob): Promise<void>;
   /** Flush pending input and return current .slon JSON without marking the draft saved. */

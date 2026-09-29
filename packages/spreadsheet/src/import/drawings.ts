@@ -1,3 +1,7 @@
+import { readOfficeConnectorShapeTag } from "../ooxml";
+import { withLinePoints } from "../model/lines";
+import { isSpreadsheetShapeKind } from "../model/shapes";
+import { connectImportedDrawings, connectorPoints, presetHasAdjustments, readConnectorFrame, readLineArrow, type ImportedDrawingTarget, type PendingDrawingConnector } from "./drawing-connectors";
 import { normalizeDrawing } from "../model/annotations";
 import { getImageDisplaySize } from "../model/image-resources";
 import { normalizeDrawingRotation } from "../model/drawing-transform";
@@ -15,8 +19,18 @@ import { attribute, child, children, localName, parseXml, type XmlNode } from ".
 export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetSheet,
   relationships: ReadonlyMap<string, XlsxRelationship>, context: ImportContext): Promise<SpreadsheetSheet> {
   let sheet = initial;
+  const defaults = worksheetDefaultSizes(node);
+  const grow = (current: SpreadsheetSheet, row: number, column: number) => {
+    const next = growSheet(current, row, column);
+    if (next.rowCount === current.rowCount && next.columnCount === current.columnCount) return next;
+    const rowHeights = { ...next.rowHeights }, columnWidths = { ...next.columnWidths };
+    for (let index = current.rowCount; index < next.rowCount; index++) rowHeights[index] ??= defaults.row;
+    for (let index = current.columnCount; index < next.columnCount; index++) columnWidths[index] ??= defaults.column;
+    return { ...next, rowHeights, columnWidths };
+  };
   const drawings: SpreadsheetDrawing[] = [], grid = drawingGrid(sheet, worksheetDefaultSizes(node));
   let visited = 0;
+  const pending: PendingDrawingConnector[] = [], targets = new Map<string, ImportedDrawingTarget>(), ambiguousIds = new Set<string>();
   for (const reference of children(node, "drawing")) {
     context.signal?.throwIfAborted();
     const relation = relationships.get(attribute(reference, "id") ?? "");
@@ -31,32 +45,53 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
       const object = container.children.find(item => ["pic", "sp", "cxnSp", "graphicFrame", "grpSp"].includes(localName(item.name)));
       if (!object || !["pic", "sp", "cxnSp"].includes(localName(object.name))) { omitted(context, sheet, "グラフ・グループなど未対応の描画オブジェクトを省略しました"); continue; }
       const properties = child(object, "spPr"), transform = child(properties, "xfrm");
+      const connector = localName(object.name) === "cxnSp", customKind = readOfficeConnectorShapeTag(child(properties, "custGeom"));
       const rotationValue = finiteNumber(transform?.attributes.rot);
       const rotation = normalizeDrawingRotation((rotationValue ?? 0) / 60000);
-      const nativeFrame = rotation ? readTransformFrame(transform) : undefined;
-      const frame = nativeFrame ?? readDrawingFrame(container, grid);
+      const nativeFrame = connector ? readConnectorFrame(transform) : rotation || customKind ? readTransformFrame(transform) : undefined;
+      let frame = nativeFrame ?? readDrawingFrame(container, grid);
       if (!frame) { omitted(context, sheet, "対応範囲外のサイズ・位置を持つオブジェクトを省略しました"); continue; }
       if (rotation && !nativeFrame) adjusted(context, sheet, "回転したオブジェクトの位置をセルのアンカーから近似しました");
-      const anchor = anchorFromFrame(frame, grid);
+      const lineProperties = child(properties, "ln");
+      const originalStroke = child(lineProperties, "noFill") ? 0 : Math.min(100, Math.max(0, (finiteNumber(lineProperties?.attributes.w) ?? 9525) / EMU_PER_PIXEL));
+      if (customKind && isSpreadsheetShapeKind(customKind) && customKind !== "line" && customKind !== "arrow")
+        frame = { x: Math.max(0, frame.x - originalStroke / 2), y: Math.max(0, frame.y - originalStroke / 2), width: frame.width + originalStroke, height: frame.height + originalStroke };
+      const anchor = anchorFromFrame({ ...frame, x: Math.max(0, frame.x), y: Math.max(0, frame.y) }, grid);
       if (!anchor) { omitted(context, sheet, "シート上限外のオブジェクトを省略しました"); continue; }
       const common = { id: `${sheet.id}-drawing-${visited}`, anchor, width: frame.width, height: frame.height,
         ...(["1", "true"].includes(transform?.attributes.flipH ?? "") ? { flipX: true } : {}),
         ...(["1", "true"].includes(transform?.attributes.flipV ?? "") ? { flipY: true } : {}), ...(rotation ? { rotation } : {}) };
       let drawing: SpreadsheetDrawing;
-      if (localName(object.name) === "pic") {
+      if (connector) {
+        const preset = child(properties, "prstGeom")?.attributes.prst;
+        if (preset !== "line") adjusted(context, sheet, "曲線・折れ線の接続線を始点と終点を結ぶ直線へ変更しました");
+        const content = drawingText(child(object, "txBody"), context, sheet);
+        const endpoints = connectorPoints(frame, transform), nonvisual = child(child(object, "nvCxnSpPr"), "cNvCxnSpPr");
+        const line = child(properties, "ln");
+        sheet = grow(sheet, anchor.row, anchor.column);
+        for (const point of [endpoints.start, endpoints.end]) {
+          const endpointAnchor = anchorFromFrame({ ...frame, x: Math.max(0, point.x), y: Math.max(0, point.y) }, grid);
+          if (endpointAnchor) sheet = grow(sheet, endpointAnchor.row, endpointAnchor.column);
+        }
+        drawing = withLinePoints(sheet, { ...common, width: Math.max(1, common.width), height: Math.max(1, common.height), type: "shape", shape: "line", fill: "transparent",
+          stroke: drawingFill(line, "#000000", context, sheet), strokeWidth: originalStroke, ...content,
+          startArrow: readLineArrow(line, "headEnd", context, sheet), endArrow: readLineArrow(line, "tailEnd", context, sheet) }, endpoints);
+        pending.push({ drawingId: drawing.id, scope: relation.target, points: endpoints, start: child(nonvisual, "stCxn"), end: child(nonvisual, "endCxn") });
+        if (child(line, "prstDash")?.attributes.val && child(line, "prstDash")!.attributes.val !== "solid") adjusted(context, sheet, "線の破線を実線へ変更しました");
+      } else if (localName(object.name) === "pic") {
         const blipFill = child(object, "blipFill"), blip = child(blipFill, "blip"), media = related.get(attribute(blip, "embed") ?? "");
         if (!media || media.external || !media.type.endsWith("/image") || attribute(blip, "link")) { omitted(context, sheet, "外部リンクの画像を省略しました"); continue; }
         const resourceId = await readDrawingImage(media.target, context);
         if (!resourceId) { omitted(context, sheet, "未対応または不正な画像を省略しました（PNG・JPEG・GIF・WebPに対応）"); continue; }
         const size = getImageDisplaySize(context.resources[resourceId]);
-        if (Math.abs(frame.width / frame.height / (size.width / size.height) - 1) > 0.01) adjusted(context, sheet, "引き伸ばされた画像を元の縦横比で枠内に収めました");
+        if (customKind !== "image" && Math.abs(frame.width / frame.height / (size.width / size.height) - 1) > 0.01) adjusted(context, sheet, "引き伸ばされた画像を元の縦横比で枠内に収めました");
         if (child(blipFill, "srcRect") || child(blipFill, "tile")) omitted(context, sheet, "画像のトリミング・タイル表示を省略しました");
         const nonvisual = child(child(object, "nvPicPr"), "cNvPr");
         drawing = { ...common, type: "image", resourceId, alt: nonvisual?.attributes.descr ?? nonvisual?.attributes.name ?? "" };
       } else {
         const nonvisual = child(child(object, "nvSpPr"), "cNvSpPr"), isTextBox = ["1", "true"].includes(nonvisual?.attributes.txBox ?? "");
         const preset = child(properties, "prstGeom"), presetName = preset?.attributes.prst;
-        if (!isTextBox && (child(properties, "custGeom") || !SPREADSHEET_SHAPES.some(item => getShapeDefinition(item.kind).xlsxPreset === presetName))) {
+        if (!isTextBox && (!customKind && child(properties, "custGeom") || !(isSpreadsheetShapeKind(customKind) || SPREADSHEET_SHAPES.some(item => getShapeDefinition(item.kind).xlsxPreset === presetName)))) {
           omitted(context, sheet, "未対応の種類の図形を省略しました"); continue;
         }
         const content = drawingText(child(object, "txBody"), context, sheet);
@@ -70,13 +105,13 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
           if (child(properties, "ln") && !child(child(properties, "ln"), "noFill")) omitted(context, sheet, "テキストボックスの外枠を省略しました");
           drawing = { ...common, type: "text", ...content, background: fill };
         } else {
-          let shape = SPREADSHEET_SHAPES.find(item => getShapeDefinition(item.kind).xlsxPreset === presetName)?.kind;
+          let shape = isSpreadsheetShapeKind(customKind) ? customKind : SPREADSHEET_SHAPES.find(item => getShapeDefinition(item.kind).xlsxPreset === presetName)?.kind;
           const line = child(properties, "ln");
           const head = child(line, "headEnd"), tail = child(line, "tailEnd");
           const hasHead = !!head && !!head.attributes.type && head.attributes.type !== "none";
           const hasTail = !!tail && !!tail.attributes.type && tail.attributes.type !== "none";
           if (presetName === "line" && (hasHead || hasTail)) shape = "arrow";
-          if (!shape || child(properties, "custGeom")) { omitted(context, sheet, "未対応の種類の図形を省略しました"); continue; }
+          if (!shape || child(properties, "custGeom") && !customKind) { omitted(context, sheet, "未対応の種類の図形を省略しました"); continue; }
           const strokeWidth = child(line, "noFill") ? 0 : Math.min(100, Math.max(0, (finiteNumber(line?.attributes.w) ?? 9525) / EMU_PER_PIXEL));
           if (line?.attributes.w && strokeWidth !== Number(line.attributes.w) / EMU_PER_PIXEL) adjusted(context, sheet, "図形の線幅を対応範囲へ調整しました");
           if (child(line, "prstDash")?.attributes.val && child(line, "prstDash")!.attributes.val !== "solid") adjusted(context, sheet, "図形の破線を実線へ変更しました");
@@ -87,15 +122,22 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
             return adjustment && item.attributes.name === adjustment.name ? Math.abs(value - expected!) > 1
               : item.attributes.name === "adj1" ? value !== 50000 : !(shape === "roundedRectangle" && item.attributes.name === "adj" && value === 16667 || shape === "triangle" && item.attributes.name === "adj" && value === 50000);
           })) adjusted(context, sheet, "図形の細かな変形を標準の形状へ近似しました");
-          if (presetName === "line" && hasHead && hasTail) adjusted(context, sheet, "両端の矢印を片側の矢印へ変更しました");
-          drawing = { ...common, ...(presetName === "line" && hasHead && !hasTail ? { flipX: !common.flipX, flipY: !common.flipY } : {}),
+          drawing = { ...common, ...(presetName === "line" ? { startArrow: readLineArrow(line, "headEnd", context, sheet), endArrow: readLineArrow(line, "tailEnd", context, sheet) } : {}),
             type: "shape", shape, fill, stroke: drawingFill(line, drawingColor(child(style, "lnRef"), context) ?? "#000000", context, sheet), strokeWidth, ...content };
         }
       }
-      sheet = growSheet(sheet, anchor.row, anchor.column);
+      sheet = grow(sheet, anchor.row, anchor.column);
       drawings.push(normalizeDrawing(drawing, sheet, { images: context.resources }));
+      const nonvisualGroup = child(object, localName(object.name) === "pic" ? "nvPicPr" : connector ? "nvCxnSpPr" : "nvSpPr");
+      const nativeId = child(nonvisualGroup, "cNvPr")?.attributes.id;
+      if (nativeId) {
+        const key = `${relation.target}:${nativeId}`;
+        if (ambiguousIds.has(key) || targets.has(key)) { ambiguousIds.add(key); targets.delete(key); adjusted(context, sheet, "重複する描画IDの接続先を省略しました"); }
+        else targets.set(key, { id: drawing.id, custom: !!customKind, preset: localName(object.name) === "pic" ? "rect" : child(properties, "prstGeom")?.attributes.prst,
+          adjusted: !customKind && presetHasAdjustments(child(properties, "prstGeom")) });
+      }
       if (child(properties, "effectLst") || child(properties, "effectDag") || child(properties, "scene3d") || child(properties, "sp3d")) omitted(context, sheet, "描画オブジェクトの影・3D効果を省略しました");
     }
   }
-  return drawings.length ? { ...sheet, drawings } : sheet;
+  return drawings.length ? { ...sheet, drawings: connectImportedDrawings(sheet, drawings, pending, targets, context) } : sheet;
 }

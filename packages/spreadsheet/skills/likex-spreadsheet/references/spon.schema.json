@@ -331,14 +331,29 @@
           "type": "string"
         },
         "strokeWidth": {
-          "type": "number"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "line": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_line",
+          "description": "Only line/arrow shapes. Omitted on legacy rectangle-based lines."
+        },
+        "startArrow": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_startArrow",
+          "description": "End markers. Legacy shape:arrow defaults its end to triangle; otherwise none."
+        },
+        "endArrow": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_startArrow"
         },
         "text": {
           "type": "string",
           "description": "Optional shape text; omitted formatting uses 16 px, #1f2937 and normal weight."
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 400
         },
         "color": {
           "type": "string"
@@ -380,6 +395,75 @@
         "upDownArrow"
       ]
     },
+    "SpreadsheetShapeDrawing_line": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_line_start"
+        },
+        "end": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_line_start"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetShapeDrawing_line_start": {
+      "type": "object",
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/SpreadsheetDrawingAnchor"
+        },
+        "binding": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_line_start_binding"
+        }
+      },
+      "required": [
+        "anchor"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetShapeDrawing_line_start_binding": {
+      "type": "object",
+      "properties": {
+        "targetId": {
+          "type": "string"
+        },
+        "port": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_line_start_binding_port"
+        }
+      },
+      "required": [
+        "targetId",
+        "port"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetShapeDrawing_line_start_binding_port": {
+      "enum": [
+        "top",
+        "right",
+        "bottom",
+        "left",
+        "topRight",
+        "bottomRight",
+        "bottomLeft",
+        "topLeft"
+      ]
+    },
+    "SpreadsheetShapeDrawing_startArrow": {
+      "enum": [
+        "none",
+        "triangle",
+        "diamond",
+        "openArrow",
+        "oval",
+        "stealth"
+      ]
+    },
     "SpreadsheetTextDrawing": {
       "type": "object",
       "properties": {
@@ -413,7 +497,9 @@
           "type": "string"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 400
         },
         "color": {
           "type": "string"
@@ -568,6 +654,8 @@
         },
         "fontSize": {
           "type": "number",
+          "minimum": 1,
+          "maximum": 200,
           "description": "Font size in CSS pixels. XLSX converts pixels to points."
         },
         "wrap": {

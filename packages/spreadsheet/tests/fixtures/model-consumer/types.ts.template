@@ -1,16 +1,21 @@
 import {
-  applySpreadsheetCommands, createWorkbook, parseWorkbook, serializeWorkbook,
+  applySpreadsheetCommands, createWorkbook, setCellBorders, type SpreadsheetBorderPreset, parseWorkbook, serializeWorkbook, expandCellAddresses, CellAddressExpansionError,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
   createSpreadsheetSession, copySpreadsheetCells, importSpreadsheetXlsx, exportSpreadsheetXlsx,
   getSheets, getSheetCells, type SpreadsheetStoredCell, getSheetReader, getNamedRange, getRangeByName, findSpreadsheetSheets, findSpreadsheetCells,
   type SpreadsheetSheetSearchQuery, type SpreadsheetSheetSearchMatch, type SpreadsheetSearchOptions, type SpreadsheetSearchMatch,
-  type SpreadsheetTable, type SpreadsheetTableColumn, type SpreadsheetSheetReadApi,
+  type SpreadsheetTable, type SpreadsheetTableColumn, type SpreadsheetSheetReadApi, type SpreadsheetCellGridWriteOptions,
   type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot, type SpreadsheetReadApi, type SpreadsheetReadRange, type SpreadsheetInsertValue,
   type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult,
   type SpreadsheetXlsxExportOptions,
   SPREADSHEET_FILE_VERSION, type SpreadsheetFile, type SpreadsheetFileRow,
   type SpreadsheetSession, type SpreadsheetSessionOptions, type SpreadsheetHistoryState, type SpreadsheetPastePayload,
 } from '__MODEL_IMPORT__';
+
+const expandedAddresses: readonly string[] = expandCellAddresses(createWorkbook().sheets[0], ['A1', '$b$2:$c$3']);
+const expansionFailure = new CellAddressExpansionError(1, 'A0:B2', 'invalid range');
+const failedAddressIndex: number = expansionFailure.index;
+void [expandedAddresses, failedAddressIndex];
 
 const fileRow: SpreadsheetFileRow = { cells: { A: { value: '行 1' } } };
 const nativeFile: SpreadsheetFile = { format: 'likex.spreadsheet', schemaVersion: SPREADSHEET_FILE_VERSION,
@@ -53,6 +58,16 @@ const commands: readonly SpreadsheetCommand[] = [
   { type: 'columns.insert', sheetId: 'sheet-1', index: 2, values: [['価格', 100, 200], ['完了', false, true]] },
   { type: 'cells.set', sheetId: 'sheet-1', values: { A2: '100', A3: '=SUM(B1:B2)' } },
 ];
+const gridOptions: SpreadsheetCellGridWriteOptions = {
+  sheetId: 'sheet-1', target: { row: 1, column: 1 }, headers: ['商品', '金額'],
+  data: { type: 'rows', values: [['商品A', '100']] },
+  border: { color: '#334155', width: 1 }, headerStyle: { background: '#0f172a', color: '#ffffff' },
+};
+const gridCommand: SpreadsheetCommand = { type: 'cells.writeGrid', ...gridOptions };
+applySpreadsheetCommands(createWorkbook(), [gridCommand], { features: { tables: false, formatting: true } });
+// @ts-expect-error Grid borders use supported line widths.
+const invalidGridOptions: SpreadsheetCellGridWriteOptions = { ...gridOptions, border: { width: 4 } };
+void invalidGridOptions;
 const insertionValues: readonly SpreadsheetInsertValue[] = ['name', 10, false, null];
 void insertionValues;
 // @ts-expect-error Matrix input is required for row and column insertion.
@@ -188,3 +203,11 @@ if (rangesResult.ok) for (const receipt of rangesResult.results) {
 sheets.push(sheets[0]);
 // @ts-expect-error Conflict policies cannot be misspelled.
 session.execute({type:'cells.set',sheetId:'sheet-1',values:{A1:'x'},onConflict:'ignore'});
+
+const borderPreset: SpreadsheetBorderPreset = "outside";
+const borderTarget = { top: 1, left: 1, bottom: 3, right: 4 };
+const borderedWorkbook = setCellBorders(createWorkbook(), "sheet-1", [borderTarget], borderPreset, { color: "#217346" });
+const borderCommand: SpreadsheetCommand = { type: "cells.borders", sheetId: "sheet-1", ranges: [borderTarget], preset: borderPreset };
+// @ts-expect-error Diagonal borders are not a preset.
+const invalidBorderPreset: SpreadsheetBorderPreset = "diagonal";
+void [borderedWorkbook, borderCommand, invalidBorderPreset];

@@ -65,5 +65,6 @@ Coreは両コンポーネントで共有できます。UIのReact依存とスタ
 | 非同期の右クリック処理を追加する | [右クリックの非同期処理](./context-menu.md) |
 | 未保存のままウィンドウを閉じる操作を確認する | [離脱確認](./unsaved-changes.md) |
 | 複数のBlobをZIPにまとめる | [ZIPの生成](./zip.md) |
+| 線の端点・8接続点・吸着位置を計算する | [線の端点と接続点](./connectors.md) |
 
 LikeXはMITライセンスです。コピーする場合は`src/LICENSE`と`src/THIRD_PARTY_NOTICES.md`も保持してください。npmへの公開は未実施で、`private: true`は誤公開防止のため維持しています。tarballを使う場合は、Coreと利用するUIの両方をインストールしてください。

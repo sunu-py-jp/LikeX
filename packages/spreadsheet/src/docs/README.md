@@ -6,7 +6,7 @@
 
 ## コピー導入
 
-リポジトリの `packages/spreadsheet/src/` 全体を `components/spreadsheet/`、`packages/core/src/` 全体を `components/core/` にコピーします。`components/spreadsheet/core.ts` の1行を `export * from "../core";` に変更します。`spreadsheet/ooxml.ts` も `export * from "../core/ooxml";` に変更します。 `spreadsheet/json.ts` も `export * from "../core/json";` に変更します。`model/`・`state/`・`ui/`・CSSを含めてください。React / React DOM `^19.2.6` と、TypeScript環境では対応する型定義が必要です。
+リポジトリの `packages/spreadsheet/src/` 全体を `components/spreadsheet/`、`packages/core/src/` 全体を `components/core/` にコピーします。`components/spreadsheet/core.ts` の1行を `export * from "../core";` に変更します。`spreadsheet/ooxml.ts` も `export * from "../core/ooxml";` に変更します。 `spreadsheet/model/core-connectors.ts` は `export * from "../../core/connectors";` に変更します。`spreadsheet/json.ts` も `export * from "../core/json";` に変更します。`model/`・`state/`・`ui/`・CSSを含めてください。React / React DOM `^19.2.6` と、TypeScript環境では対応する型定義が必要です。
 
 ```tsx
 "use client";
@@ -38,7 +38,7 @@ Next.js App Routerでは `app/layout.tsx` にCSSのimportを置きます。コ�
 - [画面なしでJSONを編集する](./headless.md)
 - [セルの書き込み・クリアと上書き方針](./cell-writing.md)
 - [名前付き範囲の追加・取得・削除](./named-ranges.md)
-- [テーブルと罫線付きの表](./tables.md)
+- [テーブルとセル範囲へのデータ配置](./tables.md)
 - [配置位置と次の行・列](./drawing-placement.md)
 - [書式・表示形式・条件付き書式](./formatting.md)
 - [検索・置換・貼り付け・オートフィル](./editing-tools.md)

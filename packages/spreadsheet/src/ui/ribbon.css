@@ -163,6 +163,13 @@
 .lxs-ribbon .lxs-color-control:focus-within { outline: 2px solid var(--lxs-accent); outline-offset: -2px; }
 .lxs-ribbon .lxs-color-control:has(input:disabled) { opacity: .45; cursor: default; }
 .lxs-ribbon .lxs-color-control input:disabled { opacity: 1; }
+.lxs-border-menu { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 38px; gap: 3px; width: 38px; height: 28px; border: 1px solid transparent; border-radius: 3px; }
+.lxs-border-menu > span { font-size: 10px; }
+.lxs-border-menu:hover { border-color: var(--lxs-border); background: var(--lxs-hover); }
+.lxs-border-menu:focus-within { outline: 2px solid var(--lxs-accent); outline-offset: -2px; }
+.lxs-border-menu:has(select:disabled) { opacity: .45; }
+.lxs-root .lxs-border-menu select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.lxs-root .lxs-border-menu select:disabled { cursor: default; }
 .lxs-ribbon-hint { align-self: center; padding: 0 8px; color: var(--lxs-muted); font-size: 11px; white-space: nowrap; }
 @media (max-width: 540px) {
   .lxs-ribbon-header { gap: 4px; padding-inline: 5px; }

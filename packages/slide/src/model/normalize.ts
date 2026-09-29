@@ -1,9 +1,11 @@
+import { CONNECTOR_ARROWHEADS } from "./core-connectors";
 import type { Slide, SlideDeck, SlideElement, SlideElementInput } from "./types";
 import { SLIDE_LIMITS } from "./limits";
 import { validateSlideImageSource } from "./image-source";
 import { boolean, choice, color, fontFamily, identifier, list, number, record, text } from "./validation";
 import { DECK_KEYS, ELEMENT_KEYS, SLIDE_KEYS } from "./schema";
 import { normalizeSlideAnimations } from "./animation-validation";
+import { normalizeSlideLine, resolveSlideLines, slideLineGeometry } from "./lines";
 import { slideTextLength } from "./text-length";
 export { ELEMENT_KEYS } from "./schema";
 
@@ -53,7 +55,7 @@ export function normalizeSlideElement(input: unknown): SlideElement {
     verticalAlign: choice(raw.verticalAlign, ["top", "middle", "bottom"], "縦位置"), fill: color(raw.fill, "塗りつぶし"),
   };
   else if (type === "shape") result = { ...base, type,
-    shape: choice(raw.shape, ["rect", "roundRect", "ellipse", "triangle", "diamond", "arrow", "line"], "図形"),
+    shape: choice(raw.shape, ["rect", "roundRect", "ellipse", "triangle", "diamond", "arrow", "leftArrow", "line"], "図形"),
     fill: color(raw.fill, "塗りつぶし"), stroke: color(raw.stroke, "線の色"), strokeWidth: number(raw.strokeWidth, "線の太さ", 0, 100),
     text: text(raw.text, "テキスト", SLIDE_LIMITS.textLength), fontSize: number(raw.fontSize, "文字サイズ", 1, 1000),
     textColor: color(raw.textColor, "文字色"),
@@ -62,6 +64,15 @@ export function normalizeSlideElement(input: unknown): SlideElement {
     const image = imageSource(raw.src);
     result = { ...base, type, src: image.src, alt: text(raw.alt, "画像の説明", 10_000) };
     imageBytes.set(result, image.bytes);
+  }
+  if (raw.line !== undefined) {
+    if (result.type !== "shape" || result.shape !== "line") throw new Error("端点は線だけに指定できます");
+    const line = normalizeSlideLine(raw.line);
+    result = { ...result, ...slideLineGeometry(line), line };
+  }
+  for (const key of ["startArrow", "endArrow"] as const) if (raw[key] !== undefined) {
+    if (result.type !== "shape" || result.shape !== "line") throw new Error("端点の矢印は線だけに指定できます");
+    result = { ...result, [key]: choice(raw[key], CONNECTOR_ARROWHEADS, "線の矢印") };
   }
   Object.freeze(result);
   elements.add(result);
@@ -86,12 +97,13 @@ export function createSlideElement(input: SlideElementInput): SlideElement {
 export function normalizeSlide(input: unknown): Slide {
   if (slides.has(input as Slide)) return input as Slide;
   const raw = record(input, "スライド", SLIDE_KEYS);
-  const accepted = list(raw.elements, "スライドの要素", SLIDE_LIMITS.elementsPerSlide).map(normalizeSlideElement);
+  let accepted = list(raw.elements, "スライドの要素", SLIDE_LIMITS.elementsPerSlide).map(normalizeSlideElement);
   const ids = new Set<string>();
   for (const element of accepted) {
     if (ids.has(element.id)) throw new Error("要素のIDが重複しています");
     ids.add(element.id);
   }
+  accepted = resolveSlideLines(accepted).map(normalizeSlideElement);
   const result: Slide = { id: identifier(raw.id), name: text(raw.name, "スライド名", 1000),
     background: color(raw.background, "スライドの背景"), notes: text(raw.notes, "ノート", SLIDE_LIMITS.textLength), elements: accepted };
   const animations = normalizeSlideAnimations(raw.animations, accepted);

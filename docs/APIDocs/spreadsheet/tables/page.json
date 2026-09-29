@@ -1,5 +1,5 @@
 {
-  "title": "テーブル・罫線付きの表",
+  "title": "テーブル・セル範囲へのデータ配置",
   "summary": "ヘッダーと明細から表を配置し、構造化テーブルと通常のセル書式を用途に合わせて選びます。",
   "source": "packages/spreadsheet/src/docs/tables.md",
   "order": 115,
@@ -7,7 +7,7 @@
   "keywords": [
     "tables.insert",
     "tables.delete",
-    "cells.writeTable",
+    "cells.writeGrid",
     "getTable",
     "getTableByName",
     "getTables",

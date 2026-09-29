@@ -3,6 +3,8 @@ import type { SpreadsheetCellBorders } from "./formatting/types";
 import type { SpreadsheetDataValidation } from "./data-validation";
 import type { SpreadsheetTable } from "./tables/types";
 import type { SpreadsheetShapeKind } from "./shapes";
+import type { ConnectorArrowhead, ConnectorBinding, ConnectorEndpoint } from "./core-connectors";
+export type { ConnectorArrowhead as SpreadsheetLineArrowhead, ConnectorBinding as SpreadsheetLineBinding, ConnectorEndpoint as SpreadsheetLineEndpoint, ConnectorPort as SpreadsheetLinePort } from "./core-connectors";
 
 export type SpreadsheetCellFormat = {
   bold?: boolean;
@@ -12,7 +14,10 @@ export type SpreadsheetCellFormat = {
   color?: string;
   background?: string;
   fontFamily?: string;
-  /** Font size in CSS pixels. XLSX converts pixels to points. */
+  /** Font size in CSS pixels. XLSX converts pixels to points.
+   * @minimum 1
+   * @maximum 200
+   */
   fontSize?: number;
   wrap?: boolean;
   verticalAlign?: "top" | "middle" | "bottom";
@@ -32,6 +37,10 @@ export type SpreadsheetImageResource = {
   height: number;
 };
 export type SpreadsheetDrawingAnchor = { row: number; column: number; offsetX: number; offsetY: number };
+/** Free endpoints follow their cell anchors; bound endpoints resolve to the target's current port. */
+export type SpreadsheetStoredLineEndpoint = Readonly<{ anchor: SpreadsheetDrawingAnchor; binding?: ConnectorBinding }>;
+export type SpreadsheetLine = Readonly<{ start: SpreadsheetStoredLineEndpoint; end: SpreadsheetStoredLineEndpoint }>;
+export type SpreadsheetLinePoints = Readonly<{ start: ConnectorEndpoint; end: ConnectorEndpoint }>;
 type SpreadsheetDrawingBase = {
   id: string; anchor: SpreadsheetDrawingAnchor; width: number; height: number;
   /** Reflection within the positive-sized frame. Omitted flags mean false; text stays readable. */
@@ -41,18 +50,42 @@ type SpreadsheetDrawingBase = {
 };
 export type SpreadsheetImageDrawing = SpreadsheetDrawingBase & { type: "image"; resourceId: string; alt: string };
 export type SpreadsheetShapeDrawing = SpreadsheetDrawingBase & {
-  type: "shape"; shape: SpreadsheetShapeKind; fill: string; stroke: string; strokeWidth: number;
+  type: "shape"; shape: SpreadsheetShapeKind; fill: string; stroke: string;
+  /** @minimum 0
+   * @maximum 100
+   */
+  strokeWidth: number;
+  /** Only line/arrow shapes. Omitted on legacy rectangle-based lines. */
+  line?: SpreadsheetLine;
+  /** End markers. Legacy shape:arrow defaults its end to triangle; otherwise none. */
+  startArrow?: ConnectorArrowhead; endArrow?: ConnectorArrowhead;
   /** Optional shape text; omitted formatting uses 16 px, #1f2937 and normal weight. */
-  text?: string; fontSize?: number; color?: string; bold?: boolean;
+  text?: string;
+  /** @minimum 1
+   * @maximum 400
+   */
+  fontSize?: number; color?: string; bold?: boolean;
 };
 export type SpreadsheetTextDrawing = SpreadsheetDrawingBase & {
-  type: "text"; text: string; fontSize: number; color: string; background: string; bold?: boolean;
+  type: "text"; text: string;
+  /** @minimum 1
+   * @maximum 400
+   */
+  fontSize: number; color: string; background: string; bold?: boolean;
 };
 export type SpreadsheetDrawing = SpreadsheetImageDrawing | SpreadsheetShapeDrawing | SpreadsheetTextDrawing;
 /** Identity and drawing type are stable; an anchor update supplies all four coordinates. */
 export type SpreadsheetDrawingPatch = Partial<Omit<SpreadsheetDrawingBase, "id"> & {
   resourceId: string; alt: string; shape: SpreadsheetShapeDrawing["shape"]; fill: string; stroke: string;
-  strokeWidth: number; text: string; fontSize: number; color: string; background: string; bold: boolean;
+  /** @minimum 0
+   * @maximum 100
+   */
+  strokeWidth: number; text: string;
+  /** @minimum 1
+   * @maximum 400
+   */
+  fontSize: number; color: string; background: string; bold: boolean;
+  line: SpreadsheetLine; startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead;
 }>;
 export type SpreadsheetComment = { id: string; text: string; author?: string };
 /** Inclusive, zero-based rectangle. The top-left cell stores the merged value and comment. */

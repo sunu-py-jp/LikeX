@@ -27,3 +27,7 @@ export { inspectEmbeddedImage } from "./embedded-image";
 export type { EmbeddedImageOptions } from "./embedded-image";
 export { getDragScrollDelta, getDragInsertionIndex } from "./drag";
 export type { DragPoint, DragBounds, DragScrollOptions } from "./drag";
+export { CONNECTOR_PORTS, CONNECTOR_ARROWHEADS, isConnectorPort, isConnectorArrowhead, getConnectorPortPoint, getConnectorPortPoints, findNearestConnectorPort,
+  getConnectorBounds, connectorLocalToWorld, connectorWorldToLocal } from "./connectors";
+export type { ConnectorPoint, ConnectorPort, ConnectorArrowhead, ConnectorBinding, ConnectorEndpoint, ConnectorBox, ConnectorOutline,
+  ConnectorPortPoint, ConnectorTarget, ConnectorSnap } from "./connectors";

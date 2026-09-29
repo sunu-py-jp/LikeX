@@ -46,6 +46,7 @@ node /path/to/likex-spreadsheet/scripts/document.mjs apply \
 
 - `SKILL.md` とMarkdown参照は維持する説明です。長い型一覧はJSON Schemaを参照させます。
 - JSON Schemaは `scripts/build-skill-schemas.mjs` で公開型から生成します。型で表現しない参照整合性や制約は、実際のパーサー・コマンドAPIでも検証します。
+- 数値プロパティのJSDocに `@minimum` / `@maximum` を書くと、公開型から生成Schemaへ数値範囲を引き継ぎます。`Partial` / `Pick` / `Omit` でも保持します。値はランタイムの検証範囲と揃え、境界値のテストを追加してください。不正な数値・数値以外の型・矛盾する上下限は生成時に拒否します。
 - 各CLIは `scripts/build-skill-scripts.mjs` と `scripts/skills/` の共通実装から生成します。スキル内の生成物だけを直接編集しません。
 
 ```bash

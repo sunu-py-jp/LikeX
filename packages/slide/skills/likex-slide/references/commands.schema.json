@@ -51,6 +51,15 @@
         },
         {
           "$ref": "#/$defs/SlideCommand_14"
+        },
+        {
+          "$ref": "#/$defs/SlideCommand_15"
+        },
+        {
+          "$ref": "#/$defs/SlideCommand_16"
+        },
+        {
+          "$ref": "#/$defs/SlideCommand_17"
         }
       ]
     },
@@ -176,7 +185,9 @@
           "type": "number"
         },
         "opacity": {
-          "type": "number"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         },
         "locked": {
           "type": "boolean"
@@ -188,7 +199,9 @@
           "type": "string"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1000
         },
         "fontFamily": {
           "type": "string"
@@ -274,7 +287,9 @@
           "type": "number"
         },
         "opacity": {
-          "type": "number"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         },
         "locked": {
           "type": "boolean"
@@ -285,6 +300,17 @@
         "shape": {
           "$ref": "#/$defs/SlideShapeKind"
         },
+        "line": {
+          "$ref": "#/$defs/SlideLineGeometry",
+          "description": "Only shape:line. Absolute document coordinates; bound points follow their target."
+        },
+        "startArrow": {
+          "$ref": "#/$defs/SlideShapeElement_startArrow",
+          "description": "Line endpoint decoration. Missing fields preserve legacy plain lines."
+        },
+        "endArrow": {
+          "$ref": "#/$defs/SlideShapeElement_startArrow"
+        },
         "fill": {
           "type": "string"
         },
@@ -292,13 +318,17 @@
           "type": "string"
         },
         "strokeWidth": {
-          "type": "number"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
         },
         "text": {
           "type": "string"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1000
         },
         "textColor": {
           "type": "string"
@@ -333,7 +363,81 @@
         "arrow",
         "roundRect",
         "triangle",
-        "diamond"
+        "diamond",
+        "leftArrow"
+      ]
+    },
+    "SlideLineGeometry": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "end": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "binding": {
+          "$ref": "#/$defs/ConnectorEndpoint_binding"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint_binding": {
+      "type": "object",
+      "properties": {
+        "targetId": {
+          "type": "string"
+        },
+        "port": {
+          "$ref": "#/$defs/ConnectorEndpoint_binding_port"
+        }
+      },
+      "required": [
+        "targetId",
+        "port"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint_binding_port": {
+      "enum": [
+        "top",
+        "right",
+        "bottom",
+        "left",
+        "topRight",
+        "bottomRight",
+        "bottomLeft",
+        "topLeft"
+      ]
+    },
+    "SlideShapeElement_startArrow": {
+      "enum": [
+        "none",
+        "triangle",
+        "diamond",
+        "openArrow",
+        "oval",
+        "stealth"
       ]
     },
     "SlideImageElement": {
@@ -361,7 +465,9 @@
           "type": "number"
         },
         "opacity": {
-          "type": "number"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         },
         "locked": {
           "type": "boolean"
@@ -576,17 +682,19 @@
         "height": {
           "type": "number"
         },
-        "rotation": {
-          "type": "number"
-        },
         "x": {
           "type": "number"
         },
         "y": {
           "type": "number"
         },
-        "opacity": {
+        "rotation": {
           "type": "number"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         },
         "fontSize": {
           "type": "number"
@@ -703,9 +811,21 @@
       "type": "object",
       "properties": {
         "type": {
-          "const": "animation.set"
+          "const": "slide.replaceContent"
         },
         "slideId": {
+          "type": "string"
+        },
+        "elements": {
+          "$ref": "#/$defs/SlideCommand_8_elements"
+        },
+        "name": {
+          "type": "string"
+        },
+        "background": {
+          "type": "string"
+        },
+        "notes": {
           "type": "string"
         },
         "animations": {
@@ -715,49 +835,15 @@
       "required": [
         "type",
         "slideId",
-        "animations"
+        "elements"
       ],
       "additionalProperties": false
     },
-    "SlideCommand_9": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "const": "animation.remove"
-        },
-        "slideId": {
-          "type": "string"
-        },
-        "animationId": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "type",
-        "slideId",
-        "animationId"
-      ],
-      "additionalProperties": false
-    },
-    "SlideCommand_10": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "const": "element.add"
-        },
-        "slideId": {
-          "type": "string"
-        },
-        "element": {
-          "$ref": "#/$defs/SlideElementInput"
-        }
-      },
-      "required": [
-        "type",
-        "slideId",
-        "element"
-      ],
-      "additionalProperties": false
+    "SlideCommand_8_elements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SlideElementInput"
+      }
     },
     "SlideElementInput": {
       "anyOf": [
@@ -803,7 +889,9 @@
           "type": "string"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1000
         },
         "width": {
           "type": "number"
@@ -817,17 +905,19 @@
         "height": {
           "type": "number"
         },
-        "rotation": {
-          "type": "number"
-        },
         "x": {
           "type": "number"
         },
         "y": {
           "type": "number"
         },
-        "opacity": {
+        "rotation": {
           "type": "number"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         },
         "locked": {
           "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
@@ -865,7 +955,9 @@
           "type": "string"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1000
         },
         "width": {
           "type": "number"
@@ -876,6 +968,10 @@
         "name": {
           "type": "string"
         },
+        "line": {
+          "$ref": "#/$defs/SlideLineGeometry",
+          "description": "Only shape:line. Absolute document coordinates; bound points follow their target."
+        },
         "height": {
           "type": "number"
         },
@@ -883,6 +979,14 @@
           "$ref": "#/$defs/SlideElementInput_2_shape"
         },
         "strokeWidth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
           "type": "number"
         },
         "rotation": {
@@ -891,14 +995,17 @@
         "stroke": {
           "type": "string"
         },
-        "x": {
-          "type": "number"
+        "startArrow": {
+          "$ref": "#/$defs/SlideShapeElement_startArrow",
+          "description": "Line endpoint decoration. Missing fields preserve legacy plain lines."
         },
-        "y": {
-          "type": "number"
+        "endArrow": {
+          "$ref": "#/$defs/SlideShapeElement_startArrow"
         },
         "opacity": {
-          "type": "number"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         },
         "locked": {
           "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
@@ -920,7 +1027,8 @@
         "arrow",
         "roundRect",
         "triangle",
-        "diamond"
+        "diamond",
+        "leftArrow"
       ]
     },
     "SlideElementInput_3": {
@@ -944,20 +1052,22 @@
         "height": {
           "type": "number"
         },
-        "rotation": {
-          "type": "number"
-        },
-        "alt": {
-          "type": "string"
-        },
         "x": {
           "type": "number"
         },
         "y": {
           "type": "number"
         },
-        "opacity": {
+        "rotation": {
           "type": "number"
+        },
+        "alt": {
+          "type": "string"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         },
         "locked": {
           "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
@@ -969,7 +1079,141 @@
       ],
       "additionalProperties": false
     },
+    "SlideCommand_9": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "animation.set"
+        },
+        "slideId": {
+          "type": "string"
+        },
+        "animations": {
+          "$ref": "#/$defs/SlideCommand_3_slide_animations"
+        }
+      },
+      "required": [
+        "type",
+        "slideId",
+        "animations"
+      ],
+      "additionalProperties": false
+    },
+    "SlideCommand_10": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "animation.remove"
+        },
+        "slideId": {
+          "type": "string"
+        },
+        "animationId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "slideId",
+        "animationId"
+      ],
+      "additionalProperties": false
+    },
     "SlideCommand_11": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "line.add"
+        },
+        "slideId": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "end": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "startArrow": {
+          "$ref": "#/$defs/SlideShapeElement_startArrow"
+        },
+        "endArrow": {
+          "$ref": "#/$defs/SlideShapeElement_startArrow"
+        }
+      },
+      "required": [
+        "type",
+        "slideId",
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "SlideCommand_12": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "line.update"
+        },
+        "slideId": {
+          "type": "string"
+        },
+        "elementId": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "end": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "startArrow": {
+          "$ref": "#/$defs/SlideShapeElement_startArrow"
+        },
+        "endArrow": {
+          "$ref": "#/$defs/SlideShapeElement_startArrow"
+        }
+      },
+      "required": [
+        "type",
+        "slideId",
+        "elementId"
+      ],
+      "additionalProperties": false
+    },
+    "SlideCommand_13": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "element.add"
+        },
+        "slideId": {
+          "type": "string"
+        },
+        "element": {
+          "$ref": "#/$defs/SlideElementInput"
+        }
+      },
+      "required": [
+        "type",
+        "slideId",
+        "element"
+      ],
+      "additionalProperties": false
+    },
+    "SlideCommand_14": {
       "type": "object",
       "properties": {
         "type": {
@@ -982,7 +1226,7 @@
           "type": "string"
         },
         "patch": {
-          "$ref": "#/$defs/SlideCommand_11_patch"
+          "$ref": "#/$defs/SlideElementPatch"
         }
       },
       "required": [
@@ -993,7 +1237,20 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_11_patch": {
+    "SlideElementPatch": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SlideElementPatch_1"
+        },
+        {
+          "$ref": "#/$defs/SlideElementPatch_2"
+        },
+        {
+          "$ref": "#/$defs/SlideElementPatch_3"
+        }
+      ]
+    },
+    "SlideElementPatch_1": {
       "type": "object",
       "properties": {
         "bold": {
@@ -1021,7 +1278,9 @@
           "type": "string"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1000
         },
         "width": {
           "type": "number"
@@ -1032,7 +1291,104 @@
         "height": {
           "type": "number"
         },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
         "rotation": {
+          "type": "number"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "locked": {
+          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SlideElementPatch_2": {
+      "type": "object",
+      "properties": {
+        "fill": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "width": {
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        },
+        "line": {
+          "$ref": "#/$defs/SlideLineGeometry",
+          "description": "Only shape:line. Absolute document coordinates; bound points follow their target."
+        },
+        "height": {
+          "type": "number"
+        },
+        "shape": {
+          "$ref": "#/$defs/SlideElementInput_2_shape"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "startArrow": {
+          "$ref": "#/$defs/SlideShapeElement_startArrow",
+          "description": "Line endpoint decoration. Missing fields preserve legacy plain lines."
+        },
+        "endArrow": {
+          "$ref": "#/$defs/SlideShapeElement_startArrow"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "locked": {
+          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+        },
+        "textColor": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SlideElementPatch_3": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number"
+        },
+        "name": {
+          "type": "string"
+        },
+        "height": {
           "type": "number"
         },
         "x": {
@@ -1041,26 +1397,19 @@
         "y": {
           "type": "number"
         },
-        "opacity": {
+        "rotation": {
           "type": "number"
-        },
-        "locked": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
-        },
-        "shape": {
-          "$ref": "#/$defs/SlideElementInput_2_shape"
-        },
-        "strokeWidth": {
-          "type": "number"
-        },
-        "stroke": {
-          "type": "string"
-        },
-        "textColor": {
-          "type": "string"
         },
         "alt": {
           "type": "string"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "locked": {
+          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
         },
         "src": {
           "type": "string",
@@ -1069,7 +1418,7 @@
       },
       "additionalProperties": false
     },
-    "SlideCommand_12": {
+    "SlideCommand_15": {
       "type": "object",
       "properties": {
         "type": {
@@ -1079,7 +1428,7 @@
           "type": "string"
         },
         "elementIds": {
-          "$ref": "#/$defs/SlideCommand_12_elementIds"
+          "$ref": "#/$defs/SlideCommand_15_elementIds"
         }
       },
       "required": [
@@ -1089,13 +1438,13 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_12_elementIds": {
+    "SlideCommand_15_elementIds": {
       "type": "array",
       "items": {
         "type": "string"
       }
     },
-    "SlideCommand_13": {
+    "SlideCommand_16": {
       "type": "object",
       "properties": {
         "type": {
@@ -1105,7 +1454,7 @@
           "type": "string"
         },
         "elementIds": {
-          "$ref": "#/$defs/SlideCommand_12_elementIds"
+          "$ref": "#/$defs/SlideCommand_15_elementIds"
         }
       },
       "required": [
@@ -1115,7 +1464,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_14": {
+    "SlideCommand_17": {
       "type": "object",
       "properties": {
         "type": {
@@ -1125,10 +1474,10 @@
           "type": "string"
         },
         "elementIds": {
-          "$ref": "#/$defs/SlideCommand_12_elementIds"
+          "$ref": "#/$defs/SlideCommand_15_elementIds"
         },
         "direction": {
-          "$ref": "#/$defs/SlideCommand_14_direction"
+          "$ref": "#/$defs/SlideCommand_17_direction"
         }
       },
       "required": [
@@ -1139,7 +1488,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_14_direction": {
+    "SlideCommand_17_direction": {
       "enum": [
         "front",
         "back",

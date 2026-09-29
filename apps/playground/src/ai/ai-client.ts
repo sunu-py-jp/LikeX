@@ -1,5 +1,5 @@
 import { RUN_ID_PATTERN } from "../../build/ai/protocol";
-import type { AIJSONValue, AIToolCall, AITruncation } from "../../build/ai/protocol";
+import type { AIJSONValue, AIToolCall, AITruncation, AIPreviewEvent } from "../../build/ai/protocol";
 export type { AIJSONValue, AIToolCall, AITruncation } from "../../build/ai/protocol";
 
 export type AIModule = "spreadsheet" | "slide";
@@ -8,6 +8,7 @@ export type AIMessage = { role: "user" | "assistant"; content: string };
 export type AIRequest = { module: AIModule; document: string; documentTitle?: string; messages: AIMessage[]; selection?: unknown };
 export type AIResult = { type: "result"; document: string; changed: boolean };
 export type AIStreamEvent = { type: "progress"; message: string } | { type: "text"; text: string } | AIResult | { type: "run"; id: string } | { type: "tool"; call: AIToolCall };
+type AITransportEvent = AIStreamEvent | AIPreviewEvent;
 const RESPONSE_LIMIT = 64 * 1024 * 1024;
 
 /** Keep the transcript in the UI while sending only bounded recent context. */
@@ -62,7 +63,7 @@ function toolCall(value: unknown): AIToolCall {
     ...(call.finishedAt ? { finishedAt: call.finishedAt } : {}), ...(call.inputTruncated ? { inputTruncated: call.inputTruncated } : {}), ...(call.outputTruncated ? { outputTruncated: call.outputTruncated } : {}) };
 }
 
-function parseEvent(line: string): AIStreamEvent {
+function parseEvent(line: string): AITransportEvent {
   let value: unknown;
   try { value = JSON.parse(line); } catch { throw new Error("AIの応答が途中で途切れたか、形式が正しくありません。"); }
   if (!value || typeof value !== "object" || !("type" in value)) throw new Error("AIの応答形式が正しくありません。");
@@ -71,13 +72,20 @@ function parseEvent(line: string): AIStreamEvent {
   if (value.type === "text" && "text" in value && typeof value.text === "string") return { type: "text", text: value.text };
   if (value.type === "run" && "id" in value && typeof value.id === "string" && RUN_ID_PATTERN.test(value.id)) return { type: "run", id: value.id };
   if (value.type === "tool" && "call" in value) return { type: "tool", call: toolCall(value.call) };
+  if (value.type === "preview") {
+    const preview = value as AIPreviewEvent;
+    if (typeof preview.id !== "string" || !RUN_ID_PATTERN.test(preview.id) || typeof preview.token !== "string" || !/^[0-9a-f]{64}$/.test(preview.token) ||
+      typeof preview.document !== "string" || new TextEncoder().encode(preview.document).byteLength > 8 * 1024 * 1024 ||
+      typeof preview.slideId !== "string" || !preview.slideId || preview.slideId.length > 200) throw new Error("AIのプレビュー要求の形式が正しくありません。");
+    return { type: "preview", id: preview.id, token: preview.token, document: preview.document, slideId: preview.slideId };
+  }
   if (value.type === "result" && "document" in value && typeof value.document === "string" && "changed" in value && typeof value.changed === "boolean")
     return { type: "result", document: value.document, changed: value.changed };
   throw new Error("AIの応答形式が正しくありません。");
 }
 
 /** A result is usable only after a clean EOF, never from a truncated stream. */
-export async function* readAIResponse(response: Response, signal: AbortSignal): AsyncGenerator<AIStreamEvent> {
+export async function* readAIResponse(response: Response, signal: AbortSignal): AsyncGenerator<AITransportEvent> {
   signal.throwIfAborted();
   if (!response.ok) {
     let message = `AIへの接続に失敗しました（${response.status}）。`;
@@ -123,6 +131,12 @@ export async function* readAIResponse(response: Response, signal: AbortSignal): 
 }
 
 export async function* requestAI(request: AIRequest, signal: AbortSignal): AsyncGenerator<AIStreamEvent> {
-  const response = await fetch("/api/ai/chat", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" }, body: JSON.stringify(request), signal });
-  yield* readAIResponse(response, signal);
+  const response = await fetch("/api/ai/chat", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
+    body: JSON.stringify({ ...request, ...(request.module === "slide" ? { capabilities: { slidePreview: true } } : {}) }), signal });
+  for await (const event of readAIResponse(response, signal)) {
+    if (event.type !== "preview") { yield event; continue; }
+    if (request.module !== "slide") throw new Error("この資料ではスライドのプレビューを生成できません。");
+    const { respondToSlidePreview } = await import("./slide-preview");
+    await respondToSlidePreview(event, signal);
+  }
 }

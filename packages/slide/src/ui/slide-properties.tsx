@@ -4,6 +4,8 @@ import { useState, type ReactNode } from "react";
 import { Lock, Unlock, X } from "lucide-react";
 import type { SlideCommand, SlideElement, SlideElementPatch } from "../model/types";
 import type { SlideEditor } from "../state/use-slide-editor";
+import { CONNECTOR_ARROWHEADS, type ConnectorArrowhead } from "../core";
+import { getSlideLineEndpoints, isSlideLine } from "../model/lines";
 import { SlideAnimations } from "./slide-animations";
 
 function NumericField({ label, value, min, max, onCommit, disabled }: { label: string; value: number; min?: number; max?: number; disabled: boolean; onCommit(value: number): void }) {
@@ -60,7 +62,10 @@ export function SlideProperties({ editor, onClose }: { editor: SlideEditor; onCl
         <p className="lxp-properties-selection">{elements.length > 1 ? `${elements.length} 個のオブジェクトを選択` : first.name}</p>
         {editor.features.formatting && <Section title="サイズと位置">
           <div className="lxp-property-grid">
-            {(["x", "y", "width", "height", "rotation"] as const).map(key => <NumericField key={`${first.id}:${key}`} label={{ x: "横位置", y: "縦位置", width: "幅", height: "高さ", rotation: "回転 (°)" }[key]}
+            {isSlideLine(first) ? (["start", "end"] as const).flatMap(end => (["x", "y"] as const).map(axis => <NumericField key={`${first.id}:${end}:${axis}`} label={`${end === "start" ? "始点" : "終点"} ${axis.toUpperCase()}`} value={getSlideLineEndpoints(first)[end][axis]} disabled={disabled || first.locked} onCommit={value => {
+              const point = getSlideLineEndpoints(first)[end];
+              void editor.execute({ type: "line.update", slideId: slide.id, elementId: first.id, [end]: { x: point.x, y: point.y, [axis]: value } });
+            }} />)) : (["x", "y", "width", "height", "rotation"] as const).map(key => <NumericField key={`${first.id}:${key}`} label={{ x: "横位置", y: "縦位置", width: "幅", height: "高さ", rotation: "回転 (°)" }[key]}
               value={first[key]} min={key === "width" || key === "height" ? 1 : undefined} disabled={disabled || first.locked} onCommit={value => update({ [key]: value })} />)}
           </div>
           <label className="lxp-field"><span>不透明度</span><input type="range" min={0} max={100} value={Math.round(first.opacity * 100)} disabled={disabled} aria-label="不透明度"
@@ -68,7 +73,13 @@ export function SlideProperties({ editor, onClose }: { editor: SlideEditor; onCl
           <button type="button" className="lxp-property-button" disabled={disabled} aria-pressed={first.locked} onClick={() => update({ locked: !first.locked })}>
             {first.locked ? <Lock size={14} /> : <Unlock size={14} />}{first.locked ? "ロックを解除" : "位置をロック"}</button>
         </Section>}
-        {first.type !== "image" && <>
+        {isSlideLine(first) && editor.features.formatting && <Section title="線">
+          {(["startArrow", "endArrow"] as const).map(key => <label className="lxp-field" key={key}><span>{key === "startArrow" ? "始点の矢印" : "終点の矢印"}</span><select aria-label={key === "startArrow" ? "始点の矢印" : "終点の矢印"} value={first[key] ?? "none"} disabled={disabled || first.locked} onChange={event => { if (slide) void editor.execute(elements.filter(isSlideLine).map(element => ({ type: "line.update", slideId: slide.id, elementId: element.id, [key]: event.target.value as ConnectorArrowhead }))); }}>{CONNECTOR_ARROWHEADS.map(value => <option key={value} value={value}>{{ none: "なし", triangle: "三角", openArrow: "開いた矢印", diamond: "ひし形", oval: "丸", stealth: "ステルス" }[value]}</option>)}</select></label>)}
+          <ColorField label="線の色" value={first.stroke} disabled={disabled || first.locked} onChange={stroke => update({ stroke }, elements.filter(isSlideLine))} />
+          <NumericField label="線の太さ" value={first.strokeWidth} min={0} max={100} disabled={disabled || first.locked} onCommit={strokeWidth => update({ strokeWidth }, elements.filter(isSlideLine))} />
+          <p className="lxp-muted">始点・終点を図形の接続点へドラッグすると追従します。離して動かすと接続を解除します。</p>
+        </Section>}
+        {first.type !== "image" && !isSlideLine(first) && <>
           {editor.features.text && <Section title="テキスト"><TextValue key={first.id} label="内容" value={first.text} disabled={disabled || first.locked}
             onCommit={text => update({ text }, elements.filter(item => item.type !== "image"))} /></Section>}
           {editor.features.formatting && <Section title="文字と塗りつぶし">

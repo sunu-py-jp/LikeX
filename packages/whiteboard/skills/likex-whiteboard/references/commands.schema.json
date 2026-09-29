@@ -181,14 +181,14 @@
         "height": {
           "type": "number"
         },
-        "stroke": {
-          "type": "string"
-        },
         "x": {
           "type": "number"
         },
         "y": {
           "type": "number"
+        },
+        "stroke": {
+          "type": "string"
         },
         "textColor": {
           "type": "string"

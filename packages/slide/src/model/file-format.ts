@@ -47,7 +47,7 @@ function restoreSlideFilePage(input: unknown): Record<string, unknown> {
 }
 
 const elementOrder = ["id", "type", "name", "stackOrder", "x", "y", "width", "height", "rotation", "opacity", "locked",
-  "shape", "text", "fontSize", "fontFamily", "color", "textColor", "bold", "italic", "align", "verticalAlign",
+  "shape", "line", "startArrow", "endArrow", "text", "fontSize", "fontFamily", "color", "textColor", "bold", "italic", "align", "verticalAlign",
   "fill", "stroke", "strokeWidth", "src", "alt"];
 const deckOrder = new Map(DECK_KEYS.map((key, index) => [key, index]));
 const slideOrder = new Map(SLIDE_KEYS.map((key, index) => [key, index]));

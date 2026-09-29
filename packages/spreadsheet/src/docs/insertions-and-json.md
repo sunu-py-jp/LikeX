@@ -190,3 +190,24 @@ export function WorkbookView({ savedJson, revision }: { savedJson: string; revis
 Univerは、ブックのスナップショットにシートを持ち、追加機能のデータを `resources` に格納できます。[公式データモデル](https://docs.univer.ai/guides/sheets/model/workbook-data)・[Custom Model](https://docs.univer.ai/blog/custom-model)
 
 LikeXも「編集時の状態と保存スナップショットを分ける」「画像実体とシート上の配置を分ける」という考え方を採用しています。上記JSONはLikeX独自形式で、Univerの `IWorkbookData` と直接互換ではありません。Univer本体への依存や形式変換機能は追加していません。
+
+## 直線・接続線
+
+挿入の図形メニューは「線」に直線・右向き矢印線・左向き矢印線・双方向矢印線を用意します。右・左のブロック矢印は別の「ブロック矢印」グループです。線の選択はストローク付近だけで反応し、外接矩形の空白ではセルを操作できます。
+
+線には始点・終点の2つのハンドルを表示します。端点を図形に近づけると、最寄りの図形だけに8つの接続点が現れ、12画面px以内で接続します。32画面px以上離れると点の表示が消えます。接続点は上下左右・四隅方向の実際の輪郭上にあり、楕円・三角形・ひし形・ブロック矢印では矩形の角とは異なります。図形の移動・サイズ・回転・反転に接続端点が追従します。端点を外へ動かすと解除し、線全体を動かすと両端を解除します。右の設定では座標と始点／終点それぞれの矢印を変更できます。
+
+公開コマンドは `lines.insert` / `lines.update`、公開モデルAPIは `updateLineEndpoints` と `getSpreadsheetLinePoints(sheet, drawingId)` です。座標はA1左上を原点とするズーム前pxで、行列見出しを含みません。
+
+```ts
+const result = applySpreadsheetCommands(workbook, [{
+  type: "lines.insert", sheetId: "design",
+  start: { x: 120, y: 90 },
+  end: { x: 480, y: 90, binding: { targetId: "process-box", port: "left" } },
+  startArrow: "none", endArrow: "triangle", stroke: "#334155", strokeWidth: 2,
+}]);
+```
+
+`port` は `top`, `topRight`, `right`, `bottomRight`, `bottom`, `bottomLeft`, `left`, `topLeft`。同じシートの線以外の描画だけを指定でき、自己接続・線同士の接続は拒否します。`lines.update` は `drawingId` と変更する `start?`, `end?`, `startArrow?`, `endArrow?` を渡します。端点を省略すれば維持し、`binding` なしの端点を渡せばその端だけを解除します。矢印は `none`, `triangle`, `openArrow`, `diamond`, `oval`, `stealth` です。
+
+保存形式の `line.start/end` は `{ anchor: { row, column, offsetX, offsetY }, binding? }`。自由端点は行列の挿入・削除・サイズ変更に追従するセルアンカー、接続端点は対象IDと接続点から位置を解決します。接続先削除時は削除直前の座標に固定します。線だけのコピーは接続を外して形を維持し、シート全体の複製は接続先IDも複製先へ更新します。旧 `shape: "line" / "arrow"` の矩形形式は読み込みを維持し、端点操作時に新しい保存構造へ変換します。新しい線の位置・向きは `lines.update` を使い、矩形の幅・高さ・回転では編集しません。

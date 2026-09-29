@@ -1,6 +1,8 @@
 /** Pure immutable workbook operations. Implementation modules depend on foundations, never this barrel. */
 export { normalizeWorkbook, createWorkbook } from "./workbook/normalize";
 export { setCellValue, setCellValues, formatCells } from "./workbook/cells";
+export { setCellBorders } from "./workbook/borders";
+export type { SpreadsheetBorderPreset } from "./workbook/borders";
 export { mergeCells, unmergeCells } from "./workbook/merges";
 export { resizeColumn, insertRows, deleteRows, insertColumns, deleteColumns } from "./workbook/structure";
 export { insertCellRange, deleteCellRange } from "./workbook/shift-cells";

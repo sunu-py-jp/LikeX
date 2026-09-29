@@ -22,9 +22,9 @@ test('standard distribution files remain valid and traversal paths never pass', 
     assert.equal(allowedPackageFile(file, 'spreadsheet'), false);
 });
 
-test('only Slide distributes its dedicated image export instructions and CLI', () => {
+test('only Slide distributes its dedicated image export/design instructions and CLI', () => {
   for (const moduleName of ['slide', 'spreadsheet', 'document']) {
-    for (const relative of ['references/image-export.md', 'scripts/render-images.mjs'])
+    for (const relative of ['references/image-export.md', 'references/design-guide.md', 'references/layout-examples.md', 'scripts/render-images.mjs'])
       assert.equal(allowedPackageFile(`skills/likex-${moduleName}/${relative}`, moduleName), moduleName === 'slide');
   }
 });

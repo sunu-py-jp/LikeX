@@ -110,6 +110,11 @@
 .lxs-drawing { position: absolute; pointer-events: auto; touch-action: none; cursor: move; user-select: none; outline: 1px solid transparent; outline-offset: 2px; }
 .lxs-drawing-selected, .lxs-drawing:focus-visible { outline: 2px solid var(--lxs-accent); }
 .lxs-drawing-readonly { cursor: default; }
+.lxs-line-drawing { position: absolute; inset: 0; pointer-events: none; outline: none; }
+.lxs-line-drawing > svg { position: absolute; inset: 0; pointer-events: none; }
+.lxs-root .lxs-line-endpoint { position: absolute; width: 11px; height: 11px; margin: -5.5px; border: 1px solid var(--lxs-background); border-radius: 50%; background: var(--lxs-accent); pointer-events: auto; cursor: crosshair; touch-action: none; }
+.lxs-line-text-editor { position: absolute; pointer-events: auto; }
+.lxs-line-drawing [data-lxs-line-hit] { touch-action: none; }
 .lxs-drawing img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 .lxs-shape { display: block; pointer-events: none; }
 .lxs-text-box { width: 100%; height: 100%; padding: 8px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }

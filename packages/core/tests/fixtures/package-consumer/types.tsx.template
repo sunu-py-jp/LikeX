@@ -1,6 +1,20 @@
 import { notifyHost, resolveFeatureFlags, chainResult, createContextMenuExecutor, resolveContextMenuItems, serializeStableJson } from '__LIBRARY_IMPORT__';
 import type { EditRequestHandler, EventHandler, SaveHandler, RequestHandler, MaybePromise, ContextMenuProvider, ContextMenuExecutionMode, StableJsonOptions } from '__LIBRARY_IMPORT__';
 import { serializeStableJson as serializeJsonWithoutUi } from '__LIBRARY_IMPORT__/json';
+import { getConnectorPortPoint, findNearestConnectorPort, isConnectorArrowhead } from '__LIBRARY_IMPORT__';
+import type { ConnectorEndpoint, ConnectorOutline, ConnectorArrowhead } from '__LIBRARY_IMPORT__';
+import { createOfficeConnectorGeometry, readOfficeConnectorShapeTag } from '__LIBRARY_IMPORT__/ooxml';
+
+const connectorOutline: ConnectorOutline = { type: 'ellipse' };
+const connectorBox = { x: 0, y: 0, width: 120, height: 60, rotation: 30 };
+const endpoint: ConnectorEndpoint = { ...getConnectorPortPoint(connectorBox, 'topRight', connectorOutline), binding: { targetId: 'node', port: 'topRight' } };
+const arrowhead: ConnectorArrowhead = 'openArrow';
+findNearestConnectorPort(endpoint, [{ id: 'node', box: connectorBox, outline: connectorOutline }], 12);
+createOfficeConnectorGeometry('ellipse', connectorOutline);
+readOfficeConnectorShapeTag(undefined);
+isConnectorArrowhead(arrowhead);
+// @ts-expect-error Public connection ports are a closed set.
+getConnectorPortPoint(connectorBox, 'center');
 
 const jsonOptions: StableJsonOptions = { maxLength: 1024, space: 2, compareKeys: () => 0 };
 const stableJson: string = serializeStableJson({ b: 2, a: 1 }, jsonOptions);

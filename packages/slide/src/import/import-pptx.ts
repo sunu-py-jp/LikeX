@@ -5,6 +5,7 @@ import type { Slide, SlideDeck } from "../model/types";
 import { createContext, child, children, localName, textContent, shapes, placeholder, nonVisual, readTheme, readFill, color, plainText, relationship, type Node } from "./pptx-reader";
 import { readElement } from "./pptx-elements";
 import { readSlideAnimations } from "./pptx-animations";
+import { resolvePptxConnections, type PptxConnectionSource } from "./pptx-connectors";
 import type { SlidePptxDiagnostic } from "../office/types";
 
 export type SlidePptxImportOptions = {
@@ -96,6 +97,7 @@ export async function importSlidePptx(input: OfficePackageInput, options: SlideP
       background = readFill(child(bg, "bgPr"), theme, mapping, context) ?? color(child(bg, "bgRef"), theme, mapping, context) ?? background;
     }
     const elements: Slide["elements"] = [];
+    const connectionSources: PptxConnectionSource[] = [];
     const animationTargets = new Map<string, Slide["elements"][number]>(), ambiguousIds = new Set<string>();
     const localShapes = new Set(shapes(root));
     const showMaster = !["0", "false"].includes(root.attributes.showMasterSp ?? "") && !["0", "false"].includes(layout?.attributes.showMasterSp ?? "");
@@ -115,6 +117,7 @@ export async function importSlidePptx(input: OfficePackageInput, options: SlideP
       const element = await readElement(chain, { context, theme, mapping, links: source.links, defaults }, `pptx-${index + 1}-${elementIndex + 1}`);
       if (element) {
         elements.push(element);
+        connectionSources.push({ node: source.node, element, scope: source.links });
         if (localShapes.has(source.node)) {
           const shapeId = nonVisual(source.node)?.attributes.id;
           if (shapeId) {
@@ -125,6 +128,9 @@ export async function importSlidePptx(input: OfficePackageInput, options: SlideP
       }
     }
     context.location = slideLocation;
+    resolvePptxConnections(elements, connectionSources, context);
+    const connectedElements = new Map(elements.map(element => [element.id, element]));
+    for (const [nativeId, element] of animationTargets) animationTargets.set(nativeId, connectedElements.get(element.id)!);
     let notes = "";
     const notesLink = relationship(links, "notesSlide");
     if (notesLink) {

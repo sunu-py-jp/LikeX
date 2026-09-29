@@ -54,13 +54,14 @@ test('all 16 native shapes retain editable kinds, text, colors, clockwise rotati
   }
 });
 
-test('head-only arrow reverses both local axes, both ends report approximation, and custom preset adjustments warn', async () => {
+test('legacy native line shapes preserve both marker ends while custom preset adjustments warn', async () => {
   const env = harness({ drawings: one(shape('line', { ends: '<headEnd type="triangle"/>' })) +
     one(shape('line', { ends: '<headEnd type="triangle"/><tailEnd type="triangle"/>' })) +
     one(shape('rightArrow', { guides: '<gd name="adj2" fmla="val 1000"/>' })) });
   const imported = await env.run();
-  assert.equal(imported.drawings[0].shape, 'arrow'); assert.equal(imported.drawings[0].flipX, true); assert.equal(imported.drawings[0].flipY, true);
-  assert.ok(env.warnings.some(item => item.message.includes('両端')));
+  assert.equal(imported.drawings[0].shape, 'arrow'); assert.equal(imported.drawings[0].startArrow, 'triangle'); assert.equal(imported.drawings[0].endArrow, 'none');
+  assert.equal(imported.drawings[1].startArrow, 'triangle'); assert.equal(imported.drawings[1].endArrow, 'triangle');
+  assert.equal(env.warnings.some(item => item.message.includes('両端')), false);
   assert.ok(env.warnings.some(item => item.message.includes('細かな変形')));
 });
 

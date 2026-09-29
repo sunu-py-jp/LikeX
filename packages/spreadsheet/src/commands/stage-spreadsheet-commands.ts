@@ -23,7 +23,7 @@ import { applyDrawingCommand } from "./drawings";
 import { applyDataValidationCommand } from "./data-validation";
 import { stageFormattingCommand } from "./formatting";
 import { stageEditingCommand } from "./editing";
-import { commandKeys, commandRecord, rejectCommand, requireCommandAddress, requireCommandFeature, requireCommandSheet,
+import { commandKeys, commandRecord, rejectCommand, requireCommandAddress, requireCommandAddresses, requireCommandFeature, requireCommandSheet,
   SpreadsheetCommandError, validateCommand } from "./validation";
 
 export const MAX_SPREADSHEET_COMMANDS = 1_000;
@@ -40,10 +40,11 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
   const result = (next: SpreadsheetWorkbook, extra: Partial<SpreadsheetCommandBaseReceipt> = {}) =>
     ({ workbook: next, receipt: { type: command.type, sheetId: sheet.id, ...extra } });
   switch (command.type) {
+    case "lines.insert": case "lines.update": return applyDrawingCommand(workbook, command, features, nextId);
     case "drawings.paste": return applyDrawingPasteCommand(workbook, command, features, nextId);
     case "namedRanges.add": case "namedRanges.update": case "namedRanges.delete": case "namedRanges.clear":
       return stageNamedRangeCommand(workbook, command, features, nextId);
-    case "tables.insert": case "cells.writeTable": case "tables.delete":
+    case "tables.insert": case "cells.writeGrid": case "tables.delete":
       return stageTableCommand(workbook, command, features, nextId);
     case "cells.insert": {
       requireCommandFeature(features, "insertCells");
@@ -91,17 +92,19 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
     }
     case "cells.format": {
       requireCommandFeature(features, "formatting");
-      if (!Array.isArray(command.addresses)) return rejectCommand("INVALID_COMMAND", "セルのアドレスは配列で指定してください");
-      for (const address of command.addresses) requireCommandAddress(sheet, address);
+      const addresses = requireCommandAddresses(sheet, command.addresses);
       commandKeys(commandRecord(command.format, "セル書式"), ["bold", "italic", "underline", "align", "color", "background", "numberFormat",
         "fontFamily", "fontSize", "wrap", "verticalAlign", "borders", "decimalPlaces", "useGrouping", "negativeFormat"], "セル書式");
-      const next = formatCells(workbook, sheet.id, command.addresses, command.format);
-      if (!features.formulas) for (const address of command.addresses) {
+      const next = formatCells(workbook, sheet.id, addresses, command.format);
+      if (!features.formulas) for (const address of addresses) {
         const position = parseCellAddress(address)!, key = cellAddress(position.row, position.column);
         if (isFormulaCell(next.sheets.find(item => item.id === sheet.id)!.cells[key]) && !isFormulaCell(sheet.cells[key])) requireCommandFeature(features, "formulas");
       }
       return result(next);
     }
+    case "cells.borders":
+      requireCommandFeature(features, "formatting");
+      return result(stageFormattingCommand(workbook, command));
     case "rows.insert":
     case "columns.insert":
       return result(insertCommandAxis(workbook, command, features));

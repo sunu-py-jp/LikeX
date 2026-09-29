@@ -1,5 +1,6 @@
 import type { SlideElement, SlideShapeElement, SlideTextElement } from "../model/types";
 import { validateSlideImageSource } from "../model/image-source";
+import { getSlideLineMarkers } from "./line-markers";
 import { getSlideShapeGeometry, SHAPE_TEXT_STYLE, SLIDE_TEXT_STYLE, wrapSlideText } from "./render-style";
 import type { SlideImageRenderRequest } from "./types";
 
@@ -139,7 +140,9 @@ function hasChunk(bytes: Uint8Array, name: string, webp: boolean): boolean {
 }
 function drawShape(context: CanvasRenderingContext2D, element: SlideShapeElement) {
   const shape = getSlideShapeGeometry(element);
-  context.save(); context.beginPath(); context.rect(0, 0, element.width, element.height); context.clip(); context.beginPath();
+  context.save();
+  if (shape.kind !== "line") { context.beginPath(); context.rect(0, 0, element.width, element.height); context.clip(); }
+  context.lineCap = "round"; context.beginPath();
   if (shape.kind === "ellipse") context.ellipse(shape.cx, shape.cy, shape.rx, shape.ry, 0, 0, Math.PI * 2);
   else if (shape.kind === "line") { context.moveTo(shape.x1, shape.y1); context.lineTo(shape.x2, shape.y2); }
   else if (shape.kind === "polygon") { shape.points.forEach(([x, y], index) => index ? context.lineTo(x, y) : context.moveTo(x, y)); context.closePath(); }
@@ -155,6 +158,13 @@ function drawShape(context: CanvasRenderingContext2D, element: SlideShapeElement
   }
   if (shape.kind !== "line" && element.fill !== "transparent") { context.fillStyle = element.fill; context.fill(); }
   if (element.strokeWidth > 0 && element.stroke !== "transparent") { context.strokeStyle = element.stroke; context.lineWidth = element.strokeWidth; context.lineJoin = "round"; context.stroke(); }
+  for (const marker of getSlideLineMarkers(element)) {
+    context.beginPath();
+    if (marker.kind === "ellipse") context.ellipse(marker.cx, marker.cy, marker.rx, marker.ry, marker.rotation, 0, Math.PI * 2);
+    else { marker.points.forEach(([x, y], index) => index ? context.lineTo(x, y) : context.moveTo(x, y)); if (marker.kind === "polygon") context.closePath(); }
+    if (marker.kind !== "polyline") { context.fillStyle = element.stroke; context.fill(); }
+    context.strokeStyle = element.stroke; context.lineWidth = element.strokeWidth; context.stroke();
+  }
   context.restore();
 }
 function drawText(context: CanvasRenderingContext2D, element: Exclude<SlideElement, { type: "image" }>) {

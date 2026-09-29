@@ -1,6 +1,7 @@
 import type { Slide, SlideAnimationActiveStep, SlideAnimationClick, SlideAnimationEvaluationOptions, SlideAnimationFrame, SlideAnimationStep, SlideAnimationWaitingStep, SlideElement } from "./types";
 import { addAnimationTime, animationNodeDuration, clampAnimationNumber, scheduleAnimation, tweenProperties, type AnimationProperty, type ScheduledTween } from "./animation-validation";
 import { normalizeSlide } from "./normalize";
+import { isSlideLine, slideLineGeometry, transformSlideLine } from "./lines";
 import { SLIDE_LIMITS } from "./limits";
 import { identifier, list, number, record } from "./validation";
 
@@ -18,7 +19,13 @@ export function getSlideAnimationPlan(slide: Slide): { readonly initial: Slide; 
 }
 const compiled = new WeakMap<Slide, CompiledSlide>();
 function withoutAnimations(slide: Slide, elements = slide.elements): Slide {
-  return normalizeSlide({ ...slide, animations: undefined, elements });
+  const resolvedElements = elements.map(element => {
+    const previous = slide.elements.find(item => item.id === element.id);
+    if (!previous || !isSlideLine(previous) || !previous.line || !["x", "y", "width", "height", "rotation"].some(key => Reflect.get(previous, key) !== Reflect.get(element, key))) return element;
+    const line = transformSlideLine(previous, element);
+    return { ...element, ...slideLineGeometry(line), line };
+  });
+  return normalizeSlide({ ...slide, animations: undefined, elements: resolvedElements });
 }
 function compile(slide: Slide): CompiledSlide {
   const source = normalizeSlide(slide);

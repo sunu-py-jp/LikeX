@@ -42,6 +42,8 @@ export async function exportSpreadsheetXlsx(input: SpreadsheetWorkbook, options:
   const { signal } = options;
   signal?.throwIfAborted();
   const workbook = normalizeWorkbook(input), calculated = calculateWorkbook(workbook);
+  const drawingCount = workbook.sheets.reduce((count, sheet) => count + (sheet.drawings ?? []).reduce((total, drawing) => total + 1 + Number(drawing.type === "shape" && !!drawing.line && !!drawing.text), 0), 0);
+  if (drawingCount > SPREADSHEET_LIMITS.drawings) throw new Error("線のラベルを含むExcelの描画オブジェクト数が上限を超えています");
   const styles = createXlsxStyles(workbook), media = createXlsxMediaRegistry();
   const validationLists = createValidationListRegistry(workbook);
   const parts: XlsxPart[] = [], workbookLinks: XlsxRelationship[] = [];
@@ -58,7 +60,7 @@ export async function exportSpreadsheetXlsx(input: SpreadsheetWorkbook, options:
     const tables = worksheetTableParts(sheet, nextTableNumber);
     nextTableNumber += tables.parts.length;
     const comments = commentParts(sheet, number);
-    const drawing = await prepareWorksheetDrawings(sheet, workbook.resources, { sheetIndex: number, signal, media, rasterizeImage: options.rasterizeImage });
+    const drawing = await prepareWorksheetDrawings(sheet, workbook.resources, { sheetIndex: number, signal, media, rasterizeImage: options.rasterizeImage, onWarning: options.onWarning });
     signal?.throwIfAborted();
     for (const image of drawing.parts.filter(item => item.path.startsWith("xl/media/"))) imageBytes += image.content.size;
     if (imageBytes > SPREADSHEET_LIMITS.totalImageBytes) throw new Error("Excel出力用に変換した画像の合計が20 MiBを超えています");

@@ -52,24 +52,19 @@ export function SpreadsheetTableTools({ controller: c }: { controller: Spreadshe
   const multiple = isMultiRangeSelection(c.selection);
   const disabled = c.disabled || c.requesting || c.pendingObjectEdit || !!c.selectedDrawingId || multiple;
   if (c.readOnly || !c.features.tables || !c.features.formatting) return null;
-  const open = (structured: boolean) => {
+  const open = () => {
     if (disabled) return;
     const structureRevision = c.getStructureRevision();
     c.afterCommit(() => {
       if (c.getStructureRevision() !== structureRevision) { c.reportError(new Error("選択範囲が変わりました。範囲を選び直してください。")); return; }
       try {
-        const captured = captureTable(c);
-        if (structured) setTarget(captured);
-        else void c.executeCommands([{ type: "cells.writeTable", ...captured.options }], {
-          isCurrent: () => c.getRevision() === captured.revision,
-        });
+        setTarget(captureTable(c));
       } catch (cause) { c.reportError(cause); }
     });
   };
   const hint = multiple ? "1つの連続した範囲を選択してください" : undefined;
   return <><RibbonGroup label="テーブル"><div className="lxs-ribbon-columns">
-    <Command label="テーブルを挿入" className="lxs-ribbon-command-large" disabled={disabled} title={hint} onClick={() => open(true)}><Icon name="table" /><span>テーブル</span></Command>
-    <Command label="罫線付きの表を作成" className="lxs-ribbon-command-large" disabled={disabled} title={hint ?? "選択したセルに罫線を付け、先頭行を見出しにします"} onClick={() => open(false)}><Icon name="borders" /><span>罫線付きの表</span></Command>
+    <Command label="テーブルを挿入" className="lxs-ribbon-command-large" disabled={disabled} title={hint} onClick={open}><Icon name="table" /><span>テーブル</span></Command>
     </div></RibbonGroup>
     {target && <TableDialog controller={c} target={target} onClose={() => { c.cancelEditRequest(); setTarget(null); }} />}
   </>;

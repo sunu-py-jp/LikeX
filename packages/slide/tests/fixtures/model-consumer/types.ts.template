@@ -44,3 +44,31 @@ void getAnimations(deck, deck.slides[0].id);
 void evaluateSlideAnimations(deck.slides[0], { elapsedMs: 200, clicks: [{ elapsedMs: 50 }] });
 void resolveSlideAnimations(deck.slides[0]);
 void exportSlidePptx(deck, { onWarning: warning => { const text: string = warning; void text; } });
+
+import { createSlideElement, measureSlideText, fitSlideText, getSlideLayoutDiagnostics, type SlideTextMeasure, type SlideLayoutDiagnostic } from '__MODEL_IMPORT__';
+const textMeasure: SlideTextMeasure = (text, font) => text.length * font.fontSize / 2;
+const authoredElement = createSlideElement({ type: 'text', text: 'Measured text' });
+if (authoredElement.type === 'text') {
+  void measureSlideText(authoredElement, textMeasure).overflow;
+  void fitSlideText(authoredElement, { measureText: textMeasure, minFontSize: 12 }).fits;
+}
+const diagnostics: SlideLayoutDiagnostic[] = getSlideLayoutDiagnostics(deck.slides[0], { width: deck.width, height: deck.height, measureText: textMeasure });
+void diagnostics;
+const rebuild: SlideCommand = { type: 'slide.replaceContent', slideId: deck.slides[0].id, elements: [{ type: 'text', text: 'New page' }] };
+const connection: SlideCommand = { type: 'line.add', slideId: deck.slides[0].id, start: { x: 0, y: 0, binding: { targetId: 'a', port: 'right' } }, end: { x: 0, y: 0, binding: { targetId: 'b', port: 'left' } }, endArrow: 'triangle' };
+void rebuild; void connection;
+// @ts-expect-error New elements require an explicit type.
+const untypedRebuild: SlideCommand = { type: 'slide.replaceContent', slideId: 'page', elements: [{ text: 'Invalid' }] };
+void untypedRebuild;
+
+import { getSlideLineEndpoints, isSlideLine, type ConnectorEndpoint, type ConnectorPort, type ConnectorArrowhead } from "__MODEL_IMPORT__";
+const linePort: ConnectorPort = "topRight";
+const lineArrowhead: ConnectorArrowhead = "triangle";
+const lineEndpoint: ConnectorEndpoint = { x: 20, y: 40, binding: { targetId: "box", port: linePort } };
+const lineCommand: SlideCommand = { type: "line.add", slideId: "page", start: lineEndpoint, end: { x: 300, y: 100 }, id: "connector", endArrow: lineArrowhead };
+const lineUpdate: SlideCommand = { type: "line.update", slideId: "page", elementId: "connector", end: { x: 200, y: 200 } };
+const possibleLine = deck.slides[0]?.elements[0];
+if (possibleLine && isSlideLine(possibleLine)) { const point: ConnectorEndpoint = getSlideLineEndpoints(possibleLine).start; void point; }
+// @ts-expect-error Ports are a closed union.
+const badLinePort: ConnectorPort = "diagonal";
+void [lineCommand, lineUpdate, badLinePort];

@@ -5,10 +5,12 @@ import { getMergedRange, mergedCellPosition } from "../merges";
 import type { SpreadsheetComment, SpreadsheetDrawing, SpreadsheetDrawingPatch, SpreadsheetImageDrawing, SpreadsheetImageResource, SpreadsheetWorkbook } from "../types";
 import { finishWorkbook, getWorkbookSheet, replaceWorkbookSheet } from "./snapshot";
 import { canonicalCellAddress, fail } from "./validation";
+import { detachLineTargets, isSpreadsheetLine, validateLineBindings } from "../lines";
 
 export function addDrawing(workbook: SpreadsheetWorkbook, sheetId: string, drawing: SpreadsheetDrawing): SpreadsheetWorkbook {
   const sheet = getWorkbookSheet(workbook, sheetId), next = normalizeDrawing(drawing, sheet, workbook.resources);
   if (sheet.drawings?.some(item => item.id === next.id)) return fail("同じ ID の描画オブジェクトがあります");
+  validateLineBindings([...(sheet.drawings ?? []), next]);
   return replaceWorkbookSheet(workbook, { ...sheet, drawings: Object.freeze([...(sheet.drawings ?? []), next]) });
 }
 
@@ -17,7 +19,10 @@ export function updateDrawing(workbook: SpreadsheetWorkbook, sheetId: string, dr
   if (!current) return fail("描画オブジェクトが見つかりません");
   if (!patch || typeof patch !== "object" || Array.isArray(patch) || Object.hasOwn(patch, "id") || Object.hasOwn(patch, "type"))
     return fail("描画オブジェクトの ID と種類は変更できません");
+  if (isSpreadsheetLine(current) && current.line && !patch.line && ["anchor", "width", "height", "rotation", "flipX", "flipY"].some(key => Object.hasOwn(patch, key)))
+    return fail("線の位置・向きはupdateLineEndpointsで指定してください");
   const next = normalizeDrawing({ ...current, ...patch } as SpreadsheetDrawing, sheet, workbook.resources);
+  validateLineBindings(sheet.drawings!.map(drawing => drawing.id === drawingId ? next : drawing));
   if (drawingsEqual(current, next)) return workbook;
   const sheets = workbook.sheets.map(item => item.id === sheetId
     ? Object.freeze({ ...sheet, drawings: Object.freeze(sheet.drawings!.map(drawing => drawing.id === drawingId ? next : drawing)) }) : item);
@@ -29,7 +34,8 @@ export function deleteDrawing(workbook: SpreadsheetWorkbook, sheetId: string, dr
   const sheet = getWorkbookSheet(workbook, sheetId);
   if (!sheet.drawings?.some(item => item.id === drawingId)) return workbook;
   const sheets = workbook.sheets.map(item => item.id === sheetId
-    ? Object.freeze({ ...sheet, drawings: Object.freeze(sheet.drawings!.filter(drawing => drawing.id !== drawingId)) }) : item);
+    ? Object.freeze({ ...sheet, drawings: Object.freeze(sheet.drawings!.filter(drawing => drawing.id !== drawingId)
+      .map(drawing => detachLineTargets(sheet, drawing, new Set([drawingId])))) }) : item);
   return finishWorkbook(sheets, workbook, pruneImageResources(workbook.resources, sheets));
 }
 

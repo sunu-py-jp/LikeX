@@ -65,7 +65,8 @@ function usage(kind, version) {
         'Search and sheet-content lists accept --offset and --limit (default 100, maximum 1000). Ordinary inspect summaries and range reads do not use pagination.'] : []),
       ...(['chat', 'aichat'].includes(kind) ? ['--message-id requires --conversation-id. Select a conversation to list its messages.'] : []),
       ...(kind === 'calendar' ? ['--start and --end must be supplied together; end is exclusive and dates use calendar.timeZone.'] : []),
-      ...(kind === 'slide' ? ['inspect defaults to final static values. --include-animations returns original values and the animation definitions; it does not modify the file.'] : []),
+      ...(kind === 'slide' ? ['--slide-id ID --include-data returns all elements of that slide in selection.elements, including text/style details but excluding image bytes. Add --element-id to read one element.',
+        'inspect defaults to final static values. --include-animations returns original values and the animation definitions; it does not modify the file.'] : []),
       ...(kind === 'document' ? ['Document inspect lists 100 blocks by default. --offset and --limit (1–1000) page through current block positions.'] : []),
     ],
     runtime: { package: `@likex/${kind}`, version, node: '>=22.13.0', resolution: '--project, or script package then current directory', autoInstall: false },
@@ -106,6 +107,7 @@ function argumentsFor(argv, kind) {
   if (wrongKeys.some(key => args[key])) fail('USAGE', `Unsupported selector for ${kind}.`);
   if (args.overview && queryKeys.some(key => key !== 'overview' && args[key] !== undefined)) fail('USAGE', '--overview cannot be combined with other inspection selectors or flags.');
   const sheetData = kind === 'spreadsheet' && Boolean(args['sheet-id'] && args['include-data'] && !args['drawing-id']);
+  const slideData = kind === 'slide' && Boolean(args['slide-id'] && args['include-data']);
   if (kind === 'spreadsheet') {
     if (args.search) {
       if (!['sheets', 'cells'].includes(args.search)) fail('USAGE', '--search must be sheets or cells.');
@@ -127,7 +129,7 @@ function argumentsFor(argv, kind) {
   if (args.range && args['drawing-id']) fail('USAGE', 'Choose --range or --drawing-id.');
   if (kind === 'slide' && args['element-id'] && !args['slide-id']) fail('USAGE', '--element-id requires --slide-id.');
   if (args['include-animations'] && kind !== 'slide') fail('USAGE', '--include-animations is only supported for slide inspect.');
-  if (args['include-data'] && !sheetData && !dataSelectors.some(key => args[key])) fail('USAGE', '--include-data requires an explicit item selector.');
+  if (args['include-data'] && !sheetData && !slideData && !dataSelectors.some(key => args[key])) fail('USAGE', '--include-data requires an explicit item selector.');
   if (dataSelectors.some(key => args[key]) && (args.offset !== undefined || args.limit !== undefined)) fail('USAGE', 'Choose an item selector or list pagination.');
   for (const [first, second] of [['column-id', 'card-id'], ['row-id', 'field-id'], ['node-id', 'edge-id']]) if (args[first] && args[second]) fail('USAGE', `Choose --${first} or --${second}.`);
   if (args['message-id'] && !args['conversation-id']) fail('USAGE', '--message-id requires --conversation-id.');
@@ -400,7 +402,7 @@ function selectionFor(kind, model, document, args) {
     if (args['element-id']) return { slideId: slide.id, element: selectedObject(model.getElement(document, slide.id, args['element-id'], options), args['include-data']),
       ...(args['include-animations'] ? { animations: model.getAnimations(document, slide.id) } : {}) };
     return { slide: { id: slide.id, name: slide.name, background: slide.background, notesLength: slide.notes.length,
-      elementCount: slide.elements.length }, elements: slide.elements.map(objectSummary),
+      elementCount: slide.elements.length }, elements: slide.elements.map(element => selectedObject(element, args['include-data'])),
       ...(args['include-animations'] ? { animations: model.getAnimations(document, slide.id) } : {}) };
   }
   return undefined;

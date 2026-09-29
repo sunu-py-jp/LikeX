@@ -4,6 +4,7 @@
 /* eslint-disable @next/next/no-img-element */
 import type { CSSProperties } from "react";
 import type { Slide, SlideDeck, SlideElement, SlideShapeElement } from "../model/types";
+import { getSlideLineMarkers } from "../render/line-markers";
 import { getSlideShapeGeometry, SHAPE_TEXT_STYLE, SLIDE_TEXT_STYLE } from "../render/render-style";
 
 export function elementStyle(element: SlideElement): CSSProperties {
@@ -14,13 +15,13 @@ export function elementStyle(element: SlideElement): CSSProperties {
 function Shape({ element }: { element: SlideShapeElement }) {
   const { width, height } = element;
   const common = { fill: element.fill, stroke: element.stroke, strokeWidth: element.strokeWidth,
-    strokeLinejoin: "round" as const, vectorEffect: "non-scaling-stroke" as const };
+    strokeLinejoin: "round" as const, vectorEffect: element.shape === "line" ? undefined : "non-scaling-stroke" as const };
   const geometry = getSlideShapeGeometry(element);
   const shape = geometry.kind === "ellipse" ? <ellipse cx={geometry.cx} cy={geometry.cy} rx={geometry.rx} ry={geometry.ry} {...common} />
     : geometry.kind === "polygon" ? <polygon points={geometry.points.map(point => point.join(",")).join(" ")} {...common} />
-    : geometry.kind === "line" ? <line x1={geometry.x1} y1={geometry.y1} x2={geometry.x2} y2={geometry.y2} {...common} fill="none" />
+    : geometry.kind === "line" ? <line x1={geometry.x1} y1={geometry.y1} x2={geometry.x2} y2={geometry.y2} {...common} fill="none" strokeLinecap="round" />
     : <rect x={geometry.x} y={geometry.y} width={geometry.width} height={geometry.height} rx={geometry.radius} {...common} />;
-  return <><svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">{shape}</svg>
+  return <><svg style={element.shape === "line" ? { overflow: "visible" } : undefined} width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">{shape}{getSlideLineMarkers(element).map((marker, index) => marker.kind === "ellipse" ? <ellipse key={index} style={{ pointerEvents: "visiblePainted" }} cx={marker.cx} cy={marker.cy} rx={marker.rx} ry={marker.ry} transform={`rotate(${marker.rotation * 180 / Math.PI} ${marker.cx} ${marker.cy})`} fill={element.stroke} stroke={element.stroke} strokeWidth={element.strokeWidth} /> : marker.kind === "polygon" ? <polygon key={index} style={{ pointerEvents: "visiblePainted" }} points={marker.points.map(point => point.join(",")).join(" ")} fill={element.stroke} stroke={element.stroke} strokeWidth={element.strokeWidth} strokeLinejoin="round" /> : <polyline key={index} style={{ pointerEvents: "visiblePainted" }} points={marker.points.map(point => point.join(",")).join(" ")} fill="none" stroke={element.stroke} strokeWidth={element.strokeWidth} strokeLinejoin="round" />)}</svg>
     {element.text && <div className="lxp-shape-text" style={{ color: element.textColor, fontSize: element.fontSize, fontFamily: SHAPE_TEXT_STYLE.fontFamily, padding: `${SHAPE_TEXT_STYLE.paddingY}px ${SHAPE_TEXT_STYLE.paddingX}px`, lineHeight: SHAPE_TEXT_STYLE.lineHeight }}>{element.text}</div>}</>;
 }
 

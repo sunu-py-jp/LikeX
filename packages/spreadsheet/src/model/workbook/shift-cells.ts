@@ -65,7 +65,13 @@ function changeCellRange(workbook: SpreadsheetWorkbook, sheetId: string, input: 
   const drawings = target.drawings?.map(drawing => {
     const next = shiftCellPosition(drawing.anchor, shift) ?? { ...drawing.anchor, [shift.axis]: shift.index };
     requirePosition(next);
-    return next === drawing.anchor ? drawing : Object.freeze({ ...drawing, anchor: Object.freeze({ ...drawing.anchor, ...next }) });
+    const line = drawing.type === "shape" && drawing.line;
+    const shiftedLine = line ? Object.freeze(Object.fromEntries((["start", "end"] as const).map(key => {
+      const anchor = line[key].anchor, next = shiftCellPosition(anchor, shift) ?? { ...anchor, [shift.axis]: shift.index };
+      requirePosition(next);
+      return [key, Object.freeze({ ...line[key], anchor: Object.freeze({ ...anchor, ...next }) })];
+    }))) as unknown as typeof line : undefined;
+    return next === drawing.anchor && !line ? drawing : Object.freeze({ ...drawing, anchor: Object.freeze({ ...drawing.anchor, ...next }), ...(shiftedLine ? { line: shiftedLine } : {}) });
   });
   // Process every formula before constructing the target sheet: references can require extra blank capacity.
   const sheets = workbook.sheets.map(sheet => {

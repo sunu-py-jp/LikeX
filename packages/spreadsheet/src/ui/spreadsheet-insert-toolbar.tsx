@@ -3,6 +3,7 @@
 import { HorizontalScrollStrip } from "./horizontal-scroll-strip";
 
 import { useLayoutEffect, useRef, useState } from "react";
+import type { ConnectorArrowhead } from "../core";
 import type { SpreadsheetShapeDrawing } from "../model";
 import type { SpreadsheetCommand } from "../api/types";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
@@ -11,6 +12,7 @@ import { Command, Icon } from "./spreadsheet-controls";
 import { SpreadsheetTableTools } from "./spreadsheet-table-tools";
 import { RibbonGroup } from "./spreadsheet-ribbon-group";
 import { SpreadsheetShapeGallery } from "./spreadsheet-shape-gallery";
+import { anchorPoint, sheetDrawingGeometry } from "../model/lines";
 
 type ImageRequest = { abort: AbortController; workbook: SpreadsheetController["workbook"]; selection: SpreadsheetController["selection"]; sheetId: string };
 function acceptsImage(c: SpreadsheetController, request: ImageRequest) {
@@ -40,8 +42,14 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
       if (result.results[0]?.drawingId) latest.current.selectDrawing(result.results[0].drawingId);
     }));
   };
-  const shape = (kind: SpreadsheetShapeDrawing["shape"]) => insert({ type: "shapes.insert", sheetId: latest.current.activeSheet.id, shape: kind,
-    anchor: anchor() }, "shapes");
+  const shape = (kind: SpreadsheetShapeDrawing["shape"], markers?: { startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead }) => {
+    if (kind !== "line" && kind !== "arrow") { insert({ type: "shapes.insert", sheetId: latest.current.activeSheet.id, shape: kind, anchor: anchor() }, "shapes"); return; }
+    const current = latest.current;
+    if (current.disabled || current.requesting || !current.features.shapes) return;
+    const start = anchorPoint(anchor(), sheetDrawingGeometry(current.activeSheet));
+    current.afterCommit(() => latest.current.afterCommand({ type: "lines.insert", sheetId: current.activeSheet.id, shape: kind, ...markers, start,
+      end: { x: start.x + 160, y: start.y } }, result => { if (result.results[0]?.drawingId) latest.current.selectDrawing(result.results[0].drawingId); }));
+  };
   const upload = (file: File) => {
     const current = latest.current;
     if (current.disabled || !current.features.images) return;

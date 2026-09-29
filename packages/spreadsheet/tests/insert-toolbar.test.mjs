@@ -95,7 +95,7 @@ test('shape gallery groups all icons and inserts a block arrow using the current
   await act(async () => hook.root.findByProps({ 'aria-label': '図形を挿入' }).props.onClick());
   const gallery = hook.root.findByProps({ className: 'lxs-shape-gallery' });
   assert.deepEqual(gallery.findAllByType('h3').map(heading => heading.children.join('')), ['基本図形', 'ブロック矢印', '線']);
-  assert.equal(gallery.findAllByType('button').length, 16);
+  assert.equal(gallery.findAllByType('button').length, 18);
   for (const button of gallery.findAllByType('button')) {
     assert.equal(button.findAllByType('svg').length, 1);
     assert.equal(button.props.title, button.props['aria-label']);
@@ -219,8 +219,11 @@ test('named range dialog calls commands and definition-only deletion preserves c
   assert.equal(hook.current.workbook.namedRanges,undefined); assert.equal(hook.current.workbook.sheets[0].cells.A1.value,'value');
   await act(async () => hook.current.undo()); assert.equal(hook.current.workbook.namedRanges[0].id,definition.id);
 });
-test('table dialog creates metadata from selected cells and bordered action uses ordinary cells', async t => {
+test('insert exposes only the structured table action and creates undoable metadata from selected cells', async t => {
   const hook = await mount(t);
+  assert.equal(hook.root.findAllByProps({'aria-label':'罫線付きの表を作成'}).length, 0);
+  const tableGroup = hook.root.findByProps({'aria-label':'シートへの挿入'}).findByProps({'aria-label':'テーブル'});
+  assert.deepEqual(tableGroup.findAllByType('button').map(button => button.props['aria-label']), ['テーブルを挿入']);
   await act(async () => hook.current.writeValues({A1:'商品',B1:'数量',A2:'test',B2:'2'}));
   await act(async () => hook.current.selectRange({row:0,column:0},{row:1,column:1}));
   await act(async () => hook.root.findByProps({'aria-label':'テーブルを挿入'}).props.onClick());
@@ -228,9 +231,9 @@ test('table dialog creates metadata from selected cells and bordered action uses
   const table=hook.current.workbook.sheets[0].tables[0]; assert.equal(table.name,'Table1');
   assert.deepEqual(table.columns.map(column=>column.name),['商品','数量']);
   await act(async () => hook.current.undo()); assert.equal(hook.current.workbook.sheets[0].tables,undefined);
-  await act(async () => hook.current.selectRange({row:0,column:0},{row:1,column:1}));
-  await act(async () => hook.root.findByProps({'aria-label':'罫線付きの表を作成'}).props.onClick());
-  assert.equal(hook.current.workbook.sheets[0].tables,undefined); assert.equal(hook.current.workbook.sheets[0].cells.A1.format.borders.bottom.width,1);
+  assert.equal(hook.current.workbook.sheets[0].cells.A1.value, '商品');
+  assert.equal(hook.current.workbook.sheets[0].cells.B2.value, '2');
+  await act(async () => hook.current.redo()); assert.equal(hook.current.workbook.sheets[0].tables[0].name, 'Table1');
 });
 test('named range dialog rejects a target captured before a newer edit', async t => {
   const hook = await mount(t);

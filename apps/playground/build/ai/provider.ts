@@ -57,8 +57,10 @@ export type ResponseOutputItem =
     content: ({ type: "output_text"; text: string; [key: string]: unknown } | { type: "refusal"; refusal: string; [key: string]: unknown })[];
     [key: string]: unknown };
 export type ResponseInputItem = ResponseOutputItem |
-  { role: "user" | "assistant"; content: string; type?: "message"; phase?: "commentary" | "final_answer" | null } |
-  { type: "function_call_output"; call_id: string; output: string };
+  { role: "user" | "assistant" | "developer"; content: string; type?: "message"; phase?: "commentary" | "final_answer" | null } |
+  { type: "function_call_output"; call_id: string; output: string | ResponseToolContent[] };
+export type ResponseToolContent = { type: "input_text"; text: string } |
+  { type: "input_image"; image_url: string; detail: "high" | "low" | "auto" };
 export type ResponseToolCall = { id: string; name: string; arguments: string };
 export type AIResponse = { output: ResponseOutputItem[]; calls: ResponseToolCall[]; text: string; refused?: true };
 

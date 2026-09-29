@@ -11,13 +11,14 @@ import type { SpreadsheetSelection } from "../props";
 import { SpreadsheetDialog } from "./spreadsheet-dialog";
 import { Command, Icon } from "./spreadsheet-controls";
 import { SpreadsheetMergeToolbar } from "./spreadsheet-merge-toolbar";
+import { SpreadsheetBorderMenu } from "./spreadsheet-border-menu";
 import { RibbonGroup } from "./spreadsheet-ribbon-group";
 
 const NUMBER_FORMAT_OPTIONS = [["general", "標準"], ["text", "文字列"], ["number", "数値"], ["currency", "通貨"],
   ["percent", "パーセント"], ["date", "日付"], ["time", "時刻"], ["datetime", "日時"]] as const;
 
 export function SpreadsheetFormatToolbar({ controller: c }: { controller: SpreadsheetController }) {
-  const [dialog, setDialog] = useState<"format" | "conditional" | null>(null);
+  const [dialog, setDialog] = useState<"format" | "border" | "conditional" | null>(null);
   const disabled = c.disabled || c.requesting || !!c.selectedDrawingId;
   const closeDialog = () => { c.cancelEditRequest(); setDialog(null); };
   const format = c.activeSheet.cells[cellAddress(c.selection.focus.row, c.selection.focus.column)]?.format;
@@ -43,6 +44,7 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
           <Command label="太字" aria-pressed={!!format?.bold} disabled={disabled} onClick={() => patch({ bold: !format?.bold })}><strong>B</strong></Command>
           <Command label="斜体" aria-pressed={!!format?.italic} disabled={disabled} onClick={() => patch({ italic: !format?.italic })}><i>I</i></Command>
           <Command label="下線" aria-pressed={!!format?.underline} disabled={disabled} onClick={() => patch({ underline: !format?.underline })}><u>U</u></Command>
+          <SpreadsheetBorderMenu controller={c} onDetails={() => setDialog("border")} />
           <label className="lxs-color-control" title="文字色"><Icon name="fontColor" /><input aria-label="文字色" type="color" disabled={disabled} value={/^#[\da-f]{6}$/i.test(format?.color ?? "") ? format!.color : "#202124"} onChange={event => patch({ color: event.currentTarget.value })} /></label>
           <label className="lxs-color-control" title="背景色"><Icon name="fillColor" /><input aria-label="背景色" type="color" disabled={disabled} value={/^#[\da-f]{6}$/i.test(format?.background ?? "") ? format!.background : "#ffffff"} onChange={event => patch({ background: event.currentTarget.value })} /></label>
         </div>
@@ -77,7 +79,7 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
     {c.features.formatting && c.features.conditionalFormatting && <RibbonGroup label="スタイル">
       <Command className="lxs-ribbon-command-large" label="条件付き書式" disabled={disabled} onClick={() => c.afterCommit(() => setDialog("conditional"))}><Icon name="conditionalFormat" /><span>条件付き書式</span></Command>
     </RibbonGroup>}
-    {dialog === "format" && c.features.formatting && <CellFormatDialog controller={c} onClose={closeDialog} />}
+    {(dialog === "format" || dialog === "border") && c.features.formatting && <CellFormatDialog controller={c} onClose={closeDialog} initialTab={dialog === "border" ? "border" : "number"} />}
     {dialog === "conditional" && c.features.formatting && c.features.conditionalFormatting && <ConditionalFormatDialog controller={c} onClose={closeDialog} />}
   </>;
 }
@@ -99,15 +101,15 @@ export function SpreadsheetAutoFitControl({ controller: c }: { controller: Sprea
   </select>;
 }
 
-export function CellFormatDialog({ controller: c, onClose, target }: { controller: SpreadsheetController; onClose: () => void;
-  target?: {sheetId: string; selection: SpreadsheetSelection} }) {
+export function CellFormatDialog({ controller: c, onClose, target, initialTab = "number" }: { controller: SpreadsheetController; onClose: () => void;
+  target?: {sheetId: string; selection: SpreadsheetSelection}; initialTab?: "number" | "border" }) {
   const [snapshot] = useState(() => ({ workbook: c.getWorkbook(), sheetId: target?.sheetId ?? c.activeSheet.id, selection: target?.selection ?? c.selection }));
   const stale = c.workbook !== snapshot.workbook;
   const { cancelEditRequest } = c;
   useEffect(() => cancelEditRequest, [cancelEditRequest]);
   const initial = snapshot.workbook.sheets.find(sheet => sheet.id === snapshot.sheetId)?.cells[cellAddress(snapshot.selection.focus.row, snapshot.selection.focus.column)]?.format;
   const [format, setFormat] = useState<SpreadsheetCellFormat>({ numberFormat: initial?.numberFormat ?? "number", decimalPlaces: initial?.decimalPlaces ?? 2, useGrouping: initial?.useGrouping ?? true, negativeFormat: initial?.negativeFormat ?? "minus" });
-  const [borderEnabled, setBorderEnabled] = useState(false), [edges, setEdges] = useState<string[]>(["top", "right", "bottom", "left"]);
+  const [borderEnabled, setBorderEnabled] = useState(initialTab === "border"), [edges, setEdges] = useState<string[]>(["top", "right", "bottom", "left"]);
   const [color, setColor] = useState("#808080"), [width, setWidth] = useState<1 | 2 | 3>(1), [style, setStyle] = useState<"solid" | "dashed" | "dotted" | "double" | "none">("solid");
   const disabled = c.disabled || c.requesting || stale;
   const apply = () => {

@@ -117,6 +117,8 @@ test('spreadsheet command arrays preserve nested readonly inputs and optional/nu
     { type: 'comments.set', sheetId: 's', address: 'A1', comment: null },
     { type: 'dimensions.resize', sheetId: 's', rowHeights: { 0: 20 } },
     { type: 'tables.insert', sheetId: 's', name: 'Table', target: { row: 0, column: 0 }, headers: ['Item'], data: { type: 'rows', values: [['Item']] }, rowNumbers: false },
+    { type: 'cells.writeGrid', sheetId: 's', target: { row: 0, column: 0 }, headers: ['Item'], data: { type: 'rows', values: [['Item']] }, headerStyle: { background: '#17365d' }, border: { style: 'solid', width: 1 } },
+    { type: 'cells.borders', sheetId: 's', ranges: [{ top: 1, left: 1, bottom: 3, right: 4 }], preset: 'outside', border: { color: '#334155', width: 2 } },
     { type: 'shapes.insert', sheetId: 's', shape: 'rectangle', anchor: { row: 0, column: 0 } },
     { type: 'images.update', sheetId: 's', drawingId: 'd', patch: { anchor: { row: 2, column: 1 }, alt: 'Image' } },
   ]);
@@ -130,6 +132,8 @@ test('spreadsheet command arrays preserve nested readonly inputs and optional/nu
     [{ type: 'cells.validation', sheetId: 's', addresses: ['A1'], validation: { type: 'list' } }],
     [{ type: 'cells.validation', sheetId: 's', addresses: ['A1'], validation: { type: 'checkbox', values: ['yes'] } }],
     [{ type: 'cells.format', sheetId: 's', addresses: ['A1'], format: { align: 'diagonal' } }],
+    [{ type: 'cells.borders', sheetId: 's', ranges: [], preset: 'diagonal' }],
+    [{ type: 'cells.writeGrid', sheetId: 's', target: { row: 0, column: 0 }, headers: ['Item'], data: { type: 'rows', values: [] }, border: { width: 9 } }],
     [{ type: 'comments.set', sheetId: 's', address: 'A1' }],
     [{ type: 'shapes.insert', sheetId: 's', shape: 'rect', anchor: { row: 0, column: 0 } }],
     [{ type: 'dimensions.resize', sheetId: 's', rowHeights: { zero: 20 } }],
@@ -192,7 +196,10 @@ test('DCON preserves recursive block/mark structure and command arrays include J
 
 function sourceSchema(source) {
   const file = path.join(repository, '__schema_test__.ts');
-  const options = { strict: true, target: ts.ScriptTarget.ES2022 };
+  const options = { strict: true, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    paths: { '@likex/core': [path.join(repository, 'packages/core/src/index.ts')],
+      '@likex/core/*': [path.join(repository, 'packages/core/src/*')] } };
   const host = ts.createCompilerHost(options);
   const readSource = host.getSourceFile;
   host.getSourceFile = (name, ...args) => name === file ? ts.createSourceFile(file, source, options.target, true) : readSource(name, ...args);
@@ -219,6 +226,63 @@ test('generator uses current field and enum declarations, supports recursion, an
   invalid(validate, { state: 'done', pair: ['value', 1], variants: [{ type: 'text', value: 1 }] });
   invalid(validate, { state: 'done', pair: ['value', 1], variants: [], optional: null });
   valid(validate, { state: 'done', pair: ['value', 1], variants: [], nested: { state: 'draft', pair: ['nested', 2], variants: [] } });
+});
+
+test('numeric JSDoc bounds survive Partial/Pick/Omit and preserve optional nullable values', () => {
+  const schema = sourceSchema(`type Formatting = {
+    /** @minimum 1
+     * @maximum 1000 */
+    fontSize: number;
+    /** @minimum 0
+     * @maximum 1 */
+    opacity: number;
+    /** @minimum -1.5
+     * @maximum 2e2 */
+    offset: number | null;
+  };
+  export type Example = { source: Formatting; patch: Partial<Omit<Formatting, 'offset'>>; selected: Readonly<Pick<Formatting, 'opacity'>>; };`);
+  const validate = compile(schema), value = { source: { fontSize: 1, opacity: 0, offset: null }, patch: {}, selected: { opacity: 1 } };
+  valid(validate, value);
+  valid(validate, { ...value, source: { fontSize: 1000, opacity: 1, offset: -1.5 }, patch: { fontSize: 1.5, opacity: .5 } });
+  valid(validate, { ...value, source: { ...value.source, offset: 200 } });
+  for (const patch of [{ fontSize: 0 }, { fontSize: 1000.1 }, { opacity: -0.1 }, { opacity: 1.1 }]) {
+    invalid(validate, { ...value, source: { ...value.source, ...patch } });
+    invalid(validate, { ...value, patch });
+  }
+  invalid(validate, { ...value, selected: { opacity: 2 } });
+  invalid(validate, { ...value, source: { ...value.source, offset: -2 } });
+  invalid(validate, { ...value, source: { ...value.source, offset: 201 } });
+});
+
+test('numeric JSDoc rejects malformed, contradictory, or nonnumeric annotations at generation time', () => {
+  for (const [annotation, type, message] of [
+    ['@minimum Infinity', 'number', /finite JSON number/], ['@minimum NaN', 'number', /finite JSON number/],
+    ['@minimum 1px', 'number', /finite JSON number/], ['@maximum', 'number', /finite JSON number/],
+    ['@minimum 0\n * @maximum -1', 'number', /must not exceed/],
+    ['@minimum 0\n * @minimum 1', 'number', /conflicting/],
+    ['@minimum 0', 'string', /numeric property/], ['@maximum 1', 'number | string', /numeric property/],
+  ]) assert.throws(() => sourceSchema(`export type Example = {\n/** ${annotation} */\nvalue: ${type};\n};`), message);
+});
+
+test('Slide public source bounds reject zero-font shapes and invalid opacity/strokes in generated creation and patch schemas', () => {
+  // Generate into memory from the actual public source: this test neither reads
+  // stale generated files nor writes artifacts before build:skills runs.
+  // Import in place so the public source's relative core imports keep their original base directory.
+  const validate = compile(sourceSchema(`import type { SlideCommand } from './packages/slide/src/model/types';\nexport type Example = SlideCommand[];`));
+  for (const type of ['text', 'shape']) {
+    const element = { type, text: '', fontSize: 1, opacity: 0, ...(type === 'shape' ? { strokeWidth: 0 } : {}) };
+    const add = element => [{ type: 'element.add', slideId: 'page', element }];
+    const replace = element => [{ type: 'slide.replaceContent', slideId: 'page', elements: [element] }];
+    for (const command of [add, replace]) {
+      valid(validate, command(element));
+      valid(validate, command({ ...element, fontSize: 1000, opacity: 1, ...(type === 'shape' ? { strokeWidth: 100 } : {}) }));
+      for (const patch of [{ fontSize: 0 }, { fontSize: 1001 }, { opacity: -1 }, { opacity: 1.01 }, ...(type === 'shape' ? [{ strokeWidth: -1 }, { strokeWidth: 101 }] : [])])
+        invalid(validate, command({ ...element, ...patch }));
+    }
+  }
+  for (const patch of [{ fontSize: 0 }, { fontSize: 1001 }, { opacity: -1 }, { opacity: 1.01 }, { strokeWidth: -1 }, { strokeWidth: 101 }])
+    invalid(validate, [{ type: 'element.update', slideId: 'page', elementId: 'element', patch }]);
+  valid(validate, [{ type: 'element.update', slideId: 'page', elementId: 'element', patch: { fontSize: 24, opacity: .5, strokeWidth: 2 } }]);
 });
 
 test('--check reports drift and never rewrites a stale schema', async () => {

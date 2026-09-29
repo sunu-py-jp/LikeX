@@ -10,7 +10,7 @@ import { commandKeys, commandRecord, rejectCommand, requireCommandFeature, requi
 export function stageTableCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetTableCommand,
   features: SpreadsheetFeatureSettings, nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandBaseReceipt } {
   const sheet = requireCommandSheet(workbook, command.sheetId);
-  requireCommandFeature(features, "tables");
+  if (command.type !== "cells.writeGrid") requireCommandFeature(features, "tables");
   if (command.type === "tables.delete") {
     if (typeof command.tableId !== "string" || !command.tableId) return rejectCommand("INVALID_COMMAND", "tableIdを指定してください");
     const table = sheet.tables?.find(item => item.id === command.tableId);
@@ -27,6 +27,8 @@ export function stageTableCommand(workbook: SpreadsheetWorkbook, command: Spread
   const data = commandRecord(command.data, "表の明細");
   commandKeys(data, data.type === "rows" ? ["type", "values"] : ["type", "text"], "表の明細");
   if (command.headerStyle !== undefined) commandKeys(commandRecord(command.headerStyle, "ヘッダの書式"), ["background", "color"], "ヘッダの書式");
+  if (command.type === "cells.writeGrid" && command.border !== undefined)
+    commandKeys(commandRecord(command.border, "格子罫線"), ["style", "width", "color"], "格子罫線");
   if (command.rowNumbers !== undefined && command.rowNumbers !== false)
     commandKeys(commandRecord(command.rowNumbers, "連番列の設定"), ["header", "start"], "連番列の設定");
   if (command.type === "tables.insert" && typeof command.name !== "string") return rejectCommand("INVALID_COMMAND", "テーブル名を指定してください");

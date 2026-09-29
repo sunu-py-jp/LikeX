@@ -20,29 +20,103 @@ npm run dev --workspace @likex/playground
 
 ## Spreadsheet／SlideのAIデモ
 
+AIパネル右上の「新しいチャット」で、資料を維持して空の会話に切り替えます。生成中なら処理を停止し、古い応答は反映しません。以前の会話はメモリに保持しますが、このデモには履歴一覧や再読み込み後の永続化はありません。
+
 AIへの初回送信には、ホストの指示・直近の会話に加えて、形式・タイトル・シート数／スライド数などの概要と選択位置だけを含めます。シート名一覧・セル本文・スライド本文・スキル本文は先に送らず、AIが必要なものをツールで取得します。Spreadsheetのタイトルはコンポーネントと同じホスト設定、Slideのタイトルは現在のデッキから取得します。
 
-SpreadsheetのAIは、全シート一覧、シート名のキーワード検索、1シートの保存セル一覧、セルのキーワード検索、単一セル・範囲の取得を行えます。いずれも共有スキルCLIの `run_script` 読み取り操作です。まず一覧・検索で実際のIDを確認して、必要なシートや範囲を指定します。
+AIへ公開するツールは、取得・検索・編集を分けています。コマンドの型は公開TypeScript型から生成した `commands.schema.json` を使い、Responses APIの `strict: true` とサーバー側の入力検証の両方を適用します。文字サイズなどの数値範囲も、公開型の注釈から同じSchemaへ反映します。既存の `run_script` は内部互換経路として残しますが、AIのツール一覧には出しません。実行ロジックは共有スキルCLI・公開モデルAPIを使います。
 
-| 取得内容 | `run_script` の引数例 |
+| ツール | 用途 |
 | --- | --- |
-| 文書の概要だけ | `{ "operation": "inspect", "overview": true }` |
-| シート一覧 | `{ "operation": "inspect" }` |
-| シート名の検索 | `{ "operation": "inspect", "search": "sheets", "text": "売上" }` |
-| 1シートの情報だけ | `{ "operation": "inspect", "sheetId": "実際のシートID" }` |
-| 1シートの保存セル | `{ "operation": "inspect", "sheetId": "実際のシートID", "includeData": true, "offset": 0, "limit": 100 }` |
-| 特定範囲のセル | `{ "operation": "inspect", "sheetId": "実際のシートID", "range": "B2:F6" }` |
-| 範囲内のキーワード検索 | `{ "operation": "inspect", "search": "cells", "text": "売上", "sheetId": "実際のシートID", "range": "B2:F6", "limit": 100 }` |
+| `read_skill` / `read_reference` | 操作手順・型・デザイン参照の取得 |
+| `inspect_document` | 概要・一覧・1ページ／1シート・範囲の取得 |
+| `search_sheets` / `search_cells` | Spreadsheetのシート名・セルのキーワード検索 |
+| `apply_commands` | 型付きコマンドの原子的な一括編集 |
+| `validate_document` | 明示的な検証。通常は編集時と最終検証で足ります |
+| `create_document` | 明示的に新規作成を頼まれた場合だけ文書を空にする（`resolvesFailureIds` は通常 `[]`） |
+| `preview_slide` | Slideの編集後の画像とレイアウト診断。対応ブラウザーでのみ公開 |
 
-`range` を指定した範囲取得の `selection` は `{ sheetId, range, rows }` です。`rows` は行優先の二次元配列で、単一セルでも `[[{ "value": "商品" }]]`、未格納セルなら `[[null]]` です。各保存セルは `{ value, format?, validation? }`、未格納の位置は `null` になり、矩形の行数・列数を保ちます。範囲取得の旧 `selection.cells` は `selection.rows` へ変更したため、取得結果を読む側も変更してください。旧キーとの二重出力はありません。以下の保存セル一覧の一次元 `cells`、検索の `matches`、公開モデルAPI `getRange` の配列、SPON保存形式は変更していません。
+`inspect_document` の引数例:
 
-保存セル一覧の `selection` は `{ sheet, cells, offset, limit, total, hasMore }` です。`cells` は `{ address, value, format?, validation? }` の配列で、物理的な行・列順に返します。数式は元の入力文字列のままです。未格納の空欄は含まず、書式・入力規則を持つ空セルは含みます。図形・画像・コメントなどはこのセル配列に含みません。ページの `limit` は既定100、最大1,000です。検索と保存セル一覧は `hasMore` が true なら `offset + limit` で次のページを読みます。`overview: true` は他の取得指定と併用できません。
+```json
+{ "query": { "kind": "list" } }
+```
 
-セル検索で `sheetId` を省略すると全シート、`search: "sheets"` はシート名が対象です。
-`matchCase` は大文字小文字、`exact` は全体一致、セル検索の `lookIn` は `values`（書式適用済みの表示値）／`formulas`（数式・入力値）を指定します。
-検索結果の `selection` は `{ search, text, matches, offset, limit, total, hasMore }` です。
-セル検索の `value` / `matchedText` は既定で先頭200文字のプレビューです。省略時は `valueTruncated` / `matchedTextTruncated` と元の文字数 `valueLength` / `matchedTextLength` を返します。`previewLength`（1〜10,000）で調整できます。
-検索はブックを変更せず、入力と結果は編集操作と同じチャット履歴・実行ログに記録されます。
+```json
+{ "query": { "kind": "range", "sheetId": "取得したシートID", "range": "B2:F6" } }
+```
+
+```json
+{ "query": { "kind": "sheet", "sheetId": "取得したシートID", "includeData": true, "offset": 0, "limit": 100 } }
+```
+
+```json
+{ "query": { "kind": "slide", "slideId": "取得したページID", "includeData": true, "elementId": null } }
+```
+
+範囲取得の `selection` は `{ sheetId, range, rows }` です。`rows` は行優先の二次元配列で、単一セルでも `[[{ "value": "商品" }]]`、未格納セルは `null` です。セルは `{ value, format?, validation? }` で矩形の行数・列数を保ちます。1シートの保存セル取得は `{ sheet, cells, offset, limit, total, hasMore }` で、一次元の `cells` に `{ address, value, format?, validation? }` が並びます。書式付き空セルは含み、未格納セルは含みません。数式は元の入力文字列を返します。図形・画像・コメントはこのセル配列には入りません。
+
+検索結果は `{ search, text, matches, offset, limit, total, hasMore }` です。`search_sheets` は名前、`search_cells` は指定範囲または全シートのセルを検索します。`lookIn` は `values`（書式付き表示値）／`formulas`（数式・入力値）、`matchCase` は大文字小文字、`exact` は全体一致です。検索の `value` / `matchedText` は既定200文字のプレビューで、省略時は `valueTruncated` / `matchedTextTruncated` と元の文字数を返します。`previewLength` は1〜10,000、ページの `limit` は既定100・最大1,000です。`hasMore` が true なら `offset + limit` で続けます。
+
+Slideのページ取得は `selection.elements` にテキスト・図形内文字・位置・寸法・書式などをまとめて返し、画像の `src` / `dataUrl` は省きます。元の値とアニメーション定義を保持し、他ページの本文は取得しません。要素ごとの読み取りを繰り返さず、取得済みの変更されていないデータを再利用します。
+
+Slideの `summary.title` / `deck.rename` は資料名、`slide.name` は左の一覧のページ名です。キャンバスに表示される見出しはテキスト要素の `text` なので、資料名やページ名を変えても本文は変わりません。標準のシステム指示では「タイトルを英語にして」など対象を省略した依頼は、現在ページの見出しを取得して `update_slide_text` で変更し、画像で確認します。資料名・ファイル名や一覧の名前が明示された場合はその対象を編集し、見出し候補が複数あって特定できない場合は確認します。
+
+文字だけの変更・翻訳には `update_slide_text` を優先します。引数は `{ slideId, updates: [{ elementId, text }], dryRun, resolvesFailureIds }` で、1ページ内の既存テキスト・図形内文字をまとめて変更します。書式や位置、資料名、ページ名は維持します。ホストで公開コマンドの `element.update` / `patch: { text }` へ変換し、通常の一括編集と同じ検証・失敗修復・画像確認・Undoの経路に通します。画像への文字指定や対象IDの誤りは、バッチ全体を拒否します。
+
+書式変更には `format_slide_elements` を優先します。引数は `{ slideId, elementIds, format, dryRun, resolvesFailureIds }` で、1ページ内の指定要素へ共通の書式を一括適用します。`format` の各項目はstrictツールでは必須nullableで、`null` は変更しない指定、塗りをなくす場合は `"transparent"` を使います。本文・位置・寸法は変えません。
+
+| 対象 | 指定できる書式 |
+| --- | --- |
+| テキスト | `fontFamily`, `fontSize`, `bold`, `italic`, `textColor`, `align`, `verticalAlign`, `fill`, `opacity` |
+| 通常の図形 | `fontSize`, `textColor`, `fill`, `stroke`, `strokeWidth`, `opacity` |
+| 線 | `stroke`, `strokeWidth`, `opacity`, `startArrow`, `endArrow` |
+| 画像 | `opacity` |
+
+`textColor` は対象に応じて公開モデルの `color` / `textColor` へ変換します。対応していない書式を含む対象がある場合は一部だけ変更せず全件を拒否するため、例えばテキストと図形への `bold` は対象を分けます。専用ツールも通常の編集と同じ失敗修復・画像確認・Undoの経路を利用します。
+
+`apply_commands` は `{ commands, dryRun, resolvesFailureIds }` を受けます。取得用の `sheetId` / `slideId` をルートには指定できません。省略可能なコマンド項目はstrictツール上で必須nullableになり、使わない項目に `null` を指定します。元の型で許される `null` は値として保持します。任意キーの辞書は `[{key,value}]` 形式で受け、ホストで元の公開API形式に変換します。
+
+Spreadsheetの入力例（既存シートの値だけを変更）:
+
+```json
+{
+  "commands": [{ "type": "cells.set", "sheetId": "取得したシートID", "values": [
+    { "key": "B2", "value": "商品" }, { "key": "C2", "value": "売上" },
+    { "key": "B3", "value": "商品A" }, { "key": "C3", "value": "1200" }
+  ], "onConflict": null }],
+  "dryRun": false,
+  "resolvesFailureIds": []
+}
+```
+
+Spreadsheetは複数シートにまたがるセル・書式・行列サイズのバッチを利用できます。通常セルへの矩形データ・格子罫線・ヘッダー色の配置は `cells.writeGrid`、既存範囲の罫線は `cells.borders` を優先します。名前付きの構造化テーブルを依頼された場合に `tables.insert` を使います。通常セル用の旧 `cells.writeTable` は削除し、`cells.writeGrid` に統一しています。新規シートは `sheets.add` の結果からIDを取得してから編集します。
+
+`cells.format` / `cells.validation` / `cells.replace` の `addresses` は単一セルと範囲を混在でき、例えば `["A1", "B2:F6"]` を公開モデルAPIで展開します。範囲文字列を含む場合の展開上限は10,000セルで、重複を除きます。失敗した編集を修復するときも、範囲と同じセル一覧は同じ対象として判定し、セルを省いた修復や別範囲への置換は成功扱いにしません。
+
+Slide AIでは**1回の書き込みにつき1ページ**をAPIで強制します。1つの指示で複数ページを作れますが、ページごとに順番に書き込みます。同じページの要素編集はまとめられ、`slide.add` にもその1ページの全要素を含められます。全体を作り直すページには `slide.replaceContent` を使い、旧要素IDを1件ずつ列挙せずに内容を原子的に置換します。ページIDと順序を保持し、省略した名前・背景・ノートは維持します。古いアニメーションは消去し、必要なら新しい要素を参照する定義を渡します。ロック中の要素があるページは置換を拒否します。部分編集は従来の `element.update` を使います。線は `line.add` / `line.update` で始点・終点と接続先を指定します。`startArrow` / `endArrow` は各端の形状です。旧 `element.connect` は削除しました。
+
+`slide.delete` / `slide.duplicate` / `slide.move` と `deck.rename` は単独操作、`deck.resize` と `create_document` は既存資料が1ページの場合だけ許可します。事前のコマンド検査と出力差分検査で強制し、独自プロンプトや `dryRun` でも解除されません。公開SlideモデルAPI・汎用CLIの複数ページバッチは従来どおりです。
+
+`element.update.patch` の入力形式はテキスト・図形・画像で分かれます。取得した要素の種類に合う形式を使い、テキストに画像の `src` や図形の `shape` を混ぜません。strict形式でも使わない項目は `null` にし、変更対象だけに値を指定します。
+
+1バッチは1,000件・512 KiBまでで、1コマンドでも失敗すると全体を取り消します。エラーは `diagnostics` に `code` / `path` / `expected` / `actual`、必要に応じて `failureId` と再試行方法を返します。同じ失敗を変更なく繰り返す操作は抑止します。ID間違いは対象を再取得し、バッチ全体を修正して `resolvesFailureIds` に失敗IDを指定します。無関係な編集の成功や検証では未解決エラーを消しません。
+
+Spreadsheetの新規描画で位置の検証に失敗した場合は、エラーのコマンドに限って不正な `anchor` を修正できます。元の位置が不正で修正後の位置が有効なことを公開モデルで検証し、そのコマンドの位置以外と、同じバッチの他のコマンドは維持させます。既存図形を別の対象へ変更する修復や、失敗したバッチの一部だけの再送は認めません。
+
+両モジュールで、編集が成功しても実際の変更がない場合は `noChange` に `code: "no_change"`（正規化後のpatchが空なら `"empty_patch"`）、`repeatCount`、`stopAfter: 3` と次の行動を返します。1〜2回目は同じ操作を再送せず、必要な別の編集または完了へ進めます。同じ文書状態で同じ編集が3回繰り返されたら `repeated_no_change` でセッションを停止し、今回のステージ上の変更全体を画面へ反映しません。比較にはnull正規化済みのコマンドを使い、JSONのキー順を変えても同じ操作として数えます。取得・プレビューは回数をリセットせず、実際の変更でリセットします。別の対象への編集は別に数え、dry-runは対象外です。無変更は修復必須の編集エラーとして登録せず、既存の未解決エラーや画像確認の要件を免除することもありません。
+
+全ページの成功は完了までステージに保持します。最終検証が成功した場合だけ画面へ一括反映し、キャンセル・未解決エラー・回数上限では一部だけを反映しません。
+
+Slide生成には `design-guide.md` / `layout-examples.md` を用意しています。主張・視覚的な階層・余白・配色を揃えながら、表紙／比較／構成図／締めの構図を変える例を参照させます。純粋モデルAPIに文字量計測・文字サイズ調整・直交コネクター生成を追加し、既存のSLON/PPTX要素へ展開するため保存形式は変更しません。
+
+画像確認に対応するブラウザーは `capabilities: { slidePreview: true }` を送信します。`preview_slide` はステージ中の1ページをブラウザーに渡し、公開 `exportImage` と実際のフォント計測でPNG・文字切れ・ページ外要素の診断を返します。画像はResponses APIのツール結果 `input_image` としてAIに渡します。編集後の最新画像が未確認のページは、API側で完了を保留します。診断を返すだけで品質を自動保証するものではなく、AIが画像と診断を確認し、問題があれば再編集・再プレビューします。
+
+プレビューは文書を本体へ取り込まず、リクエスト専用のトークン・キャンセル・有効期限で古い結果を拒否します。PNGは最大2 MiB・1,600×1,600px、モデルへ保持する直近画像は6枚までです。画像バイトはJSONLやチャット実行ログに残さず、対象ID・寸法・診断だけを記録します。画像非対応のホストではプレビューツールを公開せず、画像確認したと主張させません。
+
+1回の依頼はSlide・SpreadsheetともにAIとの往復が最大48回・ツール呼び出し最大96回です。ホストは残り回数を毎回システム指示に追加し、必要な取得・編集・確認と最後の完了応答に配分させます。最終検証はホストが自動で行うため、AIによる重複した `validate` は不要です。上限超過や未解決の編集エラーでは、ステージ上の変更を画面へ反映しません。
+
+処理時間は既定で全体15分までです。モデル応答やツール処理が進んでいる間は従来の120秒を超えて続行し、応答・進捗が3分間止まった場合は終了します。停止ボタンや接続切断では即座にキャンセルします。ホストの `aiPlayground({ timeoutMs, idleTimeoutMs })` で全体時間（上限1時間）と無進捗時間（上限15分）を正のミリ秒で設定できます。ブラウザーのリクエストやAIからは変更できません。通信維持用のheartbeatで無進捗時間を延長することはありません。
 
 リポジトリのルートに `.env` を作り、OpenAIまたはAzure OpenAIの設定を記入します。[`.env.example`](../../.env.example) に両方の例があります。APIキーはサーバー側だけで読み、`VITE_` 接頭辞は付けません。`.env` はGit管理対象外です。
 
@@ -69,7 +143,7 @@ OpenAI・Azure OpenAIともResponses APIのfunction callingに対応するモデ
 
 設定後に `npm run dev` を起動（起動中なら再起動）し、`/spreadsheet/ai` または `/slide/ai` の右下のキラキラボタンからチャットを開きます。例えば「売上計画シートの見出しを青色にして列幅を調整して」「最初のスライドのタイトルを『来期の事業計画』にして」と依頼できます。APIキーが未設定の場合は画面に不足する設定名を表示します。
 
-ブラウザーは現在の `.spon`／`.slon` 全文をローカルのホストサーバーへ渡します。全文はCLI操作用の一時ステージに置き、LLMの初期コンテキストには入れません。AIは `read_skill` で対象モジュールの `skills/likex-<module>/SKILL.md` と参照資料名を読み、`read_reference` で必要な資料を取得し、`run_script` で同梱の `scripts/document.mjs` を実行します。セルや要素は要求された範囲だけ取得し、そのツール出力をLLMへ渡します。大きな参照資料は `offset` / `limit` でページに分けて取得できます。
+ブラウザーは現在の `.spon`／`.slon` 全文をローカルのホストサーバーへ渡します。全文はCLI操作用の一時ステージに置き、LLMの初期コンテキストには入れません。AIは `read_skill` で対象モジュールの `skills/likex-<module>/SKILL.md` と参照資料名を読み、`read_reference` で必要な資料を取得し、用途別の型付きツールを通して同梱の `scripts/document.mjs` を実行します。セルや要素は要求された範囲だけ取得し、そのツール出力をLLMへ渡します。大きな参照資料は `offset` / `limit` でページに分けて取得できます。
 
 `inspect`・`apply`・`validate`・`create` の引数はサーバーが構築し、任意のシェルやスクリプトは実行しません。編集は一時ステージに蓄積し、最後に検証した文書をブラウザーへ返します。ステージは実行終了時に削除します。実行経過と実際に呼ばれたツールはチャット履歴で確認できます。
 

@@ -10,6 +10,8 @@ function getCommandPlacement(workbook: SpreadsheetWorkbook, command: Spreadsheet
   receipt: SpreadsheetCommandBaseReceipt): Partial<SpreadsheetCommandPlacement> | undefined {
   switch (command.type) {
     case "drawings.paste":
+    case "lines.insert":
+    case "lines.update":
     case "images.insert":
     case "images.update":
     case "shapes.insert":
@@ -19,7 +21,7 @@ function getCommandPlacement(workbook: SpreadsheetWorkbook, command: Spreadsheet
       const { nextRow, nextColumn } = getDrawingPlacement(workbook, receipt.sheetId, receipt.drawingId!);
       return { nextRow, nextColumn };
     }
-    case "tables.insert": case "cells.writeTable": case "cells.insert":
+    case "tables.insert": case "cells.writeGrid": case "cells.insert":
       return { nextRow: receipt.range!.bottom + 1, nextColumn: receipt.range!.right + 1 };
     case "cells.set": {
       let nextRow = 0, nextColumn = 0;

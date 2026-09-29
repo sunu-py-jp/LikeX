@@ -35,7 +35,7 @@ const features = {
 | `replace` | 検索結果の置換。`search` も有効である必要があります。 |
 | `autoFill` | セル範囲のハンドルによる連番・値・数式の展開と `cells.fill`。 |
 | `namedRanges` | 名前付き範囲の追加・変更・削除・クリア、名前ボックスでの範囲参照。既存の定義は保持します。 |
-| `tables` | テーブルの作成・削除、罫線付きの表の書き込み。作成・書き込みには `formatting` も必要です。既存の定義とセルは保持します。 |
+| `tables` | テーブルの作成・削除。作成には `formatting` も必要です。通常セルの `cells.writeGrid` は `formatting` のみで利用できます。既存の定義とセルは保持します。 |
 | `formatting` | セルの書式変更。既存の書式は表示します。 |
 | `conditionalFormatting` | 条件付き書式の設定・解除。`formatting` も有効である必要があります。既存の規則は表示します。 |
 | `dataValidation` | 入力規則の設定・解除、セル内のプルダウン・チェックボックス操作。既存の規則は保存・検証し続けます。[詳細](./input-validation.md) |

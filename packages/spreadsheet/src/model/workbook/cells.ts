@@ -1,4 +1,5 @@
 import { cellAddress, parseCellAddress } from "../address";
+import { expandCellAddresses } from "../cell-addresses";
 import { getMergedRange, mergedCellPosition } from "../merges";
 import type { SpreadsheetCellFormat, SpreadsheetSheet, SpreadsheetWorkbook } from "../types";
 import { freezeCell, getWorkbookSheet, replaceWorkbookSheet } from "./snapshot";
@@ -31,13 +32,14 @@ export function setSheetCellValues(sheet: SpreadsheetSheet, values: Readonly<Rec
   return changed ? Object.freeze({ ...sheet, cells: Object.freeze(cells) }) : sheet;
 }
 
+/** Apply a format to same-sheet cells/ranges; range-containing lists expand to at most 10,000 unique cells. */
 export function formatCells(workbook: SpreadsheetWorkbook, sheetId: string, addresses: readonly string[], format: Partial<SpreadsheetCellFormat>): SpreadsheetWorkbook {
   const sheet = getWorkbookSheet(workbook, sheetId), cells = { ...sheet.cells };
   // Validate before examining cells so a bad request is rejected atomically.
   normalizeCellFormat(format);
   let changed = false;
-  for (const address of addresses) {
-    const key = canonicalCellAddress(sheet, address), previous = cells[key], next = normalizeCellFormat({ ...previous?.format, ...format });
+  for (const key of expandCellAddresses(sheet, addresses)) {
+    const previous = cells[key], next = normalizeCellFormat({ ...previous?.format, ...format });
     if (JSON.stringify(previous?.format) === JSON.stringify(next)) continue;
     changed = true;
     if (!previous?.value && !next && !previous?.validation) delete cells[key];

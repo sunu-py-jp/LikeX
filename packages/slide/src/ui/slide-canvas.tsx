@@ -1,18 +1,38 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
-import { RotateCw } from "lucide-react";
+import { findNearestConnectorPort, getConnectorPortPoints } from "../core";
+import { getSlideConnectorOutline, getSlideLineEndpoints, isSlideLine, resolveSlideLines, slideLineGeometry, translateSlideLine } from "../model/lines";
 import type { ContextMenuAction } from "../browser";
-import type { Slide, SlideCommand, SlideDeck, SlideElement } from "../model/types";
+import type { Slide, SlideCommand, SlideDeck, SlideElement, SlideLineGeometry } from "../model/types";
 import type { SlideEditor } from "../state/use-slide-editor";
 import { startDragEdgeMotion } from "./drag-scroll";
-import { elementStyle, SlideElementContent } from "./slide-artwork";
+import { elementStyle } from "./slide-artwork";
+import { SlideCanvasElement } from "./slide-canvas-element";
 import { useSlideContextMenu } from "./use-slide-context-menu";
 
-type Geometry = Pick<SlideElement, "x" | "y" | "width" | "height" | "rotation">;
+type Geometry = Pick<SlideElement, "x" | "y" | "width" | "height" | "rotation"> & { line?: SlideLineGeometry };
 type Corner = "nw" | "ne" | "sw" | "se";
-type Gesture = { kind: "move" | "resize" | "rotate"; corner?: Corner; startX: number; startY: number; pointerId: number;
+type Gesture = { kind: "move" | "resize" | "rotate" | "start" | "end"; corner?: Corner; startX: number; startY: number; pointerId: number;
   captureTarget: HTMLElement; elements: SlideElement[]; updates: Map<string, Geometry>; centerX: number; centerY: number; startAngle: number; deck: SlideDeck; slideId: string; scale: number; scrollX: number; scrollY: number; lastX: number; lastY: number; shiftKey: boolean; altKey: boolean; stop(): void };
+type MarqueeBox = { x: number; y: number; width: number; height: number };
+type Marquee = { deck: SlideDeck; slide: Slide; scale: number; pointerId: number; startX: number; startY: number;
+  originX: number; originY: number; scrollX: number; scrollY: number; lastX: number; lastY: number;
+  originalIds: string[]; toggle: boolean; dragged: boolean; editable: boolean; formatting: boolean; stop(): void };
+
+function containedByMarquee(element: SlideElement, box: MarqueeBox): boolean {
+  if (isSlideLine(element)) {
+    const { start, end } = getSlideLineEndpoints(element);
+    return [start, end].every(point => point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height);
+  }
+  const angle = element.rotation * Math.PI / 180, cos = Math.abs(Math.cos(angle)), sin = Math.abs(Math.sin(angle));
+  const halfWidth = (element.width * cos + element.height * sin) / 2;
+  const halfHeight = (element.width * sin + element.height * cos) / 2;
+  const centerX = element.x + element.width / 2, centerY = element.y + element.height / 2;
+  const epsilon = 1e-7;
+  return centerX - halfWidth >= box.x - epsilon && centerY - halfHeight >= box.y - epsilon
+    && centerX + halfWidth <= box.x + box.width + epsilon && centerY + halfHeight <= box.y + box.height + epsilon;
+}
 
 function resized(element: SlideElement, dx: number, dy: number, corner: Corner, preserveRatio: boolean): Geometry {
   const angle = element.rotation * Math.PI / 180, cos = Math.cos(angle), sin = Math.sin(angle);
@@ -29,21 +49,25 @@ function resized(element: SlideElement, dx: number, dy: number, corner: Corner, 
     y: element.y + element.height / 2 + shiftX * sin + shiftY * cos - height / 2, width, height, rotation: element.rotation };
 }
 
-export function SlideCanvas({ deck, slide, editor, zoom, onImage }: { deck: SlideDeck; slide: Slide | undefined; editor: SlideEditor; zoom: number; onImage?(target: { deck: SlideDeck; slideId: string }): void }) {
+export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }: { deck: SlideDeck; slide: Slide | undefined; editor: SlideEditor; zoom: number; onImage?(target: { deck: SlideDeck; slideId: string }): void; onProperties?(): void }) {
   const viewport = useRef<HTMLDivElement>(null), surface = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 900, height: 600 });
   const [preview, setPreview] = useState<Map<string, Geometry>>(new Map());
+  const [connecting, setConnecting] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
   const gesture = useRef<Gesture | null>(null);
+  const marquee = useRef<Marquee | null>(null);
+  const [marqueePreview, setMarqueePreview] = useState<{ box: MarqueeBox; elementIds: string[] } | null>(null);
   const latest = useRef({ deck, slideId: slide?.id, editable: editor.editable, formatting: editor.features.formatting });
   useLayoutEffect(() => { latest.current = { deck, slideId: slide?.id, editable: editor.editable, formatting: editor.features.formatting }; });
+  useLayoutEffect(() => () => { latest.current = { ...latest.current, slideId: undefined }; }, []);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [wasEditable, setWasEditable] = useState(editor.editable);
   if (wasEditable !== editor.editable) {
     setWasEditable(editor.editable);
     if (!editor.editable) { setPreview(new Map()); setEditing(null); }
   }
-  const selected = new Set(editor.selection.elementIds);
+  const selected = new Set(marqueePreview?.elementIds ?? editor.selection.elementIds);
   const openMenu = useSlideContextMenu(editor);
   const scale = Math.max(.05, Math.min((size.width - 80) / deck.width, (size.height - 64) / deck.height)) * zoom / 100;
   useLayoutEffect(() => {
@@ -53,18 +77,84 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage }: { deck: Slid
     const observer = new ResizeObserver(update); observer.observe(node); update();
     return () => observer.disconnect();
   }, []);
-  function cancelGesture() { const current = gesture.current; gesture.current = null; current?.stop(); setPreview(new Map()); }
+  function cancelGesture() { const current = gesture.current; gesture.current = null; current?.stop(); setPreview(new Map()); setConnecting(null); }
+  function cancelMarquee() { const current = marquee.current; marquee.current = null; current?.stop(); setMarqueePreview(null); }
   useLayoutEffect(() => { const current = gesture.current; if (current && (current.deck !== deck || current.slideId !== slide?.id || !editor.editable || !editor.features.formatting)) cancelGesture(); }, [deck, slide?.id, editor.editable, editor.features.formatting]);
-  useEffect(() => () => { const current = gesture.current; gesture.current = null; current?.stop(); }, []);
+  useLayoutEffect(() => {
+    const current = marquee.current;
+    if (current && (current.deck !== deck || current.slide.id !== slide?.id || current.scale !== scale
+      || current.editable !== editor.editable || current.formatting !== editor.features.formatting)) cancelMarquee();
+  }, [deck, slide?.id, scale, editor.editable, editor.features.formatting]);
+  useEffect(() => () => {
+    const current = gesture.current; gesture.current = null; current?.stop();
+    const selection = marquee.current; marquee.current = null; selection?.stop();
+  }, []);
+
+  function updateMarquee(current: Marquee) {
+    if (latest.current.deck !== current.deck || latest.current.slideId !== current.slide.id
+      || latest.current.editable !== current.editable || latest.current.formatting !== current.formatting) { cancelMarquee(); return null; }
+    const scrollX = (viewport.current?.scrollLeft ?? 0) - current.scrollX, scrollY = (viewport.current?.scrollTop ?? 0) - current.scrollY;
+    const dx = current.lastX - current.startX + scrollX, dy = current.lastY - current.startY + scrollY;
+    if (!current.dragged && Math.hypot(dx, dy) < 3) return null;
+    current.dragged = true;
+    const x = current.originX + dx / current.scale, y = current.originY + dy / current.scale;
+    const box = { x: Math.min(current.originX, x), y: Math.min(current.originY, y), width: Math.abs(x - current.originX), height: Math.abs(y - current.originY) };
+    const containedIds = current.slide.elements.filter(element => containedByMarquee(element, box)).map(element => element.id);
+    const original = new Set(current.originalIds), contained = new Set(containedIds);
+    const elementIds = current.toggle
+      ? [...current.originalIds.filter(id => !contained.has(id)), ...containedIds.filter(id => !original.has(id))]
+      : containedIds;
+    const next = { box, elementIds }; setMarqueePreview(next); return next;
+  }
+  function beginMarquee(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || !slide || editing || gesture.current || marquee.current
+      || (event.target as HTMLElement).closest?.("[data-slide-element],button,input,textarea,select,[contenteditable=true]")) return;
+    const target = viewport.current, rect = surface.current?.getBoundingClientRect(), win = target?.ownerDocument.defaultView;
+    if (!target || !rect || !win) return;
+    event.preventDefault(); event.stopPropagation(); target.focus();
+    const current: Marquee = { deck, slide, scale, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
+      originX: (event.clientX - rect.left) / scale, originY: (event.clientY - rect.top) / scale,
+      scrollX: target.scrollLeft, scrollY: target.scrollTop, lastX: event.clientX, lastY: event.clientY,
+      originalIds: [...editor.selection.elementIds], toggle: event.shiftKey || event.ctrlKey || event.metaKey, dragged: false,
+      editable: editor.editable, formatting: editor.features.formatting, stop() {} };
+    marquee.current = current;
+    const move = (event: globalThis.PointerEvent) => {
+      if (event.pointerId !== current.pointerId || marquee.current !== current) return;
+      current.lastX = event.clientX; current.lastY = event.clientY; updateMarquee(current);
+    };
+    const finish = (event: globalThis.PointerEvent) => {
+      if (event.pointerId !== current.pointerId || marquee.current !== current) return;
+      current.lastX = event.clientX; current.lastY = event.clientY;
+      const result = updateMarquee(current);
+      if (marquee.current !== current) return;
+      marquee.current = null; current.stop(); setMarqueePreview(null);
+      editor.select({ slideId: current.slide.id, elementIds: result?.elementIds ?? (current.toggle ? current.originalIds : []) });
+    };
+    const cancel = () => cancelMarquee();
+    const lost = (event: globalThis.PointerEvent) => { if (event.pointerId === current.pointerId) cancel(); };
+    const key = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancel(); } };
+    const stopMotion = startDragEdgeMotion(target, () => marquee.current === current && current.dragged ? { x: current.lastX, y: current.lastY } : null,
+      (dx, dy) => { target.scrollLeft += dx; target.scrollTop += dy; updateMarquee(current); });
+    current.stop = () => {
+      stopMotion(); win.removeEventListener("pointermove", move); win.removeEventListener("pointerup", finish);
+      win.removeEventListener("pointercancel", lost); win.removeEventListener("keydown", key, true); win.removeEventListener("blur", cancel);
+      target.removeEventListener("lostpointercapture", lost);
+      if (target.hasPointerCapture?.(current.pointerId)) target.releasePointerCapture(current.pointerId);
+    };
+    win.addEventListener("pointermove", move); win.addEventListener("pointerup", finish); win.addEventListener("pointercancel", lost);
+    win.addEventListener("keydown", key, true); win.addEventListener("blur", cancel); target.addEventListener("lostpointercapture", lost);
+    target.setPointerCapture?.(event.pointerId);
+  }
 
   const begin = (event: PointerEvent<HTMLElement>, element: SlideElement, kind: Gesture["kind"], corner?: Corner) => {
-    if (event.button !== 0 || !slide || editing) return;
+    if (event.button !== 0 || !slide || editing || marquee.current) return;
     event.stopPropagation(); event.preventDefault();
     viewport.current?.focus();
-    const ids = event.shiftKey && kind === "move" ? (selected.has(element.id) ? editor.selection.elementIds.filter(id => id !== element.id) : [...editor.selection.elementIds, element.id])
+    const ids = (event.shiftKey || event.ctrlKey || event.metaKey) && kind === "move" ? (selected.has(element.id) ? editor.selection.elementIds.filter(id => id !== element.id) : [...editor.selection.elementIds, element.id])
       : selected.has(element.id) ? editor.selection.elementIds : [element.id];
     editor.select({ slideId: slide.id, elementIds: ids });
     if (!ids.includes(element.id) || !editor.editable || !editor.features.formatting || element.locked) return;
+    setConnecting(null);
     const rect = surface.current!.getBoundingClientRect();
     const centerX = rect.left + (element.x + element.width / 2) * scale, centerY = rect.top + (element.y + element.height / 2) * scale;
     gesture.current = { kind, corner, startX: event.clientX, startY: event.clientY, pointerId: event.pointerId, captureTarget: event.currentTarget,
@@ -87,7 +177,21 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage }: { deck: Slid
     if (Math.abs(dx) + Math.abs(dy) < 1 && !current.updates.size) return;
     const next = new Map<string, Geometry>();
     for (const element of current.elements) {
-      if (current.kind === "move") next.set(element.id, { ...element, x: element.x + dx, y: element.y + dy });
+      if (isSlideLine(element) && (current.kind === "start" || current.kind === "end")) {
+        const previous = getSlideLineEndpoints(element), point = { x: previous[current.kind].x + dx, y: previous[current.kind].y + dy };
+        const targets = slide!.elements.filter(item => !isSlideLine(item)).map(item => ({ id: item.id, box: item, outline: getSlideConnectorOutline(item) }));
+        const nearby = findNearestConnectorPort(point, targets, 32 / current.scale);
+        setConnecting(nearby?.binding.targetId ?? null);
+        const snap = findNearestConnectorPort(point, targets, 12 / current.scale);
+        const line = { ...previous, [current.kind]: snap ? { ...snap.point, binding: snap.binding } : point };
+        next.set(element.id, { ...slideLineGeometry(line), line });
+      } else if (current.kind === "move") {
+        const geometry = { ...element, x: element.x + dx, y: element.y + dy };
+        if (isSlideLine(element)) {
+          const line = translateSlideLine(element, dx, dy, new Set(current.elements.map(item => item.id)));
+          next.set(element.id, { ...slideLineGeometry(line), line });
+        } else next.set(element.id, geometry);
+      }
       else if (current.kind === "resize") next.set(element.id, resized(element, dx, dy, current.corner!, (element.type === "image" && !current.altKey) || current.shiftKey));
       else {
         let rotation = element.rotation + (Math.atan2(current.lastY - current.centerY + scrollY, current.lastX - current.centerX + scrollX) - current.startAngle) * 180 / Math.PI;
@@ -110,9 +214,9 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage }: { deck: Slid
       updateGesture(current);
       if (gesture.current !== current) return;
     }
-    gesture.current = null; current.stop(); setPreview(new Map());
+    gesture.current = null; current.stop(); setPreview(new Map()); setConnecting(null);
     if (!cancel && latest.current.deck === current.deck && latest.current.slideId === current.slideId && latest.current.editable && latest.current.formatting && current.updates.size) {
-      void editor.execute([...current.updates].map(([elementId, geometry]): SlideCommand => ({
+      void editor.execute([...current.updates].map(([elementId, geometry]): SlideCommand => geometry.line ? ({ type: "line.update", slideId: current.slideId, elementId, start: geometry.line.start, end: geometry.line.end }) : ({
         type: "element.update", slideId: current.slideId, elementId,
         patch: { x: geometry.x, y: geometry.y, width: geometry.width, height: geometry.height, rotation: geometry.rotation },
       })), current.deck);
@@ -155,7 +259,12 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage }: { deck: Slid
       items.push({ id: "delete", label: "削除", shortcut: "Delete", danger: true, separatorBefore: true, disabled,
         onSelect: () => execute({ type: "element.delete", slideId: slide.id, elementIds: ids }) });
     }
-    if (openMenu(event, items)) { cancelGesture(); editor.select({ slideId: slide.id, elementIds: ids }); }
+    if (onProperties) items.push({ id: "format", label: "書式設定", separatorBefore: true, onSelect: () => {
+      if (latest.current.deck !== deck || latest.current.slideId !== slide.id) return;
+      editor.select({ slideId: slide.id, elementIds: ids });
+      onProperties();
+    } });
+    if (openMenu(event, items)) { cancelGesture(); cancelMarquee(); editor.select({ slideId: slide.id, elementIds: ids }); }
   };
   const canvasMenu = (event: MouseEvent<HTMLDivElement>) => {
     if (editing || (event.target as HTMLElement).closest?.("[data-slide-element],input,textarea,[contenteditable=true]")) return;
@@ -181,34 +290,25 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage }: { deck: Slid
       if (editor.features.addSlides) items.push({ id: "add-slide", label: "新しいスライド", separatorBefore: items.length > 0, disabled,
         onSelect: () => editor.execute({ type: "slide.add", afterId: slide?.id }, deck) });
     }
-    if (openMenu(event, items)) { cancelGesture(); if (slide) editor.select({ slideId: slide.id, elementIds: [] }); }
+    if (openMenu(event, items)) { cancelGesture(); cancelMarquee(); if (slide) editor.select({ slideId: slide.id, elementIds: [] }); }
   };
-  return <div ref={viewport} className="lxp-canvas-viewport" tabIndex={0} aria-label="スライド編集キャンバス"
+  const renderedElements = slide ? resolveSlideLines(slide.elements.map(element => ({ ...element, ...preview.get(element.id) } as SlideElement))) : [];
+  return <div ref={viewport} className="lxp-canvas-viewport" tabIndex={0} aria-label="スライド編集キャンバス" data-slide-selection-scope="elements"
     onContextMenu={canvasMenu}
-    onPointerDown={event => { if (event.button === 0 && event.target === event.currentTarget && slide) editor.select({ slideId: slide.id, elementIds: [] }); }}>
+    onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) cancelMarquee(); }}
+    onPointerDown={beginMarquee}>
     {slide ? <div className="lxp-canvas-center" style={{ minWidth: deck.width * scale + 80, minHeight: deck.height * scale + 64 }}>
       <div className="lxp-canvas-frame" style={{ width: deck.width * scale, height: deck.height * scale }}>
         <div ref={surface} className="lxp-canvas-surface" style={{ width: deck.width, height: deck.height, background: slide.background, transform: `scale(${scale})` }}
-          onPointerDown={event => { if (event.button === 0 && event.target === event.currentTarget) { editor.select({ slideId: slide.id, elementIds: [] }); viewport.current?.focus(); } }}
+          onPointerDown={beginMarquee}
           onPointerMove={move} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)}>
-          {slide.elements.map(original => {
-            const element = { ...original, ...preview.get(original.id) } as SlideElement;
-            const isSelected = selected.has(element.id);
-            return <div key={element.id} className={`lxp-element lxp-canvas-element${isSelected ? " lxp-element-selected" : ""}`}
-              data-slide-element={element.id} role="button" tabIndex={-1} aria-label={element.name || `${element.type} オブジェクト`} aria-pressed={isSelected}
-              style={{ ...elementStyle(element), ...(moving && preview.has(element.id) ? { opacity: element.opacity * .62 } : {}) }} onPointerDown={event => begin(event, original, "move")}
-              onContextMenu={event => elementMenu(event, original)}
-              onDoubleClick={() => { if (editor.editable && editor.features.text && element.type !== "image" && !element.locked) setEditing({ id: element.id, text: element.text }); }}>
-              <SlideElementContent element={element} />
-              {isSelected && editor.editable && editor.features.formatting && !element.locked && <>
-                {(["nw", "ne", "sw", "se"] as const).map(corner => <button key={corner} type="button" className={`lxp-resize-handle lxp-resize-${corner}`}
-                  aria-label={`${element.name}の${{ nw: "左上", ne: "右上", sw: "左下", se: "右下" }[corner]}を変形`}
-                  style={{ width: 8 / scale, height: 8 / scale }} onPointerDown={event => begin(event, original, "resize", corner)} />)}
-                <button type="button" className="lxp-rotate-handle" aria-label={`${element.name}を回転`}
-                  style={{ width: 20 / scale, height: 20 / scale, top: -30 / scale }} onPointerDown={event => begin(event, original, "rotate")}><RotateCw style={{ width: 13 / scale, height: 13 / scale }} /></button>
-              </>}
-            </div>;
-          })}
+          {renderedElements.map(element => <SlideCanvasElement key={element.id} element={element}
+            original={slide.elements.find(item => item.id === element.id)!} selected={selected.has(element.id)}
+            editable={editor.editable} formatting={editor.features.formatting} textEnabled={editor.features.text}
+            moving={moving && preview.has(element.id)} scale={scale} onBegin={begin} onMenu={elementMenu} onEdit={setEditing} />)}
+          {connecting && renderedElements.filter(element => element.id === connecting).flatMap(element => getConnectorPortPoints(element, getSlideConnectorOutline(element)).map(({ port, point }) => <div key={`${element.id}:${port}`} className="lxp-connection-port" data-connection-target={element.id} data-connection-port={port} style={{ left: point.x, top: point.y, width: 7 / scale, height: 7 / scale }} />))}
+          {marqueePreview && <div className="lxp-canvas-marquee" aria-hidden="true" style={{ left: marqueePreview.box.x, top: marqueePreview.box.y,
+            width: marqueePreview.box.width, height: marqueePreview.box.height, borderWidth: 1 / scale }} />}
           {editing && (() => {
             const element = slide.elements.find(item => item.id === editing.id);
             if (!element || element.type === "image") return null;

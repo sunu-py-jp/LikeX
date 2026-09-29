@@ -1,0 +1,7 @@
+{
+  "title": "線の端点と接続点",
+  "summary": "2端点・8接続点・回転と反転・吸着候補の共通計算を行います。",
+  "source": "packages/core/docs/connectors.md",
+  "order": 66,
+  "keywords": ["ConnectorEndpoint", "ConnectorBinding", "ConnectorPort", "getConnectorPortPoint", "findNearestConnectorPort", "接続点", "端点", "吸着"]
+}

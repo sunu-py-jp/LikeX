@@ -8,6 +8,7 @@ import type { SpreadsheetTableCommand } from "../api/table-commands";
 import type { SpreadsheetNamedRangeCommand } from "../api/named-range-commands";
 import type { SpreadsheetClearMode, SpreadsheetCellRangeInput } from "../model/workbook/clear";
 import type { SpreadsheetWriteConflictPolicy } from "../model/workbook/write-conflicts";
+import type { SpreadsheetLineEndpoint } from "../model/types";
 
 // A mapped type preserves tuple lengths as well as making ordinary arrays readonly.
 type DeepReadonly<T> = T extends object ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> } : T;
@@ -31,7 +32,9 @@ export type SpreadsheetCommand = DeepReadonly<
   | { type: "cells.insert"; sheetId: string; range: SpreadsheetCellRangeInput; shift: "down" | "right" }
   /** Omit shift to retain the legacy clear-all operation without moving surrounding cells. */
   | { type: "cells.delete"; sheetId: string; range: SpreadsheetCellRangeInput; shift?: "up" | "left" }
-  | { type: "cells.format"; sheetId: string; addresses: readonly string[]; format: SpreadsheetCellFormat }
+  | { type: "cells.format"; sheetId: string;
+      /** Same-sheet A1 cells/ranges; range-containing lists expand to at most 10,000 unique cells. */
+      addresses: readonly string[]; format: SpreadsheetCellFormat }
   /** Each outer item is one inserted row; values start at column A. Omitted count uses values.length or 1. */
   | { type: "rows.insert"; sheetId: string; index: number; count?: number; values?: readonly (readonly SpreadsheetInsertValue[])[] }
   /** Each outer item is one inserted column; values start at row 1. Omitted count uses values.length or 1. */
@@ -44,11 +47,23 @@ export type SpreadsheetCommand = DeepReadonly<
       width?: number; height?: number; alt?: string; flipX?: boolean; flipY?: boolean; rotation?: number }
   | { type: "shapes.insert"; sheetId: string; shape: SpreadsheetShapeDrawing["shape"]; anchor: SpreadsheetCommandAnchor;
       width?: number; height?: number; flipX?: boolean; flipY?: boolean; rotation?: number; fill?: string; stroke?: string; strokeWidth?: number;
-      text?: string; fontSize?: number; color?: string; bold?: boolean }
+      text?: string;
+      /** @minimum 1
+       * @maximum 400
+       */
+      fontSize?: number; color?: string; bold?: boolean }
   | { type: "textBoxes.insert"; sheetId: string; anchor: SpreadsheetCommandAnchor; text?: string; width?: number; height?: number;
+      /** @minimum 1
+       * @maximum 400
+       */
       fontSize?: number; color?: string; background?: string; bold?: boolean; flipX?: boolean; flipY?: boolean; rotation?: number }
   | { type: "drawings.paste"; sheetId: string; payload: SpreadsheetDrawingPastePayload; anchor?: SpreadsheetCommandAnchor }
   | { type: "drawings.delete"; sheetId: string; drawingId: string }
+  /** Coordinates are CSS pixels from A1, excluding the row/column headers. */
+  | { type: "lines.insert"; sheetId: string; start: SpreadsheetLineEndpoint; end: SpreadsheetLineEndpoint;
+      shape?: "line" | "arrow"; stroke?: string; strokeWidth?: number; startArrow?: SpreadsheetShapeDrawing["startArrow"]; endArrow?: SpreadsheetShapeDrawing["endArrow"] }
+  /** Supplying an endpoint without binding explicitly detaches it. */
+  | { type: "lines.update"; sheetId: string; drawingId: string; start?: SpreadsheetLineEndpoint; end?: SpreadsheetLineEndpoint; startArrow?: SpreadsheetShapeDrawing["startArrow"]; endArrow?: SpreadsheetShapeDrawing["endArrow"] }
   | { type: "images.update"; sheetId: string; drawingId: string; patch: SpreadsheetImageCommandPatch }
   | { type: "shapes.update"; sheetId: string; drawingId: string; patch: SpreadsheetShapeCommandPatch }
   | { type: "textBoxes.update"; sheetId: string; drawingId: string; patch: SpreadsheetTextBoxCommandPatch }
@@ -63,12 +78,12 @@ export type SpreadsheetCommand = DeepReadonly<
 /** Zero-based positions immediately below/right of the command target, not an empty-cell search. */
 export type SpreadsheetCommandPlacement = Readonly<{ nextRow: number; nextColumn: number }>;
 
-type DrawingPlacementCommand = "drawings.paste" | "images.insert" | "images.update" | "shapes.insert" | "shapes.update" | "textBoxes.insert" | "textBoxes.update";
+type DrawingPlacementCommand = "drawings.paste" | "images.insert" | "images.update" | "shapes.insert" | "shapes.update" | "textBoxes.insert" | "textBoxes.update" | "lines.insert" | "lines.update";
 /** Actual raw-value changes across affected sheets; skipped addresses belong to the destination sheet. */
 export type SpreadsheetWriteReport = Readonly<{ changedCount: number; skippedCount: number; skippedAddresses: readonly string[] }>;
 
 type CommandReceiptPlacement<Type extends SpreadsheetCommand["type"]> =
-  Type extends DrawingPlacementCommand | "cells.fill" | "cells.move" | "cells.insert" | "tables.insert" | "cells.writeTable" ? { placement: SpreadsheetCommandPlacement }
+  Type extends DrawingPlacementCommand | "cells.fill" | "cells.move" | "cells.insert" | "tables.insert" | "cells.writeGrid" ? { placement: SpreadsheetCommandPlacement }
     : Type extends "cells.set" | "cells.paste" ? { placement?: SpreadsheetCommandPlacement }
       : Type extends "rows.insert" ? { placement: Readonly<{ nextRow: number; nextColumn?: never }> }
         : Type extends "columns.insert" ? { placement: Readonly<{ nextRow?: never; nextColumn: number }> }
@@ -93,9 +108,9 @@ export type SpreadsheetCommandReceipt = {
     & (Type extends "images.insert" | "images.update" ? { resourceId: string } : object)
     & (Type extends SpreadsheetNamedRangeCommand["type"] ? { namedRangeId: string } : object)
     & (Type extends "tables.insert" | "tables.delete" ? { tableId: string } : object)
-    & (Type extends "tables.insert" | "tables.delete" | "cells.writeTable" ? { range: SpreadsheetMergedRange } : object)
+    & (Type extends "tables.insert" | "tables.delete" | "cells.writeGrid" ? { range: SpreadsheetMergedRange } : object)
     & (Type extends "cells.insert" ? { range: SpreadsheetMergedRange } : object)
-    & (Type extends "cells.set" | "cells.paste" | "cells.fill" | "cells.move" | "cells.replace" | "cells.clear" | "cells.insert" | "cells.delete" | "tables.insert" | "cells.writeTable"
+    & (Type extends "cells.set" | "cells.paste" | "cells.fill" | "cells.move" | "cells.replace" | "cells.clear" | "cells.insert" | "cells.delete" | "tables.insert" | "cells.writeGrid"
       ? { write: SpreadsheetWriteReport } : object)>;
 }[SpreadsheetCommand["type"]];
 

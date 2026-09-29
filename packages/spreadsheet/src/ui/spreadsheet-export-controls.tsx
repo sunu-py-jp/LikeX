@@ -1,14 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { downloadWorkbook } from "../export/download-workbook";
 import { Command, Icon } from "./spreadsheet-controls";
 
 export function SpreadsheetExportControls({ controller: c }: { controller: SpreadsheetController }) {
+  const [warning, setWarning] = useState("");
   const start = async (button: HTMLButtonElement, format: "xlsx" | "spon") => {
     try {
       if (!await c.commitEdit()) return;
-      const blob = await (format === "xlsx" ? c.exportExcel() : c.exportNative());
+      const warnings: string[] = [];
+      setWarning("");
+      const blob = await (format === "xlsx" ? c.exportExcel({ onWarning: value => warnings.push(value.message) }) : c.exportNative());
+      if (button.isConnected && warnings.length) setWarning([...new Set(warnings)].join(" "));
       if (button.isConnected) downloadWorkbook(blob, c.exportFileName, format, button.ownerDocument);
     } catch (cause) {
       if (!(cause instanceof Error && cause.name === "AbortError")) c.reportError(cause);
@@ -25,6 +30,7 @@ export function SpreadsheetExportControls({ controller: c }: { controller: Sprea
         <span>{c.exportingFormat === format ? `${label}出力中…` : format === "spon" ? "Spreadsheet (.spon)" : "Excel出力"}</span>
       </Command>;
     })}
+    {warning && <span className="lxs-ribbon-hint" role="status">{warning}</span>}
     {c.exporting && <Command label={`${c.exportingFormat === "xlsx" ? "Excel" : "SPON"}出力をキャンセル`} onClick={c.cancelExport}><Icon name="close" /></Command>}
   </>;
 }

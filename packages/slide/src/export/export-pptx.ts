@@ -8,6 +8,8 @@ import { createPptxDiagnosticCollector } from "../office/pptx-diagnostics";
 import { SLIDE_LIMITS } from "../model/limits";
 import { slideElementTextLength, slideTextLength } from "../model/text-length";
 import { createOfficeTaskCheckpoint } from "../office/cooperative-task";
+import { isSlideLine } from "../model/lines";
+import { pptxConnectorXml, pptxConnectorTargetGeometry, pptxLineArrowheads } from "./pptx-connectors";
 
 import type { SlidePptxExportOptions } from "./types";
 export type { SlidePptxExportOptions } from "./types";
@@ -22,14 +24,16 @@ function textBody(element: Exclude<SlideElement, { type: "image" }>): string {
   const run = `<a:rPr lang="ja-JP" sz="${size}" b="${isText && element.bold ? 1 : 0}" i="${isText && element.italic ? 1 : 0}">${fill(color, element.opacity)}<a:latin typeface="${xml(face)}"/><a:ea typeface="${xml(face)}"/></a:rPr>`;
   return `<p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="${anchor}"/><a:lstStyle/>${element.text.split("\n").map(line => `<a:p><a:pPr algn="${align}"/><a:r>${run}<a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr lang="ja-JP" sz="${size}"/></a:p>`).join("")}</p:txBody>`;
 }
-function elementXml(element: SlideElement, id: number, imageId?: string): string {
+function elementXml(element: SlideElement, id: number, shapeIds: ReadonlyMap<string, number>, connectorTargets: ReadonlySet<string>, imageId?: string): string {
+  if (isSlideLine(element) && element.line) return pptxConnectorXml(element, id, shapeIds);
   const transform = `<a:xfrm rot="${Math.round(element.rotation * 60000)}"><a:off x="${emu(element.x)}" y="${emu(element.y)}"/><a:ext cx="${emu(element.width)}" cy="${emu(element.height)}"/></a:xfrm>`;
   const lock = element.locked ? ' noMove="1" noResize="1" noRot="1"' : "";
   const common = `<p:cNvPr id="${id}" name="${xml(element.name)}"${element.type === "image" ? ` descr="${xml(element.alt)}"` : ""}/>`;
-  if (element.type === "image") return `<p:pic><p:nvPicPr>${common}<p:cNvPicPr><a:picLocks noChangeAspect="1"${lock}/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${imageId}">${element.opacity < 1 ? `<a:alphaModFix amt="${Math.round(element.opacity * 100000)}"/>` : ""}</a:blip><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${transform}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+  const geometry = connectorTargets.has(element.id) ? pptxConnectorTargetGeometry(element) : undefined;
+  if (element.type === "image") return `<p:pic><p:nvPicPr>${common}<p:cNvPicPr><a:picLocks noChangeAspect="1"${lock}/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${imageId}">${element.opacity < 1 ? `<a:alphaModFix amt="${Math.round(element.opacity * 100000)}"/>` : ""}</a:blip><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${transform}${geometry ?? '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'}</p:spPr></p:pic>`;
   const preset = element.type === "shape" ? element.shape === "arrow" ? "rightArrow" : element.shape : "rect";
-  const stroke = element.type === "shape" ? `<a:ln w="${emu(element.strokeWidth)}">${fill(element.stroke, element.opacity)}<a:prstDash val="solid"/></a:ln>` : '<a:ln><a:noFill/></a:ln>';
-  return `<p:sp><p:nvSpPr>${common}<p:cNvSpPr${element.type === "text" ? ' txBox="1"' : ""}><a:spLocks${lock}/></p:cNvSpPr><p:nvPr/></p:nvSpPr><p:spPr>${transform}<a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom>${fill(element.fill, element.opacity)}${stroke}</p:spPr>${textBody(element)}</p:sp>`;
+  const stroke = element.type === "shape" ? `<a:ln w="${emu(element.strokeWidth)}">${fill(element.stroke, element.opacity)}<a:prstDash val="solid"/>${element.shape === "line" ? pptxLineArrowheads(element) : ""}</a:ln>` : '<a:ln><a:noFill/></a:ln>';
+  return `<p:sp><p:nvSpPr>${common}<p:cNvSpPr${element.type === "text" ? ' txBox="1"' : ""}><a:spLocks${lock}/></p:cNvSpPr><p:nvPr/></p:nvSpPr><p:spPr>${transform}${geometry ?? `<a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom>`}${fill(element.fill, element.opacity)}${stroke}</p:spPr>${textBody(element)}</p:sp>`;
 }
 
 /** Writes standard PresentationML only; no downloads, persistence, or network requests. */
@@ -48,7 +52,12 @@ export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExport
   for (const [index, slide] of deck.slides.entries()) {
     const number = index + 1, slideLinks: Link[] = [{ id: "rIdLayout", type: `${R}/slideLayout`, target: "../slideLayouts/slideLayout1.xml" }];
     await checkpoint();
-    const animations = await exportPptxAnimations(slide, deck.width, deck.height, new Map(slide.elements.map((element, index) => [element.id, index + 2])),
+    const shapeIds = new Map(slide.elements.map((element, index) => [element.id, index + 2]));
+    const connectorTargets = new Set(slide.elements.flatMap(element => isSlideLine(element) && element.line
+      ? [element.line.start.binding?.targetId, element.line.end.binding?.targetId].filter((id): id is string => !!id) : []));
+    for (const element of slide.elements) if (isSlideLine(element) && element.line && element.text)
+      diagnostics.warn("接続線内の文字はPPTXの接続線に保存できないため省略しました。文字は別のテキスト要素として追加してください。", { code: "unsupported-content", action: "omission", slideIndex: index, elementId: element.id, elementName: element.name });
+    const animations = await exportPptxAnimations(slide, deck.width, deck.height, shapeIds,
       (message, details) => diagnostics.warn(message, { slideIndex: index, slideId: slide.id, slideName: slide.name, sourcePart: `ppt/slides/slide${number}.xml`, ...details }),
       SLIDE_LIMITS.totalTextLength - textLength, checkpoint);
     for (const snapshots of animations.snapshots.values()) for (const snapshot of snapshots) textLength += slideElementTextLength(snapshot.element);
@@ -57,7 +66,7 @@ export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExport
       .map(({ element: snapshot, shapeId }) => {
       const element = animations.opacityTargets.has(sourceElement.id) ? { ...snapshot, opacity: 1 } : snapshot;
       if (++elementCount > SLIDE_LIMITS.totalElements) throw new Error("PowerPointのアニメーション近似を含む図形数が上限を超えています");
-      if (element.type !== "image") return elementXml(element, shapeId);
+      if (element.type !== "image") return elementXml(element, shapeId, shapeIds, connectorTargets);
       let image = imageRegistry.get(element.src);
       if (!image) {
         const match = /^data:(image\/(?:png|jpeg|gif|webp));base64,([A-Za-z0-9+/=]+)$/.exec(element.src);
@@ -68,7 +77,7 @@ export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExport
         parts.push({ path: image.path, content: new Blob([bytes], { type: mime }) }); types.set(`/${image.path}`, mime);
       }
       const id = `rIdImage${shapeId}`; slideLinks.push({ id, type: `${R}/image`, target: `../media/${image.path.split("/").at(-1)}` });
-      return elementXml(element, shapeId, id);
+      return elementXml(element, shapeId, shapeIds, connectorTargets, id);
     })).join("");
     if (slide.notes) {
       hasNotes = true;

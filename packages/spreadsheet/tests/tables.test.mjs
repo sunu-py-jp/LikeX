@@ -8,7 +8,7 @@ export * from './src/model'; export * from './src/model/tables/data';`, resolveD
 const { applySpreadsheetCommands: apply, normalizeWorkbook, serializeWorkbook, parseWorkbook, calculateWorkbook,
   parseTableDelimitedText } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const book = (cells = {}, extra = {}) => normalizeWorkbook({ sheets: [{ id: 'main', name: 'Main', rowCount: 20, columnCount: 10, cells, ...extra }] });
-const write = (extra = {}) => ({ type: 'cells.writeTable', sheetId: 'main', target: { row: 1, column: 1 },
+const write = (extra = {}) => ({ type: 'cells.writeGrid', sheetId: 'main', target: { row: 1, column: 1 },
   headers: ['Product', 'Count'], data: { type: 'rows', values: [['Apple', '2'], ['Pear', '3']] }, ...extra });
 const insert = (extra = {}) => write({ type: 'tables.insert', name: 'Orders', ...extra });
 const cell = (result, address) => result.workbook.sheets[0].cells[address];
@@ -147,4 +147,44 @@ test('table creation observes formulas, formatting and table feature switches wi
     assert.equal(apply(book(), [insert()], { features }).code, 'FEATURE_DISABLED');
   assert.equal(apply(book(), [insert({ data: { type: 'rows', values: [['Apple', '=1+2']] } })], { features: { formulas: false } }).code, 'FEATURE_DISABLED');
   assert.equal(apply(book(), [insert({ headers: ['=label', 'Count'] })], { features: { formulas: false } }).ok, true);
+});
+
+test('grid writes configure ordinary cells without enabling structured tables and enforce formatting/formula gates', () => {
+  const border = { color: '#345678', width: 2, style: 'dashed' };
+  const command = write({ type: 'cells.writeGrid', border, headerStyle: { background: '#17365d', color: '#ffffff' },
+    data: { type: 'rows', values: [['Apple', '=2*3'], ['Pear', '4']] } });
+  const result = succeeded(apply(book(), [command], { features: { tables: false } }));
+  assert.equal(result.workbook.sheets[0].tables, undefined);
+  assert.equal(result.results[0].tableId, undefined);
+  assert.deepEqual(result.results[0].placement, { nextRow: 4, nextColumn: 3 });
+  assert.equal(cell(result, 'B2').format.background, '#17365d');
+  assert.equal(cell(result, 'B3').format.background, undefined);
+  assert.deepEqual(cell(result, 'C4').format.borders, { top: border, right: border, bottom: border, left: border });
+  assert.equal(calculateWorkbook(result.workbook).main.C3, 6);
+  assert.equal(apply(book(), [command], { features: { formatting: false } }).code, 'FEATURE_DISABLED');
+  assert.equal(apply(book(), [command], { features: { formulas: false } }).code, 'FEATURE_DISABLED');
+  assert.equal(apply(book(), [write()], { features: { tables: false } }).ok, true);
+});
+
+test('grid border validation and value conflicts remain atomic, while skip retains full existing cells', () => {
+  const before = book({ B3: { value: 'Keep', format: { background: '#abcdef', borders: { bottom: { width: 3 } } } } });
+  for (const border of [null, [], 'solid', { width: 9 }, { color: 'red; border: none' }, { unknown: true }]) {
+    const result = apply(before, [{ type: 'cells.set', sheetId: 'main', values: { J20: 'staged' } }, write({ type: 'cells.writeGrid', border })]);
+    assert.equal(result.ok, false, JSON.stringify(border)); assert.equal(result.workbook, undefined);
+    assert.equal(before.sheets[0].cells.J20, undefined);
+  }
+  assert.equal(apply(before, [write({ type: 'cells.writeGrid', onConflict: 'error' })]).code, 'WRITE_CONFLICT');
+  const result = succeeded(apply(before, [write({ type: 'cells.writeGrid', border: { color: '#ff0000' }, onConflict: 'skip' })]));
+  assert.deepEqual(cell(result, 'B3'), before.sheets[0].cells.B3);
+  assert.deepEqual(cell(result, 'C3').format.borders.top, { style: 'solid', width: 1, color: '#ff0000' });
+});
+
+
+test('removed writeTable commands fail without partial changes', () => {
+  const before = book();
+  const result = apply(before, [{ type: 'cells.set', sheetId: 'main', values: { A1: 'staged' } }, write({ type: 'cells.writeTable' })]);
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'INVALID_COMMAND');
+  assert.equal(result.workbook, undefined);
+  assert.equal(before.sheets[0].cells.A1, undefined);
 });

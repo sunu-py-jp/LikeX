@@ -132,10 +132,119 @@
         },
         {
           "$ref": "#/$defs/SpreadsheetCommand_41"
+        },
+        {
+          "$ref": "#/$defs/SpreadsheetCommand_42"
+        },
+        {
+          "$ref": "#/$defs/SpreadsheetCommand_43"
+        },
+        {
+          "$ref": "#/$defs/SpreadsheetCommand_44"
         }
       ]
     },
     "SpreadsheetCommand_1": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "cells.borders"
+        },
+        "sheetId": {
+          "type": "string"
+        },
+        "ranges": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges"
+        },
+        "preset": {
+          "$ref": "#/$defs/SpreadsheetBorderPreset"
+        },
+        "border": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_border"
+        }
+      },
+      "required": [
+        "type",
+        "sheetId",
+        "ranges",
+        "preset"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_1_ranges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
+      }
+    },
+    "SpreadsheetCommand_1_ranges_item": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "number"
+        },
+        "left": {
+          "type": "number"
+        },
+        "bottom": {
+          "type": "number"
+        },
+        "right": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "top",
+        "left",
+        "bottom",
+        "right"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetBorderPreset": {
+      "enum": [
+        "none",
+        "top",
+        "right",
+        "bottom",
+        "left",
+        "all",
+        "outside",
+        "inside"
+      ]
+    },
+    "SpreadsheetCommand_1_border": {
+      "type": "object",
+      "properties": {
+        "style": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_border_style"
+        },
+        "width": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_border_width"
+        },
+        "color": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_1_border_style": {
+      "enum": [
+        "none",
+        "solid",
+        "dashed",
+        "dotted",
+        "double"
+      ]
+    },
+    "SpreadsheetCommand_1_border_width": {
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "SpreadsheetCommand_2": {
       "type": "object",
       "properties": {
         "type": {
@@ -145,10 +254,10 @@
           "type": "string"
         },
         "axis": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_axis"
+          "$ref": "#/$defs/SpreadsheetCommand_2_axis"
         },
         "indices": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_indices"
+          "$ref": "#/$defs/SpreadsheetCommand_2_indices"
         }
       },
       "required": [
@@ -159,19 +268,19 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_1_axis": {
+    "SpreadsheetCommand_2_axis": {
       "enum": [
         "row",
         "column"
       ]
     },
-    "SpreadsheetCommand_1_indices": {
+    "SpreadsheetCommand_2_indices": {
       "type": "array",
       "items": {
         "type": "number"
       }
     },
-    "SpreadsheetCommand_2": {
+    "SpreadsheetCommand_3": {
       "type": "object",
       "properties": {
         "type": {
@@ -195,7 +304,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_3": {
+    "SpreadsheetCommand_4": {
       "type": "object",
       "properties": {
         "type": {
@@ -205,10 +314,10 @@
           "type": "string"
         },
         "rowHeights": {
-          "$ref": "#/$defs/SpreadsheetCommand_3_rowHeights"
+          "$ref": "#/$defs/SpreadsheetCommand_4_rowHeights"
         },
         "columnWidths": {
-          "$ref": "#/$defs/SpreadsheetCommand_3_rowHeights"
+          "$ref": "#/$defs/SpreadsheetCommand_4_rowHeights"
         }
       },
       "required": [
@@ -217,7 +326,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_3_rowHeights": {
+    "SpreadsheetCommand_4_rowHeights": {
       "type": "object",
       "properties": {},
       "additionalProperties": false,
@@ -227,7 +336,7 @@
         }
       }
     },
-    "SpreadsheetCommand_4": {
+    "SpreadsheetCommand_5": {
       "type": "object",
       "properties": {
         "type": {
@@ -237,7 +346,7 @@
           "type": "string"
         },
         "rules": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules"
         }
       },
       "required": [
@@ -247,42 +356,42 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_4_rules": {
+    "SpreadsheetCommand_5_rules": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_4_rules_item"
+        "$ref": "#/$defs/SpreadsheetCommand_5_rules_item"
       }
     },
-    "SpreadsheetCommand_4_rules_item": {
+    "SpreadsheetCommand_5_rules_item": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_2"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_2"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_3"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_3"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_4"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_4"
         }
       ]
     },
-    "SpreadsheetCommand_4_rules_item_1": {
+    "SpreadsheetCommand_5_rules_item_1": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         },
         "ranges": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges"
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges"
         },
         "type": {
           "const": "comparison"
         },
         "operator": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_operator"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_operator"
         },
         "value": {
           "type": "number"
@@ -291,10 +400,10 @@
           "type": "number"
         },
         "format": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format"
         },
         "stopIfTrue": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         }
       },
       "required": [
@@ -307,37 +416,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_4_rules_item_1_ranges": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges_item"
-      }
-    },
-    "SpreadsheetCommand_4_rules_item_1_ranges_item": {
-      "type": "object",
-      "properties": {
-        "top": {
-          "type": "number"
-        },
-        "left": {
-          "type": "number"
-        },
-        "bottom": {
-          "type": "number"
-        },
-        "right": {
-          "type": "number"
-        }
-      },
-      "required": [
-        "top",
-        "left",
-        "bottom",
-        "right"
-      ],
-      "additionalProperties": false
-    },
-    "SpreadsheetCommand_4_rules_item_1_operator": {
+    "SpreadsheetCommand_5_rules_item_1_operator": {
       "enum": [
         "gt",
         "gte",
@@ -349,20 +428,20 @@
         "notBetween"
       ]
     },
-    "SpreadsheetCommand_4_rules_item_1_format": {
+    "SpreadsheetCommand_5_rules_item_1_format": {
       "type": "object",
       "properties": {
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "italic": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "underline": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "align": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_align"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_align"
         },
         "color": {
           "type": "string"
@@ -375,99 +454,70 @@
         },
         "fontSize": {
           "type": "number",
+          "minimum": 1,
+          "maximum": 200,
           "description": "Font size in CSS pixels. XLSX converts pixels to points."
         },
         "wrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "verticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_verticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_verticalAlign"
         },
         "borders": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_borders"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_borders"
         },
         "numberFormat": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_numberFormat"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_numberFormat"
         },
         "decimalPlaces": {
           "type": "number"
         },
         "useGrouping": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "negativeFormat": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_negativeFormat"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_negativeFormat"
         }
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_4_rules_item_1_format_bold": {
+    "SpreadsheetCommand_5_rules_item_1_format_bold": {
       "type": "boolean"
     },
-    "SpreadsheetCommand_4_rules_item_1_format_align": {
+    "SpreadsheetCommand_5_rules_item_1_format_align": {
       "enum": [
         "right",
         "left",
         "center"
       ]
     },
-    "SpreadsheetCommand_4_rules_item_1_format_verticalAlign": {
+    "SpreadsheetCommand_5_rules_item_1_format_verticalAlign": {
       "enum": [
         "top",
         "bottom",
         "middle"
       ]
     },
-    "SpreadsheetCommand_4_rules_item_1_format_borders": {
+    "SpreadsheetCommand_5_rules_item_1_format_borders": {
       "type": "object",
       "properties": {
         "top": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_borders_top"
+          "$ref": "#/$defs/SpreadsheetCommand_1_border"
         },
         "right": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_borders_top"
+          "$ref": "#/$defs/SpreadsheetCommand_1_border"
         },
         "bottom": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_borders_top"
+          "$ref": "#/$defs/SpreadsheetCommand_1_border"
         },
         "left": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_borders_top"
+          "$ref": "#/$defs/SpreadsheetCommand_1_border"
         }
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_4_rules_item_1_format_borders_top": {
-      "type": "object",
-      "properties": {
-        "style": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_borders_top_style"
-        },
-        "width": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_borders_top_width"
-        },
-        "color": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false
-    },
-    "SpreadsheetCommand_4_rules_item_1_format_borders_top_style": {
-      "enum": [
-        "none",
-        "solid",
-        "dashed",
-        "dotted",
-        "double"
-      ]
-    },
-    "SpreadsheetCommand_4_rules_item_1_format_borders_top_width": {
-      "enum": [
-        1,
-        2,
-        3
-      ]
-    },
-    "SpreadsheetCommand_4_rules_item_1_format_numberFormat": {
+    "SpreadsheetCommand_5_rules_item_1_format_numberFormat": {
       "enum": [
         "number",
         "general",
@@ -479,7 +529,7 @@
         "datetime"
       ]
     },
-    "SpreadsheetCommand_4_rules_item_1_format_negativeFormat": {
+    "SpreadsheetCommand_5_rules_item_1_format_negativeFormat": {
       "enum": [
         "minus",
         "parentheses",
@@ -487,29 +537,29 @@
         "red-parentheses"
       ]
     },
-    "SpreadsheetCommand_4_rules_item_2": {
+    "SpreadsheetCommand_5_rules_item_2": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         },
         "ranges": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges"
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges"
         },
         "type": {
           "const": "text"
         },
         "operator": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_2_operator"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_2_operator"
         },
         "value": {
           "type": "string"
         },
         "format": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format"
         },
         "stopIfTrue": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         }
       },
       "required": [
@@ -522,7 +572,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_4_rules_item_2_operator": {
+    "SpreadsheetCommand_5_rules_item_2_operator": {
       "enum": [
         "contains",
         "notContains",
@@ -530,14 +580,14 @@
         "endsWith"
       ]
     },
-    "SpreadsheetCommand_4_rules_item_3": {
+    "SpreadsheetCommand_5_rules_item_3": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         },
         "ranges": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges"
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges"
         },
         "type": {
           "const": "dataBar"
@@ -560,20 +610,20 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_4_rules_item_4": {
+    "SpreadsheetCommand_5_rules_item_4": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         },
         "ranges": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges"
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges"
         },
         "type": {
           "const": "colorScale"
         },
         "colors": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_4_colors"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_4_colors"
         },
         "min": {
           "type": "number"
@@ -590,17 +640,17 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_4_rules_item_4_colors": {
+    "SpreadsheetCommand_5_rules_item_4_colors": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_4_colors_1"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_4_colors_1"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_4_colors_2"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_4_colors_2"
         }
       ]
     },
-    "SpreadsheetCommand_4_rules_item_4_colors_1": {
+    "SpreadsheetCommand_5_rules_item_4_colors_1": {
       "type": "array",
       "prefixItems": [
         {
@@ -614,7 +664,7 @@
       "maxItems": 2,
       "items": false
     },
-    "SpreadsheetCommand_4_rules_item_4_colors_2": {
+    "SpreadsheetCommand_5_rules_item_4_colors_2": {
       "type": "array",
       "prefixItems": [
         {
@@ -631,7 +681,7 @@
       "maxItems": 3,
       "items": false
     },
-    "SpreadsheetCommand_5": {
+    "SpreadsheetCommand_6": {
       "type": "object",
       "properties": {
         "type": {
@@ -641,16 +691,17 @@
           "type": "string"
         },
         "query": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_query"
+          "$ref": "#/$defs/SpreadsheetCommand_6_query"
         },
         "replacement": {
           "type": "string"
         },
         "addresses": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_addresses"
+          "$ref": "#/$defs/SpreadsheetCommand_6_addresses",
+          "description": "Same-sheet A1 cells/ranges. With any range, expansion is limited to 10,000 unique cells. Omit to replace across the sheet."
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_onConflict"
+          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict"
         }
       },
       "required": [
@@ -661,20 +712,20 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_5_query": {
+    "SpreadsheetCommand_6_query": {
       "type": "object",
       "properties": {
         "text": {
           "type": "string"
         },
         "matchCase": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "wholeCell": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "lookIn": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_query_lookIn"
+          "$ref": "#/$defs/SpreadsheetCommand_6_query_lookIn"
         }
       },
       "required": [
@@ -682,26 +733,26 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_5_query_lookIn": {
+    "SpreadsheetCommand_6_query_lookIn": {
       "enum": [
         "values",
         "formulas"
       ]
     },
-    "SpreadsheetCommand_5_addresses": {
+    "SpreadsheetCommand_6_addresses": {
       "type": "array",
       "items": {
         "type": "string"
       }
     },
-    "SpreadsheetCommand_5_onConflict": {
+    "SpreadsheetCommand_6_onConflict": {
       "enum": [
         "error",
         "overwrite",
         "skip"
       ]
     },
-    "SpreadsheetCommand_6": {
+    "SpreadsheetCommand_7": {
       "type": "object",
       "properties": {
         "type": {
@@ -711,16 +762,16 @@
           "type": "string"
         },
         "source": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
         },
         "target": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
         },
         "mode": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_mode"
+          "$ref": "#/$defs/SpreadsheetCommand_7_mode"
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_onConflict"
+          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict"
         }
       },
       "required": [
@@ -731,14 +782,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_6_mode": {
+    "SpreadsheetCommand_7_mode": {
       "enum": [
         "copy",
         "auto",
         "series"
       ]
     },
-    "SpreadsheetCommand_7": {
+    "SpreadsheetCommand_8": {
       "type": "object",
       "properties": {
         "type": {
@@ -748,19 +799,19 @@
           "type": "string"
         },
         "target": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_target"
+          "$ref": "#/$defs/SpreadsheetCommand_8_target"
         },
         "payload": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload"
         },
         "mode": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_mode"
+          "$ref": "#/$defs/SpreadsheetCommand_8_mode"
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_onConflict"
+          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict"
         },
         "partialMerges": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_partialMerges"
+          "$ref": "#/$defs/SpreadsheetCommand_8_partialMerges"
         }
       },
       "required": [
@@ -771,7 +822,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_7_target": {
+    "SpreadsheetCommand_8_target": {
       "type": "object",
       "properties": {
         "row": {
@@ -787,35 +838,35 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_7_payload": {
+    "SpreadsheetCommand_8_payload": {
       "type": "object",
       "properties": {
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_values"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_values"
         },
         "displayedValues": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_values"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_values"
         },
         "valueTypes": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_valueTypes",
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_valueTypes",
           "description": "Distinguishes literal strings such as 00123 or =text from calculated numbers/booleans."
         },
         "formats": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_formats"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_formats"
         },
         "validations": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations"
         },
         "comments": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_comments",
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_comments",
           "description": "Copied comments receive fresh IDs on paste. Null clears a destination comment."
         },
         "merges": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges",
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges",
           "description": "Complete merged ranges relative to the copied rectangle's top-left. [] also permits replacing destination merges."
         },
         "source": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_source"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_source"
         }
       },
       "required": [
@@ -823,92 +874,92 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_7_payload_values": {
+    "SpreadsheetCommand_8_payload_values": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_5_addresses"
+        "$ref": "#/$defs/SpreadsheetCommand_6_addresses"
       }
     },
-    "SpreadsheetCommand_7_payload_valueTypes": {
+    "SpreadsheetCommand_8_payload_valueTypes": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_7_payload_valueTypes_item"
+        "$ref": "#/$defs/SpreadsheetCommand_8_payload_valueTypes_item"
       }
     },
-    "SpreadsheetCommand_7_payload_valueTypes_item": {
+    "SpreadsheetCommand_8_payload_valueTypes_item": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_7_payload_valueTypes_item_item"
+        "$ref": "#/$defs/SpreadsheetCommand_8_payload_valueTypes_item_item"
       }
     },
-    "SpreadsheetCommand_7_payload_valueTypes_item_item": {
+    "SpreadsheetCommand_8_payload_valueTypes_item_item": {
       "enum": [
         "string",
         "number",
         "boolean"
       ]
     },
-    "SpreadsheetCommand_7_payload_formats": {
+    "SpreadsheetCommand_8_payload_formats": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_7_payload_formats_item"
+        "$ref": "#/$defs/SpreadsheetCommand_8_payload_formats_item"
       }
     },
-    "SpreadsheetCommand_7_payload_formats_item": {
+    "SpreadsheetCommand_8_payload_formats_item": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_7_payload_formats_item_item"
+        "$ref": "#/$defs/SpreadsheetCommand_8_payload_formats_item_item"
       }
     },
-    "SpreadsheetCommand_7_payload_formats_item_item": {
+    "SpreadsheetCommand_8_payload_formats_item_item": {
       "anyOf": [
         {
           "const": null
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format"
         }
       ]
     },
-    "SpreadsheetCommand_7_payload_validations": {
+    "SpreadsheetCommand_8_payload_validations": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item"
+        "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item"
       }
     },
-    "SpreadsheetCommand_7_payload_validations_item": {
+    "SpreadsheetCommand_8_payload_validations_item": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item_item"
+        "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item"
       }
     },
-    "SpreadsheetCommand_7_payload_validations_item_item": {
+    "SpreadsheetCommand_8_payload_validations_item_item": {
       "anyOf": [
         {
           "const": null
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item_item_2"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_2"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item_item_3"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_3"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item_item_4"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_4"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item_item_5"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_5"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item_item_6"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_6"
         }
       ]
     },
-    "SpreadsheetCommand_7_payload_validations_item_item_2": {
+    "SpreadsheetCommand_8_payload_validations_item_item_2": {
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "message": {
           "type": "string"
@@ -917,7 +968,7 @@
           "const": "list"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_addresses"
+          "$ref": "#/$defs/SpreadsheetCommand_6_addresses"
         }
       },
       "required": [
@@ -926,11 +977,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_7_payload_validations_item_item_3": {
+    "SpreadsheetCommand_8_payload_validations_item_item_3": {
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "message": {
           "type": "string"
@@ -939,7 +990,7 @@
           "const": "number"
         },
         "integer": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "min": {
           "type": "number"
@@ -953,11 +1004,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_7_payload_validations_item_item_4": {
+    "SpreadsheetCommand_8_payload_validations_item_item_4": {
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "message": {
           "type": "string"
@@ -977,11 +1028,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_7_payload_validations_item_item_5": {
+    "SpreadsheetCommand_8_payload_validations_item_item_5": {
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "message": {
           "type": "string"
@@ -1001,11 +1052,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_7_payload_validations_item_item_6": {
+    "SpreadsheetCommand_8_payload_validations_item_item_6": {
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "message": {
           "type": "string"
@@ -1019,29 +1070,29 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_7_payload_comments": {
+    "SpreadsheetCommand_8_payload_comments": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_7_payload_comments_item"
+        "$ref": "#/$defs/SpreadsheetCommand_8_payload_comments_item"
       }
     },
-    "SpreadsheetCommand_7_payload_comments_item": {
+    "SpreadsheetCommand_8_payload_comments_item": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_7_payload_comments_item_item"
+        "$ref": "#/$defs/SpreadsheetCommand_8_payload_comments_item_item"
       }
     },
-    "SpreadsheetCommand_7_payload_comments_item_item": {
+    "SpreadsheetCommand_8_payload_comments_item_item": {
       "anyOf": [
         {
           "const": null
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_comments_item_item_2"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_comments_item_item_2"
         }
       ]
     },
-    "SpreadsheetCommand_7_payload_comments_item_item_2": {
+    "SpreadsheetCommand_8_payload_comments_item_item_2": {
       "type": "object",
       "properties": {
         "text": {
@@ -1056,7 +1107,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_7_payload_source": {
+    "SpreadsheetCommand_8_payload_source": {
       "type": "object",
       "properties": {
         "row": {
@@ -1076,7 +1127,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_7_mode": {
+    "SpreadsheetCommand_8_mode": {
       "enum": [
         "values",
         "formulas",
@@ -1084,13 +1135,13 @@
         "formats"
       ]
     },
-    "SpreadsheetCommand_7_partialMerges": {
+    "SpreadsheetCommand_8_partialMerges": {
       "enum": [
         "skip",
         "reject"
       ]
     },
-    "SpreadsheetCommand_8": {
+    "SpreadsheetCommand_9": {
       "type": "object",
       "properties": {
         "type": {
@@ -1100,13 +1151,13 @@
           "type": "string"
         },
         "source": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_source"
+          "$ref": "#/$defs/SpreadsheetCommand_9_source"
         },
         "target": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_target"
+          "$ref": "#/$defs/SpreadsheetCommand_8_target"
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_onConflict"
+          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict"
         }
       },
       "required": [
@@ -1117,7 +1168,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_8_source": {
+    "SpreadsheetCommand_9_source": {
       "type": "object",
       "properties": {
         "sheetId": {
@@ -1145,7 +1196,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_9": {
+    "SpreadsheetCommand_10": {
       "type": "object",
       "properties": {
         "type": {
@@ -1164,7 +1215,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_10": {
+    "SpreadsheetCommand_11": {
       "type": "object",
       "properties": {
         "type": {
@@ -1174,10 +1225,11 @@
           "type": "string"
         },
         "addresses": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_addresses"
+          "$ref": "#/$defs/SpreadsheetCommand_6_addresses",
+          "description": "Same-sheet A1 cells/ranges, expanded and deduplicated; at most 10,000 cells."
         },
         "validation": {
-          "$ref": "#/$defs/SpreadsheetCommand_10_validation",
+          "$ref": "#/$defs/SpreadsheetCommand_11_validation",
           "description": "null removes the rule; cell values and formatting are preserved."
         }
       },
@@ -1189,52 +1241,52 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_10_validation": {
+    "SpreadsheetCommand_11_validation": {
       "anyOf": [
         {
           "const": null
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item_item_2"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_2"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item_item_3"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_3"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item_item_4"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_4"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item_item_5"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_5"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_validations_item_item_6"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_6"
         }
       ]
     },
-    "SpreadsheetCommand_11": {
+    "SpreadsheetCommand_12": {
       "type": "object",
       "properties": {
         "sheetId": {
           "type": "string"
         },
         "target": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_target"
+          "$ref": "#/$defs/SpreadsheetCommand_8_target"
         },
         "headers": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_addresses"
+          "$ref": "#/$defs/SpreadsheetCommand_6_addresses"
         },
         "data": {
-          "$ref": "#/$defs/SpreadsheetCommand_11_data"
+          "$ref": "#/$defs/SpreadsheetCommand_12_data"
         },
         "headerStyle": {
-          "$ref": "#/$defs/SpreadsheetCommand_11_headerStyle"
+          "$ref": "#/$defs/SpreadsheetCommand_12_headerStyle"
         },
         "rowNumbers": {
-          "$ref": "#/$defs/SpreadsheetCommand_11_rowNumbers",
+          "$ref": "#/$defs/SpreadsheetCommand_12_rowNumbers",
           "description": "Insert a static leading integer column. Defaults: header No., start 1."
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_onConflict",
+          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict",
           "description": "Defaults to overwrite. Skipped cells keep both their value and formatting."
         },
         "type": {
@@ -1254,24 +1306,24 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_11_data": {
+    "SpreadsheetCommand_12_data": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SpreadsheetCommand_11_data_1"
+          "$ref": "#/$defs/SpreadsheetCommand_12_data_1"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_11_data_2"
+          "$ref": "#/$defs/SpreadsheetCommand_12_data_2"
         }
       ]
     },
-    "SpreadsheetCommand_11_data_1": {
+    "SpreadsheetCommand_12_data_1": {
       "type": "object",
       "properties": {
         "type": {
           "const": "rows"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_payload_values"
+          "$ref": "#/$defs/SpreadsheetCommand_8_payload_values"
         }
       },
       "required": [
@@ -1280,11 +1332,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_11_data_2": {
+    "SpreadsheetCommand_12_data_2": {
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/$defs/SpreadsheetCommand_11_data_2_type"
+          "$ref": "#/$defs/SpreadsheetCommand_12_data_2_type"
         },
         "text": {
           "type": "string"
@@ -1296,13 +1348,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_11_data_2_type": {
+    "SpreadsheetCommand_12_data_2_type": {
       "enum": [
         "csv",
         "tsv"
       ]
     },
-    "SpreadsheetCommand_11_headerStyle": {
+    "SpreadsheetCommand_12_headerStyle": {
       "type": "object",
       "properties": {
         "background": {
@@ -1314,17 +1366,17 @@
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_11_rowNumbers": {
+    "SpreadsheetCommand_12_rowNumbers": {
       "anyOf": [
         {
           "const": false
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_11_rowNumbers_2"
+          "$ref": "#/$defs/SpreadsheetCommand_12_rowNumbers_2"
         }
       ]
     },
-    "SpreadsheetCommand_11_rowNumbers_2": {
+    "SpreadsheetCommand_12_rowNumbers_2": {
       "type": "object",
       "properties": {
         "header": {
@@ -1336,34 +1388,38 @@
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_12": {
+    "SpreadsheetCommand_13": {
       "type": "object",
       "properties": {
         "sheetId": {
           "type": "string"
         },
         "target": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_target"
+          "$ref": "#/$defs/SpreadsheetCommand_8_target"
         },
         "headers": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_addresses"
+          "$ref": "#/$defs/SpreadsheetCommand_6_addresses"
         },
         "data": {
-          "$ref": "#/$defs/SpreadsheetCommand_11_data"
+          "$ref": "#/$defs/SpreadsheetCommand_12_data"
         },
         "headerStyle": {
-          "$ref": "#/$defs/SpreadsheetCommand_11_headerStyle"
+          "$ref": "#/$defs/SpreadsheetCommand_12_headerStyle"
         },
         "rowNumbers": {
-          "$ref": "#/$defs/SpreadsheetCommand_11_rowNumbers",
+          "$ref": "#/$defs/SpreadsheetCommand_12_rowNumbers",
           "description": "Insert a static leading integer column. Defaults: header No., start 1."
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_onConflict",
+          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict",
           "description": "Defaults to overwrite. Skipped cells keep both their value and formatting."
         },
+        "border": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_border",
+          "description": "Defaults to a 1px solid #d1d5db grid. Unspecified border properties retain these defaults."
+        },
         "type": {
-          "const": "cells.writeTable"
+          "const": "cells.writeGrid"
         }
       },
       "required": [
@@ -1375,7 +1431,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_13": {
+    "SpreadsheetCommand_14": {
       "type": "object",
       "properties": {
         "type": {
@@ -1388,7 +1444,7 @@
           "type": "string"
         },
         "clear": {
-          "$ref": "#/$defs/SpreadsheetCommand_13_clear"
+          "$ref": "#/$defs/SpreadsheetCommand_14_clear"
         }
       },
       "required": [
@@ -1398,14 +1454,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_13_clear": {
+    "SpreadsheetCommand_14_clear": {
       "enum": [
         "none",
         "values",
         "all"
       ]
     },
-    "SpreadsheetCommand_14": {
+    "SpreadsheetCommand_15": {
       "type": "object",
       "properties": {
         "type": {
@@ -1418,7 +1474,7 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_14_range"
+          "$ref": "#/$defs/SpreadsheetCommand_15_range"
         }
       },
       "required": [
@@ -1429,17 +1485,17 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_14_range": {
+    "SpreadsheetCommand_15_range": {
       "anyOf": [
         {
           "type": "string"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
         }
       ]
     },
-    "SpreadsheetCommand_15": {
+    "SpreadsheetCommand_16": {
       "type": "object",
       "properties": {
         "type": {
@@ -1455,7 +1511,7 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_15_range"
+          "$ref": "#/$defs/SpreadsheetCommand_16_range"
         }
       },
       "required": [
@@ -1465,17 +1521,17 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_15_range": {
+    "SpreadsheetCommand_16_range": {
       "anyOf": [
         {
           "type": "string"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
         }
       ]
     },
-    "SpreadsheetCommand_16": {
+    "SpreadsheetCommand_17": {
       "type": "object",
       "properties": {
         "type": {
@@ -1488,7 +1544,7 @@
           "type": "string"
         },
         "clear": {
-          "$ref": "#/$defs/SpreadsheetCommand_13_clear"
+          "$ref": "#/$defs/SpreadsheetCommand_14_clear"
         }
       },
       "required": [
@@ -1498,7 +1554,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_17": {
+    "SpreadsheetCommand_18": {
       "type": "object",
       "properties": {
         "type": {
@@ -1511,7 +1567,7 @@
           "type": "string"
         },
         "mode": {
-          "$ref": "#/$defs/SpreadsheetCommand_17_mode"
+          "$ref": "#/$defs/SpreadsheetCommand_18_mode"
         }
       },
       "required": [
@@ -1521,13 +1577,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_17_mode": {
+    "SpreadsheetCommand_18_mode": {
       "enum": [
         "values",
         "all"
       ]
     },
-    "SpreadsheetCommand_18": {
+    "SpreadsheetCommand_19": {
       "type": "object",
       "properties": {
         "type": {
@@ -1537,10 +1593,10 @@
           "type": "string"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_18_values"
+          "$ref": "#/$defs/SpreadsheetCommand_19_values"
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_onConflict"
+          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict"
         }
       },
       "required": [
@@ -1550,14 +1606,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_18_values": {
+    "SpreadsheetCommand_19_values": {
       "type": "object",
       "properties": {},
       "additionalProperties": {
         "type": "string"
       }
     },
-    "SpreadsheetCommand_19": {
+    "SpreadsheetCommand_20": {
       "type": "object",
       "properties": {
         "type": {
@@ -1567,10 +1623,10 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_14_range"
+          "$ref": "#/$defs/SpreadsheetCommand_15_range"
         },
         "mode": {
-          "$ref": "#/$defs/SpreadsheetCommand_19_mode"
+          "$ref": "#/$defs/SpreadsheetCommand_20_mode"
         }
       },
       "required": [
@@ -1580,13 +1636,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_19_mode": {
+    "SpreadsheetCommand_20_mode": {
       "enum": [
         "values",
         "all"
       ]
     },
-    "SpreadsheetCommand_20": {
+    "SpreadsheetCommand_21": {
       "type": "object",
       "properties": {
         "type": {
@@ -1596,10 +1652,10 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_14_range"
+          "$ref": "#/$defs/SpreadsheetCommand_15_range"
         },
         "shift": {
-          "$ref": "#/$defs/SpreadsheetCommand_20_shift"
+          "$ref": "#/$defs/SpreadsheetCommand_21_shift"
         }
       },
       "required": [
@@ -1610,13 +1666,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_20_shift": {
+    "SpreadsheetCommand_21_shift": {
       "enum": [
         "right",
         "down"
       ]
     },
-    "SpreadsheetCommand_21": {
+    "SpreadsheetCommand_22": {
       "type": "object",
       "properties": {
         "type": {
@@ -1626,10 +1682,10 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_14_range"
+          "$ref": "#/$defs/SpreadsheetCommand_15_range"
         },
         "shift": {
-          "$ref": "#/$defs/SpreadsheetCommand_21_shift"
+          "$ref": "#/$defs/SpreadsheetCommand_22_shift"
         }
       },
       "required": [
@@ -1639,13 +1695,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_21_shift": {
+    "SpreadsheetCommand_22_shift": {
       "enum": [
         "left",
         "up"
       ]
     },
-    "SpreadsheetCommand_22": {
+    "SpreadsheetCommand_23": {
       "type": "object",
       "properties": {
         "type": {
@@ -1655,10 +1711,11 @@
           "type": "string"
         },
         "addresses": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_addresses"
+          "$ref": "#/$defs/SpreadsheetCommand_6_addresses",
+          "description": "Same-sheet A1 cells/ranges; range-containing lists expand to at most 10,000 unique cells."
         },
         "format": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format"
         }
       },
       "required": [
@@ -1669,7 +1726,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_23": {
+    "SpreadsheetCommand_24": {
       "type": "object",
       "properties": {
         "type": {
@@ -1685,7 +1742,7 @@
           "type": "number"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_23_values"
+          "$ref": "#/$defs/SpreadsheetCommand_24_values"
         }
       },
       "required": [
@@ -1695,13 +1752,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_23_values": {
+    "SpreadsheetCommand_24_values": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_23_values_item"
+        "$ref": "#/$defs/SpreadsheetCommand_24_values_item"
       }
     },
-    "SpreadsheetCommand_23_values_item": {
+    "SpreadsheetCommand_24_values_item": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/SpreadsheetInsertValue"
@@ -1726,7 +1783,7 @@
         }
       ]
     },
-    "SpreadsheetCommand_24": {
+    "SpreadsheetCommand_25": {
       "type": "object",
       "properties": {
         "type": {
@@ -1742,7 +1799,7 @@
           "type": "number"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_23_values"
+          "$ref": "#/$defs/SpreadsheetCommand_24_values"
         }
       },
       "required": [
@@ -1752,11 +1809,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_25": {
+    "SpreadsheetCommand_26": {
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/$defs/SpreadsheetCommand_25_type"
+          "$ref": "#/$defs/SpreadsheetCommand_26_type"
         },
         "sheetId": {
           "type": "string"
@@ -1775,13 +1832,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_25_type": {
+    "SpreadsheetCommand_26_type": {
       "enum": [
         "rows.delete",
         "columns.delete"
       ]
     },
-    "SpreadsheetCommand_26": {
+    "SpreadsheetCommand_27": {
       "type": "object",
       "properties": {
         "type": {
@@ -1805,7 +1862,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_27": {
+    "SpreadsheetCommand_28": {
       "type": "object",
       "properties": {
         "type": {
@@ -1815,30 +1872,10 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
         },
         "discardContent": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
-        }
-      },
-      "required": [
-        "type",
-        "sheetId",
-        "range"
-      ],
-      "additionalProperties": false
-    },
-    "SpreadsheetCommand_28": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "const": "cells.unmerge"
-        },
-        "sheetId": {
-          "type": "string"
-        },
-        "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         }
       },
       "required": [
@@ -1852,16 +1889,36 @@
       "type": "object",
       "properties": {
         "type": {
+          "const": "cells.unmerge"
+        },
+        "sheetId": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
+        }
+      },
+      "required": [
+        "type",
+        "sheetId",
+        "range"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_30": {
+      "type": "object",
+      "properties": {
+        "type": {
           "const": "images.insert"
         },
         "sheetId": {
           "type": "string"
         },
         "resource": {
-          "$ref": "#/$defs/SpreadsheetCommand_29_resource"
+          "$ref": "#/$defs/SpreadsheetCommand_30_resource"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_29_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_30_anchor"
         },
         "width": {
           "type": "number"
@@ -1873,10 +1930,10 @@
           "type": "string"
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "rotation": {
           "type": "number"
@@ -1890,14 +1947,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_29_resource": {
+    "SpreadsheetCommand_30_resource": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string"
         },
         "mimeType": {
-          "$ref": "#/$defs/SpreadsheetCommand_29_resource_mimeType"
+          "$ref": "#/$defs/SpreadsheetCommand_30_resource_mimeType"
         },
         "dataUrl": {
           "type": "string"
@@ -1918,7 +1975,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_29_resource_mimeType": {
+    "SpreadsheetCommand_30_resource_mimeType": {
       "enum": [
         "image/png",
         "image/jpeg",
@@ -1926,7 +1983,7 @@
         "image/gif"
       ]
     },
-    "SpreadsheetCommand_29_anchor": {
+    "SpreadsheetCommand_30_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -1948,7 +2005,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_30": {
+    "SpreadsheetCommand_31": {
       "type": "object",
       "properties": {
         "type": {
@@ -1958,10 +2015,10 @@
           "type": "string"
         },
         "shape": {
-          "$ref": "#/$defs/SpreadsheetCommand_30_shape"
+          "$ref": "#/$defs/SpreadsheetCommand_31_shape"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_29_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_30_anchor"
         },
         "width": {
           "type": "number"
@@ -1970,10 +2027,10 @@
           "type": "number"
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "rotation": {
           "type": "number"
@@ -1991,13 +2048,15 @@
           "type": "string"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 400
         },
         "color": {
           "type": "string"
         },
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         }
       },
       "required": [
@@ -2008,7 +2067,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_30_shape": {
+    "SpreadsheetCommand_31_shape": {
       "enum": [
         "rectangle",
         "ellipse",
@@ -2028,7 +2087,7 @@
         "upDownArrow"
       ]
     },
-    "SpreadsheetCommand_31": {
+    "SpreadsheetCommand_32": {
       "type": "object",
       "properties": {
         "type": {
@@ -2038,7 +2097,7 @@
           "type": "string"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_29_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_30_anchor"
         },
         "text": {
           "type": "string"
@@ -2050,7 +2109,9 @@
           "type": "number"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 400
         },
         "color": {
           "type": "string"
@@ -2059,13 +2120,13 @@
           "type": "string"
         },
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "rotation": {
           "type": "number"
@@ -2078,7 +2139,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_32": {
+    "SpreadsheetCommand_33": {
       "type": "object",
       "properties": {
         "type": {
@@ -2088,10 +2149,10 @@
           "type": "string"
         },
         "payload": {
-          "$ref": "#/$defs/SpreadsheetCommand_32_payload"
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_29_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_30_anchor"
         }
       },
       "required": [
@@ -2101,15 +2162,19 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_32_payload": {
+    "SpreadsheetCommand_33_payload": {
       "type": "object",
       "properties": {
         "drawing": {
-          "$ref": "#/$defs/SpreadsheetCommand_32_payload_drawing"
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing"
         },
         "resource": {
-          "$ref": "#/$defs/SpreadsheetCommand_32_payload_resource",
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_resource",
           "description": "Required for images, so the copy survives deletion of the original resource."
+        },
+        "linePoints": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints",
+          "description": "Free endpoints relative to the copied frame, so different sheet dimensions preserve its shape."
         }
       },
       "required": [
@@ -2117,20 +2182,20 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_32_payload_drawing": {
+    "SpreadsheetCommand_33_payload_drawing": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SpreadsheetCommand_32_payload_drawing_1"
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_1"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_32_payload_drawing_2"
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_32_payload_drawing_3"
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_3"
         }
       ]
     },
-    "SpreadsheetCommand_32_payload_drawing_1": {
+    "SpreadsheetCommand_33_payload_drawing_1": {
       "type": "object",
       "properties": {
         "width": {
@@ -2145,16 +2210,16 @@
         "height": {
           "type": "number"
         },
-        "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold",
-          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
-        },
-        "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
-        },
         "rotation": {
           "type": "number",
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
+        },
+        "flipX": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
+        },
+        "flipY": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "resourceId": {
           "type": "string"
@@ -2163,7 +2228,7 @@
           "type": "string"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_32_payload_drawing_1_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_1_anchor"
         }
       },
       "required": [
@@ -2177,7 +2242,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_32_payload_drawing_1_anchor": {
+    "SpreadsheetCommand_33_payload_drawing_1_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -2201,11 +2266,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_32_payload_drawing_2": {
+    "SpreadsheetCommand_33_payload_drawing_2": {
       "type": "object",
       "properties": {
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "fill": {
           "type": "string"
@@ -2218,7 +2283,9 @@
           "description": "Optional shape text; omitted formatting uses 16 px, #1f2937 and normal weight."
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 400
         },
         "width": {
           "type": "number"
@@ -2229,31 +2296,44 @@
         "id": {
           "type": "string"
         },
+        "line": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line",
+          "description": "Only line/arrow shapes. Omitted on legacy rectangle-based lines."
+        },
         "height": {
           "type": "number"
         },
         "shape": {
-          "$ref": "#/$defs/SpreadsheetCommand_30_shape"
+          "$ref": "#/$defs/SpreadsheetCommand_31_shape"
         },
         "strokeWidth": {
-          "type": "number"
-        },
-        "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold",
-          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
-        },
-        "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
         },
         "rotation": {
           "type": "number",
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
         },
+        "flipX": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
+        },
+        "flipY": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+        },
         "stroke": {
           "type": "string"
         },
+        "startArrow": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow",
+          "description": "End markers. Legacy shape:arrow defaults its end to triangle; otherwise none."
+        },
+        "endArrow": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+        },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_32_payload_drawing_1_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_1_anchor"
         }
       },
       "required": [
@@ -2269,11 +2349,104 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_32_payload_drawing_3": {
+    "SpreadsheetCommand_33_payload_drawing_2_line": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start"
+        },
+        "end": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_33_payload_drawing_2_line_start": {
+      "type": "object",
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start_anchor"
+        },
+        "binding": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start_binding"
+        }
+      },
+      "required": [
+        "anchor"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_33_payload_drawing_2_line_start_anchor": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "number"
+        },
+        "column": {
+          "type": "number"
+        },
+        "offsetX": {
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "row",
+        "column",
+        "offsetX",
+        "offsetY"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_33_payload_drawing_2_line_start_binding": {
+      "type": "object",
+      "properties": {
+        "targetId": {
+          "type": "string"
+        },
+        "port": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start_binding_port"
+        }
+      },
+      "required": [
+        "targetId",
+        "port"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_33_payload_drawing_2_line_start_binding_port": {
+      "enum": [
+        "top",
+        "right",
+        "bottom",
+        "left",
+        "topRight",
+        "bottomRight",
+        "bottomLeft",
+        "topLeft"
+      ]
+    },
+    "SpreadsheetCommand_33_payload_drawing_2_startArrow": {
+      "enum": [
+        "none",
+        "triangle",
+        "diamond",
+        "openArrow",
+        "oval",
+        "stealth"
+      ]
+    },
+    "SpreadsheetCommand_33_payload_drawing_3": {
       "type": "object",
       "properties": {
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "color": {
           "type": "string"
@@ -2285,7 +2458,9 @@
           "type": "string"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 400
         },
         "width": {
           "type": "number"
@@ -2299,19 +2474,19 @@
         "height": {
           "type": "number"
         },
-        "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold",
-          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
-        },
-        "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
-        },
         "rotation": {
           "type": "number",
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
         },
+        "flipX": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
+        },
+        "flipY": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+        },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_32_payload_drawing_1_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_1_anchor"
         }
       },
       "required": [
@@ -2327,14 +2502,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_32_payload_resource": {
+    "SpreadsheetCommand_33_payload_resource": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string"
         },
         "mimeType": {
-          "$ref": "#/$defs/SpreadsheetCommand_29_resource_mimeType"
+          "$ref": "#/$defs/SpreadsheetCommand_30_resource_mimeType"
         },
         "dataUrl": {
           "type": "string"
@@ -2355,7 +2530,42 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33": {
+    "SpreadsheetCommand_33_payload_linePoints": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+        },
+        "end": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_33_payload_linePoints_start": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "binding": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start_binding"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_34": {
       "type": "object",
       "properties": {
         "type": {
@@ -2375,7 +2585,84 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_34": {
+    "SpreadsheetCommand_35": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "lines.insert"
+        },
+        "sheetId": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+        },
+        "end": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+        },
+        "shape": {
+          "$ref": "#/$defs/SpreadsheetCommand_35_shape"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "startArrow": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+        },
+        "endArrow": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+        }
+      },
+      "required": [
+        "type",
+        "sheetId",
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_35_shape": {
+      "enum": [
+        "line",
+        "arrow"
+      ]
+    },
+    "SpreadsheetCommand_36": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "lines.update"
+        },
+        "sheetId": {
+          "type": "string"
+        },
+        "drawingId": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+        },
+        "end": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+        },
+        "startArrow": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+        },
+        "endArrow": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+        }
+      },
+      "required": [
+        "type",
+        "sheetId",
+        "drawingId"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_37": {
       "type": "object",
       "properties": {
         "type": {
@@ -2388,7 +2675,7 @@
           "type": "string"
         },
         "patch": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_patch"
+          "$ref": "#/$defs/SpreadsheetCommand_37_patch"
         }
       },
       "required": [
@@ -2399,7 +2686,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_34_patch": {
+    "SpreadsheetCommand_37_patch": {
       "type": "object",
       "properties": {
         "width": {
@@ -2408,16 +2695,16 @@
         "height": {
           "type": "number"
         },
-        "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold",
-          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
-        },
-        "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
-        },
         "rotation": {
           "type": "number",
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
+        },
+        "flipX": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
+        },
+        "flipY": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "resourceId": {
           "type": "string"
@@ -2426,12 +2713,12 @@
           "type": "string"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_patch_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_37_patch_anchor"
         }
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_34_patch_anchor": {
+    "SpreadsheetCommand_37_patch_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -2453,7 +2740,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_35": {
+    "SpreadsheetCommand_38": {
       "type": "object",
       "properties": {
         "type": {
@@ -2466,7 +2753,7 @@
           "type": "string"
         },
         "patch": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_patch"
+          "$ref": "#/$defs/SpreadsheetCommand_38_patch"
         }
       },
       "required": [
@@ -2477,11 +2764,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_35_patch": {
+    "SpreadsheetCommand_38_patch": {
       "type": "object",
       "properties": {
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "fill": {
           "type": "string"
@@ -2494,41 +2781,127 @@
           "description": "Optional shape text; omitted formatting uses 16 px, #1f2937 and normal weight."
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 400
         },
         "width": {
           "type": "number"
+        },
+        "line": {
+          "$ref": "#/$defs/SpreadsheetCommand_38_patch_line",
+          "description": "Only line/arrow shapes. Omitted on legacy rectangle-based lines."
         },
         "height": {
           "type": "number"
         },
         "shape": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_patch_shape"
+          "$ref": "#/$defs/SpreadsheetCommand_38_patch_shape"
         },
         "strokeWidth": {
-          "type": "number"
-        },
-        "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold",
-          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
-        },
-        "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
         },
         "rotation": {
           "type": "number",
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
         },
+        "flipX": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
+        },
+        "flipY": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+        },
         "stroke": {
           "type": "string"
         },
+        "startArrow": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow",
+          "description": "End markers. Legacy shape:arrow defaults its end to triangle; otherwise none."
+        },
+        "endArrow": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+        },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_patch_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_37_patch_anchor"
         }
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_35_patch_shape": {
+    "SpreadsheetCommand_38_patch_line": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/SpreadsheetCommand_38_patch_line_start"
+        },
+        "end": {
+          "$ref": "#/$defs/SpreadsheetCommand_38_patch_line_start"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_38_patch_line_start": {
+      "type": "object",
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/SpreadsheetCommand_38_patch_line_start_anchor"
+        },
+        "binding": {
+          "$ref": "#/$defs/SpreadsheetCommand_38_patch_line_start_binding"
+        }
+      },
+      "required": [
+        "anchor"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_38_patch_line_start_anchor": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "number"
+        },
+        "column": {
+          "type": "number"
+        },
+        "offsetX": {
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "row",
+        "column",
+        "offsetX",
+        "offsetY"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_38_patch_line_start_binding": {
+      "type": "object",
+      "properties": {
+        "targetId": {
+          "type": "string"
+        },
+        "port": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start_binding_port"
+        }
+      },
+      "required": [
+        "targetId",
+        "port"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_38_patch_shape": {
       "enum": [
         "rectangle",
         "ellipse",
@@ -2548,7 +2921,7 @@
         "upDownArrow"
       ]
     },
-    "SpreadsheetCommand_36": {
+    "SpreadsheetCommand_39": {
       "type": "object",
       "properties": {
         "type": {
@@ -2561,7 +2934,7 @@
           "type": "string"
         },
         "patch": {
-          "$ref": "#/$defs/SpreadsheetCommand_36_patch"
+          "$ref": "#/$defs/SpreadsheetCommand_39_patch"
         }
       },
       "required": [
@@ -2572,11 +2945,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_36_patch": {
+    "SpreadsheetCommand_39_patch": {
       "type": "object",
       "properties": {
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "color": {
           "type": "string"
@@ -2588,7 +2961,9 @@
           "type": "string"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 400
         },
         "width": {
           "type": "number"
@@ -2596,24 +2971,24 @@
         "height": {
           "type": "number"
         },
-        "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold",
-          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
-        },
-        "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rules_item_1_format_bold"
-        },
         "rotation": {
           "type": "number",
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
         },
+        "flipX": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
+        },
+        "flipY": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+        },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_patch_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_37_patch_anchor"
         }
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37": {
+    "SpreadsheetCommand_40": {
       "type": "object",
       "properties": {
         "type": {
@@ -2626,7 +3001,7 @@
           "type": "string"
         },
         "comment": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_comment"
+          "$ref": "#/$defs/SpreadsheetCommand_40_comment"
         }
       },
       "required": [
@@ -2637,17 +3012,17 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_comment": {
+    "SpreadsheetCommand_40_comment": {
       "anyOf": [
         {
           "const": null
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_37_comment_2"
+          "$ref": "#/$defs/SpreadsheetCommand_40_comment_2"
         }
       ]
     },
-    "SpreadsheetCommand_37_comment_2": {
+    "SpreadsheetCommand_40_comment_2": {
       "type": "object",
       "properties": {
         "text": {
@@ -2662,7 +3037,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_38": {
+    "SpreadsheetCommand_41": {
       "type": "object",
       "properties": {
         "type": {
@@ -2677,7 +3052,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_39": {
+    "SpreadsheetCommand_42": {
       "type": "object",
       "properties": {
         "type": {
@@ -2697,7 +3072,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_40": {
+    "SpreadsheetCommand_43": {
       "type": "object",
       "properties": {
         "type": {
@@ -2713,7 +3088,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_41": {
+    "SpreadsheetCommand_44": {
       "type": "object",
       "properties": {
         "type": {

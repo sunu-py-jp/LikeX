@@ -1,7 +1,10 @@
 export * from "./types";
+export { getSpreadsheetLinePoints, isSpreadsheetLine } from "./lines";
+export { updateLineEndpoints } from "./workbook/lines";
 export { SPREADSHEET_SHAPES } from "./shapes";
 export type { SpreadsheetShapeKind, SpreadsheetShapeCategory, SpreadsheetShapeInfo } from "./shapes";
 export { cellAddress, parseCellAddress } from "./address";
+export { expandCellAddresses, CellAddressExpansionError } from "./cell-addresses";
 export { calculateWorkbook, translateFormula } from "./formula";
 export { parseTsv, stringifyTsv } from "./tsv";
 export { workbooksEqual } from "./equality";
@@ -27,6 +30,8 @@ export type { SpreadsheetFile, SpreadsheetFileSheet, SpreadsheetFileRow } from "
 export { normalizeWorkbook, createWorkbook, setCellValue, setCellValues, formatCells, resizeColumn,
   insertRows, deleteRows, insertColumns, deleteColumns, insertCellRange, deleteCellRange, moveCells, addSheet, renameSheet, deleteSheet, moveSheet,
   addDrawing, updateDrawing, deleteDrawing, insertImage, setCellComment, setCellComments, mergeCells, unmergeCells } from "./workbook";
+export { setCellBorders } from "./workbook/borders";
+export type { SpreadsheetBorderPreset } from "./workbook/borders";
 export type { SpreadsheetTable, SpreadsheetTableColumn } from "./tables/types";
 
 export { copySpreadsheetDrawing } from "./editing/copy-drawing";

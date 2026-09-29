@@ -1,4 +1,4 @@
-import type { SpreadsheetTableWriteOptions } from "../../api/table-commands";
+import type { SpreadsheetCellGridWriteOptions } from "../../api/table-commands";
 import { cellAddress, parseCellAddress } from "../address";
 import { rangesIntersect } from "../merges";
 import { normalizeRangeName } from "../named-ranges";
@@ -16,12 +16,12 @@ export type SpreadsheetTableWritePlan = Readonly<{
   headers: readonly string[];
   values: Readonly<Record<string, string>>;
   headerStyle?: SpreadsheetCellFormat;
+  gridBorders: NonNullable<SpreadsheetCellFormat["borders"]>;
 }>;
 const gridBorder = Object.freeze({ style: "solid" as const, width: 1 as const, color: "#d1d5db" });
-const gridBorders = Object.freeze({ top: gridBorder, bottom: gridBorder, left: gridBorder, right: gridBorder });
 
 /** Compute and validate the entire rectangle before applying values or table metadata. */
-export function prepareSpreadsheetTableWrite(sheet: SpreadsheetSheet, options: SpreadsheetTableWriteOptions,
+export function prepareSpreadsheetTableWrite(sheet: SpreadsheetSheet, options: SpreadsheetCellGridWriteOptions,
   structured: boolean): SpreadsheetTableWritePlan {
   if (!Array.isArray(options.headers) || options.headers.length < 1 || options.headers.length > SPREADSHEET_LIMITS.columns)
     throw new Error("表のヘッダは1列以上の文字列配列で指定してください");
@@ -59,10 +59,14 @@ export function prepareSpreadsheetTableWrite(sheet: SpreadsheetSheet, options: S
   if (Object.values(values).reduce((total, value) => total + value.length, 0) > SPREADSHEET_LIMITS.clipboardCharacters)
     throw new Error("ヘッダと連番を含む表全体は10 Mi文字以内で指定してください");
   const headerStyle = options.headerStyle === undefined ? undefined : normalizeCellFormat(options.headerStyle);
-  return Object.freeze({ range, headers: Object.freeze(headers), values: Object.freeze(values), ...(headerStyle ? { headerStyle } : {}) });
+  // Validate the supplied border before merging defaults (null/unknown fields must not be silently ignored).
+  if (options.border !== undefined) normalizeCellFormat({ borders: { top: options.border } });
+  const border = { ...gridBorder, ...options.border };
+  const gridBorders = normalizeCellFormat({ borders: { top: border, bottom: border, left: border, right: border } })!.borders!;
+  return Object.freeze({ range, headers: Object.freeze(headers), values: Object.freeze(values), gridBorders, ...(headerStyle ? { headerStyle } : {}) });
 }
 
-export function writeSpreadsheetTable(workbook: SpreadsheetWorkbook, options: SpreadsheetTableWriteOptions,
+export function writeSpreadsheetTable(workbook: SpreadsheetWorkbook, options: SpreadsheetCellGridWriteOptions,
   table?: Readonly<{ id: string; name: string }>) {
   const sheet = getWorkbookSheet(workbook, options.sheetId);
   const plan = prepareSpreadsheetTableWrite(sheet, options, !!table);
@@ -79,7 +83,7 @@ export function writeSpreadsheetTable(workbook: SpreadsheetWorkbook, options: Sp
     const previous = cells[address];
     if ((previous?.value ?? "") !== value) changedCount++;
     const isHeader = parseCellAddress(address)!.row === plan.range.top;
-    const format = normalizeCellFormat({ ...previous?.format, borders: { ...previous?.format?.borders, ...gridBorders },
+    const format = normalizeCellFormat({ ...previous?.format, borders: { ...previous?.format?.borders, ...plan.gridBorders },
       ...(isHeader ? plan.headerStyle : {}) });
     cells[address] = freezeCell(value, format, previous?.validation);
   }

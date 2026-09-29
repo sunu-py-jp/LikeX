@@ -1,5 +1,6 @@
 import type { SpreadsheetCommand, SpreadsheetCommandErrorCode } from "./types";
 import { parseCellAddress } from "../model/address";
+import { expandCellAddresses } from "../model/cell-addresses";
 import type { SpreadsheetSheet, SpreadsheetWorkbook } from "../model/types";
 import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 
@@ -19,7 +20,7 @@ export function commandKeys(value: Record<string, unknown>, allowed: readonly st
 }
 
 const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
-  "cells.set": ["values", "onConflict"], "cells.format": ["addresses", "format"],
+  "cells.set": ["values", "onConflict"], "cells.format": ["addresses", "format"], "cells.borders": ["ranges", "preset", "border"],
   "cells.replace": ["query", "replacement", "addresses", "onConflict"],
   "cells.fill": ["source", "target", "mode", "onConflict"],
   "cells.paste": ["target", "payload", "mode", "onConflict", "partialMerges"],
@@ -30,7 +31,7 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "namedRanges.delete": ["namedRangeId", "clear"],
   "namedRanges.clear": ["namedRangeId", "mode"],
   "tables.insert": ["target", "headers", "data", "headerStyle", "rowNumbers", "onConflict", "name"],
-  "cells.writeTable": ["target", "headers", "data", "headerStyle", "rowNumbers", "onConflict"],
+  "cells.writeGrid": ["target", "headers", "data", "headerStyle", "rowNumbers", "onConflict", "border"],
   "tables.delete": ["tableId", "clear"],
   "cells.validation": ["addresses", "validation"],
   "conditionalFormats.set": ["rules"],
@@ -44,6 +45,8 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "shapes.insert": ["shape", "anchor", "width", "height", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "flipX", "flipY", "rotation"],
   "textBoxes.insert": ["anchor", "text", "width", "height", "fontSize", "color", "background", "bold", "flipX", "flipY", "rotation"],
   "drawings.paste": ["payload", "anchor"],
+  "lines.insert": ["start", "end", "shape", "stroke", "strokeWidth", "startArrow", "endArrow"],
+  "lines.update": ["drawingId", "start", "end", "startArrow", "endArrow"],
   "drawings.delete": ["drawingId"], "images.update": ["drawingId", "patch"],
   "shapes.update": ["drawingId", "patch"], "textBoxes.update": ["drawingId", "patch"],
   "comments.set": ["address", "comment"], "sheets.add": ["name"], "sheets.rename": ["name"], "sheets.delete": [], "sheets.move": ["index"],
@@ -85,4 +88,13 @@ export function requireCommandAddress(sheet: SpreadsheetSheet, address: unknown)
   const position = parseCellAddress(address);
   if (!position || position.row >= sheet.rowCount || position.column >= sheet.columnCount)
     rejectCommand("INVALID_TARGET", "セルの位置がシートの範囲外です");
+}
+
+/** Use the public range expander so command staging and direct model calls share target semantics. */
+export function requireCommandAddresses(sheet: SpreadsheetSheet, addresses: unknown): readonly string[] {
+  if (!Array.isArray(addresses)) return rejectCommand("INVALID_COMMAND", "addressesはセル番地・範囲の配列で指定してください");
+  const invalidIndex = addresses.findIndex(address => typeof address !== "string");
+  if (invalidIndex !== -1) return rejectCommand("INVALID_COMMAND", `addresses[${invalidIndex}]: セル番地・範囲は文字列で指定してください`);
+  try { return expandCellAddresses(sheet, addresses); }
+  catch (error) { return rejectCommand("INVALID_TARGET", error instanceof Error ? error.message : "addressesのセル番地・範囲が正しくありません"); }
 }

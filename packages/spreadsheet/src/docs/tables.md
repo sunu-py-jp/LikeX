@@ -1,13 +1,32 @@
-# テーブルと罫線付きの表
+# テーブルとセル範囲へのデータ配置
 
 [利用ガイドへ戻る](./README.md)
 
-ヘッダーと明細データから表を配置する方法は2つあります。`tables.insert` は名前・列・範囲を持つテーブル、`cells.writeTable` は通常のセルに値と罫線を設定します。
+ヘッダーと明細データをセル範囲へ配置できます。`tables.insert` は名前・列・範囲を持つテーブル、`cells.writeGrid` は通常のセルへデータ・格子罫線・ヘッダー色を書き込みます。独立した表オブジェクトは作りません。
 
 | 用途 | コマンド | JSONに残るもの |
 | --- | --- | --- |
 | テーブルとして取得・管理したい | `tables.insert` | セルと、シートの `tables` にID・名前・列・範囲 |
-| 見た目が表になればよい | `cells.writeTable` | 通常のセルの値・書式。テーブル定義は作らない |
+| 通常のセルへデータと格子罫線を配置する | `cells.writeGrid` | 通常のセルの値・書式。テーブル定義は作らない |
+
+## 通常のセルへデータ・格子罫線・ヘッダー色を配置する
+
+```ts
+const result = session.execute({
+  type: "cells.writeGrid", sheetId,
+  target: { row: 1, column: 1 }, // B2
+  headers: ["商品", "数量", "単価", "金額"],
+  data: { type: "rows", values: [
+    ["商品A", "2", "1200", "=C3*D3"],
+    ["商品B", "3", "800", "=C4*D4"],
+  ] },
+  headerStyle: { background: "#17365d", color: "#ffffff" },
+  border: { style: "solid", width: 1, color: "#94a3b8" },
+  onConflict: "error",
+});
+```
+
+`session` と `sheetId` の準備は次の例を参照してください。B2:E4に通常のセルを作り、すべての境界へ格子罫線を設定します。セルの値・数式は後から個別に編集でき、XLSXでも通常セルとして保存されます。既存セルの罫線だけを変える場合は `cells.borders` を使います。
 
 ## 画面なしでテーブルを作る
 
@@ -40,7 +59,7 @@ console.log(table?.columns.map(column => column.name)); // ["No.", "商品", "�
 
 ## 書き込みに使う引数
 
-`tables.insert` と `cells.writeTable` は `SpreadsheetTableWriteOptions` を共有します。テーブル作成だけは追加で `name` が必要です。
+`cells.writeGrid` は `SpreadsheetCellGridWriteOptions` を使います。共通のデータ指定は `SpreadsheetTableWriteOptions`、構造化テーブルを作る `tables.insert` だけは追加で `name` が必要です。
 
 | 引数 | 型・既定値 |
 | --- | --- |
@@ -49,10 +68,11 @@ console.log(table?.columns.map(column => column.name)); // ["No.", "商品", "�
 | `headers` | `readonly string[]`。連番列を除くヘッダー |
 | `data` | `SpreadsheetTableData`。下記の明細データ |
 | `headerStyle?` | `{ background?: string, color?: string }`。省略すると既存の色を維持 |
+| `border?` | `cells.writeGrid` の格子罫線。`{ style?, width?, color? }`。既定は実線・1px・`#d1d5db` |
 | `rowNumbers?` | `false` または `{ header?: string, start?: number }`。指定時は左端に連番列を追加。見出しの既定は `No.`、開始値は1 |
 | `onConflict?` | `"error"` / `"overwrite"` / `"skip"`。既定は `overwrite` |
 
-表全体に1pxのグレー（`#d1d5db`）の実線罫線を設定します。その他の既存書式・入力規則・コメントは保持します。明細の値・数値・数式は文字列です。連番は通常の整数値を入れるもので、後の行挿入で自動採番する機能ではありません。
+既定では範囲全体に1pxのグレー（`#d1d5db`）の実線罫線を設定します。`cells.writeGrid` では `border` で変更できます。その他の既存書式・入力規則・コメントは保持します。明細の値・数値・数式は文字列です。連番は通常の整数値を入れるもので、後の行挿入で自動採番する機能ではありません。
 
 ```ts
 // 二次元配列
@@ -86,10 +106,14 @@ if (table) {
 
 ## GUI・機能設定・制限
 
-「挿入」の「テーブル」は選択範囲の先頭行をヘッダーにし、残りを明細として登録します。名前を指定するダイアログが開きます。「罫線付きの表」は同じ選択範囲に通常のセルとして表を作ります。空のヘッダーは「列1」などで補います。離れた複数範囲や結合セルには作成できません。
+「挿入」の「テーブル」は選択範囲の先頭行をヘッダーにし、残りを明細として登録します。名前を指定するダイアログが開きます。通常セルの罫線は「ホーム」の「罫線」で設定します。空のヘッダーは「列1」などで補います。離れた複数範囲や結合セルには作成できません。
 
-両方の書き込みには `features.tables` と `features.formatting` が必要です。既定はONで、読み取り専用では作成・削除できません。`features.tables: false` でも既存の定義とセルは保持します。
+`tables.insert` は `features.tables` と `features.formatting`、`cells.writeGrid` は `features.formatting` が必要です。既定はONで、読み取り専用では作成・削除できません。`features.tables: false` でも既存の定義とセルは保持します。
 
 テーブル名はブック全体で一意で、名前付き範囲と重複できません。構造化テーブルの列名は空欄・改行なしの255文字以内で、大文字・小文字の違いだけでは重複できません。見出し・連番を含めて1操作10,000セルまでで、シートをはみ出す場合は行・列を先に追加します。既存のテーブルに重なる新しいテーブルは作れません。
 
 範囲の手前への行・列挿入では位置を移動し、内部への行挿入では範囲を広げます。テーブル内部の列の挿入・一部列の削除は、先にテーブル定義を外してください。ヘッダー行だけの削除も拒否します。ヘッダーを空欄にする変更など、定義が不整合になる操作は拒否します。XLSX出力ではExcelのテーブルとして保持します。LikeX内のフィルター操作・集計行・構造化参照の数式（`=SUM(Sales[金額])`）は未対応です。
+
+## 既存APIとの互換性
+
+`cells.writeTable` は削除しました。通常セルへの配置は `cells.writeGrid` に移行してください。引数はそのまま移行でき、`border` で格子罫線を指定できます。機能制御は `formatting`（数式を含む場合は `formulas` も）に統一しています。SPONの保存形式・バージョンは変わらず、保存済みデータの変換は不要です。

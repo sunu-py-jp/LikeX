@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
-import { act, createElement as h } from 'react';
+import { act, createElement as h, createRef } from 'react';
 import { create } from 'react-test-renderer';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 let menu;
 const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
+  export { default as LikeSlide } from './src/slide';
   export { SlideCanvas } from './src/ui/slide-canvas';
   export { SlideFilmstrip } from './src/ui/slide-filmstrip';
   export { useSlideEditor } from './src/state/use-slide-editor';
@@ -19,7 +20,7 @@ plugins: [{ name: 'shared-react-and-menu', setup(builder) {
   builder.onResolve({ filter: /^@likex\/core\/browser$/ }, () => ({ path: 'context-menu', namespace: 'test-menu' }));
   builder.onLoad({ filter: /.*/, namespace: 'test-menu' }, () => ({ contents: `export const openContextMenu = options => globalThis.__slideTestMenu(options);` }));
 } }] });
-const { SlideCanvas, SlideFilmstrip, useSlideEditor, createSlideDeck, createSlideElement } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { LikeSlide, SlideCanvas, SlideFilmstrip, useSlideEditor, createSlideDeck, createSlideElement } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const change = callback => act(async () => { await callback(); });
 const fixture = () => createSlideDeck({ id: 'deck', width: 800, height: 600, slides: [
   { id: 'one', name: 'One', notes: '', background: '#fff', elements: [
@@ -31,9 +32,10 @@ const fixture = () => createSlideDeck({ id: 'deck', width: 800, height: 600, sli
   { id: 'three', name: 'Three', notes: '', background: '#fff', elements: [] },
 ] });
 
-async function mount(t, supplied = {}) {
-  let editor, renderer, images = 0, imageTarget;
-  let props = { initialDeck: fixture(), onSave() {}, ...supplied };
+async function mount(t, supplied = {}, full = false) {
+  let editor, renderer, images = 0, imageTarget, formats = 0;
+  const ref = createRef();
+  let props = { initialDeck: fixture(), onSave() {}, ref, ...supplied };
   menu = undefined;
   globalThis.__slideTestMenu = options => {
     menu?.close();
@@ -42,15 +44,16 @@ async function mount(t, supplied = {}) {
   };
   function Probe() {
     editor = useSlideEditor(props);
-    return h('div', null, h(SlideCanvas, { deck: editor.deck, slide: editor.deck.slides.find(slide => slide.id === editor.selection.slideId), editor, zoom: 100, onImage(target) { images++; imageTarget = target; } }), h(SlideFilmstrip, { editor }));
+    return h('div', null, h(SlideCanvas, { deck: editor.deck, slide: editor.deck.slides.find(slide => slide.id === editor.selection.slideId), editor, zoom: 100, onImage(target) { images++; imageTarget = target; }, onProperties() { formats++; } }), h(SlideFilmstrip, { editor }));
   }
-  await change(() => { renderer = create(h(Probe)); });
+  const view = () => full ? h(LikeSlide, props) : h(Probe);
+  await change(() => { renderer = create(view()); });
   t.after(() => change(() => renderer.unmount()));
   const event = (editable = false) => ({ clientX: 220, clientY: 170, currentTarget: {}, target: { closest: () => editable ? {} : null }, prevented: false,
     preventDefault() { this.prevented = true; }, stopPropagation() {} });
   return {
-    get editor() { return editor; }, get images() { return images; }, get imageTarget() { return imageTarget; }, get menu() { return menu; }, renderer,
-    async update(patch) { props = { ...props, ...patch }; await change(() => renderer.update(h(Probe))); },
+    get editor() { return editor; }, get images() { return images; }, get imageTarget() { return imageTarget; }, get formats() { return formats; }, get menu() { return menu; }, renderer, ref,
+    async update(patch) { props = { ...props, ...patch }; await change(() => renderer.update(view())); },
     async openElement(id, editable = false) { const e = event(editable); await change(() => renderer.root.findByProps({ 'data-slide-element': id }).props.onContextMenu(e)); return e; },
     async openCanvas(editable = false) { const e = event(editable); await change(() => renderer.root.findByProps({ className: 'lxp-canvas-viewport' }).props.onContextMenu(e)); return e; },
     async openSlide(id) { const e = event(); await change(() => renderer.root.findByProps({ 'data-filmstrip-id': id }).props.onContextMenu(e)); return e; },
@@ -134,13 +137,13 @@ test('read-only and disabled features hide editing actions without swallowing na
   await app.openElement('a'); await app.choose('copy');
   await app.update({ features: { text: false, shapes: false, images: false, formatting: false, addSlides: false, deleteSlides: false, reorderSlides: false } });
   await app.openElement('a');
-  assert.deepEqual(app.menu.items.map(item => item.id), ['copy', 'cut', 'delete']);
+  assert.deepEqual(app.menu.items.map(item => item.id), ['copy', 'cut', 'delete', 'format']);
   assert.equal((await app.openCanvas()).prevented, false);
   assert.equal((await app.openSlide('one')).prevented, false);
   await app.update({ readOnly: true });
   assert.equal(app.menu.closed, true);
   await app.openElement('a');
-  assert.deepEqual(app.menu.items.map(item => item.id), ['copy']);
+  assert.deepEqual(app.menu.items.map(item => item.id), ['copy', 'format']);
   assert.equal((await app.openCanvas()).prevented, false);
   assert.equal((await app.openSlide('two')).prevented, false);
 });
@@ -203,4 +206,52 @@ test('Shift right click keeps native menus without changing the selected element
     assert.deepEqual(app.editor.selection, { slideId: 'one', elementIds: ['a'] });
   }
   assert.equal(app.menu, undefined);
+});
+
+test('format sidebar starts closed and element menus open it for the selected group without editing the deck', async t => {
+  let requests = 0;
+  const app = await mount(t, { onEditRequest: () => { requests++; return true; } }, true);
+  const panels = () => app.renderer.root.findAllByProps({ className: 'lxp-properties' });
+  assert.equal(panels().length, 0);
+  const before = app.ref.current.getDeck();
+  await change(() => app.ref.current.select({ slideId: 'one', elementIds: ['a', 'b'] }));
+  await app.openElement('b'); await app.choose('format');
+  assert.equal(panels().length, 1);
+  assert.deepEqual(app.ref.current.getSelection(), { slideId: 'one', elementIds: ['a', 'b'] });
+  assert.equal(app.renderer.root.findByProps({ className: 'lxp-properties-selection' }).props.children, '2 個のオブジェクトを選択');
+  await change(() => app.renderer.root.findByProps({ 'aria-label': '書式設定を閉じる' }).props.onClick());
+  assert.equal(panels().length, 0);
+  await app.openElement('locked'); await app.choose('format');
+  assert.equal(panels().length, 1);
+  assert.deepEqual(app.ref.current.getSelection(), { slideId: 'one', elementIds: ['locked'] });
+  assert.deepEqual(app.ref.current.getDeck(), before);
+  assert.equal(requests, 0, 'viewing formatting does not request edit permission');
+  await change(async () => assert.equal(await app.ref.current.undo(), false));
+  await app.update({ readOnly: true });
+  await change(() => app.renderer.root.findByProps({ 'aria-label': '書式設定を閉じる' }).props.onClick());
+  await app.openElement('a'); await app.choose('format');
+  assert.equal(panels().length, 1);
+  assert.ok(panels()[0].findAll(node => node.type === 'input' || node.type === 'textarea').every(node => node.props.disabled));
+});
+
+test('format menu cannot reopen or retarget a panel after its page, deck, or component has changed', async t => {
+  const app = await mount(t);
+  await app.openElement('a');
+  const previousPage = app.menu.items.find(item => item.id === 'format');
+  await change(() => app.editor.select({ slideId: 'two', elementIds: [] }));
+  await change(() => previousPage.onSelect());
+  assert.equal(app.formats, 0);
+  assert.equal(app.editor.selection.slideId, 'two');
+  await change(() => app.editor.select({ slideId: 'one', elementIds: [] }));
+  await app.openElement('a');
+  const previousDeck = app.menu.items.find(item => item.id === 'format');
+  await change(() => app.editor.execute({ type: 'deck.rename', title: 'Updated' }));
+  assert.equal(app.menu.closed, true);
+  await change(() => previousDeck.onSelect());
+  assert.equal(app.formats, 0);
+  await app.openElement('b');
+  const unmounted = app.menu.items.find(item => item.id === 'format');
+  await change(() => app.renderer.unmount());
+  await change(() => unmounted.onSelect());
+  assert.equal(app.formats, 0);
 });

@@ -1,4 +1,5 @@
 "use client";
+import { copySlideLine } from "../model/lines";
 
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { SlideCommand, SlideCommandResult, SlideDeck, SlideElement } from "../model/types";
@@ -30,7 +31,15 @@ function permitted(command: SlideCommand, features: SlideFeatureState, deck: Sli
   if (command.type === "deck.resize") return features.formatting;
   if (command.type === "slide.update") return (!Object.hasOwn(command.patch, "notes") || features.notes) &&
     (!Object.hasOwn(command.patch, "background") || features.formatting);
+  if (command.type === "slide.replaceContent") {
+    const previous = deck.slides.find(slide => slide.id === command.slideId);
+    return features.formatting && (!Object.hasOwn(command, "notes") || features.notes) &&
+      (!(previous?.animations?.length || command.animations?.length) || features.animations) &&
+      [...(previous?.elements ?? []), ...command.elements].every(element => features[element.type === "shape" ? "shapes" : element.type === "image" ? "images" : "text"]);
+  }
   if (command.type === "element.add") return features[command.element.type === "shape" ? "shapes" : command.element.type === "image" ? "images" : "text"];
+  if (command.type === "line.add") return features.shapes;
+  if (command.type === "line.update") return features.formatting;
   if (command.type === "element.duplicate") return command.elementIds.every(id => {
     const element = deck.slides.find(slide => slide.id === command.slideId)?.elements.find(item => item.id === id);
     return !element || features[element.type === "shape" ? "shapes" : element.type === "image" ? "images" : "text"];
@@ -141,9 +150,14 @@ export function useSlideEditor(props: SlideProps) {
   }, [emit, reportError, session]);
 
   const select = useCallback((next: SlideSelection) => {
-    const slide = session.getSnapshot().deck.slides.find(item => item.id === next.slideId);
+    const deck = session.getSnapshot().deck;
+    const slide = deck.slides.find(item => item.id === next.slideId);
     if (!slide) return;
-    const value = { slideId: slide.id, elementIds: [...new Set(next.elementIds)].filter(id => slide.elements.some(item => item.id === id)) };
+    const requested = new Set([...(next.slideIds ?? []), slide.id]);
+    const slideIds = deck.slides.filter(item => requested.has(item.id)).map(item => item.id);
+    const value: SlideSelection = { slideId: slide.id,
+      elementIds: slideIds.length > 1 ? [] : [...new Set(next.elementIds)].filter(id => slide.elements.some(item => item.id === id)),
+      ...(slideIds.length > 1 ? { slideIds } : {}) };
     if (selectionRef.current.slideId !== value.slideId) slideSelectionVersion.current++;
     selectionRef.current = value;
     setSelection(value);
@@ -151,10 +165,13 @@ export function useSlideEditor(props: SlideProps) {
   }, [session]);
   useEffect(() => {
     const current = selectionRef.current;
-    const slide = snapshot.deck.slides.find(item => item.id === current.slideId) ?? snapshot.deck.slides[0];
+    const slide = snapshot.deck.slides.find(item => item.id === current.slideId)
+      ?? snapshot.deck.slides.find(item => current.slideIds?.includes(item.id)) ?? snapshot.deck.slides[0];
     if (!slide) { if (current.slideId || current.elementIds.length) setSelection({ slideId: "", elementIds: [] }); return; }
-    if (slide.id !== current.slideId || current.elementIds.some(id => !slide.elements.some(item => item.id === id))) {
-      select({ slideId: slide.id, elementIds: current.elementIds });
+    const pageIds = snapshot.deck.slides.filter(item => current.slideIds?.includes(item.id)).map(item => item.id);
+    if (slide.id !== current.slideId || current.elementIds.some(id => !slide.elements.some(item => item.id === id)) ||
+      current.slideIds?.some((id, index) => pageIds[index] !== id)) {
+      select({ ...current, slideId: slide.id, elementIds: slide.id === current.slideId ? current.elementIds : [] });
     }
   }, [snapshot.deck, select]);
   useEffect(() => { try { propsRef.current.onDirtyChange?.(dirty); } catch { /* Dirty state is already committed. */ } }, [dirty]);
@@ -181,13 +198,13 @@ export function useSlideEditor(props: SlideProps) {
     inputRegistration.current = registration;
     return () => { if (inputRegistration.current === registration) inputRegistration.current = null; };
   }, []);
-  const runCommands = useCallback(async (command: SlideCommand | readonly SlideCommand[], expectedDeck?: SlideDeck, expectedSlideId?: string, expectedSlideVersion?: number): Promise<SlideCommandResult | null> => {
+  const runCommands = useCallback(async (command: SlideCommand | readonly SlideCommand[], expectedDeck?: SlideDeck, expectedSlideId?: string, expectedSlideVersion?: number, expectedSelection?: SlideSelection): Promise<SlideCommandResult | null> => {
     const generation = operationGeneration.current;
     const commands = Array.isArray(command) ? command : [command];
     const activeFeatures = { ...featureDefaults, ...propsRef.current.features };
     try {
       const deck = session.getSnapshot().deck;
-      if (expectedDeck && deck !== expectedDeck || expectedSlideId && selectionRef.current.slideId !== expectedSlideId ||
+      if (expectedDeck && deck !== expectedDeck || expectedSelection && selectionRef.current !== expectedSelection || expectedSlideId && selectionRef.current.slideId !== expectedSlideId ||
         expectedSlideVersion !== undefined && slideSelectionVersion.current !== expectedSlideVersion) return null;
       if (!commands.every(item => permitted(item, activeFeatures, deck))) return null;
       if (!applySlideCommands(deck, commands).changed) return null;
@@ -198,7 +215,7 @@ export function useSlideEditor(props: SlideProps) {
       // existing latest-deck semantics, including geometry commands.
       if (!permission.current.granted && !await authorize()) return null;
       if (busyRef.current || !mounted.current || generation !== operationGeneration.current ||
-        (propsRef.current.readOnly ?? !propsRef.current.onSave) || expectedDeck && session.getSnapshot().deck !== expectedDeck ||
+        (propsRef.current.readOnly ?? !propsRef.current.onSave) || expectedDeck && session.getSnapshot().deck !== expectedDeck || expectedSelection && selectionRef.current !== expectedSelection ||
         expectedSlideId && selectionRef.current.slideId !== expectedSlideId ||
         expectedSlideVersion !== undefined && slideSelectionVersion.current !== expectedSlideVersion) return null;
       const latestFeatures = { ...featureDefaults, ...propsRef.current.features };
@@ -212,8 +229,15 @@ export function useSlideEditor(props: SlideProps) {
         const target = result.deck.slides.find(item => item.id === targetSlideId);
         const oldIds = new Set(before.slides.find(item => item.id === targetSlideId)?.elements.map(item => item.id));
         const addedIds = target?.elements.filter(item => !oldIds.has(item.id)).map(item => item.id) ?? [];
-        const preservesSelection = commands.every(item => ["element.update", "element.order", "slide.update", "slide.move", "deck.rename", "deck.resize"].includes(item.type));
-        select(preservesSelection ? previous : { slideId: targetSlideId, elementIds: addedIds.length ? addedIds : previous.slideId === targetSlideId ? previous.elementIds : result.elementIds });
+        const preservesSelection = commands.every(item => ["element.update", "line.update", "element.order", "slide.update", "slide.move", "deck.rename", "deck.resize"].includes(item.type));
+        if (commands.every(item => item.type === "slide.delete")) {
+          const remaining = result.deck.slides.filter(item => (previous.slideIds ?? [previous.slideId]).includes(item.id));
+          const activeIndex = before.slides.findIndex(item => item.id === previous.slideId);
+          const neighbors = [...before.slides.slice(activeIndex + 1), ...before.slides.slice(0, activeIndex).reverse()];
+          const active = remaining.find(item => item.id === previous.slideId) ?? remaining[0]
+            ?? neighbors.find(item => result.deck.slides.some(slide => slide.id === item.id)) ?? result.deck.slides[0];
+          if (active) select({ slideId: active.id, elementIds: active.id === previous.slideId ? previous.elementIds : [], slideIds: remaining.map(item => item.id) });
+        } else select(preservesSelection ? previous : { slideId: targetSlideId, elementIds: addedIds.length ? addedIds : previous.slideId === targetSlideId ? previous.elementIds : result.elementIds });
         emit({ type: "change", source: "command", deck: result.deck });
       }
       return result;
@@ -221,6 +245,19 @@ export function useSlideEditor(props: SlideProps) {
   }, [authorize, emit, rememberSelection, reportError, select, session]);
   const execute = useCallback((command: SlideCommand | readonly SlideCommand[], expectedDeck?: SlideDeck) =>
     snapshotPending.current ? Promise.resolve(null) : track(runCommands(command, expectedDeck)), [runCommands, track]);
+  const deleteSelection = useCallback((scope: "slides" | "elements") => {
+    if (snapshotPending.current || busyRef.current || !mounted.current || (scope !== "slides" && scope !== "elements")) return Promise.resolve(null);
+    const current = selectionRef.current, deck = session.getSnapshot().deck;
+    const ids = current.slideIds ?? [current.slideId];
+    if (scope === "slides" && ids.length >= deck.slides.length) {
+      setNotice({ kind: "info", text: "少なくとも1枚のスライドを残してください。" });
+      return Promise.resolve(null);
+    }
+    if (scope === "slides" && !ids.length || scope === "elements" && !current.elementIds.length) return Promise.resolve(null);
+    const commands: SlideCommand[] = scope === "slides" ? ids.map(slideId => ({ type: "slide.delete", slideId }))
+      : [{ type: "element.delete", slideId: current.slideId, elementIds: [...current.elementIds] }];
+    return track(runCommands(commands, deck, undefined, undefined, current));
+  }, [runCommands, session, track]);
   const prepareCommands = useCallback((prepare: () => Promise<SlideCommand | readonly SlideCommand[]>, target?: { deck: SlideDeck; slideId: string }) => {
     if (snapshotPending.current || busyRef.current || !mounted.current) return Promise.resolve(null);
     if (target && (session.getSnapshot().deck !== target.deck || selectionRef.current.slideId !== target.slideId)) return Promise.resolve(null);
@@ -426,8 +463,10 @@ export function useSlideEditor(props: SlideProps) {
   }, []);
   const pasteElements = useCallback(async (slideId = selectionRef.current.slideId, expectedDeck?: SlideDeck) => {
     if (!slideId || !clipboard.current.length) return;
-    const commands: SlideCommand[] = clipboard.current.map(element => ({ type: "element.add", slideId,
-      element: { ...copy(element), id: crypto.randomUUID(), x: element.x + 20, y: element.y + 20 } }));
+    const remap = new Map(clipboard.current.map(element => [element.id, crypto.randomUUID()]));
+    // Add targets before their attached lines so every intermediate command remains valid.
+    const commands: SlideCommand[] = [...clipboard.current].sort((a, b) => Number(a.type === "shape" && !!a.line) - Number(b.type === "shape" && !!b.line)).map(element => ({ type: "element.add", slideId,
+      element: copySlideLine(copy(element), remap, 20) }));
     await execute(commands, expectedDeck);
   }, [execute]);
 
@@ -441,10 +480,10 @@ export function useSlideEditor(props: SlideProps) {
     getPptxDiagnostics: () => copy(conversionReportRef.current?.diagnostics ?? []),
     execute: command => execute(command),
     undo: () => history("undo"), redo: () => history("redo"), save, discard,
-    getSelection: () => copy(selectionRef.current), select, importNative, exportNative, importPptx, exportPptx, exportImage, exportImages,
-  }), [discard, execute, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, save, select, session]);
+    getSelection: () => copy(selectionRef.current), select, deleteSelection, importNative, exportNative, importPptx, exportPptx, exportImage, exportImages,
+  }), [discard, execute, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, save, select, session]);
 
-  return { ...snapshot, dirty, selection, select, execute, save, discard, history, importPptx, importNative, exportImage, exportImages, download,
+  return { ...snapshot, dirty, selection, select, deleteSelection, execute, save, discard, history, importPptx, importNative, exportImage, exportImages, download,
     copyElements, pasteElements, canPasteElements, prepareCommands, registerInputFlush, refreshPendingInput, notice, setNotice, conversionReport, reportError, features, readOnly, busy, requesting,
     editable: !readOnly && !busy && !requesting };
 }

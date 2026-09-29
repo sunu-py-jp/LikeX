@@ -1,7 +1,9 @@
+import { isConnectorArrowhead } from "./core-connectors";
 import { cellAddress, parseCellAddress } from "./address";
 import { validateObjectId } from "./image-resources";
 import { isSpreadsheetShapeKind } from "./shapes";
 import { normalizeDrawingRotation } from "./drawing-transform";
+import { isSpreadsheetLine, normalizeStoredLine, validateLineBindings } from "./lines";
 import { SPREADSHEET_LIMITS, type SpreadsheetComment, type SpreadsheetDrawing, type SpreadsheetSheet, type SpreadsheetTextDrawing, type SpreadsheetWorkbook } from "./types";
 
 const fail = (message: string): never => { throw new Error(message); };
@@ -51,8 +53,14 @@ export function normalizeDrawing(input: SpreadsheetDrawing, sheet: Pick<Spreadsh
     const content = drawingText({ text: input.text === undefined ? "" : input.text,
       fontSize: input.fontSize === undefined ? 16 : input.fontSize,
       color: input.color === undefined ? "#1f2937" : input.color, bold: input.bold }, "図形のテキスト");
+    if (input.line && !isSpreadsheetLine(input)) return fail("始点・終点を持てるのは直線と矢印付き直線だけです");
+    if (input.line && (rotation || input.flipX || input.flipY)) return fail("始点・終点を持つ線の向きは端点で指定してください");
+    for (const key of ["startArrow", "endArrow"] as const)
+      if (input[key] !== undefined && (!isSpreadsheetLine(input) || !isConnectorArrowhead(input[key]))) return fail("線の矢印の種類が正しくありません");
     return Object.freeze({ ...common, type: "shape", shape: input.shape, fill: color(input.fill), stroke: color(input.stroke),
       strokeWidth: number(input.strokeWidth, 0, 100),
+      ...(input.startArrow !== undefined ? { startArrow: input.startArrow } : {}), ...(input.endArrow !== undefined ? { endArrow: input.endArrow } : {}),
+      ...(input.line !== undefined ? { line: normalizeStoredLine(input.line, sheet) } : {}),
       ...(input.text !== undefined ? { text: content.text } : {}),
       ...(input.fontSize !== undefined ? { fontSize: content.fontSize } : {}),
       ...(input.color !== undefined ? { color: content.color } : {}),
@@ -75,6 +83,7 @@ export function normalizeDrawings(input: SpreadsheetSheet["drawings"], sheet: Pi
     ids.add(normalized.id);
     return normalized;
   });
+  validateLineBindings(drawings);
   return drawings.length ? Object.freeze(drawings) : undefined;
 }
 
@@ -110,6 +119,7 @@ export function drawingsEqual(left: SpreadsheetDrawing, right: SpreadsheetDrawin
     left.anchor.offsetX !== right.anchor.offsetX || left.anchor.offsetY !== right.anchor.offsetY) return false;
   if (left.type === "image" && right.type === "image") return left.resourceId === right.resourceId && left.alt === right.alt;
   if (left.type === "shape" && right.type === "shape") return left.shape === right.shape && left.fill === right.fill && left.stroke === right.stroke &&
+    left.startArrow === right.startArrow && left.endArrow === right.endArrow && JSON.stringify(left.line) === JSON.stringify(right.line) &&
     left.strokeWidth === right.strokeWidth && (left.text ?? "") === (right.text ?? "") && (left.fontSize ?? 16) === (right.fontSize ?? 16) &&
     (left.color ?? "#1f2937") === (right.color ?? "#1f2937") && !!left.bold === !!right.bold;
   return left.type === "text" && right.type === "text" && left.text === right.text && left.fontSize === right.fontSize &&

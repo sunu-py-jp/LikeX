@@ -14,11 +14,15 @@ const partRenderers: NonNullable<AIChatProps["partRenderers"]> = {
 function Sparkles() {
   return <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d="m12 3 2.6 6.4L21 12l-6.4 2.6L12 21l-2.6-6.4L3 12l6.4-2.6L12 3Z"/><path d="m20 1 .8 2.2L23 4l-2.2.8L20 7l-.8-2.2L17 4l2.2-.8L20 1Z"/></svg>;
 }
+function NewChatIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-7"/><path d="m16 3 5 5M9 15l1-5L18 2a2.1 2.1 0 0 1 3 3l-8 8-4 2Z"/></svg>;
+}
 
 export function AIWorkspace({ adapter, children, colorMode, primaryColor }: Props) {
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [hasSent, setHasSent] = useState(false);
   const [config, setConfig] = useState<AIConfig | null>(null), [configError, setConfigError] = useState(""), [configAttempt, setConfigAttempt] = useState(0);
   const [steps, setSteps] = useState<string[]>([]), [status, setStatus] = useState("");
+  const [creatingChat, setCreatingChat] = useState(false), creatingChatRef = useRef(false);
   const mounted = useRef(false), active = useRef<AbortController | null>(null);
   const chat = useRef<AIChatHandle>(null), launcher = useRef<HTMLButtonElement>(null), drawer = useRef<HTMLElement>(null);
   const drawerId = useId(), titleId = useId();
@@ -44,6 +48,27 @@ export function AIWorkspace({ adapter, children, colorMode, primaryColor }: Prop
     active.current?.abort(); chat.current?.cancel();
     setOpen(false); requestAnimationFrame(() => launcher.current?.focus());
   }, []);
+  const newChat = useCallback(async () => {
+    const handle = chat.current;
+    if (!handle || !config?.configured || creatingChatRef.current) return;
+    creatingChatRef.current = true; setCreatingChat(true);
+    // Invalidate before aborting: late generator cleanup must not overwrite the new conversation's state.
+    const pending = active.current; active.current = null;
+    pending?.abort(); handle.cancel(); setBusy(false);
+    try {
+      const id = crypto.randomUUID();
+      const result = await handle.execute({ type: "conversation.add", id, title: "新しいチャット" });
+      if (!mounted.current) return;
+      if (!result || !handle.selectConversation(id)) {
+        setStatus("新しいチャットを作成できませんでした。再試行してください。"); return;
+      }
+      setHasSent(false); setSteps([]); setStatus("");
+      requestAnimationFrame(() => drawer.current?.querySelector<HTMLTextAreaElement>("textarea:not(:disabled)")?.focus());
+    } finally {
+      creatingChatRef.current = false;
+      if (mounted.current) setCreatingChat(false);
+    }
+  }, [config]);
   const send: AIChatSendHandler = useCallback(async function* (request, context): AsyncGenerator<AIChatResponseChunk> {
     if (!config?.configured) throw new Error(".env に OpenAI または Azure OpenAI の設定を追加し、開発サーバーを再起動してください。");
     const controller = new AbortController(), abort = () => controller.abort(context.signal.reason);
@@ -101,13 +126,13 @@ export function AIWorkspace({ adapter, children, colorMode, primaryColor }: Prop
       <button hidden={open} ref={launcher} className="playground-ai-launcher" type="button" aria-label={`${adapter.label}のAIチャットを開く`} aria-expanded={open} aria-controls={drawerId} onClick={() => setOpen(true)}><Sparkles/><span>AI</span></button>
     </div>
     <aside ref={drawer} id={drawerId} className="playground-ai-drawer" hidden={!open} aria-labelledby={titleId} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); } }}>
-      <header className="playground-ai-drawer-header"><div><Sparkles/><div><h1 id={titleId}>{adapter.label} AI</h1><p>言葉で、いま開いている資料を編集</p></div></div><button type="button" onClick={close} aria-label="AIチャットを閉じる" title="閉じる（Esc）">×</button></header>
+      <header className="playground-ai-drawer-header"><div><Sparkles/><div><h1 id={titleId}>{adapter.label} AI</h1><p>言葉で、いま開いている資料を編集</p></div></div><div className="playground-ai-drawer-actions"><button type="button" onClick={() => { void newChat(); }} aria-label="新しいチャット" title={busy ? "新しいチャット（実行中の処理を停止）" : "新しいチャット"} disabled={!config?.configured || creatingChat}><NewChatIcon/></button><button type="button" onClick={close} aria-label="AIチャットを閉じる" title="閉じる（Esc）">×</button></div></header>
       <div className="playground-ai-connection">
         {configError ? <><span role="alert">{configError}</span><button type="button" onClick={() => { setConfigError(""); setConfigAttempt(value => value + 1); }}>再確認</button></> : config?.configured ? <><span className="playground-ai-dot"/>{config.provider === "azure" ? "Azure OpenAI" : config.provider === "openai" ? "OpenAI" : config.provider}<span className="playground-ai-model">{config.model}</span></> : config ? <div><strong>AIの接続設定が必要です</strong><p>リポジトリ直下の .env に OpenAI または Azure OpenAI の設定を追加して、開発サーバーを再起動してください。設定項目は .env.example を参照できます。</p>{!!config.missing?.length && <p>未設定: {config.missing.join("、")}</p>}</div> : <span role="status">AIの接続設定を確認しています…</span>}
       </div>
       {!hasSent && <div className="playground-ai-suggestions"><p>例えば、こんなふうに</p>{adapter.suggestions.map(prompt => <button key={prompt} type="button" disabled={!config?.configured || busy} onClick={() => { void chat.current?.send(prompt); }}>{prompt}<span aria-hidden="true">↗</span></button>)}</div>}
       {(status || steps.length > 0) && <div className="playground-ai-progress"><p role="status" aria-live="polite">{busy && <span className="playground-ai-spinner"/>}{status}</p>{steps.length > 0 && <details><summary>実行の詳細 · {steps.length}</summary><ol>{steps.map((step, index) => <li key={`${index}-${step}`}>{step}</li>)}</ol></details>}</div>}
-      <div className="playground-ai-chat"><LikeAIChat ref={chat} initialAIChat={initialAIChat} initialConversationId="assistant" onSave={model => model} onSend={send} partRenderers={partRenderers} colorMode={colorMode} primaryColor={primaryColor ?? (adapter.module === "slide" ? "#b95634" : "#217346")} readOnly={!config?.configured} features={{ attachments: false, conversations: false, import: false, export: false, history: false, edit: false, delete: false, retry: false }} style={{ width: "100%", height: "100%", minHeight: 0, border: 0, borderRadius: 0 }}/></div>
+      <div className="playground-ai-chat"><LikeAIChat ref={chat} initialAIChat={initialAIChat} initialConversationId="assistant" onSave={model => model} onSend={send} partRenderers={partRenderers} colorMode={colorMode} primaryColor={primaryColor ?? (adapter.module === "slide" ? "#b95634" : "#217346")} readOnly={!config?.configured} features={{ attachments: false, conversations: true, import: false, export: false, history: false, edit: false, delete: false, retry: false }} style={{ width: "100%", height: "100%", minHeight: 0, border: 0, borderRadius: 0 }}/></div>
     </aside>
   </div>;
 }

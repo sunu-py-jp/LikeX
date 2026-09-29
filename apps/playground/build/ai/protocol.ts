@@ -1,5 +1,9 @@
 export type AIJSONValue = null | boolean | number | string | AIJSONValue[] | { [key: string]: AIJSONValue };
 export type AITruncation = { originalBytes: number; storedBytes: number };
+/** A host-rendered staged page; it never replaces the editor's live document. */
+export type AIPreviewRequest = { document: string; slideId: string };
+export type AIPreviewResult = { imageUrl: string; width: number; height: number; slideId: string; diagnostics: AIJSONValue[] };
+export type AIPreviewEvent = AIPreviewRequest & { type: "preview"; id: string; token: string };
 export type AIToolCall = {
   id: string;
   name: string;

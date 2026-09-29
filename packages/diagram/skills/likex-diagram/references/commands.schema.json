@@ -145,14 +145,14 @@
         "shape": {
           "$ref": "#/$defs/DiagramCommand_1_node_shape"
         },
-        "stroke": {
-          "type": "string"
-        },
         "x": {
           "type": "number"
         },
         "y": {
           "type": "number"
+        },
+        "stroke": {
+          "type": "string"
         },
         "textColor": {
           "type": "string"
@@ -352,10 +352,10 @@
         "label": {
           "type": "string"
         },
-        "sourceId": {
+        "targetId": {
           "type": "string"
         },
-        "targetId": {
+        "sourceId": {
           "type": "string"
         }
       },

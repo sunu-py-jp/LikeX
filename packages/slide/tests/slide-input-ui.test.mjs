@@ -201,6 +201,10 @@ for (const field of ['notes', 'name']) {
       let renderer;
       await change(() => { renderer = create(h(LikeSlide, { ref, initialDeck, onSave() {}, onEditRequest: () => permission })); });
       t.after(() => change(() => renderer.unmount()));
+      if (field === 'name') {
+        await change(() => renderer.root.findAllByProps({ role: 'tab' }).find(tab => tab.props.children === '表示').props.onClick());
+        await change(() => renderer.root.findByProps({ 'aria-label': '書式設定' }).props.onClick());
+      }
       const control = () => field === 'notes' ? renderer.root.findByProps({ 'aria-label': '発表者ノート' }) :
         renderer.root.findAllByType('input').find(input => input.props.defaultValue !== undefined);
       const target = { value: `New ${field}` };

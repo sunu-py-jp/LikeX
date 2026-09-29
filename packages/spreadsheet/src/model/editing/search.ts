@@ -1,5 +1,5 @@
 import { filterCellValueWrites, type SpreadsheetWriteConflictPolicy } from "../workbook/write-conflicts";
-import { canonicalCellAddress } from "../workbook/validation";
+import { expandCellAddresses } from "../cell-addresses";
 import { getWorkbookSheet } from "../workbook/snapshot";
 import type { SpreadsheetSearchMatch, SpreadsheetSearchQuery } from "../../api/editing-commands";
 import { parseCellAddress } from "../address";
@@ -78,10 +78,11 @@ export function replaceSpreadsheetText(value: string, query: SpreadsheetSearchQu
   const matcher = pattern(query);
   return matcher ? value.replace(matcher, () => replacement) : value;
 }
+/** Optional addresses accept same-sheet A1 cells/ranges; omitted addresses search the entire sheet. */
 export function replaceSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: string, query: SpreadsheetSearchQuery,
   replacement: string, addresses?: readonly string[], options?: { onConflict?: SpreadsheetWriteConflictPolicy; skippedAddresses?: Set<string> }): SpreadsheetWorkbook {
   const sheet = getWorkbookSheet(workbook, sheetId);
-  const selected = addresses ? new Set(addresses.map(address => canonicalCellAddress(sheet, address))) : undefined;
+  const selected = addresses ? new Set(expandCellAddresses(sheet, addresses)) : undefined;
   const values: Record<string, string> = {};
   const calculated = query.lookIn === "formulas" ? undefined : calculateWorkbook(workbook);
   for (const match of findSpreadsheetCells(workbook, query, { sheetId, calculated })) {

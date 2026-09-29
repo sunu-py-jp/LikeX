@@ -17,7 +17,7 @@ export type SpreadsheetFeatures = Readonly<{
   formatting?: boolean;
   /** Create, update, or remove named ranges. Reading existing names remains available. */
   namedRanges?: boolean;
-  /** Structured tables and bordered table writes. */
+  /** Structured tables. cells.writeGrid uses formatting. */
   tables?: boolean;
   /** Allows changing rules; existing conditional formatting still renders. */
   conditionalFormatting?: boolean;

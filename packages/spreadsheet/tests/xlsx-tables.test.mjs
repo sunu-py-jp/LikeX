@@ -4,9 +4,10 @@ import { spawnSync } from 'node:child_process';
 import { build } from 'esbuild';
 
 const output = await build({ stdin: { contents: `export * from './src/export/export-xlsx'; export * from './src/export/xlsx/validation-lists';
+export * from './src/import/import-xlsx';
 export * from './src/commands/apply-spreadsheet-commands';`, resolveDir: new URL('../', import.meta.url).pathname,
   sourcefile: 'xlsx-tables-entry.ts' }, bundle: true, platform: 'node', format: 'esm', write: false });
-const { exportSpreadsheetXlsx, applySpreadsheetCommands: apply, createValidationListRegistry } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { exportSpreadsheetXlsx, importSpreadsheetXlsx, applySpreadsheetCommands: apply, createValidationListRegistry } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const sheet = (id, name = id) => ({ id, name, rowCount: 20, columnCount: 10, cells: {} });
 const insert = (sheetId, name, target = { row: 1, column: 1 }, extra = {}) => ({ type: 'tables.insert', sheetId, name, target,
   headers: ['商品', '数量'], data: { type: 'rows', values: [['Apple', '2']] }, ...extra });
@@ -87,11 +88,27 @@ test('table headers are inline strings, escaped XML retains names, and header-on
 
 test('bordered table writes export only cell formatting and no structured table parts', independentReader, async () => {
   const command = insert('main', 'Unused'); delete command.name;
-  const created = apply({ sheets: [sheet('main')] }, [{ ...command, type: 'cells.writeTable' }]);
+  const created = apply({ sheets: [sheet('main')] }, [{ ...command, type: 'cells.writeGrid' }]);
   assert.equal(created.ok, true, created.message);
   const result = await inspect(await exportSpreadsheetXlsx(created.workbook));
   assert.deepEqual(result.tables, {}); assert.deepEqual(result.worksheets['xl/worksheets/sheet1.xml'].tableParts, []);
   assert.ok(Object.values(result.worksheets['xl/worksheets/sheet1.xml'].cells).every(cell => cell.s !== '0'));
+});
+
+test('ordinary grid writes round-trip custom borders, header colors and formulas without table definitions', independentReader, async () => {
+  const created = apply({ sheets: [sheet('main')] }, [{ type: 'cells.writeGrid', sheetId: 'main', target: { row: 1, column: 1 },
+    headers: ['商品', '金額'], data: { type: 'rows', values: [['Apple', '=2*1200']] },
+    headerStyle: { background: '#17365d', color: '#ffffff' }, border: { color: '#345678', width: 2, style: 'solid' } }]);
+  assert.equal(created.ok, true, created.message);
+  const blob = await exportSpreadsheetXlsx(created.workbook);
+  assert.deepEqual((await inspect(blob)).tables, {});
+  const { workbook, warnings } = await importSpreadsheetXlsx(blob);
+  assert.deepEqual(warnings, []);
+  assert.equal(workbook.sheets[0].tables, undefined);
+  assert.equal(workbook.sheets[0].cells.C3.value, '=2*1200');
+  assert.equal(workbook.sheets[0].cells.B2.format.background.toLowerCase(), '#17365d');
+  assert.equal(workbook.sheets[0].cells.B2.format.color.toLowerCase(), '#ffffff');
+  assert.deepEqual(workbook.sheets[0].cells.C3.format.borders, created.workbook.sheets[0].cells.C3.format.borders);
 });
 
 test('hidden list name allocation avoids user name and table name collisions case-insensitively', () => {

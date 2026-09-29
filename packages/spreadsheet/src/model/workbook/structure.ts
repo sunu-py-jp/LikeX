@@ -84,8 +84,11 @@ function shiftAnnotations(sheet: SpreadsheetSheet, axis: "row" | "column", index
   }
   const drawings = sheet.drawings?.map(drawing => {
     const next = coordinateAfter(drawing.anchor[axis], index, count, remove) ?? Math.min(index, total - 1);
-    if (next === drawing.anchor[axis]) return drawing;
-    return Object.freeze({ ...drawing, anchor: Object.freeze({ ...drawing.anchor, [axis]: next }) });
+    const line = drawing.type === "shape" && drawing.line;
+    const shiftedLine = line ? Object.freeze(Object.fromEntries((["start", "end"] as const).map(key => [key, Object.freeze({ ...line[key],
+      anchor: Object.freeze({ ...line[key].anchor, [axis]: coordinateAfter(line[key].anchor[axis], index, count, remove) ?? Math.min(index, total - 1) }) })]))) as unknown as typeof line : undefined;
+    if (next === drawing.anchor[axis] && !line) return drawing;
+    return Object.freeze({ ...drawing, anchor: Object.freeze({ ...drawing.anchor, [axis]: next }), ...(shiftedLine ? { line: shiftedLine } : {}) });
   });
   return { ...(sheet.comments ? { comments: Object.freeze(comments) } : {}), ...(drawings ? { drawings: Object.freeze(drawings) } : {}) };
 }

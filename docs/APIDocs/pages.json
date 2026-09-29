@@ -1737,7 +1737,7 @@
   },
   {
     "id": "spreadsheet/tables",
-    "title": "テーブル・罫線付きの表",
+    "title": "テーブル・セル範囲へのデータ配置",
     "component": "spreadsheet",
     "section": "セルとシート",
     "output": "spreadsheet/tables/index.html",
@@ -1747,7 +1747,7 @@
     "keywords": [
       "tables.insert",
       "tables.delete",
-      "cells.writeTable",
+      "cells.writeGrid",
       "getTable",
       "getTableByName",
       "getTables",
@@ -1755,6 +1755,11 @@
       "SpreadsheetTableData"
     ],
     "headings": [
+      {
+        "id": "通常のセルへデータ格子罫線ヘッダー色を配置する",
+        "title": "通常のセルへデータ・格子罫線・ヘッダー色を配置する",
+        "depth": 2
+      },
       {
         "id": "画面なしでテーブルを作る",
         "title": "画面なしでテーブルを作る",
@@ -1778,6 +1783,11 @@
       {
         "id": "gui機能設定制限",
         "title": "GUI・機能設定・制限",
+        "depth": 2
+      },
+      {
+        "id": "既存apiとの互換性",
+        "title": "既存APIとの互換性",
         "depth": 2
       }
     ]
@@ -1816,6 +1826,11 @@
       {
         "id": "データとapiの例",
         "title": "データとAPIの例",
+        "depth": 2
+      },
+      {
+        "id": "範囲に罫線を付けるapi",
+        "title": "範囲に罫線を付けるAPI",
         "depth": 2
       },
       {
@@ -1895,6 +1910,11 @@
       {
         "id": "univerを参考にした点",
         "title": "Univerを参考にした点",
+        "depth": 2
+      },
+      {
+        "id": "直線接続線",
+        "title": "直線・接続線",
         "depth": 2
       }
     ]
@@ -2042,6 +2062,11 @@
       {
         "id": "初期データ作成との使い分け",
         "title": "初期データ作成との使い分け",
+        "depth": 2
+      },
+      {
+        "id": "線の始点終点と接続",
+        "title": "線の始点・終点と接続",
         "depth": 2
       }
     ]
@@ -2566,6 +2591,11 @@
         "id": "nodejs画面なしでの出力",
         "title": "Node.js・画面なしでの出力",
         "depth": 2
+      },
+      {
+        "id": "接続線の出力",
+        "title": "接続線の出力",
+        "depth": 2
       }
     ]
   },
@@ -2687,6 +2717,21 @@
       {
         "id": "操作一覧",
         "title": "操作一覧",
+        "depth": 2
+      },
+      {
+        "id": "1ページの内容を置き換える",
+        "title": "1ページの内容を置き換える",
+        "depth": 2
+      },
+      {
+        "id": "2点の直線と接続",
+        "title": "2点の直線と接続",
+        "depth": 2
+      },
+      {
+        "id": "文字の収まり",
+        "title": "文字の収まり",
         "depth": 2
       },
       {
@@ -4320,6 +4365,42 @@
       {
         "id": "likexの保存で使う場合",
         "title": "LikeXの保存で使う場合",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "core/connectors",
+    "title": "線の端点と接続点",
+    "component": "core",
+    "output": "core/connectors/index.html",
+    "sources": [
+      "packages/core/docs/connectors.md"
+    ],
+    "keywords": [
+      "ConnectorEndpoint",
+      "ConnectorBinding",
+      "ConnectorPort",
+      "getConnectorPortPoint",
+      "findNearestConnectorPort",
+      "接続点",
+      "端点",
+      "吸着"
+    ],
+    "headings": [
+      {
+        "id": "座標と型",
+        "title": "座標と型",
+        "depth": 2
+      },
+      {
+        "id": "計算関数",
+        "title": "計算関数",
+        "depth": 2
+      },
+      {
+        "id": "office用の8接続点",
+        "title": "Office用の8接続点",
         "depth": 2
       }
     ]

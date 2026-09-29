@@ -126,7 +126,7 @@ test('raw replacement and table writes respect destination text format when form
   const workbook = book({ A1: textCell('=A1'), A2: textCell('') });
   const replacement = apply(workbook, [{ type: 'cells.replace', sheetId: 's', query: { text: 'A1', lookIn: 'formulas' }, replacement: 'B2' }], { formulas: false });
   assert.equal(replacement.ok, true); assert.equal(calculate(replacement.workbook).A1, '=B2');
-  const table = apply(workbook, [{ type: 'cells.writeTable', sheetId: 's', target: { row: 0, column: 0 }, headers: ['Text'], data: { type: 'rows', values: [['=1+1']] } }], { formulas: false });
+  const table = apply(workbook, [{ type: 'cells.writeGrid', sheetId: 's', target: { row: 0, column: 0 }, headers: ['Text'], data: { type: 'rows', values: [['=1+1']] } }], { formulas: false });
   assert.equal(table.ok, true); assert.equal(calculate(table.workbook).A2, '=1+1');
 });
 

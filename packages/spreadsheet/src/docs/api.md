@@ -30,9 +30,28 @@ const workbook: SpreadsheetWorkbook = {
 
 結合セルはシートの `merges` に保持します。[セルの結合・解除](./merged-cells.md) に `SpreadsheetMergedRange`、`mergeCells` / `unmergeCells` の例とデータ保持のルールをまとめています。
 
+`setCellBorders(workbook, sheetId, ranges, preset, border?)` は元のブックを変更せず、範囲の格子・外枠・内側・各辺・罫線なしを適用します。`SpreadsheetBorderPreset` と関数をUI入口・`/model` の両方で公開し、JSONコマンド `cells.borders` とGUIも同じ処理を使います。結合セル・隣接する共有辺の扱い、件数上限、色・線種の指定は[範囲の罫線API](./formatting.md)を参照してください。
+
 `createWorkbook()` は300行×26列のブックを作ります。GUIの新規シート、`sheets.add`、`addSheet` も同じ既定サイズです。明示した `rowCount` / `columnCount` は読み込み時に維持するため、保存済みの小さいシートを一律に300行へ広げることはありません。
 
 `normalizeWorkbook(input)` は入力を検証し、コピーしたブックを返します。`setCellValue`、`setCellValues`、`moveCells`、`formatCells`、`resizeColumn`、`insertRows`、`deleteRows`、`insertColumns`、`deleteColumns`、`addSheet`、`renameSheet`、`deleteSheet`、`moveSheet` は元のブックを書き換えず、結果のブックを返します。`moveSheet(workbook, sheetId, index)` の `index` は移動後の0始まりの位置です。アドレス変換は `cellAddress` / `parseCellAddress`、計算は `calculateWorkbook`、数式の参照移動は `translateFormula`、TSVは `parseTsv` / `stringifyTsv` を使えます。引数と戻り値の詳細は同梱の公開型で確認できます。
+
+`expandCellAddresses(sheet, inputs)` は `@likex/spreadsheet` と `@likex/spreadsheet/model` の両方で公開しています。シートの `rowCount` / `columnCount` とセル・範囲の配列を渡すと、大文字・絶対参照記号なしのセル番地へ展開し、入力順と範囲内の行優先順を保ちながら重複を除いた凍結配列を返します。`cells.format` / `cells.validation` / `cells.replace` も同じ処理を使います。
+
+```ts
+import { expandCellAddresses, CellAddressExpansionError } from "@likex/spreadsheet/model";
+
+try {
+  const addresses = expandCellAddresses({ rowCount: 300, columnCount: 26 }, ["$B$2", "A1:B2"]);
+  // ["B2", "A1", "B1", "A2"]
+} catch (error) {
+  if (error instanceof CellAddressExpansionError) {
+    console.error(error.index, error.input, error.message); // 0始まりの入力位置と元の入力
+  }
+}
+```
+
+`A1:B2` のような範囲を1つでも含む場合、配列全体の重複を除いたセル数は `SPREADSHEET_LIMITS.rangeCells`（10,000）以下である必要があります。セル単体だけの配列にはこの追加制限を設けません。入力規則だけは従来の入力配列10,000件上限も維持します。逆順・シート外・異なるシートを含む番地はエラーです。ヘルパー自体は編集を行わず、コマンドでも対象の検証に失敗すればバッチ全体を適用しません。
 
 `workbooksEqual(a, b)` はセルのキー順に依存せず、ブックの内容・書式・寸法を比較します。既定書式や元の値・幅へ戻した場合、保存が必要な変更として扱わないためにも利用しています。ブックとセルは変更用関数から新しい値を作り、受け取った下書きを直接書き換えないでください。
 

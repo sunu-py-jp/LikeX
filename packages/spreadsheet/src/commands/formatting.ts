@@ -4,7 +4,9 @@ import { normalizeSizes } from "../model/workbook/validation";
 import type { SpreadsheetWorkbook } from "../model/types";
 import { getWorkbookSheet, replaceWorkbookSheet } from "../model/workbook/snapshot";
 import { autoFitCommandForWorkbook } from "../model/sizing/create-auto-fit-command";
+import { setCellBorders } from "../model/workbook/borders";
 export function stageFormattingCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetFormattingCommand): SpreadsheetWorkbook {
+  if (command.type === "cells.borders") return setCellBorders(workbook, command.sheetId, command.ranges, command.preset, command.border);
   if (command.type === "dimensions.autoFit") return stageFormattingCommand(workbook,
     autoFitCommandForWorkbook(workbook, { sheetId: command.sheetId, axis: command.axis, indices: command.indices }));
   const sheet = getWorkbookSheet(workbook, command.sheetId);

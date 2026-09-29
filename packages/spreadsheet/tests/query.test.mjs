@@ -28,8 +28,8 @@ const makeWorkbook = () => ({ schemaVersion: 1, sheets: [{ id: sheetId, name: 'D
   conditionalFormats: [{ id: 'cf-1', type: 'colorScale', ranges: [{ top: 0, left: 0, bottom: 1, right: 1 }], colors: ['#fff', '#abc'] }],
 }], resources: { images: { 'resource-1': { name: 'image.png', mimeType: 'image/png', dataUrl: 'data:image/png;base64,example', width: 100, height: 80 } } } });
 
-test('read queries depend only on the model without React, command, lifecycle or DOM code', () => {
-  const dependencies = Object.keys(output.metafile.inputs).join('\n');
+test('read queries depend only on the model with pure connector geometry but without React, command, lifecycle or DOM code', () => {
+  const dependencies = Object.keys(output.metafile.inputs).filter(input => !/\/core\/dist\/connectors\.js$/.test(input)).join('\n');
   assert.doesNotMatch(dependencies, /(?:\/ui\/|\/state\/|\/commands\/|node_modules\/react|\/core\/)/);
   assert.doesNotMatch(output.outputFiles[0].text, /\b(?:document|window)\./);
 });

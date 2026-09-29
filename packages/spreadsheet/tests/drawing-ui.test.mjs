@@ -379,9 +379,9 @@ test('image resize can reach the dimension limit without floating point overflow
   assert.equal(picture(ui).height, 6000);
 });
 
-function centeredArrowBook(flips = {}) {
+function centeredBlockArrowBook(flips = {}) {
   const workbook = book();
-  workbook.sheets[0].drawings[0] = { ...shape, shape: 'arrow', text: '確認する', ...flips,
+  workbook.sheets[0].drawings[0] = { ...shape, shape: 'rightArrow', text: '確認する', ...flips,
     anchor: { row: 5, column: 2, offsetX: 10, offsetY: 10 } };
   return workbook;
 }
@@ -398,7 +398,7 @@ const cornerCases = [
 ];
 for (const { corner, start, end, expected } of cornerCases) {
   test(`${corner} corner crosses its fixed opposite corner, preserving identity and one undoable saved change`, async t => {
-    const ui = await mount(t, { initialWorkbook: centeredArrowBook() });
+    const ui = await mount(t, { initialWorkbook: centeredBlockArrowBook() });
     await act(async () => ui.c.selectDrawing('shape'));
     const handles = ui.drawing('shape').findAllByType('button').filter(item => item.props['data-lxs-resize-corner']);
     assert.deepEqual(handles.map(item => item.props['data-lxs-resize-corner']).sort(), ['ne', 'nw', 'se', 'sw']);
@@ -423,7 +423,7 @@ for (const { corner, start, end, expected } of cornerCases) {
 }
 
 test('single-axis crossing at 200% zoom and repeated crossing compose with existing flips', async t => {
-  const ui = await mount(t, { initialWorkbook: centeredArrowBook({ flipX: true, flipY: true }) }, 2);
+  const ui = await mount(t, { initialWorkbook: centeredBlockArrowBook({ flipX: true, flipY: true }) }, 2);
   await act(async () => ui.c.selectDrawing('shape'));
   const handle = () => ui.drawing('shape').findByProps({ 'data-lxs-resize-corner': 'se' });
   const pointer = imagePointer();
@@ -440,7 +440,7 @@ test('single-axis crossing at 200% zoom and repeated crossing compose with exist
 });
 
 test('crossing can be cancelled and a disabled resize cannot commit a captured gesture', async t => {
-  const ui = await mount(t, { initialWorkbook: centeredArrowBook() });
+  const ui = await mount(t, { initialWorkbook: centeredBlockArrowBook() });
   await act(async () => ui.c.selectDrawing('shape'));
   const pointer = imagePointer(), before = ui.c.workbook;
   const handle = () => ui.drawing('shape').findByProps({ 'data-lxs-resize-corner': 'nw' });
@@ -458,7 +458,7 @@ test('crossing can be cancelled and a disabled resize cannot commit a captured g
 });
 
 test('denied editing permission discards the flipped preview without changing saved orientation', async t => {
-  const ui = await mount(t, { initialWorkbook: centeredArrowBook(), onEditRequest: async () => false });
+  const ui = await mount(t, { initialWorkbook: centeredBlockArrowBook(), onEditRequest: async () => false });
   await act(async () => ui.c.selectDrawing('shape'));
   const before = ui.c.workbook, pointer = imagePointer();
   const handle = () => ui.drawing('shape').findByProps({ 'data-lxs-resize-corner': 'se' });
@@ -470,7 +470,7 @@ test('denied editing permission discards the flipped preview without changing sa
 
 const rotationHandle = (ui, id = 'shape') => ui.drawing(id).findByProps({ className: 'lxs-drawing-rotate' });
 test('rotation drag previews at zoom, commits once on release, keeps selection and survives Undo/Redo and save', async t => {
-  const ui = await mount(t, { initialWorkbook: centeredArrowBook({ flipX: true }) }, 2);
+  const ui = await mount(t, { initialWorkbook: centeredBlockArrowBook({ flipX: true }) }, 2);
   await act(async () => ui.c.selectDrawing('shape'));
   const before = ui.c.workbook, pointer = imagePointer();
   await act(async () => rotationHandle(ui).props.onPointerDown(pointer(616, 296)));
@@ -489,7 +489,7 @@ test('rotation drag previews at zoom, commits once on release, keeps selection a
 });
 
 test('rotation handles support Shift snapping and keyboard angle changes with Home reset', async t => {
-  const ui = await mount(t, { initialWorkbook: centeredArrowBook() });
+  const ui = await mount(t, { initialWorkbook: centeredBlockArrowBook() });
   await act(async () => ui.c.selectDrawing('shape'));
   const pointer = imagePointer();
   await act(async () => rotationHandle(ui).props.onPointerDown(pointer(308, 148)));
@@ -507,7 +507,7 @@ test('rotation handles support Shift snapping and keyboard angle changes with Ho
 
 test('rotation can be cancelled with Escape, pointer cancellation, external updates or a resize feature change', async t => {
   for (const reason of ['escape', 'pointer', 'feature', 'workbook']) {
-    const ui = await mount(t, { initialWorkbook: centeredArrowBook() });
+    const ui = await mount(t, { initialWorkbook: centeredBlockArrowBook() });
     await act(async () => ui.c.selectDrawing('shape'));
     const pointer = imagePointer(), before = ui.c.workbook;
     await act(async () => rotationHandle(ui).props.onPointerDown(pointer(308, 148)));
@@ -541,7 +541,7 @@ test('rotation property works for images and text boxes and is unavailable when 
 });
 
 test('a rotated corner resizes in local axes while keeping its opposite visual point fixed', async t => {
-  const ui = await mount(t, { initialWorkbook: centeredArrowBook({ rotation: 90 }) });
+  const ui = await mount(t, { initialWorkbook: centeredBlockArrowBook({ rotation: 90 }) });
   await act(async () => ui.c.selectDrawing('shape'));
   const pointer = imagePointer();
   const handle = () => ui.drawing('shape').findByProps({ 'data-lxs-resize-corner': 'se' });
@@ -579,7 +579,7 @@ test('committed property inputs route repeated Ctrl/Cmd Undo/Redo to workbook hi
 });
 
 test('new shape text and its editor share the reflected native text frame while following outer rotation', async t => {
-  const initialWorkbook = centeredArrowBook({ shape: 'triangle', width: 122, height: 122, flipY: true, rotation: 45 });
+  const initialWorkbook = centeredBlockArrowBook({ shape: 'triangle', width: 122, height: 122, flipY: true, rotation: 45 });
   const ui = await mount(t, { initialWorkbook });
   await act(async () => ui.c.selectDrawing('shape'));
   const read = ui.drawing('shape').findByProps({ className: 'lxs-shape-text' }).props.style;

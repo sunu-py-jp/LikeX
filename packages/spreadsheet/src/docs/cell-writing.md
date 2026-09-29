@@ -14,7 +14,7 @@
 | `error` | 競合が1つでもあれば操作全体を中止する |
 | `skip` | 競合セルを残し、それ以外を反映する |
 
-対象は `cells.set` / `cells.paste` / `cells.fill` / `cells.replace` / `cells.move` / `cells.writeTable` / `tables.insert` です。空セルや、保存済みの入力値と同じ値は競合しません。比較するのは数式の計算結果ではなく、保存されている文字列です。書式・コメントだけがある空セルも、値の競合にはなりません。
+対象は `cells.set` / `cells.paste` / `cells.fill` / `cells.replace` / `cells.move` / `cells.writeGrid` / `tables.insert` です。空セルや、保存済みの入力値と同じ値は競合しません。比較するのは数式の計算結果ではなく、保存されている文字列です。書式・コメントだけがある空セルも、値の競合にはなりません。
 
 ```ts
 import { createWorkbook, createSpreadsheetSession } from "@likex/spreadsheet/model";

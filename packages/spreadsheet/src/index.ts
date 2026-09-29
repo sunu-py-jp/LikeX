@@ -26,7 +26,7 @@ export { createTextMeasurer as createSpreadsheetTextMeasurer } from "./state/siz
 export type { SpreadsheetImagePreparationOptions } from "./state/read-image";
 export { exportSpreadsheetXlsx } from "./export/export-xlsx";
 export type { SpreadsheetExcelExportOptions, SpreadsheetNativeExportOptions } from "./export/types";
-export type { SpreadsheetXlsxExportOptions, SpreadsheetImageRasterizeRequest, SpreadsheetImageRasterizer } from "./export/portable-types";
+export type { SpreadsheetXlsxExportOptions, SpreadsheetXlsxExportWarning, SpreadsheetImageRasterizeRequest, SpreadsheetImageRasterizer } from "./export/portable-types";
 export type {
   SpreadsheetBeforeSaveHandler, SpreadsheetRefreshHandler,
   SpreadsheetEditHandler, SpreadsheetEditIntent, SpreadsheetEditRequest, SpreadsheetEditResult,
@@ -48,7 +48,7 @@ export type { SpreadsheetCellBorder, SpreadsheetCellBorders } from "./model/form
 export type { SpreadsheetWriteConflictPolicy, SpreadsheetWriteOptions } from "./model/workbook/write-conflicts";
 export type { SpreadsheetClearMode, SpreadsheetCellRangeInput } from "./model/workbook/clear";
 export { clearCellRange } from "./model/workbook/clear";
-export type { SpreadsheetTableCommand, SpreadsheetTableData, SpreadsheetTableWriteOptions } from "./api/table-commands";
+export type { SpreadsheetTableCommand, SpreadsheetTableData, SpreadsheetTableWriteOptions, SpreadsheetCellGridWriteOptions } from "./api/table-commands";
 export type { SpreadsheetNamedRangeCommand } from "./api/named-range-commands";
 export type { SpreadsheetWriteReport } from "./commands/types";
 export { importSpreadsheetXlsx } from "./import/import-xlsx";

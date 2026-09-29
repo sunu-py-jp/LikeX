@@ -260,17 +260,19 @@
         "height": {
           "type": "number"
         },
-        "rotation": {
-          "type": "number"
-        },
         "x": {
           "type": "number"
         },
         "y": {
           "type": "number"
         },
-        "opacity": {
+        "rotation": {
           "type": "number"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         },
         "fontSize": {
           "type": "number"
@@ -340,7 +342,9 @@
           "type": "number"
         },
         "opacity": {
-          "type": "number"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         },
         "locked": {
           "type": "boolean"
@@ -352,7 +356,9 @@
           "type": "string"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1000
         },
         "fontFamily": {
           "type": "string"
@@ -442,7 +448,9 @@
           "type": "number"
         },
         "opacity": {
-          "type": "number"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         },
         "locked": {
           "type": "boolean"
@@ -453,6 +461,17 @@
         "shape": {
           "$ref": "#/$defs/SlideShapeKind"
         },
+        "line": {
+          "$ref": "#/$defs/SlideLineGeometry",
+          "description": "Only shape:line. Absolute document coordinates; bound points follow their target."
+        },
+        "startArrow": {
+          "$ref": "#/$defs/SlideFileElement_2_startArrow",
+          "description": "Line endpoint decoration. Missing fields preserve legacy plain lines."
+        },
+        "endArrow": {
+          "$ref": "#/$defs/SlideFileElement_2_startArrow"
+        },
         "fill": {
           "type": "string"
         },
@@ -460,13 +479,17 @@
           "type": "string"
         },
         "strokeWidth": {
-          "type": "number"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
         },
         "text": {
           "type": "string"
         },
         "fontSize": {
-          "type": "number"
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1000
         },
         "textColor": {
           "type": "string"
@@ -505,7 +528,81 @@
         "arrow",
         "roundRect",
         "triangle",
-        "diamond"
+        "diamond",
+        "leftArrow"
+      ]
+    },
+    "SlideLineGeometry": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "end": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "binding": {
+          "$ref": "#/$defs/ConnectorEndpoint_binding"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint_binding": {
+      "type": "object",
+      "properties": {
+        "targetId": {
+          "type": "string"
+        },
+        "port": {
+          "$ref": "#/$defs/ConnectorEndpoint_binding_port"
+        }
+      },
+      "required": [
+        "targetId",
+        "port"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint_binding_port": {
+      "enum": [
+        "top",
+        "right",
+        "bottom",
+        "left",
+        "topRight",
+        "bottomRight",
+        "bottomLeft",
+        "topLeft"
+      ]
+    },
+    "SlideFileElement_2_startArrow": {
+      "enum": [
+        "none",
+        "triangle",
+        "diamond",
+        "openArrow",
+        "oval",
+        "stealth"
       ]
     },
     "SlideFileElement_3": {
@@ -533,7 +630,9 @@
           "type": "number"
         },
         "opacity": {
-          "type": "number"
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
         },
         "locked": {
           "type": "boolean"

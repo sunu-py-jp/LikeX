@@ -99,8 +99,9 @@ if (result.ok) {
 | `cells.insert` | `range`, `shift: "down" / "right"`。指定範囲に空白を挿入。[セルの挿入・削除](./cell-shifts.md) |
 | `cells.delete` | `range`, `shift?: "up" / "left"`。指定方向へ詰めて削除。`shift` 省略時は従来どおり位置を動かさずすべてクリア。[セルの挿入・削除](./cell-shifts.md) |
 | `namedRanges.add` / `update` / `clear` / `delete` | 定義の追加・変更・対象セルのクリア・定義削除。[名前付き範囲](./named-ranges.md) |
-| `tables.insert` / `cells.writeTable` / `tables.delete` | 構造化テーブルと罫線付きの表。[表の書き込み](./tables.md) |
-| `cells.format` | `addresses: ["A1", "B1"]`, `format: { bold: true, ... }` |
+| `tables.insert` / `cells.writeGrid` / `tables.delete` | 構造化テーブルとセル範囲へのデータ配置。[表の書き込み](./tables.md) |
+| `cells.format` | `addresses: ["A1:B1", "D1"]`, `format: { bold: true, ... }` |
+| `cells.borders` | `ranges`, `preset: "all" / "outside" / "inside" / "top" / "bottom" / "left" / "right" / "none"`, `border?`。[範囲の罫線](./formatting.md)を設定／解除 |
 | `rows.insert` / `columns.insert` | `index`, `count?`, `values?`。行ごと／列ごとの値を同時に設定。[行列の挿入](#行列を値と一緒に挿入する) |
 | `rows.delete` / `columns.delete` | `index`, `count?`（既定1） |
 | `rows.resize` | `row`, `height`（px） |
@@ -108,7 +109,7 @@ if (result.ok) {
 | `dimensions.autoFit` | `axis: "row" / "column"`, `indices: number[]`。内容から行高／列幅を推定。[自動調整](./formatting.md#内容に合わせて自動調整するapi) |
 | `cells.replace` / `cells.fill` / `cells.paste` | [編集操作](./editing-tools.md)の型と例を参照 |
 | `cells.move` | `source: { sheetId, top, left, bottom, right }`, `target: { row, column }`。外側の `sheetId` は移動先。値・参照・コメント・結合を一括で移動 |
-| `cells.validation` | `addresses`, `validation`。[入力規則](./input-validation.md)を設定／解除 |
+| `cells.validation` | `addresses` はセル・範囲の配列。`validation` で[入力規則](./input-validation.md)を設定／解除 |
 | `conditionalFormats.set` | `rules`。[条件付き書式](./formatting.md)をシート単位で置換 |
 | `sheets.duplicate` | `sheetId`, `name?`。元シートの直後へ複製し、新しいIDを返す |
 | `columns.resize` | `column`, `width`（px） |
@@ -366,3 +367,11 @@ console.log(pasted.results[0].placement); // 配置位置・次の行と列
 `@likex/spreadsheet/model` の `applySpreadsheetCommands` と、`createWorkbook` / `setCellValues` / `insertRows` / `addDrawing` などの公開モデル関数は、表示前のブック作成や、表示と独立した加工に使えます。これらは結果のブックを返すだけで、表示中の下書きを置き換えません。表示中の変更にはhandleを使います。JSONの読み込みから出力までの具体例は[画面なしでJSONを編集する](./headless.md)にまとめています。
 
 任意のブック更新関数や内部のstateを外へ公開せず、追加する操作は `SpreadsheetCommand`、共通の実行処理、モデル操作へ分けて実装します。[内部構成と拡張の方針](./architecture.md)も参照してください。
+
+## 線の始点・終点と接続
+
+`lines.insert` は `sheetId`, `start`, `end`、任意の `startArrow`, `endArrow`, `stroke`, `strokeWidth` を受け取ります。`lines.update` は `sheetId`, `drawingId` と変更する端点・矢印だけを受け取ります。端点は `{ x, y, binding?: { targetId, port } }`。座標はA1原点のズーム前pxです。接続先は同シートの非線描画に限定し、接続中は対象の輪郭・回転・反転を解決します。[線のGUI・保存・API例](./insertions-and-json.md#直線接続線)も参照してください。
+
+モデルの `updateLineEndpoints(workbook, sheetId, drawingId, { start?, end?, startArrow?, endArrow? })` は新しいブックを返します。`getSpreadsheetLinePoints(sheet, drawingId)` は接続先と現在の行列寸法を解決した `{ start, end }` を返します。保存中の矩形キャッシュから線の現在位置を推測せず、端点APIまたは `getDrawingBounds` を使います。
+
+GUI・表示中API・セッションは同じコマンド処理を使い、編集許可・Undo/Redo・通知を維持します。`features.shapes` が線全体を、`features.resize` が端点位置の編集を制御します。線全体の移動・矢印の書式変更はresize無効でも可能です。

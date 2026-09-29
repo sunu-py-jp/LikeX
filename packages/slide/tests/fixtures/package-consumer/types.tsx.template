@@ -1,5 +1,5 @@
 import { createRef } from "react";
-import LikeSlide, { createSlideDeck, createSlideElement, applySlideCommands, createSlideSession, exportImage, exportImages, type SlideImageResult, type SlideProps, type SlideHandle, type SlideCommand } from "__LIBRARY_IMPORT__";
+import LikeSlide, { createSlideDeck, createSlideElement, applySlideCommands, createSlideSession, exportImage, exportImages, type SlideImageResult, type SlideProps, type SlideHandle, type SlideCommand, type SlideSelection } from "__LIBRARY_IMPORT__";
 const deck = createSlideDeck();
 const command: SlideCommand = { type: "element.add", slideId: deck.slides[0].id, element: { type: "text", text: "API" } };
 const updated = applySlideCommands(deck, command);
@@ -8,6 +8,13 @@ session.undo(); session.markSaved();
 const props: SlideProps = { initialDeck: deck, colorMode: "system", primaryColor: "#2563eb", features: { images: false }, onSave: async current => current, onEditRequest: async (_request, { signal }) => !signal.aborted, onBeforeSave: () => true };
 const ref = createRef<SlideHandle>();
 const view = <LikeSlide ref={ref} {...props} />;
+const selectedPages: SlideSelection = { slideId: 'one', slideIds: ['one', 'two'], elementIds: [] };
+ref.current?.select(selectedPages);
+void ref.current?.getSelection().slideIds;
+void ref.current?.deleteSelection('slides');
+void ref.current?.deleteSelection('elements');
+// @ts-expect-error Selection deletion scope must be pages or elements.
+void ref.current?.deleteSelection('document');
 const nativeExport: Promise<Blob> | undefined = ref.current?.exportNative();
 void nativeExport;
 void ref.current?.importNative('{"format":"likex.slide"}');
@@ -46,3 +53,15 @@ void animationCommand;
 void ref.current?.getDeck({ includeAnimations: 'full' });
 // @ts-expect-error Animation state is explicit, not an arbitrary timestamp.
 void exportImage(deck, { pageNumber: 1, animationState: 'playing' });
+
+import { getSlideLineEndpoints, isSlideLine, type ConnectorEndpoint, type ConnectorPort, type ConnectorArrowhead } from "__LIBRARY_IMPORT__";
+const linePort: ConnectorPort = "topRight";
+const lineArrowhead: ConnectorArrowhead = "triangle";
+const lineEndpoint: ConnectorEndpoint = { x: 20, y: 40, binding: { targetId: "box", port: linePort } };
+const lineCommand: SlideCommand = { type: "line.add", slideId: "page", start: lineEndpoint, end: { x: 300, y: 100 }, id: "connector", endArrow: lineArrowhead };
+const lineUpdate: SlideCommand = { type: "line.update", slideId: "page", elementId: "connector", end: { x: 200, y: 200 } };
+const possibleLine = deck.slides[0]?.elements[0];
+if (possibleLine && isSlideLine(possibleLine)) { const point: ConnectorEndpoint = getSlideLineEndpoints(possibleLine).start; void point; }
+// @ts-expect-error Ports are a closed union.
+const badLinePort: ConnectorPort = "diagonal";
+void [lineCommand, lineUpdate, badLinePort];

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { applySpreadsheetCommands, parseWorkbook, serializeWorkbook, createWorkbook, setCellValues,
+import { applySpreadsheetCommands, parseWorkbook, serializeWorkbook, createWorkbook, setCellBorders, setCellValues,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
   createSpreadsheetSession, copySpreadsheetCells, getSheets, getSheetReader, getNamedRange, getRangeByName,
   importSpreadsheetXlsx, exportSpreadsheetXlsx } from '__MODEL_IMPORT__';
@@ -151,3 +151,7 @@ assert.equal(liveSheet.getTables().length,0);
 console.log(JSON.stringify({ operations: 'passed', atomicFailure: 'passed', features: 'passed', drawingPlacement: 'passed',
   collections: 'passed', namedRanges: 'passed', tables: 'passed', writeConflicts: 'passed',
   queries: 'passed', sessionHistory: 'passed', clipboardCommands: 'passed', reactInstalled: false, browserGlobals: false }));
+
+const borderedNative = setCellBorders(original, "sheet-1", [{ top: 1, left: 1, bottom: 2, right: 2 }], "outside");
+assert.equal(borderedNative.sheets[0].cells.B2.format.borders.top.color, "#808080");
+assert.equal(applySpreadsheetCommands(original, [{type:"cells.borders",sheetId:"sheet-1",ranges:[{top:1,left:1,bottom:2,right:2}],preset:"outside"}]).ok,true);

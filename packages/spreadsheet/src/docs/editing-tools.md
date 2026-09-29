@@ -43,7 +43,7 @@ const sheets = findSpreadsheetSheets(workbook, { text: "売上", wholeName: fals
 
 表示中のref・ヘッドレスセッションでも `findSheets(query)` と `findCells(query, options?)` を使えます。`sheet(sheetId).findCells(query, { range? })` はシートIDを固定して読みます。どれも同期の読み取りで、選択・履歴・ブックを変更しません。戻り値のJSON例は[取得APIの検索](./data-access.md#キーワードでシートセルを探す)を参照してください。
 
-外部操作APIから置換する例です。`addresses` を省略すると指定シートのすべての一致セルを対象にします。
+外部操作APIから置換する例です。`addresses` を省略すると指定シートのすべての一致セルを対象にします。`addresses` は単一セルとA1範囲を混在でき、範囲を含む場合は展開後の重複を除いて合計10,000セルまでです。空配列は対象なしで、セル単体だけの大きな配列は従来どおり使えます。
 
 ```ts
 const result = await spreadsheetRef.current?.executeAsync({
@@ -51,7 +51,7 @@ const result = await spreadsheetRef.current?.executeAsync({
   sheetId: "sales",
   query: { text: "旧商品名", lookIn: "formulas", wholeCell: true },
   replacement: "新商品名",
-  addresses: ["A2", "A3"],
+  addresses: ["A2:A3"],
 });
 if (result && !result.ok) console.error(result.message);
 ```

@@ -128,3 +128,17 @@ async function exportWithConverter(convertToPng: SpreadsheetImageRasterizer) {
 戻り値は指定寸法のPNG Blob、またはそのPromiseです。透過とアニメーションの先頭フレームを維持してください。ライブラリはMIME、PNGのヘッダー、寸法、1枚5 MiB・合計20 MiBのサイズ上限を検証します。通常のPNG／JPEGでは変換関数を呼びません。同じリソースを複数シートで使っていても変換は1回です。
 
 キャンセル時は変換関数の完了を待たずに出力を中止し、遅れて返った結果を採用しません。変換関数自身の処理を停止する責任は利用側にあります。画像変換ライブラリの追加や外部サービスへの通信はLikeXでは行いません。
+
+## 接続線の出力
+
+端点形式の線は標準DrawingMLの `xdr:cxnSp` と `stCxn` / `endCxn` で出力し、水平・垂直・逆向きの端点と両端の矢印を保持します。接続先には元の輪郭と8接続点を持つ標準 `custGeom` を使います。LikeXに再取り込みすると元の図形種別・文字・回転・反転を復元します。
+
+Excelの接続線は文字を直接持てないため、線の文字は独立した編集可能なテキストボックスとして出力します。Excelでは線を動かしても文字が追従せず、再取り込みでも独立したテキストボックスになります。SPONでは文字と線の関係を保持します。この変換はGUIに表示し、公開出力APIでは `onWarning` で取得できます。
+
+```ts
+await exportSpreadsheetXlsx(workbook, {
+  onWarning: warning => console.info(warning.sheetId, warning.drawingId, warning.message),
+});
+```
+
+`SpreadsheetXlsxExportWarning` は `{ code: "adjusted", sheetId, drawingId, message }`。線ラベルを含む描画数・出力サイズの上限を超える場合は、内容を欠落させず出力を中止します。

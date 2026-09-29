@@ -5,11 +5,13 @@ import type { SpreadsheetDrawingAnchor, SpreadsheetDrawingPatch, SpreadsheetWork
 import { getImageDisplaySize, normalizeImageResource } from "../model/image-resources";
 import { getShapeDefinition, isSpreadsheetShapeKind } from "../model/shapes";
 import { normalizeDrawingRotation } from "../model/drawing-transform";
+import { getSpreadsheetLinePoints, isSpreadsheetLine, withLinePoints } from "../model/lines";
+import { updateLineEndpoints } from "../model/workbook/lines";
 import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { commandKeys, commandRecord, rejectCommand, requireCommandFeature, requireCommandSheet } from "./validation";
 
 type DrawingCommand = Extract<SpreadsheetCommand, { type: "images.insert" | "shapes.insert" | "textBoxes.insert" |
-  "drawings.delete" | "images.update" | "shapes.update" | "textBoxes.update" }>;
+  "drawings.delete" | "images.update" | "shapes.update" | "textBoxes.update" | "lines.insert" | "lines.update" }>;
 
 function drawingAnchor(input: SpreadsheetCommandAnchor): SpreadsheetDrawingAnchor {
   const anchor = commandRecord(input, "描画位置");
@@ -26,6 +28,22 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
   const receipt = (next: SpreadsheetWorkbook, drawingId: string, resourceId?: string) => ({ workbook: next,
     receipt: { type: command.type, sheetId: sheet.id, drawingId, ...(resourceId ? { resourceId } : {}) } });
   switch (command.type) {
+    case "lines.insert": {
+      requireCommandFeature(features, "shapes");
+      if (command.shape !== undefined && command.shape !== "line" && command.shape !== "arrow") return rejectCommand("INVALID_COMMAND", "直線または矢印付き直線を指定してください");
+      const id = nextId();
+      return receipt(addDrawing(workbook, sheet.id, withLinePoints(sheet, { id, type: "shape", shape: command.shape ?? "line",
+        anchor: { row: 0, column: 0, offsetX: 0, offsetY: 0 }, width: 1, height: 1, fill: "transparent",
+        stroke: command.stroke ?? "#217346", strokeWidth: command.strokeWidth ?? 2, startArrow: command.startArrow, endArrow: command.endArrow }, command)), id);
+    }
+    case "lines.update": {
+      requireCommandFeature(features, "shapes");
+      const previous = getSpreadsheetLinePoints(sheet, command.drawingId);
+      const translated = command.start && command.end && !command.start.binding && !command.end.binding &&
+        command.start.x - previous.start.x === command.end.x - previous.end.x && command.start.y - previous.start.y === command.end.y - previous.end.y;
+      if ((command.start || command.end) && !translated) requireCommandFeature(features, "resize");
+      return receipt(updateLineEndpoints(workbook, sheet.id, command.drawingId, command), command.drawingId);
+    }
     case "images.insert": {
       requireCommandFeature(features, "images");
       commandRecord(command.resource, "画像リソース");
@@ -70,7 +88,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       if ((command.type === "images.update" && drawing.type !== "image") || (command.type === "shapes.update" && drawing.type !== "shape") ||
         (command.type === "textBoxes.update" && drawing.type !== "text")) return rejectCommand("INVALID_TARGET", "描画オブジェクトの種類がコマンドと一致しません");
       const patch = commandRecord(command.patch, "更新内容");
-      const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape" ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold"]
+      const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape" ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "startArrow", "endArrow"]
         : ["text", "fontSize", "color", "background", "bold"];
       commandKeys(patch, ["anchor", "width", "height", "flipX", "flipY", "rotation", ...specific], "更新内容");
       if (drawing.type === "shape" && Object.hasOwn(patch, "shape") && !isSpreadsheetShapeKind(patch.shape))
@@ -83,6 +101,8 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
         (Object.hasOwn(patch, "rotation") && normalizeDrawingRotation(patch.rotation) !== normalizeDrawingRotation(drawing.rotation)) ||
         (["flipX", "flipY"] as const).some(key => Object.hasOwn(patch, key) && !!patch[key] !== !!drawing[key]))
         requireCommandFeature(features, "resize");
+      if (isSpreadsheetLine(drawing) && drawing.line && ["anchor", "width", "height", "rotation", "flipX", "flipY"].some(key => Object.hasOwn(patch, key)))
+        return rejectCommand("INVALID_COMMAND", "線の位置・向きはlines.updateの始点・終点で指定してください");
       const normalized: SpreadsheetDrawingPatch = { ...patch,
         ...(patch.anchor !== undefined ? { anchor: drawingAnchor(patch.anchor as SpreadsheetCommandAnchor) } : {}) };
       const next = updateDrawing(workbook, sheet.id, drawing.id, normalized);

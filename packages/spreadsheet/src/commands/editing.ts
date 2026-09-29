@@ -1,6 +1,6 @@
 import { cellWriteReport } from "./cell-write-report";
 import { filterCellValueWrites } from "../model/workbook/write-conflicts";
-import { cellAddress, parseCellAddress } from "../model/address";
+import { cellAddress } from "../model/address";
 import { isFormulaValue } from "../model/cell-value";
 import type { SpreadsheetCommand } from "./types";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
@@ -11,7 +11,7 @@ import { findSpreadsheetCells, replaceSpreadsheetCells, replaceSpreadsheetText }
 import { duplicateSheetWithIds } from "../model/workbook/sheets";
 import type { SpreadsheetMergedRange, SpreadsheetSheet, SpreadsheetWorkbook } from "../model/types";
 import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
-import { commandKeys, commandRecord, rejectCommand, requireCommandAddress, requireCommandFeature, requireCommandSheet } from "./validation";
+import { commandKeys, commandRecord, rejectCommand, requireCommandAddresses, requireCommandFeature, requireCommandSheet } from "./validation";
 
 function requireTransferCapacityFeatures(features: SpreadsheetFeatureSettings, sheet: SpreadsheetSheet, range?: SpreadsheetMergedRange): void {
   if (range && range.bottom >= sheet.rowCount) requireCommandFeature(features, "insertRows");
@@ -29,11 +29,7 @@ export function stageEditingCommand(workbook: SpreadsheetWorkbook, command: Spre
     case "cells.replace": {
       requireCommandFeature(features, "replace");
       commandKeys(commandRecord(command.query, "検索条件"), ["text", "matchCase", "wholeCell", "lookIn"], "検索条件");
-      if (command.addresses !== undefined) {
-        if (!Array.isArray(command.addresses)) return rejectCommand("INVALID_COMMAND", "置換対象はセル番地の配列で指定してください");
-        command.addresses.forEach(address => requireCommandAddress(sheet, address));
-      }
-      const addresses = command.addresses?.map(address => { const position = parseCellAddress(address)!; return cellAddress(position.row, position.column); });
+      const addresses = command.addresses === undefined ? undefined : requireCommandAddresses(sheet, command.addresses);
       if (typeof command.replacement !== "string") return rejectCommand("INVALID_COMMAND", "置換後の文字列を指定してください");
       if (!features.formulas && command.query.lookIn === "formulas") for (const match of findSpreadsheetCells(workbook, command.query, { sheetId: sheet.id })) {
         if ((!addresses || addresses.includes(match.address)) && isFormulaValue(replaceSpreadsheetText(match.matchedText, command.query, command.replacement), sheet.cells[match.address]?.format)) requireCommandFeature(features, "formulas");

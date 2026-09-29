@@ -30,7 +30,7 @@ test.before(async () => {
     await writeFile(script, await generatedSkillScript(kind));
     await build({ entryPoints: [path.join(repo, `packages/${kind}/src/model-entry.ts`)], outfile: path.join(installed, 'model.mjs'),
       bundle: true, format: 'esm', platform: 'node', target: 'es2022',
-      alias: { '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'),
+      alias: { '@likex/core/connectors': path.join(repo, 'packages/core/src/connectors.ts'), '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'),
         '@likex/core/ooxml': path.join(repo, 'packages/core/src/ooxml.ts'), '@likex/core': path.join(repo, 'packages/core/src/index.ts') } });
     fixtures[kind] = { installed, script, version: metadata.version, model: await import(pathToFileURL(path.join(installed, 'model.mjs')).href) };
   }
@@ -441,6 +441,51 @@ test('slide selectors expose IDs and bounds while never printing embedded image 
   assert.equal((await run('slide', ['inspect', '--input', files.input, '--slide-id', 'page-1', '--element-id', 'missing'])).json.error.code, 'NOT_FOUND');
 });
 
+test('slide bulk details return one page of complete ordered elements with image bytes removed and animation sources preserved', async () => {
+  const files = await paths('slide'), model = fixtures.slide.model;
+  const imageSrc = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6xkAAAAASUVORK5CYII=';
+  const deck = model.createSlideDeck({ slides: [
+    { id: 'bulk-page', name: 'Bulk', background: '#ffffff', notes: 'private page notes', elements: [
+      model.createSlideElement({ id: 'text-1', type: 'text', x: 20, text: 'Full heading', fontSize: 36, bold: true, color: '#123456' }),
+      model.createSlideElement({ id: 'shape-1', type: 'shape', text: 'Shape label', fill: '#abcdef', stroke: '#334455' }),
+      model.createSlideElement({ id: 'image-1', type: 'image', src: imageSrc, alt: 'Complete image description' }),
+    ], animations: [{ id: 'move-heading', animation: { type: 'tween', elementId: 'text-1', durationMs: 100, to: { x: 120 } } }] },
+    { id: 'other-page', name: 'Other', background: '#ffffff', notes: '', elements: [model.createSlideElement({ id: 'other-text', type: 'text', text: 'Unrequested other page body' })] },
+    { id: 'empty-page', name: 'Empty', background: '#ffffff', notes: '', elements: [] },
+  ] });
+  const original = model.serializeSlideDeck(deck); await writeFile(files.input, original);
+  const baseArgs = ['inspect', '--input', files.input, '--slide-id', 'bulk-page', '--compact-summary'];
+  const metadata = await run('slide', baseArgs); assert.equal(metadata.status, 0); assert.equal(metadata.json.selection.elements[0].text, undefined); assert.equal(metadata.json.selection.elements[0].textLength, 'Full heading'.length);
+  const details = await run('slide', [...baseArgs, '--include-data']); assert.equal(details.status, 0, JSON.stringify(details.json));
+  assert.deepEqual(details.json.selection.elements.map(element => element.id), ['text-1', 'shape-1', 'image-1']);
+  assert.equal(details.json.selection.elements[0].text, 'Full heading'); assert.equal(details.json.selection.elements[0].x, 120); assert.equal(details.json.selection.elements[0].bold, true); assert.equal(details.json.selection.elements[0].color, '#123456');
+  assert.equal(details.json.selection.elements[1].text, 'Shape label'); assert.equal(details.json.selection.elements[1].fill, '#abcdef'); assert.equal(details.json.selection.elements[2].alt, 'Complete image description');
+  assert.equal(details.json.selection.elements[2].src, undefined); assert.equal(details.json.selection.elements[2].dataUrl, undefined); assert.equal(details.json.selection.animations, undefined);
+  assert.deepEqual(details.json.selection.slide, metadata.json.selection.slide); assert.doesNotMatch(JSON.stringify(details), /base64|iVBORw0|private page notes|Unrequested other page body/);
+  const source = await run('slide', [...baseArgs, '--include-data', '--include-animations']); assert.equal(source.status, 0);
+  assert.equal(source.json.selection.elements[0].x, 20); assert.deepEqual(source.json.selection.animations, model.getAnimations(deck, 'bulk-page'));
+  const expected = model.getElements(deck, 'bulk-page', { includeAnimations: true }).map(element => Object.fromEntries(Object.entries(element).filter(([key]) => key !== 'src' && key !== 'dataUrl')));
+  assert.deepEqual(source.json.selection.elements, expected);
+  const single = await run('slide', [...baseArgs, '--element-id', 'text-1', '--include-data', '--include-animations']); assert.deepEqual(single.json.selection.element, source.json.selection.elements[0]); assert.equal(single.json.selection.elements, undefined);
+  const empty = await run('slide', ['inspect', '--input', files.input, '--slide-id', 'empty-page', '--include-data']); assert.equal(empty.status, 0); assert.deepEqual(empty.json.selection.elements, []);
+  assert.equal((await run('slide', ['inspect', '--input', files.input, '--slide-id', 'missing', '--include-data'])).json.error.code, 'NOT_FOUND');
+  for (const args of [['--include-data'], ['--slide-id', 'bulk-page', '--include-data', '--limit', '1'], ['--slide-id', 'bulk-page', '--include-data', '--offset', '1'], ['--slide-id', 'bulk-page', '--include-data', '--overview']])
+    assert.equal((await run('slide', ['inspect', '--input', files.input, ...args])).json.error.code, 'USAGE');
+  assert.equal(await readFile(files.input, 'utf8'), original, 'bulk read does not alter native values or animation definitions');
+});
+
+test('slide bulk details retain the response limit and never silently omit large element content', async () => {
+  const files = await paths('slide'), model = fixtures.slide.model;
+  const deck = model.createSlideDeck({ slides: [{ id: 'large-page', name: 'Large page', background: '#ffffff', notes: '', elements:
+    Array.from({ length: 12 }, (_, index) => model.createSlideElement({ id: `text-${index}`, type: 'text', text: 'x'.repeat(100_000) })),
+  }] });
+  await writeFile(files.input, model.serializeSlideDeck(deck));
+  const args = ['inspect', '--input', files.input, '--slide-id', 'large-page'];
+  const metadata = await run('slide', args); assert.equal(metadata.status, 0); assert.equal(metadata.json.selection.elements.length, 12);
+  const bulk = await run('slide', [...args, '--include-data', '--compact-summary']); assert.equal(bulk.json.error.code, 'RESPONSE_TOO_LARGE'); assert.equal(bulk.json.selection, undefined);
+  const single = await run('slide', [...args, '--element-id', 'text-0', '--include-data']); assert.equal(single.status, 0); assert.equal(single.json.selection.element.text.length, 100_000);
+});
+
 test('document inspection pages through current block positions and strips nested image bytes', async () => {
   const files = await paths('document');
   const model = fixtures.document.model;
@@ -471,4 +516,23 @@ test('document inspection pages through current block positions and strips neste
   assert.equal((await run('document', ['inspect', '--input', files.input, '--block-id', 'missing'])).json.error.code, 'NOT_FOUND');
   assert.equal((await run('document', ['inspect', '--input', files.input, '--limit', '1001'])).json.error.code, 'USAGE');
   assert.equal((await run('document', ['inspect', '--input', files.input, '--block-id', 'list-1', '--offset', '1'])).json.error.code, 'USAGE');
+});
+
+test('spreadsheet CLI writes ordinary grids and applies native range border presets', async () => {
+  const files = await paths('spreadsheet');
+  await writeFile(files.commands, JSON.stringify([
+    { type: 'cells.writeGrid', sheetId: 'sheet-1', target: { row: 0, column: 0 }, headers: ['商品', '金額'],
+      data: { type: 'rows', values: [['Sample', '=2*1200']] }, headerStyle: { background: '#17365d', color: '#ffffff' } },
+    { type: 'cells.borders', sheetId: 'sheet-1', ranges: [{ top: 0, left: 0, bottom: 1, right: 1 }], preset: 'none' },
+    { type: 'cells.borders', sheetId: 'sheet-1', ranges: [{ top: 0, left: 0, bottom: 1, right: 1 }], preset: 'outside', border: { color: '#334155', width: 2 } },
+  ]));
+  const result = await run('spreadsheet', ['create', '--commands', files.commands, '--output', files.output]);
+  assert.equal(result.status, 0, JSON.stringify(result.json));
+  const workbook = fixtures.spreadsheet.model.parseWorkbook(await readFile(files.output, 'utf8'));
+  const sheet = workbook.sheets[0];
+  assert.equal(sheet.tables, undefined);
+  assert.equal(sheet.cells.A1.format.background, '#17365d');
+  assert.equal(sheet.cells.B2.value, '=2*1200');
+  assert.equal(sheet.cells.B2.format.borders.top, undefined);
+  assert.equal(sheet.cells.B2.format.borders.bottom.width, 2);
 });

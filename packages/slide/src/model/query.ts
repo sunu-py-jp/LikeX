@@ -43,8 +43,8 @@ export function getAnimations(deck: SlideDeck, slideId: string): SlideAnimationS
 
 export function sameSlideElement(left: SlideElement, right: SlideElement): boolean {
   if (left === right) return true;
-  const keys = Object.keys(left) as (keyof SlideElement)[];
-  return left.type === right.type && keys.length === Object.keys(right).length && keys.every(key => left[key] === right[key]);
+  const keys = Object.keys(left);
+  return left.type === right.type && keys.length === Object.keys(right).length && keys.every(key => key === "line" ? JSON.stringify(Reflect.get(left, key)) === JSON.stringify(Reflect.get(right, key)) : Reflect.get(left, key) === Reflect.get(right, key));
 }
 
 export function sameSlideDeck(left: SlideDeck, right: SlideDeck): boolean {

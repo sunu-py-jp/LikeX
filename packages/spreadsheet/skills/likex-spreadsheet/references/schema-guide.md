@@ -147,3 +147,9 @@
 | コマンド配列 | 1,000件 |
 
 `sheets.add` / `sheets.duplicate`、描画・画像挿入、名前付き範囲・テーブル追加、コメント新規作成などのIDはライブラリが生成する。CLIでは適用後のファイルをinspectし、公開APIを直接使う場合はreceiptから取得できる。命名規則から予測しない。既存の更新ではIDを保ち、描画・シートの複製では新しいIDを持つ。保存操作そのものはIDを振り直さない。
+
+### 線の保存構造
+
+`shape: "line"` は任意の `line: { start: { anchor, binding? }, end: { anchor, binding? } }` と `startArrow?`, `endArrow?` を持つ。端点の `anchor` は同じシートのセルアンカー（行列は0始まり、offsetは-10,000〜10,000px）、bindingは `{ targetId, port }`。自由端点は行列寸法・挿入に追従し、接続端点は同シート非線描画の8接続点に追従する。`line` があればrotation/flipX/flipYを併用しない。水平・垂直線も端点はそのまま保存し、共通のwidth/heightキャッシュだけを1px以上にする。
+
+旧 `shape: "line" / "arrow"` の矩形形式は読み込み可能。新規は `lines.insert` の2端点で作り、矢印は `none|triangle|openArrow|diamond|oval|stealth` を両端へ個別に指定する。旧arrowでendArrow省略ならtriangle、他はnone。セルアンカーとワールド座標を取り違えないよう、直接JSONを組み立てるよりコマンドを優先する。SPONは接続と線の文字を保持し、XLSXは標準cxnSp＋8点custGeomで接続を保持するが、線の文字は独立テキストボックスへ分離して警告する。
