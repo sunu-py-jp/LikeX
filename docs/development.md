@@ -7,11 +7,11 @@ npm ci
 npm run dev
 ```
 
-デモは `http://127.0.0.1:5173/`（Explorer）、`/spreadsheet`、`/slide`、`/document`、`/board`、`/diagram`、`/calendar`、`/whiteboard`、`/aichat`（AI会話）、`/chat`（人同士の会話）、`/dataview`、`/form` で起動します。デモの保存先はブラウザタブ内メモリで、ページ全体を再読み込みすると初期状態へ戻ります。Explorerの `icons` フォルダに全拡張子のアイコン確認用サンプルがあります。サンプル本体は表示確認用のテキストです。
+デモは `http://127.0.0.1:5173/`（Explorer）、`/spreadsheet`、`/slide`、`/document`、`/board`、`/diagram`、`/calendar`、`/whiteboard`、`/aichat`（AI会話）、`/chat`（人同士の会話）、`/dataview`、`/form` で起動します。通常デモの保存先はブラウザタブ内メモリで、ページ全体を再読み込みすると初期状態へ戻ります。Explorerの `icons` フォルダに全拡張子のアイコン確認用サンプルがあります。サンプル本体は表示確認用のテキストです。
 
 デモの親コンポーネント、初期データ、機能設定、単独ビルドは [playgroundのREADME](../apps/playground/README.md) を参照してください。
 
-`/spreadsheet/ai` と `/slide/ai` はLikeAIChatから本体を操作するデモです。ルートの `.env` にOpenAIまたはAzure OpenAIを設定します（[設定例](../.env.example)）。起動時に両モジュールのCLIランタイムもビルドし、対象スキル・参照資料の読み込みと同梱CLI実行をサーバー側で行います。詳細は [AIデモの設定と動作](../apps/playground/README.md#spreadsheet／slideのaiデモ) を参照してください。
+`/spreadsheet/ai` と `/slide/ai` は資料一覧・新規作成から始まり、LikeAIChatで本体を操作するデモです。保存済み資料はホストがブラウザーのIndexedDBへ保持し、再読み込み後も一覧から開けます。チャット履歴と未保存の編集は永続化しません。ルートの `.env` にOpenAIまたはAzure OpenAIを設定します（[設定例](../.env.example)）。起動時に両モジュールのCLIランタイムもビルドし、対象スキル・参照資料の読み込みと同梱CLI実行をサーバー側で行います。詳細は [AIデモの設定と動作](../apps/playground/README.md#spreadsheet／slideのaiデモ) を参照してください。
 
 ## コマンド
 

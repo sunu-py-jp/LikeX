@@ -6,7 +6,7 @@ import { AIRunPart, ToolExecutionPart, createRunPart } from "./ai-trace-parts";
 import "../../../../packages/aichat/src/styles.css";
 import "./ai-workspace.css";
 
-type Props = { adapter: DocumentAdapter; children: ReactNode; colorMode: "light" | "dark" | "system"; primaryColor?: string };
+type Props = { adapter: DocumentAdapter; children: ReactNode; colorMode: "light" | "dark" | "system"; primaryColor?: string; onBusyChange?(busy: boolean): void };
 const partRenderers: NonNullable<AIChatProps["partRenderers"]> = {
   "likex.run": (part, { message }) => <AIRunPart part={part} messageStatus={message.status}/>,
   "likex.tool": (part, { message }) => <ToolExecutionPart part={part} messageStatus={message.status}/>,
@@ -18,8 +18,9 @@ function NewChatIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-7"/><path d="m16 3 5 5M9 15l1-5L18 2a2.1 2.1 0 0 1 3 3l-8 8-4 2Z"/></svg>;
 }
 
-export function AIWorkspace({ adapter, children, colorMode, primaryColor }: Props) {
+export function AIWorkspace({ adapter, children, colorMode, primaryColor, onBusyChange }: Props) {
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [hasSent, setHasSent] = useState(false);
+  const reportBusy = useCallback((value: boolean) => { setBusy(value); onBusyChange?.(value); }, [onBusyChange]);
   const [config, setConfig] = useState<AIConfig | null>(null), [configError, setConfigError] = useState(""), [configAttempt, setConfigAttempt] = useState(0);
   const [steps, setSteps] = useState<string[]>([]), [status, setStatus] = useState("");
   const [creatingChat, setCreatingChat] = useState(false), creatingChatRef = useRef(false);
@@ -54,7 +55,7 @@ export function AIWorkspace({ adapter, children, colorMode, primaryColor }: Prop
     creatingChatRef.current = true; setCreatingChat(true);
     // Invalidate before aborting: late generator cleanup must not overwrite the new conversation's state.
     const pending = active.current; active.current = null;
-    pending?.abort(); handle.cancel(); setBusy(false);
+    pending?.abort(); handle.cancel(); reportBusy(false);
     try {
       const id = crypto.randomUUID();
       const result = await handle.execute({ type: "conversation.add", id, title: "新しいチャット" });
@@ -68,7 +69,7 @@ export function AIWorkspace({ adapter, children, colorMode, primaryColor }: Prop
       creatingChatRef.current = false;
       if (mounted.current) setCreatingChat(false);
     }
-  }, [config]);
+  }, [config, reportBusy]);
   const send: AIChatSendHandler = useCallback(async function* (request, context): AsyncGenerator<AIChatResponseChunk> {
     if (!config?.configured) throw new Error(".env に OpenAI または Azure OpenAI の設定を追加し、開発サーバーを再起動してください。");
     const controller = new AbortController(), abort = () => controller.abort(context.signal.reason);
@@ -79,7 +80,7 @@ export function AIWorkspace({ adapter, children, colorMode, primaryColor }: Prop
     const signal = controller.signal;
     let runId: string | undefined;
     const partIds = new Map<string, string>();
-    setBusy(true); setHasSent(true); setSteps([]); setStatus("現在の内容を確認しています…");
+    reportBusy(true); setHasSent(true); setSteps([]); setStatus("現在の内容を確認しています…");
     try {
       const snapshot = await adapter.snapshot(signal);
       assertDocumentCurrent(adapter, snapshot, signal, isActive);
@@ -115,9 +116,9 @@ export function AIWorkspace({ adapter, children, colorMode, primaryColor }: Prop
       throw error;
     } finally {
       context.signal.removeEventListener("abort", abort);
-      if (active.current === controller) { active.current = null; if (mounted.current) setBusy(false); }
+      if (active.current === controller) { active.current = null; if (mounted.current) reportBusy(false); }
     }
-  }, [adapter, config]);
+  }, [adapter, config, reportBusy]);
 
   return <div className="playground-ai-workspace" data-ai-module={adapter.module} data-color-mode={colorMode} style={{ "--demo-ai-primary": primaryColor ?? (adapter.module === "slide" ? "#b95634" : "#217346") } as CSSProperties}>
     <div className="playground-ai-canvas">

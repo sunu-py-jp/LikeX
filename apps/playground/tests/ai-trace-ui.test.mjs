@@ -38,7 +38,7 @@ test("host trace renderers escape command contents and restrict log download pat
 
 for (const documentKind of ["spreadsheet", "slide"]) for (const failed of [false, true]) test(`${documentKind} new chat clears visible context after ${failed ? "an error" : "completion"} while retaining the document and old conversation`, async t => {
   const originalFetch = globalThis.fetch, originalFrame = globalThis.requestAnimationFrame;
-  const requests = [];
+  const requests = [], busyChanges = [];
   let document = "before", revision = 0, applied = 0;
   globalThis.requestAnimationFrame = callback => { callback(); return 0; };
   globalThis.fetch = async (url, init) => {
@@ -54,7 +54,7 @@ for (const documentKind of ["spreadsheet", "slide"]) for (const failed of [false
     readCurrent: () => ({ document, revision }), normalize: value => value,
     async apply(value) { document = value; revision++; applied++; } };
   let renderer;
-  await act(async () => { renderer = create(h(AIWorkspace, { adapter, colorMode: "light" }, h("p", null, "Document"))); await tick(); });
+  await act(async () => { renderer = create(h(AIWorkspace, { adapter, colorMode: "light", onBusyChange: value => busyChanges.push(value) }, h("p", null, "Document"))); await tick(); });
   t.after(() => act(async () => renderer.unmount()));
   const handle = () => renderer.root.findByType(LikeAIChat).props.ref.current;
   const input = () => renderer.root.findByProps({ "aria-label": "メッセージを入力" });
@@ -63,6 +63,7 @@ for (const documentKind of ["spreadsheet", "slide"]) for (const failed of [false
     await act(async () => { renderer.root.findByType("form").props.onSubmit({ preventDefault() {} }); await tick(); await tick(); });
   }
   await send("最初の依頼");
+  assert.deepEqual(busyChanges, [true, false], "start and completion/error release the host navigation lock");
   const previous = handle().getAIChatConversation(), currentDocument = document, previousApplied = applied;
   assert.equal(previous.messages.length, 2);
   assert.equal(previous.messages[1].status, failed ? "error" : "complete");
@@ -81,11 +82,12 @@ for (const documentKind of ["spreadsheet", "slide"]) for (const failed of [false
   await send("新しい依頼");
   assert.deepEqual(requests[1].messages, [{ role: "user", content: "新しい依頼" }]);
   assert.equal(requests[1].document, currentDocument);
+  assert.deepEqual(busyChanges.slice(-2), [true, false], "the new conversation reports its own complete busy cycle");
 });
 
 test("new chat cancels an in-flight request and rejects its late result without leaking into the next conversation", async t => {
   const originalFetch = globalThis.fetch, originalFrame = globalThis.requestAnimationFrame;
-  const requests = [];
+  const requests = [], busyChanges = [];
   let completeFirst, firstSignal, document = "before", revision = 0, applied = 0;
   const firstResponse = new Promise(resolve => { completeFirst = resolve; });
   globalThis.requestAnimationFrame = callback => { callback(); return 0; };
@@ -100,7 +102,7 @@ test("new chat cancels an in-flight request and rejects its late result without 
     readCurrent: () => ({ document, revision }), normalize: value => value,
     async apply(value) { document = value; revision++; applied++; } };
   let renderer;
-  await act(async () => { renderer = create(h(AIWorkspace, { adapter, colorMode: "light" }, h("p", null, "Document"))); await tick(); });
+  await act(async () => { renderer = create(h(AIWorkspace, { adapter, colorMode: "light", onBusyChange: value => busyChanges.push(value) }, h("p", null, "Document"))); await tick(); });
   t.after(() => act(async () => renderer.unmount()));
   const handle = () => renderer.root.findByType(LikeAIChat).props.ref.current;
   async function send(text) {
@@ -108,6 +110,7 @@ test("new chat cancels an in-flight request and rejects its late result without 
     await act(async () => { renderer.root.findByType("form").props.onSubmit({ preventDefault() {} }); await tick(); });
   }
   await send("古い依頼");
+  assert.deepEqual(busyChanges, [true], "the host remains busy while the provider request is pending");
   const previousId = handle().getAIChatConversation().id;
   assert.equal(firstSignal.aborted, false);
   assert.equal(renderer.root.findByProps({ className: "playground-ai-editor" }).props.inert, true);
@@ -116,6 +119,7 @@ test("new chat cancels an in-flight request and rejects its late result without 
   assert.match(button.props.title, /停止/);
   await act(async () => { button.props.onClick(); button.props.onClick(); await tick(); });
   assert.equal(firstSignal.aborted, true);
+  assert.deepEqual(busyChanges, [true, false], "new chat releases the host lock immediately without waiting for the old provider");
   assert.equal(renderer.root.findByProps({ className: "playground-ai-editor" }).props.inert, false);
   assert.deepEqual(handle().getAIChatConversation().messages, []);
   assert.equal(handle().getAIChat().conversations.length, 2, "a repeated click creates only one conversation");
@@ -129,10 +133,12 @@ test("new chat cancels an in-flight request and rejects its late result without 
   assert.equal(handle().getAIChatConversation().messages.length, 2);
   assert.equal(handle().getAIChatConversation().messages[1].status, "complete");
   assert.doesNotMatch(JSON.stringify(renderer.toJSON()), /停止しました/);
+  assert.deepEqual(busyChanges, [true, false, true, false], "late cleanup of the cancelled request cannot emit another busy change");
 });
 
 for (const failed of [false, true]) test(`AI host keeps actual tool commands in chat ${failed ? "on error without applying the book" : "and applies only a completed result"}`, async t => {
   const originalFetch = globalThis.fetch;
+  const busyChanges = [];
   let applied = 0, document = "before", revision = 0, sentRequest;
   const end = failed ? { type: "error", message: "テスト用の実行エラー" } : { type: "result", document: "after", changed: true };
   const events = [{ type: "run", id: runId }, { type: "tool", call },
@@ -147,10 +153,11 @@ for (const failed of [false, true]) test(`AI host keeps actual tool commands in 
     readCurrent: () => ({ document, revision }), normalize: value => value,
     async apply(value) { document = value; revision++; applied++; } };
   let renderer;
-  await act(async () => { renderer = create(h(AIWorkspace, { adapter, colorMode: "light" }, h("p", null, "Workbook"))); await tick(); });
+  await act(async () => { renderer = create(h(AIWorkspace, { adapter, colorMode: "light", onBusyChange: value => busyChanges.push(value) }, h("p", null, "Workbook"))); await tick(); });
   t.after(() => act(async () => renderer.unmount()));
   await act(async () => { renderer.root.findByProps({ "aria-label": "メッセージを入力" }).props.onChange({ target: { value: "売上速報を作って" } }); });
   await act(async () => { renderer.root.findByType("form").props.onSubmit({ preventDefault() {} }); await tick(); await tick(); });
+  assert.deepEqual(busyChanges, [true, false], "both successful application and provider failure release the navigation lock");
   const rendered = JSON.stringify(renderer.toJSON());
   assert.match(rendered, /sheets.add/); assert.match(rendered, /売上速報/); assert.match(rendered, /JSONLをダウンロード/);
   assert.equal(renderer.root.findAllByProps({ className: "playground-ai-tool" }).length, 1, "running and final events update one history part");

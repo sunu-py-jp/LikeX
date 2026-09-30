@@ -4,7 +4,7 @@ import { GuardedDocumentBlob, type DocumentAdapter } from "./ai-document";
 export function createSlideAIAdapter(getHandle: () => SlideHandle, getRevision: () => number): DocumentAdapter {
   return {
     module: "slide", label: "Slide",
-    suggestions: ["表紙のタイトルを『新サービス企画』に変えて", "3つの要点をまとめたスライドを最後に追加して", "表紙の見出しにフェードインのアニメーションをつけて"],
+    suggestions: ["今のページに『新サービス企画』の表紙を作って", "3つの要点をまとめたスライドを最後に追加して", "今のページの配色と文字を読みやすく整えて"],
     async snapshot(signal) {
       signal.throwIfAborted();
       const document = await (await getHandle().exportNative()).text();

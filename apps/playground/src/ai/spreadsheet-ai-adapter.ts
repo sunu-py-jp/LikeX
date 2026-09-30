@@ -4,7 +4,7 @@ import type { DocumentAdapter } from "./ai-document";
 export function createSpreadsheetAIAdapter(getHandle: () => SpreadsheetHandle, getRevision: () => number, options: { title?: string } = {}): DocumentAdapter {
   return {
     module: "spreadsheet", label: "Spreadsheet",
-    suggestions: ["売上計画シートの数量をすべて2倍にして", "売上計画シートの見出しを青系で統一して", "新しいシートに来週のタスク管理表を作って"],
+    suggestions: ["今のシートに商品・数量・単価・合計の売上表を作って", "選択した範囲に罫線をつけて見出しを青色にして", "新しいシートに来週のタスク管理表を作って"],
     async snapshot(signal) {
       const document = await (await getHandle().exportNative({ signal })).text();
       signal.throwIfAborted();

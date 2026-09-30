@@ -52,7 +52,7 @@ npm ci
 npm run dev
 ```
 
-デモは `http://127.0.0.1:5173/`（Explorer）、`/spreadsheet`、`/slide`、`/document`、`/board`、`/diagram`、`/calendar`、`/whiteboard`、`/aichat`（AIとの会話）、`/chat`（人同士の会話）、`/dataview`、`/form` で起動します。保存先はタブ内メモリです。Office形式の読み書きはExcel・PowerPoint・Wordの全機能との互換を保証するものではありません。
+デモは `http://127.0.0.1:5173/`（Explorer）、`/spreadsheet`、`/slide`、`/document`、`/board`、`/diagram`、`/calendar`、`/whiteboard`、`/aichat`（AIとの会話）、`/chat`（人同士の会話）、`/dataview`、`/form` で起動します。通常デモの保存先はタブ内メモリです。`/spreadsheet/ai` と `/slide/ai` は資料一覧・新規作成から始まり、保存済み資料をブラウザーのIndexedDBに保持します。Office形式の読み書きはExcel・PowerPoint・Wordの全機能との互換を保証するものではありません。
 
 ```text
 packages/explorer/  # 独立して配布・コピーできるExplorer
