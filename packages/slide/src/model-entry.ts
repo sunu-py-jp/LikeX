@@ -7,7 +7,7 @@ export { importSlidePptxMasters } from "./import/pptx-masters";
 export type { SlidePptxMastersImportResult } from "./import/pptx-masters";
 export type { SlidePptxImportOptions, SlidePptxImportResult } from "./import/import-pptx";
 export { exportSlidePptx } from "./export/export-pptx-headless";
-export type { SlidePptxExportOptions } from "./export/types";
+export type { SlidePptxExportOptions, SlideSvgRasterizer, SlideSvgRasterizeRequest } from "./export/types";
 export type { SlidePptxDiagnostic, SlidePptxDiagnosticCode, SlidePptxDiagnosticLocation } from "./office/types";
 export type { OfficePackageBlob as SlidePptxExportBlob } from "./ooxml";
 /** Image output on a server/worker requires an explicitly supplied renderer. */

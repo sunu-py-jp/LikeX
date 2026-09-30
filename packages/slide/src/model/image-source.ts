@@ -1,6 +1,7 @@
 import { SLIDE_LIMITS } from "./limits";
+import { inspectSlideSvg } from "./svg-source";
 
-const fail = (): never => { throw new Error("画像はサイズ上限内のPNG / JPEG / GIF / WebPの埋め込みデータを指定してください"); };
+const fail = (): never => { throw new Error("画像はサイズ上限内のPNG / JPEG / GIF / WebP / SVGの埋め込みデータを指定してください"); };
 const ascii = (bytes: Uint8Array, offset: number, length: number) => String.fromCharCode(...bytes.subarray(offset, offset + length));
 const be32 = (bytes: Uint8Array, offset: number) => bytes[offset] * 0x1000000 + bytes[offset + 1] * 0x10000 + bytes[offset + 2] * 0x100 + bytes[offset + 3];
 const le16 = (bytes: Uint8Array, offset: number) => bytes[offset] + bytes[offset + 1] * 0x100;
@@ -63,7 +64,7 @@ function dimensions(bytes: Uint8Array, format: string): [number, number] {
 /** Inspect bounded embedded bytes without DOM, image decoding or network access. */
 export function validateSlideImageSource(value: unknown): { src: string; bytes: number } {
   if (typeof value !== "string" || value.length > 40 + Math.ceil(SLIDE_LIMITS.imageBytes / 3) * 4) return fail();
-  const prefix = /^data:image\/(png|jpeg|gif|webp);base64,/.exec(value);
+  const prefix = /^data:image\/(png|jpeg|gif|webp|svg\+xml);base64,/.exec(value);
   if (!prefix) return fail();
   const payload = value.slice(prefix[0].length);
   if (!payload.length || payload.length % 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(payload)) return fail();
@@ -74,6 +75,12 @@ export function validateSlideImageSource(value: unknown): { src: string; bytes: 
   if (btoa(binary) !== payload) return fail();
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+  if (prefix[1] === "svg+xml") {
+    let svg: string;
+    try { svg = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return fail(); }
+    inspectSlideSvg(svg);
+    return { src: value, bytes: byteLength };
+  }
   const [width, height] = dimensions(bytes, prefix[1]);
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 ||
     width > SLIDE_LIMITS.imageDimension || height > SLIDE_LIMITS.imageDimension || width * height > SLIDE_LIMITS.imagePixels) return fail();

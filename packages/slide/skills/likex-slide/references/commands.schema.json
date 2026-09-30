@@ -69,9 +69,6 @@
         },
         {
           "$ref": "#/$defs/SlideCommand_20"
-        },
-        {
-          "$ref": "#/$defs/SlideCommand_21"
         }
       ]
     },
@@ -529,7 +526,7 @@
         },
         "src": {
           "type": "string",
-          "description": "Embedded PNG/JPEG/GIF/WebP data URL. No remote requests are made when rendering a deck."
+          "description": "Embedded PNG/JPEG/GIF/WebP or validated static SVG data URL. No remote requests are made when rendering a deck."
         },
         "alt": {
           "type": "string"
@@ -1303,399 +1300,6 @@
       "type": "object",
       "properties": {
         "type": {
-          "const": "slide.compose"
-        },
-        "slideId": {
-          "type": "string"
-        },
-        "composition": {
-          "$ref": "#/$defs/SlideComposition"
-        },
-        "preset": {
-          "$ref": "#/$defs/SlideCommand_12_preset"
-        },
-        "notes": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "type",
-        "slideId",
-        "composition"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/SlideComposition_1"
-        },
-        {
-          "$ref": "#/$defs/SlideComposition_2"
-        },
-        {
-          "$ref": "#/$defs/SlideComposition_3"
-        },
-        {
-          "$ref": "#/$defs/SlideComposition_4"
-        },
-        {
-          "$ref": "#/$defs/SlideComposition_5"
-        },
-        {
-          "$ref": "#/$defs/SlideComposition_6"
-        }
-      ]
-    },
-    "SlideComposition_1": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "eyebrow": {
-          "type": "string"
-        },
-        "subtitle": {
-          "type": "string"
-        },
-        "footer": {
-          "type": "string"
-        },
-        "kind": {
-          "const": "hero"
-        },
-        "highlights": {
-          "$ref": "#/$defs/SlideComposition_1_highlights"
-        }
-      },
-      "required": [
-        "title",
-        "kind"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_1_highlights": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
-    "SlideComposition_2": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "eyebrow": {
-          "type": "string"
-        },
-        "subtitle": {
-          "type": "string"
-        },
-        "footer": {
-          "type": "string"
-        },
-        "kind": {
-          "const": "comparison"
-        },
-        "before": {
-          "$ref": "#/$defs/SlideComposition_2_before"
-        },
-        "after": {
-          "$ref": "#/$defs/SlideComposition_2_after"
-        }
-      },
-      "required": [
-        "title",
-        "kind",
-        "before",
-        "after"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_2_before": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "body": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "title",
-        "body"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_2_after": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "body": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "title",
-        "body"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_3": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "eyebrow": {
-          "type": "string"
-        },
-        "subtitle": {
-          "type": "string"
-        },
-        "footer": {
-          "type": "string"
-        },
-        "kind": {
-          "const": "features"
-        },
-        "items": {
-          "$ref": "#/$defs/SlideComposition_3_items"
-        }
-      },
-      "required": [
-        "title",
-        "kind",
-        "items"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_3_items": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/SlideComposition_3_items_item"
-      }
-    },
-    "SlideComposition_3_items_item": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "body": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "title",
-        "body"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_4": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "eyebrow": {
-          "type": "string"
-        },
-        "subtitle": {
-          "type": "string"
-        },
-        "footer": {
-          "type": "string"
-        },
-        "kind": {
-          "const": "flow"
-        },
-        "steps": {
-          "$ref": "#/$defs/SlideComposition_4_steps"
-        }
-      },
-      "required": [
-        "title",
-        "kind",
-        "steps"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_4_steps": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/SlideComposition_4_steps_item"
-      }
-    },
-    "SlideComposition_4_steps_item": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "body": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "title",
-        "body"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_5": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "eyebrow": {
-          "type": "string"
-        },
-        "subtitle": {
-          "type": "string"
-        },
-        "footer": {
-          "type": "string"
-        },
-        "kind": {
-          "const": "architecture"
-        },
-        "columns": {
-          "$ref": "#/$defs/SlideComposition_5_columns"
-        },
-        "connections": {
-          "$ref": "#/$defs/SlideComposition_5_connections"
-        }
-      },
-      "required": [
-        "title",
-        "kind",
-        "columns",
-        "connections"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_5_columns": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/SlideComposition_5_columns_item"
-      }
-    },
-    "SlideComposition_5_columns_item": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "nodes": {
-          "$ref": "#/$defs/SlideComposition_5_columns_item_nodes"
-        }
-      },
-      "required": [
-        "title",
-        "nodes"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_5_columns_item_nodes": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/SlideComposition_5_columns_item_nodes_item"
-      }
-    },
-    "SlideComposition_5_columns_item_nodes_item": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "title": {
-          "type": "string"
-        },
-        "body": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "title"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_5_connections": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/SlideComposition_5_connections_item"
-      }
-    },
-    "SlideComposition_5_connections_item": {
-      "type": "object",
-      "properties": {
-        "from": {
-          "type": "string"
-        },
-        "to": {
-          "type": "string"
-        },
-        "label": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "from",
-        "to"
-      ],
-      "additionalProperties": false
-    },
-    "SlideComposition_6": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string"
-        },
-        "eyebrow": {
-          "type": "string"
-        },
-        "subtitle": {
-          "type": "string"
-        },
-        "footer": {
-          "type": "string"
-        },
-        "kind": {
-          "const": "closing"
-        },
-        "action": {
-          "type": "string"
-        },
-        "details": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "title",
-        "kind",
-        "action"
-      ],
-      "additionalProperties": false
-    },
-    "SlideCommand_12_preset": {
-      "enum": [
-        "executive",
-        "editorial",
-        "contrast"
-      ]
-    },
-    "SlideCommand_13": {
-      "type": "object",
-      "properties": {
-        "type": {
           "const": "animation.set"
         },
         "slideId": {
@@ -1712,7 +1316,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_14": {
+    "SlideCommand_13": {
       "type": "object",
       "properties": {
         "type": {
@@ -1732,7 +1336,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_15": {
+    "SlideCommand_14": {
       "type": "object",
       "properties": {
         "type": {
@@ -1774,7 +1378,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_16": {
+    "SlideCommand_15": {
       "type": "object",
       "properties": {
         "type": {
@@ -1806,7 +1410,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_17": {
+    "SlideCommand_16": {
       "type": "object",
       "properties": {
         "type": {
@@ -1826,7 +1430,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_18": {
+    "SlideCommand_17": {
       "type": "object",
       "properties": {
         "type": {
@@ -2038,12 +1642,12 @@
         },
         "src": {
           "type": "string",
-          "description": "Embedded PNG/JPEG/GIF/WebP data URL. No remote requests are made when rendering a deck."
+          "description": "Embedded PNG/JPEG/GIF/WebP or validated static SVG data URL. No remote requests are made when rendering a deck."
         }
       },
       "additionalProperties": false
     },
-    "SlideCommand_19": {
+    "SlideCommand_18": {
       "type": "object",
       "properties": {
         "type": {
@@ -2053,7 +1657,33 @@
           "type": "string"
         },
         "elementIds": {
-          "$ref": "#/$defs/SlideComposition_1_highlights"
+          "$ref": "#/$defs/SlideCommand_18_elementIds"
+        }
+      },
+      "required": [
+        "type",
+        "slideId",
+        "elementIds"
+      ],
+      "additionalProperties": false
+    },
+    "SlideCommand_18_elementIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "SlideCommand_19": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "element.duplicate"
+        },
+        "slideId": {
+          "type": "string"
+        },
+        "elementIds": {
+          "$ref": "#/$defs/SlideCommand_18_elementIds"
         }
       },
       "required": [
@@ -2067,36 +1697,16 @@
       "type": "object",
       "properties": {
         "type": {
-          "const": "element.duplicate"
-        },
-        "slideId": {
-          "type": "string"
-        },
-        "elementIds": {
-          "$ref": "#/$defs/SlideComposition_1_highlights"
-        }
-      },
-      "required": [
-        "type",
-        "slideId",
-        "elementIds"
-      ],
-      "additionalProperties": false
-    },
-    "SlideCommand_21": {
-      "type": "object",
-      "properties": {
-        "type": {
           "const": "element.order"
         },
         "slideId": {
           "type": "string"
         },
         "elementIds": {
-          "$ref": "#/$defs/SlideComposition_1_highlights"
+          "$ref": "#/$defs/SlideCommand_18_elementIds"
         },
         "direction": {
-          "$ref": "#/$defs/SlideCommand_21_direction"
+          "$ref": "#/$defs/SlideCommand_20_direction"
         }
       },
       "required": [
@@ -2107,7 +1717,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_21_direction": {
+    "SlideCommand_20_direction": {
       "enum": [
         "front",
         "back",

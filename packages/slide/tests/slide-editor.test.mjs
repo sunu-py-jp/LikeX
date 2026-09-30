@@ -9,13 +9,13 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
   export { useSlideEditor } from './src/state/use-slide-editor.ts';
-  export { createSlideDeck, createSlideElement, parseSlideDeck, serializeSlideDeck } from './src/model/index.ts';
+  export { createSlideDeck, createSlideElement, createSlideSvgSource, parseSlideDeck, serializeSlideDeck } from './src/model/index.ts';
   export { openOfficePackage } from './src/ooxml.ts';
 `, resolveDir: packageRoot }, bundle: true, platform: 'node', format: 'esm', write: false,
 plugins: [{ name: 'shared-react', setup(builder) {
   builder.onResolve({ filter: /^(react|react-dom)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
 } }] });
-const { useSlideEditor, createSlideDeck, createSlideElement, parseSlideDeck, serializeSlideDeck, openOfficePackage } = await import(
+const { useSlideEditor, createSlideDeck, createSlideElement, createSlideSvgSource, parseSlideDeck, serializeSlideDeck, openOfficePackage } = await import(
   `data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const change = async callback => { await act(async () => { await callback(); }); };
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
@@ -745,56 +745,23 @@ test('connection command uses the shape permission gate and shared undo history'
   await change(() => app.editor.history('undo'));
   assert.equal(app.editor.deck, initialDeck);
 });
-
-test('semantic composition respects content and formatting gates before requesting editing', async t => {
-  const initialDeck = createSlideDeck({ slides: [{ id: 'page', name: 'Page', background: '#fff', notes: 'Keep',
-    elements: [createSlideElement({ type: 'text', id: 'old', text: 'Original' }), createSlideElement({ type: 'shape', id: 'box' })],
-    animations: [{ id: 'fade', animation: { type: 'tween', elementId: 'old', durationMs: 100, to: { opacity: 0 } } }] }] });
-  const command = { type: 'slide.compose', slideId: 'page', notes: 'New notes', composition: { kind: 'hero', title: '次の業務体験へ' } };
-  for (const options of [{ readOnly: true }, { features: { text: false } }, { features: { shapes: false } },
-    { features: { formatting: false } }, { features: { notes: false } }, { features: { animations: false } }]) {
-    let requests = 0;
-    const app = await mount(t, { initialDeck, ...options, onEditRequest() { requests++; return true; } });
-    await change(async () => assert.equal(await app.editor.execute(command), null));
-    assert.equal(app.editor.deck, initialDeck);
-    assert.equal(app.editor.canUndo, false);
-    assert.equal(requests, 0);
-  }
-});
-
-test('semantic composition uses normal UI history and rechecks permission after an async request', async t => {
-  const initialDeck = createSlideDeck({ slides: [{ id: 'page', name: 'Page', background: '#fff', notes: 'Keep',
-    elements: [createSlideElement({ type: 'text', id: 'old', text: 'Original' })] }] });
-  const command = { type: 'slide.compose', slideId: 'page', preset: 'editorial',
-    composition: { kind: 'comparison', title: '業務を変える', before: { title: '現在', body: '個別に確認' }, after: { title: '提案', body: '一画面で確認' } } };
-  const app = await mount(t, { initialDeck, features: { addSlides: false, deleteSlides: false, notes: false } });
-  await change(() => app.editor.select({ slideId: 'page', elementIds: ['old'] }));
-  await change(async () => assert.ok((await app.editor.execute(command))?.changed));
-  assert.equal(app.editor.deck.slides[0].notes, 'Keep');
-  assert.ok(app.editor.deck.slides[0].elements.some(element => element.text === '業務を変える'));
-  assert.ok(app.editor.selection.elementIds.every(id => app.editor.deck.slides[0].elements.some(element => element.id === id)));
-  await change(() => app.editor.history('undo'));
-  assert.deepEqual(app.editor.deck, initialDeck);
-  assert.deepEqual(app.editor.selection.elementIds, ['old']);
-  await change(() => app.editor.history('redo'));
-  assert.ok(app.editor.deck.slides[0].elements.some(element => element.text === '業務を変える'));
-  const decision = deferred();
-  const guarded = await mount(t, { initialDeck, onEditRequest: () => decision.promise });
-  let pending;
-  await change(() => { pending = guarded.editor.execute(command); });
-  await guarded.update({ features: { formatting: false } });
-  await change(async () => { decision.resolve(true); assert.equal(await pending, null); });
-  assert.equal(guarded.editor.deck, initialDeck);
-});
-
-test('UI can add and compose a new page in one atomic command batch', async t => {
+test('freeform SVG images use the existing image permission gate and undo/redo path', async t => {
   const initialDeck = createSlideDeck();
-  const app = await mount(t, { initialDeck });
-  await change(async () => assert.ok((await app.editor.execute([
-    { type: 'slide.add', slide: { id: 'composed-page', name: '提案', elements: [] } },
-    { type: 'slide.compose', slideId: 'composed-page', composition: { kind: 'hero', title: '次の業務体験へ' } },
-  ]))?.changed));
-  assert.ok(app.editor.deck.slides.find(page => page.id === 'composed-page')?.elements.some(element => element.text === '次の業務体験へ'));
+  const src = createSlideSvgSource('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90"><path d="M0 90L80 0L160 90Z" fill="#315bfb"/></svg>');
+  const command = { type: 'element.add', slideId: initialDeck.slides[0].id, element: { type: 'image', id: 'art', src, alt: 'Original artwork', x: 93, y: 117, width: 640, height: 360 } };
+  let requested = 0;
+  const app = await mount(t, { initialDeck, features: { images: false }, onEditRequest: () => { requested++; return true; } });
+  await change(async () => assert.equal(await app.editor.execute(command), null));
+  assert.equal(requested, 0);
+  assert.equal(app.editor.deck, initialDeck);
+  await app.update({ features: { images: true } });
+  await change(async () => assert.ok(await app.editor.execute(command)));
+  assert.equal(requested, 1);
+  assert.equal(app.editor.deck.slides[0].elements[0].x, 93);
+  assert.equal(app.editor.deck.slides[0].elements[0].src, src);
+  assert.deepEqual(parseSlideDeck(serializeSlideDeck(app.editor.deck)), app.editor.deck);
   await change(() => app.editor.history('undo'));
-  assert.deepEqual(app.editor.deck, initialDeck);
+  assert.equal(app.editor.deck, initialDeck);
+  await change(() => app.editor.history('redo'));
+  assert.equal(app.editor.deck.slides[0].elements[0].src, src);
 });

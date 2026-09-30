@@ -103,11 +103,11 @@ IDは空白を含まない1〜200文字。スライドIDは資料内で一意、
 
 ## 埋め込み画像
 
-`src` に `data:image/png;base64,…`、`data:image/jpeg;base64,…`、`data:image/gif;base64,…`、`data:image/webp;base64,…` のいずれかを指定する。`alt` は10,000文字以内。画像の実体を要素に持ち、Spreadsheetの `resources.images` / `resourceId` は使わない。
+`src` に `data:image/png;base64,…`、`data:image/jpeg;base64,…`、`data:image/gif;base64,…`、`data:image/webp;base64,…`、`data:image/svg+xml;base64,…` のいずれかを指定する。`alt` は10,000文字以内。画像の実体を要素に持ち、Spreadsheetの `resources.images` / `resourceId` は使わない。
 
-リモートURL、Blob URL、SVGは受け付けない。Base64の形式と実際の画像ヘッダー・寸法も検証される。表示枠の `width` / `height` と元画像の画素寸法を区別し、必要な比率で枠を指定する。画像の追加にsrc以外を省略した場合、枠の既定は320×240pxで、画像の実寸から自動計算するAPIではない。
+リモートURL、Blob URLは受け付けない。Base64の形式と実際の画像ヘッダー・寸法も検証される。SVGは静的な対応要素・属性だけを受け付け、外部参照やスクリプトを拒否する。`createSlideSvgSource(svg)` で検証・Base64変換できる。[対応要素と属性](image-export.md#svg素材の入力)を参照する。表示枠の `width` / `height` と元画像の画素寸法を区別し、必要な比率で枠を指定する。画像の追加にsrc以外を省略した場合、枠の既定は320×240pxで、画像の実寸から自動計算するAPIではない。
 
-1画像は10 MiBまで、各辺16,384pxまで、40,000,000画素まで。資料全体の画像は50 MiBまでで、要素ごとに加算される。同じsrcを複数の画像要素に使っても、この集計から除外されない。
+1画像は10 MiBまで、各辺16,384pxまで、40,000,000画素まで。SVG原文はさらに1 MiB・10,000ノード・深さ32まで。資料全体の画像は50 MiBまでで、要素ごとに加算される。同じsrcを複数の画像要素に使っても、この集計から除外されない。
 
 ## 上限と作成時のID
 

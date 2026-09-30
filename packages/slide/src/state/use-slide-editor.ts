@@ -24,13 +24,6 @@ export type SlideConversionReport = { phase: "import" | "export"; warnings: read
 const copy = <T,>(value: T): T => structuredClone(value);
 
 function permitted(command: SlideCommand, features: SlideFeatureState, deck: SlideDeck): boolean {
-  if (command.type === "slide.compose") {
-    const previous = deck.slides.find(slide => slide.id === command.slideId);
-    return features.formatting && features.text && features.shapes &&
-      (!Object.hasOwn(command, "notes") || features.notes) &&
-      (!previous?.animations?.length || features.animations) &&
-      (previous?.elements ?? []).every(element => features[element.type === "shape" ? "shapes" : element.type === "image" ? "images" : "text"]);
-  }
   if (command.type === "masters.import") return features.masters && features.import;
   if (command.type === "slide.applyLayout" || command.type === "slide.detachLayout") return features.masters && features.formatting;
   if (command.type === "slide.add" && (command.layoutId || command.slide?.layoutId) && !features.masters) return false;
@@ -474,7 +467,7 @@ export function useSlideEditor(props: SlideProps) {
     const consume = async (deck: SlideDeck, signal?: AbortSignal) => {
       if (!exportEnabled()) throw new Error("エクスポート機能は無効です。");
       const warnings: string[] = [], diagnostics: SlidePptxDiagnostic[] = [];
-      const blob = format === "pptx" ? await (await import("../export/export-pptx")).exportSlidePptx(deck, { ...options, signal, onWarning: warning => {
+      const blob = format === "pptx" ? await (await import("../export/export-pptx-browser")).exportSlidePptx(deck, { ...options, signal, onWarning: warning => {
         warnings.push(warning); options?.onWarning?.(warning);
       }, onDiagnostic: diagnostic => { diagnostics.push(diagnostic); options?.onDiagnostic?.(diagnostic); } })
         : new Blob([serializeSlideDeck(deck)], { type: "application/json" });

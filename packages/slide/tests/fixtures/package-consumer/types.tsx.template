@@ -66,8 +66,9 @@ if (possibleLine && isSlideLine(possibleLine)) { const point: ConnectorEndpoint 
 const badLinePort: ConnectorPort = "diagonal";
 void [lineCommand, lineUpdate, badLinePort];
 
-import { composeSlideContent, getSlideCompositionPresets, type SlideComposition } from '__LIBRARY_IMPORT__';
-const composition: SlideComposition = { kind: 'hero', title: '次の業務体験へ', subtitle: '公開APIから構成を指定' };
-const compositionCommand: SlideCommand = { type: 'slide.compose', slideId: deck.slides[0].id, composition, preset: getSlideCompositionPresets()[0].id };
-void composeSlideContent(deck, deck.slides[0].id, composition);
-void ref.current?.execute(compositionCommand);
+import { createSlideSvgSource, type SlideSvgRasterizer } from '__LIBRARY_IMPORT__';
+const authoredSvg: string = createSlideSvgSource('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><circle cx="50" cy="50" r="40" fill="#315bfb"/></svg>');
+const svgImage: SlideCommand = { type: 'element.add', slideId: deck.slides[0].id, element: { type: 'image', src: authoredSvg, alt: 'Diagram', x: 45, y: 75, width: 400, height: 200 } };
+declare const svgRasterizer: SlideSvgRasterizer;
+void ref.current?.execute(svgImage);
+void ref.current?.exportPptx({ rasterizeSvg: svgRasterizer });

@@ -1,6 +1,6 @@
 import { createZipArchive, type ZipArchiveEntry } from "../core";
 import { normalizeSlideDeck } from "../model";
-import type { SlideDeck, SlideElement } from "../model/types";
+import type { SlideDeck, SlideElement, SlideImageElement } from "../model/types";
 import { R, header, namespaces, xml, emu, group, colorMap, relationships, fill, themeXml, type Link } from "./pptx-xml";
 import { exportPptxAnimations } from "./pptx-animations";
 import { OFFICE_PACKAGE_LIMITS } from "../ooxml";
@@ -11,6 +11,8 @@ import { createOfficeTaskCheckpoint } from "../office/cooperative-task";
 import { isSlideLine } from "../model/lines";
 import { pptxConnectorXml, pptxConnectorTargetGeometry, pptxLineArrowheads } from "./pptx-connectors";
 import { pptxMasterPlan, writePptxMasterCatalog, pptxPlaceholder, type PptxPlaceholder } from "./pptx-masters";
+
+import { createSvgFallbacks } from "./svg-fallback";
 
 import type { SlidePptxExportOptions } from "./types";
 export type { SlidePptxExportOptions } from "./types";
@@ -25,14 +27,14 @@ function textBody(element: Exclude<SlideElement, { type: "image" }>): string {
   const run = `<a:rPr lang="ja-JP" sz="${size}" b="${isText && element.bold ? 1 : 0}" i="${isText && element.italic ? 1 : 0}">${fill(color, element.opacity)}<a:latin typeface="${xml(face)}"/><a:ea typeface="${xml(face)}"/></a:rPr>`;
   return `<p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="${anchor}"/><a:lstStyle/>${element.text.split("\n").map(line => `<a:p><a:pPr algn="${align}"/><a:r>${run}<a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr lang="ja-JP" sz="${size}"/></a:p>`).join("")}</p:txBody>`;
 }
-function elementXml(element: SlideElement, id: number, shapeIds: ReadonlyMap<string, number>, connectorTargets: ReadonlySet<string>, imageId?: string, placeholder?: PptxPlaceholder): string {
+function elementXml(element: SlideElement, id: number, shapeIds: ReadonlyMap<string, number>, connectorTargets: ReadonlySet<string>, imageId?: string, placeholder?: PptxPlaceholder, svgId?: string): string {
   const nvPr = placeholder ? `<p:nvPr><p:ph type="${xml(placeholder.kind)}" idx="${placeholder.index}"/></p:nvPr>` : "<p:nvPr/>";
   if (isSlideLine(element) && element.line) return pptxConnectorXml(element, id, shapeIds, nvPr);
   const transform = `<a:xfrm rot="${Math.round(element.rotation * 60000)}"><a:off x="${emu(element.x)}" y="${emu(element.y)}"/><a:ext cx="${emu(element.width)}" cy="${emu(element.height)}"/></a:xfrm>`;
   const lock = element.locked ? ' noMove="1" noResize="1" noRot="1"' : "";
   const common = `<p:cNvPr id="${id}" name="${xml(element.name)}"${element.type === "image" ? ` descr="${xml(element.alt)}"` : ""}/>`;
   const geometry = (connectorTargets.has(element.id) || placeholder && element.type === "shape") ? pptxConnectorTargetGeometry(element) : undefined;
-  if (element.type === "image") return `<p:pic><p:nvPicPr>${common}<p:cNvPicPr><a:picLocks noChangeAspect="1"${lock}/></p:cNvPicPr>${nvPr}</p:nvPicPr><p:blipFill><a:blip r:embed="${imageId}">${element.opacity < 1 ? `<a:alphaModFix amt="${Math.round(element.opacity * 100000)}"/>` : ""}</a:blip><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${transform}${geometry ?? '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'}</p:spPr></p:pic>`;
+  if (element.type === "image") return `<p:pic><p:nvPicPr>${common}<p:cNvPicPr><a:picLocks noChangeAspect="1"${lock}/></p:cNvPicPr>${nvPr}</p:nvPicPr><p:blipFill><a:blip r:embed="${imageId}">${element.opacity < 1 ? `<a:alphaModFix amt="${Math.round(element.opacity * 100000)}"/>` : ""}${svgId ? `<a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="${svgId}"/></a:ext></a:extLst>` : ""}</a:blip><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${transform}${geometry ?? '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'}</p:spPr></p:pic>`;
   const preset = element.type === "shape" ? element.shape === "arrow" ? "rightArrow" : element.shape : "rect";
   const stroke = element.type === "shape" ? `<a:ln w="${emu(element.strokeWidth)}">${fill(element.stroke, element.opacity)}<a:prstDash val="solid"/>${element.shape === "line" ? pptxLineArrowheads(element) : ""}</a:ln>` : '<a:ln><a:noFill/></a:ln>';
   return `<p:sp><p:nvSpPr>${common}<p:cNvSpPr${element.type === "text" ? ' txBox="1"' : ""}><a:spLocks${lock}/></p:cNvSpPr>${nvPr}</p:nvSpPr><p:spPr>${transform}${geometry ?? `<a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom>`}${fill(element.fill, element.opacity)}${stroke}</p:spPr>${textBody(element)}</p:sp>`;
@@ -48,11 +50,12 @@ export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExport
   const masterPlan = pptxMasterPlan(deck);
   const links: Link[] = [...(masterPlan.defaultMaster ? [{ id: "rIdMaster", type: `${R}/slideMaster`, target: "slideMasters/slideMaster1.xml" }] : []),
     ...masterPlan.masters.map(({ number }) => ({ id: `rIdMaster${number}`, type: `${R}/slideMaster`, target: `slideMasters/slideMaster${number}.xml` }))];
-  const imageRegistry = new Map<string, { path: string; mime: string }>();
+  const imageRegistry = new Map<string, { path: string; mime: string; svgPath?: string }>();
   let hasNotes = false, elementCount = 0;
   // Reserve all source text before sampling any page, including names, notes and
   // image alt on later pages. Only added snapshots consume the remaining budget.
   const catalogElements = [...(deck.masters ?? []).flatMap(master => master.elements), ...(deck.layouts ?? []).flatMap(layout => [...layout.elements, ...layout.placeholders.map(slot => slot.element)])];
+  const svgFallbacks = await createSvgFallbacks([...catalogElements, ...deck.slides.flatMap(slide => slide.elements)].filter((element): element is SlideImageElement => element.type === "image"), options);
   // The exported fallback master/layout become reusable definitions on import.
   // Reserve their names, along with all source catalog metadata, before sampling.
   const catalogNameLength = [...(deck.masters ?? []), ...(deck.layouts ?? [])].reduce((total, definition) => total + definition.name.length, 0)
@@ -63,15 +66,22 @@ export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExport
     if (element.type !== "image") return elementXml(element, shapeId, shapeIds, connectorTargets, undefined, placeholder);
     let image = imageRegistry.get(element.src);
     if (!image) {
-      const match = /^data:(image\/(?:png|jpeg|gif|webp));base64,([A-Za-z0-9+/=]+)$/.exec(element.src);
+      const match = /^data:(image\/(?:png|jpeg|gif|webp|svg\+xml));base64,([A-Za-z0-9+/=]+)$/.exec(element.src);
       if (!match) throw new Error("PowerPointに出力する画像の形式が不正です");
-      const mime = match[1], extension = mime === "image/jpeg" ? "jpg" : mime.slice(6);
+      const mime = match[1], svg = mime === "image/svg+xml", extension = svg ? "svg" : mime === "image/jpeg" ? "jpg" : mime.slice(6);
       image = { path: `ppt/media/image${imageRegistry.size + 1}.${extension}`, mime }; imageRegistry.set(element.src, image);
       const bytes = Uint8Array.from(atob(match[2]), character => character.charCodeAt(0));
       parts.push({ path: image.path, content: new Blob([bytes], { type: mime }) }); types.set(`/${image.path}`, mime);
+      if (svg) {
+        const svgPath = image.path, fallback = svgFallbacks.get(element.src)!;
+        image.svgPath = svgPath; image.path = svgPath.replace(/\.svg$/, ".png"); image.mime = "image/png";
+        parts.push({ path: image.path, content: new Blob([fallback as Uint8Array<ArrayBuffer>], { type: "image/png" }) }); types.set(`/${image.path}`, "image/png");
+      }
     }
     const id = `rIdImage${shapeId}`; links.push({ id, type: `${R}/image`, target: `../media/${image.path.split("/").at(-1)}` });
-    return elementXml(element, shapeId, shapeIds, connectorTargets, id, placeholder);
+    const svgId = image.svgPath ? `rIdSvg${shapeId}` : undefined;
+    if (svgId) links.push({ id: svgId, type: `${R}/image`, target: `../media/${image.svgPath!.split("/").at(-1)}` });
+    return elementXml(element, shapeId, shapeIds, connectorTargets, id, placeholder, svgId);
   };
   for (const { layout, number } of masterPlan.layouts) for (const slot of layout.placeholders)
     if (pptxPlaceholder(layout, slot.id)!.kind !== slot.kind) diagnostics.warn(`プレースホルダー種別 ${slot.kind} をPowerPointの汎用コンテンツへ変更しました`, {

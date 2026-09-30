@@ -2877,48 +2877,51 @@
     ]
   },
   {
-    "id": "slide/composition",
-    "title": "内容からページを組み立てる",
+    "id": "slide/freeform-design",
+    "title": "自由な資料設計とSVG",
     "component": "slide",
     "section": "編集とモデル",
-    "output": "slide/composition/index.html",
+    "output": "slide/freeform-design/index.html",
     "sources": [
-      "packages/slide/src/docs/composition.md"
+      "packages/slide/src/docs/freeform-design.md"
     ],
     "keywords": [
       "LikeSlide",
-      "SlideComposition",
-      "slide.compose",
-      "composeSlideContent",
-      "getSlideCompositionPresets",
-      "getSlideCompositionLayouts",
-      "構成図",
+      "SVG",
+      "createSlideSvgSource",
+      "slide.replaceContent",
+      "自由配置",
       "AI"
     ],
     "headings": [
       {
-        "id": "公開apiとコマンド",
-        "title": "公開APIとコマンド",
+        "id": "利用側と本体の役割",
+        "title": "利用側と本体の役割",
         "depth": 2
       },
       {
-        "id": "内容の型",
-        "title": "内容の型",
+        "id": "構図を自由に作る",
+        "title": "構図を自由に作る",
         "depth": 2
       },
       {
-        "id": "デザインとマスター",
-        "title": "デザインとマスター",
+        "id": "svg素材を追加する",
+        "title": "SVG素材を追加する",
         "depth": 2
       },
       {
-        "id": "文字の収まりと確認",
-        "title": "文字の収まりと確認",
+        "id": "描画後に確かめる",
+        "title": "描画後に確かめる",
         "depth": 2
       },
       {
-        "id": "保存とaiホストの責務",
-        "title": "保存とAIホストの責務",
+        "id": "保存とpowerpoint",
+        "title": "保存とPowerPoint",
+        "depth": 2
+      },
+      {
+        "id": "固定構図apiからの移行",
+        "title": "固定構図APIからの移行",
         "depth": 2
       }
     ]
@@ -2953,6 +2956,11 @@
       {
         "id": "対応範囲",
         "title": "対応範囲",
+        "depth": 2
+      },
+      {
+        "id": "svgとpng代替画像",
+        "title": "SVGとPNG代替画像",
         "depth": 2
       },
       {

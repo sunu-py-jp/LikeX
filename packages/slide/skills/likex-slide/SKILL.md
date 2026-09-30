@@ -13,7 +13,7 @@ Node.js **22.13以降**と、このskillに対応する版の `@likex/slide` が
 
 ## 進め方
 
-新規資料の作成や全面的な再設計では、先に [資料のデザイン指針](references/design-guide.md) と [意味からページを組み立てる](references/composition.md) を読む。指定マスター・参考資料・ブランドを優先し、各ページの目的、主張を伝えるタイトル、構図を決める。`slide.compose` は内容と構図から通常の編集可能な要素を配置する。基本の構図で足りない場合だけ [自由配置の例](references/layout-examples.md) と低水準コマンドを使う。部分修正では対象要素だけを更新し、全面置換しない。
+新規資料の作成や全面的な再設計では、先に [資料のデザイン指針](references/design-guide.md) を読む。指定マスター・参考資料・ブランドを優先し、各ページの主張と根拠から配置、文字階層、図解を設計する。決まったページ種別や配置プリセットは使わない。[自由配置の操作例](references/layout-examples.md) はAPIの使い方の参照であり、構図のテンプレートではない。通常の文字・図形・接続線とSVG素材を組み合わせ、編集可能性を保つ。部分修正では対象要素だけを更新する。
 
 プレビューを提供する利用ホストでは、変更した各ページの**最後の編集後の画像**とレイアウト診断を確認する。日本語は英語の単語数で制限せず、文字のまとまり・折り返し行数・描画時の幅で収まりを確認する。本文の切り捨てや極端な縮小で収めず、文章の整理・領域変更・ページ分割で直す。診断0件だけで完成とせず、線の交差、階層、コントラストも見る。
 
@@ -72,7 +72,6 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 ## 編集時の契約
 
 - `slideId` / `elementId` は名前ではない。既存IDはinspectから取得する。追加時は明示的な一意のIDを指定できる。CLIで省略したIDや複製IDは、作成・適用後のファイルを再inspectして取得する。
-- 新規内容・全面再設計は `slide.compose { slideId, composition, preset?, notes? }` で、`hero / comparison / features / flow / architecture / closing` の意味に沿って組み立てられる。対象ページのローカル要素を全置換し、マスターとレイアウトの参照を保持する。文字・件数の制限とマスターの扱いは [composition.md](references/composition.md) を読む。AIホストの `compose_slide` があれば公開された引数に従う。
 - ページ全体の作り直しは `slide.replaceContent` を使う。`slideId` と `elements: SlideElementInput[]` を渡すと検証後に一括置換され、旧要素を個別削除するためのIDの転記が不要になる。`name` / `background` / `notes` は省略すると保持、`animations` は省略すると消去する。既存のロック要素は先に明示的に解除する。1件でも不正な要素があれば旧ページがそのまま残る。
 - 保存ファイルでは要素に `stackOrder` が必要で、配列は位置順。APIの要素配列は背面から前面への描画順で、`stackOrder` は持たない。`parseSlideDeck` → `applySlideCommands` → `serializeSlideDeck` の境界を維持する。
 - `version: 1` でも `stackOrder` がない旧ファイルは現行SLONではない。旧形式やversion 2を黙って変換しない。

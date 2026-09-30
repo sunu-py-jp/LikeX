@@ -42,7 +42,6 @@
 | `slide.duplicate` | `slideId` | 直後へ複製。ページと全要素に新しいID |
 | `slide.move` | `slideId`, `index` | 最終的な0始まりの位置へ移動 |
 | `slide.update` | `slideId`, `patch: { name?, background?, notes? }` | ページの指定項目を更新 |
-| `slide.compose` | `slideId`, `composition`, `preset?`, `notes?` | 意味を持つ構図から1ページのローカル要素を生成・置換 |
 | `slide.replaceContent` | `slideId`, `elements: SlideElementInput[]`, `name?`, `background?`, `notes?`, `animations?` | 1ページの全要素を検証して置換 |
 
 `slide.add.slide` のフィールドは `id`, `name`, `background`, `notes`, `elements`。省略値は空の要素配列、白背景、空ノートなどの既定値を使う。`elements` を渡す場合、その各要素は完全な編集用 `SlideElement` であり、部分的な `SlideElementInput` ではない。手軽な追加は空のページを作り、`element.add` を続ける。
@@ -59,9 +58,7 @@
 
 ## 1ページを作り直す
 
-主張・比較・機能・手順・構成図・最後の行動を示すページは、[slide.compose](composition.md) で構図と内容から生成できる。マスター参照を保ち、低水準の座標指定を減らせる。部分修正には使わない。
-
-独自の構図で全体を描き直す場合は `slide.replaceContent` を使う。旧要素のIDを全部コピーして削除する必要がなく、背景の裏に旧要素が残ることもない。ページID・ページ順・他ページは保持し、省略した `name` / `background` / `notes` も保持する。`animations` は省略でクリア、指定時は新要素だけを参照できる。アニメーションを保持したい場合は新要素に適合する定義を明示する。
+全体を描き直す場合は `slide.replaceContent` を使う。旧要素のIDを全部コピーして削除する必要がなく、背景の裏に旧要素が残ることもない。ページID・ページ順・他ページは保持し、省略した `name` / `background` / `notes` も保持する。`animations` は省略でクリア、指定時は新要素だけを参照できる。アニメーションを保持したい場合は新要素に適合する定義を明示する。
 
 ```json
 [
@@ -91,7 +88,7 @@
 | `shape` | `shape`, `fill`, `stroke`, `strokeWidth`, `text`, `fontSize`, `textColor` |
 | `image` | 必須 `src`、任意 `alt` |
 
-`shape` は `rect` / `roundRect` / `ellipse` / `triangle` / `diamond` / `arrow` / `leftArrow` / `line`。図形文字の色は `textColor`、テキストの色は `color`。図形にテキスト用の `bold` / `fontFamily` などは渡さない。画像はPNG / JPEG / GIF / WebPのBase64 data URLのみ。画像と座標の上限は [schema-guide.md](schema-guide.md) を参照する。
+`shape` は `rect` / `roundRect` / `ellipse` / `triangle` / `diamond` / `arrow` / `leftArrow` / `line`。図形文字の色は `textColor`、テキストの色は `color`。図形にテキスト用の `bold` / `fontFamily` などは渡さない。画像はPNG / JPEG / GIF / WebP / 静的SVGのBase64 data URL。SVG文字列は公開 `createSlideSvgSource` で検証・変換する。[SVG素材の入力](image-export.md#svg素材の入力)を参照する。画像と座標の上限は [schema-guide.md](schema-guide.md) を参照する。
 
 ```json
 [

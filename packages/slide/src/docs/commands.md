@@ -78,7 +78,7 @@ type SlideFile = Omit<SlideDeck, "format" | "version" | "slides" | "masters" | "
 
 ## テキストを追加する
 
-新規ページの本文や全面再設計には、意味のある構図から配置する [slide.compose](composition.md) も使えます。以下の要素コマンドは独自の配置や部分編集に使います。
+要素の位置・寸法・書式は呼び出し側が自由に指定します。本体は決まった構図へ当てはめません。[自由な資料設計とSVG](freeform-design.md) も参照してください。
 
 ```ts
 import { createSlideDeck, applySlideCommands, serializeSlideDeck } from "@likex/slide/model";
@@ -260,7 +260,7 @@ GUIのファイル選択では未保存の置き換え確認を表示します�
 
 ## データ量と画像
 
-モデルは最大500スライド、1スライド1,000要素、資料全体10,000要素です。画像はPNG / JPEG / GIF / WebPのdata URLのみを受け付けます。上限値は公開定数 `SLIDE_LIMITS` で確認できます。外部から渡されたJSONも `parseSlideDeck` で検証してから利用してください。
+モデルは最大500スライド、1スライド1,000要素、資料全体10,000要素です。画像はPNG / JPEG / GIF / WebP / 静的SVGのBase64 data URLを受け付けます。SVGは `createSlideSvgSource(svg)` で検証・変換できます。[自由配置とSVGの対応範囲](freeform-design.md)を参照してください。上限値は公開定数 `SLIDE_LIMITS` で確認できます。外部から渡されたJSONも `parseSlideDeck` で検証してから利用してください。
 
 画像出力の `exportImage` / `exportImages` は、ブラウザーでは `@likex/slide/render` からReactなしで呼べます。`/model` 版では `renderer` を注入します。表示中の入力を含める場合はrefの `exportImage` / `exportImages` を使います。[対象ページ、解像度、結果の型、制限](image-export.md)を参照してください。
 
@@ -273,3 +273,5 @@ PowerPoint変換の詳細は `ref.current.getPptxDiagnostics(): readonly SlidePp
 ## マスターとレイアウトのAPI
 
 `masters.import`、`slide.applyLayout`、`slide.detachLayout`、`slide.add.layoutId` を使います。取得は `getSlideMasters` / `getSlideLayouts` / `getSlideLayout`、背景と共有装飾の解決は `resolveSlideAppearance` です。保存用のカタログ要素にも `stackOrder` を使うため、専用のparse/serializeを通してください。[型・コマンド・Office変換](masters.md)を参照してください。
+
+固定構図の `slide.compose` と関連する構図・プリセットAPIは削除しました。通常の要素コマンドか `slide.replaceContent` へ移行してください。既に生成済みの通常要素を持つSLONはそのまま読み込めます。[移行の説明](freeform-design.md#固定構図apiからの移行)

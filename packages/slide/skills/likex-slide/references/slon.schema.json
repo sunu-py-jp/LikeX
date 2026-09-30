@@ -669,7 +669,7 @@
         },
         "src": {
           "type": "string",
-          "description": "Embedded PNG/JPEG/GIF/WebP data URL. No remote requests are made when rendering a deck."
+          "description": "Embedded PNG/JPEG/GIF/WebP or validated static SVG data URL. No remote requests are made when rendering a deck."
         },
         "alt": {
           "type": "string"
@@ -1034,7 +1034,7 @@
         },
         "src": {
           "type": "string",
-          "description": "Embedded PNG/JPEG/GIF/WebP data URL. No remote requests are made when rendering a deck."
+          "description": "Embedded PNG/JPEG/GIF/WebP or validated static SVG data URL. No remote requests are made when rendering a deck."
         },
         "alt": {
           "type": "string"

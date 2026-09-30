@@ -58,3 +58,19 @@ node "$skill_dir/scripts/render-images.mjs" --project "$project_dir" \
 出力上限は各辺16,384px、1枚40,000,000px、全画像160,000,000px、バイナリー合計100MiB。JSON・履歴・選択・PPTX構造は画像出力では変更しない。refが未確定入力を確定した編集分は通常の履歴・未保存状態に含まれる。
 
 アニメーションがある資料もPNGは既定で最終静止状態になる。元の要素値で描く場合はAPIの `{ animationState: "initial" }` またはCLIの `--animation-state initial` を指定する。クリック待ちや時間を実行して画像を作る処理ではなく、終了値を解決して描く。元のSLONの要素値・定義を変更しない。原本の取得には `--include-animations` または `{ includeAnimations: true }` を使う。
+
+## SVG素材の入力
+
+図解・イラストの素材として、静的なSVGを通常の `image` 要素へ配置できる。公開 `createSlideSvgSource(svg)` は検証済みの `data:image/svg+xml;base64,…` を返す。戻り値を `element.add.element.src`、`element.update.patch.src` または `slide.replaceContent.elements` の画像へ渡す。手作業でBase64を生成する必要はない。モデルAPIは `@likex/slide/model` からimportする。
+
+AIホストの `add_svg_image` がある場合は、生のSVG文字列と配置先・寸法を渡せる。実際のツール定義を優先する。playgroundでは `slideId`, `elementId`, `svg`, `x`, `y`, `width`, `height` と、公開された `name` / `alt` / `dryRun` / `resolvesFailureIds` を指定する。既存のSVG素材を直す場合は `update_svg_image { slideId, elementId, svg, dryRun, resolvesFailureIds }` を使い、画像のID・配置・寸法・書式を維持して元のSVGだけを更新する。文字や図形を対象にしない。LLM接続やSVG生成はホスト側、本体は検証・描画・保存を担当する。
+
+- ルートは `<svg xmlns="http://www.w3.org/2000/svg">`。正のpx値による `width/height`、または `viewBox="x y width height"` を指定する。
+- 対応要素: `svg`（ルートのみ）、`g`, `defs`, `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `linearGradient`, `radialGradient`, `stop`, `clipPath`, `text`, `tspan`, `title`, `desc`。
+- 配置・形状の属性に加えて `transform`, `fill`, `stroke`, `opacity`、線幅・破線、グラデーション、クリッピング、基本の文字書式などのpresentation属性を使う。CSSの `style` / `class`、スタイルシート、スクリプト、イベント属性、`href` / `xlink:href`、外部参照、`image` / `use` / `filter` / `foreignObject` / アニメーションは使わない。
+- 内部参照は `fill` / `stroke` の `url(#gradientId)` と `clip-path` の `url(#clipId)`。IDは文書内で一意にし、参照先は対応するグラデーションまたは `clipPath` にする。グラデーションの継承参照は使わない。
+- 1 MiB、10,000ノード、深さ32が上限。SVG自体の各辺16,384px、40,000,000画素以内にする。資料全体の画像量も検証する。ホストはさらに小さい入力上限を設定する場合がある。
+
+SVGは単一の画像として移動・拡大縮小・回転できる。内部の文字や曲線を通常の編集可能要素へ分解するAPIではない。改訂する見出し・数値・ラベルは通常の `text`、追従する接続線は `line.add` で別に置く。SVG文字の折り返しは通常の文字診断の対象にならないため、実際の画像で確認する。SVGを一枚追加しただけで資料全体のデザインが完成したとは扱わない。
+
+PPTX出力はSVG原本とPNG代替画像を保持する。ブラウザー用の入口はPNGを自動生成し、ヘッドレス出力はホストの `rasterizeSvg` が必要。PNG出力APIの返り値自体は引き続きPNGで、SVGをPNGに見せかけて返さない。詳しくは [PowerPoint入出力](../../../src/docs/powerpoint.md) を参照する。

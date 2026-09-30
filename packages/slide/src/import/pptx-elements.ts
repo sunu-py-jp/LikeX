@@ -1,5 +1,7 @@
 import { createSlideElement } from "../model";
 import { SLIDE_LIMITS } from "../model/limits";
+import { createSlideSvgSource } from "../model/svg-source";
+import { validateSlideImageSource } from "../model/image-source";
 import type { SlideElement, SlideShapeKind } from "../model/types";
 import { child, children, attribute, localName, plainText, nonVisual, placeholder, color, readFill, type Node, type Theme, type PptxContext, type Relations } from "./pptx-reader";
 import { readOfficeConnectorShapeTag } from "../ooxml";
@@ -60,15 +62,21 @@ function textStyle(chain: Node[], options: ElementContext) {
   if (bodyProperties?.vert && bodyProperties.vert !== "horz" || Number(bodyProperties?.rot)) context.warn("縦書き・テキスト単独の回転を省略しました");
   return { fontSize, fontFamily, textColor, bold, italic, align, verticalAlign };
 }
-async function imageSource(path: string, context: PptxContext): Promise<string | undefined> {
-  const cached = context.images.get(path); if (cached) return cached;
+async function imageSource(path: string, context: PptxContext, svg = false): Promise<string | undefined> {
+  const cached = context.images.get(path); if (cached && (!svg || cached.startsWith("data:image/svg+xml;base64,"))) return cached;
   const bytes = await context.archive.read(path);
   if (bytes.length > SLIDE_LIMITS.imageBytes) throw new Error("PowerPointの画像1件のサイズが10 MiBを超えています");
+  if (svg || /\.svg$/i.test(path)) {
+    try {
+      const source = createSlideSvgSource(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+      context.images.set(path, source); return source;
+    } catch { context.warn("未対応または不正なSVGを読み込めませんでした。利用可能な場合は同梱の代替画像を使います", { code: "content-approximated", action: "approximation" }); return; }
+  }
   const signature = String.fromCharCode(...bytes.subarray(0, 12));
   const mime = bytes[0] === 137 && signature.slice(1, 4) === "PNG" ? "image/png" : bytes[0] === 255 && bytes[1] === 216 ? "image/jpeg" : signature.startsWith("GIF8") ? "image/gif" : signature.startsWith("RIFF") && signature.slice(8) === "WEBP" ? "image/webp" : undefined;
-  if (!mime) { context.warn("PNG・JPEG・GIF・WebP以外の画像を省略しました"); return; }
+  if (!mime) { context.warn("PNG・JPEG・GIF・WebP・SVG以外の画像を省略しました"); return; }
   const chunks: string[] = []; for (let at = 0; at < bytes.length; at += 8192) chunks.push(String.fromCharCode(...bytes.subarray(at, at + 8192)));
-  const source = `data:${mime};base64,${btoa(chunks.join(""))}`; context.images.set(path, source); return source;
+  const source = `data:${mime};base64,${btoa(chunks.join(""))}`; validateSlideImageSource(source); context.images.set(path, source); return source;
 }
 export async function readElement(chain: Node[], options: ElementContext, id: string): Promise<SlideElement | undefined> {
   const node = chain[0], kind = localName(node.name), { context, theme, mapping } = options;
@@ -84,10 +92,16 @@ export async function readElement(chain: Node[], options: ElementContext, id: st
   if (child(props, "effectLst")?.children.length || child(props, "effectDag") || child(props, "scene3d") || child(props, "sp3d") || Number(child(child(node, "style"), "effectRef")?.attributes.idx)) context.warn("影・立体効果などの装飾を省略しました");
   if (kind === "pic") {
     const blipFill = child(node, "blipFill"), blip = child(blipFill, "blip"), imageId = attribute(blip, "embed"), link = imageId ? options.links.get(imageId) : undefined;
-    if (!link || link.external || !link.type.endsWith("/image")) { context.warn("外部参照または参照先のない画像を省略しました"); return; }
-    if (children(child(blip, "extLst"), "ext").some(extension => children(extension, "svgBlip").length))
-      context.warn("SVG画像を同梱の代替画像へ変更しました。元のSVGは保持しません", { code: "content-approximated", action: "approximation" });
-    const src = await imageSource(link.target, context); if (!src) return;
+    const svgNode = children(child(blip, "extLst"), "ext").flatMap(extension => children(extension, "svgBlip"))[0];
+    const svgId = attribute(svgNode, "embed"), svgLink = svgId ? options.links.get(svgId) : undefined;
+    let src: string | undefined;
+    if (svgLink && !svgLink.external && svgLink.type.endsWith("/image")) src = await imageSource(svgLink.target, context, true);
+    else if (svgNode) context.warn("外部参照または参照先のないSVGを同梱の代替画像へ変更しました", { code: "content-approximated", action: "approximation" });
+    if (!src) {
+      if (!link || link.external || !link.type.endsWith("/image")) { context.warn("外部参照または参照先のない画像を省略しました"); return; }
+      src = await imageSource(link.target, context);
+    }
+    if (!src) return;
     const crop = child(blipFill, "srcRect"); if (crop && Object.values(crop.attributes).some(value => Number(value))) context.warn("画像のトリミングを解除して元画像を読み込みました", { code: "appearance-adjusted", action: "adjustment" });
     const alpha = Number(child(blip, "alphaModFix")?.attributes.amt ?? 100000) / 100000;
     return createSlideElement({ type: "image", id, name, ...position, opacity: alpha, locked, src, alt: nv?.attributes.descr ?? "" });

@@ -20,8 +20,8 @@ import { SlideConversionReport } from "./ui/slide-conversion-report";
 async function imageData(file: File, ownerDocument: Document) {
   if (file.size > SLIDE_LIMITS.imageBytes) throw new Error("画像は10 MB以下で指定してください。");
   const extension = file.name.split(".").pop()?.toLowerCase();
-  const mime = ({ png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" } as Record<string, string>)[extension ?? ""];
-  if (!mime) throw new Error("PNG、JPEG、GIF、WebP画像を選択してください。");
+  const mime = ({ png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml" } as Record<string, string>)[extension ?? ""];
+  if (!mime) throw new Error("PNG、JPEG、GIF、WebP、SVG画像を選択してください。");
   const src = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("画像を読み込めませんでした。"));
     reader.readAsDataURL(file.slice(0, file.size, mime));
@@ -144,7 +144,7 @@ export default function LikeSlide(props: SlideProps) {
       {!!editor.conversionReport?.diagnostics.length && <button type="button" className="lxp-conversion-toggle" aria-expanded={conversionOpen} onClick={() => setConversionOpen(value => !value)}>変換結果 ({editor.conversionReport.diagnostics.length})</button>}
       <div className="lxp-zoom"><button type="button" aria-label="縮小" onClick={() => adjustZoom(zoom - 10)}><Minus size={14} /></button><input type="range" min={25} max={200} step={5} aria-label="ズーム" value={zoom} onChange={event => adjustZoom(Number(event.target.value))} /><button type="button" aria-label="拡大" onClick={() => adjustZoom(zoom + 10)}><Plus size={14} /></button><span>{zoom}%</span><button type="button" aria-label="画面に合わせる" onClick={() => setZoom(100)}><Maximize size={14} /></button></div>
     </footer>
-    <input ref={imageInput} hidden type="file" accept="image/png,image/jpeg,image/gif,image/webp" aria-label="挿入する画像" onChange={event => {
+    <input ref={imageInput} hidden type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml" aria-label="挿入する画像" onChange={event => {
       const file = event.target.files?.[0]; event.target.value = "";
       const target = imageTarget.current; imageTarget.current = null;
       if (!file || !target || !ownerDocument || !editor.editable || !editor.features.images || target.deck !== editor.deck || target.slideId !== slide?.id) return;
