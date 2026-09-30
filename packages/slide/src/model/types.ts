@@ -123,6 +123,18 @@ export type SlideElementPatch =
   | Partial<Omit<SlideTextElement, "id" | "type">>
   | Partial<Omit<SlideShapeElement, "id" | "type">>
   | Partial<Omit<SlideImageElement, "id" | "type">>;
+export type SlideCompositionPreset = "executive" | "editorial" | "contrast";
+export type SlideCompositionBase = { title: string; eyebrow?: string; subtitle?: string; footer?: string };
+/** Semantic content, expanded into ordinary editable elements when applied. */
+export type SlideComposition = SlideCompositionBase & (
+  | { kind: "hero"; highlights?: string[] }
+  | { kind: "comparison"; before: { title: string; body: string }; after: { title: string; body: string } }
+  | { kind: "features"; items: { title: string; body: string }[] }
+  | { kind: "flow"; steps: { title: string; body: string }[] }
+  | { kind: "architecture"; columns: { title: string; nodes: { id: string; title: string; body?: string }[] }[];
+      connections: { from: string; to: string; label?: string }[] }
+  | { kind: "closing"; action: string; details?: string }
+);
 export type SlideCommand =
   | { type: "deck.rename"; title: string }
   | { type: "deck.resize"; width: number; height: number }
@@ -136,6 +148,8 @@ export type SlideCommand =
   | { type: "slide.update"; slideId: string; patch: Partial<Pick<Slide, "name" | "background" | "notes">> }
   /** Rebuild one page atomically. Omitted metadata is kept; omitted animations are cleared. */
   | { type: "slide.replaceContent"; slideId: string; elements: SlideElementInput[]; name?: string; background?: string; notes?: string; animations?: SlideAnimationStep[] }
+  /** Compose one page with deterministic geometry; preserves its master/layout and metadata. */
+  | { type: "slide.compose"; slideId: string; composition: SlideComposition; preset?: SlideCompositionPreset; notes?: string }
   | { type: "animation.set"; slideId: string; animations: SlideAnimationStep[] }
   | { type: "animation.remove"; slideId: string; animationId: string }
   | { type: "line.add"; slideId: string; start: ConnectorEndpoint; end: ConnectorEndpoint; id?: string; name?: string; stroke?: string; strokeWidth?: number; startArrow?: ConnectorArrowhead; endArrow?: ConnectorArrowhead }

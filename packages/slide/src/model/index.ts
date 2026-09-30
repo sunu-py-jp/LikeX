@@ -11,3 +11,5 @@ export type { SlideTextMeasureStyle, SlideTextMeasure, SlideTextLayout, SlideLay
 
 export { isSlideLine, getSlideLineEndpoints, getSlideConnectorOutline } from "./lines";
 export { getSlideMasters, getSlideLayouts, getSlideLayout, resolveSlideAppearance } from "./layouts";
+export { composeSlideContent, getSlideCompositionPresets, getSlideCompositionLayouts } from "./composition";
+export type { SlideCompositionOptions } from "./composition";

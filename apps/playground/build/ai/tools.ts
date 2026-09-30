@@ -11,6 +11,7 @@ import { checkCommandReferences, WriteFailures } from "./write-diagnostics.ts";
 import { AIToolError, invalidArgument } from "./tool-errors.ts";
 import { AIRepetitionError, NoChangeTracker } from "./no-change.ts";
 import { mapSlideFormatCommands, slideFormatCommands } from "./slide-format.ts";
+import { slideCompositionCommands, slideCompositionDesigns } from "./slide-composition.ts";
 export { toolDefinitions } from "./tool-definitions.ts";
 
 export type AIModule = "spreadsheet" | "slide";
@@ -62,6 +63,7 @@ export class SkillWorkspace {
     signal.throwIfAborted();
     const args = record(input);
     if (name === "read_skill") { keys(args, []); return this.skill(); }
+    if (this.module === "slide" && name === "get_slide_designs") { keys(args, []); return slideCompositionDesigns(); }
     if (name === "read_reference") {
       keys(args, ["name", "offset", "limit"]);
       if (typeof args.name !== "string" || !referenceNames[this.module].includes(args.name)) throw new AIError("一覧にある reference の名前を指定してください。");
@@ -74,9 +76,10 @@ export class SkillWorkspace {
     let script: Record<string, unknown> | undefined, recoveryCommands: unknown, recoveryPrepared = false;
     const textWrite = this.module === "slide" && name === "update_slide_text";
     const formatWrite = this.module === "slide" && name === "format_slide_elements";
-    const resolveIds = (name === "apply_commands" || name === "create_document" || textWrite || formatWrite) ? args.resolvesFailureIds ?? [] : name === "run_script" ? args.resolvesFailureIds ?? [] : [];
+    const composeWrite = this.module === "slide" && name === "compose_slide";
+    const resolveIds = (name === "apply_commands" || name === "create_document" || textWrite || formatWrite || composeWrite) ? args.resolvesFailureIds ?? [] : name === "run_script" ? args.resolvesFailureIds ?? [] : [];
     try {
-      script = scriptArguments(this.module, name, args);
+      script = scriptArguments(this.module, name, args, this.repository);
       if (name === "run_script") { script = { ...script }; delete script.resolvesFailureIds; }
       const writing = script.operation === "apply" || script.operation === "create";
       if (writing) {
@@ -109,9 +112,9 @@ export class SkillWorkspace {
       return observed;
     } catch (error) {
       if (error instanceof AIRepetitionError) throw error;
-      if (script?.operation === "apply" || script?.operation === "create" || name === "apply_commands" || name === "create_document" || textWrite || formatWrite) {
+      if (script?.operation === "apply" || script?.operation === "create" || name === "apply_commands" || name === "create_document" || textWrite || formatWrite || composeWrite) {
         if (signal.aborted) throw error;
-        const failedCommands = formatWrite ? recoveryCommands ?? slideFormatCommands(args) : script?.commands ?? (textWrite ? slideTextCommands(args) : args.commands);
+        const failedCommands = formatWrite ? recoveryCommands ?? slideFormatCommands(args) : script?.commands ?? (textWrite ? slideTextCommands(args) : composeWrite ? slideCompositionCommands(args) : args.commands);
         throw this.writeFailures.failed(String(script?.operation ?? (name === "create_document" ? "create" : "apply")), failedCommands, error, recoveryPrepared ? resolveIds as string[] : []);
       }
       throw error;

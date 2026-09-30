@@ -78,6 +78,8 @@ type SlideFile = Omit<SlideDeck, "format" | "version" | "slides" | "masters" | "
 
 ## テキストを追加する
 
+新規ページの本文や全面再設計には、意味のある構図から配置する [slide.compose](composition.md) も使えます。以下の要素コマンドは独自の配置や部分編集に使います。
+
 ```ts
 import { createSlideDeck, applySlideCommands, serializeSlideDeck } from "@likex/slide/model";
 

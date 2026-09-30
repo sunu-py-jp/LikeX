@@ -24,6 +24,13 @@ export type SlideConversionReport = { phase: "import" | "export"; warnings: read
 const copy = <T,>(value: T): T => structuredClone(value);
 
 function permitted(command: SlideCommand, features: SlideFeatureState, deck: SlideDeck): boolean {
+  if (command.type === "slide.compose") {
+    const previous = deck.slides.find(slide => slide.id === command.slideId);
+    return features.formatting && features.text && features.shapes &&
+      (!Object.hasOwn(command, "notes") || features.notes) &&
+      (!previous?.animations?.length || features.animations) &&
+      (previous?.elements ?? []).every(element => features[element.type === "shape" ? "shapes" : element.type === "image" ? "images" : "text"]);
+  }
   if (command.type === "masters.import") return features.masters && features.import;
   if (command.type === "slide.applyLayout" || command.type === "slide.detachLayout") return features.masters && features.formatting;
   if (command.type === "slide.add" && (command.layoutId || command.slide?.layoutId) && !features.masters) return false;

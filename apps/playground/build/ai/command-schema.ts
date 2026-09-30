@@ -24,6 +24,16 @@ export function commandSchemas(repository: string, module: "slide" | "spreadshee
 function dereference(schema: JSONSchema, root: JSONSchema): JSONSchema {
   return schema.$ref ? dereference(root.$defs![schema.$ref.split("/").at(-1)!], root) : schema;
 }
+/** Select one native discriminated command without maintaining a second tool schema. */
+export function commandVariant(root: JSONSchema, type: string): JSONSchema {
+  const command = dereference(root.items || {}, root);
+  const variant = (command.anyOf ?? [command]).map(item => dereference(item, root)).find(item => {
+    const tag = dereference(item.properties?.type ?? {}, root);
+    return tag.const === type || tag.enum?.includes(type);
+  });
+  if (!variant) throw new Error(`Native command schema is missing ${type}; rebuild the installed skills.`);
+  return variant;
+}
 function acceptsNull(schema: JSONSchema, root: JSONSchema): boolean {
   const value = dereference(schema, root);
   return value.const === null || value.type === "null" || Array.isArray(value.type) && value.type.includes("null") || !!value.anyOf?.some(item => acceptsNull(item, root));

@@ -36,3 +36,19 @@ const withLayout = applySlideCommands(withMasters.deck, { type: 'slide.applyLayo
 assert.equal(withLayout.slides[0].layoutId, layout.id);
 assert.equal(mastersApi.resolveSlideAppearance(withLayout, withLayout.slides[0]).localElements[0].text, 'Headless content');
 assert.deepEqual(parseSlideDeck(serializeSlideDeck(withLayout)), withLayout);
+
+const compositionApi = await import('__MODEL_IMPORT__');
+assert.equal(compositionApi.getSlideCompositionPresets().length, 3);
+const semanticSession = createSlideSession(original);
+const semanticCommand = { type: 'slide.compose', slideId: original.slides[0].id,
+  composition: { kind: 'flow', title: '確認から承認へ', steps: [{ title: '確認', body: '担当者が内容を確認' }, { title: '承認', body: '権限者が承認' }] }, preset: 'executive' };
+const composed = semanticSession.execute(semanticCommand);
+assert.ok(composed.deck.slides[0].elements.some(element => element.type === 'text' && element.text === '確認から承認へ'));
+assert.ok(composed.deck.slides[0].elements.some(element => element.type === 'shape' && element.line?.start.binding));
+assert.equal(semanticSession.execute(semanticCommand).changed, false);
+assert.equal(semanticSession.undo(), true);
+assert.deepEqual(semanticSession.getSnapshot().deck, original);
+assert.equal(semanticSession.redo(), true);
+const semanticRoundtrip = await importSlidePptx(await exportSlidePptx(composed.deck));
+assert.deepEqual(semanticRoundtrip.warnings, []);
+assert.ok(semanticRoundtrip.deck.slides[0].elements.some(element => element.text === '確認から承認へ'));

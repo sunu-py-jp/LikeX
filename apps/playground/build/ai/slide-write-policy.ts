@@ -5,7 +5,7 @@ import { canonicalSlideDeck } from "./slide-snapshot.ts";
 
 type NativePage = { id: string; [key: string]: unknown };
 type NativeDeck = { slides: NativePage[]; [key: string]: unknown };
-const pageCommands = new Set(["slide.update", "slide.replaceContent", "slide.applyLayout", "slide.detachLayout", "element.add", "line.add", "line.update", "element.update", "element.delete", "element.duplicate", "element.order", "animation.set", "animation.remove"]);
+const pageCommands = new Set(["slide.update", "slide.compose", "slide.replaceContent", "slide.applyLayout", "slide.detachLayout", "element.add", "line.add", "line.update", "element.update", "element.delete", "element.duplicate", "element.order", "animation.set", "animation.remove"]);
 const structureCommands = new Set(["slide.delete", "slide.duplicate", "slide.move"]);
 const fail = () => { throw new AIToolError("Slide AI の1回の書き込みは1ページまでです。ページごとに apply を分けて順番に実行してください。", { code: "slide_page_limit" }); };
 

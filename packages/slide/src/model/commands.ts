@@ -7,6 +7,7 @@ import { animationTargetIds, filterAnimationNode, normalizeSlideAnimations, same
 
 import { copySlideLine, getSlideLineEndpoints, isSlideLine, normalizeSlideLine, resolveSlideLines, slideLineGeometry, transformSlideLine } from "./lines";
 import { applySlideLayout, detachSlideLayout, importSlideMasterLibrary, withoutLayoutPlaceholder } from "./layouts";
+import { composeSlideContent } from "./composition";
 
 const COMMAND_KEYS: Record<SlideCommand["type"], readonly string[]> = {
   "masters.import": ["type", "library"], "slide.applyLayout": ["type", "slideId", "layoutId"], "slide.detachLayout": ["type", "slideId"],
@@ -17,6 +18,7 @@ const COMMAND_KEYS: Record<SlideCommand["type"], readonly string[]> = {
   "slide.duplicate": ["type", "slideId"], "slide.move": ["type", "slideId", "index"],
   "slide.update": ["type", "slideId", "patch"], "element.add": ["type", "slideId", "element"],
   "slide.replaceContent": ["type", "slideId", "elements", "name", "background", "notes", "animations"],
+  "slide.compose": ["type", "slideId", "composition", "preset", "notes"],
   "element.update": ["type", "slideId", "elementId", "patch"], "element.delete": ["type", "slideId", "elementIds"],
   "element.duplicate": ["type", "slideId", "elementIds"], "element.order": ["type", "slideId", "elementIds", "direction"],
   "animation.set": ["type", "slideId", "animations"], "animation.remove": ["type", "slideId", "animationId"],
@@ -92,6 +94,9 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
     return { deck: normalizeSlideDeck({ ...deck, slides: next }), slideId: slide.id, elementIds: [] };
   }
   const slide = requiredSlide(deck, raw.slideId);
+  if (type === "slide.compose") return applyOne(deck, composeSlideContent(deck, slide.id,
+    raw.composition as Extract<SlideCommand, { type: "slide.compose" }>["composition"],
+    { preset: raw.preset as Extract<SlideCommand, { type: "slide.compose" }>["preset"], notes: raw.notes as string | undefined }));
   const slideIndex = deck.slides.indexOf(slide);
   if (type === "slide.applyLayout" || type === "slide.detachLayout") {
     const next = type === "slide.applyLayout" ? applySlideLayout(deck, slide, identifier(raw.layoutId)) : detachSlideLayout(deck, slide);

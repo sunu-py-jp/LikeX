@@ -88,3 +88,13 @@ const addLayout: SlideCommand = { type: 'slide.add', layoutId: 'layout' };
 void applyLayout; void detachLayout; void addLayout;
 const importedLibrary: Promise<SlidePptxMastersImportResult> = importSlidePptxMasters(new Uint8Array());
 void importedLibrary;
+
+import { composeSlideContent, getSlideCompositionPresets, type SlideComposition, type SlideCompositionPreset } from '__MODEL_IMPORT__';
+const composition: SlideComposition = { kind: 'comparison', title: '業務の変化', before: { title: '現在', body: '個別に確認' }, after: { title: '提案', body: '一画面で確認' } };
+const compositionPreset: SlideCompositionPreset = getSlideCompositionPresets()[0].id;
+const composedCommand: SlideCommand = { type: 'slide.compose', slideId: deck.slides[0].id, composition, preset: compositionPreset };
+void applySlideCommands(deck, composedCommand);
+void composeSlideContent(deck, deck.slides[0].id, composition, { measureText: textMeasure });
+// @ts-expect-error Compositions accept known semantic layouts only.
+const unsupportedComposition: SlideComposition = { kind: 'freeform', title: 'Unsupported' };
+void unsupportedComposition;

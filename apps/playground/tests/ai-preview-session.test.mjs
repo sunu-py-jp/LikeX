@@ -81,6 +81,27 @@ test("context keeps six newest images and all text diagnostics without counting 
   assert.deepEqual(input.map(item => item.output[0].text), Array.from({ length: 8 }, (_, index) => `diagnostic-${index}`));
 });
 
+test("preview revisions include inherited appearance without invalidating unrelated or hidden master artwork", () => {
+  const decorated = serializeSlideDeck(createSlideDeck({ width: 1280, height: 720,
+    masters: ["master-one", "master-two"].map(id => ({ id, name: id, background: "#ffffff", elements: [createSlideElement({ id: `${id}-stripe`, type: "shape", x: 0, y: 0, width: 1280, height: 25, fill: "#173f5f" })] })),
+    layouts: ["one", "two"].map(id => ({ id: `layout-${id}`, masterId: `master-${id}`, name: id, elements: [], placeholders: [] })),
+    slides: ["one", "two"].map(id => ({ id, name: id, notes: "", background: "#ffffff", elements: [], layoutId: `layout-${id}`, inheritBackground: true })),
+  }));
+  const tracker = new SlidePreviewTracker(decorated);
+  const changed = change(decorated, deck => { deck.masters[0].elements[0].fill = "#224466"; });
+  assert.deepEqual(tracker.pending(changed), ["one"]);
+  const prepared = tracker.prepare(changed, "one");
+  const newer = change(changed, deck => { deck.layouts[0].background = "#eeeeee"; });
+  assert.throws(() => tracker.confirm(newer, "one", prepared.revision), /変更されました/);
+  tracker.confirm(changed, "one", prepared.revision);
+  assert.deepEqual(tracker.pending(change(changed, deck => { deck.masters[1].name = "Only a label"; })), []);
+  assert.deepEqual(tracker.pending(change(changed, deck => { deck.masters[1].background = "#dddddd"; })), ["two"]);
+  const hidden = change(decorated, deck => { deck.slides[0].showMasterShapes = false; });
+  const hiddenTracker = new SlidePreviewTracker(hidden);
+  assert.deepEqual(hiddenTracker.pending(change(hidden, deck => { deck.masters[0].elements[0].fill = "#000000"; })), []);
+  assert.deepEqual(hiddenTracker.pending(change(hidden, deck => { deck.layouts[0].elements.push({ ...deck.masters[0].elements[0], id: "layout-art" }); })), ["one"]);
+});
+
 test("capability is a narrow host contract and is unavailable for spreadsheets", () => {
   assert.deepEqual(parseRequest(request()).capabilities, { slidePreview: true });
   for (const capabilities of [{ slidePreview: false }, { slidePreview: true, arbitrary: true }, {}, []])

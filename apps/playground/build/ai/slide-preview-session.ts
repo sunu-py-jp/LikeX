@@ -6,7 +6,16 @@ import { canonicalSlideDeck } from "./slide-snapshot.ts";
 type NativeDeck = ReturnType<typeof canonicalSlideDeck>;
 type NativePage = NativeDeck["slides"][number];
 function fingerprint(deck: NativeDeck, page: NativePage) {
-  return createHash("sha256").update(JSON.stringify([deck.width, deck.height, page])).digest("hex");
+  const layout = deck.layouts?.find(item => item.id === page.layoutId);
+  const master = layout && deck.masters?.find(item => item.id === layout.masterId);
+  // A page can change visually without a local edit. Include only its referenced
+  // inherited artwork/background; unrelated catalogs and template labels are irrelevant.
+  const inherited = layout ? {
+    background: page.inheritBackground ? layout.background ?? master?.background : undefined,
+    layoutElements: layout.elements,
+    masterElements: page.showMasterShapes !== false && layout.showMasterShapes !== false ? master?.elements : undefined,
+  } : undefined;
+  return createHash("sha256").update(JSON.stringify([deck.width, deck.height, page, inherited])).digest("hex");
 }
 
 /** Track the exact staged revision reviewed by the model, independently from live editor state. */

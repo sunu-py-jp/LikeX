@@ -64,7 +64,25 @@ export function checkCommandReferences(module: "slide" | "spreadsheet", document
   });
 }
 interface Failure {
-  id: string; message: string; operation: string; commands: Command[]; fingerprint: string; readGeneration: number; unknownIdPath?: string; unknownReference?: { field: string; value: string; existingIds: string[]; scope: Command }; boundaryError?: boolean; commandIndexes?: number[]; target?: string; drawingAnchorCommandIndex?: number;
+  id: string; message: string; operation: string; commands: Command[]; fingerprint: string; readGeneration: number; unknownIdPath?: string; unknownReference?: { field: string; value: string; existingIds: string[]; scope: Command }; boundaryError?: boolean; commandIndexes?: number[]; target?: string; drawingAnchorCommandIndex?: number; compositionDensityCommandIndex?: number;
+}
+/** Text-density failures are distinct from count-cap, template-area and schema errors. */
+function compositionDensityFailure(commands: unknown, error: unknown): number | undefined {
+  if (!(error instanceof AIToolError) || error.details.code !== "write_failed" || !Array.isArray(commands) || !/(?:\d+行は領域に収まりません|\d+文字（書記素）以内)/.test(error.message)) return;
+  const location = /^commands\[(\d+)\]$/.exec(error.details.path ?? "");
+  if (location && commands[Number(location[1])]?.type === "slide.compose") return Number(location[1]);
+  // The Slide CLI throws model errors without a command index. The dedicated
+  // tool supplies exactly one command, making that target unambiguous.
+  if (!location && commands.length === 1 && commands[0]?.type === "slide.compose") return 0;
+}
+/** Shorter copy can repair density; removing steps/nodes/relations cannot silently repair it. */
+function preservesCompositionStructure(before: unknown, after: unknown): boolean {
+  if (Array.isArray(before)) return Array.isArray(after) && after.length >= before.length && before.every((value, index) => preservesCompositionStructure(value, after[index]));
+  if (!before || typeof before !== "object") return true;
+  if (!after || typeof after !== "object" || Array.isArray(after)) return false;
+  const next = after as Command;
+  return Object.entries(before).every(([key, value]) => ["kind", "id", "from", "to"].includes(key) ? value === next[key]
+    : value && typeof value === "object" ? preservesCompositionStructure(value, next[key]) : true);
 }
 /** Use the public model's anchor validation; the real sheet's bounds are rechecked by the CLI. */
 function validDrawingAnchor(value: unknown): boolean {
@@ -206,6 +224,7 @@ export class WriteFailures {
         ...(error instanceof AIToolError && (error.details.code === "unknown_id" || error.details.code === "invalid_argument") ? { unknownIdPath: error.details.path } : {}),
         unknownReference: unknownReference(commands, error),
         drawingAnchorCommandIndex: drawingAnchorFailure(commands, error),
+        compositionDensityCommandIndex: compositionDensityFailure(commands, error),
         ...(error instanceof AIToolError && error.details.path && !error.details.path.startsWith("commands") ? { boundaryError: true } : {}) };
       prior.forEach(item => this.failures.delete(item.id));
       this.failures.set(id, failure);
@@ -223,8 +242,13 @@ export class WriteFailures {
       if (!command || typeof command !== "object" || (typeof command.type !== "string" && failure.unknownIdPath !== `commands[${index}].type`)) return false;
       const replacement = next.find(candidate => candidate.type === "slide.replaceContent" && candidate.slideId === command.slideId);
       if (replacement && ["element.add", "line.add", "line.update", "element.delete", "element.update", "element.duplicate", "element.order", "animation.set", "animation.remove", "slide.replaceContent"].includes(String(command.type))) return true;
+      // Composition may reject inherited artwork for which a bespoke full-page layout
+      // is necessary. It still replaces the same page, including requested notes.
+      if (replacement && command.type === "slide.compose" && Array.isArray(replacement.elements) && replacement.elements.length > 0
+        && (command.notes === undefined || command.notes === replacement.notes)) return true;
       const match = next.findIndex((candidate, nextIndex) => {
         if (used.has(nextIndex) || (candidate.type !== command.type && failure.unknownIdPath !== `commands[${index}].type`)) return false;
+        if (failure.compositionDensityCommandIndex === index && !preservesCompositionStructure(command.composition, candidate.composition)) return false;
         let candidateReference: string | undefined;
         const targetKeys = ["sheetId", "slideId", "sourceId", "targetId", "elementId", "elementIds", "drawingId", "animationId", "afterId", "address", "addresses", "range", "ranges", "tableId", "namedRangeId", "index", "count", "row", "column", "anchor", "source", "target", "query", "mode", "shift", "clear", "direction", "discardContent", "onConflict", "partialMerges", ...bindingKeys];
         for (const key of targetKeys) {

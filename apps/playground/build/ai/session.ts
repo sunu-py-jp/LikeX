@@ -139,7 +139,8 @@ export async function runAISession(options: {
         signal.throwIfAborted();
         const label = call.name === "read_skill" ? "SKILL.md を読み込んでいます…" : call.name === "read_reference" ? "reference を読み込んでいます…"
           : call.name === "preview_slide" ? "スライドの画像と文字の収まりを確認しています…"
-          : call.name === "inspect_document" || call.name.startsWith("search_") ? "必要な資料の情報を取得しています…" : "編集コマンドを実行しています…";
+          : call.name === "inspect_document" || call.name === "get_slide_designs" || call.name.startsWith("search_") ? "必要な資料の情報を取得しています…"
+          : call.name === "compose_slide" ? "スライドの内容を配置しています…" : "編集コマンドを実行しています…";
         emit({ type: "progress", message: label });
         let result;
         let args, invalidArguments = false;
