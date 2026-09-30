@@ -11,7 +11,7 @@ type Tween = Extract<SlideAnimationNode, { type: "tween" }>;
 type RawTween = Tween & { source?: Node; visibility?: boolean; centerX?: boolean; centerY?: boolean; scale?: boolean; noOp?: boolean; relative?: Properties };
 type RawNode = RawTween | { type: "sequence" | "parallel"; children: RawNode[] };
 type Parsed = { node: RawNode; trigger?: SlideAnimationTrigger };
-type Options = { context: PptxContext; theme: Theme; mapping: Record<string, string>; targets: ReadonlyMap<string, SlideElement>; width: number; height: number; pageNumber: number; slideId?: string;
+type Options = { context: PptxContext; theme: Theme; mapping: Record<string, string>; targets: ReadonlyMap<string, SlideElement>; width: number; height: number; pageNumber: number; slideId?: string; layoutId?: string;
   applyInitialValues?(element: SlideElement): void };
 const unsupported = (message: string): never => { throw new Error(message); };
 const numeric = (value: string | undefined, label: string): number => {
@@ -373,7 +373,7 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
     } catch (error) { context.signal?.throwIfAborted(); warn(node, `${(error as Error).message}。この動作を省略しました`); return waiting(node); }
   };
 
-  const finalElements = (node: SlideAnimationNode, current: readonly SlideElement[]) => resolveSlideAnimations({ id: "pptx-animation-state", name: "", background: "#ffffff", notes: "", elements: [...current], animations: [{ id: "state", animation: node }] }).elements;
+  const finalElements = (node: SlideAnimationNode, current: readonly SlideElement[]) => resolveSlideAnimations({ id: "pptx-animation-state", ...(options.layoutId ? { layoutId: options.layoutId } : {}), name: "", background: "#ffffff", notes: "", elements: [...current], animations: [{ id: "state", animation: node }] }).elements;
   const decouple = async (node: RawNode, current: readonly SlideElement[]): Promise<RawNode> => {
     await checkpoint();
     if (node.type !== "parallel") return node;

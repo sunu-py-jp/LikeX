@@ -25,6 +25,7 @@ export function SlideCanvasElement({ element, original, selected, editable, form
     onContextMenu={event => onMenu(event, original)}
     onDoubleClick={() => { if (editable && textEnabled && element.type !== "image" && !element.locked) onEdit({ id: element.id, text: element.text }); }}>
     <SlideElementContent element={element} />
+    {element.type === "text" && element.layoutPlaceholderId && !element.text && editable && textEnabled && <div className="lxp-placeholder-hint" aria-hidden="true" style={{ fontSize: Math.min(element.fontSize, 28) }}>ダブルクリックして{element.name || "テキスト"}を入力</div>}
     {line && geometry?.kind === "line" && <svg className="lxp-line-hit" width={element.width} height={element.height} style={{ overflow: "visible" }} aria-hidden="true">
       <line x1={geometry.x1} y1={geometry.y1} x2={geometry.x2} y2={geometry.y2} stroke="transparent" strokeWidth={Math.max(element.strokeWidth, 12 / scale)} strokeLinecap="round" style={{ pointerEvents: "stroke" }} />
     </svg>}

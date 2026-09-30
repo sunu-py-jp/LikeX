@@ -5,7 +5,7 @@ import { canonicalSlideDeck } from "./slide-snapshot.ts";
 
 type NativePage = { id: string; [key: string]: unknown };
 type NativeDeck = { slides: NativePage[]; [key: string]: unknown };
-const pageCommands = new Set(["slide.update", "slide.replaceContent", "element.add", "line.add", "line.update", "element.update", "element.delete", "element.duplicate", "element.order", "animation.set", "animation.remove"]);
+const pageCommands = new Set(["slide.update", "slide.replaceContent", "slide.applyLayout", "slide.detachLayout", "element.add", "line.add", "line.update", "element.update", "element.delete", "element.duplicate", "element.order", "animation.set", "animation.remove"]);
 const structureCommands = new Set(["slide.delete", "slide.duplicate", "slide.move"]);
 const fail = () => { throw new AIToolError("Slide AI の1回の書き込みは1ページまでです。ページごとに apply を分けて順番に実行してください。", { code: "slide_page_limit" }); };
 
@@ -22,7 +22,7 @@ export function checkSlideWrite(source: string, operation: string, values: unkno
     return before;
   }
   const types = commands.map(command => String(command.type));
-  if (types.some(type => type === "deck.rename" || type === "deck.resize" || structureCommands.has(type))) {
+  if (types.some(type => type === "deck.rename" || type === "deck.resize" || type === "masters.import" || structureCommands.has(type))) {
     if (commands.length !== 1) fail();
     if (types[0] === "deck.resize" && before.slides.length > 1) throw new AIError("複数ページの deck.resize は全ページへ影響するため Slide AI では実行できません。画面のサイズ設定を使ってください。");
     return before;

@@ -310,3 +310,23 @@ test('an animated frame that finishes after cancellation is closed without drawi
   assert.equal(env.named('drawImage').length, 0); assert.equal(env.named('toBlob').length, 0);
   assert.equal(env.timers.size, 0);
 });
+
+test('PNG includes inherited master/layout artwork behind local content and never paints placeholder hints or sample text', async t => {
+  const env = environment(t);
+  const text = (id, content) => createSlideElement({ type: 'text', id, text: content, x: 10, y: 10, width: 400, height: 80 });
+  const deck = createSlideDeck({ width: 800, height: 600,
+    masters: [{ id: 'master', name: 'Brand', background: '#183247', elements: [text('brand', 'BRAND')] }],
+    layouts: [{ id: 'layout', masterId: 'master', name: 'Title', elements: [text('footer', 'FOOTER')], placeholders: [{ id: 'title', kind: 'title', element: text('prototype', 'SAMPLE MUST NOT PAINT') }] }],
+    slides: [{ id: 'slide', name: 'Slide', layoutId: 'layout', inheritBackground: true, background: '#ffffff', notes: '', elements: [text('content', 'CONTENT'), { ...text('empty', ''), layoutPlaceholderId: 'title' }] }],
+  });
+  await renderSlideImage({ deck, slide: deck.slides[0], width: 800, height: 600, scale: 1, pageNumber: 1, format: 'png' });
+  assert.ok(env.named('fillRect').some(call => call.state.fillStyle === '#183247'));
+  assert.deepEqual(env.named('fillText').map(call => call.args[0]).filter(Boolean), ['BRAND', 'FOOTER', 'CONTENT']);
+  assert.equal(env.fontLoads.some(item => item.text.includes('SAMPLE')), false);
+  const hidden = createSlideDeck({ ...deck, slides: [{ ...deck.slides[0], showMasterShapes: false, inheritBackground: false, background: '#234567' }] });
+  const previous = env.calls.length;
+  await renderSlideImage({ deck: hidden, slide: hidden.slides[0], width: 800, height: 600, scale: 1, pageNumber: 1, format: 'png' });
+  const later = env.calls.slice(previous);
+  assert.ok(later.some(call => call.name === 'fillRect' && call.state.fillStyle === '#234567'));
+  assert.deepEqual(later.filter(call => call.name === 'fillText').map(call => call.args[0]).filter(Boolean), ['FOOTER', 'CONTENT']);
+});

@@ -4,6 +4,7 @@
 /* eslint-disable @next/next/no-img-element */
 import type { CSSProperties } from "react";
 import type { Slide, SlideDeck, SlideElement, SlideShapeElement } from "../model/types";
+import { resolveSlideAppearance } from "../model/index";
 import { getSlideLineMarkers } from "../render/line-markers";
 import { getSlideShapeGeometry, SHAPE_TEXT_STYLE, SLIDE_TEXT_STYLE } from "../render/render-style";
 
@@ -37,9 +38,11 @@ export function SlideElementContent({ element }: { element: SlideElement }) {
   }}>{element.text}</div>;
 }
 
-export function SlideArtwork({ deck, slide, scale = 1 }: { deck: Pick<SlideDeck, "width" | "height">; slide: Slide; scale?: number }) {
-  return <div className="lxp-artwork" aria-hidden="true" style={{ width: deck.width, height: deck.height, background: slide.background,
+export function SlideArtwork({ deck, slide, scale = 1 }: { deck: SlideDeck; slide: Slide; scale?: number }) {
+  const appearance = resolveSlideAppearance(deck, slide);
+  return <div className="lxp-artwork" aria-hidden="true" style={{ width: deck.width, height: deck.height, background: appearance.background,
     transform: `scale(${scale})`, transformOrigin: "top left" }}>
-    {slide.elements.map(element => <div key={element.id} data-slide-element-id={element.id} className="lxp-element" style={elementStyle(element)}><SlideElementContent element={element} /></div>)}
+    {appearance.inheritedElements.map((element, index) => <div key={`inherited:${index}:${element.id}`} className="lxp-element lxp-inherited-element" style={elementStyle(element)}><SlideElementContent element={element} /></div>)}
+    {appearance.localElements.map(element => <div key={element.id} data-slide-element-id={element.id} className="lxp-element" style={elementStyle(element)}><SlideElementContent element={element} /></div>)}
   </div>;
 }

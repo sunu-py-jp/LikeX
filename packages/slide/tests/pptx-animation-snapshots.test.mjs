@@ -156,7 +156,9 @@ function nearCharacterLimit(snapshotAllowance) {
   slides[1].elements = [m.createSlideElement({ id: 'static-text', type: 'text', name: 'Static text', text: 'Body text' })];
   const existing = slides.reduce((sum, slide) => sum + slide.name.length + slide.notes.length + slide.elements.reduce((total, element) =>
     total + element.name.length + (element.type === 'image' ? element.alt.length : element.text.length), 0), 0);
-  let remaining = m.SLIDE_LIMITS.totalTextLength - snapshotAllowance - existing;
+  // The output includes the reusable default master/layout names in its budget.
+  const generatedCatalogNames = 'LikeSlide'.length + 'Blank'.length;
+  let remaining = m.SLIDE_LIMITS.totalTextLength - snapshotAllowance - existing - generatedCatalogNames;
   for (const slide of slides.slice(1)) {
     const length = Math.min(m.SLIDE_LIMITS.textLength, remaining);
     slide.notes = 'n'.repeat(length); remaining -= length;
@@ -174,7 +176,8 @@ test('snapshot character budget counts all metadata at the exact file boundary w
   const { deck } = await m.importSlidePptx(out.blob);
   const characters = deck.slides.reduce((sum, slide) => sum + slide.name.length + slide.notes.length + slide.elements.reduce((total, element) =>
     total + element.name.length + (element.type === 'image' ? element.alt.length : element.text.length), 0), 0);
-  assert.equal(characters, m.SLIDE_LIMITS.totalTextLength);
+  const catalogCharacters = [...deck.masters, ...deck.layouts].reduce((sum, definition) => sum + definition.name.length, 0);
+  assert.equal(characters + catalogCharacters, m.SLIDE_LIMITS.totalTextLength);
   assert.equal(deck.title, source.title);
 });
 

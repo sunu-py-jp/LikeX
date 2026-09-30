@@ -26,3 +26,13 @@ const imported = await importSlidePptx(pptx);
 assert.equal(imported.deck.slides[0].elements[0].text, "Headless content");
 assert.deepEqual(imported.warnings, []);
 console.log(JSON.stringify({ noReact: true, noDOM: true, commandsAndHistory: "passed", officeRoundtrip: "passed" }));
+
+const mastersApi = await import('__MODEL_IMPORT__');
+const masterLibrary = (await mastersApi.importSlidePptxMasters(pptx)).library;
+const withMasters = applySlideCommands(result.deck, { type: 'masters.import', library: masterLibrary });
+assert.ok(mastersApi.getSlideMasters(withMasters.deck).length > 0);
+const layout = mastersApi.getSlideLayouts(withMasters.deck)[0];
+const withLayout = applySlideCommands(withMasters.deck, { type: 'slide.applyLayout', slideId: original.slides[0].id, layoutId: layout.id }).deck;
+assert.equal(withLayout.slides[0].layoutId, layout.id);
+assert.equal(mastersApi.resolveSlideAppearance(withLayout, withLayout.slides[0]).localElements[0].text, 'Headless content');
+assert.deepEqual(parseSlideDeck(serializeSlideDeck(withLayout)), withLayout);

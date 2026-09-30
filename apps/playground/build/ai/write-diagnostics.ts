@@ -10,7 +10,8 @@ const targetValue = (command: Command, path: string): unknown => path.split(".")
 type Item = { id: string; rowCount?: number; columnCount?: number; elements?: Item[]; drawings?: Item[]; animations?: Item[] };
 /** Reference checks are intentionally narrow: canonical model APIs still validate all semantics. */
 export function checkCommandReferences(module: "slide" | "spreadsheet", document: string, commands: Command[]) {
-  const native = JSON.parse(document) as { slides?: Item[]; sheets?: Item[] };
+  const native = JSON.parse(document) as { slides?: Item[]; sheets?: Item[]; layouts?: Item[] };
+  const layouts = new Set((native.layouts ?? []).map(layout => layout.id));
   const pages = new Map((module === "slide" ? native.slides ?? [] : native.sheets ?? []).map(item => [item.id, {
     rowCount: item.rowCount, columnCount: item.columnCount, elements: new Set((item.elements ?? []).map(element => element.id)), drawings: new Set((item.drawings ?? []).map(drawing => drawing.id)), animations: new Set((item.animations ?? []).map(animation => animation.id)),
   }]));
@@ -22,6 +23,7 @@ export function checkCommandReferences(module: "slide" | "spreadsheet", document
     const key = module === "slide" ? "slideId" : "sheetId";
     if (command[key] !== undefined) requireId(pages, command[key], `${location}.${key}`);
     if (module === "slide" && command.afterId !== undefined) requireId(pages, command.afterId, `${location}.afterId`);
+    if (module === "slide" && command.layoutId !== undefined) requireId(layouts, command.layoutId, `${location}.layoutId`);
     const page = pages.get(String(command[key]));
     if (page) {
       if (module === "spreadsheet" && /^(rows|columns)\.(insert|delete)$/.test(String(command.type))) {
@@ -93,7 +95,7 @@ function sameDrawingExceptAnchor(left: Command, right: Command): boolean {
 }
 function unknownReference(commands: unknown, error: unknown): Failure["unknownReference"] {
   if (!(error instanceof AIToolError) || error.details.code !== "unknown_id" || !Array.isArray(commands)) return;
-  const match = /^commands\[(\d+)\]\.(sheetId|slideId|sourceId|targetId|elementId|drawingId|animationId|afterId|(?:start|end)\.binding\.targetId)$/.exec(error.details.path ?? "");
+  const match = /^commands\[(\d+)\]\.(sheetId|slideId|layoutId|sourceId|targetId|elementId|drawingId|animationId|afterId|(?:start|end)\.binding\.targetId)$/.exec(error.details.path ?? "");
   const existingIds = (error.details.expected as { existingIds?: unknown } | undefined)?.existingIds;
   if (!match || typeof error.details.actual !== "string" || !Array.isArray(existingIds) || existingIds.some(id => typeof id !== "string")) return;
   const command = commands[Number(match[1])] as Command | undefined;
@@ -147,7 +149,7 @@ export class WriteFailures {
         const addedId = command.slide && typeof command.slide === "object" ? (command.slide as Command).id : undefined;
         const uniqueAddedId = typeof addedId === "string" && additions.filter(item => (item.slide as Command | undefined)?.id === addedId).length === 1;
         const target = command.type === "slide.add" ? uniqueAddedId ? `page:${addedId}` : `new-page:${index}`
-          : ["slide.delete", "slide.move", "slide.duplicate", "deck.rename", "deck.resize"].includes(String(command.type)) ? `standalone:${index}` : `page:${String(command.slideId)}`;
+          : ["slide.delete", "slide.move", "slide.duplicate", "deck.rename", "deck.resize", "masters.import"].includes(String(command.type)) ? `standalone:${index}` : `page:${String(command.slideId)}`;
         const group = groups.get(target) ?? { commands: [], indexes: [] };
         group.commands.push(command); group.indexes.push(index); groups.set(target, group);
       });

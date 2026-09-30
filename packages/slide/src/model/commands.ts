@@ -6,12 +6,14 @@ import { SLIDE_LIMITS } from "./limits";
 import { animationTargetIds, filterAnimationNode, normalizeSlideAnimations, sameAnimations } from "./animation-validation";
 
 import { copySlideLine, getSlideLineEndpoints, isSlideLine, normalizeSlideLine, resolveSlideLines, slideLineGeometry, transformSlideLine } from "./lines";
+import { applySlideLayout, detachSlideLayout, importSlideMasterLibrary, withoutLayoutPlaceholder } from "./layouts";
 
 const COMMAND_KEYS: Record<SlideCommand["type"], readonly string[]> = {
+  "masters.import": ["type", "library"], "slide.applyLayout": ["type", "slideId", "layoutId"], "slide.detachLayout": ["type", "slideId"],
   "line.add": ["type", "slideId", "start", "end", "id", "name", "stroke", "strokeWidth", "startArrow", "endArrow"],
   "line.update": ["type", "slideId", "elementId", "start", "end", "startArrow", "endArrow"],
   "deck.rename": ["type", "title"], "deck.resize": ["type", "width", "height"],
-  "slide.add": ["type", "afterId", "slide"], "slide.delete": ["type", "slideId"],
+  "slide.add": ["type", "afterId", "slide", "layoutId"], "slide.delete": ["type", "slideId"],
   "slide.duplicate": ["type", "slideId"], "slide.move": ["type", "slideId", "index"],
   "slide.update": ["type", "slideId", "patch"], "element.add": ["type", "slideId", "element"],
   "slide.replaceContent": ["type", "slideId", "elements", "name", "background", "notes", "animations"],
@@ -75,17 +77,26 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
   const type = choice(raw.type, Object.keys(COMMAND_KEYS) as SlideCommand["type"][], "操作");
   record(raw, "操作", COMMAND_KEYS[type]);
   const unchanged = { deck, elementIds: [] as string[] };
+  if (type === "masters.import") return { ...unchanged, ...importSlideMasterLibrary(deck, raw.library as Extract<SlideCommand, { type: "masters.import" }>["library"]) };
   if (type === "deck.rename") return { ...unchanged, deck: normalizeSlideDeck({ ...deck, title: raw.title }) };
   if (type === "deck.resize") return { ...unchanged, deck: normalizeSlideDeck({ ...deck, width: raw.width, height: raw.height }) };
   if (type === "slide.add") {
     const after = raw.afterId === undefined ? deck.slides.length - 1 : deck.slides.indexOf(requiredSlide(deck, raw.afterId));
-    const slide = createSlide(raw.slide as Partial<Slide> | undefined);
+    let slide = createSlide(raw.slide as Partial<Slide> | undefined);
+    if (raw.layoutId !== undefined) {
+      if (slide.layoutId && slide.layoutId !== raw.layoutId) throw new Error("レイアウトの指定が一致しません");
+      slide = applySlideLayout(deck, slide, identifier(raw.layoutId));
+    }
     const next = [...deck.slides];
     next.splice(after + 1, 0, slide);
     return { deck: normalizeSlideDeck({ ...deck, slides: next }), slideId: slide.id, elementIds: [] };
   }
   const slide = requiredSlide(deck, raw.slideId);
   const slideIndex = deck.slides.indexOf(slide);
+  if (type === "slide.applyLayout" || type === "slide.detachLayout") {
+    const next = type === "slide.applyLayout" ? applySlideLayout(deck, slide, identifier(raw.layoutId)) : detachSlideLayout(deck, slide);
+    return { deck: normalizeSlideDeck({ ...deck, slides: deck.slides.map(current => current.id === slide.id ? next : current) }), slideId: slide.id, elementIds: [] };
+  }
   if (type === "slide.delete") {
     if (deck.slides.length === 1) throw new Error("最後のスライドは削除できません");
     const next = deck.slides.filter(current => current !== slide);
@@ -109,7 +120,7 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
   }
   if (type === "slide.update") {
     const patch = record(raw.patch, "スライドの変更", ["name", "background", "notes"]);
-    return { deck: updateSlide(deck, slide, patch), slideId: slide.id, elementIds: [] };
+    return { deck: updateSlide(deck, slide, { ...patch, ...(slide.layoutId && patch.background !== undefined ? { inheritBackground: false } : {}) }), slideId: slide.id, elementIds: [] };
   }
   if (type === "slide.replaceContent") {
     const elements = list(raw.elements, "置換する要素", SLIDE_LIMITS.elementsPerSlide).map(element => createSlideElement(element as SlideElementInput));
@@ -117,7 +128,7 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
     // Replacing content must not bypass element locks, even if callers reuse IDs.
     requireUnlocked(slide.elements);
     const metadata = Object.fromEntries(["name", "background", "notes"].filter(key => raw[key] !== undefined).map(key => [key, raw[key]]));
-    return { deck: updateSlide(deck, slide, { ...metadata, elements, animations }), slideId: slide.id, elementIds: elements.map(element => element.id) };
+    return { deck: updateSlide(deck, slide, { ...metadata, ...(slide.layoutId && raw.background !== undefined ? { inheritBackground: false } : {}), elements, animations }), slideId: slide.id, elementIds: elements.map(element => element.id) };
   }
   if (type === "animation.set" || type === "animation.remove") {
     let animations: SlideAnimationStep[] | undefined;
@@ -184,7 +195,7 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
   }
   if (type === "element.duplicate") {
     const remap = new Map(selected.map(element => [element.id, crypto.randomUUID()]));
-    const copies = selected.map(element => normalizeSlideElement(copySlideLine(element, remap, 20)));
+    const copies = selected.map(element => normalizeSlideElement(withoutLayoutPlaceholder(copySlideLine(element, remap, 20))));
     const animations = [...(slide.animations ?? []), ...copyAnimations(slide, remap, 20, true)];
     requireUnlockedAnimations(slide, animations);
     return { deck: updateSlide(deck, slide, { elements: [...slide.elements, ...copies], animations }), slideId: slide.id, elementIds: copies.map(element => element.id) };

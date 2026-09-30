@@ -9,13 +9,14 @@ const output = await build({ stdin: { contents: `
   export { checkSlideWrite, checkSlideWriteResult } from './apps/playground/build/ai/slide-write-policy.ts';
   export { canonicalSlideDeck } from './apps/playground/build/ai/slide-snapshot.ts';
   export { SkillWorkspace } from './apps/playground/build/ai/tools.ts';
+  export { scriptArguments } from './apps/playground/build/ai/tool-definitions.ts';
   export { createDemoSlideDeck } from './apps/playground/src/demo/slide-deck.ts';
   export { parseSlideDeck, serializeSlideDeck, applySlideCommands } from './packages/slide/src/model-entry.ts';
 `, resolveDir: root }, bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'source-model', setup(builder) {
     builder.onResolve({ filter: /^@likex\/slide(?:\/model)?$/ }, () => ({ path: path.join(root, 'packages/slide/src/model-entry.ts') }));
   } }] });
-const { checkSlideWrite, checkSlideWriteResult, canonicalSlideDeck, SkillWorkspace, createDemoSlideDeck,
+const { checkSlideWrite, checkSlideWriteResult, canonicalSlideDeck, SkillWorkspace, scriptArguments, createDemoSlideDeck,
   parseSlideDeck, serializeSlideDeck, applySlideCommands } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const firstPage = [
   { type: 'slide.replaceContent', slideId: 'cover', elements: [
@@ -84,4 +85,27 @@ test('CLI workspace commits consecutive demo-page replacements after connectors 
     assert.equal(pages[2].elements.length, 3);
     assert.deepEqual(workspace.unresolvedWrites, []);
   } finally { await workspace.dispose(); }
+});
+
+test('layout apply and detach keep the one-page write boundary, catalog imports are standalone', () => {
+  const source = serializeSlideDeck(createDemoSlideDeck());
+  const library = { width: 1280, height: 720, masters: [{ id: 'brand', name: 'Brand', background: '#123456', elements: [] }],
+    layouts: [{ id: 'blank', masterId: 'brand', name: 'Blank', elements: [], placeholders: [] }] };
+  const imported = checkedEdit(source, [{ type: 'masters.import', library }]);
+  const layoutId = parseSlideDeck(imported).layouts[0].id;
+  const apply = { type: 'slide.applyLayout', slideId: 'cover', layoutId };
+  const applied = checkedEdit(imported, [apply]);
+  assert.equal(parseSlideDeck(applied).slides[0].layoutId, layoutId);
+  assert.equal(parseSlideDeck(checkedEdit(applied, [{ type: 'slide.detachLayout', slideId: 'cover' }])).slides[0].layoutId, undefined);
+  assert.throws(() => checkSlideWrite(imported, 'apply', [apply, { ...apply, slideId: 'milestones' }]), error => error.details.code === 'slide_page_limit');
+  assert.throws(() => checkSlideWrite(source, 'apply', [{ type: 'masters.import', library }, { type: 'slide.add' }]), error => error.details.code === 'slide_page_limit');
+});
+
+test('strict AI queries can inspect master and layout definitions without page selectors', () => {
+  assert.deepEqual(scriptArguments('slide', 'inspect_document', { query: { kind: 'layout', layoutId: 'layout', includeData: true } }),
+    { operation: 'inspect', layoutId: 'layout', includeData: true });
+  assert.deepEqual(scriptArguments('slide', 'inspect_document', { query: { kind: 'master', masterId: 'master', includeData: false } }),
+    { operation: 'inspect', masterId: 'master', includeData: false });
+  assert.throws(() => scriptArguments('slide', 'inspect_document', { query: { kind: 'layout', layoutId: '', includeData: true } }));
+  assert.throws(() => scriptArguments('spreadsheet', 'inspect_document', { query: { kind: 'master', masterId: 'master', includeData: true } }));
 });

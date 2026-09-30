@@ -1,13 +1,14 @@
 import type { CSSProperties, Ref } from "react";
 import type { MaybePromise, OperationContext, SaveHandler } from "./core";
-import type { Slide, SlideElement, SlideCommand, SlideCommandResult, SlideDeck } from "./model/types";
+import type { Slide, SlideElement, SlideCommand, SlideCommandResult, SlideDeck, SlideMaster, SlideLayout } from "./model/types";
 import type { SlideAnimationStep, SlideQueryOptions } from "./model";
+import type { SlidePptxImportOptions } from "./import/import-pptx";
 import type { SlidePptxExportOptions } from "./export/types";
 import type { SlideImageExportOptions, SlideImagesExportOptions } from "./render/browser-export";
 import type { SlideImageResult } from "./render/types";
 import type { SlidePptxDiagnostic } from "./office/types";
 
-export type SlideFeatures = Partial<Record<"addSlides" | "deleteSlides" | "reorderSlides" | "text" | "shapes" | "images" | "formatting" | "animations" | "notes" | "import" | "export" | "presentation" | "history", boolean>>;
+export type SlideFeatures = Partial<Record<"addSlides" | "deleteSlides" | "reorderSlides" | "text" | "shapes" | "images" | "formatting" | "masters" | "animations" | "notes" | "import" | "export" | "presentation" | "history", boolean>>;
 export type SlideSelection = {
   /** The active page displayed on the canvas. */
   slideId: string;
@@ -29,6 +30,9 @@ export type SlideHandle = {
   getElements(slideId: string, options?: SlideQueryOptions): SlideElement[];
   getElement(slideId: string, elementId: string, options?: SlideQueryOptions): SlideElement | undefined;
   getAnimations(slideId: string): SlideAnimationStep[];
+  getSlideMasters(): SlideMaster[];
+  getSlideLayouts(masterId?: string): SlideLayout[];
+  getSlideLayout(layoutId: string): SlideLayout | undefined;
   /** Details from the latest successful PPTX import/export; empty before the first conversion. */
   getPptxDiagnostics(): readonly SlidePptxDiagnostic[];
   execute(command: SlideCommand | readonly SlideCommand[]): Promise<SlideCommandResult | null>;
@@ -45,6 +49,10 @@ export type SlideHandle = {
   /** Flush pending input and return current .slon JSON without marking the draft saved. */
   exportNative(): Promise<Blob>;
   importPptx(input: Blob | ArrayBuffer | Uint8Array): Promise<void>;
+  /** Import PPTX/POTX master/layout definitions as one undoable edit without replacing pages or selection. */
+  importPptxMasters(input: Blob | ArrayBuffer | Uint8Array, options?: SlidePptxImportOptions): Promise<void>;
+  /** Cancel a pending master import, including an outstanding edit-permission request. */
+  cancelMasterImport(): void;
   exportPptx(options?: SlidePptxExportOptions): Promise<Blob>;
   /** Flush pending input and return one PNG without changing selection or marking the draft saved. */
   exportImage(options: SlideImageExportOptions): Promise<SlideImageResult<Blob>>;

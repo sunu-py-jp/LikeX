@@ -78,3 +78,36 @@ test('include-animations is limited to slide inspect and help explains the final
   assert.equal(crossModule.status, 1); assert.equal(crossModule.json.error.code, 'USAGE');
   const help = await run(['--help']); assert.ok(help.json.usage.some(line => line.includes('--include-animations')));
 });
+
+test('imported layouts are discoverable and inherited decorations remain separate from editable placeholders', async () => {
+  let deck = model.createSlideDeck({ slides: [{ id: 'page', name: 'Page', background: '#ffffff', notes: '', elements: [] }] });
+  deck = model.applySlideCommands(deck, { type: 'masters.import', library: { width: 1280, height: 720,
+    masters: [{ id: 'brand', name: 'Brand', background: '#112233', elements: [model.createSlideElement({ id: 'logo', type: 'text', text: 'Common logo' })] }],
+    layouts: [{ id: 'title-layout', masterId: 'brand', name: 'Title', elements: [], placeholders: [
+      { id: 'title-slot', kind: 'title', element: model.createSlideElement({ id: 'title-prototype', type: 'text', text: '' }) },
+    ] }],
+  } }).deck;
+  const layoutId = model.getSlideLayouts(deck)[0].id, masterId = model.getSlideMasters(deck)[0].id;
+  const placeholderId = model.getSlideLayouts(deck)[0].placeholders[0].id;
+  deck = model.applySlideCommands(deck, { type: 'slide.applyLayout', slideId: 'page', layoutId }).deck;
+  const catalogFile = path.join(temporary, 'catalog.slon'); await writeFile(catalogFile, model.serializeSlideDeck(deck));
+  const query = args => run(['inspect', '--input', catalogFile, ...args]);
+  const overview = (await query(['--overview'])).json;
+  assert.equal(overview.summary.masterCount, 1); assert.equal(overview.summary.layoutCount, 1);
+  assert.equal(overview.summary.layouts, undefined);
+  const list = (await query([])).json;
+  assert.equal(list.summary.layouts[0].id, layoutId); assert.equal(list.summary.layouts[0].placeholders[0].kind, 'title');
+  const layout = await query(['--layout-id', layoutId, '--include-data', '--compact-summary']);
+  assert.equal(layout.status, 0); assert.equal(layout.json.selection.placeholders[0].element.type, 'text');
+  assert.equal(layout.json.summary.layouts, undefined);
+  const master = (await query(['--master-id', masterId, '--include-data'])).json;
+  assert.equal(master.selection.elements[0].text, 'Common logo');
+  const page = (await query(['--slide-id', 'page', '--include-data'])).json;
+  assert.equal(page.selection.slide.background, '#112233');
+  assert.equal(page.selection.elements[0].layoutPlaceholderId, placeholderId);
+  assert.equal(page.selection.inheritedElements[0].text, 'Common logo');
+  assert.equal(page.selection.elements.some(element => element.text === 'Common logo'), false);
+  assert.equal((await query(['--layout-id', 'absent'])).json.error.code, 'NOT_FOUND');
+  assert.equal((await query(['--layout-id', layoutId, '--slide-id', 'page'])).json.error.code, 'USAGE');
+  assert.equal((await query(['--layout-id', layoutId, '--include-animations'])).json.error.code, 'USAGE');
+});

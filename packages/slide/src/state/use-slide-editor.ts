@@ -4,8 +4,9 @@ import { copySlideLine } from "../model/lines";
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { SlideCommand, SlideCommandResult, SlideDeck, SlideElement } from "../model/types";
 import type { SlideEvent, SlideProps, SlideSelection } from "../props";
-import { applySlideCommands, normalizeSlideDeck, parseSlideDeck, serializeSlideDeck, SLIDE_LIMITS } from "../model/index";
+import { applySlideCommands, normalizeSlideDeck, parseSlideDeck, serializeSlideDeck, getSlideMasters, getSlideLayouts, getSlideLayout, SLIDE_LIMITS } from "../model/index";
 import { getDeck, getSlides, getSlide, getElements, getElement, getAnimations } from "../model/query";
+import type { SlidePptxImportOptions } from "../import/import-pptx";
 import type { SlidePptxExportOptions } from "../export/types";
 import { createSlideSession } from "../session/create-slide-session";
 import { awaitSlideImageTask, throwIfSlideImageAborted } from "../render/async";
@@ -15,7 +16,7 @@ import type { SlidePptxDiagnostic } from "../office/types";
 
 const featureDefaults = {
   addSlides: true, deleteSlides: true, reorderSlides: true, text: true, shapes: true, images: true,
-  formatting: true, animations: true, notes: true, import: true, export: true, presentation: true, history: true,
+  formatting: true, masters: true, animations: true, notes: true, import: true, export: true, presentation: true, history: true,
 };
 export type SlideFeatureState = typeof featureDefaults;
 export type SlideNotice = { kind: "info" | "error" | "success"; text: string; conversion?: true } | null;
@@ -23,6 +24,9 @@ export type SlideConversionReport = { phase: "import" | "export"; warnings: read
 const copy = <T,>(value: T): T => structuredClone(value);
 
 function permitted(command: SlideCommand, features: SlideFeatureState, deck: SlideDeck): boolean {
+  if (command.type === "masters.import") return features.masters && features.import;
+  if (command.type === "slide.applyLayout" || command.type === "slide.detachLayout") return features.masters && features.formatting;
+  if (command.type === "slide.add" && (command.layoutId || command.slide?.layoutId) && !features.masters) return false;
   if (command.type === "animation.set" || command.type === "animation.remove") return features.animations;
   if (command.type === "slide.add" && command.slide?.animations?.length && !features.animations) return false;
   if (command.type === "slide.add" || command.type === "slide.duplicate") return features.addSlides;
@@ -30,7 +34,7 @@ function permitted(command: SlideCommand, features: SlideFeatureState, deck: Sli
   if (command.type === "slide.move") return features.reorderSlides;
   if (command.type === "deck.resize") return features.formatting;
   if (command.type === "slide.update") return (!Object.hasOwn(command.patch, "notes") || features.notes) &&
-    (!Object.hasOwn(command.patch, "background") || features.formatting);
+    (["background", "inheritBackground", "showMasterShapes"].every(key => !Object.hasOwn(command.patch, key)) || features.formatting);
   if (command.type === "slide.replaceContent") {
     const previous = deck.slides.find(slide => slide.id === command.slideId);
     return features.formatting && (!Object.hasOwn(command, "notes") || features.notes) &&
@@ -75,6 +79,8 @@ export function useSlideEditor(props: SlideProps) {
   const [requesting, setRequesting] = useState(false);
   const permission = useRef<{ granted: boolean; controller: AbortController | null; promise: Promise<boolean> | null }>({ granted: false, controller: null, promise: null });
   const clipboard = useRef<SlideElement[]>([]);
+  const [importingMasters, setImportingMasters] = useState(false);
+  const masterImport = useRef<AbortController | null>(null);
   const exportControllers = useRef(new Set<AbortController>());
   const features = { ...featureDefaults, ...props.features };
   const readOnly = props.readOnly ?? !props.onSave;
@@ -115,12 +121,15 @@ export function useSlideEditor(props: SlideProps) {
   useEffect(() => {
     mounted.current = true;
     const exports = exportControllers.current;
-    return () => { mounted.current = false; invalidateOperations(); permission.current.controller?.abort(); for (const controller of exports) controller.abort(); };
+    return () => { mounted.current = false; masterImport.current?.abort(); invalidateOperations(); permission.current.controller?.abort(); for (const controller of exports) controller.abort(); };
   }, [invalidateOperations]);
   useLayoutEffect(() => {
     if (props.features?.export === false) for (const controller of exportControllers.current)
       controller.abort(new Error("エクスポート機能は無効です。"));
   }, [props.features?.export]);
+  useLayoutEffect(() => {
+    if (readOnly || props.features?.import === false || props.features?.masters === false) masterImport.current?.abort();
+  }, [readOnly, props.features?.import, props.features?.masters]);
   useEffect(() => { if (readOnly) { inputRegistration.current?.reset?.(); endEdit(); } }, [readOnly, endEdit]);
 
   const authorize = useCallback(async () => {
@@ -158,6 +167,7 @@ export function useSlideEditor(props: SlideProps) {
     const value: SlideSelection = { slideId: slide.id,
       elementIds: slideIds.length > 1 ? [] : [...new Set(next.elementIds)].filter(id => slide.elements.some(item => item.id === id)),
       ...(slideIds.length > 1 ? { slideIds } : {}) };
+    if (masterImport.current && JSON.stringify(selectionRef.current) !== JSON.stringify(value)) masterImport.current.abort();
     if (selectionRef.current.slideId !== value.slideId) slideSelectionVersion.current++;
     selectionRef.current = value;
     setSelection(value);
@@ -229,7 +239,7 @@ export function useSlideEditor(props: SlideProps) {
         const target = result.deck.slides.find(item => item.id === targetSlideId);
         const oldIds = new Set(before.slides.find(item => item.id === targetSlideId)?.elements.map(item => item.id));
         const addedIds = target?.elements.filter(item => !oldIds.has(item.id)).map(item => item.id) ?? [];
-        const preservesSelection = commands.every(item => ["element.update", "line.update", "element.order", "slide.update", "slide.move", "deck.rename", "deck.resize"].includes(item.type));
+        const preservesSelection = commands.every(item => ["element.update", "line.update", "element.order", "slide.update", "slide.move", "deck.rename", "deck.resize", "masters.import", "slide.applyLayout", "slide.detachLayout"].includes(item.type));
         if (commands.every(item => item.type === "slide.delete")) {
           const remaining = result.deck.slides.filter(item => (previous.slideIds ?? [previous.slideId]).includes(item.id));
           const activeIndex = before.slides.findIndex(item => item.id === previous.slideId);
@@ -245,6 +255,21 @@ export function useSlideEditor(props: SlideProps) {
   }, [authorize, emit, rememberSelection, reportError, select, session]);
   const execute = useCallback((command: SlideCommand | readonly SlideCommand[], expectedDeck?: SlideDeck) =>
     snapshotPending.current ? Promise.resolve(null) : track(runCommands(command, expectedDeck)), [runCommands, track]);
+  const applyLayout = useCallback((layoutId: string | null) => {
+    if (snapshotPending.current || busyRef.current || !mounted.current || (propsRef.current.readOnly ?? !propsRef.current.onSave) ||
+      propsRef.current.features?.masters === false || propsRef.current.features?.formatting === false) return Promise.resolve(null);
+    const selected = JSON.stringify(selectionRef.current), generation = operationGeneration.current;
+    inputRegistration.current?.flush();
+    const pending = [...mutations.current];
+    return track((async () => {
+      await Promise.all(pending);
+      if (!mounted.current || generation !== operationGeneration.current || JSON.stringify(selectionRef.current) !== selected) return null;
+      const target = selectionRef.current;
+      const commands: SlideCommand[] = (target.slideIds ?? [target.slideId]).map(slideId => layoutId
+        ? { type: "slide.applyLayout", slideId, layoutId } : { type: "slide.detachLayout", slideId });
+      return runCommands(commands, session.getSnapshot().deck, target.slideId, slideSelectionVersion.current, target);
+    })());
+  }, [runCommands, session, track]);
   const deleteSelection = useCallback((scope: "slides" | "elements") => {
     if (snapshotPending.current || busyRef.current || !mounted.current || (scope !== "slides" && scope !== "elements")) return Promise.resolve(null);
     const current = selectionRef.current, deck = session.getSnapshot().deck;
@@ -364,6 +389,48 @@ export function useSlideEditor(props: SlideProps) {
   const importPptx = useCallback(async (input: Blob | ArrayBuffer | Uint8Array) => {
     await importDeck(async () => (await import("../import/import-pptx")).importSlidePptx(input));
   }, [importDeck]);
+  const cancelMasterImport = useCallback(() => { masterImport.current?.abort(); }, []);
+  const importPptxMasters = useCallback(async (input: Blob | ArrayBuffer | Uint8Array, options: SlidePptxImportOptions = {}) => {
+    const enabled = () => propsRef.current.features?.import !== false && propsRef.current.features?.masters !== false;
+    if (snapshotPending.current || busyRef.current || !mounted.current || !enabled() || (propsRef.current.readOnly ?? !propsRef.current.onSave) || options.signal?.aborted) return;
+    const generation = operationGeneration.current, selected = JSON.stringify(selectionRef.current);
+    inputRegistration.current?.flush();
+    if (snapshotPending.current || busyRef.current || !mounted.current) return;
+    const controller = new AbortController(); masterImport.current = controller; setImportingMasters(true);
+    const abortPermission = () => { if (!permission.current.granted) permission.current.controller?.abort(); };
+    controller.signal.addEventListener("abort", abortPermission, { once: true });
+    const abort = () => controller.abort(options.signal?.reason);
+    options.signal?.addEventListener("abort", abort, { once: true });
+    if (options.signal?.aborted) abort();
+    snapshotPending.current = true; setBusy("import");
+    const applicable = () => mounted.current && !controller.signal.aborted && generation === operationGeneration.current &&
+      !(propsRef.current.readOnly ?? !propsRef.current.onSave) && enabled() && JSON.stringify(selectionRef.current) === selected;
+    try {
+      await awaitSlideImageTask(() => Promise.all([...mutations.current]), controller.signal);
+      const before = session.getSnapshot().deck;
+      if (!applicable() || !await awaitSlideImageTask(authorize, controller.signal) || !applicable() || session.getSnapshot().deck !== before) return;
+      busyRef.current = true;
+      const result = await awaitSlideImageTask(async () => (await import("../import/pptx-masters")).importSlidePptxMasters(input, { ...options, signal: controller.signal }), controller.signal);
+      if (!applicable() || session.getSnapshot().deck !== before) return;
+      const previous = copy(selectionRef.current);
+      const applied = session.execute({ type: "masters.import", library: result.library });
+      if (applied.changed) rememberSelection(previous);
+      recordConversion({ phase: "import", warnings: result.warnings, diagnostics: result.diagnostics });
+      setNotice({ kind: result.warnings.length ? "info" : "success", text: `マスターを読み込みました。${result.library.layouts.length}種類のレイアウトを利用できます。`,
+        ...(result.diagnostics.length ? { conversion: true } : {}) });
+      emit({ type: "import", warnings: result.warnings, diagnostics: result.diagnostics });
+      if (applied.changed) emit({ type: "change", source: "command", deck: session.getSnapshot().deck });
+    } catch (error) {
+      if (controller.signal.aborted) { if (mounted.current) setNotice({ kind: "info", text: "マスターの読み込みをキャンセルしました。" }); }
+      else reportError(error);
+    } finally {
+      options.signal?.removeEventListener("abort", abort);
+      controller.signal.removeEventListener("abort", abortPermission);
+      if (masterImport.current === controller) masterImport.current = null;
+      busyRef.current = false; snapshotPending.current = false;
+      if (mounted.current) { setBusy(null); setImportingMasters(false); }
+    }
+  }, [authorize, emit, recordConversion, rememberSelection, reportError, session]);
   const importNative = useCallback(async (input: string | Blob) => {
     await importDeck(async () => {
       // UTF-8 can use three bytes per JavaScript string code unit. The parser
@@ -465,8 +532,11 @@ export function useSlideEditor(props: SlideProps) {
     if (!slideId || !clipboard.current.length) return;
     const remap = new Map(clipboard.current.map(element => [element.id, crypto.randomUUID()]));
     // Add targets before their attached lines so every intermediate command remains valid.
-    const commands: SlideCommand[] = [...clipboard.current].sort((a, b) => Number(a.type === "shape" && !!a.line) - Number(b.type === "shape" && !!b.line)).map(element => ({ type: "element.add", slideId,
-      element: copySlideLine(copy(element), remap, 20) }));
+    const commands: SlideCommand[] = [...clipboard.current].sort((a, b) => Number(a.type === "shape" && !!a.line) - Number(b.type === "shape" && !!b.line)).map(element => {
+      const duplicate = copySlideLine(copy(element), remap, 20);
+      delete duplicate.layoutPlaceholderId;
+      return { type: "element.add", slideId, element: duplicate };
+    });
     await execute(commands, expectedDeck);
   }, [execute]);
 
@@ -477,13 +547,16 @@ export function useSlideEditor(props: SlideProps) {
     getElements: (slideId, options) => copy(getElements(session.getSnapshot().deck, slideId, options)),
     getElement: (slideId, elementId, options) => copy(getElement(session.getSnapshot().deck, slideId, elementId, options)),
     getAnimations: slideId => copy(getAnimations(session.getSnapshot().deck, slideId)),
+    getSlideMasters: () => copy(getSlideMasters(session.getSnapshot().deck)),
+    getSlideLayouts: masterId => copy(getSlideLayouts(session.getSnapshot().deck, masterId)),
+    getSlideLayout: layoutId => copy(getSlideLayout(session.getSnapshot().deck, layoutId)),
     getPptxDiagnostics: () => copy(conversionReportRef.current?.diagnostics ?? []),
     execute: command => execute(command),
     undo: () => history("undo"), redo: () => history("redo"), save, discard,
-    getSelection: () => copy(selectionRef.current), select, deleteSelection, importNative, exportNative, importPptx, exportPptx, exportImage, exportImages,
-  }), [discard, execute, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, save, select, session]);
+    getSelection: () => copy(selectionRef.current), select, deleteSelection, importNative, exportNative, importPptx, importPptxMasters, cancelMasterImport, exportPptx, exportImage, exportImages,
+  }), [discard, execute, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
 
-  return { ...snapshot, dirty, selection, select, deleteSelection, execute, save, discard, history, importPptx, importNative, exportImage, exportImages, download,
+  return { ...snapshot, dirty, selection, select, deleteSelection, execute, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
     copyElements, pasteElements, canPasteElements, prepareCommands, registerInputFlush, refreshPendingInput, notice, setNotice, conversionReport, reportError, features, readOnly, busy, requesting,
     editable: !readOnly && !busy && !requesting };
 }

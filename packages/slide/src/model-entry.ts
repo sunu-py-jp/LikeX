@@ -3,6 +3,8 @@ export * from "./model";
 export { createSlideSession } from "./session/create-slide-session";
 export type { SlideSession, SlideSessionSnapshot } from "./session/create-slide-session";
 export { importSlidePptx } from "./import/import-pptx";
+export { importSlidePptxMasters } from "./import/pptx-masters";
+export type { SlidePptxMastersImportResult } from "./import/pptx-masters";
 export type { SlidePptxImportOptions, SlidePptxImportResult } from "./import/import-pptx";
 export { exportSlidePptx } from "./export/export-pptx-headless";
 export type { SlidePptxExportOptions } from "./export/types";

@@ -14,6 +14,8 @@ export type SlideElementBase = {
    * @maximum 1 */
   opacity: number;
   locked: boolean;
+  /** Links a local editable element to one slot of its page's layout. */
+  layoutPlaceholderId?: string;
 };
 export type SlideTextElement = SlideElementBase & {
   type: "text";
@@ -90,7 +92,16 @@ export type Slide = {
   notes: string;
   elements: SlideElement[];
   animations?: SlideAnimationStep[];
+  layoutId?: string;
+  inheritBackground?: boolean;
+  showMasterShapes?: boolean;
 };
+export type SlideMaster = { id: string; name: string; background: string; elements: SlideElement[] };
+export type SlideLayoutPlaceholder = { id: string; kind: string; element: SlideElement };
+export type SlideLayout = { id: string; masterId: string; name: string; background?: string; elements: SlideElement[];
+  placeholders: SlideLayoutPlaceholder[]; showMasterShapes?: boolean };
+export type SlideMasterLibrary = { width: number; height: number; masters: SlideMaster[]; layouts: SlideLayout[] };
+export type SlideAppearance = { background: string; inheritedElements: SlideElement[]; localElements: SlideElement[] };
 export type SlideDeck = {
   /** Optional for programmatic runtime input; normalized output and native files always include it. */
   format?: "likex.slide";
@@ -100,6 +111,8 @@ export type SlideDeck = {
   width: number;
   height: number;
   slides: Slide[];
+  masters?: SlideMaster[];
+  layouts?: SlideLayout[];
 };
 export type SlideElementInput =
   | ({ type: "text" } & Partial<Omit<SlideTextElement, "type">>)
@@ -113,7 +126,10 @@ export type SlideElementPatch =
 export type SlideCommand =
   | { type: "deck.rename"; title: string }
   | { type: "deck.resize"; width: number; height: number }
-  | { type: "slide.add"; afterId?: string; slide?: Partial<Slide> }
+  | { type: "masters.import"; library: SlideMasterLibrary }
+  | { type: "slide.add"; afterId?: string; slide?: Partial<Slide>; layoutId?: string }
+  | { type: "slide.applyLayout"; slideId: string; layoutId: string }
+  | { type: "slide.detachLayout"; slideId: string }
   | { type: "slide.delete"; slideId: string }
   | { type: "slide.duplicate"; slideId: string }
   | { type: "slide.move"; slideId: string; index: number }
@@ -129,4 +145,4 @@ export type SlideCommand =
   | { type: "element.delete"; slideId: string; elementIds: string[] }
   | { type: "element.duplicate"; slideId: string; elementIds: string[] }
   | { type: "element.order"; slideId: string; elementIds: string[]; direction: "front" | "back" | "forward" | "backward" };
-export type SlideCommandResult = { deck: SlideDeck; slideId?: string; elementIds: string[]; changed: boolean };
+export type SlideCommandResult = { deck: SlideDeck; slideId?: string; elementIds: string[]; changed: boolean; masterIds?: string[]; layoutIds?: string[] };

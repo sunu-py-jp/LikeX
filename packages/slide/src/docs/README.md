@@ -54,7 +54,7 @@ CSSはアプリの入口で1回importします。Next.js App Routerでは `app/l
 | `features` | `SlideFeatures` | 全機能有効 |
 | `warnOnUnsavedChanges` | `boolean` | 未保存の離脱確認を有効化 |
 
-`features` のキーは `addSlides`、`deleteSlides`、`reorderSlides`、`text`、`shapes`、`images`、`formatting`、`animations`、`notes`、`import`、`export`、`presentation`、`history` です。`false` の機能は画面から隠し、対応する操作も受け付けません。
+`features` のキーは `addSlides`、`deleteSlides`、`reorderSlides`、`text`、`shapes`、`images`、`formatting`、`masters`、`animations`、`notes`、`import`、`export`、`presentation`、`history` です。`false` の機能は画面から隠し、対応する操作も受け付けません。
 
 ```tsx
 <LikeSlide initialDeck={deck} onSave={saveDeck}

@@ -1,12 +1,13 @@
 import { CONNECTOR_ARROWHEADS } from "./core-connectors";
-import type { Slide, SlideDeck, SlideElement, SlideElementInput } from "./types";
+import type { Slide, SlideDeck, SlideElement, SlideElementInput, SlideMasterLibrary } from "./types";
 import { SLIDE_LIMITS } from "./limits";
 import { validateSlideImageSource } from "./image-source";
 import { boolean, choice, color, fontFamily, identifier, list, number, record, text } from "./validation";
 import { DECK_KEYS, ELEMENT_KEYS, SLIDE_KEYS } from "./schema";
 import { normalizeSlideAnimations } from "./animation-validation";
 import { normalizeSlideLine, resolveSlideLines, slideLineGeometry } from "./lines";
-import { slideTextLength } from "./text-length";
+import { slideTextLength, slideElementTextLength } from "./text-length";
+import { normalizeMasterCatalog } from "./master-normalization";
 export { ELEMENT_KEYS } from "./schema";
 
 const decks = new WeakSet<SlideDeck>();
@@ -46,6 +47,7 @@ export function normalizeSlideElement(input: unknown): SlideElement {
     width: number(raw.width, "幅", Number.MIN_VALUE, 100_000), height: number(raw.height, "高さ", Number.MIN_VALUE, 100_000),
     rotation: ((number(raw.rotation, "回転", -3_600_000, 3_600_000) % 360) + 360) % 360,
     opacity: number(raw.opacity, "不透明度", 0, 1), locked: boolean(raw.locked, "ロック"),
+    ...(raw.layoutPlaceholderId === undefined ? {} : { layoutPlaceholderId: identifier(raw.layoutPlaceholderId) }),
   };
   let result: SlideElement;
   if (type === "text") result = { ...base, type,
@@ -106,6 +108,10 @@ export function normalizeSlide(input: unknown): Slide {
   accepted = resolveSlideLines(accepted).map(normalizeSlideElement);
   const result: Slide = { id: identifier(raw.id), name: text(raw.name, "スライド名", 1000),
     background: color(raw.background, "スライドの背景"), notes: text(raw.notes, "ノート", SLIDE_LIMITS.textLength), elements: accepted };
+  if (raw.layoutId !== undefined) result.layoutId = identifier(raw.layoutId);
+  for (const key of ["inheritBackground", "showMasterShapes"] as const) if (raw[key] !== undefined) result[key] = boolean(raw[key], key);
+  if (!result.layoutId && (result.inheritBackground !== undefined || result.showMasterShapes !== undefined || accepted.some(element => element.layoutPlaceholderId !== undefined)))
+    throw new Error("レイアウトの指定がないページに継承設定やプレースホルダー参照は指定できません");
   const animations = normalizeSlideAnimations(raw.animations, accepted);
   if (animations) result.animations = animations;
   Object.freeze(result.elements);
@@ -128,24 +134,44 @@ export function normalizeSlideDeck(input: unknown): SlideDeck {
     throw new Error("LikeSlideのファイル形式ではありません");
   if (raw.version !== 1) throw new Error("対応していないプレゼンテーションのバージョンです");
   const accepted = list(raw.slides, "スライド", SLIDE_LIMITS.slides, 1).map(normalizeSlide);
+  const catalog = normalizeMasterCatalog(raw);
+  const layouts = new Map(catalog.layouts?.map(layout => [layout.id, layout]));
+  const masters = new Map(catalog.masters?.map(master => [master.id, master]));
   const slideIds = new Set<string>(), elementIds = new Set<string>();
   let count = 0, bytes = 0, characters = 0;
+  const countElement = (element: SlideElement) => {
+    if (elementIds.has(element.id)) throw new Error("プレゼンテーション内の要素のIDが重複しています");
+    elementIds.add(element.id); count++; bytes += imageBytes.get(element) ?? 0;
+  };
+  for (const definition of [...(catalog.masters ?? []), ...(catalog.layouts ?? [])]) {
+    characters += definition.name.length;
+    const ownElements = [...definition.elements, ...("placeholders" in definition ? definition.placeholders.map(slot => slot.element) : [])];
+    for (const element of ownElements) { countElement(element); characters += slideElementTextLength(element); }
+  }
+  let visibleCount = 0;
   for (const slide of accepted) {
     if (slideIds.has(slide.id)) throw new Error("スライドのIDが重複しています");
     slideIds.add(slide.id);
     characters += slideTextLength(slide);
+    const layout = slide.layoutId ? layouts.get(slide.layoutId) : undefined;
+    if (slide.layoutId && !layout) throw new Error("ページのレイアウトが見つかりません");
+    const markers = new Set<string>();
+    for (const element of slide.elements) if (element.layoutPlaceholderId !== undefined) {
+      if (!layout?.placeholders.some(slot => slot.id === element.layoutPlaceholderId) || markers.has(element.layoutPlaceholderId)) throw new Error("ページのプレースホルダー参照が不正または重複しています");
+      markers.add(element.layoutPlaceholderId);
+    }
+    const inheritedCount = layout ? layout.elements.length + (layout.showMasterShapes !== false && slide.showMasterShapes !== false ? masters.get(layout.masterId)!.elements.length : 0) : 0;
+    if (slide.elements.length + inheritedCount > SLIDE_LIMITS.elementsPerSlide) throw new Error("継承した要素を含むページの要素数が上限を超えています");
+    visibleCount += slide.elements.length + inheritedCount;
     for (const element of slide.elements) {
-      if (elementIds.has(element.id)) throw new Error("プレゼンテーション内の要素のIDが重複しています");
-      elementIds.add(element.id);
-      count++;
-      bytes += imageBytes.get(element) ?? 0;
+      countElement(element);
     }
   }
-  if (count > SLIDE_LIMITS.totalElements) throw new Error("プレゼンテーション全体の要素数が上限を超えています");
+  if (count > SLIDE_LIMITS.totalElements || visibleCount > SLIDE_LIMITS.totalElements) throw new Error("プレゼンテーション全体の要素数が上限を超えています");
   if (bytes > SLIDE_LIMITS.totalImageBytes) throw new Error("プレゼンテーション全体の画像サイズが上限を超えています");
   if (characters > SLIDE_LIMITS.totalTextLength) throw new Error("プレゼンテーション全体の文字数が上限を超えています");
   const result: SlideDeck = { format: "likex.slide", version: 1, id: identifier(raw.id), title: text(raw.title, "タイトル", 1000),
-    width: number(raw.width, "スライドの幅", 1, 10_000), height: number(raw.height, "スライドの高さ", 1, 10_000), slides: accepted };
+    width: number(raw.width, "スライドの幅", 1, 10_000), height: number(raw.height, "スライドの高さ", 1, 10_000), slides: accepted, ...catalog };
   Object.freeze(result.slides);
   Object.freeze(result);
   decks.add(result);
@@ -157,4 +183,13 @@ export function createSlideDeck(input: Partial<SlideDeck> = {}): SlideDeck {
   const supplied = Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== undefined));
   return normalizeSlideDeck({ version: 1, id: crypto.randomUUID(), title: "新しいプレゼンテーション", width: 1280, height: 720,
     slides: [createSlide({ name: "スライド 1" })], ...supplied });
+}
+
+/** Validate a standalone template library, including catalogs without a presentation page. */
+export function normalizeSlideMasterLibrary(input: unknown): SlideMasterLibrary {
+  const raw = record(input, "マスターライブラリ", ["width", "height", "masters", "layouts"]);
+  list(raw.masters, "マスター", SLIDE_LIMITS.masters); list(raw.layouts, "レイアウト", SLIDE_LIMITS.layouts);
+  const deck = normalizeSlideDeck({ version: 1, id: "master-library", title: "", width: raw.width, height: raw.height,
+    slides: [{ id: "library-validation-page", name: "", background: "#ffffff", notes: "", elements: [] }], masters: raw.masters, layouts: raw.layouts });
+  return Object.freeze({ width: deck.width, height: deck.height, masters: deck.masters!, layouts: deck.layouts! });
 }

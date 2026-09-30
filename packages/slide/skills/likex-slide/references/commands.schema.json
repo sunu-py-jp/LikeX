@@ -60,6 +60,15 @@
         },
         {
           "$ref": "#/$defs/SlideCommand_17"
+        },
+        {
+          "$ref": "#/$defs/SlideCommand_18"
+        },
+        {
+          "$ref": "#/$defs/SlideCommand_19"
+        },
+        {
+          "$ref": "#/$defs/SlideCommand_20"
         }
       ]
     },
@@ -103,21 +112,49 @@
       "type": "object",
       "properties": {
         "type": {
-          "const": "slide.add"
+          "const": "masters.import"
         },
-        "afterId": {
-          "type": "string"
-        },
-        "slide": {
-          "$ref": "#/$defs/SlideCommand_3_slide"
+        "library": {
+          "$ref": "#/$defs/SlideMasterLibrary"
         }
       },
       "required": [
-        "type"
+        "type",
+        "library"
       ],
       "additionalProperties": false
     },
-    "SlideCommand_3_slide": {
+    "SlideMasterLibrary": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "masters": {
+          "$ref": "#/$defs/SlideMasterLibrary_masters"
+        },
+        "layouts": {
+          "$ref": "#/$defs/SlideMasterLibrary_layouts"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "masters",
+        "layouts"
+      ],
+      "additionalProperties": false
+    },
+    "SlideMasterLibrary_masters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SlideMaster"
+      }
+    },
+    "SlideMaster": {
       "type": "object",
       "properties": {
         "id": {
@@ -129,19 +166,19 @@
         "background": {
           "type": "string"
         },
-        "notes": {
-          "type": "string"
-        },
         "elements": {
-          "$ref": "#/$defs/SlideCommand_3_slide_elements"
-        },
-        "animations": {
-          "$ref": "#/$defs/SlideCommand_3_slide_animations"
+          "$ref": "#/$defs/SlideMaster_elements"
         }
       },
+      "required": [
+        "id",
+        "name",
+        "background",
+        "elements"
+      ],
       "additionalProperties": false
     },
-    "SlideCommand_3_slide_elements": {
+    "SlideMaster_elements": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/SlideElement"
@@ -191,6 +228,10 @@
         },
         "locked": {
           "type": "boolean"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
         },
         "type": {
           "const": "text"
@@ -293,6 +334,10 @@
         },
         "locked": {
           "type": "boolean"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
         },
         "type": {
           "const": "shape"
@@ -472,6 +517,10 @@
         "locked": {
           "type": "boolean"
         },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
+        },
         "type": {
           "const": "image"
         },
@@ -499,7 +548,130 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_3_slide_animations": {
+    "SlideMasterLibrary_layouts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SlideLayout"
+      }
+    },
+    "SlideLayout": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "masterId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "background": {
+          "type": "string"
+        },
+        "elements": {
+          "$ref": "#/$defs/SlideMaster_elements"
+        },
+        "placeholders": {
+          "$ref": "#/$defs/SlideLayout_placeholders"
+        },
+        "showMasterShapes": {
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
+        }
+      },
+      "required": [
+        "id",
+        "masterId",
+        "name",
+        "elements",
+        "placeholders"
+      ],
+      "additionalProperties": false
+    },
+    "SlideLayout_placeholders": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SlideLayoutPlaceholder"
+      }
+    },
+    "SlideLayoutPlaceholder": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "element": {
+          "$ref": "#/$defs/SlideElement"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "element"
+      ],
+      "additionalProperties": false
+    },
+    "SlideLayout_showMasterShapes": {
+      "type": "boolean"
+    },
+    "SlideCommand_4": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "slide.add"
+        },
+        "afterId": {
+          "type": "string"
+        },
+        "slide": {
+          "$ref": "#/$defs/SlideCommand_4_slide"
+        },
+        "layoutId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "SlideCommand_4_slide": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "background": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "elements": {
+          "$ref": "#/$defs/SlideMaster_elements"
+        },
+        "animations": {
+          "$ref": "#/$defs/SlideCommand_4_slide_animations"
+        },
+        "layoutId": {
+          "type": "string"
+        },
+        "inheritBackground": {
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
+        },
+        "showMasterShapes": {
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SlideCommand_4_slide_animations": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/SlideAnimationStep"
@@ -652,7 +824,7 @@
           "type": "number"
         },
         "yoyo": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
         }
       },
       "required": [
@@ -717,10 +889,43 @@
       },
       "additionalProperties": false
     },
-    "SlideAnimationNode_2_yoyo": {
-      "type": "boolean"
+    "SlideCommand_5": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "slide.applyLayout"
+        },
+        "slideId": {
+          "type": "string"
+        },
+        "layoutId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "slideId",
+        "layoutId"
+      ],
+      "additionalProperties": false
     },
-    "SlideCommand_4": {
+    "SlideCommand_6": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "slide.detachLayout"
+        },
+        "slideId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "slideId"
+      ],
+      "additionalProperties": false
+    },
+    "SlideCommand_7": {
       "type": "object",
       "properties": {
         "type": {
@@ -736,7 +941,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_5": {
+    "SlideCommand_8": {
       "type": "object",
       "properties": {
         "type": {
@@ -752,7 +957,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_6": {
+    "SlideCommand_9": {
       "type": "object",
       "properties": {
         "type": {
@@ -772,7 +977,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_7": {
+    "SlideCommand_10": {
       "type": "object",
       "properties": {
         "type": {
@@ -782,7 +987,7 @@
           "type": "string"
         },
         "patch": {
-          "$ref": "#/$defs/SlideCommand_7_patch"
+          "$ref": "#/$defs/SlideCommand_10_patch"
         }
       },
       "required": [
@@ -792,7 +997,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_7_patch": {
+    "SlideCommand_10_patch": {
       "type": "object",
       "properties": {
         "background": {
@@ -807,7 +1012,7 @@
       },
       "additionalProperties": false
     },
-    "SlideCommand_8": {
+    "SlideCommand_11": {
       "type": "object",
       "properties": {
         "type": {
@@ -817,7 +1022,7 @@
           "type": "string"
         },
         "elements": {
-          "$ref": "#/$defs/SlideCommand_8_elements"
+          "$ref": "#/$defs/SlideCommand_11_elements"
         },
         "name": {
           "type": "string"
@@ -829,7 +1034,7 @@
           "type": "string"
         },
         "animations": {
-          "$ref": "#/$defs/SlideCommand_3_slide_animations"
+          "$ref": "#/$defs/SlideCommand_4_slide_animations"
         }
       },
       "required": [
@@ -839,7 +1044,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_8_elements": {
+    "SlideCommand_11_elements": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/SlideElementInput"
@@ -865,10 +1070,10 @@
           "const": "text"
         },
         "bold": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
         },
         "italic": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
         },
         "fill": {
           "type": "string"
@@ -920,7 +1125,11 @@
           "maximum": 1
         },
         "locked": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
         }
       },
       "required": [
@@ -1008,7 +1217,11 @@
           "maximum": 1
         },
         "locked": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
         },
         "textColor": {
           "type": "string"
@@ -1070,7 +1283,11 @@
           "maximum": 1
         },
         "locked": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
         }
       },
       "required": [
@@ -1079,7 +1296,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_9": {
+    "SlideCommand_12": {
       "type": "object",
       "properties": {
         "type": {
@@ -1089,7 +1306,7 @@
           "type": "string"
         },
         "animations": {
-          "$ref": "#/$defs/SlideCommand_3_slide_animations"
+          "$ref": "#/$defs/SlideCommand_4_slide_animations"
         }
       },
       "required": [
@@ -1099,7 +1316,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_10": {
+    "SlideCommand_13": {
       "type": "object",
       "properties": {
         "type": {
@@ -1119,7 +1336,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_11": {
+    "SlideCommand_14": {
       "type": "object",
       "properties": {
         "type": {
@@ -1161,7 +1378,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_12": {
+    "SlideCommand_15": {
       "type": "object",
       "properties": {
         "type": {
@@ -1193,7 +1410,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_13": {
+    "SlideCommand_16": {
       "type": "object",
       "properties": {
         "type": {
@@ -1213,7 +1430,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_14": {
+    "SlideCommand_17": {
       "type": "object",
       "properties": {
         "type": {
@@ -1254,10 +1471,10 @@
       "type": "object",
       "properties": {
         "bold": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
         },
         "italic": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
         },
         "fill": {
           "type": "string"
@@ -1306,7 +1523,11 @@
           "maximum": 1
         },
         "locked": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
         }
       },
       "additionalProperties": false
@@ -1371,7 +1592,11 @@
           "maximum": 1
         },
         "locked": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
         },
         "textColor": {
           "type": "string"
@@ -1409,7 +1634,11 @@
           "maximum": 1
         },
         "locked": {
-          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+          "$ref": "#/$defs/SlideLayout_showMasterShapes"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
         },
         "src": {
           "type": "string",
@@ -1418,7 +1647,7 @@
       },
       "additionalProperties": false
     },
-    "SlideCommand_15": {
+    "SlideCommand_18": {
       "type": "object",
       "properties": {
         "type": {
@@ -1428,7 +1657,7 @@
           "type": "string"
         },
         "elementIds": {
-          "$ref": "#/$defs/SlideCommand_15_elementIds"
+          "$ref": "#/$defs/SlideCommand_18_elementIds"
         }
       },
       "required": [
@@ -1438,13 +1667,13 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_15_elementIds": {
+    "SlideCommand_18_elementIds": {
       "type": "array",
       "items": {
         "type": "string"
       }
     },
-    "SlideCommand_16": {
+    "SlideCommand_19": {
       "type": "object",
       "properties": {
         "type": {
@@ -1454,7 +1683,7 @@
           "type": "string"
         },
         "elementIds": {
-          "$ref": "#/$defs/SlideCommand_15_elementIds"
+          "$ref": "#/$defs/SlideCommand_18_elementIds"
         }
       },
       "required": [
@@ -1464,7 +1693,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_17": {
+    "SlideCommand_20": {
       "type": "object",
       "properties": {
         "type": {
@@ -1474,10 +1703,10 @@
           "type": "string"
         },
         "elementIds": {
-          "$ref": "#/$defs/SlideCommand_15_elementIds"
+          "$ref": "#/$defs/SlideCommand_18_elementIds"
         },
         "direction": {
-          "$ref": "#/$defs/SlideCommand_17_direction"
+          "$ref": "#/$defs/SlideCommand_20_direction"
         }
       },
       "required": [
@@ -1488,7 +1717,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_17_direction": {
+    "SlideCommand_20_direction": {
       "enum": [
         "front",
         "back",

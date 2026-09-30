@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import { resolveSlideAppearance } from "../model/index";
 import { findNearestConnectorPort, getConnectorPortPoints } from "../core";
 import { getSlideConnectorOutline, getSlideLineEndpoints, isSlideLine, resolveSlideLines, slideLineGeometry, translateSlideLine } from "../model/lines";
 import type { ContextMenuAction } from "../browser";
 import type { Slide, SlideCommand, SlideDeck, SlideElement, SlideLineGeometry } from "../model/types";
 import type { SlideEditor } from "../state/use-slide-editor";
 import { startDragEdgeMotion } from "./drag-scroll";
-import { elementStyle } from "./slide-artwork";
+import { elementStyle, SlideElementContent } from "./slide-artwork";
 import { SlideCanvasElement } from "./slide-canvas-element";
 import { useSlideContextMenu } from "./use-slide-context-menu";
 
@@ -288,10 +289,11 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
         if (editor.features.images && onImage) items.push({ id: "add-image", label: "画像を追加", disabled, onSelect: () => onImage({ deck, slideId: slide.id }) });
       }
       if (editor.features.addSlides) items.push({ id: "add-slide", label: "新しいスライド", separatorBefore: items.length > 0, disabled,
-        onSelect: () => editor.execute({ type: "slide.add", afterId: slide?.id }, deck) });
+        onSelect: () => editor.execute({ type: "slide.add", afterId: slide?.id, ...(editor.features.masters && slide?.layoutId ? { layoutId: slide.layoutId } : {}) }, deck) });
     }
     if (openMenu(event, items)) { cancelGesture(); cancelMarquee(); if (slide) editor.select({ slideId: slide.id, elementIds: [] }); }
   };
+  const appearance = slide ? resolveSlideAppearance(deck, slide) : undefined;
   const renderedElements = slide ? resolveSlideLines(slide.elements.map(element => ({ ...element, ...preview.get(element.id) } as SlideElement))) : [];
   return <div ref={viewport} className="lxp-canvas-viewport" tabIndex={0} aria-label="スライド編集キャンバス" data-slide-selection-scope="elements"
     onContextMenu={canvasMenu}
@@ -299,9 +301,10 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
     onPointerDown={beginMarquee}>
     {slide ? <div className="lxp-canvas-center" style={{ minWidth: deck.width * scale + 80, minHeight: deck.height * scale + 64 }}>
       <div className="lxp-canvas-frame" style={{ width: deck.width * scale, height: deck.height * scale }}>
-        <div ref={surface} className="lxp-canvas-surface" style={{ width: deck.width, height: deck.height, background: slide.background, transform: `scale(${scale})` }}
+        <div ref={surface} className="lxp-canvas-surface" style={{ width: deck.width, height: deck.height, background: appearance?.background, transform: `scale(${scale})` }}
           onPointerDown={beginMarquee}
           onPointerMove={move} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)}>
+          {appearance?.inheritedElements.map((element, index) => <div key={`inherited:${index}:${element.id}`} aria-hidden="true" className="lxp-element lxp-inherited-element" style={elementStyle(element)}><SlideElementContent element={element} /></div>)}
           {renderedElements.map(element => <SlideCanvasElement key={element.id} element={element}
             original={slide.elements.find(item => item.id === element.id)!} selected={selected.has(element.id)}
             editable={editor.editable} formatting={editor.features.formatting} textEnabled={editor.features.text}
@@ -314,7 +317,7 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
             if (!element || element.type === "image") return null;
             return <textarea autoFocus className="lxp-canvas-text-editor" aria-label="オブジェクトのテキスト" value={editing.text}
               style={{ ...elementStyle(element), fontSize: element.fontSize, color: element.type === "text" ? element.color : element.textColor,
-                background: element.fill === "transparent" ? slide.background : element.fill,
+                background: element.fill === "transparent" ? appearance?.background : element.fill,
                 fontFamily: element.type === "text" ? element.fontFamily : "inherit" }}
               onChange={event => setEditing({ id: element.id, text: event.target.value })} onBlur={commitText}
               onKeyDown={event => {

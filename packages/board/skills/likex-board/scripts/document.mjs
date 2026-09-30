@@ -27,7 +27,7 @@ const adapters = {
   form: ['Form', 'executeFormCommands', null, 8],
 };
 const selectorsByKind = {
-  spreadsheet: ['overview', 'compact-summary', 'sheet-id', 'range', 'drawing-id', 'search', 'text', 'match-case', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'slide-id', 'element-id'], document: ['block-id', 'offset', 'limit'],
+  spreadsheet: ['overview', 'compact-summary', 'sheet-id', 'range', 'drawing-id', 'search', 'text', 'match-case', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'slide-id', 'element-id', 'master-id', 'layout-id'], document: ['block-id', 'offset', 'limit'],
   board: ['column-id', 'card-id', 'offset', 'limit'], dataview: ['row-id', 'field-id', 'offset', 'limit'],
   diagram: ['node-id', 'edge-id', 'offset', 'limit'], whiteboard: ['element-id', 'offset', 'limit'],
   calendar: ['event-id', 'start', 'end', 'offset', 'limit'], chat: ['conversation-id', 'message-id', 'offset', 'limit'],
@@ -66,6 +66,7 @@ function usage(kind, version) {
       ...(['chat', 'aichat'].includes(kind) ? ['--message-id requires --conversation-id. Select a conversation to list its messages.'] : []),
       ...(kind === 'calendar' ? ['--start and --end must be supplied together; end is exclusive and dates use calendar.timeZone.'] : []),
       ...(kind === 'slide' ? ['--slide-id ID --include-data returns all elements of that slide in selection.elements, including text/style details but excluding image bytes. Add --element-id to read one element.',
+        'Imported masters/layouts are listed in the summary. Use --master-id ID or --layout-id ID with optional --include-data to read their decorations and placeholder prototypes. A slide with a layout returns inheritedElements separately; these are not editable page elements.',
         'inspect defaults to final static values. --include-animations returns original values and the animation definitions; it does not modify the file.'] : []),
       ...(kind === 'document' ? ['Document inspect lists 100 blocks by default. --offset and --limit (1–1000) page through current block positions.'] : []),
     ],
@@ -107,7 +108,7 @@ function argumentsFor(argv, kind) {
   if (wrongKeys.some(key => args[key])) fail('USAGE', `Unsupported selector for ${kind}.`);
   if (args.overview && queryKeys.some(key => key !== 'overview' && args[key] !== undefined)) fail('USAGE', '--overview cannot be combined with other inspection selectors or flags.');
   const sheetData = kind === 'spreadsheet' && Boolean(args['sheet-id'] && args['include-data'] && !args['drawing-id']);
-  const slideData = kind === 'slide' && Boolean(args['slide-id'] && args['include-data']);
+  const slideData = kind === 'slide' && Boolean((args['slide-id'] || args['master-id'] || args['layout-id']) && args['include-data']);
   if (kind === 'spreadsheet') {
     if (args.search) {
       if (!['sheets', 'cells'].includes(args.search)) fail('USAGE', '--search must be sheets or cells.');
@@ -128,7 +129,9 @@ function argumentsFor(argv, kind) {
   if ((args.range || args['drawing-id']) && !args['sheet-id']) fail('USAGE', '--range and --drawing-id require --sheet-id.');
   if (args.range && args['drawing-id']) fail('USAGE', 'Choose --range or --drawing-id.');
   if (kind === 'slide' && args['element-id'] && !args['slide-id']) fail('USAGE', '--element-id requires --slide-id.');
+  if (kind === 'slide' && ['slide-id', 'master-id', 'layout-id'].filter(key => args[key]).length > 1) fail('USAGE', 'Choose --slide-id, --master-id, or --layout-id.');
   if (args['include-animations'] && kind !== 'slide') fail('USAGE', '--include-animations is only supported for slide inspect.');
+  if (args['include-animations'] && (args['master-id'] || args['layout-id'])) fail('USAGE', 'Masters and layouts do not contain page animations; omit --include-animations.');
   if (args['include-data'] && !sheetData && !slideData && !dataSelectors.some(key => args[key])) fail('USAGE', '--include-data requires an explicit item selector.');
   if (dataSelectors.some(key => args[key]) && (args.offset !== undefined || args.limit !== undefined)) fail('USAGE', 'Choose an item selector or list pagination.');
   for (const [first, second] of [['column-id', 'card-id'], ['row-id', 'field-id'], ['node-id', 'edge-id']]) if (args[first] && args[second]) fail('USAGE', `Choose --${first} or --${second}.`);
@@ -227,11 +230,13 @@ function sheetSummary(sheet) {
 }
 
 function summaryFor(kind, document, model, overview = false, compactSummary = false) {
+  const catalogCounts = kind === 'slide' && (document.masters?.length || document.layouts?.length)
+    ? { masterCount: document.masters?.length ?? 0, layoutCount: document.layouts?.length ?? 0 } : {};
   if (kind === 'spreadsheet') return { format: 'likex.spreadsheet', sheetCount: document.sheets.length,
     imageCount: Object.keys(document.resources?.images ?? {}).length, namedRangeCount: document.namedRanges?.length ?? 0,
     ...(!overview && !compactSummary ? { sheets: document.sheets.map(sheetSummary) } : {}) };
   if (kind === 'slide' && overview) return { format: 'likex.slide', title: document.title,
-    slideCount: document.slides.length, elementCount: document.slides.reduce((sum, slide) => sum + slide.elements.length, 0) };
+    slideCount: document.slides.length, elementCount: document.slides.reduce((sum, slide) => sum + slide.elements.length, 0), ...catalogCounts };
   if (kind === 'document') return { format: 'likex.document', id: document.id, title: document.title, page: document.page,
     blockCount: model.getBlocks(document).length, characterCount: model.getDocumentText(document).length, imageCount: model.getImages(document).length };
   const common = { format: document.format, id: document.id, title: document.title };
@@ -245,12 +250,19 @@ function summaryFor(kind, document, model, overview = false, compactSummary = fa
     messageCount: document.conversations.reduce((count, conversation) => count + conversation.messages.length, 0) };
   if (kind === 'form') return { ...common, fieldCount: document.fields.length, requiredFieldCount: document.fields.filter(field => field.required).length };
   return { format: 'likex.slide', id: document.id, title: document.title, width: document.width, height: document.height,
-    slideCount: document.slides.length, elementCount: document.slides.reduce((sum, slide) => sum + slide.elements.length, 0),
-    ...(!compactSummary ? { slides: document.slides.map(slide => ({ id: slide.id, name: slide.name, elementCount: slide.elements.length })) } : {}) };
+    slideCount: document.slides.length, elementCount: document.slides.reduce((sum, slide) => sum + slide.elements.length, 0), ...catalogCounts,
+    ...(!compactSummary ? { slides: document.slides.map(slide => ({ id: slide.id, name: slide.name, elementCount: slide.elements.length, ...(slide.layoutId ? { layoutId: slide.layoutId } : {}) })),
+      ...(document.masters?.length ? { masters: model.getSlideMasters(document).map(master => ({ id: master.id, name: master.name, elementCount: master.elements.length })) } : {}),
+      ...(document.layouts?.length ? { layouts: model.getSlideLayouts(document).map(layoutSummary) } : {}) } : {}) };
+}
+
+function layoutSummary(layout) {
+  return { id: layout.id, masterId: layout.masterId, name: layout.name, elementCount: layout.elements.length,
+    placeholders: layout.placeholders.map(placeholder => ({ id: placeholder.id, kind: placeholder.kind })) };
 }
 
 function objectSummary(item) {
-  const keys = ['id', 'type', 'kind', 'name', 'shape', 'anchor', 'x', 'y', 'width', 'height', 'rotation', 'locked', 'resourceId'];
+  const keys = ['id', 'type', 'kind', 'name', 'shape', 'anchor', 'x', 'y', 'width', 'height', 'rotation', 'locked', 'resourceId', 'layoutPlaceholderId'];
   return { ...Object.fromEntries(keys.filter(key => Object.hasOwn(item, key)).map(key => [key, item[key]])),
     ...(typeof item.text === 'string' ? { textLength: item.text.length } : {}),
     ...(typeof item.alt === 'string' ? { altLength: item.alt.length } : {}) };
@@ -395,14 +407,30 @@ function selectionFor(kind, model, document, args) {
       tables: model.getTables(document, sheet.id).map(table => ({ id: table.id, name: table.name, sheetId: table.sheetId,
         range: table.range, address: table.address, columnCount: table.columns.length })) };
   }
+  if (kind === 'slide' && args['master-id']) {
+    const master = model.getSlideMasters(document).find(item => item.id === args['master-id']);
+    if (!master) fail('NOT_FOUND', 'The selected master was not found.');
+    return { master: { id: master.id, name: master.name, background: master.background },
+      elements: master.elements.map(element => selectedObject(element, args['include-data'])), layouts: model.getSlideLayouts(document, master.id).map(layoutSummary) };
+  }
+  if (kind === 'slide' && args['layout-id']) {
+    const layout = model.getSlideLayout(document, args['layout-id']);
+    if (!layout) fail('NOT_FOUND', 'The selected layout was not found.');
+    return { layout: { ...layoutSummary(layout), background: layout.background, showMasterShapes: layout.showMasterShapes },
+      elements: layout.elements.map(element => selectedObject(element, args['include-data'])),
+      placeholders: layout.placeholders.map(placeholder => ({ id: placeholder.id, kind: placeholder.kind, element: selectedObject(placeholder.element, args['include-data']) })) };
+  }
   if (kind === 'slide' && args['slide-id']) {
     const options = { includeAnimations: Boolean(args['include-animations']) };
     const slide = model.getSlide(document, args['slide-id'], options);
     if (!slide) fail('NOT_FOUND', 'The selected slide was not found.');
     if (args['element-id']) return { slideId: slide.id, element: selectedObject(model.getElement(document, slide.id, args['element-id'], options), args['include-data']),
       ...(args['include-animations'] ? { animations: model.getAnimations(document, slide.id) } : {}) };
-    return { slide: { id: slide.id, name: slide.name, background: slide.background, notesLength: slide.notes.length,
+    const appearance = slide.layoutId ? model.resolveSlideAppearance(document, slide) : undefined;
+    return { slide: { id: slide.id, name: slide.name, background: appearance?.background ?? slide.background, notesLength: slide.notes.length,
+      ...(slide.layoutId ? { layoutId: slide.layoutId, inheritBackground: slide.inheritBackground } : {}),
       elementCount: slide.elements.length }, elements: slide.elements.map(element => selectedObject(element, args['include-data'])),
+      ...(appearance ? { inheritedElements: appearance.inheritedElements.map(element => selectedObject(element, args['include-data'])) } : {}),
       ...(args['include-animations'] ? { animations: model.getAnimations(document, slide.id) } : {}) };
   }
   return undefined;

@@ -7,6 +7,8 @@ import {
   PanelRight, Plus, RectangleHorizontal, RotateCcw, Save, Scissors, SendToBack, Trash2, Triangle, Type, Upload,
   AlignVerticalJustifyCenter, AlignVerticalJustifyStart, AlignVerticalJustifyEnd,
 } from "lucide-react";
+import { resolveSlideAppearance } from "../model/index";
+import { SlideMasterControls } from "./slide-master-controls";
 import type { SlideCommand, SlideElementPatch, SlideShapeKind } from "../model/types";
 import type { SlideEditor } from "../state/use-slide-editor";
 import { SlideScrollStrip } from "./slide-scroll-strip";
@@ -32,14 +34,15 @@ const shapes: { shape: SlideShapeKind; label: string; icon: ReactNode }[] = [
   { shape: "leftArrow", label: "左ブロック矢印", icon: <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 7H10V2L1 12L10 22V17H22Z" fill="currentColor" /></svg> },
 ];
 
-export function SlideRibbon({ editor, onImage, onImport, onPresent, propertiesOpen, notesOpen, onProperties, onNotes, onFit, ownerDocument }: {
-  editor: SlideEditor; onImage(): void; onImport(format: "pptx" | "slon"): void; onPresent(): void;
+export function SlideRibbon({ editor, onImage, onImport, onImportMasters, onPresent, propertiesOpen, notesOpen, onProperties, onNotes, onFit, ownerDocument }: {
+  editor: SlideEditor; onImage(): void; onImport(format: "pptx" | "slon"): void; onImportMasters?(): void; onPresent(): void;
   propertiesOpen: boolean; notesOpen: boolean; onProperties(): void; onNotes(): void; onFit(): void; ownerDocument: Document | null;
 }) {
   const [tab, setTab] = useState<RibbonTab>("home");
   const root = useRef<HTMLDivElement>(null);
   const activeTab = tab === "animations" && !editor.features.animations ? "home" : tab;
   const slide = editor.deck.slides.find(item => item.id === editor.selection.slideId);
+  const background = slide ? resolveSlideAppearance(editor.deck, slide).background : "#ffffff";
   const selected = slide?.elements.filter(element => editor.selection.elementIds.includes(element.id)) ?? [];
   const text = selected.find(element => element.type === "text");
   const hasSelection = selected.length > 0;
@@ -83,7 +86,7 @@ export function SlideRibbon({ editor, onImage, onImport, onPresent, propertiesOp
           <div className="lxp-ribbon-stack"><Action label="コピー" icon={<Copy size={15} />} disabled={!hasSelection} onClick={editor.copyElements} />
             {!editor.readOnly && <Action label="切り取り" icon={<Scissors size={15} />} disabled={disabled || !hasSelection} onClick={() => { editor.copyElements(); remove(); }} />}</div>
         </Group>
-        {editor.features.addSlides && !editor.readOnly && <Group name="スライド"><Action label="新しいスライド" icon={<Plus size={25} />} big disabled={disabled} onClick={() => void editor.execute({ type: "slide.add", afterId: slide?.id })} />
+        {editor.features.addSlides && !editor.readOnly && <Group name="スライド"><Action label="新しいスライド" icon={<Plus size={25} />} big disabled={disabled} onClick={() => void editor.execute({ type: "slide.add", afterId: slide?.id, ...(editor.features.masters && slide?.layoutId ? { layoutId: slide.layoutId } : {}) })} />
           <Action label="複製" icon={<Copy size={18} />} disabled={disabled || !slide} onClick={() => { if (slide) void editor.execute({ type: "slide.duplicate", slideId: slide.id }); }} /></Group>}
         {editor.features.formatting && <>
           <Group name="フォント"><div className="lxp-ribbon-stack">
@@ -115,11 +118,12 @@ export function SlideRibbon({ editor, onImage, onImport, onPresent, propertiesOp
         {editor.features.shapes && !editor.readOnly && <Group name="図形">{shapes.map(item => <Action key={item.shape} label={item.label} icon={item.icon} big disabled={disabled || !slide} onClick={() => addShape(item.shape)} />)}</Group>}
         {lineMenu}
       </>}
+      {activeTab === "design" && editor.features.masters && <Group name="マスターとレイアウト"><SlideMasterControls editor={editor} onImport={() => onImportMasters?.()} /></Group>}
       {activeTab === "design" && editor.features.formatting && <>
-        <Group name="背景"><div className="lxp-background-gallery">{["#ffffff", "#fff6ef", "#f0f5fa", "#142c45", "#263528", "#ca542f"].map(background => <button type="button" key={background} disabled={disabled || !slide}
-          style={{ background }} aria-label={`背景色 ${background}`} title={`背景色 ${background}`} aria-pressed={slide?.background === background}
-          onClick={() => { if (slide) void editor.execute({ type: "slide.update", slideId: slide.id, patch: { background } }); }} />)}</div>
-          <label className="lxp-ribbon-color" title="背景色を選ぶ"><input type="color" aria-label="背景色を選ぶ" value={slide?.background ?? "#ffffff"} disabled={disabled || !slide}
+        <Group name="背景"><div className="lxp-background-gallery">{["#ffffff", "#fff6ef", "#f0f5fa", "#142c45", "#263528", "#ca542f"].map(color => <button type="button" key={color} disabled={disabled || !slide}
+          style={{ background: color }} aria-label={`背景色 ${color}`} title={`背景色 ${color}`} aria-pressed={background === color}
+          onClick={() => { if (slide) void editor.execute({ type: "slide.update", slideId: slide.id, patch: { background: color } }); }} />)}</div>
+          <label className="lxp-ribbon-color" title="背景色を選ぶ"><input type="color" aria-label="背景色を選ぶ" value={background} disabled={disabled || !slide}
             onChange={event => { if (slide) void editor.execute({ type: "slide.update", slideId: slide.id, patch: { background: event.target.value } }); }} /></label>
         </Group>
         <Group name="ページ設定"><Action label="ワイド 16:9" icon={<RectangleHorizontal size={24} />} big disabled={disabled} onClick={() => void editor.execute({ type: "deck.resize", width: 1280, height: 720 })} />

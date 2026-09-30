@@ -136,3 +136,9 @@ JSON内のアニメーションは宣言的データであり、JavaScriptや数
 保存モデルの完全な要素と、コマンドの `SlideElementInput` は区別する。`element.add` と `slide.replaceContent.elements` は `type` が必須（画像は `src` も必須）で、残りを既定値で補う。`slide.replaceContent` は既存の1ページ全体を原子的に置換し、ページIDと順序は維持する。`animations` 省略時は旧定義を除去する。保存形式・version 1・PPTXの表現は変わらない。
 
 文字の診断・自動縮小と2点接続線の公開APIは [commands.md](../../../src/docs/commands.md) の「2点の直線と接続」「文字の収まり」を参照。旧 `createSlideConnector` / `element.connect` は削除済み。
+
+## マスターとレイアウトの共有カタログ
+
+任意の `deck.masters` は `{ id, name, background, elements }`、`deck.layouts` は `{ id, masterId, name, background?, elements, placeholders, showMasterShapes? }` の配列。`placeholders` は `{ id, kind, element }` の配列で、elementは欄の原型。マスターとレイアウトの装飾 `elements` にも保存用 `stackOrder` が必要だが、単体の原型 `placeholder.element` には不要。
+
+ページの `layoutId` がレイアウトを指す。`inheritBackground` がtrueなら共通背景を使い、`showMasterShapes: false` はマスターの装飾を非表示にする。ページ自身の欄は普通の要素に `layoutPlaceholderId` を付けて保持する。旧来のカタログなしSLONは変更不要で、parse/serializeは存在しないカタログを勝手に追加しない。必ず参照と上限を検証する公開APIを通す。

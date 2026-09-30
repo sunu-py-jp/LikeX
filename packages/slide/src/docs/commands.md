@@ -13,6 +13,8 @@ type SlideDeck = {
   width: number;
   height: number;
   slides: Slide[];
+  masters?: SlideMaster[];
+  layouts?: SlideLayout[];
 };
 type Slide = {
   id: string;
@@ -21,6 +23,9 @@ type Slide = {
   notes: string;
   elements: SlideElement[];
   animations?: SlideAnimationStep[];
+  layoutId?: string;
+  inheritBackground?: boolean;
+  showMasterShapes?: boolean;
 };
 ```
 
@@ -48,10 +53,14 @@ const output = new File([serializeSlideDeck(deck)], "提案資料.slon", {
 ```ts
 type SlideFileElement = SlideElement & { stackOrder: number };
 type SlideFilePage = Omit<Slide, "elements"> & { elements: SlideFileElement[] };
-type SlideFile = Omit<SlideDeck, "format" | "version" | "slides"> & {
+type SlideFileMaster = Omit<SlideMaster, "elements"> & { elements: SlideFileElement[] };
+type SlideFileLayout = Omit<SlideLayout, "elements"> & { elements: SlideFileElement[] };
+type SlideFile = Omit<SlideDeck, "format" | "version" | "slides" | "masters" | "layouts"> & {
   format: "likex.slide";
   version: 1;
   slides: SlideFilePage[];
+  masters?: SlideFileMaster[];
+  layouts?: SlideFileLayout[];
 };
 ```
 
@@ -258,3 +267,7 @@ GUIのファイル選択では未保存の置き換え確認を表示します�
 refのget APIも上記と同じ取得規則です。`onSave`、`exportNative`、イベントのdeck、セッションの `getSnapshot()` は元の値と全定義を保持するため、get APIの最終静止表示と区別してください。
 
 PowerPoint変換の詳細は `ref.current.getPptxDiagnostics(): readonly SlidePptxDiagnostic[]` で取得できます。最後に成功した読み込み・出力が対象で、初回は空配列です。[変換診断の型と通知](powerpoint.md#変換結果を確認する)を参照してください。
+
+## マスターとレイアウトのAPI
+
+`masters.import`、`slide.applyLayout`、`slide.detachLayout`、`slide.add.layoutId` を使います。取得は `getSlideMasters` / `getSlideLayouts` / `getSlideLayout`、背景と共有装飾の解決は `resolveSlideAppearance` です。保存用のカタログ要素にも `stackOrder` を使うため、専用のparse/serializeを通してください。[型・コマンド・Office変換](masters.md)を参照してください。

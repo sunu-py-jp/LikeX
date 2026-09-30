@@ -46,7 +46,7 @@ export function SlideFilmstrip({ editor }: { editor: SlideEditor }) {
     const index = deck.slides.findIndex(slide => slide.id === slideId);
     if (editor.features.addSlides) {
       items.push({ id: "add-slide", label: "新しいスライド", disabled,
-        onSelect: () => editor.execute({ type: "slide.add", afterId: slideId }, deck) });
+        onSelect: () => editor.execute({ type: "slide.add", afterId: slideId, ...(editor.features.masters && deck.slides.find(item => item.id === slideId)?.layoutId ? { layoutId: deck.slides.find(item => item.id === slideId)!.layoutId } : {}) }, deck) });
       if (slideId) items.push({ id: "duplicate-slide", label: "スライドを複製", disabled,
         onSelect: () => editor.execute({ type: "slide.duplicate", slideId }, deck) });
     }
@@ -112,6 +112,6 @@ export function SlideFilmstrip({ editor }: { editor: SlideEditor }) {
       </li>)}
     </ol>
     {ghost&&feedback&&<div className="lxp-slide-drag-preview" aria-hidden="true" style={{left:feedback.x,top:feedback.y}}><div style={{width:140,height:140*deck.height/deck.width,overflow:"hidden",position:"relative"}}><SlideArtwork deck={deck} slide={ghost} scale={140/deck.width}/></div><span>{ghost.name}</span></div>}
-    {editor.features.addSlides && !editor.readOnly && <button type="button" className="lxp-new-slide" disabled={!editor.editable} onClick={() => void editor.execute({ type: "slide.add", afterId: editor.selection.slideId || undefined })}><Plus size={16} />新しいスライド</button>}
+    {editor.features.addSlides && !editor.readOnly && <button type="button" className="lxp-new-slide" disabled={!editor.editable} onClick={() => void editor.execute({ type: "slide.add", afterId: editor.selection.slideId || undefined, ...(editor.features.masters && deck.slides.find(item => item.id === editor.selection.slideId)?.layoutId ? { layoutId: deck.slides.find(item => item.id === editor.selection.slideId)!.layoutId } : {}) })}><Plus size={16} />新しいスライド</button>}
   </aside>;
 }

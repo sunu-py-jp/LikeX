@@ -223,3 +223,18 @@ await writeFile("edited.pptx", new Uint8Array(await pptx.arrayBuffer()));
 ノード数・深さ・再生時間・反復回数・クリック数の固定上限はない。有限の時間・正の安全な整数の反復・積算の有限性・循環のない構造を検証する。旧 `SLIDE_LIMITS.animation*` キーは互換性のためInfinityとなる。ロック対象に影響するステップの変更・削除には解除が必要。要素削除では対応tweenと空のグループを除き、クリック対象を削除したステップは全体を除く。複製では新IDへ参照を更新する。`features.animations` は表示中の編集可否を制御し、無効化自体では定義を削除しない。
 
 `element.duplicate` は独立系列IDを複製内で一貫した新IDへ置き換える。`slide.duplicate` はページ内の系列IDを維持する。`element.duplicate` は要素のx/yに加え、複製するtweenのfrom/toに明示したx/yにも各20pxを加算する。`slide.duplicate` は要素とtweenの座標を維持する。複製で座標上限を超える場合もバッチ全体を拒否する。
+
+## マスターとレイアウト
+
+`importSlidePptxMasters(input, options?)` はPPTX／POTXから `{ library, warnings, diagnostics }` を返す。スライドがないテンプレートも読み込める。`library` は `{ width, height, masters, layouts }`。`masters.import` の `library` へ渡してカタログを追加する。既存ページは置き換えず、追加分の全IDを新しく割り当て、座標サイズを調整する。元のIDを適用先で再利用せず、戻り値かinspectから追加後のIDを取得する。表示中の資料には `SlideHandle.importPptxMasters(input)` を使う。
+
+| コマンド | 引数・作用 |
+| --- | --- |
+| `masters.import` | `library: SlideMasterLibrary`。戻り値に新しい `masterIds` / `layoutIds` |
+| `slide.applyLayout` | `slideId`, `layoutId`。既存本文と通常の要素を残し、プレースホルダーの配置・書式を適用 |
+| `slide.detachLayout` | `slideId`。背景・装飾をローカル化して共有参照を解除 |
+| `slide.add` | 任意の `layoutId` を追加指定し、そのレイアウトで新規ページ作成 |
+
+公開モデルは `getSlideMasters(deck)` / `getSlideLayouts(deck, masterId?)` / `getSlideLayout(deck, layoutId)` / `resolveSlideAppearance(deck, slide)` を提供する。最後の戻り値は `{ background, inheritedElements, localElements }`。既存 `getSlide` / `getElements` はローカル要素のみを返す。`slide.replaceContent` はローカル本文を置換し、レイアウト参照は保持する。明示的なページ背景変更は共通背景より優先する。通常のPPTX読み込み・出力でもカタログと参照を保持し、未対応のOffice表現は診断を確認する。
+
+プレースホルダーのIDはレイアウト内で一意。要素の `layoutPlaceholderId` で対応を保持する。適用では既存IDと内容を保持し、不要になった欄の内容は通常要素として残す。継承装飾を編集する場合は、明示的にレイアウトを解除してから、そのページの新しい要素IDを取得する。CLIのapplyは追加IDメタデータを返さないため、適用後のinspectを使う。

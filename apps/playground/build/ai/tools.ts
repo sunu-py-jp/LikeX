@@ -119,7 +119,7 @@ export class SkillWorkspace {
   }
 
   private async script(args: Record<string, unknown>, signal: AbortSignal): Promise<unknown> {
-    const selectors = this.module === "slide" ? { slideId: "slide-id", elementId: "element-id" } : { sheetId: "sheet-id", range: "range", drawingId: "drawing-id" };
+    const selectors = this.module === "slide" ? { slideId: "slide-id", elementId: "element-id", masterId: "master-id", layoutId: "layout-id" } : { sheetId: "sheet-id", range: "range", drawingId: "drawing-id" };
     const searchKeys = this.module === "spreadsheet" ? Object.keys(spreadsheetSearchProperties) : [];
     keys(args, ["operation", "commands", "dryRun", "includeData", "overview", ...Object.keys(selectors), ...searchKeys]);
     if (!["inspect", "apply", "validate", "create"].includes(String(args.operation))) throw new AIError("inspect / apply / validate / create を指定してください。");

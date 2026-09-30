@@ -27,6 +27,12 @@
         },
         "slides": {
           "$ref": "#/$defs/SlideFile_slides"
+        },
+        "masters": {
+          "$ref": "#/$defs/SlideFile_masters"
+        },
+        "layouts": {
+          "$ref": "#/$defs/SlideFile_layouts"
         }
       },
       "required": [
@@ -63,6 +69,15 @@
         },
         "animations": {
           "$ref": "#/$defs/SlideFilePage_animations"
+        },
+        "layoutId": {
+          "type": "string"
+        },
+        "inheritBackground": {
+          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+        },
+        "showMasterShapes": {
+          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
         },
         "elements": {
           "$ref": "#/$defs/SlideFilePage_elements"
@@ -349,6 +364,10 @@
         "locked": {
           "type": "boolean"
         },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
+        },
         "type": {
           "const": "text"
         },
@@ -454,6 +473,10 @@
         },
         "locked": {
           "type": "boolean"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
         },
         "type": {
           "const": "shape"
@@ -637,6 +660,10 @@
         "locked": {
           "type": "boolean"
         },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
+        },
         "type": {
           "const": "image"
         },
@@ -665,6 +692,367 @@
         "src",
         "alt",
         "stackOrder"
+      ],
+      "additionalProperties": false
+    },
+    "SlideFile_masters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SlideFileMaster"
+      }
+    },
+    "SlideFileMaster": {
+      "type": "object",
+      "properties": {
+        "background": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "elements": {
+          "$ref": "#/$defs/SlideFilePage_elements"
+        }
+      },
+      "required": [
+        "background",
+        "id",
+        "name",
+        "elements"
+      ],
+      "additionalProperties": false
+    },
+    "SlideFile_layouts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SlideFileLayout"
+      }
+    },
+    "SlideFileLayout": {
+      "type": "object",
+      "properties": {
+        "background": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "showMasterShapes": {
+          "$ref": "#/$defs/SlideAnimationNode_2_yoyo"
+        },
+        "masterId": {
+          "type": "string"
+        },
+        "placeholders": {
+          "$ref": "#/$defs/SlideFileLayout_placeholders"
+        },
+        "elements": {
+          "$ref": "#/$defs/SlideFilePage_elements"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "masterId",
+        "placeholders",
+        "elements"
+      ],
+      "additionalProperties": false
+    },
+    "SlideFileLayout_placeholders": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SlideLayoutPlaceholder"
+      }
+    },
+    "SlideLayoutPlaceholder": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "element": {
+          "$ref": "#/$defs/SlideElement"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "element"
+      ],
+      "additionalProperties": false
+    },
+    "SlideElement": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SlideTextElement"
+        },
+        {
+          "$ref": "#/$defs/SlideShapeElement"
+        },
+        {
+          "$ref": "#/$defs/SlideImageElement"
+        }
+      ]
+    },
+    "SlideTextElement": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
+        },
+        "type": {
+          "const": "text"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "fontFamily": {
+          "type": "string"
+        },
+        "color": {
+          "type": "string"
+        },
+        "bold": {
+          "type": "boolean"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "align": {
+          "$ref": "#/$defs/SlideFileElement_1_align"
+        },
+        "verticalAlign": {
+          "$ref": "#/$defs/SlideFileElement_1_verticalAlign"
+        },
+        "fill": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "x",
+        "y",
+        "width",
+        "height",
+        "rotation",
+        "opacity",
+        "locked",
+        "type",
+        "text",
+        "fontSize",
+        "fontFamily",
+        "color",
+        "bold",
+        "italic",
+        "align",
+        "verticalAlign",
+        "fill"
+      ],
+      "additionalProperties": false
+    },
+    "SlideShapeElement": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
+        },
+        "type": {
+          "const": "shape"
+        },
+        "shape": {
+          "$ref": "#/$defs/SlideShapeKind"
+        },
+        "line": {
+          "$ref": "#/$defs/SlideLineGeometry",
+          "description": "Only shape:line. Absolute document coordinates; bound points follow their target."
+        },
+        "startArrow": {
+          "$ref": "#/$defs/SlideFileElement_2_startArrow",
+          "description": "Line endpoint decoration. Missing fields preserve legacy plain lines."
+        },
+        "endArrow": {
+          "$ref": "#/$defs/SlideFileElement_2_startArrow"
+        },
+        "fill": {
+          "type": "string"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "textColor": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "x",
+        "y",
+        "width",
+        "height",
+        "rotation",
+        "opacity",
+        "locked",
+        "type",
+        "shape",
+        "fill",
+        "stroke",
+        "strokeWidth",
+        "text",
+        "fontSize",
+        "textColor"
+      ],
+      "additionalProperties": false
+    },
+    "SlideImageElement": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "layoutPlaceholderId": {
+          "type": "string",
+          "description": "Links a local editable element to one slot of its page's layout."
+        },
+        "type": {
+          "const": "image"
+        },
+        "src": {
+          "type": "string",
+          "description": "Embedded PNG/JPEG/GIF/WebP data URL. No remote requests are made when rendering a deck."
+        },
+        "alt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "x",
+        "y",
+        "width",
+        "height",
+        "rotation",
+        "opacity",
+        "locked",
+        "type",
+        "src",
+        "alt"
       ],
       "additionalProperties": false
     }

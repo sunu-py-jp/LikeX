@@ -1,4 +1,5 @@
 import type { SlideElement, SlideShapeElement, SlideTextElement } from "../model/types";
+import { resolveSlideAppearance } from "../model/index";
 import { validateSlideImageSource } from "../model/image-source";
 import { getSlideLineMarkers } from "./line-markers";
 import { getSlideShapeGeometry, SHAPE_TEXT_STYLE, SLIDE_TEXT_STYLE, wrapSlideText } from "./render-style";
@@ -17,6 +18,8 @@ const font = (element: SlideTextElement | SlideShapeElement) => element.type ===
 /** A browser-only renderer: no React mounting, remote image fetching, or editor state. */
 export async function renderSlideImage(request: SlideImageRenderRequest): Promise<Blob> {
   const { deck, slide, width, height, signal } = request;
+  const appearance = resolveSlideAppearance(deck, slide);
+  const elements = [...appearance.inheritedElements, ...appearance.localElements];
   signal?.throwIfAborted();
   if (typeof document === "undefined") throw new Error("PNGの描画にはブラウザーのCanvas、または画像レンダラーの指定が必要です");
   const canvas = document.createElement("canvas");
@@ -68,14 +71,14 @@ export async function renderSlideImage(request: SlideImageRenderRequest): Promis
     const fonts = document.fonts;
     if (fonts) {
       const descriptors = new Map<string, string>();
-      for (const element of slide.elements) if (element.type !== "image" && element.text) descriptors.set(font(element), (descriptors.get(font(element)) ?? "") + element.text);
+      for (const element of elements) if (element.type !== "image" && element.text) descriptors.set(font(element), (descriptors.get(font(element)) ?? "") + element.text);
       await Promise.all([...descriptors].map(([descriptor, text]) => fonts.load(descriptor, text)));
       await fonts.ready; check();
     }
     canvas.width = width; canvas.height = height;
     context.scale(width / deck.width, height / deck.height);
     context.clearRect(0, 0, deck.width, deck.height);
-    if (slide.background !== "transparent") { context.fillStyle = slide.background; context.fillRect(0, 0, deck.width, deck.height); }
+    if (appearance.background !== "transparent") { context.fillStyle = appearance.background; context.fillRect(0, 0, deck.width, deck.height); }
     let layer: HTMLCanvasElement | undefined, layerContext: CanvasRenderingContext2D | null = null;
     const paint = (target: CanvasRenderingContext2D, element: SlideElement, image?: DecodedImage) => {
       target.save();
@@ -90,7 +93,7 @@ export async function renderSlideImage(request: SlideImageRenderRequest): Promis
         else drawText(target, element);
       } finally { target.restore(); }
     };
-    for (const element of slide.elements) {
+    for (const element of elements) {
       check(); if (!element.opacity) continue;
       // Keep only one decoded source alive; compressed JSON limits alone do not bound decoded memory.
       const image = element.type === "image" ? await loadImage(element.src) : undefined;

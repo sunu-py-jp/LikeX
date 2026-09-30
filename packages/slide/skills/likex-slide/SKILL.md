@@ -50,17 +50,22 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 | 最終静止状態のスライドを読む | `inspect --input PATH --slide-id ID` |
 | 1ページの全要素の詳細をまとめて読む | `inspect --input PATH --slide-id ID --include-data [--compact-summary]` |
 | 元の値とアニメーション定義を読む | `inspect --input PATH [--slide-id ID] --include-animations` |
+| マスター／レイアウトを読む | `inspect --input PATH --master-id ID` または `--layout-id ID`。`--include-data` で詳細 |
 | 要素を読む | `inspect --input PATH --slide-id ID --element-id ID [--include-data]` |
 | コマンドを適用する | `apply --input PATH --commands FILE --output PATH [--dry-run]` |
 | ネイティブファイルを検証する | `validate --input PATH` |
 
 共通引数は `--project DIRECTORY`、`--help`、`--version`。dry-runでは `--output` を省略できる。通常の概要は要素本文や画像のBase64を展開しない。`--slide-id ID --include-data` は `selection.elements` にそのページの全要素の詳細を配列順のまま返す。`--element-id` を追加した場合は従来どおり `selection.element` に1要素だけ返す。画像の `src` / `dataUrl` はどちらも除き、ノートは本文ではなく `notesLength` のまま。必要なページごとの一括取得を優先し、1 MiBの出力上限を超えたときは要約から必要な要素へ絞る。本文を途中で切ったり、一部の要素だけを黙って返したりしない。成功結果は標準出力のJSONで確認し、失敗は終了コードとエラーを読む。
 
-`--overview` は `format`、`title`、`slideCount`、`elementCount` だけを `summary` に返し、ページ一覧や要素情報は返さない。他の取得セレクター、`--include-data`、`--include-animations` と併用しない。必要な対象を選んだ後の通常の `inspect` で詳細を取得する。
+`--overview` は `format`、`title`、`slideCount`、`elementCount` と、カタログがある場合の `masterCount` / `layoutCount` を `summary` に返し、ページ一覧や要素情報は返さない。他の取得セレクター、`--include-data`、`--include-animations` と併用しない。必要な対象を選んだ後の通常の `inspect` で詳細を取得する。
 
 画像出力は `scripts/render-images.mjs` に分ける。単一ページ・範囲・任意ページを指定でき、Nodeでは `--renderer` が必須。引数と実行環境は [画像出力の参照](references/image-export.md)を確認する。既存のcreate/applyに画像出力オプションを混ぜない。
 
 `inspect` とget APIは既定で全アニメーション完了後の静止値を返す。アニメーションを編集するときは `inspect --include-animations` または `getDeck/getSlides/getSlide` の `{ includeAnimations: true }` で元の値と定義を取得し、`animation.set` / `animation.remove` を使う。`getElements/getElement` は同オプションでも元の要素値だけを返すため、定義には `getAnimations` などを使う。SLON保存とcreate/applyは全定義を保持する。PPTXは標準アニメーションへ変換する。透明度・ばねに加え、文字サイズ・線幅・透明色は近似される。`diagnostics` / `onDiagnostic` でページ・要素・プロパティと省略・近似の扱いを確認する。独立系列は省略可能な `timelineId` で指定し、同じ要素の同じプロパティを複数の系列へ分けない。[アニメーションのコマンドと取得](references/commands.md#アニメーション)を参照する。
+
+## マスターを再利用する
+
+通常の `inspect` は取り込み済み `masters` / `layouts` のID・名前・プレースホルダー種別も概要に返す。レイアウトを確認するときは `--layout-id ID --include-data` を使う。`slide.add` の `layoutId` または `slide.applyLayout` で再利用でき、本文はページ自身のプレースホルダー要素へ入力する。ページ取得の `selection.elements` は編集可能なページ要素、`selection.inheritedElements` は読み取り専用の共通装飾。共通ロゴ・背景を重複作成せず、共有要素IDを `element.update` へ渡さない。`slide.detachLayout` は共通装飾をページ要素に変換する明示的な解除操作。PPTX／POTXのマスター取り込みは公開 `importSlidePptxMasters` → `masters.import` を使い、CLIがOfficeファイルを直接読むわけではない。[コマンド](references/commands.md#マスターとレイアウト)を参照する。
 
 ## 編集時の契約
 

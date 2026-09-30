@@ -1,4 +1,5 @@
 "use client";
+import { resolveSlideAppearance } from "../model/index";
 
 import { useState, type ReactNode } from "react";
 import { Lock, Unlock, X } from "lucide-react";
@@ -50,7 +51,7 @@ export function SlideProperties({ editor, onClose }: { editor: SlideEditor; onCl
             if (name.trim() && name !== slide.name) void editor.execute({ type: "slide.update", slideId: slide.id, patch: { name } });
             event.target.value = slide.name;
           }} /></label>
-          {editor.features.formatting && <ColorField label="背景の色" value={slide.background} disabled={disabled} onChange={background => void editor.execute({ type: "slide.update", slideId: slide.id, patch: { background } })} />}
+          {editor.features.formatting && <ColorField label="背景の色" value={resolveSlideAppearance(editor.deck, slide).background} disabled={disabled} onChange={background => void editor.execute({ type: "slide.update", slideId: slide.id, patch: { background } })} />}
         </Section>
         <Section title="ページサイズ"><p className="lxp-muted">{Number(editor.deck.width.toFixed(1))} × {Number(editor.deck.height.toFixed(1))} px</p>
           {editor.features.formatting && <div className="lxp-preset-buttons">

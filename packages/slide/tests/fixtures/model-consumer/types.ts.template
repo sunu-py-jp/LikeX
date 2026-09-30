@@ -10,7 +10,7 @@ const result = applySlideCommands(deck, command);
 const element = getElement(result.deck, result.deck.slides[0].id, "element");
 if (element?.type === "text") { const value: string = element.text; void value; }
 createSlideSession(deck).execute(command);
-const nativeFile: SlideFile = { ...deck, format: "likex.slide", version: 1, slides: [] };
+const nativeFile: SlideFile = { id: deck.id, title: deck.title, width: deck.width, height: deck.height, format: "likex.slide", version: 1, slides: [] };
 const nativeElement: SlideFileElement | undefined = nativeFile.slides[0]?.elements[0];
 if (nativeElement) { const layer: number = nativeElement.stackOrder; void layer; }
 // @ts-expect-error Runtime elements do not contain required saved stackOrder fields.
@@ -72,3 +72,19 @@ if (possibleLine && isSlideLine(possibleLine)) { const point: ConnectorEndpoint 
 // @ts-expect-error Ports are a closed union.
 const badLinePort: ConnectorPort = "diagonal";
 void [lineCommand, lineUpdate, badLinePort];
+
+import { importSlidePptxMasters, getSlideMasters, getSlideLayouts, getSlideLayout, resolveSlideAppearance, normalizeSlideMasterLibrary, type SlideMasterLibrary, type SlidePptxMastersImportResult } from '__MODEL_IMPORT__';
+const library: SlideMasterLibrary = normalizeSlideMasterLibrary({ width: 1280, height: 720, masters: [], layouts: [] });
+const importedMasters = applySlideCommands(deck, { type: 'masters.import', library });
+const importedLayoutIds: string[] | undefined = importedMasters.layoutIds;
+void importedLayoutIds;
+void getSlideMasters(deck);
+void getSlideLayouts(deck, 'master');
+void getSlideLayout(deck, 'layout');
+void resolveSlideAppearance(deck, deck.slides[0]).inheritedElements;
+const applyLayout: SlideCommand = { type: 'slide.applyLayout', slideId: 'page', layoutId: 'layout' };
+const detachLayout: SlideCommand = { type: 'slide.detachLayout', slideId: 'page' };
+const addLayout: SlideCommand = { type: 'slide.add', layoutId: 'layout' };
+void applyLayout; void detachLayout; void addLayout;
+const importedLibrary: Promise<SlidePptxMastersImportResult> = importSlidePptxMasters(new Uint8Array());
+void importedLibrary;

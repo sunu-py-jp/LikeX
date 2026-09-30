@@ -1,0 +1,8 @@
+{
+  "title": "スライドマスター",
+  "summary": "PPTX・POTXのマスターとレイアウトを取り込み、ページへ適用・再利用する。",
+  "source": "packages/slide/src/docs/masters.md",
+  "order": 35,
+  "section": "編集とモデル",
+  "keywords": ["LikeSlide", "POTX", "SlideMasterLibrary", "importSlidePptxMasters", "masters.import", "slide.applyLayout", "slide.detachLayout", "resolveSlideAppearance"]
+}

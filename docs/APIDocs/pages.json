@@ -2668,6 +2668,11 @@
         "id": "履歴と発表",
         "title": "履歴と発表",
         "depth": 2
+      },
+      {
+        "id": "マスターとレイアウト",
+        "title": "マスターとレイアウト",
+        "depth": 2
       }
     ]
   },
@@ -2753,6 +2758,11 @@
         "id": "データ量と画像",
         "title": "データ量と画像",
         "depth": 2
+      },
+      {
+        "id": "マスターとレイアウトのapi",
+        "title": "マスターとレイアウトのAPI",
+        "depth": 2
       }
     ]
   },
@@ -2825,6 +2835,43 @@
       {
         "id": "コールバック",
         "title": "コールバック",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "slide/masters",
+    "title": "スライドマスター",
+    "component": "slide",
+    "section": "編集とモデル",
+    "output": "slide/masters/index.html",
+    "sources": [
+      "packages/slide/src/docs/masters.md"
+    ],
+    "keywords": [
+      "LikeSlide",
+      "POTX",
+      "SlideMasterLibrary",
+      "importSlidePptxMasters",
+      "masters.import",
+      "slide.applyLayout",
+      "slide.detachLayout",
+      "resolveSlideAppearance"
+    ],
+    "headings": [
+      {
+        "id": "画面で使う",
+        "title": "画面で使う",
+        "depth": 2
+      },
+      {
+        "id": "公開モデルapi",
+        "title": "公開モデルAPI",
+        "depth": 2
+      },
+      {
+        "id": "保存とpowerpoint変換",
+        "title": "保存とPowerPoint変換",
         "depth": 2
       }
     ]

@@ -200,3 +200,10 @@
 .lxp-line-hit { position:absolute; left:0; top:0; pointer-events:none; }
 [data-likex-slide] .lxp-line-handle { position:absolute; z-index:3; padding:0; border:1px solid var(--lxp-accent); border-radius:50%; background:#fff; transform:translate(-50%,-50%); pointer-events:auto; }
 .lxp-connection-port { position:absolute; z-index:4; border:1px solid var(--lxp-accent); border-radius:50%; background:#fff; transform:translate(-50%,-50%); pointer-events:none; }
+
+/* Master/layout artwork never intercepts canvas selection or connector hit testing. */
+[data-likex-slide] .lxp-inherited-element,
+[data-likex-slide] .lxp-inherited-element * { pointer-events: none !important; }
+[data-likex-slide] .lxp-placeholder-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 10px; border: 1px dashed var(--lxp-muted); color: var(--lxp-muted); background: transparent; pointer-events: none; text-align: center; }
+[data-likex-slide] .lxp-layout-select { width: 240px; max-width: 32vw; }
+[data-likex-slide] .lxp-layout-empty { max-width: 240px; font-size: 11px; line-height: 1.45; color: var(--lxp-muted); }

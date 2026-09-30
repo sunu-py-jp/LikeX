@@ -85,6 +85,8 @@ export async function readElement(chain: Node[], options: ElementContext, id: st
   if (kind === "pic") {
     const blipFill = child(node, "blipFill"), blip = child(blipFill, "blip"), imageId = attribute(blip, "embed"), link = imageId ? options.links.get(imageId) : undefined;
     if (!link || link.external || !link.type.endsWith("/image")) { context.warn("外部参照または参照先のない画像を省略しました"); return; }
+    if (children(child(blip, "extLst"), "ext").some(extension => children(extension, "svgBlip").length))
+      context.warn("SVG画像を同梱の代替画像へ変更しました。元のSVGは保持しません", { code: "content-approximated", action: "approximation" });
     const src = await imageSource(link.target, context); if (!src) return;
     const crop = child(blipFill, "srcRect"); if (crop && Object.values(crop.attributes).some(value => Number(value))) context.warn("画像のトリミングを解除して元画像を読み込みました", { code: "appearance-adjusted", action: "adjustment" });
     const alpha = Number(child(blip, "alphaModFix")?.attributes.amt ?? 100000) / 100000;
@@ -92,12 +94,12 @@ export async function readElement(chain: Node[], options: ElementContext, id: st
   }
   const text = plainText(child(node, "txBody"));
   if (text.length > SLIDE_LIMITS.textLength || (context.textCharacters += text.length) > SLIDE_LIMITS.totalTextLength) throw new Error("PowerPointのテキスト量が読み込み上限を超えています");
-  const style = textStyle(chain, options), isText = !!placeholder(node) || child(child(node, "nvSpPr"), "cNvSpPr")?.attributes.txBox === "1";
+  const customTag = readOfficeConnectorShapeTag(child(props, "custGeom"));
+  const style = textStyle(chain, options), isText = !lineGeometry && ((!customTag || customTag === "text") && !!placeholder(node) || child(child(node, "nvSpPr"), "cNvSpPr")?.attributes.txBox === "1");
   const fillValue = chain.map(shape => readFill(child(shape, "spPr"), theme, mapping, context)).find(value => value !== undefined)
     ?? color(first(chain, shape => child(child(shape, "style"), "fillRef")), theme, mapping, context) ?? (isText ? "transparent" : "#4F81BD");
   if (isText) return createSlideElement({ type: "text", id, name, ...position, locked, text, fill: fillValue,
     fontSize: style.fontSize, fontFamily: style.fontFamily, color: style.textColor, bold: style.bold, italic: style.italic, align: style.align, verticalAlign: style.verticalAlign });
-  const customTag = readOfficeConnectorShapeTag(child(props, "custGeom"));
   const preset = customTag ?? child(props, "prstGeom")?.attributes.prst ?? (kind === "cxnSp" ? "line" : "rect");
   const shape: SlideShapeKind = kind === "cxnSp" ? "line" : PPTX_SHAPE_KINDS[preset] ?? "rect";
   if (kind === "cxnSp" && !["line", "straightConnector1"].includes(preset)) context.warn("折れ線・曲線の接続線を2端点を結ぶ直線へ変更しました", { code: "content-approximated", action: "approximation" });
