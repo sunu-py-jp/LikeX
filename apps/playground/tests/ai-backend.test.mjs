@@ -1215,7 +1215,11 @@ test("one mistyped sheet ID repeated across a full batch can be repaired consist
       failureId = error.details.failureId;
       return error.details.code === "unknown_id" && error.details.path === "commands[1].sheetId";
     });
-    await assert.rejects(invoke(corrected, [failureId]), incomplete, "Fresh inspect is required before correcting an unknown ID");
+    await assert.rejects(invoke(corrected, [failureId]), error => {
+      assert.equal(error.details.code, "write_recovery_requires_inspection");
+      assert.deepEqual(error.details.expected, { tool: "inspect_document", arguments: { query: { kind: "list" } } });
+      return true;
+    }, "Fresh inspect is required before correcting an unknown ID");
     await workspace.invoke("inspect_document", { query: { kind: "list" } }, signal());
     const retry = batch => invoke(batch, [failureId]);
     const changedAt = (index, patch) => corrected.map((command, i) => i === index ? { ...command, ...patch } : command);

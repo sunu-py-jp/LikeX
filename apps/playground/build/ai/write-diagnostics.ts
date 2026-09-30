@@ -105,6 +105,15 @@ function unknownReference(commands: unknown, error: unknown): Failure["unknownRe
   return { field, value: error.details.actual, existingIds, scope };
 }
 const fingerprint = (operation: string, commands: unknown) => createHash("sha256").update(JSON.stringify({ operation, commands })).digest("hex");
+function recoveryInspection(failure: Failure) {
+  const location = /^commands\[(\d+)\]\.(.+)$/.exec(failure.unknownIdPath ?? "");
+  const command = location ? failure.commands[Number(location[1])] : undefined;
+  // If the page identity itself is wrong, do not direct the model to inspect that invalid ID.
+  if (location && ["sheetId", "slideId", "afterId"].includes(location[2])) return { query: { kind: "list" } };
+  if (typeof command?.slideId === "string") return { query: { kind: "slide", slideId: command.slideId, includeData: true, elementId: null } };
+  if (typeof command?.sheetId === "string") return { query: { kind: "sheet", sheetId: command.sheetId, includeData: true, offset: null, limit: null } };
+  return { query: { kind: "overview" } };
+}
 /** Formatting/validation/replace selectors denote a cell set; spelling and enumeration order do not change the target. */
 function sameAddressSelection(left: unknown, right: unknown): boolean {
   if (!Array.isArray(left) || !Array.isArray(right) || [...left, ...right].some(value => typeof value !== "string")) return false;
@@ -135,12 +144,29 @@ export class WriteFailures {
     for (const id of resolveIds) {
       const failure = this.failures.get(id);
       if (!failure) invalidArgument("resolvesFailureIds", { existingFailureIds: [...this.failures.keys()] }, id);
-      if (!(commands === undefined && operation === "create" || Array.isArray(commands)) || !this.covers(failure, (commands ?? []) as Command[], operation)) throw new AIToolError("再試行には、失敗したバッチ全体の対象・操作を含めてください。無関係な編集で失敗を解消することはできません。", { code: "incomplete_write_recovery", failureId: id, retry: "Repeat all commands in the failed batch with corrected inputs. A slide.replaceContent can supersede content edits on that same page, but not unrelated pages or structural operations." });
+      const validCommands = commands === undefined && operation === "create" || Array.isArray(commands);
+      const next = (commands ?? []) as Command[];
+      if (validCommands && this.covers(failure, next, operation)) continue;
+      // Probe the unchanged coverage rules with a future read generation only to explain
+      // the rejection. This does not advance the real generation or authorize any write.
+      if (validCommands && failure.readGeneration === this.readGeneration && this.covers(failure, next, operation, this.readGeneration + 1)) {
+        const args = recoveryInspection(failure);
+        throw new AIToolError("失敗後の対象の再取得が必要です。修正済みバッチの対象・操作は揃っています。まず指定の inspect_document を実行し、その後バッチ全体を再送してください。", {
+          code: "write_recovery_requires_inspection", failureId: id, path: failure.unknownIdPath,
+          expected: { tool: "inspect_document", arguments: args },
+          retry: `First call inspect_document with ${JSON.stringify(args)} AFTER this failure. Then retry this entire corrected batch unchanged with resolvesFailureIds:[${JSON.stringify(id)}]. Do not send another write before the inspection. validate_document and read_reference do not satisfy this requirement.`,
+        });
+      }
+      throw new AIToolError("再試行には、失敗したバッチ全体の対象・操作・項目を含めてください。対象の再取得だけでは、このバッチの不足や別対象への変更は解消しません。", {
+        code: "incomplete_write_recovery", failureId: id,
+        expected: { commandCount: failure.commands.length, operationTypes: [...new Set(failure.commands.map(command => command?.type).filter(type => typeof type === "string"))] },
+        retry: "Restore every original target, operation and requested field in the failed batch. A slide.replaceContent supersedes element/animation content edits on that same page only; also retain slide.update metadata and all structural operations. Inspect before correcting an unknown ID, then retry the entire corrected batch with resolvesFailureIds:[failureId].",
+      });
     }
     return hash;
   }
   failed(operation: string, commands: unknown, error: unknown, preparedRecoveryIds: string[] = []): AIToolError {
-    if (error instanceof AIToolError && ["repeated_failed_write", "incomplete_write_recovery"].includes(error.details.code)) return error;
+    if (error instanceof AIToolError && ["repeated_failed_write", "incomplete_write_recovery", "write_recovery_requires_inspection"].includes(error.details.code)) return error;
     const hash = fingerprint(operation, commands);
     if (error instanceof AIToolError && error.details.code === "slide_page_limit" && Array.isArray(commands)) {
       const groups = new Map<string, { commands: Command[]; indexes: number[] }>();
@@ -188,9 +214,9 @@ export class WriteFailures {
       retry: "Correct the command identified by path. Retry the ENTIRE failed batch with resolvesFailureIds:[failureId]; inspect first when correcting an unknown ID. Unrelated successful writes and validate_document do not resolve failed edits.", unresolvedFailures: this.unresolved });
   }
   resolved(ids: string[]) { for (const id of ids) this.failures.delete(id); }
-  private covers(failure: Failure, next: Command[], operation: string) {
+  private covers(failure: Failure, next: Command[], operation: string, readGeneration = this.readGeneration) {
     if (operation !== failure.operation) return false;
-    if (!failure.commands.length) return this.readGeneration > failure.readGeneration && (operation === "create" || failure.unknownIdPath === "commands") && (operation === "create" || next.length > 0);
+    if (!failure.commands.length) return readGeneration > failure.readGeneration && (operation === "create" || failure.unknownIdPath === "commands") && (operation === "create" || next.length > 0);
     const used = new Set<number>();
     let correctedReference: string | undefined;
     return failure.commands.every((command, index) => {
@@ -212,11 +238,11 @@ export class WriteFailures {
           if ((reference?.field === key || reference && bindingKeys.includes(reference.field) && bindingKeys.includes(key)) && beforeValue === reference.value && Object.entries(reference.scope).every(([scopeKey, value]) => command[scopeKey] === value)) {
             // One mistyped ID often occurs throughout a batch. After a fresh read, allow
             // all of its occurrences to move together to one known ID, never split targets.
-            if (failure.readGeneration >= this.readGeneration || typeof afterValue !== "string" || !reference.existingIds.includes(afterValue) || (correctedReference !== undefined && correctedReference !== afterValue || candidateReference !== undefined && candidateReference !== afterValue)) return false;
+            if (failure.readGeneration >= readGeneration || typeof afterValue !== "string" || !reference.existingIds.includes(afterValue) || (correctedReference !== undefined && correctedReference !== afterValue || candidateReference !== undefined && candidateReference !== afterValue)) return false;
             candidateReference = afterValue;
             continue;
           }
-          if (failure.readGeneration < this.readGeneration && failure.unknownIdPath?.startsWith(`commands[${index}].${key}`)) continue;
+          if (failure.readGeneration < readGeneration && failure.unknownIdPath?.startsWith(`commands[${index}].${key}`)) continue;
           return false;
         }
         // A failed two-ended edit must not be "repaired" by omitting one endpoint or marker.

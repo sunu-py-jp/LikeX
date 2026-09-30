@@ -158,7 +158,8 @@ export class SkillWorkspace {
       if (args.includeData) cli.push("--include-data");
     }
     try {
-      const result = await this.execute(cli, signal, operation === "inspect" && (args.search !== undefined || Object.keys(selectors).some(key => args[key] !== undefined)));
+      const targeted = args.search !== undefined || Object.keys(selectors).some(key => args[key] !== undefined);
+      const result = await this.execute(cli, signal, operation === "inspect" && targeted, operation === "inspect" && !targeted && !args.overview);
       if (writing && !args.dryRun) {
         if ((await stat(candidate)).size > DOCUMENT_LIMIT) throw new AIError("変更後のファイルが 8 MiB を超えます。依頼を小さくしてください。");
         if (slideBefore) checkSlideWriteResult(slideBefore, await readFile(candidate, "utf8"), operation);
@@ -173,7 +174,7 @@ export class SkillWorkspace {
     }
   }
 
-  private execute(args: string[], signal: AbortSignal, compactSummary = false): Promise<unknown> {
+  private execute(args: string[], signal: AbortSignal, compactSummary = false, includeCatalog = false): Promise<unknown> {
     return new Promise((resolve, reject) => {
       execFile(process.execPath, args, {
         cwd: this.directory, signal, timeout: 15_000, maxBuffer: 1024 * 1024 + 1024,
@@ -199,6 +200,13 @@ export class SkillWorkspace {
         if (compactSummary && result.summary && typeof result.summary === "object") {
           delete result.summary.sheets;
           delete result.summary.slides;
+        }
+        // Imported catalogs can contain many layouts and slots. Return them on an
+        // explicit list read, not on every edit/validation in a multi-page run.
+        // Keep counts and page IDs so newly created pages remain addressable.
+        if (!includeCatalog && result.summary && typeof result.summary === "object") {
+          delete result.summary.masters;
+          delete result.summary.layouts;
         }
         if (JSON.stringify(result).length > TOOL_OUTPUT_LIMIT) { reject(new AIError("取得結果が大きすぎます。inspect の対象範囲を小さくするか、検索の limit / previewLength を減らしてください。")); return; }
         resolve(result);
