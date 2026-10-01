@@ -398,7 +398,7 @@ test('upload conflicts and explicit skips need no edit permission and leave the 
 
 test('an approved overwrite requests permission only before mutation and saves a same-ID update followed by host canonical content', async t => {
   const baseline = initialEntries(), events = [], requests = [], saves = [];
-  const incoming = new File(['new content body'], 'ONE.TXT', { type: 'text/custom' });
+  const incoming = new File(['new content body'], 'ONE.TXT', { type: 'text/custom', lastModified: Date.parse('2020-02-03T04:05:06.789Z') });
   const reads = t.mock.method(incoming, 'arrayBuffer', () => { throw Error('Upload staging must not read or hash content'); });
   const hook = await mountHook(t, { initialEntries: baseline,
     onEditRequest(request) { requests.push(request); return true; }, onEvent: event => events.push(event),
@@ -415,13 +415,15 @@ test('an approved overwrite requests permission only before mutation and saves a
   await act(async () => { assert.equal(hook.current.requestEdit({ action: 'upload', parent: 'root' }), true); });
   await act(async () => { assert.equal(prepared.commit().overwrittenCount, 1); assert.equal(prepared.commit(), undefined); });
   assert.equal(requests.length, 1); assert.equal(hook.current.dirty, true); assert.equal(saves.length, 0);
-  assert.deepEqual(hook.current.entries[0], { ...baseline[0], size: incoming.size, mime: incoming.type, source: { kind: 'local', file: incoming } });
+  assert.deepEqual(hook.current.entries[0], { ...baseline[0], size: incoming.size, mime: incoming.type, updatedAt: '2020-02-03T04:05:06.789Z', source: { kind: 'local', file: incoming } });
   const changes = events.filter(event => event.type === 'change');
   assert.equal(changes.length, 1); assert.equal(changes[0].action, 'upload');
   assert.deepEqual(changes[0].changes.updated.map(item => item.id), ['one']); assert.deepEqual(changes[0].changes.created, []);
   await act(async () => { assert.equal(await hook.current.save(), true); });
   assert.equal(saves.length, 1); assert.deepEqual(saves[0].changes.updated.map(item => item.id), ['one']);
-  assert.equal(saves[0].changes.updated[0].source.file, incoming); assert.equal(saves[0].changes.updated[0].updatedAt, baseline[0].updatedAt);
+  assert.equal(saves[0].changes.updated[0].source.file, incoming); assert.equal(saves[0].changes.updated[0].updatedAt, '2020-02-03T04:05:06.789Z');
+  assert.equal(saves[0].entries.find(item => item.id === 'one').updatedAt, '2020-02-03T04:05:06.789Z');
+  assert.equal(hook.current.entries[0].updatedAt, '2020-02-03T04:05:06.789Z');
   assert.deepEqual(hook.current.entries[0].source, { kind: 'existing', id: 'stored-v2' }); assert.equal(hook.current.dirty, false);
   await act(async () => { hook.current.requestEdit({ action: 'delete', ids: ['one'] }); hook.current.apply({ action: 'delete', ids: ['one'] }); hook.current.discard(); });
   assert.deepEqual(hook.current.entries[0].source, { kind: 'existing', id: 'stored-v2' }); assert.equal(reads.mock.callCount(), 0);
@@ -444,7 +446,7 @@ test('fresh entries supplied by permission approval invalidate a previously appr
   assert.equal(events.filter(event => event.type === 'change').length, 0);
   await act(async () => { hook.current.add([file], 'root', [uploadDecision(renewed)], renewed.session); });
   assert.equal(requests, 1); assert.equal(hook.current.entries[0].source.file, file);
-  assert.equal(hook.current.entries[0].updatedAt, fresh[0].updatedAt); assert.equal(hook.current.dirty, true);
+  assert.equal(hook.current.entries[0].updatedAt, new Date(file.lastModified).toISOString()); assert.equal(hook.current.dirty, true);
 });
 
 test('prepared overwrite decisions and File arrays are isolated from caller mutation until permission is granted', async t => {

@@ -44,6 +44,8 @@ const payload = getSavePayload(baseline, changed);
 
 `ExplorerEntry` / `ExplorerSnapshot` / `ExplorerAction` / `ExplorerSavePayload` / `ExplorerItemInfo`、取込・パス解決の型もこの入口からimportできます。ファイル本体の `File` は不変のオブジェクトとして共有します。JSON保存形式を新設するAPIではなく、永続化や本体参照の変換はホストが担当します。
 
+同期・非同期の取込APIもGUIと同じく、新規追加・上書きするファイルの `updatedAt` に `File.lastModified` を引き継ぎます。元の `File` は変更しません。`getSavePayload()` の最終一覧と差分にもこの値を含めます。日時が不正な場合の代替値と `createdAt` の扱いは[取り込み時の日時](./uploads.md#uploaded-file-timestamps)を参照してください。
+
 ## 画面なしの同名競合解決
 
 取込は一括適用です。未解決の同名競合は `ExplorerUploadConflictError`、制限違反の一括拒否は `ExplorerUploadValidationError` をthrowし、入力スナップショットは保持します。確認ダイアログは表示しません。

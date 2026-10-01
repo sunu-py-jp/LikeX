@@ -70,7 +70,7 @@ test('folder merge prompts individually, preserves extra files and commits one a
   await change(() => app.child.answerUploadConflict('skip', false));
   assert.equal(app.child.uploadPrompt, null); assert.equal(app.main.entries, app.child.entries);
   const byId = new Map(app.main.entries.map(item => [item.id, item]));
-  assert.equal(byId.get('a').source.file, a); assert.equal(byId.get('a').updatedAt, initial[1].updatedAt);
+  assert.equal(byId.get('a').source.file, a); assert.equal(byId.get('a').updatedAt, new Date(a.lastModified).toISOString());
   assert.deepEqual(byId.get('b'), initial[2]); assert.deepEqual(byId.get('c'), initial[3]);
   assert.equal(app.main.entries.find(item => item.name === 'D.txt').source.file, d);
   assert.equal(app.requests.length, 1); assert.equal(app.requests[0].windowId, 'child');

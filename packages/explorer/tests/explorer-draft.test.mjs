@@ -286,7 +286,7 @@ test('folder uploads merge normalized case-insensitive folders and overwrite onl
   assert.equal(baseline.entries.length, 4); assert.equal(byId(baseline, 'report').source.kind, 'existing');
 });
 
-test('upload overwrite preserves destination identity and metadata while replacing only content, size and MIME', () => {
+test('upload overwrite preserves identity and creation date while inheriting the file modification date', () => {
   const existing = { ...entry('stored', 'root', 'Résumé.TXT', 'file'), favorite: 1,
     createdAt: '2021-02-03T04:05:06.000Z', updatedAt: '2022-03-04T05:06:07.000Z' };
   const baseline = createSnapshot([existing]);
@@ -296,7 +296,7 @@ test('upload overwrite preserves destination identity and metadata while replaci
   assert.deepEqual(conflict.existing, existing); assert.notEqual(conflict.existing, baseline.entries[0]);
   assert.notEqual(conflict.existing.source, baseline.entries[0].source);
   const { snapshot, result } = addFilesWithResult(baseline, [file], 'root', undefined, [decide(conflict)]);
-  assert.deepEqual(snapshot.entries, [{ ...existing, size: file.size, mime: file.type, source: { kind: 'local', file } }]);
+  assert.deepEqual(snapshot.entries, [{ ...existing, size: file.size, mime: file.type, updatedAt: '1970-01-01T00:00:00.001Z', source: { kind: 'local', file } }]);
   assert.equal(snapshot.entries[0].source.file, file);
   assert.equal(snapshot.entries[0].extension, 'txt');
   assert.deepEqual(result, { attemptedCount: 1, addedCount: 0, overwrittenCount: 1, skippedCount: 0, rejections: [] });

@@ -36,7 +36,7 @@ type ExplorerEntry = {
 | `kind` | `"file"` または `"folder"`。 |
 | `size` | ファイルサイズをバイトで指定します。フォルダには `0` を指定します。 |
 | `mime` | ファイルのMIMEタイプ。フォルダには空文字を指定します。 |
-| `createdAt` / `updatedAt` | `"2026-09-10T00:00:00.000Z"` のように時差を含むISO 8601文字列。表示には日本時間を使います。 |
+| `createdAt` / `updatedAt` | `"2026-09-10T00:00:00.000Z"` のように時差を含むISO 8601文字列。表示には日本時間を使います。アップロードしたファイルの `updatedAt` は元の `File.lastModified` を引き継ぎます。[日時の契約](./uploads.md#uploaded-file-timestamps) |
 | `favorite` | `0` が未登録、通常 `1` が登録済みです。 |
 | `source` | 保存済みの本体参照、ブラウザの `File`、または `null`。フォルダには `null` を指定します。 |
 
@@ -103,7 +103,7 @@ export default function GuideFiles() {
 
 別のフォルダへ同名・同内容のファイルを新しく追加した場合は、別の項目IDになります。内容の一致から移動を推定しません。コピーでも新しい項目IDを作りますが、本体の `source` はコピー元と共有できます。保存先で本体を共有するか複製するかは親が決めます。
 
-移動は `parent` だけを変更し、更新日時を維持します。同じ場所への上書きはIDを維持し、新しい `File` を `source` に設定します。内容が変わったかのハッシュ判定や、保存済み本体の更新は親で行います。[上書きの契約](./uploads.md#upload-conflicts)と[保存の契約](./saving.md)を参照してください。
+移動は `parent` だけを変更し、更新日時を維持します。同じ場所への上書きはIDと `createdAt` を維持し、新しい `File` を `source` に設定して、`updatedAt` をそのファイルの `lastModified` から設定します。内容が変わったかのハッシュ判定や、保存済み本体の更新は親で行います。[上書きの契約](./uploads.md#upload-conflicts)と[保存の契約](./saving.md)を参照してください。
 
 ## コールバックで受け取る情報
 

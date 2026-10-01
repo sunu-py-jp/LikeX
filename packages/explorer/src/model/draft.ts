@@ -19,6 +19,7 @@ export type ExplorerEntry = {
   size: number;
   mime: string;
   createdAt: string;
+  /** Uploads inherit File.lastModified as UTC ISO; unavailable dates use the import time. */
   updatedAt: string;
   favorite: number;
   source:
@@ -315,7 +316,14 @@ type UploadInput = Readonly<{
   parts: readonly string[];
   name: string;
   relativePath: string;
+  updatedAt?: string;
 }>;
+
+function uploadedFileDate(value: number): string | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : undefined;
+}
 
 function* normalizeUploadInputs(files: readonly File[]): Generator<import("./upload").ExplorerImportProgress, UploadInput[]> {
   const prepared: UploadInput[] = [];
@@ -326,14 +334,14 @@ function* normalizeUploadInputs(files: readonly File[]): Generator<import("./upl
       (file.webkitRelativePath !== undefined && typeof file.webkitRelativePath !== "string"))
       throw new Error("ファイルを選択してください");
     const parts = (file.webkitRelativePath || file.name).split("/").map(normalizeEntryName);
-    prepared.push({ file, fileIndex, parts, name: parts[parts.length - 1], relativePath: parts.join("/") });
+    prepared.push({ file, fileIndex, parts, name: parts[parts.length - 1], relativePath: parts.join("/"), updatedAt: uploadedFileDate(file.lastModified) });
     yield { phase: "checking", completed: fileIndex + 1, total: files.length };
   }
   return prepared;
 }
 type UploadSessionState = {
   parent: string;
-  inputs: readonly Readonly<{ file: File; relativePath: string; size: number; mime: string }>[];
+  inputs: readonly Readonly<{ file: File; relativePath: string; size: number; mime: string; updatedAt?: string }>[];
   now: string;
   allocations: Map<string, string>;
 };
@@ -355,13 +363,13 @@ function uploadSessionState(session: ExplorerUploadSession, parent: string, inpu
       previous.inputs.some((input, index) => {
         const next = inputs[index];
         return input.file !== next.file || input.relativePath !== next.relativePath ||
-          input.size !== next.file.size || input.mime !== next.file.type;
+          input.size !== next.file.size || input.mime !== next.file.type || input.updatedAt !== next.updatedAt;
       })) throw new Error("アップロードの対象が変わりました。ファイルを選び直してください");
     return previous;
   }
   const state: UploadSessionState = {
     parent,
-    inputs: inputs.map(({ file, relativePath }) => ({ file, relativePath, size: file.size, mime: file.type })),
+    inputs: inputs.map(({ file, relativePath, updatedAt }) => ({ file, relativePath, size: file.size, mime: file.type, updatedAt })),
     now: new Date().toISOString(),
     allocations: new Map(),
   };
@@ -559,6 +567,7 @@ export function* prepareFilesWithProgress(
       }
       const overwritten: ExplorerEntry = {
         ...existing, size: file.size, mime: file.type || "application/octet-stream", source: { kind: "local", file },
+        updatedAt: input.updatedAt ?? now,
       };
       if (!equalEntry(existing, overwritten)) {
         entries[positions.get(existing.id)!] = overwritten;
@@ -591,7 +600,7 @@ export function* prepareFilesWithProgress(
       size: file.size,
       mime: file.type || "application/octet-stream",
       createdAt: now,
-      updatedAt: now,
+      updatedAt: input.updatedAt ?? now,
       favorite: 0,
       source: { kind: "local", file },
     };

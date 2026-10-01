@@ -131,7 +131,7 @@ test('skip preserves original conflict indexes and gives quota slots only to acc
   assert.ok([...reads.values()].every(count => count === 1));
 });
 
-test('approved overwrites retain IDs and timestamps and reuse content facts while storing the original File', async () => {
+test('approved overwrites retain identity and creation date while importing the File modification date', async () => {
   const baseline = createDraftSnapshot([saved('old', 'Old.mp4')]), incoming = file('Old.mp4'), session = createExplorerUploadSession();
   let reads = 0;
   const options = { inspectFile() { reads++; return { kind: 'video', durationSeconds: 20 }; } };
@@ -143,7 +143,7 @@ test('approved overwrites retain IDs and timestamps and reuse content facts whil
   assert.equal(result.result.overwrittenCount, 1);
   assert.equal(result.snapshot.entries[0].id, 'old');
   assert.equal(result.snapshot.entries[0].createdAt, baseline.entries[0].createdAt);
-  assert.equal(result.snapshot.entries[0].updatedAt, baseline.entries[0].updatedAt);
+  assert.equal(result.snapshot.entries[0].updatedAt, new Date(incoming.lastModified).toISOString());
   assert.equal(result.snapshot.entries[0].source.file, incoming);
   assert.deepEqual(repeated.snapshot.entries, result.snapshot.entries);
   assert.equal(getSavePayload(baseline, result.snapshot).changes.updated[0].id, 'old');

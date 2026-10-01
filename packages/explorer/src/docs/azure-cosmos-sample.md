@@ -53,6 +53,7 @@ flowchart LR
   "size": 148230,
   "mime": "application/pdf",
   "createdAt": "2026-09-01T09:00:00.000Z",
+  "sourceUpdatedAt": "2026-09-04T09:00:00.000Z",
   "contentUpdatedAt": "2026-09-05T09:00:00.000Z",
   "metadataUpdatedAt": "2026-09-07T09:00:00.000Z",
   "indexingStatus": "pending",
@@ -66,6 +67,7 @@ flowchart LR
 | --- | --- |
 | `id` / `workspaceId` / `createdAt` / `blobKey` | 新規保存時に決定し、同じ項目の移動・改名・上書きでは維持する。 |
 | `parentId` / `name` / `favorite` | 最終下書きのメタデータを保存するとき。 |
+| `sourceUpdatedAt` | 最終下書きの `entry.updatedAt` を保存するとき。アップロード元の更新日時を保持し、本体のハッシュが同じでも反映する。 |
 | `contentHash` / `contentRevision` / `size` / `mime` / `contentUpdatedAt` | 新規本体を保存するとき、または既存本体が変わったとき。 |
 | `metadataUpdatedAt` | 名前・所属などの管理情報が変わったとき。 |
 
@@ -97,14 +99,14 @@ flowchart LR
 
 | 保存対象 | 項目IDと下書き | 親の保存処理 |
 | --- | --- | --- |
-| 同じ親・同じ名前で「上書きする」、ハッシュも同じ | 既存IDを維持し、`source` はローカル `File`。保存済みなら `changes.updated` に含まれる。 | 既存IDの保存済みハッシュと比較し、Blob書込みを省略。本体の日時・revision・既存参照を維持して返す。通常の再処理対象にならない。 |
+| 同じ親・同じ名前で「上書きする」、ハッシュも同じ | 既存IDを維持し、`source` はローカル `File`。保存済みなら `changes.updated` に含まれる。 | 既存IDの保存済みハッシュと比較し、Blob書込みを省略。本体の日時・revision・既存参照を維持し、`sourceUpdatedAt` は下書きから保存する。通常の再処理対象にならない。 |
 | 同じ場所への上書き、ハッシュが異なる | 同じく既存IDを維持。 | 同じ固定キーへ本体を保存し、ハッシュ・revision・本体更新日時を更新。Indexerの取り込み対象になる。 |
 | 新しいパスに追加。同じバイト列が別の場所に存在 | 新IDとローカル `File` が `changes.created` に入る。 | 別ファイルとして新ID用のBlobと検索データを作る。ハッシュが同じでも既存IDへ統合しない。 |
 | 新しいフォルダBへ追加し、元のフォルダAのファイルを削除 | 新IDは `created`、元IDは `deleted`。 | 新規保存と元ファイル削除。移動へ推測変換しない。 |
 | 画面内で移動 | 既存ID・本体参照・日時を維持し、`parent` だけ変更。 | Cosmosの所属情報だけ更新する。 |
 | コピー・複製 | 新ID。保存前は既存の本体参照を共有できる。 | このSAMPLEでは新ID用のBlobを作る。 |
 
-上書き確認は「その既存項目を置き換える」というID対応を決めます。**内容が同じかどうかは確認しません。** Explorerはハッシュを計算せず、ローカル `File` が入った時点では既存の `createdAt` / `updatedAt` を保持します。親は保存後、ファイルの `updatedAt` を `contentUpdatedAt` から、フォルダの `updatedAt` を `metadataUpdatedAt` から作る、といった一貫した規則で正規化一覧を返します。名前変更などで下書きの日時が変わっていても、親の保存結果が最終値です。
+上書き確認は「その既存項目を置き換える」というID対応を決めます。**内容が同じかどうかは確認しません。** Explorerはハッシュを計算せず、上書きでは `createdAt` を保持し、`updatedAt` を元の `File.lastModified` から設定します。このSAMPLEではファイルの `entry.updatedAt` を `sourceUpdatedAt` に保存して返却一覧へ戻し、ストレージ本体の保存時刻 `contentUpdatedAt` と区別します。フォルダの `updatedAt` は `metadataUpdatedAt` から返します。[取り込み時の日時](./uploads.md#uploaded-file-timestamps)を参照してください。
 
 ```mermaid
 flowchart TD
@@ -136,7 +138,7 @@ async function planFile(entry, savedById, uploadedBodies) {
     const body = uploadedBodies.get(entry.id);
     const hash = await host.sha256(body);
     if (saved && saved.contentHash === hash) {
-      return host.keepContent(saved, entry); // Blob APIを呼ばず、メタデータのみ比較。
+      return host.keepContent(saved, entry); // Blob APIを呼ばず、entry.updatedAtもメタデータとして保存。
     }
     return host.writeContentPlan({
       entry,
@@ -145,6 +147,7 @@ async function planFile(entry, savedById, uploadedBodies) {
       contentHash: hash,
       contentRevision: host.newRevision(),
       createdAt: saved?.createdAt ?? host.now(),
+      sourceUpdatedAt: entry.updatedAt,
       contentUpdatedAt: host.now(),
     });
   }
