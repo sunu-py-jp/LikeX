@@ -5,7 +5,10 @@ export type DocumentSnapshot = { document: string; documentTitle?: string; revis
 export type DocumentAdapter = {
   module: AIModule;
   label: string;
-  suggestions: readonly string[];
+  suggestions: readonly (string | { label: string; prompt: string })[];
+  /** Host-owned starter content; opening it never sends a request automatically. */
+  introduction?: { title: string; description: string };
+  initialChatOpen?: boolean;
   snapshot(signal: AbortSignal): Promise<DocumentSnapshot>;
   readCurrent(): Pick<DocumentSnapshot, "document" | "revision">;
   normalize(document: string): string;

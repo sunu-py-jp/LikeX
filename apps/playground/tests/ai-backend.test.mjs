@@ -163,7 +163,7 @@ test("AI search uses the real read-only skill CLI with scope, literal text, and 
     assert.equal(longMatch.matchedTextLength, 25010);
     assert.equal(longMatch.matchedTextTruncated, true);
     assert.equal((await inspect({ search: "cells", text: "long-cell", previewLength: 300 })).matches[0].value.length, 300);
-    assert.deepEqual(await inspect({ sheetId: "sales-now", range: "A1" }), { sheetId: "sales-now", range: "A1", rows: [[{ value: "テスト！" }]] });
+    assert.deepEqual(await inspect({ sheetId: "sales-now", range: "A1" }), { sheetId: "sales-now", range: "A1", rows: [[{ value: "テスト！" }]], formatsOmitted: true });
     assert.deepEqual((await inspect({ search: "sheets", text: "missing" })).matches, []);
     assert.equal(await readFile(workspace.file, "utf8"), searchNative);
     assert.deepEqual(await workspace.result(signal()), { type: "result", changed: false, document: searchNative });
@@ -422,7 +422,7 @@ test("overview and sheet content selectors stay bounded and never expose other s
 });
 
 test("Responses tool results and execution logs retain range rows without duplicating cells", async () => {
-  const events = [], expected = { sheetId: "sales-now", range: "C3:F3", rows: [[{ value: "売上予定" }, null, null, { value: "=120*3" }]] };
+  const events = [], expected = { sheetId: "sales-now", range: "C3:F3", rows: [[{ value: "売上予定" }, null, null, { value: "=120*3" }]], formatsOmitted: true };
   let round = 0;
   await runAISession({ repository: root, config, request: { ...request(), document: searchNative }, signal: signal(), emit: event => events.push(event), fetcher: async (_url, init) => {
     if (round++ === 0) return response(null, [call("run_script", { operation: "inspect", sheetId: "sales-now", range: "C3:F3" })]);

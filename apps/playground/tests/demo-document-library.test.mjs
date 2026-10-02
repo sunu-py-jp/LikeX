@@ -151,3 +151,67 @@ test('dialog traps keyboard focus, closes with Escape and restores its originati
   await change(() => dialog().props.onKeyDown({ key: 'Escape', preventDefault() {} }));
   assert.equal(focused, 111); assert.equal(app.renderer.root.findAllByProps({ role: 'dialog' }).length, 0);
 });
+
+const designTemplate = { id: 'basic-design', title: '画面基本設計書', description: '画面・項目・チェック・処理の書式を用意', defaultTitle: '受注入力 基本設計書' };
+const templateTile = app => control(app, '画面基本設計書からスプレッドシートを作成');
+
+test('custom templates create named documents through the existing save/open path and retry the same source', async t => {
+  let attempts = 0;
+  const app = await mount(t, {
+    kind: 'spreadsheet', label: 'スプレッドシート', templates: [designTemplate],
+    async createDocument(title, source) {
+      app.calls.generate.push({ title, source });
+      if (++attempts === 1) throw new Error('テンプレートの準備に失敗しました。');
+      return { document: 'design-workbook', itemCount: 6 };
+    },
+  });
+  assert.equal(app.renderer.root.findAllByProps({ className: 'demo-document-template' }).length, 3);
+  await change(() => templateTile(app).props.onClick({ currentTarget: { focus() {} } }));
+  assert.equal(titleInput(app).props.value, designTemplate.defaultTitle);
+  const dialog = app.renderer.root.findByProps({ role: 'dialog' });
+  assert.equal(app.renderer.root.findByProps({ id: dialog.props['aria-labelledby'] }).children.join(''), '画面基本設計書から作成');
+  assert.equal(app.renderer.root.findByProps({ id: dialog.props['aria-describedby'] }).children.join(''), designTemplate.description);
+  await change(() => titleInput(app).props.onChange({ target: { value: '  購買申請 基本設計書  ' } }));
+  await submit(app);
+  assert.equal(app.calls.create.length, 0); assert.equal(app.calls.open.length, 0);
+  assert.match(JSON.stringify(app.renderer.toJSON()), /テンプレートの準備に失敗/);
+  await retry(app);
+  assert.deepEqual(app.calls.generate, Array.from({ length: 2 }, () => ({ title: '購買申請 基本設計書', source: 'basic-design' })));
+  assert.deepEqual(app.calls.create, [{ kind: 'spreadsheet', title: '購買申請 基本設計書', document: 'design-workbook', itemCount: 6 }]);
+  assert.equal(app.calls.open.length, 1);
+});
+
+test('template IDs cannot replace built-ins or duplicate sources and a removed source cannot be generated', async t => {
+  const template = { ...designTemplate, defaultTitle: undefined };
+  const app = await mount(t, { kind: 'spreadsheet', label: 'スプレッドシート', templates: [
+    { ...template, id: 'blank' }, { ...template, id: 'sample' }, { ...template, id: ' ' },
+    { ...template, id: 'empty-title', title: ' ' }, template, { ...template, title: '重複' },
+  ] });
+  assert.equal(app.renderer.root.findAllByProps({ className: 'demo-document-template' }).length, 3);
+  const originalButton = templateTile(app).props.onClick;
+  await change(() => originalButton({ currentTarget: { focus() {} } }));
+  assert.equal(titleInput(app).props.value, template.title);
+  await app.update({ templates: [] });
+  await submit(app);
+  assert.equal(app.calls.generate.length, 0); assert.equal(app.calls.create.length, 0);
+  assert.match(JSON.stringify(app.renderer.toJSON()), /選択したテンプレートは利用できません/);
+  await change(() => control(app, '作成をキャンセル').props.onClick());
+  await change(() => originalButton({ currentTarget: { focus() {} } }));
+  assert.equal(app.renderer.root.findAllByProps({ role: 'dialog' }).length, 0);
+  await tile(app, 'blank', 'スプレッドシート');
+  assert.equal(titleInput(app).props.value, '新しいスプレッドシート');
+});
+
+test('custom template generation deduplicates submits and discards results after unmount', async t => {
+  const wait = deferred(); let attempts = 0;
+  const app = await mount(t, {
+    kind: 'spreadsheet', label: 'スプレッドシート', templates: [designTemplate],
+    async createDocument() { attempts++; return wait.promise; },
+  });
+  await change(() => templateTile(app).props.onClick({ currentTarget: { focus() {} } }));
+  await submit(app); await submit(app);
+  assert.equal(attempts, 1); assert.equal(templateTile(app).props.disabled, true);
+  await app.unmount();
+  await change(() => wait.resolve({ document: 'design-workbook', itemCount: 6 }));
+  assert.equal(app.calls.create.length, 0); assert.equal(app.calls.open.length, 0);
+});

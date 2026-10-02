@@ -32,6 +32,7 @@ export default defineConfig({
       { find: /^@likex\/core$/, replacement: coreSource },
       { find: /^@likex\/explorer$/, replacement: explorerSource },
       { find: /^@likex\/spreadsheet$/, replacement: spreadsheetSource },
+      { find: /^@likex\/spreadsheet\/model$/, replacement: fileURLToPath(new URL("../../packages/spreadsheet/src/model-entry.ts", import.meta.url)) },
       { find: /^@likex\/slide$/, replacement: slideSource },
       { find: /^@likex\/slide\/model$/, replacement: fileURLToPath(new URL("../../packages/slide/src/model-entry.ts", import.meta.url)) },
       { find: /^@likex\/slide\/render$/, replacement: fileURLToPath(new URL("../../packages/slide/src/render-entry.ts", import.meta.url)) },

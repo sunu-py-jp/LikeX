@@ -24,7 +24,8 @@ function createDemoHost() {
     adapter: createSlideAIAdapter(current, () => revision),
   };
 }
-async function createDocument(title: string, source: "blank" | "sample") {
+async function createDocument(title: string, source: string) {
+  if (source !== "blank" && source !== "sample") throw new Error("テンプレートが見つかりません。");
   const deck = source === "sample" ? applySlideCommands(createDemoSlideDeck(), { type: "deck.rename", title }).deck : createSlideDeck({ title });
   return { document: serializeSlideDeck(deck), itemCount: deck.slides.length };
 }

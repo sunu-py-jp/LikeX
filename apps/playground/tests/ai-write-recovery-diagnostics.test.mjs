@@ -107,7 +107,7 @@ test("unknown spreadsheet sheet ID asks for the ID list and safely recovers only
 test("wrong page IDs and invalid sheet positions get valid inspection selectors; malformed batches still report coverage", () => {
   for (const [command, path, value, fixed, query] of [
     [{ type: "slide.update", slideId: "bad-page", patch: { name: "A" } }, "slideId", "bad-page", "page", { kind: "list" }],
-    [{ type: "rows.delete", sheetId: "sheet", index: 100, count: 1 }, "index", 100, 3, { kind: "sheet", sheetId: "sheet", includeData: true, offset: null, limit: null }],
+    [{ type: "rows.delete", sheetId: "sheet", index: 100, count: 1 }, "index", 100, 3, { kind: "sheet", sheetId: "sheet", includeData: true, includeFormat: false, offset: null, limit: null }],
   ]) {
     const tracker = new WriteFailures(), failure = tracker.failed("apply", [command], new AIToolError("invalid", { code: typeof value === "string" ? "unknown_id" : "invalid_argument", path: `commands[0].${path}`, actual: value, expected: { existingIds: [fixed] } }));
     assert.throws(() => tracker.prepare("apply", [{ ...command, [path]: fixed }], [failure.details.failureId]), error => {

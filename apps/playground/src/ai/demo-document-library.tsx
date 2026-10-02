@@ -3,19 +3,40 @@ import { ArrowUpRight, File, LayoutGrid, List, Loader2, Plus, Presentation, Refr
 import { demoDocumentStore, type DemoDocumentKind, type DemoDocumentRecord, type DemoDocumentSummary } from "./demo-document-store";
 import "./demo-document-library.css";
 
+export type DemoDocumentTemplate = {
+  /** A unique source ID; blank and sample are reserved for the built-in choices. */
+  id: string;
+  title: string;
+  description: string;
+  defaultTitle?: string;
+};
 export type DemoDocumentLibraryProps = {
   kind: DemoDocumentKind;
   label: string;
-  createDocument(title: string, source: "blank" | "sample"): Promise<{ document: string; itemCount: number }>;
+  templates?: readonly DemoDocumentTemplate[];
+  createDocument(title: string, source: string): Promise<{ document: string; itemCount: number }>;
   onOpen(record: DemoDocumentRecord): void;
   colorMode: "light" | "dark" | "system";
   primaryColor?: string;
 };
-type Intent = { type: "create"; title: string; source: "blank" | "sample" } | { type: "open"; id: string };
+type Intent = { type: "create"; title: string; source: string } | { type: "open"; id: string };
 type Listing = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; records: DemoDocumentSummary[] };
 type Failure = { message: string; retry: Intent };
 const message = (error: unknown) => error instanceof Error ? error.message : "処理を完了できませんでした。もう一度お試しください。";
 const dateFormat = new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+function availableTemplates(templates: DemoDocumentLibraryProps["templates"]) {
+  const ids = new Set(["blank", "sample"]);
+  return (templates ?? []).filter(template => {
+    if (!template.id.trim() || ids.has(template.id) || !template.title.trim()) return false;
+    ids.add(template.id); return true;
+  });
+}
+function creationDetails(props: DemoDocumentLibraryProps, source: string) {
+  if (source === "blank") return { heading: "空白から作成", defaultTitle: `新しい${props.label}`, description: undefined };
+  if (source === "sample") return { heading: "サンプルから作成", defaultTitle: `${props.label}のサンプル`, description: undefined };
+  const template = availableTemplates(props.templates).find(item => item.id === source);
+  return template && { heading: `${template.title}から作成`, defaultTitle: template.defaultTitle ?? template.title, description: template.description };
+}
 
 /** A kind change starts a separate library view and invalidates any late result. */
 export function DemoDocumentLibrary(props: DemoDocumentLibraryProps) {
@@ -25,7 +46,7 @@ function Library(props: DemoDocumentLibraryProps) {
   const { kind, label, colorMode, primaryColor } = props;
   const [listing, setListing] = useState<Listing>({ status: "loading" });
   const [title, setTitle] = useState(`新しい${label}`);
-  const [draft, setDraft] = useState<"blank" | "sample" | null>(null);
+  const [draft, setDraft] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"list" | "cards">(kind === "spreadsheet" ? "list" : "cards");
   const [sort, setSort] = useState<"updated" | "title">("updated");
@@ -68,6 +89,7 @@ function Library(props: DemoDocumentLibraryProps) {
     try {
       let record: DemoDocumentRecord | undefined;
       if (intent.type === "create") {
+        if (!creationDetails(latest.current, intent.source)) throw new Error("選択したテンプレートは利用できません。キャンセルして選び直してください。");
         const generated = await latest.current.createDocument(intent.title, intent.source);
         if (!current()) return;
         record = await demoDocumentStore.create({ kind, title: intent.title, ...generated });
@@ -94,9 +116,11 @@ function Library(props: DemoDocumentLibraryProps) {
     if (name.length > 1000) { setTitleError("資料名は1,000文字以内で入力してください。"); return; }
     setTitleError(null); void run({ type: "create", title: name, source: draft });
   }
-  function begin(source: "blank" | "sample", button: HTMLButtonElement) {
+  function begin(source: string, button: HTMLButtonElement) {
     if (busy.current) return;
-    trigger.current = button; setTitle(source === "sample" ? `${label}のサンプル` : `新しい${label}`);
+    const details = creationDetails(latest.current, source);
+    if (!details) return;
+    trigger.current = button; setTitle(details.defaultTitle);
     setTitleError(null); setFailure(null); setDraft(source);
   }
   function close() {
@@ -114,6 +138,8 @@ function Library(props: DemoDocumentLibraryProps) {
     else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus(); }
   }
   const keyword = search.trim().normalize("NFKC").toLocaleLowerCase("ja-JP");
+  const templates = availableTemplates(props.templates);
+  const draftDetails = draft === null ? undefined : creationDetails(props, draft);
   const records = listing.status === "ready" ? [...listing.records].filter(record => record.title.normalize("NFKC").toLocaleLowerCase("ja-JP").includes(keyword))
     .sort((a, b) => sort === "updated" ? b.updatedAt - a.updatedAt || a.title.localeCompare(b.title, "ja-JP") : a.title.localeCompare(b.title, "ja-JP") || b.updatedAt - a.updatedAt) : [];
   const errorBox = failure && <div className="demo-document-error" role="alert"><p>{failure.message}</p><button type="button" disabled={!!pending} onClick={() => void run(failure.retry)}>もう一度試す</button></div>;
@@ -134,6 +160,9 @@ function Library(props: DemoDocumentLibraryProps) {
             <button type="button" className="demo-document-template" aria-label={`サンプルの${label}を作成`} disabled={!!pending} onClick={event => begin("sample", event.currentTarget)}>
               <span className={`demo-document-template-preview is-sample is-${kind}`} aria-hidden="true"><span className="demo-document-preview-heading" /><span className="demo-document-preview-body" /><span className="demo-document-preview-accent" /></span><strong>サンプル</strong><small>データと書式を試す</small>
             </button>
+            {templates.map(template => <button key={template.id} type="button" className="demo-document-template" aria-label={`${template.title}から${label}を作成`} disabled={!!pending} onClick={event => begin(template.id, event.currentTarget)}>
+              <span className="demo-document-template-preview is-template" aria-hidden="true"><span className="demo-document-preview-heading" /><span className="demo-document-preview-form"><span /><span /><span /><span /></span><span className="demo-document-preview-table" /></span><strong>{template.title}</strong><small>{template.description}</small>
+            </button>)}
           </div>
         </div>
       </section>
@@ -160,8 +189,9 @@ function Library(props: DemoDocumentLibraryProps) {
         {pending?.type === "open" && <p className="demo-document-opening" role="status">資料を開いています…</p>}
       </section>
     </div>
-    {draft !== null && <div className="demo-document-modal-backdrop"><div className="demo-document-modal" role="dialog" aria-modal="true" aria-labelledby={`${prefix}-dialog-heading`} onKeyDown={modalKey}>
-      <div className="demo-document-modal-heading"><h2 id={`${prefix}-dialog-heading`}>{draft === "sample" ? "サンプルから作成" : "空白から作成"}</h2><button type="button" aria-label="作成をキャンセル" disabled={!!pending} onClick={close}><X size={18} /></button></div>
+    {draft !== null && <div className="demo-document-modal-backdrop"><div className="demo-document-modal" role="dialog" aria-modal="true" aria-labelledby={`${prefix}-dialog-heading`} aria-describedby={draftDetails?.description ? `${prefix}-dialog-description` : undefined} onKeyDown={modalKey}>
+      <div className="demo-document-modal-heading"><h2 id={`${prefix}-dialog-heading`}>{draftDetails?.heading ?? "テンプレートから作成"}</h2><button type="button" aria-label="作成をキャンセル" disabled={!!pending} onClick={close}><X size={18} /></button></div>
+      {draftDetails?.description && <p className="demo-document-template-description" id={`${prefix}-dialog-description`}>{draftDetails.description}</p>}
       <form onSubmit={create} aria-label={`新しい${label}を作成`} aria-busy={pending?.type === "create"}>
         <div className="demo-document-title-field"><label htmlFor={titleId}>資料名</label><input autoFocus id={titleId} value={title} maxLength={1000} required autoComplete="off" disabled={!!pending} aria-invalid={!!titleError} aria-describedby={titleError ? titleErrorId : undefined}
           onChange={event => { setTitle(event.target.value); setTitleError(null); }} /></div>

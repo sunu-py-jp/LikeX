@@ -111,7 +111,7 @@ function recoveryInspection(failure: Failure) {
   // If the page identity itself is wrong, do not direct the model to inspect that invalid ID.
   if (location && ["sheetId", "slideId", "afterId"].includes(location[2])) return { query: { kind: "list" } };
   if (typeof command?.slideId === "string") return { query: { kind: "slide", slideId: command.slideId, includeData: true, elementId: null } };
-  if (typeof command?.sheetId === "string") return { query: { kind: "sheet", sheetId: command.sheetId, includeData: true, offset: null, limit: null } };
+  if (typeof command?.sheetId === "string") return { query: { kind: "sheet", sheetId: command.sheetId, includeData: true, includeFormat: false, offset: null, limit: null } };
   return { query: { kind: "overview" } };
 }
 /** Formatting/validation/replace selectors denote a cell set; spelling and enumeration order do not change the target. */

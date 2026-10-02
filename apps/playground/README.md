@@ -22,6 +22,12 @@ npm run dev --workspace @likex/playground
 
 最初に保存済み資料の一覧を表示します。「空白」または「サンプル」から名前を付けて作成すると、編集画面が開きます。一覧では名前の検索、カード／リスト表示の切り替え、保存済み資料の再編集ができます。スライドはカード、スプレッドシートはリストが初期表示です。
 
+Spreadsheetには「基本設計書」のテンプレートもあります。架空の購買発注・承認画面を題材に、表紙・変更履歴、画面レイアウト、画面項目一覧、チェック一覧、処理仕様、処理フロー、参照マスタ、要件資料の8シートを用意します。48項目の画面要件、入力・業務チェック、処理と参照マスタの元データは「要件資料」に置き、設計書側には書式・記入欄・進捗集計の数式を用意します。
+
+作成するとAIパネルが開きます。「要件資料」の内容を必要に応じて編集してから「要件資料から設計書を完成させる」を押すと、AIが必要な範囲を取得し、既存の書式・数式を保持して資料を順次完成させます。開いただけではAIへ送信しません。「記入内容の不足・矛盾を確認する」は編集せずにレビューします。未確定事項は推測で埋めず、要確認として残す指示です。元データはデモの架空の仕様であり、外部システムから自動収集するものではありません。
+
+テンプレート本体と開始用の依頼文は `src/demo/spreadsheet-design-template.ts`、一覧の追加カードとチャットへの受け渡しはプレイグラウンド側で定義しています。再利用するときは、このテンプレートや要件データを利用側で差し替えられます。保存・再表示・AI編集には既存の公開APIを使います。
+
 作成時と本体の「保存」で、資料のネイティブJSONとタイトル・更新日時・ページ／シート数を、このオリジンのブラウザーのIndexedDBへ保存します。ページを再読み込みすると一覧から始まり、保存済み資料を開き直せます。編集途中の自動保存はありません。「一覧」で戻る際に未保存の変更があれば、保存して戻る・保存せず戻る・キャンセルを選べます。AI処理中と保存中は一覧へ戻れません。保存先の容量不足や同じ資料の別タブでの更新を検出した場合は保存に失敗し、編集画面に下書きを残します。ブラウザーのサイトデータを消すと資料も削除されるため、残したい資料はファイルにも書き出してください。
 
 永続化と画面遷移は `src/ai/demo-document-store.ts`、`demo-document-library.tsx`、`demo-document-editor.tsx` と各デモで実装しています。ライブラリ本体には保存先を持たせず、公開モデルのparse/serialize APIと `onSave` で連携します。
@@ -50,11 +56,11 @@ AIへ公開するツールは、取得・検索・編集を分けています。
 ```
 
 ```json
-{ "query": { "kind": "range", "sheetId": "取得したシートID", "range": "B2:F6" } }
+{ "query": { "kind": "range", "sheetId": "取得したシートID", "range": "B2:F6", "includeFormat": false } }
 ```
 
 ```json
-{ "query": { "kind": "sheet", "sheetId": "取得したシートID", "includeData": true, "offset": 0, "limit": 100 } }
+{ "query": { "kind": "sheet", "sheetId": "取得したシートID", "includeData": true, "includeFormat": false, "offset": 0, "limit": 100 } }
 ```
 
 ```json
@@ -62,6 +68,8 @@ AIへ公開するツールは、取得・検索・編集を分けています。
 ```
 
 範囲取得の `selection` は `{ sheetId, range, rows }` です。`rows` は行優先の二次元配列で、単一セルでも `[[{ "value": "商品" }]]`、未格納セルは `null` です。セルは `{ value, format?, validation? }` で矩形の行数・列数を保ちます。1シートの保存セル取得は `{ sheet, cells, offset, limit, total, hasMore }` で、一次元の `cells` に `{ address, value, format?, validation? }` が並びます。書式付き空セルは含み、未格納セルは含みません。数式は元の入力文字列を返します。図形・画像・コメントはこのセル配列には入りません。
+
+このデモのAI向け取得では `includeFormat: false` を基本にし、セルごとに繰り返す `format` を省いて `selection.formatsOmitted: true` を返します。値・数式・入力規則・セル位置は保持します。書式を調べるときだけ小さな範囲に `includeFormat: true` を指定します（省略時は `false`）。書式が存在しないという意味ではなく、値だけの編集でも既存の書式は維持されます。公開モデルAPIと汎用CLIの取得形式や、競合照合に使う取得時点の文書は変更しません。
 
 検索結果は `{ search, text, matches, offset, limit, total, hasMore }` です。`search_sheets` は名前、`search_cells` は指定範囲または全シートのセルを検索します。`lookIn` は `values`（書式付き表示値）／`formulas`（数式・入力値）、`matchCase` は大文字小文字、`exact` は全体一致です。検索の `value` / `matchedText` は既定200文字のプレビューで、省略時は `valueTruncated` / `matchedTextTruncated` と元の文字数を返します。`previewLength` は1〜10,000、ページの `limit` は既定100・最大1,000です。`hasMore` が true なら `offset + limit` で続けます。
 

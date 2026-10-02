@@ -19,7 +19,7 @@ function NewChatIcon() {
 }
 
 export function AIWorkspace({ adapter, children, colorMode, primaryColor, onBusyChange }: Props) {
-  const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [hasSent, setHasSent] = useState(false);
+  const [open, setOpen] = useState(adapter.initialChatOpen ?? false), [busy, setBusy] = useState(false), [hasSent, setHasSent] = useState(false);
   const reportBusy = useCallback((value: boolean) => { setBusy(value); onBusyChange?.(value); }, [onBusyChange]);
   const [config, setConfig] = useState<AIConfig | null>(null), [configError, setConfigError] = useState(""), [configAttempt, setConfigAttempt] = useState(0);
   const [steps, setSteps] = useState<string[]>([]), [status, setStatus] = useState("");
@@ -141,7 +141,13 @@ export function AIWorkspace({ adapter, children, colorMode, primaryColor, onBusy
       <div className="playground-ai-connection">
         {configError ? <><span role="alert">{configError}</span><button type="button" onClick={() => { setConfigError(""); setConfigAttempt(value => value + 1); }}>再確認</button></> : config?.configured ? <><span className="playground-ai-dot"/>{config.provider === "azure" ? "Azure OpenAI" : config.provider === "openai" ? "OpenAI" : config.provider}<span className="playground-ai-model">{config.model}</span></> : config ? <div><strong>AIの接続設定が必要です</strong><p>リポジトリ直下の .env に OpenAI または Azure OpenAI の設定を追加して、開発サーバーを再起動してください。設定項目は .env.example を参照できます。</p>{!!config.missing?.length && <p>未設定: {config.missing.join("、")}</p>}</div> : <span role="status">AIの接続設定を確認しています…</span>}
       </div>
-      {!hasSent && <div className="playground-ai-suggestions"><p>例えば、こんなふうに</p>{adapter.suggestions.map(prompt => <button key={prompt} type="button" disabled={!config?.configured || busy} onClick={() => { void chat.current?.send(prompt); }}>{prompt}<span aria-hidden="true">↗</span></button>)}</div>}
+      {!hasSent && <div className="playground-ai-suggestions">
+        {adapter.introduction ? <><strong>{adapter.introduction.title}</strong><p>{adapter.introduction.description}</p></> : <p>例えば、こんなふうに</p>}
+        {adapter.suggestions.map(suggestion => {
+          const { label, prompt } = typeof suggestion === "string" ? { label: suggestion, prompt: suggestion } : suggestion;
+          return <button key={label} type="button" disabled={!config?.configured || busy} onClick={() => { void chat.current?.send(prompt); }}>{label}<span aria-hidden="true">↗</span></button>;
+        })}
+      </div>}
       {(status || steps.length > 0) && <div className="playground-ai-progress"><p role="status" aria-live="polite">{busy && <span className="playground-ai-spinner"/>}{status}</p>{steps.length > 0 && <details><summary>実行の詳細 · {steps.length}</summary><ol>{steps.map((step, index) => <li key={`${index}-${step}`}>{step}</li>)}</ol></details>}</div>}
       <div className="playground-ai-chat"><LikeAIChat ref={chat} initialAIChat={initialAIChat} initialConversationId="assistant" onSave={model => model} onSend={send} partRenderers={partRenderers} colorMode={colorMode} primaryColor={primaryColor ?? (adapter.module === "slide" ? "#b95634" : "#217346")} readOnly={!config?.configured} features={{ attachments: false, conversations: true, import: false, export: false, history: false, edit: false, delete: false, retry: false }} style={{ width: "100%", height: "100%", minHeight: 0, border: 0, borderRadius: 0 }}/></div>
     </aside>

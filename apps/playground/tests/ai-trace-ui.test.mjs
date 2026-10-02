@@ -200,3 +200,37 @@ test("a later provider error preserves a live edit and reports partial completio
   assert.equal(document, "first edit"); assert.equal(applied, 1);
   assert.match(JSON.stringify(renderer.toJSON()), /反映済みの編集は残っています/);
 });
+
+test("a host template opens its starter without sending and submits the full request only on click", async t => {
+  const originalFetch = globalThis.fetch, originalFrame = globalThis.requestAnimationFrame, originalCancelFrame = globalThis.cancelAnimationFrame;
+  const requests = [];
+  globalThis.requestAnimationFrame = callback => { callback(); return 0; };
+  globalThis.cancelAnimationFrame = () => {};
+  globalThis.fetch = async (url, init) => {
+    if (url === "/api/ai/config") return Response.json({ configured: true, provider: "openai", model: "test" });
+    requests.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ type: "result", document: "template", changed: false }) + "\n");
+  };
+  const prompt = "要件資料を取得し、書式と数式を保って基本設計書を完成してください。未確定事項は要確認としてください。";
+  const adapter = { module: "spreadsheet", label: "Spreadsheet", initialChatOpen: true,
+    introduction: { title: "基本設計書の作成", description: "先に要件を確認できます。" },
+    suggestions: [{ label: "設計書を完成させる", prompt }],
+    snapshot: async () => ({ document: "template", revision: 0 }),
+    live: async () => { assert.fail("read-only completion must not write"); } };
+  let renderer;
+  await act(async () => { renderer = create(h(AIWorkspace, { adapter, colorMode: "light" }, h("p", null, "Document"))); await tick(); });
+  t.after(async () => {
+    await act(async () => renderer.unmount());
+    globalThis.fetch = originalFetch; globalThis.requestAnimationFrame = originalFrame; globalThis.cancelAnimationFrame = originalCancelFrame;
+  });
+  assert.equal(renderer.root.findByType("aside").props.hidden, false);
+  assert.equal(requests.length, 0, "opening a template must never automatically call the provider");
+  const starter = renderer.root.findAllByType("button").find(button => button.children.includes("設計書を完成させる"));
+  assert.ok(starter);
+  assert.equal(starter.children.includes(prompt), false, "the compact label is separate from the explicit user request");
+  await act(async () => { starter.props.onClick(); await tick(); await tick(); });
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].messages, [{ role: "user", content: prompt }]);
+  assert.equal(requests[0].document, "template");
+  assert.equal(renderer.root.findAllByProps({ className: "playground-ai-suggestions" }).length, 0);
+});

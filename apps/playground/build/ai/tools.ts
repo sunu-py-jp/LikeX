@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { AIError } from "./provider.ts";
 import { spreadsheetSearchArguments, spreadsheetSearchProperties } from "./spreadsheet-search.ts";
+import { spreadsheetReadResult } from "./spreadsheet-read.ts";
 import { checkSlideWrite, checkSlideWriteResult } from "./slide-write-policy.ts";
 import { referenceNames, scriptArguments, slideTextCommands } from "./tool-definitions.ts";
 import { commandSchemas, normalizeCommandValue, validateSchema } from "./command-schema.ts";
@@ -199,13 +200,14 @@ export class SkillWorkspace {
   private async script(args: Record<string, unknown>, signal: AbortSignal): Promise<unknown> {
     const selectors = this.module === "slide" ? { slideId: "slide-id", elementId: "element-id", masterId: "master-id", layoutId: "layout-id" } : { sheetId: "sheet-id", range: "range", drawingId: "drawing-id" };
     const searchKeys = this.module === "spreadsheet" ? Object.keys(spreadsheetSearchProperties) : [];
-    keys(args, ["operation", "commands", "dryRun", "includeData", "overview", ...Object.keys(selectors), ...searchKeys]);
+    keys(args, ["operation", "commands", "dryRun", "includeData", "overview", ...(this.module === "spreadsheet" ? ["includeFormat"] : []), ...Object.keys(selectors), ...searchKeys]);
     if (!["inspect", "apply", "validate", "create"].includes(String(args.operation))) throw new AIError("inspect / apply / validate / create を指定してください。");
     const operation = args.operation as string;
     const writing = operation === "apply" || operation === "create";
     if (!writing && (args.commands !== undefined || args.dryRun !== undefined)) throw new AIError("commands / dryRun は apply または create 専用です。");
-    if (operation !== "inspect" && (args.includeData !== undefined || args.overview !== undefined || [...Object.keys(selectors), ...searchKeys].some(key => args[key] !== undefined))) throw new AIError("選択引数は inspect 専用です。");
-    if (["dryRun", "includeData", "overview"].some(key => args[key] !== undefined && typeof args[key] !== "boolean")) throw new AIError("フラグには true / false を指定してください。");
+    if (operation !== "inspect" && (args.includeData !== undefined || args.includeFormat !== undefined || args.overview !== undefined || [...Object.keys(selectors), ...searchKeys].some(key => args[key] !== undefined))) throw new AIError("選択引数は inspect 専用です。");
+    if (["dryRun", "includeData", "includeFormat", "overview"].some(key => args[key] !== undefined && typeof args[key] !== "boolean")) throw new AIError("フラグには true / false を指定してください。");
+    if (args.includeFormat !== undefined && (!args.sheetId || args.drawingId !== undefined || args.search !== undefined || args.overview !== undefined)) throw new AIError("includeFormat はシート・セル範囲の取得専用です。");
     if (args.overview && (args.includeData !== undefined || [...Object.keys(selectors), ...searchKeys].some(key => args[key] !== undefined))) throw new AIError("overview と他の取得・検索引数は併用できません。");
     const cli = [path.join(this.skillDirectory, "scripts/document.mjs"), operation, "--project", this.repository];
     if (operation !== "create") cli.push("--input", this.file);
@@ -257,7 +259,8 @@ export class SkillWorkspace {
     }
     try {
       const targeted = args.search !== undefined || Object.keys(selectors).some(key => args[key] !== undefined);
-      const result = await this.execute(cli, signal, operation === "inspect" && targeted, operation === "inspect" && !targeted && !args.overview);
+      const result = await this.execute(cli, signal, operation === "inspect" && targeted, operation === "inspect" && !targeted && !args.overview,
+        this.module === "spreadsheet" && operation === "inspect" ? args.includeFormat === true : undefined);
       if (writing && !args.dryRun) {
         if ((await stat(candidate)).size > DOCUMENT_LIMIT) throw new AIError("変更後のファイルが 8 MiB を超えます。依頼を小さくしてください。");
         if (slideBefore) checkSlideWriteResult(slideBefore, await readFile(candidate, "utf8"), operation);
@@ -272,7 +275,7 @@ export class SkillWorkspace {
     }
   }
 
-  private execute(args: string[], signal: AbortSignal, compactSummary = false, includeCatalog = false): Promise<unknown> {
+  private execute(args: string[], signal: AbortSignal, compactSummary = false, includeCatalog = false, includeCellFormat?: boolean): Promise<unknown> {
     return new Promise((resolve, reject) => {
       execFile(process.execPath, args, {
         cwd: this.directory, signal, timeout: 15_000, maxBuffer: 1024 * 1024 + 1024,
@@ -306,6 +309,9 @@ export class SkillWorkspace {
           delete result.summary.masters;
           delete result.summary.layouts;
         }
+        // Compact before enforcing the tool budget, so repeated cell styles do not
+        // force tiny reads and exhaust the cumulative conversation context.
+        if (includeCellFormat !== undefined) result = spreadsheetReadResult(result, includeCellFormat);
         if (JSON.stringify(result).length > TOOL_OUTPUT_LIMIT) { reject(new AIError("取得結果が大きすぎます。inspect の対象範囲を小さくするか、検索の limit / previewLength を減らしてください。")); return; }
         resolve(result);
       });
