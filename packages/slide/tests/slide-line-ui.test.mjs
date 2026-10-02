@@ -5,7 +5,7 @@ import { build } from 'esbuild';
 import { act, createElement as h, createRef } from 'react';
 import { create } from 'react-test-renderer';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-const bundle = await build({ stdin: { contents: `export { SlideCanvas } from './src/ui/slide-canvas'; export { SlideRibbon } from './src/ui/slide-ribbon'; export { SlideProperties } from './src/ui/slide-properties'; export {useSlideEditor} from './src/state/use-slide-editor'; export * from './src/model';`, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false, plugins: [{ name: 'react', setup(builder) { builder.onResolve({ filter: /^(react|react-dom|lucide-react)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true })); } }] });
+const bundle = await build({ stdin: { contents: `export { SlideCanvas } from './src/ui/slide-canvas'; export { SlideElementContent } from './src/ui/slide-artwork'; export { SlideRibbon } from './src/ui/slide-ribbon'; export { SlideProperties } from './src/ui/slide-properties'; export {useSlideEditor} from './src/state/use-slide-editor'; export * from './src/model';`, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false, plugins: [{ name: 'react', setup(builder) { builder.onResolve({ filter: /^(react|react-dom|lucide-react)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true })); } }] });
 const m = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const change = callback => act(async () => { await callback(); });
 const initial = () => m.applySlideCommands(m.createSlideDeck({ width: 800, height: 600, slides: [{ id: 's', name: 's', background: '#fff', notes: '', elements: [
@@ -106,4 +106,37 @@ test('moving a selected target and its line preserves binding and translates end
   const line = app.editor.deck.slides[0].elements.find(element => element.id === 'line');
   assert.deepEqual(line.line.start, { x: 70, y: 50 });
   assert.deepEqual(line.line.end, { x: 250, y: 170, binding: { targetId: 'a', port: 'right' } });
+});
+
+
+test('shape insertion menu groups Office presets and inserts bent arrows through element.add', async t => {
+  const commands = [], editor = { deck: initial(), editable: true, readOnly: false, features: { shapes: true }, selection: { slideId: 's', elementIds: [] }, execute(command) { commands.push(command); } };
+  let renderer;
+  await change(() => { renderer = create(h(m.SlideRibbon, { editor, propertiesOpen: false, onProperties() {}, ownerDocument: null })); });
+  t.after(() => change(() => renderer.unmount()));
+  const menu = renderer.root.findByProps({ 'aria-label': '図形を挿入' });
+  assert.ok(menu.findAllByType('optgroup').length >= 3);
+  for (const kind of ['bentArrow', 'uturnArrow', 'flowChartDocument']) {
+    assert.ok(menu.findAllByType('option').some(option => option.props.value === kind));
+    await change(() => menu.props.onChange({ target: { value: kind } }));
+    assert.equal(commands.at(-1).type, 'element.add'); assert.equal(commands.at(-1).element.shape, kind);
+  }
+  editor.editable = false;
+  await change(() => renderer.update(h(m.SlideRibbon, { editor, propertiesOpen: false, onProperties() {}, ownerDocument: null })));
+  assert.equal(renderer.root.findByProps({ 'aria-label': '図形を挿入' }).props.disabled, true);
+});
+
+
+test('expanded Office shape artwork shares path fills and the dedicated text rectangle', async t => {
+  const element = m.createSlideElement({ type: 'shape', shape: 'flowChartMultidocument', width: 300, height: 180, text: '書類', fill: '#ddffaa', stroke: '#123456' });
+  let renderer;
+  await change(() => { renderer = create(h(m.SlideElementContent, { element })); });
+  t.after(() => change(() => renderer.unmount()));
+  assert.equal(renderer.root.findByType('svg').props.style.overflow, 'visible');
+  const paths = renderer.root.findAllByType('path');
+  assert.ok(paths.length >= 2); assert.ok(paths.some(path => path.props.fill === 'none'));
+  assert.ok(paths.some(path => path.props.stroke === 'none'));
+  const text = renderer.root.findByProps({ className: 'lxp-shape-text' }), rect = m.getSlideShapeTextRect(element);
+  for (const key of ['left', 'top', 'width', 'height']) assert.equal(text.props.style[key], rect[key]);
+  assert.deepEqual(text.children, ['書類']);
 });

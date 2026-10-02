@@ -54,8 +54,14 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
       if (rotation && !nativeFrame) adjusted(context, sheet, "回転したオブジェクトの位置をセルのアンカーから近似しました");
       const lineProperties = child(properties, "ln");
       const originalStroke = child(lineProperties, "noFill") ? 0 : Math.min(100, Math.max(0, (finiteNumber(lineProperties?.attributes.w) ?? 9525) / EMU_PER_PIXEL));
-      if (customKind && isSpreadsheetShapeKind(customKind) && customKind !== "line" && customKind !== "arrow")
+      const nativeShape = SPREADSHEET_SHAPES.find(item => getShapeDefinition(item.kind).xlsxPreset === child(properties, "prstGeom")?.attributes.prst)?.kind;
+      const nativeTextBox = ["1", "true"].includes(child(child(object, "nvSpPr"), "cNvSpPr")?.attributes.txBox ?? "");
+      // DrawingML extents follow the outline center. New presets store an outer frame
+      // with an inset stroke, so reverse the exporter conversion exactly once.
+      const insetOfficeShape = localName(object.name) === "sp" && !nativeTextBox && nativeShape && getShapeDefinition(nativeShape).geometry.type === "office";
+      if (customKind && isSpreadsheetShapeKind(customKind) && customKind !== "line" && customKind !== "arrow" || insetOfficeShape)
         frame = { x: Math.max(0, frame.x - originalStroke / 2), y: Math.max(0, frame.y - originalStroke / 2), width: frame.width + originalStroke, height: frame.height + originalStroke };
+      if (insetOfficeShape && (frame.width > 10_000 || frame.height > 10_000)) { omitted(context, sheet, "線幅を含む図形のサイズが対応範囲を超えているため省略しました"); continue; }
       const anchor = anchorFromFrame({ ...frame, x: Math.max(0, frame.x), y: Math.max(0, frame.y) }, grid);
       if (!anchor) { omitted(context, sheet, "シート上限外のオブジェクトを省略しました"); continue; }
       const common = { id: `${sheet.id}-drawing-${visited}`, anchor, width: frame.width, height: frame.height,
@@ -118,6 +124,8 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
           const guide = children(child(preset, "avLst"), "gd"), definition = getShapeDefinition(shape), adjustment = definition.xlsxAdjustment;
           const expected = adjustment ? 100000 * adjustment.ratio * frame[adjustment.axis] / Math.min(frame.width, frame.height) : undefined;
           if (guide.some(item => {
+            // New Office presets use their default guides; any explicit deformation is reported.
+            if (definition.geometry.type === "office") return true;
             const value = Number(item.attributes.fmla?.replace(/^val\s+/, ""));
             return adjustment && item.attributes.name === adjustment.name ? Math.abs(value - expected!) > 1
               : item.attributes.name === "adj1" ? value !== 50000 : !(shape === "roundedRectangle" && item.attributes.name === "adj" && value === 16667 || shape === "triangle" && item.attributes.name === "adj" && value === 50000);

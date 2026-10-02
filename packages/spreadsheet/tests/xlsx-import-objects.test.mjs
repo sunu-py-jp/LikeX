@@ -37,7 +37,7 @@ function harness({ drawings = '', sheetXml = '', files = {}, drawingRels = [], s
   return { context, warnings, reads, initial, run: async () => readWorksheetExtras(node, initial, 'xl/worksheets/sheet1.xml', relationships, context) };
 }
 
-test('all 16 native shapes retain editable kinds, text, colors, clockwise rotation and reflections', async () => {
+test('all supported native shapes retain editable kinds, text, colors, clockwise rotation and reflections', async () => {
   for (const { kind } of SPREADSHEET_SHAPES) {
     const preset = getShapeDefinition(kind).xlsxPreset;
     const env = harness({ drawings: one(shape(preset, { rotation: 45, flipX: true, flipY: true,
@@ -48,8 +48,9 @@ test('all 16 native shapes retain editable kinds, text, colors, clockwise rotati
     assert.equal(drawing.text, '確認 & <OK>\n次\n段落'); assert.equal(drawing.fontSize, 16);
     assert.equal(drawing.fill, '#E8F3EC'); assert.equal(drawing.stroke, '#217346'); assert.equal(drawing.color, '#123456');
     assert.equal(drawing.strokeWidth, 2); assert.equal(drawing.bold, true);
-    assert.deepEqual(drawing.anchor, { row: 1, column: 2, offsetX: 3, offsetY: 4 });
-    assert.equal(drawing.width, 120); assert.equal(drawing.height, 60);
+    const inset = getShapeDefinition(kind).geometry.type === 'office' ? 1 : 0;
+    assert.deepEqual(drawing.anchor, { row: 1, column: 2, offsetX: 3 - inset, offsetY: 4 - inset });
+    assert.equal(drawing.width, 120 + inset * 2); assert.equal(drawing.height, 60 + inset * 2);
     assert.doesNotThrow(() => normalizeWorkbook({ sheets: [imported] }));
   }
 });
@@ -95,7 +96,7 @@ test('embedded raster resources are validated and shared, preserve image aspect 
 });
 
 test('external media, SVG, charts, grouped objects and unsupported geometry are omitted without fetching media', async () => {
-  const env = harness({ drawings: one(image('external')) + one(image('svg')) + one('<graphicFrame/>') + one('<grpSp/>') + one(shape('star5')),
+  const env = harness({ drawings: one(image('external')) + one(image('svg')) + one('<graphicFrame/>') + one('<grpSp/>') + one(shape('irregularSeal2')),
     files: { 'xl/media/image.svg': '<svg onload="alert(1)"/>' },
     drawingRels: [relationship('external', 'image', 'https://example.invalid/pixel.png', true), relationship('svg', 'image', '../media/image.svg')] });
   const imported = await env.run();

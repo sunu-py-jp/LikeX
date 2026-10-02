@@ -227,3 +227,41 @@ test('feature guards cover semantic APIs, low-level alignment, image movement, a
   const insert = { type: 'text.insert', from: 1, text: 'Allowed' };
   assert.doesNotThrow(() => assertDocumentFeatures(original, executeDocumentCommands(original, insert).document, [insert], resolveDocumentFeatures({ formatting: false, images: false })));
 });
+
+test('shape insertion and updates follow permission, disabled-feature, read-only and undo paths', async t => {
+  const denied = await mount(t, { onEditRequest: () => false });
+  await change(async () => assert.equal(await denied.editor.execute({ type: 'shape.insert', at: 0, preset: 'bentArrow' }), null));
+  assert.equal(denied.editor.document.content.content.some(node => node.type === 'shape'), false);
+  const app = await mount(t);
+  await change(() => app.editor.execute({ type: 'shape.insert', at: 0, preset: 'bentArrow', text: 'Review' }));
+  const shape = app.editor.document.content.content.find(node => node.type === 'shape'); assert.ok(shape);
+  await change(() => app.editor.execute({ type: 'shape.update', id: shape.attrs.id, text: 'Approve' }));
+  assert.equal(app.editor.document.content.content[0].attrs.text, 'Approve');
+  await change(() => app.editor.history('undo')); assert.equal(app.editor.document.content.content[0].attrs.text, 'Review');
+  await app.update({ features: { shapes: false } });
+  for (const command of [{ type: 'shape.insert', at: 0, preset: 'rect' }, { type: 'shape.update', id: shape.attrs.id, text: 'Bad' }, { type: 'block.delete', id: shape.attrs.id }, { type: 'transaction.apply', steps: [{ stepType: 'replace', from: 0, to: 1 }] }]) await change(async () => assert.equal(await app.editor.execute(command), null));
+  assert.equal(app.editor.document.content.content[0].attrs.text, 'Review');
+  await app.update({ features: { shapes: true }, readOnly: true });
+  await change(async () => assert.equal(await app.editor.execute({ type: 'shape.update', id: shape.attrs.id, text: 'Bad' }), null));
+});
+
+test('shape text and visual edits honor their respective feature flags through commands and raw steps', async t => {
+  const initial = createDocument({ content: { type: 'doc', content: [{ type: 'shape', attrs: { id: 'approval', preset: 'bentArrow', text: 'Original' } }] } });
+  for (const [feature, patch] of [['text', { text: 'Changed' }], ['formatting', { fill: '#ff0000', fontSize: 32 }], ['formatting', { width: 300, rotation: 30 }]]) {
+    const app = await mount(t, { initialDocument: initial, features: { [feature]: false } });
+    const command = { type: 'shape.update', id: 'approval', ...patch };
+    await change(async () => assert.equal(await app.editor.execute(command), null));
+    const original = app.editor.document.content.content[0];
+    const raw = { stepType: 'replace', from: 0, to: 1, slice: { content: [{ ...original, attrs: { ...original.attrs, ...patch } }] } };
+    await change(async () => assert.equal(await app.editor.execute({ type: 'transaction.apply', steps: [raw] }), null));
+    assert.equal(app.editor.document, initial); assert.equal(app.editor.canUndo, false);
+  }
+  const noText = await mount(t, { features: { text: false } });
+  await change(async () => assert.equal(await noText.editor.execute({ type: 'shape.insert', at: 0, preset: 'bentArrow', text: 'Blocked text' }), null));
+  await change(async () => assert.ok(await noText.editor.execute({ type: 'shape.insert', at: 0, preset: 'bentArrow' })));
+  const noFormat = await mount(t, { features: { formatting: false } });
+  await change(async () => assert.equal(await noFormat.editor.execute({ type: 'shape.insert', at: 0, preset: 'bentArrow', fill: '#ff0000' }), null));
+  await change(async () => assert.ok(await noFormat.editor.execute({ type: 'shape.insert', at: 0, preset: 'bentArrow', text: 'Allowed text' })));
+  const node = noFormat.editor.document.content.content.find(node => node.type === 'shape');
+  await change(async () => assert.ok(await noFormat.editor.execute({ type: 'shape.update', id: node.attrs.id, text: 'Updated text' })));
+});

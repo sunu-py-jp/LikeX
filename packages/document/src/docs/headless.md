@@ -28,6 +28,7 @@ const json = serializeDocument(result.document);
 | `list.set` | 箇条書き・番号付きリスト・通常段落を切り替え |
 | `table.insert` | 行数・列数を指定して表を挿入 |
 | `image.insert` / `image.update` | 埋め込み画像を追加・更新 |
+| `shape.insert` / `shape.update` | Officeプリセット図形を追加・更新 |
 | `pageBreak.insert` | 明示的な改ページ |
 | `block.delete` | IDでブロックを削除 |
 | `document.update` / `document.replace` | タイトル・用紙を変更、または文書全体を置換 |
@@ -37,7 +38,7 @@ const json = serializeDocument(result.document);
 
 ## 取得と位置
 
-`getDocumentText(document)` は本文の文字列、`getBlocks(document)` はブロック一覧、`getBlock(document, id)` は指定ブロック、`getImages(document)` は画像ブロックを返します。ブロック情報には `id`、`node`、`from`、`to`、`contentFrom`、`contentTo` があります。
+`getDocumentText(document)` は本文の文字列、`getBlocks(document)` はブロック一覧、`getBlock(document, id)` は指定ブロック、`getImages(document)` は画像ブロック、`getShapes(document)` / `getShape(document, id)` は図形ブロックを返します。図形内のテキストも `getDocumentText` に含みます。ブロック情報には `id`、`node`、`from`、`to`、`contentFrom`、`contentTo` があります。
 
 位置は現在の文書に対するProseMirrorの位置です。最初の段落の先頭は `1` で、ブロックの開閉境界も数えます。編集後に続けて操作する場合は、新しい位置を取得するか、直前の編集を反映した値を使います。
 
@@ -61,3 +62,18 @@ const { document, dirty, canUndo } = session.getSnapshot();
 `DocumentHandle` の `getDocument` / `getSelection` で状態を取得し、`select` / `execute` / `undo` / `redo` で操作します。`execute` は非同期で、表示中の編集許可・機能設定・履歴を通ります。適用できない場合は `null` を返すことがあります。
 
 `save` / `discard` は保存状態を操作します。`importNative` / `exportNative` はDCON、`importDocx` / `exportDocx` はDOCX入出力です。純粋なDOCX APIとrefの戻り値は異なるため、[DOCX入出力](docx.md)も確認してください。
+
+## Officeプリセット図形
+
+```ts
+const result = executeDocumentCommands(document, {
+  type: "shape.insert", at: 0, preset: "bentArrow", text: "確認から承認へ",
+  width: 260, height: 140, fill: "#dbeafe", stroke: "#2563eb", strokeWidth: 2,
+});
+const shape = getShapes(result.document)[0];
+const edited = executeDocumentCommands(result.document, {
+  type: "shape.update", id: shape.id, text: "差し戻し", preset: "uturnArrow",
+});
+```
+
+`preset` は `OfficeShapePreset` の39種。`@likex/core/office-shapes` の `OFFICE_SHAPE_PRESETS` からラベル付き一覧を取得できます。寸法と線幅はpx、回転は度、文字サイズはpt。塗りと線を消す場合は `fill: null` / `stroke: null`。`shape.update` は指定した属性だけを変更します。幅だけの変更で高さは変えません。挿入結果の `selection` は新しい図形を選択し、図形の削除は `block.delete` を使います。

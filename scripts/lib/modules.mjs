@@ -4,7 +4,7 @@ import { artifactRoot, projectRoot } from './run.mjs';
 
 // Distribution differences live here; build/pack/consumer checks are shared.
 const modules = {
-  core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [], headlessEntries: { ooxml: 'ooxml.ts', json: 'json.ts', connectors: 'connectors.ts' }, browserEntries: { browser: 'browser.ts' } },
+  core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [], headlessEntries: { ooxml: 'ooxml.ts', json: 'json.ts', connectors: 'connectors.ts', 'office-shapes': 'office-shapes.ts' }, browserEntries: { browser: 'browser.ts' } },
   explorer: {
     ui: true,
     headlessEntries: { model: 'model-entry.ts' },
@@ -21,7 +21,7 @@ const modules = {
     ui: true,
     skillName: 'likex-spreadsheet',
     headlessEntries: { model: 'model-entry.ts' },
-    headlessDependencies: ['@likex/core/connectors', '@likex/core', '@likex/core/ooxml', '@likex/core/json'],
+    headlessDependencies: ['@likex/core/office-shapes', '@likex/core/connectors', '@likex/core', '@likex/core/ooxml', '@likex/core/json'],
     moduleDependencies: ['core'],
     generatedStyles: false, bundledDependencies: [],
     marker: 'data-likex-spreadsheet', classPrefix: '.lxs-', propertyPrefix: '--lxs-', keyframePrefix: 'lxs',
@@ -33,7 +33,7 @@ const modules = {
     skillName: 'likex-slide',
     headlessEntries: { model: 'model-entry.ts' },
     browserEntries: { render: 'render-entry.ts' },
-    headlessDependencies: ['@likex/core/connectors', '@likex/core', '@likex/core/ooxml', '@likex/core/json'],
+    headlessDependencies: ['@likex/core/office-shapes', '@likex/core/connectors', '@likex/core', '@likex/core/ooxml', '@likex/core/json'],
     moduleDependencies: ['core'],
     generatedStyles: false, bundledDependencies: [],
     marker: 'data-likex-slide', classPrefix: '.lxp-', propertyPrefix: '--lxp-', keyframePrefix: 'lxp',
@@ -44,7 +44,7 @@ const modules = {
     ui: true,
     skillName: 'likex-document',
     headlessEntries: { model: 'model-entry.ts' },
-    headlessDependencies: ['@likex/core', '@likex/core/ooxml', '@likex/core/json', 'prosemirror-model',
+    headlessDependencies: ['@likex/core/office-shapes', '@likex/core', '@likex/core/ooxml', '@likex/core/json', 'prosemirror-model',
       'prosemirror-state', 'prosemirror-transform', 'prosemirror-commands', 'prosemirror-schema-list'],
     modelRuntimeDependencies: ['prosemirror-model', 'prosemirror-state', 'prosemirror-transform', 'prosemirror-schema-list'],
     modelTypeLibraries: ['ES2022', 'DOM'],

@@ -55,7 +55,7 @@
 .lxp-ribbon-icon { display:flex; align-items:center; justify-content:center; border-radius:3px; width:28px; height:26px; }
 .lxp-ribbon-color { display:flex; align-items:center; gap:2px; height:26px; }
 .lxp-ribbon-color input[type="color"] { width:25px; height:23px; }
-.lxp-shape-gallery { display:grid; grid-template-columns:repeat(3,28px); gap:2px; }
+.lxp-shape-gallery { display:grid; grid-template-columns:repeat(7,28px); gap:2px; }
 .lxp-background-gallery { display:flex; gap:7px; }
 .lxp-background-gallery button { width:54px; height:34px; border:1px solid #a6a6a6; box-shadow:0 1px 1px #0001; border-radius:1px; }
 .lxp-background-gallery button[aria-pressed="true"] { outline:2px solid var(--lxp-accent); outline-offset:2px; }

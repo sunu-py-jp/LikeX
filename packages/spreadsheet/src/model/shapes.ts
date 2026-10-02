@@ -1,13 +1,15 @@
 import type { SpreadsheetShapeDrawing } from "./types";
+import { OFFICE_SHAPE_PRESETS, getOfficeShapeGeometry, type OfficeShapePreset } from "./core-office-shapes";
 
-export type SpreadsheetShapeCategory = "basic" | "arrows" | "lines";
+export type SpreadsheetShapeCategory = "basic" | "arrows" | "lines" | "flowchart";
 
 type Point = readonly [number, number];
 type ShapeGeometry =
   | Readonly<{ type: "rectangle"; rounded?: boolean }>
   | Readonly<{ type: "ellipse" }>
   | Readonly<{ type: "line"; arrow?: boolean }>
-  | Readonly<{ type: "polygon"; points: readonly Point[] }>;
+  | Readonly<{ type: "polygon"; points: readonly Point[] }>
+  | Readonly<{ type: "office"; preset: OfficeShapePreset }>;
 type ShapeDefinition = Readonly<{
   label: string; category: SpreadsheetShapeCategory; geometry: ShapeGeometry;
   /** ECMA-376 DrawingML preset name, independent of the public identifier. */
@@ -21,7 +23,7 @@ type ShapeDefinition = Readonly<{
 // One catalog drives validation, the insertion gallery, SVGs and DrawingML export.
 // Presets: https://learn.microsoft.com/dotnet/api/documentformat.openxml.drawing.shapetypevalues
 // Guide formulas cross-checked against Apache POI's presetShapeDefinitions.xml (REL_5_4_1).
-const shapeDefinitions = {
+const legacyShapeDefinitions = {
   rectangle: { label: "長方形", category: "basic", xlsxPreset: "rect", geometry: { type: "rectangle" } },
   roundedRectangle: { textFrame: "rounded", label: "角丸長方形", category: "basic", xlsxPreset: "roundRect", geometry: { type: "rectangle", rounded: true } },
   ellipse: { label: "楕円", category: "basic", xlsxPreset: "ellipse", geometry: { type: "ellipse" } },
@@ -41,7 +43,13 @@ const shapeDefinitions = {
 } as const satisfies Record<string, ShapeDefinition>;
 
 /** Shape identifiers accepted by JSON, commands and the component's insertion UI. */
-export type SpreadsheetShapeKind = keyof typeof shapeDefinitions;
+type LegacyShapeKind = keyof typeof legacyShapeDefinitions;
+type LegacyOfficePreset = (typeof legacyShapeDefinitions)[LegacyShapeKind]["xlsxPreset"];
+export type SpreadsheetShapeKind = LegacyShapeKind | Exclude<OfficeShapePreset, LegacyOfficePreset>;
+const additions = OFFICE_SHAPE_PRESETS.filter(item => !Object.values(legacyShapeDefinitions).some(legacy => legacy.xlsxPreset === item.preset));
+const shapeDefinitions = Object.freeze(Object.fromEntries([...Object.entries(legacyShapeDefinitions), ...additions.map(item => [item.preset, {
+  label: item.label, category: item.category, xlsxPreset: item.preset, geometry: { type: "office", preset: item.preset },
+} satisfies ShapeDefinition])])) as Readonly<Record<SpreadsheetShapeKind, ShapeDefinition>>;
 export type SpreadsheetShapeInfo = Readonly<{ kind: SpreadsheetShapeKind; label: string; category: SpreadsheetShapeCategory }>;
 export const SPREADSHEET_SHAPES: readonly SpreadsheetShapeInfo[] = Object.freeze(
   (Object.keys(shapeDefinitions) as SpreadsheetShapeKind[]).map(kind => Object.freeze({
@@ -66,7 +74,14 @@ export function shapeBodyFrame(kind: SpreadsheetShapeKind, width: number, height
 /** Native text area for new presets. Reflection changes its position, never the letters. */
 export function shapeTextFrame(drawing: SpreadsheetShapeDrawing) {
   const { width, height, shape, strokeWidth } = drawing;
-  const text = getShapeDefinition(shape).textFrame;
+  const definition = getShapeDefinition(shape), text = definition.textFrame;
+  if (definition.geometry.type === "office") {
+    const frame = shapeBodyFrame(shape, width, height, strokeWidth);
+    const rect = getOfficeShapeGeometry(definition.geometry.preset, frame.width, frame.height).textRect;
+    const left = frame.x + rect.left, top = frame.y + rect.top;
+    return { ...rect, left: drawing.flipX ? width - left - rect.width : left,
+      top: drawing.flipY ? height - top - rect.height : top };
+  }
   // Preserve the existing four shapes' text layout for stored workbooks.
   if (!text) return { left: 0, top: 0, width, height };
   const frame = shapeBodyFrame(shape, width, height, strokeWidth);

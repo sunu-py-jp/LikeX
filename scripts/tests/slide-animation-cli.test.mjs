@@ -18,7 +18,7 @@ test.before(async () => {
   const { version } = JSON.parse(await readFile(path.join(repo, 'packages/slide/package.json'), 'utf8'));
   await writeFile(path.join(installed, 'package.json'), JSON.stringify({ name: '@likex/slide', version, type: 'module', exports: { './model': './model.mjs', './package.json': './package.json' } }));
   await build({ entryPoints: [path.join(repo, 'packages/slide/src/model-entry.ts')], outfile: path.join(installed, 'model.mjs'), bundle: true, platform: 'node', format: 'esm', alias: {
-    '@likex/core': path.join(repo, 'packages/core/src/index.ts'), '@likex/core/connectors': path.join(repo, 'packages/core/src/connectors.ts'), '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'), '@likex/core/ooxml': path.join(repo, 'packages/core/src/ooxml.ts'),
+    '@likex/core': path.join(repo, 'packages/core/src/index.ts'), '@likex/core/office-shapes': path.join(repo, 'packages/core/src/office-shapes.ts'), '@likex/core/connectors': path.join(repo, 'packages/core/src/connectors.ts'), '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'), '@likex/core/ooxml': path.join(repo, 'packages/core/src/ooxml.ts'),
   } });
   model = await import(pathToFileURL(path.join(installed, 'model.mjs')).href);
   animation = { id: 'move', name: 'Move heading', trigger: { type: 'click', elementId: 'heading' }, animation: {

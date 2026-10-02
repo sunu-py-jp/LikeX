@@ -21,7 +21,7 @@ test('lines preserve horizontal, vertical, reversed and coincident endpoints acr
 });
 
 test('bindings resolve eight outline ports after target move, resize, reflection and rotation', () => {
-  for (const shape of ['rectangle', 'roundedRectangle', 'ellipse', 'triangle', 'diamond', 'rightArrow', 'leftArrow']) {
+  for (const shape of ['rectangle', 'roundedRectangle', 'ellipse', 'triangle', 'diamond', 'rightArrow', 'leftArrow', 'bentArrow', 'uturnArrow', 'flowChartDocument', 'flowChartDelay']) {
     const initial = m.updateDrawing(book(), 's', 'box', { shape }), result = line(initial, { start: { x: 0, y: 0, binding: { targetId: 'box', port: 'topRight' } }, end: { x: 600, y: 200 } }), id = result.results[0].drawingId;
     const moved = m.updateDrawing(result.workbook, 's', 'box', { anchor: { row: 3, column: 4, offsetX: 5, offsetY: 7 }, width: 240, height: 120, rotation: 75, flipX: true });
     const sheet = moved.sheets[0], box = sheet.drawings[0], wanted = m.getConnectorPortPoint(m.spreadsheetDrawingBox(sheet, box), 'topRight', m.spreadsheetDrawingOutline(box));

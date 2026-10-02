@@ -1,3 +1,5 @@
+import { normalizeShapeAttributes } from "./shape-attributes";
+import { shapeDom } from "./shape-dom";
 import { inspectDocumentImage } from "./image-source";
 import { Schema, type NodeSpec, type MarkSpec } from "prosemirror-model";
 
@@ -32,6 +34,13 @@ const nodes: Record<string, NodeSpec> = {
       return { src: image.src, alt: node.getAttribute("alt") || "", width, height };
     } catch { return false; }
   } }], toDOM: node => ["img", { ...node.attrs, id: undefined, "data-document-id": node.attrs.id }] },
+  shape: { group: "block", atom: true, draggable: true, attrs: {
+    id, preset: {}, text: { default: "" }, width: { default: 240 }, height: { default: 140 },
+    fill: { default: "#dbeafe" }, stroke: { default: "#2563eb" }, strokeWidth: { default: 1.5 },
+    rotation: { default: 0 }, flipH: { default: false }, flipV: { default: false }, color: { default: "#172554" }, fontSize: { default: 14 },
+  }, parseDOM: [{ tag: "div[data-document-shape]", getAttrs: node => {
+    try { return normalizeShapeAttributes(JSON.parse(node.getAttribute("data-shape-attrs") ?? "null")); } catch { return false; }
+  } }], toDOM: node => shapeDom(node.attrs) },
   page_break: { group: "block", atom: true, attrs: { id }, parseDOM: [{ tag: "div[data-page-break]" }], toDOM: node => ["div", { "data-page-break": "true", "data-document-id": node.attrs.id, contenteditable: "false" }] },
 };
 const marks: Record<string, MarkSpec> = {

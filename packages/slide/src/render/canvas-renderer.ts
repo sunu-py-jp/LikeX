@@ -1,3 +1,4 @@
+import { getSlideShapeTextRect } from "../model/shapes";
 import type { SlideElement, SlideShapeElement, SlideTextElement } from "../model/types";
 import { resolveSlideAppearance } from "../model/index";
 import { validateSlideImageSource } from "../model/image-source";
@@ -144,7 +145,17 @@ function hasChunk(bytes: Uint8Array, name: string, webp: boolean): boolean {
 function drawShape(context: CanvasRenderingContext2D, element: SlideShapeElement) {
   const shape = getSlideShapeGeometry(element);
   context.save();
-  if (shape.kind !== "line") { context.beginPath(); context.rect(0, 0, element.width, element.height); context.clip(); }
+  if (shape.kind !== "line" && shape.kind !== "paths") { context.beginPath(); context.rect(0, 0, element.width, element.height); context.clip(); }
+  if (shape.kind === "paths") {
+    for (const geometry of shape.paths) {
+      const path = new Path2D(geometry.d);
+      if (geometry.fill !== false && element.fill !== "transparent") { context.fillStyle = element.fill; context.fill(path); }
+      if (geometry.stroke !== false && element.strokeWidth > 0 && element.stroke !== "transparent") {
+        context.strokeStyle = element.stroke; context.lineWidth = element.strokeWidth; context.lineJoin = "round"; context.stroke(path);
+      }
+    }
+    context.restore(); return;
+  }
   context.lineCap = "round"; context.beginPath();
   if (shape.kind === "ellipse") context.ellipse(shape.cx, shape.cy, shape.rx, shape.ry, 0, 0, Math.PI * 2);
   else if (shape.kind === "line") { context.moveTo(shape.x1, shape.y1); context.lineTo(shape.x2, shape.y2); }
@@ -172,16 +183,17 @@ function drawShape(context: CanvasRenderingContext2D, element: SlideShapeElement
 }
 function drawText(context: CanvasRenderingContext2D, element: Exclude<SlideElement, { type: "image" }>) {
   const style = element.type === "text" ? SLIDE_TEXT_STYLE : SHAPE_TEXT_STYLE;
-  context.save(); context.beginPath(); context.rect(0, 0, element.width, element.height); context.clip();
+  const region = element.type === "shape" ? getSlideShapeTextRect(element) : { left: 0, top: 0, width: element.width, height: element.height };
+  context.save(); context.beginPath(); context.rect(region.left, region.top, region.width, region.height); context.clip();
   if (element.type === "text" && element.fill !== "transparent") { context.fillStyle = element.fill; context.fillRect(0, 0, element.width, element.height); }
   context.font = font(element); context.fillStyle = element.type === "text" ? element.color : element.textColor;
-  const lines = wrapSlideText(element.text, element.width - style.paddingX * 2, text => context.measureText(text).width);
-  const lineHeight = element.fontSize * style.lineHeight, contentHeight = element.height - style.paddingY * 2;
+  const lines = wrapSlideText(element.text, region.width - style.paddingX * 2, text => context.measureText(text).width);
+  const lineHeight = element.fontSize * style.lineHeight, contentHeight = region.height - style.paddingY * 2;
   const vertical = element.type === "text" ? element.verticalAlign : "middle", align = element.type === "text" ? element.align : "center";
-  const extra = contentHeight - lines.length * lineHeight, top = style.paddingY + (vertical === "middle" ? extra / 2 : vertical === "bottom" ? extra : 0);
+  const extra = contentHeight - lines.length * lineHeight, top = region.top + style.paddingY + (vertical === "middle" ? extra / 2 : vertical === "bottom" ? extra : 0);
   const metrics = context.measureText("Mgあ"), ascent = metrics.fontBoundingBoxAscent ?? element.fontSize * .8, descent = metrics.fontBoundingBoxDescent ?? element.fontSize * .2;
   context.textAlign = align; context.textBaseline = "alphabetic";
-  const x = align === "center" ? element.width / 2 : align === "right" ? element.width - style.paddingX : style.paddingX;
+  const x = region.left + (align === "center" ? region.width / 2 : align === "right" ? region.width - style.paddingX : style.paddingX);
   lines.forEach((line, index) => context.fillText(line, x, top + index * lineHeight + (lineHeight - ascent - descent) / 2 + ascent));
   context.restore();
 }

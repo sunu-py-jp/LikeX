@@ -1,3 +1,4 @@
+import { OFFICE_SHAPE_PRESETS } from "../model/core-office-shapes";
 import { CONNECTOR_PORTS, connectorLocalToWorld, isConnectorArrowhead, type ConnectorArrowhead, type ConnectorPort } from "../core";
 import { getOfficePresetConnectorPort, readOfficeConnectorShapeTag } from "../ooxml";
 import { isSlideLine } from "../model/lines";
@@ -5,7 +6,7 @@ import type { SlideElement, SlideLineGeometry, SlideShapeKind } from "../model/t
 import { child, children, nonVisual, type Node, type PptxContext, type Relations } from "./pptx-reader";
 
 export const PPTX_SHAPE_KINDS: Readonly<Record<string, SlideShapeKind>> = Object.assign(Object.create(null), {
-  rect: "rect", roundRect: "roundRect", ellipse: "ellipse", triangle: "triangle", diamond: "diamond",
+  ...Object.fromEntries(OFFICE_SHAPE_PRESETS.map(item => [item.preset, item.preset])),
   rightArrow: "arrow", arrow: "arrow", leftArrow: "leftArrow", line: "line", straightConnector1: "line",
 });
 export function readPptxLineEndpoints(transform: Node): SlideLineGeometry {

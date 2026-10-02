@@ -3,7 +3,7 @@ import type { MaybePromise, OperationContext, SaveHandler } from "./core";
 import type { DocumentCommand, DocumentCommandResult, DocumentModel, DocumentSelection } from "./model/types";
 
 export type { DocumentSelection } from "./model/types";
-export type DocumentFeatures = Partial<Record<"text" | "formatting" | "lists" | "tables" | "images" | "pageLayout" | "import" | "export" | "history", boolean>>;
+export type DocumentFeatures = Partial<Record<"text" | "formatting" | "lists" | "tables" | "images" | "shapes" | "pageLayout" | "import" | "export" | "history", boolean>>;
 export type DocumentEvent =
   | { type: "change"; source: "command" | "import" | "undo" | "redo" | "save"; document: DocumentModel }
   | { type: "save"; phase: "start" | "success" | "error" | "cancelled"; error?: string }

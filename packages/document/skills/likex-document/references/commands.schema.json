@@ -48,6 +48,12 @@
         },
         {
           "$ref": "#/$defs/DocumentCommand_13"
+        },
+        {
+          "$ref": "#/$defs/DocumentCommand_14"
+        },
+        {
+          "$ref": "#/$defs/DocumentCommand_15"
         }
       ]
     },
@@ -362,6 +368,197 @@
       "type": "object",
       "properties": {
         "type": {
+          "const": "shape.insert"
+        },
+        "at": {
+          "type": "number"
+        },
+        "fill": {
+          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+        },
+        "color": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "stroke": {
+          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+        },
+        "preset": {
+          "$ref": "#/$defs/DocumentCommand_9_preset"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "flipH": {
+          "$ref": "#/$defs/DocumentCommand_3_enabled"
+        },
+        "flipV": {
+          "$ref": "#/$defs/DocumentCommand_3_enabled"
+        }
+      },
+      "required": [
+        "type",
+        "at",
+        "preset"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_9_preset": {
+      "enum": [
+        "triangle",
+        "diamond",
+        "ellipse",
+        "rect",
+        "roundRect",
+        "rtTriangle",
+        "parallelogram",
+        "trapezoid",
+        "rightArrow",
+        "leftArrow",
+        "upArrow",
+        "downArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "bentArrow",
+        "bentUpArrow",
+        "uturnArrow",
+        "leftUpArrow",
+        "leftRightUpArrow",
+        "quadArrow",
+        "chevron",
+        "homePlate",
+        "pentagon",
+        "hexagon",
+        "octagon",
+        "star5",
+        "plus",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartInputOutput",
+        "flowChartPredefinedProcess",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartPreparation",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "flowChartDelay"
+      ]
+    },
+    "DocumentCommand_10": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "shape.update"
+        },
+        "id": {
+          "type": "string"
+        },
+        "fill": {
+          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+        },
+        "color": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "stroke": {
+          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+        },
+        "preset": {
+          "$ref": "#/$defs/DocumentCommand_10_preset"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "flipH": {
+          "$ref": "#/$defs/DocumentCommand_3_enabled"
+        },
+        "flipV": {
+          "$ref": "#/$defs/DocumentCommand_3_enabled"
+        }
+      },
+      "required": [
+        "type",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_10_preset": {
+      "enum": [
+        "triangle",
+        "diamond",
+        "ellipse",
+        "rect",
+        "roundRect",
+        "rtTriangle",
+        "parallelogram",
+        "trapezoid",
+        "rightArrow",
+        "leftArrow",
+        "upArrow",
+        "downArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "bentArrow",
+        "bentUpArrow",
+        "uturnArrow",
+        "leftUpArrow",
+        "leftRightUpArrow",
+        "quadArrow",
+        "chevron",
+        "homePlate",
+        "pentagon",
+        "hexagon",
+        "octagon",
+        "star5",
+        "plus",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartInputOutput",
+        "flowChartPredefinedProcess",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartPreparation",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "flowChartDelay"
+      ]
+    },
+    "DocumentCommand_11": {
+      "type": "object",
+      "properties": {
+        "type": {
           "const": "pageBreak.insert"
         },
         "at": {
@@ -374,7 +571,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_10": {
+    "DocumentCommand_12": {
       "type": "object",
       "properties": {
         "type": {
@@ -390,7 +587,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_11": {
+    "DocumentCommand_13": {
       "type": "object",
       "properties": {
         "type": {
@@ -400,7 +597,7 @@
           "type": "string"
         },
         "page": {
-          "$ref": "#/$defs/DocumentCommand_11_page"
+          "$ref": "#/$defs/DocumentCommand_13_page"
         }
       },
       "required": [
@@ -408,7 +605,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_11_page": {
+    "DocumentCommand_13_page": {
       "type": "object",
       "properties": {
         "width": {
@@ -418,12 +615,12 @@
           "type": "number"
         },
         "margins": {
-          "$ref": "#/$defs/DocumentCommand_11_page_margins"
+          "$ref": "#/$defs/DocumentCommand_13_page_margins"
         }
       },
       "additionalProperties": false
     },
-    "DocumentCommand_11_page_margins": {
+    "DocumentCommand_13_page_margins": {
       "type": "object",
       "properties": {
         "top": {
@@ -441,7 +638,7 @@
       },
       "additionalProperties": false
     },
-    "DocumentCommand_12": {
+    "DocumentCommand_14": {
       "type": "object",
       "properties": {
         "type": {
@@ -574,6 +771,9 @@
         },
         {
           "$ref": "#/$defs/DocumentImageNode"
+        },
+        {
+          "$ref": "#/$defs/DocumentShapeNode"
         },
         {
           "$ref": "#/$defs/DocumentPageBreakNode"
@@ -1041,6 +1241,70 @@
       ],
       "additionalProperties": false
     },
+    "DocumentShapeNode": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "shape"
+        },
+        "attrs": {
+          "$ref": "#/$defs/DocumentShapeAttributes"
+        }
+      },
+      "required": [
+        "type",
+        "attrs"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentShapeAttributes": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+        },
+        "preset": {
+          "$ref": "#/$defs/DocumentCommand_9_preset"
+        },
+        "text": {
+          "type": "string"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "fill": {
+          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+        },
+        "stroke": {
+          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "flipH": {
+          "$ref": "#/$defs/DocumentCommand_3_enabled"
+        },
+        "flipV": {
+          "$ref": "#/$defs/DocumentCommand_3_enabled"
+        },
+        "color": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "preset"
+      ],
+      "additionalProperties": false
+    },
     "DocumentPageBreakNode": {
       "type": "object",
       "properties": {
@@ -1065,14 +1329,14 @@
       },
       "additionalProperties": false
     },
-    "DocumentCommand_13": {
+    "DocumentCommand_15": {
       "type": "object",
       "properties": {
         "type": {
           "const": "transaction.apply"
         },
         "steps": {
-          "$ref": "#/$defs/DocumentCommand_13_steps"
+          "$ref": "#/$defs/DocumentCommand_15_steps"
         },
         "selection": {
           "$ref": "#/$defs/DocumentSelection"
@@ -1084,7 +1348,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_13_steps": {
+    "DocumentCommand_15_steps": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/DocumentJsonObject"

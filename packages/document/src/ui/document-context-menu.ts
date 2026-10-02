@@ -3,7 +3,7 @@ import { documentSchema, getBlock, getDocumentText, DOCUMENT_LIMITS } from "../m
 import type { DocumentCommand } from "../model/types";
 import type { DocumentEditor } from "../state/use-document-editor";
 
-export type DocumentContextTarget = { kind: "image" | "table"; id: string } | { kind: "document" };
+export type DocumentContextTarget = { kind: "image" | "table" | "shape"; id: string } | { kind: "document" };
 type MenuEnvironment = { isCurrent(): boolean; focus(): void; copyText?: (text: string) => Promise<void> };
 
 /** The menu captures a snapshot, while every action reads the current controller again. */
@@ -39,10 +39,10 @@ export function createDocumentContextMenuItems(getEditor: () => DocumentEditor, 
     }
     return items;
   }
-  if (!initial.features[target.kind === "image" ? "images" : "tables"]) return items;
+  if (!initial.features[target.kind === "image" ? "images" : target.kind === "shape" ? "shapes" : "tables"]) return items;
   const block = getBlock(snapshot.document, target.id);
   if (!block || block.node.type !== target.kind) return items;
-  const name = target.kind === "image" ? "画像" : "表";
+  const name = target.kind === "image" ? "画像" : target.kind === "shape" ? "図形" : "表";
   add(`${target.kind}-select`, `${name}を選択`, () => { getEditor().select({ from: block.from, to: block.to }); environment.focus(); });
   if (block.node.type === "image") {
     const { src, alt, width, height } = block.node.attrs;
@@ -53,6 +53,10 @@ export function createDocumentContextMenuItems(getEditor: () => DocumentEditor, 
         { write: true, disabled: Math.min(nextWidth, nextHeight) < 1 || Math.max(nextWidth, nextHeight) > DOCUMENT_LIMITS.imageDimension });
     }
   }
+  if (block.node.type === "shape") {
+    const attrs = { ...block.node.attrs }; delete attrs.id;
+    add("shape-duplicate", "図形を複製", () => execute({ type: "shape.insert", at: block.to, ...attrs }), { write: true });
+  }
   add(`${target.kind}-delete`, `${name}を削除`, () => execute({ type: "block.delete", id: block.id }), { write: true, danger: true, separatorBefore: true });
   return items;
 }
@@ -60,11 +64,12 @@ export function createDocumentContextMenuItems(getEditor: () => DocumentEditor, 
 /** Ordinary text keeps the browser menu, including spelling and native clipboard actions. */
 export function resolveDocumentContextTarget(target: HTMLElement, viewport: HTMLElement): { target: DocumentContextTarget; anchor: HTMLElement } | null {
   if (!viewport.contains(target)) return null;
+  const shape = target.closest<HTMLElement>("[data-document-shape][data-document-id]");
   const image = target.closest<HTMLElement>("img[data-document-id]");
-  if (!image && target.closest("p,h1,h2,h3,h4,h5,h6,a,input,textarea,button,select")) return null;
+  if (!image && !shape && target.closest("p,h1,h2,h3,h4,h5,h6,a,input,textarea,button,select")) return null;
   const table = target.closest<HTMLElement>("table[data-document-id]");
-  const resource = image ?? table;
-  if (resource && viewport.contains(resource)) return { target: { kind: image ? "image" : "table", id: resource.getAttribute("data-document-id")! }, anchor: resource };
+  const resource = shape ?? image ?? table;
+  if (resource && viewport.contains(resource)) return { target: { kind: shape ? "shape" : image ? "image" : "table", id: resource.getAttribute("data-document-id")! }, anchor: resource };
   if (target.closest(".lxd-editor,input,textarea,button,select,a,[contenteditable=true]")) return null;
   return { target: { kind: "document" }, anchor: viewport };
 }

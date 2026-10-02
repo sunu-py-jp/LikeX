@@ -13,6 +13,8 @@ const keys: Record<DocumentCommand["type"], readonly string[]> = {
   "paragraph.set": ["type", "from", "to", "nodeType", "level", "align"],
   "list.set": ["type", "from", "to", "kind"], "table.insert": ["type", "at", "rows", "columns", "header"],
   "image.insert": ["type", "at", "src", "alt", "width", "height"], "image.update": ["type", "id", "src", "alt", "width", "height"],
+  "shape.insert": ["type", "at", "preset", "text", "width", "height", "fill", "stroke", "strokeWidth", "rotation", "flipH", "flipV", "color", "fontSize"],
+  "shape.update": ["type", "id", "preset", "text", "width", "height", "fill", "stroke", "strokeWidth", "rotation", "flipH", "flipV", "color", "fontSize"],
   "pageBreak.insert": ["type", "at"], "block.delete": ["type", "id"],
   "document.update": ["type", "title", "page"], "document.replace": ["type", "document"],
   "transaction.apply": ["type", "steps", "selection"],
@@ -143,6 +145,23 @@ function applyOne(current: DocumentModel, command: DocumentCommand): DocumentCom
       if (command.width !== undefined && command.height === undefined) attrs.height = command.width * found.node.attrs.height / found.node.attrs.width;
       if (command.height !== undefined && command.width === undefined) attrs.width = command.height * found.node.attrs.width / found.node.attrs.height;
       transaction = stateAt(doc).tr.setNodeMarkup(found.pos, undefined, attrs);
+      forcedSelection = { from: found.pos, to: found.pos + found.node.nodeSize };
+      break;
+    }
+    case "shape.insert": {
+      const at = position(doc, command.at);
+      const attrs = Object.fromEntries(Object.entries(command).filter(([key]) => key !== "type" && key !== "at"));
+      const shape = normalizeDocument({ ...current, content: { type: "doc", content: [{ type: "shape", attrs }] } }).content.content[0];
+      transaction = stateAt(doc).tr.replaceRangeWith(at, at, documentSchema.nodeFromJSON(shape));
+      const inserted = findNode(transaction.doc, shape.attrs!.id as string);
+      forcedSelection = { from: inserted.pos, to: inserted.pos + inserted.node.nodeSize };
+      break;
+    }
+    case "shape.update": {
+      const found = findNode(doc, identifier(command.id));
+      if (found.node.type.name !== "shape") throw new Error("The selected block is not a shape.");
+      const updates = Object.fromEntries(Object.entries(command).filter(([key, value]) => key !== "type" && key !== "id" && value !== undefined));
+      transaction = stateAt(doc).tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...updates });
       forcedSelection = { from: found.pos, to: found.pos + found.node.nodeSize };
       break;
     }

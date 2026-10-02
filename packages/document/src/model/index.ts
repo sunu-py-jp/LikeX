@@ -4,4 +4,4 @@ export { createDocument, normalizeDocument, normalizeDocumentMark, normalizeDocu
 export { DOCUMENT_LIMITS } from "./validation";
 export { inspectDocumentImage } from "./image-source";
 export { executeDocumentCommands } from "./commands";
-export { getDocumentText, getBlocks, getBlock, getImages, getImage } from "./query";
+export { getDocumentText, getBlocks, getBlock, getImages, getImage, getShapes, getShape } from "./query";

@@ -29,6 +29,7 @@ export default defineConfig({
       { find: /^@likex\/core\/browser$/, replacement: fileURLToPath(new URL("../../packages/core/src/browser.ts", import.meta.url)) },
       { find: /^@likex\/core\/ooxml$/, replacement: fileURLToPath(new URL("../../packages/core/src/ooxml.ts", import.meta.url)) },
       { find: /^@likex\/core\/connectors$/, replacement: fileURLToPath(new URL("../../packages/core/src/connectors.ts", import.meta.url)) },
+      { find: /^@likex\/core\/office-shapes$/, replacement: fileURLToPath(new URL("../../packages/core/src/office-shapes.ts", import.meta.url)) },
       { find: /^@likex\/core$/, replacement: coreSource },
       { find: /^@likex\/explorer$/, replacement: explorerSource },
       { find: /^@likex\/spreadsheet$/, replacement: spreadsheetSource },

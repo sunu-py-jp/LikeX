@@ -2,17 +2,18 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import {
-  AlignCenter, AlignLeft, AlignRight, ArrowDownToLine, Bold, BringToFront, Circle,
-  ClipboardPaste, Copy, Diamond, FileJson, Image as ImageIcon, Italic, Minus, MonitorPlay, PanelBottom,
-  PanelRight, Plus, RectangleHorizontal, RotateCcw, Save, Scissors, SendToBack, Trash2, Triangle, Type, Upload,
+  AlignCenter, AlignLeft, AlignRight, ArrowDownToLine, Bold, BringToFront,
+  ClipboardPaste, Copy, FileJson, Image as ImageIcon, Italic, Minus, MonitorPlay, PanelBottom,
+  PanelRight, Plus, RectangleHorizontal, RotateCcw, Save, Scissors, SendToBack, Trash2, Type, Upload,
   AlignVerticalJustifyCenter, AlignVerticalJustifyStart, AlignVerticalJustifyEnd,
 } from "lucide-react";
-import { resolveSlideAppearance } from "../model/index";
+import { SLIDE_SHAPES, resolveSlideAppearance } from "../model/index";
 import { SlideMasterControls } from "./slide-master-controls";
 import type { SlideCommand, SlideElementPatch, SlideShapeKind } from "../model/types";
 import type { SlideEditor } from "../state/use-slide-editor";
 import { SlideScrollStrip } from "./slide-scroll-strip";
 import { createMoveAnimation } from "./slide-animations";
+import { getOfficeShapeGeometry } from "../model/core-office-shapes";
 
 export type RibbonTab = "home" | "file" | "insert" | "design" | "animations" | "view";
 function Group({ name, children }: { name: string; children: ReactNode }) {
@@ -24,15 +25,22 @@ function Action({ label, icon, onClick, disabled, big = false, active = false }:
 function IconAction({ label, children, onClick, disabled, active }: { label: string; children: ReactNode; onClick(): void; disabled?: boolean; active?: boolean }) {
   return <button type="button" className="lxp-ribbon-icon" aria-label={label} title={label} disabled={disabled} aria-pressed={active} onClick={onClick}>{children}</button>;
 }
-const shapes: { shape: SlideShapeKind; label: string; icon: ReactNode }[] = [
-  { shape: "rect", label: "四角形", icon: <RectangleHorizontal size={19} /> },
-  { shape: "roundRect", label: "角丸四角形", icon: <RectangleHorizontal size={19} strokeWidth={3} /> },
-  { shape: "ellipse", label: "楕円", icon: <Circle size={19} /> },
-  { shape: "triangle", label: "三角形", icon: <Triangle size={19} /> },
-  { shape: "diamond", label: "ひし形", icon: <Diamond size={19} /> },
-  { shape: "arrow", label: "右ブロック矢印", icon: <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 7H14V2L23 12L14 22V17H2Z" fill="currentColor" /></svg> },
-  { shape: "leftArrow", label: "左ブロック矢印", icon: <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 7H10V2L1 12L10 22V17H22Z" fill="currentColor" /></svg> },
-];
+const shapes = SLIDE_SHAPES.map(item => ({ ...item,
+  icon: <svg width="22" height="19" viewBox="-1 -1 26 22" aria-hidden="true">{getOfficeShapeGeometry(item.preset, 24, 20).paths.map((path, index) =>
+    <path key={index} d={path.d} fill={path.fill === false ? "none" : "currentColor"} fillOpacity={.16} stroke={path.stroke === false ? "none" : "currentColor"} strokeWidth={1.5} strokeLinejoin="round" />)}</svg>,
+}));
+const commonShapeKinds = ["rect", "roundRect", "ellipse", "triangle", "diamond", "arrow", "leftArrow"];
+function ShapeGallery({ disabled, onInsert }: { disabled: boolean; onInsert(shape: SlideShapeKind): void }) {
+  return <div className="lxp-ribbon-stack"><div className="lxp-shape-gallery">{shapes.filter(item => commonShapeKinds.includes(item.shape)).map(item =>
+    <IconAction key={item.shape} label={item.label} disabled={disabled} onClick={() => onInsert(item.shape)}>{item.icon}</IconAction>)}</div>
+    <select aria-label="図形を挿入" value="" disabled={disabled} onChange={event => { if (event.target.value) onInsert(event.target.value as SlideShapeKind); }}>
+      <option value="" disabled>その他の図形…</option>
+      {[...new Set(shapes.map(item => item.category))].map(category => <optgroup key={category} label={{ basic: "基本図形", arrows: "ブロック矢印", flowchart: "フローチャート" }[category]}>
+        {shapes.filter(item => item.category === category).map(item => <option key={item.shape} value={item.shape}>{item.label}</option>)}
+      </optgroup>)}
+    </select>
+  </div>;
+}
 
 export function SlideRibbon({ editor, onImage, onImport, onImportMasters, onPresent, propertiesOpen, notesOpen, onProperties, onNotes, onFit, ownerDocument }: {
   editor: SlideEditor; onImage(): void; onImport(format: "pptx" | "slon"): void; onImportMasters?(): void; onPresent(): void;
@@ -106,7 +114,7 @@ export function SlideRibbon({ editor, onImage, onImport, onImportMasters, onPres
             {([{ value: "top", label: "上揃え", Icon: AlignVerticalJustifyStart }, { value: "middle", label: "上下中央", Icon: AlignVerticalJustifyCenter }, { value: "bottom", label: "下揃え", Icon: AlignVerticalJustifyEnd }] as const).map(({ value, label, Icon }) => <IconAction key={value} label={label} active={text?.verticalAlign === value} disabled={disabled || !text} onClick={() => update({ verticalAlign: value }, true)}><Icon size={17} /></IconAction>)}
           </div></div></Group>
         </>}
-        {editor.features.shapes && !editor.readOnly && <Group name="図形"><div className="lxp-shape-gallery">{shapes.map(item => <IconAction key={item.shape} label={item.label} disabled={disabled || !slide} onClick={() => addShape(item.shape)}>{item.icon}</IconAction>)}</div></Group>}
+        {editor.features.shapes && !editor.readOnly && <Group name="図形"><ShapeGallery disabled={disabled || !slide} onInsert={addShape} /></Group>}
         {lineMenu}
         {editor.features.formatting && <Group name="配置"><div className="lxp-ribbon-stack"><Action label="最前面へ" icon={<BringToFront size={16} />} disabled={disabled || !hasSelection} onClick={() => { if (slide) void editor.execute({ type: "element.order", slideId: slide.id, elementIds: editor.selection.elementIds, direction: "front" }); }} />
           <Action label="最背面へ" icon={<SendToBack size={16} />} disabled={disabled || !hasSelection} onClick={() => { if (slide) void editor.execute({ type: "element.order", slideId: slide.id, elementIds: editor.selection.elementIds, direction: "back" }); }} /></div></Group>}
@@ -115,7 +123,7 @@ export function SlideRibbon({ editor, onImage, onImport, onImportMasters, onPres
       {activeTab === "insert" && <>
         {editor.features.text && !editor.readOnly && <Group name="テキスト"><Action label="テキスト ボックス" icon={<Type size={25} />} big disabled={disabled || !slide} onClick={addText} /></Group>}
         {editor.features.images && !editor.readOnly && <Group name="画像"><Action label="画像" icon={<ImageIcon size={25} />} big disabled={disabled || !slide} onClick={onImage} /></Group>}
-        {editor.features.shapes && !editor.readOnly && <Group name="図形">{shapes.map(item => <Action key={item.shape} label={item.label} icon={item.icon} big disabled={disabled || !slide} onClick={() => addShape(item.shape)} />)}</Group>}
+        {editor.features.shapes && !editor.readOnly && <Group name="図形"><ShapeGallery disabled={disabled || !slide} onInsert={addShape} /></Group>}
         {lineMenu}
       </>}
       {activeTab === "design" && editor.features.masters && <Group name="マスターとレイアウト"><SlideMasterControls editor={editor} onImport={() => onImportMasters?.()} /></Group>}

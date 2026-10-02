@@ -68,6 +68,6 @@ const snap = findNearestConnectorPort({ x: 247, y: 110 }, [{ id: "diagram-node",
 
 `readOfficeConnectorShapeTag(custGeom)` は標準 `gdLst` のバージョン識別guideと8点の存在を確認し、元のtagを返します。各モジュールでtagを自分の対応図形と照合します。外部画像参照やスクリプトの実行、任意のguide数式の評価はしません。
 
-`getOfficePresetConnectorPort(preset, index)` は、変更されていない既定のrect/roundRect/diamond/ellipse/triangleと矢印の左右端の接続点番号を変換します。未対応の番号は `undefined` です。調整値つきの図形や任意のcustom geometryには使わず、利用側で端点を維持して未対応の接続を通知します。番号順は[Apache POIのDrawingML図形定義](https://raw.githubusercontent.com/apache/poi/trunk/poi/src/main/resources/org/apache/poi/sl/draw/geom/presetShapeDefinitions.xml)に沿います。
+`getOfficePresetConnectorPort(preset, index)` は、変更されていない既定のrect/roundRect/diamond/ellipse/triangle、フロー図のprocess/decision/terminator/predefinedProcess/preparation/delayと矢印の左右端の接続点番号を変換します。未対応の番号は `undefined` です。調整値つきの図形や任意のcustom geometryには使わず、利用側で端点を維持して未対応の接続を通知します。番号順は[Apache POIのDrawingML図形定義](https://raw.githubusercontent.com/apache/poi/trunk/poi/src/main/resources/org/apache/poi/sl/draw/geom/presetShapeDefinitions.xml)に沿います。
 
 モデル層で使う場合は純粋な専用入口 `@likex/core/connectors` を読み込みます。この入口はReact・DOM・ブラウザーイベント・Office処理へ依存しません。通常の `@likex/core` からも同じ型・関数を公開します。コピー導入では `core/connectors.ts` を参照します。

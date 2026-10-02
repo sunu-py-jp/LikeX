@@ -1,0 +1,7 @@
+{
+  "title": "Office標準図形",
+  "summary": "39種類の図形カタログと標準パス・文字領域・接続輪郭を共通化します。",
+  "source": "packages/core/docs/office-shapes.md",
+  "order": 67,
+  "keywords": ["OfficeShapePreset", "OFFICE_SHAPE_PRESETS", "getOfficeShapeGeometry", "getOfficeShapeOutline", "カギ矢印", "Uターン矢印", "フローチャート", "DrawingML"]
+}

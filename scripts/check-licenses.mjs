@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { artifactRoot, projectRoot } from './lib/run.mjs';
@@ -35,6 +35,9 @@ export function checkLicenses({ artifacts = false } = {}) {
       if (read(path.join(profile.sourceRoot, 'LICENSE')) !== rootLicense)
         throw new Error(`${profile.name}/src/LICENSE does not match the root MIT license`);
       const sourceNotices = read(path.join(profile.sourceRoot, 'THIRD_PARTY_NOTICES.md'));
+      const bundledNoticePath = path.join(profile.packageRoot, 'NOTICE');
+      if (existsSync(bundledNoticePath) && !sourceNotices.includes(read(bundledNoticePath).trim()))
+        throw new Error(`${profile.name} source-copy notices omit bundled source NOTICE (regenerate with build:library)`);
       assertNoticesRetained(sourceNotices, entries, `${profile.name}/src/THIRD_PARTY_NOTICES.md (regenerate with build:library)`);
       report.modules.push({ name: profile.name, packages: entries.map(describe), bundledDependencies: profile.bundledDependencies });
       if (artifacts) {

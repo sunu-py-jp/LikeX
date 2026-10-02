@@ -1,3 +1,4 @@
+import { normalizeShapeAttributes, shapeAttributeKeys } from "./shape-attributes";
 import { documentSchema } from "./schema";
 import { inspectDocumentImage } from "./image-source";
 import { serializeStableJson } from "../json";
@@ -62,7 +63,7 @@ export function normalizeDocumentMark(input: unknown): DocumentMark {
   return { type };
 }
 const attrKeys: Record<string, string[]> = {
-  paragraph: ["id", "align"], heading: ["id", "align", "level"], bullet_list: ["id"], ordered_list: ["id", "order"], list_item: ["id"], table: ["id"], table_row: ["id"], table_cell: ["id", "colspan", "rowspan", "colwidth", "backgroundColor"], table_header: ["id", "colspan", "rowspan", "colwidth", "backgroundColor"], image: ["id", "src", "alt", "width", "height"], page_break: ["id"], hard_break: [], text: [], doc: [],
+  paragraph: ["id", "align"], heading: ["id", "align", "level"], bullet_list: ["id"], ordered_list: ["id", "order"], list_item: ["id"], table: ["id"], table_row: ["id"], table_cell: ["id", "colspan", "rowspan", "colwidth", "backgroundColor"], table_header: ["id", "colspan", "rowspan", "colwidth", "backgroundColor"], image: ["id", "src", "alt", "width", "height"], shape: shapeAttributeKeys, page_break: ["id"], hard_break: [], text: [], doc: [],
 };
 function normalizeContent(input: unknown): DocumentRootNode {
   const ids = new Set<string>();
@@ -99,6 +100,11 @@ function normalizeContent(input: unknown): DocumentRootNode {
       const height = originalAttrs.height == null ? width * image.height / image.width : number(originalAttrs.height, "Image height", 1, 16_384);
       Object.assign(attrs, { src: image.src, alt: text(originalAttrs.alt ?? "", "Image alternative text", 4000), width: number(width, "Image width", 1, 16_384), height: number(height, "Image height", 1, 16_384) });
     }
+    if (type === "shape") {
+      Object.assign(attrs, normalizeShapeAttributes(originalAttrs));
+      textLength += (attrs.text as string).length;
+      if (textLength > DOCUMENT_LIMITS.textLength) throw new Error("Document text exceeds the size limit.");
+    }
     const result: Record<string, unknown> = { type };
     if (Object.keys(attrs).length) result.attrs = attrs;
     if (type === "text") {
@@ -114,7 +120,7 @@ function normalizeContent(input: unknown): DocumentRootNode {
       if (marks.length) result.marks = marks;
     }
     if (value.content !== undefined) {
-      if (!Array.isArray(value.content) || ["text", "hard_break", "image", "page_break"].includes(type) || value.content.length > DOCUMENT_LIMITS.nodes) throw new Error("Document node content is invalid.");
+      if (!Array.isArray(value.content) || ["text", "hard_break", "image", "shape", "page_break"].includes(type) || value.content.length > DOCUMENT_LIMITS.nodes) throw new Error("Document node content is invalid.");
       result.content = value.content.map(child => walk(child, depth + 1));
     }
     return result as DocumentNode;

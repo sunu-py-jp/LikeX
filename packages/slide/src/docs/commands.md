@@ -313,3 +313,22 @@ PowerPoint変換の詳細は `ref.current.getPptxDiagnostics(): readonly SlidePp
 `masters.import`、`slide.applyLayout`、`slide.detachLayout`、`slide.add.layoutId` を使います。取得は `getSlideMasters` / `getSlideLayouts` / `getSlideLayout`、背景と共有装飾の解決は `resolveSlideAppearance` です。保存用のカタログ要素にも `stackOrder` を使うため、専用のparse/serializeを通してください。[型・コマンド・Office変換](masters.md)を参照してください。
 
 固定構図の `slide.compose` と関連する構図・プリセットAPIは削除しました。通常の要素コマンドか `slide.replaceContent` へ移行してください。既に生成済みの通常要素を持つSLONはそのまま読み込めます。[移行の説明](freeform-design.md#固定構図apiからの移行)
+
+
+## Officeの図形プリセット
+
+ホーム／挿入タブの「その他の図形…」から、カギ矢印、Uターン矢印、多方向矢印、多角形、星、フローチャート記号を追加できます。`SLIDE_SHAPES` を公開入口から取得すると、挿入用の `shape`、Office用の `preset`、日本語の `label`、`category` を参照できます。GUIもこの一覧と `element.add` を使います。
+
+```ts
+import { SLIDE_SHAPES, applySlideCommands } from "@likex/slide/model";
+const result = applySlideCommands(deck, {
+  type: "element.add", slideId,
+  element: { type: "shape", shape: "bentArrow", x: 320, y: 160,
+    width: 260, height: 200, fill: "#dbeafe", stroke: "#2563eb",
+    strokeWidth: 2, text: "確認", fontSize: 20, textColor: "#1e3a8a" },
+});
+```
+
+主な追加名は `bentArrow`（カギ矢印）、`bentUpArrow`、`uturnArrow`、`leftUpArrow`、`leftRightUpArrow`、`quadArrow`、`chevron`、`homePlate`、`pentagon`、`hexagon`、`octagon`、`star5`、`plus` です。フロー図には `flowChartProcess`、`flowChartDecision`、`flowChartTerminator`、`flowChartInputOutput`、`flowChartPredefinedProcess`、`flowChartDocument`、`flowChartMultidocument`、`flowChartPreparation`、`flowChartManualInput`、`flowChartManualOperation`、`flowChartMerge`、`flowChartDelay` を使えます。全一覧は `SLIDE_SHAPES` が正本です。既存の右ブロック矢印は引き続き `arrow`（Officeでは `rightArrow`）、線は `line.add` / `line.update` で扱います。カギ矢印は面を持つ図形で、端点を持つ折れ線コネクターではありません。
+
+文字領域は図形に合わせて決まり、`getSlideShapeTextRect` が返す領域を、UI、PNG、文字収まりの診断で共有します。追加図形も8接続点に線を接続できます。SLON version 1の追加プリセットとして保存します。新しい図形を含むファイルを以前の実装で開くには、対応版への更新が必要です。

@@ -1,3 +1,4 @@
+import { getSlideShapeTextRect } from "./shapes";
 import type { Slide, SlideElementBase, SlideShapeElement, SlideTextElement } from "./types";
 import { normalizeSlide, normalizeSlideElement } from "./normalize";
 import { number } from "./validation";
@@ -26,7 +27,8 @@ export function measureSlideText(element: TextElement, measureText: SlideTextMea
     fontFamily: accepted.type === "text" ? accepted.fontFamily : SHAPE_TEXT_STYLE.fontFamily,
     bold: accepted.type === "text" && accepted.bold, italic: accepted.type === "text" && accepted.italic };
   const measure = (text: string) => number(measureText(text, font), "測定した文字幅", 0, Number.MAX_VALUE);
-  const availableWidth = Math.max(0, accepted.width - style.paddingX * 2), availableHeight = Math.max(0, accepted.height - style.paddingY * 2);
+  const region = accepted.type === "shape" ? getSlideShapeTextRect(accepted) : accepted;
+  const availableWidth = Math.max(0, region.width - style.paddingX * 2), availableHeight = Math.max(0, region.height - style.paddingY * 2);
   const lines = accepted.text ? wrapSlideText(accepted.text, availableWidth, measure) : [];
   const measuredWidth = lines.reduce((max, line) => Math.max(max, measure(line)), 0), measuredHeight = lines.length * accepted.fontSize * style.lineHeight;
   const overflow = !!accepted.text && (!availableWidth || !availableHeight || measuredWidth > availableWidth + 1e-7 || measuredHeight > availableHeight + 1e-7);

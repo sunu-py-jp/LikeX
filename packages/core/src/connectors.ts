@@ -13,10 +13,17 @@ export type ConnectorEndpoint = ConnectorPoint & Readonly<{ binding?: ConnectorB
 export type ConnectorBox = ConnectorPoint & Readonly<{
   width: number; height: number; rotation?: number; flipX?: boolean; flipY?: boolean;
 }>;
+/** Numeric path data, never executable SVG or imported formula strings. */
+export type ConnectorPathCommand = Readonly<{ type: "move" | "line"; x: number; y: number }>
+  | Readonly<{ type: "cubic"; x1: number; y1: number; x2: number; y2: number; x: number; y: number }>
+  | Readonly<{ type: "close" }>;
+export type ConnectorPath = Readonly<{ commands: readonly ConnectorPathCommand[]; fill?: boolean; stroke?: boolean }>;
 /** Outline points/radii are normalized to 0..1 before box size, flips and rotation. */
 export type ConnectorOutline = Readonly<{ type: "ellipse" }>
   | Readonly<{ type: "polygon"; points: readonly ConnectorPoint[] }>
-  | Readonly<{ type: "roundedRect"; radiusX: number; radiusY: number }>;
+  | Readonly<{ type: "roundedRect"; radiusX: number; radiusY: number }>
+  | Readonly<{ type: "paths"; paths: readonly ConnectorPath[]; ports: readonly ConnectorPoint[];
+    textRect: Readonly<{ left: number; top: number; width: number; height: number }> }>;
 export type ConnectorPortPoint = Readonly<{ port: ConnectorPort; point: ConnectorPoint }>;
 export type ConnectorTarget = Readonly<{ id: string; box: ConnectorBox; outline?: ConnectorOutline }>;
 export type ConnectorSnap = Readonly<{ point: ConnectorPoint; binding: ConnectorBinding; distance: number }>;
@@ -96,6 +103,32 @@ function containsPoint(points: readonly ConnectorPoint[], point: ConnectorPoint)
 }
 function assertOutline(outline: ConnectorOutline | undefined): void {
   if (outline === undefined || outline?.type === "ellipse") return;
+  if (outline?.type === "paths") {
+    if (!Array.isArray(outline.ports) || outline.ports.length !== CONNECTOR_PORTS.length ||
+      !Array.isArray(outline.paths) || !outline.paths.length || outline.paths.length > 32)
+      throw new TypeError("Path outlines require eight ports and bounded paths");
+    for (const point of outline.ports) {
+      assertPoint(point);
+      if (point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) throw new TypeError("Path ports must be normalized to 0..1");
+    }
+    const rect = outline.textRect;
+    if (!rect || ![rect.left, rect.top, rect.width, rect.height].every(Number.isFinite) || rect.width < 0 || rect.height < 0)
+      throw new TypeError("Path text rectangles require finite coordinates and nonnegative dimensions");
+    for (const path of outline.paths) {
+      if (!Array.isArray(path.commands) || !path.commands.length || path.commands.length > 512 || path.commands[0].type !== "move" ||
+        (path.fill !== undefined && typeof path.fill !== "boolean") || (path.stroke !== undefined && typeof path.stroke !== "boolean"))
+        throw new TypeError("Invalid connector path");
+      for (const command of path.commands) {
+        if (command.type === "close") continue;
+        if (command.type !== "move" && command.type !== "line" && command.type !== "cubic") throw new TypeError("Unknown connector path command");
+        assertPoint(command);
+        if (command.type === "cubic") {
+          assertPoint({ x: command.x1, y: command.y1 }); assertPoint({ x: command.x2, y: command.y2 });
+        }
+      }
+    }
+    return;
+  }
   if (outline?.type === "roundedRect") {
     if ([outline.radiusX, outline.radiusY].every(value => Number.isFinite(value) && value >= 0 && value <= 0.5)) return;
     throw new TypeError("Rounded connector outlines require normalized radii between 0 and 0.5");
@@ -148,6 +181,7 @@ function polygonPort(points: readonly ConnectorPoint[], fraction: ConnectorPoint
 function portFraction(port: ConnectorPort, outline: ConnectorOutline | undefined): ConnectorPoint {
   const fraction = PORT_FRACTIONS[port];
   if (!outline) return fraction;
+  if (outline.type === "paths") return outline.ports[CONNECTOR_PORTS.indexOf(port)];
   if (outline.type === "polygon") return polygonPort(outline.points, fraction);
   const dx = fraction.x - 0.5, dy = fraction.y - 0.5;
   if (outline.type === "ellipse") {

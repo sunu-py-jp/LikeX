@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, ChevronLeft, ChevronRight, Clipboard, Copy, Download, FileJson, ImagePlus, Italic, Link, List, ListOrdered, PanelLeft, Scissors, Table2, Type, Underline, Upload, WrapText } from "lucide-react";
+import { getShapes } from "../model/index";
+import { DocumentShapeTools } from "./document-shape-tools";
 import { toggleMark } from "prosemirror-commands";
 import type { DocumentEditor } from "../state/use-document-editor";
 import type { DocumentSurfaceHandle } from "./document-surface";
@@ -19,6 +21,7 @@ export function DocumentRibbon({ editor, surface, onImport, onExport, onImage, o
   const [arrows, setArrows] = useState({ left: false, right: false });
   const { features, selection } = editor;
   const disabled = !editor.editable;
+  const shapeSelected = getShapes(editor.document).some(shape => shape.from === selection.from && shape.to === selection.to);
   const state = surface.current?.getState();
   const marks = state?.storedMarks ?? state?.selection.$from.marks() ?? [];
   const style = marks.find(mark => mark.type.name === "text_style")?.attrs ?? {};
@@ -62,6 +65,7 @@ export function DocumentRibbon({ editor, surface, onImport, onExport, onImage, o
     <div className="lxd-ribbon-tabs" role="tablist" aria-label="リボン">{tabs.map(item => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "is-active" : ""} onClick={() => setTab(item.id)}>{item.label}</button>)}</div>
     <div className="lxd-ribbon-strip">{arrows.left && <button type="button" className="lxd-scroll-arrow" aria-label="左のグループを表示" onClick={() => stepScroll(-1)}><ChevronLeft size={16} /></button>}
       <div ref={scroll} className="lxd-ribbon-scroll" onScroll={track}>
+        {features.shapes && (tab === "insert" || shapeSelected) && <Group title="図形"><DocumentShapeTools editor={editor} insert={tab === "insert"} /></Group>}
         {tab === "file" && <>
           {features.import && !editor.readOnly && <Group title="開く"><Action label="DCONを開く" icon={<FileJson size={23} />} big disabled={disabled} onClick={() => onImport("dcon")} /><Action label="Wordを開く" icon={<Upload size={23} />} big disabled={disabled} onClick={() => onImport("docx")} /></Group>}
           {features.export && <Group title="書き出し"><Action label="DCON" icon={<FileJson size={23} />} big disabled={!!editor.busy} onClick={() => onExport("dcon")} /><Action label="Word (.docx)" icon={<Download size={23} />} big disabled={!!editor.busy} onClick={() => onExport("docx")} /></Group>}

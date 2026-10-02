@@ -34,13 +34,19 @@
       "types": "./dist/types/connectors.d.ts",
       "import": "./dist/connectors.js",
       "default": "./dist/connectors.js"
+    },
+    "./office-shapes": {
+      "types": "./dist/types/office-shapes.d.ts",
+      "import": "./dist/office-shapes.js",
+      "default": "./dist/office-shapes.js"
     }
   },
   "files": [
     "dist",
     "README.md",
     "THIRD_PARTY_NOTICES.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "sideEffects": false,
   "scripts": {

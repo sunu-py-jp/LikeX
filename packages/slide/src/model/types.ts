@@ -1,3 +1,4 @@
+import type { OfficeShapePreset } from "./core-office-shapes";
 import type { ConnectorEndpoint, ConnectorArrowhead } from "./core-connectors";
 export type { ConnectorPoint, ConnectorPort, ConnectorBinding, ConnectorEndpoint, ConnectorArrowhead } from "./core-connectors";
 export type SlideLineGeometry = { start: ConnectorEndpoint; end: ConnectorEndpoint };
@@ -31,7 +32,7 @@ export type SlideTextElement = SlideElementBase & {
   verticalAlign: "top" | "middle" | "bottom";
   fill: string;
 };
-export type SlideShapeKind = "rect" | "roundRect" | "ellipse" | "triangle" | "diamond" | "arrow" | "leftArrow" | "line";
+export type SlideShapeKind = Exclude<OfficeShapePreset, "rightArrow"> | "arrow" | "line";
 export type SlideShapeElement = SlideElementBase & {
   type: "shape";
   shape: SlideShapeKind;

@@ -59,7 +59,7 @@ Explorerでは `.spon` を緑の表計算アイコン、`.slon` をオレンジ�
 
 配布用にもう一つ実装を持ちません。`src/` から `dist/` のESMと型宣言を生成し、`src/README.md` と `src/docs/` の利用ガイドを同じ配置で配布物へ同梱します。READMEは導入と詳細への入口、`docs/` は責務ごとの詳細です。
 
-コピー導入ではUIの `src/` 全体と `packages/core/src/` を隣接フォルダへ配置し、UI側の `core.ts` のimport先を変更します。Spreadsheet・LikeSlide・LikeDocumentでは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更します。リポジトリ固有のパスエイリアスや共通Providerは不要です。Reactなどの外部依存は明示します。更新時は取得元バージョンと利用側での変更差分を管理します。
+コピー導入ではUIの `src/` 全体と `packages/core/src/` を隣接フォルダへ配置し、UI側の `core.ts` のimport先を変更します。Spreadsheet・LikeSlide・LikeDocumentでは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更します。 Spreadsheet・LikeSlide・LikeDocumentの `model/core-office-shapes.ts` は `export * from "../../core/office-shapes";` に変更します。リポジトリ固有のパスエイリアスや共通Providerは不要です。Reactなどの外部依存は明示します。更新時は取得元バージョンと利用側での変更差分を管理します。
 
 共通のホスト契約と小さなヘルパーは `@likex/core` で管理します。各UIは通常のnpm依存として利用し、生成コピーは作りません。coreの詳細とコピー導入手順は [共通基盤](core.md) を参照してください。React状態や個別の保存データは各コンポーネントが管理します。
 

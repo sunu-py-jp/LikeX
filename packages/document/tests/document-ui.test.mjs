@@ -183,3 +183,41 @@ test('table and whole-document selections include resource nodes in the actual e
   assert.equal(view.state.selection.content().content.firstChild.type.name, 'image');
   assert.equal(view.state.selection.content().content.lastChild.type.name, 'page_break');
 });
+
+test('insert gallery creates editable bent arrows through the component and opens shape formatting', async t => {
+  const { renderer, ref } = await mount(t, { initialDocument: body('Shape demo'), onSave() {} });
+  await change(() => tab(renderer, '挿入').props.onClick());
+  const gallery = renderer.root.findByProps({ 'aria-label': '図形の種類' });
+  const bend = gallery.findAllByType('button').find(node => node.props['aria-label'].includes('カギ') && !node.props['aria-label'].includes('上'));
+  assert.ok(bend, 'bent arrow is named and visible in insert gallery');
+  await change(() => bend.props.onClick({ currentTarget: { closest: () => ({ removeAttribute() {} }) } }));
+  const shape = ref.current.getDocument().content.content.find(node => node.type === 'shape'); assert.ok(shape);
+  const format = renderer.root.findAllByType('button').find(node => node.props.children === '図形の書式'); assert.ok(format);
+  await change(() => format.props.onClick());
+  assert.ok(renderer.root.findByProps({ role: 'dialog' }));
+  const controls = renderer.root.findAllByType('input');
+  for (const name of ['width', 'height', 'rotation', 'fill', 'stroke', 'flipH', 'flipV']) assert.ok(controls.some(node => node.props.name === name), name);
+  const form = renderer.root.findByType('form');
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(key) { return ({ text: '承認へ', width: '260', height: '140', rotation: '0', strokeWidth: '2', fill: '#eeeeff', stroke: '#112233', color: '#123456', fontSize: '14' })[key] ?? null; } };
+  try { await change(() => form.props.onSubmit({ preventDefault() {}, currentTarget: {} })); }
+  finally { globalThis.FormData = FormDataOriginal; }
+  const updated = ref.current.getDocument().content.content.find(node => node.type === 'shape'); assert.equal(updated.attrs.text, '承認へ'); assert.equal(updated.attrs.width, 260);
+  await change(() => ref.current.undo()); assert.equal(ref.current.getDocument().content.content.find(node => node.type === 'shape').attrs.text, '');
+});
+
+test('shape formatting dialog disables unavailable controls and submits only enabled fields', async t => {
+  for (const feature of ['text', 'formatting']) {
+    const initial = createDocument({ content: { type: 'doc', content: [{ type: 'shape', attrs: { preset: 'bentArrow', text: 'Keep' } }] } });
+    const { renderer, ref } = await mount(t, { initialDocument: initial, onSave() {}, features: { [feature]: false } });
+    await change(() => ref.current.select({ from: 0, to: 1 }));
+    await change(() => renderer.root.findAllByType('button').find(node => node.props.children === '図形の書式').props.onClick());
+    assert.equal(renderer.root.findByType('textarea').props.disabled, feature === 'text');
+    for (const input of renderer.root.findAllByType('input').filter(node => node.props.name)) assert.equal(input.props.disabled, feature === 'formatting');
+    const Original = globalThis.FormData;
+    globalThis.FormData = class { get(key) { return ({ text: 'New text', width: '240', height: '140', rotation: '0', strokeWidth: '1.5', fill: '#dbeafe', stroke: '#2563eb', color: '#172554', fontSize: '14' })[key] ?? null; } };
+    try { await change(() => renderer.root.findByType('form').props.onSubmit({ preventDefault() {}, currentTarget: {} })); }
+    finally { globalThis.FormData = Original; }
+    const shape = ref.current.getDocument().content.content[0]; assert.equal(shape.attrs.text, feature === 'text' ? 'Keep' : 'New text');
+  }
+});

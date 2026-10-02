@@ -1,3 +1,5 @@
+import { getOfficeShapeOutline } from "./core-office-shapes";
+import { getSlideOfficeShapePreset } from "./shapes";
 import { connectorLocalToWorld, getConnectorBounds, getConnectorPortPoint, CONNECTOR_PORTS } from "./core-connectors";
 import type { ConnectorEndpoint, ConnectorOutline } from "./core-connectors";
 import type { SlideElement, SlideElementBase, SlideLineGeometry, SlideShapeElement } from "./types";
@@ -12,7 +14,8 @@ export function getSlideConnectorOutline(element: SlideElement): ConnectorOutlin
   const points = element.shape === "triangle" ? [[.5, 0], [1, 1], [0, 1]]
     : element.shape === "diamond" ? [[.5, 0], [1, .5], [.5, 1], [0, .5]]
     : (element.shape === "arrow" || element.shape === "leftArrow") ? [[0, .28], [.65, .28], [.65, 0], [1, .5], [.65, 1], [.65, .72], [0, .72]] : undefined;
-  return points ? { type: "polygon", points: points.map(([x, y]) => ({ x: element.shape === "leftArrow" ? 1 - x : x, y })) } : undefined;
+  if (points) return { type: "polygon", points: points.map(([x, y]) => ({ x: element.shape === "leftArrow" ? 1 - x : x, y })) };
+  return element.shape === "line" || element.shape === "rect" ? undefined : getOfficeShapeOutline(getSlideOfficeShapePreset(element.shape), element.width, element.height);
 }
 export function normalizeSlideLineEndpoint(input: unknown): ConnectorEndpoint {
   const raw = record(input, "線の端点", ["x", "y", "binding"]);

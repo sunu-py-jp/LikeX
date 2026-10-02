@@ -322,7 +322,7 @@
           "const": "shape"
         },
         "shape": {
-          "$ref": "#/$defs/SpreadsheetShapeDrawing_shape"
+          "$ref": "#/$defs/SpreadsheetShapeKind"
         },
         "fill": {
           "type": "string"
@@ -375,16 +375,12 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetShapeDrawing_shape": {
+    "SpreadsheetShapeKind": {
       "enum": [
-        "rectangle",
-        "ellipse",
-        "line",
-        "arrow",
-        "roundedRectangle",
         "triangle",
-        "rightTriangle",
         "diamond",
+        "line",
+        "ellipse",
         "parallelogram",
         "trapezoid",
         "rightArrow",
@@ -392,7 +388,36 @@
         "upArrow",
         "downArrow",
         "leftRightArrow",
-        "upDownArrow"
+        "upDownArrow",
+        "bentArrow",
+        "bentUpArrow",
+        "uturnArrow",
+        "leftUpArrow",
+        "leftRightUpArrow",
+        "quadArrow",
+        "chevron",
+        "homePlate",
+        "pentagon",
+        "hexagon",
+        "octagon",
+        "star5",
+        "plus",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartInputOutput",
+        "flowChartPredefinedProcess",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartPreparation",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "flowChartDelay",
+        "rectangle",
+        "arrow",
+        "roundedRectangle",
+        "rightTriangle"
       ]
     },
     "SpreadsheetShapeDrawing_line": {
@@ -458,8 +483,8 @@
       "enum": [
         "none",
         "triangle",
-        "diamond",
         "openArrow",
+        "diamond",
         "oval",
         "stealth"
       ]

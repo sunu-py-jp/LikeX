@@ -102,9 +102,9 @@
     },
     "DiagramCommand_1_node_shape": {
       "enum": [
-        "rectangle",
+        "diamond",
         "ellipse",
-        "diamond"
+        "rectangle"
       ]
     },
     "DiagramCommand_2": {
@@ -139,20 +139,20 @@
         "width": {
           "type": "number"
         },
-        "height": {
-          "type": "number"
-        },
-        "shape": {
-          "$ref": "#/$defs/DiagramCommand_1_node_shape"
-        },
         "x": {
           "type": "number"
         },
         "y": {
           "type": "number"
         },
+        "height": {
+          "type": "number"
+        },
         "stroke": {
           "type": "string"
+        },
+        "shape": {
+          "$ref": "#/$defs/DiagramCommand_1_node_shape"
         },
         "textColor": {
           "type": "string"
@@ -497,9 +497,9 @@
     },
     "DiagramShape": {
       "enum": [
-        "rectangle",
+        "diamond",
         "ellipse",
-        "diamond"
+        "rectangle"
       ]
     },
     "DiagramModel_edges": {

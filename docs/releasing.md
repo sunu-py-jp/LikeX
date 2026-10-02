@@ -40,7 +40,7 @@ CIでは `npm run check:release -- --online` を実行し、パッケージ・�
 | `artifacts/release-check.json` | 全検証の実行結果。成果物はGit管理せず再生成します。 |
 | `artifacts/license-check.json` | 実行時依存・生成CSSの許可ライセンスと配布通知の確認結果 |
 
-ソースコピーはUIの `styles.css` を含む `packages/<module>/src/` と `packages/core/src/` を隣接フォルダへ持ち出し、UIの `core.ts` を相対importへ変更します。Spreadsheet・LikeSlide・LikeDocumentでは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更します。利用側はパッケージの `@likex/<module>/styles.css` またはコピーした `styles.css` を読み込みます。両方とも利用先でTailwindの導入・専用設定は不要です。詳細は各モジュールの導入手順を参照してください。
+ソースコピーはUIの `styles.css` を含む `packages/<module>/src/` と `packages/core/src/` を隣接フォルダへ持ち出し、UIの `core.ts` を相対importへ変更します。Spreadsheet・LikeSlide・LikeDocumentでは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更します。 Spreadsheet・LikeSlide・LikeDocumentの `model/core-office-shapes.ts` は `export * from "../../core/office-shapes";` に変更します。利用側はパッケージの `@likex/<module>/styles.css` またはコピーした `styles.css` を読み込みます。両方とも利用先でTailwindの導入・専用設定は不要です。詳細は各モジュールの導入手順を参照してください。
 
 ## 公開前に決めるもの
 

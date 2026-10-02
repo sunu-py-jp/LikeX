@@ -26,8 +26,10 @@ DCONの上限はUTF-8で40 MiBです。画像は1枚8 MiB、合計24 MiBまで�
 | `id` / `title` | 文書の識別子とタイトル |
 | `page.width` / `page.height` | 用紙サイズ。ミリメートル |
 | `page.margins` | `top` / `right` / `bottom` / `left`。ミリメートル |
-| `content` | 段落・見出し・リスト・表・画像・改ページを含むノードツリー |
+| `content` | 段落・見出し・リスト・表・画像・図形・改ページを含むノードツリー |
 
 段落などのブロックIDは `attrs.id` にあります。文字の書式はテキストノードの `marks` に保存します。選択位置・Undo／Redo履歴・保存状態・編集許可・表示テーマは保存ファイルに含みません。
 
 `onSave` は `DocumentModel` を受け取り、保存先とファイル名は親アプリが決めます。JSONとして保存する場合は上の専用シリアライザーを使います。Wordとの受け渡しには [DOCX](docx.md) を使ってください。
+
+`shape` は `attrs.preset` にOfficeの標準名（例 `bentArrow`）、`text`・`width`・`height`・`fill`・`stroke`・`strokeWidth`・`rotation`・`flipH`・`flipV`・`color`・`fontSize` を保存します。本文中の図形ブロックで、子の `content` は持ちません。version 1への追加ノードとして扱い、既存の図形を含まないDCONは変更せず読み込めます。図形対応前のライブラリは `shape` を拒否するため、図形入りファイルの利用側は対応版へ更新してください。

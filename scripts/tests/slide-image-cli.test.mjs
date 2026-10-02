@@ -24,7 +24,7 @@ test.before(async () => {
   } }));
   await build({ entryPoints: [path.join(repo, 'packages/slide/src/model-entry.ts')], outfile: path.join(installed, 'model.mjs'),
     bundle: true, platform: 'node', format: 'esm', target: 'es2022', alias: {
-      '@likex/core': path.join(repo, 'packages/core/src/index.ts'), '@likex/core/connectors': path.join(repo, 'packages/core/src/connectors.ts'), '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'),
+      '@likex/core': path.join(repo, 'packages/core/src/index.ts'), '@likex/core/office-shapes': path.join(repo, 'packages/core/src/office-shapes.ts'), '@likex/core/connectors': path.join(repo, 'packages/core/src/connectors.ts'), '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'),
       '@likex/core/ooxml': path.join(repo, 'packages/core/src/ooxml.ts'),
     } });
   model = await import(pathToFileURL(path.join(installed, 'model.mjs')).href);

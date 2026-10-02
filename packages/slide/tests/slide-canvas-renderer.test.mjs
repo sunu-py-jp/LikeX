@@ -330,3 +330,17 @@ test('PNG includes inherited master/layout artwork behind local content and neve
   assert.ok(later.some(call => call.name === 'fillRect' && call.state.fillStyle === '#234567'));
   assert.deepEqual(later.filter(call => call.name === 'fillText').map(call => call.args[0]).filter(Boolean), ['FOOTER', 'CONTENT']);
 });
+
+
+test('PNG uses the same expanded Office paths and draws shape text inside its geometry region', async t => {
+  const previous = globalThis.Path2D;
+  globalThis.Path2D = class { constructor(d) { this.d = d; } };
+  t.after(() => { if (previous) globalThis.Path2D = previous; else delete globalThis.Path2D; });
+  const env = environment(t);
+  await renderSlideImage(request([{ type: 'shape', shape: 'bentArrow', x: 0, y: 0, width: 280, height: 180, text: '確認', fontSize: 16, fill: '#369cba', stroke: '#123456' }]));
+  const paintedPath = env.calls.findIndex(call => call.name === 'fill' && call.args[0] instanceof globalThis.Path2D);
+  assert.ok(paintedPath >= 0);
+  assert.equal(env.calls.slice(0, paintedPath).some(call => call.name === 'clip'), false, 'native preset stroke must not be clipped at its bounds');
+  assert.ok(env.named('stroke').some(call => call.args[0] instanceof globalThis.Path2D));
+  assert.ok(env.named('fillText').some(call => call.args[0] === '確認'));
+});

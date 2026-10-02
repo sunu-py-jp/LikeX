@@ -1,3 +1,4 @@
+import { readDocxShape } from "./docx-shapes";
 import { normalizeDocument } from "../model/document";
 import { openOfficePackage, officeXml, readOfficeRelationships, resolveOfficePart, type OfficePackageInput } from "../ooxml";
 import { millimetres } from "./docx-xml";
@@ -43,6 +44,12 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
   const styles = readStyles(styleLink ? await root(styleLink.target) : undefined, warn);
   const numbering = readNumbering(numberingLink ? await root(numberingLink.target) : undefined, warn);
   const core = relation(packageLinks, "core-properties"), title = core ? textContent(child(await root(core.target), "title")) : "";
+  const themeLink = relation(links, "theme"), theme = new Map<string, string>();
+  if (themeLink) {
+    const colors = descendants(await root(themeLink.target), "clrScheme")[0];
+    for (const item of colors?.children ?? []) { const value = attr(child(item, "srgbClr"), "val") ?? attr(child(item, "sysClr"), "lastClr"); if (value) theme.set(localName(item.name), value); }
+    for (const [alias, key] of [["bg1", "lt1"], ["tx1", "dk1"], ["bg2", "lt2"], ["tx2", "dk2"]]) if (theme.has(key)) theme.set(alias, theme.get(key)!);
+  }
   const embedded = new Map<string, string>();
   let elements = 0;
 
@@ -83,6 +90,20 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
     async function visit(node: XmlNode, extraMarks: Mark[] = []) {
       const name = localName(node.name);
       if (name === "pPr") return;
+      if (name === "AlternateContent") {
+        const choices = children(node, "Choice"), supported = choices.find(item => descendants(item, "wsp").length || descendants(item, "pic").length);
+        const selected = supported ?? child(node, "Fallback");
+        if (selected) for (const item of selected.children) await visit(item, extraMarks);
+        else warn("未対応の代替描画要素を省略しました");
+        return;
+      }
+      if (name === "pict" || name === "object") { warn("旧形式の図形・埋め込みオブジェクトを省略しました"); return; }
+      if (name === "drawing") {
+        flush();
+        const drawing = descendants(node, "wsp").length || descendants(node, "wgp").length ? readDocxShape(node, warn, theme) : descendants(node, "pic").length ? await readImage(node) : undefined;
+        if (drawing) result.push({ node: drawing }); else warn("未対応の図形・グラフ・SmartArtなどの描画要素を省略しました");
+        return;
+      }
       if (name === "del" || name === "moveFrom") { warn("変更履歴は承認後の本文として読み込みました"); return; }
       if (name === "ins" || name === "moveTo") warn("変更履歴は承認後の本文として読み込みました");
       if (name === "hyperlink") {
@@ -100,7 +121,7 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
           else if (tag === "br" || tag === "cr") {
             if (attr(item, "type") === "page") { flush(); result.push({ node: { type: "page_break" } }); }
             else inline.push({ type: "hard_break" });
-          } else if (tag === "drawing") { flush(); const image = await readImage(item); if (image) result.push({ node: image }); else warn("図形・グラフ・SmartArtなどの描画要素を省略しました"); }
+          } else if (tag === "drawing" || tag === "AlternateContent") await visit(item, extraMarks);
           else if (["pict", "object"].includes(tag)) warn("旧形式の図形・埋め込みオブジェクトを省略しました");
           else if (["instrText", "fldChar"].includes(tag)) warn("フィールドは計算せず、保存されている表示文字列を読み込みました");
           else if (["footnoteReference", "endnoteReference", "commentReference"].includes(tag)) warn("脚注・文末脚注・コメントを省略しました");

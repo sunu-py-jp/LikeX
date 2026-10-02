@@ -1,11 +1,11 @@
 import { documentSchema } from "./schema";
 import { normalizeDocument } from "./document";
-import type { DocumentBlockInfo, DocumentImageNode, DocumentModel } from "./types";
+import type { DocumentBlockInfo, DocumentImageNode, DocumentShapeNode, DocumentModel } from "./types";
 
 /** Plain text follows document order, with newlines between text blocks. */
 export function getDocumentText(document: DocumentModel): string {
   const doc = documentSchema.nodeFromJSON(normalizeDocument(document).content);
-  return doc.textBetween(0, doc.content.size, "\n", node => node.type.name === "hard_break" || node.type.name === "page_break" ? "\n" : node.type.name === "image" ? node.attrs.alt : "");
+  return doc.textBetween(0, doc.content.size, "\n", node => node.type.name === "hard_break" || node.type.name === "page_break" ? "\n" : node.type.name === "image" ? node.attrs.alt : node.type.name === "shape" ? node.attrs.text : "");
 }
 /** Returns detached nodes with IDs and positions, including nested paragraphs/list/table resources. */
 export function getBlocks(document: DocumentModel): DocumentBlockInfo[] {
@@ -25,4 +25,11 @@ export function getImages(document: DocumentModel): (DocumentBlockInfo & { node:
 }
 export function getImage(document: DocumentModel, id: string): (DocumentBlockInfo & { node: DocumentImageNode }) | undefined {
   return getImages(document).find(image => image.id === id);
+}
+
+export function getShapes(document: DocumentModel): (DocumentBlockInfo & { node: DocumentShapeNode })[] {
+  return getBlocks(document).filter((block): block is DocumentBlockInfo & { node: DocumentShapeNode } => block.node.type === "shape");
+}
+export function getShape(document: DocumentModel, id: string): (DocumentBlockInfo & { node: DocumentShapeNode }) | undefined {
+  return getShapes(document).find(shape => shape.id === id);
 }

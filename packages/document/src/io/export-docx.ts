@@ -1,3 +1,4 @@
+import { writeDocxShape } from "./docx-shapes";
 import { createZipArchive, type ZipArchiveEntry } from "../core";
 import { normalizeDocument } from "../model/document";
 import type { DocumentModel } from "../model/types";
@@ -111,6 +112,7 @@ export async function exportDocumentDocx(input: DocumentModel, options: Document
   function block(node: Node, list?: { id: number; level: number }): string {
     if (node.type === "paragraph" || node.type === "heading") return paragraph(node, list);
     if (node.type === "image") return image(node);
+    if (node.type === "shape") return writeDocxShape(node.attrs!, ++drawingId);
     if (node.type === "page_break") return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
     if (node.type === "table") return table(node);
     if (node.type === "bullet_list" || node.type === "ordered_list") {

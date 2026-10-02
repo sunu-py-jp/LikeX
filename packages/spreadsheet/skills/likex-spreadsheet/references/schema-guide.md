@@ -116,7 +116,7 @@
 | `shape` | `shape`, `fill`, `stroke`, `strokeWidth`、任意の `text`, `fontSize`, `color`, `bold` |
 | `text` | `text`, `fontSize`, `color`, `background`、任意の `bold` |
 
-`shape` は `rectangle`, `roundedRectangle`, `ellipse`, `triangle`, `rightTriangle`, `diamond`, `parallelogram`, `trapezoid`, `rightArrow`, `leftArrow`, `upArrow`, `downArrow`, `leftRightArrow`, `upDownArrow`, `line`, `arrow`。Slideの `rect` / `roundRect` とは異なる。
+`shape` は `rectangle`, `roundedRectangle`, `ellipse`, `triangle`, `rightTriangle`, `diamond`, `parallelogram`, `trapezoid`, `rightArrow`, `leftArrow`, `upArrow`, `downArrow`, `leftRightArrow`, `upDownArrow`, `line`, `arrow`に加え、`bentArrow`, `bentUpArrow`, `uturnArrow`, `leftUpArrow`, `leftRightUpArrow`, `quadArrow`, `chevron`, `homePlate`, `pentagon`, `hexagon`, `octagon`, `star5`, `plus`、および`flowChartProcess`, `flowChartDecision`, `flowChartTerminator`, `flowChartInputOutput`, `flowChartPredefinedProcess`, `flowChartDocument`, `flowChartMultidocument`, `flowChartPreparation`, `flowChartManualInput`, `flowChartManualOperation`, `flowChartMerge`, `flowChartDelay`。カギ矢印は`bentArrow`、上向きカギ矢印は`bentUpArrow`。塗りのあるブロック図形で、2端点の接続線とは異なる。Excelの標準プリセットから取り込み、画像化せず再出力する。Officeの個別調整値は警告して既定形へ戻す。Slideの `rect` / `roundRect` とは異なる。
 
 回転は時計回り、有限の値を0以上360未満へ正規化し、0は省略する。反転は正のサイズの枠内で行い、文字は読みやすい向きを保つ。オフセットは0〜10,000px、描画サイズは最大10,000px。画像サイズは正の小数を許可し、図形・テキストは1px以上。描画文字サイズは1〜400px、線幅は0〜100px。形状を変えてもIDは維持し、`type` は更新できない。
 

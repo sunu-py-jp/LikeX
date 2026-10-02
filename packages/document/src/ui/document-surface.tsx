@@ -64,6 +64,6 @@ export function DocumentSurface({ editor, surfaceRef, onViewChange }: { editor: 
     view.current = pm; dragFeedback.current = createDocumentDragFeedback(pm, () => latest.current);
     return () => { dragFeedback.current?.destroy(); dragFeedback.current = null; view.current = null; pm.destroy(); };
   }, []);
-  useLayoutEffect(syncView, [editor.document, editor.selection, editor.editable, editor.features.text, editor.features.images]);
+  useLayoutEffect(syncView, [editor.document, editor.selection, editor.editable, editor.features.text, editor.features.images, editor.features.shapes]);
   return <div className="lxd-surface"><div ref={container} /><div className="lxd-ssr-content" aria-hidden="true">{getDocumentText(editor.document)}</div></div>;
 }

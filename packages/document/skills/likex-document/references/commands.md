@@ -55,3 +55,17 @@
 公開APIの戻り値は `{ document, selection? }`。CLIのapply応答は文書全体や各コマンドのreceiptを返さず、保存状態・件数・概要を返す。新規IDと現在位置は適用後のinspectで取得する。例外や `ok: false` のときは結果を保存しない。
 
 `transaction.apply` はProseMirrorのJSON Step配列と任意の `selection` を受け取る。JSON SchemaがJSONとしての構造を許容しても、実行可能なStepと文書ノードはランタイムで検証する。全引数は [commands JSON Schema](commands.schema.json) にある。
+
+## 図形
+
+`shape.insert` は現在位置の `at` とOfficeプリセット名を指定する。カギ矢印 `bentArrow`、上向きカギ矢印 `bentUpArrow`、Uターン矢印 `uturnArrow`、基本図形・方向矢印・フローチャートを含む39種類。全列挙はcommands JSON Schemaの `preset`、ラベルは `@likex/core/office-shapes` の `OFFICE_SHAPE_PRESETS` を使う。図形は本文中のブロックで、自由なページ座標配置ではない。
+
+```json
+[
+  { "type": "shape.insert", "at": 0, "preset": "bentArrow", "text": "審査から承認", "width": 260, "height": 140, "fill": "#dbeafe", "stroke": "#2563eb", "strokeWidth": 2 }
+]
+```
+
+新しいIDは適用後のinspectまたは `getShapes` で取得する。`shape.update` は `id` で指定した図形の属性だけを変更する。幅・高さ・線幅はpx、回転は度、`fontSize` はpt。塗りつぶしと線の非表示は `fill: null` / `stroke: null`、反転は `flipH` / `flipV`。`getShape(document,id)` は図形と現在位置を返す。複製は取得したattrsからidを除いて `shape.insert`、削除は `block.delete`。
+
+DOCXではWord 2010の編集可能なDrawingMLプリセットへ変換する。浮動配置はインライン化、調整値・複雑な書式は標準化、自由図形・グループは省略の警告が出るため、import/exportの `warnings` を確認する。

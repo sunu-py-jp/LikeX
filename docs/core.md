@@ -58,7 +58,7 @@ packages/spreadsheet/src/core.ts     export * from "@likex/core"
 
 1. `packages/core/src/` を利用先の `components/core/` へコピーする。
 2. UIの `src/` を `components/explorer/` または `components/spreadsheet/` へコピーする。
-3. UIフォルダの `core.ts` を `export * from "../core";` に変更する。Spreadsheet・LikeSlideは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更する。
+3. UIフォルダの `core.ts` を `export * from "../core";` に変更する。Spreadsheet・LikeSlideは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更する。 Spreadsheet・LikeSlide・LikeDocumentの `model/core-office-shapes.ts` は `export * from "../../core/office-shapes";` に変更する。
 
 coreは両UIで1つを共有できます。コピー後も元の `@likex/core` に依存させる選択は可能ですが、上記手順ではLikeXパッケージのインストールは不要です。Reactなどの外部依存とUIのCSS読み込みは引き続き必要です。共通実装の自動複製・生成確認・特殊なパス解決は行いません。
 

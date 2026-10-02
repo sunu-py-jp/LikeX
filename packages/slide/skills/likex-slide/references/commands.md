@@ -106,7 +106,7 @@ node "$skill_dir/scripts/document.mjs" apply --project "$project_dir" \
 | `shape` | `shape`, `fill`, `stroke`, `strokeWidth`, `text`, `fontSize`, `textColor` |
 | `image` | 必須 `src`、任意 `alt` |
 
-`shape` は `rect` / `roundRect` / `ellipse` / `triangle` / `diamond` / `arrow` / `leftArrow` / `line`。図形文字の色は `textColor`、テキストの色は `color`。図形にテキスト用の `bold` / `fontFamily` などは渡さない。画像はPNG / JPEG / GIF / WebP / 静的SVGのBase64 data URL。SVG文字列は公開 `createSlideSvgSource` で検証・変換する。[SVG素材の入力](image-export.md#svg素材の入力)を参照する。画像と座標の上限は [schema-guide.md](schema-guide.md) を参照する。
+`shape` は基本図形に加え、`bentArrow`（カギ矢印）・`bentUpArrow`・`uturnArrow`・`leftUpArrow`・`leftRightUpArrow`・`quadArrow`・`chevron`・`homePlate`・`pentagon`・`hexagon`・`octagon`・`star5`・`plus` とフロー図形を指定できる。フロー図形は `flowChartProcess` / `flowChartDecision` / `flowChartTerminator` / `flowChartInputOutput` / `flowChartPredefinedProcess` / `flowChartDocument` / `flowChartMultidocument` / `flowChartPreparation` / `flowChartManualInput` / `flowChartManualOperation` / `flowChartMerge` / `flowChartDelay`。全一覧は生成Schemaのenumと公開 `SLIDE_SHAPES` が正本。これらは `element.add/update` で扱う編集可能な面の図形であり、`line.add/update` の2端点の線とは別。図形文字の色は `textColor`、テキストの色は `color`。図形にテキスト用の `bold` / `fontFamily` などは渡さない。画像はPNG / JPEG / GIF / WebP / 静的SVGのBase64 data URL。SVG文字列は公開 `createSlideSvgSource` で検証・変換する。[SVG素材の入力](image-export.md#svg素材の入力)を参照する。画像と座標の上限は [schema-guide.md](schema-guide.md) を参照する。
 
 ```json
 [

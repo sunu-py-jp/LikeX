@@ -39,6 +39,8 @@ test('preset indices use their real Office ordering and do not claim unsupported
   assert.equal(getOfficePresetConnectorPort('rect', 1), 'left');
   assert.equal(getOfficePresetConnectorPort('ellipse', 7), 'topRight');
   assert.equal(getOfficePresetConnectorPort('triangle', 2), 'bottomLeft');
+  for (const preset of ['flowChartProcess', 'flowChartDecision', 'flowChartTerminator', 'flowChartPredefinedProcess', 'flowChartPreparation', 'flowChartDelay'])
+    assert.deepEqual([0, 1, 2, 3].map(index => getOfficePresetConnectorPort(preset, index)), ['top', 'left', 'bottom', 'right']);
   assert.equal(getOfficePresetConnectorPort('rightArrow', 0), undefined);
   assert.equal(getOfficePresetConnectorPort('leftArrow', 3), 'right');
   for (const index of [-1, 8, NaN, 1.5]) assert.equal(getOfficePresetConnectorPort('rect', index), undefined);

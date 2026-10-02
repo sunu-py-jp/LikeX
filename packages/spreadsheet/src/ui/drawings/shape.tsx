@@ -2,6 +2,7 @@
 
 import { LineMarker } from "./line-marker";
 import { useId } from "react";
+import { getOfficeShapeGeometry } from "../../model/core-office-shapes";
 import type { SpreadsheetShapeDrawing } from "../../model/types";
 import { getShapeDefinition, shapeBodyFrame } from "../../model/shapes";
 
@@ -17,6 +18,10 @@ export function Shape({ drawing }: { drawing: SpreadsheetShapeDrawing }) {
     style={{ transform: `scale(${drawing.flipX ? -1 : 1}, ${drawing.flipY ? -1 : 1})`, transformOrigin: "center" }}>
     {geometry.type === "line" && <defs><LineMarker id={`${marker}-start`} kind={startArrow} color={drawing.stroke} /><LineMarker id={`${marker}-end`} kind={endArrow} color={drawing.stroke} /></defs>}
     {geometry.type === "rectangle" && <rect {...frame} rx={geometry.rounded ? Math.min(frame.width, frame.height) * 16667 / 100000 : undefined} {...paint} />}
+    {geometry.type === "office" && <g transform={`translate(${frame.x} ${frame.y})`}>
+      {getOfficeShapeGeometry(geometry.preset, frame.width, frame.height).paths.map((path, index) => <path key={index}
+        d={path.d} {...paint} fill={path.fill === false ? "none" : drawing.fill} stroke={path.stroke === false ? "none" : drawing.stroke} />)}
+    </g>}
     {geometry.type === "ellipse" && <ellipse cx={drawing.width / 2} cy={drawing.height / 2} rx={frame.width / 2} ry={frame.height / 2} {...paint} />}
     {geometry.type === "polygon" && <polygon points={geometry.points.map(([x, y]) => `${frame.x + frame.width * x},${frame.y + frame.height * y}`).join(" ")} {...paint} />}
     {geometry.type === "line" && <line x1={Math.max(stroke, 4)} y1={Math.max(stroke, 4)}

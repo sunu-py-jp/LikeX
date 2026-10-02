@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { readFile } from 'node:fs/promises';
 
-const output = await build({ stdin: { contents: 'export * from "./src/io"; export * from "./src/model/document";export {openOfficePackage,officeXml} from "./src/ooxml";export {createZipArchive} from "./src/core";', resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
-const { createDocument, importDocumentDocx, exportDocumentDocx, DOCX_MIME_TYPE, openOfficePackage, officeXml, createZipArchive } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const output = await build({ stdin: { contents: 'export * from "./src/io"; export * from "./src/model/document";export {openOfficePackage,officeXml} from "./src/ooxml";export {createZipArchive} from "./src/core";export {OFFICE_SHAPE_PRESETS} from "./src/model/core-office-shapes";', resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
+const { createDocument, importDocumentDocx, exportDocumentDocx, DOCX_MIME_TYPE, openOfficePackage, officeXml, createZipArchive, OFFICE_SHAPE_PRESETS } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAUCAIAAABwJOjsAAAAOElEQVR4nO3NQQEAIAwDsVINSMS/BfhuBm4PGgNZ92xN8MiqxCCTWZUYY67qEmPMVV1ijLlKn8cPnj8Bn7y225YAAAAASUVORK5CYII=';
 const p = (text, attrs, marks) => ({ type: 'paragraph', attrs, content: text ? [{ type: 'text', text, ...(marks ? { marks } : {}) }] : [] });
 const cell = (text, attrs = {}, header = false) => ({ type: header ? 'table_header' : 'table_cell', attrs, content: [p(text)] });
@@ -134,4 +134,51 @@ test('imports an independent python-docx fixture with headings, styles, cells, i
   const table = blocks.find(node => node.type === 'table'); assert.equal(table.content.length, 3); assert.equal(text(table.content[0]), 'NameValue');
   const image = blocks.find(node => node.type === 'image'); assert.equal(image.attrs.width / image.attrs.height, 2); assert.equal(image.attrs.alt, 'Independent image');
   assert.ok(Array.isArray(warnings));
+});
+
+test('all Office preset shapes round-trip as editable DrawingML with text, paint, extent and transforms', async () => {
+  const source = createDocument({ content: { type: 'doc', content: OFFICE_SHAPE_PRESETS.map((entry, index) => ({ type: 'shape', attrs: {
+    preset: entry.preset, text: `${entry.label}\nApproved & <ready>`, width: 240, height: 140, fill: index % 2 ? null : '#32c6aa', stroke: index % 3 ? '#193e60' : null, strokeWidth: 2.5, rotation: index % 2 ? -30 : 25, flipH: index % 3 === 0, flipV: index % 4 === 0, color: '#112233', fontSize: 18,
+  } })) } });
+  const { blob, warnings } = await exportDocumentDocx(source); assert.deepEqual(warnings, []);
+  const xml = new TextDecoder().decode((await parts(blob)).get('word/document.xml'));
+  assert.ok(xml.includes('<wps:wsp>')); assert.ok(xml.includes('prst="bentArrow"')); assert.ok(!xml.includes('<pic:pic>'));
+  const imported = await importDocumentDocx(blob); assert.deepEqual(imported.warnings, []);
+  assert.equal(imported.document.content.content.length, source.content.content.length);
+  for (const [index, node] of imported.document.content.content.entries()) {
+    assert.equal(node.type, 'shape'); const actual = { ...node.attrs }, expected = { ...source.content.content[index].attrs }; delete actual.id; delete expected.id;
+    close(actual.strokeWidth, expected.strokeWidth); delete actual.strokeWidth; delete expected.strokeWidth;
+    assert.deepEqual(actual, expected);
+  }
+});
+
+test('external Word anchor/AlternateContent shape imports once, retains editing data and warns about floating placement', async () => {
+  const fixture = await readFile(new URL('fixtures/word-bent-arrow.xml', import.meta.url), 'utf8');
+  const initial = (await exportDocumentDocx(createDocument())).blob;
+  const source = await changed(initial, entries => replace(entries, 'word/document.xml', xml => xml.replace('<w:body>', `<w:body>${fixture}`)));
+  const imported = await importDocumentDocx(source), shapes = imported.document.content.content.filter(node => node.type === 'shape');
+  assert.equal(shapes.length, 1); const attrs = shapes[0].attrs;
+  assert.equal(attrs.preset, 'bentArrow'); assert.equal(attrs.text, '審査から承認'); assert.equal(attrs.width, 240); assert.equal(attrs.height, 120);
+  assert.equal(attrs.rotation, 30); assert.equal(attrs.flipH, true); assert.equal(attrs.fill, '#19a18c'); assert.equal(attrs.stroke, '#173d50'); assert.equal(attrs.strokeWidth, 2); assert.equal(attrs.fontSize, 18); assert.equal(attrs.color, '#ffffff');
+  assert.ok(imported.warnings.some(item => item.includes('浮動配置の図形'))); assert.ok(!JSON.stringify(imported.document).includes('DO NOT DUPLICATE'));
+  const reimported = await importDocumentDocx((await exportDocumentDocx(imported.document)).blob);
+  const a = { ...reimported.document.content.content.find(node => node.type === 'shape').attrs }, b = { ...attrs }; delete a.id; delete b.id; assert.deepEqual(a, b);
+  assert.deepEqual(reimported.warnings, []);
+});
+
+test('shape adjustments and unsupported geometry explicitly warn instead of silently reporting full fidelity', async () => {
+  const source = (await exportDocumentDocx(createDocument({ content: { type: 'doc', content: [{ type: 'shape', attrs: { preset: 'bentArrow', text: 'Keeps text' } }] } }))).blob;
+  const adjusted = await changed(source, entries => replace(entries, 'word/document.xml', xml => xml.replace('<a:avLst/>', '<a:avLst><a:gd name="adj1" fmla="val 50000"/></a:avLst>').replace('<a:prstDash val="solid"/>', '<a:prstDash val="dash"/>')));
+  const imported = await importDocumentDocx(adjusted); assert.equal(imported.document.content.content[0].type, 'shape');
+  assert.ok(imported.warnings.some(item => item.includes('調整ハンドル'))); assert.ok(imported.warnings.some(item => item.includes('破線')));
+  const custom = await changed(source, entries => replace(entries, 'word/document.xml', xml => xml.replace('<a:prstGeom prst="bentArrow"><a:avLst/></a:prstGeom>', '<a:custGeom><a:avLst/><a:pathLst/></a:custGeom>')));
+  const unsupported = await importDocumentDocx(custom); assert.ok(!unsupported.document.content.content.some(node => node.type === 'shape')); assert.ok(unsupported.warnings.some(item => item.includes('自由図形')));
+});
+
+test('shape textbox tables and content controls retain their text when flattened', async () => {
+  const initial = (await exportDocumentDocx(createDocument({ content: { type: 'doc', content: [{ type: 'shape', attrs: { preset: 'rect', text: 'Placeholder' } }] } }))).blob;
+  const source = await changed(initial, entries => replace(entries, 'word/document.xml', xml => xml.replace(/<w:txbxContent>.*?<\/w:txbxContent>/, '<w:txbxContent><w:tbl><w:tr><w:tc><w:p><w:r><w:t>Customer essential details</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>¥120,000</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:sdt><w:sdtContent><w:p><w:r><w:t>Approval owner</w:t></w:r></w:p></w:sdtContent></w:sdt><w:p/></w:txbxContent>')));
+  const result = await importDocumentDocx(source), shape = result.document.content.content.find(node => node.type === 'shape');
+  assert.equal(shape.attrs.text, 'Customer essential details\n¥120,000\nApproval owner\n');
+  assert.ok(result.warnings.some(message => message.includes('通常の文字に変換')));
 });

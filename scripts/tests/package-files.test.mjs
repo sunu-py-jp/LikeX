@@ -16,7 +16,7 @@ test('skill packages contain only their explicit instructions, references and ex
 });
 
 test('standard distribution files remain valid and traversal paths never pass', () => {
-  for (const file of ['dist/index.js', 'dist/types/model-entry.d.ts', 'README.md', 'LICENSE', 'src/docs/README.md'])
+  for (const file of ['dist/index.js', 'dist/types/model-entry.d.ts', 'README.md', 'LICENSE', 'NOTICE', 'src/docs/README.md'])
     assert.equal(allowedPackageFile(file, 'spreadsheet'), true);
   for (const file of ['dist/../.env', '/dist/index.js', 'dist\\index.js', 'dist//index.js', 'src/model/types.ts'])
     assert.equal(allowedPackageFile(file, 'spreadsheet'), false);

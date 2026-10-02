@@ -108,6 +108,8 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
   const notices = ['# Dependency license notices', '',
     'Includes installed runtime dependencies and peers, including transitive dependencies. JavaScript packages remain external imports; their notices are retained here for downstream distribution.', ''];
   if (profile.generatedStyles) notices.push('The distributed styles.css includes compiled Tailwind CSS utilities and Preflight. Its MIT license is also retained in styles.css for source-copy consumers.', '');
+  const bundledNotice = path.join(packageRoot, 'NOTICE');
+  if (existsSync(bundledNotice)) notices.push('## Bundled source notices', '', await readFile(bundledNotice, 'utf8'), '');
   for (const entry of collectRuntimeNotices(packageRoot, profile.bundledDependencies)) {
     notices.push(`## ${entry.name} ${entry.version}`, '',
       profile.bundledDependencies.includes(entry.name) ? 'Bundled CSS generated at build time; consumers do not install its compiler.' : 'External runtime dependency or peer.', '',

@@ -173,3 +173,31 @@ test('HTML image parsing preserves natural aspect ratio and table width attribut
   const dom = documentSchema.nodes.table_cell.spec.toDOM(cell);
   assert.match(dom[1].style, /width:200px/); assert.match(dom[1].style, /background-color:#ffffff/);
 });
+
+test('editable preset shapes insert, query, update, serialize and delete atomically', () => {
+  const original = book(), before = serializeDocument(original);
+  const result = execute(original, { type: 'shape.insert', at: 0, preset: 'bentArrow', text: '確認\n承認', width: 240, height: 120, fill: '#abc', rotation: 25, flipH: true });
+  const shape = api.getShapes(result.document)[0];
+  assert.equal(shape.node.attrs.preset, 'bentArrow'); assert.equal(shape.node.attrs.fill, '#aabbcc');
+  assert.equal(shape.node.attrs.text, '確認\n承認'); assert.equal(shape.to - shape.from, 1);
+  assert.deepEqual(result.selection, { from: shape.from, to: shape.to });
+  assert.ok(getDocumentText(result.document).includes('確認\n承認'));
+  const updated = execute(result.document, { type: 'shape.update', id: shape.id, preset: 'uturnArrow', fill: null, stroke: null, text: '差し戻し', width: 180 }).document;
+  assert.equal(api.getShape(updated, shape.id).node.attrs.height, 120);
+  assert.equal(api.getShape(updated, shape.id).node.attrs.preset, 'uturnArrow');
+  assert.deepEqual(api.getShapes(parseDocument(serializeDocument(updated))), api.getShapes(updated));
+  assert.throws(() => execute(updated, [{ type: 'shape.update', id: shape.id, text: 'partial' }, { type: 'shape.update', id: shape.id, preset: 'inventedShape' }]), /preset/);
+  assert.equal(api.getShape(updated, shape.id).node.attrs.text, '差し戻し');
+  const removed = execute(updated, { type: 'block.delete', id: shape.id }).document;
+  assert.equal(api.getShapes(removed).length, 0); assert.equal(serializeDocument(original), before);
+  for (const patch of [{ width: 0 }, { rotation: Infinity }, { fill: 'url(https://example.invalid/image)' }, { flipH: 'true' }, { fontSize: 0 }]) assert.throws(() => execute(updated, { type: 'shape.update', id: shape.id, ...patch }));
+});
+
+test('shape clipboard attributes validate before rendering and use a new block ID', () => {
+  const parse = documentSchema.nodes.shape.spec.parseDOM[0].getAttrs;
+  const element = attrs => ({ getAttribute: () => JSON.stringify(attrs) });
+  assert.equal(parse(element({ preset: 'bentArrow', fill: 'url(https://example.invalid/x)' })), false);
+  assert.equal(parse(element({ preset: 'fake' })), false);
+  const attrs = parse(element({ id: 'old', preset: 'bentArrow', text: 'Safe' }));
+  assert.equal(attrs.preset, 'bentArrow'); assert.equal(attrs.id, undefined);
+});

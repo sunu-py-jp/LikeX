@@ -12,22 +12,25 @@ bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic', p
 const { SPREADSHEET_SHAPES, createWorkbook, applySpreadsheetCommands: apply, parseWorkbook, serializeWorkbook,
   normalizeWorkbook, createSpreadsheetSession, copySpreadsheetDrawing, prepareWorksheetDrawings, Shape, drawingLabel, shapeTextFrame } =
   await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
-const presets = {
+const legacyPresets = {
   rectangle: 'rect', roundedRectangle: 'roundRect', ellipse: 'ellipse', triangle: 'triangle', rightTriangle: 'rtTriangle',
   diamond: 'diamond', parallelogram: 'parallelogram', trapezoid: 'trapezoid', rightArrow: 'rightArrow', leftArrow: 'leftArrow',
   upArrow: 'upArrow', downArrow: 'downArrow', leftRightArrow: 'leftRightArrow', upDownArrow: 'upDownArrow', line: 'line', arrow: 'line',
 };
+const presets = { ...legacyPresets, ...Object.fromEntries(SPREADSHEET_SHAPES.filter(({ kind }) => !Object.hasOwn(legacyPresets, kind)).map(({ kind }) => [kind, kind])) };
 const sheetId = 'sheet-1';
 const insert = (shape, props = {}) => ({ type: 'shapes.insert', sheetId, shape, anchor: { row: 2, column: 1 },
   width: 180, height: 90, text: '確認済み < & >', fill: '#ffeecc', stroke: '#123456', strokeWidth: 2,
   color: '#456789', fontSize: 18, bold: true, ...props });
 const run = (book, commands, options) => { const result = apply(book, commands, options); assert.equal(result.ok, true, result.message); return result; };
 
-test('the immutable public catalog contains exactly the supported basic shapes, block arrows and lines', () => {
+test('the immutable public catalog includes legacy shapes, Office block arrows and flowcharts', () => {
   assert.deepEqual(catalogKinds(), Object.keys(presets));
   assert.ok(Object.isFrozen(SPREADSHEET_SHAPES));
-  assert.equal(SPREADSHEET_SHAPES.filter(item => item.category === 'basic').length, 8);
-  assert.equal(SPREADSHEET_SHAPES.filter(item => item.category === 'arrows').length, 6);
+  assert.ok(SPREADSHEET_SHAPES.filter(item => item.category === 'basic').length >= 13);
+  assert.ok(SPREADSHEET_SHAPES.filter(item => item.category === 'arrows').length >= 12);
+  assert.ok(SPREADSHEET_SHAPES.filter(item => item.category === 'flowchart').length >= 12);
+  for (const kind of ['bentArrow', 'bentUpArrow', 'uturnArrow', 'leftUpArrow', 'leftRightUpArrow', 'quadArrow', 'chevron', 'homePlate', 'pentagon', 'hexagon', 'octagon', 'star5', 'plus', 'flowChartProcess', 'flowChartDecision', 'flowChartTerminator', 'flowChartInputOutput', 'flowChartPredefinedProcess', 'flowChartDocument', 'flowChartMultidocument', 'flowChartPreparation', 'flowChartManualInput', 'flowChartManualOperation', 'flowChartMerge', 'flowChartDelay']) assert.ok(catalogKinds().includes(kind), kind);
   assert.equal(SPREADSHEET_SHAPES.filter(item => item.category === 'lines').length, 2);
   for (const item of SPREADSHEET_SHAPES) { assert.ok(Object.isFrozen(item)); assert.ok(item.label.length); }
 });
@@ -74,7 +77,8 @@ for (const { kind, label } of SPREADSHEET_SHAPES) {
       if (kind === 'rectangle' || kind === 'roundedRectangle') assert.match(svg, /<rect /);
       else if (kind === 'ellipse') assert.match(svg, /<ellipse /);
       else if (kind === 'line' || kind === 'arrow') assert.match(svg, /<line /);
-      else assert.match(svg, /<polygon /);
+      else if (Object.hasOwn(legacyPresets, kind)) assert.match(svg, /<polygon /);
+      else assert.match(svg, /<path /);
       if (kind === 'roundedRectangle') assert.match(svg, /rx="/);
       if (kind === 'arrow') assert.match(svg, /marker-end="url/);
     }

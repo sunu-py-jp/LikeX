@@ -103,8 +103,8 @@
     "WhiteboardTextElement_kind": {
       "enum": [
         "text",
-        "rectangle",
         "ellipse",
+        "rectangle",
         "sticky"
       ]
     },

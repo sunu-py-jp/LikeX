@@ -182,6 +182,8 @@
 ]
 ```
 
+カギ矢印は`shape: "bentArrow"`、上向きカギ矢印は`"bentUpArrow"`、Uターン矢印は`"uturnArrow"`、書類は`"flowChartDocument"`を指定する。折れ曲がった矢印を表示したいだけならブロック図形としてこれらを使い、2点と接続先を操作する線とは分ける。
+
 アンカーは `{ row, column, offsetX?, offsetY? }`。オフセットの既定は0px。画像resourceの形式、図形種別、色・寸法の契約は [schema-guide.md](schema-guide.md) を参照する。
 
 更新patchでは `id` / `type` を変えない。アンカーを指定する場合は `row` / `column` が必要で、オフセット省略は0になる。`images.update.patch.resourceId` はブック内の既存画像リソースを参照する。画像bytesを入れ替える `src` フィールドはない。

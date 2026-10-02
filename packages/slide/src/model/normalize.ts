@@ -1,3 +1,4 @@
+import { SLIDE_SHAPES } from "./shapes";
 import { CONNECTOR_ARROWHEADS } from "./core-connectors";
 import type { Slide, SlideDeck, SlideElement, SlideElementInput, SlideMasterLibrary } from "./types";
 import { SLIDE_LIMITS } from "./limits";
@@ -57,7 +58,7 @@ export function normalizeSlideElement(input: unknown): SlideElement {
     verticalAlign: choice(raw.verticalAlign, ["top", "middle", "bottom"], "縦位置"), fill: color(raw.fill, "塗りつぶし"),
   };
   else if (type === "shape") result = { ...base, type,
-    shape: choice(raw.shape, ["rect", "roundRect", "ellipse", "triangle", "diamond", "arrow", "leftArrow", "line"], "図形"),
+    shape: choice(raw.shape, [...SLIDE_SHAPES.map(item => item.shape), "line"], "図形"),
     fill: color(raw.fill, "塗りつぶし"), stroke: color(raw.stroke, "線の色"), strokeWidth: number(raw.strokeWidth, "線の太さ", 0, 100),
     text: text(raw.text, "テキスト", SLIDE_LIMITS.textLength), fontSize: number(raw.fontSize, "文字サイズ", 1, 1000),
     textColor: color(raw.textColor, "文字色"),

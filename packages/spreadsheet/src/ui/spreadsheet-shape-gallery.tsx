@@ -9,7 +9,7 @@ import { Command, Icon } from "./spreadsheet-controls";
 import { SpreadsheetDialog } from "./spreadsheet-dialog";
 
 const categories: readonly { id: SpreadsheetShapeCategory; label: string }[] = [
-  { id: "basic", label: "基本図形" }, { id: "arrows", label: "ブロック矢印" }, { id: "lines", label: "線" },
+  { id: "basic", label: "基本図形" }, { id: "arrows", label: "ブロック矢印" }, { id: "flowchart", label: "フローチャート" }, { id: "lines", label: "線" },
 ];
 
 function LinePreview({ startArrow, endArrow }: { startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead }) {

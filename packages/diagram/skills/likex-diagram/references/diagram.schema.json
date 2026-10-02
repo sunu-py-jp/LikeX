@@ -92,9 +92,9 @@
     },
     "DiagramShape": {
       "enum": [
-        "rectangle",
+        "diamond",
         "ellipse",
-        "diamond"
+        "rectangle"
       ]
     },
     "DiagramModel_edges": {

@@ -5,7 +5,7 @@ import { act, createElement } from 'react';
 import { create } from 'react-test-renderer';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-const bundled = await build({ stdin: { contents: 'export {SpreadsheetToolbar} from "./src/ui/spreadsheet-toolbar"; export {SpreadsheetNamedRangePanel,NamedRangeDialog} from "./src/ui/spreadsheet-named-ranges"; export {useSpreadsheet} from "./src/state/use-spreadsheet"; export {useNamedRangeManager} from "./src/ui/named-ranges/use-named-range-manager";',
+const bundled = await build({ stdin: { contents: 'export {SPREADSHEET_SHAPES} from "./src/model/shapes"; export {SpreadsheetToolbar} from "./src/ui/spreadsheet-toolbar"; export {SpreadsheetNamedRangePanel,NamedRangeDialog} from "./src/ui/spreadsheet-named-ranges"; export {useSpreadsheet} from "./src/state/use-spreadsheet"; export {useNamedRangeManager} from "./src/ui/named-ranges/use-named-range-manager";',
   resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'insert-test.ts' },
 bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
 plugins: [{ name: 'same-react', setup(builder) {
@@ -16,7 +16,7 @@ plugins: [{ name: 'same-react', setup(builder) {
   builder.onLoad({ filter: /.*/, namespace: 'inline-dialog' }, () => ({ contents:
     'import {createElement, Fragment} from "react"; export const SpreadsheetDialog = ({children,actions}) => createElement(Fragment,null,children,actions);', loader: 'js' }));
 } }] });
-const { SpreadsheetToolbar, SpreadsheetNamedRangePanel, NamedRangeDialog, useSpreadsheet, useNamedRangeManager } = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`);
+const { SPREADSHEET_SHAPES, SpreadsheetToolbar, SpreadsheetNamedRangePanel, NamedRangeDialog, useSpreadsheet, useNamedRangeManager } = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`);
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVZkAAAAASUVORK5CYII=', 'base64');
 const initialWorkbook = () => ({ sheets: ['one', 'two'].map(id => ({ id, name: id, cells: {}, rowCount: 10, columnCount: 5 })) });
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -94,8 +94,8 @@ test('shape gallery groups all icons and inserts a block arrow using the current
   await act(async () => hook.current.select({ row: 2, column: 3 }));
   await act(async () => hook.root.findByProps({ 'aria-label': '図形を挿入' }).props.onClick());
   const gallery = hook.root.findByProps({ className: 'lxs-shape-gallery' });
-  assert.deepEqual(gallery.findAllByType('h3').map(heading => heading.children.join('')), ['基本図形', 'ブロック矢印', '線']);
-  assert.equal(gallery.findAllByType('button').length, 18);
+  assert.deepEqual(gallery.findAllByType('h3').map(heading => heading.children.join('')), ['基本図形', 'ブロック矢印', 'フローチャート', '線']);
+  assert.equal(gallery.findAllByType('button').length, SPREADSHEET_SHAPES.length + 2);
   for (const button of gallery.findAllByType('button')) {
     assert.equal(button.findAllByType('svg').length, 1);
     assert.equal(button.props.title, button.props['aria-label']);
@@ -110,6 +110,22 @@ test('shape gallery groups all icons and inserts a block arrow using the current
   assert.equal(hook.current.activeSheet.drawings, undefined);
   await act(async () => hook.current.redo());
   assert.equal(hook.current.activeSheet.drawings[0].shape, 'leftRightArrow');
+});
+
+for (const kind of ['bentArrow', 'bentUpArrow', 'uturnArrow', 'flowChartDocument', 'flowChartDecision']) test(`${kind}: insertion gallery uses the shared command and undo path`, async t => {
+  const hook = await mount(t), info = SPREADSHEET_SHAPES.find(item => item.kind === kind);
+  assert.ok(info);
+  await act(async () => hook.current.select({ row: 1, column: 2 }));
+  await act(async () => hook.root.findByProps({ 'aria-label': '図形を挿入' }).props.onClick());
+  const button = hook.root.findByProps({ 'aria-label': info.label });
+  assert.ok(button.findAllByType('path').length);
+  await act(async () => button.props.onClick());
+  assert.equal(hook.current.activeSheet.drawings[0].shape, kind);
+  assert.deepEqual(hook.current.activeSheet.drawings[0].anchor, { row: 1, column: 2, offsetX: 0, offsetY: 0 });
+  await act(async () => hook.current.undo());
+  assert.equal(hook.current.activeSheet.drawings, undefined);
+  await act(async () => hook.current.redo());
+  assert.equal(hook.current.activeSheet.drawings[0].shape, kind);
 });
 
 test('shape gallery closes when editing becomes unavailable and does not reopen afterwards', async t => {

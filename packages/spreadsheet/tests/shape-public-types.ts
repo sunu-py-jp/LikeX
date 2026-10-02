@@ -3,7 +3,7 @@ import { SPREADSHEET_SHAPES, type SpreadsheetShapeKind, type SpreadsheetShapeInf
 import { SPREADSHEET_SHAPES as headlessShapes } from "../src/model-entry";
 
 const kinds: readonly SpreadsheetShapeKind[] = ["rectangle", "roundedRectangle", "ellipse", "triangle", "rightTriangle",
-  "diamond", "parallelogram", "trapezoid", "rightArrow", "leftArrow", "upArrow", "downArrow", "leftRightArrow", "upDownArrow", "line", "arrow"];
+  "diamond", "parallelogram", "trapezoid", "rightArrow", "leftArrow", "upArrow", "downArrow", "leftRightArrow", "upDownArrow", "line", "arrow", "bentArrow", "bentUpArrow", "uturnArrow", "quadArrow", "star5", "flowChartDocument", "flowChartDelay"];
 const infos: readonly SpreadsheetShapeInfo[] = SPREADSHEET_SHAPES;
 const category: SpreadsheetShapeCategory = infos[0].category;
 const command: SpreadsheetCommand = { type: "shapes.insert", sheetId: "sheet", shape: kinds[0], anchor: { row: 0, column: 0 }, rotation: 45 };

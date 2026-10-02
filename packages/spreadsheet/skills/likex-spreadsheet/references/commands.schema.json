@@ -2015,7 +2015,7 @@
           "type": "string"
         },
         "shape": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_shape"
+          "$ref": "#/$defs/SpreadsheetShapeKind"
         },
         "anchor": {
           "$ref": "#/$defs/SpreadsheetCommand_30_anchor"
@@ -2067,16 +2067,12 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_31_shape": {
+    "SpreadsheetShapeKind": {
       "enum": [
-        "rectangle",
-        "ellipse",
-        "line",
-        "arrow",
-        "roundedRectangle",
         "triangle",
-        "rightTriangle",
         "diamond",
+        "line",
+        "ellipse",
         "parallelogram",
         "trapezoid",
         "rightArrow",
@@ -2084,7 +2080,36 @@
         "upArrow",
         "downArrow",
         "leftRightArrow",
-        "upDownArrow"
+        "upDownArrow",
+        "bentArrow",
+        "bentUpArrow",
+        "uturnArrow",
+        "leftUpArrow",
+        "leftRightUpArrow",
+        "quadArrow",
+        "chevron",
+        "homePlate",
+        "pentagon",
+        "hexagon",
+        "octagon",
+        "star5",
+        "plus",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartInputOutput",
+        "flowChartPredefinedProcess",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartPreparation",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "flowChartDelay",
+        "rectangle",
+        "arrow",
+        "roundedRectangle",
+        "rightTriangle"
       ]
     },
     "SpreadsheetCommand_32": {
@@ -2303,14 +2328,6 @@
         "height": {
           "type": "number"
         },
-        "shape": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_shape"
-        },
-        "strokeWidth": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 100
-        },
         "rotation": {
           "type": "number",
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
@@ -2324,6 +2341,14 @@
         },
         "stroke": {
           "type": "string"
+        },
+        "shape": {
+          "$ref": "#/$defs/SpreadsheetShapeKind"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
         },
         "startArrow": {
           "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow",
@@ -2342,9 +2367,9 @@
         "type",
         "id",
         "height",
+        "stroke",
         "shape",
         "strokeWidth",
-        "stroke",
         "anchor"
       ],
       "additionalProperties": false
@@ -2436,8 +2461,8 @@
       "enum": [
         "none",
         "triangle",
-        "diamond",
         "openArrow",
+        "diamond",
         "oval",
         "stealth"
       ]
@@ -2795,14 +2820,6 @@
         "height": {
           "type": "number"
         },
-        "shape": {
-          "$ref": "#/$defs/SpreadsheetCommand_38_patch_shape"
-        },
-        "strokeWidth": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 100
-        },
         "rotation": {
           "type": "number",
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
@@ -2816,6 +2833,14 @@
         },
         "stroke": {
           "type": "string"
+        },
+        "shape": {
+          "$ref": "#/$defs/SpreadsheetCommand_38_patch_shape"
+        },
+        "strokeWidth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
         },
         "startArrow": {
           "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow",
@@ -2903,14 +2928,10 @@
     },
     "SpreadsheetCommand_38_patch_shape": {
       "enum": [
-        "rectangle",
-        "ellipse",
-        "line",
-        "arrow",
-        "roundedRectangle",
         "triangle",
-        "rightTriangle",
         "diamond",
+        "line",
+        "ellipse",
         "parallelogram",
         "trapezoid",
         "rightArrow",
@@ -2918,7 +2939,36 @@
         "upArrow",
         "downArrow",
         "leftRightArrow",
-        "upDownArrow"
+        "upDownArrow",
+        "bentArrow",
+        "bentUpArrow",
+        "uturnArrow",
+        "leftUpArrow",
+        "leftRightUpArrow",
+        "quadArrow",
+        "chevron",
+        "homePlate",
+        "pentagon",
+        "hexagon",
+        "octagon",
+        "star5",
+        "plus",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartInputOutput",
+        "flowChartPredefinedProcess",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartPreparation",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "flowChartDelay",
+        "rectangle",
+        "arrow",
+        "roundedRectangle",
+        "rightTriangle"
       ]
     },
     "SpreadsheetCommand_39": {

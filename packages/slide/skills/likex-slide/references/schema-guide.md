@@ -91,7 +91,7 @@ IDは空白を含まない1〜200文字。スライドIDは資料内で一意、
 
 テキストの `align` は `left` / `center` / `right`、`verticalAlign` は `top` / `middle` / `bottom`。`fontSize` は1〜1,000px。フォントは文字列（200文字以内）で、文字・数字・空白・`,`・`.`・`'`・`_`・`-` を使える。`fontFamily` を指定してもフォントのファイル自体は埋め込まれない。
 
-図形の `shape` は `rect`, `roundRect`, `ellipse`, `triangle`, `diamond`, `arrow`, `leftArrow`, `line`。Spreadsheetの `rectangle` / `roundedRectangle` とは異なる。`strokeWidth` は0〜100px。図形文字の色は `textColor` であり、テキスト要素の `color` ではない。図形に `bold` / `italic` / `fontFamily` を追加する契約はない。
+図形の `shape` は基本図形 `rect`, `roundRect`, `ellipse`, `triangle`, `diamond`, `arrow`, `leftArrow` とOfficeプリセット、多角形・フロー図形、`line`。カギ矢印は `bentArrow`、Uターンは `uturnArrow`。全種類は生成Schemaのenumと公開 `SLIDE_SHAPES` を参照する。Spreadsheetの `rectangle` / `roundedRectangle` とは異なる。`strokeWidth` は0〜100px。図形文字の色は `textColor` であり、テキスト要素の `color` ではない。図形に `bold` / `italic` / `fontFamily` を追加する契約はない。
 
 色はsRGBの `#RGB` / `#RGBA` / `#RRGGBB` / `#RRGGBBAA`、または `transparent`。短い16進表記は展開され、小文字へ正規化される。CSS変数や任意の色名、gradient、URLを入れない。
 

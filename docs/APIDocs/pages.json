@@ -2778,6 +2778,11 @@
         "id": "マスターとレイアウトのapi",
         "title": "マスターとレイアウトのAPI",
         "depth": 2
+      },
+      {
+        "id": "officeの図形プリセット",
+        "title": "Officeの図形プリセット",
+        "depth": 2
       }
     ]
   },
@@ -3002,6 +3007,11 @@
         "id": "読み込みの上限",
         "title": "読み込みの上限",
         "depth": 2
+      },
+      {
+        "id": "図形プリセットの交換",
+        "title": "図形プリセットの交換",
+        "depth": 2
       }
     ]
   },
@@ -3111,6 +3121,11 @@
         "depth": 2
       },
       {
+        "id": "図形",
+        "title": "図形",
+        "depth": 2
+      },
+      {
         "id": "本文画像をドラッグで移動する",
         "title": "本文・画像をドラッグで移動する",
         "depth": 2
@@ -3163,6 +3178,11 @@
       {
         "id": "表示中の文書を操作する",
         "title": "表示中の文書を操作する",
+        "depth": 2
+      },
+      {
+        "id": "officeプリセット図形",
+        "title": "Officeプリセット図形",
         "depth": 2
       }
     ]
@@ -4521,5 +4541,25 @@
         "depth": 2
       }
     ]
+  },
+  {
+    "id": "core/office-shapes",
+    "title": "Office標準図形",
+    "component": "core",
+    "output": "core/office-shapes/index.html",
+    "sources": [
+      "packages/core/docs/office-shapes.md"
+    ],
+    "keywords": [
+      "OfficeShapePreset",
+      "OFFICE_SHAPE_PRESETS",
+      "getOfficeShapeGeometry",
+      "getOfficeShapeOutline",
+      "カギ矢印",
+      "Uターン矢印",
+      "フローチャート",
+      "DrawingML"
+    ],
+    "headings": []
   }
 ]

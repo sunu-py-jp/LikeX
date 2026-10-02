@@ -77,6 +77,7 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 - 保存ファイルでは要素に `stackOrder` が必要で、配列は位置順。APIの要素配列は背面から前面への描画順で、`stackOrder` は持たない。`parseSlideDeck` → `applySlideCommands` → `serializeSlideDeck` の境界を維持する。
 - `version: 1` でも `stackOrder` がない旧ファイルは現行SLONではない。旧形式やversion 2を黙って変換しない。
 - 座標・寸法は96dpiのピクセル、角度は時計回りの度数。`deck.resize` はキャンバスサイズを変え、要素を自動拡縮しない。
+- Officeのカギ矢印は `shape: "bentArrow"`、Uターンは `uturnArrow`。多角形・フローチャートの図形名は [コマンド](references/commands.md) と生成Schemaを参照し、未知の名前を推測しない。PPTXでは画像化せず図形として交換する。Officeの個別の形状調整値は標準値へ戻して診断する。
 - 直線は `line.add` の `start/end` で2点を指定し、`line.update` で編集する。端点に `binding: { targetId, port }` を付けると同じページの非線要素の8接続点へ追従する。portは `top/topRight/right/bottomRight/bottom/bottomLeft/left/topLeft`。`startArrow/endArrow` は `none/triangle/openArrow/diamond/oval/stealth`。旧 `element.connect` / `createSlideConnector` は削除済み。面を持つ `shape: "arrow"` と区別する。
 - 1バッチは最大1,000コマンドで、途中の失敗は全体の失敗。公開APIの戻り値の `slideId` / `elementIds` は**最後のコマンド**の情報。CLIはこのメタデータを返さないため、適用後のinspectを使う。
 - ロックされた要素の変更には、先に `element.update` で `{ "locked": false }` を指定する。IDと要素の `type` は更新しない。

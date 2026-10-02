@@ -121,3 +121,16 @@
 @media(prefers-reduced-motion:reduce) { .lxd-spin { animation-duration:2.5s; }.lxd-document-viewport { scroll-behavior:auto; } }
 
 .lxd-editor.lxd-is-dragging img.ProseMirror-selectednode { opacity:.55; }
+
+/* Office preset shapes remain editable document blocks. */
+.lxd-root .lxd-shape { position: relative; margin: 12px 0; user-select: none; }
+.lxd-root .lxd-shape-content { position: absolute; inset: 0; transform-origin: center; }
+.lxd-root .lxd-shape svg { position: absolute; inset: 0; overflow: visible; }
+.lxd-root .lxd-shape-text { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; white-space: pre-wrap; overflow: hidden; overflow-wrap: anywhere; line-height: 1.2; }
+.lxd-root .lxd-shape-gallery summary { cursor: pointer; padding: 10px; }
+.lxd-root .lxd-shape-options { position: fixed; z-index: 50; max-height: min(460px, 60vh); width: 390px; max-width: 90vw; overflow: auto; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--lxd-panel, #fff); color: var(--lxd-foreground, #222); border: 1px solid #aab4c0; box-shadow: 0 6px 20px #0002; padding: 8px; }
+.lxd-root .lxd-shape-options button { display: flex; align-items: center; gap: 6px; padding: 7px; font-size: 11px; background: transparent; color: inherit; border: 0; text-align: left; }
+.lxd-root .lxd-shape-options button:hover { background: #527fa822; }
+.lxd-root .lxd-shape-options svg { flex: 0 0 auto; }
+.lxd-root .lxd-shape-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.lxd-root .lxd-dialog textarea { width: 100%; min-height: 64px; resize: vertical; }

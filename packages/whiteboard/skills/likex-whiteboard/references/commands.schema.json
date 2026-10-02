@@ -104,8 +104,8 @@
     "WhiteboardElementInput_1_kind": {
       "enum": [
         "text",
-        "rectangle",
         "ellipse",
+        "rectangle",
         "sticky"
       ]
     },
@@ -178,13 +178,13 @@
         "width": {
           "type": "number"
         },
-        "height": {
-          "type": "number"
-        },
         "x": {
           "type": "number"
         },
         "y": {
+          "type": "number"
+        },
+        "height": {
           "type": "number"
         },
         "stroke": {
@@ -435,8 +435,8 @@
     "WhiteboardTextElement_kind": {
       "enum": [
         "text",
-        "rectangle",
         "ellipse",
+        "rectangle",
         "sticky"
       ]
     },

@@ -3,8 +3,9 @@ export const R = "http://schemas.openxmlformats.org/officeDocument/2006/relation
 export const A = "http://schemas.openxmlformats.org/drawingml/2006/main";
 export const WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
 export const PIC = "http://schemas.openxmlformats.org/drawingml/2006/picture";
+export const WPS = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape";
 export const header = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
-export const namespaces = `xmlns:w="${W}" xmlns:r="${R}" xmlns:a="${A}" xmlns:wp="${WP}" xmlns:pic="${PIC}"`;
+export const namespaces = `xmlns:w="${W}" xmlns:r="${R}" xmlns:a="${A}" xmlns:wp="${WP}" xmlns:pic="${PIC}" xmlns:wps="${WPS}"`;
 export const xml = (value: string): string => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;").replace(/\r/g, "&#13;");
 export const twips = (mm: number): number => Math.round(mm * 1440 / 25.4);
 export const millimetres = (value: string | undefined, fallback: number): number => value !== undefined && Number.isFinite(Number(value)) ? Number(value) * 25.4 / 1440 : fallback;

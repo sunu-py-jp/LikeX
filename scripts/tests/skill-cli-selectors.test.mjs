@@ -66,7 +66,7 @@ test.before(async () => {
     await writeFile(path.join(installed, 'package.json'), JSON.stringify({ name: metadata.name, version: metadata.version, type: 'module', exports: { './model': './model.mjs', './package.json': './package.json' } }));
     await writeFile(script, await generatedSkillScript(kind));
     await build({ entryPoints: [path.join(repo, `packages/${kind}/src/model-entry.ts`)], outfile: path.join(installed, 'model.mjs'), bundle: true, format: 'esm', platform: 'node', target: 'es2022', alias: {
-      '@likex/core/connectors': path.join(repo, 'packages/core/src/connectors.ts'), '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'), '@likex/core/ooxml': path.join(repo, 'packages/core/src/ooxml.ts'), '@likex/core': path.join(repo, 'packages/core/src/index.ts'),
+      '@likex/core/office-shapes': path.join(repo, 'packages/core/src/office-shapes.ts'), '@likex/core/connectors': path.join(repo, 'packages/core/src/connectors.ts'), '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'), '@likex/core/ooxml': path.join(repo, 'packages/core/src/ooxml.ts'), '@likex/core': path.join(repo, 'packages/core/src/index.ts'),
     } });
     const model = await import(pathToFileURL(path.join(installed, 'model.mjs')).href);
     const suffix = { board: 'Board', dataview: 'DataView', diagram: 'Diagram', whiteboard: 'Whiteboard', calendar: 'Calendar', aichat: 'AIChat', chat: 'Chat', form: 'Form' }[kind];

@@ -51,13 +51,20 @@
 | ブロック矢印 | 下向き | `downArrow` |
 | ブロック矢印 | 左右 | `leftRightArrow` |
 | ブロック矢印 | 上下 | `upDownArrow` |
+| ブロック矢印 | カギ矢印・上向きカギ矢印・Uターン矢印 | `bentArrow`, `bentUpArrow`, `uturnArrow` |
+| ブロック矢印 | 左上・左右上・上下左右矢印 | `leftUpArrow`, `leftRightUpArrow`, `quadArrow` |
+| ブロック矢印 | 山形・ホームベース | `chevron`, `homePlate` |
+| 基本図形 | 五角形・六角形・八角形・星・十字 | `pentagon`, `hexagon`, `octagon`, `star5`, `plus` |
+| フローチャート | 処理・判断・端子・データ | `flowChartProcess`, `flowChartDecision`, `flowChartTerminator`, `flowChartInputOutput` |
+| フローチャート | 定義済み処理・書類・複数書類 | `flowChartPredefinedProcess`, `flowChartDocument`, `flowChartMultidocument` |
+| フローチャート | 準備・手動入力・手作業・合流・待機 | `flowChartPreparation`, `flowChartManualInput`, `flowChartManualOperation`, `flowChartMerge`, `flowChartDelay` |
 
 `SpreadsheetShapeKind` は上記の文字列のunion型です。`SPREADSHEET_SHAPES` は `kind`・`label`・`category` を持つ一覧で、利用側の選択UIにも使えます。どちらも通常の入口と `@likex/spreadsheet/model` から公開しています。
 
 ```ts
 import { applySpreadsheetCommands, type SpreadsheetShapeKind } from "@likex/spreadsheet/model";
 
-const shape: SpreadsheetShapeKind = "rightArrow";
+const shape: SpreadsheetShapeKind = "bentArrow";
 const result = applySpreadsheetCommands(workbook, [{
   type: "shapes.insert", sheetId, shape,
   anchor: { row: 2, column: 1 }, width: 220, height: 100,
@@ -65,7 +72,9 @@ const result = applySpreadsheetCommands(workbook, [{
 }]);
 ```
 
-図形の文字・反転・回転・コピー・保存は全種類で共通です。Excel出力でも画像に変換せず、編集できる図形として出力します。既存の `arrow` は斜めの線の矢印を維持し、塗りのある矢印には `rightArrow` などを使います。
+図形の文字・反転・回転・コピー・保存は全種類で共通です。Excel出力でも画像に変換せず、編集できる図形として出力します。カギ矢印は塗りを持つブロック図形です。2点で編集する接続線とは別で、回転・反転・幅・高さで調整します。既存の `arrow` は斜めの線の矢印を維持し、塗りのある矢印には `rightArrow` などを使います。
+
+Excelの標準 `a:prstGeom` から追加図形も編集可能な形で取り込み、標準プリセットで書き出します。追加プリセットの表示枠は線幅を含み、Officeの線の中心を基準にした枠と相互変換するため、繰り返し入出力してもサイズが縮みません。接続先の図形は8つの接続点を持つDrawingMLのカスタム形状で外形と接続を維持します。Officeの黄色い調整ハンドルによる個別の変形は保存対象外で、新規プリセットに調整値がある場合は警告を返して標準形状へ戻します。未対応の自由曲線・独自形状・グループは警告して省略します。図形追加は保存バージョン1の任意識別子の拡張で、既存の識別子は変更しません。旧版では追加図形を読めないため、該当ブックを扱う利用側は本対応版へ更新してください。
 
 ## 保存データの構成
 

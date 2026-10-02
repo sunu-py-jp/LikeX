@@ -123,6 +123,9 @@
           "$ref": "#/$defs/DocumentImageNode"
         },
         {
+          "$ref": "#/$defs/DocumentShapeNode"
+        },
+        {
           "$ref": "#/$defs/DocumentPageBreakNode"
         }
       ]
@@ -633,6 +636,116 @@
         "src"
       ],
       "additionalProperties": false
+    },
+    "DocumentShapeNode": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "shape"
+        },
+        "attrs": {
+          "$ref": "#/$defs/DocumentShapeAttributes"
+        }
+      },
+      "required": [
+        "type",
+        "attrs"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentShapeAttributes": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/DocumentParagraphNode_attrs_id"
+        },
+        "preset": {
+          "$ref": "#/$defs/DocumentShapeAttributes_preset"
+        },
+        "text": {
+          "type": "string"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "fill": {
+          "$ref": "#/$defs/DocumentParagraphNode_attrs_id"
+        },
+        "stroke": {
+          "$ref": "#/$defs/DocumentParagraphNode_attrs_id"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "flipH": {
+          "$ref": "#/$defs/DocumentShapeAttributes_flipH"
+        },
+        "flipV": {
+          "$ref": "#/$defs/DocumentShapeAttributes_flipH"
+        },
+        "color": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "preset"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentShapeAttributes_preset": {
+      "enum": [
+        "triangle",
+        "diamond",
+        "ellipse",
+        "rect",
+        "roundRect",
+        "rtTriangle",
+        "parallelogram",
+        "trapezoid",
+        "rightArrow",
+        "leftArrow",
+        "upArrow",
+        "downArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "bentArrow",
+        "bentUpArrow",
+        "uturnArrow",
+        "leftUpArrow",
+        "leftRightUpArrow",
+        "quadArrow",
+        "chevron",
+        "homePlate",
+        "pentagon",
+        "hexagon",
+        "octagon",
+        "star5",
+        "plus",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartInputOutput",
+        "flowChartPredefinedProcess",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartPreparation",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "flowChartDelay"
+      ]
+    },
+    "DocumentShapeAttributes_flipH": {
+      "type": "boolean"
     },
     "DocumentPageBreakNode": {
       "type": "object",

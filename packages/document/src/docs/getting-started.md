@@ -22,7 +22,7 @@ const document = createDocument({ title: "企画書" });
 
 ## ソースをコピーする
 
-`packages/document/src/` を `components/document/`、`packages/core/src/` を `components/core/` に配置します。`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/` も残します。Document側の4つのアダプターを変更してください。
+`packages/document/src/` を `components/document/`、`packages/core/src/` を `components/core/` に配置します。`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/` も残します。Document側の5つのアダプターを変更してください。
 
 ```ts
 // components/document/core.ts
@@ -34,6 +34,8 @@ export * from "../core/ooxml";
 // components/document/browser.ts
 export { openContextMenu } from "../core/browser";
 export type { ContextMenuAction } from "../core/browser";
+// components/document/model/core-office-shapes.ts
+export * from "../../core/office-shapes";
 ```
 
 利用先にはReact / React DOMに加え、コピー元の `package.json` と同じProseMirror・lucide-react依存を導入します。

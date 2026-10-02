@@ -1,4 +1,5 @@
 import { CONNECTOR_PORTS, connectorLocalToWorld, getConnectorPortPoint, type ConnectorBox, type ConnectorEndpoint, type ConnectorPoint, type ConnectorOutline } from "./core-connectors";
+import { getOfficeShapeOutline } from "./core-office-shapes";
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "./sheet-dimensions";
 import { getShapeDefinition, shapeBodyFrame } from "./shapes";
 import type { SpreadsheetDrawing, SpreadsheetDrawingAnchor, SpreadsheetLine, SpreadsheetLinePoints, SpreadsheetSheet, SpreadsheetShapeDrawing, SpreadsheetStoredLineEndpoint } from "./types";
@@ -34,6 +35,10 @@ export function spreadsheetDrawingBox(sheet: SpreadsheetSheet, drawing: Spreadsh
 export function spreadsheetDrawingOutline(drawing: SpreadsheetDrawing): ConnectorOutline | undefined {
   if (drawing.type !== "shape" || isSpreadsheetLine(drawing)) return;
   const geometry = getShapeDefinition(drawing.shape).geometry;
+  if (geometry.type === "office") {
+    const frame = shapeBodyFrame(drawing.shape, drawing.width, drawing.height, drawing.strokeWidth);
+    return getOfficeShapeOutline(geometry.preset, frame.width, frame.height);
+  }
   if (geometry.type === "ellipse") return { type: "ellipse" };
   if (geometry.type === "polygon") return { type: "polygon", points: geometry.points.map(([x, y]) => ({ x, y })) };
   if (geometry.type === "rectangle" && geometry.rounded) {

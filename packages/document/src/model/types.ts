@@ -1,3 +1,4 @@
+import type { OfficeShapePreset } from "./core-office-shapes";
 /** Standard .dcon files contain this JSON model; measurements use mm, except image pixels and font points. */
 export type DocumentAlignment = "left" | "center" | "right" | "justify";
 export type DocumentPage = {
@@ -43,8 +44,15 @@ export type DocumentImageNode = {
   type: "image";
   attrs: { id?: string | null; src: string; alt?: string; width?: number; height?: number };
 };
+/** Editable Office preset shape. Dimensions and stroke width use pixels; rotation uses degrees. */
+export type DocumentShapeAttributes = {
+  id?: string | null; preset: OfficeShapePreset; text?: string; width?: number; height?: number;
+  fill?: string | null; stroke?: string | null; strokeWidth?: number; rotation?: number;
+  flipH?: boolean; flipV?: boolean; color?: string; fontSize?: number;
+};
+export type DocumentShapeNode = { type: "shape"; attrs: DocumentShapeAttributes };
 export type DocumentPageBreakNode = { type: "page_break"; attrs?: { id?: string | null } };
-export type DocumentBlock = DocumentParagraphNode | DocumentHeadingNode | DocumentListNode | DocumentTableNode | DocumentImageNode | DocumentPageBreakNode;
+export type DocumentBlock = DocumentParagraphNode | DocumentHeadingNode | DocumentListNode | DocumentTableNode | DocumentImageNode | DocumentShapeNode | DocumentPageBreakNode;
 export type DocumentRootNode = { type: "doc"; content: DocumentBlock[] };
 export type DocumentNode = DocumentRootNode | DocumentBlock | DocumentListItemNode | DocumentTableRowNode | DocumentTableCellNode | DocumentInlineNode;
 export type DocumentModel = {
@@ -69,6 +77,8 @@ export type DocumentCommand =
   | { type: "table.insert"; at: number; rows: number; columns: number; header?: boolean }
   | { type: "image.insert"; at: number; src: string; alt?: string; width?: number; height?: number }
   | { type: "image.update"; id: string; src?: string; alt?: string; width?: number; height?: number }
+  | ({ type: "shape.insert"; at: number } & Omit<DocumentShapeAttributes, "id">)
+  | ({ type: "shape.update"; id: string } & Partial<Omit<DocumentShapeAttributes, "id">>)
   | { type: "pageBreak.insert"; at: number }
   | { type: "block.delete"; id: string }
   | { type: "document.update"; title?: string; page?: Omit<Partial<DocumentPage>, "margins"> & { margins?: Partial<DocumentPage["margins"]> } }

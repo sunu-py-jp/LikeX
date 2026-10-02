@@ -81,3 +81,7 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 XLSXとの変換を明示的に求められた場合は、`/model` の `importSpreadsheetXlsx`／`exportSpreadsheetXlsx` を使える。NodeではPNG／通常のJPEGはそのまま出力でき、WebP／GIFやEXIFの補正が必要な画像は `SpreadsheetXlsxExportOptions.rasterizeImage`（`SpreadsheetImageRasterizer`）を注入する。[Excel出力ガイド](../../src/docs/excel-export.md)で対応範囲と画像変換を確認する。CLIの `create/apply/inspect/validate` はネイティブSPON操作のまま使う。
 
 シートの右クリックによる名前変更は `sheets.rename`、描画の複製は `copySpreadsheetDrawing` と `drawings.paste`、反転・回転リセットは描画型の更新コマンドと同じ操作です。保存形式の追加はありません。GUIの対象と機能制御は [右クリックメニュー](../../src/docs/context-menu.md) を参照してください。
+
+### Office図形の挿入
+
+`shapes.insert`の`shape: "bentArrow"`でカギ矢印、`"uturnArrow"`でUターン矢印、`"flowChartDocument"`で書類を挿入できる。基本図形・ブロック矢印・フローチャートの一覧は`references/schema-guide.md`を参照する。矢印ブロックは塗り付きの図形で、線を引く場合は`lines.insert`と両端の矢印設定を使う。GUIとモデルAPIは同じ種類を受け付け、XLSXは編集可能なDrawingML図形として保存する。Office側の個別調整値は警告付きで標準形状へ近似する。

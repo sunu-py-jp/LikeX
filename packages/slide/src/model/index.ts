@@ -14,3 +14,5 @@ export type { SlideTextMeasureStyle, SlideTextMeasure, SlideTextLayout, SlideLay
 export { isSlideLine, getSlideLineEndpoints, getSlideConnectorOutline } from "./lines";
 export { getSlideMasters, getSlideLayouts, getSlideLayout, resolveSlideAppearance } from "./layouts";
 export { createSlideSvgSource } from "./svg-source";
+
+export { SLIDE_SHAPES, getSlideOfficeShapePreset, getSlideShapeTextRect } from "./shapes";

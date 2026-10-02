@@ -32,4 +32,6 @@ export type { DragPoint, DragBounds, DragScrollOptions } from "./drag";
 export { CONNECTOR_PORTS, CONNECTOR_ARROWHEADS, isConnectorPort, isConnectorArrowhead, getConnectorPortPoint, getConnectorPortPoints, findNearestConnectorPort,
   getConnectorBounds, connectorLocalToWorld, connectorWorldToLocal } from "./connectors";
 export type { ConnectorPoint, ConnectorPort, ConnectorArrowhead, ConnectorBinding, ConnectorEndpoint, ConnectorBox, ConnectorOutline,
-  ConnectorPortPoint, ConnectorTarget, ConnectorSnap } from "./connectors";
+  ConnectorPortPoint, ConnectorTarget, ConnectorSnap, ConnectorPath, ConnectorPathCommand } from "./connectors";
+export { OFFICE_SHAPE_PRESETS, isOfficeShapePreset, getOfficeShapeGeometry, getOfficeShapeOutline } from "./office-shapes";
+export type { OfficeShapePreset, OfficeShapeCategory, OfficeShapeGeometry } from "./office-shapes";

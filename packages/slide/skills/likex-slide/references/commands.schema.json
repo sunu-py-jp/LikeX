@@ -402,14 +402,46 @@
     },
     "SlideShapeKind": {
       "enum": [
-        "ellipse",
-        "line",
-        "rect",
-        "arrow",
-        "roundRect",
         "triangle",
         "diamond",
-        "leftArrow"
+        "line",
+        "ellipse",
+        "rect",
+        "roundRect",
+        "rtTriangle",
+        "parallelogram",
+        "trapezoid",
+        "leftArrow",
+        "upArrow",
+        "downArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "bentArrow",
+        "bentUpArrow",
+        "uturnArrow",
+        "leftUpArrow",
+        "leftRightUpArrow",
+        "quadArrow",
+        "chevron",
+        "homePlate",
+        "pentagon",
+        "hexagon",
+        "octagon",
+        "star5",
+        "plus",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartInputOutput",
+        "flowChartPredefinedProcess",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartPreparation",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "flowChartDelay",
+        "arrow"
       ]
     },
     "SlideLineGeometry": {
@@ -479,8 +511,8 @@
       "enum": [
         "none",
         "triangle",
-        "diamond",
         "openArrow",
+        "diamond",
         "oval",
         "stealth"
       ]
@@ -851,13 +883,13 @@
         "width": {
           "type": "number"
         },
-        "height": {
-          "type": "number"
-        },
         "x": {
           "type": "number"
         },
         "y": {
+          "type": "number"
+        },
+        "height": {
           "type": "number"
         },
         "rotation": {
@@ -1107,13 +1139,13 @@
         "name": {
           "type": "string"
         },
-        "height": {
-          "type": "number"
-        },
         "x": {
           "type": "number"
         },
         "y": {
+          "type": "number"
+        },
+        "height": {
           "type": "number"
         },
         "rotation": {
@@ -1181,8 +1213,20 @@
           "$ref": "#/$defs/SlideLineGeometry",
           "description": "Only shape:line. Absolute document coordinates; bound points follow their target."
         },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
         "height": {
           "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "stroke": {
+          "type": "string"
         },
         "shape": {
           "$ref": "#/$defs/SlideElementInput_2_shape"
@@ -1191,18 +1235,6 @@
           "type": "number",
           "minimum": 0,
           "maximum": 100
-        },
-        "x": {
-          "type": "number"
-        },
-        "y": {
-          "type": "number"
-        },
-        "rotation": {
-          "type": "number"
-        },
-        "stroke": {
-          "type": "string"
         },
         "startArrow": {
           "$ref": "#/$defs/SlideShapeElement_startArrow",
@@ -1234,14 +1266,46 @@
     },
     "SlideElementInput_2_shape": {
       "enum": [
-        "ellipse",
-        "line",
-        "rect",
-        "arrow",
-        "roundRect",
         "triangle",
         "diamond",
-        "leftArrow"
+        "line",
+        "ellipse",
+        "rect",
+        "roundRect",
+        "rtTriangle",
+        "parallelogram",
+        "trapezoid",
+        "leftArrow",
+        "upArrow",
+        "downArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "bentArrow",
+        "bentUpArrow",
+        "uturnArrow",
+        "leftUpArrow",
+        "leftRightUpArrow",
+        "quadArrow",
+        "chevron",
+        "homePlate",
+        "pentagon",
+        "hexagon",
+        "octagon",
+        "star5",
+        "plus",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartInputOutput",
+        "flowChartPredefinedProcess",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartPreparation",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "flowChartDelay",
+        "arrow"
       ]
     },
     "SlideElementInput_3": {
@@ -1262,13 +1326,13 @@
         "name": {
           "type": "string"
         },
-        "height": {
-          "type": "number"
-        },
         "x": {
           "type": "number"
         },
         "y": {
+          "type": "number"
+        },
+        "height": {
           "type": "number"
         },
         "rotation": {
@@ -1505,13 +1569,13 @@
         "name": {
           "type": "string"
         },
-        "height": {
-          "type": "number"
-        },
         "x": {
           "type": "number"
         },
         "y": {
+          "type": "number"
+        },
+        "height": {
           "type": "number"
         },
         "rotation": {
@@ -1556,8 +1620,20 @@
           "$ref": "#/$defs/SlideLineGeometry",
           "description": "Only shape:line. Absolute document coordinates; bound points follow their target."
         },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
         "height": {
           "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "stroke": {
+          "type": "string"
         },
         "shape": {
           "$ref": "#/$defs/SlideElementInput_2_shape"
@@ -1566,18 +1642,6 @@
           "type": "number",
           "minimum": 0,
           "maximum": 100
-        },
-        "x": {
-          "type": "number"
-        },
-        "y": {
-          "type": "number"
-        },
-        "rotation": {
-          "type": "number"
-        },
-        "stroke": {
-          "type": "string"
         },
         "startArrow": {
           "$ref": "#/$defs/SlideShapeElement_startArrow",
@@ -1613,13 +1677,13 @@
         "name": {
           "type": "string"
         },
-        "height": {
-          "type": "number"
-        },
         "x": {
           "type": "number"
         },
         "y": {
+          "type": "number"
+        },
+        "height": {
           "type": "number"
         },
         "rotation": {

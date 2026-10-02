@@ -6,6 +6,7 @@ import { exportPptxAnimations } from "./pptx-animations";
 import { OFFICE_PACKAGE_LIMITS } from "../ooxml";
 import { createPptxDiagnosticCollector } from "../office/pptx-diagnostics";
 import { SLIDE_LIMITS } from "../model/limits";
+import { SHAPE_TEXT_STYLE } from "../model/text-layout";
 import { slideElementTextLength, slideTextLength } from "../model/text-length";
 import { createOfficeTaskCheckpoint } from "../office/cooperative-task";
 import { isSlideLine } from "../model/lines";
@@ -25,7 +26,9 @@ function textBody(element: Exclude<SlideElement, { type: "image" }>): string {
   const face = isText ? element.fontFamily.split(",")[0].trim().replace(/^['"]|['"]$/g, "") : "Arial", align = isText ? ({ left: "l", center: "ctr", right: "r" } as const)[element.align] : "ctr";
   const anchor = isText ? ({ top: "t", middle: "ctr", bottom: "b" } as const)[element.verticalAlign] : "ctr";
   const run = `<a:rPr lang="ja-JP" sz="${size}" b="${isText && element.bold ? 1 : 0}" i="${isText && element.italic ? 1 : 0}">${fill(color, element.opacity)}<a:latin typeface="${xml(face)}"/><a:ea typeface="${xml(face)}"/></a:rPr>`;
-  return `<p:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="${anchor}"/><a:lstStyle/>${element.text.split("\n").map(line => `<a:p><a:pPr algn="${align}"/><a:r>${run}<a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr lang="ja-JP" sz="${size}"/></a:p>`).join("")}</p:txBody>`;
+  const officeTextRegion = element.type === "shape" && !["rect", "roundRect", "ellipse", "triangle", "diamond", "arrow", "leftArrow", "line"].includes(element.shape);
+  const insetX = officeTextRegion ? emu(SHAPE_TEXT_STYLE.paddingX) : 0, insetY = officeTextRegion ? emu(SHAPE_TEXT_STYLE.paddingY) : 0;
+  return `<p:txBody><a:bodyPr wrap="square" lIns="${insetX}" tIns="${insetY}" rIns="${insetX}" bIns="${insetY}" anchor="${anchor}"/><a:lstStyle/>${element.text.split("\n").map(line => `<a:p><a:pPr algn="${align}"/><a:r>${run}<a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr lang="ja-JP" sz="${size}"/></a:p>`).join("")}</p:txBody>`;
 }
 function elementXml(element: SlideElement, id: number, shapeIds: ReadonlyMap<string, number>, connectorTargets: ReadonlySet<string>, imageId?: string, placeholder?: PptxPlaceholder, svgId?: string): string {
   const nvPr = placeholder ? `<p:nvPr><p:ph type="${xml(placeholder.kind)}" idx="${placeholder.index}"/></p:nvPr>` : "<p:nvPr/>";

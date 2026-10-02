@@ -272,13 +272,13 @@
         "width": {
           "type": "number"
         },
-        "height": {
-          "type": "number"
-        },
         "x": {
           "type": "number"
         },
         "y": {
+          "type": "number"
+        },
+        "height": {
           "type": "number"
         },
         "rotation": {
@@ -545,14 +545,46 @@
     },
     "SlideShapeKind": {
       "enum": [
-        "ellipse",
-        "line",
-        "rect",
-        "arrow",
-        "roundRect",
         "triangle",
         "diamond",
-        "leftArrow"
+        "line",
+        "ellipse",
+        "rect",
+        "roundRect",
+        "rtTriangle",
+        "parallelogram",
+        "trapezoid",
+        "leftArrow",
+        "upArrow",
+        "downArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "bentArrow",
+        "bentUpArrow",
+        "uturnArrow",
+        "leftUpArrow",
+        "leftRightUpArrow",
+        "quadArrow",
+        "chevron",
+        "homePlate",
+        "pentagon",
+        "hexagon",
+        "octagon",
+        "star5",
+        "plus",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartInputOutput",
+        "flowChartPredefinedProcess",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartPreparation",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "flowChartDelay",
+        "arrow"
       ]
     },
     "SlideLineGeometry": {
@@ -622,8 +654,8 @@
       "enum": [
         "none",
         "triangle",
-        "diamond",
         "openArrow",
+        "diamond",
         "oval",
         "stealth"
       ]
