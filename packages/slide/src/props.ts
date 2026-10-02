@@ -2,6 +2,7 @@ import type { CSSProperties, Ref } from "react";
 import type { MaybePromise, OperationContext, SaveHandler } from "./core";
 import type { Slide, SlideElement, SlideCommand, SlideCommandResult, SlideDeck, SlideMaster, SlideLayout } from "./model/types";
 import type { SlideAnimationStep, SlideQueryOptions } from "./model";
+import type { SlideConditionalEdit, SlideConditionalEditResult, SlideMutationSnapshot, SlideMutationToken } from "./model";
 import type { SlidePptxImportOptions } from "./import/import-pptx";
 import type { SlidePptxExportOptions } from "./export/types";
 import type { SlideImageExportOptions, SlideImagesExportOptions } from "./render/browser-export";
@@ -9,6 +10,7 @@ import type { SlideImageResult } from "./render/types";
 import type { SlidePptxDiagnostic } from "./office/types";
 
 export type SlideFeatures = Partial<Record<"addSlides" | "deleteSlides" | "reorderSlides" | "text" | "shapes" | "images" | "formatting" | "masters" | "animations" | "notes" | "import" | "export" | "presentation" | "history", boolean>>;
+export type SlideConditionalEditOptions = Readonly<{ expected?: SlideMutationToken; signal?: AbortSignal }>;
 export type SlideSelection = {
   /** The active page displayed on the canvas. */
   slideId: string;
@@ -36,6 +38,10 @@ export type SlideHandle = {
   /** Details from the latest successful PPTX import/export; empty before the first conversion. */
   getPptxDiagnostics(): readonly SlidePptxDiagnostic[];
   execute(command: SlideCommand | readonly SlideCommand[]): Promise<SlideCommandResult | null>;
+  /** Authored data and session identity for conditional edits (includes animation source data). */
+  getMutationSnapshot(): SlideMutationSnapshot;
+  /** Atomic compare-and-edit; conflicts make no changes and do not create Undo entries. */
+  executeConditional(edit: SlideConditionalEdit, options?: SlideConditionalEditOptions): Promise<SlideConditionalEditResult | null>;
   undo(): Promise<boolean>;
   redo(): Promise<boolean>;
   save(): Promise<boolean>;

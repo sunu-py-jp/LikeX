@@ -7,6 +7,8 @@ export type { FeatureFlags } from "./features";
 export { createPrimaryColorPalette } from "./primary-color";
 export type { PrimaryColorPalette } from "./primary-color";
 export { serializeStableJson } from "./stable-json";
+export { collectConditionalConflicts } from "./conditional-edits";
+export type { ConditionalEditConflict } from "./conditional-edits";
 export type { StableJsonOptions } from "./stable-json";
 export { createUnsavedChangesGuard } from "./unsaved-changes";
 export type { UnsavedChangesGuard, UnsavedChangesGuardOptions } from "./unsaved-changes";

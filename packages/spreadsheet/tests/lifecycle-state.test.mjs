@@ -7,14 +7,14 @@ import { create } from 'react-test-renderer';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = await build({
-  stdin: { contents: 'export * from "./src/state/use-spreadsheet"; export * from "./src/api/use-spreadsheet-handle";',
+  stdin: { contents: 'export * from "./src/state/use-spreadsheet"; export * from "./src/api/use-spreadsheet-handle"; export { parseWorkbook, serializeWorkbook, setCellValues } from "./src/model";',
     resolveDir: fileURLToPath(new URL('../', import.meta.url)), sourcefile: 'lifecycle-state-test.ts' },
   bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'same-react', setup(builder) {
     builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
-const { useSpreadsheet, useSpreadsheetHandle } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { useSpreadsheet, useSpreadsheetHandle, parseWorkbook, serializeWorkbook, setCellValues } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const book = (value = 'old') => ({ sheets: [{ id: 'one', name: 'One', rowCount: 20, columnCount: 8, cells: { A1: { value } } }] });
 const set = (value, address = 'A1') => ({ type: 'cells.set', sheetId: 'one', values: { [address]: value } });
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
@@ -309,4 +309,94 @@ test('a previous effect lifetime cannot accept a save response or clear a newer 
   await act(async () => { newResponse.resolve(book('accepted response')); assert.equal(await newSave, true); });
   assert.equal(current.saving, false); assert.equal(current.dirty, false);
   assert.equal(retained.getWorkbook().sheets[0].cells.A1.value, 'accepted response');
+});
+
+test('conditional handle batches merge unrelated edits and reject stale fields without extra history', async t => {
+  const ui = await mount(t), expected = ui.api.getMutationSnapshot();
+  await act(async () => ui.api.execute({ type: 'cells.format', sheetId: 'one', addresses: ['A1'], format: { bold: true } }));
+  await act(async () => assert.equal((await ui.api.executeAsync(set('AI'), { expected })).ok, true));
+  assert.equal(ui.api.getCell('one', 'A1').format.bold, true);
+  const history = ui.api.getHistoryState();
+  await act(async () => {
+    const result = await ui.api.batchAsync([set('must not appear', 'B1'), set('stale')], { expected });
+    assert.equal(result.code, 'PRECONDITION_FAILED');
+    assert.ok(result.editConflicts.some(conflict => conflict.path.endsWith('.A1.value')));
+  });
+  assert.equal(ui.api.getCell('one', 'B1'), undefined);
+  assert.deepEqual(ui.api.getHistoryState(), history);
+});
+
+test('conditional handle commands recheck the expected token after permission refreshes the baseline', async t => {
+  const permission = deferred(); let operation;
+  const ui = await mount(t, { onEditRequest: () => permission.promise });
+  const expected = ui.api.getMutationSnapshot();
+  await act(async () => { operation = ui.api.executeAsync(set('AI'), { expected }); });
+  await act(async () => {
+    permission.resolve({ allowed: true, workbook: book('latest from host') });
+    const result = await operation;
+    assert.equal(result.code, 'PRECONDITION_FAILED');
+    assert.ok(result.editConflicts.some(conflict => conflict.path === 'token.structureRevision'));
+  });
+  assert.equal(ui.api.getCell('one', 'A1').value, 'latest from host');
+  assert.equal(ui.api.getHistoryState().undoCount, 0);
+});
+
+test('conditional handle captures command and before-data before an asynchronous permission wait', async t => {
+  const permission = deferred(); let operation;
+  const ui = await mount(t, { onEditRequest: () => permission.promise });
+  const expected = structuredClone(ui.api.getMutationSnapshot()), command = set('captured');
+  await act(async () => { operation = ui.api.executeAsync(command, { expected }); });
+  expected.workbook.sheets[0].cells.A1.value = 'later caller mutation';
+  expected.token.structureRevision = 999;
+  command.values.A1 = 'later command mutation';
+  await act(async () => { permission.resolve(true); assert.equal((await operation).ok, true); });
+  assert.equal(ui.api.getCell('one', 'A1').value, 'captured');
+});
+
+test('conditional commands preserve readonly, feature, pending-edit, denial, and abort boundaries', async t => {
+  const ui = await mount(t), expected = ui.api.getMutationSnapshot();
+  await ui.update({ readOnly: true });
+  assert.equal((await ui.api.executeAsync(set('AI'), { expected })).code, 'READ_ONLY');
+  await ui.update({ readOnly: false, features: { formatting: false } });
+  assert.equal((await ui.api.executeAsync({ type: 'cells.format', sheetId: 'one', addresses: ['A1'], format: { bold: true } }, { expected })).code, 'FEATURE_DISABLED');
+  await ui.update({ features: undefined });
+  await act(async () => ui.c.beginEdit({ row: 0, column: 0 }, 'unfinished'));
+  assert.equal((await ui.api.executeAsync(set('AI'), { expected })).code, 'PENDING_EDIT');
+  await act(async () => ui.c.cancelEdit());
+  await ui.update({ onEditRequest: () => false });
+  await act(async () => assert.equal((await ui.api.executeAsync(set('AI'), { expected })).code, 'EDIT_DENIED'));
+  const permission = deferred(), abort = new AbortController(); let operation;
+  await ui.update({ onEditRequest: () => permission.promise });
+  await act(async () => { operation = ui.api.executeAsync(set('AI'), { expected, signal: abort.signal }); });
+  await act(async () => { abort.abort(); assert.equal((await operation).code, 'EDIT_CANCELLED'); });
+  assert.equal(ui.api.getEditState().mode, 'view');
+  await act(async () => permission.resolve(true));
+  assert.equal(ui.api.getCell('one', 'A1').value, 'old');
+});
+
+test('conditional handle tokens catch structural ABA and undo even when workbook contents return to the captured state', async t => {
+  const ui = await mount(t), expected = ui.api.getMutationSnapshot();
+  await act(async () => {
+    ui.api.execute({ type: 'rows.insert', sheetId: 'one', index: 10 });
+    ui.api.execute({ type: 'rows.delete', sheetId: 'one', index: 10 });
+    assert.equal(ui.api.execute(set('AI'), { expected }).code, 'PRECONDITION_FAILED');
+  });
+  const again = ui.api.getMutationSnapshot();
+  await act(async () => { ui.api.execute(set('temporary')); await ui.api.undo(); });
+  assert.equal(ui.api.execute(set('AI'), { expected: again }).code, 'PRECONDITION_FAILED');
+});
+
+test('successful imports invalidate conditional tokens even for identical data or reused sheet identities', async t => {
+  const ui = await mount(t);
+  for (const different of [false, true]) {
+    const expected = ui.api.getMutationSnapshot();
+    let blob;
+    await act(async () => { blob = await ui.api.exportNative(); });
+    let input = blob;
+    if (different) {
+      input = new Blob([serializeWorkbook(setCellValues(parseWorkbook(await blob.text()), 'one', { C1: 'imported' }))]);
+    }
+    await act(async () => ui.api.importNative(input, { discardChanges: true }));
+    assert.equal(ui.api.execute(set('stale AI'), { expected }).code, 'PRECONDITION_FAILED');
+  }
 });

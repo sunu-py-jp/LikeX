@@ -2,6 +2,24 @@
 
 型名は `SlideCommand`。すべての引数・ネストした型は [commands.schema.json](commands.schema.json) を参照する。CLIへ渡すJSONファイルのルートは配列で、最大1,000コマンド。1件でも配列に入れる。公開APIは `@likex/slide/model` の `applySlideCommands(deck, commands)`。
 
+## 条件付き編集と逐次反映
+
+利用ホストは `getMutationSnapshot()` で編集前データとセッショントークンを保持し、`prepareSlideConditionalEdit(before, commands, { scope: "deck" })` → `executeConditional(edit, { expected: token, signal })` で適用できる。全 `SlideCommand` が対象。許可待ち後の最新状態を比較し、1件の競合でもバッチ全体が未適用になる。`{ ok: false, code: "conflict", conflicts: [{ path, expected, actual }] }` を受けたら、対象情報を取得し直して変更方針を再考する。強制上書きのために条件を省略しない。
+
+`scope: "targets"` または省略では、文字・書式などの独立した項目を比較し、別項目の変更を保持する。構造・接続・アニメーション・レイアウトなどは資料全体を比較する。他要素・他ページを読んで判断した場合は `scope: "deck"` にする。トークンは構造変更や読み込み、Undo・Redo、ホスト保存結果の反映、変更の破棄も検知する。比較用の全文はホスト内で保持し、モデルの入力へ常時展開する必要はない。
+
+編集が成功するたびに実際の結果と生成されたIDを次の取得に使う。サーバーと画面でコマンドを二重実行しない。通常のCLI `apply` はローカルファイルを編集するコマンドであり、ブラウザーのセッションやサーバー保存の同時更新は利用ホストが仲介する。
+
+CLIでは `apply --expected FILE [--expected-scope document|targets]` が使える。`FILE` は取得時点で保存したSLON全文で、`--input` の現在の資料と比較する。省略時のscopeは `document`（資料全体）、`targets` は公開APIの操作対象比較に対応する。この2引数は `apply` だけで使用でき、`--expected-scope` には `--expected` が必要。
+
+```bash
+node "$skill_dir/scripts/document.mjs" apply --project "$project_dir" \
+  --input current.slon --expected before.slon --expected-scope document \
+  --commands commands.json --output edited.slon
+```
+
+競合時は一部も適用せず出力ファイルを書き込まない。ファイルにはセッショントークンを保存しないため、構造を変更して戻す操作や、比較後から書き込みまでの別プロセスの変更はファイル比較だけでは検知・排他できない。共有ファイルの読み込み・照合・保存は利用ホスト側でロックまたは世代管理を行う。
+
 以下の例の `cover` と `heading` は、[schema-guide.md](schema-guide.md)のネイティブファイルに明示したID。別ファイルではinspectで取得したIDへ置き換える。名前や配列番号をIDとして使わない。
 
 ## 共通の指定と結果

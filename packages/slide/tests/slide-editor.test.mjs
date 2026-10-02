@@ -9,13 +9,13 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
   export { useSlideEditor } from './src/state/use-slide-editor.ts';
-  export { createSlideDeck, createSlideElement, createSlideSvgSource, parseSlideDeck, serializeSlideDeck } from './src/model/index.ts';
+  export { createSlideDeck, createSlideElement, createSlideSvgSource, parseSlideDeck, serializeSlideDeck, prepareSlideConditionalEdit } from './src/model/index.ts';
   export { openOfficePackage } from './src/ooxml.ts';
 `, resolveDir: packageRoot }, bundle: true, platform: 'node', format: 'esm', write: false,
 plugins: [{ name: 'shared-react', setup(builder) {
   builder.onResolve({ filter: /^(react|react-dom)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
 } }] });
-const { useSlideEditor, createSlideDeck, createSlideElement, createSlideSvgSource, parseSlideDeck, serializeSlideDeck, openOfficePackage } = await import(
+const { useSlideEditor, createSlideDeck, createSlideElement, createSlideSvgSource, parseSlideDeck, serializeSlideDeck, prepareSlideConditionalEdit, openOfficePackage } = await import(
   `data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const change = async callback => { await act(async () => { await callback(); }); };
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
@@ -764,4 +764,87 @@ test('freeform SVG images use the existing image permission gate and undo/redo p
   assert.equal(app.editor.deck, initialDeck);
   await change(() => app.editor.history('redo'));
   assert.equal(app.editor.deck.slides[0].elements[0].src, src);
+});
+
+
+test('conditional handle commits use the latest fields after permission and preserve user selection', async t => {
+  const permission = deferred();
+  const ref = { current: null };
+  const app = await mount(t, { ref, onEditRequest: () => permission.promise });
+  const snapshot = ref.current.getMutationSnapshot();
+  const edit = prepareSlideConditionalEdit(snapshot.deck, rename('AI title'));
+  let user, pending;
+  await change(() => {
+    user = app.editor.execute(rename('User title'));
+    pending = ref.current.executeConditional(edit, { expected: snapshot.token });
+  });
+  await change(async () => { permission.resolve(true); await user; });
+  const conflict = await pending;
+  assert.equal(conflict.ok, false);
+  assert.equal(app.editor.deck.title, 'User title');
+  assert.equal(app.editor.canUndo, true);
+  await change(() => app.editor.history('undo'));
+  assert.equal(app.editor.deck.title, 'Original');
+  assert.equal(app.editor.canUndo, false);
+
+  await change(() => app.editor.execute({ type: 'slide.add', slide: { id: 'other' } }));
+  const current = ref.current.getMutationSnapshot();
+  const originalSlide = current.deck.slides[0].id;
+  await change(() => ref.current.select({ slideId: 'other', elementIds: [] }));
+  await change(async () => {
+    const applied = await ref.current.executeConditional(prepareSlideConditionalEdit(current.deck, {
+      type: 'element.add', slideId: originalSlide, element: { type: 'text', text: 'AI content' },
+    }), { expected: current.token });
+    assert.equal(applied.ok, true);
+  });
+  assert.equal(ref.current.getSelection().slideId, 'other');
+});
+
+test('conditional edits flush pending local input and respect cancellation, read-only and feature controls', async t => {
+  const app = await mount(t), snapshot = app.editor.getMutationSnapshot();
+  const buffer = inputBuffer(app, rename('Typing'));
+  await change(() => buffer.type());
+  await change(async () => {
+    const result = await app.editor.executeConditional(prepareSlideConditionalEdit(snapshot.deck, rename('AI')), { expected: snapshot.token });
+    assert.equal(result.ok, false);
+  });
+  assert.equal(app.editor.deck.title, 'Typing');
+  buffer.unregister();
+  const permission = deferred(), controller = new AbortController(), modes = [];
+  let permissionSignal, requests = 0;
+  const waiting = await mount(t, { onEditRequest: (_request, context) => { requests++; permissionSignal = context.signal; return permission.promise; },
+    onEvent: event => { if (event.type === 'edit-mode') modes.push(event.mode); } });
+  const source = waiting.editor.getMutationSnapshot();
+  let pending;
+  await change(() => { pending = waiting.editor.executeConditional(prepareSlideConditionalEdit(source.deck, rename('AI')), { expected: source.token, signal: controller.signal }); });
+  await change(() => controller.abort());
+  assert.equal(await pending, null);
+  assert.equal(permissionSignal.aborted, true);
+  assert.equal(waiting.editor.requesting, false);
+  await change(() => permission.resolve(true));
+  assert.equal(modes.at(-1), 'view');
+  assert.equal(modes.includes('edit'), false);
+  assert.equal(waiting.editor.deck.title, 'Original');
+  assert.equal(waiting.editor.canUndo, false);
+  await change(() => waiting.editor.execute(rename('User after cancellation')));
+  assert.equal(requests, 2);
+  for (const props of [{ readOnly: true }, { onSave: undefined }, { features: { formatting: false } }]) {
+    const blocked = await mount(t, props), base = blocked.editor.getMutationSnapshot();
+    await change(async () => assert.equal(await blocked.editor.executeConditional(prepareSlideConditionalEdit(base.deck, { type: 'deck.resize', width: 800, height: 600 }), { expected: base.token }), null));
+    assert.equal(blocked.editor.deck.width, base.deck.width);
+  }
+});
+
+test('canceling a conditional edit does not abort an existing user permission request', async t => {
+  const permission = deferred(), controller = new AbortController();
+  let hostSignal, pendingUser, pendingAi;
+  const app = await mount(t, { onEditRequest: (_request, context) => { hostSignal = context.signal; return permission.promise; } });
+  const snapshot = app.editor.getMutationSnapshot();
+  await change(() => { pendingUser = app.editor.execute(rename('User')); });
+  await change(() => { pendingAi = app.editor.executeConditional(prepareSlideConditionalEdit(snapshot.deck, rename('AI')), { expected: snapshot.token, signal: controller.signal }); });
+  await change(() => controller.abort());
+  assert.equal(await pendingAi, null);
+  assert.equal(hostSignal.aborted, false);
+  await change(async () => { permission.resolve(true); assert.equal((await pendingUser).changed, true); });
+  assert.equal(app.editor.deck.title, 'User');
 });

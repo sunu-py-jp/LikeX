@@ -8,6 +8,10 @@ AIエージェントが生成した操作を適用する場合も、画面を準
 
 履歴を使って編集を続ける場合は[編集セッションとUndo／Redo](./history-session.md)、データを調べる場合は[セル・範囲・画像の取得](./data-access.md)を参照してください。
 
+並行編集を照合する場合は `applySpreadsheetCommands(current, commands, { expected: { workbook: before } })` を使用できます。変更前の依存項目が一致しなければ `PRECONDITION_FAILED` と `editConflicts` を返し、部分更新は行いません。AIが読んだ別セルの値にも依存する編集では `expected.scope: "workbook"` を指定します。[条件付き更新](./external-operations.md#取得時の状態を照合して逐次反映する)の照合範囲と同じです。
+
+この純粋APIは過去の操作履歴や共有DBの版を管理しません。行挿入後の削除などでJSONが元へ戻る構造変更を検出するには、利用側の版番号の確認と保存を同じトランザクションで実行してください。ローカル編集を継続する場合は `createSpreadsheetSession().getMutationSnapshot()` のトークン付きAPIで検出できます。純粋APIへトークンを渡すだけでサーバー側の排他制御が成立するわけではありません。
+
 内容に合わせた行高・列幅の計算は [`dimensions.autoFit` と公開ヘルパー](./formatting.md#内容に合わせて自動調整するapi)、`/model` のXLSX入出力と画像変換の注入は[Excel出力](./excel-export.md)・[Excel取り込み](./excel-import.md)を参照してください。
 
 ## セルに値を入れる

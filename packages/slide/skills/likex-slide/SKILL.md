@@ -54,7 +54,7 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 | 元の値とアニメーション定義を読む | `inspect --input PATH [--slide-id ID] --include-animations` |
 | マスター／レイアウトを読む | `inspect --input PATH --master-id ID` または `--layout-id ID`。`--include-data` で詳細 |
 | 要素を読む | `inspect --input PATH --slide-id ID --element-id ID [--include-data]` |
-| コマンドを適用する | `apply --input PATH --commands FILE --output PATH [--dry-run]` |
+| コマンドを適用する | `apply --input PATH --commands FILE --output PATH [--expected FILE] [--expected-scope document\|targets] [--dry-run]` |
 | ネイティブファイルを検証する | `validate --input PATH` |
 
 共通引数は `--project DIRECTORY`、`--help`、`--version`。dry-runでは `--output` を省略できる。通常の概要は要素本文や画像のBase64を展開しない。`--slide-id ID --include-data` は `selection.elements` にそのページの全要素の詳細を配列順のまま返す。`--element-id` を追加した場合は従来どおり `selection.element` に1要素だけ返す。画像の `src` / `dataUrl` はどちらも除き、ノートは本文ではなく `notesLength` のまま。必要なページごとの一括取得を優先し、1 MiBの出力上限を超えたときは要約から必要な要素へ絞る。本文を途中で切ったり、一部の要素だけを黙って返したりしない。成功結果は標準出力のJSONで確認し、失敗は終了コードとエラーを読む。
@@ -71,6 +71,7 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 
 ## 編集時の契約
 
+- 表示中の資料をホストと並行編集する場合、ホストが取得した `getMutationSnapshot()` と `prepareSlideConditionalEdit` / `executeConditional` を使う。競合は未適用であり、再取得して判断し直す。比較を外して強制適用しない。変更対象以外の情報を根拠にした判断には `scope: "deck"` を使う。CLIの通常のファイル編集を共同編集の排他制御とみなさない。[条件付き編集](references/commands.md#条件付き編集と逐次反映)を参照する。
 - `slideId` / `elementId` は名前ではない。既存IDはinspectから取得する。追加時は明示的な一意のIDを指定できる。CLIで省略したIDや複製IDは、作成・適用後のファイルを再inspectして取得する。
 - ページ全体の作り直しは `slide.replaceContent` を使う。`slideId` と `elements: SlideElementInput[]` を渡すと検証後に一括置換され、旧要素を個別削除するためのIDの転記が不要になる。`name` / `background` / `notes` は省略すると保持、`animations` は省略すると消去する。既存のロック要素は先に明示的に解除する。1件でも不正な要素があれば旧ページがそのまま残る。
 - 保存ファイルでは要素に `stackOrder` が必要で、配列は位置順。APIの要素配列は背面から前面への描画順で、`stackOrder` は持たない。`parseSlideDeck` → `applySlideCommands` → `serializeSlideDeck` の境界を維持する。

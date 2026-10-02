@@ -56,6 +56,7 @@ export default function Report() {
 | `execute(command)` | 1件のコマンドを同期実行し、`SpreadsheetCommandResult` を返す |
 | `batch(commands)` | 配列の順番でまとめて同期実行。同じ結果型を返す |
 | `getWorkbook()` | 現在の下書きの `SpreadsheetWorkbookSnapshot`。深い読み取り専用のスナップショット |
+| `getMutationSnapshot()` | 条件付き更新用の `{ workbook, token: { sessionId, structureRevision } }` を取得 |
 | `getCell(sheetId, address)` / `getRange(sheetId, range)` など | セルやIDで対象を取得。[読み取りAPI](./data-access.md)を参照 |
 | `findSheets(query)` / `findCells(query, options?)` | 現在の下書きからシート名・セルをキーワード検索。選択や履歴を変更しません |
 | `undo()` / `redo()` | 編集許可を待って履歴を移動。`boolean` または `Promise<boolean>` を返す |
@@ -67,6 +68,7 @@ export default function Report() {
 `execute` / `batch` はPromiseを返しません。成功直後の `getWorkbook()` には、Reactの再描画を待たず変更が反映されています。スナップショットは凍結されており、直接書き換えずコマンドを使います。入力中でまだ確定していない文字列は含まれません。
 
 `onEditRequest` を設定した場合は、許可を取得済みでなければ同期操作は `EDIT_REQUIRED` です。通常は `await api.executeAsync(command)` / `batchAsync(commands)` を使います。保存・更新・編集セッションのHandle APIは[保存・編集許可・イベント](./lifecycle.md)を参照してください。
+
 
 ```ts
 const result = api.execute({ type: "shapes.insert", sheetId,
@@ -87,6 +89,32 @@ if (result.ok) {
 画像などの挿入・更新、セル設定・貼り付け・オートフィル、行列の挿入では、結果に `placement` が付きます。`nextRow` / `nextColumn` で対象の直後へ内容を続けて配置できます。空のセル設定・貼り付けでは省略します。[配置位置と次の行・列](./drawing-placement.md)にコマンドごとの返却内容と、画像の配置IDから再計算するヘルパーをまとめています。
 
 `ref.current` はマウント前・アンマウント後には `null` です。同じインスタンスのhandleは再描画後も同じオブジェクトです。以前取得したhandleでアンマウント後に変更しようとすると `NOT_MOUNTED` を返します。ブック切り替えで `key` を変えた場合、新しいhandleを利用してください。
+
+## 取得時の状態を照合して逐次反映する
+
+エージェントへ作業を依頼する前に `getMutationSnapshot()` を取得し、各編集バッチへ第2引数の `expected` として渡します。編集許可の待機後も、書き込み直前の最新ブックと照合します。1件でも競合するとバッチ全体を適用せず、履歴にも追加しません。
+
+```ts
+const expected = api.getMutationSnapshot();
+// expectedを基に編集内容を計画する。待機中も利用者は操作できます。
+const result = await api.batchAsync([
+  { type: "cells.set", sheetId, values: { B2: "120" } },
+  { type: "cells.format", sheetId, addresses: ["B2"], format: { bold: true } },
+], { expected, signal: abortController.signal });
+if (!result.ok && result.code === "PRECONDITION_FAILED") {
+  console.log(result.editConflicts); // [{ path, expected, actual, ... }]
+  // 最新の状態を取得して計画し直す。expectedだけを更新して盲目的に再送しない。
+}
+```
+
+`execute` / `batch` / `executeAsync` / `batchAsync` は共通の `SpreadsheetCommandOptions.expected` を受け取ります。非同期APIでは `signal` も指定でき、キャンセル後に遅れて得られた許可で編集を適用しません。成功したバッチごとに1回のUndo単位として画面に反映します。各成功結果を受け取り、新規IDは実際の `results` から取得します。
+
+既定の `expected.scope: "targets"` では、値・個別の書式・入力規則・コメント・寸法・描画の文字と装飾について、コマンドが読む／書く項目を照合します。たとえば値だけの更新は、同じセルの太字変更や別のセルへの入力を保持します。数式としての解釈を変える表示形式や入力規則も値更新の照合対象です。行列挿入、移動、貼り付け、削除、表、名前付き範囲、図形の位置などの複合操作は、参照の波及を考慮してブック全体を照合します。全コマンドが条件付き更新に対応し、未分類の操作も全体照合になります。
+
+AIが別のセルを読んで集計結果などの固定値を書き込む場合は、その推論に使った読取依存をAPI側だけでは判断できません。`expected: { ...snapshot, scope: "workbook" }` でブック全体を照合してください。書き込み先だけが一致していても、計算元の変更があれば再取得させられます。
+
+セッショントークンは同じ表示中コンポーネントで取得したものを使用します。行列・セルのシフト、シートの構成、結合、オブジェクトの追加削除、Undo／Redo、取り込み・再読み込みなどで世代を進めます。空セルのシフトや挿入後の削除でJSONが同じに戻っても、古い座標による編集を拒否します。このトークンは保存対象ではなく、SPON／XLSXの形式は変わりません。既存の `expected` なしのAPIは従来の実行契約を維持します。
+
 
 ## コマンド一覧
 
@@ -357,6 +385,7 @@ console.log(pasted.results[0].placement); // 配置位置・次の行と列
 | `INVALID_TARGET` | シート・セル・オブジェクトが存在しない、または種類が不一致 |
 | `VALIDATION_FAILED` | 値・範囲・上限・結合・選択などの検証に失敗した |
 | `WRITE_CONFLICT` | 既存の非空の値と競合した。`conflicts`に番地一覧。[上書き方針](./cell-writing.md) |
+| `PRECONDITION_FAILED` | 取得後に期待した値・対象・構造が変化した。`editConflicts` に変更前と現在の値を最大100件返す。バッチは一切適用しない |
 
 未確定入力は勝手に確定・破棄しません。`PENDING_EDIT` の場合は利用者が確定またはキャンセルした後に再度呼び出します。保存中の操作を自動で予約・再実行する仕組みもありません。
 

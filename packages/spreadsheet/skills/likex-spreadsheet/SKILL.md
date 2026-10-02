@@ -30,6 +30,8 @@ node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input 
 
 対象IDと変更内容が揃った編集は、複数シートのセル入力・書式・罫線・行列操作でも1つの配列にまとめて `apply` する。必要範囲の取得 → 一括編集 → 対象範囲の確認を基本にする。新しいシートは `sheets.add` で発行されたIDを取得し、その後の編集をまとめて次の呼び出しで実行する。
 
+表示中のブックへ逐次反映するホストでは、計画前の `getMutationSnapshot()` を `batchAsync(commands, { expected })` へ渡して条件付き更新する。`PRECONDITION_FAILED` は最新の内容を再取得して計画し直す。単に期待値を新しくして同じ編集を再送しない。参照した別セルから固定値を作る場合は `expected.scope: "workbook"` を使う。CLIの `apply` は `--expected before.spon` でブック全体を照合でき、`--expected-scope targets` でコマンドの依存項目だけに絞れる。UIのセッショントークンや共有ストレージの排他は利用側で管理する。[条件付き更新のAPI](references/commands.md#条件付き更新)を参照する。
+
 ```bash
 node "$skill_dir/scripts/document.mjs" apply --project "$project_dir" --input workbook.spon --commands commands.json --dry-run
 node "$skill_dir/scripts/document.mjs" apply --project "$project_dir" --input workbook.spon --commands commands.json --output edited.spon
@@ -53,7 +55,7 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 | 単一セルを読む | `inspect --input PATH --sheet-id ID --range B2` |
 | セル範囲を読む | `inspect --input PATH --sheet-id ID --range A1:C5` |
 | 描画を読む | `inspect --input PATH --sheet-id ID --drawing-id ID [--include-data]` |
-| コマンドを適用する | `apply --input PATH --commands FILE --output PATH [--dry-run]` |
+| コマンドを適用する | `apply --input PATH --commands FILE --output PATH [--expected FILE] [--expected-scope document\|targets] [--dry-run]` |
 | ネイティブファイルを検証する | `validate --input PATH` |
 
 共通引数は `--project DIRECTORY`、`--help`、`--version`。dry-runでは `--output` を省略できる。`--overview` はシート一覧もセル本文も返さず、他の取得オプションと併用しない。通常の概要もセル本文や画像のBase64は展開しない。シート内容の取得は指定シートの保存セルだけを行・列順に返し、既定100件、上限1,000件で、他シートの本文は含めない。書式だけを持つ空文字セルも保存セルに含む。範囲取得は対象を絞り、1 MiBの出力上限に収まる範囲へ分割する。描画の本文が必要な場合は描画IDと `--include-data` を使う。成功結果は標準出力のJSONで確認し、失敗は終了コードとエラーを読む。

@@ -6,6 +6,8 @@ export { parseSlideDeck, serializeSlideDeck } from "./serialization";
 export { getDeck, getSlides, getSlide, getElements, getElement, getAnimations } from "./query";
 export { evaluateSlideAnimations, resolveSlideAnimations } from "./animations";
 export { applySlideCommands } from "./commands";
+export { prepareSlideConditionalEdit, applySlideConditionalEdit } from "./conditional-edit";
+export type { SlideConditionalEdit, SlideConditionalEditResult, SlideMutationToken, SlideMutationSnapshot, ConditionalEditConflict } from "./conditional-edit";
 export { measureSlideText, fitSlideText, getSlideElementBounds, getSlideLayoutDiagnostics } from "./authoring";
 export type { SlideTextMeasureStyle, SlideTextMeasure, SlideTextLayout, SlideLayoutDiagnostic, SlideLayoutOptions, SlideElementBounds, SlideElementGeometry } from "./authoring";
 

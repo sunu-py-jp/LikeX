@@ -73,6 +73,26 @@ const modelFunctions = (kind, model) => {
   return { parse: model[`parse${suffix}`], serialize: model[`serialize${suffix}`], apply: model[applyName], result: value => resultKey ? value[resultKey] : value };
 };
 
+test('conditional CLI rejects stale spreadsheet/slide snapshots without changing output', async () => {
+  for (const kind of ['spreadsheet', 'slide']) {
+    const files = await paths(kind), expected = path.join(files.directory, 'expected.json');
+    const created = await run(kind, ['create', '--output', files.input]);
+    await copyFile(files.input, expected);
+    const commands = [renameCommand(kind, created.json.summary, 'newer user title')];
+    await writeFile(files.commands, JSON.stringify(commands));
+    assert.equal((await run(kind, ['apply', '--input', files.input, '--commands', files.commands, '--output', files.input])).status, 0);
+    await writeFile(files.output, 'preserve output');
+    await writeFile(files.commands, JSON.stringify([renameCommand(kind, created.json.summary, 'stale AI title')]));
+    const conflict = await run(kind, ['apply', '--input', files.input, '--commands', files.commands, '--expected', expected, '--output', files.output]);
+    assert.equal(conflict.json.error.code, 'PRECONDITION_FAILED');
+    assert.ok(conflict.json.error.conflicts.length);
+    assert.equal(await readFile(files.output, 'utf8'), 'preserve output');
+    await copyFile(files.input, expected);
+    const accepted = await run(kind, ['apply', '--input', files.input, '--commands', files.commands, '--expected', expected, '--output', files.output]);
+    assert.equal(accepted.status, 0);
+  }
+});
+
 test('committed standalone scripts match the one canonical source and current package versions', async () => {
   await buildSkillScripts({ check: true });
 });

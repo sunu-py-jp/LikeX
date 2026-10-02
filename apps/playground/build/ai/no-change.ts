@@ -12,7 +12,7 @@ export interface NoChangeNotice {
 /** This error terminates the run; it must not become a retryable tool failure. */
 export class AIRepetitionError extends AIToolError {
   constructor() {
-    super(`同じ変更のない編集が${NO_CHANGE_STOP_AFTER}回繰り返されたため、処理を停止しました。今回の編集内容は反映していません。`, {
+    super(`同じ変更のない編集が${NO_CHANGE_STOP_AFTER}回繰り返されたため、処理を停止しました。すでに画面へ反映された編集は保持されています。`, {
       code: "repeated_no_change",
       path: "commands",
       actual: { repeatCount: NO_CHANGE_STOP_AFTER, stopAfter: NO_CHANGE_STOP_AFTER },
@@ -63,5 +63,5 @@ export function noChangeInstructions(result: unknown): string | undefined {
   if (!result || typeof result !== "object" || !("noChange" in result)) return undefined;
   const notice = result.noChange as NoChangeNotice | undefined;
   if (!notice || !["no_change", "empty_patch"].includes(notice.code)) return undefined;
-  return `The preceding edit made no document change (${notice.code}). Do not resend that operation. It has occurred ${notice.repeatCount} time(s) in this document revision; the third identical no-change edit terminates the run without applying staged changes. If the request is satisfied, complete any outstanding failure repairs and current slide previews, then finish. Otherwise perform only a different edit needed by the request. A no-change result does not resolve unrelated failed writes or waive required previews. Do not repeat reads or previews merely to reset this guard; only an actual document change resets it.`;
+  return `The preceding edit made no document change (${notice.code}). Do not resend that operation. It has occurred ${notice.repeatCount} time(s) in this document revision; the third identical no-change edit terminates the run. Already applied editor changes remain. If the request is satisfied, complete any outstanding failure repairs and current slide previews, then finish. Otherwise perform only a different edit needed by the request. A no-change result does not resolve unrelated failed writes or waive required previews. Do not repeat reads or previews merely to reset this guard; only an actual document change resets it.`;
 }

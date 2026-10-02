@@ -56,6 +56,7 @@ function usage(kind, version) {
       '--commands must contain a JSON array. --dry-run permits omitting --output and never writes.',
       '--range returns stored cells in selection.rows as a row-major matrix, with null for unstored cells. --include-data adds the selected item content; embedded image bytes are always omitted.',
       ...(['spreadsheet', 'slide'].includes(kind) ? ['--overview returns only document-level counts and the slide title, without sheet/slide lists. It cannot be combined with other inspect selectors or flags.',
+        'apply accepts --expected FILE to compare a previously-read native snapshot. --expected-scope document (default) guards read dependencies; targets guards native operation dependencies. Conflicts reject the entire batch. File hosts must coordinate concurrent writers; UI session tokens are not persisted in files.',
         '--compact-summary omits sheet/slide lists from summary before the response-size check while preserving selected results. Use with targeted inspect reads; cannot combine with --overview.'] : []),
       ...(kind !== 'spreadsheet' && selectorsByKind[kind].includes('offset') ? ['Lists return 100 items by default; --offset and --limit (1–1000) control pagination. Item selectors cannot be combined with pagination.'] : []),
       ...(kind === 'spreadsheet' ? ['--search sheets|cells requires --text KEYWORD. Search is literal, case-insensitive and partial by default; --match-case and --exact narrow matches.',
@@ -81,7 +82,7 @@ function argumentsFor(argv, kind) {
   if (argv.length === 1 && argv[0] === '--version') return { operation: 'version' };
   if (!['create', 'inspect', 'apply', 'validate'].includes(args.operation)) fail('USAGE', 'Expected create, inspect, apply, or validate. Use --help.');
   const flags = new Set(['dry-run', 'include-data', 'include-animations', 'overview', 'compact-summary', 'match-case', 'exact', 'help']);
-  const values = new Set(['input', 'output', 'commands', 'project', ...Object.values(selectorsByKind).flat()]);
+  const values = new Set(['input', 'output', 'commands', 'project', 'expected', 'expected-scope', ...Object.values(selectorsByKind).flat()]);
   for (let index = 1; index < argv.length; index++) {
     const raw = argv[index];
     const key = raw.startsWith('--') ? raw.slice(2) : '';
@@ -101,6 +102,10 @@ function argumentsFor(argv, kind) {
   if (args.operation === 'apply' && !args.commands) fail('USAGE', '--commands is required for apply.');
   if (write && !args.output && !args['dry-run']) fail('USAGE', '--output is required unless --dry-run is set.');
   if (!write && (args.output || args.commands || args['dry-run'])) fail('USAGE', 'Only create and apply accept --output, --commands, and --dry-run.');
+  if ((args.expected || args['expected-scope']) && (args.operation !== 'apply' || !['spreadsheet', 'slide'].includes(kind)))
+    fail('USAGE', '--expected is supported only by spreadsheet/slide apply.');
+  if (args['expected-scope'] && (!args.expected || !['document', 'targets'].includes(args['expected-scope'])))
+    fail('USAGE', '--expected-scope requires --expected and must be document or targets.');
   const queryKeys = [...new Set([...Object.values(selectorsByKind).flat(), 'include-data', 'include-animations'])];
   if (args.operation !== 'inspect' && queryKeys.some(key => args[key])) fail('USAGE', 'Query selectors are only valid for inspect.');
   const ownKeys = selectorsByKind[kind];
@@ -468,8 +473,13 @@ export async function runDocumentCli({ argv = process.argv.slice(2), kind = DOCU
       if (!Array.isArray(commands)) fail('INVALID_COMMANDS', 'Commands file must contain a JSON array, even for a single command.');
       try {
         const beforeCommands = serialize(document);
-        receipt = model[executeName](document, commands);
-        if (spreadsheet && !receipt.ok) fail(receipt.code, receipt.message, { ...(receipt.commandIndex !== undefined ? { commandIndex: receipt.commandIndex } : {}) });
+        const expected = args.expected ? parse((await readBounded(args.expected, documentLimit(kind))).text) : undefined;
+        if (expected && kind === 'slide') {
+          receipt = model.applySlideConditionalEdit(document, { before: expected, commands, scope: args['expected-scope'] === 'targets' ? 'targets' : 'deck' });
+          if (!receipt.ok) fail('PRECONDITION_FAILED', 'The document changed after it was read. Inspect and reconsider before retrying.', { conflicts: receipt.conflicts });
+        } else receipt = model[executeName](document, commands, ...(expected ? [{ expected: { workbook: expected, scope: args['expected-scope'] === 'targets' ? 'targets' : 'workbook' } }] : []));
+        if (spreadsheet && !receipt.ok) fail(receipt.code, receipt.message, { ...(receipt.commandIndex !== undefined ? { commandIndex: receipt.commandIndex } : {}),
+          ...(receipt.editConflicts ? { conflicts: receipt.editConflicts } : {}) });
         document = resultKey ? receipt[resultKey] : receipt;
         changed = changed || beforeCommands !== serialize(document);
       } catch (error) { if (error instanceof CliError) throw error; fail('COMMAND_FAILED', error.message); }

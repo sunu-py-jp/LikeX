@@ -9,12 +9,23 @@ import type { SpreadsheetNamedRangeCommand } from "../api/named-range-commands";
 import type { SpreadsheetClearMode, SpreadsheetCellRangeInput } from "../model/workbook/clear";
 import type { SpreadsheetWriteConflictPolicy } from "../model/workbook/write-conflicts";
 import type { SpreadsheetLineEndpoint } from "../model/types";
+import type { ConditionalEditConflict } from "../json";
+export type { ConditionalEditConflict as SpreadsheetConditionalEditConflict } from "../json";
 
 // A mapped type preserves tuple lengths as well as making ordinary arrays readonly.
 type DeepReadonly<T> = T extends object ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> } : T;
 
 /** The immutable, committed local draft; unfinished editor text is not included. */
 export type SpreadsheetWorkbookSnapshot = DeepReadonly<SpreadsheetWorkbook>;
+/** Ephemeral identity and monotonic structure epoch; never written into SPON or XLSX. */
+export type SpreadsheetMutationToken = Readonly<{ sessionId: string; structureRevision: number }>;
+/** Captured before the agent plans its edit, including an ABA-safe session token. */
+export type SpreadsheetMutationSnapshot = Readonly<{ workbook: SpreadsheetWorkbookSnapshot; token: SpreadsheetMutationToken }>;
+/** Pure model callers may omit the token and must enforce their own structural revision. */
+export type SpreadsheetExpectedWorkbook = Readonly<{ workbook: SpreadsheetWorkbookSnapshot; token?: SpreadsheetMutationToken;
+  /** Use workbook when output depends on values the agent read beyond the native command's targets. */
+  scope?: "targets" | "workbook" }>;
+export type SpreadsheetCommandOptions = Readonly<{ expected?: SpreadsheetExpectedWorkbook }>;
 /** Zero-based sheet position, with optional pixel offsets defaulting to zero. */
 export type SpreadsheetCommandAnchor = Readonly<{ row: number; column: number; offsetX?: number; offsetY?: number }>;
 export type SpreadsheetImageCommandPatch = DeepReadonly<Partial<Omit<SpreadsheetImageDrawing, "id" | "type" | "anchor">> & { anchor?: SpreadsheetCommandAnchor }>;
@@ -116,7 +127,7 @@ export type SpreadsheetCommandReceipt = {
 
 export type SpreadsheetCommandErrorCode = "NOT_MOUNTED" | "READ_ONLY" | "SAVING" | "PENDING_EDIT" | "BUSY"
   | "FEATURE_DISABLED" | "INVALID_COMMAND" | "INVALID_TARGET" | "VALIDATION_FAILED"
-  | "WRITE_CONFLICT"
+  | "WRITE_CONFLICT" | "PRECONDITION_FAILED"
   | "REFRESHING" | "EDIT_REQUIRED" | "EDIT_PENDING" | "EDIT_DENIED" | "EDIT_CANCELLED" | "STALE_TARGET";
 export type SpreadsheetCommandFailure = Readonly<{
   ok: false;
@@ -126,6 +137,8 @@ export type SpreadsheetCommandFailure = Readonly<{
   commandIndex?: number;
   /** Conflicting cell addresses in the failed command. */
   conflicts?: readonly string[];
+  /** Expected and live values when a conditional batch is rejected; no command was applied. */
+  editConflicts?: readonly ConditionalEditConflict[];
 }>;
 export type SpreadsheetCommandSuccess = Readonly<{
   ok: true;

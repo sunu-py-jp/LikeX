@@ -4,10 +4,11 @@ import { validateSpreadsheetFeatures } from "../api/validate-features";
 import { normalizeWorkbook } from "../model/workbook/normalize";
 import type { SpreadsheetWorkbook } from "../model/types";
 import { stageSpreadsheetCommands } from "./stage-spreadsheet-commands";
-import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandSuccess, SpreadsheetWorkbookSnapshot } from "./types";
+import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandSuccess, SpreadsheetWorkbookSnapshot, SpreadsheetCommandOptions } from "./types";
 import { commandKeys, commandRecord, rejectCommand, SpreadsheetCommandError } from "./validation";
+import { captureSpreadsheetCondition, checkSpreadsheetCondition } from "./conditional";
 
-export type SpreadsheetApplyCommandsOptions = Readonly<{
+export type SpreadsheetApplyCommandsOptions = SpreadsheetCommandOptions & Readonly<{
   /** Uses the same feature switches and parent switches as the component. Omitted features are enabled. */
   features?: SpreadsheetFeatures;
 }>;
@@ -26,7 +27,7 @@ export function applySpreadsheetCommands(workbook: SpreadsheetWorkbookSnapshot, 
   options?: SpreadsheetApplyCommandsOptions): SpreadsheetApplyCommandsResult {
   try {
     if (options !== undefined) {
-      commandKeys(commandRecord(options, "コマンドの設定"), ["features"], "コマンドの設定");
+      commandKeys(commandRecord(options, "コマンドの設定"), ["features", "expected"], "コマンドの設定");
       if (options.features !== undefined) {
         try { validateSpreadsheetFeatures(options.features); }
         catch (cause) { rejectCommand("INVALID_COMMAND", cause instanceof Error ? cause.message : "機能の設定が正しくありません"); }
@@ -35,6 +36,10 @@ export function applySpreadsheetCommands(workbook: SpreadsheetWorkbookSnapshot, 
     if (workbook === undefined) return rejectCommand("VALIDATION_FAILED", "操作するブックを指定してください");
     // The model boundary validates/copies every field, including deeply readonly snapshots and parsed JSON.
     const normalized = normalizeWorkbook(workbook as SpreadsheetWorkbook);
+    const condition = captureSpreadsheetCondition(options ? { expected: options.expected } : undefined);
+    if (!condition.ok) return condition;
+    const conflict = checkSpreadsheetCondition(normalized, commands, condition.expected);
+    if (conflict) return conflict;
     return stageSpreadsheetCommands(normalized, commands, resolveSpreadsheetFeatures(options?.features), () => crypto.randomUUID());
   } catch (cause) {
     return Object.freeze({ ok: false, code: cause instanceof SpreadsheetCommandError ? cause.code : "VALIDATION_FAILED",

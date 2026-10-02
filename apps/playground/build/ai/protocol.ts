@@ -4,6 +4,14 @@ export type AITruncation = { originalBytes: number; storedBytes: number };
 export type AIPreviewRequest = { document: string; slideId: string };
 export type AIPreviewResult = { imageUrl: string; width: number; height: number; slideId: string; diagnostics: AIJSONValue[] };
 export type AIPreviewEvent = AIPreviewRequest & { type: "preview"; id: string; token: string };
+/** Host-owned document identity is fixed for the lifetime of one run. */
+export type AILiveDocumentRequest = { targetId: string } & ({ action: "snapshot" } | {
+  action: "commit"; expected: { document: string; token: string; scope: "document" | "targets" }; operation: "apply" | "create"; commands: AIJSONValue[];
+});
+export type AILiveDocumentResult = { targetId: string; document: string; token: string; changed?: boolean; receipts?: AIJSONValue };
+export type AILiveDocumentError = { code: string; message: string; conflicts?: AIJSONValue[] };
+export type AILiveDocumentEvent = AILiveDocumentRequest & { type: "document"; id: string; token: string; expiresAt: number };
+export type AILiveDocumentExchange = (request: AILiveDocumentRequest, signal: AbortSignal) => Promise<AILiveDocumentResult>;
 export type AIToolCall = {
   id: string;
   name: string;

@@ -7,6 +7,7 @@ export interface ToolErrorDetails {
   actual?: unknown;
   failureId?: string;
   retry?: string;
+  conflicts?: unknown[];
   unresolvedFailures?: { failureId: string; message: string; commandIndexes?: number[]; target?: string }[];
 }
 export class AIToolError extends AIError {

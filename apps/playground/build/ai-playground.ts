@@ -11,6 +11,7 @@ import { readAIRunLog } from "./ai/run-log.ts";
 import { RUN_ID_PATTERN } from "./ai/protocol.ts";
 import type { AIInstructions } from "./ai/prompts.ts";
 import { PREVIEW_BODY_LIMIT, SlidePreviewBroker } from "./ai/slide-preview.ts";
+import { LIVE_DOCUMENT_BODY_LIMIT, LiveDocumentBroker } from "./ai/live-document.ts";
 
 const repository = fileURLToPath(new URL("../../..", import.meta.url));
 const BODY_LIMIT = 10 * 1024 * 1024;
@@ -63,12 +64,14 @@ export function createAIMiddleware(options: { repository: string; config: AIConf
   const timeoutMs = duration(options.timeoutMs, 15 * 60_000, 60 * 60_000);
   const idleTimeoutMs = duration(options.idleTimeoutMs, 3 * 60_000, 15 * 60_000);
   const previews = new SlidePreviewBroker();
+  const documents = new LiveDocumentBroker();
   let active = 0;
   return async (request: IncomingMessage, response: ServerResponse, next: () => void) => {
     const pathname = request.url?.split("?")[0];
     const runPath = pathname?.startsWith("/api/ai/runs/");
     const previewPath = pathname?.startsWith("/api/ai/previews/");
-    if (pathname !== "/api/ai/config" && pathname !== "/api/ai/chat" && !runPath && !previewPath) { next(); return; }
+    const documentPath = pathname?.startsWith("/api/ai/documents/");
+    if (pathname !== "/api/ai/config" && pathname !== "/api/ai/chat" && !runPath && !previewPath && !documentPath) { next(); return; }
     const json = (status: number, body: unknown) => {
       response.statusCode = status;
       response.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -76,7 +79,23 @@ export function createAIMiddleware(options: { repository: string; config: AIConf
       response.setHeader("X-Content-Type-Options", "nosniff");
       response.end(JSON.stringify(body));
     };
-    if (!localRequest(request, pathname === "/api/ai/chat" || !!previewPath)) { json(403, { error: "この API は同じローカルデモ画面からのみ利用できます。" }); return; }
+    if (!localRequest(request, pathname === "/api/ai/chat" || !!previewPath || !!documentPath)) { json(403, { error: "この API は同じローカルデモ画面からのみ利用できます。" }); return; }
+    if (documentPath) {
+      if (request.method !== "POST") { json(405, { error: "POST を使用してください。" }); return; }
+      if (!/^application\/json(?:;|$)/i.test(request.headers["content-type"] ?? "")) { json(415, { error: "Content-Type は application/json を指定してください。" }); return; }
+      const id = pathname!.slice("/api/ai/documents/".length);
+      if (!RUN_ID_PATTERN.test(id)) { json(400, { error: "資料同期の ID が不正です。" }); return; }
+      const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 10_000);
+      const abort = () => controller.abort();
+      request.once("aborted", abort);
+      try {
+        const body = await readJSONBody(request, controller.signal, LIVE_DOCUMENT_BODY_LIMIT);
+        if (!documents.complete(id, body)) { json(404, { error: "資料同期の処理が見つからないか、期限が切れています。" }); return; }
+        json(200, { ok: true });
+      } catch (error) { if (!response.destroyed) json(400, { error: error instanceof AIError ? error.message : "資料同期の応答を読み取れませんでした。" }); }
+      finally { clearTimeout(timer); request.off("aborted", abort); }
+      return;
+    }
     if (previewPath) {
       if (request.method !== "POST") { json(405, { error: "POST を使用してください。" }); return; }
       if (!/^application\/json(?:;|$)/i.test(request.headers["content-type"] ?? "")) { json(415, { error: "Content-Type は application/json を指定してください。" }); return; }
@@ -118,11 +137,11 @@ export function createAIMiddleware(options: { repository: string; config: AIConf
     if (active >= 2) { json(429, { error: "AI が処理中です。完了してから再試行してください。" }); return; }
     active++;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(new AIError("AI の全体処理が時間切れになりました。変更は適用していません。依頼を分割して再試行してください。")), timeoutMs);
+    const timer = setTimeout(() => controller.abort(new AIError("AI の全体処理が時間切れになりました。反映済みの編集は保持されています。残りの依頼を分割して再試行してください。")), timeoutMs);
     let idleTimer: ReturnType<typeof setTimeout>;
     const progressed = () => {
       clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => controller.abort(new AIError("AI からの応答またはツールの進捗が止まったため、処理を終了しました。変更は適用していません。")), idleTimeoutMs);
+      idleTimer = setTimeout(() => controller.abort(new AIError("AI からの応答またはツールの進捗が止まったため、処理を終了しました。反映済みの編集は保持されています。")), idleTimeoutMs);
     };
     progressed();
     const aborted = () => controller.abort(new AIError("処理をキャンセルしました。"));
@@ -145,7 +164,8 @@ export function createAIMiddleware(options: { repository: string; config: AIConf
         if (!response.destroyed) response.write(JSON.stringify(event) + "\n");
       };
       await runAISession({ ...options, request: body, signal: controller.signal, emit,
-        preview: (request, signal) => previews.request(request, signal, emit) });
+        preview: (request, signal) => previews.request(request, signal, emit),
+        liveDocument: (request, signal) => documents.request(request, signal, emit) });
     } catch (error) {
       if (!response.destroyed) {
         const reason = controller.signal.aborted ? controller.signal.reason : error;

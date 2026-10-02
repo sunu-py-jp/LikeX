@@ -1,4 +1,5 @@
 import type { AIModule, AIResult } from "./ai-client";
+import type { AILiveDocumentRequest, AILiveDocumentResult } from "../../build/ai/protocol";
 
 export type DocumentSnapshot = { document: string; documentTitle?: string; revision: number; selection?: unknown };
 export type DocumentAdapter = {
@@ -9,7 +10,39 @@ export type DocumentAdapter = {
   readCurrent(): Pick<DocumentSnapshot, "document" | "revision">;
   normalize(document: string): string;
   apply(document: string, signal: AbortSignal, assertCurrent: () => void): Promise<void>;
+  /** Each commit uses the public editor transaction, including permissions and Undo. */
+  live(request: AILiveDocumentRequest, signal: AbortSignal): Promise<AILiveDocumentResult>;
 };
+
+export class LiveDocumentError extends Error {
+  constructor(readonly code: string, message: string, readonly conflicts?: unknown) { super(message); }
+}
+
+/** Stop waiting without cancelling a pre-existing user operation owned by the editor. */
+export function awaitDocumentRead<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const abort = () => { signal.removeEventListener("abort", abort); reject(signal.reason ?? new DOMException("操作を中止しました。", "AbortError")); };
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+    operation.then(value => { signal.removeEventListener("abort", abort); if (!signal.aborted) resolve(value); }, error => {
+      signal.removeEventListener("abort", abort); reject(error);
+    });
+  });
+}
+
+export function assertLiveDocumentSize(document: string) {
+  if (new TextEncoder().encode(document).byteLength > 8 * 1024 * 1024)
+    throw new LiveDocumentError("write_failed", "編集後の資料がAIデモの8 MiB上限を超えるため適用していません。画像やデータ量を減らしてください。");
+}
+
+export function mutationToken(text: string): { sessionId: string; structureRevision: number } {
+  let value: unknown;
+  try { value = JSON.parse(text); } catch { throw new LiveDocumentError("invalid_request", "編集元の情報を読み取れません。"); }
+  if (!value || typeof value !== "object" || !("sessionId" in value) || typeof value.sessionId !== "string" ||
+    !("structureRevision" in value) || !Number.isSafeInteger(value.structureRevision) || (value.structureRevision as number) < 0)
+    throw new LiveDocumentError("invalid_request", "編集元の情報が正しくありません。");
+  return { sessionId: value.sessionId, structureRevision: value.structureRevision as number };
+}
 
 export function assertDocumentCurrent(adapter: DocumentAdapter, snapshot: DocumentSnapshot, signal: AbortSignal, isActive: () => boolean) {
   signal.throwIfAborted();

@@ -2,9 +2,11 @@
 
 import { useCallback, type RefObject } from "react";
 import type { MaybePromise } from "../core";
-import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandResult } from "../api/types";
+import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandResult, SpreadsheetCommandOptions,
+  SpreadsheetAsyncCommandOptions } from "../api/types";
 import { stageSpreadsheetCommands } from "../commands/stage-spreadsheet-commands";
 import { captureSpreadsheetCommands } from "../commands/capture-spreadsheet-commands";
+import { captureSpreadsheetCondition, checkSpreadsheetCondition, spreadsheetStructureChanged } from "../commands/conditional";
 import { resolveSpreadsheetFeatures } from "../api/resolve-features";
 import type { DraftSelection } from "./types";
 import type { useWorkbookDraft } from "./use-workbook-draft";
@@ -26,13 +28,20 @@ export type SpreadsheetGuiCommandOptions = Readonly<{
 
 /** Shared command validation and one-transaction publication for GUI and imperative callers. */
 export function useSpreadsheetCommands(draft: ReturnType<typeof useWorkbookDraft>, session: CommandSession) {
-  const { workbookRef, propsRef, applyTransaction, getMutationFailure, reportError } = draft;
+  const { workbookRef, propsRef, applyTransaction, getMutationFailure, reportError, conditionalStructureRevisionRef, mutationSessionId,
+    getEditState, cancelEditRequest } = draft;
   const { selectionRef, setSelection, editingRef, pendingObjectEditRef } = session;
+  const getToken = useCallback(() => Object.freeze({ sessionId: mutationSessionId, structureRevision: conditionalStructureRevisionRef.current }),
+    [mutationSessionId, conditionalStructureRevisionRef]);
   const run = useCallback((commands: readonly SpreadsheetCommand[], external: boolean, synchronous = false,
     contextMenu?: Pick<DraftOperationOptions, "mutationOwner" | "isCurrent">,
-    gui?: SpreadsheetGuiCommandOptions): MaybePromise<SpreadsheetCommandResult> => {
+    gui?: SpreadsheetGuiCommandOptions, options?: SpreadsheetAsyncCommandOptions): MaybePromise<SpreadsheetCommandResult> => {
     const unavailable = getMutationFailure(gui?.allowSaveStarting, contextMenu?.mutationOwner);
     if (unavailable) return unavailable;
+    const { signal, ...conditionalOptions } = options ?? {};
+    if (signal?.aborted) return { ok: false, code: "EDIT_CANCELLED", message: "操作がキャンセルされました" };
+    const condition = captureSpreadsheetCondition(conditionalOptions);
+    if (!condition.ok) return condition;
     const guarded = external || !!contextMenu || !!gui?.isCurrent;
     const editorAvailable = () => (gui?.allowPendingCellEdit || !editingRef.current) && !pendingObjectEditRef.current;
     if (guarded && !editorAvailable())
@@ -44,7 +53,8 @@ export function useSpreadsheetCommands(draft: ReturnType<typeof useWorkbookDraft
     const sheetId = sheetIds.size === 1 ? [...sheetIds][0] : undefined;
     const attempt: { staged?: ReturnType<typeof stageSpreadsheetCommands> } = {};
     const committed = applyTransaction(workbook => {
-      const staged = stageSpreadsheetCommands(workbook, captured, resolveSpreadsheetFeatures(propsRef.current.features), () => crypto.randomUUID());
+      const staged = checkSpreadsheetCondition(workbook, captured, condition.expected, getToken()) ??
+        stageSpreadsheetCommands(workbook, captured, resolveSpreadsheetFeatures(propsRef.current.features), () => crypto.randomUUID());
       attempt.staged = staged;
       return staged.ok && staged.changed ? staged.workbook : workbook;
     }, { selectionRef, setSelection }, { source: external ? "api" : "ui", synchronous,
@@ -53,16 +63,26 @@ export function useSpreadsheetCommands(draft: ReturnType<typeof useWorkbookDraft
       ...(sheetId ? { sheetId } : {}),
       action: captured.length === 1 ? captured[0]?.type : "batch", commands: captured.map(command => command?.type),
       ...(contextMenu ? { mutationOwner: contextMenu.mutationOwner } : {}),
-      ...(guarded ? { isCurrent: () => editorAvailable() && (!contextMenu?.isCurrent || contextMenu.isCurrent()) && (!gui?.isCurrent || gui.isCurrent()) } : {}) });
+      ...(guarded || signal ? { isCurrent: () => !signal?.aborted && editorAvailable() && (!contextMenu?.isCurrent || contextMenu.isCurrent()) && (!gui?.isCurrent || gui.isCurrent()) } : {}) });
     const finish = (value: Awaited<typeof committed>): SpreadsheetCommandResult => {
       if (!value.ok) return value;
       const staged = attempt.staged;
       if (!staged) return { ok: false, code: "VALIDATION_FAILED", message: "操作を完了できませんでした" };
       if (!staged.ok) return staged;
+      if (!value.changed && spreadsheetStructureChanged(workbookRef.current, workbookRef.current, captured.map(command => command.type))) conditionalStructureRevisionRef.current++;
       return { ok: true, changed: value.changed, results: staged.results };
     };
-    return committed instanceof Promise ? committed.then(finish) : finish(committed);
-  }, [getMutationFailure, editingRef, pendingObjectEditRef, applyTransaction, propsRef, selectionRef, setSelection]);
+    if (!(committed instanceof Promise)) return finish(committed);
+    if (!signal) return committed.then(finish);
+    const request = getEditState();
+    const abort = () => {
+      if (request.mode === "requesting" && getEditState().requestId === request.requestId) cancelEditRequest();
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+    return committed.then(finish).finally(() => signal.removeEventListener("abort", abort));
+  }, [getMutationFailure, editingRef, pendingObjectEditRef, applyTransaction, propsRef, selectionRef, setSelection, getToken, workbookRef,
+    conditionalStructureRevisionRef, getEditState, cancelEditRequest]);
   const showFailure = useCallback((failure: SpreadsheetCommandFailure) => {
     if (failure.code !== "NOT_MOUNTED" && failure.code !== "EDIT_CANCELLED") reportError(new Error(failure.message));
   }, [reportError]);
@@ -73,13 +93,14 @@ export function useSpreadsheetCommands(draft: ReturnType<typeof useWorkbookDraft
   }, [run, showFailure]);
   const executeCommand = useCallback((command: SpreadsheetCommand) => executeCommands([command]), [executeCommands]);
   // Synchronous execution never starts a host permission request; there is no deferred side effect.
-  const externalBatch = useCallback((commands: readonly SpreadsheetCommand[]) => run(commands, true, true) as SpreadsheetCommandResult, [run]);
-  const externalExecute = useCallback((command: SpreadsheetCommand) => externalBatch([command]), [externalBatch]);
-  const externalBatchAsync = useCallback(async (commands: readonly SpreadsheetCommand[]) => run(commands, true), [run]);
-  const externalExecuteAsync = useCallback((command: SpreadsheetCommand) => externalBatchAsync([command]), [externalBatchAsync]);
+  const externalBatch = useCallback((commands: readonly SpreadsheetCommand[], options?: SpreadsheetCommandOptions) => run(commands, true, true, undefined, undefined, options) as SpreadsheetCommandResult, [run]);
+  const externalExecute = useCallback((command: SpreadsheetCommand, options?: SpreadsheetCommandOptions) => externalBatch([command], options), [externalBatch]);
+  const externalBatchAsync = useCallback(async (commands: readonly SpreadsheetCommand[], options?: SpreadsheetAsyncCommandOptions) => run(commands, true, false, undefined, undefined, options), [run]);
+  const externalExecuteAsync = useCallback((command: SpreadsheetCommand, options?: SpreadsheetAsyncCommandOptions) => externalBatchAsync([command], options), [externalBatchAsync]);
   const getWorkbook = useCallback(() => workbookRef.current, [workbookRef]);
+  const getMutationSnapshot = useCallback(() => Object.freeze({ workbook: workbookRef.current, token: getToken() }), [workbookRef, getToken]);
   const applyContextMenuCommands = useCallback((commands: readonly SpreadsheetCommand[], owner: object, isCurrent: () => boolean) =>
     run(commands, false, false, { mutationOwner: owner, isCurrent }), [run]);
 
-  return { executeCommand, executeCommands, externalExecute, externalBatch, externalExecuteAsync, externalBatchAsync, getWorkbook, applyContextMenuCommands };
+  return { executeCommand, executeCommands, externalExecute, externalBatch, externalExecuteAsync, externalBatchAsync, getWorkbook, getMutationSnapshot, applyContextMenuCommands };
 }

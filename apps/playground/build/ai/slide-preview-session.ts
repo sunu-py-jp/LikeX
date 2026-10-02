@@ -22,15 +22,22 @@ function fingerprint(deck: NativeDeck, page: NativePage) {
 export class SlidePreviewTracker {
   private readonly initial = new Map<string, string>();
   private readonly reviewed = new Map<string, string>();
-  constructor(source: string) {
+  private readonly touched = new Set<string>();
+  constructor(source: string, private readonly writesOnly = false) {
     const deck = canonicalSlideDeck(source);
     for (const page of deck.slides) this.initial.set(page.id, fingerprint(deck, page));
+  }
+  /** Live runs verify pages edited by this agent; unrelated human-only edits are not its work. */
+  recordChanges(before: string, after: string) {
+    const previous = canonicalSlideDeck(before), current = canonicalSlideDeck(after);
+    const hashes = new Map(previous.slides.map(page => [page.id, fingerprint(previous, page)]));
+    for (const page of current.slides) if (hashes.get(page.id) !== fingerprint(current, page)) this.touched.add(page.id);
   }
   pending(source: string) {
     const deck = canonicalSlideDeck(source);
     return deck.slides.filter(page => {
       const hash = fingerprint(deck, page);
-      return this.initial.get(page.id) !== hash && this.reviewed.get(page.id) !== hash;
+      return (this.writesOnly ? this.touched.has(page.id) : this.initial.get(page.id) !== hash) && this.reviewed.get(page.id) !== hash;
     }).map(page => page.id);
   }
   prepare(source: string, slideId: string) {

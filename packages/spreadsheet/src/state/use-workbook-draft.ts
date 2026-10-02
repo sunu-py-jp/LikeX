@@ -12,6 +12,7 @@ import { captureHistorySelection, type SpreadsheetHistoryTarget } from "./histor
 import type { DraftSelection, Workbook, WorkbookOperation } from "./types";
 import { useSpreadsheetEditSession } from "./use-spreadsheet-edit-session";
 import { useWorkbookPersistence } from "./use-workbook-persistence";
+import { spreadsheetStructureChanged } from "../commands/conditional";
 
 export type DraftCommitResult = { ok: true; changed: boolean } | SpreadsheetCommandFailure;
 export type DraftOperationOptions = SpreadsheetEditIntent & {
@@ -49,6 +50,8 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   const [contextMenuLocked, setContextMenuLocked] = useState(false);
   const revisionRef = useRef(0);
   const structureRevisionRef = useRef(0);
+  const conditionalStructureRevisionRef = useRef(0);
+  const [mutationSessionId] = useState(() => crypto.randomUUID());
   const setContextMenuLock = useCallback((owner: object | null) => {
     contextMenuOwnerRef.current = owner;
     setContextMenuLocked(owner !== null);
@@ -64,7 +67,8 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   const dirty = useMemo(() => !workbooksEqual(workbook, saved), [workbook, saved]);
   useLayoutEffect(() => {
     lifetimeRef.current = {};
-    return () => { lifetimeRef.current = null; saveStartingRef.current = false; };
+    const conditionalRevision = conditionalStructureRevisionRef;
+    return () => { lifetimeRef.current = null; saveStartingRef.current = false; conditionalRevision.current++; };
   }, []);
   const emitEvent = useCallback((event: SpreadsheetEvent) => notifyHost(propsRef.current.onEvent, event), []);
   useEffect(() => { notifyHost(props.onDirtyChange, dirty); }, [props.onDirtyChange, dirty]);
@@ -84,6 +88,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   const replaceBaseline = useCallback((next: Workbook, options?: { preserveHistory?: boolean }) => {
     revisionRef.current++;
     structureRevisionRef.current++;
+    conditionalStructureRevisionRef.current++;
     workbookRef.current = next;
     savedRef.current = next;
     setWorkbook(next);
@@ -104,6 +109,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   const publishChange = useCallback((next: Workbook, source: SpreadsheetChangeSource, commands?: SpreadsheetEditIntent["commands"]) => {
     const before = workbookRef.current;
     revisionRef.current++;
+    if (source === "undo" || source === "redo" || spreadsheetStructureChanged(before, next, commands)) conditionalStructureRevisionRef.current++;
     if (source === "undo" || source === "redo" || commands?.some(command => /^(rows\.|columns\.(insert|delete)|sheets\.(add|delete)|cells\.(insert|delete|merge|unmerge))/.test(command)) ||
       before.sheets.length !== next.sheets.length || before.sheets.some((sheet, index) => {
         const current = next.sheets[index];
@@ -198,7 +204,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   return { workbook, workbookRef, propsRef, readOnly, disabled: readOnly || persistence.saving || persistence.refreshing || contextMenuLocked,
     isOperationPending: () => !!(savingRef.current || refreshingRef.current || saveStartingRef.current || transactionRef.current ||
       contextMenuOwnerRef.current || edit.getEditState().mode === "requesting" || edit.isEndingEdit()),
-    setContextMenuLock, contextMenuLocked, revisionRef, structureRevisionRef,
+    setContextMenuLock, contextMenuLocked, revisionRef, structureRevisionRef, conditionalStructureRevisionRef, mutationSessionId,
     dirty, isDirty: () => !workbooksEqual(workbookRef.current, savedRef.current), error, setError, reportError, applyTransaction, getMutationFailure, changeHistory,
     getHistoryState: history.getState, ...historyStatus,
     ...persistence, ...edit, endEdit, emitEvent, resetViewRef };

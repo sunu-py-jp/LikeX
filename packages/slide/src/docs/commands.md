@@ -224,6 +224,44 @@ const { deck: current, dirty, canUndo, canRedo } = session.getSnapshot();
 
 `subscribe(listener)` は解除関数を返します。`replace(deck)` は読み込みをUndoできる変更として扱い、`replace(deck, { saved: true })` は別の保存済み資料として履歴も初期化します。`discard()` は保存時点へ戻し履歴を消します。`markSaved()` は履歴を消しません。
 
+## 非同期作業中の条件付き編集
+
+AIや非同期処理が取得した状態と、実際の書き込み時点の状態を比較してからコマンドを適用できます。`SlideCommand` の全操作を受け付け、1件でも競合すればバッチ全体を適用せず、Undo履歴も増やしません。
+
+```ts
+import { prepareSlideConditionalEdit } from "@likex/slide/model";
+
+const snapshot = ref.current!.getMutationSnapshot();
+// ここでAIなどがsnapshotに基づいてcommandsを作成する。
+const edit = prepareSlideConditionalEdit(snapshot.deck, commands, { scope: "deck" });
+const result = await ref.current!.executeConditional(edit, {
+  expected: snapshot.token,
+  signal: abortController.signal,
+});
+if (result && !result.ok) {
+  // result.code === "conflict"。現在値を確認し、再取得して計画を作り直す。
+  console.log(result.conflicts); // [{ path, expected, actual, ... }]
+}
+```
+
+`getMutationSnapshot()` はアニメーション適用前の編集データと `{ sessionId, structureRevision }` を返します。トークンは同じエディターでのみ有効で、ページ・要素の追加、削除、並べ替え、読み込みなどで失効します。Undo・Redo、ホストからの保存結果による基準データの更新、変更の破棄でも失効します。同一の値やIDへ戻った場合も、古い位置・対象の判断を引き継ぎません。トークンは保存形式に含めません。
+
+| 比較範囲 | 挙動 |
+| --- | --- |
+| `scope: "deck"` | 取得した資料全体と一致するときだけ適用。AIが他ページや他要素の内容を根拠に判断した場合に使う |
+| `scope: "targets"` または省略 | タイトル・ページのメタデータ・要素の文字や書式は、書き込む項目と対象ID・種別・ロック状態を比較。別項目のユーザー変更を保持する |
+| 構造や関連を変更する操作 | `targets` でも資料全体を比較。追加・削除・複製・順序、位置や大きさ、接続線、アニメーション、ページ置換、サイズ、マスターとレイアウトが対象 |
+
+例えば本文の変更では、同時に行われた文字色の変更を保持できます。ただし「別要素の数値を読んで本文を書き換える」といった判断の依存関係は、コマンドだけから推測できません。その場合は `deck` を使います。構造操作では別ページの編集でも競合として扱うことがあるため、結果を取得し直して再計画してください。競合応答を無視して無条件の `execute()` に切り替えないでください。
+
+書き込み前に入力途中の文字を確定し、非同期の編集許可を待った後も最新状態を再照合します。照合から適用まで非同期の隙間を作りません。成功時は `{ ok: true, ...SlideCommandResult }`、競合時は `{ ok: false, code: "conflict", conflicts }`、権限拒否・中止・読み取り専用などは `null` です。適用済みバッチはそれぞれ1回のUndoで戻せます。ユーザーが見ているページ・選択は可能な限り維持します。
+
+ヘッドレスでも `prepareSlideConditionalEdit(before, commands, options)` → `applySlideConditionalEdit(current, edit)` が使えます。セッションでは `getMutationSnapshot()` → `executeConditional(edit, snapshot.token)` を使います。純粋なモデルAPIは外部ストレージの同時書き込みをロックしないため、サーバーでは最新データの取得・条件照合・保存を同じトランザクション内で行います。`before` はホストで保持する比較用データで、LLMへ全文送信する必要はありません。
+
+新規IDは実際の適用結果を正とします。複製、マスター取り込み、レイアウト適用などをサーバーとブラウザーで別々に実行するとIDが変わるため、書き込み主体は一つにし、その結果を次の取得・編集へ引き継いでください。このAPIは編集実行の契約の追加で、SLONやPPTXの保存内容は変更しません。
+
+スキルCLIでも `apply --expected before.slon --expected-scope document` で取得時のファイルを照合できます。scopeの既定は `document`、独立した項目だけを比較する場合は `targets` です。両オプションは `apply` 専用で、セッショントークンは含まないため、共有ファイルの並行読み書きは利用ホストがロック・世代管理してください。[CLIの条件付き編集](../../skills/likex-slide/references/commands.md#条件付き編集と逐次反映)
+
 ## 表示中のコンポーネントを操作する
 
 ```tsx

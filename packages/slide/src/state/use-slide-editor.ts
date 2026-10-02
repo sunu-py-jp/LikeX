@@ -3,7 +3,9 @@ import { copySlideLine } from "../model/lines";
 
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { SlideCommand, SlideCommandResult, SlideDeck, SlideElement } from "../model/types";
-import type { SlideEvent, SlideProps, SlideSelection } from "../props";
+import { prepareSlideConditionalEdit, applySlideConditionalEdit } from "../model/conditional-edit";
+import type { SlideConditionalEdit, SlideConditionalEditResult } from "../model/conditional-edit";
+import type { SlideEvent, SlideProps, SlideSelection, SlideConditionalEditOptions } from "../props";
 import { applySlideCommands, normalizeSlideDeck, parseSlideDeck, serializeSlideDeck, getSlideMasters, getSlideLayouts, getSlideLayout, SLIDE_LIMITS } from "../model/index";
 import { getDeck, getSlides, getSlide, getElements, getElement, getAnimations } from "../model/query";
 import type { SlidePptxImportOptions } from "../import/import-pptx";
@@ -132,9 +134,9 @@ export function useSlideEditor(props: SlideProps) {
   }, [readOnly, props.features?.import, props.features?.masters]);
   useEffect(() => { if (readOnly) { inputRegistration.current?.reset?.(); endEdit(); } }, [readOnly, endEdit]);
 
-  const authorize = useCallback(async () => {
+  const authorize = useCallback(async (ownerSignal?: AbortSignal) => {
     const current = propsRef.current;
-    if ((current.readOnly ?? !current.onSave) || busyRef.current || !mounted.current) return false;
+    if (ownerSignal?.aborted || (current.readOnly ?? !current.onSave) || busyRef.current || !mounted.current) return false;
     if (permission.current.granted) return true;
     if (permission.current.promise) return permission.current.promise;
     const controller = new AbortController();
@@ -142,6 +144,16 @@ export function useSlideEditor(props: SlideProps) {
     permission.current = state;
     setRequesting(true);
     emit({ type: "edit-mode", mode: "requesting" });
+    // Only the caller that creates this permission request owns cancellation.
+    // Joining an existing request above must not abort another operation's lock.
+    const cancelOwnedPermission = () => {
+      if (permission.current !== state) return;
+      controller.abort(ownerSignal?.reason);
+      state.granted = false;
+      emit({ type: "edit-mode", mode: "view" });
+    };
+    ownerSignal?.addEventListener("abort", cancelOwnedPermission, { once: true });
+    if (ownerSignal?.aborted) cancelOwnedPermission();
     state.promise = (async () => {
       try {
         const allowed = await awaitSlideImageTask(() => current.onEditRequest?.({ deck: copy(session.getSnapshot().deck) }, {
@@ -153,7 +165,10 @@ export function useSlideEditor(props: SlideProps) {
         emit({ type: "edit-mode", mode: allowed ? "edit" : "view" });
         return allowed;
       } catch (error) { if (!controller.signal.aborted) reportError(error); return false; }
-      finally { if (permission.current === state) { state.promise = null; if (mounted.current) setRequesting(false); } }
+      finally {
+        ownerSignal?.removeEventListener("abort", cancelOwnedPermission);
+        if (permission.current === state) { state.promise = null; if (mounted.current) setRequesting(false); }
+      }
     })();
     return state.promise;
   }, [emit, reportError, session]);
@@ -208,6 +223,27 @@ export function useSlideEditor(props: SlideProps) {
     inputRegistration.current = registration;
     return () => { if (inputRegistration.current === registration) inputRegistration.current = null; };
   }, []);
+  const finishCommands = useCallback((commands: readonly SlideCommand[], before: SlideDeck, result: SlideCommandResult, previous: SlideSelection, keepSelection = false) => {
+    if (result.changed) {
+      rememberSelection(previous);
+      const targetSlideId = result.slideId ?? previous.slideId;
+      const target = result.deck.slides.find(item => item.id === targetSlideId);
+      const oldIds = new Set(before.slides.find(item => item.id === targetSlideId)?.elements.map(item => item.id));
+      const addedIds = target?.elements.filter(item => !oldIds.has(item.id)).map(item => item.id) ?? [];
+      const preservesSelection = commands.every(item => ["element.update", "line.update", "element.order", "slide.update", "slide.move", "deck.rename", "deck.resize", "masters.import", "slide.applyLayout", "slide.detachLayout"].includes(item.type));
+      if (commands.every(item => item.type === "slide.delete")) {
+        const remaining = result.deck.slides.filter(item => (previous.slideIds ?? [previous.slideId]).includes(item.id));
+        const activeIndex = before.slides.findIndex(item => item.id === previous.slideId);
+        const neighbors = [...before.slides.slice(activeIndex + 1), ...before.slides.slice(0, activeIndex).reverse()];
+        const active = remaining.find(item => item.id === previous.slideId) ?? remaining[0]
+          ?? neighbors.find(item => result.deck.slides.some(slide => slide.id === item.id)) ?? result.deck.slides[0];
+        if (active) select({ slideId: active.id, elementIds: active.id === previous.slideId ? previous.elementIds : [], slideIds: remaining.map(item => item.id) });
+      } else if (keepSelection) {
+        select({ ...previous, slideId: result.deck.slides.some(slide => slide.id === previous.slideId) ? previous.slideId : result.deck.slides[0].id });
+      } else select(preservesSelection ? previous : { slideId: targetSlideId, elementIds: addedIds.length ? addedIds : previous.slideId === targetSlideId ? previous.elementIds : result.elementIds });
+      emit({ type: "change", source: "command", deck: result.deck });
+    }
+  }, [emit, rememberSelection, select]);
   const runCommands = useCallback(async (command: SlideCommand | readonly SlideCommand[], expectedDeck?: SlideDeck, expectedSlideId?: string, expectedSlideVersion?: number, expectedSelection?: SlideSelection): Promise<SlideCommandResult | null> => {
     const generation = operationGeneration.current;
     const commands = Array.isArray(command) ? command : [command];
@@ -233,28 +269,47 @@ export function useSlideEditor(props: SlideProps) {
       const previous = copy(selectionRef.current);
       const before = session.getSnapshot().deck;
       const result = session.execute(commands);
-      if (result.changed) {
-        rememberSelection(previous);
-        const targetSlideId = result.slideId ?? previous.slideId;
-        const target = result.deck.slides.find(item => item.id === targetSlideId);
-        const oldIds = new Set(before.slides.find(item => item.id === targetSlideId)?.elements.map(item => item.id));
-        const addedIds = target?.elements.filter(item => !oldIds.has(item.id)).map(item => item.id) ?? [];
-        const preservesSelection = commands.every(item => ["element.update", "line.update", "element.order", "slide.update", "slide.move", "deck.rename", "deck.resize", "masters.import", "slide.applyLayout", "slide.detachLayout"].includes(item.type));
-        if (commands.every(item => item.type === "slide.delete")) {
-          const remaining = result.deck.slides.filter(item => (previous.slideIds ?? [previous.slideId]).includes(item.id));
-          const activeIndex = before.slides.findIndex(item => item.id === previous.slideId);
-          const neighbors = [...before.slides.slice(activeIndex + 1), ...before.slides.slice(0, activeIndex).reverse()];
-          const active = remaining.find(item => item.id === previous.slideId) ?? remaining[0]
-            ?? neighbors.find(item => result.deck.slides.some(slide => slide.id === item.id)) ?? result.deck.slides[0];
-          if (active) select({ slideId: active.id, elementIds: active.id === previous.slideId ? previous.elementIds : [], slideIds: remaining.map(item => item.id) });
-        } else select(preservesSelection ? previous : { slideId: targetSlideId, elementIds: addedIds.length ? addedIds : previous.slideId === targetSlideId ? previous.elementIds : result.elementIds });
-        emit({ type: "change", source: "command", deck: result.deck });
-      }
+      finishCommands(commands, before, result, previous);
       return result;
     } catch (error) { reportError(error); return null; }
-  }, [authorize, emit, rememberSelection, reportError, select, session]);
+  }, [authorize, finishCommands, reportError, session]);
   const execute = useCallback((command: SlideCommand | readonly SlideCommand[], expectedDeck?: SlideDeck) =>
     snapshotPending.current ? Promise.resolve(null) : track(runCommands(command, expectedDeck)), [runCommands, track]);
+  const executeConditional = useCallback((input: SlideConditionalEdit, options: SlideConditionalEditOptions = {}): Promise<SlideConditionalEditResult | null> => {
+    if (snapshotPending.current || busyRef.current || !mounted.current || options.signal?.aborted || (propsRef.current.readOnly ?? !propsRef.current.onSave)) return Promise.resolve(null);
+    const generation = operationGeneration.current;
+    let edit: SlideConditionalEdit;
+    try { edit = prepareSlideConditionalEdit(input.before, input.commands, { scope: input.scope }); }
+    catch (error) { reportError(error); return Promise.resolve(null); }
+    const expected = options.expected && { ...options.expected };
+    const signal = options.signal;
+    // Flush local text input before checking conditions. A buffered user edit is
+    // a real edit even though blur has not yet committed it to the session.
+    inputRegistration.current?.flush();
+    const pending = [...mutations.current];
+    return track((async () => {
+      try {
+        if (pending.length) await awaitSlideImageTask(() => Promise.all(pending), signal);
+        if (signal?.aborted || generation !== operationGeneration.current || !mounted.current) return null;
+        const current = session.getSnapshot().deck;
+        const activeFeatures = { ...featureDefaults, ...propsRef.current.features };
+        if (!edit.commands.every(command => permitted(command, activeFeatures, current))) return null;
+        const preview = applySlideConditionalEdit(current, edit);
+        if (!preview.ok) return preview;
+        if (!permission.current.granted && !await awaitSlideImageTask(() => authorize(signal), signal)) return null;
+        if (signal?.aborted || busyRef.current || !mounted.current || generation !== operationGeneration.current ||
+          (propsRef.current.readOnly ?? !propsRef.current.onSave)) return null;
+        const before = session.getSnapshot().deck;
+        const latestFeatures = { ...featureDefaults, ...propsRef.current.features };
+        if (!edit.commands.every(command => permitted(command, latestFeatures, before))) return null;
+        const previous = copy(selectionRef.current);
+        // No await between final precondition checks and publishing the change.
+        const result = session.executeConditional(edit, expected);
+        if (result.ok) finishCommands(edit.commands, before, result, previous, true);
+        return result;
+      } catch (error) { if (!signal?.aborted) reportError(error); return null; }
+    })());
+  }, [authorize, finishCommands, reportError, session, track]);
   const applyLayout = useCallback((layoutId: string | null) => {
     if (snapshotPending.current || busyRef.current || !mounted.current || (propsRef.current.readOnly ?? !propsRef.current.onSave) ||
       propsRef.current.features?.masters === false || propsRef.current.features?.formatting === false) return Promise.resolve(null);
@@ -551,12 +606,13 @@ export function useSlideEditor(props: SlideProps) {
     getSlideLayouts: masterId => copy(getSlideLayouts(session.getSnapshot().deck, masterId)),
     getSlideLayout: layoutId => copy(getSlideLayout(session.getSnapshot().deck, layoutId)),
     getPptxDiagnostics: () => copy(conversionReportRef.current?.diagnostics ?? []),
-    execute: command => execute(command),
+    getMutationSnapshot: () => copy(session.getMutationSnapshot()),
+    execute: command => execute(command), executeConditional,
     undo: () => history("undo"), redo: () => history("redo"), save, discard,
     getSelection: () => copy(selectionRef.current), select, deleteSelection, importNative, exportNative, importPptx, importPptxMasters, cancelMasterImport, exportPptx, exportImage, exportImages,
-  }), [discard, execute, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
+  }), [discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
 
-  return { ...snapshot, dirty, selection, select, deleteSelection, execute, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
+  return { ...snapshot, dirty, selection, select, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
     copyElements, pasteElements, canPasteElements, prepareCommands, registerInputFlush, refreshPendingInput, notice, setNotice, conversionReport, reportError, features, readOnly, busy, requesting,
     editable: !readOnly && !busy && !requesting };
 }

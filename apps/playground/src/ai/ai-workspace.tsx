@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import LikeAIChat, { createAIChat, type AIChatHandle, type AIChatProps, type AIChatSendHandler, type AIChatResponseChunk } from "@likex/aichat";
 import { fetchAIConfig, recentAIMessages, requestAI, type AIConfig, type AIMessage, type AIResult } from "./ai-client";
-import { applyAIResult, assertDocumentCurrent, type DocumentAdapter } from "./ai-document";
+import { type DocumentAdapter } from "./ai-document";
 import { AIRunPart, ToolExecutionPart, createRunPart } from "./ai-trace-parts";
 import "../../../../packages/aichat/src/styles.css";
 import "./ai-workspace.css";
@@ -78,16 +78,26 @@ export function AIWorkspace({ adapter, children, colorMode, primaryColor, onBusy
     active.current?.abort(); active.current = controller;
     const isActive = () => mounted.current && active.current === controller;
     const signal = controller.signal;
-    let runId: string | undefined;
+    let runId: string | undefined, appliedBatches = 0;
+    const targetId = crypto.randomUUID();
     const partIds = new Map<string, string>();
     reportBusy(true); setHasSent(true); setSteps([]); setStatus("現在の内容を確認しています…");
     try {
       const snapshot = await adapter.snapshot(signal);
-      assertDocumentCurrent(adapter, snapshot, signal, isActive);
       const messages = recentAIMessages(request.messages.filter(message => message.role === "user" || message.role === "assistant" && message.status === "complete")
         .map(message => ({ role: message.role as AIMessage["role"], content: message.content })));
       let answer = "", result: AIResult | undefined;
-      for await (const event of requestAI({ module: adapter.module, document: snapshot.document, documentTitle: snapshot.documentTitle, selection: snapshot.selection, messages }, signal)) {
+      for await (const event of requestAI({ module: adapter.module, document: snapshot.document, documentTitle: snapshot.documentTitle, selection: snapshot.selection, messages, targetId }, signal,
+        async (operation, operationSignal) => {
+          operationSignal.throwIfAborted();
+          if (!isActive() || operation.targetId !== targetId) throw new DOMException("AIの操作を中止しました。", "AbortError");
+          const reply = await adapter.live(operation, operationSignal);
+          if (operation.action === "commit" && reply.changed) {
+            appliedBatches++;
+            if (isActive()) setStatus(`${appliedBatches}件の編集を反映しました。続けて作業しています…`);
+          }
+          return reply;
+        })) {
         signal.throwIfAborted();
         if (!isActive()) throw new DOMException("AIの操作を中止しました。", "AbortError");
         if (event.type === "progress") { setSteps(previous => [...previous.slice(-19), event.message]); setStatus(event.message); }
@@ -101,16 +111,16 @@ export function AIWorkspace({ adapter, children, colorMode, primaryColor, onBusy
           yield { type: "part", part: { id, type: "likex.tool", data: { ...event.call } } };
         } else result = event;
       }
-      if (!result) throw new Error("AIの応答が完了しなかったため、編集内容は反映していません。");
-      setStatus("編集結果を確認しています…");
-      const changed = await applyAIResult(adapter, snapshot, result, signal, isActive);
-      const outcome = changed ? "編集を反映しました。本体の「元に戻す」で取り消せます。" : "資料への変更はありません。";
+      if (!result) throw new Error("AIの応答が完了しませんでした。反映済みの変更は残っています。");
+      // The result is a completion receipt. Never replace a live document with the server copy.
+      const changed = appliedBatches > 0;
+      const outcome = changed ? "編集を順次反映しました。本体の「元に戻す」で編集ごとに取り消せます。" : "資料への変更はありません。";
       if (isActive()) setStatus(outcome);
       if (runId) yield { type: "part", part: createRunPart(runId, changed ? "complete" : "unchanged") };
       // Publish the model answer together with verified application status.
       yield `${outcome}${answer.trim() ? `\n\n${answer.trim()}` : ""}`;
     } catch (error) {
-      const message = signal.aborted ? "停止しました。" : error instanceof Error ? error.message : "AIの操作に失敗しました。";
+      const message = `${signal.aborted ? "停止しました。" : error instanceof Error ? error.message : "AIの操作に失敗しました。"}${appliedBatches ? ` ${appliedBatches}件の反映済みの編集は残っています。「元に戻す」で取り消せます。` : ""}`;
       if (isActive()) setStatus(message);
       if (runId && !signal.aborted && isActive()) yield { type: "part", part: createRunPart(runId, "error", message) };
       throw error;
@@ -122,8 +132,8 @@ export function AIWorkspace({ adapter, children, colorMode, primaryColor, onBusy
 
   return <div className="playground-ai-workspace" data-ai-module={adapter.module} data-color-mode={colorMode} style={{ "--demo-ai-primary": primaryColor ?? (adapter.module === "slide" ? "#b95634" : "#217346") } as CSSProperties}>
     <div className="playground-ai-canvas">
-      <div className="playground-ai-editor" inert={busy} aria-busy={busy}>{children}</div>
-      {busy && <div className="playground-ai-lock"><span>AIが編集しています</span><button type="button" onClick={() => { active.current?.abort(); chat.current?.cancel(); }}>停止</button></div>}
+      <div className="playground-ai-editor">{children}</div>
+      {busy && <div className="playground-ai-working"><span>AIが作業中 · 編集できます</span><button type="button" onClick={() => { active.current?.abort(); chat.current?.cancel(); }}>停止</button></div>}
       <button hidden={open} ref={launcher} className="playground-ai-launcher" type="button" aria-label={`${adapter.label}のAIチャットを開く`} aria-expanded={open} aria-controls={drawerId} onClick={() => setOpen(true)}><Sparkles/><span>AI</span></button>
     </div>
     <aside ref={drawer} id={drawerId} className="playground-ai-drawer" hidden={!open} aria-labelledby={titleId} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); } }}>

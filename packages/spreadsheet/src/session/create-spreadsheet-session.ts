@@ -3,7 +3,8 @@ import { resolveSpreadsheetFeatures } from "../api/resolve-features";
 import { validateSpreadsheetFeatures } from "../api/validate-features";
 import { stageSpreadsheetCommands } from "../commands/stage-spreadsheet-commands";
 import { captureSpreadsheetCommands } from "../commands/capture-spreadsheet-commands";
-import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetWorkbookSnapshot } from "../commands/types";
+import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetWorkbookSnapshot, SpreadsheetCommandOptions, SpreadsheetMutationSnapshot } from "../commands/types";
+import { captureSpreadsheetCondition, checkSpreadsheetCondition, spreadsheetStructureChanged } from "../commands/conditional";
 import { commandKeys, commandRecord } from "../commands/validation";
 import { createWorkbookHistory, type SpreadsheetHistoryState, type WorkbookHistoryDirection } from "../history/workbook-history";
 import { normalizeWorkbook } from "../model/workbook/normalize";
@@ -17,9 +18,10 @@ export type SpreadsheetSessionOptions = Readonly<{
 }>;
 
 export type SpreadsheetSession = SpreadsheetReadApi & Readonly<{
-  execute(command: SpreadsheetCommand): SpreadsheetCommandResult;
-  batch(commands: readonly SpreadsheetCommand[]): SpreadsheetCommandResult;
+  execute(command: SpreadsheetCommand, options?: SpreadsheetCommandOptions): SpreadsheetCommandResult;
+  batch(commands: readonly SpreadsheetCommand[], options?: SpreadsheetCommandOptions): SpreadsheetCommandResult;
   getWorkbook(): SpreadsheetWorkbookSnapshot;
+  getMutationSnapshot(): SpreadsheetMutationSnapshot;
   undo(): boolean;
   redo(): boolean;
   getHistoryState(): SpreadsheetHistoryState;
@@ -42,16 +44,26 @@ export function createSpreadsheetSession(initialWorkbook: SpreadsheetWorkbookSna
   const features = resolveSpreadsheetFeatures(options.features);
   // Validate/copy the host boundary once; subsequent commands operate on isolated snapshots.
   let workbook = normalizeWorkbook(initialWorkbook as SpreadsheetWorkbook), busy = false;
+  const sessionId = crypto.randomUUID();
+  let structureRevision = 0;
+  const getToken = () => Object.freeze({ sessionId, structureRevision });
   const getWorkbook = () => workbook;
-  const batch = (commands: readonly SpreadsheetCommand[]): SpreadsheetCommandResult => {
+  const batch = (commands: readonly SpreadsheetCommand[], options?: SpreadsheetCommandOptions): SpreadsheetCommandResult => {
     if (busy) return Object.freeze({ ok: false, code: "BUSY", message: "ほかの操作を処理しています" });
     busy = true;
     try {
       const captured = captureSpreadsheetCommands(commands);
       if (!captured.ok) return captured;
+      const condition = captureSpreadsheetCondition(options);
+      if (!condition.ok) return condition;
+      const conflict = checkSpreadsheetCondition(workbook, captured.commands, condition.expected, getToken());
+      if (conflict) return conflict;
       const result = stageSpreadsheetCommands(workbook, captured.commands, features, () => crypto.randomUUID());
       if (!result.ok) return result;
-      if (result.changed) { history.record(workbook, features.undoRedo); workbook = result.workbook; }
+      if (spreadsheetStructureChanged(workbook, result.workbook, captured.commands.map(command => command.type))) structureRevision++;
+      if (result.changed) {
+        history.record(workbook, features.undoRedo); workbook = result.workbook;
+      }
       return Object.freeze({ ok: true, changed: result.changed, results: result.results });
     } finally { busy = false; }
   };
@@ -59,14 +71,16 @@ export function createSpreadsheetSession(initialWorkbook: SpreadsheetWorkbookSna
     if (busy || !features.undoRedo) return false;
     const next = history.step(direction, workbook);
     if (!next) return false;
+    structureRevision++;
     workbook = next;
     return true;
   };
   const assertIdle = () => { if (busy) throw new Error("ほかの操作を処理しています"); };
   return Object.freeze({
     ...createSpreadsheetReader(getWorkbook),
-    execute: (command: SpreadsheetCommand) => batch([command]), batch,
+    execute: (command: SpreadsheetCommand, options?: SpreadsheetCommandOptions) => batch([command], options), batch,
     getWorkbook,
+    getMutationSnapshot: () => Object.freeze({ workbook, token: getToken() }),
     undo: () => step("past"), redo: () => step("future"),
     getHistoryState: history.getState,
     clearHistory: () => { assertIdle(); history.clear(); },
@@ -76,6 +90,7 @@ export function createSpreadsheetSession(initialWorkbook: SpreadsheetWorkbookSna
       try {
         if (next === undefined) throw new Error("置き換えるブックを指定してください");
         const accepted = normalizeWorkbook(next as SpreadsheetWorkbook);
+        structureRevision++;
         workbook = accepted;
         history.clear();
       } finally { busy = false; }

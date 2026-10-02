@@ -101,7 +101,10 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
         source, action: feature, isCurrent: () => {
           try { ensureCurrent(); return true; } catch { return false; }
         },
-        beforePublish: () => { latest.current.view.resetView(result.workbook); published = true; },
+        beforePublish: () => {
+          current.conditionalStructureRevisionRef.current++;
+          latest.current.view.resetView(result.workbook); published = true;
+        },
       });
       if (committed instanceof Promise && current.getEditState().mode === "requesting") permissionId = current.getEditState().requestId;
       if (controller.signal.aborted) cancelPermission();
@@ -111,7 +114,10 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
         if (applied.code === "EDIT_CANCELLED" || applied.code === "STALE_TARGET") throw cancelled(applied.message);
         throw new Error(applied.message);
       }
-      if (!applied.changed) latest.current.view.resetView(current.workbookRef.current);
+      if (!applied.changed) {
+        current.conditionalStructureRevisionRef.current++;
+        latest.current.view.resetView(current.workbookRef.current);
+      }
       current.emitEvent({ ...eventBase, status: "success", workbook: result.workbook, warnings: result.warnings });
       return result;
     } catch (cause) {

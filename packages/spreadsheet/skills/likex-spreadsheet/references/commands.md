@@ -18,6 +18,14 @@
 - `write` は `{ changedCount, skippedCount, skippedAddresses }`。`changedCount` は保存値・数式の変更件数で、書式だけの変更は数えない。別シートへの移動では移動元・移動先を数える。`skippedAddresses` は移動先シートの番地。
 - `placement` は直後の配置位置で、空セルの探索結果ではない。そのコマンド直後の座標であり、後の行列操作では更新されない。`rows.insert` は `nextRow`、`columns.insert` は `nextColumn`、描画操作・`cells.fill` / `cells.move` / `cells.insert` / 表の書き込みは両方。`cells.set` / `cells.paste` は対象が空なら省略する。削除操作には付かない。
 
+## 条件付き更新
+
+すべてのネイティブコマンドは、公開APIのオプション `expected` で取得時の状態と照合できる。表示中の `SpreadsheetHandle` とヘッドレスセッションは、計画前に `getMutationSnapshot()` で `{ workbook, token }` を取得し、`batch(commands, { expected })` またはUIの `batchAsync` へ渡す。失敗は `{ ok: false, code: "PRECONDITION_FAILED", message, editConflicts: [{ path, expected, actual }] }` で、配列の一部も反映しない。既存の `onConflict` による非空セルの上書き方針とは別の条件。
+
+値・個別書式・コメント・寸法・描画の文字や装飾では依存項目を照合し、無関係な利用者編集を維持する。構造変更、移動・貼り付け、参照を伴う複合操作はブック全体を照合する。AIの推論で読んだ別セルへの依存は自動推定しないので、固定の集計値などは `expected: { ...snapshot, scope: "workbook" }` を使う。古い構造トークンは、JSONが元へ戻っていても拒否する。競合は再取得・再計画し、生成IDは成功した本実行結果を使用する。
+
+純粋APIは `applySpreadsheetCommands(current, commands, { expected: { workbook: before } })`。構造の版管理と保存の同時実行はホストが担当する。CLIでも `apply --expected before.spon --expected-scope document` で変更前ファイルと照合できる。`--expected-scope` は `document`（既定、ブック全体）または `targets`（コマンド依存項目）。`--expected` は `apply` 専用で、トークンはファイルへ保存しない。読取と共有ファイル保存の間の排他制御は呼び出し側で行う。
+
 ## セル値・クリア・セルのシフト
 
 | `type` | 引数（共通の `sheetId` を除く） |

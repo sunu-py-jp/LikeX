@@ -12,6 +12,8 @@ import { AIToolError, invalidArgument } from "./tool-errors.ts";
 import { AIRepetitionError, NoChangeTracker } from "./no-change.ts";
 import { mapSlideFormatCommands, slideFormatCommands } from "./slide-format.ts";
 import { slideSvgIntent } from "./slide-svg.ts";
+import { AILiveDocumentUnavailable } from "./live-document.ts";
+import type { AIJSONValue, AILiveDocumentExchange, AILiveDocumentResult } from "./protocol.ts";
 export { toolDefinitions } from "./tool-definitions.ts";
 
 export type AIModule = "spreadsheet" | "slide";
@@ -26,10 +28,32 @@ function keys(value: Record<string, unknown>, allowed: string[]) {
   if (Object.keys(value).some(key => !allowed.includes(key))) throw new AIError("このツールで利用できない引数があります。");
 }
 
+function compactReceipts(receipts: AIJSONValue | undefined): unknown {
+  if (receipts === undefined || JSON.stringify(receipts).length <= 16000) return receipts;
+  if (Array.isArray(receipts)) {
+    const items: AIJSONValue[] = [];
+    let size = 0;
+    for (const receipt of receipts) {
+      const length = JSON.stringify(receipt).length;
+      if (size + length > 15000) break;
+      items.push(receipt); size += length;
+    }
+    return { items, total: receipts.length, truncated: true, note: "All commands were applied; receipts are truncated for context size. Inspect the affected sheet/page to obtain any omitted generated IDs before further edits." };
+  }
+  return { truncated: true, note: "The edit was applied. Inspect the affected sheet/page for generated IDs; the receipt exceeded the context limit." };
+}
+
 /** A request can only read its skill and edit its private native file through the shipped CLI. */
 export class SkillWorkspace {
-  private constructor(readonly repository: string, readonly module: AIModule, readonly directory: string, readonly original: string) {}
+  private constructor(readonly repository: string, readonly module: AIModule, readonly directory: string, readonly original: string,
+    private readonly live?: { targetId: string; exchange: AILiveDocumentExchange; onCommit?: (before: string, after: string) => void }) {}
   private mutations = 0;
+  private readSequence = 0;
+  private readonly snapshots = new Map<string, { document: string; token: string }>();
+  private selectedSnapshot: { document: string; token: string } | undefined;
+  private conflictNeedsInspection = false;
+  currentReadRevision: string | undefined;
+  get unresolvedLiveConflict() { return this.conflictNeedsInspection; }
   private readonly writeFailures = new WriteFailures();
   private readonly noChanges = new NoChangeTracker();
   get unresolvedMutationError() { return this.writeFailures.unresolved.length > 0; }
@@ -37,15 +61,41 @@ export class SkillWorkspace {
   get file() { return path.join(this.directory, this.module === "slide" ? "document.slon" : "document.spon"); }
   get skillDirectory() { return path.join(this.repository, "packages", this.module, "skills", `likex-${this.module}`); }
 
-  static async create(repository: string, module: AIModule, document: string) {
+  static async create(repository: string, module: AIModule, document: string, live?: { targetId: string; exchange: AILiveDocumentExchange; onCommit?: (before: string, after: string) => void }) {
     if (Buffer.byteLength(document) > DOCUMENT_LIMIT) throw new AIError("ファイルは 8 MiB 以下にしてください。");
     const directory = await mkdtemp(path.join(os.tmpdir(), "likex-ai-"));
-    const workspace = new SkillWorkspace(repository, module, directory, document);
+    const workspace = new SkillWorkspace(repository, module, directory, document, live);
     try { await writeFile(workspace.file, document, { mode: 0o600 }); return workspace; }
     catch (error) { await workspace.dispose(); throw error; }
   }
 
   async dispose() { await rm(this.directory, { recursive: true, force: true }); }
+
+  private remember(snapshot: AILiveDocumentResult) {
+    if (!this.live || snapshot.targetId !== this.live.targetId || typeof snapshot.document !== "string" ||
+      Buffer.byteLength(snapshot.document) > DOCUMENT_LIMIT || typeof snapshot.token !== "string" || !snapshot.token || snapshot.token.length > 1000)
+      throw new AILiveDocumentUnavailable("資料の同期結果・対象が正しくありません。");
+    const readRevision = `read-${++this.readSequence}`;
+    this.snapshots.set(readRevision, { document: snapshot.document, token: snapshot.token });
+    let bytes = [...this.snapshots.values()].reduce((total, item) => total + Buffer.byteLength(item.document), 0);
+    while (this.snapshots.size > 16 || bytes > 48 * 1024 * 1024) {
+      const oldest = this.snapshots.keys().next().value!;
+      bytes -= Buffer.byteLength(this.snapshots.get(oldest)!.document);
+      this.snapshots.delete(oldest);
+    }
+    this.currentReadRevision = readRevision;
+    return readRevision;
+  }
+
+  /** Reads refresh from the visible editor; writes select an explicit earlier observation instead. */
+  async refresh(signal: AbortSignal) {
+    if (!this.live) return undefined;
+    const snapshot = await this.live.exchange({ action: "snapshot", targetId: this.live.targetId }, signal);
+    signal.throwIfAborted();
+    const readRevision = this.remember(snapshot);
+    await writeFile(this.file, snapshot.document, { mode: 0o600 });
+    return readRevision;
+  }
 
   async skill() {
     const content = await this.readSource("SKILL.md");
@@ -61,7 +111,7 @@ export class SkillWorkspace {
 
   async invoke(name: string, input: unknown, signal: AbortSignal): Promise<unknown> {
     signal.throwIfAborted();
-    const args = record(input);
+    let args = record(input);
     if (name === "read_skill") { keys(args, []); return this.skill(); }
     if (name === "read_reference") {
       keys(args, ["name", "offset", "limit"]);
@@ -79,6 +129,18 @@ export class SkillWorkspace {
     const svgMode = name === "update_svg_image" ? "update" : "add";
     const resolveIds = (name === "apply_commands" || name === "create_document" || textWrite || formatWrite || svgWrite) ? args.resolvesFailureIds ?? [] : name === "run_script" ? args.resolvesFailureIds ?? [] : [];
     try {
+      if (this.live) {
+        const isWrite = name === "apply_commands" || name === "create_document" || textWrite || formatWrite || svgWrite || name === "run_script" && ["apply", "create"].includes(String(args.operation));
+        if (name === "create_document" || name === "run_script" && args.operation === "create")
+          throw new AIToolError("逐次編集では資料全体の作り直しはできません。対象を取得し、apply_commands で必要なシート・ページを編集してください。", { code: "unsupported_live_reset" });
+        if (isWrite) {
+          const snapshot = !this.conflictNeedsInspection && typeof args.baseRevision === "string" ? this.snapshots.get(args.baseRevision) : undefined;
+          if (!snapshot) throw new AIToolError("有効な取得時点がありません。対象を再取得し、その readRevision を baseRevision に指定してください。", { code: "invalid_read_revision", path: "baseRevision", retry: "Inspect the targets, then copy the returned readRevision into baseRevision. Never guess or reuse an expired read revision." });
+          this.selectedSnapshot = snapshot;
+          await writeFile(this.file, snapshot.document, { mode: 0o600 });
+          args = { ...args }; delete args.baseRevision;
+        } else await this.refresh(signal);
+      }
       if (svgWrite) {
         recoveryCommands = slideSvgIntent(args, svgMode);
         this.writeFailures.prepare("apply", recoveryCommands, resolveIds);
@@ -113,10 +175,18 @@ export class SkillWorkspace {
       const result = await this.script(script, signal);
       const observed = writing ? this.noChanges.observe(String(script.operation), script.commands, script.dryRun, result) : result;
       if (writing && !script.dryRun) this.writeFailures.resolved(resolveIds as string[]);
-      if (script.operation === "inspect") this.writeFailures.inspected();
-      return observed;
+      if (script.operation === "inspect") { this.writeFailures.inspected(); this.conflictNeedsInspection = false; }
+      return this.live && !writing && observed && typeof observed === "object" ? { ...observed, readRevision: this.currentReadRevision } : observed;
     } catch (error) {
-      if (error instanceof AIRepetitionError) throw error;
+      if (error instanceof AIRepetitionError || error instanceof AILiveDocumentUnavailable) throw error;
+      // A concurrent human edit may require a completely different plan or no edit at all.
+      // Do not impose the malformed-command recovery rule that forces the original batch.
+      if (error instanceof AIToolError && error.details.code === "conflict") {
+        this.conflictNeedsInspection = true;
+        this.snapshots.clear();
+        throw error;
+      }
+      if (error instanceof AIToolError && ["invalid_read_revision", "unsupported_live_reset"].includes(error.details.code)) throw error;
       if (script?.operation === "apply" || script?.operation === "create" || name === "apply_commands" || name === "create_document" || textWrite || formatWrite || svgWrite) {
         if (signal.aborted) throw error;
         const failedCommands = formatWrite ? recoveryCommands ?? slideFormatCommands(args) : svgWrite ? recoveryCommands ?? slideSvgIntent(args, svgMode) : script?.commands ?? (textWrite ? slideTextCommands(args) : args.commands);
@@ -143,6 +213,26 @@ export class SkillWorkspace {
     const before = writing ? await readFile(this.file, "utf8") : undefined;
     const slideBefore = before && this.module === "slide" ? checkSlideWrite(before, operation, args.commands) : undefined;
     if (before && operation === "apply" && Array.isArray(args.commands)) checkCommandReferences(this.module, before, args.commands);
+    if (writing && this.live && !args.dryRun) {
+      if (!this.selectedSnapshot || operation !== "apply") throw new AILiveDocumentUnavailable("編集の取得時点がありません。");
+      if (!Array.isArray(args.commands) || args.commands.length > 1000 || Buffer.byteLength(JSON.stringify(args.commands)) > 512 * 1024)
+        throw new AIError("commands は 1,000 件・512 KiB 以下の配列にしてください。");
+      const result = await this.live.exchange({ action: "commit", targetId: this.live.targetId,
+        expected: { ...this.selectedSnapshot, scope: "document" }, operation: "apply", commands: args.commands as AIJSONValue[] }, signal);
+      // Acknowledged native execution is authoritative, including generated IDs and receipts.
+      try {
+        const readRevision = this.remember(result);
+        await writeFile(this.file, result.document, { mode: 0o600 });
+        if (result.changed) { this.mutations++; this.live.onCommit?.(this.selectedSnapshot.document, result.document); }
+        signal.throwIfAborted();
+        const inspection = await this.execute([path.join(this.skillDirectory, "scripts/document.mjs"), "inspect", "--project", this.repository, "--input", this.file], signal);
+        return { ...(inspection as Record<string, unknown>), operation, dryRun: false, written: true, commandCount: args.commands.length,
+          changed: result.changed, readRevision, ...(result.receipts === undefined ? {} : { receipts: compactReceipts(result.receipts) }) };
+      } catch (error) {
+        if (signal.aborted || error instanceof AILiveDocumentUnavailable) throw error;
+        throw new AILiveDocumentUnavailable("資料への編集は反映されましたが、実行結果を読み取れなかったため処理を停止しました。画面を確認してください。");
+      }
+    }
     if (writing) {
       if (operation === "apply" || args.commands !== undefined) {
         if (!Array.isArray(args.commands) || args.commands.length > 1000 || Buffer.byteLength(JSON.stringify(args.commands)) > 512 * 1024) throw new AIError("commands は 1,000 件・512 KiB 以下の配列にしてください。");
@@ -224,10 +314,13 @@ export class SkillWorkspace {
 
   async result(signal: AbortSignal, validate?: () => Promise<unknown>) {
     signal.throwIfAborted();
-    if (this.unresolvedMutationError) throw new AIToolError("失敗した編集が残っているため、変更を適用しませんでした。対象を確認してバッチ全体を修正してください。", { code: "unresolved_writes", unresolvedFailures: this.unresolvedWrites });
+    if (this.unresolvedMutationError) throw new AIToolError(this.live
+      ? "失敗した編集が残っています。反映済みの編集は保持されています。対象を確認して失敗したバッチ全体を修正してください。"
+      : "失敗した編集が残っているため、変更を適用しませんでした。対象を確認してバッチ全体を修正してください。", { code: "unresolved_writes", unresolvedFailures: this.unresolvedWrites });
     if (validate) await validate(); else await this.invoke("run_script", { operation: "validate" }, signal);
-    const document = this.mutations ? await readFile(this.file, "utf8") : this.original;
+    const document = this.live || this.mutations ? await readFile(this.file, "utf8") : this.original;
     signal.throwIfAborted();
-    return { type: "result" as const, document, changed: document !== this.original };
+    return { type: "result" as const, document, changed: this.live ? this.mutations > 0 : document !== this.original,
+      ...(this.live ? { incremental: true as const } : {}) };
   }
 }

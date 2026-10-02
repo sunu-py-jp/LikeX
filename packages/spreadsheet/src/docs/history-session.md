@@ -39,6 +39,7 @@ const json = serializeWorkbook(session.getWorkbook());
 | `session.execute(command)` | 1件を実行して `SpreadsheetCommandResult` を返す |
 | `session.batch(commands)` | 全件成功した場合だけ一括反映し、1回のUndo単位にする |
 | `session.getWorkbook()` | 現在の凍結済みブックを取得する |
+| `session.getMutationSnapshot()` | `{ workbook, token }` を取得。`execute` / `batch` の第2引数 `{ expected: snapshot }` で条件付き更新する |
 | `session.undo()` / `session.redo()` | 履歴を移動。実行できたら `true`、対象履歴がなければ `false` |
 | `session.getHistoryState()` | `canUndo` / `canRedo` / `undoCount` / `redoCount` を取得する |
 | `session.clearHistory()` | ブックを変えずに履歴だけを消す |
@@ -49,6 +50,8 @@ const json = serializeWorkbook(session.getWorkbook());
 オプションは `features?: SpreadsheetFeatures` と `historyLimit?: number` です。機能設定はGUIと同じ名前・依存関係で解決します。履歴上限は既定50、0〜1,000の整数です。`historyLimit: 0` または `features: { undoRedo: false }` では履歴を記録しません。
 
 同じ値の設定や空のバッチは履歴を増やしません。失敗したバッチはブックと履歴を変えません。Undo後に新しい変更を反映するとRedo履歴を消します。Undo／Redoで復元する画像やコメントのIDは、もとの操作結果のIDを維持します。
+
+条件付き更新は[表示中のAPI](./external-operations.md#取得時の状態を照合して逐次反映する)と同じ照合規則を使います。`getMutationSnapshot()` を編集計画前に取得し、`session.batch(commands, { expected })` へ渡してください。`expected` を指定する場合は、同じセッションのトークンが必須です。構造操作・Undo／Redo・`replaceWorkbook` で古いトークンは無効になります。空範囲のシフトなど、保存JSONが変わらない構造操作も世代を進めますが、履歴は増やしません。競合したバッチは再取得・再計画してください。
 
 履歴はセッションのメモリ上にだけ保持し、ブックJSONへ追加しません。保存JSONだけから過去のUndo履歴を復元することはできません。セッションを作り直すか `replaceWorkbook` を呼ぶと、新しいブックが履歴の起点になります。
 

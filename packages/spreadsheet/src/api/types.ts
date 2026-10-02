@@ -2,7 +2,8 @@ import type { MaybePromise } from "../core";
 import type { SpreadsheetDiscardOptions, SpreadsheetEditIntent, SpreadsheetEditState, SpreadsheetImportExcelOptions, SpreadsheetImportNativeOptions } from "./lifecycle";
 import type { SpreadsheetExcelImportResult, SpreadsheetNativeImportResult } from "../import/types";
 import type { SpreadsheetExcelExportOptions, SpreadsheetNativeExportOptions } from "../export/types";
-import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetWorkbookSnapshot } from "../commands/types";
+import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetWorkbookSnapshot, SpreadsheetCommandOptions,
+  SpreadsheetMutationSnapshot } from "../commands/types";
 import type { SpreadsheetReadApi } from "../model/query-reader";
 import type { SpreadsheetHistoryState } from "../history/workbook-history";
 import type { SpreadsheetSelectionApi } from "./selection";
@@ -10,12 +11,17 @@ export type { SpreadsheetSelectionApi, SpreadsheetSelectionOptions, SpreadsheetS
 
 export type * from "../commands/types";
 
+/** Cancels this UI command without canceling another pending edit request. */
+export type SpreadsheetAsyncCommandOptions = SpreadsheetCommandOptions & Readonly<{ signal?: AbortSignal }>;
+
 export type SpreadsheetHandle = SpreadsheetReadApi & SpreadsheetSelectionApi & Readonly<{
-  execute(command: SpreadsheetCommand): SpreadsheetCommandResult;
-  batch(commands: readonly SpreadsheetCommand[]): SpreadsheetCommandResult;
-  executeAsync(command: SpreadsheetCommand): Promise<SpreadsheetCommandResult>;
-  batchAsync(commands: readonly SpreadsheetCommand[]): Promise<SpreadsheetCommandResult>;
+  execute(command: SpreadsheetCommand, options?: SpreadsheetCommandOptions): SpreadsheetCommandResult;
+  batch(commands: readonly SpreadsheetCommand[], options?: SpreadsheetCommandOptions): SpreadsheetCommandResult;
+  executeAsync(command: SpreadsheetCommand, options?: SpreadsheetAsyncCommandOptions): Promise<SpreadsheetCommandResult>;
+  batchAsync(commands: readonly SpreadsheetCommand[], options?: SpreadsheetAsyncCommandOptions): Promise<SpreadsheetCommandResult>;
   getWorkbook(): SpreadsheetWorkbookSnapshot;
+  /** Capture before planning a conditional edit; token is invalidated by structural changes and history/reset. */
+  getMutationSnapshot(): SpreadsheetMutationSnapshot;
   /** View magnification in percent, independent of workbook data and history. */
   getZoom(): number;
   /** Clamps to 25–200%. Returns false when disabled or the number is not finite. */

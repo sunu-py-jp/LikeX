@@ -26,6 +26,8 @@ const runId = "d3149b1e-2dce-4a28-8e91-447d090608f3";
 const input = { operation: "apply", commands: [{ type: "sheets.add", name: "売上速報" }] };
 const call = { id: "call-1", name: "run_script", status: "running", input, startedAt: "2026-09-27T00:00:00.000Z" };
 const tick = () => new Promise(resolve => setImmediate(resolve));
+const commit = (targetId, value) => ({ type: "document", id: crypto.randomUUID(), token: "a".repeat(64), expiresAt: Date.now() + 30000,
+  targetId, action: "commit", operation: "apply", expected: { document: "before", token: "mutation", scope: "document" }, commands: [{ type: "test.update", value }] });
 
 test("host trace renderers escape command contents and restrict log download paths", () => {
   const html = renderToStaticMarkup(h(ToolExecutionPart, { part: { id: "tool", type: "likex.tool", data: { ...call, input: { text: "<script>bad()</script>" } } }, messageStatus: "cancelled" }));
@@ -43,16 +45,18 @@ for (const documentKind of ["spreadsheet", "slide"]) for (const failed of [false
   globalThis.requestAnimationFrame = callback => { callback(); return 0; };
   globalThis.fetch = async (url, init) => {
     if (url === "/api/ai/config") return Response.json({ configured: true, provider: "openai", model: "test" });
+    if (url.startsWith("/api/ai/documents/")) return Response.json({ ok: true });
     requests.push(JSON.parse(init.body));
     const first = requests.length === 1;
     const events = [{ type: "run", id: runId }, { type: "tool", call }, { type: "progress", message: "古い実行の進捗" },
-      first && failed ? { type: "error", message: "古い実行のエラー" } : { type: "result", document: "after", changed: true }];
+      ...(first && failed ? [{ type: "error", message: "古い実行のエラー" }] : [commit(requests.at(-1).targetId, "after"), { type: "result", document: "after", changed: true, incremental: true }])];
     return new Response(events.map(event => JSON.stringify(event)).join("\n") + "\n");
   };
   t.after(() => { globalThis.fetch = originalFetch; globalThis.requestAnimationFrame = originalFrame; });
   const adapter = { module: documentKind, label: documentKind, suggestions: ["資料を編集して"], snapshot: async () => ({ document, revision }),
     readCurrent: () => ({ document, revision }), normalize: value => value,
-    async apply(value) { document = value; revision++; applied++; } };
+    async apply() { assert.fail("Live mode must never import the final document"); },
+    async live(event) { document = event.commands[0].value; revision++; applied++; return { targetId: event.targetId, document, token: "next", changed: true }; } };
   let renderer;
   await act(async () => { renderer = create(h(AIWorkspace, { adapter, colorMode: "light", onBusyChange: value => busyChanges.push(value) }, h("p", null, "Document"))); await tick(); });
   t.after(() => act(async () => renderer.unmount()));
@@ -93,14 +97,16 @@ test("new chat cancels an in-flight request and rejects its late result without 
   globalThis.requestAnimationFrame = callback => { callback(); return 0; };
   globalThis.fetch = async (url, init) => {
     if (url === "/api/ai/config") return Response.json({ configured: true, provider: "openai", model: "test" });
+    if (url.startsWith("/api/ai/documents/")) return Response.json({ ok: true });
     requests.push(JSON.parse(init.body));
     if (requests.length === 1) { firstSignal = init.signal; return firstResponse; }
-    return new Response(`${JSON.stringify({ type: "result", document: "new result", changed: true })}\n`);
+    return new Response([commit(requests.at(-1).targetId, "new result"), { type: "result", document: "new result", changed: true, incremental: true }].map(event => JSON.stringify(event)).join("\n") + "\n");
   };
   t.after(() => { globalThis.fetch = originalFetch; globalThis.requestAnimationFrame = originalFrame; });
   const adapter = { module: "slide", label: "Slide", suggestions: [], snapshot: async () => ({ document, revision }),
     readCurrent: () => ({ document, revision }), normalize: value => value,
-    async apply(value) { document = value; revision++; applied++; } };
+    async apply() { assert.fail("Live mode must never import the final document"); },
+    async live(event) { document = event.commands[0].value; revision++; applied++; return { targetId: event.targetId, document, token: "next", changed: true }; } };
   let renderer;
   await act(async () => { renderer = create(h(AIWorkspace, { adapter, colorMode: "light", onBusyChange: value => busyChanges.push(value) }, h("p", null, "Document"))); await tick(); });
   t.after(() => act(async () => renderer.unmount()));
@@ -113,14 +119,14 @@ test("new chat cancels an in-flight request and rejects its late result without 
   assert.deepEqual(busyChanges, [true], "the host remains busy while the provider request is pending");
   const previousId = handle().getAIChatConversation().id;
   assert.equal(firstSignal.aborted, false);
-  assert.equal(renderer.root.findByProps({ className: "playground-ai-editor" }).props.inert, true);
+  assert.equal(renderer.root.findByProps({ className: "playground-ai-editor" }).props.inert, undefined, "the document remains interactive while AI is working");
   const button = renderer.root.findByProps({ "aria-label": "新しいチャット" });
   assert.equal(button.props.disabled, false);
   assert.match(button.props.title, /停止/);
   await act(async () => { button.props.onClick(); button.props.onClick(); await tick(); });
   assert.equal(firstSignal.aborted, true);
   assert.deepEqual(busyChanges, [true, false], "new chat releases the host lock immediately without waiting for the old provider");
-  assert.equal(renderer.root.findByProps({ className: "playground-ai-editor" }).props.inert, false);
+  assert.equal(renderer.root.findByProps({ className: "playground-ai-editor" }).props.inert, undefined);
   assert.deepEqual(handle().getAIChatConversation().messages, []);
   assert.equal(handle().getAIChat().conversations.length, 2, "a repeated click creates only one conversation");
   assert.equal(handle().getAIChat().conversations.find(item => item.id === previousId).messages[1].status, "cancelled");
@@ -136,7 +142,7 @@ test("new chat cancels an in-flight request and rejects its late result without 
   assert.deepEqual(busyChanges, [true, false, true, false], "late cleanup of the cancelled request cannot emit another busy change");
 });
 
-for (const failed of [false, true]) test(`AI host keeps actual tool commands in chat ${failed ? "on error without applying the book" : "and applies only a completed result"}`, async t => {
+for (const failed of [false, true]) test(`AI host keeps actual tool commands in chat ${failed ? "on error without applying the book" : "and applies successful commands incrementally"}`, async t => {
   const originalFetch = globalThis.fetch;
   const busyChanges = [];
   let applied = 0, document = "before", revision = 0, sentRequest;
@@ -145,13 +151,16 @@ for (const failed of [false, true]) test(`AI host keeps actual tool commands in 
     { type: "tool", call: { ...call, status: failed ? "error" : "complete", finishedAt: "2026-09-27T00:00:01.000Z", ...(failed ? { error: "command failed" } : { output: { ok: true } }) } }, end];
   globalThis.fetch = async (url, init) => {
     if (url === "/api/ai/config") return Response.json({ configured: true, provider: "openai", model: "test" });
+    if (url.startsWith("/api/ai/documents/")) return Response.json({ ok: true });
     sentRequest = JSON.parse(init.body);
-    return new Response(events.map(event => JSON.stringify(event)).join("\n") + "\n");
+    const liveEvents = failed ? events : [events[0], events[1], commit(sentRequest.targetId, "after"), ...events.slice(2)];
+    return new Response(liveEvents.map(event => JSON.stringify(event)).join("\n") + "\n");
   };
   t.after(() => { globalThis.fetch = originalFetch; });
   const adapter = { module: "spreadsheet", label: "Spreadsheet", suggestions: [], snapshot: async () => ({ document, documentTitle: "月次売上ブック", revision }),
     readCurrent: () => ({ document, revision }), normalize: value => value,
-    async apply(value) { document = value; revision++; applied++; } };
+    async apply() { assert.fail("Live mode must never import the final document"); },
+    async live(event) { document = event.commands[0].value; revision++; applied++; return { targetId: event.targetId, document, token: "next", changed: true }; } };
   let renderer;
   await act(async () => { renderer = create(h(AIWorkspace, { adapter, colorMode: "light", onBusyChange: value => busyChanges.push(value) }, h("p", null, "Workbook"))); await tick(); });
   t.after(() => act(async () => renderer.unmount()));
@@ -167,4 +176,27 @@ for (const failed of [false, true]) test(`AI host keeps actual tool commands in 
   assert.equal(sentRequest.document, "before");
   assert.deepEqual(sentRequest.messages, [{ role: "user", content: "売上速報を作って" }]);
   if (failed) assert.match(rendered, /テスト用の実行エラー/);
+});
+
+test("a later provider error preserves a live edit and reports partial completion", async t => {
+  const originalFetch = globalThis.fetch;
+  let document = "before", applied = 0;
+  globalThis.fetch = async (url, init) => {
+    if (url === "/api/ai/config") return Response.json({ configured: true, provider: "openai", model: "test" });
+    if (url.startsWith("/api/ai/documents/")) return Response.json({ ok: true });
+    const request = JSON.parse(init.body);
+    return new Response([commit(request.targetId, "first edit"), { type: "error", message: "後続の処理が失敗しました。" }]
+      .map(event => JSON.stringify(event)).join("\n") + "\n");
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const adapter = { module: "spreadsheet", label: "Spreadsheet", suggestions: [], snapshot: async () => ({ document, revision: 0 }),
+    async live(event) { document = event.commands[0].value; applied++; return { targetId: event.targetId, document, token: "next", changed: true }; },
+    async apply() { assert.fail("Must not replace or roll back the live document"); } };
+  let renderer;
+  await act(async () => { renderer = create(h(AIWorkspace, { adapter, colorMode: "light" }, h("p", null, "Workbook"))); await tick(); });
+  t.after(() => act(async () => renderer.unmount()));
+  await act(async () => { renderer.root.findByProps({ "aria-label": "メッセージを入力" }).props.onChange({ target: { value: "二つの編集" } }); });
+  await act(async () => { renderer.root.findByType("form").props.onSubmit({ preventDefault() {} }); await tick(); await tick(); });
+  assert.equal(document, "first edit"); assert.equal(applied, 1);
+  assert.match(JSON.stringify(renderer.toJSON()), /反映済みの編集は残っています/);
 });

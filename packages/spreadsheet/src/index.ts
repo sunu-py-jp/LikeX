@@ -19,6 +19,8 @@ export type {
   SpreadsheetCommandErrorCode, SpreadsheetCommandReceipt, SpreadsheetCommandPlacement, SpreadsheetWorkbookSnapshot,
   SpreadsheetImageCommandPatch, SpreadsheetShapeCommandPatch, SpreadsheetTextBoxCommandPatch,
   SpreadsheetInsertValue,
+  SpreadsheetMutationToken, SpreadsheetMutationSnapshot, SpreadsheetExpectedWorkbook,
+  SpreadsheetCommandOptions, SpreadsheetAsyncCommandOptions, SpreadsheetConditionalEditConflict,
   SpreadsheetSelectionApi, SpreadsheetSelectionOptions, SpreadsheetSelectedDrawing,
 } from "./api/types";
 export { readImageResource as prepareSpreadsheetImage } from "./state/read-image";
