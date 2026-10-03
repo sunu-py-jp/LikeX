@@ -1879,7 +1879,11 @@
       "flipY",
       "rotation",
       "SPREADSHEET_SHAPES",
-      "SpreadsheetShapeKind"
+      "SpreadsheetShapeKind",
+      "lines.insert",
+      "lines.update",
+      "routing",
+      "getSpreadsheetLineRoute"
     ],
     "headings": [
       {
@@ -2701,7 +2705,11 @@
       "SlideHandle",
       "importNative",
       "exportNative",
-      "slon"
+      "slon",
+      "line.add",
+      "line.update",
+      "routing",
+      "getSlideLineRoute"
     ],
     "headings": [
       {
@@ -2740,8 +2748,8 @@
         "depth": 2
       },
       {
-        "id": "2点の直線と接続",
-        "title": "2点の直線と接続",
+        "id": "2点の線と接続",
+        "title": "2点の線と接続",
         "depth": 2
       },
       {
@@ -3012,6 +3020,11 @@
         "id": "図形プリセットの交換",
         "title": "図形プリセットの交換",
         "depth": 2
+      },
+      {
+        "id": "自動の折れ線コネクター",
+        "title": "自動の折れ線コネクター",
+        "depth": 2
       }
     ]
   },
@@ -3093,7 +3106,7 @@
   },
   {
     "id": "document/editing",
-    "title": "文章・書式・表・画像",
+    "title": "文章・書式・表・画像・図形",
     "component": "document",
     "section": "文書の編集",
     "output": "document/editing/index.html",
@@ -3107,7 +3120,11 @@
       "表",
       "画像",
       "改ページ",
-      "positions"
+      "positions",
+      "drawing_canvas",
+      "canvas.insert",
+      "canvas.connector.insert",
+      "直交コネクタ"
     ],
     "headings": [
       {
@@ -3123,6 +3140,11 @@
       {
         "id": "図形",
         "title": "図形",
+        "depth": 2
+      },
+      {
+        "id": "描画キャンバスと接続線",
+        "title": "描画キャンバスと接続線",
         "depth": 2
       },
       {
@@ -3157,7 +3179,11 @@
       "executeDocumentCommands",
       "getBlocks",
       "createDocumentSession",
-      "transaction.apply"
+      "transaction.apply",
+      "getCanvases",
+      "getCanvas",
+      "getDocumentCanvasConnectorRoute",
+      "canvas.shape.update"
     ],
     "headings": [
       {
@@ -3183,6 +3209,11 @@
       {
         "id": "officeプリセット図形",
         "title": "Officeプリセット図形",
+        "depth": 2
+      },
+      {
+        "id": "描画キャンバスと自動直交コネクタ",
+        "title": "描画キャンバスと自動直交コネクタ",
         "depth": 2
       }
     ]
@@ -4538,6 +4569,11 @@
       {
         "id": "office用の8接続点",
         "title": "Office用の8接続点",
+        "depth": 2
+      },
+      {
+        "id": "自動の折れ線",
+        "title": "自動の折れ線",
         "depth": 2
       }
     ]

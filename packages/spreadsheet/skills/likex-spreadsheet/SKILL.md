@@ -26,7 +26,7 @@ node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input 
 
 取得したIDを使って `commands.json` を用意してから実行する。`commands.json` のルートはコマンドの**配列**。`{ "commands": [...] }` ではない。
 
-処理フローなどの接続線は `lines.insert` / `lines.update` の始点・終点で編集する。先に図形を作ってIDを取得し、同シートの対象IDと8方向の `binding.port` で接続する。矩形の幅・高さ・回転で線を編集しない。両端矢印は `startArrow` / `endArrow` で個別設定する。詳しくは[直線・接続線](references/commands.md#直線接続線)を参照する。
+処理フローなどの接続線は `lines.insert` / `lines.update` の始点・終点で編集する。先に図形を作ってIDを取得し、同シートの対象IDと8方向の `binding.port` で接続する。矩形の幅・高さ・回転で線を編集しない。両端矢印は `startArrow` / `endArrow` で個別設定する。フロー図を直角の線で結ぶ場合は `routing: "elbow"` を指定し、途中の曲がり角は自動計算に任せる。直線は `routing: "straight"` または新規作成時の省略。詳しくは[直線・接続線](references/commands.md#直線接続線)を参照する。
 
 対象IDと変更内容が揃った編集は、複数シートのセル入力・書式・罫線・行列操作でも1つの配列にまとめて `apply` する。必要範囲の取得 → 一括編集 → 対象範囲の確認を基本にする。新しいシートは `sheets.add` で発行されたIDを取得し、その後の編集をまとめて次の呼び出しで実行する。
 

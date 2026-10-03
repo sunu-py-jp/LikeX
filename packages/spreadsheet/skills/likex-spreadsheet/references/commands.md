@@ -220,14 +220,16 @@ CLIは処理概要のJSONを標準出力へ返す。共通情報は `ok`, `kind`
 
 ### 直線・接続線
 
-新しい線は `lines.insert { sheetId, start, end, startArrow?, endArrow?, stroke?, strokeWidth? }`、更新は `lines.update { sheetId, drawingId, start?, end?, startArrow?, endArrow? }`。端点はA1原点のズーム前pxで `{ x, y, binding?: { targetId, port } }`。`binding` は同じシートの線以外の描画IDを指定し、対象の移動・サイズ・回転・反転に追従する。`port` は `top|topRight|right|bottomRight|bottom|bottomLeft|left|topLeft`。上下左右・四隅の方向にある実輪郭上の点なので、三角形や楕円は外接矩形の角と異なる。
+新しい線は `lines.insert { sheetId, start, end, routing?, startArrow?, endArrow?, stroke?, strokeWidth? }`、更新は `lines.update { sheetId, drawingId, start?, end?, routing?, startArrow?, endArrow? }`。端点はA1原点のズーム前pxで `{ x, y, binding?: { targetId, port } }`。`binding` は同じシートの線以外の描画IDを指定し、対象の移動・サイズ・回転・反転に追従する。`port` は `top|topRight|right|bottomRight|bottom|bottomLeft|left|topLeft`。上下左右・四隅の方向にある実輪郭上の点なので、三角形や楕円は外接矩形の角と異なる。
+
+`routing: "elbow"` は自動で直角に曲がる接続線、`"straight"` または新規時の省略は直線。接続先の移動・サイズ・回転や行列変更で経路を再計算する。途中の経由点は指定しない。
 
 端点省略は維持、`binding` を省略して `x/y` を送ればその端だけ接続解除。矢印は `none|triangle|openArrow|diamond|oval|stealth`。線の位置はこのAPIだけで編集し、`shapes.update` の `width/height/rotation/anchor/flipX/flipY` を使わない。太いブロック矢印は `shapes.insert` の `rightArrow` / `leftArrow` で別図形。
 
 ```json
 [
-  { "type": "lines.insert", "sheetId": "sales", "start": { "x": 100, "y": 80 }, "end": { "x": 400, "y": 80 }, "endArrow": "triangle" }
+  { "type": "lines.insert", "sheetId": "sales", "start": { "x": 100, "y": 80 }, "end": { "x": 400, "y": 200 }, "routing": "elbow", "endArrow": "triangle" }
 ]
 ```
 
-この例は接続先を持たない線を作成する。図形へ接続する場合は、図形を先に作りreceiptの実IDを確認し、端点へ `binding: { targetId: "取得した描画ID", port: "left" }` を追加する。新しいIDを推測しない。`getSpreadsheetLinePoints(sheet, drawingId)` で接続を解決した現在の端点、`getDrawingBounds` で現在の外接範囲を取得できる。保存 `anchor/width/height` は線のキャッシュなので、接続先編集後の位置判定には使わない。
+この例は接続先を持たない折れ線を作成する。図形へ接続する場合は、図形を先に作りreceiptの実IDを確認し、端点へ `binding: { targetId: "取得した描画ID", port: "left" }` を追加する。新しいIDを推測しない。`getSpreadsheetLinePoints(sheet, drawingId)` で接続を解決した現在の端点、`getSpreadsheetLineRoute(sheet, drawingId)` で全頂点 `points` と経路の `bounds`、`getDrawingBounds` で現在の外接範囲を取得できる。保存 `anchor/width/height` は線のキャッシュなので、接続先編集後の位置判定には使わない。

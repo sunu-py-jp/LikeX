@@ -34,7 +34,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       const id = nextId();
       return receipt(addDrawing(workbook, sheet.id, withLinePoints(sheet, { id, type: "shape", shape: command.shape ?? "line",
         anchor: { row: 0, column: 0, offsetX: 0, offsetY: 0 }, width: 1, height: 1, fill: "transparent",
-        stroke: command.stroke ?? "#217346", strokeWidth: command.strokeWidth ?? 2, startArrow: command.startArrow, endArrow: command.endArrow }, command)), id);
+        stroke: command.stroke ?? "#217346", strokeWidth: command.strokeWidth ?? 2, startArrow: command.startArrow, endArrow: command.endArrow, routing: command.routing }, command)), id);
     }
     case "lines.update": {
       requireCommandFeature(features, "shapes");
@@ -88,7 +88,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       if ((command.type === "images.update" && drawing.type !== "image") || (command.type === "shapes.update" && drawing.type !== "shape") ||
         (command.type === "textBoxes.update" && drawing.type !== "text")) return rejectCommand("INVALID_TARGET", "描画オブジェクトの種類がコマンドと一致しません");
       const patch = commandRecord(command.patch, "更新内容");
-      const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape" ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "startArrow", "endArrow"]
+      const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape" ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "startArrow", "endArrow", "routing"]
         : ["text", "fontSize", "color", "background", "bold"];
       commandKeys(patch, ["anchor", "width", "height", "flipX", "flipY", "rotation", ...specific], "更新内容");
       if (drawing.type === "shape" && Object.hasOwn(patch, "shape") && !isSpreadsheetShapeKind(patch.shape))

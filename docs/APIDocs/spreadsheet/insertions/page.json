@@ -1,6 +1,6 @@
 {
   "title": "画像・図形・コメント",
-  "summary": "16種類の図形、画像、テキストボックス、セルコメントを挿入。回転・反転・文字編集とJSON保存に対応します。",
+  "summary": "Office共通の図形、直線・自動折れ線、画像、テキストボックス、セルコメントを挿入。図形間の接続とJSON・XLSX保存に対応します。",
   "source": "packages/spreadsheet/src/docs/insertions-and-json.md",
   "order": 130,
   "section": "表示と挿入",
@@ -19,7 +19,11 @@
     "flipY",
     "rotation",
     "SPREADSHEET_SHAPES",
-    "SpreadsheetShapeKind"
+    "SpreadsheetShapeKind",
+    "lines.insert",
+    "lines.update",
+    "routing",
+    "getSpreadsheetLineRoute"
   ],
   "screenshots": [
     {
@@ -34,7 +38,7 @@
     },
     {
       "src": "assets/screenshots/spreadsheet-shape-gallery.png",
-      "alt": "基本図形・ブロック矢印・線に分かれた16種類の図形選択ダイアログ",
+      "alt": "基本図形・ブロック矢印・線に分かれた図形選択ダイアログ",
       "caption": "「挿入 → 図形」から形を選択します。選択したセルの位置へ挿入します。"
     },
     {

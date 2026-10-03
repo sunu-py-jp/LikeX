@@ -94,8 +94,8 @@ node "$skill_dir/scripts/document.mjs" apply --project "$project_dir" \
 | `type` | 引数 |
 | --- | --- |
 | `element.add` | `slideId`, `element: SlideElementInput` |
-| `line.add` | `slideId`, `start: ConnectorEndpoint`, `end: ConnectorEndpoint`, `id?`, `name?`, `stroke?`, `strokeWidth?`, `startArrow?`, `endArrow?` |
-| `line.update` | `slideId`, `elementId`, `start?`, `end?`, `startArrow?`, `endArrow?`（1項目以上） |
+| `line.add` | `slideId`, `start: ConnectorEndpoint`, `end: ConnectorEndpoint`, `id?`, `name?`, `stroke?`, `strokeWidth?`, `startArrow?`, `endArrow?`, `routing?` |
+| `line.update` | `slideId`, `elementId`, `start?`, `end?`, `startArrow?`, `endArrow?`, `routing?`（1項目以上） |
 | `element.update` | `slideId`, `elementId`, `patch: SlideElementPatch` |
 
 追加では `type` が必須で、画像はさらに `src` が必須。その他は任意で既定値を補う。共通フィールドは `id`, `name`, `x`, `y`, `width`, `height`, `rotation`, `opacity`, `locked`。保存専用の `stackOrder` をコマンドに入れない。
@@ -131,7 +131,9 @@ node "$skill_dir/scripts/document.mjs" apply --project "$project_dir" \
 
 ## 構成図の接続線
 
-追従する直線には `line.add` / `line.update` を優先する。端点は `{ "x": 0, "y": 0, "binding": { "targetId": "api-box", "port": "right" } }` の形。接続があれば座標は対象図形から解決される。portは回転前の `top/topRight/right/bottomRight/bottom/bottomLeft/left/topLeft`、楕円や三角形などでは輪郭上の8点。接続先は同一ページの非線要素に限る。追加は `start/end` が必須、更新は片方以上を指定し、端点にbindingを省略するとその端を解除する。線の移動は両端を解除、接続先と同時の複製ではIDを張り替え、接続先の削除では現在座標に固定して解除する。`line.add` の線は普通のshape要素なので、重なり順と削除は `element.order/delete` を使う。
+追従する線には `line.add` / `line.update` を優先する。端点は `{ "x": 0, "y": 0, "binding": { "targetId": "api-box", "port": "right" } }` の形。接続があれば座標は対象図形から解決される。portは回転前の `top/topRight/right/bottomRight/bottom/bottomLeft/left/topLeft`、楕円や三角形などでは輪郭上の8点。接続先は同一ページの非線要素に限る。追加は `start/end` が必須、更新は端点・矢印・経路の1項目以上を指定し、端点にbindingを省略するとその端を解除する。線の移動は両端を解除、接続先と同時の複製ではIDを張り替え、接続先の削除では現在座標に固定して解除する。`line.add` の線は普通のshape要素なので、重なり順と削除は `element.order/delete` を使う。
+
+直角の折れ線には `routing: "elbow"` を指定する（省略または `"straight"` は直線）。接続先の移動・リサイズ・回転に応じて折れ位置も再計算する。手動の中間点は指定せず2端点だけを編集する。接続していない別の図形は障害物として扱わないので、プレビューで重なりを確認する。矢印は `startArrow/endArrow` で独立して指定できる。`getSlideLineRoute(element, slide.elements)` は全折れ点と外接矩形を返す。
 
 ```json
 [

@@ -123,7 +123,7 @@ test('external rotated/flipped lines retain their endpoint direction and curved 
   const result = await importSlidePptx(await change(file, xml => xml.replace(/<p:cxnSp>.*?<\/p:cxnSp>/, connector => connector.replace('<a:xfrm>', '<a:xfrm rot="5400000" flipH="1">'))));
   close(result.deck.slides[0].elements[0].line.start, { x: 250, y: 250 });
   close(result.deck.slides[0].elements[0].line.end, { x: 150, y: 50 });
-  const curved = await importSlidePptx(await change(file, xml => xml.replace('prst="line"', 'prst="bentConnector3"')));
+  const curved = await importSlidePptx(await change(file, xml => xml.replace('prst="line"', 'prst="curvedConnector3"')));
   assert.ok(curved.warnings.some(message => message.includes('直線へ変更')));
 });
 
@@ -149,4 +149,53 @@ test('both endpoints remain attached to text and image targets', async () => {
   assert.deepEqual(actual.line.start.binding, { targetId: actualText.id, port: 'right' });
   assert.deepEqual(actual.line.end.binding, { targetId: actualImage.id, port: 'topLeft' });
   close(actual.line.start, connection.line.start); close(actual.line.end, connection.line.end);
+});
+
+test('automatic elbow paths and both connections round-trip in editable custom connector geometry', async () => {
+  const a = shape('a', 'rect', { x: 100, y: 100, width: 160, height: 100, rotation: 25 });
+  const b = shape('b', 'hexagon', { x: 420, y: 170, width: 150, height: 180 });
+  const source = applySlideCommands(deck([a, b]), { type: 'line.add', slideId: 'page', id: 'elbow', routing: 'elbow',
+    start: { x: 0, y: 0, binding: { targetId: a.id, port: 'left' } }, end: { x: 0, y: 0, binding: { targetId: b.id, port: 'right' } },
+    startArrow: 'openArrow', endArrow: 'triangle' }).deck;
+  const exported = await exportSlidePptx(source), xml = await xmlOf(exported);
+  assert.match(xml, /<p:cxnSp>/); assert.match(xml, /<a:custGeom>/); assert.match(xml, /<a:lnTo>/);
+  const result = await importSlidePptx(exported); assert.deepEqual(result.warnings, []);
+  const actual = result.deck.slides[0].elements.find(item => item.shape === 'line'), expected = source.slides[0].elements.at(-1);
+  assert.equal(actual.routing, 'elbow'); assert.equal(actual.startArrow, 'openArrow'); assert.equal(actual.endArrow, 'triangle');
+  close(actual.line.start, expected.line.start); close(actual.line.end, expected.line.end);
+  assert.equal(actual.line.start.binding.port, 'left'); assert.equal(actual.line.end.binding.port, 'right');
+  let current = result.deck;
+  for (let repeat=0; repeat<3; repeat++) {
+    const next = await importSlidePptx(await exportSlidePptx(current)); current = next.deck;
+    assert.deepEqual(next.warnings, []); const line = next.deck.slides[0].elements.find(item => item.shape === 'line');
+    close(line.line.start, actual.line.start); close(line.line.end, actual.line.end);
+  }
+});
+
+test('native Office bentConnector2 through bentConnector5 become automatic elbow routes with explicit adjustment notice', async () => {
+  const file = await exportSlidePptx(deck([line('native', {x: 400, y: 180}, {x: 150, y: 420}, {endArrow:'triangle'})]));
+  for (const preset of ['bentConnector2','bentConnector3','bentConnector4','bentConnector5']) {
+    const result = await importSlidePptx(await change(file, xml => xml.replace('prst="line"','prst="'+preset+'"')));
+    const actual = result.deck.slides[0].elements[0];
+    assert.equal(actual.routing, 'elbow'); close(actual.line.start,{x:400,y:180}); close(actual.line.end,{x:150,y:420});
+    assert.ok(result.warnings.some(message=>message.includes('自動の直交経路')));
+  }
+});
+
+
+test('elbow paths retain reversed and degenerate endpoints, and unrecognized custom geometry warns', async () => {
+  const points = [
+    [{x:300,y:100},{x:100,y:300}], [{x:100,y:300},{x:300,y:100}],
+    [{x:300,y:300},{x:100,y:100}], [{x:100,y:100},{x:300,y:100}],
+    [{x:100,y:300},{x:100,y:100}], [{x:100,y:100},{x:100,y:100}],
+  ];
+  const source = deck(points.map(([start,end], index) => line('elbow-'+index,start,end,{routing:'elbow'})));
+  const file = await exportSlidePptx(source), result = await importSlidePptx(file);
+  assert.deepEqual(result.warnings, []);
+  result.deck.slides[0].elements.forEach((actual,index) => {
+    assert.equal(actual.routing,'elbow'); close(actual.line.start,points[index][0]); close(actual.line.end,points[index][1]);
+  });
+  const unknown = await importSlidePptx(await change(file, xml => xml.replaceAll('likexElbow1','unknownCustom')));
+  assert.ok(unknown.warnings.some(message => message.includes('直線へ変更')));
+  assert.ok(unknown.deck.slides[0].elements.every(element=>element.routing===undefined));
 });

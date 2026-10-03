@@ -54,10 +54,643 @@
         },
         {
           "$ref": "#/$defs/DocumentCommand_15"
+        },
+        {
+          "$ref": "#/$defs/DocumentCommand_16"
+        },
+        {
+          "$ref": "#/$defs/DocumentCommand_17"
+        },
+        {
+          "$ref": "#/$defs/DocumentCommand_18"
+        },
+        {
+          "$ref": "#/$defs/DocumentCommand_19"
+        },
+        {
+          "$ref": "#/$defs/DocumentCommand_20"
+        },
+        {
+          "$ref": "#/$defs/DocumentCommand_21"
+        },
+        {
+          "$ref": "#/$defs/DocumentCommand_22"
+        },
+        {
+          "$ref": "#/$defs/DocumentCommand_23"
         }
       ]
     },
     "DocumentCommand_1": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "canvas.insert"
+        },
+        "at": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "shapes": {
+          "$ref": "#/$defs/DocumentCommand_1_shapes"
+        },
+        "connectors": {
+          "$ref": "#/$defs/DocumentCommand_1_connectors"
+        }
+      },
+      "required": [
+        "type",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_1_shapes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DocumentCanvasShape"
+      }
+    },
+    "DocumentCanvasShape": {
+      "type": "object",
+      "properties": {
+        "fill": {
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
+        },
+        "color": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "stroke": {
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
+        },
+        "preset": {
+          "$ref": "#/$defs/DocumentCanvasShape_preset"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "flipH": {
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
+        },
+        "flipV": {
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "preset",
+        "id",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCanvasShape_fill": {
+      "anyOf": [
+        {
+          "const": null
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "DocumentCanvasShape_preset": {
+      "enum": [
+        "triangle",
+        "diamond",
+        "ellipse",
+        "rect",
+        "roundRect",
+        "rtTriangle",
+        "parallelogram",
+        "trapezoid",
+        "rightArrow",
+        "leftArrow",
+        "upArrow",
+        "downArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "bentArrow",
+        "bentUpArrow",
+        "uturnArrow",
+        "leftUpArrow",
+        "leftRightUpArrow",
+        "quadArrow",
+        "chevron",
+        "homePlate",
+        "pentagon",
+        "hexagon",
+        "octagon",
+        "star5",
+        "plus",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartInputOutput",
+        "flowChartPredefinedProcess",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartPreparation",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "flowChartDelay"
+      ]
+    },
+    "DocumentCanvasShape_flipH": {
+      "type": "boolean"
+    },
+    "DocumentCommand_1_connectors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DocumentCanvasConnector"
+      }
+    },
+    "DocumentCanvasConnector": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "end": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "routing": {
+          "$ref": "#/$defs/DocumentCanvasConnector_routing"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "startArrow": {
+          "$ref": "#/$defs/DocumentCanvasConnector_startArrow"
+        },
+        "endArrow": {
+          "$ref": "#/$defs/DocumentCanvasConnector_startArrow"
+        }
+      },
+      "required": [
+        "id",
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "binding": {
+          "$ref": "#/$defs/ConnectorEndpoint_binding"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint_binding": {
+      "type": "object",
+      "properties": {
+        "targetId": {
+          "type": "string"
+        },
+        "port": {
+          "$ref": "#/$defs/ConnectorEndpoint_binding_port"
+        }
+      },
+      "required": [
+        "targetId",
+        "port"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint_binding_port": {
+      "enum": [
+        "top",
+        "right",
+        "bottom",
+        "left",
+        "topRight",
+        "bottomRight",
+        "bottomLeft",
+        "topLeft"
+      ]
+    },
+    "DocumentCanvasConnector_routing": {
+      "enum": [
+        "straight",
+        "elbow"
+      ]
+    },
+    "DocumentCanvasConnector_startArrow": {
+      "enum": [
+        "none",
+        "triangle",
+        "openArrow",
+        "diamond",
+        "oval",
+        "stealth"
+      ]
+    },
+    "DocumentCommand_2": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "canvas.update"
+        },
+        "id": {
+          "type": "string"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "type",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_3": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "canvas.shape.insert"
+        },
+        "canvasId": {
+          "type": "string"
+        },
+        "shape": {
+          "$ref": "#/$defs/DocumentCommand_3_shape"
+        }
+      },
+      "required": [
+        "type",
+        "canvasId",
+        "shape"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_3_shape": {
+      "type": "object",
+      "properties": {
+        "fill": {
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
+        },
+        "color": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "stroke": {
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
+        },
+        "preset": {
+          "$ref": "#/$defs/DocumentCanvasShape_preset"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "flipH": {
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
+        },
+        "flipV": {
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "preset"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_4": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "canvas.shape.update"
+        },
+        "canvasId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "patch": {
+          "$ref": "#/$defs/DocumentCommand_4_patch"
+        }
+      },
+      "required": [
+        "type",
+        "canvasId",
+        "id",
+        "patch"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_4_patch": {
+      "type": "object",
+      "properties": {
+        "fill": {
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
+        },
+        "color": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "stroke": {
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
+        },
+        "preset": {
+          "$ref": "#/$defs/DocumentCommand_4_patch_preset"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "flipH": {
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
+        },
+        "flipV": {
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DocumentCommand_4_patch_preset": {
+      "enum": [
+        "triangle",
+        "diamond",
+        "ellipse",
+        "rect",
+        "roundRect",
+        "rtTriangle",
+        "parallelogram",
+        "trapezoid",
+        "rightArrow",
+        "leftArrow",
+        "upArrow",
+        "downArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "bentArrow",
+        "bentUpArrow",
+        "uturnArrow",
+        "leftUpArrow",
+        "leftRightUpArrow",
+        "quadArrow",
+        "chevron",
+        "homePlate",
+        "pentagon",
+        "hexagon",
+        "octagon",
+        "star5",
+        "plus",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartInputOutput",
+        "flowChartPredefinedProcess",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartPreparation",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "flowChartDelay"
+      ]
+    },
+    "DocumentCommand_5": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "canvas.shape.delete"
+        },
+        "canvasId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "canvasId",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_6": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "canvas.connector.insert"
+        },
+        "canvasId": {
+          "type": "string"
+        },
+        "connector": {
+          "$ref": "#/$defs/DocumentCommand_6_connector"
+        }
+      },
+      "required": [
+        "type",
+        "canvasId",
+        "connector"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_6_connector": {
+      "type": "object",
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "routing": {
+          "$ref": "#/$defs/DocumentCanvasConnector_routing"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "start": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "startArrow": {
+          "$ref": "#/$defs/DocumentCanvasConnector_startArrow"
+        },
+        "endArrow": {
+          "$ref": "#/$defs/DocumentCanvasConnector_startArrow"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "end",
+        "start"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_7": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "canvas.connector.update"
+        },
+        "canvasId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "patch": {
+          "$ref": "#/$defs/DocumentCommand_7_patch"
+        }
+      },
+      "required": [
+        "type",
+        "canvasId",
+        "id",
+        "patch"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_7_patch": {
+      "type": "object",
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "routing": {
+          "$ref": "#/$defs/DocumentCanvasConnector_routing"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "start": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "startArrow": {
+          "$ref": "#/$defs/DocumentCanvasConnector_startArrow"
+        },
+        "endArrow": {
+          "$ref": "#/$defs/DocumentCanvasConnector_startArrow"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DocumentCommand_8": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "canvas.connector.delete"
+        },
+        "canvasId": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "canvasId",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCommand_9": {
       "type": "object",
       "properties": {
         "type": {
@@ -80,7 +713,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_2": {
+    "DocumentCommand_10": {
       "type": "object",
       "properties": {
         "type": {
@@ -100,7 +733,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_3": {
+    "DocumentCommand_11": {
       "type": "object",
       "properties": {
         "type": {
@@ -116,10 +749,10 @@
           "$ref": "#/$defs/DocumentMarkName"
         },
         "attrs": {
-          "$ref": "#/$defs/DocumentCommand_3_attrs"
+          "$ref": "#/$defs/DocumentCommand_11_attrs"
         },
         "enabled": {
-          "$ref": "#/$defs/DocumentCommand_3_enabled"
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
         }
       },
       "required": [
@@ -140,13 +773,13 @@
         "link"
       ]
     },
-    "DocumentCommand_3_attrs": {
+    "DocumentCommand_11_attrs": {
       "anyOf": [
         {
           "$ref": "#/$defs/DocumentTextStyle"
         },
         {
-          "$ref": "#/$defs/DocumentCommand_3_attrs_2"
+          "$ref": "#/$defs/DocumentCommand_11_attrs_2"
         }
       ]
     },
@@ -154,29 +787,19 @@
       "type": "object",
       "properties": {
         "fontFamily": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "fontSize": {
           "$ref": "#/$defs/DocumentTextStyle_fontSize"
         },
         "color": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "backgroundColor": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         }
       },
       "additionalProperties": false
-    },
-    "DocumentTextStyle_fontFamily": {
-      "anyOf": [
-        {
-          "const": null
-        },
-        {
-          "type": "string"
-        }
-      ]
     },
     "DocumentTextStyle_fontSize": {
       "anyOf": [
@@ -188,14 +811,14 @@
         }
       ]
     },
-    "DocumentCommand_3_attrs_2": {
+    "DocumentCommand_11_attrs_2": {
       "type": "object",
       "properties": {
         "href": {
           "type": "string"
         },
         "title": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         }
       },
       "required": [
@@ -203,10 +826,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_3_enabled": {
-      "type": "boolean"
-    },
-    "DocumentCommand_4": {
+    "DocumentCommand_12": {
       "type": "object",
       "properties": {
         "type": {
@@ -219,13 +839,13 @@
           "type": "number"
         },
         "nodeType": {
-          "$ref": "#/$defs/DocumentCommand_4_nodeType"
+          "$ref": "#/$defs/DocumentCommand_12_nodeType"
         },
         "level": {
           "type": "number"
         },
         "align": {
-          "$ref": "#/$defs/DocumentCommand_4_align"
+          "$ref": "#/$defs/DocumentCommand_12_align"
         }
       },
       "required": [
@@ -235,13 +855,13 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_4_nodeType": {
+    "DocumentCommand_12_nodeType": {
       "enum": [
         "paragraph",
         "heading"
       ]
     },
-    "DocumentCommand_4_align": {
+    "DocumentCommand_12_align": {
       "enum": [
         "right",
         "left",
@@ -249,7 +869,7 @@
         "justify"
       ]
     },
-    "DocumentCommand_5": {
+    "DocumentCommand_13": {
       "type": "object",
       "properties": {
         "type": {
@@ -262,7 +882,7 @@
           "type": "number"
         },
         "kind": {
-          "$ref": "#/$defs/DocumentCommand_5_kind"
+          "$ref": "#/$defs/DocumentCommand_13_kind"
         }
       },
       "required": [
@@ -273,14 +893,14 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_5_kind": {
+    "DocumentCommand_13_kind": {
       "enum": [
         "none",
         "bullet",
         "ordered"
       ]
     },
-    "DocumentCommand_6": {
+    "DocumentCommand_14": {
       "type": "object",
       "properties": {
         "type": {
@@ -296,7 +916,7 @@
           "type": "number"
         },
         "header": {
-          "$ref": "#/$defs/DocumentCommand_3_enabled"
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
         }
       },
       "required": [
@@ -307,7 +927,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_7": {
+    "DocumentCommand_15": {
       "type": "object",
       "properties": {
         "type": {
@@ -336,7 +956,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_8": {
+    "DocumentCommand_16": {
       "type": "object",
       "properties": {
         "type": {
@@ -364,7 +984,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_9": {
+    "DocumentCommand_17": {
       "type": "object",
       "properties": {
         "type": {
@@ -374,7 +994,7 @@
           "type": "number"
         },
         "fill": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "color": {
           "type": "string"
@@ -395,19 +1015,19 @@
           "type": "number"
         },
         "stroke": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "preset": {
-          "$ref": "#/$defs/DocumentCommand_9_preset"
+          "$ref": "#/$defs/DocumentCanvasShape_preset"
         },
         "strokeWidth": {
           "type": "number"
         },
         "flipH": {
-          "$ref": "#/$defs/DocumentCommand_3_enabled"
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
         },
         "flipV": {
-          "$ref": "#/$defs/DocumentCommand_3_enabled"
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
         }
       },
       "required": [
@@ -417,50 +1037,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_9_preset": {
-      "enum": [
-        "triangle",
-        "diamond",
-        "ellipse",
-        "rect",
-        "roundRect",
-        "rtTriangle",
-        "parallelogram",
-        "trapezoid",
-        "rightArrow",
-        "leftArrow",
-        "upArrow",
-        "downArrow",
-        "leftRightArrow",
-        "upDownArrow",
-        "bentArrow",
-        "bentUpArrow",
-        "uturnArrow",
-        "leftUpArrow",
-        "leftRightUpArrow",
-        "quadArrow",
-        "chevron",
-        "homePlate",
-        "pentagon",
-        "hexagon",
-        "octagon",
-        "star5",
-        "plus",
-        "flowChartProcess",
-        "flowChartDecision",
-        "flowChartTerminator",
-        "flowChartInputOutput",
-        "flowChartPredefinedProcess",
-        "flowChartDocument",
-        "flowChartMultidocument",
-        "flowChartPreparation",
-        "flowChartManualInput",
-        "flowChartManualOperation",
-        "flowChartMerge",
-        "flowChartDelay"
-      ]
-    },
-    "DocumentCommand_10": {
+    "DocumentCommand_18": {
       "type": "object",
       "properties": {
         "type": {
@@ -470,7 +1047,7 @@
           "type": "string"
         },
         "fill": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "color": {
           "type": "string"
@@ -491,19 +1068,19 @@
           "type": "number"
         },
         "stroke": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "preset": {
-          "$ref": "#/$defs/DocumentCommand_10_preset"
+          "$ref": "#/$defs/DocumentCommand_4_patch_preset"
         },
         "strokeWidth": {
           "type": "number"
         },
         "flipH": {
-          "$ref": "#/$defs/DocumentCommand_3_enabled"
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
         },
         "flipV": {
-          "$ref": "#/$defs/DocumentCommand_3_enabled"
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
         }
       },
       "required": [
@@ -512,50 +1089,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_10_preset": {
-      "enum": [
-        "triangle",
-        "diamond",
-        "ellipse",
-        "rect",
-        "roundRect",
-        "rtTriangle",
-        "parallelogram",
-        "trapezoid",
-        "rightArrow",
-        "leftArrow",
-        "upArrow",
-        "downArrow",
-        "leftRightArrow",
-        "upDownArrow",
-        "bentArrow",
-        "bentUpArrow",
-        "uturnArrow",
-        "leftUpArrow",
-        "leftRightUpArrow",
-        "quadArrow",
-        "chevron",
-        "homePlate",
-        "pentagon",
-        "hexagon",
-        "octagon",
-        "star5",
-        "plus",
-        "flowChartProcess",
-        "flowChartDecision",
-        "flowChartTerminator",
-        "flowChartInputOutput",
-        "flowChartPredefinedProcess",
-        "flowChartDocument",
-        "flowChartMultidocument",
-        "flowChartPreparation",
-        "flowChartManualInput",
-        "flowChartManualOperation",
-        "flowChartMerge",
-        "flowChartDelay"
-      ]
-    },
-    "DocumentCommand_11": {
+    "DocumentCommand_19": {
       "type": "object",
       "properties": {
         "type": {
@@ -571,7 +1105,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_12": {
+    "DocumentCommand_20": {
       "type": "object",
       "properties": {
         "type": {
@@ -587,7 +1121,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_13": {
+    "DocumentCommand_21": {
       "type": "object",
       "properties": {
         "type": {
@@ -597,7 +1131,7 @@
           "type": "string"
         },
         "page": {
-          "$ref": "#/$defs/DocumentCommand_13_page"
+          "$ref": "#/$defs/DocumentCommand_21_page"
         }
       },
       "required": [
@@ -605,7 +1139,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_13_page": {
+    "DocumentCommand_21_page": {
       "type": "object",
       "properties": {
         "width": {
@@ -615,12 +1149,12 @@
           "type": "number"
         },
         "margins": {
-          "$ref": "#/$defs/DocumentCommand_13_page_margins"
+          "$ref": "#/$defs/DocumentCommand_21_page_margins"
         }
       },
       "additionalProperties": false
     },
-    "DocumentCommand_13_page_margins": {
+    "DocumentCommand_21_page_margins": {
       "type": "object",
       "properties": {
         "top": {
@@ -638,7 +1172,7 @@
       },
       "additionalProperties": false
     },
-    "DocumentCommand_14": {
+    "DocumentCommand_22": {
       "type": "object",
       "properties": {
         "type": {
@@ -776,6 +1310,9 @@
           "$ref": "#/$defs/DocumentShapeNode"
         },
         {
+          "$ref": "#/$defs/DocumentCanvasNode"
+        },
+        {
           "$ref": "#/$defs/DocumentPageBreakNode"
         }
       ]
@@ -802,10 +1339,10 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "align": {
-          "$ref": "#/$defs/DocumentCommand_4_align"
+          "$ref": "#/$defs/DocumentCommand_12_align"
         }
       },
       "additionalProperties": false
@@ -922,7 +1459,7 @@
           "type": "string"
         },
         "title": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         }
       },
       "required": [
@@ -967,10 +1504,10 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "align": {
-          "$ref": "#/$defs/DocumentCommand_4_align"
+          "$ref": "#/$defs/DocumentCommand_12_align"
         },
         "level": {
           "type": "number"
@@ -1001,7 +1538,7 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         }
       },
       "additionalProperties": false
@@ -1035,7 +1572,7 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         }
       },
       "additionalProperties": false
@@ -1063,7 +1600,7 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "order": {
           "type": "number"
@@ -1094,7 +1631,7 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         }
       },
       "additionalProperties": false
@@ -1128,7 +1665,7 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         }
       },
       "additionalProperties": false
@@ -1168,7 +1705,7 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "colspan": {
           "type": "number"
@@ -1180,7 +1717,7 @@
           "$ref": "#/$defs/DocumentTableCellNode_attrs_colwidth"
         },
         "backgroundColor": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         }
       },
       "additionalProperties": false
@@ -1221,7 +1758,7 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "src": {
           "type": "string"
@@ -1261,10 +1798,10 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "preset": {
-          "$ref": "#/$defs/DocumentCommand_9_preset"
+          "$ref": "#/$defs/DocumentCanvasShape_preset"
         },
         "text": {
           "type": "string"
@@ -1276,10 +1813,10 @@
           "type": "number"
         },
         "fill": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "stroke": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         },
         "strokeWidth": {
           "type": "number"
@@ -1288,10 +1825,10 @@
           "type": "number"
         },
         "flipH": {
-          "$ref": "#/$defs/DocumentCommand_3_enabled"
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
         },
         "flipV": {
-          "$ref": "#/$defs/DocumentCommand_3_enabled"
+          "$ref": "#/$defs/DocumentCanvasShape_flipH"
         },
         "color": {
           "type": "string"
@@ -1303,6 +1840,43 @@
       "required": [
         "preset"
       ],
+      "additionalProperties": false
+    },
+    "DocumentCanvasNode": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "drawing_canvas"
+        },
+        "attrs": {
+          "$ref": "#/$defs/DocumentCanvasAttributes"
+        }
+      },
+      "required": [
+        "type",
+        "attrs"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCanvasAttributes": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "shapes": {
+          "$ref": "#/$defs/DocumentCommand_1_shapes"
+        },
+        "connectors": {
+          "$ref": "#/$defs/DocumentCommand_1_connectors"
+        }
+      },
       "additionalProperties": false
     },
     "DocumentPageBreakNode": {
@@ -1324,19 +1898,19 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/$defs/DocumentTextStyle_fontFamily"
+          "$ref": "#/$defs/DocumentCanvasShape_fill"
         }
       },
       "additionalProperties": false
     },
-    "DocumentCommand_15": {
+    "DocumentCommand_23": {
       "type": "object",
       "properties": {
         "type": {
           "const": "transaction.apply"
         },
         "steps": {
-          "$ref": "#/$defs/DocumentCommand_15_steps"
+          "$ref": "#/$defs/DocumentCommand_23_steps"
         },
         "selection": {
           "$ref": "#/$defs/DocumentSelection"
@@ -1348,7 +1922,7 @@
       ],
       "additionalProperties": false
     },
-    "DocumentCommand_15_steps": {
+    "DocumentCommand_23_steps": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/DocumentJsonObject"

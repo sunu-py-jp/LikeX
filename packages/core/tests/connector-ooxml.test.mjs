@@ -4,7 +4,7 @@ import { build } from 'esbuild';
 
 const output = await build({ stdin: { contents: 'export * from "./src/ooxml";', resolveDir: new URL('../', import.meta.url).pathname },
   bundle: true, platform: 'node', format: 'esm', write: false });
-const { createOfficeConnectorGeometry, readOfficeConnectorShapeTag, getOfficePresetConnectorPort, officeXml } =
+const { createOfficeConnectorGeometry, readOfficeConnectorShapeTag, getOfficePresetConnectorPort, createOfficeElbowConnectorGeometry, readOfficeElbowConnectorEndpoints, officeXml } =
   await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const { parseXml, child, children } = officeXml;
 const parse = value => parseXml(new TextEncoder().encode(value));
@@ -45,4 +45,34 @@ test('preset indices use their real Office ordering and do not claim unsupported
   assert.equal(getOfficePresetConnectorPort('leftArrow', 3), 'right');
   for (const index of [-1, 8, NaN, 1.5]) assert.equal(getOfficePresetConnectorPort('rect', index), undefined);
   assert.equal(getOfficePresetConnectorPort('freeform', 0), undefined);
+});
+
+
+test('elbow geometry retains all bends and ordered endpoints inside route bounds', () => {
+  const points = [{ x: 10, y: 30 }, { x: -10, y: 30 }, { x: -10, y: 90 }, { x: 160, y: 90 }, { x: 160, y: 50 }, { x: 140, y: 50 }];
+  const geometry = parse(createOfficeElbowConnectorGeometry(points, { x: -10, y: 30, width: 170, height: 60 }));
+  const endpoints = readOfficeElbowConnectorEndpoints(geometry);
+  assert.ok(Math.abs(endpoints.start.x - 20 / 170) < 1e-5);
+  assert.equal(endpoints.start.y, 0);
+  assert.ok(Math.abs(endpoints.end.x - 150 / 170) < 1e-5);
+  assert.ok(Math.abs(endpoints.end.y - 20 / 60) < 1e-5);
+  assert.equal(children(child(child(geometry, 'pathLst'), 'path'), 'lnTo').length, 5);
+  assert.equal(readOfficeConnectorShapeTag(geometry), undefined);
+  const coincident = parse(createOfficeElbowConnectorGeometry([{ x: 1, y: 2 }], { x: 1, y: 2, width: 0, height: 0 }));
+  assert.deepEqual(readOfficeElbowConnectorEndpoints(coincident), { start: { x: 0, y: 0 }, end: { x: 0, y: 0 } });
+});
+
+test('elbow readers reject unsupported or malformed custom paths instead of inventing endpoints', () => {
+  const xml = createOfficeElbowConnectorGeometry([{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 20 }], { x: 0, y: 0, width: 10, height: 20 });
+  for (const changed of [xml.replace('likexElbow1', 'unknown'), xml.replace('fill="none"', 'fill="norm"'),
+    xml.replace('x="100000" y="0"', 'x="100000" y="999999"'), xml.replace('x="0"', 'x=""'),
+    xml.replace('x="100000" y="0"', 'x="100000" y="50000"'), xml.replaceAll('lnTo', 'quadBezTo')])
+    assert.equal(readOfficeElbowConnectorEndpoints(parse(changed)), undefined);
+  assert.equal(readOfficeElbowConnectorEndpoints(parse(createOfficeConnectorGeometry('rect'))), undefined);
+  assert.equal(readOfficeElbowConnectorEndpoints(undefined), undefined);
+  assert.throws(() => createOfficeElbowConnectorGeometry([{ x: 0, y: 0 }, { x: 1, y: 1 }], { x: 0, y: 0, width: 1, height: 1 }), TypeError);
+  assert.throws(() => createOfficeElbowConnectorGeometry([{ x: 2, y: 0 }], { x: 0, y: 0, width: 1, height: 1 }), RangeError);
+  assert.throws(() => createOfficeElbowConnectorGeometry([{ x: 0, y: 0 }, { x: 1, y: .000001 }], { x: 0, y: 0, width: 1, height: 1 }), TypeError);
+  assert.throws(() => createOfficeElbowConnectorGeometry([{ x: 1.000001, y: 0 }], { x: 0, y: 0, width: 1, height: 1 }), RangeError);
+  assert.throws(() => createOfficeElbowConnectorGeometry(Array(65).fill({ x: 0, y: 0 }), { x: 0, y: 0, width: 1, height: 1 }), TypeError);
 });

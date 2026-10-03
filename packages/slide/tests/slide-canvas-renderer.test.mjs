@@ -344,3 +344,12 @@ test('PNG uses the same expanded Office paths and draws shape text inside its ge
   assert.ok(env.named('stroke').some(call => call.args[0] instanceof globalThis.Path2D));
   assert.ok(env.named('fillText').some(call => call.args[0] === '確認'));
 });
+
+
+test('PNG draws every elbow segment and uses endpoint tangents for the arrowhead', async t => {
+  const env = environment(t);
+  await renderSlideImage(request([{ type: 'shape', shape: 'line', routing: 'elbow', line: { start: {x:20,y:20}, end:{x:340,y:220} }, stroke:'#123456', strokeWidth:2, endArrow:'triangle' }]));
+  assert.ok(env.named('lineTo').length >= 4, 'multiple routed segments plus arrow geometry are painted');
+  const operations = env.calls.filter(call=>['moveTo','lineTo'].includes(call.name));
+  assert.ok(operations.some(call => call.args[0]===320 && call.args[1]===200));
+});

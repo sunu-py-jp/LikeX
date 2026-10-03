@@ -353,6 +353,9 @@ type WorkbookResult = ReturnType<SpreadsheetHandle["getWorkbook"]>;
 | 共通フィールド以外 | 型 | 内容 |
 | --- | --- | --- |
 | `shape` | `SpreadsheetShapeKind` | [基本図形・線・ブロック矢印](./insertions-and-json.md#図形の種類)の形 |
+| `line?` | `SpreadsheetLine` | 線のセルアンカーと接続情報を持つ始点・終点 |
+| `routing?` | `SpreadsheetLineRouting` | `straight` / `elbow`。2端点を持つ線専用、省略は直線 |
+| `startArrow?` / `endArrow?` | `SpreadsheetLineArrowhead` | 始点・終点の矢印 |
 | `fill` / `stroke` | `string` | 塗りと線の色 |
 | `strokeWidth` | `number` | 線幅（px） |
 | `text?` | `string` | 図形内の文字 |

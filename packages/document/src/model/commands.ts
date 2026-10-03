@@ -1,3 +1,4 @@
+import { applyCanvasCommand } from "./canvas";
 import { EditorState, Selection, TextSelection, type Transaction } from "prosemirror-state";
 import { Step } from "prosemirror-transform";
 import { liftListItem, wrapInList } from "prosemirror-schema-list";
@@ -8,6 +9,9 @@ import { DOCUMENT_LIMITS, choice, identifier, number, record, text } from "./val
 import type { DocumentCommand, DocumentCommandResult, DocumentModel, DocumentRootNode, DocumentSelection } from "./types";
 
 const keys: Record<DocumentCommand["type"], readonly string[]> = {
+  "canvas.insert": ["type", "at", "width", "height", "shapes", "connectors"], "canvas.update": ["type", "id", "width", "height"],
+  "canvas.shape.insert": ["type", "canvasId", "shape"], "canvas.shape.update": ["type", "canvasId", "id", "patch"], "canvas.shape.delete": ["type", "canvasId", "id"],
+  "canvas.connector.insert": ["type", "canvasId", "connector"], "canvas.connector.update": ["type", "canvasId", "id", "patch"], "canvas.connector.delete": ["type", "canvasId", "id"],
   "text.insert": ["type", "from", "to", "text"], "text.delete": ["type", "from", "to"],
   "mark.set": ["type", "from", "to", "mark", "attrs", "enabled"],
   "paragraph.set": ["type", "from", "to", "nodeType", "level", "align"],
@@ -147,6 +151,22 @@ function applyOne(current: DocumentModel, command: DocumentCommand): DocumentCom
       transaction = stateAt(doc).tr.setNodeMarkup(found.pos, undefined, attrs);
       forcedSelection = { from: found.pos, to: found.pos + found.node.nodeSize };
       break;
+    }
+    case "canvas.insert": {
+      const at = position(doc, command.at);
+      const attrs = Object.fromEntries(Object.entries(command).filter(([key]) => key !== "type" && key !== "at"));
+      const canvas = normalizeDocument({ ...current, content: { type: "doc", content: [{ type: "drawing_canvas", attrs }] } }).content.content[0];
+      transaction = stateAt(doc).tr.replaceRangeWith(at, at, documentSchema.nodeFromJSON(canvas));
+      const inserted = findNode(transaction.doc, canvas.attrs!.id as string); forcedSelection = { from: inserted.pos, to: inserted.pos + 1 };
+      break;
+    }
+    case "canvas.update": case "canvas.shape.insert": case "canvas.shape.update": case "canvas.shape.delete":
+    case "canvas.connector.insert": case "canvas.connector.update": case "canvas.connector.delete": {
+      const found = findNode(doc, identifier(command.type === "canvas.update" ? command.id : command.canvasId));
+      if (found.node.type.name !== "drawing_canvas") throw new Error("The selected block is not a drawing canvas.");
+      const attrs = applyCanvasCommand(found.node.attrs, command);
+      transaction = stateAt(doc).tr.setNodeMarkup(found.pos, undefined, { ...attrs, id: found.node.attrs.id });
+      forcedSelection = { from: found.pos, to: found.pos + 1 }; break;
     }
     case "shape.insert": {
       const at = position(doc, command.at);

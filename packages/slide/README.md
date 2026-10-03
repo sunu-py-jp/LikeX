@@ -29,6 +29,8 @@ export default function Presentation() {
 - [PNG画像の書き出し（単一・範囲・任意ページ）](src/docs/image-export.md)
 - [要素のアニメーションと最終静止状態の取得](src/docs/animations.md)
 
+`line.add` / `line.update` の `routing: "elbow"` で、図形に追従する直角の折れ線を作れます。省略時は直線です。`getSlideLineRoute(lineElement, slide.elements)` は、`createSlideDeck`・`parseSlideDeck`・`applySlideCommands` が返した現在の正規化済み要素から、描画用の折れ点と外接矩形を取得します。接続先の位置・回転も計算するため、同じページの `elements` を渡してください。
+
 配布用tarballは `npm run pack:library -- --module slide` で作ります。利用先ではCoreとSlideの両方をインストールしてください。npmレジストリへの公開は未実施です。
 
 ```bash

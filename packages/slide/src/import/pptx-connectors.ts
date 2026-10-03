@@ -1,6 +1,6 @@
 import { OFFICE_SHAPE_PRESETS } from "../model/core-office-shapes";
 import { CONNECTOR_PORTS, connectorLocalToWorld, isConnectorArrowhead, type ConnectorArrowhead, type ConnectorPort } from "../core";
-import { getOfficePresetConnectorPort, readOfficeConnectorShapeTag } from "../ooxml";
+import { getOfficePresetConnectorPort, readOfficeConnectorShapeTag, readOfficeElbowConnectorEndpoints } from "../ooxml";
 import { isSlideLine } from "../model/lines";
 import type { SlideElement, SlideLineGeometry, SlideShapeKind } from "../model/types";
 import { child, children, nonVisual, type Node, type PptxContext, type Relations } from "./pptx-reader";
@@ -9,13 +9,15 @@ export const PPTX_SHAPE_KINDS: Readonly<Record<string, SlideShapeKind>> = Object
   ...Object.fromEntries(OFFICE_SHAPE_PRESETS.map(item => [item.preset, item.preset])),
   rightArrow: "arrow", arrow: "arrow", leftArrow: "leftArrow", line: "line", straightConnector1: "line",
 });
-export function readPptxLineEndpoints(transform: Node): SlideLineGeometry {
+export function readPptxLineEndpoints(transform: Node, geometry?: Node): SlideLineGeometry {
   const off = child(transform, "off"), ext = child(transform, "ext");
   const box = { x: Number(off?.attributes.x) / 9525, y: Number(off?.attributes.y) / 9525,
     width: Number(ext?.attributes.cx) / 9525, height: Number(ext?.attributes.cy) / 9525,
     rotation: Number(transform.attributes.rot ?? 0) / 60000,
     flipX: ["1", "true"].includes(transform.attributes.flipH ?? ""), flipY: ["1", "true"].includes(transform.attributes.flipV ?? "") };
-  return { start: connectorLocalToWorld({ x: 0, y: 0 }, box), end: connectorLocalToWorld({ x: box.width, y: box.height }, box) };
+  const custom = readOfficeElbowConnectorEndpoints(geometry);
+  return { start: connectorLocalToWorld({ x: (custom?.start.x ?? 0) * box.width, y: (custom?.start.y ?? 0) * box.height }, box),
+    end: connectorLocalToWorld({ x: (custom?.end.x ?? 1) * box.width, y: (custom?.end.y ?? 1) * box.height }, box) };
 }
 export function readPptxArrowhead(node: Node | undefined, context: PptxContext): ConnectorArrowhead | undefined {
   if (!node) return;

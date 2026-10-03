@@ -1,11 +1,11 @@
 import { documentSchema } from "./schema";
 import { normalizeDocument } from "./document";
-import type { DocumentBlockInfo, DocumentImageNode, DocumentShapeNode, DocumentModel } from "./types";
+import type { DocumentBlockInfo, DocumentImageNode, DocumentShapeNode, DocumentCanvasNode, DocumentModel } from "./types";
 
 /** Plain text follows document order, with newlines between text blocks. */
 export function getDocumentText(document: DocumentModel): string {
   const doc = documentSchema.nodeFromJSON(normalizeDocument(document).content);
-  return doc.textBetween(0, doc.content.size, "\n", node => node.type.name === "hard_break" || node.type.name === "page_break" ? "\n" : node.type.name === "image" ? node.attrs.alt : node.type.name === "shape" ? node.attrs.text : "");
+  return doc.textBetween(0, doc.content.size, "\n", node => node.type.name === "hard_break" || node.type.name === "page_break" ? "\n" : node.type.name === "image" ? node.attrs.alt : node.type.name === "shape" ? node.attrs.text : node.type.name === "drawing_canvas" ? node.attrs.shapes.map((shape: { text: string }) => shape.text).join("\n") : "");
 }
 /** Returns detached nodes with IDs and positions, including nested paragraphs/list/table resources. */
 export function getBlocks(document: DocumentModel): DocumentBlockInfo[] {
@@ -32,4 +32,11 @@ export function getShapes(document: DocumentModel): (DocumentBlockInfo & { node:
 }
 export function getShape(document: DocumentModel, id: string): (DocumentBlockInfo & { node: DocumentShapeNode }) | undefined {
   return getShapes(document).find(shape => shape.id === id);
+}
+
+export function getCanvases(document: DocumentModel): (DocumentBlockInfo & { node: DocumentCanvasNode })[] {
+  return getBlocks(document).filter((block): block is DocumentBlockInfo & { node: DocumentCanvasNode } => block.node.type === "drawing_canvas");
+}
+export function getCanvas(document: DocumentModel, id: string): (DocumentBlockInfo & { node: DocumentCanvasNode }) | undefined {
+  return getCanvases(document).find(canvas => canvas.id === id);
 }

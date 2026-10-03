@@ -124,3 +124,21 @@ test('line color picker starts with the saved stroke and line text remains edita
   await act(async () => text.props.onBlur());
   assert.equal(ui.c.activeSheet.drawings[2].text, 'line label');
 });
+
+
+test('elbow gallery insertion and route switching keep endpoint editing and share the rendered hit path', async t => {
+  const ui = await mount(t);
+  for (const label of ['折れ線', '矢印付き折れ線']) {
+    await act(async () => ui.root.findByProps({ 'aria-label': '図形を挿入' }).props.onClick());
+    await act(async () => ui.root.findByProps({ 'aria-label': label, title: label }).props.onClick());
+    const line = ui.c.activeSheet.drawings.at(-1);
+    assert.equal(line.routing, 'elbow'); assert.equal(line.endArrow, label === '矢印付き折れ線' ? 'triangle' : 'none');
+    const node = ui.root.findByProps({ 'data-lxs-drawing': line.id }), paths = node.findAllByType('polyline');
+    assert.equal(paths.length, 2); assert.equal(paths[0].props.points, paths[1].props.points);
+    assert.ok(paths[0].props.points.split(' ').length > 2); assert.equal(node.findAllByType('button').length, 2);
+    assert.equal(ui.root.findByProps({ 'aria-label': '線の経路' }).props.value, 'elbow');
+    await act(async () => ui.root.findByProps({ 'aria-label': '線の経路' }).props.onChange(event({ target: { value: 'straight' } })));
+    assert.equal(ui.c.activeSheet.drawings.at(-1).routing, undefined);
+    await act(async () => ui.c.undo()); assert.equal(ui.c.activeSheet.drawings.at(-1).routing, 'elbow');
+  }
+});

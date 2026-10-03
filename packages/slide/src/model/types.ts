@@ -1,6 +1,7 @@
 import type { OfficeShapePreset } from "./core-office-shapes";
-import type { ConnectorEndpoint, ConnectorArrowhead } from "./core-connectors";
-export type { ConnectorPoint, ConnectorPort, ConnectorBinding, ConnectorEndpoint, ConnectorArrowhead } from "./core-connectors";
+import type { ConnectorEndpoint, ConnectorArrowhead, ConnectorRouting } from "./core-connectors";
+export type { ConnectorPoint, ConnectorPort, ConnectorBinding, ConnectorEndpoint, ConnectorArrowhead, ConnectorRouting, ConnectorRoute } from "./core-connectors";
+export type SlideLineRouting = ConnectorRouting;
 export type SlideLineGeometry = { start: ConnectorEndpoint; end: ConnectorEndpoint };
 /** All persistent values are JSON: pixels at 96 dpi, degrees clockwise, and sRGB hex colors. */
 export type SlideElementBase = {
@@ -38,6 +39,8 @@ export type SlideShapeElement = SlideElementBase & {
   shape: SlideShapeKind;
   /** Only shape:line. Absolute document coordinates; bound points follow their target. */
   line?: SlideLineGeometry;
+  /** Automatic orthogonal routing; omitted means a straight segment. */
+  routing?: SlideLineRouting;
   /** Line endpoint decoration. Missing fields preserve legacy plain lines. */
   startArrow?: ConnectorArrowhead;
   endArrow?: ConnectorArrowhead;
@@ -139,8 +142,8 @@ export type SlideCommand =
   | { type: "slide.replaceContent"; slideId: string; elements: SlideElementInput[]; name?: string; background?: string; notes?: string; animations?: SlideAnimationStep[] }
   | { type: "animation.set"; slideId: string; animations: SlideAnimationStep[] }
   | { type: "animation.remove"; slideId: string; animationId: string }
-  | { type: "line.add"; slideId: string; start: ConnectorEndpoint; end: ConnectorEndpoint; id?: string; name?: string; stroke?: string; strokeWidth?: number; startArrow?: ConnectorArrowhead; endArrow?: ConnectorArrowhead }
-  | { type: "line.update"; slideId: string; elementId: string; start?: ConnectorEndpoint; end?: ConnectorEndpoint; startArrow?: ConnectorArrowhead; endArrow?: ConnectorArrowhead }
+  | { type: "line.add"; slideId: string; start: ConnectorEndpoint; end: ConnectorEndpoint; id?: string; name?: string; stroke?: string; strokeWidth?: number; startArrow?: ConnectorArrowhead; endArrow?: ConnectorArrowhead; routing?: SlideLineRouting }
+  | { type: "line.update"; slideId: string; elementId: string; start?: ConnectorEndpoint; end?: ConnectorEndpoint; startArrow?: ConnectorArrowhead; endArrow?: ConnectorArrowhead; routing?: SlideLineRouting }
   | { type: "element.add"; slideId: string; element: SlideElementInput }
   | { type: "element.update"; slideId: string; elementId: string; patch: SlideElementPatch }
   | { type: "element.delete"; slideId: string; elementIds: string[] }

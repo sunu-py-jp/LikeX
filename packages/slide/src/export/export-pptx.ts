@@ -30,9 +30,9 @@ function textBody(element: Exclude<SlideElement, { type: "image" }>): string {
   const insetX = officeTextRegion ? emu(SHAPE_TEXT_STYLE.paddingX) : 0, insetY = officeTextRegion ? emu(SHAPE_TEXT_STYLE.paddingY) : 0;
   return `<p:txBody><a:bodyPr wrap="square" lIns="${insetX}" tIns="${insetY}" rIns="${insetX}" bIns="${insetY}" anchor="${anchor}"/><a:lstStyle/>${element.text.split("\n").map(line => `<a:p><a:pPr algn="${align}"/><a:r>${run}<a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr lang="ja-JP" sz="${size}"/></a:p>`).join("")}</p:txBody>`;
 }
-function elementXml(element: SlideElement, id: number, shapeIds: ReadonlyMap<string, number>, connectorTargets: ReadonlySet<string>, imageId?: string, placeholder?: PptxPlaceholder, svgId?: string): string {
+function elementXml(element: SlideElement, id: number, shapeIds: ReadonlyMap<string, number>, connectorTargets: ReadonlySet<string>, imageId?: string, placeholder?: PptxPlaceholder, svgId?: string, routeElements: readonly SlideElement[] = []): string {
   const nvPr = placeholder ? `<p:nvPr><p:ph type="${xml(placeholder.kind)}" idx="${placeholder.index}"/></p:nvPr>` : "<p:nvPr/>";
-  if (isSlideLine(element) && element.line) return pptxConnectorXml(element, id, shapeIds, nvPr);
+  if (isSlideLine(element) && element.line) return pptxConnectorXml(element, id, shapeIds, nvPr, routeElements);
   const transform = `<a:xfrm rot="${Math.round(element.rotation * 60000)}"><a:off x="${emu(element.x)}" y="${emu(element.y)}"/><a:ext cx="${emu(element.width)}" cy="${emu(element.height)}"/></a:xfrm>`;
   const lock = element.locked ? ' noMove="1" noResize="1" noRot="1"' : "";
   const common = `<p:cNvPr id="${id}" name="${xml(element.name)}"${element.type === "image" ? ` descr="${xml(element.alt)}"` : ""}/>`;
@@ -64,9 +64,9 @@ export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExport
   const catalogNameLength = [...(deck.masters ?? []), ...(deck.layouts ?? [])].reduce((total, definition) => total + definition.name.length, 0)
     + (masterPlan.defaultMaster ? "LikeSlide".length + "Blank".length : 0);
   let textLength = catalogNameLength + deck.slides.reduce((total, slide) => total + slideTextLength(slide), 0) + catalogElements.reduce((total, element) => total + slideElementTextLength(element), 0);
-  const writeElement = (element: SlideElement, shapeId: number, shapeIds: ReadonlyMap<string, number>, connectorTargets: ReadonlySet<string>, links: Link[], placeholder?: PptxPlaceholder): string => {
+  const writeElement = (element: SlideElement, shapeId: number, shapeIds: ReadonlyMap<string, number>, connectorTargets: ReadonlySet<string>, links: Link[], placeholder?: PptxPlaceholder, routeElements: readonly SlideElement[] = []): string => {
     if (++elementCount > SLIDE_LIMITS.totalElements) throw new Error("PowerPointのテンプレート・アニメーション近似を含む図形数が上限を超えています");
-    if (element.type !== "image") return elementXml(element, shapeId, shapeIds, connectorTargets, undefined, placeholder);
+    if (element.type !== "image") return elementXml(element, shapeId, shapeIds, connectorTargets, undefined, placeholder, undefined, routeElements);
     let image = imageRegistry.get(element.src);
     if (!image) {
       const match = /^data:(image\/(?:png|jpeg|gif|webp|svg\+xml));base64,([A-Za-z0-9+/=]+)$/.exec(element.src);
@@ -96,7 +96,7 @@ export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExport
       const targets = new Set(elements.flatMap(element => isSlideLine(element) && element.line ? [element.line.start.binding?.targetId, element.line.end.binding?.targetId].filter((id): id is string => !!id) : []));
       return elements.map((element, index) => {
         if (isSlideLine(element) && element.line && element.text) diagnostics.warn("テンプレートの接続線内の文字を省略しました。文字は別のテキスト要素へ設定してください", { code: "unsupported-content", action: "omission", elementId: element.id, elementName: element.name, sourcePart });
-        return writeElement(element, index + 2, ids, targets, links, placeholders?.get(element.id));
+        return writeElement(element, index + 2, ids, targets, links, placeholders?.get(element.id), elements);
       }).join("");
     },
   });
@@ -117,7 +117,7 @@ export async function exportSlidePptx(input: SlideDeck, options: SlidePptxExport
     const elements = slide.elements.flatMap((sourceElement, i) => [{ element: sourceElement, shapeId: i + 2 }, ...(animations.snapshots.get(sourceElement.id) ?? [])]
       .map(({ element: snapshot, shapeId }) => {
       const element = animations.opacityTargets.has(sourceElement.id) ? { ...snapshot, opacity: 1 } : snapshot;
-      return writeElement(element, shapeId, shapeIds, connectorTargets, slideLinks, shapeId === i + 2 ? pptxPlaceholder(layout, sourceElement.layoutPlaceholderId) : undefined);
+      return writeElement(element, shapeId, shapeIds, connectorTargets, slideLinks, shapeId === i + 2 ? pptxPlaceholder(layout, sourceElement.layoutPlaceholderId) : undefined, slide.elements);
     })).join("");
     if (slide.notes) {
       hasNotes = true;

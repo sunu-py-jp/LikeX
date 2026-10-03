@@ -233,3 +233,177 @@ export function findNearestConnectorPort(point: ConnectorPoint, targets: readonl
   }
   return best;
 }
+
+export type ConnectorRouting = "straight" | "elbow";
+export type ConnectorRoute = Readonly<{ points: readonly ConnectorPoint[]; bounds: ConnectorBox }>;
+export type ConnectorRouteOptions = Readonly<{
+  routing?: ConnectorRouting;
+  startTarget?: ConnectorTarget;
+  endTarget?: ConnectorTarget;
+  /** Space outside a connected shape, in document units. Defaults to 16. */
+  clearance?: number;
+}>;
+export function isConnectorRouting(value: unknown): value is ConnectorRouting {
+  return value === "straight" || value === "elbow";
+}
+
+type RouteRect = Readonly<{ left: number; top: number; right: number; bottom: number }>;
+// Clockwise world directions. Direction, not just axis, prevents immediate reversals.
+const ROUTE_DIRECTIONS: readonly ConnectorPoint[] = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
+const sameRoutePoint = (a: ConnectorPoint, b: ConnectorPoint) => a.x === b.x && a.y === b.y;
+function routeDirection(a: ConnectorPoint, b: ConnectorPoint): number {
+  return a.y === b.y ? b.x > a.x ? 0 : 2 : b.y > a.y ? 1 : 3;
+}
+function routeRect(box: ConnectorBox, clearance: number): RouteRect {
+  const corners = [{ x: 0, y: 0 }, { x: box.width, y: 0 }, { x: box.width, y: box.height }, { x: 0, y: box.height }]
+    .map(point => connectorLocalToWorld(point, box));
+  const first = pointResult(Math.min(...corners.map(p => p.x)) - clearance, Math.min(...corners.map(p => p.y)) - clearance);
+  const last = pointResult(Math.max(...corners.map(p => p.x)) + clearance, Math.max(...corners.map(p => p.y)) + clearance);
+  return { left: first.x, top: first.y, right: last.x, bottom: last.y };
+}
+function insideRouteRect(point: ConnectorPoint, rect: RouteRect): boolean {
+  return point.x > rect.left && point.x < rect.right && point.y > rect.top && point.y < rect.bottom;
+}
+function routeSegmentClear(a: ConnectorPoint, b: ConnectorPoint, obstacles: readonly RouteRect[]): boolean {
+  return !obstacles.some(rect => a.y === b.y
+    ? a.y > rect.top && a.y < rect.bottom && Math.max(a.x, b.x) > rect.left && Math.min(a.x, b.x) < rect.right
+    : a.x > rect.left && a.x < rect.right && Math.max(a.y, b.y) > rect.top && Math.min(a.y, b.y) < rect.bottom);
+}
+function routeTarget(endpoint: ConnectorEndpoint, target: ConnectorTarget | undefined): ConnectorTarget | undefined {
+  if (!target) return;
+  if (typeof target.id !== "string" || !target.id) throw new TypeError("Connector targets require a nonempty id");
+  assertBox(target.box); assertOutline(target.outline);
+  if (!endpoint.binding || endpoint.binding.targetId !== target.id) return;
+  if (!isConnectorPort(endpoint.binding.port)) throw new TypeError("Unknown connector port");
+  return target;
+}
+function routePortDirection(endpoint: ConnectorEndpoint, other: ConnectorPoint, target: ConnectorTarget): number {
+  const fraction = PORT_FRACTIONS[endpoint.binding!.port];
+  const [cos, sin] = rotation(target.box);
+  const dx = (fraction.x - 0.5) * (target.box.flipX ? -1 : 1), dy = (fraction.y - 0.5) * (target.box.flipY ? -1 : 1);
+  const worldX = dx * cos - dy * sin, worldY = dx * sin + dy * cos;
+  if (Math.abs(Math.abs(worldX) - Math.abs(worldY)) < EPSILON) {
+    const horizontal = worldX >= 0 ? 0 : 2, vertical = worldY >= 0 ? 1 : 3;
+    const towardX = (other.x - endpoint.x) * Math.sign(worldX), towardY = (other.y - endpoint.y) * Math.sign(worldY);
+    return towardX >= towardY ? horizontal : vertical;
+  }
+  return Math.abs(worldX) > Math.abs(worldY) ? worldX >= 0 ? 0 : 2 : worldY >= 0 ? 1 : 3;
+}
+function routeStub(endpoint: ConnectorPoint, direction: number, own: RouteRect, obstacles: readonly RouteRect[]): ConnectorPoint {
+  const vector = ROUTE_DIRECTIONS[direction];
+  let distance = Math.max(0, direction === 0 ? own.right - endpoint.x : direction === 2 ? endpoint.x - own.left
+    : direction === 1 ? own.bottom - endpoint.y : endpoint.y - own.top);
+  // Overlapping targets can cover the first exit. Extend along the same ray to
+  // the outside of their union; crossing an overlapping body is unavoidable.
+  for (let pass = 0; pass <= obstacles.length; pass++) {
+    const point = pointResult(endpoint.x + vector.x * distance, endpoint.y + vector.y * distance);
+    const enclosing = obstacles.filter(rect => insideRouteRect(point, rect));
+    if (!enclosing.length) return point;
+    for (const rect of enclosing) distance = Math.max(distance, direction === 0 ? rect.right - endpoint.x : direction === 2 ? endpoint.x - rect.left
+      : direction === 1 ? rect.bottom - endpoint.y : endpoint.y - rect.top);
+  }
+  return pointResult(endpoint.x + vector.x * distance, endpoint.y + vector.y * distance);
+}
+function simplifyRoute(points: readonly ConnectorPoint[]): ConnectorPoint[] {
+  const result: ConnectorPoint[] = [];
+  for (const point of points) {
+    if (result.length && sameRoutePoint(result[result.length - 1], point)) continue;
+    while (result.length > 1 && routeDirection(result[result.length - 2], result[result.length - 1]) === routeDirection(result[result.length - 1], point) &&
+      (result[result.length - 2].x === point.x || result[result.length - 2].y === point.y)) result.pop();
+    result.push({ x: point.x, y: point.y });
+  }
+  return result;
+}
+function finishRoute(points: readonly ConnectorPoint[]): ConnectorRoute {
+  const x = Math.min(...points.map(p => p.x)), y = Math.min(...points.map(p => p.y));
+  return { points, bounds: getConnectorBounds({ x, y }, { x: Math.max(...points.map(p => p.x)), y: Math.max(...points.map(p => p.y)) }) };
+}
+function orthogonalPath(start: ConnectorPoint, end: ConnectorPoint, obstacles: readonly RouteRect[], firstDirection: number | undefined,
+  lastDirection: number | undefined, clearance: number): ConnectorPoint[] {
+  if (sameRoutePoint(start, end)) return [start];
+  // Opposing ports conventionally use a centred dogleg. Prefer that equally
+  // short route to a bend crowded against one of the shapes.
+  if (firstDirection !== undefined && firstDirection === lastDirection) {
+    const middle = firstDirection % 2 === 0 ? start.x / 2 + end.x / 2 : start.y / 2 + end.y / 2;
+    const candidate = simplifyRoute(firstDirection % 2 === 0
+      ? [start, { x: middle, y: start.y }, { x: middle, y: end.y }, end]
+      : [start, { x: start.x, y: middle }, { x: end.x, y: middle }, end]);
+    if (candidate.length > 1 && routeDirection(candidate[0], candidate[1]) === firstDirection &&
+      routeDirection(candidate[candidate.length - 2], candidate[candidate.length - 1]) === lastDirection &&
+      candidate.slice(1).every((point, index) => routeSegmentClear(candidate[index], point, obstacles))) return candidate;
+  }
+  const xs = [...new Set([start.x, end.x, start.x / 2 + end.x / 2, ...obstacles.flatMap(r => [r.left, r.right])])].sort((a, b) => a - b);
+  const ys = [...new Set([start.y, end.y, start.y / 2 + end.y / 2, ...obstacles.flatMap(r => [r.top, r.bottom])])].sort((a, b) => a - b);
+  const points = ys.flatMap(y => xs.map(x => ({ x, y })));
+  const source = points.findIndex(p => sameRoutePoint(p, start)), destination = points.findIndex(p => sameRoutePoint(p, end));
+  const count = points.length * 4, distance = Array<number>(count).fill(Infinity), previous = Array<number>(count).fill(-1), visited = new Uint8Array(count);
+  // Positive bend cost yields a compact route while preserving shortest paths
+  // through narrow gaps. This graph has at most 49 vertices for two targets.
+  const bendCost = Math.max(1, clearance);
+  if (firstDirection === undefined) for (let direction = 0; direction < 4; direction++) distance[source * 4 + direction] = 0;
+  else distance[source * 4 + firstDirection] = 0;
+  let bestState = -1, bestCost = Infinity;
+  for (let iteration = 0; iteration < count; iteration++) {
+    let state = -1;
+    for (let candidate = 0; candidate < count; candidate++) if (!visited[candidate] && Number.isFinite(distance[candidate]) &&
+      (state < 0 || distance[candidate] < distance[state])) state = candidate;
+    if (state < 0 || distance[state] > bestCost) break;
+    visited[state] = 1;
+    const node = Math.floor(state / 4), direction = state % 4, point = points[node];
+    if (node === destination) {
+      const arrivalCost = distance[state] + (lastDirection === undefined || lastDirection === direction ? 0 : bendCost);
+      if (lastDirection !== (direction + 2) % 4 && arrivalCost < bestCost) { bestCost = arrivalCost; bestState = state; }
+    }
+    const column = node % xs.length, row = Math.floor(node / xs.length);
+    for (let nextDirection = 0; nextDirection < 4; nextDirection++) {
+      if (nextDirection === (direction + 2) % 4) continue;
+      const vector = ROUTE_DIRECTIONS[nextDirection], nextColumn = column + vector.x, nextRow = row + vector.y;
+      if (nextColumn < 0 || nextColumn >= xs.length || nextRow < 0 || nextRow >= ys.length) continue;
+      const nextNode = nextRow * xs.length + nextColumn, nextPoint = points[nextNode];
+      if (!routeSegmentClear(point, nextPoint, obstacles)) continue;
+      const nextState = nextNode * 4 + nextDirection;
+      const cost = distance[state] + Math.abs(nextPoint.x - point.x) + Math.abs(nextPoint.y - point.y) + (direction === nextDirection ? 0 : bendCost);
+      if (!Number.isFinite(cost)) throw new RangeError("Connector route exceeds the finite number range");
+      if (cost < distance[nextState]) { distance[nextState] = cost; previous[nextState] = state; }
+    }
+  }
+  if (bestState < 0) {
+    // Coincident/overlapping targets or a free point inside a target may make
+    // obstacle avoidance impossible. Keep a finite, orthogonal route regardless.
+    return [start, { x: end.x, y: start.y }, end];
+  }
+  const result: ConnectorPoint[] = [];
+  for (let state = bestState; state >= 0; state = previous[state]) result.push(points[Math.floor(state / 4)]);
+  return result.reverse();
+}
+
+/** Compute a deterministic route from already-resolved endpoint coordinates.
+ * Elbows leave bound ports outward, avoid their target boxes where possible and
+ * recalculate on every call. Unrelated shapes are not obstacles. Intersecting
+ * targets may force a segment through the overlapping area. Never mutates input. */
+export function getConnectorRoute(start: ConnectorEndpoint, end: ConnectorEndpoint, options: ConnectorRouteOptions = {}): ConnectorRoute {
+  assertPoint(start); assertPoint(end);
+  if (options.routing !== undefined && !isConnectorRouting(options.routing)) throw new TypeError("Unknown connector routing");
+  const clearance = options.clearance ?? 16;
+  if (!Number.isFinite(clearance) || clearance < 0) throw new TypeError("Connector clearance must be nonnegative and finite");
+  const startTarget = routeTarget(start, options.startTarget), endTarget = routeTarget(end, options.endTarget);
+  if (options.routing !== "elbow") return finishRoute([{ x: start.x, y: start.y }, { x: end.x, y: end.y }]);
+  let effectiveClearance = clearance;
+  if (startTarget && endTarget && startTarget.id !== endTarget.id) {
+    const a = routeRect(startTarget.box, 0), b = routeRect(endTarget.box, 0);
+    const gapX = Math.max(b.left - a.right, a.left - b.right), gapY = Math.max(b.top - a.bottom, a.top - b.bottom);
+    // Preserve a corridor between close targets instead of expanding either
+    // target's clearance through the other target's body.
+    if (gapX >= 0 || gapY >= 0) effectiveClearance = Math.min(clearance, Math.max(gapX, gapY) / 3);
+  }
+  const startRect = startTarget ? routeRect(startTarget.box, effectiveClearance) : undefined;
+  const endRect = endTarget ? routeRect(endTarget.box, effectiveClearance) : undefined;
+  const obstacles = [startRect, endRect].filter((rect): rect is RouteRect => !!rect)
+    .filter(rect => (startTarget || !insideRouteRect(start, rect)) && (endTarget || !insideRouteRect(end, rect)));
+  const startDirection = startTarget ? routePortDirection(start, end, startTarget) : undefined;
+  const endDirection = endTarget ? routePortDirection(end, start, endTarget) : undefined;
+  const first = startRect && startDirection !== undefined ? routeStub(start, startDirection, startRect, obstacles) : start;
+  const last = endRect && endDirection !== undefined ? routeStub(end, endDirection, endRect, obstacles) : end;
+  return finishRoute(simplifyRoute([start, ...orthogonalPath(first, last, obstacles, startDirection,
+    endDirection === undefined ? undefined : (endDirection + 2) % 4, clearance), end]));
+}

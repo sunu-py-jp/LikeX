@@ -97,9 +97,11 @@ IDは空白を含まない1〜200文字。スライドIDは資料内で一意、
 
 `element.update` でID・`type` は変更不可。対象の型にないフィールドも拒否される。`locked: true` の要素は、先に `patch: { "locked": false }` のみのコマンドで解除してから変更・削除・複製・重なり順変更を行う。
 
-## 直線の端点と接続
+## 線の端点と接続
 
 `shape: "line"` だけは任意の `line: { start, end }` を持つ。両端は資料内pxの `{x,y,binding?:{targetId,port}}`。接続先は同じページの線以外の要素、portは `top/topRight/right/bottomRight/bottom/bottomLeft/left/topLeft`。存在しないID・他ページ・自己参照・他の線への接続を拒否する。保存座標は接続先の位置・サイズ・回転に追従して更新され、対象削除時には座標を残してbindingを除く。線を含めた複製では同時にコピーする対象だけ新IDへ張り替える。端点を持たない旧線の矩形・回転・描画は維持し、端点編集で新フィールドを追加する。水平・垂直・同一点の線も許可し、互換用width/heightは最小1px、rotationは0に正規化する。線直属に任意の `startArrow/endArrow: "none" | "triangle" | "openArrow" | "diamond" | "oval" | "stealth"` を持ち、省略値はnone。通常図形への指定は拒否する。新フィールドはversion 1の追加機能で、旧ライブラリへ渡す場合は対応版への更新が必要。
+
+線直属の `routing?: "straight" | "elbow"` は省略時straight。elbowは2端点と接続先の輪郭から直交経路を計算し、`x/y/width/height` は折れ点を含む外接矩形へ正規化する。中間の折れ点は保存しない。通常図形のrouting指定は拒否する。PPTXでは編集可能な接続線のカスタム経路と接続情報を出力し、再読み込み時にelbowへ戻す。外部PPTXの `bentConnector2`〜`bentConnector5` は自動経路へ変換して診断する。
 
 ## 埋め込み画像
 
@@ -135,7 +137,7 @@ JSON内のアニメーションは宣言的データであり、JavaScriptや数
 
 保存モデルの完全な要素と、コマンドの `SlideElementInput` は区別する。`element.add` と `slide.replaceContent.elements` は `type` が必須（画像は `src` も必須）で、残りを既定値で補う。`slide.replaceContent` は既存の1ページ全体を原子的に置換し、ページIDと順序は維持する。`animations` 省略時は旧定義を除去する。保存形式・version 1・PPTXの表現は変わらない。
 
-文字の診断・自動縮小と2点接続線の公開APIは [commands.md](../../../src/docs/commands.md) の「2点の直線と接続」「文字の収まり」を参照。旧 `createSlideConnector` / `element.connect` は削除済み。
+文字の診断・自動縮小と2点接続線の公開APIは [commands.md](../../../src/docs/commands.md) の「2点の線と接続」「文字の収まり」を参照。旧 `createSlideConnector` / `element.connect` は削除済み。
 
 ## マスターとレイアウトの共有カタログ
 

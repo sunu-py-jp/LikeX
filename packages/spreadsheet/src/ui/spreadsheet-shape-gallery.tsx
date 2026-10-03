@@ -1,5 +1,6 @@
 "use client";
 
+import type { SpreadsheetLineRouting } from "../model/types";
 import type { ConnectorArrowhead } from "../core";
 import { useId, useState } from "react";
 import { SPREADSHEET_SHAPES, type SpreadsheetShapeCategory, type SpreadsheetShapeKind } from "../model/shapes";
@@ -12,18 +13,18 @@ const categories: readonly { id: SpreadsheetShapeCategory; label: string }[] = [
   { id: "basic", label: "基本図形" }, { id: "arrows", label: "ブロック矢印" }, { id: "flowchart", label: "フローチャート" }, { id: "lines", label: "線" },
 ];
 
-function LinePreview({ startArrow, endArrow }: { startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead }) {
+function LinePreview({ startArrow, endArrow, routing }: { startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead; routing?: SpreadsheetLineRouting }) {
   const marker = useId().replace(/:/g, "");
   return <svg width="44" height="32" viewBox="0 0 44 32" aria-hidden="true">
     <defs><LineMarker id={`${marker}-start`} kind={startArrow} color="currentColor" />
       <LineMarker id={`${marker}-end`} kind={endArrow} color="currentColor" /></defs>
-    <line x1="4" y1="16" x2="40" y2="16" stroke="currentColor" strokeWidth="1.5"
+    <polyline points={routing === "elbow" ? "4,6 22,6 22,26 40,26" : "4,16 40,16"} fill="none" stroke="currentColor" strokeWidth="1.5"
       markerStart={startArrow !== "none" ? `url(#${marker}-start)` : undefined}
       markerEnd={endArrow !== "none" ? `url(#${marker}-end)` : undefined} />
   </svg>;
 }
 
-export function SpreadsheetShapeGallery({ disabled, onSelect }: { disabled: boolean; onSelect: (kind: SpreadsheetShapeKind, markers?: { startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead }) => void }) {
+export function SpreadsheetShapeGallery({ disabled, onSelect }: { disabled: boolean; onSelect: (kind: SpreadsheetShapeKind, markers?: { startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead; routing?: SpreadsheetLineRouting }) => void }) {
   const [open, setOpen] = useState(false);
   if (disabled && open) setOpen(false);
   return <>
@@ -45,13 +46,15 @@ export function SpreadsheetShapeGallery({ disabled, onSelect }: { disabled: bool
               <span>{shape.label}</span>
             </button>)}
             {category.id === "lines" && ([
-              { id: "plain", label: "直線", startArrow: "none", endArrow: "none" },
-              { id: "right", label: "右向き矢印線", startArrow: "none", endArrow: "triangle" },
-              { id: "left", label: "左向き矢印線", startArrow: "triangle", endArrow: "none" },
-              { id: "both", label: "双方向矢印線", startArrow: "triangle", endArrow: "triangle" },
+              { id: "plain", label: "直線", startArrow: "none", endArrow: "none", routing: "straight" },
+              { id: "right", label: "右向き矢印線", startArrow: "none", endArrow: "triangle", routing: "straight" },
+              { id: "left", label: "左向き矢印線", startArrow: "triangle", endArrow: "none", routing: "straight" },
+              { id: "both", label: "双方向矢印線", startArrow: "triangle", endArrow: "triangle", routing: "straight" },
+              { id: "elbow", label: "折れ線", startArrow: "none", endArrow: "none", routing: "elbow" },
+              { id: "elbow-arrow", label: "矢印付き折れ線", startArrow: "none", endArrow: "triangle", routing: "elbow" },
             ] as const).map(preset => <button type="button" key={preset.id} className="lxs-shape-gallery-item" aria-label={preset.label} title={preset.label}
-              onClick={() => { if (!disabled) { setOpen(false); onSelect("line", { startArrow: preset.startArrow, endArrow: preset.endArrow }); } }}>
-              <span className="lxs-shape-gallery-preview"><LinePreview startArrow={preset.startArrow} endArrow={preset.endArrow} /></span><span>{preset.label}</span>
+              onClick={() => { if (!disabled) { setOpen(false); onSelect("line", { startArrow: preset.startArrow, endArrow: preset.endArrow, routing: preset.routing }); } }}>
+              <span className="lxs-shape-gallery-preview"><LinePreview startArrow={preset.startArrow} endArrow={preset.endArrow} routing={preset.routing} /></span><span>{preset.label}</span>
             </button>)}
           </div>
         </section>)}

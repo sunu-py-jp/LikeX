@@ -95,7 +95,7 @@ test('shape gallery groups all icons and inserts a block arrow using the current
   await act(async () => hook.root.findByProps({ 'aria-label': '図形を挿入' }).props.onClick());
   const gallery = hook.root.findByProps({ className: 'lxs-shape-gallery' });
   assert.deepEqual(gallery.findAllByType('h3').map(heading => heading.children.join('')), ['基本図形', 'ブロック矢印', 'フローチャート', '線']);
-  assert.equal(gallery.findAllByType('button').length, SPREADSHEET_SHAPES.length + 2);
+  assert.equal(gallery.findAllByType('button').length, SPREADSHEET_SHAPES.length + 4);
   for (const button of gallery.findAllByType('button')) {
     assert.equal(button.findAllByType('svg').length, 1);
     assert.equal(button.props.title, button.props['aria-label']);

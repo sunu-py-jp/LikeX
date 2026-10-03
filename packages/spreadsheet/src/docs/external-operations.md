@@ -399,8 +399,8 @@ console.log(pasted.results[0].placement); // 配置位置・次の行と列
 
 ## 線の始点・終点と接続
 
-`lines.insert` は `sheetId`, `start`, `end`、任意の `startArrow`, `endArrow`, `stroke`, `strokeWidth` を受け取ります。`lines.update` は `sheetId`, `drawingId` と変更する端点・矢印だけを受け取ります。端点は `{ x, y, binding?: { targetId, port } }`。座標はA1原点のズーム前pxです。接続先は同シートの非線描画に限定し、接続中は対象の輪郭・回転・反転を解決します。[線のGUI・保存・API例](./insertions-and-json.md#直線接続線)も参照してください。
+`lines.insert` は `sheetId`, `start`, `end`、任意の `routing`, `startArrow`, `endArrow`, `stroke`, `strokeWidth` を受け取ります。`lines.update` は `sheetId`, `drawingId` と変更する端点・経路・矢印だけを受け取ります。`routing: "elbow"` は接続先に追従する自動の直角経路、`"straight"` または新規作成時の省略は直線です。端点は `{ x, y, binding?: { targetId, port } }`。座標はA1原点のズーム前pxです。接続先は同シートの非線描画に限定し、接続中は対象の輪郭・回転・反転を解決します。[線のGUI・保存・API例](./insertions-and-json.md#直線接続線)も参照してください。
 
-モデルの `updateLineEndpoints(workbook, sheetId, drawingId, { start?, end?, startArrow?, endArrow? })` は新しいブックを返します。`getSpreadsheetLinePoints(sheet, drawingId)` は接続先と現在の行列寸法を解決した `{ start, end }` を返します。保存中の矩形キャッシュから線の現在位置を推測せず、端点APIまたは `getDrawingBounds` を使います。
+モデルの `updateLineEndpoints(workbook, sheetId, drawingId, { start?, end?, routing?, startArrow?, endArrow? })` は新しいブックを返します。`getSpreadsheetLinePoints(sheet, drawingId)` は接続先と現在の行列寸法を解決した `{ start, end }` を返します。`getSpreadsheetLineRoute(sheet, drawingId)` は直線／折れ線の全頂点 `points` と経路全体の外接矩形 `bounds: { x, y, width, height }` を返します。保存中の矩形キャッシュから線の現在位置を推測せず、端点・経路APIまたは `getDrawingBounds` を使います。
 
-GUI・表示中API・セッションは同じコマンド処理を使い、編集許可・Undo/Redo・通知を維持します。`features.shapes` が線全体を、`features.resize` が端点位置の編集を制御します。線全体の移動・矢印の書式変更はresize無効でも可能です。
+GUI・表示中API・セッションは同じコマンド処理を使い、編集許可・Undo/Redo・通知を維持します。`features.shapes` が線全体を、`features.resize` が端点位置の編集を制御します。線全体の移動・経路変更・矢印の書式変更はresize無効でも可能です。

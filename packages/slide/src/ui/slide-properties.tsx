@@ -75,10 +75,13 @@ export function SlideProperties({ editor, onClose }: { editor: SlideEditor; onCl
             {first.locked ? <Lock size={14} /> : <Unlock size={14} />}{first.locked ? "ロックを解除" : "位置をロック"}</button>
         </Section>}
         {isSlideLine(first) && editor.features.formatting && <Section title="線">
+          <label className="lxp-field"><span>経路</span><select aria-label="線の経路" value={first.routing ?? "straight"} disabled={disabled || first.locked} onChange={event => {
+            if (slide) void editor.execute(elements.filter(isSlideLine).map(element => ({ type: "line.update", slideId: slide.id, elementId: element.id, routing: event.target.value as "straight" | "elbow" })));
+          }}><option value="straight">直線</option><option value="elbow">自動の折れ線</option></select></label>
           {(["startArrow", "endArrow"] as const).map(key => <label className="lxp-field" key={key}><span>{key === "startArrow" ? "始点の矢印" : "終点の矢印"}</span><select aria-label={key === "startArrow" ? "始点の矢印" : "終点の矢印"} value={first[key] ?? "none"} disabled={disabled || first.locked} onChange={event => { if (slide) void editor.execute(elements.filter(isSlideLine).map(element => ({ type: "line.update", slideId: slide.id, elementId: element.id, [key]: event.target.value as ConnectorArrowhead }))); }}>{CONNECTOR_ARROWHEADS.map(value => <option key={value} value={value}>{{ none: "なし", triangle: "三角", openArrow: "開いた矢印", diamond: "ひし形", oval: "丸", stealth: "ステルス" }[value]}</option>)}</select></label>)}
           <ColorField label="線の色" value={first.stroke} disabled={disabled || first.locked} onChange={stroke => update({ stroke }, elements.filter(isSlideLine))} />
           <NumericField label="線の太さ" value={first.strokeWidth} min={0} max={100} disabled={disabled || first.locked} onCommit={strokeWidth => update({ strokeWidth }, elements.filter(isSlideLine))} />
-          <p className="lxp-muted">始点・終点を図形の接続点へドラッグすると追従します。離して動かすと接続を解除します。</p>
+          <p className="lxp-muted">始点・終点を図形の接続点へドラッグすると追従します。自動の折れ線は接続先を避けて直角に曲がります。離して動かすと接続を解除します。</p>
         </Section>}
         {first.type !== "image" && !isSlideLine(first) && <>
           {editor.features.text && <Section title="テキスト"><TextValue key={first.id} label="内容" value={first.text} disabled={disabled || first.locked}

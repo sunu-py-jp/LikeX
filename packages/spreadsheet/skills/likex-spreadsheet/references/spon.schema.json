@@ -339,6 +339,10 @@
           "$ref": "#/$defs/SpreadsheetShapeDrawing_line",
           "description": "Only line/arrow shapes. Omitted on legacy rectangle-based lines."
         },
+        "routing": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_routing",
+          "description": "Two-endpoint routing. Omitted means straight; elbow is recalculated from current targets."
+        },
         "startArrow": {
           "$ref": "#/$defs/SpreadsheetShapeDrawing_startArrow",
           "description": "End markers. Legacy shape:arrow defaults its end to triangle; otherwise none."
@@ -477,6 +481,12 @@
         "bottomRight",
         "bottomLeft",
         "topLeft"
+      ]
+    },
+    "SpreadsheetShapeDrawing_routing": {
+      "enum": [
+        "straight",
+        "elbow"
       ]
     },
     "SpreadsheetShapeDrawing_startArrow": {

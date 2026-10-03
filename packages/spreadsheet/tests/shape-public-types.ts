@@ -21,3 +21,9 @@ SPREADSHEET_SHAPES.push({ kind: "rectangle", label: "test", category: "basic" })
 // @ts-expect-error Catalog entries are readonly too.
 SPREADSHEET_SHAPES[0].label = "test";
 void [headlessShapes, category, command, update, rotateText, rotateImage, invalidRotation, unsupported];
+
+const elbowInsert: SpreadsheetCommand = { type: "lines.insert", sheetId: "sheet", start: { x: 1, y: 2 }, end: { x: 100, y: 100 }, routing: "elbow" };
+const elbowUpdate: SpreadsheetCommand = { type: "lines.update", sheetId: "sheet", drawingId: "line", routing: "straight" };
+// @ts-expect-error Unknown routing names cannot be passed to the public API.
+const badRoute: SpreadsheetCommand = { type: "lines.update", sheetId: "sheet", drawingId: "line", routing: "curve" };
+void [elbowInsert, elbowUpdate, badRoute];

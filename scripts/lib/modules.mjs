@@ -44,7 +44,7 @@ const modules = {
     ui: true,
     skillName: 'likex-document',
     headlessEntries: { model: 'model-entry.ts' },
-    headlessDependencies: ['@likex/core/office-shapes', '@likex/core', '@likex/core/ooxml', '@likex/core/json', 'prosemirror-model',
+    headlessDependencies: ['@likex/core/office-shapes', '@likex/core/connectors', '@likex/core', '@likex/core/ooxml', '@likex/core/json', 'prosemirror-model',
       'prosemirror-state', 'prosemirror-transform', 'prosemirror-commands', 'prosemirror-schema-list'],
     modelRuntimeDependencies: ['prosemirror-model', 'prosemirror-state', 'prosemirror-transform', 'prosemirror-schema-list'],
     modelTypeLibraries: ['ES2022', 'DOM'],

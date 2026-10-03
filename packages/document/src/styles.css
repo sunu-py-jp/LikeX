@@ -134,3 +134,16 @@
 .lxd-root .lxd-shape-options svg { flex: 0 0 auto; }
 .lxd-root .lxd-shape-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .lxd-root .lxd-dialog textarea { width: 100%; min-height: 64px; resize: vertical; }
+
+.lxd-root .lxd-dialog:has(.lxd-canvas-workspace) { width: min(1080px, 96vw); max-width: 100%; max-height: 100%; overflow: auto; }
+.lxd-root .lxd-canvas-workspace { display: grid; gap: 12px; }
+.lxd-root .lxd-canvas-toolbar, .lxd-root .lxd-canvas-connect, .lxd-root .lxd-canvas-properties { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lxd-root .lxd-canvas-workspace button { padding: 6px 10px; border: 1px solid var(--lxd-border); border-radius: 4px; }
+.lxd-root .lxd-canvas-connect select { max-width: 170px; }
+.lxd-root .lxd-canvas-editor { width: 100%; max-height: 52vh; background: #fff; border: 1px solid var(--lxd-border); touch-action: none; }
+.lxd-root .lxd-canvas-editor [role=button] { cursor: pointer; outline: none; }
+.lxd-root .lxd-canvas-editor [role=button]:focus-visible { outline: 2px solid #2563eb; }
+.lxd-root .lxd-canvas-properties { border-top: 1px solid var(--lxd-border); padding-top: 8px; }
+.lxd-root .lxd-canvas-properties label { font-size: 12px; display: flex; gap: 5px; align-items: center; }
+.lxd-root .lxd-canvas-properties input[type=number] { width: 76px; }
+.lxd-root .lxd-drawing-canvas { margin: 12px 0; user-select: none; }

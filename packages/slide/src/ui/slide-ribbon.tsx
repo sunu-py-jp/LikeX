@@ -64,10 +64,10 @@ export function SlideRibbon({ editor, onImage, onImport, onImportMasters, onPres
   const lineMenu = editor.features.shapes && !editor.readOnly && <Group name="線"><div className="lxp-ribbon-stack">
     <select aria-label="線を挿入" value="" disabled={disabled || !slide} onChange={event => {
       const preset = event.target.value;
-      if (slide && preset) void editor.execute({ type: "line.add", slideId: slide.id, name: { plain: "直線", right: "右向き矢印線", left: "左向き矢印線", both: "双方向矢印線" }[preset],
-        start: { x: editor.deck.width * .35, y: editor.deck.height * .3 }, end: { x: editor.deck.width * .35 + 280, y: editor.deck.height * .3 },
-        stroke: "#bd5030", strokeWidth: 2, startArrow: preset === "left" || preset === "both" ? "triangle" : "none", endArrow: preset === "right" || preset === "both" ? "triangle" : "none" });
-    }}><option value="" disabled>線を挿入</option><option value="plain">直線</option><option value="right">右向き矢印線</option><option value="left">左向き矢印線</option><option value="both">双方向矢印線</option></select>
+      if (slide && preset) void editor.execute({ type: "line.add", slideId: slide.id, name: { plain: "直線", right: "右向き矢印線", left: "左向き矢印線", both: "双方向矢印線", elbow: "折れ線", elbowRight: "矢印付き折れ線", elbowLeft: "始点矢印付き折れ線", elbowBoth: "双方向矢印付き折れ線" }[preset],
+        start: { x: editor.deck.width * .35, y: editor.deck.height * .3 }, end: { x: editor.deck.width * .35 + 280, y: editor.deck.height * .3 + (preset.startsWith("elbow") ? 160 : 0) },
+        stroke: "#bd5030", strokeWidth: 2, routing: preset.startsWith("elbow") ? "elbow" : "straight", startArrow: ["left", "both", "elbowLeft", "elbowBoth"].includes(preset) ? "triangle" : "none", endArrow: ["right", "both", "elbowRight", "elbowBoth"].includes(preset) ? "triangle" : "none" });
+    }}><option value="" disabled>線を挿入</option><option value="plain">直線</option><option value="right">右向き矢印線</option><option value="left">左向き矢印線</option><option value="both">双方向矢印線</option><option value="elbow">折れ線</option><option value="elbowRight">矢印付き折れ線</option><option value="elbowLeft">始点矢印付き折れ線</option><option value="elbowBoth">双方向矢印付き折れ線</option></select>
     {editor.features.formatting && <Action label="線の矢印設定" icon={<Minus size={18} />} disabled={!selected.some(element => element.type === "shape" && element.shape === "line")} onClick={() => { if (!propertiesOpen) onProperties(); }} />}
   </div></Group>;
   const remove = () => { if (slide && hasSelection) void editor.execute({ type: "element.delete", slideId: slide.id, elementIds: editor.selection.elementIds }); };

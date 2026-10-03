@@ -1,8 +1,20 @@
 {
-  "title": "文章・書式・表・画像",
-  "summary": "本文と見出しの編集、リスト、表、埋め込み画像、改ページ、機能設定。",
+  "title": "文章・書式・表・画像・図形",
+  "summary": "本文、表、画像、図形と描画キャンバスの編集。自動折れ線による図形間の接続と機能設定。",
   "source": "packages/document/src/docs/editing.md",
   "order": 10,
   "section": "文書の編集",
-  "keywords": ["DocumentFeatures", "文字書式", "見出し", "表", "画像", "改ページ", "positions"]
+  "keywords": [
+    "DocumentFeatures",
+    "文字書式",
+    "見出し",
+    "表",
+    "画像",
+    "改ページ",
+    "positions",
+    "drawing_canvas",
+    "canvas.insert",
+    "canvas.connector.insert",
+    "直交コネクタ"
+  ]
 }

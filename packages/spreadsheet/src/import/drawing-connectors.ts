@@ -11,11 +11,15 @@ export type ImportedDrawingTarget = { id: string; custom: boolean; preset?: stri
 export type PendingDrawingConnector = { drawingId: string; scope: string; points: SpreadsheetLinePoints; start?: XmlNode; end?: XmlNode };
 
 /** Connectors permit zero width/height and signed positions; the anchor is only a fallback. */
-export function readConnectorFrame(transform: XmlNode | undefined): DrawingFrame | undefined {
+export function readConnectorFrame(transform: XmlNode | undefined, elbowRoute = false): DrawingFrame | undefined {
   const offset = child(transform, "off"), extent = child(transform, "ext");
   const x = (finiteNumber(offset?.attributes.x) ?? NaN) / EMU_PER_PIXEL, y = (finiteNumber(offset?.attributes.y) ?? NaN) / EMU_PER_PIXEL;
   const width = (finiteNumber(extent?.attributes.cx) ?? NaN) / EMU_PER_PIXEL, height = (finiteNumber(extent?.attributes.cy) ?? NaN) / EMU_PER_PIXEL;
-  if (![x, y, width, height].every(Number.isFinite) || x < -10000 || y < -10000 || width < 0 || height < 0 || width > 10000 || height > 10000) return;
+  // A routed frame includes bends outside the endpoint frame. A 10,000px
+  // endpoint span plus both rotated 10,000px targets and clearance fits 40,000px.
+  // Endpoints still pass the normal model limits in withLinePoints after import.
+  const maximumExtent = elbowRoute ? 40_000 : 10_000;
+  if (![x, y, width, height].every(Number.isFinite) || x < -10000 || y < -10000 || width < 0 || height < 0 || width > maximumExtent || height > maximumExtent) return;
   return { x, y, width, height };
 }
 export function connectorPoints(frame: DrawingFrame, transform: XmlNode | undefined): SpreadsheetLinePoints {

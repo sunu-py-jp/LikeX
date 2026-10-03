@@ -28,7 +28,7 @@ export function normalizeDrawingPastePayload(input: SpreadsheetDrawingPastePaylo
   if (!drawing || typeof drawing !== "object" || Array.isArray(drawing)) throw new Error("図形のコピー内容が正しくありません");
   const common = ["id", "type", "anchor", "width", "height", "flipX", "flipY", "rotation"];
   const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape"
-    ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "line", "startArrow", "endArrow"] : ["text", "fontSize", "color", "background", "bold"];
+    ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "line", "startArrow", "endArrow", "routing"] : ["text", "fontSize", "color", "background", "bold"];
   if (Object.keys(drawing).some(key => !common.includes(key) && !specific.includes(key)) || !drawing.anchor ||
     Object.keys(drawing.anchor).some(key => !["row", "column", "offsetX", "offsetY"].includes(key)))
     throw new Error("図形のコピー内容に未対応のプロパティがあります");

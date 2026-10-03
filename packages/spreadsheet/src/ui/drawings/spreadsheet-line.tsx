@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, type RefObject } from "react";
+import { getSpreadsheetLineRoute, spreadsheetLineRouteMidpoint } from "../../model/lines";
 import { getConnectorPortPoints, type ConnectorPoint } from "../../core";
 import type { SpreadsheetShapeDrawing, SpreadsheetSheet } from "../../model/types";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
@@ -19,6 +20,9 @@ export function SpreadsheetLineDrawing({ drawing, sheet, controller: c, geometry
   const { drag, points, targets, begin, moved, finish, key, stop, lostCapture } = useLineInteractions(c, drawing, sheet, geometry, grid, layer, onEditText);
   const display = (point: ConnectorPoint) => ({ x: point.x + geometry.columnOffsets[0], y: point.y + geometry.rowOffsets[0] });
   const start = display(points.start), end = display(points.end);
+  const route = getSpreadsheetLineRoute(sheet, drawing.id, grid, points);
+  const labelPoint = display(spreadsheetLineRouteMidpoint(route.points));
+  const vertices = (route.points.length === 1 ? [route.points[0], route.points[0]] : route.points).map(point => { const p = display(point); return `${p.x},${p.y}`; }).join(" ");
   const startArrow = drawing.startArrow ?? "none", endArrow = drawing.endArrow ?? (drawing.shape === "arrow" ? "triangle" : "none");
   return <div data-lxs-drawing={drawing.id} role="group" aria-label={drawingLabel(drawing)} aria-roledescription="線" tabIndex={0}
     className={`lxs-line-drawing ${selected ? "lxs-line-selected" : ""}`} onFocus={() => c.selectDrawing(drawing.id)}
@@ -27,10 +31,10 @@ export function SpreadsheetLineDrawing({ drawing, sheet, controller: c, geometry
     onLostPointerCapture={lostCapture} onKeyDown={event => key(event)}>
     <svg width={geometry.columnOffsets.at(-1)} height={geometry.rowOffsets.at(-1)} overflow="visible" aria-hidden="true">
       <defs><LineMarker id={`${marker}-start`} kind={startArrow} color={drawing.stroke} /><LineMarker id={`${marker}-end`} kind={endArrow} color={drawing.stroke} /></defs>
-      <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke={drawing.stroke} strokeWidth={drawing.strokeWidth} strokeLinecap="round"
+      <polyline points={vertices} fill="none" strokeLinejoin="round" stroke={drawing.stroke} strokeWidth={drawing.strokeWidth} strokeLinecap="round"
         markerStart={startArrow !== "none" ? `url(#${marker}-start)` : undefined} markerEnd={endArrow !== "none" ? `url(#${marker}-end)` : undefined} />
-      <line data-lxs-line-hit="true" x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke="transparent" strokeLinecap="round" strokeWidth={Math.max(12 / (c.zoom / 100), drawing.strokeWidth)} style={{ pointerEvents: "stroke", cursor: c.disabled ? "default" : "move" }} />
-      {!!drawing.text && <text x={(start.x + end.x) / 2} y={(start.y + end.y) / 2} textAnchor="middle" fill={drawing.color ?? "#1f2937"} fontSize={drawing.fontSize ?? 16} fontWeight={drawing.bold ? "bold" : undefined}>{drawing.text}</text>}
+      <polyline data-lxs-line-hit="true" points={vertices} fill="none" strokeLinejoin="round" stroke="transparent" strokeLinecap="round" strokeWidth={Math.max(12 / (c.zoom / 100), drawing.strokeWidth)} style={{ pointerEvents: "stroke", cursor: c.disabled ? "default" : "move" }} />
+      {!!drawing.text && <text x={labelPoint.x} y={labelPoint.y} textAnchor="middle" fill={drawing.color ?? "#1f2937"} fontSize={drawing.fontSize ?? 16} fontWeight={drawing.bold ? "bold" : undefined}>{drawing.text}</text>}
       {drag && drag.kind !== "move" && targets.filter(target => target.id === drag.nearbyTarget).flatMap(target => getConnectorPortPoints(target.box, target.outline).map(({ port, point }) => {
         const p = display(point), attached = points[drag.kind as "start" | "end"].binding;
         return <circle key={`${target.id}:${port}`} data-lxs-connection-port={`${target.id}:${port}`} cx={p.x} cy={p.y} r={attached?.targetId === target.id && attached.port === port ? 5 : 3}

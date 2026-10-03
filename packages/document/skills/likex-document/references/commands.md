@@ -68,4 +68,29 @@
 
 新しいIDは適用後のinspectまたは `getShapes` で取得する。`shape.update` は `id` で指定した図形の属性だけを変更する。幅・高さ・線幅はpx、回転は度、`fontSize` はpt。塗りつぶしと線の非表示は `fill: null` / `stroke: null`、反転は `flipH` / `flipV`。`getShape(document,id)` は図形と現在位置を返す。複製は取得したattrsからidを除いて `shape.insert`、削除は `block.delete`。
 
-DOCXではWord 2010の編集可能なDrawingMLプリセットへ変換する。浮動配置はインライン化、調整値・複雑な書式は標準化、自由図形・グループは省略の警告が出るため、import/exportの `warnings` を確認する。
+DOCXではWord 2010の編集可能なDrawingMLプリセットへ変換する。浮動配置はインライン化、調整値・複雑な書式は標準化、自由図形・入れ子グループは省略の警告が出るため、import/exportの `warnings` を確認する。
+
+## キャンバス内の図形と接続線
+
+フロー図は `canvas.insert` で1つのキャンバスを作る。既存の本文中の図形とは別に、キャンバス内部の共通px座標で図形を配置する。
+
+```json
+[{
+  "type": "canvas.insert", "at": 0, "width": 600, "height": 360,
+  "shapes": [
+    { "id": "entry", "preset": "roundRect", "text": "受注登録", "x": 30, "y": 40, "width": 150, "height": 80 },
+    { "id": "approval", "preset": "diamond", "text": "承認", "x": 360, "y": 200, "width": 150, "height": 90 }
+  ],
+  "connectors": [{
+    "id": "approval-route", "routing": "elbow",
+    "start": { "x": 0, "y": 0, "binding": { "targetId": "entry", "port": "right" } },
+    "end": { "x": 0, "y": 0, "binding": { "targetId": "approval", "port": "left" } }
+  }]
+}]
+```
+
+内部要素IDは同じキャンバス内で一意。キャンバスのブロックIDは適用後のinspect、`getCanvases` / `getCanvas` で取得する。`canvas.shape.insert` は `canvasId` と `shape`、`canvas.connector.insert` は `canvasId` と `connector`。両者とも内部IDの省略時は生成する。変更は `canvas.shape.update` / `canvas.connector.update` に `canvasId`、内部 `id` と `patch` を指定する。削除は同名の `.delete`、キャンバス全体は `block.delete`。キャンバス寸法は `canvas.update` の `id` / `width` / `height`。
+
+端点の `binding` は同じキャンバス内の図形だけを参照する。`port` は上下左右と四隅の `top` / `topRight` / `right` / `bottomRight` / `bottom` / `bottomLeft` / `left` / `topLeft`。座標は接続先から自動更新される。`routing` は `elbow`（既定の自動直交）または `straight`。`startArrow` / `endArrow` は `none` / `triangle` / `openArrow` / `diamond` / `oval` / `stealth`。色と線幅は `stroke` / `strokeWidth`。接続先を削除すると線端の位置を保って関連だけ解除する。
+
+図形・線はそれぞれ最大500個。直交経路は接続先の輪郭に合わせるが、第三の図形を避けることは保証しない。`getDocumentCanvasConnectorRoute` は現在の描画頂点を返す。DOCXでは編集可能なWordグループ図形・ネイティブ接続参照として出力し、外部Wordの未対応接続点などは解除を警告する。

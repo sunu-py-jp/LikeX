@@ -4,5 +4,16 @@
   "source": "packages/document/src/docs/headless.md",
   "order": 20,
   "section": "親アプリとの連携",
-  "keywords": ["DocumentCommand", "DocumentHandle", "executeDocumentCommands", "getBlocks", "createDocumentSession", "transaction.apply"]
+  "keywords": [
+    "DocumentCommand",
+    "DocumentHandle",
+    "executeDocumentCommands",
+    "getBlocks",
+    "createDocumentSession",
+    "transaction.apply",
+    "getCanvases",
+    "getCanvas",
+    "getDocumentCanvasConnectorRoute",
+    "canvas.shape.update"
+  ]
 }

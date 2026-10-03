@@ -1,3 +1,5 @@
+import { normalizeCanvasAttributes } from "./canvas";
+import { canvasDom } from "./canvas-dom";
 import { normalizeShapeAttributes } from "./shape-attributes";
 import { shapeDom } from "./shape-dom";
 import { inspectDocumentImage } from "./image-source";
@@ -34,6 +36,8 @@ const nodes: Record<string, NodeSpec> = {
       return { src: image.src, alt: node.getAttribute("alt") || "", width, height };
     } catch { return false; }
   } }], toDOM: node => ["img", { ...node.attrs, id: undefined, "data-document-id": node.attrs.id }] },
+  drawing_canvas: { group: "block", atom: true, draggable: true, attrs: { id, width: { default: 600 }, height: { default: 360 }, shapes: { default: [] }, connectors: { default: [] } },
+    parseDOM: [{ tag: "div[data-document-canvas]", getAttrs: node => { try { return normalizeCanvasAttributes(JSON.parse(node.getAttribute("data-canvas-attrs") ?? "null")); } catch { return false; } } }], toDOM: node => canvasDom(node.attrs) },
   shape: { group: "block", atom: true, draggable: true, attrs: {
     id, preset: {}, text: { default: "" }, width: { default: 240 }, height: { default: 140 },
     fill: { default: "#dbeafe" }, stroke: { default: "#2563eb" }, strokeWidth: { default: 1.5 },

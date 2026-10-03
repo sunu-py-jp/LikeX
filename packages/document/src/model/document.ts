@@ -1,3 +1,4 @@
+import { canvasAttributeKeys, normalizeCanvasAttributes } from "./canvas";
 import { normalizeShapeAttributes, shapeAttributeKeys } from "./shape-attributes";
 import { documentSchema } from "./schema";
 import { inspectDocumentImage } from "./image-source";
@@ -63,7 +64,7 @@ export function normalizeDocumentMark(input: unknown): DocumentMark {
   return { type };
 }
 const attrKeys: Record<string, string[]> = {
-  paragraph: ["id", "align"], heading: ["id", "align", "level"], bullet_list: ["id"], ordered_list: ["id", "order"], list_item: ["id"], table: ["id"], table_row: ["id"], table_cell: ["id", "colspan", "rowspan", "colwidth", "backgroundColor"], table_header: ["id", "colspan", "rowspan", "colwidth", "backgroundColor"], image: ["id", "src", "alt", "width", "height"], shape: shapeAttributeKeys, page_break: ["id"], hard_break: [], text: [], doc: [],
+  paragraph: ["id", "align"], heading: ["id", "align", "level"], bullet_list: ["id"], ordered_list: ["id", "order"], list_item: ["id"], table: ["id"], table_row: ["id"], table_cell: ["id", "colspan", "rowspan", "colwidth", "backgroundColor"], table_header: ["id", "colspan", "rowspan", "colwidth", "backgroundColor"], image: ["id", "src", "alt", "width", "height"], shape: shapeAttributeKeys, drawing_canvas: canvasAttributeKeys, page_break: ["id"], hard_break: [], text: [], doc: [],
 };
 function normalizeContent(input: unknown): DocumentRootNode {
   const ids = new Set<string>();
@@ -105,6 +106,13 @@ function normalizeContent(input: unknown): DocumentRootNode {
       textLength += (attrs.text as string).length;
       if (textLength > DOCUMENT_LIMITS.textLength) throw new Error("Document text exceeds the size limit.");
     }
+    if (type === "drawing_canvas") {
+      const canvas = normalizeCanvasAttributes(originalAttrs);
+      Object.assign(attrs, canvas);
+      textLength += canvas.shapes.reduce((sum, shape) => sum + (shape.text?.length ?? 0), 0);
+      nodeCount += canvas.shapes.length + canvas.connectors.length;
+      if (textLength > DOCUMENT_LIMITS.textLength || nodeCount > DOCUMENT_LIMITS.nodes) throw new Error("Drawing canvases exceed the document size limit.");
+    }
     const result: Record<string, unknown> = { type };
     if (Object.keys(attrs).length) result.attrs = attrs;
     if (type === "text") {
@@ -120,7 +128,7 @@ function normalizeContent(input: unknown): DocumentRootNode {
       if (marks.length) result.marks = marks;
     }
     if (value.content !== undefined) {
-      if (!Array.isArray(value.content) || ["text", "hard_break", "image", "shape", "page_break"].includes(type) || value.content.length > DOCUMENT_LIMITS.nodes) throw new Error("Document node content is invalid.");
+      if (!Array.isArray(value.content) || ["text", "hard_break", "image", "shape", "drawing_canvas", "page_break"].includes(type) || value.content.length > DOCUMENT_LIMITS.nodes) throw new Error("Document node content is invalid.");
       result.content = value.content.map(child => walk(child, depth + 1));
     }
     return result as DocumentNode;

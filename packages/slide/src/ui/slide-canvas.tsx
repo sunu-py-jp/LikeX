@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { resolveSlideAppearance } from "../model/index";
 import { findNearestConnectorPort, getConnectorPortPoints } from "../core";
-import { getSlideConnectorOutline, getSlideLineEndpoints, isSlideLine, resolveSlideLines, slideLineGeometry, translateSlideLine } from "../model/lines";
+import { getSlideConnectorOutline, getSlideLineEndpoints, getSlideLineRoute, isSlideLine, resolveSlideLines, slideLineGeometry, translateSlideLine } from "../model/lines";
 import type { ContextMenuAction } from "../browser";
 import type { Slide, SlideCommand, SlideDeck, SlideElement, SlideLineGeometry } from "../model/types";
 import type { SlideEditor } from "../state/use-slide-editor";
@@ -21,10 +21,10 @@ type Marquee = { deck: SlideDeck; slide: Slide; scale: number; pointerId: number
   originX: number; originY: number; scrollX: number; scrollY: number; lastX: number; lastY: number;
   originalIds: string[]; toggle: boolean; dragged: boolean; editable: boolean; formatting: boolean; stop(): void };
 
-function containedByMarquee(element: SlideElement, box: MarqueeBox): boolean {
+function containedByMarquee(element: SlideElement, box: MarqueeBox, elements: readonly SlideElement[]): boolean {
   if (isSlideLine(element)) {
-    const { start, end } = getSlideLineEndpoints(element);
-    return [start, end].every(point => point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height);
+    const { points } = getSlideLineRoute(element, elements);
+    return points.every(point => point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height);
   }
   const angle = element.rotation * Math.PI / 180, cos = Math.abs(Math.cos(angle)), sin = Math.abs(Math.sin(angle));
   const halfWidth = (element.width * cos + element.height * sin) / 2;
@@ -100,7 +100,7 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
     current.dragged = true;
     const x = current.originX + dx / current.scale, y = current.originY + dy / current.scale;
     const box = { x: Math.min(current.originX, x), y: Math.min(current.originY, y), width: Math.abs(x - current.originX), height: Math.abs(y - current.originY) };
-    const containedIds = current.slide.elements.filter(element => containedByMarquee(element, box)).map(element => element.id);
+    const containedIds = current.slide.elements.filter(element => containedByMarquee(element, box, current.slide.elements)).map(element => element.id);
     const original = new Set(current.originalIds), contained = new Set(containedIds);
     const elementIds = current.toggle
       ? [...current.originalIds.filter(id => !contained.has(id)), ...containedIds.filter(id => !original.has(id))]
@@ -304,8 +304,8 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
         <div ref={surface} className="lxp-canvas-surface" style={{ width: deck.width, height: deck.height, background: appearance?.background, transform: `scale(${scale})` }}
           onPointerDown={beginMarquee}
           onPointerMove={move} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)}>
-          {appearance?.inheritedElements.map((element, index) => <div key={`inherited:${index}:${element.id}`} aria-hidden="true" className="lxp-element lxp-inherited-element" style={elementStyle(element)}><SlideElementContent element={element} /></div>)}
-          {renderedElements.map(element => <SlideCanvasElement key={element.id} element={element}
+          {appearance?.inheritedElements.map((element, index) => <div key={`inherited:${index}:${element.id}`} aria-hidden="true" className="lxp-element lxp-inherited-element" style={elementStyle(element)}><SlideElementContent element={element} elements={appearance.inheritedElements} /></div>)}
+          {renderedElements.map(element => <SlideCanvasElement key={element.id} element={element} elements={renderedElements}
             original={slide.elements.find(item => item.id === element.id)!} selected={selected.has(element.id)}
             editable={editor.editable} formatting={editor.features.formatting} textEnabled={editor.features.text}
             moving={moving && preview.has(element.id)} scale={scale} onBegin={begin} onMenu={elementMenu} onEdit={setEditing} />)}

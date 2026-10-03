@@ -128,3 +128,31 @@ test('animated targets keep lines attached, and standalone line translation anim
   const moved = m.evaluateSlideAnimations(free.slides[0], { elapsedMs: 50 }).slide.elements.find(element => element.id === 'line');
   near(moved.line.start.x, 60); near(moved.line.end.x, 100);
 });
+
+
+test('elbow routes stay orthogonal and follow connected target moves, size and rotation with undo/native persistence', () => {
+  const session = m.createSlideSession(initial());
+  session.execute(add({ routing: 'elbow', end: bound('b', 'left'), endArrow: 'triangle' }));
+  const route = deck => m.getSlideLineRoute(item(deck), deck.slides[0].elements);
+  const orthogonal = value => { assert.ok(value.points.length >= 2); for (let i = 1; i < value.points.length; i++) assert.ok(Math.abs(value.points[i].x-value.points[i-1].x)<1e-7 || Math.abs(value.points[i].y-value.points[i-1].y)<1e-7); };
+  const before = session.getSnapshot().deck, first = route(before); orthogonal(first);
+  assert.equal(item(before).routing, 'elbow');
+  assert.deepEqual(m.parseSlideDeck(m.serializeSlideDeck(before)), before);
+  session.execute({ type: 'element.update', slideId: 's', elementId: 'b', patch: { x: 180, y: 80, width: 200, height: 180, rotation: 45 } });
+  const after = session.getSnapshot().deck, next = route(after); orthogonal(next); assert.notDeepEqual(next.points, first.points);
+  assert.deepEqual(item(after).line.end.binding, { targetId: 'b', port: 'left' });
+  near(item(after).x, next.bounds.x); near(item(after).y, next.bounds.y); near(item(after).width, Math.max(1,next.bounds.width)); near(item(after).height, Math.max(1,next.bounds.height));
+  session.undo(); assert.deepEqual(route(session.getSnapshot().deck), first);
+  session.redo(); assert.deepEqual(route(session.getSnapshot().deck), next);
+  session.execute({ type: 'line.update', slideId: 's', elementId: 'line', routing: 'straight' });
+  assert.equal(route(session.getSnapshot().deck).points.length, 2);
+});
+
+test('elbow route validation is atomic and unrelated block arrows cannot receive routing', () => {
+  const before = apply(initial(), add({ routing: 'elbow' })), snapshot = m.serializeSlideDeck(before);
+  for (const command of [{ type:'line.update',slideId:'s',elementId:'line',routing:'curve' }, {type:'element.update',slideId:'s',elementId:'a',patch:{routing:'elbow'}}])
+    assert.throws(() => apply(before, {type:'deck.rename',title:'Partial'}, command));
+  assert.equal(m.serializeSlideDeck(before), snapshot);
+  const changed = apply(before, {type:'element.update',slideId:'s',elementId:'line',patch:{shape:'bentArrow'}});
+  assert.equal(item(changed).routing, undefined); assert.equal(item(changed).line, undefined);
+});

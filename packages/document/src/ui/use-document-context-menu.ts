@@ -20,7 +20,7 @@ export function useDocumentContextMenu(editor: DocumentEditor, surface: RefObjec
     const keyboard = !("clientX" in event) || (!event.clientX && !event.clientY);
     if (!context && keyboard && element.closest(".lxd-editor")) {
       const snapshot = latest.current.session.getSnapshot();
-      const block = getBlocks(snapshot.document).find(item => (item.node.type === "image" || item.node.type === "table" || item.node.type === "shape") && item.from === snapshot.selection.from && item.to === snapshot.selection.to);
+      const block = getBlocks(snapshot.document).find(item => (item.node.type === "image" || item.node.type === "table" || item.node.type === "shape" || item.node.type === "drawing_canvas") && item.from === snapshot.selection.from && item.to === snapshot.selection.to);
       const anchor = block && [...viewport.querySelectorAll<HTMLElement>("[data-document-id]")].find(node => node.getAttribute("data-document-id") === block.id);
       if (anchor) context = resolveDocumentContextTarget(anchor, viewport);
     }

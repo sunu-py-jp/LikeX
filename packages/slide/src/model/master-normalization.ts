@@ -6,10 +6,10 @@ import { SLIDE_LIMITS } from "./limits";
 import { LAYOUT_KEYS, MASTER_KEYS } from "./schema";
 
 function decorations(value: unknown): SlideElement[] {
-  const elements = list(value, "マスターの要素", SLIDE_LIMITS.elementsPerSlide).map(normalizeSlideElement);
+  const elements = list(value, "マスターの要素", SLIDE_LIMITS.elementsPerSlide).map(element => normalizeSlideElement(element));
   if (elements.some(element => element.layoutPlaceholderId !== undefined)) throw new Error("マスター装飾にページ用のプレースホルダー参照は指定できません");
   if (new Set(elements.map(element => element.id)).size !== elements.length) throw new Error("マスター要素のIDが重複しています");
-  return Object.freeze(resolveSlideLines(elements).map(normalizeSlideElement)) as unknown as SlideElement[];
+  return Object.freeze(resolveSlideLines(elements).map(element => normalizeSlideElement(element, elements))) as unknown as SlideElement[];
 }
 
 /** Catalogs own separate immutable decorations; page-local elements never become their targets. */

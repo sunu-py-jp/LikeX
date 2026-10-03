@@ -4,7 +4,7 @@ import { createSlideSvgSource } from "../model/svg-source";
 import { validateSlideImageSource } from "../model/image-source";
 import type { SlideElement, SlideShapeKind } from "../model/types";
 import { child, children, attribute, localName, plainText, nonVisual, placeholder, color, readFill, type Node, type Theme, type PptxContext, type Relations } from "./pptx-reader";
-import { readOfficeConnectorShapeTag } from "../ooxml";
+import { readOfficeConnectorShapeTag, readOfficeElbowConnectorEndpoints } from "../ooxml";
 import { PPTX_SHAPE_KINDS, readPptxArrowhead, readPptxLineEndpoints } from "./pptx-connectors";
 
 type ElementContext = { context: PptxContext; theme: Theme; mapping: Record<string, string>; links: Relations; defaults: Node[] };
@@ -116,9 +116,12 @@ export async function readElement(chain: Node[], options: ElementContext, id: st
     fontSize: style.fontSize, fontFamily: style.fontFamily, color: style.textColor, bold: style.bold, italic: style.italic, align: style.align, verticalAlign: style.verticalAlign });
   const preset = customTag ?? child(props, "prstGeom")?.attributes.prst ?? (kind === "cxnSp" ? "line" : "rect");
   const shape: SlideShapeKind = kind === "cxnSp" ? "line" : PPTX_SHAPE_KINDS[preset] ?? "rect";
-  if (kind === "cxnSp" && !["line", "straightConnector1"].includes(preset)) context.warn("折れ線・曲線の接続線を2端点を結ぶ直線へ変更しました", { code: "content-approximated", action: "approximation" });
-  else if (!PPTX_SHAPE_KINDS[preset] || child(props, "custGeom") && !customTag) context.warn("未対応の図形・自由曲線を長方形へ変更しました", { code: "content-approximated", action: "approximation" });
-  if (child(child(props, "prstGeom"), "avLst")?.children.length) context.warn("図形の角丸・矢印などの調整値を標準値へ変更しました", { code: "appearance-adjusted", action: "adjustment" });
+  const elbow = kind === "cxnSp" && (/^bentConnector[2-5]$/.test(preset) || !!readOfficeElbowConnectorEndpoints(child(props, "custGeom")));
+  if (kind === "cxnSp" && !elbow && (child(props, "custGeom") || !["line", "straightConnector1"].includes(preset))) context.warn("折れ線・曲線の接続線を2端点を結ぶ直線へ変更しました", { code: "content-approximated", action: "approximation" });
+  else if (kind !== "cxnSp" && (!PPTX_SHAPE_KINDS[preset] || child(props, "custGeom") && !customTag)) context.warn("未対応の図形・自由曲線を長方形へ変更しました", { code: "content-approximated", action: "approximation" });
+  if (elbow && /^bentConnector[2-5]$/.test(preset)) context.warn("PowerPointの折れ位置を接続先に追従する自動の直交経路へ変換しました", { code: "appearance-adjusted", action: "adjustment" });
+  else if (elbow && (position.rotation % 90 !== 0 || child(child(props, "prstGeom"), "avLst")?.children.length)) context.warn("折れ線の手動の折れ位置・斜め方向の回転を自動の直交経路へ変更しました", { code: "appearance-adjusted", action: "adjustment" });
+  else if (child(child(props, "prstGeom"), "avLst")?.children.length) context.warn("図形の角丸・矢印などの調整値を標準値へ変更しました", { code: "appearance-adjusted", action: "adjustment" });
   const line = first(chain, shape => child(child(shape, "spPr"), "ln"));
   if (child(line, "custDash") || child(line, "prstDash") && child(line, "prstDash")?.attributes.val !== "solid")
     context.warn("破線を通常の線へ変更しました", { code: "content-approximated", action: "approximation" });
@@ -126,6 +129,6 @@ export async function readElement(chain: Node[], options: ElementContext, id: st
   if (text && (style.bold || style.italic || style.fontFamily !== "Arial" || style.align !== "center" || style.verticalAlign !== "middle")) context.warn("図形内の文字書式をLikeSlideの共通書式へ変更しました", { code: "content-approximated", action: "approximation" });
   return createSlideElement({ type: "shape", id, name, ...position, locked, shape, fill: fillValue, stroke,
     strokeWidth: Number(line?.attributes.w ?? 9525) / 9525, text, fontSize: style.fontSize, textColor: style.textColor,
-    ...(shape === "line" ? { line: readPptxLineEndpoints(first(chain, shape => child(child(shape, "spPr"), "xfrm"))!),
+    ...(shape === "line" ? { line: readPptxLineEndpoints(first(chain, shape => child(child(shape, "spPr"), "xfrm"))!, child(props, "custGeom")), ...(elbow ? { routing: "elbow" as const } : {}),
       startArrow: readPptxArrowhead(child(line, "headEnd"), context), endArrow: readPptxArrowhead(child(line, "tailEnd"), context) } : {}) });
 }

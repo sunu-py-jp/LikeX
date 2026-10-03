@@ -15,7 +15,7 @@ export function createDocumentDragFeedback(view: EditorView, getEditor: () => Do
   function dragstart(event: DragEvent): boolean {
     if(!doc?.createElement||!win||!event.dataTransfer||event.defaultPrevented)return false;
     cancel();rejected=false;
-    const editor=getEditor(), image=(event.target as Element)?.closest?.("img"), isImage=!!image||view.state.selection.$from.nodeAfter?.type.name==="image", isShape=!!(event.target as Element)?.closest?.("[data-document-shape]")||view.state.selection.$from.nodeAfter?.type.name==="shape";
+    const editor=getEditor(), image=(event.target as Element)?.closest?.("img"), isImage=!!image||view.state.selection.$from.nodeAfter?.type.name==="image", isShape=!!(event.target as Element)?.closest?.("[data-document-shape],[data-document-canvas]")||["shape","drawing_canvas"].includes(view.state.selection.$from.nodeAfter?.type.name ?? "");
     if(!editor.editable||!editor.features.text||isImage&&!editor.features.images||isShape&&!editor.features.shapes){event.preventDefault();view.dragging=null;return true;}
     const viewport=view.dom.closest<HTMLElement>(".lxd-document-viewport");if(!viewport)return false;
     const badge=doc.createElement("div"),caret=doc.createElement("div");badge.className="lxd-drag-preview";badge.setAttribute("aria-hidden","true");

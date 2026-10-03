@@ -1,4 +1,4 @@
-import { CONNECTOR_PORTS, connectorLocalToWorld, getConnectorPortPoint, type ConnectorBox, type ConnectorEndpoint, type ConnectorPoint, type ConnectorOutline } from "./core-connectors";
+import { CONNECTOR_PORTS, getConnectorRoute, connectorLocalToWorld, getConnectorPortPoint, type ConnectorBox, type ConnectorEndpoint, type ConnectorPoint, type ConnectorOutline } from "./core-connectors";
 import { getOfficeShapeOutline } from "./core-office-shapes";
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "./sheet-dimensions";
 import { getShapeDefinition, shapeBodyFrame } from "./shapes";
@@ -87,6 +87,30 @@ export function getSpreadsheetLinePoints(sheet: SpreadsheetSheet, drawingId: str
   return Object.freeze({ start: Object.freeze(connectorLocalToWorld({ x: inset, y: inset }, box)),
     end: Object.freeze(connectorLocalToWorld({ x: Math.max(drawing.strokeWidth, drawing.width - (drawing.shape === "arrow" ? drawing.strokeWidth * 7 : drawing.strokeWidth)),
       y: Math.max(drawing.strokeWidth, drawing.height - (drawing.shape === "arrow" ? drawing.strokeWidth * 7 : drawing.strokeWidth)) }, box)) });
+}
+/** Recalculate the visible path from current endpoint anchors and bound target geometry. */
+export function getSpreadsheetLineRoute(sheet: SpreadsheetSheet, drawingId: string,
+  grid: { columns: readonly number[]; rows: readonly number[] } = sheetDrawingGeometry(sheet), preview?: SpreadsheetLinePoints) {
+  const drawing = sheet.drawings?.find(item => item.id === drawingId);
+  if (!drawing || !isSpreadsheetLine(drawing)) throw new Error("指定された線が見つかりません");
+  const points = preview ?? getSpreadsheetLinePoints(sheet, drawingId, grid);
+  const target = (endpoint: ConnectorEndpoint) => {
+    const item = endpoint.binding && sheet.drawings?.find(candidate => candidate.id === endpoint.binding!.targetId);
+    return item && !isSpreadsheetLine(item) ? { id: item.id, box: spreadsheetDrawingBox(sheet, item, grid), outline: spreadsheetDrawingOutline(item) } : undefined;
+  };
+  return getConnectorRoute(points.start, points.end, { routing: drawing.routing, startTarget: target(points.start), endTarget: target(points.end) });
+}
+/** Label position halfway along the rendered path, including any automatic bends. */
+export function spreadsheetLineRouteMidpoint(points: readonly ConnectorPoint[]): ConnectorPoint {
+  const lengths = points.slice(1).map((point, index) => Math.hypot(point.x - points[index].x, point.y - points[index].y));
+  let distance = lengths.reduce((sum, length) => sum + length, 0) / 2;
+  for (let index = 0; index < lengths.length; index++) {
+    const length = lengths[index];
+    if (length && distance <= length) return { x: points[index].x + (points[index + 1].x - points[index].x) * distance / length,
+      y: points[index].y + (points[index + 1].y - points[index].y) * distance / length };
+    distance -= length;
+  }
+  return points[0] ?? { x: 0, y: 0 };
 }
 export function lineFromPoints(sheet: SpreadsheetSheet, points: SpreadsheetLinePoints): SpreadsheetLine {
   const grid: { columns: readonly number[]; rows: readonly number[] } = sheetDrawingGeometry(sheet);

@@ -22,7 +22,7 @@ const output = await build({ stdin: { contents: `export {default as LikeDocument
     builder.onLoad({ filter: /.*/, namespace: 'pm-test-view' }, () => ({ contents: mockViewSource, loader: 'js' }));
   } },
 ] });
-const { LikeDocument, createDocument, serializeDocument, getDocumentText, getBlocks, getImages, TestEditorView } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text + '\n//# sourceURL=likex-document-ui-tests.js').toString('base64')}`);
+const { LikeDocument, createDocument, serializeDocument, getDocumentText, getBlocks, getImages, getCanvases, getDocumentCanvasConnectorRoute, TestEditorView } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text + '\n//# sourceURL=likex-document-ui-tests.js').toString('base64')}`);
 const change = async callback => act(async () => { await callback(); });
 const body = value => createDocument({ content: { type: 'doc', content: [{ type: 'paragraph', content: value ? [{ type: 'text', text: value }] : [] }] } });
 const button = (renderer, label) => renderer.root.findByProps({ 'aria-label': label });
@@ -219,5 +219,54 @@ test('shape formatting dialog disables unavailable controls and submits only ena
     try { await change(() => renderer.root.findByType('form').props.onSubmit({ preventDefault() {}, currentTarget: {} })); }
     finally { globalThis.FormData = Original; }
     const shape = ref.current.getDocument().content.content[0]; assert.equal(shape.attrs.text, feature === 'text' ? 'Keep' : 'New text');
+  }
+});
+
+
+test('canvas GUI adds and connects shapes, follows drag movement and deletes selected elements with undo', async t => {
+  const { renderer, ref } = await mount(t, { initialDocument: body('Canvas demo'), onSave() {} });
+  await change(() => tab(renderer, '挿入').props.onClick());
+  await change(() => button(renderer, '描画キャンバスを挿入').props.onClick());
+  await change(() => button(renderer, '描画キャンバスを編集').props.onClick());
+  const action = label => renderer.root.findAllByType('button').find(node => node.props.children === label);
+  const canvas = () => getCanvases(ref.current.getDocument())[0].node.attrs;
+  await change(() => action('図形を追加').props.onClick());
+  await change(() => button(renderer, 'キャンバス図形のテキスト').props.onChange({ target: { value: '受注登録' } }));
+  await change(() => action('図形を追加').props.onClick()); assert.equal(canvas().shapes.length, 2);
+  await change(() => action('直交コネクタを追加').props.onClick()); assert.equal(canvas().connectors.length, 1);
+  const secondId = canvas().shapes[1].id;
+  assert.equal(canvas().connectors[0].end.binding.targetId, secondId);
+  const drawing = () => button(renderer, 'キャンバス内の図形と接続線');
+  const shapeGroup = drawing().findAllByType('g').find(node => node.props.transform && node.props['aria-label'] !== '図形 受注登録');
+  const svg = { setPointerCapture() {}, createSVGPoint() { return { x: 0, y: 0, matrixTransform() { return { x: this.x / 2, y: this.y / 2 }; } }; }, getScreenCTM() { return { inverse() { return {}; } }; } };
+  await change(() => shapeGroup.props.onPointerDown({ currentTarget: { ownerSVGElement: svg, focus() {} }, pointerId: 2, button: 0, clientX: 420, clientY: 60, preventDefault() {} }));
+  await change(() => drawing().props.onPointerMove({ currentTarget: svg, pointerId: 2, clientX: 520, clientY: 220 }));
+  assert.equal(canvas().shapes[1].x, 210, 'preview does not write until pointer-up');
+  await change(() => drawing().props.onPointerUp({ currentTarget: svg, pointerId: 2, clientX: 520, clientY: 220 }));
+  assert.equal(canvas().shapes[1].x, 260); assert.equal(canvas().shapes[1].y, 110);
+  const route = getDocumentCanvasConnectorRoute(canvas(), canvas().connectors[0]); assert.equal(route.points.at(-1).x, 260); assert.equal(route.points.at(-1).y, 150);
+  await change(() => drawing().props.onKeyDown({ key: 'Delete', preventDefault() {}, stopPropagation() {} }));
+  assert.equal(canvas().shapes.length, 1); assert.equal(canvas().connectors[0].end.binding, undefined);
+  await change(() => ref.current.undo()); assert.equal(canvas().shapes.length, 2); assert.equal(canvas().connectors[0].end.binding.targetId, secondId);
+  const line = drawing().findAllByType('g').find(node => node.props['aria-label']?.startsWith('接続線 '));
+  await change(() => line.props.onClick());
+  await change(() => drawing().props.onKeyDown({ key: 'Backspace', preventDefault() {}, stopPropagation() {} })); assert.equal(canvas().connectors.length, 0);
+});
+
+test('canvas component permissions and feature flags cover GUI and ref changes', async t => {
+  const original = createDocument({ content: { type: 'doc', content: [{ type: 'drawing_canvas', attrs: { shapes: [{ id: 'one', preset: 'rect', x: 0, y: 0 }] } }] } });
+  for (const props of [{ readOnly: true }, { onEditRequest: () => false }, { features: { formatting: false, text: false } }]) {
+    const { renderer, ref } = await mount(t, { initialDocument: original, onSave() {}, ...props });
+    const snapshot = serializeDocument(ref.current.getDocument()), id = getCanvases(ref.current.getDocument())[0].id;
+    await change(() => ref.current.select({ from: 0, to: 1 }));
+    await change(() => button(renderer, '描画キャンバスを編集').props.onClick());
+    const drawing = button(renderer, 'キャンバス内の図形と接続線');
+    await change(() => drawing.findAllByType('g').find(node => node.props.transform).props.onClick());
+    if (props.readOnly || props.features) {
+      assert.equal(button(renderer, 'キャンバス図形のテキスト').props.disabled, true);
+      assert.equal(button(renderer, 'キャンバス図形 x').props.disabled, true);
+    }
+    await change(async () => { assert.equal(await ref.current.execute({ type: 'canvas.shape.update', canvasId: id, id: 'one', patch: { x: 80 } }), null); });
+    assert.equal(serializeDocument(ref.current.getDocument()), snapshot);
   }
 });

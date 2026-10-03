@@ -126,6 +126,9 @@
           "$ref": "#/$defs/DocumentShapeNode"
         },
         {
+          "$ref": "#/$defs/DocumentCanvasNode"
+        },
+        {
           "$ref": "#/$defs/DocumentPageBreakNode"
         }
       ]
@@ -746,6 +749,210 @@
     },
     "DocumentShapeAttributes_flipH": {
       "type": "boolean"
+    },
+    "DocumentCanvasNode": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "drawing_canvas"
+        },
+        "attrs": {
+          "$ref": "#/$defs/DocumentCanvasAttributes"
+        }
+      },
+      "required": [
+        "type",
+        "attrs"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCanvasAttributes": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/DocumentParagraphNode_attrs_id"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "shapes": {
+          "$ref": "#/$defs/DocumentCanvasAttributes_shapes"
+        },
+        "connectors": {
+          "$ref": "#/$defs/DocumentCanvasAttributes_connectors"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DocumentCanvasAttributes_shapes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DocumentCanvasShape"
+      }
+    },
+    "DocumentCanvasShape": {
+      "type": "object",
+      "properties": {
+        "fill": {
+          "$ref": "#/$defs/DocumentParagraphNode_attrs_id"
+        },
+        "color": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number"
+        },
+        "stroke": {
+          "$ref": "#/$defs/DocumentParagraphNode_attrs_id"
+        },
+        "preset": {
+          "$ref": "#/$defs/DocumentShapeAttributes_preset"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "flipH": {
+          "$ref": "#/$defs/DocumentShapeAttributes_flipH"
+        },
+        "flipV": {
+          "$ref": "#/$defs/DocumentShapeAttributes_flipH"
+        },
+        "id": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "preset",
+        "id",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentCanvasAttributes_connectors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/DocumentCanvasConnector"
+      }
+    },
+    "DocumentCanvasConnector": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "end": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
+        "routing": {
+          "$ref": "#/$defs/DocumentCanvasConnector_routing"
+        },
+        "stroke": {
+          "type": "string"
+        },
+        "strokeWidth": {
+          "type": "number"
+        },
+        "startArrow": {
+          "$ref": "#/$defs/DocumentCanvasConnector_startArrow"
+        },
+        "endArrow": {
+          "$ref": "#/$defs/DocumentCanvasConnector_startArrow"
+        }
+      },
+      "required": [
+        "id",
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "binding": {
+          "$ref": "#/$defs/ConnectorEndpoint_binding"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint_binding": {
+      "type": "object",
+      "properties": {
+        "targetId": {
+          "type": "string"
+        },
+        "port": {
+          "$ref": "#/$defs/ConnectorEndpoint_binding_port"
+        }
+      },
+      "required": [
+        "targetId",
+        "port"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectorEndpoint_binding_port": {
+      "enum": [
+        "top",
+        "right",
+        "bottom",
+        "left",
+        "topRight",
+        "bottomRight",
+        "bottomLeft",
+        "topLeft"
+      ]
+    },
+    "DocumentCanvasConnector_routing": {
+      "enum": [
+        "straight",
+        "elbow"
+      ]
+    },
+    "DocumentCanvasConnector_startArrow": {
+      "enum": [
+        "none",
+        "triangle",
+        "openArrow",
+        "diamond",
+        "oval",
+        "stealth"
+      ]
     },
     "DocumentPageBreakNode": {
       "type": "object",

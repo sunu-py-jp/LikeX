@@ -40,6 +40,7 @@ export type SpreadsheetDrawingAnchor = { row: number; column: number; offsetX: n
 /** Free endpoints follow their cell anchors; bound endpoints resolve to the target's current port. */
 export type SpreadsheetStoredLineEndpoint = Readonly<{ anchor: SpreadsheetDrawingAnchor; binding?: ConnectorBinding }>;
 export type SpreadsheetLine = Readonly<{ start: SpreadsheetStoredLineEndpoint; end: SpreadsheetStoredLineEndpoint }>;
+export type SpreadsheetLineRouting = "straight" | "elbow";
 export type SpreadsheetLinePoints = Readonly<{ start: ConnectorEndpoint; end: ConnectorEndpoint }>;
 type SpreadsheetDrawingBase = {
   id: string; anchor: SpreadsheetDrawingAnchor; width: number; height: number;
@@ -57,6 +58,8 @@ export type SpreadsheetShapeDrawing = SpreadsheetDrawingBase & {
   strokeWidth: number;
   /** Only line/arrow shapes. Omitted on legacy rectangle-based lines. */
   line?: SpreadsheetLine;
+  /** Two-endpoint routing. Omitted means straight; elbow is recalculated from current targets. */
+  routing?: SpreadsheetLineRouting;
   /** End markers. Legacy shape:arrow defaults its end to triangle; otherwise none. */
   startArrow?: ConnectorArrowhead; endArrow?: ConnectorArrowhead;
   /** Optional shape text; omitted formatting uses 16 px, #1f2937 and normal weight. */
@@ -85,7 +88,7 @@ export type SpreadsheetDrawingPatch = Partial<Omit<SpreadsheetDrawingBase, "id">
    * @maximum 400
    */
   fontSize: number; color: string; background: string; bold: boolean;
-  line: SpreadsheetLine; startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead;
+  line: SpreadsheetLine; routing: SpreadsheetLineRouting; startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead;
 }>;
 export type SpreadsheetComment = { id: string; text: string; author?: string };
 /** Inclusive, zero-based rectangle. The top-left cell stores the merged value and comment. */

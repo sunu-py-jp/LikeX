@@ -1,3 +1,4 @@
+import { readOfficeConnectorShapeTag } from "../ooxml";
 import { isOfficeShapePreset } from "../model/core-office-shapes";
 import { child, children, attr, descendants, textContent, runStyle, type XmlNode, type Node } from "./docx-reader";
 import { xml, WPS } from "./docx-xml";
@@ -18,8 +19,8 @@ export function readDocxShape(source: XmlNode, warn: (message: string) => void, 
   if (descendants(source, "wgp").length || descendants(source, "grpSp").length) { warn("グループ化された図形は未対応のため省略しました"); return; }
   const shapes = descendants(source, "wsp");
   if (shapes.length !== 1) { warn("未対応の図形・グラフ・SmartArtを省略しました"); return; }
-  const shape = shapes[0], props = child(shape, "spPr"), geometry = child(props, "prstGeom"), preset = attr(geometry, "prst");
-  if (!isOfficeShapePreset(preset) || child(props, "custGeom")) { warn(`未対応の図形プリセット・自由図形を省略しました${preset ? ` (${preset})` : ""}`); return; }
+  const shape = shapes[0], props = child(shape, "spPr"), geometry = child(props, "prstGeom"), preset = attr(geometry, "prst") ?? readOfficeConnectorShapeTag(child(props, "custGeom"));
+  if (!isOfficeShapePreset(preset)) { warn(`未対応の図形プリセット・自由図形を省略しました${preset ? ` (${preset})` : ""}`); return; }
   const transform = child(props, "xfrm"), extent = child(transform, "ext") ?? descendants(source, "extent")[0];
   const width = Number(attr(extent, "cx")) / 9525, height = Number(attr(extent, "cy")) / 9525;
   if (![width, height].every(value => Number.isFinite(value) && value >= 1 && value <= 16384)) { warn("寸法が不正または大きすぎる図形を省略しました"); return; }

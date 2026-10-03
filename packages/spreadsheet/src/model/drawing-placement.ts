@@ -1,7 +1,7 @@
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "./sheet-dimensions";
 import { rotatedDrawingBounds } from "./drawing-transform";
 import { SPREADSHEET_LIMITS, type SpreadsheetDrawingAnchor, type SpreadsheetLine, type SpreadsheetSheet } from "./types";
-import { getSpreadsheetLinePoints } from "./lines";
+import { getSpreadsheetLineRoute } from "./lines";
 
 /** CSS pixels from the top-left of A1; row and column headers are excluded. */
 export type SpreadsheetDrawingBounds = Readonly<{
@@ -82,8 +82,8 @@ function drawingGeometry(workbook: GeometryWorkbook, sheetId: string, drawingId:
     width = boundedNumber(drawing.width, Number.MIN_VALUE, 10_000), height = boundedNumber(drawing.height, Number.MIN_VALUE, 10_000);
   let bounds: SpreadsheetDrawingBounds = Object.freeze(rotatedDrawingBounds({ left, top, width, height }, drawing.rotation));
   if (drawing.line) {
-    const points = getSpreadsheetLinePoints(sheet as SpreadsheetSheet, drawing.id, { columns: [...columns.offsets], rows: [...rows.offsets] });
-    const left = Math.min(points.start.x, points.end.x), top = Math.min(points.start.y, points.end.y), right = Math.max(points.start.x, points.end.x), bottom = Math.max(points.start.y, points.end.y);
+    const route = getSpreadsheetLineRoute(sheet as SpreadsheetSheet, drawing.id, { columns: [...columns.offsets], rows: [...rows.offsets] });
+    const { x: left, y: top, width, height } = route.bounds, right = left + width, bottom = top + height;
     bounds = Object.freeze({ left, top, right, bottom, width: right - left, height: bottom - top });
   }
   return { rows, columns, bounds, anchor };

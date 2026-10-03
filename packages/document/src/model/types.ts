@@ -1,3 +1,4 @@
+import type { ConnectorEndpoint, ConnectorArrowhead } from "./core-connectors";
 import type { OfficeShapePreset } from "./core-office-shapes";
 /** Standard .dcon files contain this JSON model; measurements use mm, except image pixels and font points. */
 export type DocumentAlignment = "left" | "center" | "right" | "justify";
@@ -51,8 +52,24 @@ export type DocumentShapeAttributes = {
   flipH?: boolean; flipV?: boolean; color?: string; fontSize?: number;
 };
 export type DocumentShapeNode = { type: "shape"; attrs: DocumentShapeAttributes };
+/** Canvas coordinates use pixels. Bindings always reference a shape in the same canvas. */
+export type DocumentCanvasShape = Omit<DocumentShapeAttributes, "id"> & { id: string; x: number; y: number };
+export type DocumentCanvasConnector = { id: string; start: ConnectorEndpoint; end: ConnectorEndpoint;
+  routing?: "straight" | "elbow"; stroke?: string; strokeWidth?: number; startArrow?: ConnectorArrowhead; endArrow?: ConnectorArrowhead };
+export type DocumentCanvasAttributes = { id?: string | null; width?: number; height?: number;
+  shapes?: DocumentCanvasShape[]; connectors?: DocumentCanvasConnector[] };
+export type DocumentCanvasNode = { type: "drawing_canvas"; attrs: DocumentCanvasAttributes };
+export type DocumentCanvasCommand =
+  | ({ type: "canvas.insert"; at: number } & Omit<DocumentCanvasAttributes, "id">)
+  | { type: "canvas.update"; id: string; width?: number; height?: number }
+  | { type: "canvas.shape.insert"; canvasId: string; shape: Omit<DocumentCanvasShape, "id"> & { id?: string } }
+  | { type: "canvas.shape.update"; canvasId: string; id: string; patch: Partial<Omit<DocumentCanvasShape, "id">> }
+  | { type: "canvas.shape.delete"; canvasId: string; id: string }
+  | { type: "canvas.connector.insert"; canvasId: string; connector: Omit<DocumentCanvasConnector, "id"> & { id?: string } }
+  | { type: "canvas.connector.update"; canvasId: string; id: string; patch: Partial<Omit<DocumentCanvasConnector, "id">> }
+  | { type: "canvas.connector.delete"; canvasId: string; id: string };
 export type DocumentPageBreakNode = { type: "page_break"; attrs?: { id?: string | null } };
-export type DocumentBlock = DocumentParagraphNode | DocumentHeadingNode | DocumentListNode | DocumentTableNode | DocumentImageNode | DocumentShapeNode | DocumentPageBreakNode;
+export type DocumentBlock = DocumentParagraphNode | DocumentHeadingNode | DocumentListNode | DocumentTableNode | DocumentImageNode | DocumentShapeNode | DocumentCanvasNode | DocumentPageBreakNode;
 export type DocumentRootNode = { type: "doc"; content: DocumentBlock[] };
 export type DocumentNode = DocumentRootNode | DocumentBlock | DocumentListItemNode | DocumentTableRowNode | DocumentTableCellNode | DocumentInlineNode;
 export type DocumentModel = {
@@ -69,6 +86,7 @@ export type DocumentSelection = { from: number; to: number };
 export type DocumentJsonValue = null | boolean | number | string | DocumentJsonValue[] | DocumentJsonObject;
 export type DocumentJsonObject = { [key: string]: DocumentJsonValue };
 export type DocumentCommand =
+  | DocumentCanvasCommand
   | { type: "text.insert"; from: number; to?: number; text: string }
   | { type: "text.delete"; from: number; to: number }
   | { type: "mark.set"; from: number; to: number; mark: DocumentMarkName; attrs?: DocumentTextStyle | { href: string; title?: string | null }; enabled?: boolean }

@@ -1,3 +1,4 @@
+import { readDocxCanvas } from "./docx-canvas";
 import { readDocxShape } from "./docx-shapes";
 import { normalizeDocument } from "../model/document";
 import { openOfficePackage, officeXml, readOfficeRelationships, resolveOfficePart, type OfficePackageInput } from "../ooxml";
@@ -91,7 +92,7 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
       const name = localName(node.name);
       if (name === "pPr") return;
       if (name === "AlternateContent") {
-        const choices = children(node, "Choice"), supported = choices.find(item => descendants(item, "wsp").length || descendants(item, "pic").length);
+        const choices = children(node, "Choice"), supported = choices.find(item => descendants(item, "wsp").length || descendants(item, "wgp").length || descendants(item, "pic").length);
         const selected = supported ?? child(node, "Fallback");
         if (selected) for (const item of selected.children) await visit(item, extraMarks);
         else warn("未対応の代替描画要素を省略しました");
@@ -100,7 +101,7 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
       if (name === "pict" || name === "object") { warn("旧形式の図形・埋め込みオブジェクトを省略しました"); return; }
       if (name === "drawing") {
         flush();
-        const drawing = descendants(node, "wsp").length || descendants(node, "wgp").length ? readDocxShape(node, warn, theme) : descendants(node, "pic").length ? await readImage(node) : undefined;
+        const drawing = descendants(node, "wgp").length ? readDocxCanvas(node, warn, theme) : descendants(node, "wsp").length ? readDocxShape(node, warn, theme) : descendants(node, "pic").length ? await readImage(node) : undefined;
         if (drawing) result.push({ node: drawing }); else warn("未対応の図形・グラフ・SmartArtなどの描画要素を省略しました");
         return;
       }

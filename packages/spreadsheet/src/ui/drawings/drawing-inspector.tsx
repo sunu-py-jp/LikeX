@@ -66,6 +66,11 @@ function DrawingInspectorSession({ controller: c, drawing }: { controller: Sprea
       {(["x", "y"] as const).map(axis => <PropertyField key={axis} label={`${endpoint === "start" ? "始点" : "終点"}${axis.toUpperCase()}`} type="number" value={line[endpoint][axis]} controller={c} onCommit={value => updatePoint(endpoint, axis, value)} />)}
       {line[endpoint].binding && <span>{endpoint === "start" ? "始点" : "終点"}は図形に接続中</span>}
     </div>)}
+    {isSpreadsheetLine(drawing) && <label className="lxs-object-property"><span>線の経路</span>
+      <select aria-label="線の経路" disabled={c.disabled || c.requesting} value={drawing.routing ?? "straight"}
+        onChange={event => c.afterCommit(() => c.afterCommand({ type: "lines.update", sheetId: c.activeSheet.id, drawingId: drawing.id, routing: event.target.value as "straight" | "elbow" }))}>
+        <option value="straight">直線</option><option value="elbow">自動の折れ線</option>
+      </select></label>}
     {isSpreadsheetLine(drawing) && (["start", "end"] as const).map(endpoint => <label key={`${endpoint}-arrow`} className="lxs-object-property"><span>{endpoint === "start" ? "始点の矢印" : "終点の矢印"}</span>
       <select aria-label={endpoint === "start" ? "始点の矢印" : "終点の矢印"} disabled={c.disabled || c.requesting} value={drawing[endpoint === "start" ? "startArrow" : "endArrow"] ?? (endpoint === "end" && drawing.shape === "arrow" ? "triangle" : "none")}
         onChange={event => c.afterCommit(() => c.afterCommand({ type: "lines.update", sheetId: c.activeSheet.id, drawingId: drawing.id, [endpoint === "start" ? "startArrow" : "endArrow"]: event.target.value as ConnectorArrowhead }))}>

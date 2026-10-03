@@ -1,8 +1,8 @@
 import { getOfficeShapeOutline } from "./core-office-shapes";
 import { getSlideOfficeShapePreset } from "./shapes";
-import { connectorLocalToWorld, getConnectorBounds, getConnectorPortPoint, CONNECTOR_PORTS } from "./core-connectors";
-import type { ConnectorEndpoint, ConnectorOutline } from "./core-connectors";
-import type { SlideElement, SlideElementBase, SlideLineGeometry, SlideShapeElement } from "./types";
+import { connectorLocalToWorld, getConnectorBounds, getConnectorRoute, getConnectorPortPoint, CONNECTOR_PORTS } from "./core-connectors";
+import type { ConnectorEndpoint, ConnectorOutline, ConnectorRoute } from "./core-connectors";
+import type { SlideElement, SlideElementBase, SlideLineGeometry, SlideLineRouting, SlideShapeElement } from "./types";
 import { choice, identifier, number, record } from "./validation";
 
 export function isSlideLine(element: SlideElement): element is SlideShapeElement & { shape: "line" } { return element.type === "shape" && element.shape === "line"; }
@@ -39,8 +39,20 @@ export function getSlideLineEndpoints(element: SlideShapeElement): SlideLineGeom
   return { start: connectorLocalToWorld({ x: pad, y: pad }, element),
     end: connectorLocalToWorld({ x: element.width - pad, y: element.height - pad }, element) };
 }
-export function slideLineGeometry(line: SlideLineGeometry): Pick<SlideElementBase, "x" | "y" | "width" | "height" | "rotation"> {
-  const bounds = getConnectorBounds(line.start, line.end);
+function routeSlideLine(line: SlideLineGeometry, routing: SlideLineRouting | undefined, elements: readonly SlideElement[]) {
+  const target = (point: ConnectorEndpoint) => {
+    const element = point.binding && elements.find(item => item.id === point.binding!.targetId);
+    return element && !isSlideLine(element) ? { id: element.id, box: element, outline: getSlideConnectorOutline(element) } : undefined;
+  };
+  return getConnectorRoute(line.start, line.end, { routing: routing ?? "straight", startTarget: target(line.start), endTarget: target(line.end) });
+}
+/** Actual routed document coordinates. Supply the page elements to route around bound targets. */
+export function getSlideLineRoute(element: SlideShapeElement, elements: readonly SlideElement[] = []): ConnectorRoute {
+  return routeSlideLine(getSlideLineEndpoints(element), element.routing, elements);
+}
+export function slideLineGeometry(line: SlideLineGeometry, routing?: SlideLineRouting, elements: readonly SlideElement[] = []): Pick<SlideElementBase, "x" | "y" | "width" | "height" | "rotation"> {
+  const { bounds } = routeSlideLine(line, routing, elements);
+  if (bounds.width > 100000 || bounds.height > 100000) throw new Error("線の経路の幅・高さは100,000px以下にしてください");
   // Keep positive legacy dimensions while permitting horizontal, vertical and point lines.
   return { ...bounds, width: Math.max(1, bounds.width), height: Math.max(1, bounds.height), rotation: 0 };
 }
@@ -58,7 +70,7 @@ export function resolveSlideLines(elements: readonly SlideElement[], detachMissi
       return { ...position, binding: point.binding };
     };
     const line = normalizeSlideLine({ start: endpoint(element.line.start), end: endpoint(element.line.end) });
-    const geometry = slideLineGeometry(line);
+    const geometry = slideLineGeometry(line, element.routing, elements);
     if (JSON.stringify(line) === JSON.stringify(element.line) && Object.entries(geometry).every(([key, value]) => Reflect.get(element, key) === value)) return element;
     return { ...element, ...geometry, line };
   });
@@ -89,5 +101,5 @@ export function copySlideLine(element: SlideElement, remap: ReadonlyMap<string, 
   const endpoint = (point: ConnectorEndpoint): ConnectorEndpoint => ({ x: point.x + offset, y: point.y + offset,
     ...(point.binding && remap.has(point.binding.targetId) ? { binding: { ...point.binding, targetId: remap.get(point.binding.targetId)! } } : {}) });
   const line = { start: endpoint(element.line.start), end: endpoint(element.line.end) };
-  return { ...element, id: base.id, ...slideLineGeometry(line), line };
+  return { ...element, id: base.id, ...slideLineGeometry(line, element.routing), line };
 }

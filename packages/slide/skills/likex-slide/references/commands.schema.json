@@ -349,6 +349,10 @@
           "$ref": "#/$defs/SlideLineGeometry",
           "description": "Only shape:line. Absolute document coordinates; bound points follow their target."
         },
+        "routing": {
+          "$ref": "#/$defs/SlideShapeElement_routing",
+          "description": "Automatic orthogonal routing; omitted means a straight segment."
+        },
         "startArrow": {
           "$ref": "#/$defs/SlideShapeElement_startArrow",
           "description": "Line endpoint decoration. Missing fields preserve legacy plain lines."
@@ -505,6 +509,12 @@
         "bottomRight",
         "bottomLeft",
         "topLeft"
+      ]
+    },
+    "SlideShapeElement_routing": {
+      "enum": [
+        "straight",
+        "elbow"
       ]
     },
     "SlideShapeElement_startArrow": {
@@ -1228,6 +1238,10 @@
         "stroke": {
           "type": "string"
         },
+        "routing": {
+          "$ref": "#/$defs/SlideShapeElement_routing",
+          "description": "Automatic orthogonal routing; omitted means a straight segment."
+        },
         "shape": {
           "$ref": "#/$defs/SlideElementInput_2_shape"
         },
@@ -1432,6 +1446,9 @@
         },
         "endArrow": {
           "$ref": "#/$defs/SlideShapeElement_startArrow"
+        },
+        "routing": {
+          "$ref": "#/$defs/SlideShapeElement_routing"
         }
       },
       "required": [
@@ -1465,6 +1482,9 @@
         },
         "endArrow": {
           "$ref": "#/$defs/SlideShapeElement_startArrow"
+        },
+        "routing": {
+          "$ref": "#/$defs/SlideShapeElement_routing"
         }
       },
       "required": [
@@ -1634,6 +1654,10 @@
         },
         "stroke": {
           "type": "string"
+        },
+        "routing": {
+          "$ref": "#/$defs/SlideShapeElement_routing",
+          "description": "Automatic orthogonal routing; omitted means a straight segment."
         },
         "shape": {
           "$ref": "#/$defs/SlideElementInput_2_shape"

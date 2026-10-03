@@ -71,3 +71,22 @@ const snap = findNearestConnectorPort({ x: 247, y: 110 }, [{ id: "diagram-node",
 `getOfficePresetConnectorPort(preset, index)` は、変更されていない既定のrect/roundRect/diamond/ellipse/triangle、フロー図のprocess/decision/terminator/predefinedProcess/preparation/delayと矢印の左右端の接続点番号を変換します。未対応の番号は `undefined` です。調整値つきの図形や任意のcustom geometryには使わず、利用側で端点を維持して未対応の接続を通知します。番号順は[Apache POIのDrawingML図形定義](https://raw.githubusercontent.com/apache/poi/trunk/poi/src/main/resources/org/apache/poi/sl/draw/geom/presetShapeDefinitions.xml)に沿います。
 
 モデル層で使う場合は純粋な専用入口 `@likex/core/connectors` を読み込みます。この入口はReact・DOM・ブラウザーイベント・Office処理へ依存しません。通常の `@likex/core` からも同じ型・関数を公開します。コピー導入では `core/connectors.ts` を参照します。
+
+## 自動の折れ線
+
+`ConnectorRouting` は `straight | elbow` です。`getConnectorRoute(start, end, options?)` は `{ points, bounds }` を返します。省略時は従来の直線です。`points` は始点から終点の順、`bounds` は途中の折れ点を含む外接矩形です。
+
+```ts
+const route = getConnectorRoute(start, end, {
+  routing: "elbow",
+  startTarget: { id: "source", box: sourceBox },
+  endTarget: { id: "destination", box: destinationBox },
+  clearance: 16,
+});
+```
+
+端点の座標は、呼び出し側で接続先の現在の位置から解決して渡します。対象IDが `binding.targetId` と一致する対象だけを経路計算に使います。折れ線は水平・垂直の線分で構成し、接続点の向きと図形の回転・反転から出口方向を決めます。向かい合う接続点は中央で折り、近接する図形では余白を縮めます。再計算は同じ入力から同じ結果を返し、保存モデルを変更しません。
+
+接続した図形の外接矩形を可能な範囲で避けます。接続していない第三の図形を避ける経路探索、途中の折れ点の手動固定は対象外です。重なっている図形では、その重なりを通過する区間が残る場合があります。0サイズ・同じ端点・同じ図形への接続でも有限の経路を返します。`clearance` は0以上の有限数です。
+
+Office出力用の `createOfficeElbowConnectorGeometry(points, bounds)` は、最大64点の開いた標準DrawingMLパスを返します。各モジュールが線書式、矢印、変形、接続先参照を組み合わせます。`readOfficeElbowConnectorEndpoints(custGeom)` は、対応識別guideと数値パスを検証した場合だけ、0〜1の正規化座標で `{ start, end }` を返します。任意の数式やcustom geometryは評価しません。Office既定の `bentConnector2`〜`bentConnector5` を取り込む場合の調整値や経路の置換は、各モジュールが通知します。

@@ -72,7 +72,7 @@ test('line menu has four endpoint presets independent of left/right block arrow 
   await change(() => { renderer = create(h(m.SlideRibbon, { editor, propertiesOpen: false, onProperties() {}, ownerDocument: null })); });
   t.after(() => change(() => renderer.unmount()));
   const menu = renderer.root.findByProps({ 'aria-label': '線を挿入' });
-  assert.deepEqual(menu.findAllByType('option').slice(1).map(node => node.props.value), ['plain', 'right', 'left', 'both']);
+  assert.deepEqual(menu.findAllByType('option').slice(1).map(node => node.props.value), ['plain', 'right', 'left', 'both', 'elbow', 'elbowRight', 'elbowLeft', 'elbowBoth']);
   for (const value of ['plain', 'right', 'left', 'both']) await change(() => menu.props.onChange({ target: { value } }));
   assert.deepEqual(commands.map(command => [command.type, command.startArrow, command.endArrow]), [ ['line.add','none','none'], ['line.add','none','triangle'], ['line.add','triangle','none'], ['line.add','triangle','triangle'] ]);
   for (const label of ['右ブロック矢印', '左ブロック矢印']) await change(() => renderer.root.findByProps({ 'aria-label': label }).props.onClick());
@@ -139,4 +139,25 @@ test('expanded Office shape artwork shares path fills and the dedicated text rec
   const text = renderer.root.findByProps({ className: 'lxp-shape-text' }), rect = m.getSlideShapeTextRect(element);
   for (const key of ['left', 'top', 'width', 'height']) assert.equal(text.props.style[key], rect[key]);
   assert.deepEqual(text.children, ['書類']);
+});
+
+
+test('elbow line menu, path selector, endpoint handles and hit area follow the common route', async t => {
+  const commands = [], editor = { deck: initial(), editable: true, readOnly: false, features: { formatting: true, shapes: true }, selection: { slideId: 's', elementIds: ['line'] }, execute(command) { commands.push(command); } };
+  let renderer;
+  await change(() => { renderer = create(h(m.SlideRibbon, { editor, propertiesOpen: false, onProperties() {}, ownerDocument: null })); });
+  t.after(() => change(() => renderer.unmount()));
+  await change(() => renderer.root.findByProps({ 'aria-label': '線を挿入' }).props.onChange({ target: { value: 'elbowRight' } }));
+  assert.equal(commands.at(-1).routing, 'elbow'); assert.equal(commands.at(-1).endArrow, 'triangle');
+  assert.notEqual(commands.at(-1).start.y, commands.at(-1).end.y);
+  await change(() => renderer.update(h(m.SlideProperties, { editor, onClose() {} })));
+  await change(() => renderer.root.findByProps({ 'aria-label': '線の経路' }).props.onChange({ target: { value: 'elbow' } }));
+  assert.equal(commands.at(-1)[0].routing, 'elbow');
+  const deck = m.applySlideCommands(initial(), { type: 'line.update', slideId: 's', elementId: 'line', routing: 'elbow', endArrow: 'triangle' }).deck;
+  const app = await mount(t, { deck }), line = app.renderer.root.findByProps({ 'data-slide-element': 'line' });
+  assert.equal(line.findAllByProps({ className: 'lxp-line-handle' }).length, 2);
+  const hit = line.findByProps({ className: 'lxp-line-hit' }).findByType('polyline');
+  assert.ok(hit.props.points.split(' ').length > 2); assert.equal(hit.props.style.pointerEvents, 'stroke');
+  await app.begin('end'); await app.move(201, 140); await app.finish(201, 140);
+  assert.equal(app.editor.deck.slides[0].elements.find(element => element.id === 'line').routing, 'elbow');
 });

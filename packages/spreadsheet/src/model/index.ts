@@ -1,5 +1,5 @@
 export * from "./types";
-export { getSpreadsheetLinePoints, isSpreadsheetLine } from "./lines";
+export { getSpreadsheetLinePoints, getSpreadsheetLineRoute, isSpreadsheetLine } from "./lines";
 export { updateLineEndpoints } from "./workbook/lines";
 export { SPREADSHEET_SHAPES } from "./shapes";
 export type { SpreadsheetShapeKind, SpreadsheetShapeCategory, SpreadsheetShapeInfo } from "./shapes";

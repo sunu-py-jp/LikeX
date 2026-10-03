@@ -29,6 +29,9 @@ const json = serializeDocument(result.document);
 | `table.insert` | 行数・列数を指定して表を挿入 |
 | `image.insert` / `image.update` | 埋め込み画像を追加・更新 |
 | `shape.insert` / `shape.update` | Officeプリセット図形を追加・更新 |
+| `canvas.insert` / `canvas.update` | 描画キャンバスの追加・寸法変更 |
+| `canvas.shape.insert` / `canvas.shape.update` / `canvas.shape.delete` | キャンバス内の図形を追加・変更・削除 |
+| `canvas.connector.insert` / `canvas.connector.update` / `canvas.connector.delete` | キャンバス内の接続線を追加・変更・削除 |
 | `pageBreak.insert` | 明示的な改ページ |
 | `block.delete` | IDでブロックを削除 |
 | `document.update` / `document.replace` | タイトル・用紙を変更、または文書全体を置換 |
@@ -77,3 +80,38 @@ const edited = executeDocumentCommands(result.document, {
 ```
 
 `preset` は `OfficeShapePreset` の39種。`@likex/core/office-shapes` の `OFFICE_SHAPE_PRESETS` からラベル付き一覧を取得できます。寸法と線幅はpx、回転は度、文字サイズはpt。塗りと線を消す場合は `fill: null` / `stroke: null`。`shape.update` は指定した属性だけを変更します。幅だけの変更で高さは変えません。挿入結果の `selection` は新しい図形を選択し、図形の削除は `block.delete` を使います。
+
+## 描画キャンバスと自動直交コネクタ
+
+```ts
+import { getCanvases, getCanvas, getDocumentCanvasConnectorRoute } from "@likex/document/model";
+
+const inserted = executeDocumentCommands(document, {
+  type: "canvas.insert", at: 0, width: 600, height: 360,
+  shapes: [
+    { id: "entry", preset: "roundRect", text: "受注登録", x: 30, y: 40, width: 150, height: 80 },
+    { id: "approval", preset: "diamond", text: "承認", x: 360, y: 200, width: 150, height: 90 },
+  ],
+  connectors: [{
+    id: "approve-route", routing: "elbow",
+    start: { x: 0, y: 0, binding: { targetId: "entry", port: "right" } },
+    end: { x: 0, y: 0, binding: { targetId: "approval", port: "left" } },
+    endArrow: "triangle",
+  }],
+});
+const canvas = getCanvases(inserted.document)[0];
+const moved = executeDocumentCommands(inserted.document, {
+  type: "canvas.shape.update", canvasId: canvas.id, id: "approval", patch: { x: 390, y: 120 },
+});
+const current = getCanvas(moved.document, canvas.id)!;
+const route = getDocumentCanvasConnectorRoute(current.node.attrs, current.node.attrs.connectors![0]);
+// route.points: 自動計算した折れ線の頂点、route.bounds: 経路の矩形
+```
+
+`getCanvases` / `getCanvas` はキャンバスのID・現在位置・保存属性を返します。図形・接続線のIDは同じキャンバス内で一意です。内部図形の座標・寸法はpxで、通常のインライン図形と同じ39種類と書式を利用します。`canvas.shape.insert` の `shape.id`、`canvas.connector.insert` の `connector.id` は省略すると生成します。
+
+更新は `canvasId`、内部要素の `id`、変更する属性だけを含む `patch` で指定します。`canvas.update` はブロックの `id` と幅・高さを受け取ります。`block.delete` はキャンバス全体を削除します。1キャンバスにつき図形・接続線はそれぞれ最大500個、幅・高さは1〜16,384 pxです。一括コマンドは全体を検証してから返し、失敗時に入力を変更しません。
+
+端点は `{ x, y, binding?: { targetId, port } }`。`binding` があれば現在の接続先から座標を解決します。接続点は `top` / `topRight` / `right` / `bottomRight` / `bottom` / `bottomLeft` / `left` / `topLeft`。未接続の端点は指定座標を使います。`routing` は既定の `elbow` または `straight`。矢印は `startArrow` / `endArrow` に `none` / `triangle` / `openArrow` / `diamond` / `oval` / `stealth` を指定します。既定は始点なし・終点三角です。
+
+図形の移動や寸法変更後は接続された端点を更新します。図形削除時は最後の端点位置を保持して接続を解除します。`getDocumentCanvasTarget(shape)` は共通コネクタ用の位置・輪郭情報を返します。接続先は同じキャンバスに限り、他の図形の回避や別キャンバスをまたぐ線は扱いません。

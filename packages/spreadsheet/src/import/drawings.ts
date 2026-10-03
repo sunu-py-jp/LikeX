@@ -1,4 +1,5 @@
-import { readOfficeConnectorShapeTag } from "../ooxml";
+import { readOfficeConnectorShapeTag, readOfficeElbowConnectorEndpoints } from "../ooxml";
+import { connectorLocalToWorld } from "../model/core-connectors";
 import { withLinePoints } from "../model/lines";
 import { isSpreadsheetShapeKind } from "../model/shapes";
 import { connectImportedDrawings, connectorPoints, presetHasAdjustments, readConnectorFrame, readLineArrow, type ImportedDrawingTarget, type PendingDrawingConnector } from "./drawing-connectors";
@@ -46,9 +47,10 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
       if (!object || !["pic", "sp", "cxnSp"].includes(localName(object.name))) { omitted(context, sheet, "グラフ・グループなど未対応の描画オブジェクトを省略しました"); continue; }
       const properties = child(object, "spPr"), transform = child(properties, "xfrm");
       const connector = localName(object.name) === "cxnSp", customKind = readOfficeConnectorShapeTag(child(properties, "custGeom"));
+      const elbowEndpoints = connector ? readOfficeElbowConnectorEndpoints(child(properties, "custGeom")) : undefined;
       const rotationValue = finiteNumber(transform?.attributes.rot);
       const rotation = normalizeDrawingRotation((rotationValue ?? 0) / 60000);
-      const nativeFrame = connector ? readConnectorFrame(transform) : rotation || customKind ? readTransformFrame(transform) : undefined;
+      const nativeFrame = connector ? readConnectorFrame(transform, !!elbowEndpoints) : rotation || customKind ? readTransformFrame(transform) : undefined;
       let frame = nativeFrame ?? readDrawingFrame(container, grid);
       if (!frame) { omitted(context, sheet, "対応範囲外のサイズ・位置を持つオブジェクトを省略しました"); continue; }
       if (rotation && !nativeFrame) adjusted(context, sheet, "回転したオブジェクトの位置をセルのアンカーから近似しました");
@@ -70,9 +72,17 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
       let drawing: SpreadsheetDrawing;
       if (connector) {
         const preset = child(properties, "prstGeom")?.attributes.prst;
-        if (preset !== "line") adjusted(context, sheet, "曲線・折れ線の接続線を始点と終点を結ぶ直線へ変更しました");
+        const elbow = !!elbowEndpoints || /^bentConnector[2-5]$/.test(preset ?? "");
+        if (elbow && !elbowEndpoints) adjusted(context, sheet, "折れ線の経由点を接続先に追従する自動経路へ変更しました");
+        else if (!elbow && preset !== "line" && preset !== "straightConnector1") adjusted(context, sheet, "未対応の曲線の接続線を始点と終点を結ぶ直線へ変更しました");
         const content = drawingText(child(object, "txBody"), context, sheet);
-        const endpoints = connectorPoints(frame, transform), nonvisual = child(child(object, "nvCxnSpPr"), "cNvCxnSpPr");
+        const standardEndpoints = connectorPoints(frame, transform);
+        const transformBox = { ...frame, rotation, flipX: !!common.flipX, flipY: !!common.flipY };
+        const endpoints = elbowEndpoints ? {
+          start: connectorLocalToWorld({ x: elbowEndpoints.start.x * frame.width, y: elbowEndpoints.start.y * frame.height }, transformBox),
+          end: connectorLocalToWorld({ x: elbowEndpoints.end.x * frame.width, y: elbowEndpoints.end.y * frame.height }, transformBox),
+        } : standardEndpoints;
+        const nonvisual = child(child(object, "nvCxnSpPr"), "cNvCxnSpPr");
         const line = child(properties, "ln");
         sheet = grow(sheet, anchor.row, anchor.column);
         for (const point of [endpoints.start, endpoints.end]) {
@@ -80,7 +90,7 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
           if (endpointAnchor) sheet = grow(sheet, endpointAnchor.row, endpointAnchor.column);
         }
         drawing = withLinePoints(sheet, { ...common, width: Math.max(1, common.width), height: Math.max(1, common.height), type: "shape", shape: "line", fill: "transparent",
-          stroke: drawingFill(line, "#000000", context, sheet), strokeWidth: originalStroke, ...content,
+          stroke: drawingFill(line, "#000000", context, sheet), strokeWidth: originalStroke, ...content, ...(elbow ? { routing: "elbow" as const } : {}),
           startArrow: readLineArrow(line, "headEnd", context, sheet), endArrow: readLineArrow(line, "tailEnd", context, sheet) }, endpoints);
         pending.push({ drawingId: drawing.id, scope: relation.target, points: endpoints, start: child(nonvisual, "stCxn"), end: child(nonvisual, "endCxn") });
         if (child(line, "prstDash")?.attributes.val && child(line, "prstDash")!.attributes.val !== "solid") adjusted(context, sheet, "線の破線を実線へ変更しました");

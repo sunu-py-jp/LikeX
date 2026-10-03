@@ -2342,6 +2342,10 @@
         "stroke": {
           "type": "string"
         },
+        "routing": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_routing",
+          "description": "Two-endpoint routing. Omitted means straight; elbow is recalculated from current targets."
+        },
         "shape": {
           "$ref": "#/$defs/SpreadsheetShapeKind"
         },
@@ -2455,6 +2459,12 @@
         "bottomRight",
         "bottomLeft",
         "topLeft"
+      ]
+    },
+    "SpreadsheetCommand_33_payload_drawing_2_routing": {
+      "enum": [
+        "straight",
+        "elbow"
       ]
     },
     "SpreadsheetCommand_33_payload_drawing_2_startArrow": {
@@ -2628,6 +2638,9 @@
         "shape": {
           "$ref": "#/$defs/SpreadsheetCommand_35_shape"
         },
+        "routing": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_routing"
+        },
         "stroke": {
           "type": "string"
         },
@@ -2672,6 +2685,9 @@
         },
         "end": {
           "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+        },
+        "routing": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_routing"
         },
         "startArrow": {
           "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
@@ -2833,6 +2849,10 @@
         },
         "stroke": {
           "type": "string"
+        },
+        "routing": {
+          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_routing",
+          "description": "Two-endpoint routing. Omitted means straight; elbow is recalculated from current targets."
         },
         "shape": {
           "$ref": "#/$defs/SpreadsheetCommand_38_patch_shape"

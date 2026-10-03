@@ -42,13 +42,13 @@ export function SpreadsheetInsertToolbar({ controller: c }: { controller: Spread
       if (result.results[0]?.drawingId) latest.current.selectDrawing(result.results[0].drawingId);
     }));
   };
-  const shape = (kind: SpreadsheetShapeDrawing["shape"], markers?: { startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead }) => {
+  const shape = (kind: SpreadsheetShapeDrawing["shape"], markers?: { startArrow: ConnectorArrowhead; endArrow: ConnectorArrowhead; routing?: "straight" | "elbow" }) => {
     if (kind !== "line" && kind !== "arrow") { insert({ type: "shapes.insert", sheetId: latest.current.activeSheet.id, shape: kind, anchor: anchor() }, "shapes"); return; }
     const current = latest.current;
     if (current.disabled || current.requesting || !current.features.shapes) return;
     const start = anchorPoint(anchor(), sheetDrawingGeometry(current.activeSheet));
     current.afterCommit(() => latest.current.afterCommand({ type: "lines.insert", sheetId: current.activeSheet.id, shape: kind, ...markers, start,
-      end: { x: start.x + 160, y: start.y } }, result => { if (result.results[0]?.drawingId) latest.current.selectDrawing(result.results[0].drawingId); }));
+      end: { x: start.x + 160, y: start.y + (markers?.routing === "elbow" ? 80 : 0) } }, result => { if (result.results[0]?.drawingId) latest.current.selectDrawing(result.results[0].drawingId); }));
   };
   const upload = (file: File) => {
     const current = latest.current;

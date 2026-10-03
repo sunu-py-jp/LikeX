@@ -38,11 +38,15 @@ test('every supported function has a working example in the actual playground wo
   });
 });
 
-test('the shape gallery demo contains all and only the requested basic shapes, lines and block arrows', () => {
+test('the shape gallery demo contains the supported Office shapes, lines and flowchart symbols', () => {
   const workbook = normalizeWorkbook(createDemoWorkbook());
   const drawings = workbook.sheets.find(sheet => sheet.id === 'shape-catalog').drawings;
   const expected = ['rectangle', 'roundedRectangle', 'ellipse', 'triangle', 'rightTriangle', 'diamond',
-    'parallelogram', 'trapezoid', 'line', 'arrow', 'rightArrow', 'leftArrow', 'upArrow', 'downArrow', 'leftRightArrow', 'upDownArrow'];
+    'parallelogram', 'trapezoid', 'line', 'arrow', 'rightArrow', 'leftArrow', 'upArrow', 'downArrow', 'leftRightArrow', 'upDownArrow',
+    'bentArrow', 'bentUpArrow', 'uturnArrow', 'leftUpArrow', 'leftRightUpArrow', 'quadArrow', 'chevron', 'homePlate',
+    'pentagon', 'hexagon', 'octagon', 'star5', 'plus', 'flowChartProcess', 'flowChartDecision', 'flowChartTerminator',
+    'flowChartInputOutput', 'flowChartPredefinedProcess', 'flowChartDocument', 'flowChartMultidocument',
+    'flowChartPreparation', 'flowChartManualInput', 'flowChartManualOperation', 'flowChartMerge', 'flowChartDelay'];
   assert.deepEqual(SPREADSHEET_SHAPES.map(shape => shape.kind).sort(), expected.sort());
   assert.deepEqual(drawings.map(drawing => drawing.shape).sort(), expected.sort());
   assert.ok(drawings.every(drawing => drawing.type === 'shape' && drawing.width > 0 && drawing.height > 0));

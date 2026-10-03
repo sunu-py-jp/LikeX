@@ -90,7 +90,7 @@ export async function renderSlideImage(request: SlideImageRenderRequest): Promis
         if (element.type === "image") {
           const scale = Math.min(element.width / image!.width, element.height / image!.height), w = image!.width * scale, h = image!.height * scale;
           target.drawImage(image!.source, (element.width - w) / 2, (element.height - h) / 2, w, h);
-        } else if (element.type === "shape") { drawShape(target, element); if (element.text) drawText(target, element); }
+        } else if (element.type === "shape") { drawShape(target, element, elements); if (element.text) drawText(target, element); }
         else drawText(target, element);
       } finally { target.restore(); }
     };
@@ -142,10 +142,10 @@ function hasChunk(bytes: Uint8Array, name: string, webp: boolean): boolean {
   }
   return false;
 }
-function drawShape(context: CanvasRenderingContext2D, element: SlideShapeElement) {
-  const shape = getSlideShapeGeometry(element);
+function drawShape(context: CanvasRenderingContext2D, element: SlideShapeElement, elements: readonly SlideElement[]) {
+  const shape = getSlideShapeGeometry(element, elements);
   context.save();
-  if (shape.kind !== "line" && shape.kind !== "paths") { context.beginPath(); context.rect(0, 0, element.width, element.height); context.clip(); }
+  if (shape.kind !== "line" && shape.kind !== "polyline" && shape.kind !== "paths") { context.beginPath(); context.rect(0, 0, element.width, element.height); context.clip(); }
   if (shape.kind === "paths") {
     for (const geometry of shape.paths) {
       const path = new Path2D(geometry.d);
@@ -159,6 +159,7 @@ function drawShape(context: CanvasRenderingContext2D, element: SlideShapeElement
   context.lineCap = "round"; context.beginPath();
   if (shape.kind === "ellipse") context.ellipse(shape.cx, shape.cy, shape.rx, shape.ry, 0, 0, Math.PI * 2);
   else if (shape.kind === "line") { context.moveTo(shape.x1, shape.y1); context.lineTo(shape.x2, shape.y2); }
+  else if (shape.kind === "polyline") { shape.points.forEach(([x, y], index) => index ? context.lineTo(x, y) : context.moveTo(x, y)); }
   else if (shape.kind === "polygon") { shape.points.forEach(([x, y], index) => index ? context.lineTo(x, y) : context.moveTo(x, y)); context.closePath(); }
   else {
     const { x, y, width, height } = shape, r = Math.min(shape.radius, width / 2, height / 2);
@@ -170,9 +171,9 @@ function drawShape(context: CanvasRenderingContext2D, element: SlideShapeElement
       context.lineTo(x, y + r); context.arcTo(x, y, x + r, y, r); context.closePath();
     }
   }
-  if (shape.kind !== "line" && element.fill !== "transparent") { context.fillStyle = element.fill; context.fill(); }
+  if (shape.kind !== "line" && shape.kind !== "polyline" && element.fill !== "transparent") { context.fillStyle = element.fill; context.fill(); }
   if (element.strokeWidth > 0 && element.stroke !== "transparent") { context.strokeStyle = element.stroke; context.lineWidth = element.strokeWidth; context.lineJoin = "round"; context.stroke(); }
-  for (const marker of getSlideLineMarkers(element)) {
+  for (const marker of getSlideLineMarkers(element, elements)) {
     context.beginPath();
     if (marker.kind === "ellipse") context.ellipse(marker.cx, marker.cy, marker.rx, marker.ry, marker.rotation, 0, Math.PI * 2);
     else { marker.points.forEach(([x, y], index) => index ? context.lineTo(x, y) : context.moveTo(x, y)); if (marker.kind === "polygon") context.closePath(); }

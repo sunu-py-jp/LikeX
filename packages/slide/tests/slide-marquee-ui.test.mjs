@@ -12,7 +12,7 @@ const output = await build({
     builder.onResolve({ filter: /^(react|react-dom|lucide-react)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
-const { SlideCanvas, createSlideDeck, createSlideElement } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { SlideCanvas, createSlideDeck, createSlideElement, applySlideCommands, getSlideLineRoute } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const change = async callback => act(async () => { await callback(); });
 const pointer = (x, y, extra = {}) => ({
   button: 0, pointerId: 7, clientX: x, clientY: y, shiftKey: false, ctrlKey: false, metaKey: false, altKey: false,
@@ -238,4 +238,19 @@ test('Ctrl and Meta element clicks retain existing toggle selection behavior wit
   }
   assert.deepEqual(app.editor.selection.elementIds, ['locked']);
   assert.equal(app.commands.length, 0);
+});
+
+
+test('marquee requires the whole routed elbow, including bends outside the endpoint rectangle', async t => {
+  const app = await mount(t);
+  app.editor.deck = applySlideCommands(app.editor.deck, {type:'line.add',slideId:'one',id:'elbow',routing:'elbow',start:{x:0,y:0,binding:{targetId:'first',port:'left'}},end:{x:0,y:0,binding:{targetId:'partial',port:'right'}}}).deck;
+  await app.refresh();
+  const line = app.editor.deck.slides[0].elements.find(item=>item.id==='elbow');
+  const route = getSlideLineRoute(line,app.editor.deck.slides[0].elements), {start,end}=line.line;
+  const left=Math.min(start.x,end.x),top=Math.min(start.y,end.y),right=Math.max(start.x,end.x),bottom=Math.max(start.y,end.y);
+  assert.ok(route.bounds.x<left || route.bounds.y<top || route.bounds.x+route.bounds.width>right || route.bounds.y+route.bounds.height>bottom);
+  await app.start(left-.1,top-.1); await app.finish(right+.1,bottom+.1);
+  assert.equal(app.editor.selection.elementIds.includes('elbow'),false);
+  await app.start(route.bounds.x-1,route.bounds.y-1); await app.finish(route.bounds.x+route.bounds.width+1,route.bounds.y+route.bounds.height+1);
+  assert.equal(app.editor.selection.elementIds.includes('elbow'),true);
 });

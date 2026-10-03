@@ -72,9 +72,9 @@ export type SpreadsheetCommand = DeepReadonly<
   | { type: "drawings.delete"; sheetId: string; drawingId: string }
   /** Coordinates are CSS pixels from A1, excluding the row/column headers. */
   | { type: "lines.insert"; sheetId: string; start: SpreadsheetLineEndpoint; end: SpreadsheetLineEndpoint;
-      shape?: "line" | "arrow"; stroke?: string; strokeWidth?: number; startArrow?: SpreadsheetShapeDrawing["startArrow"]; endArrow?: SpreadsheetShapeDrawing["endArrow"] }
+      shape?: "line" | "arrow"; routing?: SpreadsheetShapeDrawing["routing"]; stroke?: string; strokeWidth?: number; startArrow?: SpreadsheetShapeDrawing["startArrow"]; endArrow?: SpreadsheetShapeDrawing["endArrow"] }
   /** Supplying an endpoint without binding explicitly detaches it. */
-  | { type: "lines.update"; sheetId: string; drawingId: string; start?: SpreadsheetLineEndpoint; end?: SpreadsheetLineEndpoint; startArrow?: SpreadsheetShapeDrawing["startArrow"]; endArrow?: SpreadsheetShapeDrawing["endArrow"] }
+  | { type: "lines.update"; sheetId: string; drawingId: string; start?: SpreadsheetLineEndpoint; end?: SpreadsheetLineEndpoint; routing?: SpreadsheetShapeDrawing["routing"]; startArrow?: SpreadsheetShapeDrawing["startArrow"]; endArrow?: SpreadsheetShapeDrawing["endArrow"] }
   | { type: "images.update"; sheetId: string; drawingId: string; patch: SpreadsheetImageCommandPatch }
   | { type: "shapes.update"; sheetId: string; drawingId: string; patch: SpreadsheetShapeCommandPatch }
   | { type: "textBoxes.update"; sheetId: string; drawingId: string; patch: SpreadsheetTextBoxCommandPatch }

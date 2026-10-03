@@ -6,7 +6,7 @@ import { validateSlideImageSource } from "./image-source";
 import { boolean, choice, color, fontFamily, identifier, list, number, record, text } from "./validation";
 import { DECK_KEYS, ELEMENT_KEYS, SLIDE_KEYS } from "./schema";
 import { normalizeSlideAnimations } from "./animation-validation";
-import { normalizeSlideLine, resolveSlideLines, slideLineGeometry } from "./lines";
+import { getSlideLineEndpoints, normalizeSlideLine, resolveSlideLines, slideLineGeometry } from "./lines";
 import { slideTextLength, slideElementTextLength } from "./text-length";
 import { normalizeMasterCatalog } from "./master-normalization";
 export { ELEMENT_KEYS } from "./schema";
@@ -37,7 +37,7 @@ function imageSource(value: unknown): { src: string; bytes: number } {
   return result;
 }
 
-export function normalizeSlideElement(input: unknown): SlideElement {
+export function normalizeSlideElement(input: unknown, targets: readonly SlideElement[] = []): SlideElement {
   if (elements.has(input as SlideElement)) return input as SlideElement;
   const raw = record(input, "要素", [...ELEMENT_KEYS.text, ...ELEMENT_KEYS.shape, ...ELEMENT_KEYS.image]);
   const type = choice(raw.type, ["text", "shape", "image"], "要素の種類");
@@ -68,10 +68,14 @@ export function normalizeSlideElement(input: unknown): SlideElement {
     result = { ...base, type, src: image.src, alt: text(raw.alt, "画像の説明", 10_000) };
     imageBytes.set(result, image.bytes);
   }
-  if (raw.line !== undefined) {
+  if (raw.routing !== undefined) {
+    if (result.type !== "shape" || result.shape !== "line") throw new Error("線の経路は線だけに指定できます");
+    result = { ...result, routing: choice(raw.routing, ["straight", "elbow"] as const, "線の経路") };
+  }
+  if (raw.line !== undefined || result.type === "shape" && result.routing !== undefined) {
     if (result.type !== "shape" || result.shape !== "line") throw new Error("端点は線だけに指定できます");
-    const line = normalizeSlideLine(raw.line);
-    result = { ...result, ...slideLineGeometry(line), line };
+    const line = normalizeSlideLine(raw.line ?? getSlideLineEndpoints(result));
+    result = { ...result, ...slideLineGeometry(line, result.routing, targets), line };
   }
   for (const key of ["startArrow", "endArrow"] as const) if (raw[key] !== undefined) {
     if (result.type !== "shape" || result.shape !== "line") throw new Error("端点の矢印は線だけに指定できます");
@@ -100,13 +104,13 @@ export function createSlideElement(input: SlideElementInput): SlideElement {
 export function normalizeSlide(input: unknown): Slide {
   if (slides.has(input as Slide)) return input as Slide;
   const raw = record(input, "スライド", SLIDE_KEYS);
-  let accepted = list(raw.elements, "スライドの要素", SLIDE_LIMITS.elementsPerSlide).map(normalizeSlideElement);
+  let accepted = list(raw.elements, "スライドの要素", SLIDE_LIMITS.elementsPerSlide).map(element => normalizeSlideElement(element));
   const ids = new Set<string>();
   for (const element of accepted) {
     if (ids.has(element.id)) throw new Error("要素のIDが重複しています");
     ids.add(element.id);
   }
-  accepted = resolveSlideLines(accepted).map(normalizeSlideElement);
+  accepted = resolveSlideLines(accepted).map(element => normalizeSlideElement(element, accepted));
   const result: Slide = { id: identifier(raw.id), name: text(raw.name, "スライド名", 1000),
     background: color(raw.background, "スライドの背景"), notes: text(raw.notes, "ノート", SLIDE_LIMITS.textLength), elements: accepted };
   if (raw.layoutId !== undefined) result.layoutId = identifier(raw.layoutId);

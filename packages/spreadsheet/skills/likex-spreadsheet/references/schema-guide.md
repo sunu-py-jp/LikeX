@@ -150,6 +150,8 @@
 
 ### 線の保存構造
 
-`shape: "line"` は任意の `line: { start: { anchor, binding? }, end: { anchor, binding? } }` と `startArrow?`, `endArrow?` を持つ。端点の `anchor` は同じシートのセルアンカー（行列は0始まり、offsetは-10,000〜10,000px）、bindingは `{ targetId, port }`。自由端点は行列寸法・挿入に追従し、接続端点は同シート非線描画の8接続点に追従する。`line` があればrotation/flipX/flipYを併用しない。水平・垂直線も端点はそのまま保存し、共通のwidth/heightキャッシュだけを1px以上にする。
+`shape: "line"` は任意の `line: { start: { anchor, binding? }, end: { anchor, binding? } }` と `routing?: "straight" | "elbow"`, `startArrow?`, `endArrow?` を持つ。`routing` は2端点を持つ線専用で、省略は直線。正規化ではstraightを省略し、elbowだけを保存する。折れ線の中間点は接続先に合わせて再計算し、保存しない。端点の `anchor` は同じシートのセルアンカー（行列は0始まり、offsetは-10,000〜10,000px）、bindingは `{ targetId, port }`。自由端点は行列寸法・挿入に追従し、接続端点は同シート非線描画の8接続点に追従する。`line` があればrotation/flipX/flipYを併用しない。水平・垂直線も端点はそのまま保存し、共通のwidth/heightキャッシュだけを1px以上にする。現在の経路の全頂点・外接矩形は `getSpreadsheetLineRoute` で取得し、キャッシュから推測しない。
 
 旧 `shape: "line" / "arrow"` の矩形形式は読み込み可能。新規は `lines.insert` の2端点で作り、矢印は `none|triangle|openArrow|diamond|oval|stealth` を両端へ個別に指定する。旧arrowでendArrow省略ならtriangle、他はnone。セルアンカーとワールド座標を取り違えないよう、直接JSONを組み立てるよりコマンドを優先する。SPONは接続と線の文字を保持し、XLSXは標準cxnSp＋8点custGeomで接続を保持するが、線の文字は独立テキストボックスへ分離して警告する。
+
+折れ線のXLSX出力は標準cxnSpのカスタム経路で端点・接続先・矢印を保持する。外部OfficeのbentConnector2〜5は取り込めるが、手動の曲がり角や調整値は自動経路へ変換して警告する。自動経路は接続先2図形のみを回避対象とし、無関係な図形は回避しない。接続先が重なる場合やOffice側の再配線では経路が異なる場合がある。

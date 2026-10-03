@@ -9,7 +9,8 @@ import type { XlsxContentType, XlsxPart } from "./types";
 import type { SpreadsheetImageRasterizer, SpreadsheetXlsxExportWarning } from "../portable-types";
 import { xml, xlsxColor } from "./xml";
 import { CONNECTOR_PORTS } from "../../core";
-import { getSpreadsheetLinePoints } from "../../model/lines";
+import { getSpreadsheetLinePoints, getSpreadsheetLineRoute, spreadsheetLineRouteMidpoint } from "../../model/lines";
+import { createOfficeElbowConnectorGeometry } from "../../ooxml";
 import { connectorTargetGeometry } from "./connector-geometry";
 
 const DRAWING_NS = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing";
@@ -146,10 +147,12 @@ function lineMarkers(drawing: Extract<SpreadsheetDrawing, { type: "shape" }>, le
 
 function connector(drawing: Extract<SpreadsheetDrawing, { type: "shape" }>, id: number, sheet: SpreadsheetSheet, ids: Map<string, number>) {
   const points = getSpreadsheetLinePoints(sheet, drawing.id);
-  const rectangle = { x: Math.min(points.start.x, points.end.x), y: Math.min(points.start.y, points.end.y), width: Math.abs(points.end.x - points.start.x), height: Math.abs(points.end.y - points.start.y) };
+  const route = getSpreadsheetLineRoute(sheet, drawing.id);
+  const rectangle = drawing.routing === "elbow" ? route.bounds : { x: Math.min(points.start.x, points.end.x), y: Math.min(points.start.y, points.end.y), width: Math.abs(points.end.x - points.start.x), height: Math.abs(points.end.y - points.start.y) };
   const binding = (end: "start" | "end") => points[end].binding ? `<a:${end === "start" ? "stCxn" : "endCxn"} id="${ids.get(points[end].binding!.targetId)}" idx="${CONNECTOR_PORTS.indexOf(points[end].binding!.port)}"/>` : "";
-  const xfrm = `<a:xfrm${points.end.x < points.start.x ? ' flipH="1"' : ""}${points.end.y < points.start.y ? ' flipV="1"' : ""}><a:off x="${emu(rectangle.x)}" y="${emu(rectangle.y)}"/><a:ext cx="${emu(rectangle.width)}" cy="${emu(rectangle.height)}"/></a:xfrm>`;
-  const content = `<xdr:cxnSp><xdr:nvCxnSpPr><xdr:cNvPr id="${id}" name="${xml(drawing.id)}"/><xdr:cNvCxnSpPr>${binding("start")}${binding("end")}</xdr:cNvCxnSpPr></xdr:nvCxnSpPr><xdr:spPr>${xfrm}<a:prstGeom prst="line"><a:avLst/></a:prstGeom><a:noFill/><a:ln w="${emu(drawing.strokeWidth)}">${fill(drawing.stroke, "000000")}${lineMarkers(drawing)}</a:ln></xdr:spPr></xdr:cxnSp>`;
+  const xfrm = `<a:xfrm${drawing.routing !== "elbow" && points.end.x < points.start.x ? ' flipH="1"' : ""}${drawing.routing !== "elbow" && points.end.y < points.start.y ? ' flipV="1"' : ""}><a:off x="${emu(rectangle.x)}" y="${emu(rectangle.y)}"/><a:ext cx="${emu(rectangle.width)}" cy="${emu(rectangle.height)}"/></a:xfrm>`;
+  const pathGeometry = drawing.routing === "elbow" ? createOfficeElbowConnectorGeometry(route.points, route.bounds) : '<a:prstGeom prst="line"><a:avLst/></a:prstGeom>';
+  const content = `<xdr:cxnSp><xdr:nvCxnSpPr><xdr:cNvPr id="${id}" name="${xml(drawing.id)}"/><xdr:cNvCxnSpPr>${binding("start")}${binding("end")}</xdr:cNvCxnSpPr></xdr:nvCxnSpPr><xdr:spPr>${xfrm}${pathGeometry}<a:noFill/><a:ln w="${emu(drawing.strokeWidth)}">${fill(drawing.stroke, "000000")}${lineMarkers(drawing)}</a:ln></xdr:spPr></xdr:cxnSp>`;
   return { rectangle, content };
 }
 
@@ -202,7 +205,8 @@ export async function prepareWorksheetDrawings(sheet: SpreadsheetSheet, inputRes
       // Spreadsheet CT_Connector has no txBody. Retain the text in a standard, independently editable text box.
       const points = getSpreadsheetLinePoints({ ...sheet, drawings }, drawing.id);
       const width = Math.max(120, Math.min(10000, Math.abs(points.end.x - points.start.x))), height = Math.min(10000, Math.max(40, (drawing.fontSize ?? 16) * 1.4 * drawing.text.split(/\r\n|\r|\n/).length + 16));
-      const labelFrame = { x: Math.max(0, (points.start.x + points.end.x - width) / 2), y: Math.max(0, (points.start.y + points.end.y - height) / 2), width, height };
+      const labelPoint = spreadsheetLineRouteMidpoint(getSpreadsheetLineRoute({ ...sheet, drawings }, drawing.id).points);
+      const labelFrame = { x: Math.max(0, labelPoint.x - width / 2), y: Math.max(0, labelPoint.y - height / 2), width, height };
       const label: Extract<SpreadsheetDrawing, { type: "text" }> = { id: `${drawing.id}-label`, type: "text", anchor: drawing.anchor, width, height,
         text: drawing.text, fontSize: drawing.fontSize ?? 16, color: drawing.color ?? "#1f2937", bold: drawing.bold, background: "transparent" };
       const labelXml = anchored(labelFrame, textBox(label, drawings.length + index + 1, labelFrame), grid);

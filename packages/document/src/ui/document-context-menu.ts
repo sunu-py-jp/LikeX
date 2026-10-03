@@ -3,7 +3,7 @@ import { documentSchema, getBlock, getDocumentText, DOCUMENT_LIMITS } from "../m
 import type { DocumentCommand } from "../model/types";
 import type { DocumentEditor } from "../state/use-document-editor";
 
-export type DocumentContextTarget = { kind: "image" | "table" | "shape"; id: string } | { kind: "document" };
+export type DocumentContextTarget = { kind: "image" | "table" | "shape" | "drawing_canvas"; id: string } | { kind: "document" };
 type MenuEnvironment = { isCurrent(): boolean; focus(): void; copyText?: (text: string) => Promise<void> };
 
 /** The menu captures a snapshot, while every action reads the current controller again. */
@@ -39,10 +39,10 @@ export function createDocumentContextMenuItems(getEditor: () => DocumentEditor, 
     }
     return items;
   }
-  if (!initial.features[target.kind === "image" ? "images" : target.kind === "shape" ? "shapes" : "tables"]) return items;
+  if (!initial.features[target.kind === "image" ? "images" : (target.kind === "shape" || target.kind === "drawing_canvas") ? "shapes" : "tables"]) return items;
   const block = getBlock(snapshot.document, target.id);
   if (!block || block.node.type !== target.kind) return items;
-  const name = target.kind === "image" ? "画像" : target.kind === "shape" ? "図形" : "表";
+  const name = target.kind === "image" ? "画像" : target.kind === "shape" ? "図形" : target.kind === "drawing_canvas" ? "描画キャンバス" : "表";
   add(`${target.kind}-select`, `${name}を選択`, () => { getEditor().select({ from: block.from, to: block.to }); environment.focus(); });
   if (block.node.type === "image") {
     const { src, alt, width, height } = block.node.attrs;
@@ -64,12 +64,13 @@ export function createDocumentContextMenuItems(getEditor: () => DocumentEditor, 
 /** Ordinary text keeps the browser menu, including spelling and native clipboard actions. */
 export function resolveDocumentContextTarget(target: HTMLElement, viewport: HTMLElement): { target: DocumentContextTarget; anchor: HTMLElement } | null {
   if (!viewport.contains(target)) return null;
+  const canvas = target.closest<HTMLElement>("[data-document-canvas][data-document-id]");
   const shape = target.closest<HTMLElement>("[data-document-shape][data-document-id]");
   const image = target.closest<HTMLElement>("img[data-document-id]");
-  if (!image && !shape && target.closest("p,h1,h2,h3,h4,h5,h6,a,input,textarea,button,select")) return null;
+  if (!image && !shape && !canvas && target.closest("p,h1,h2,h3,h4,h5,h6,a,input,textarea,button,select")) return null;
   const table = target.closest<HTMLElement>("table[data-document-id]");
-  const resource = shape ?? image ?? table;
-  if (resource && viewport.contains(resource)) return { target: { kind: shape ? "shape" : image ? "image" : "table", id: resource.getAttribute("data-document-id")! }, anchor: resource };
+  const resource = canvas ?? shape ?? image ?? table;
+  if (resource && viewport.contains(resource)) return { target: { kind: canvas ? "drawing_canvas" : shape ? "shape" : image ? "image" : "table", id: resource.getAttribute("data-document-id")! }, anchor: resource };
   if (target.closest(".lxd-editor,input,textarea,button,select,a,[contenteditable=true]")) return null;
   return { target: { kind: "document" }, anchor: viewport };
 }

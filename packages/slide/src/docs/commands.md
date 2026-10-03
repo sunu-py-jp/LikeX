@@ -108,8 +108,8 @@ const json = serializeSlideDeck(result.deck);
 | `slide.move` | `slideId`, `index`（0始まりの移動先） |
 | `slide.update` | `slideId`, `patch: { name?, background?, notes? }` |
 | `slide.replaceContent` | `slideId`, `elements: SlideElementInput[]`, `name?`, `background?`, `notes?`, `animations?` |
-| `line.add` | `slideId`, `start`, `end`, `id?`, `name?`, `stroke?`, `strokeWidth?`, `startArrow?`, `endArrow?` |
-| `line.update` | `slideId`, `elementId`, `start?`, `end?`, `startArrow?`, `endArrow?`（1項目以上） |
+| `line.add` | `slideId`, `start`, `end`, `id?`, `name?`, `stroke?`, `strokeWidth?`, `startArrow?`, `endArrow?`, `routing?` |
+| `line.update` | `slideId`, `elementId`, `start?`, `end?`, `startArrow?`, `endArrow?`, `routing?`（1項目以上） |
 | `element.add` | `slideId`, `element` |
 | `element.update` | `slideId`, `elementId`, `patch` |
 | `element.delete` / `element.duplicate` | `slideId`, `elementIds` |
@@ -140,16 +140,16 @@ const rebuilt = applySlideCommands(deck, {
 
 要素の `type` は必須で、その他は `createSlideElement` と同じ既定値を補います。新しいIDを省略すれば自動生成します。既存のロックされた要素を破棄する置換は拒否し、無効な要素・重複ID・不正なアニメーションがあれば全体を適用しません。`SlideHandle.execute` では編集許可、読み取り専用、書式・該当する要素型・ノート・アニメーションの機能設定を確認し、選択を新しい要素へ変更します。Undoは内容と選択を一度で戻します。モデルAPIにはホスト固有のページ数制限はありません。AIホストが1回1ページに制限する場合、複数ページを1回の依頼で順に処理できます。
 
-## 2点の直線と接続
+## 2点の線と接続
 
-線は `line.add` で始点と終点を指定し、`line.update` で片方または両方を変更します。矩形の幅・高さや回転から端点を逆算する必要はありません。`shape: "arrow"` は面を持つ矢印図形で、この直線とは別です。
+線は `line.add` で始点と終点を指定し、`line.update` で片方または両方を変更します。矩形の幅・高さや回転から端点を逆算する必要はありません。`shape: "arrow"` は面を持つ矢印図形で、端点を持つ線とは別です。
 
 ```ts
 const connected = applySlideCommands(deck, {
   type: "line.add", slideId: "architecture", id: "api-data",
   start: { x: 0, y: 0, binding: { targetId: "api", port: "right" } },
   end: { x: 0, y: 0, binding: { targetId: "data", port: "left" } },
-  stroke: "#0b817d", strokeWidth: 2,
+  stroke: "#0b817d", strokeWidth: 2, routing: "elbow", endArrow: "triangle",
 });
 // bindingを省略した端点は自由な座標になり、その端だけ接続を解除します。
 const detached = applySlideCommands(connected.deck, {
@@ -161,7 +161,9 @@ const detached = applySlideCommands(connected.deck, {
 
 水平・垂直・逆方向の直線、始終点が同じ点も指定できます。同一点の線は丸い点として表示します。保存用の外接矩形は従来の正寸法契約に合わせ最小1pxですが、線の実際の端点は変更しません。端点の座標は−100,000〜100,000、両端の差は各軸100,000px以下です。旧 `shape: "line"` は読み込み時に描画を変えず、端点編集時に任意の `line: { start, end }` を追加します。`getSlideLineEndpoints` は旧線も含めた現在の端点を返します。
 
-矢印は線直属の `startArrow` / `endArrow` で `none/triangle/openArrow/diamond/oval/stealth` を指定します（省略時none）。`line.update` は矢印だけの更新も可能です。GUIの線メニューは直線・右向き矢印線・左向き矢印線・双方向矢印線を用意し、書式パネルで各端を変更できます。図形の太い右矢印 `shape: "arrow"`・左矢印 `shape: "leftArrow"` とは別です。
+`routing: "elbow"` は始終点から直角に折れる経路を自動計算します。省略または `"straight"` は従来の直線です。接続した図形の位置・サイズ・回転に合わせて端点と折れ位置を更新し、接続先の外側を通る経路を選びます。未接続の別図形を含むページ全体の障害物回避や、折れ位置の手動編集は対象外です。`getSlideLineRoute(lineElement, slide.elements)` はcreate/parse/applyで正規化した現在の要素を受け取り、描画と同じ資料内座標の `points` と `bounds` を返します。第2引数は接続先の輪郭と回転を考慮するために渡してください。保存するのは2端点・接続・経路の種類で、折れ位置は派生値です。
+
+矢印は線直属の `startArrow` / `endArrow` で `none/triangle/openArrow/diamond/oval/stealth` を指定します（省略時none）。`line.update` は矢印だけの更新も可能です。GUIの線メニューは直線・右向き矢印線・左向き矢印線・双方向矢印線と、それぞれの折れ線を用意し、書式パネルで経路と各端の矢印を変更できます。図形の太い右矢印 `shape: "arrow"`・左矢印 `shape: "leftArrow"` とは別です。
 
 GUIは端点の2ハンドルを使い、ドラッグ中に近づいた最寄りの図形だけ8接続点を表示します。表示は32画面px以内、吸着は12画面px以内です。点から離して移動するとその端を解除します。線本体の移動は両端を解除し、接続先と一緒に移動した場合はその接続を保持します。線だけの複製・コピーでは接続を解除し、接続先も一緒なら新しいIDへ張り替えます。`line.add` は `features.shapes`、`line.update` は `features.formatting`、編集許可・ロック・Undo/Redoは既存の操作経路を使います。
 
@@ -189,7 +191,7 @@ const fitted = fitSlideText(textElement, { measureText, minFontSize: 20 });
 - `getSlideLayoutDiagnostics` は `{ code: "text-overflow" | "out-of-bounds", elementId, message, ...測定値 }[]` を返します。回転した要素のはみ出しも調べます。背景や図形内ラベルなど、意図した重なりをエラーにしません。静止したページに対する助言であり、アニメーション途中の状態や見た目全体を保証するものではありません。
 - `getSlideElementBounds(element)` は回転を考慮した外接矩形 `{ left, top, right, bottom }` を返します。
 
-旧 `element.connect` / `createSlideConnector` / `SlideConnectorOptions` / `SlideConnectorSide` は削除しました。接続関係を持つ線は `line.add/update` を使います。旧SLONに保存済みの線の集合は引き続き読み込めます。折れ線の自動生成・経路探索は提供しません。文字測定とレイアウト診断は保存されず、選択・認証・通信にも依存しません。
+旧 `element.connect` / `createSlideConnector` / `SlideConnectorOptions` / `SlideConnectorSide` は削除しました。接続関係を持つ線は `line.add/update` を使います。旧SLONに保存済みの線の集合は引き続き読み込めます。自動の直交経路は `line.add/update` の `routing: "elbow"` を使います。文字測定とレイアウト診断は保存されず、選択・認証・通信にも依存しません。
 
 ## 取得と復元
 

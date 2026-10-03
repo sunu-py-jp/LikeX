@@ -10,7 +10,11 @@
     "SlideHandle",
     "importNative",
     "exportNative",
-    "slon"
+    "slon",
+    "line.add",
+    "line.update",
+    "routing",
+    "getSlideLineRoute"
   ],
   "screenshots": []
 }

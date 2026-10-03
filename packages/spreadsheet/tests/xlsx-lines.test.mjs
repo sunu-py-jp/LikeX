@@ -64,7 +64,7 @@ test('imports standard preset connection indices and detaches unsupported target
 
 test('curve connectors warn on straightening and unsupported markers warn rather than disappear', async () => {
   const b = add(book('rectangle'), { x: 20, y: 30 }, { x: 70, y: 90 }, { startArrow: 'triangle' });
-  const out = await roundtrip(b), native = out.xml.replace('prst="line"', 'prst="bentConnector3"').replace('headEnd type="triangle"', 'headEnd type="unknown"');
+  const out = await roundtrip(b), native = out.xml.replace('prst="line"', 'prst="curvedConnector3"').replace('headEnd type="triangle"', 'headEnd type="unknown"');
   const result = await imported(native, { ...b.sheets[0], drawings: undefined });
   assert.equal(result.sheet.drawings[1].startArrow, 'triangle');
   assert.ok(result.warnings.some(w => w.message.includes('直線へ変更')));

@@ -10,8 +10,8 @@ import { applySlideLayout, detachSlideLayout, importSlideMasterLibrary, withoutL
 
 const COMMAND_KEYS: Record<SlideCommand["type"], readonly string[]> = {
   "masters.import": ["type", "library"], "slide.applyLayout": ["type", "slideId", "layoutId"], "slide.detachLayout": ["type", "slideId"],
-  "line.add": ["type", "slideId", "start", "end", "id", "name", "stroke", "strokeWidth", "startArrow", "endArrow"],
-  "line.update": ["type", "slideId", "elementId", "start", "end", "startArrow", "endArrow"],
+  "line.add": ["type", "slideId", "start", "end", "id", "name", "stroke", "strokeWidth", "startArrow", "endArrow", "routing"],
+  "line.update": ["type", "slideId", "elementId", "start", "end", "startArrow", "endArrow", "routing"],
   "deck.rename": ["type", "title"], "deck.resize": ["type", "width", "height"],
   "slide.add": ["type", "afterId", "slide", "layoutId"], "slide.delete": ["type", "slideId"],
   "slide.duplicate": ["type", "slideId"], "slide.move": ["type", "slideId", "index"],
@@ -145,7 +145,7 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
   }
   if (type === "line.add") {
     const line = normalizeSlideLine({ start: raw.start, end: raw.end });
-    const options = Object.fromEntries(["id", "name", "stroke", "strokeWidth", "startArrow", "endArrow"].filter(key => raw[key] !== undefined).map(key => [key, raw[key]]));
+    const options = Object.fromEntries(["id", "name", "stroke", "strokeWidth", "startArrow", "endArrow", "routing"].filter(key => raw[key] !== undefined).map(key => [key, raw[key]]));
     const element = createSlideElement({ type: "shape", shape: "line", ...options, ...slideLineGeometry(line), line });
     return { deck: updateSlide(deck, slide, { elements: [...slide.elements, element] }), slideId: slide.id, elementIds: [element.id] };
   }
@@ -153,10 +153,10 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
     const id = identifier(raw.elementId), element = slide.elements.find(item => item.id === id);
     if (!element || !isSlideLine(element)) throw new Error("操作する線が見つかりません");
     requireUnlocked([element]);
-    if (["start", "end", "startArrow", "endArrow"].every(key => raw[key] === undefined)) throw new Error("端点または矢印を指定してください");
+    if (["start", "end", "startArrow", "endArrow", "routing"].every(key => raw[key] === undefined)) throw new Error("端点・矢印・経路のいずれかを指定してください");
     const previous = getSlideLineEndpoints(element);
     const line = normalizeSlideLine({ start: raw.start ?? previous.start, end: raw.end ?? previous.end });
-    const markers = Object.fromEntries(["startArrow", "endArrow"].filter(key => raw[key] !== undefined).map(key => [key, raw[key]]));
+    const markers = Object.fromEntries(["startArrow", "endArrow", "routing"].filter(key => raw[key] !== undefined).map(key => [key, raw[key]]));
     const updated = normalizeSlideElement({ ...element, ...slideLineGeometry(line), line, ...markers });
     return { deck: updateSlide(deck, slide, { elements: slide.elements.map(item => item.id === id ? updated : item) }), slideId: slide.id, elementIds: [id] };
   }
@@ -174,7 +174,7 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
       const line = transformSlideLine(element, source);
       Object.assign(source, slideLineGeometry(line), { line });
     }
-    if (isSlideLine(element) && patch.shape !== undefined && patch.shape !== "line") for (const key of ["line", "startArrow", "endArrow"]) Reflect.deleteProperty(source, key);
+    if (isSlideLine(element) && patch.shape !== undefined && patch.shape !== "line") for (const key of ["line", "startArrow", "endArrow", "routing"]) Reflect.deleteProperty(source, key);
     const updated = normalizeSlideElement(source);
     if (sameSlideElement(element, updated)) return { ...unchanged, slideId: slide.id, elementIds: [id] };
     if (element.locked && Object.keys(patch).some(key => key !== "locked" && Reflect.get(element, key) !== Reflect.get(updated, key)))

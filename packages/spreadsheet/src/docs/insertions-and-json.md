@@ -202,21 +202,26 @@ LikeXも「編集時の状態と保存スナップショットを分ける」「
 
 ## 直線・接続線
 
-挿入の図形メニューは「線」に直線・右向き矢印線・左向き矢印線・双方向矢印線を用意します。右・左のブロック矢印は別の「ブロック矢印」グループです。線の選択はストローク付近だけで反応し、外接矩形の空白ではセルを操作できます。
+挿入の図形メニューは「線」に直線・右向き矢印線・左向き矢印線・双方向矢印線・折れ線・矢印付き折れ線を用意します。右・左のブロック矢印は別の「ブロック矢印」グループです。線の選択はストローク付近だけで反応し、外接矩形の空白ではセルを操作できます。
 
-線には始点・終点の2つのハンドルを表示します。端点を図形に近づけると、最寄りの図形だけに8つの接続点が現れ、12画面px以内で接続します。32画面px以上離れると点の表示が消えます。接続点は上下左右・四隅方向の実際の輪郭上にあり、楕円・三角形・ひし形・ブロック矢印では矩形の角とは異なります。図形の移動・サイズ・回転・反転に接続端点が追従します。端点を外へ動かすと解除し、線全体を動かすと両端を解除します。右の設定では座標と始点／終点それぞれの矢印を変更できます。
+線には始点・終点の2つのハンドルを表示します。端点を図形に近づけると、最寄りの図形だけに8つの接続点が現れ、12画面px以内で接続します。32画面px以上離れると点の表示が消えます。接続点は上下左右・四隅方向の実際の輪郭上にあり、楕円・三角形・ひし形・ブロック矢印では矩形の角とは異なります。図形の移動・サイズ・回転・反転に接続端点が追従します。端点を外へ動かすと解除し、線全体を動かすと両端を解除します。右の設定では座標・直線／自動の折れ線・始点／終点それぞれの矢印を変更できます。折れ線も操作する端点は2つで、接続先の現在位置に合わせて直角の経路を再計算します。
 
-公開コマンドは `lines.insert` / `lines.update`、公開モデルAPIは `updateLineEndpoints` と `getSpreadsheetLinePoints(sheet, drawingId)` です。座標はA1左上を原点とするズーム前pxで、行列見出しを含みません。
+公開コマンドは `lines.insert` / `lines.update`、公開モデルAPIは `updateLineEndpoints`、`getSpreadsheetLinePoints(sheet, drawingId)`、`getSpreadsheetLineRoute(sheet, drawingId)` です。端点の取得は `{ start, end }`、経路の取得は全頂点の `points` と外接矩形の `bounds` を返します。座標はA1左上を原点とするズーム前pxで、行列見出しを含みません。
 
 ```ts
 const result = applySpreadsheetCommands(workbook, [{
   type: "lines.insert", sheetId: "design",
   start: { x: 120, y: 90 },
-  end: { x: 480, y: 90, binding: { targetId: "process-box", port: "left" } },
-  startArrow: "none", endArrow: "triangle", stroke: "#334155", strokeWidth: 2,
+  end: { x: 480, y: 240, binding: { targetId: "process-box", port: "left" } },
+  routing: "elbow", startArrow: "none", endArrow: "triangle", stroke: "#334155", strokeWidth: 2,
 }]);
 ```
 
-`port` は `top`, `topRight`, `right`, `bottomRight`, `bottom`, `bottomLeft`, `left`, `topLeft`。同じシートの線以外の描画だけを指定でき、自己接続・線同士の接続は拒否します。`lines.update` は `drawingId` と変更する `start?`, `end?`, `startArrow?`, `endArrow?` を渡します。端点を省略すれば維持し、`binding` なしの端点を渡せばその端だけを解除します。矢印は `none`, `triangle`, `openArrow`, `diamond`, `oval`, `stealth` です。
+`port` は `top`, `topRight`, `right`, `bottomRight`, `bottom`, `bottomLeft`, `left`, `topLeft`。同じシートの線以外の描画だけを指定でき、自己接続・線同士の接続は拒否します。`lines.update` は `drawingId` と変更する `start?`, `end?`, `routing?`, `startArrow?`, `endArrow?` を渡します。`routing` は `"straight" | "elbow"` で、省略した新規の線は直線です。端点を省略すれば維持し、`binding` なしの端点を渡せばその端だけを解除します。矢印は `none`, `triangle`, `openArrow`, `diamond`, `oval`, `stealth` です。
 
 保存形式の `line.start/end` は `{ anchor: { row, column, offsetX, offsetY }, binding? }`。自由端点は行列の挿入・削除・サイズ変更に追従するセルアンカー、接続端点は対象IDと接続点から位置を解決します。接続先削除時は削除直前の座標に固定します。線だけのコピーは接続を外して形を維持し、シート全体の複製は接続先IDも複製先へ更新します。旧 `shape: "line" / "arrow"` の矩形形式は読み込みを維持し、端点操作時に新しい保存構造へ変換します。新しい線の位置・向きは `lines.update` を使い、矩形の幅・高さ・回転では編集しません。
+
+
+折れ線は `routing: "elbow"` と2つの端点を保存し、途中の曲がり角は保存せず再計算します。接続された2つの図形の外側へ回る経路を優先しますが、無関係な図形の回避は行わず、接続先が重なる場合は交差することがあります。`getDrawingBounds` は曲がり角を含む経路全体を返します。
+
+XLSXには編集可能な標準の接続線（`cxnSp`）とカスタム経路を出力し、端点・接続先・矢印を保持します。外部Excelの `bentConnector2`〜`bentConnector5` も取り込めますが、手動の経由点・調整値は保持せず、自動経路へ変換した警告を返します。Excel側で接続先を編集した際の再配線はOfficeの実装に依存し、LikeXと同じ経路になる保証はありません。

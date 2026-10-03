@@ -11,7 +11,7 @@ export type { SlideConditionalEdit, SlideConditionalEditResult, SlideMutationTok
 export { measureSlideText, fitSlideText, getSlideElementBounds, getSlideLayoutDiagnostics } from "./authoring";
 export type { SlideTextMeasureStyle, SlideTextMeasure, SlideTextLayout, SlideLayoutDiagnostic, SlideLayoutOptions, SlideElementBounds, SlideElementGeometry } from "./authoring";
 
-export { isSlideLine, getSlideLineEndpoints, getSlideConnectorOutline } from "./lines";
+export { isSlideLine, getSlideLineEndpoints, getSlideLineRoute, getSlideConnectorOutline } from "./lines";
 export { getSlideMasters, getSlideLayouts, getSlideLayout, resolveSlideAppearance } from "./layouts";
 export { createSlideSvgSource } from "./svg-source";
 

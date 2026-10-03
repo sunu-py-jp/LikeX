@@ -13,5 +13,5 @@ export function visibleDrawing(drawing: SpreadsheetDrawing, c: SpreadsheetContro
 }
 export function drawingLabel(drawing: SpreadsheetDrawing) {
   return drawing.type === "image" ? drawing.alt || "画像" : drawing.type === "text" ? `テキストボックス${drawing.text ? `: ${drawing.text.slice(0, 40)}` : ""}`
-    : getShapeDefinition(drawing.shape).label;
+    : drawing.routing === "elbow" ? "折れ線" : getShapeDefinition(drawing.shape).label;
 }
