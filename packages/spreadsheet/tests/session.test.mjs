@@ -14,7 +14,8 @@ const value = session => session.getWorkbook().sheets[0].cells.A1?.value;
 test('a headless session imports only model code and pure Core JSON and connector geometry', () => {
   assert.equal(typeof globalThis.document, 'undefined');
   for (const input of Object.keys(output.metafile.inputs)) {
-    if (/\/core\/dist\/(?:json|connectors|office-shapes)\.js$/.test(input)) continue;
+    if (/\/core\/dist\/(?:json|connectors|office-shapes|text-search)\.js$/.test(input)) continue;
+    if (/node_modules\/re2js\/build\/index\.js$/.test(input)) continue; // Pure, bounded regular-expression engine.
     assert.doesNotMatch(input, /node_modules|\/(?:ui|state|core)\/|\/(?:core|props|spreadsheet)\.tsx?$|\.(?:css|tsx)$/);
   }
   assert.ok(Object.values(output.metafile.outputs).every(file => file.imports.length === 0));

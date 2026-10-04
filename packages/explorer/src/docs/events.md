@@ -12,7 +12,7 @@ onEventで操作・状態を観測するための型と利用例です。保存�
 type ExplorerEventHandler = (event: ExplorerEvent) => void | Promise<void>;
 ```
 
-`ExplorerEvent` は `type` で判別するunionです。`save`・`refresh`・`download`・`upload` はさらに `status`、`window` は `action` で判別できます。`ExplorerEvent`、`ExplorerEventHandler`、`ExplorerDraftEvent`、`ExplorerChangeInfo`、`ExplorerLocationInfo`、`ExplorerDownloadRequest`、`ExplorerUploadRejectedEvent`、`ExplorerUploadSkippedEvent` を公開入口からimportできます。
+`ExplorerEvent` は `type` で判別するunionです。`save`・`refresh`・`folder-load`・`download`・`upload` はさらに `status`、`window` は `action` で判別できます。`ExplorerEvent`、`ExplorerEventHandler`、`ExplorerDraftEvent`、`ExplorerChangeInfo`、`ExplorerLocationInfo`、`ExplorerFolderLoadEvent`、`ExplorerDownloadRequest`、`ExplorerUploadRejectedEvent`、`ExplorerUploadSkippedEvent` を公開入口からimportできます。
 
 | `event.type` | 通知のタイミングと主なデータ |
 | --- | --- |
@@ -21,6 +21,8 @@ type ExplorerEventHandler = (event: ExplorerEvent) => void | Promise<void>;
 | `discard` | 下書きを破棄したとき。戻した一覧 `entries`。 |
 | `save` | `status: "start"` は保存に渡す `payload`、`"success"` は保存後の `entries`、`"error"` は `message`。 |
 | `refresh` | `status: "start"` は再取得開始、`"success"` は反映した最新の `entries`、`"error"` は失敗の `message`。未保存確認の取り消しでは発行しません。 |
+| `folder-load` | フォルダ直下の遅延取得。`status: "start"` / `"success"` / `"error"` と `folderId`・`path`。成功時はキャッシュに新規追加した `addedCount`、失敗時は `message`。取得による追加は編集の `change` ではありません。 |
+| `search-hydrate` | 外部検索の `{ hits, entries }` から新しい項目をキャッシュへ追加したとき。`addedCount` は祖先を含む追加メタデータ件数で、hit数ではありません。0件では通知せず、dirtyや編集の `change` を発生させません。 |
 | `edit-mode` | 編集許可の `mode`・`reason`・`requestId`・最初の操作 `request` と任意の `message`。要求・許可・拒否・取得失敗・セッション終了を通知します。 |
 | `navigate` | 表示場所が変わった後。`location` に `kind`、`id`、`name`、`path`。お気に入り・最近の一覧は `id` と `path` が `null`。 |
 | `selection` | 選択状態が変わった後。選択項目の `ids` と `entries`。 |
@@ -37,7 +39,9 @@ type ExplorerEventHandler = (event: ExplorerEvent) => void | Promise<void>;
 
 `navigate`・`selection`・`tabs`・`view`・`details` は初回マウント時には通知せず、その後の状態変化を通知します。操作に伴って複数のイベントが届く場合があります。イベント内の項目情報は `ExplorerItemInfo` で、要求時点の表示パスと本体参照を含みます。フォルダの `extension` は空文字です。`save` の `start.payload` は通常の `ExplorerSavePayload` です。
 
-子ウィンドウで発生した `navigate`・`selection`・`tabs`・`view`・`details`・`clipboard`・`preview`・`download`・`download-progress`・`download-cancelled` には、その子の `windowId` を追加します。親のこれらの通知では省略します。`window` イベントには常に対象の `windowId` があります。`change`・`discard`・`save`・`refresh`・`upload`・`edit-mode` はワークスペース全体の通知で、ウィンドウごとに二重発行しません。
+子ウィンドウで発生した `navigate`・`selection`・`tabs`・`view`・`details`・`clipboard`・`preview`・`download`・`download-progress`・`download-cancelled` には、その子の `windowId` を追加します。親のこれらの通知では省略します。`window` イベントには常に対象の `windowId` があります。`change`・`discard`・`save`・`refresh`・`folder-load`・`search-hydrate`・`upload`・`edit-mode` はワークスペース全体の通知で、ウィンドウごとに二重発行しません。
+
+`navigate` は移動した事実、`folder-load` は追加取得の実行を表します。移動先が取得済みなら `navigate` のみ、ルートの初回取得では `navigate` を伴わず `folder-load` が届く場合があります。`navigate` の受信から `initialEntries` を差し替えて取得を行う必要はなく、`onLoadFolder` に取得処理を接続します。[フォルダ単位の読み込み](./folder-loading.md)
 
 `edit-mode.reason` は、`request` / `granted` / `denied` / `error` / `saved` / `refreshed` / `discarded` / `ended` / `cancelled` / `read-only` / `unmounted` です。初期の閲覧モードでは通知せず、要求・許可・終了等で発行します。操作元は `request.windowId` で識別します。外部ハンドラー未指定なら同期で許可するため、`requesting` を経ず `granted` を通知します。保存の成功通知後に、セッション終了の `saved` を通知します。再取得が成功した場合は `refreshed` で終了します。
 
@@ -142,9 +146,10 @@ export default function ExplorerWithEvents(props: Props) {
 | --- | --- |
 | `onSave` | 永続化の本処理。保存成功・失敗を決めます。 |
 | `onRefresh` | 認証等を含む親の取得処理から最新の `readonly ExplorerEntry[]` を返します。取得失敗はthrow/rejectします。 |
+| `onLoadFolder` | 指定フォルダ直下の完全な項目一覧を取得します。通信には `signal` を渡し、取得済みキャッシュへの反映は本体が担当します。 |
 | `onEditRequest` | 最初の有効な変更を適用する直前に許可を取得します。ロックの取得・解放は親の実装に接続します。 |
 | `onPreviewRequest` | 内蔵プレビューの代わりに親の表示を開きます。 |
-| `onSearchRequest` | 名前検索を置き換え、親の検索結果から現在の項目IDを順位順に返します。 |
+| `onSearchRequest` | 名前検索を置き換え、親の検索結果を順位順に返します。部分キャッシュではヒットと未取得項目・祖先のメタデータも返せます。配列・バッチ・逐次応答に対応します。 |
 | `onDownloadRequest` | ダウンロードの実処理。進捗を報告し、引渡し・保存完了・取消しを返します。失敗はthrow/rejectします。 |
 | `onEvent` | 操作や状態を観測する通知。編集・保存・プレビュー・ダウンロードの実装を置き換えません。 |
 

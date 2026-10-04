@@ -12,13 +12,13 @@ export type ExplorerListLayout = {
 
 /** Fixed row/cell geometry keeps scrolling independent of off-screen DOM. */
 export function explorerListLayout(count: number, view: ExplorerViewMode, compact: boolean,
-  showLocation: boolean, showCardControls: boolean, viewport: ExplorerListViewport): ExplorerListLayout {
+  showLocation: boolean, showCardControls: boolean, viewport: ExplorerListViewport, resultDetailsHeight = 0): ExplorerListLayout {
   const width = Math.max(1, viewport.width - 16);
   const line = viewport.lineHeight || 21;
   const smallLine = line * 12 / 14;
-  const row = compact ? 28 : 36;
+  const row = (compact ? 28 : 36) + resultDetailsHeight;
   if (view === "details") {
-    const rowHeight = Math.max(row, line + (showLocation ? smallLine : 0) + 8);
+    const rowHeight = Math.max(compact ? 28 : 36, line + (showLocation ? smallLine : 0) + 8) + resultDetailsHeight;
     return { axis: "vertical", columns: 1, rows: count, count, cellWidth: width, rowHeight,
       gapX: 0, gapY: 0, padding: 0, header: 32, width, height: count * rowHeight + 32 };
   }
@@ -37,6 +37,7 @@ export function explorerListLayout(count: number, view: ExplorerViewMode, compac
     tiles: { min: 270, gapX: 10, gapY: 4, height: Math.max(72, Math.max(56, line + smallLine) + (compact ? 8 : 16) + 2) },
     content: { min: width, gapX: 0, gapY: 0, height: Math.max(64, Math.max(56, line + smallLine) + (compact ? 8 : 16) + 2) },
   }[view];
+  if (view !== "small") dimensions.height += resultDetailsHeight;
   const inner = Math.max(1, width - 16);
   const columns = Math.max(1, Math.floor((inner + dimensions.gapX) / (dimensions.min + dimensions.gapX)));
   const rows = Math.ceil(count / columns);

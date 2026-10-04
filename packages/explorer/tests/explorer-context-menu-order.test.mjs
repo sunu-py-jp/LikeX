@@ -11,6 +11,7 @@ const output = await build({ absWorkingDir: packageRoot,
     export { useExplorerController } from './src/state/use-explorer-controller.ts';
     export { ExplorerProvider } from './src/state/explorer-context.tsx';
     export { ExplorerSidebar } from './src/ui/explorer-sidebar.tsx';
+    export { ExplorerFileList } from './src/ui/explorer-file-list.tsx';
     export { ExplorerBackgroundMenu } from './src/ui/explorer-background-menu.tsx';`, resolveDir: packageRoot },
   bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'transparent-menu-primitives', setup(builder) {
@@ -36,7 +37,7 @@ const output = await build({ absWorkingDir: packageRoot,
     }));
   } }],
 });
-const { Explorer, useExplorerController, ExplorerProvider, ExplorerSidebar, ExplorerBackgroundMenu } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { Explorer, useExplorerController, ExplorerProvider, ExplorerSidebar, ExplorerFileList, ExplorerBackgroundMenu } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 
 const file = { id: 'alpha', parent: 'root', name: 'Alpha.txt', kind: 'file', size: 4, mime: 'text/plain',
   source: { kind: 'existing', id: 'alpha' }, createdAt: '2026-09-06T00:00:00Z', updatedAt: '2026-09-06T00:00:00Z', favorite: 0 };
@@ -203,4 +204,37 @@ test('editable controls and selected text retain native context actions on both 
     target.props.onContextMenuCapture(event);
     assert.equal(stopped, native !== 'none');
   }
+});
+
+test('search file menus open the clicked containing folder and Back restores the search selection', async t => {
+  const folder = { ...file, id: 'folder', name: '資料', kind: 'folder', source: null };
+  const nested = { ...file, id: 'nested', parent: folder.id, name: 'Alpha-nested.txt' };
+  let current, renderer;
+  function Probe() {
+    current = useExplorerController({ initialEntries: [file, folder, nested], readOnly: true,
+      features: noEntryBuiltins, ui: { rowActions: true } });
+    return h(ExplorerProvider, { value: current }, h(ExplorerFileList));
+  }
+  await act(async () => { renderer = create(h(Probe)); });
+  t.after(() => act(() => renderer.unmount()));
+  assert.equal(renderer.root.findAllByType('mock-context-item').some(node => node.children.includes('フォルダを開く')), false);
+  await act(async () => current.setQuery('Alpha'));
+  await act(async () => current.setSelected(['alpha', 'nested']));
+  const root = renderer.root.findAllByType('mock-context-root').find(node =>
+    node.findAll(child => typeof child.type === 'string' && child.props['data-explorer-entry-id'] === 'nested').length);
+  assert.ok(root, 'navigation stays available with preview and editing actions disabled');
+  await act(async () => root.props.onOpenChange(true));
+  assert.deepEqual(tokens(root), ['フォルダを開く']);
+  assert.ok(renderer.root.findAllByType('mock-dropdown-item').some(node => node.children.includes('フォルダを開く')),
+    'the row action menu offers the same command');
+  await act(async () => item(root, 'フォルダを開く').props.onSelect());
+  assert.equal(current.location, 'folder');
+  assert.equal(current.query, '');
+  assert.deepEqual(current.selected, ['nested'], 'navigate to the clicked file, not the mixed-parent selection');
+  assert.equal(current.dirty, false);
+  await act(async () => current.travel(-1));
+  assert.equal(current.location, 'root');
+  assert.equal(current.query, 'Alpha');
+  assert.deepEqual(current.selected, ['alpha', 'nested']);
+  assert.deepEqual(current.visible.map(entry => entry.id).sort(), ['alpha', 'nested']);
 });

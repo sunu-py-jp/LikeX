@@ -3,6 +3,6 @@
   "summary": "Reactを使わず、一覧の検証・編集・取込と競合解決・差分取得を行います。",
   "source": "packages/explorer/src/docs/model-api.md",
   "order": 35,
-  "keywords": ["model", "model-entry", "applyAction", "createDraftSnapshot", "addFilesWithResult", "prepareFilesWithProgress", "getSavePayload"],
+  "keywords": ["model", "model-entry", "applyAction", "createDraftSnapshot", "addFilesWithResult", "prepareFilesWithProgress", "getSavePayload", "resolveExplorerContainingFolder", "ExplorerNavigationResolution"],
   "section": "基本"
 }

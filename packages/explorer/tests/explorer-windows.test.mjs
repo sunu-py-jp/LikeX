@@ -41,6 +41,8 @@ const editedState = {
   selectedIds: ['report', 'photo'], anchor: 'report', query: '議事録',
   searchText: '議事録の続き',
   searchRevision: 2,
+  searchConditions: { matchCase: true, wholeName: false, useRegex: true },
+  committedSearchConditions: { matchCase: true, wholeName: false, useRegex: false },
   view: 'large', compact: true, sort: { key: 'updatedAt', asc: false },
   expanded: ['root', 'projects', 'documents'],
 };

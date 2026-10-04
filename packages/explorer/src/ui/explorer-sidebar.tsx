@@ -12,12 +12,12 @@ import {
   Files,
   FolderOpen,
   HardDrive,
+  Loader2,
   Star,
   X,
 } from "lucide-react";
 import { useExplorerFields, useOptionalExplorerSelector } from "../state/explorer-context";
 import { FAVORITES, RECENT } from "../state/view-state";
-import { formatSize } from "../model/entries";
 import { getEntryIndex } from "../model/entry-index";
 import { folderNameOrder } from "../model/text";
 import { iconButtonClass } from "./explorer-controls";
@@ -42,8 +42,6 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
     setDragOver,
     drop,
     navigate,
-    fileCount,
-    totalSize,
     mobileOpen,
     setOpenMobile,
     instanceId,
@@ -51,7 +49,10 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
     features,
     renamingEntryId,
     renameSource,
-  } = useExplorerFields("entries", "navigationEntries", "processingEntryIds", "openPendingImportFolder", "expanded", "setExpanded", "location", "rootLabel", "dragOver", "allowDrop", "setDragOver", "drop", "navigate", "fileCount", "totalSize", "mobileOpen", "setOpenMobile", "instanceId", "workspaceRef", "features", "renamingEntryId", "renameSource");
+    folderLoadingEnabled,
+    getFolderLoadState,
+    loadFolder,
+  } = useExplorerFields("entries", "navigationEntries", "processingEntryIds", "openPendingImportFolder", "expanded", "setExpanded", "location", "rootLabel", "dragOver", "allowDrop", "setDragOver", "drop", "navigate", "mobileOpen", "setOpenMobile", "instanceId", "workspaceRef", "features", "renamingEntryId", "renameSource", "folderLoadingEnabled", "folderLoadRevision", "getFolderLoadState", "loadFolder");
   const rootPendingUpload = useOptionalExplorerSelector(context => context?.pendingUploadEntryIds?.has("root") ?? false);
 
   const asideRef = useRef<HTMLElement>(null);
@@ -83,14 +84,16 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
     [parent, [...folders].sort((a, b) => folderNameOrder.compare(a.name, b.name))])), [index]);
   const expandedSet = useMemo(() => new Set(expanded), [expanded]);
   const rootOpen = expandedSet.has("root");
-  const rootHasChildren = (foldersByParent.get("root")?.length ?? 0) > 0;
+  const rootLoad = folderLoadingEnabled ? getFolderLoadState("root") : null;
+  const rootHasChildren = (foldersByParent.get("root")?.length ?? 0) > 0 || !!(rootLoad && rootLoad.status !== "loaded");
 
   function tree(parent: string, depth = 0): ReactNode {
     if (depth > 20) return null;
     return (foldersByParent.get(parent) ?? [])
       .map((entry) => {
         const open = expandedSet.has(entry.id);
-        const hasChildren = foldersByParent.has(entry.id);
+        const loadState = folderLoadingEnabled ? getFolderLoadState(entry.id) : null;
+        const hasChildren = foldersByParent.has(entry.id) || !!(loadState && loadState.status !== "loaded");
         const pending = !committedIndex.byId.has(entry.id);
         const row = (
             <div
@@ -98,7 +101,7 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
               tabIndex={-1}
               className={`lxe:flex lxe:h-8 lxe:min-w-0 lxe:items-center lxe:gap-0.5 lxe:pr-2 lxe:hover:bg-[var(--explorer-hover)] ${location === entry.id ? "lxe:bg-[var(--explorer-selection)]" : ""} ${dragOver === entry.id ? "lxe:bg-[var(--explorer-selection)] lxe:outline-1 lxe:-outline-offset-1 lxe:outline-[var(--explorer-accent)]" : ""}`}
               style={{ paddingLeft: 24 + depth * 14 }}
-              aria-busy={processingEntryIds?.has(entry.id) || undefined}
+              aria-busy={processingEntryIds?.has(entry.id) || loadState?.status === "loading" || undefined}
               data-explorer-pending-folder={pending ? entry.id : undefined}
               onContextMenu={pending ? event => { event.preventDefault(); event.stopPropagation(); } : undefined}
               onDragOver={pending ? event => { event.preventDefault(); event.stopPropagation(); } : event => allowDrop(event, entry.id)}
@@ -123,7 +126,7 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
                   )
                 }
               >
-                <ChevronRight size={13} className={open ? "lxe:rotate-90" : ""} />
+                {loadState?.status === "loading" ? <Loader2 size={13} className="lxe:animate-spin" aria-label="読み込み中" /> : <ChevronRight size={13} className={open ? "lxe:rotate-90" : ""} />}
               </button>
               {renamingEntryId === entry.id && renameSource === "tree" ? (
                 <ExplorerEntryName entry={entry} source="tree" className="lxe:truncate" />
@@ -150,6 +153,10 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
         return (
           <li key={entry.id}>
             {pending ? row : <EntryContext entry={entry} source="tree">{row}</EntryContext>}
+            {open && loadState?.status === "error" && <div role="alert" className="lxe:flex lxe:items-center lxe:gap-1 lxe:px-4 lxe:py-1 lxe:text-xs lxe:text-[var(--explorer-danger)]">
+              <span className="lxe:truncate" title={loadState.error ?? undefined}>読み込めませんでした</span>
+              <button type="button" aria-label={`${entry.name}を再読み込み`} className="lxe:shrink-0 lxe:underline" onClick={() => { void loadFolder(entry.id).catch(() => false); }}>再試行</button>
+            </div>}
             {open && hasChildren && <ul>{tree(entry.id, depth + 1)}</ul>}
           </li>
         );
@@ -241,7 +248,7 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
                     }
                   >
                     <ExplorerPendingUploadIcon pendingUpload={id === "root" && rootPendingUpload} className="lxe:size-[17px]">
-                      <ExplorerProcessingIcon processing={id === "root" && (processingEntryIds?.has("root") ?? false)} className="lxe:size-[17px]">
+                      <ExplorerProcessingIcon processing={id === "root" && ((processingEntryIds?.has("root") ?? false) || rootLoad?.status === "loading")} className="lxe:size-[17px]">
                         <Icon size={17}
                           className={`lxe:shrink-0 ${id === FAVORITES ? "lxe:text-[var(--explorer-folder)]" : "lxe:text-[var(--explorer-accent)]"}`} />
                       </ExplorerProcessingIcon>
@@ -259,6 +266,7 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
               <div
                 className={`lxe:flex lxe:h-8 lxe:min-w-0 lxe:items-center lxe:gap-0.5 lxe:pr-2 lxe:hover:bg-[var(--explorer-hover)] ${location === "root" ? "lxe:bg-[var(--explorer-selection)]" : ""} ${dragOver === "root" ? "lxe:bg-[var(--explorer-selection)] lxe:outline-1 lxe:-outline-offset-1 lxe:outline-[var(--explorer-accent)]" : ""}`}
                 style={{ paddingLeft: 10 }}
+                aria-busy={rootLoad?.status === "loading" || undefined}
                 onDragOver={(event) => allowDrop(event, "root")}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={(event) => void drop(event, "root")}
@@ -295,16 +303,13 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
                   <span className="lxe:truncate">{rootLabel}</span>
                 </button>
               </div>
+              {rootOpen && rootLoad?.status === "error" && <div role="alert" className="lxe:px-4 lxe:py-1 lxe:text-xs lxe:text-[var(--explorer-danger)]">
+                読み込めませんでした <button type="button" aria-label={`${rootLabel}（ルート）を再読み込み`} className="lxe:underline" onClick={() => { void loadFolder("root").catch(() => false); }}>再試行</button>
+              </div>}
               {rootOpen && rootHasChildren && <ul>{tree("root")}</ul>}
             </li>
           </ul>
         </nav>
-        <footer className="lxe:flex lxe:shrink-0 lxe:items-center lxe:gap-2 lxe:border-t lxe:border-[var(--explorer-border)] lxe:px-4 lxe:py-3 lxe:text-xs lxe:text-[var(--explorer-muted)]">
-          <HardDrive size={15} className="lxe:shrink-0" />
-          <span>
-            {fileCount} ファイル · {formatSize(totalSize)}
-          </span>
-        </footer>
       </aside>
       <ExplorerSidebarResizer
         resize={sidebarResize}

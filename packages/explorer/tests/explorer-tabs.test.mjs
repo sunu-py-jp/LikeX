@@ -11,6 +11,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = await build({ absWorkingDir: packageRoot,
   stdin: {
     contents: `
+      export { explorerLocationPatch, explorerHistoryPatch } from './src/state/navigation-state.ts';
       export { useExplorerTabs } from './src/state/use-explorer-tabs.ts';
       export { useExplorerController } from './src/state/use-explorer-controller.ts';
     `,
@@ -30,7 +31,7 @@ const output = await build({ absWorkingDir: packageRoot,
     },
   }],
 });
-const { useExplorerTabs, useExplorerController } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { useExplorerTabs, useExplorerController, explorerLocationPatch, explorerHistoryPatch } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 
 async function mountHook(t, useHook = useExplorerTabs) {
   let latest;
@@ -60,6 +61,8 @@ const rootTab = id => ({
   query: '',
   searchText: '',
   searchRevision: 0,
+  searchConditions: { matchCase: false, wholeName: false, useRegex: false },
+  committedSearchConditions: { matchCase: false, wholeName: false, useRegex: false },
   view: 'details',
   compact: false,
   sort: { key: 'name', asc: true },
@@ -127,11 +130,11 @@ test('navigation, history, selection, search, sorting and layout are independent
   await act(async () => {
     for (const [key, value] of Object.entries(secondState)) hook.current.updateTabState(key, value);
   });
-  assert.deepEqual(hook.current.activeTab, { id: secondId, ...secondState });
+  assert.deepEqual(hook.current.activeTab, { ...rootTab(secondId), ...secondState });
   await act(async () => { hook.current.selectTab('tab-1'); });
-  assert.deepEqual(hook.current.activeTab, { id: 'tab-1', ...firstState });
+  assert.deepEqual(hook.current.activeTab, { ...rootTab('tab-1'), ...firstState });
   await act(async () => { hook.current.selectTab(secondId); });
-  assert.deepEqual(hook.current.activeTab, { id: secondId, ...secondState });
+  assert.deepEqual(hook.current.activeTab, { ...rootTab(secondId), ...secondState });
 });
 
 test('consecutive functional updates compose before React rerenders', async t => {
@@ -493,4 +496,21 @@ test('a changed React key resolves defaultPath against the replacement workspace
   assert.deepEqual(hook.current.history, ['new-archive']);
   assert.equal(hook.current.dirty, false);
   assert.deepEqual(hook.events, []);
+});
+
+
+test('provisional location remapping preserves aligned search history snapshots', async t => {
+  const hook = await mountHook(t);
+  await act(async () => hook.current.patchTabState(previous => explorerLocationPatch(previous, 'pending-folder', ['pending-folder'])));
+  await act(async () => hook.current.patchTabState({ query: 'invoice', searchText: 'unfinished', selectedIds: ['file'], anchor: 'file',
+    searchParams: { customer: 'A' }, searchConditions: { matchCase: true, wholeName: false, useRegex: false } }));
+  await act(async () => hook.current.patchTabState(previous => explorerLocationPatch(previous, 'root', ['root'])));
+  await act(async () => hook.current.remapLocations('main', location => location === 'pending-folder' ? 'committed-folder' : location));
+  assert.deepEqual(hook.current.activeTab.history, ['root', 'committed-folder', 'root']);
+  assert.equal(hook.current.activeTab.historyViews[1].query, 'invoice');
+  await act(async () => hook.current.patchTabState(previous => explorerHistoryPatch(previous, 1, previous.history[1], ['committed-folder'], 'params-source')));
+  assert.equal(hook.current.activeTab.requestedLocation, 'committed-folder');
+  assert.equal(hook.current.activeTab.query, 'invoice'); assert.equal(hook.current.activeTab.searchText, 'unfinished');
+  assert.deepEqual(hook.current.activeTab.selectedIds, ['file']); assert.deepEqual(hook.current.activeTab.searchParams, { customer: 'A' });
+  assert.equal(hook.current.activeTab.searchConditions.matchCase, true);
 });

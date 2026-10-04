@@ -54,3 +54,8 @@ const invalidMenu: ContextMenuProvider<{ id: string }, { text: string }> = () =>
 // @ts-expect-error concurrent execution policy is a closed set
 const invalidMode: ContextMenuExecutionMode = 'automatic';
 void [invalidMenu, invalidMode];
+
+import { createTextSearchMatcher, type TextSearchQuery } from "__LIBRARY_IMPORT__/text-search";
+const searchQuery: TextSearchQuery = { text: "^Sales", useRegex: true, matchCase: false };
+const found: boolean = createTextSearchMatcher(searchQuery).test("sales 2026");
+void found;

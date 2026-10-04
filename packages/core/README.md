@@ -1,6 +1,6 @@
 # @likex/core
 
-LikeXコンポーネントの保存・編集許可・通知・機能設定に使う共通の型と小さなヘルパーです。React、Provider、継承用の抽象クラス、実行時依存はありません。
+LikeXコンポーネントの保存・編集許可・通知・機能設定に使う共通の型と小さなヘルパーです。React、Provider、継承用の抽象クラスには依存しません。検索専用の `/text-search` はMITライセンスのRE2JSを利用し、通常の入口はこのエンジンを読み込みません。
 
 `@likex/core/connectors` はReact・DOM・ホスト連携を含まない純粋な幾何専用の公開入口です。同じAPIを通常の `@likex/core` からも使えます。
 
@@ -59,3 +59,11 @@ const zip = await createZipArchive([
 ## ブラウザー用のメニュー
 
 `@likex/core/browser` は任意のDOMヘルパーの入口です。`openContextMenu` でLikeXの共通メニューを表示できます。Reactには依存しませんがDOMを使うため、純粋モデルからはimportしません。通常の `@likex/core` と `/json` はこの入口を読み込みません。UI側に `browser.ts` がある場合、ソースコピーでは `export * from "../core/browser";` に変更します。
+
+## 文字列検索
+
+`@likex/core/text-search` の `createTextSearchMatcher({ text, matchCase?, wholeText?, useRegex? })` は、部分一致・全体一致・大文字小文字の区別・正規表現を共通化します。返り値の `test(text)` と `replace(text, replacement)` は繰り返し呼べ、置換後の文字列は `$1` 等もリテラルとして扱います。空の検索語は一致せず、置換も行いません。
+
+通常文字列は100,000文字、正規表現は4,096文字までです。コンパイル前に繰り返しの展開コストを20,000命令相当までに制限し、短い式でも巨大なグループの繰り返しはエラーにします。独立した繰り返しや選択肢のコストは足し合わせ、入れ子やグループに付く回数だけを掛け合わせます。コンパイル後も命令数を検証します。正規表現は [RE2JS](https://github.com/le0pard/re2js) のRE2形式で、グループ・選択・量指定・文字クラス・アンカー・Unicode文字クラスに対応し、先読み・後読み・後方参照には対応しません。不正な構文・未対応構文・過大なパターンは例外になり、UI側でエラーとして表示します。バックトラッキングにより指数時間を要するJavaScriptの正規表現を、未検証の検索語から直接実行しません。標準の検索条件は表示状態で、OfficeやLikeXの保存ファイルには書き込みません。
+
+ソースコピー導入ではcoreの依存 `re2js@2.8.6` をインストールし、Explorer・Spreadsheetの `model/core-text-search.ts` を `export * from "../../core/text-search";` に変更します。

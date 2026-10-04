@@ -1,4 +1,4 @@
-import type { CSSProperties, Ref } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 import type { SpreadsheetCellPosition, SpreadsheetWorkbook } from "./model/types";
 import type { SpreadsheetHandle } from "./api/types";
 import type { ContextMenuExecutionMode } from "./core";
@@ -32,7 +32,15 @@ export type SpreadsheetSelection = Readonly<{
   ranges?: readonly SpreadsheetSelectionRange[];
 }>;
 
+import type { SpreadsheetSearchHandler, SpreadsheetSearchRenderContext, SpreadsheetSearchSettings } from "./api/search";
+
 export type SpreadsheetProps = {
+  /** Search timing and host-owned detailed conditions. */
+  search?: SpreadsheetSearchSettings;
+  /** Replace or augment the search dialog fields while retaining result navigation and safe replacement. */
+  renderSearch?: (context: SpreadsheetSearchRenderContext) => ReactNode;
+  /** Optional external search. Results are validated against the current workbook before display. */
+  onSearchRequest?: SpreadsheetSearchHandler;
   /** Typed operations on the mounted draft. Does not trigger persistence. */
   ref?: Ref<SpreadsheetHandle>;
   /** Read once at mount. Change the React key to open another workbook. */

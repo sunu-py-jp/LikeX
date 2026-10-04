@@ -6,6 +6,8 @@
 
 ## コピー導入
 
+正規表現検索の実行時依存として `npm install re2js@2.8.6` を実行し、コピー後の `spreadsheet/model/core-text-search.ts` は `export * from "../../core/text-search";` に変更します。パッケージ導入ではcoreの依存として自動解決します。
+
 リポジトリの `packages/spreadsheet/src/` 全体を `components/spreadsheet/`、`packages/core/src/` 全体を `components/core/` にコピーします。`components/spreadsheet/core.ts` の1行を `export * from "../core";` に変更します。`spreadsheet/ooxml.ts` も `export * from "../core/ooxml";` に変更します。 `spreadsheet/model/core-connectors.ts` は `export * from "../../core/connectors";`、`spreadsheet/model/core-office-shapes.ts` は `export * from "../../core/office-shapes";` に変更します。`spreadsheet/json.ts` も `export * from "../core/json";` に変更します。`model/`・`state/`・`ui/`・CSSを含めてください。React / React DOM `^19.2.6` と、TypeScript環境では対応する型定義が必要です。
 
 ```tsx

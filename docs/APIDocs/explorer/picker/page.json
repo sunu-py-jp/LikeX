@@ -1,0 +1,8 @@
+{
+  "title": "ファイル・フォルダの選択",
+  "summary": "選択専用の埋め込み画面とモーダルで、ファイル・フォルダを選択し、確定したIDとパスを利用側へ返します。",
+  "source": "packages/explorer/src/docs/picker.md",
+  "order": 104,
+  "keywords": ["ExplorerPicker", "ExplorerPickerDialog", "ExplorerPickerProps", "ExplorerPickerDialogProps", "ExplorerPickerHandle", "ExplorerPickerItem", "resolveExplorerPickerItems", "kind", "multiple", "initialSelectedIds", "onConfirm", "onCancel", "選択ダイアログ", "現在のフォルダ"],
+  "section": "表示と操作設定"
+}

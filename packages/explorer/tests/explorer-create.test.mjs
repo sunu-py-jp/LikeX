@@ -548,7 +548,7 @@ test('extension column sits between modified date and size, sorts by extension a
   assert.deepEqual(ui.events.filter(event => event.type === 'view').at(-1).sort, { key: 'extension', asc: true });
 });
 
-test('recent files have no folder-name subtitle while ordinary search keeps location context', async t => {
+test('recent files have no folder-name subtitle while detail search shows a location column', async t => {
   const ui = await mount(t, { initialEntries: [entry('folder', 'ドキュメント'), entry('alpha', 'A.pdf', 'file', 'folder')] }, 'ui');
   const select = name => ui.root.findAllByType('button').find(node => textOf(node) === name);
   const row = () => ui.root.findAll(node => typeof node.type === 'string' && node.props['data-explorer-entry-id'] === 'alpha')[0];
@@ -559,5 +559,7 @@ test('recent files have no folder-name subtitle while ordinary search keeps loca
   assert.equal(row().findAllByType('small').length, 0);
   await change(() => select('ファイル').props.onClick());
   await change(() => search().props.onChange({ target: { value: 'A.pdf' } }));
-  assert.equal(textOf(row().findByType('small')), 'ドキュメント');
+  assert.equal(row().findAllByType('small').length, 0);
+  assert.equal(textOf(row().findByProps({ title: '/ドキュメント' })), '/ドキュメント');
+  assert.ok(ui.root.findAllByType('th').some(node => textOf(node) === '場所'));
 });

@@ -1,6 +1,6 @@
 {
   "title": "検索",
-  "summary": "名前検索は入力時に実行します。Enterでの実行や親の検索処理への委譲も選べます。",
+  "summary": "条件UIの差し込み、抜粋付きの逐次表示、未取得項目を含む外部検索結果の取り込みに対応します。",
   "source": "packages/explorer/src/docs/search.md",
   "order": 60,
   "keywords": [
@@ -8,6 +8,18 @@
     "ExplorerSearchRequest",
     "ExplorerSearchContext",
     "ExplorerSearchHandler",
+    "ExplorerSearchStream",
+    "ExplorerSearchHit",
+    "ExplorerSearchBatch",
+    "ExplorerSearchResponse",
+    "mergeExplorerSearchEntries",
+    "search-hydrate",
+    "renderSearch",
+    "renderSearchResult",
+    "場所列",
+    "親フォルダ",
+    "defaultColumnWidths",
+    "AsyncIterable",
     "onSearchRequest",
     "trigger",
     "debounceMs"

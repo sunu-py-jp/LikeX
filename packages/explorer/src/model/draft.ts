@@ -31,6 +31,8 @@ export type ExplorerEntry = {
 export type ExplorerSnapshot = { entries: ExplorerEntry[] };
 export type ExplorerSavePayload = {
   entries: ExplorerEntry[];
+  /** Lazy listings contain only the cache. Persist changes, never replace all server entries. */
+  scope?: Readonly<{ kind: "partial"; loadedFolderIds: readonly string[] }>;
   changes: {
     created: ExplorerEntry[];
     updated: ExplorerEntry[];

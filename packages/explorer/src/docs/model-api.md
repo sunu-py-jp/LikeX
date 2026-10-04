@@ -38,8 +38,10 @@ const payload = getSavePayload(baseline, changed);
 | `describeEntries(entries)` / `describeEntry(entries, entry)` | パスを含む `ExplorerItemInfo` を取得します。 |
 | `formatExplorerPath(entries, folderId)` / `resolveExplorerPath(...)` | 仮想フォルダのパスを生成・解決します。厳密な絶対パス解決には次のAPIを使います。 |
 | `resolveExplorerNavigation(entries, path)` | 絶対パスを既存フォルダへ解決します。 |
+| `resolveExplorerContainingFolder(entries, target)` | ファイル・フォルダを `{ id }` または `{ path }` から解決し、親のIDを `value.location`、祖先のIDを `value.expanded`、対象のIDを `value.fileIds` に含む `ExplorerNavigationResolution` を返します。ルートの指定は `invalid-target` です。通信・移動・選択は行いません。 |
 | `resolveExplorerFileTargets(entries, targets)` | 同じ親にあるファイルをIDまたは絶対パスから解決します。 |
 | `resolveExplorerEntryTargets(entries, targets)` | ファイル・フォルダをIDまたは絶対パスから一括解決し、`value.entryIds` を返します。親が異なる項目も解決できます。 |
+| `resolveExplorerPickerItems(entries, ids, options?)` | 選択する種類・単一／複数・存在・階層を検証し、`ExplorerPickerResult` としてパス付き項目またはエラーを返します。ルートの選択にも対応します。[型と使い方](./picker.md#画面なしで選択を検証する) |
 | `readEntryFile(entry, reader?)` | ローカル `File` を返すか、明示的に渡した `ExplorerFileReader` を呼びます。認証や通信の実装はホストが所有します。 |
 
 `ExplorerEntry` / `ExplorerSnapshot` / `ExplorerAction` / `ExplorerSavePayload` / `ExplorerItemInfo`、取込・パス解決の型もこの入口からimportできます。ファイル本体の `File` は不変のオブジェクトとして共有します。JSON保存形式を新設するAPIではなく、永続化や本体参照の変換はホストが担当します。

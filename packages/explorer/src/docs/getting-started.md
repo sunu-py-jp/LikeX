@@ -11,10 +11,12 @@
 React / React DOM 19を前提としています。ソースをコピーする場合は、次の実行時依存を追加します。パッケージ導入では自動的に導入されます。
 
 ```bash
-npm install radix-ui@1.6.7 lucide-react@1.31.0 tailwind-merge@3.6.0
+npm install radix-ui@1.6.7 lucide-react@1.31.0 tailwind-merge@3.6.0 pdf-lib@1.17.1 re2js@2.8.6
 ```
 
 `packages/explorer/src/` の中身（この `docs/` の親フォルダ）を `components/explorer/`、`packages/core/src/` を `components/core/` へコピーします。`components/explorer/core.ts` の1行を `export * from "../core";` に変更し、`styles.css` をアプリの入口で1回読み込みます。Next.js App Routerでは `app/layout.tsx` に書けます。CSSをimportする親と、コールバックを渡すClient Componentは別ファイルでも構いません。
+
+`explorer/browser.ts`・`explorer/json.ts` はそれぞれ `../core/browser`・`../core/json` から再exportし、`explorer/model/core-text-search.ts` は `export * from "../../core/text-search";` に変更します。`re2js` は正規表現検索の共通処理が使う実行時依存です。
 
 ```tsx
 // ソースコピーの場合
@@ -152,7 +154,7 @@ export default function FileManager() {
 
 ## 表示後に移動・選択する
 
-親画面のボタンや検索結果から移動するには、`ExplorerHandle` の `navigate()`・`selectFiles()`・`showFile()` を呼びます。次の例は、渡した一覧に `/記事/画像` とID `file-cover` のファイルがある前提です。保存処理を省略した読み取り専用でも利用できます。
+親画面のボタンや検索結果から移動するには、`ExplorerHandle` の `navigate()`・`selectFiles()`・`openContainingFolder()`・`showFile()` を呼びます。次の例は、渡した一覧に `/記事/画像` とID `file-cover` のファイルがある前提です。保存処理を省略した読み取り専用でも利用できます。
 
 ```tsx
 "use client";
@@ -178,6 +180,9 @@ export function FileBrowser({ entries }: { entries: readonly ExplorerEntry[] }) 
     <button onClick={() => check(explorerRef.current?.selectFiles([{ id: "file-cover" }]))}>
       表紙を選択
     </button>
+    <button onClick={() => check(explorerRef.current?.openContainingFolder({ id: "file-cover" }))}>
+      表紙があるフォルダを開く
+    </button>
     <button onClick={() => check(explorerRef.current?.showFile(
       { id: "file-cover" }, { mode: "preview" },
     ))}>
@@ -192,6 +197,8 @@ export function FileBrowser({ entries }: { entries: readonly ExplorerEntry[] }) 
 `{ path: "/記事/画像/表紙.png" }` のような絶対パスでもファイルを指定できます。同名ファイルが別フォルダにあり得るため、ファイル名だけは受け付けません。改名・移動後も追う場合は `{ id }` を使います。
 
 `selectFiles()` に複数の対象を渡す場合は、全ファイルが同じ親フォルダにある必要があります。親フォルダを自動で開き、最初のファイルを画面内に表示します。`selectFiles([])` は現在地を変えずに選択を解除します。
+
+`openContainingFolder()` はファイル・フォルダの親を開き、対象を選択します。`selection.mode: "none"` でも移動でき、選択は空のままです。検索結果から移動した場合は「戻る」で検索条件と選択を復元し、外部検索を再実行します。
 
 戻り値は同期の `{ ok: true }` または `{ ok: false, code, message }` です。成功は要求の受付を表し、Reactの次の描画で表示を反映します。プレビュー処理の完了は待ちません。対象が存在しない、選択・プレビューが無効などの場合は、表示を途中まで変更せず失敗します。
 

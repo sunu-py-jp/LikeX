@@ -107,7 +107,7 @@
 
 | `type` | 引数 |
 | --- | --- |
-| `cells.replace` | `sheetId`, `query: { text, matchCase?, wholeCell?, lookIn?: "values" \| "formulas" }`, `replacement`, `addresses?`, `onConflict?` |
+| `cells.replace` | `sheetId`, `query: { text, matchCase?, wholeCell?, useRegex?, lookIn?: "values" \| "formulas" }`, `replacement`, `addresses?`, `onConflict?` |
 | `cells.fill` | `sheetId`, `source`矩形, `target`矩形, `mode?: "auto" \| "copy" \| "series"`, `onConflict?` |
 | `cells.paste` | `sheetId`, `target: { row, column }`, `payload`, `mode?: "all" \| "values" \| "formulas" \| "formats"`, `onConflict?`, `partialMerges?: "reject" \| "skip"` |
 | `cells.move` | 移動先の `sheetId`, `source: { sheetId, top, left, bottom, right }`, `target: { row, column }`, `onConflict?` |
@@ -119,7 +119,7 @@
 ]
 ```
 
-置換は正規表現ではなく文字列検索。`addresses` を省略すると指定シートの全一致セルが対象になる。`lookIn: "values"` は数式の表示結果を置き換え、元の数式を通常の値へ変えるため、数式を保持する意図なら `formulas` を指定する。
+置換は既定で通常の文字列検索。`query.useRegex: true` はRE2形式の正規表現（4,096文字まで、後方参照・先読み・後読みは未対応）。`matchCase`・`wholeCell` を併用でき、不正なパターンは一括操作全体を失敗にする。置換後文字列は常にリテラルで、`$1` / `$&` は展開しない。`addresses` を省略すると指定シートの全一致セルが対象になる。`lookIn: "values"` は数式の表示結果を置き換え、元の数式を通常の値へ変えるため、数式を保持する意図なら `formulas` を指定する。
 
 `cells.fill.target` はsourceを含み、縦または横の片方だけに延長する。結合を含むフィルは拒否する。`auto` は等差数列・日付・末尾番号などを判定、`copy` はコピー、`series` は連番を指定する。
 

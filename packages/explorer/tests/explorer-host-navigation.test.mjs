@@ -439,3 +439,73 @@ test('an explicit request from the mounted ref supersedes a pending initial prev
   assert.ok(requests.length > 0);
   assert.ok(requests.every(request => request.id === 'root-file'));
 });
+
+test('openContainingFolder clears search, selects and reveals cached files or folders without previewing', async t => {
+  const hook = await mount(t);
+  const api = hook.ref.current;
+  await change(() => hook.current.setQuery('Notes'));
+  const entries = hook.workspace.draft.getEntries();
+  await change(() => assert.deepEqual(api.openContainingFolder({ id: 'note' }), { ok: true }));
+  assert.equal(hook.current.location, 'docs'); assert.equal(hook.current.query, '');
+  assert.deepEqual(hook.current.selected, ['note']); assert.equal(hook.current.revealRequest.id, 'note');
+  assert.equal(hook.workspace.draft.getEntries(), entries); assert.equal(hook.current.dirty, false);
+  assert.equal(previewEvents(hook).length, 0); assert.deepEqual(hook.reads, []);
+  await change(() => assert.deepEqual(api.openContainingFolder({ path: '/Projects/資料' }), { ok: true }));
+  assert.equal(hook.current.location, 'projects'); assert.deepEqual(hook.current.selected, ['docs']);
+  assert.equal(hook.current.revealRequest.id, 'docs');
+  await change(() => assert.deepEqual(api.openContainingFolder({ id: 'root-file' }), { ok: true }));
+  assert.equal(hook.current.location, 'root'); assert.deepEqual(hook.current.selected, ['root-file']);
+});
+
+test('openContainingFolder works without edit, preview or selection capabilities and respects updated selection policy', async t => {
+  const edits = [], hook = await mount(t, { onSave: undefined, features: { preview: false, pathInput: false }, selection: { mode: 'none' },
+    onEditRequest: request => { edits.push(request); return false; } });
+  const api = hook.ref.current;
+  await change(() => assert.deepEqual(api.openContainingFolder({ id: 'note' }), { ok: true }));
+  assert.equal(hook.current.location, 'docs'); assert.deepEqual(hook.current.selected, []);
+  assert.equal(hook.current.revealRequest.id, 'note'); assert.equal(hook.current.readOnly, true);
+  await hook.update({ selection: { mode: 'single' } });
+  await change(() => assert.deepEqual(api.openContainingFolder({ id: 'docs' }), { ok: true }));
+  assert.equal(hook.current.location, 'projects'); assert.deepEqual(hook.current.selected, ['docs']);
+  assert.equal(edits.length, 0); assert.equal(previewEvents(hook).length, 0); assert.equal(hook.current.dirty, false);
+});
+
+test('containing-folder navigation failures leave search, selection, history and previews intact', async t => {
+  const hook = await mount(t);
+  await change(() => hook.ref.current.showFile({ id: 'note' }, { mode: 'preview' }));
+  await change(() => hook.current.setQuery('Notes'));
+  const tab = hook.workspace.tabs.activeTab, preview = hook.current.previewId;
+  for (const [target, code] of [[{ id: 'missing' }, 'not-found'], [{ id: 'root' }, 'invalid-target'], [{ path: '/' }, 'invalid-target'],
+    [{ path: 'Projects' }, 'invalid-path'], [{ id: 'note', path: '/Projects/資料/Notes.TXT' }, 'invalid-target']]) {
+    await change(() => assert.equal(hook.ref.current.openContainingFolder(target).code, code));
+    assert.equal(hook.workspace.tabs.activeTab, tab); assert.equal(hook.current.previewId, preview);
+  }
+});
+
+test('retained containing-folder handles resolve same-tick edits and return not-ready for closed panes', async t => {
+  const hook = await mount(t), api = hook.ref.current;
+  await change(() => {
+    hook.workspace.draft.apply({ action: 'rename', ids: ['note'], name: 'Current.txt' });
+    hook.workspace.draft.apply({ action: 'move', ids: ['note'], parent: 'archive' });
+    assert.deepEqual(api.openContainingFolder({ path: '/Archive/Current.txt' }), { ok: true });
+  });
+  assert.equal(hook.current.location, 'archive'); assert.deepEqual(hook.current.selected, ['note']);
+  assert.equal(hook.current.dirty, true);
+  await hook.showPane(false); assert.equal(api.openContainingFolder({ id: 'docs' }).code, 'not-ready');
+  await hook.showPane(true); assert.equal(hook.current.location, 'archive', 'a closed-pane request was not queued');
+  await hook.unmount(); assert.equal(api.openContainingFolder({ id: 'docs' }).code, 'not-ready');
+});
+
+test('containing-folder navigation uses only known metadata and lazy-loads the destination separately', async t => {
+  const parentListing = deferred(), calls = [];
+  const hook = await mount(t, { onLoadFolder: request => { calls.push(request.folderId); return parentListing.promise; },
+    folderLoading: { initialLoadedFolderIds: ['root'] }, readOnly: true });
+  const api = hook.ref.current;
+  assert.equal(api.openContainingFolder({ id: 'unknown' }).code, 'not-found');
+  assert.deepEqual(calls, []);
+  await change(() => assert.deepEqual(api.openContainingFolder({ id: 'note' }), { ok: true }));
+  assert.equal(hook.current.location, 'docs'); assert.deepEqual(hook.current.selected, ['note']);
+  assert.ok(calls.includes('docs'));
+  await change(() => parentListing.resolve([entry('note', 'Notes.TXT', 'docs'), entry('second', 'Second.txt', 'docs')]));
+  assert.deepEqual(hook.current.selected, ['note']); assert.equal(hook.current.dirty, false);
+});

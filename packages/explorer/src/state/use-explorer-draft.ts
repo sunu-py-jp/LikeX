@@ -29,6 +29,9 @@ import { cloneEditRequest, createEditRequest, type ExplorerEditHandler, type Exp
 import type { SaveHandler as CoreSaveHandler, RefreshHandler as CoreRefreshHandler } from "../core";
 import { prepareImport } from "./import-progress";
 import type { ExplorerImportProgress } from "../model/upload";
+import type { ExplorerFolderLoadHandler, ExplorerFolderLoadingOptions } from "../model/folder-loading";
+import { useExplorerFolderLoading } from "./use-explorer-folder-loading";
+import { mergeExplorerSearchEntries } from "../model/search-entries";
 
 export type ExplorerSaveHandler = CoreSaveHandler<ExplorerSavePayload, readonly ExplorerEntry[]>;
 
@@ -47,6 +50,10 @@ export type ExplorerDraftOptions = Pick<ExplorerOptions, "readOnly"> & {
   onSave?: ExplorerSaveHandler;
   /** Replace the listing after retrieval succeeds. The low-level hook does not confirm discarding changes. */
   onRefresh?: ExplorerRefreshHandler;
+  /** Fetch only one folder's complete direct listing; enables a partial cache. */
+  onLoadFolder?: ExplorerFolderLoadHandler;
+  /** Initial completeness declarations. Once enabled, partial-cache guards remain enabled. */
+  folderLoading?: ExplorerFolderLoadingOptions;
   /** Acquire permission before the first edit. Omission permits local editing synchronously. */
   onEditRequest?: ExplorerEditHandler;
   /** Resolve the latest host-owned entry permissions synchronously for every operation. */
@@ -66,6 +73,7 @@ type DraftState = {
   refreshing: boolean;
   refreshError: string | null;
   contentRevision: number;
+  searchDataRevision: number;
 };
 
 type EditSession = {
@@ -83,6 +91,8 @@ export function useExplorerDraft({
   initialEntries,
   onSave,
   onRefresh,
+  onLoadFolder,
+  folderLoading: folderLoadingOptions,
   onEditRequest,
   getEntryPermissions,
   onDirtyChange,
@@ -97,10 +107,11 @@ export function useExplorerDraft({
   const [state, setState] = useState<DraftState>(() => {
     const snapshot = createDraftSnapshot(initialEntries);
     return { baseline: snapshot, draft: snapshot, saving: false, saveError: null,
-      refreshing: false, refreshError: null, contentRevision: 0 };
+      refreshing: false, refreshError: null, contentRevision: 0, searchDataRevision: 0 };
   });
   // Keep synchronous operations ordered even before React renders the next frame.
   const current = useRef(state);
+  const folderLoadingRef = useRef<ReturnType<typeof useExplorerFolderLoading> | null>(null);
   const mounted = useRef(true);
   const pendingAsyncAdds = useRef(new Set<AbortController>());
   const cancelAsyncAdds = useCallback(() => {
@@ -177,6 +188,23 @@ export function useExplorerDraft({
     return true;
   }, [publishEdit, emitEdit]);
 
+  const commit = useCallback((next: DraftState, options?: {
+    hydration?: boolean; searchHydration?: boolean; advanceSearchRevision?: boolean; loadedFolderIds?: readonly string[];
+  }) => {
+    if (!mounted.current) return;
+    const previous = current.current;
+    if (previous.draft === next.draft && previous.baseline === next.baseline &&
+      previous.saving === next.saving && previous.saveError === next.saveError &&
+      previous.refreshing === next.refreshing && previous.refreshError === next.refreshError &&
+      previous.contentRevision === next.contentRevision && !options?.advanceSearchRevision) return;
+    const published = { ...next, searchDataRevision: previous.searchDataRevision + (options?.searchHydration ? 0 : 1) };
+    current.current = published;
+    if (previous.baseline !== next.baseline && !options?.hydration)
+      folderLoadingRef.current?.replaceBaseline(next.baseline.entries, options?.loadedFolderIds);
+    setState(published);
+  }, []);
+
+
   useLayoutEffect(() => {
     mounted.current = true;
     // StrictMode can clean up a session acquired by a descendant layout effect,
@@ -201,16 +229,15 @@ export function useExplorerDraft({
     if (readOnly) { cancelAsyncAdds(); finishEdit("read-only"); }
   }, [readOnly, finishEdit, cancelAsyncAdds]);
 
-  const commit = useCallback((next: DraftState) => {
-    if (!mounted.current) return;
-    const previous = current.current;
-    if (previous.draft === next.draft && previous.baseline === next.baseline &&
-      previous.saving === next.saving && previous.saveError === next.saveError &&
-      previous.refreshing === next.refreshing && previous.refreshError === next.refreshError &&
-      previous.contentRevision === next.contentRevision) return;
-    current.current = next;
-    setState(next);
-  }, []);
+  const folderLoading = useExplorerFolderLoading({
+    handler: onLoadFolder, options: folderLoadingOptions,
+    getSnapshots: () => current.current,
+    hydrate: snapshots => commit({ ...current.current, ...snapshots }, { hydration: true, advanceSearchRevision: true }),
+    canLoad: () => mounted.current && !current.current.saving && !current.current.refreshing && !endingEdit.current,
+    emit: event => { if (mounted.current) dispatchExplorerEvent(observer.current, event); },
+  });
+  useInsertionEffect(() => { folderLoadingRef.current = folderLoading; });
+
 
   const emit = useCallback((event: () => ExplorerDraftEvent) => {
     if (!mounted.current || !observer.current) return;
@@ -247,6 +274,26 @@ export function useExplorerDraft({
   }, [dirty, onDirtyChange]);
 
   const getEntries = useCallback(() => current.current.draft.entries, []);
+  const getSearchDataRevision = useCallback(() => current.current.searchDataRevision, []);
+  const hydrateSearchEntries = useCallback((entries: readonly ExplorerEntry[], expectedRevision: number): {
+    entries: readonly ExplorerEntry[]; addedCount: number;
+  } | null => {
+    const previous = current.current;
+    const available = () => mounted.current && !current.current.saving && !current.current.refreshing
+      && current.current.searchDataRevision === expectedRevision;
+    if (!available()) return null;
+    if (!folderLoadingRef.current?.folderLoadingEnabled)
+      throw new Error("検索結果の項目情報を取り込むにはフォルダの段階的な読み込みを有効にしてください");
+    const merged = mergeExplorerSearchEntries(previous.baseline, previous.draft, entries);
+    // Host-owned input can have getters. Do not overwrite a synchronous edit,
+    // persistence request or another hydration triggered while reading it.
+    if (!available() || current.current !== previous) return null;
+    if (merged.addedCount) {
+      commit({ ...previous, baseline: merged.baseline, draft: merged.draft }, { hydration: true, searchHydration: true });
+      emit(() => ({ type: "search-hydrate", addedCount: merged.addedCount }));
+    }
+    return { entries: merged.draft.entries, addedCount: merged.addedCount };
+  }, [commit, emit]);
   const assertEntryPermissions = useCallback((checks: readonly ExplorerEntryPermissionCheck[]) => {
     for (let attempt = 0; attempt < 8; attempt++) {
       const source = current.current.draft;
@@ -374,11 +421,13 @@ export function useExplorerDraft({
     const command = { ...action, ...(action.ids ? { ids: [...action.ids] } : {}) };
     let source = current.current.draft;
     let options = currentUploadOptions.current;
+    folderLoadingRef.current?.assertLoadedForChecks(checksForExplorerAction(source.entries, command));
     let candidate = applyAction(source, command, options);
     const refresh = () => {
       const latest = current.current.draft;
       const latestOptions = currentUploadOptions.current;
       if (latest !== source || latestOptions !== options) {
+        folderLoadingRef.current?.assertLoadedForChecks(checksForExplorerAction(latest.entries, command));
         candidate = applyAction(latest, command, latestOptions);
         source = latest;
         options = latestOptions;
@@ -390,10 +439,12 @@ export function useExplorerDraft({
       for (let attempt = 0; attempt < 8; attempt++) {
         if (!checkWritable(owner) || !refresh()) return false;
         const policy = currentPolicy.current;
-        assertExplorerEntryPermissions(source.entries, [
+        const checks = [
           ...checksForExplorerAction(source.entries, command),
           ...checksForExplorerChanges(source.entries, candidate.entries),
-        ], policy.getEntryPermissions);
+        ];
+        folderLoadingRef.current?.assertLoadedForChecks(checks);
+        assertExplorerEntryPermissions(source.entries, checks, policy.getEntryPermissions);
         if (!checkWritable(owner)) return false;
         if (source === current.current.draft && options === currentUploadOptions.current && policy === currentPolicy.current) return true;
       }
@@ -438,12 +489,14 @@ export function useExplorerDraft({
     commit: () => ExplorerUploadResult | undefined;
   } | undefined> {
     if (!checkWritable(owner)) return;
+    folderLoadingRef.current?.assertLoadedForChecks([{ id: parent, operation: "upload" }]);
     const captured = [...files];
     const answers = decisions.map(decision => ({ ...decision, existing: { ...decision.existing, source: decision.existing.source ? { ...decision.existing.source } : null } }));
     let source = staged?.source ?? current.current.draft;
     let options = staged?.options ?? currentUploadOptions.current;
     const stage = function* (snapshot: ExplorerSnapshot, upload: typeof options) {
       try {
+        folderLoadingRef.current?.assertLoadedForChecks([{ id: parent, operation: "upload" }]);
         return yield* prepareFilesWithProgress(snapshot, captured, parent, upload, answers, uploadSession);
       } catch (error) {
         if (error instanceof ExplorerUploadValidationError && !signal?.aborted &&
@@ -494,6 +547,7 @@ export function useExplorerDraft({
             checks.push({ id: destination, operation: "upload" });
           }
         }
+        folderLoadingRef.current?.assertLoadedForChecks(checks);
         assertExplorerEntryPermissions(source.entries, checks, policy.getEntryPermissions);
         if (signal?.aborted || !checkWritable(owner)) return false;
         if (source === current.current.draft && options === currentUploadOptions.current && policy === currentPolicy.current) return true;
@@ -561,6 +615,7 @@ export function useExplorerDraft({
     const answers = decisions.map(decision => ({ ...decision, existing: { ...decision.existing, source: decision.existing.source ? { ...decision.existing.source } : null } }));
     for (;;) {
       if (!checkWritable(owner)) return;
+      folderLoadingRef.current?.assertLoadedForChecks([{ id: parent, operation: "upload" }]);
       const source = current.current.draft, options = currentUploadOptions.current;
       try {
         const candidate = await prepareImport(prepareFilesWithProgressAsync(source, captured, parent, options, answers, uploadSession, { signal }), signal, onProgress);
@@ -676,12 +731,16 @@ export function useExplorerDraft({
 
     const snapshot = previous.draft;
     const payload = getSavePayload(previous.baseline, snapshot);
+    const scope = folderLoadingRef.current?.folderLoadingEnabled
+      ? Object.freeze({ kind: "partial" as const, loadedFolderIds: folderLoadingRef.current.getLoadedFolderIds() }) : undefined;
+    if (scope) payload.scope = scope;
     // Set the lock before invoking user code, including synchronous callbacks.
     commit({ ...previous, saving: true, saveError: null });
+    folderLoadingRef.current?.cancelAll();
     emit(() => ({
       type: "save",
       status: "start",
-      payload: getSavePayload(previous.baseline, snapshot),
+      payload: { ...getSavePayload(previous.baseline, snapshot), ...(scope ? { scope } : {}) },
     }));
     try {
       if (!isCurrent()) return false;
@@ -718,7 +777,7 @@ export function useExplorerDraft({
       endingEdit.current++;
       try {
         commit({ ...previous, baseline: persisted, draft: persisted, saving: false, saveError: null,
-          contentRevision: previous.contentRevision + 1 });
+          contentRevision: previous.contentRevision + 1 }, { loadedFolderIds: scope?.loadedFolderIds });
         // Observers see persistence first, then the edit session is released.
         // Keep synchronous observer re-entry out of this completion boundary.
         emit(() => ({ type: "save", status: "success", entries: describeEntries(persisted.entries) }));
@@ -756,6 +815,7 @@ export function useExplorerDraft({
     const isCurrent = () => mounted.current && persistenceRequest.current === request;
     // Lock before observers or the host callback can synchronously re-enter.
     commit({ ...previous, refreshing: true, refreshError: null });
+    folderLoadingRef.current?.cancelAll();
     emit(() => ({ type: "refresh", status: "start" }));
     if (!isCurrent()) return false;
     try {
@@ -807,6 +867,14 @@ export function useExplorerDraft({
     refreshError: state.refreshError,
     canRefresh: typeof onRefresh === "function",
     contentRevision: state.contentRevision,
+    searchDataRevision: state.searchDataRevision,
+    getSearchDataRevision,
+    hydrateSearchEntries,
+    loadFolder: folderLoading.loadFolder,
+    getFolderLoadState: folderLoading.getFolderLoadState,
+    folderLoadRevision: folderLoading.folderLoadRevision,
+    folderLoadingEnabled: folderLoading.folderLoadingEnabled,
+    assertLoadedForChecks: folderLoading.assertLoadedForChecks,
     uploadAccept: uploadOptions.accept,
     editMode: readOnly ? "view" as const : editState.mode,
     editRequestId: readOnly ? null : editState.requestId,

@@ -25,7 +25,7 @@ export function createExplorerStore(initial: Controller) {
   function normalize(value: Controller): Controller {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => {
       if (typeof item !== "function" || key === "readFile" || key === "renderIcon" ||
-        key === "renderPreview" || key === "resolvePreviewSource" || key === "getProcessingLabel") return [key, item];
+        key === "renderSearch" || key === "renderSearchResult" || key === "renderEmptyState" || key === "renderPreview" || key === "resolvePreviewSource" || key === "getProcessingLabel") return [key, item];
       if (!actions.has(key)) actions.set(key, (...args) => Reflect.apply(
         current[key as keyof Controller] as (...args: unknown[]) => unknown, undefined, args));
       return [key, actions.get(key)];

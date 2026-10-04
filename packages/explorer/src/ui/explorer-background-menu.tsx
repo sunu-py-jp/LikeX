@@ -14,8 +14,8 @@ import { preserveNativeContextMenu } from "./explorer-menu-target";
 
 /** Add to the displayed folder, only from the list's empty space. */
 export function ExplorerBackgroundMenu({ children }: { children: ReactElement }) {
-  const { features, uiOptions, special, provisionalLocation, query, busy, disabled, canPaste, paste, currentParent, showModal, chooseFiles, setSelected, instanceId, hasCustomContextMenu, getCustomContextMenu } =
-    useExplorerFields("features", "uiOptions", "special", "provisionalLocation", "query", "busy", "disabled", "canPaste", "paste", "currentParent", "showModal", "chooseFiles", "setSelected", "instanceId", "hasCustomContextMenu", "getCustomContextMenu");
+  const { features, uiOptions, special, provisionalLocation, query, busy, disabled, canPaste, paste, currentParent, showModal, chooseFiles, setSelected, instanceId, hasCustomContextMenu, getCustomContextMenu, folderLoadingEnabled, loadFolderTree } =
+    useExplorerFields("features", "uiOptions", "special", "provisionalLocation", "query", "busy", "disabled", "canPaste", "paste", "currentParent", "showModal", "chooseFiles", "setSelected", "instanceId", "hasCustomContextMenu", "getCustomContextMenu", "folderLoadingEnabled", "loadFolderTree");
   const [customMenu, setCustomMenu] = useState<ExplorerCustomMenu | null>(null);
   const [open, setOpen] = useState(false);
   const [targetParent, setTargetParent] = useState(currentParent);
@@ -25,14 +25,15 @@ export function ExplorerBackgroundMenu({ children }: { children: ReactElement })
   const allowBuiltins = !special && !query.trim();
   const hasCreate = allowBuiltins && (features.createFile || features.createFolder);
   const hasUpload = allowBuiltins && (features.uploadFiles || features.uploadFolders);
+  const hasLoad = allowBuiltins && folderLoadingEnabled;
   const hasPaste = allowBuiltins && (features.copy || features.move);
-  if (provisionalLocation || !uiOptions.contextMenu || (!hasCreate && !hasUpload && !hasPaste && !hasCustomContextMenu)) return children;
+  if (provisionalLocation || !uiOptions.contextMenu || (!hasCreate && !hasUpload && !hasPaste && !hasLoad && !hasCustomContextMenu)) return children;
 
   return (
     <ContextMenu.Root open={open} onOpenChange={nextOpen => {
       const menu = nextOpen ? getCustomContextMenu() : customMenu;
       if (nextOpen) { setCustomMenu(menu); setTargetParent(currentParent); }
-      const allowed = nextOpen && (hasCreate || hasUpload || hasPaste || !!menu?.items.length);
+      const allowed = nextOpen && (hasCreate || hasUpload || hasPaste || hasLoad || !!menu?.items.length);
       actionHandoff.onOpenChange(allowed);
       setOpen(allowed);
     }}>
@@ -86,7 +87,10 @@ export function ExplorerBackgroundMenu({ children }: { children: ReactElement })
               <ClipboardPaste />貼り付け
             </ContextMenu.Item>
           </>}
-          <ExplorerCustomMenuItems menu={customMenu} separate={hasCreate || hasUpload || hasPaste} defer={actionHandoff.defer} />
+          {hasLoad && <ContextMenu.Item className={menuItemClass} disabled={busy} onSelect={() => { void loadFolderTree(targetParent); }}>
+            <FolderUp />配下を読み込む
+          </ContextMenu.Item>}
+          <ExplorerCustomMenuItems menu={customMenu} separate={hasCreate || hasUpload || hasPaste || hasLoad} defer={actionHandoff.defer} />
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

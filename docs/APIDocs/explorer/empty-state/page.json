@@ -1,0 +1,8 @@
+{
+  "title": "空の一覧のカスタマイズ",
+  "summary": "空フォルダや検索結果0件の案内を差し替え、独自ボタンから標準の追加・作成処理を使います。",
+  "source": "packages/explorer/src/docs/empty-state.md",
+  "order": 102,
+  "keywords": ["renderEmptyState", "ExplorerEmptyStateRenderer", "ExplorerEmptyStateRenderContext", "ExplorerEmptyStateReason", "defaultContent", "addFiles", "addFolders", "createFolder", "空フォルダ", "検索結果0件"],
+  "section": "表示と操作設定"
+}

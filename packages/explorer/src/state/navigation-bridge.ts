@@ -10,6 +10,7 @@ export function createExplorerNavigationBridge() {
     navigate: path => current?.navigate(path) ?? unavailable(),
     selectFiles: targets => current?.selectFiles(targets) ?? unavailable(),
     selectEntries: targets => current?.selectEntries(targets) ?? unavailable(),
+    openContainingFolder: target => current?.openContainingFolder(target) ?? unavailable(),
     showFile: (target, options) => current?.showFile(target, options) ?? unavailable(),
     previewFile: target => current?.previewFile(target) ?? unavailable(),
   };

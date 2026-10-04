@@ -20,11 +20,12 @@ import {
   type ExplorerDialogState,
   type ExplorerNotification,
 } from "./view-state";
-import type { ExplorerProps } from "../props";
+import type { ExplorerSearchConditions } from "../model/search";
+import type { ExplorerEmptyStateRenderContext, ExplorerProps } from "../props";
 import { getEntryPath, normalizeEntryName, selectionRoots, validateDestination } from "../model/entries";
 import { createExplorerDragPreview } from "../ui/explorer-drag-feedback";
 import { isSameFolderMove, type ExplorerAction, type ExplorerEntry as Entry } from "../model/draft";
-import { resolveExplorerOptions, type ExplorerViewMode } from "../model/config";
+import { matchesExplorerSelectionKind, resolveExplorerOptions, type ExplorerViewMode } from "../model/config";
 import { useExplorerWorkspace, type ExplorerWorkspace, type WindowPosition } from "./use-explorer-workspace";
 import { useExplorerDownload } from "./use-explorer-download";
 import type { ExplorerEditIntent } from "../model/edit-session";
@@ -38,10 +39,12 @@ import { addEntryAndAncestors, getEntryIndex } from "../model/entry-index";
 import { useExplorerUpload } from "./use-explorer-upload";
 import { useExplorerContextMenu } from "./use-explorer-context-menu";
 import { useExplorerListing } from "./use-explorer-listing";
+import { useExplorerSearchParams } from "./use-explorer-search-params";
 import { useExplorerSearch } from "./use-explorer-search";
 import { useExplorerMouseNavigation } from "./use-explorer-mouse-navigation";
+import { useExplorerFolderView } from "./use-explorer-folder-view";
 import { useExplorerNavigation } from "./use-explorer-navigation";
-import { explorerLocationPatch } from "./navigation-state";
+import { explorerHistoryPatch, explorerLocationPatch } from "./navigation-state";
 import { captureClipboardImport, type ClipboardImport } from "./clipboard-import";
 import { describeImportProgress } from "./import-progress";
 import { EMPTY_IMPORT_ENTRIES, projectExplorerImportPreview, useExplorerImportPreview, type ExplorerImportPreviewWriter } from "./import-preview";
@@ -78,6 +81,9 @@ export function useExplorerViewController({
   getProcessingLabel,
   getEntryPermissions,
   onSearchRequest,
+  renderSearch,
+  renderSearchResult,
+  renderEmptyState,
   getContextMenuItems,
   contextMenuExecutionMode,
   search: searchOptions,
@@ -92,6 +98,7 @@ export function useExplorerViewController({
   view: viewConfig,
 }: ExplorerProps, workspace: ExplorerWorkspace, windowId = "main",
   ownerDocument: Document | null = typeof document === "undefined" ? null : document,
+  interaction?: { onFileActivate?(id: string): void },
 ) {
   const { defaultStart, initialStart, clipboard: storedClipboard, setClipboard, draggedIds: draggedIdsRef, workspaceId } = workspace;
   const rootLabel = label?.trim() || DEFAULT_ROOT_LABEL;
@@ -110,6 +117,8 @@ export function useExplorerViewController({
   useLayoutEffect(() => { eventObserver.current = onEvent; }, [onEvent]);
   const previewHandler = useRef(onPreviewRequest);
   useInsertionEffect(() => { previewHandler.current = onPreviewRequest; }, [onPreviewRequest]);
+  const fileActivationHandler = useRef(interaction?.onFileActivate);
+  useInsertionEffect(() => { fileActivationHandler.current = interaction?.onFileActivate; }, [interaction?.onFileActivate]);
   const previewRequestRevision = useRef(0);
   const previewRequestView = useRef<{ revision: number; tabId: string; location: ExplorerLocation } | null>(null);
   function emitEvent(event: ExplorerViewEvent) {
@@ -134,6 +143,7 @@ export function useExplorerViewController({
     editRevision,
     saveError,
     save,
+    folderLoadingEnabled,
   } = workspace.draft;
   const busy = saving || refreshing || editMode === "requesting" || workspace.draft.mutationBlocked;
   const currentDraft = useRef(workspace.draft);
@@ -207,6 +217,11 @@ export function useExplorerViewController({
     query: storedQuery,
     searchText: storedSearchText,
     searchRevision,
+    searchConditions,
+    committedSearchConditions,
+    searchParams: committedSearchParams,
+    searchParamsError: committedSearchParamsError,
+    restoredSearchParamsSource,
     view: storedView,
     compact,
     sort: storedSort,
@@ -228,7 +243,23 @@ export function useExplorerViewController({
   const query = features.search ? storedQuery.trim() : "";
   const searchText = features.search ? storedSearchText : "";
   const searchTrigger = searchOptions?.trigger ?? "input";
+  const searchParams = useExplorerSearchParams(searchOptions?.params);
+  const searchParamsSource = JSON.stringify(searchParams);
+  const restoringSearch = restoredSearchParamsSource === searchParamsSource;
   const composingSearch = useRef(false);
+  const [searchComposing, setSearchComposingState] = useState(false);
+  const patchSearchTab = tabState.patchTabState;
+  useLayoutEffect(() => {
+    if (features.search && searchTrigger === "input" && !searchComposing && !restoringSearch)
+      patchSearchTab(previous => {
+        const query = previous.searchText.trim();
+        const changed = query !== previous.query || (Object.keys(previous.searchConditions) as (keyof ExplorerSearchConditions)[])
+          .some(key => previous.searchConditions[key] !== previous.committedSearchConditions[key]);
+        return { query, committedSearchConditions: previous.searchConditions, restoredSearchParamsSource: undefined,
+          searchParams: searchParams.params, searchParamsError: searchParams.error,
+          ...(changed ? { selectedIds: [], anchor: null } : {}) };
+      });
+  }, [features.search, searchTrigger, searchComposing, restoringSearch, searchParams, patchSearchTab, tabState.activeTabId]);
   const canSort = features.sort && !(query && onSearchRequest);
   const view = allowedViewModes.includes(storedView) ? storedView : options.view.defaultMode;
   const sort = features.sort ? storedSort : DEFAULT_SORT;
@@ -243,9 +274,14 @@ export function useExplorerViewController({
     updateSort = tabSetter("sort"),
     setExpanded = tabSetter("expanded");
   function restrictSelection(ids: string[]) {
-    if (selectionOptions.mode === "none") return [];
-    const unique = [...new Set(ids)];
-    return selectionOptions.mode === "single" ? unique.slice(0, 1) : unique;
+    const selection = currentOptions.current.selection;
+    if (selection.mode === "none") return [];
+    const byId = getEntryIndex(currentDraft.current.getEntries()).byId;
+    const unique = [...new Set(ids)].filter(id => {
+      const entry = byId.get(id);
+      return entry && matchesExplorerSelectionKind(entry, selection.kind);
+    });
+    return selection.mode === "single" ? unique.slice(0, 1) : unique;
   }
   function setSelected(action: SetStateAction<string[]>) {
     updateSelected(current => restrictSelection(
@@ -259,16 +295,29 @@ export function useExplorerViewController({
     tabState.patchTabState(previous => {
       const text = typeof action === "function" ? action(previous.searchText) : action;
       const nextQuery = commit || !text.trim() ? text.trim() : previous.query;
-      return { searchText: text, query: nextQuery,
+      return { searchText: text, query: nextQuery, restoredSearchParamsSource: undefined,
+        ...(commit ? { committedSearchConditions: previous.searchConditions, searchParams: searchParams.params, searchParamsError: searchParams.error } : {}),
         ...(nextQuery !== previous.query ? { selectedIds: [], anchor: null } : {}) };
+    });
+  }
+  function setSearchConditions(patch: Partial<ExplorerSearchConditions>) {
+    if (!features.search) return;
+    const commit = searchTrigger === "input" && !composingSearch.current;
+    hostNavigation.cancelReveal();
+    tabState.patchTabState(previous => {
+      const conditions = { ...previous.searchConditions, ...patch };
+      for (const value of Object.values(conditions)) if (typeof value !== "boolean") throw new Error("検索条件はbooleanで指定してください");
+      return { searchConditions: conditions, restoredSearchParamsSource: undefined, ...(commit ? { committedSearchConditions: conditions, searchParams: searchParams.params, searchParamsError: searchParams.error, selectedIds: [], anchor: null } : {}) };
     });
   }
   function setSearchComposing(value: boolean) {
     composingSearch.current = value;
+    setSearchComposingState(value);
   }
   function submitSearch() {
     if (!features.search || composingSearch.current) return;
-    tabState.patchTabState(previous => ({ query: previous.searchText.trim(),
+    tabState.patchTabState(previous => ({ query: previous.searchText.trim(), restoredSearchParamsSource: undefined,
+      committedSearchConditions: previous.searchConditions, searchParams: searchParams.params, searchParamsError: searchParams.error,
       searchRevision: previous.searchRevision + 1, selectedIds: [], anchor: null }));
   }
   function retrySearch() {
@@ -277,7 +326,8 @@ export function useExplorerViewController({
   }
   function clearSearch() {
     composingSearch.current = false;
-    tabState.patchTabState({ searchText: "", query: "", selectedIds: [], anchor: null });
+    setSearchComposingState(false);
+    tabState.patchTabState({ searchText: "", query: "", restoredSearchParamsSource: undefined, selectedIds: [], anchor: null });
   }
   function setSort(action: SetStateAction<TabViewState["sort"]>) {
     if (canSort) updateSort(action);
@@ -466,7 +516,7 @@ export function useExplorerViewController({
     return () => clearTimeout(timeout);
   }, [notification]);
   const download = useExplorerDownload({ entries, getEntries: workspace.draft.getEntries,
-    assertPermissions: checks => currentDraft.current.assertEntryPermissions(checks), enabled: features.download, readFile, onDownloadRequest,
+    assertPermissions: checks => { currentDraft.current.assertLoadedForChecks(checks); currentDraft.current.assertEntryPermissions(checks); }, enabled: features.download, readFile, onDownloadRequest,
     manager: workspace.downloads, windowId, ownerDocument, emitEvent, setNotification });
   const instanceId = useId();
   const entryId = (id: string) => `${instanceId}-entry-${id}`;
@@ -494,6 +544,26 @@ export function useExplorerViewController({
     special = location === FAVORITES || location === RECENT,
     currentParent = typeof location === "string" ? location : "root";
   const provisionalLocation = importHierarchy.folderPaths.has(currentParent);
+  const wantedFolderIds = [...expanded, ...(!special && !provisionalLocation ? [currentParent] : [])]
+    .filter(id => id === "root" || entryIndex.byId.get(id)?.kind === "folder");
+  const { loadFolder, getFolderLoadState, folderLoadRevision } = useExplorerFolderView(workspace.draft, wantedFolderIds, ownerDocument);
+  const currentFolderLoad = folderLoadingEnabled && !special && !provisionalLocation && !query ? getFolderLoadState(currentParent) : null;
+  const folderPending = currentFolderLoad?.status === "unloaded" || currentFolderLoad?.status === "loading";
+  const folderError = currentFolderLoad?.status === "error" ? currentFolderLoad.error ?? "フォルダを読み込めませんでした" : null;
+  const retryFolder = () => { void loadFolder(currentParent).catch(() => false); };
+  async function loadFolderTree(id: string) {
+    try {
+      notify("info", "フォルダの配下を読み込んでいます", { persistent: true });
+      const loaded = await loadFolder(id, { recursive: true });
+      if (!mounted.current) return false;
+      if (loaded) notify("success", "フォルダの配下を読み込みました");
+      else notify("error", currentDraft.current.getFolderLoadState(id).error ?? "配下の読み込みを完了できませんでした。もう一度お試しください");
+      return loaded;
+    } catch (error) {
+      if (mounted.current) notify("error", error instanceof Error ? error.message : "フォルダを読み込めませんでした");
+      return false;
+    }
+  }
   const title = locationTitle(location);
   const tabLocations = useMemo(() => Object.fromEntries(
     tabState.tabs.map(tab => [tab.id, resolveLocation(tab.requestedLocation)] as const),
@@ -508,6 +578,7 @@ export function useExplorerViewController({
     previewRequestRevision.current++;
     hostNavigation.cancelReveal();
     composingSearch.current = false;
+    setSearchComposingState(false);
     // Clear local state before notifying the host about cancelled edit requests.
     // A notification handler may immediately navigate or open another preview.
     modalRef.current = null;
@@ -582,13 +653,18 @@ export function useExplorerViewController({
     ? { kind: "folder", id: location, name: title, path: addressPath }
     : { kind: location === FAVORITES ? "favorites" : "recent", id: null, name: title, path: null },
   [location, title, addressPath]);
-  const { resultIds, searchPending, searchError, externalSearch } = useExplorerSearch({
+  const { resultIds, resultHits, searchPending, searchError, externalSearch } = useExplorerSearch({
     enabled: features.search && !provisionalLocation, query, entries, location: locationInfo,
+    searchDataRevision: workspace.draft.searchDataRevision, getSearchDataRevision: workspace.draft.getSearchDataRevision,
+    getEntries: workspace.draft.getEntries, hydrateSearchEntries: workspace.draft.hydrateSearchEntries,
+    externalPaused: saving || refreshing,
+    conditions: committedSearchConditions, params: searchTrigger === "input" && !searchComposing && !restoringSearch ? searchParams.params : committedSearchParams,
+    paramsError: searchTrigger === "input" && !searchComposing && !restoringSearch ? searchParams.error : committedSearchParamsError,
     tabId: tabState.activeTabId, windowId, onSearchRequest, trigger: searchTrigger,
     debounceMs: searchOptions?.debounceMs, revision: searchRevision, ownerDocument,
   });
   const { visible, visiblePositions, selected, selectedSet, selectedEntries } = useExplorerListing({
-    entries, location, query, sort, selectedIds, selectionMode: selectionOptions.mode,
+    entries, location, query, conditions: committedSearchConditions, sort, selectedIds, selectionMode: selectionOptions.mode, selectionKind: selectionOptions.kind,
     searchResultIds: resultIds,
   });
   const renamingEntryId = features.rename && !readOnly && !saving && !refreshing &&
@@ -733,14 +809,18 @@ export function useExplorerViewController({
     // being viewed. Browsing must not cancel a background import.
     if (!pendingTransfer.current && !uploadImport.isPending()) cancelEditRequest(windowId);
   }
-  function navigate(id: ExplorerLocation, record = true) {
-    if ((id === FAVORITES && !features.favorites) || (id === RECENT && !features.recent)) return;
-    id = resolveLocation(id);
+  function prepareBrowsingNavigation() {
     previewRequestRevision.current++;
     cancelBrowsingEditRequest();
     cancelRename();
     hostNavigation.cancelReveal();
     composingSearch.current = false;
+    setSearchComposingState(false);
+  }
+  function navigate(id: ExplorerLocation, record = true) {
+    if ((id === FAVORITES && !features.favorites) || (id === RECENT && !features.recent)) return;
+    id = resolveLocation(id);
+    prepareBrowsingNavigation();
     const expandedIds = typeof id === "string" && id !== "root"
       ? getEntryPath(navigationEntries, id).map(entry => entry.id) : [];
     tabState.patchTabState(previous => explorerLocationPatch(previous, id, expandedIds, [], record));
@@ -752,10 +832,12 @@ export function useExplorerViewController({
   function travel(direction: number) {
     const index = historyIndex + direction;
     if (index < 0 || index >= history.length) return;
-    workspace.tabs.batch(() => {
-      tabState.patchTabState({ historyIndex: index });
-      navigate(resolveLocation(history[index]), false);
-    });
+    const id = resolveLocation(history[index]);
+    if ((id === FAVORITES && !features.favorites) || (id === RECENT && !features.recent)) return;
+    prepareBrowsingNavigation();
+    const expandedIds = typeof id === "string" && id !== "root" ? getEntryPath(navigationEntries, id).map(entry => entry.id) : [];
+    tabState.patchTabState(previous => explorerHistoryPatch(previous, index, id, expandedIds, searchParamsSource));
+    setOpenMobile(false);
   }
 
   function showModal(type: ExplorerDialogState["type"], ids = selected) {
@@ -970,7 +1052,7 @@ export function useExplorerViewController({
       copied.action === "move" ? "移動しました" : "コピーしました",
     );
   }
-  function openEntry(entry: Entry) {
+  function openEntry(entry: Entry, activate = true) {
     if (!mounted.current || ownerDocument?.defaultView?.closed) return;
     cancelRename();
     const currentEntries = currentDraft.current.getEntries();
@@ -978,6 +1060,12 @@ export function useExplorerViewController({
     if (!currentEntry) return;
     if (currentEntry.kind === "folder") {
       navigate(currentEntry.id);
+      return;
+    }
+    if (activate && fileActivationHandler.current) {
+      if (currentDraft.current.isBusy() || currentOptions.current.selection.mode === "none" ||
+        !matchesExplorerSelectionKind(currentEntry, currentOptions.current.selection.kind)) return;
+      fileActivationHandler.current(currentEntry.id);
       return;
     }
     if (!currentOptions.current.features.preview) return;
@@ -1040,7 +1128,7 @@ export function useExplorerViewController({
       failed(error);
     }
   }
-  const hostNavigation = useExplorerNavigation({ workspace, windowId, options, prepare: clearTransientState, preview: openEntry,
+  const hostNavigation = useExplorerNavigation({ workspace, windowId, options, prepare: clearTransientState, preview: entry => openEntry(entry, false),
     onPermissionError: message => notify("error", message),
     visibleIds: visible.map(entry => entry.id) });
   useEffect(() => {
@@ -1050,7 +1138,7 @@ export function useExplorerViewController({
     // Dispatch once after the view mounts, through the same UI/host boundary as a user preview.
     // The consumed initial command may open a dialog or report denial, but cannot replay on rerender.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (entry?.kind === "file" && entry.parent === currentParent) openEntry(entry);
+    if (entry?.kind === "file" && entry.parent === currentParent) openEntry(entry, false);
   });
   function rowKey(event: React.KeyboardEvent, entry: Entry) {
     if (event.defaultPrevented || isComposingKeyEvent(event) || event.target !== event.currentTarget) return;
@@ -1075,7 +1163,7 @@ export function useExplorerViewController({
     }
   }
   function selectEntry(entry: Entry, event: MouseEvent) {
-    if (selectionOptions.mode === "none") return;
+    if (selectionOptions.mode === "none" || !matchesExplorerSelectionKind(entry, selectionOptions.kind)) return;
     if (selectionOptions.mode === "single") {
       setSelected([entry.id]);
       setAnchor(entry.id);
@@ -1103,7 +1191,8 @@ export function useExplorerViewController({
     setAnchor(entry.id);
   }
   function toggleSelect(id: string) {
-    if (selectionOptions.mode === "none") return;
+    const entry = getEntryIndex(currentDraft.current.getEntries()).byId.get(id);
+    if (selectionOptions.mode === "none" || !entry || !matchesExplorerSelectionKind(entry, selectionOptions.kind)) return;
     if (selectionOptions.mode === "single") {
       setSelected(old => old.includes(id) ? [] : [id]);
       setAnchor(id);
@@ -1215,6 +1304,10 @@ export function useExplorerViewController({
   });
   const commands: ExplorerCommandHandle = {
     getEntries: () => mounted.current && !ownerDocument?.defaultView?.closed ? describeEntries(currentDraft.current.getEntries()) : null,
+    async loadFolder(id, loadOptions) {
+      if (!mounted.current || ownerDocument?.defaultView?.closed) return false;
+      return loadFolder(id, loadOptions);
+    },
     async execute(command) {
       if (!command || !mounted.current || ownerDocument?.defaultView?.closed) return false;
       // Omitted IDs are deliberately empty; a host command cannot accidentally
@@ -1249,6 +1342,7 @@ export function useExplorerViewController({
     if (windowId !== "main") return;
     return workspace.commands.register({
       getEntries: () => committedCommands.current.getEntries(),
+      loadFolder: (id, loadOptions) => committedCommands.current.loadFolder(id, loadOptions),
       execute: action => committedCommands.current.execute(action),
       upload: (files, parentId) => committedCommands.current.upload(files, parentId),
       save: () => committedCommands.current.save(),
@@ -1320,7 +1414,7 @@ export function useExplorerViewController({
   }
 
   function chooseFiles(directory = false) {
-    if (busy || special || provisionalLocation || currentOptions.current.readOnly || !(directory ? currentOptions.current.features.uploadFolders : currentOptions.current.features.uploadFiles)) return;
+    if (!mounted.current || currentDraft.current.isBusy() || special || provisionalLocation || currentOptions.current.readOnly || !(directory ? currentOptions.current.features.uploadFolders : currentOptions.current.features.uploadFiles)) return;
     const source = directory ? "folder" : "file";
     const input = directory ? folderInput.current : fileInput.current;
     if (!input) return;
@@ -1341,6 +1435,34 @@ export function useExplorerViewController({
     if (picker?.controller.signal.aborted) return;
     return addLocalFiles(files, source, picker?.parent ?? currentParent);
   }
+  const emptyStateTabId = tabState.activeTabId;
+  function runEmptyStateAction(action: "addFiles" | "addFolders" | "createFolder") {
+    const feature = action === "addFiles" ? "uploadFiles" : action === "addFolders" ? "uploadFolders" : "createFolder";
+    const available = () => {
+      if (!mounted.current || ownerDocument?.defaultView?.closed || currentDraft.current.isBusy() ||
+        currentOptions.current.readOnly || !currentOptions.current.features[feature] || special || provisionalLocation || query) return false;
+      const latestTab = workspace.tabs.forWindow(windowId);
+      if (latestTab.activeTabId !== emptyStateTabId || latestTab.activeTab.requestedLocation !== requestedLocation ||
+        (currentOptions.current.features.search && latestTab.activeTab.query.trim())) return false;
+      return currentParent === "root" || getEntryIndex(currentDraft.current.getEntries()).byId.get(currentParent)?.kind === "folder";
+    };
+    if (!available()) return;
+    try {
+      currentDraft.current.assertEntryPermissions([{ id: currentParent, operation: action === "createFolder" ? "createFolder" : "upload" }]);
+    } catch (error) {
+      if (available()) notify("error", error instanceof Error ? error.message : "操作の許可を確認できません");
+      return;
+    }
+    // Permission resolvers may synchronously change the host's current view.
+    if (!available()) return;
+    if (action === "createFolder") showModal("create", []);
+    else chooseFiles(action === "addFolders");
+  }
+  const emptyStateActions: ExplorerEmptyStateRenderContext["actions"] = !special && !provisionalLocation && !query && !readOnly ? {
+    ...(features.uploadFiles ? { addFiles: () => runEmptyStateAction("addFiles") } : {}),
+    ...(features.uploadFolders ? { addFolders: () => runEmptyStateAction("addFolders") } : {}),
+    ...(features.createFolder ? { createFolder: () => runEmptyStateAction("createFolder") } : {}),
+  } : {};
   useExplorerMouseNavigation({ rootRef: workspaceRef, ownerDocument,
     enabled: features.mouseNavigation && !(busy || renamingEntryId || modal || uploadImport.prompt || preview || details),
     canGoBack: historyIndex > 0, canGoForward: historyIndex < history.length - 1, travel });
@@ -1369,7 +1491,8 @@ export function useExplorerViewController({
         )
       )
         return false;
-      return !target.isContentEditable && !/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
+      return !target.closest?.("[data-explorer-search-result], [data-explorer-custom-empty-state]") &&
+        !target.isContentEditable && !/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
     }
     function nativeCopy(event: ClipboardEvent) {
       if (!isWorkspaceCommand(event) || busy || currentOptions.current.readOnly || !selected.length || !event.clipboardData) return;
@@ -1480,6 +1603,7 @@ export function useExplorerViewController({
     selectionOptions,
     uiOptions,
     allowedViewModes,
+    defaultColumnWidths: options.view.defaultColumnWidths,
     canPaste,
     canDrag,
     rootLabel,
@@ -1510,6 +1634,7 @@ export function useExplorerViewController({
     getProcessingLabel,
     externalDownload: !!onDownloadRequest,
     previewTrigger,
+    fileActivationEnabled: Boolean(interaction?.onFileActivate),
     renderIcon,
     tabLocations,
     requestedLocation,
@@ -1522,6 +1647,24 @@ export function useExplorerViewController({
     anchor,
     query,
     searchText,
+    searchConditions,
+    setSearchConditions,
+    searchParams: searchParams.params,
+    folderLoadingEnabled,
+    folderLoadRevision,
+    getFolderLoadState,
+    loadFolder,
+    loadFolderTree,
+    folderPending,
+    folderError,
+    retryFolder,
+    renderSearch,
+    renderSearchResult,
+    renderEmptyState,
+    emptyStateActions,
+    locationInfo,
+    searchResultHits: resultHits,
+    searchResultDetailsHeight: Number.isFinite(searchOptions?.resultDetailsHeight) ? Math.min(480, Math.max(24, searchOptions!.resultDetailsHeight!)) : 72,
     searchTrigger,
     searchPending,
     searchError,
@@ -1602,6 +1745,7 @@ export function useExplorerViewController({
     changeView,
     changeCompact,
     navigate,
+    openContainingFolder: (entry: Entry) => hostNavigation.openContainingFolder({ id: entry.id }),
     travel,
     showModal,
     act,

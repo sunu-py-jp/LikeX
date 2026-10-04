@@ -56,3 +56,5 @@ export type { SpreadsheetWriteReport } from "./commands/types";
 export { importSpreadsheetXlsx } from "./import/import-xlsx";
 export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, SpreadsheetNativeImportResult, SpreadsheetExcelImportWarning } from "./import/types";
 export type { SpreadsheetImportExcelOptions, SpreadsheetImportNativeOptions } from "./api/lifecycle";
+
+export type { SpreadsheetSearchScope, SpreadsheetSearchSettings, SpreadsheetSearchRequest, SpreadsheetSearchHandler, SpreadsheetSearchRenderContext } from "./api/search";

@@ -1,4 +1,5 @@
 import { resolveFeatureFlags, type FeatureFlags } from "../core";
+import type { ExplorerDetailsColumnWidths } from "./column-size";
 
 export type ExplorerFeature =
   | "favorites"
@@ -19,16 +20,24 @@ export type ExplorerFeature =
   | "tabs"
   | "detachTabs"
   | "resizeSidebar"
+  | "resizeColumns"
   | "mouseNavigation"
   | "pathInput";
 
 /** Omitted features remain enabled; false removes their UI and operations. */
 export type ExplorerFeatures = FeatureFlags<ExplorerFeature>;
 export type ExplorerSelectionMode = "none" | "single" | "multiple";
+export type ExplorerSelectionKind = "file" | "folder" | "both";
 export type ExplorerSelectionOptions = {
   mode?: ExplorerSelectionMode;
+  /** Restrict selection, while leaving folders available for navigation. Defaults to both. */
+  kind?: ExplorerSelectionKind;
   checkboxes?: boolean;
 };
+/** Shared selection eligibility; browsing and preview permissions are separate. */
+export function matchesExplorerSelectionKind(entry: { kind: "file" | "folder" }, kind: ExplorerSelectionKind = "both"): boolean {
+  return kind === "both" || entry.kind === kind;
+}
 export type ExplorerUIOptions = {
   sidebar?: boolean;
   contextMenu?: boolean;
@@ -45,6 +54,9 @@ export type ExplorerViewOptions = {
   allowedModes?: readonly [ExplorerViewMode, ...ExplorerViewMode[]];
   /** Initial mode for new tabs; must be one of allowedModes when supplied. */
   defaultMode?: ExplorerViewMode;
+  /** Initial detail-column widths in px for each pane. Later prop changes do not
+   * overwrite its local resize preference; detached windows start with these defaults. */
+  defaultColumnWidths?: Partial<ExplorerDetailsColumnWidths>;
 };
 export type ExplorerOptions = {
   /** Prevent draft changes while preserving browsing. Missing onSave also enables this. */
@@ -60,7 +72,7 @@ export type ResolvedExplorerOptions = {
   features: Required<ExplorerFeatures>;
   selection: Required<ExplorerSelectionOptions>;
   ui: Required<ExplorerUIOptions>;
-  view: { allowedModes: readonly ExplorerViewMode[]; defaultMode: ExplorerViewMode };
+  view: { allowedModes: readonly ExplorerViewMode[]; defaultMode: ExplorerViewMode; defaultColumnWidths?: Partial<ExplorerDetailsColumnWidths> };
 };
 
 const featureDefaults: Required<ExplorerFeatures> = {
@@ -82,6 +94,7 @@ const featureDefaults: Required<ExplorerFeatures> = {
   tabs: true,
   detachTabs: true,
   resizeSidebar: true,
+  resizeColumns: true,
   mouseNavigation: true,
   pathInput: true,
 };
@@ -109,6 +122,7 @@ export function resolveExplorerOptions(options: ExplorerOptions = {}): ResolvedE
     features,
     selection: {
       mode,
+      kind: options.selection?.kind ?? "both",
       checkboxes: mode !== "none" && (options.selection?.checkboxes ?? true),
     },
     ui: {
@@ -117,6 +131,6 @@ export function resolveExplorerOptions(options: ExplorerOptions = {}): ResolvedE
       rowActions: options.ui?.rowActions ?? true,
       thumbnails: options.ui?.thumbnails ?? true,
     },
-    view: { allowedModes, defaultMode },
+    view: { allowedModes, defaultMode, ...(options.view?.defaultColumnWidths === undefined ? {} : { defaultColumnWidths: options.view.defaultColumnWidths }) },
   };
 }

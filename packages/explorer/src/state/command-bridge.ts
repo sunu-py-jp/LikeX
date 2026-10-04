@@ -6,6 +6,7 @@ export function createExplorerCommandBridge() {
   const unavailable = () => Promise.resolve(false);
   const handle: ExplorerCommandHandle = {
     getEntries: () => current?.getEntries() ?? null,
+    loadFolder: (id, options) => current?.loadFolder(id, options) ?? unavailable(),
     execute: action => current?.execute(action) ?? unavailable(),
     upload: (files, parentId) => current?.upload(files, parentId) ?? unavailable(),
     save: () => current?.save() ?? unavailable(),

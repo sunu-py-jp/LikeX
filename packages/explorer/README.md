@@ -41,6 +41,8 @@ CSSはアプリの入口で1回読み込みます。Next.js App Routerでは `ap
 
 ## 導入時の要点
 
+正規表現検索を追加したため、コピー導入では `re2js@2.8.6` もインストールし、`explorer/model/core-text-search.ts` を `export * from "../../core/text-search";` に変更します。パッケージ導入では自動解決します。
+
 - `onSave` 未指定なら読み取り専用です。`initialEntries` はマウント時だけ読み、最新一覧への更新には `onRefresh` を使います。
 - コピー導入はリポジトリの `packages/core/src/` と `packages/explorer/src/` をそれぞれ `components/core/` と `components/explorer/` へコピーし、`explorer/core.ts` の1行を `export * from "../core";` へ変更します。そのうえで実行時依存とCSSのimportを用意します。詳細な手順は [利用ガイド](./src/docs/README.md) にあります。
 - 下書きはメモリ内です。SPA遷移やアンマウント前の未保存確認は親が `onDirtyChange` で扱います。UIの制限はサーバーの認証・認可に代わるものではありません。
@@ -48,6 +50,8 @@ CSSはアプリの入口で1回読み込みます。Next.js App Routerでは `ap
 - 内蔵ZIPはメモリ内で生成します。大きなダウンロードは親の処理へ委譲してください。ウィンドウ・クリップボード等の動作はブラウザとOSにも依存します。
 
 ## 詳細ガイド
+
+ファイル・フォルダを選んで利用側へ返す用途には、埋め込みの `ExplorerPicker` とモーダルの `ExplorerPickerDialog` を使えます。単一／複数選択、種類制限、確定・キャンセル、既存の検索・遅延取得に対応します。[選択画面の利用ガイド](./src/docs/picker.md)
 
 画面なしの処理は `@likex/explorer/model` の `createDraftSnapshot` / `applyAction` / `addFilesWithResult` / `getSavePayload` を使えます。Node.js 22.13以上でReactやDOMを実行せず利用できます。型には既存の `File` / `Blob` を使うためTypeScriptの `DOM` libが必要です。[モデルAPI](./src/docs/model-api.md)と、表示中の下書きを操作する[ref API](./src/docs/api-reference.md#mounted-commands)を参照してください。
 

@@ -1,14 +1,23 @@
 import { createRef } from "react";
-import Explorer, { ExplorerPopup, useExplorerDraft, createExplorerUploadSession,
+import Explorer, { ExplorerPopup, ExplorerPicker, ExplorerPickerDialog, useExplorerDraft, createExplorerUploadSession,
   type ExplorerProps, type ExplorerEntry, type ExplorerEvent,
   type ExplorerPreviewHandler, type ExplorerPreviewRenderer, type ExplorerPreviewSourceResolver,
   type ExplorerPreviewOptions, type ExplorerPreviewSource,
   type ExplorerFileReader, type ExplorerSaveHandler, type ExplorerRefreshHandler,
   type ExplorerSearchOptions, type ExplorerSearchHandler, type ExplorerSearchRequest,
-  type ExplorerSearchContext, type ExplorerUploadOptions,
+  type ExplorerSearchContext, type ExplorerSearchRenderer, type ExplorerSearchConditions, type ExplorerUploadOptions,
+  type ExplorerSearchHit, type ExplorerSearchResult, type ExplorerSearchStream, type ExplorerSearchResultRenderer,
+  type ExplorerSearchBatch, type ExplorerSearchResponse,
+  type ExplorerFolderLoadHandler, type ExplorerFolderLoadOptions, type ExplorerFolderLoadingOptions,
   type ExplorerEntryPermissionsResolver, type ExplorerEntryPermissions,
-  type ExplorerHandle, type ExplorerFileTarget, type ExplorerNavigationResult,
+  type ExplorerHandle, type ExplorerFileTarget, type ExplorerEntryTarget, type ExplorerNavigationResult,
   type ExplorerNavigationErrorCode, type ExplorerShowFileOptions,
+  type ExplorerDetailsColumn, type ExplorerDetailsColumnWidths, type ExplorerViewOptions,
+  type ExplorerEmptyStateReason, type ExplorerEmptyStateRenderContext, type ExplorerEmptyStateRenderer,
+  type ExplorerPickerProps, type ExplorerPickerDialogProps, type ExplorerPickerHandle, type ExplorerPickerItem,
+  type ExplorerPickerKind, type ExplorerPickerRootItem, type ExplorerPickerOptions, type ExplorerPickerErrorCode, type ExplorerPickerResult,
+  type ExplorerPickerConfirmContext, type ExplorerSelectionKind,
+  resolveExplorerPickerItems,
   type FileReader as LegacyFileReader, type SaveHandler as LegacySaveHandler,
   type RefreshHandler as LegacyRefreshHandler } from "__EXPLORER_IMPORT__";
 
@@ -35,8 +44,64 @@ const invalidPreviewHandler: ExplorerPreviewHandler = () => "new-tab";
 void [previewConfig, previewSource, previewHandler, legacyPreviewHandler, previewRenderer, unsafePreviewSource, asyncPreviewRenderer, invalidPreviewHandler];
 
 const entries: readonly ExplorerEntry[] = [];
+const pickerRef = createRef<ExplorerPickerHandle>();
+const pickerKind: ExplorerPickerKind = "both";
+const pickerOptions: ExplorerPickerOptions = { kind: pickerKind, multiple: true, rootLabel: "共有資料" };
+const rootPickerItem: ExplorerPickerRootItem = { kind: "root", id: "root", path: "/", name: "共有資料" };
+const pickerResolution: ExplorerPickerResult = resolveExplorerPickerItems(entries, [rootPickerItem.id], pickerOptions);
+if (!pickerResolution.ok) { const code: ExplorerPickerErrorCode = pickerResolution.code; void code; }
+function consumePickerItems(items: readonly ExplorerPickerItem[]) {
+  for (const item of items) {
+    const path: string = item.path;
+    if (item.kind === "root") { const rootId: "root" = item.id; void rootId; }
+    else { const size: number = item.size; void size; }
+    void path;
+  }
+}
+const pickerProps: ExplorerPickerProps = { initialEntries: entries, kind: pickerKind, multiple: true,
+  initialSelectedIds: ["file-a"], onSelectionChange: consumePickerItems,
+  onConfirm: async (items, context: ExplorerPickerConfirmContext) => { context.signal.throwIfAborted(); consumePickerItems(items); }, onCancel() {} };
+const picker = <ExplorerPicker {...pickerProps} ref={pickerRef} confirmLabel="確定" cancelLabel="取消" />;
+const pickerDialogProps: ExplorerPickerDialogProps = { ...pickerProps, open: true, onOpenChange(open) { const value: boolean = open; void value; }, dialogTitle: "選択", dialogDescription: "資料を選んでください。" };
+const pickerDialog = <ExplorerPickerDialog {...pickerDialogProps} />;
+async function controlPicker() {
+  const api = pickerRef.current;
+  if (!api) return;
+  const navigated: ExplorerNavigationResult = api.navigate("/資料");
+  api.selectFiles([{ id: "file-a" }]);
+  api.selectEntries([{ path: "/資料" }]);
+  api.openContainingFolder({ id: "file-a" });
+  const currentFolder: boolean = await api.selectCurrentFolder();
+  const confirmed: boolean = await api.confirm();
+  api.cancel();
+  void [navigated, currentFolder, confirmed];
+}
+// @ts-expect-error Picker kind is restricted to files, folders or both.
+const invalidPickerKind: ExplorerPickerKind = "image";
+// @ts-expect-error Initial selection contains entry IDs, not entry objects.
+const invalidPickerSelection = { initialEntries: entries, initialSelectedIds: [{ id: "file-a" }], onConfirm() {} } satisfies ExplorerPickerProps;
+// @ts-expect-error The controlled picker dialog requires onOpenChange.
+const uncontrolledPickerDialog = <ExplorerPickerDialog initialEntries={entries} open onConfirm={() => {}} />;
+// @ts-expect-error The root has no file metadata or storage source.
+const invalidRootSize: number = rootPickerItem.size;
+const selectionKind: ExplorerSelectionKind = "folder";
+const folderSelection = <Explorer initialEntries={entries} selection={{ kind: selectionKind, mode: "multiple" }} />;
+// @ts-expect-error Picker editing is not supported, even when the host has a save function.
+const editablePicker = <ExplorerPicker initialEntries={entries} onConfirm={() => {}} onSave={() => {}} />;
+void [picker, pickerDialog, controlPicker, invalidPickerKind, invalidPickerSelection, uncontrolledPickerDialog, invalidRootSize, folderSelection, editablePicker];
+const detailsColumn: ExplorerDetailsColumn = "location";
+const defaultColumnWidths: Partial<ExplorerDetailsColumnWidths> = { name: 360, [detailsColumn]: 300, updatedAt: 160, extension: 90, size: 100 };
+const detailsView = { defaultMode: "details", defaultColumnWidths } satisfies ExplorerViewOptions;
+const resizedDetails = <Explorer initialEntries={entries} view={detailsView} features={{ resizeColumns: true }} />;
+const fixedDetails = <Explorer initialEntries={entries} view={detailsView} features={{ resizeColumns: false }} readOnly />;
+// @ts-expect-error Column widths use numeric pixels, not CSS strings.
+const invalidColumnWidth = { defaultColumnWidths: { name: "360px" } } satisfies ExplorerViewOptions;
+// @ts-expect-error Search location column widths also use numeric pixels.
+const invalidLocationWidth = { defaultColumnWidths: { location: "300px" } } satisfies ExplorerViewOptions;
+void [resizedDetails, fixedDetails, invalidColumnWidth, invalidLocationWidth];
 const explorerRef = createRef<ExplorerHandle>();
 const targets: readonly ExplorerFileTarget[] = [{ id: "file-a" }, { path: "/資料/b.txt" }];
+const containingFolderTargets: readonly ExplorerEntryTarget[] = [{ id: "file-a" }, { path: "/資料" }];
 const previewOptions = { mode: "preview" } satisfies ExplorerShowFileOptions;
 function navigateFromHost() {
   const api = explorerRef.current;
@@ -45,14 +110,25 @@ function navigateFromHost() {
   if (!result.ok) { const code: ExplorerNavigationErrorCode = result.code; void code; }
   api.selectFiles(targets);
   api.selectFiles([]);
+  for (const target of containingFolderTargets) {
+    const opened: ExplorerNavigationResult = api.openContainingFolder(target);
+    if (!opened.ok) { const code: ExplorerNavigationErrorCode = opened.code; void code; }
+  }
   api.showFile({ id: "file-a" }, previewOptions);
   api.notify({ kind: "info", message: "表示しました" });
+  const folderOptions: ExplorerFolderLoadOptions = { recursive: true, signal: new AbortController().signal };
+  const loaded: Promise<boolean> = api.loadFolder("root", folderOptions);
+  void loaded;
   // @ts-expect-error ID and path cannot both be specified.
   api.showFile({ id: "file-a", path: "/資料/a.txt" });
   // @ts-expect-error Bare strings cannot ambiguously mean file names, paths or IDs.
   api.showFile("file-a");
   // @ts-expect-error selectFiles requires typed targets, not bare IDs.
   api.selectFiles(["file-a"]);
+  // @ts-expect-error Containing-folder navigation also requires exactly one locator.
+  api.openContainingFolder({ id: "file-a", path: "/資料/a.txt" });
+  // @ts-expect-error A bare string is not an ExplorerEntryTarget.
+  api.openContainingFolder("folder-a");
   // @ts-expect-error Mode names are a strict union.
   api.showFile({ path: "/資料/a.txt" }, { mode: "open" });
 }
@@ -65,7 +141,9 @@ const asyncPermissions: ExplorerEntryPermissionsResolver = async () => ({ delete
 // @ts-expect-error Permission operations are strictly named.
 const invalidPermissions: ExplorerEntryPermissions = { erase: false };
 const readFile: ExplorerFileReader = async () => new Blob(['example']);
-const search = { trigger: "input", debounceMs: 300 } satisfies ExplorerSearchOptions;
+const detailed: ExplorerSearchConditions = { matchCase: false, wholeName: false, useRegex: true };
+const renderSearch: ExplorerSearchRenderer = context => <div><input {...context.inputProps} />{context.defaultOptions}<button onClick={() => context.setConditions(detailed)}>Regex</button></div>;
+const search = { params: { extension: "xlsx" }, trigger: "input", debounceMs: 300 } satisfies ExplorerSearchOptions;
 const upload = { maxFileSizeBytes: 10 * 1024 * 1024,
   maxFileSizeBytesByExtension: { ".csv": 2 * 1024 * 1024, ".xlsx": 30 * 1024 * 1024 },
   maxFilesPerUpload: 10, maxTotalFiles: 1000,
@@ -85,13 +163,60 @@ const onSearchRequest: ExplorerSearchHandler = async (request: ExplorerSearchReq
     .map(entry => entry.id);
 };
 const synchronousSearch: ExplorerSearchHandler = () => ["first", "second"] as const;
+const richHit: ExplorerSearchHit = { entryId: "minutes", snippet: "料金改定について合意", reason: "本文・会議日に一致",
+  metadata: { customerName: "顧客A", meetingDate: "2026-09-15" } };
+const richResults: ExplorerSearchResult = ["first", richHit];
+const richSearch: ExplorerSearchHandler = async () => richResults;
+const streamingSearch: ExplorerSearchHandler = async function* (request, { signal }): ExplorerSearchStream {
+  for (const entry of request.entries) {
+    signal.throwIfAborted();
+    yield [{ entryId: entry.id, snippet: request.query }];
+  }
+};
+const promisedStream: ExplorerSearchHandler = async () => (async function* () { yield richResults; })();
+const remoteBatch: ExplorerSearchBatch = { hits: richResults, entries };
+const remoteResponse: ExplorerSearchResponse = remoteBatch;
+const remoteSearch: ExplorerSearchHandler = async function* () {
+  yield remoteResponse;
+  yield ["first"];
+};
+// @ts-expect-error Each stream yield is a batch of IDs/hits, not an individual hit.
+const invalidStream: ExplorerSearchHandler = async function* () { yield richHit; };
+const renderSearchResult: ExplorerSearchResultRenderer = ({ entry, hit, query, view, selected, defaultContent }) =>
+  <div aria-label={`${query}: ${entry.name}`} data-view={view} data-selected={selected}>{defaultContent}
+    {typeof hit.metadata?.meetingDate === "string" && <time>{hit.metadata.meetingDate}</time>}</div>;
+// @ts-expect-error Search result rendering is synchronous; return a component for async work.
+const asyncSearchResultRenderer: ExplorerSearchResultRenderer = async () => <div />;
+// @ts-expect-error Rich results must identify an existing entry by entryId.
+const missingSearchEntry: ExplorerSearchHit = { snippet: "text" };
+const emptyReason: ExplorerEmptyStateReason = "folder";
+const renderEmptyState: ExplorerEmptyStateRenderer = (context: ExplorerEmptyStateRenderContext) => {
+  const { reason, location, query, disabled, actions, defaultContent } = context;
+  if (reason !== emptyReason || location.kind !== "folder" || location.path !== "/資料") return defaultContent;
+  return <section aria-label={location.name} data-query={query}>
+    {actions.addFiles && <button disabled={disabled} onClick={actions.addFiles}>追加</button>}
+    {actions.addFolders && <button disabled={disabled} onClick={actions.addFolders}>フォルダ追加</button>}
+    {actions.createFolder && <button disabled={disabled} onClick={actions.createFolder}>作成</button>}
+  </section>;
+};
+const defaultEmptyState: ExplorerEmptyStateRenderer = () => null;
+const hiddenEmptyState: ExplorerEmptyStateRenderer = () => false;
+// @ts-expect-error Empty-state rendering is synchronous; return a component for async work.
+const asyncEmptyState: ExplorerEmptyStateRenderer = async () => <div />;
+// @ts-expect-error Loading and errors use standard rendering, not empty-state reasons.
+const invalidEmptyReason: ExplorerEmptyStateReason = "loading";
+void [defaultEmptyState, hiddenEmptyState, asyncEmptyState, invalidEmptyReason];
 const legacyReadFile: LegacyFileReader = readFile;
 const legacySave: LegacySaveHandler = onSave;
 const legacyRefresh: LegacyRefreshHandler = onRefresh;
 const legacyProps = { initialEntries: entries, readFile: legacyReadFile, onSave: legacySave, onRefresh: legacyRefresh } satisfies ExplorerProps;
 const valid: ExplorerProps = { preview: previewConfig, resolvePreviewSource: previewSource, onPreviewRequest: previewHandler, renderPreview: previewRenderer,
-  getProcessingLabel: entry => `${entry.name}を処理しています`, initialEntries: entries, onSave, onRefresh, readFile, search, onSearchRequest, upload, getEntryPermissions,
+  getProcessingLabel: entry => `${entry.name}を処理しています`, initialEntries: entries, onSave, onRefresh, readFile, search, onSearchRequest, renderSearch, renderEmptyState, upload, getEntryPermissions,
   onEvent(event: ExplorerEvent) {
+    if (event.type === "search-hydrate") {
+      const added: number = event.addedCount;
+      void added;
+    }
     if (event.type === "refresh" && event.status === "success") {
       const path: string = event.entries[0]?.path ?? "/";
       void path;
@@ -101,10 +226,30 @@ const valid: ExplorerProps = { preview: previewConfig, resolvePreviewSource: pre
 const readOnly = <Explorer ref={explorerRef} initialEntries={entries} />;
 const popup = <ExplorerPopup {...valid} renderTrigger={({ close }) => <button onClick={close}>Close</button>} />;
 const submitSearch = <Explorer initialEntries={entries} search={{ trigger: "submit" }} onSearchRequest={synchronousSearch} />;
+const richSearchView = <Explorer initialEntries={entries} search={{ trigger: "submit", resultDetailsHeight: 112 }} onSearchRequest={richSearch} renderSearchResult={renderSearchResult} />;
+const streamingSearchView = <Explorer initialEntries={entries} onSearchRequest={streamingSearch} renderSearchResult={renderSearchResult} />;
+const folderLoading = { initialLoadedFolderIds: ["cached"] } satisfies ExplorerFolderLoadingOptions;
+const onLoadFolder: ExplorerFolderLoadHandler = async ({ folderId, path }, { signal }) => {
+  signal.throwIfAborted();
+  const currentPath: string = path;
+  void currentPath;
+  return entries.filter(entry => entry.parent === folderId);
+};
+const partialSearchView = <Explorer initialEntries={entries} onLoadFolder={onLoadFolder} folderLoading={folderLoading}
+  onSearchRequest={remoteSearch}
+  onSave={payload => {
+    if (payload.scope?.kind === "partial") {
+      const completeFolders: readonly string[] = payload.scope.loadedFolderIds;
+      void completeFolders;
+    }
+    return payload.entries;
+  }} />;
 // @ts-expect-error Published search options accept input or submit only.
 const wrongSearchTrigger = { trigger: "change" } satisfies ExplorerSearchOptions;
 // @ts-expect-error External search returns string IDs, not indices.
 const wrongSearchResult: ExplorerSearchHandler = () => [123];
+// @ts-expect-error A metadata batch needs both its hits and the entry metadata.
+const incompleteSearchBatch: ExplorerSearchBatch = { hits: richResults };
 const rejected = <Explorer initialEntries={entries}
   // @ts-expect-error Refresh must return an entry array, never a void save-style result.
   onRefresh={() => {}} />;
@@ -126,4 +271,4 @@ function useConsumerDraft() {
   const busy: boolean = draft.refreshing;
   return { result, busy, session: createExplorerUploadSession() };
 }
-void [readOnly, popup, submitSearch, wrongSearchTrigger, wrongSearchResult, wrongSizeExtension, wrongExtensionSize, rejected, wrongFeature, legacyProps, rejectSearchMutation, useConsumerDraft, navigateFromHost, asyncPermissions, invalidPermissions];
+void [readOnly, popup, submitSearch, richSearchView, streamingSearchView, partialSearchView, promisedStream, invalidStream, asyncSearchResultRenderer, missingSearchEntry, wrongSearchTrigger, wrongSearchResult, incompleteSearchBatch, wrongSizeExtension, wrongExtensionSize, rejected, wrongFeature, legacyProps, rejectSearchMutation, useConsumerDraft, navigateFromHost, asyncPermissions, invalidPermissions];

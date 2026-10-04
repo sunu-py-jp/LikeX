@@ -47,7 +47,7 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 | 空のブックを作る | `create --output PATH [--commands FILE] [--dry-run]` |
 | ブック全体の件数だけを読む | `inspect --input PATH --overview` |
 | 全シートの概要・IDを読む | `inspect --input PATH` |
-| シート名から探す | `inspect --input PATH --search sheets --text KEYWORD [--match-case] [--exact]` |
+| シート名から探す | `inspect --input PATH --search sheets --text KEYWORD [--match-case] [--exact] [--regex]` |
 | 全シートのセル内容から探す | `inspect --input PATH --search cells --text KEYWORD [--look-in values\|formulas]` |
 | シート・範囲を絞ってセルを探す | `inspect --input PATH --search cells --text KEYWORD --sheet-id ID [--range A1:C5]` |
 | シートの描画・名前付き範囲・表のIDと範囲を読む | `inspect --input PATH --sheet-id ID` |
@@ -62,7 +62,7 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 
 範囲取得の結果は `selection.rows` の行優先の二次元配列。単一セルでも `[[{ value: "..." }]]`、未格納セルは `null`（単一なら `[[null]]`）になる。`--sheet-id ID --include-data` の保存セル一覧は番地付きの一次元配列 `selection.cells`、検索は `selection.matches` を使う。旧範囲取得の `selection.cells` は `selection.rows` へ変更したため、読み取り側も変更する。両キーの二重出力はしない。公開モデルAPI `getRange` の配列とSPON保存形式は変更しない。
 
-検索は読み取り専用で、既定は大文字・小文字を区別しない部分一致。`--exact` はシート名またはセル文字列全体との一致、`--match-case` は大小文字の区別を指定する。セルの `--look-in values` は表示文字列（数式の計算結果を含む）、`formulas` は保存された文字列・数式を検索する。検索結果も `--offset N --limit N` でページ取得でき、既定100件、上限1,000件。通常の `inspect` や範囲取得にはページ指定を付けない。セル検索の値は既定200文字のプレビューで、省略時は元の長さと省略フラグを付ける。`--preview-length N`（1〜10,000）で変更し、全文が必要なセルは通常の `--range B2` で読む。`selection.matches` に対象IDが返るので、編集前に対象を確認する。
+検索は読み取り専用で、既定は大文字・小文字を区別しない部分一致。`--regex` はRE2形式の正規表現（4,096文字以内、後方参照・先読み・後読みは未対応）、`--exact` はシート名またはセル文字列全体との一致、`--match-case` は大小文字の区別を指定する。セルの `--look-in values` は表示文字列（数式の計算結果を含む）、`formulas` は保存された文字列・数式を検索する。検索結果も `--offset N --limit N` でページ取得でき、既定100件、上限1,000件。通常の `inspect` や範囲取得にはページ指定を付けない。セル検索の値は既定200文字のプレビューで、省略時は元の長さと省略フラグを付ける。`--preview-length N`（1〜10,000）で変更し、全文が必要なセルは通常の `--range B2` で読む。`selection.matches` に対象IDが返るので、編集前に対象を確認する。
 
 ## 編集時の契約
 

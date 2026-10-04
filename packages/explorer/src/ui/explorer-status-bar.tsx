@@ -24,18 +24,22 @@ export const ExplorerStatusBar = memo(function ExplorerStatusBar() {
     saving,
     refreshing,
     searchPending,
+    folderPending,
+    folderError,
     searchError,
     customContextMenuState,
     customContextMenuBusy,
     cancelCustomContextMenu,
-  } = useExplorerFields("visible", "pendingImportEntries", "selected", "selectedEntries", "saveError", "refreshError", "view", "changeView", "allowedViewModes", "selectionOptions", "readOnly", "editMode", "saving", "refreshing", "searchPending", "searchError", "customContextMenuState", "customContextMenuBusy", "cancelCustomContextMenu");
+  } = useExplorerFields("visible", "pendingImportEntries", "selected", "selectedEntries", "saveError", "refreshError", "view", "changeView", "allowedViewModes", "selectionOptions", "readOnly", "editMode", "saving", "refreshing", "searchPending", "searchError", "folderPending", "folderError", "customContextMenuState", "customContextMenuBusy", "cancelCustomContextMenu");
   return (
     <footer
       className="lxe:flex lxe:min-h-8 lxe:shrink-0 lxe:flex-wrap lxe:items-center lxe:gap-x-3 lxe:gap-y-1 lxe:border-t lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-panel)] lxe:px-3 lxe:py-0.5 lxe:text-xs lxe:text-[var(--explorer-muted)]"
       aria-live="polite"
     >
       <span className="lxe:whitespace-nowrap">
-        {searchPending ? "検索中…" : searchError ? "検索に失敗しました" : `${visible.length + (pendingImportEntries?.length ?? 0)} 個の項目`}
+        {folderPending ? `フォルダを読み込み中… ${visible.length} 件取得` : folderError ? `フォルダの読み込みに失敗 · ${visible.length} 件取得` : searchPending ? visible.length ? `検索中… ${visible.length} 件取得` : "検索中…"
+          : searchError ? visible.length ? `検索が途中で終了しました · ${visible.length} 件取得` : "検索に失敗しました"
+            : `${visible.length + (pendingImportEntries?.length ?? 0)} 個の項目`}
       </span>
       {readOnly && <span className="lxe:whitespace-nowrap">読み取り専用</span>}
       {customContextMenuState.phase !== "idle" ? <span className="lxe:flex lxe:items-center lxe:gap-2">

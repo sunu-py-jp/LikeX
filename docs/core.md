@@ -64,4 +64,12 @@ coreは両UIで1つを共有できます。コピー後も元の `@likex/core` �
 
 `build:library` / `pack:library` は依存順にcoreを先に処理します。UIの `test` / `typecheck` もcoreのビルドから開始します。導入検証は、coreとUIの両tarballからの依存解決と、上記3手順によるソースコピーを実際に検証します。
 
-`@likex/core` 単体も依存なしのESMパッケージとしてビルド・pack・Nodeインポート・strict型検証・ソースコピーを確認します。UIのない基盤なのでCSSやNext.jsページの検証は対象外です。Explorer・Spreadsheet・LikeSlideのNext.js・CSS・コピー導入検証は引き続き実行します。
+`@likex/core` 単体もReact・DOMに依存しないESMパッケージとしてビルド・pack・Nodeインポート・strict型検証・ソースコピーを確認します。UIのない基盤なのでCSSやNext.jsページの検証は対象外です。Explorer・Spreadsheet・LikeSlideのNext.js・CSS・コピー導入検証は引き続き実行します。
+
+## 文字列検索
+
+`@likex/core/text-search` の `createTextSearchMatcher({ text, matchCase?, wholeText?, useRegex? })` は、部分一致・全体一致・大文字小文字の区別・正規表現を共通化します。返り値の `test(text)` と `replace(text, replacement)` は繰り返し呼べ、置換後の文字列は `$1` 等もリテラルとして扱います。空の検索語は一致せず、置換も行いません。
+
+通常文字列は100,000文字、正規表現は4,096文字までです。コンパイル前に繰り返しの展開コストを20,000命令相当までに制限し、短い式でも巨大なグループの繰り返しはエラーにします。独立した繰り返しや選択肢のコストは足し合わせ、入れ子やグループに付く回数だけを掛け合わせます。コンパイル後も命令数を検証します。正規表現は [RE2JS](https://github.com/le0pard/re2js) のRE2形式で、グループ・選択・量指定・文字クラス・アンカー・Unicode文字クラスに対応し、先読み・後読み・後方参照には対応しません。不正な構文・未対応構文・過大なパターンは例外になり、UI側でエラーとして表示します。バックトラッキングにより指数時間を要するJavaScriptの正規表現を、未検証の検索語から直接実行しません。標準の検索条件は表示状態で、OfficeやLikeXの保存ファイルには書き込みません。
+
+ソースコピー導入ではcoreの依存 `re2js@2.8.6` をインストールし、Explorer・Spreadsheetの `model/core-text-search.ts` を `export * from "../../core/text-search";` に変更します。

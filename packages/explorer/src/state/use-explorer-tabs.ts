@@ -2,22 +2,35 @@
 
 import { useCallback, useLayoutEffect, useState, useSyncExternalStore, type SetStateAction } from "react";
 import type { ExplorerLocation } from "./view-state";
+import { DEFAULT_EXPLORER_SEARCH_CONDITIONS, type ExplorerSearchConditions } from "../model/search";
 import type { ExplorerViewMode } from "../model/config";
 
 export type TabViewState = {
   requestedLocation: ExplorerLocation;
   history: ExplorerLocation[];
   historyIndex: number;
+  /** Optional view snapshots aligned with the existing location history. */
+  historyViews?: readonly (ExplorerHistoryView | undefined)[];
+  /** Host condition value observed when restoring history; user input clears it. */
+  restoredSearchParamsSource?: string;
   selectedIds: string[];
   anchor: string | null;
   query: string;
   searchText: string;
   searchRevision: number;
+  searchConditions: ExplorerSearchConditions;
+  committedSearchConditions: ExplorerSearchConditions;
+  searchParams?: Readonly<Record<string, unknown>>;
+  searchParamsError?: string | null;
   view: ExplorerViewMode;
   compact: boolean;
   sort: { key: "name" | "updatedAt" | "extension" | "size"; asc: boolean };
   expanded: string[];
 };
+
+export type ExplorerHistoryView = Pick<TabViewState,
+  "query" | "searchText" | "searchConditions" | "committedSearchConditions" |
+  "searchParams" | "searchParamsError" | "selectedIds" | "anchor">;
 
 type ExplorerTab = TabViewState & { id: string };
 type TabStart = { location: ExplorerLocation; expanded: readonly string[]; selectedIds?: readonly string[] };
@@ -30,7 +43,7 @@ const nullSnapshot = () => null;
 
 function createTab(id: string, view: ExplorerViewMode, start: TabStart): ExplorerTab {
   return { id, requestedLocation: start.location, history: [start.location], historyIndex: 0,
-    selectedIds: [...(start.selectedIds ?? [])], anchor: start.selectedIds?.[0] ?? null, query: "", searchText: "", searchRevision: 0, view, compact: false,
+    selectedIds: [...(start.selectedIds ?? [])], anchor: start.selectedIds?.[0] ?? null, query: "", searchText: "", searchRevision: 0, searchConditions: DEFAULT_EXPLORER_SEARCH_CONDITIONS, committedSearchConditions: DEFAULT_EXPLORER_SEARCH_CONDITIONS, view, compact: false,
     sort: { key: "name", asc: true }, expanded: [...start.expanded] };
 }
 

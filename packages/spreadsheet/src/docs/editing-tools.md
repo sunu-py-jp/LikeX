@@ -12,7 +12,7 @@ GUIなしでコピー・貼り付け・移動する例は[編集セッション�
 
 - 現在のシート／ブック全体を検索できます。`features.sheets: false` の場合は現在のシートだけです。
 - 「表示値」は数式の計算結果と日付・通貨などの表示書式を検索します。「数式・入力値」は `=SUM(A1:A3)` などの入力内容を検索します。
-- 大文字・小文字の区別、セル全体との一致を指定できます。検索文字列は通常の文字列として扱い、正規表現ではありません。
+- 大文字・小文字の区別、セル全体との一致、正規表現を指定できます。既定は通常の文字列検索です。
 - 前／次で循環し、結果をクリックすると該当シートとセルを選択します。結果一覧は先頭200件を表示し、前／次では全件を移動できます。
 - 「置換」は選択した一致セル（未選択なら先頭）、「すべて置換」は検索条件に一致する全セルを対象にします。一度の置換操作を一度のUndoで戻せます。
 
@@ -37,7 +37,7 @@ const sheets = findSpreadsheetSheets(workbook, { text: "売上", wholeName: fals
 // 各一致: { sheetId, name, index: 0始まりのタブ位置, rowCount, columnCount }
 ```
 
-`findSpreadsheetSheets` はシート名を部分一致で検索します。`matchCase: true` で大文字・小文字を区別し、`wholeName: true` で名前全体を一致させます。結果は元のタブ順で、セル本体を含まない軽量な配列です。`findSpreadsheetCells` はシートのタブ順、各シートの行・列順で一致を返します。両方とも通常の文字列検索で、空の検索文字列や一致なしは `[]` です。結果の配列と要素は元のモデルから独立して凍結されます。
+`findSpreadsheetSheets` はシート名を部分一致で検索します。`matchCase: true` で大文字・小文字を区別し、`wholeName: true` で名前全体を一致させます。結果は元のタブ順で、セル本体を含まない軽量な配列です。`findSpreadsheetCells` はシートのタブ順、各シートの行・列順で一致を返します。両方とも既定は通常の文字列検索で、`useRegex: true` ならRE2形式の正規表現を使います。空の検索文字列や一致なしは `[]` です。結果の配列と要素は元のモデルから独立して凍結されます。
 
 セル検索の第3引数は `SpreadsheetSearchOptions` です。`range` は `"B2"`、`"B2:F6"`、または0始まりの `{ top, left, bottom, right }` を指定でき、`sheetId` も必要です。不正なシートIDや逆順・シート外の範囲は、検索文字列が空でも例外になります。保存されたセルだけを調べるので、検索範囲には `getRange` の10,000セル制限はありません。`lookIn: "values"` は表示値、`"formulas"` は元の入力値を検索し、`value` はいずれも数式を含む元の文字列です。
 
@@ -55,6 +55,52 @@ const result = await spreadsheetRef.current?.executeAsync({
 });
 if (result && !result.ok) console.error(result.message);
 ```
+
+## 検索UIと外部検索の注入
+
+`renderSearch(context)` は検索ダイアログの入力部分を差し替えます。`defaultInput`・`defaultOptions`・`defaultReplacement` をそのまま描画して独自条件や正規表現プレビューを追加できます。結果一覧・前後移動・置換・Undoは本体に残ります。`null` / `undefined` を返すと標準表示、`false` は入力領域を非表示にします。
+
+```tsx
+<Spreadsheet
+  initialWorkbook={workbook}
+  onSave={saveWorkbook}
+  search={{ trigger: "submit", params: { category: "order" } }}
+  renderSearch={ctx => <>
+    {ctx.defaultInput}
+    {ctx.defaultOptions}
+    {ctx.defaultReplacement}
+    {ctx.query.useRegex && <code>{ctx.query.text}</code>}
+    <button disabled={ctx.disabled} onClick={ctx.clear}>クリア</button>
+  </>}
+/>
+```
+
+`context` は `query` / `setQuery`、`scope` / `setScope`（`sheet` / `workbook`）、`replacement` / `setReplacement`、`submit()`、`clear()`、`searching`、`error`、`pending`、`results`、`disabled`、`mode` を提供します。独自のテキスト入力を作る場合は `onCompositionStart` / `onCompositionEnd` も渡して、IME変換中に検索を実行しないようにします。標準入力には組み込み済みです。
+
+`search.trigger` は `input`（既定）と `submit`。`input` は入力変更で検索し、外部検索だけ `debounceMs`（0〜60,000、既定0）で待機できます。標準のローカル検索は即時です。`submit` はEnter・「検索する」・`ctx.submit()` で条件を確定します。条件の編集中は前回の結果を保ち、`pending: true` の間は置換を無効にします。ブック更新後は確定済み条件で再検索します。`clear()` は確定条件と結果も消去します。
+
+独自の対象抽出・外部インデックスが必要なら `onSearchRequest(request, { signal })` を渡します。`request` は読み取り専用の `workbook` スナップショット、`query`、`scope`、任意の `sheetId` と `params`。`params` は100,000文字以内のJSONオブジェクトで、キーの記述順やハンドラー関数の変更だけでは再検索しません。検索に影響する外部条件は `params` に含めます。
+
+```tsx
+onSearchRequest={async ({ workbook, query, sheetId, params }, { signal }) => {
+  signal.throwIfAborted();
+  const matches = findSpreadsheetCells(workbook, query, { sheetId });
+  // 利用側の条件で検索対象を追加で絞る例。
+  return params?.category === "order"
+    ? matches.filter(match => match.address.startsWith("A"))
+    : matches;
+}}
+```
+
+返却値は既存の `SpreadsheetSearchMatch[]`（最大100,000件）です。シート・セル・元の値・表示文字列を現在のブックと照合し、不明なセル、範囲外、古い値を返した場合はエラーにします。重複結果はまとめ、返却順を保ちます。新しい検索・ブック変更・閉じる操作で `signal` をキャンセルし、遅れて届く旧応答を表示しません。通信や認証は利用側の責務です。
+
+外部検索が返したセルでも、置換時には本体の検索条件に再一致したセルだけを書き換えます。編集許可を待つ間にブック・条件・結果が変われば反映しません。外部検索から任意のセル値を書き込むことはできません。
+
+## 正規表現の範囲
+
+`useRegex: true` はUI・セル検索・シート名検索・`cells.replace.query` で共通です。RE2形式で、文字クラス・選択・繰り返し・アンカーを使えます。後方参照、先読み、後読みには対応せず、無効な構文はエラーを返します。パターンは4,096文字まで、通常の文字列は100,000文字までです。正規表現はバックトラッキングをしない実装で評価します。`matchCase` と `wholeCell`（シート検索は `wholeName`）も併用できます。
+
+置換文字列は常にそのまま挿入します。`$1` や `$&` をキャプチャの展開として扱いません。不正な正規表現を含む一括コマンドは途中まで反映せず失敗します。
 
 ## 形式を選択して貼り付け
 

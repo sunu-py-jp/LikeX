@@ -2,6 +2,8 @@
 
 export { default, default as Explorer } from "./explorer";
 export { ExplorerPopup } from "./explorer-popup";
+export { ExplorerPicker, ExplorerPickerDialog } from "./explorer-picker";
+export type { ExplorerPickerProps, ExplorerPickerDialogProps, ExplorerPickerHandle, ExplorerPickerConfirmContext } from "./picker-props";
 export type {
   ExplorerProps,
   ExplorerSelectedFileMode,
@@ -13,8 +15,22 @@ export type {
   ExplorerIconRenderer,
   ExplorerPreviewContext,
   ExplorerPreviewRenderer,
+  ExplorerSearchRenderContext,
+  ExplorerSearchRenderer,
+  ExplorerSearchResultRenderContext,
+  ExplorerSearchResultRenderer,
+  ExplorerEmptyStateReason,
+  ExplorerEmptyStateRenderContext,
+  ExplorerEmptyStateRenderer,
 } from "./props";
 export type { ExplorerItemInfo } from "./model/item-info";
+export { resolveExplorerPickerItems } from "./model/picker";
+export type { ExplorerPickerKind, ExplorerPickerItem, ExplorerPickerRootItem, ExplorerPickerOptions,
+  ExplorerPickerErrorCode, ExplorerPickerResult } from "./model/picker";
+export { mergeExplorerFolderEntries } from "./model/folder-loading";
+export { mergeExplorerSearchEntries } from "./model/search-entries";
+export type { ExplorerFolderLoadRequest, ExplorerFolderLoadContext, ExplorerFolderLoadHandler, ExplorerFolderLoadingOptions,
+  ExplorerFolderLoadOptions, ExplorerFolderLoadState, ExplorerFolderLoadEvent } from "./model/folder-loading";
 export { assertExplorerEntryPermissions, checksForExplorerAction, checksForExplorerChanges, ExplorerOperationDeniedError } from "./model/entry-permissions";
 export type {
   ExplorerEntryOperation, ExplorerEntryPermission, ExplorerEntryPermissions, ExplorerEntryPermissionTarget,
@@ -24,9 +40,14 @@ export type { ExplorerHandle, ExplorerNotification, ExplorerNotificationDetail, 
 export type { ExplorerCommandHandle } from "./model/commands";
 export type { ExplorerEntryTarget, ExplorerFileTarget, ExplorerShowFileOptions, ExplorerNavigationHandle,
   ExplorerNavigationResult, ExplorerNavigationErrorCode } from "./model/navigation";
+export { resolveExplorerContainingFolder } from "./model/navigation";
 export type { ExplorerContextMenuContext, ExplorerContextMenuChange, ExplorerContextMenuItem, ExplorerContextMenuProvider } from "./model/context-menu";
 export type { ContextMenuExecutionMode } from "./core";
 export type {
+  ExplorerSearchConditions,
+  ExplorerSearchHit,
+  ExplorerSearchResult,
+  ExplorerSearchStream, ExplorerSearchBatch, ExplorerSearchResponse,
   ExplorerSearchOptions,
   ExplorerSearchRequest,
   ExplorerSearchContext,
@@ -78,6 +99,7 @@ export type {
   ExplorerFeatures,
   ExplorerOptions,
   ExplorerSelectionMode,
+  ExplorerSelectionKind,
   ExplorerSelectionOptions,
   ExplorerUIOptions,
   ExplorerViewMode,
@@ -112,3 +134,5 @@ export type {
 } from "./model/download";
 export { defaultExplorerTheme, lightExplorerTheme, darkExplorerTheme } from "./ui/explorer-theme";
 export type { ExplorerTheme, ExplorerThemeOptions, ExplorerThemeOverrides, ExplorerColorMode } from "./ui/explorer-theme";
+
+export type { ExplorerDetailsColumn, ExplorerDetailsColumnWidths } from "./model/column-size";

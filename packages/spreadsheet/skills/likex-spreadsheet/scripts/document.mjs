@@ -27,7 +27,7 @@ const adapters = {
   form: ['Form', 'executeFormCommands', null, 8],
 };
 const selectorsByKind = {
-  spreadsheet: ['overview', 'compact-summary', 'sheet-id', 'range', 'drawing-id', 'search', 'text', 'match-case', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'slide-id', 'element-id', 'master-id', 'layout-id'], document: ['block-id', 'offset', 'limit'],
+  spreadsheet: ['overview', 'compact-summary', 'sheet-id', 'range', 'drawing-id', 'search', 'text', 'match-case', 'regex', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'slide-id', 'element-id', 'master-id', 'layout-id'], document: ['block-id', 'offset', 'limit'],
   board: ['column-id', 'card-id', 'offset', 'limit'], dataview: ['row-id', 'field-id', 'offset', 'limit'],
   diagram: ['node-id', 'edge-id', 'offset', 'limit'], whiteboard: ['element-id', 'offset', 'limit'],
   calendar: ['event-id', 'start', 'end', 'offset', 'limit'], chat: ['conversation-id', 'message-id', 'offset', 'limit'],
@@ -44,7 +44,7 @@ const identity = value => value && [value.dev, value.ino, value.size, value.mtim
 const sameFile = (a, b) => a && b && a.dev === b.dev && a.ino === b.ino;
 
 function usage(kind, version) {
-  const selectors = selectorsByKind[kind].map(key => ['overview', 'compact-summary', 'match-case', 'exact'].includes(key) ? `--${key}` : `--${key} ${['offset', 'limit', 'preview-length'].includes(key) ? 'N' : ['start', 'end'].includes(key) ? 'YYYY-MM-DD' : key === 'range' ? 'A1:C5' : key === 'search' ? 'sheets|cells' : key === 'text' ? 'KEYWORD' : key === 'look-in' ? 'values|formulas' : 'ID'}`).join(' | ');
+  const selectors = selectorsByKind[kind].map(key => ['overview', 'compact-summary', 'match-case', 'regex', 'exact'].includes(key) ? `--${key}` : `--${key} ${['offset', 'limit', 'preview-length'].includes(key) ? 'N' : ['start', 'end'].includes(key) ? 'YYYY-MM-DD' : key === 'range' ? 'A1:C5' : key === 'search' ? 'sheets|cells' : key === 'text' ? 'KEYWORD' : key === 'look-in' ? 'values|formulas' : 'ID'}`).join(' | ');
   return {
     ok: true, kind, libraryVersion: version,
     usage: [
@@ -59,7 +59,7 @@ function usage(kind, version) {
         'apply accepts --expected FILE to compare a previously-read native snapshot. --expected-scope document (default) guards read dependencies; targets guards native operation dependencies. Conflicts reject the entire batch. File hosts must coordinate concurrent writers; UI session tokens are not persisted in files.',
         '--compact-summary omits sheet/slide lists from summary before the response-size check while preserving selected results. Use with targeted inspect reads; cannot combine with --overview.'] : []),
       ...(kind !== 'spreadsheet' && selectorsByKind[kind].includes('offset') ? ['Lists return 100 items by default; --offset and --limit (1–1000) control pagination. Item selectors cannot be combined with pagination.'] : []),
-      ...(kind === 'spreadsheet' ? ['--search sheets|cells requires --text KEYWORD. Search is literal, case-insensitive and partial by default; --match-case and --exact narrow matches.',
+      ...(kind === 'spreadsheet' ? ['--search sheets|cells requires --text KEYWORD. Search is literal, case-insensitive and partial by default; --match-case and --exact narrow matches; --regex uses RE2 syntax (no lookaround or backreferences).',
         'Cell searches accept --look-in values|formulas (default values), optional --sheet-id, and --range with --sheet-id. Sheet-name searches cannot use these selectors.',
         'Cell search previews use --preview-length N (default 200, 1–10000). Truncated fields explicitly include original lengths and truncation flags; matching uses the full values.',
         '--sheet-id ID --include-data lists stored cells in selection.cells as a flat address-bearing array, in row/column order. It cannot be combined with a range, drawing selector, or search.',
@@ -81,7 +81,7 @@ function argumentsFor(argv, kind) {
   if (argv.length === 0 || (argv.length === 1 && argv[0] === '--help')) return { operation: 'help' };
   if (argv.length === 1 && argv[0] === '--version') return { operation: 'version' };
   if (!['create', 'inspect', 'apply', 'validate'].includes(args.operation)) fail('USAGE', 'Expected create, inspect, apply, or validate. Use --help.');
-  const flags = new Set(['dry-run', 'include-data', 'include-animations', 'overview', 'compact-summary', 'match-case', 'exact', 'help']);
+  const flags = new Set(['dry-run', 'include-data', 'include-animations', 'overview', 'compact-summary', 'match-case', 'regex', 'exact', 'help']);
   const values = new Set(['input', 'output', 'commands', 'project', 'expected', 'expected-scope', ...Object.values(selectorsByKind).flat()]);
   for (let index = 1; index < argv.length; index++) {
     const raw = argv[index];
@@ -126,7 +126,7 @@ function argumentsFor(argv, kind) {
         args['preview-length'] = Number(args['preview-length']);
       }
     } else {
-      if (['text', 'match-case', 'exact', 'look-in', 'preview-length'].some(key => args[key] !== undefined)) fail('USAGE', 'Spreadsheet search options require --search.');
+      if (['text', 'match-case', 'regex', 'exact', 'look-in', 'preview-length'].some(key => args[key] !== undefined)) fail('USAGE', 'Spreadsheet search options require --search.');
       if (!sheetData && (args.offset !== undefined || args.limit !== undefined)) fail('USAGE', 'Spreadsheet pagination requires --search or --sheet-id with --include-data.');
     }
     if (sheetData && args.range) fail('USAGE', 'Choose --sheet-id with --include-data or a cell range.');
@@ -390,7 +390,7 @@ function selectionFor(kind, model, document, args) {
   }
   if (kind === 'spreadsheet' && args.search) {
     if (args['sheet-id']) required(document.sheets.find(sheet => sheet.id === args['sheet-id']), 'sheet');
-    const query = { text: args.text, matchCase: Boolean(args['match-case']) };
+    const query = { text: args.text, matchCase: Boolean(args['match-case']), useRegex: Boolean(args.regex) };
     const matches = args.search === 'sheets'
       ? model.findSpreadsheetSheets(document, { ...query, wholeName: Boolean(args.exact) })
       : model.findSpreadsheetCells(document, { ...query, wholeCell: Boolean(args.exact), lookIn: args['look-in'] ?? 'values' },

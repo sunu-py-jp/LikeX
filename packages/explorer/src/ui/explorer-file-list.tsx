@@ -17,13 +17,10 @@ import {
   Copy,
   Ellipsis,
   FolderInput,
-  FolderPlus,
   FolderOpen,
   Info,
-  Loader2,
   Pencil,
   Scissors,
-  Search,
   Star,
   Trash2,
   Upload,
@@ -44,6 +41,11 @@ import {
 import { useExplorerTheme } from "./explorer-theme";
 import { useExplorerDom } from "./explorer-dom-context";
 import { ExplorerBackgroundMenu } from "./explorer-background-menu";
+import { ExplorerEmptyState } from "./explorer-empty-state";
+import { ExplorerSearchResult } from "./explorer-search-result";
+import { ExplorerColumnResizer, useExplorerColumnResize } from "./explorer-column-resizer";
+import { DEFAULT_DETAILS_COLUMN_WIDTHS, EXPLORER_DETAILS_COLUMNS, EXPLORER_STANDARD_DETAILS_COLUMNS } from "../model/column-size";
+import { formatExplorerPath } from "../model/path";
 import { ExplorerCustomMenuItems } from "./explorer-custom-menu-items";
 import type { ExplorerCustomMenu } from "../state/use-explorer-context-menu";
 import { useMenuActionHandoff } from "./use-menu-action-handoff";
@@ -55,7 +57,7 @@ import {
   formatEntryDate,
 } from "../model/entries";
 import type { ExplorerEntry as Entry } from "../model/draft";
-import type { ExplorerViewMode } from "../model/config";
+import { matchesExplorerSelectionKind, type ExplorerViewMode } from "../model/config";
 import { FAVORITES, RECENT } from "../state/view-state";
 import {
   buttonClass,
@@ -68,13 +70,14 @@ import {
 const checkboxClass =
   "lxe:size-3.5 lxe:shrink-0 lxe:cursor-pointer lxe:rounded-sm lxe:accent-[var(--explorer-accent)] lxe:focus-visible:outline-2 lxe:focus-visible:outline-offset-2 lxe:focus-visible:outline-[var(--explorer-accent)]";
 const headerCellClass =
-  "lxe:h-8 lxe:border-b lxe:border-[var(--explorer-border)] lxe:px-3 lxe:text-left lxe:text-xs lxe:font-normal lxe:text-[var(--explorer-muted)] lxe:[&+th]:border-l";
+  "lxe:relative lxe:h-8 lxe:border-b lxe:border-[var(--explorer-border)] lxe:px-3 lxe:text-left lxe:text-xs lxe:font-normal lxe:text-[var(--explorer-muted)] lxe:[&+th]:border-l";
 
 type Features = ReturnType<typeof useExplorer>["features"];
 
-function hasEntryMenu(entry: Entry, features: Features, canEditFavorites: boolean) {
+function hasEntryMenu(entry: Entry, features: Features, canEditFavorites: boolean, searching = false) {
   return (
     entry.kind === "folder" ||
+    (features.search && searching) ||
     features.preview ||
     features.details ||
     features.copy ||
@@ -103,15 +106,20 @@ function EntryMenuItems({
     selected,
     disabled,
     features,
+    query,
     openEntry,
+    openContainingFolder,
+    showModal,
     setDetailId,
     copyToClipboard,
-    showModal,
     act,
     download,
     externalDownload,
+    busy,
     canEditFavorites,
-  } = useExplorerFields("selected", "disabled", "features", "openEntry", "setDetailId", "copyToClipboard", "showModal", "act", "download", "externalDownload", "canEditFavorites");
+    folderLoadingEnabled,
+    loadFolderTree,
+  } = useExplorerFields("selected", "disabled", "features", "query", "openEntry", "openContainingFolder", "showModal", "setDetailId", "copyToClipboard", "act", "download", "externalDownload", "busy", "canEditFavorites", "folderLoadingEnabled", "loadFolderTree");
   const ids = context && !singleTarget && selected.includes(entry.id) ? selected : [entry.id];
   const Item = context ? ContextMenu.Item : DropdownMenu.Item;
   const Separator = context ? ContextMenu.Separator : DropdownMenu.Separator;
@@ -127,6 +135,16 @@ function EntryMenuItems({
         >
           <FolderOpen />
           開く{context && <span className={shortcutClass}>{shortcutLabel("open")}</span>}
+        </Item>
+      ),
+      !singleTarget && features.search && Boolean(query) && entry.kind === "file" && (
+        <Item key="open-containing-folder" className={menuItemClass} onSelect={() => openContainingFolder(entry)}>
+          <FolderInput />フォルダを開く
+        </Item>
+      ),
+      folderLoadingEnabled && entry.kind === "folder" && (
+        <Item key="load-subtree" className={menuItemClass} disabled={busy} onSelect={() => { void loadFolderTree(entry.id); }}>
+          <FolderOpen />配下を読み込む
         </Item>
       ),
       features.details && (
@@ -271,10 +289,10 @@ export function EntryContext({
   const { portalContainer } = useExplorerDom();
   const renameMenuFocus = useRenameMenuFocus(source);
   const actionHandoff = useMenuActionHandoff();
-  const { instanceId, features, uiOptions, canEditFavorites, hasCustomContextMenu, getCustomContextMenu } = useExplorerFields("instanceId", "features", "uiOptions", "canEditFavorites", "hasCustomContextMenu", "getCustomContextMenu");
+  const { instanceId, features, query, uiOptions, canEditFavorites, hasCustomContextMenu, getCustomContextMenu } = useExplorerFields("instanceId", "features", "query", "uiOptions", "canEditFavorites", "hasCustomContextMenu", "getCustomContextMenu");
   const [customMenu, setCustomMenu] = useState<ExplorerCustomMenu | null>(null);
   const [open, setOpen] = useState(false);
-  const hasBuiltins = hasEntryMenu(entry, features, canEditFavorites);
+  const hasBuiltins = hasEntryMenu(entry, features, canEditFavorites, source !== "tree" && Boolean(query));
   if (!uiOptions.contextMenu || (!hasBuiltins && !hasCustomContextMenu)) return children;
   return (
     <ContextMenu.Root open={open} onOpenChange={nextOpen => {
@@ -316,8 +334,8 @@ function RowActions({ entry, onOpenChange }: { entry: Entry; onOpenChange?: (ope
   const theme = useExplorerTheme();
   const { portalContainer } = useExplorerDom();
   const renameMenuFocus = useRenameMenuFocus();
-  const { instanceId, disabled, act, features, uiOptions, canEditFavorites } = useExplorerFields("instanceId", "disabled", "act", "features", "uiOptions", "canEditFavorites");
-  const showMenu = uiOptions.rowActions && hasEntryMenu(entry, features, canEditFavorites);
+  const { instanceId, disabled, act, features, query, uiOptions, canEditFavorites } = useExplorerFields("instanceId", "disabled", "act", "features", "query", "uiOptions", "canEditFavorites");
+  const showMenu = uiOptions.rowActions && hasEntryMenu(entry, features, canEditFavorites, Boolean(query));
   if (!canEditFavorites && !showMenu) return null;
   return (
     <div className="lxe:flex lxe:items-center lxe:justify-end lxe:gap-0.5">
@@ -390,7 +408,7 @@ function SortHeader({
   field: "name" | "updatedAt" | "extension" | "size";
 }) {
   const { location, displayedSort, sortBy, canSort } = useExplorerFields("location", "displayedSort", "sortBy", "canSort");
-  if (!canSort) return label;
+  if (!canSort) return <span className="lxe:block lxe:truncate">{label}</span>;
   return (
     <button
       type="button"
@@ -398,11 +416,11 @@ function SortHeader({
       disabled={location === RECENT}
       onClick={() => sortBy(field)}
     >
-      {label}
+      <span className="lxe:truncate">{label}</span>
       {displayedSort.key === field && (
         <ArrowDown
           size={13}
-          className={displayedSort.asc ? "lxe:rotate-180" : undefined}
+          className={`lxe:shrink-0 ${displayedSort.asc ? "lxe:rotate-180" : ""}`}
         />
       )}
     </button>
@@ -439,6 +457,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
   const {
     rootLabel,
     entries,
+    navigationEntries,
     visible,
     pendingImportEntries,
     openPendingImportFolder,
@@ -450,9 +469,19 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     disabled,
     busy,
     view,
+    defaultColumnWidths,
     compact,
     query,
     searchPending,
+    folderPending,
+    folderError,
+    retryFolder,
+    searchResultHits,
+    searchResultDetailsHeight,
+    renderSearchResult,
+    renderEmptyState,
+    emptyStateActions,
+    locationInfo,
     searchError,
     retrySearch,
     canSort,
@@ -467,7 +496,6 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     setSelected,
     setDragOver,
     setExternalDrag,
-    chooseFiles,
     allowDrop,
     drop,
     rowKey,
@@ -481,11 +509,11 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     selectionOptions,
     uiOptions,
     canDrag,
-    showModal,
     renamingEntryId,
     previewTrigger,
+    fileActivationEnabled,
     canEditFavorites,
-  } = useExplorerFields("rootLabel", "entries", "visible", "pendingImportEntries", "openPendingImportFolder", "selectedSet", "activeTabId", "focusEntryRef", "revealRequest", "clipboard", "disabled", "busy", "view", "compact", "query", "searchPending", "searchError", "retrySearch", "canSort", "location", "special", "provisionalLocation", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "chooseFiles", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "showModal", "renamingEntryId", "previewTrigger", "canEditFavorites");
+  } = useExplorerFields("rootLabel", "entries", "navigationEntries", "visible", "pendingImportEntries", "openPendingImportFolder", "selectedSet", "activeTabId", "focusEntryRef", "revealRequest", "clipboard", "disabled", "busy", "view", "defaultColumnWidths", "compact", "query", "searchPending", "folderPending", "folderError", "retryFolder", "searchResultHits", "searchResultDetailsHeight", "renderSearchResult", "renderEmptyState", "emptyStateActions", "locationInfo", "searchError", "retrySearch", "canSort", "location", "special", "provisionalLocation", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "renamingEntryId", "previewTrigger", "fileActivationEnabled", "canEditFavorites");
   const { scheduleRename, cancelPendingRename } = useEntryRenameDelay();
   const suppressNamePreview = useRef(false);
   const horizontal = view === "small" || view === "list";
@@ -493,29 +521,48 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
   const canSelect = selectionOptions.mode !== "none";
   const showCheckboxes = canSelect && selectionOptions.checkboxes;
   const searching = features.search && Boolean(query);
+  const detailColumns = searching ? EXPLORER_DETAILS_COLUMNS : EXPLORER_STANDARD_DETAILS_COLUMNS;
+  const { setTableElement, ...columnResize } = useExplorerColumnResize(features.resizeColumns, defaultColumnWidths, detailColumns);
+  const listPending = searchPending || folderPending, listError = searchError || folderError;
+  const retryList = searchError ? retrySearch : retryFolder;
   const favoritesLocation = features.favorites && location === FAVORITES;
   const recentLocation = features.recent && location === RECENT;
   const showLocation = !recentLocation && (searching || favoritesLocation);
+  const showInlineLocation = showLocation && !(searching && view === "details");
   const showRowMenu = useMemo(() =>
     uiOptions.rowActions &&
-    visible.some((entry) => hasEntryMenu(entry, features, canEditFavorites)), [uiOptions.rowActions, visible, features, canEditFavorites]);
+    visible.some((entry) => hasEntryMenu(entry, features, canEditFavorites, Boolean(query))), [uiOptions.rowActions, visible, features, canEditFavorites, query]);
   const showActions = canEditFavorites || showRowMenu;
-  const columnCount = 4 + Number(showCheckboxes) + Number(showActions);
-  const actionWidth = canEditFavorites && showRowMenu ? "lxe:w-[68px]" : "lxe:w-9";
+  const columnCount = detailColumns.length + Number(showCheckboxes) + Number(showActions);
+  const actionWidth = canEditFavorites && showRowMenu ? 68 : 36;
+  const auxiliaryColumnWidth = (showCheckboxes ? 36 : 0) + (showActions ? actionWidth : 0);
+  const minimumTableWidth = detailColumns.reduce((total, column) =>
+    total + (columnResize.widths[column] ?? DEFAULT_DETAILS_COLUMN_WIDTHS[column]), auxiliaryColumnWidth);
   const showCardControls = showCheckboxes || canEditFavorites;
-  const checked = (entry: Entry) => canSelect && selectedSet.has(entry.id);
-  const allVisibleSelected = useMemo(() => canSelect && visible.length > 0 && visible.every(entry => selectedSet.has(entry.id)),
-    [canSelect, visible, selectedSet]);
+  const selectable = (entry: Entry) => canSelect && matchesExplorerSelectionKind(entry, selectionOptions.kind);
+  const selectableEntries = useMemo(() => canSelect ? visible.filter(entry => matchesExplorerSelectionKind(entry, selectionOptions.kind)) : [],
+    [canSelect, visible, selectionOptions.kind]);
+  const checked = (entry: Entry) => selectable(entry) && selectedSet.has(entry.id);
+  const allVisibleSelected = useMemo(() => selectableEntries.length > 0 && selectableEntries.every(entry => selectedSet.has(entry.id)),
+    [selectableEntries, selectedSet]);
   const cutIds = useMemo(() => new Set(clipboard?.action === "move" ? clipboard.ids : []), [clipboard]);
   const entryIndex = useMemo(() => getEntryIndex(entries), [entries]);
+  const locationIndex = useMemo(() => getEntryIndex(navigationEntries), [navigationEntries]);
+  const parentPath = (entry: Entry) => formatExplorerPath(navigationEntries, entry.parent, locationIndex);
+  const hitsById = useMemo(() => new Map(searchResultHits?.map(hit => [hit.entryId, hit]) ?? []), [searchResultHits]);
+  const resultDetailsHeight = searchResultHits?.length && (renderSearchResult || searchResultHits.some(hit => hit.snippet || hit.reason)) ? searchResultDetailsHeight : 0;
+  const resultDetails = (entry: Entry, absolute = false) => <ExplorerSearchResult entry={entry} entries={entries} hit={hitsById.get(entry.id)}
+    query={query} view={view} selected={checked(entry)} render={renderSearchResult} height={resultDetailsHeight}
+    style={absolute ? { position: "absolute", bottom: descriptive ? (compact ? 4 : 8) : horizontal ? 2 : 8,
+      left: descriptive ? 80 : horizontal ? 30 : 8, right: 8 } : undefined} />;
   const pendingById = useMemo(() => new Map(pendingImportEntries.map(preview => [preview.entry.id, preview])), [pendingImportEntries]);
   // Only rendering includes staged imports. Selection, menus and host callbacks
   // use committed entries; temporary folders have a separate navigation action.
   const displayedEntries = useMemo(() => pendingImportEntries.length
     ? [...pendingImportEntries.map(preview => preview.entry), ...visible] : visible, [pendingImportEntries, visible]);
   const { enabled: virtualEnabled, scrollRef: scrollContainerRef, items: virtualItems, layout: virtualLayout,
-    pin: pinVirtualEntry, contentStyle: virtualContentStyle } = useExplorerVirtualList(displayedEntries, view, compact, showLocation, showCardControls,
-    JSON.stringify([activeTabId, String(location), query, displayedSort, view]), renamingEntryId, focusEntryRef, revealRequest);
+    pin: pinVirtualEntry, contentStyle: virtualContentStyle } = useExplorerVirtualList(displayedEntries, view, compact, showInlineLocation, showCardControls,
+    JSON.stringify([activeTabId, String(location), query, displayedSort, view]), renamingEntryId, focusEntryRef, revealRequest, resultDetailsHeight);
   const canUpload = !provisionalLocation && (features.uploadFiles || features.uploadFolders);
   const acceptsDrop = (event: DragEvent<HTMLElement>) =>
     !provisionalLocation && !busy &&
@@ -523,7 +570,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
       ? canUpload
       : canDrag && event.dataTransfer.types.includes("application/x-explorer"));
   const isNamePreviewClick = (entry: Entry, event: MouseEvent<HTMLElement>) =>
-    previewTrigger === "click" &&
+    !fileActivationEnabled && previewTrigger === "click" &&
     features.preview &&
     entry.kind === "file" &&
     (event.target as Element)
@@ -567,7 +614,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
       cancelPendingRename();
       // The first click on the name already opened this file.
       if (isNamePreviewClick(entry, event)) return;
-      if (entry.kind === "folder" || features.preview) openEntry(entry);
+      if (entry.kind === "folder" || features.preview || fileActivationEnabled) openEntry(entry);
     },
     onContextMenu:
       uiOptions.contextMenu && canSelect
@@ -612,14 +659,14 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
         : "",
     ].join(" ");
   const rowHeightClass = compact ? "lxe:h-7" : "lxe:h-9";
-  const cellClass = `${rowHeightClass} lxe:px-3 lxe:text-xs lxe:text-[var(--explorer-muted)]`;
+  const cellClass = `${rowHeightClass} lxe:truncate lxe:px-3 lxe:text-xs lxe:text-[var(--explorer-muted)]`;
   const cardClassName = `lxe:group lxe:relative lxe:min-w-0 lxe:cursor-default lxe:overflow-hidden lxe:rounded-sm lxe:border lxe:border-transparent ${horizontal ? `lxe:flex lxe:shrink-0 lxe:items-center lxe:gap-2 lxe:px-1.5 lxe:py-0.5 ${rowHeightClass} ${view === "list" ? "lxe:w-[230px]" : ""}` : descriptive ? `lxe:grid lxe:items-center lxe:gap-x-3 lxe:px-2.5 ${compact ? "lxe:py-1" : "lxe:py-2"} ${view === "content" ? "lxe:min-h-16 lxe:grid-cols-[56px_minmax(100px,1fr)_110px] lxe:grid-rows-2 lxe:rounded-none lxe:border-b-[var(--explorer-border)]" : "lxe:min-h-[72px] lxe:grid-cols-[56px_minmax(0,1fr)] lxe:grid-rows-2"}` : `lxe:flex lxe:flex-col lxe:items-center lxe:px-2 lxe:pb-2 ${showCardControls ? "lxe:pt-4" : "lxe:pt-2"}`}`;
 
   return (
     <section
       className="lxe:flex lxe:min-h-0 lxe:min-w-0 lxe:flex-1 lxe:flex-col lxe:bg-[var(--explorer-background)]"
       aria-label="ファイル一覧"
-      aria-busy={searchPending || provisionalLocation || pendingImportEntries.length > 0}
+      aria-busy={listPending || provisionalLocation || pendingImportEntries.length > 0}
       onFocusCapture={(event) => pinVirtualEntry("focus", (event.target as Element).closest<HTMLElement>("[data-explorer-entry-id]")?.dataset.explorerEntryId ?? null)}
       onBlurCapture={(event) => pinVirtualEntry("focus", (event.relatedTarget as Element | null)?.closest?.<HTMLElement>("[data-explorer-entry-id]")?.dataset.explorerEntryId ?? null)}
       onDragEndCapture={() => pinVirtualEntry("drag", null)}
@@ -630,15 +677,23 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
       }}
       onContextMenuCapture={cancelPendingRename}
     >
+      {listError && visible.length > 0 && <div role="alert"
+        className="lxe:flex lxe:shrink-0 lxe:items-center lxe:gap-2 lxe:border-b lxe:border-[var(--explorer-border)] lxe:px-3 lxe:py-2 lxe:text-xs lxe:text-[var(--explorer-danger)]">
+        <p className="lxe:m-0 lxe:min-w-0 lxe:flex-1 lxe:truncate" title={listError}>
+          {searchError ? "検索が途中で終了しました。" : "フォルダを読み込めませんでした。"}取得済みの{visible.length}件を表示しています。{listError}
+        </p>
+        <button type="button" className={buttonClass} onClick={retryList}>再試行</button>
+      </div>}
       <ExplorerBackgroundMenu><div
         ref={scrollContainerRef}
         data-explorer-drag-scroll="both"
         data-explorer-virtualized={virtualEnabled || undefined}
         className={`lxe:relative lxe:min-h-0 lxe:flex-1 lxe:overflow-auto lxe:px-2 lxe:pb-3 lxe:[scrollbar-width:thin] ${(canDrag || canUpload) && dragOver === currentParent ? "lxe:ring-2 lxe:ring-[var(--explorer-accent)] lxe:ring-inset" : ""}`}
         onClick={(event) => {
+          // Portal menu clicks bubble through React; they are not empty list space.
           if (
             !(event.target as HTMLElement).closest(
-              "[data-explorer-entry],button,input,select,[role='checkbox']",
+              "[data-explorer-entry],button,input,select,[role='checkbox'],[role='separator'],[role^='menuitem']",
             )
           ) {
             setSelected([]);
@@ -677,112 +732,29 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
             </span>
           </div>
         )}
-        {searchPending || searchError || !displayedEntries.length ? (provisionalLocation && !searchPending && !searchError ? null :
-          <div role={searchError ? "alert" : searchPending ? "status" : undefined} className="lxe:flex lxe:h-full lxe:min-h-52 lxe:flex-col lxe:items-center lxe:justify-center lxe:gap-3 lxe:p-6 lxe:text-center">
-            {searchPending ? (
-              <Loader2
-                aria-hidden="true"
-                className="lxe:size-11 lxe:animate-spin lxe:text-[var(--explorer-muted)] lxe:motion-reduce:animate-none"
-                strokeWidth={1.25}
-              />
-            ) : searching || searchError ? (
-              <Search
-                aria-hidden="true"
-                className="lxe:size-11 lxe:text-[var(--explorer-muted)]"
-                strokeWidth={1.25}
-              />
-            ) : (
-              <FolderOpen
-                aria-hidden="true"
-                className="lxe:size-11 lxe:text-[var(--explorer-muted)]"
-                strokeWidth={1.25}
-              />
-            )}
-            <h3 className="lxe:mt-1 lxe:text-base lxe:font-normal">
-              {searchPending
-                ? "検索しています…"
-                : searchError
-                  ? "検索に失敗しました"
-                  : searching
-                    ? "一致するファイルがありません"
-                    : favoritesLocation
-                      ? "お気に入りはまだありません"
-                      : "このフォルダは空です"}
-            </h3>
-            <p className="lxe:text-sm lxe:text-[var(--explorer-muted)]">
-              {searchPending
-                ? "検索結果を取得しています"
-                : searchError
-                  ? searchError
-                  : searching
-                    ? "別の検索条件で検索してください"
-                    : favoritesLocation
-                      ? canEditFavorites
-                        ? "項目を選んで、メニューからお気に入りに追加できます"
-                        : "登録済みの項目がここに表示されます"
-                      : features.uploadFiles && features.uploadFolders
-                        ? "ファイルやフォルダを追加できます"
-                        : features.uploadFiles
-                          ? "ファイルを追加できます"
-                          : features.uploadFolders
-                            ? "フォルダを追加できます"
-                            : features.createFolder
-                              ? "フォルダを作成できます"
-                              : "表示できる項目はありません"}
-            </p>
-            {!searchPending && searchError && (
-              <button type="button" className={buttonClass} onClick={retrySearch}>
-                再試行
-              </button>
-            )}
-            {!searchPending &&
-              !searchError &&
-              !special &&
-              !provisionalLocation &&
-              !searching &&
-              (features.uploadFiles ||
-                features.uploadFolders ||
-                features.createFolder) && (
-                <button
-                  type="button"
-                  className={buttonClass}
-                  disabled={disabled}
-                  onClick={() =>
-                    features.uploadFiles
-                      ? chooseFiles()
-                      : features.uploadFolders
-                        ? chooseFiles(true)
-                        : showModal("create")
-                  }
-                >
-                  {features.uploadFiles || features.uploadFolders ? (
-                    <Upload size={16} />
-                  ) : (
-                    <FolderPlus size={16} />
-                  )}
-                  {features.uploadFiles
-                    ? "追加"
-                    : features.uploadFolders
-                      ? "フォルダを追加"
-                      : "フォルダを作成"}
-                </button>
-              )}
-          </div>
+        {((listPending || listError) && !visible.length) || !displayedEntries.length ? (provisionalLocation && !listPending && !listError ? null :
+          <ExplorerEmptyState
+            reason={searching ? "search" : favoritesLocation ? "favorites" : recentLocation ? "recent" : "folder"}
+            location={locationInfo} query={query} disabled={disabled} actions={emptyStateActions}
+            pending={listPending ? folderPending ? "folder" : "search" : undefined}
+            error={listError} errorKind={folderError ? "folder" : "search"} retry={retryList}
+            canEditFavorites={canEditFavorites} render={renderEmptyState}
+          />
         ) : view === "details" ? (
           <table
+            ref={setTableElement}
             aria-rowcount={virtualEnabled ? displayedEntries.length + 1 : undefined}
             className="lxe:w-full lxe:table-fixed lxe:border-separate lxe:border-spacing-0 lxe:text-sm"
             style={{
-              minWidth:
-                538 +
-                (showCheckboxes ? 36 : 0) +
-                (showActions
-                  ? canEditFavorites && showRowMenu
-                    ? 68
-                    : 36
-                  : 0),
+              minWidth: minimumTableWidth,
+              width: columnResize.totalWidth === undefined ? undefined : columnResize.totalWidth + auxiliaryColumnWidth,
             }}
           >
+            <colgroup>
+              {showCheckboxes && <col style={{ width: 36 }} />}
+              {detailColumns.map(column => <col key={column} style={{ width: columnResize.widths[column] }} />)}
+              {showActions && <col style={{ width: actionWidth }} />}
+            </colgroup>
             <thead className="lxe:sticky lxe:top-0 lxe:z-10 lxe:bg-[var(--explorer-background)]">
               <tr>
                 {showCheckboxes && (
@@ -792,10 +764,11 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                         type="checkbox"
                         className={checkboxClass}
                         checked={allVisibleSelected}
+                        disabled={!selectableEntries.length}
                         onChange={(event) =>
                           setSelected(
                             event.target.checked
-                              ? visible.map((entry) => entry.id)
+                              ? selectableEntries.map((entry) => entry.id)
                               : [],
                           )
                         }
@@ -808,6 +781,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                 )}
                 <th
                   className={headerCellClass}
+                  data-explorer-column="name"
                   aria-sort={
                     !canSort
                       ? undefined
@@ -819,9 +793,15 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                   }
                 >
                   <SortHeader field="name" label="名前" />
+                  <ExplorerColumnResizer resize={columnResize} column="name" label="名前" />
                 </th>
+                {searching && <th className={headerCellClass} data-explorer-column="location">
+                  <span className="lxe:block lxe:truncate">場所</span>
+                  <ExplorerColumnResizer resize={columnResize} column="location" label="場所" />
+                </th>}
                 <th
-                  className={`${headerCellClass} lxe:w-32`}
+                  className={headerCellClass}
+                  data-explorer-column="updatedAt"
                   aria-sort={
                     !canSort
                       ? undefined
@@ -833,9 +813,11 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                   }
                 >
                   <SortHeader field="updatedAt" label="更新日時" />
+                  <ExplorerColumnResizer resize={columnResize} column="updatedAt" label="更新日時" />
                 </th>
                 <th
-                  className={`${headerCellClass} lxe:w-20`}
+                  className={headerCellClass}
+                  data-explorer-column="extension"
                   aria-sort={
                     !canSort
                       ? undefined
@@ -845,9 +827,11 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                   }
                 >
                   <SortHeader field="extension" label="拡張子" />
+                  <ExplorerColumnResizer resize={columnResize} column="extension" label="拡張子" />
                 </th>
                 <th
-                  className={`${headerCellClass} lxe:w-24`}
+                  className={headerCellClass}
+                  data-explorer-column="size"
                   aria-sort={
                     !canSort
                       ? undefined
@@ -859,9 +843,10 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                   }
                 >
                   <SortHeader field="size" label="サイズ" />
+                  <ExplorerColumnResizer resize={columnResize} column="size" label="サイズ" />
                 </th>
                 {showActions && (
-                  <th className={`${headerCellClass} ${actionWidth} lxe:px-1`}>
+                  <th className={`${headerCellClass} lxe:px-1`}>
                     <span className="lxe:sr-only">操作</span>
                   </th>
                 )}
@@ -876,13 +861,14 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                 {pendingById.has(entry.id) ? (
                   <ExplorerPendingImportRow preview={pendingById.get(entry.id)!} rowIndex={index + 2}
                     style={virtualEnabled ? { height: virtualLayout.rowHeight } : undefined}
+                    location={searching ? parentPath(entry) : undefined}
                     compact={compact} showCheckboxes={showCheckboxes} showActions={showActions} onOpenFolder={openPendingImportFolder} />
                 ) : <EntryContext entry={entry} onOpenChange={open => pinVirtualEntry("menu", open ? entry.id : null)}>
                   <tr
                     {...entryEvents(entry)}
                     aria-rowindex={index + 2}
                     style={virtualEnabled ? { height: virtualLayout.rowHeight } : undefined}
-                    aria-selected={canSelect ? checked(entry) : undefined}
+                    aria-selected={selectable(entry) ? checked(entry) : undefined}
                     className={`lxe:group lxe:cursor-default ${entryStateClass(entry)}`}
                   >
                     {showCheckboxes && (
@@ -895,6 +881,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                           type="checkbox"
                           className={checkboxClass}
                           checked={checked(entry)}
+                          disabled={!selectable(entry)}
                           onChange={() => toggleSelect(entry.id)}
                           aria-label={`${entry.name}を選択`}
                         />
@@ -908,7 +895,8 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                             entry={entry}
                             className="lxe:truncate lxe:text-sm"
                           />
-                          {showLocation && (
+                          {resultDetails(entry)}
+                          {showInlineLocation && (
                             <small className="lxe:truncate lxe:text-xs lxe:text-[var(--explorer-muted)]">
                               {getEntryPath(entries, entry.parent)
                                 .map((item) => item.name)
@@ -926,7 +914,8 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                         )}
                       </div>
                     </td>
-                    <td className={cellClass}>{formatEntryDate(entry.updatedAt)}</td>
+                    {searching && <td className={cellClass} title={parentPath(entry)}>{parentPath(entry)}</td>}
+                    <td className={cellClass} title={formatEntryDate(entry.updatedAt)}>{formatEntryDate(entry.updatedAt)}</td>
                     <td className={`${cellClass} lxe:truncate`} title={entryExtension(entry)}>{entryExtension(entry)}</td>
                     <td className={`${cellClass} lxe:tabular-nums`}>
                       {entry.kind === "folder" ? "" : formatSize(entry.size)}
@@ -958,10 +947,14 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
               <EntryContext key={entry.id} entry={entry} onOpenChange={open => pinVirtualEntry("menu", open ? entry.id : null)}>
                 <div
                   {...entryEvents(entry)}
-                  style={style}
+                  style={resultDetailsHeight ? { ...style,
+                    paddingBottom: resultDetailsHeight + (horizontal ? 2 : descriptive ? (compact ? 4 : 8) : 8),
+                    ...(!virtualEnabled && horizontal ? { height: (compact ? 28 : 36) + resultDetailsHeight } : {}),
+                    ...(!virtualEnabled && descriptive ? { minHeight: (view === "content" ? 64 : 72) + resultDetailsHeight } : {}),
+                  } : style}
                   role="button"
                   aria-label={entry.name}
-                  aria-pressed={canSelect ? checked(entry) : undefined}
+                  aria-pressed={selectable(entry) ? checked(entry) : undefined}
                   className={mergeExplorerClasses(
                     cardClassName,
                     entryStateClass(entry),
@@ -984,6 +977,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                             type="checkbox"
                             className={checkboxClass}
                             checked={checked(entry)}
+                            disabled={!selectable(entry)}
                             onChange={() => toggleSelect(entry.id)}
                             aria-label={`${entry.name}を選択`}
                           />
@@ -1046,6 +1040,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                       )}
                     />
                   )}
+                  {resultDetails(entry, true)}
                   {descriptive && (
                     <p
                       className={`lxe:text-xs lxe:text-[var(--explorer-muted)] ${view === "content" ? "lxe:col-start-3 lxe:row-span-2 lxe:row-start-1 lxe:flex lxe:flex-col-reverse lxe:gap-1.5 lxe:pl-2" : "lxe:col-start-2 lxe:row-start-2"}`}

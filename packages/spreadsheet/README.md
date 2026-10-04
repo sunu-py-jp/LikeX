@@ -50,4 +50,6 @@ LLM向けの [likex-spreadsheetスキル](./skills/likex-spreadsheet/SKILL.md) �
 
 [利用ガイド](./src/docs/README.md) に、コピー導入、公開型、保存、機能設定と制約をまとめています。[対応関数と数式](./src/docs/functions.md)、[挿入機能とJSONの具体例](./src/docs/insertions-and-json.md) も参照できます。コピー導入では `packages/core/src/` と `packages/spreadsheet/src/` をそれぞれ `components/core/` と `components/spreadsheet/` へコピーし、`spreadsheet/core.ts` の1行を `export * from "../core";` へ変更します。`spreadsheet/ooxml.ts` も `export * from "../core/ooxml";` へ変更します。 `spreadsheet/json.ts` も `export * from "../core/json";` に変更します。
 
+正規表現検索のため `re2js@2.8.6` もインストールし、`spreadsheet/model/core-text-search.ts` は `export * from "../../core/text-search";` に変更します。図形の共通処理など他の参照先も[コピー導入手順](./src/docs/README.md#コピー導入)に従って変更してください。パッケージ導入ではcoreの依存として自動解決します。
+
 `.xlsx` の[取り込み](./src/docs/excel-import.md)と[出力](./src/docs/excel-export.md)に対応します。保存・復元の基本形式はJSONです。Excelの完全互換ではなく、グラフ、ピボットテーブル、マクロは含みません。認証・認可・保存先との競合解決は利用側の責務です。[MITライセンス](LICENSE)で、コピーする場合は`src/LICENSE`と`src/THIRD_PARTY_NOTICES.md`も保持してください。npm公開は未実施で、`private: true`は誤公開防止のため維持しています。

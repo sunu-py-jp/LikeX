@@ -2,8 +2,8 @@
 
 import { useInsertionEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ExplorerEntry } from "../model/draft";
-import type { ResolvedExplorerOptions } from "../model/config";
-import { resolveExplorerFileTargets, resolveExplorerEntryTargets, resolveExplorerNavigation,
+import { matchesExplorerSelectionKind, type ResolvedExplorerOptions } from "../model/config";
+import { resolveExplorerFileTargets, resolveExplorerEntryTargets, resolveExplorerNavigation, resolveExplorerContainingFolder,
   type ExplorerFileTarget, type ExplorerNavigationErrorCode, type ExplorerNavigationHandle,
   type ExplorerNavigationResult, type ExplorerShowFileOptions } from "../model/navigation";
 import type { ExplorerWorkspace } from "./use-explorer-workspace";
@@ -26,7 +26,7 @@ export function useExplorerNavigation({ workspace, windowId, options, prepare, p
   const renderedTab = workspace.tabs.forWindow(windowId).activeTab;
   const renderedEntries = workspace.draft.entries;
   const fail = (code: ExplorerNavigationErrorCode, message: string): ExplorerNavigationResult => ({ ok: false, code, message });
-  function apply(location: string | null, expanded: readonly string[], fileIds: readonly string[]) {
+  function apply(location: string | null, expanded: readonly string[], fileIds: readonly string[], revealId = fileIds[0]) {
     const revision = ++commandRevision.current;
     const pane = workspace.tabs.forWindow(windowId);
     if (location === null) {
@@ -41,7 +41,7 @@ export function useExplorerNavigation({ workspace, windowId, options, prepare, p
     // issue a newer command. The newest accepted command owns the view.
     if (revision !== commandRevision.current) return false;
     pane.patchTabState(previous => explorerLocationPatch(previous, location, expanded, fileIds));
-    setRevealRequest(fileIds.length ? { id: fileIds[0], tabId: pane.activeTabId } : null);
+    setRevealRequest(revealId ? { id: revealId, tabId: pane.activeTabId } : null);
     return true;
   }
   function files(targets: readonly ExplorerFileTarget[], showOptions?: ExplorerShowFileOptions): ExplorerNavigationResult {
@@ -52,6 +52,8 @@ export function useExplorerNavigation({ workspace, windowId, options, prepare, p
     if (!resolved.ok) return resolved;
     if (resolved.value.fileIds.length && options.selection.mode === "none" && mode !== "preview")
       return fail("selection-disabled", "ファイルの選択が無効になっています");
+    if (resolved.value.fileIds.length && options.selection.kind === "folder" && mode !== "preview")
+      return fail("selection-kind", "選択できる項目はフォルダだけです");
     if (resolved.value.fileIds.length > 1 && options.selection.mode === "single")
       return fail("selection-limit", "複数のファイルは選択できません");
     if (mode === "preview" && !options.features.preview)
@@ -65,7 +67,7 @@ export function useExplorerNavigation({ workspace, windowId, options, prepare, p
         return fail("permission-denied", message);
       }
     }
-    if (!apply(location, expanded, options.selection.mode === "none" ? [] : fileIds)) return { ok: true };
+    if (!apply(location, expanded, options.selection.mode === "none" || options.selection.kind === "folder" ? [] : fileIds, fileIds[0])) return { ok: true };
     if (mode === "preview") {
       const entry = entries.find(item => item.id === fileIds[0]);
       if (entry) preview(entry);
@@ -80,6 +82,14 @@ export function useExplorerNavigation({ workspace, windowId, options, prepare, p
       return { ok: true };
     },
     selectFiles: targets => files(targets),
+    openContainingFolder(target) {
+      const resolved = resolveExplorerContainingFolder(workspace.draft.getEntries(), target);
+      if (!resolved.ok) return resolved;
+      const { location, expanded, fileIds } = resolved.value;
+      const entry = workspace.draft.getEntries().find(item => item.id === fileIds[0]);
+      apply(location, expanded, options.selection.mode === "none" || !entry || !matchesExplorerSelectionKind(entry, options.selection.kind) ? [] : fileIds, fileIds[0]);
+      return { ok: true };
+    },
     selectEntries(targets) {
       const entries = workspace.draft.getEntries();
       const resolved = resolveExplorerEntryTargets(entries, targets);
@@ -89,6 +99,8 @@ export function useExplorerNavigation({ workspace, windowId, options, prepare, p
       if (ids.length > 1 && options.selection.mode === "single") return fail("selection-limit", "複数の項目は選択できません");
       if (!ids.length) { apply(null, [], []); return { ok: true }; }
       const byId = new Map(entries.map(entry => [entry.id, entry]));
+      if (ids.some(id => !matchesExplorerSelectionKind(byId.get(id)!, options.selection.kind)))
+        return fail("selection-kind", options.selection.kind === "file" ? "選択できる項目はファイルだけです" : "選択できる項目はフォルダだけです");
       const parent = byId.get(ids[0])!.parent;
       const pane = workspace.tabs.forWindow(windowId);
       // Preserve the current search/favorites view when it already contains
@@ -120,9 +132,10 @@ export function useExplorerNavigation({ workspace, windowId, options, prepare, p
       navigate: path => committed.current.navigate(path),
       selectFiles: targets => committed.current.selectFiles(targets),
       selectEntries: targets => committed.current.selectEntries(targets),
+      openContainingFolder: target => committed.current.openContainingFolder(target),
       showFile: (target, showOptions) => committed.current.showFile(target, showOptions),
       previewFile: target => committed.current.previewFile(target),
     });
   }, [workspace.navigation, windowId]);
-  return { revealRequest, cancelReveal: () => setRevealRequest(null) };
+  return { revealRequest, cancelReveal: () => setRevealRequest(null), openContainingFolder: handlers.openContainingFolder };
 }

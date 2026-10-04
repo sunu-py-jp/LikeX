@@ -1,15 +1,47 @@
 import {
   createDraftSnapshot, applyAction, addFilesWithResult, prepareFilesWithProgress,
   addFilesAsync, addFilesWithResultAsync, prepareFilesWithProgressAsync,
-  createExplorerUploadSession, getSavePayload, describeEntries, resolveExplorerEntryTargets,
+  createExplorerUploadSession, getSavePayload, describeEntries, resolveExplorerEntryTargets, resolveExplorerContainingFolder,
   type ExplorerEntry, type ExplorerSnapshot, type ExplorerAction, type ExplorerUploadDecision,
-  type ExplorerItemInfo, type ExplorerImportProgress, type ExplorerEntryTarget, type ExplorerUploadOptions,
+  type ExplorerItemInfo, type ExplorerImportProgress, type ExplorerEntryTarget, type ExplorerNavigationResolution, type ExplorerUploadOptions,
   type ExplorerUploadContentLimitsByExtension, type ExplorerUploadContentMetadata, type ExplorerUploadInspectFile,
   type ExplorerUploadResult,
   assertExplorerEntryPermissions, checksForExplorerAction, type ExplorerEntryPermissionsResolver,
+  resolveExplorerSearchHits, resolveExplorerSearchIds, type ExplorerSearchHit, type ExplorerSearchResult, type ExplorerSearchStream, type ExplorerSearchHandler,
+  mergeExplorerFolderEntries, mergeExplorerSearchEntries, type ExplorerFolderLoadHandler, type ExplorerFolderLoadState,
+  type ExplorerSearchBatch, type ExplorerSearchResponse,
+  type ExplorerDetailsColumn, type ExplorerDetailsColumnWidths,
+  resolveExplorerPickerItems, type ExplorerPickerKind, type ExplorerPickerRootItem, type ExplorerPickerItem,
+  type ExplorerPickerOptions, type ExplorerPickerResult, type ExplorerPickerErrorCode,
+  type ExplorerSelectionKind,
 } from '__MODEL_IMPORT__';
 
 const initial: readonly ExplorerEntry[] = [];
+const pickerKind: ExplorerPickerKind = 'both';
+const pickerOptions: ExplorerPickerOptions = { kind: pickerKind, multiple: true, rootLabel: '共有資料' };
+const selectionKind: ExplorerSelectionKind = 'folder';
+const pickerRoot: ExplorerPickerRootItem = { kind: 'root', id: 'root', path: '/', name: '共有資料' };
+const pickerResult: ExplorerPickerResult = resolveExplorerPickerItems(initial, [pickerRoot.id], pickerOptions);
+if (pickerResult.ok) {
+  const selected: readonly ExplorerPickerItem[] = pickerResult.items;
+  const paths: readonly string[] = selected.map(item => item.path);
+  void paths;
+} else { const code: ExplorerPickerErrorCode = pickerResult.code; void code; }
+// @ts-expect-error Picker kinds use the same published union without React.
+const invalidPickerKind: ExplorerPickerKind = 'image';
+// @ts-expect-error IDs must be strings, even for the virtual root.
+resolveExplorerPickerItems(initial, [0], pickerOptions);
+// @ts-expect-error The virtual root has its own fixed path.
+const invalidPickerRoot: ExplorerPickerRootItem = { kind: 'root', id: 'root', path: '/documents', name: '資料' };
+void [invalidPickerKind, invalidPickerRoot, selectionKind];
+const detailsColumn: ExplorerDetailsColumn = 'location';
+const defaultColumnWidths: Partial<ExplorerDetailsColumnWidths> = { name: 360, [detailsColumn]: 300, updatedAt: 160 };
+const allColumnWidths: ExplorerDetailsColumnWidths = { name: 360, location: 300, updatedAt: 160, extension: 90, size: 100 };
+// @ts-expect-error Column widths are numeric pixels, including at the model entry point.
+const invalidColumnWidths: Partial<ExplorerDetailsColumnWidths> = { size: '100px' };
+// @ts-expect-error The search-only location column has the same numeric width contract.
+const invalidLocationWidth: Partial<ExplorerDetailsColumnWidths> = { location: '300px' };
+void [defaultColumnWidths, allColumnWidths, invalidColumnWidths, invalidLocationWidth];
 const snapshot: ExplorerSnapshot = createDraftSnapshot(initial);
 const action: ExplorerAction = { action: 'create', parent: 'root', name: 'Documents' };
 const changed: ExplorerSnapshot = applyAction(snapshot, action);
@@ -23,9 +55,33 @@ const added = addFilesWithResult(changed, files, 'root', undefined, decisions, s
 const count: number = added.result.addedCount;
 const changes: ExplorerEntry[] = getSavePayload(snapshot, added.snapshot).changes.created;
 const descriptions: readonly ExplorerItemInfo[] = describeEntries(added.snapshot.entries);
+const searchResponse: ExplorerSearchResult = [{ entryId: "minutes", snippet: "料金改定", metadata: { meetingDate: "2026-09-15" } }];
+const searchHits: readonly ExplorerSearchHit[] = resolveExplorerSearchHits(searchResponse, added.snapshot.entries);
+const searchIds: readonly string[] = resolveExplorerSearchIds(searchResponse, added.snapshot.entries);
+const searchStream: ExplorerSearchStream = (async function* () { yield searchResponse; yield ['hello']; })();
+const streamingHandler: ExplorerSearchHandler = () => searchStream;
+const remoteBatch: ExplorerSearchBatch = { hits: searchResponse, entries: added.snapshot.entries };
+const remoteResponse: ExplorerSearchResponse = remoteBatch;
+const remoteSearch: ExplorerSearchHandler = async function* () { yield remoteResponse; yield searchResponse; };
+const remoteHydrated: ExplorerSnapshot = mergeExplorerSearchEntries(snapshot, snapshot, added.snapshot.entries).draft;
+const folderHandler: ExplorerFolderLoadHandler = async ({ folderId }, { signal }) => {
+  signal.throwIfAborted();
+  return added.snapshot.entries.filter(entry => entry.parent === folderId);
+};
+const folderState: ExplorerFolderLoadState = { status: 'unloaded', error: null };
+const hydrated = mergeExplorerFolderEntries(snapshot, snapshot, 'root', []);
+const hydratedSnapshot: ExplorerSnapshot = hydrated.draft;
 const target: ExplorerEntryTarget = { path: '/hello.txt' };
 const resolved = resolveExplorerEntryTargets(added.snapshot.entries, [target]);
 if (resolved.ok) { const ids: readonly string[] = resolved.value.entryIds; void ids; }
+const containingFolder: ExplorerNavigationResolution = resolveExplorerContainingFolder(added.snapshot.entries, target);
+if (containingFolder.ok) {
+  const location: string | null = containingFolder.value.location;
+  const expanded: readonly string[] = containingFolder.value.expanded;
+  const targetIds: readonly string[] = containingFolder.value.fileIds;
+  void [location, expanded, targetIds];
+}
+const containingParent: ExplorerNavigationResolution = resolveExplorerContainingFolder(added.snapshot.entries, { path: '/Documents' });
 const staged = prepareFilesWithProgress(snapshot, files, 'root');
 const step = staged.next();
 if (!step.done) { const progress: ExplorerImportProgress = step.value; void progress; }
@@ -55,7 +111,9 @@ const invalidVideo: ExplorerUploadContentLimitsByExtension = { '.mp4': { maxPage
 const invalidInspector: ExplorerUploadInspectFile = () => 3;
 // @ts-expect-error Entry target must contain exactly one locator.
 const invalidTarget: ExplorerEntryTarget = { id: 'a', path: '/a' };
+// @ts-expect-error Containing-folder resolution requires a typed entry target.
+resolveExplorerContainingFolder(added.snapshot.entries, 'hello.txt');
 // @ts-expect-error Unknown edits are not supported.
 const invalidAction: ExplorerAction = { action: 'undo' };
-void [count, changes, descriptions, asynchronous, asynchronousSnapshot, asynchronousSteps, inspectionProgress,
+void [count, changes, descriptions, searchHits, searchIds, searchStream, streamingHandler, remoteSearch, remoteHydrated, folderHandler, folderState, hydratedSnapshot, containingParent, asynchronous, asynchronousSnapshot, asynchronousSteps, inspectionProgress,
   invalidPdf, invalidVideo, invalidInspector, invalidTarget, invalidAction];

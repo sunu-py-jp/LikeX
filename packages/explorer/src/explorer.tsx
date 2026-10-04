@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useState, type InputHTMLAttributes } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Tooltip } from "radix-ui";
 import { mergeExplorerRootClasses } from "./ui/explorer-classnames";
@@ -29,14 +29,16 @@ export default function Explorer(props: ExplorerProps) {
 }
 
 /** Render an existing workspace without tying its lifetime to its display window. */
-export function ExplorerWorkspaceView({ props, workspace, ownerDocument, mainWindowTitle = false }: {
+export function ExplorerWorkspaceView({ props, workspace, ownerDocument, mainWindowTitle = false, footer, interaction }: {
   props: ExplorerProps;
   workspace: ExplorerWorkspace;
   ownerDocument: Document | null;
   mainWindowTitle?: boolean;
+  footer?: ReactNode;
+  interaction?: { onFileActivate?(id: string): void };
 }) {
   return <MediaCacheContext.Provider value={workspace.mediaCache}>
-    <ExplorerPane props={props} workspace={workspace} windowId="main" ownerDocument={ownerDocument} updateWindowTitle={mainWindowTitle} />
+    <ExplorerPane props={props} workspace={workspace} windowId="main" ownerDocument={ownerDocument} updateWindowTitle={mainWindowTitle} footer={footer} interaction={interaction} />
     {workspace.windows.map(view => createPortal(
       <ExplorerPane props={props} workspace={workspace} windowId={view.id} ownerDocument={view.container.ownerDocument} />,
       view.container, view.id,
@@ -44,14 +46,16 @@ export function ExplorerWorkspaceView({ props, workspace, ownerDocument, mainWin
   </MediaCacheContext.Provider>;
 }
 
-const ExplorerPane = memo(function ExplorerPane({ props, workspace, windowId, ownerDocument, updateWindowTitle = false }: {
+const ExplorerPane = memo(function ExplorerPane({ props, workspace, windowId, ownerDocument, updateWindowTitle = false, footer, interaction }: {
   props: ExplorerProps;
   workspace: ExplorerWorkspace;
   windowId: string;
   ownerDocument: Document | null;
   updateWindowTitle?: boolean;
+  footer?: ReactNode;
+  interaction?: { onFileActivate?(id: string): void };
 }) {
-  const controller = useExplorerViewController(props, workspace, windowId, ownerDocument);
+  const controller = useExplorerViewController(props, workspace, windowId, ownerDocument, interaction);
   const [dialogContainer, setDialogContainer] = useState<HTMLDivElement | null>(null);
   const environment = useMemo(() => ({ document: ownerDocument, portalContainer: ownerDocument?.body,
     dialogContainer: dialogContainer ?? undefined }), [ownerDocument, dialogContainer]);
@@ -167,6 +171,7 @@ const ExplorerPane = memo(function ExplorerPane({ props, workspace, windowId, ow
                   <ExplorerStatusBar />
                 </div>
               </div>
+              {footer}
               {features.uploadFiles && (
                 <input
                   type="file"

@@ -1,0 +1,8 @@
+{
+  "title": "フォルダ単位の読み込み",
+  "summary": "フォルダを開いたときに直下だけ取得し、キャッシュ・部分保存・移動イベントを扱います。",
+  "source": "packages/explorer/src/docs/folder-loading.md",
+  "order": 62,
+  "keywords": ["onLoadFolder", "folderLoading", "initialLoadedFolderIds", "loadFolder", "recursive", "folder-load", "navigate", "partial", "遅延読み込み"],
+  "section": "ファイル操作"
+}

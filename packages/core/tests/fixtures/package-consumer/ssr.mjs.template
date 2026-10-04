@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { notifyHost, resolveFeatureFlags, chainResult, createUnsavedChangesGuard } from '__LIBRARY_IMPORT__';
+import { createTextSearchMatcher } from '__LIBRARY_IMPORT__/text-search';
 
 assert.equal(typeof globalThis.window, 'undefined');
 assert.deepEqual(resolveFeatureFlags({ edit: true }, { edit: false }), { edit: false });
@@ -7,4 +8,5 @@ assert.equal(chainResult(2, value => value * 3), 6);
 assert.equal(await chainResult(Promise.resolve(2), value => value * 3), 6);
 assert.doesNotThrow(() => notifyHost(() => { throw new Error('observer only'); }));
 assert.doesNotThrow(() => createUnsavedChangesGuard().register(undefined)());
+assert.equal(createTextSearchMatcher({ text: '^sales-\\d+$', useRegex: true }).test('Sales-2026'), true);
 console.log(JSON.stringify({ resolved: import.meta.resolve('__LIBRARY_RESOLVE__'), nodeImport: true }));

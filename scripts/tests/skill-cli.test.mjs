@@ -30,7 +30,7 @@ test.before(async () => {
     await writeFile(script, await generatedSkillScript(kind));
     await build({ entryPoints: [path.join(repo, `packages/${kind}/src/model-entry.ts`)], outfile: path.join(installed, 'model.mjs'),
       bundle: true, format: 'esm', platform: 'node', target: 'es2022',
-      alias: { '@likex/core/office-shapes': path.join(repo, 'packages/core/src/office-shapes.ts'), '@likex/core/connectors': path.join(repo, 'packages/core/src/connectors.ts'), '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'),
+      alias: { '@likex/core/text-search': path.join(repo, 'packages/core/src/text-search.ts'), '@likex/core/office-shapes': path.join(repo, 'packages/core/src/office-shapes.ts'), '@likex/core/connectors': path.join(repo, 'packages/core/src/connectors.ts'), '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'),
         '@likex/core/ooxml': path.join(repo, 'packages/core/src/ooxml.ts'), '@likex/core': path.join(repo, 'packages/core/src/index.ts') } });
     fixtures[kind] = { installed, script, version: metadata.version, model: await import(pathToFileURL(path.join(installed, 'model.mjs')).href) };
   }
@@ -381,6 +381,11 @@ test('spreadsheet search discovers sheet names and cell values with exact and ca
   assert.equal((await inspect('--search', 'cells', '--text', 'Revenue', '--exact', '--match-case')).selection.total, 2);
   assert.equal((await inspect('--search', 'cells', '--text', '--help')).selection.matches[0].address, 'D4');
   assert.equal((await inspect('--search', 'cells', '--text', 'not present')).selection.total, 0);
+  assert.deepEqual((await inspect('--search', 'sheets', '--text', '^sales$', '--regex')).selection.matches.map(item => item.sheetId), ['sales']);
+  assert.equal((await inspect('--search', 'cells', '--text', '^Revenue$', '--regex', '--match-case')).selection.total, 2);
+  const invalidRegex = await run('spreadsheet', ['inspect', '--input', files.input, '--search', 'cells', '--text', '[', '--regex']);
+  assert.notEqual(invalidRegex.status, 0);
+  assert.match(invalidRegex.json.error.message, /正規表現/);
   assert.equal(await readFile(files.input, 'utf8'), original, 'search does not modify the native workbook');
 });
 
@@ -407,7 +412,7 @@ test('spreadsheet search filters one sheet or range, chooses formulas versus dis
 test('spreadsheet search rejects missing, unused, incompatible and cross-module arguments', async () => {
   const files = await spreadsheetSearchFixture();
   const invalid = [
-    ['--search', 'cells'], ['--search', 'rows', '--text', 'x'], ['--text', 'x'], ['--match-case'], ['--exact'], ['--look-in', 'values'], ['--offset', '0'], ['--limit', '1'],
+    ['--search', 'cells'], ['--search', 'rows', '--text', 'x'], ['--text', 'x'], ['--match-case'], ['--regex'], ['--exact'], ['--look-in', 'values'], ['--offset', '0'], ['--limit', '1'],
     ['--search', 'sheets', '--text', 'x', '--sheet-id', 'sales'], ['--search', 'sheets', '--text', 'x', '--look-in', 'values'],
     ['--search', 'cells', '--text', 'x', '--range', 'A1'], ['--search', 'cells', '--text', 'x', '--include-data'],
     ['--search', 'cells', '--text', 'x', '--sheet-id', 'sales', '--drawing-id', 'drawing'], ['--search', 'cells', '--text', 'x', '--look-in', 'raw'],

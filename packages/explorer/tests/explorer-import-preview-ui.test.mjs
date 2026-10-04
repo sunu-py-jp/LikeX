@@ -33,7 +33,7 @@ const noop = () => {};
 function context(overrides = {}) {
   return {
     rootLabel: 'ファイル', entries: [real], visible: [real], pendingImportEntries: [pending(1)],
-    processingEntryIds: new Set(), navigationEntries: undefined, openPendingImportFolder: noop,
+    processingEntryIds: new Set(), openPendingImportFolder: noop,
     selected: [real.id], selectedSet: new Set([real.id]), activeTabId: 'tab', focusEntryRef: { current: null },
     workspaceRef: { current: null }, clipboard: null, disabled: false, busy: false,
     view: 'details', compact: false, query: '', searchPending: false, searchError: null,
@@ -51,6 +51,7 @@ function context(overrides = {}) {
     setExpanded: noop, navigate: noop, fileCount: 1, totalSize: 123, mobileOpen: false, setOpenMobile: noop,
     instanceId: 'explorer-preview',
     ...overrides,
+    navigationEntries: overrides.navigationEntries ?? overrides.entries ?? [real],
   };
 }
 const element = value => h(ExplorerContext.Provider, { value }, h(ExplorerFileList));

@@ -189,7 +189,9 @@
       "createDraftSnapshot",
       "addFilesWithResult",
       "prepareFilesWithProgress",
-      "getSavePayload"
+      "getSavePayload",
+      "resolveExplorerContainingFolder",
+      "ExplorerNavigationResolution"
     ],
     "headings": [
       {
@@ -383,6 +385,18 @@
       "ExplorerSearchRequest",
       "ExplorerSearchContext",
       "ExplorerSearchHandler",
+      "ExplorerSearchStream",
+      "ExplorerSearchHit",
+      "ExplorerSearchBatch",
+      "ExplorerSearchResponse",
+      "mergeExplorerSearchEntries",
+      "search-hydrate",
+      "renderSearch",
+      "renderSearchResult",
+      "場所列",
+      "親フォルダ",
+      "defaultColumnWidths",
+      "AsyncIterable",
       "onSearchRequest",
       "trigger",
       "debounceMs"
@@ -404,6 +418,51 @@
         "depth": 3
       },
       {
+        "id": "検索結果の場所を確認する",
+        "title": "検索結果の場所を確認する",
+        "depth": 3
+      },
+      {
+        "id": "検索結果から格納先へ移動する",
+        "title": "検索結果から格納先へ移動する",
+        "depth": 3
+      },
+      {
+        "id": "見つかった結果から逐次表示する",
+        "title": "見つかった結果から逐次表示する",
+        "depth": 3
+      },
+      {
+        "id": "未取得の項目を検索結果と一緒に渡す",
+        "title": "未取得の項目を検索結果と一緒に渡す",
+        "depth": 3
+      },
+      {
+        "id": "詳細条件",
+        "title": "詳細条件",
+        "depth": 2
+      },
+      {
+        "id": "検索uiを外側から組み立てる",
+        "title": "検索UIを外側から組み立てる",
+        "depth": 2
+      },
+      {
+        "id": "任意の追加条件を外部検索へ渡す",
+        "title": "任意の追加条件を外部検索へ渡す",
+        "depth": 3
+      },
+      {
+        "id": "顧客会議日などの業務条件と自然言語検索",
+        "title": "顧客・会議日などの業務条件と自然言語検索",
+        "depth": 3
+      },
+      {
+        "id": "検索結果の抜粋理由表示を追加する",
+        "title": "検索結果の抜粋・理由・表示を追加する",
+        "depth": 2
+      },
+      {
         "id": "親の本文キャッシュを検索する",
         "title": "親の本文キャッシュを検索する",
         "depth": 3
@@ -412,6 +471,64 @@
         "id": "セマンティック検索apiへ接続する",
         "title": "セマンティック検索APIへ接続する",
         "depth": 3
+      }
+    ]
+  },
+  {
+    "id": "explorer/folder-loading",
+    "title": "フォルダ単位の読み込み",
+    "component": "explorer",
+    "section": "ファイル操作",
+    "output": "explorer/folder-loading/index.html",
+    "sources": [
+      "packages/explorer/src/docs/folder-loading.md"
+    ],
+    "keywords": [
+      "onLoadFolder",
+      "folderLoading",
+      "initialLoadedFolderIds",
+      "loadFolder",
+      "recursive",
+      "folder-load",
+      "navigate",
+      "partial",
+      "遅延読み込み"
+    ],
+    "headings": [
+      {
+        "id": "最小構成",
+        "title": "最小構成",
+        "depth": 2
+      },
+      {
+        "id": "要求と応答",
+        "title": "要求と応答",
+        "depth": 2
+      },
+      {
+        "id": "取得のタイミングとキャッシュ",
+        "title": "取得のタイミングとキャッシュ",
+        "depth": 2
+      },
+      {
+        "id": "明示的な読み込みと未取得範囲の操作",
+        "title": "明示的な読み込みと未取得範囲の操作",
+        "depth": 2
+      },
+      {
+        "id": "初期パス移動検索の範囲",
+        "title": "初期パス・移動・検索の範囲",
+        "depth": 2
+      },
+      {
+        "id": "部分キャッシュの保存",
+        "title": "部分キャッシュの保存",
+        "depth": 2
+      },
+      {
+        "id": "移動と取得のイベント",
+        "title": "移動と取得のイベント",
+        "depth": 2
       }
     ]
   },
@@ -561,6 +678,12 @@
       "ExplorerSelectionOptions",
       "ExplorerUIOptions",
       "ExplorerViewOptions",
+      "ExplorerDetailsColumn",
+      "ExplorerDetailsColumnWidths",
+      "defaultColumnWidths",
+      "resizeColumns",
+      "列幅",
+      "場所列",
       "readOnly",
       "features",
       "mouseNavigation",
@@ -584,6 +707,11 @@
       {
         "id": "マウスのサイドボタンで戻る進む",
         "title": "マウスのサイドボタンで戻る・進む",
+        "depth": 2
+      },
+      {
+        "id": "詳細表示の列幅を変える",
+        "title": "詳細表示の列幅を変える",
         "depth": 2
       },
       {
@@ -613,15 +741,19 @@
       "ExplorerNavigationResult",
       "ExplorerNavigationErrorCode",
       "ExplorerFileTarget",
+      "ExplorerEntryTarget",
       "ExplorerShowFileOptions",
       "navigate",
       "selectFiles",
       "selectEntries",
+      "openContainingFolder",
       "showFile",
       "previewFile",
       "ref",
       "初期表示",
       "選択",
+      "フォルダを開く",
+      "検索履歴",
       "プレビュー"
     ],
     "headings": [
@@ -743,6 +875,93 @@
     ]
   },
   {
+    "id": "explorer/empty-state",
+    "title": "空の一覧のカスタマイズ",
+    "component": "explorer",
+    "section": "表示と操作設定",
+    "output": "explorer/empty-state/index.html",
+    "sources": [
+      "packages/explorer/src/docs/empty-state.md"
+    ],
+    "keywords": [
+      "renderEmptyState",
+      "ExplorerEmptyStateRenderer",
+      "ExplorerEmptyStateRenderContext",
+      "ExplorerEmptyStateReason",
+      "defaultContent",
+      "addFiles",
+      "addFolders",
+      "createFolder",
+      "空フォルダ",
+      "検索結果0件"
+    ],
+    "headings": [
+      {
+        "id": "特定フォルダとその配下だけ差し替える",
+        "title": "特定フォルダとその配下だけ差し替える",
+        "depth": 2
+      },
+      {
+        "id": "contextと戻り値",
+        "title": "contextと戻り値",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "explorer/picker",
+    "title": "ファイル・フォルダの選択",
+    "component": "explorer",
+    "section": "表示と操作設定",
+    "output": "explorer/picker/index.html",
+    "sources": [
+      "packages/explorer/src/docs/picker.md"
+    ],
+    "keywords": [
+      "ExplorerPicker",
+      "ExplorerPickerDialog",
+      "ExplorerPickerProps",
+      "ExplorerPickerDialogProps",
+      "ExplorerPickerHandle",
+      "ExplorerPickerItem",
+      "resolveExplorerPickerItems",
+      "kind",
+      "multiple",
+      "initialSelectedIds",
+      "onConfirm",
+      "onCancel",
+      "選択ダイアログ",
+      "現在のフォルダ"
+    ],
+    "headings": [
+      {
+        "id": "モーダルで選択する",
+        "title": "モーダルで選択する",
+        "depth": 2
+      },
+      {
+        "id": "選択する対象",
+        "title": "選択する対象",
+        "depth": 2
+      },
+      {
+        "id": "読み込み検索確定処理",
+        "title": "読み込み・検索・確定処理",
+        "depth": 2
+      },
+      {
+        "id": "外側から操作する",
+        "title": "外側から操作する",
+        "depth": 2
+      },
+      {
+        "id": "画面なしで選択を検証する",
+        "title": "画面なしで選択を検証する",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "explorer/tabs",
     "title": "タブ・別ウィンドウ",
     "component": "explorer",
@@ -803,6 +1022,11 @@
         "id": "データと保存の契約",
         "title": "データと保存の契約",
         "depth": 2
+      },
+      {
+        "id": "遅延読み込み時はキャッシュ範囲の差分を保存する",
+        "title": "遅延読み込み時はキャッシュ範囲の差分を保存する",
+        "depth": 3
       },
       {
         "id": "保存前の検証と保存後の通知",

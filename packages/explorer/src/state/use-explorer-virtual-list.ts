@@ -9,7 +9,7 @@ import { EXPLORER_VIRTUAL_THRESHOLD, explorerListCell, explorerListLayout, explo
 
 export function useExplorerVirtualList(entries: readonly ExplorerEntry[], view: ExplorerViewMode, compact: boolean,
   showLocation: boolean, showCardControls: boolean, resetKey: string, renamingEntryId: string | null,
-  focusEntryRef: RefObject<((id: string) => void) | null>, revealRequest?: ExplorerRevealRequest | null) {
+  focusEntryRef: RefObject<((id: string) => void) | null>, revealRequest?: ExplorerRevealRequest | null, resultDetailsHeight = 0) {
   const enabled = entries.length > EXPLORER_VIRTUAL_THRESHOLD;
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef<string | null>(null);
@@ -18,7 +18,7 @@ export function useExplorerVirtualList(entries: readonly ExplorerEntry[], view: 
   const positions = useMemo(() => new Map(entries.map((entry, index) => [entry.id, index])), [entries]);
   const { width, height, lineHeight } = viewport;
   const layout = useMemo(() => explorerListLayout(entries.length, view, compact, showLocation, showCardControls,
-    { width, height, lineHeight, top: 0, left: 0 }), [entries.length, view, compact, showLocation, showCardControls, width, height, lineHeight]);
+    { width, height, lineHeight, top: 0, left: 0 }, resultDetailsHeight), [entries.length, view, compact, showLocation, showCardControls, width, height, lineHeight, resultDetailsHeight]);
   const indices = useMemo(() => enabled ? explorerListRange(layout, viewport,
     [...Object.values(pinned), renamingEntryId].flatMap(id => id && positions.has(id) ? [positions.get(id)!] : [])) : entries.map((_, index) => index),
   [enabled, layout, viewport, pinned, renamingEntryId, positions, entries]);
@@ -71,13 +71,13 @@ export function useExplorerVirtualList(entries: readonly ExplorerEntry[], view: 
     const liveViewport = { width: element.clientWidth || 800, height: element.clientHeight || 600,
       lineHeight: Number.parseFloat(element.ownerDocument.defaultView?.getComputedStyle(element).lineHeight ?? "21") || 21,
       top: element.scrollTop, left: element.scrollLeft };
-    const liveLayout = explorerListLayout(entries.length, view, compact, showLocation, showCardControls, liveViewport);
+    const liveLayout = explorerListLayout(entries.length, view, compact, showLocation, showCardControls, liveViewport, resultDetailsHeight);
     const next = explorerListScrollTarget(liveLayout, liveViewport, index);
     element.scrollTop = next.top;
     element.scrollLeft = next.left;
     if (focus) pin("focus", entries[index].id);
     measure();
-  }, [enabled, entries, view, compact, showLocation, showCardControls, measure, pin]);
+  }, [enabled, entries, view, compact, showLocation, showCardControls, resultDetailsHeight, measure, pin]);
   useLayoutEffect(() => {
     if (!enabled) return;
     const focus = (id: string) => { const index = positions.get(id); if (index !== undefined) reveal(index, true); };

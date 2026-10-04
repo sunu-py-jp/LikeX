@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { importTypeScript } from './import-typescript.mjs';
 
-const { resolveExplorerNavigation, resolveExplorerFileTargets } = await importTypeScript('../src/model/navigation.ts');
+const { resolveExplorerNavigation, resolveExplorerFileTargets, resolveExplorerContainingFolder } = await importTypeScript('../src/model/navigation.ts');
 const folder = (id, parent, name) => ({ id, parent, name, kind: 'folder' });
 const file = (id, parent, name) => ({ id, parent, name, kind: 'file' });
 const entries = Object.freeze([
@@ -125,4 +125,36 @@ test('large path selections inspect sibling names once per batch instead of once
   assert.ok(nameReads <= count * 2, `a ${count}-file batch read sibling names ${nameReads} times`);
   const duplicate = Object.freeze([...current, Object.freeze(file('duplicate', 'folder', 'FILE-1999.TXT'))]);
   error(resolveExplorerFileTargets(duplicate, [{ path: '/Files/file-0.txt' }, { path: '/Files/file-1999.txt' }]), 'ambiguous-path');
+});
+
+test('containing-folder resolution accepts a file or folder and expands only its parent path', () => {
+  const expected = { ok: true, value: { location: 'plans', expanded: ['root', 'docs', 'plans'], fileIds: ['report'] } };
+  assert.deepEqual(resolveExplorerContainingFolder(entries, { id: 'report' }), expected);
+  assert.deepEqual(resolveExplorerContainingFolder(entries, { path: '/Docs/計画/report.txt' }), expected);
+  assert.deepEqual(resolveExplorerContainingFolder(entries, { id: 'plans' }), {
+    ok: true, value: { location: 'docs', expanded: ['root', 'docs'], fileIds: ['plans'] },
+  });
+  for (const id of ['root-file', 'docs']) assert.deepEqual(resolveExplorerContainingFolder(entries, { id }), {
+    ok: true, value: { location: 'root', expanded: ['root'], fileIds: [id] },
+  });
+  const target = Object.freeze({ id: 'report' }), before = structuredClone(entries);
+  const result = resolveExplorerContainingFolder(entries, target);
+  assert.ok(Object.isFrozen(result.value)); assert.ok(Object.isFrozen(result.value.fileIds));
+  assert.deepEqual(entries, before); assert.deepEqual(target, { id: 'report' });
+});
+
+test('containing-folder resolution rejects roots, missing metadata, malformed targets and invalid ancestor chains atomically', () => {
+  for (const target of [{ id: 'root' }, { path: '/' }, {}, null, { id: 'report', path: '/Docs/計画/report.txt' }])
+    error(resolveExplorerContainingFolder(entries, target), 'invalid-target');
+  error(resolveExplorerContainingFolder(entries, { id: 'unloaded' }), 'not-found');
+  error(resolveExplorerContainingFolder(entries, { path: '/Unknown/Report.txt' }), 'not-found');
+  let reads = 0;
+  error(resolveExplorerContainingFolder(entries, { get id() { reads++; return 'report'; } }), 'invalid-target');
+  assert.equal(reads, 0);
+  for (const extra of [
+    [file('broken', 'missing', 'Broken.txt')], [folder('broken', 'missing', 'Broken')],
+    [folder('loop', 'loop', 'Loop'), file('broken', 'loop', 'Broken.txt')],
+    [folder('broken', 'root-file', 'Broken')],
+  ]) error(resolveExplorerContainingFolder([...entries, ...extra], { id: 'broken' }), 'invalid-hierarchy');
+  error(resolveExplorerContainingFolder([...entries, folder('duplicate', 'docs', '計画')], { path: '/Docs/計画' }), 'ambiguous-path');
 });

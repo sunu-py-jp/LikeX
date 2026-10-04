@@ -15,6 +15,7 @@ export { replaceSpreadsheetCells } from './packages/spreadsheet/src/model/editin
   resolveDir: repo, sourcefile: 'address-ranges-entry.ts' }, bundle: true, platform: 'node', format: 'esm', write: false,
   alias: { '@likex/core': path.join(repo, 'packages/core/src/index.ts'), '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'),
     '@likex/core/connectors': path.join(repo, 'packages/core/src/connectors.ts'),
+    '@likex/core/text-search': path.join(repo, 'packages/core/src/text-search.ts'),
     '@likex/core/office-shapes': path.join(repo, 'packages/core/src/office-shapes.ts'),
     '@likex/core/ooxml': path.join(repo, 'packages/core/src/ooxml.ts') } });
 const source = output.outputFiles[0].text;

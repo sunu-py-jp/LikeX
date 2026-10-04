@@ -101,6 +101,10 @@ async function testConsumer(module) {
   const manifest = JSON.parse(await readFile(path.join(installed, 'package.json'), 'utf8'));
   assert.equal(manifest.name, packed.name);
   const declared = { ...manifest.dependencies, ...manifest.peerDependencies };
+  for (const dependency of dependenciesToInstall) {
+    const workspaceManifest = JSON.parse(await readFile(path.join(dependency.installed, 'package.json'), 'utf8'));
+    Object.assign(declared, workspaceManifest.dependencies, workspaceManifest.peerDependencies);
+  }
   for (const dependency of Object.keys(declared)) {
     assert.ok(!/(?:^next$|vinext|vite|wrangler|cloudflare|drizzle|worker)/i.test(dependency), `Demo-only dependency leaked: ${dependency}`);
     assert.ok(!/^(?:tailwindcss|postcss|@tailwindcss\/)/.test(dependency), `A CSS build dependency leaked into the runtime package: ${dependency}`);
@@ -111,7 +115,7 @@ async function testConsumer(module) {
   } else {
     assert.equal(manifest.exports['./styles.css'], undefined);
     assert.equal(manifest.sideEffects, false);
-    assert.deepEqual(declared, {}, 'Core must not require React or any other runtime dependency');
+    assert.deepEqual(Object.keys(declared), ['re2js'], 'Core may depend only on its pure search engine');
   }
   const { linkedDependencies, testedVersions, dependencyLocations } = await consumerDependencies(consumer, declared, {
     fallback: installMode === 'tarball-with-workspace-dependencies', online, ui,

@@ -49,7 +49,7 @@ function rootElement() {
   root.contains = target => { for (let node = target; node; node = node.parentElement) if (node === root) return true; return false; };
   return root;
 }
-async function mount(t, supplied = {}, { shared = false, document = fakeDocument() } = {}) {
+async function mount(t, supplied = {}, { shared = false, document = fakeDocument(), onImportComplete } = {}) {
   const root = rootElement(), childRoot = rootElement(), childDocument = fakeDocument();
   const events = [], saves = [], reads = [], panes = new Map();
   let workspace, renderer, closed = false;
@@ -63,7 +63,10 @@ async function mount(t, supplied = {}, { shared = false, document = fakeDocument
   }
   function Probe({ options }) {
     const currentWorkspace = useExplorerWorkspace(options);
-    workspace = currentWorkspace;
+    workspace = onImportComplete ? { ...currentWorkspace, registerImport(controller) {
+      const unregister = currentWorkspace.registerImport(controller);
+      return () => { unregister(); onImportComplete(); };
+    } } : currentWorkspace;
     useLayoutEffect(() => {
       const child = currentWorkspace.tabs.forWindow('child');
       if (shared && !child.tabs.length) child.addTab();
@@ -369,6 +372,13 @@ test('native clipboard commands leave text selections and unrelated nested Explo
   const input = element(hook.root, { tagName: 'INPUT' });
   assert.equal((await hook.native('copy', { target: input })).event.defaultPrevented, false);
   assert.equal((await hook.native('cut', { target: element(hook.root, { isContentEditable: true }) })).event.defaultPrevented, false);
+  for (const marker of ['[data-explorer-search-result]', '[data-explorer-custom-empty-state]']) {
+    const supplement = element(hook.root, { closest: selector => selector.split(',').map(part => part.trim()).includes(marker) ? {} : selector === '[data-explorer-root]' ? hook.root : null });
+    assert.equal((await hook.native('copy', { target: supplement })).event.defaultPrevented, false);
+    assert.equal((await hook.native('cut', { target: supplement })).event.defaultPrevented, false);
+    assert.equal((await hook.paste([file()], { target: supplement })).defaultPrevented, false);
+    assert.equal((await hook.key('Delete', { target: supplement })).defaultPrevented, false);
+  }
   assert.equal(hook.current.clipboard, null);
   const nestedRoot = rootElement(); nestedRoot.parentElement = hook.root;
   const nestedTarget = element(nestedRoot, { closest: selector => selector === '[data-explorer-root]' ? nestedRoot : null });
@@ -560,12 +570,19 @@ test('navigation during asynchronous enumeration keeps the original paste destin
 });
 
 test('deleting the original destination during enumeration reports an error and adds no imported content', async t => {
-  const hook = await mount(t);
+  let now = 0, finishImport;
+  t.mock.method(performance, 'now', () => now);
+  const completed = new Promise(resolve => { finishImport = resolve; });
+  const hook = await mount(t, {}, { onImportComplete: finishImport });
   await change(() => hook.current.navigate('folder'));
   const delayed = delayedDirectory();
   await hook.paste([], { clipboardData: directoryClipboard([delayed.directory]) });
   await change(() => hook.current.act('delete', ['folder']));
-  await change(() => delayed.complete());
+  // The directory read can cross discovery's CPU budget and yield to a timer.
+  // Wait for the real import registration to finish instead of reading the
+  // earlier deletion's success notification while discovery is still pending.
+  now = 20;
+  await change(async () => { delayed.complete(); await completed; });
   assert.equal(newEntries(hook.current).length, 0);
   assert.equal(hook.current.notification.kind, 'error');
   assert.equal(hook.events.filter(e => e.type === 'change' && e.action === 'upload').length, 0);
@@ -631,13 +648,22 @@ test('unmount aborts pending directory work and suppresses late events', async t
 });
 
 test('upload restriction changes during enumeration are checked before the final atomic commit', async t => {
-  const hook = await mount(t, { upload: { allowedExtensions: ['.txt'] } });
+  let now = 0, finishUpload;
+  t.mock.method(performance, 'now', () => now);
+  const events = [], uploaded = new Promise(resolve => { finishUpload = resolve; });
+  const hook = await mount(t, { upload: { allowedExtensions: ['.txt'] }, onEvent: event => {
+    events.push(event);
+    if (event.type === 'upload') finishUpload(event);
+  } });
   const delayed = delayedDirectory(); const before = hook.current.entries;
   await hook.paste([], { clipboardData: directoryClipboard([delayed.directory]) });
   await hook.update({ upload: { allowedExtensions: ['.pdf'] } });
-  await change(() => delayed.complete());
+  // The native read can outlive discovery's CPU budget, which yields to a timer.
+  now = 20;
+  await change(async () => { delayed.complete(); await uploaded; });
   assert.equal(hook.current.entries, before); assert.equal(hook.current.dirty, false);
-  assert.equal(hook.events.filter(e => e.type === 'upload').length, 1);
+  assert.equal(events.filter(e => e.type === 'upload').length, 1);
+  assert.equal(events.find(e => e.type === 'upload').status, 'rejected');
 });
 
 test('disabling file uploads leaves a folder-only import running but cancels a mixed import', async t => {

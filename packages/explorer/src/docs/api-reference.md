@@ -4,6 +4,8 @@
 
 ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体例は各機能のガイドを参照してください。
 
+選択専用の `ExplorerPicker`・`ExplorerPickerDialog` は、表示・取得propsを共有し、`kind`・`multiple`・`initialSelectedIds`・`onSelectionChange`・`onConfirm`・`onCancel` を追加します。`ExplorerPickerProps`・`ExplorerPickerDialogProps`・`ExplorerPickerHandle` と結果型、読み取り専用の契約は[選択画面のAPI](./picker.md)を参照してください。
+
 ## 公開props一覧
 
 <a id="explorer-props"></a>
@@ -12,10 +14,12 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 
 | prop | 契約 |
 | --- | --- |
-| `initialEntries` | 初回マウント時の保存済み一覧。`readonly ExplorerEntry[]`。後からのprop変更で編集中の内容を上書きしません。別のワークスペースへ切り替える場合は `key` を変えて再マウントします。 |
+| `initialEntries` | 初回マウント時の保存済み一覧。`readonly ExplorerEntry[]`。`onLoadFolder` 使用時は祖先を含む部分キャッシュでも利用できます。後からのprop変更で編集中の内容を上書きしません。別のワークスペースへ切り替える場合は `key` を変えて再マウントします。 |
 | `ref` | 任意の `React.Ref<ExplorerHandle>`。[移動・選択](#external-navigation)、[表示中の一覧取得・編集](#mounted-commands)、[通知](./notifications.md)を操作できます。 |
-| `onSave` | 保存時に `ExplorerSavePayload` を受け取る任意のコールバック。省略すると読み取り専用になります。`void` または保存後の `readonly ExplorerEntry[]` を返します。どちらもPromiseにできます。 |
+| `onSave` | 保存時に `ExplorerSavePayload` を受け取る任意のコールバック。省略すると読み取り専用になります。`void` または保存後の `readonly ExplorerEntry[]` を返します。どちらもPromiseにできます。遅延取得時は `scope: { kind: "partial", loadedFolderIds }` 付きで、`entries` はキャッシュ範囲のみのため `changes` による差分保存が必要です。 |
 | `onRefresh` | 任意の `() => readonly ExplorerEntry[] \| Promise<readonly ExplorerEntry[]>`。アドレスバー直前の更新ボタンから最新一覧を取得します。未指定ならボタンを隠します。初回の自動読込は行わず、読み取り専用でも利用できます。 |
+| `onLoadFolder` | `ExplorerFolderLoadHandler`。`{ folderId, path }` と `{ signal }` を受け取り、フォルダ直下の完全な `readonly ExplorerEntry[]` またはPromiseを返します。初回表示・移動・ツリー展開で必要分を取得し、既読キャッシュを再利用します。[遅延読み込み](./folder-loading.md) |
+| `folderLoading` | `ExplorerFolderLoadingOptions`。`initialLoadedFolderIds` は初期一覧に直下をすべて含めてあるフォルダIDの配列。省略時はルートも未取得です。指定は初回マウント時に読みます。 |
 | `onEditRequest` | `ExplorerEditHandler`。最初の有効な変更を適用する直前に親へ許可を求めます。入力欄やダイアログを開くだけでは呼びません。許可後は保存・破棄等までセッションを共有し、未指定なら同期で許可します。 |
 | `getEntryPermissions` | `ExplorerEntryPermissionsResolver`。操作のたびにファイル・フォルダごとの許可を同期的に返します。拒否時のメッセージを指定でき、確認後の反映直前にも再確認します。[操作と指定例](./entry-permissions.md) |
 | `readOnly` | 任意の `boolean`。`true` なら `onSave` があっても読み取り専用です。`false` でも `onSave` がなければ編集できません。 |
@@ -26,10 +30,13 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `preview` | `ExplorerPreviewOptions`。`formatsByExtension` で内蔵表示の形式を追加・上書きし、`pdfSandbox` でPDF iframeのsandboxを設定します。 |
 | `getProcessingLabel` | 処理中のファイル情報からプレビューに表示する文字列を返します。`processingEntryIds` と組み合わせます。 |
 | `onDownloadRequest` | `ExplorerDownloadHandler`。指定時はファイル・フォルダのダウンロードを親へ委譲します。要求情報と進捗通知・取消し用contextを受け取り、結果を明示して返します。未指定なら内蔵処理です。 |
-| `onSearchRequest` | `ExplorerSearchHandler`。指定時は検索を親へ委譲し、現在の下書きにある項目のIDを順位順に受け取ります。未指定なら全項目の名前を内蔵検索します。 |
+| `onSearchRequest` | `ExplorerSearchHandler`。従来の項目ID／hit配列、`ExplorerSearchBatch`（`{ hits, entries }`）、またはそれらをyieldする `ExplorerSearchStream` を受け取ります。いずれもPromiseで返せます。部分キャッシュではヒットと未取得の祖先メタデータを渡せます。逐次受信中も部分結果を表示し、完了まで `searching: true`。途中エラーは正常な受信済み結果を保持し、中断後のバッチは反映しません。未指定ならキャッシュ内の名前を内蔵検索します。[結果と逐次検索の契約](./search.md) |
 | `getContextMenuItems` | `ExplorerContextMenuProvider`。ファイル・フォルダ・空白の右クリック時の情報から、条件付きの追加メニューを返します。ハンドラーは変更プランを返し、反映はExplorerが担当します。[使い方](./context-menu.md) |
 | `contextMenuExecutionMode` | Core共通の `"block"`（既定） / `"confirm"` / `"reject-if-changed"`。処理中の変更禁止・完了時の反映確認・データ変更時の中止を選べます。 |
-| `search` | `ExplorerSearchOptions`。`trigger` は `"input"`（既定）または `"submit"`。`debounceMs` は外部の入力検索だけに適用する待機時間で、既定は `0`。 |
+| `renderSearch` | `ExplorerSearchRenderer`。標準入力・詳細条件の再配置、任意UIへの置換。`inputProps` でIME・Enter・フォーカス操作を引き継げます。 |
+| `renderSearchResult` | `ExplorerSearchResultRenderer`。外部検索結果の名前の下の補足領域を差し替えます。確定検索語・項目・hit・選択状態・表示モード・標準補足を受け取り、null/undefinedは標準、falseは内容を非表示にします。[結果の表示](./search.md) |
+| `renderEmptyState` | `ExplorerEmptyStateRenderer`。空フォルダ・検索結果0件・お気に入り／最近0件の案内を差し替えます。場所・理由・標準操作・標準表示を受け取り、null/undefinedは標準、falseは案内を非表示にします。読み込み中とエラー時は呼びません。[例とcontext](./empty-state.md) |
+| `search` | `ExplorerSearchOptions`。`trigger` は `"input"`（既定）または `"submit"`。`debounceMs` は外部の入力検索だけに適用する待機時間で、既定は `0`。`params` はJSON互換の外部条件で、input時は内容変更で再検索、submit時はEnterで確定します。`resultDetailsHeight` は検索結果の補足枠の高さ（px、既定72、有限値を24〜480に制限）。 |
 | `previewTrigger` | `ExplorerPreviewTrigger`。`"doubleClick"`（既定）または `"click"`。後者はファイル名の単クリックでプレビューします。 |
 | `onEvent` | `ExplorerEventHandler`。ローカル操作・選択・移動・表示状態・保存等を親へ通知します。通知の戻り値や例外は操作の成否を変えません。 |
 | `renderIcon` | `ExplorerIconRenderer`。項目情報・描画箇所・選択状態等から独自アイコンを返します。`null` / `undefined` は既定表示、`false` は枠だけを残します。 |
@@ -42,9 +49,9 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `selectedFileMode` | `ExplorerSelectedFileMode`。`"select"`（既定）または `"preview"`。後者は初期選択に加え、内蔵プレビューまたは `onPreviewRequest` を一度起動します。 |
 | `features` | `ExplorerFeatures`。機能ごとに `false` を指定すると、関連UIとその実行経路を無効にします。 |
 | `upload` | `ExplorerUploadOptions`。許可拡張子・容量・件数・再生時間・PDFページ数・PPTXスライド数・違反時の扱いを指定します。動画は既定で4時間以下です。違反時は既定でその回の追加をすべて中止します。[内容制限](./upload-content-limits.md) |
-| `selection` | `ExplorerSelectionOptions`。選択方式（`none` / `single` / `multiple`）とチェックボックス表示。 |
+| `selection` | `ExplorerSelectionOptions`。選択方式（`none` / `single` / `multiple`）、選択する種類（`kind: file` / `folder` / `both`、既定 `both`）、チェックボックス表示。対象外のフォルダも移動のために表示します。 |
 | `ui` | `ExplorerUIOptions`。サイドバー、右クリックメニュー、項目メニュー、サムネイルの表示。 |
-| `view` | `ExplorerViewOptions`。使える表示形式と初期表示。 |
+| `view` | `ExplorerViewOptions`。使える表示形式と初期表示。`defaultColumnWidths?: Partial<ExplorerDetailsColumnWidths>` で詳細表示の `name` / `location` / `updatedAt` / `extension` / `size` の初期幅（px）を指定します。`location` は検索中だけ表示する場所列です。初回マウント時だけ読みます。[幅変更の操作と設定](./configuration.md#details-column-widths) |
 | `onDirtyChange` | 未保存の変更の有無を通知する任意の `(dirty: boolean) => void`。親画面の保存状態表示や、SPA遷移・ワークスペース切替前の確認に利用できます。 |
 | `warnOnUnsavedChanges` | 任意の `boolean`。既定は `true`。未保存の変更がある間、親画面とExplorerの別ウィンドウでブラウザ標準の離脱確認を有効にします。`false` で無効化でき、マウント後の変更にも反映します。 |
 | `className` / `style` | 外枠のサイズや配置を調整します。 |
@@ -77,9 +84,10 @@ Next.js等のSPA遷移やReactの `key` 差し替えは、親が `onDirtyChange`
 `ExplorerHandle` は通知APIと編集APIに加え、次の `ExplorerNavigationHandle` を含みます。この節の操作はいずれも読み取り専用で利用でき、下書き・ファイルID・保存の比較元を変更しません。
 
 ```ts
-type ExplorerFileTarget =
+type ExplorerEntryTarget =
   | Readonly<{ id: string; path?: never }>
   | Readonly<{ path: string; id?: never }>;
+type ExplorerFileTarget = ExplorerEntryTarget;
 
 type ExplorerShowFileOptions = Readonly<{
   mode?: "select" | "preview";
@@ -89,7 +97,7 @@ type ExplorerNavigationErrorCode =
   | "not-ready" | "invalid-target" | "invalid-path"
   | "not-found" | "not-file" | "not-folder" | "ambiguous-path"
   | "different-folders" | "invalid-hierarchy"
-  | "selection-disabled" | "selection-limit"
+  | "selection-disabled" | "selection-limit" | "selection-kind"
   | "preview-disabled" | "permission-denied" | "invalid-mode" | "not-visible";
 
 type ExplorerNavigationResult =
@@ -100,6 +108,7 @@ type ExplorerNavigationHandle = Readonly<{
   navigate(path: string): ExplorerNavigationResult;
   selectFiles(targets: readonly ExplorerFileTarget[]): ExplorerNavigationResult;
   selectEntries(targets: readonly ExplorerEntryTarget[]): ExplorerNavigationResult;
+  openContainingFolder(target: ExplorerEntryTarget): ExplorerNavigationResult;
   showFile(target: ExplorerFileTarget, options?: ExplorerShowFileOptions): ExplorerNavigationResult;
   previewFile(target: ExplorerFileTarget): ExplorerNavigationResult;
 }>;
@@ -113,6 +122,7 @@ type ExplorerNavigationHandle = Readonly<{
 | `selectFiles([{ id: "file-a" }, { path: "/記事/画像/表紙.png" }])` | 対象の親フォルダを開き、指定ファイルを選択します。複数指定は同じ親フォルダにあるファイルに限ります。 |
 | `selectFiles([])` | 選択だけを解除します。現在地は変えません。 |
 | `selectEntries([{ id: "folder-a" }, { id: "file-a" }])` | ファイル・フォルダを選択します。全対象が現在の一覧にあれば検索・お気に入り表示を保ちます。表示外の項目があれば、同じ親の項目に限りその親へ移動します。別々の親を持つ対象は、全件が現在の検索結果等に見えている場合に限ります。 |
+| `openContainingFolder({ id: "file-a" })` | ファイルまたはフォルダの親フォルダへ移動し、対象を選択して見える位置へスクロールします。フォルダを指定した場合も、そのフォルダの中ではなく親へ移動します。`selection.mode: "none"` では選択せず移動します。 |
 | `showFile({ id: "file-a" })` | 対象の親フォルダを開き、1ファイルを選択します。`mode` の既定は `"select"` です。 |
 | `showFile({ path: "/記事/画像/表紙.png" }, { mode: "preview" })` | 対象の親フォルダを開き、ファイルを選択してプレビューを要求します。`onPreviewRequest` があれば親へ渡し、未指定または `"default"` が返った場合は内蔵プレビューを開きます。 |
 | `previewFile({ id: "file-a" })` | `showFile(target, { mode: "preview" })` と同じです。選択を無効にしている場合もプレビューできます。 |
@@ -121,7 +131,9 @@ type ExplorerNavigationHandle = Readonly<{
 
 対象はメイン表示領域のアクティブなタブです。新しいタブは作らず、切り離した子・孫ウィンドウの表示も操作しません。`ExplorerPopup` では開いているメインポップアップを操作し、未起動なら `not-ready` を返します。
 
-移動や対象ファイルの表示では検索を解除し、最初の選択ファイルが見える位置までスクロールします。移動履歴を追加するのは現在地が変わったときだけです。表示が変われば既存の `onEvent` の移動・選択等のイベントで通知します。保存や編集許可は発生しません。
+`onLoadFolder` 使用時も、パスやIDは現在のキャッシュから同期解決します。未取得のパスを自動探索せず、祖先を順に `loadFolder` するか初期キャッシュに含めてから移動します。`navigate` の成功はフォルダ取得完了ではなく、取得の成功・失敗は `folder-load` イベントで観測します。
+
+移動や対象ファイルの表示では検索を解除し、最初の選択対象が見える位置までスクロールします。現在地が変わるときに加え、検索結果から同じフォルダの通常一覧へ移るときも履歴を追加します。「戻る」で検索語・詳細条件・選択を復元し、外部検索は当時の確定条件で再実行します。ホストが持つ `search.params` の入力UIは書き換えません。[検索履歴の扱い](./search.md#containing-folder)も参照してください。表示が変われば既存の `onEvent` の移動・選択等のイベントで通知します。保存や編集許可は発生しません。
 
 ### 結果とエラー
 
@@ -139,7 +151,7 @@ if (result && !result.ok) {
 
 対象と設定をすべて検証してから反映します。1件でも不正なら、フォルダ・検索・選択・プレビューを途中まで変更することはありません。
 
-`selectFiles()`・`selectEntries()`・選択モードの `showFile()` は、`selection.mode: "none"` なら `selection-disabled` です。空配列による選択解除は利用できます。`showFile(..., { mode: "preview" })` と `previewFile()` はGUIと同様に、選択を無効にしていてもプレビューできます。その場合は親フォルダへ移動して表示し、選択は空のままです。`ExplorerEntryTarget` は `ExplorerFileTarget` と同じ `{ id }` / `{ path }` の形式で、フォルダも指定できます。
+`selectFiles()`・`selectEntries()`・選択モードの `showFile()` は、`selection.mode: "none"` なら `selection-disabled` です。空配列による選択解除は利用できます。`showFile(..., { mode: "preview" })` と `previewFile()` はGUIと同様に、選択を無効にしていてもプレビューできます。`openContainingFolder()` も選択の有効・無効にかかわらず親フォルダへ移動します。いずれも選択を無効にしている場合は選択を空のままにします。`ExplorerEntryTarget` は `ExplorerFileTarget` と同じ `{ id }` / `{ path }` の形式で、フォルダも指定できます。ルートには親がないため、`openContainingFolder({ id: "root" })` や `{ path: "/" }` は `invalid-target` を返します。
 
 | `code` | 原因 |
 | --- | --- |
@@ -152,6 +164,7 @@ if (result && !result.ok) {
 | `not-visible` | `selectEntries()` の対象が別々の親を持ち、現在の一覧に全件が表示されていない。 |
 | `selection-disabled` | 選択する操作が `selection.mode: "none"` で無効。 |
 | `selection-limit` | `selection.mode: "single"` で複数ファイルを選択しようとした。 |
+| `selection-kind` | `selection.kind` で許可していない種類の項目を選択しようとした。 |
 | `preview-disabled` | `features.preview: false` でプレビューを要求した。選択だけに切り替えず、操作全体を行いません。 |
 | `permission-denied` | `getEntryPermissions` がプレビューを拒否した。親の指定メッセージまたは既定の説明を返します。 |
 
@@ -165,7 +178,8 @@ if (result && !result.ok) {
 
 | メソッド | 契約 |
 | --- | --- |
-| `getEntries(): readonly ExplorerItemInfo[] \| null` | 現在の全項目を、パスを含む独立したメタデータとして取得します。配列・項目・`source` の変更は内部へ反映しません。`File` 本体は共有します。 |
+| `getEntries(): readonly ExplorerItemInfo[] \| null` | 現在の全項目を、パスを含む独立したメタデータとして取得します。遅延読み込み時は取得済みキャッシュの範囲です。配列・項目・`source` の変更は内部へ反映しません。`File` 本体は共有します。 |
+| `loadFolder(folderId: string, options?: ExplorerFolderLoadOptions): Promise<boolean>` | 直下を取得します。`recursive: true` は配下全体、`signal` は利用側からの取消し。取得済みは再通信せず、取消しや取得失敗はfalse。表示の移動や未保存化はしません。[必要な配下を先に取得する](./folder-loading.md) |
 | `execute(action: ExplorerAction): Promise<boolean>` | `create` / `createFile` / `rename` / `move` / `copy` / `delete` / `favorite` を実行します。対象の `ids` と作成・移動先の `parent` を指定します。`ids` を省略してもGUIの現在選択は使いません。作成先の省略はモデルと同じ `root` です。 |
 | `upload(files: readonly File[], parentId: string): Promise<boolean>` | 指定フォルダへ取り込みます。`webkitRelativePath` のある `File` はフォルダ取込です。サイズ・拡張子・件数制限、同名競合の確認、処理中表示、取消しはGUIと共通です。 |
 | `save(): Promise<boolean>` | 変更を `onSave` へ渡します。変更なしの場合は保存先を呼ばず編集セッションを終了します。 |

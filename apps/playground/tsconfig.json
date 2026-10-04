@@ -12,6 +12,9 @@
       "@likex/explorer": [
         "../../packages/explorer/src/index.ts"
       ],
+      "@likex/explorer/model": [
+        "../../packages/explorer/src/model-entry.ts"
+      ],
       "@likex/spreadsheet": [
         "../../packages/spreadsheet/src/index.ts"
       ],

@@ -7,6 +7,8 @@ import {
   ExplorerUploadValidationError, ExplorerUploadInspectionRequiredError,
   EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS, describeEntries, resolveExplorerEntryTargets, readEntryFile,
   assertExplorerEntryPermissions, checksForExplorerAction, ExplorerOperationDeniedError,
+  resolveExplorerSearchHits, resolveExplorerSearchIds,
+  mergeExplorerFolderEntries, mergeExplorerSearchEntries,
 } from '__MODEL_IMPORT__';
 
 const require = createRequire(import.meta.url);
@@ -17,9 +19,41 @@ assert.equal(typeof document, 'undefined');
 const baseline = createDraftSnapshot([]);
 const folder = applyAction(baseline, { action: 'create', name: 'Documents' });
 const parent = folder.entries[0].id;
+const cached = createDraftSnapshot(folder.entries);
+const locallyRenamed = applyAction(cached, { action: 'rename', ids: [parent], name: 'Local documents' });
+const remoteChild = { id: 'remote-child', parent, name: 'Server.txt', kind: 'file', size: 10, mime: 'text/plain',
+  createdAt: '2026-10-03T00:00:00Z', updatedAt: '2026-10-03T00:00:00Z', favorite: 0, source: { kind: 'existing', id: 'blob-remote' } };
+const hydrated = mergeExplorerFolderEntries(cached, locallyRenamed, parent, [remoteChild]);
+assert.equal(hydrated.addedCount, 1);
+assert.equal(hydrated.draft.entries.find(entry => entry.id === parent).name, 'Local documents');
+const hydrationChanges = getSavePayload(hydrated.baseline, hydrated.draft).changes;
+assert.deepEqual(hydrationChanges.created, []);
+assert.deepEqual(hydrationChanges.updated.map(entry => entry.id), [parent]);
+assert.equal(cached.entries.length, 1);
+assert.throws(() => mergeExplorerFolderEntries(cached, locallyRenamed, parent, [{ ...remoteChild, parent: 'root' }]), /直下/);
+remoteChild.name = 'Caller changed.txt';
+assert.equal(hydrated.draft.entries.find(entry => entry.id === 'remote-child').name, 'Server.txt');
+const remoteFolder = { ...folder.entries[0], id: 'search-folder', name: 'Search folder' };
+const remoteMatch = { ...remoteChild, id: 'search-match', parent: remoteFolder.id, name: 'Search match.txt' };
+const searched = mergeExplorerSearchEntries(cached, locallyRenamed, [remoteMatch, remoteFolder]);
+assert.equal(searched.addedCount, 2);
+assert.equal(searched.draft.entries.find(entry => entry.id === parent).name, 'Local documents');
+assert.deepEqual(getSavePayload(searched.baseline, searched.draft).changes.created, []);
+assert.throws(() => mergeExplorerSearchEntries(cached, locallyRenamed, [remoteMatch]));
 const file = new File(['first'], 'report.txt', { type: 'text/plain' });
 const added = addFilesWithResult(folder, [file], parent);
 const id = added.snapshot.entries.find(entry => entry.kind === 'file').id;
+const hitMetadata = { customer: { name: '顧客A' }, meetingDate: '2026-09-15' };
+const searchResponse = [{ entryId: id, snippet: '料金改定について合意', reason: '本文に一致', metadata: hitMetadata }, id, 'unknown'];
+const searchHits = resolveExplorerSearchHits(searchResponse, added.snapshot.entries);
+assert.equal(searchHits.length, 1);
+assert.equal(searchHits[0].entryId, id);
+assert.equal(searchHits[0].snippet, '料金改定について合意');
+assert.equal(Object.isFrozen(searchHits), true);
+assert.equal(Object.isFrozen(searchHits[0].metadata.customer), true);
+hitMetadata.customer.name = '後から変更';
+assert.equal(searchHits[0].metadata.customer.name, '顧客A');
+assert.deepEqual(resolveExplorerSearchIds(searchResponse, added.snapshot.entries), [id]);
 const permissionChecks = checksForExplorerAction(added.snapshot.entries, { action: 'delete', ids: [parent] });
 let locked = true;
 const getEntryPermissions = entry => entry.id === id && locked ? { delete: { allowed: false, message: '編集中です' } } : undefined;

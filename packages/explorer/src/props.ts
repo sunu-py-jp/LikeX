@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement, ReactNode, Ref } from "react";
+import type { CSSProperties, InputHTMLAttributes, ReactElement, ReactNode, Ref, RefObject } from "react";
 import type { ExplorerEntry as Entry } from "./model/draft";
 import type { ExplorerDraftOptions } from "./state/use-explorer-draft";
 import type { ExplorerFileReader } from "./model/file-content";
@@ -6,10 +6,10 @@ import type { ExplorerColorMode, ExplorerThemeOptions } from "./ui/explorer-them
 import type { ExplorerOptions, ExplorerViewMode } from "./model/config";
 import type { ExplorerItemInfo } from "./model/item-info";
 import type { ExplorerPreviewHandler, ExplorerPreviewTrigger, ExplorerPreviewRequest, ExplorerPreviewOptions, ExplorerPreviewSourceResolver } from "./model/preview";
-import type { ExplorerEventHandler } from "./model/events";
+import type { ExplorerEventHandler, ExplorerLocationInfo } from "./model/events";
 import type { ExplorerUploadOptions } from "./model/upload";
 import type { ExplorerDownloadHandler } from "./model/download";
-import type { ExplorerSearchHandler, ExplorerSearchOptions } from "./model/search";
+import type { ExplorerSearchConditions, ExplorerSearchHit, ExplorerSearchHandler, ExplorerSearchOptions } from "./model/search";
 import type { ContextMenuExecutionMode } from "./core";
 import type { ExplorerContextMenuProvider } from "./model/context-menu";
 import type { ExplorerHandle } from "./model/notifications";
@@ -44,7 +44,63 @@ export type ExplorerPreviewContext = Readonly<{
  * Null/undefined use defaultPreview; false renders no preview body. */
 export type ExplorerPreviewRenderer = (context: ExplorerPreviewContext) => Exclude<ReactNode, Promise<unknown>>;
 
-export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave" | "onRefresh" | "onEditRequest" | "getEntryPermissions"> & {
+export type ExplorerSearchRenderContext = Readonly<{
+  /** Current input, which may not yet be submitted. */
+  query: string;
+  setQuery(value: string): void;
+  conditions: ExplorerSearchConditions;
+  /** Merge changed flags into this tab's current input conditions. */
+  setConditions(patch: Partial<ExplorerSearchConditions>): void;
+  params?: Readonly<Record<string, unknown>>;
+  trigger: "input" | "submit";
+  searching: boolean;
+  error: string | null;
+  submit(): void;
+  clear(): void;
+  /** Spread onto a custom input to keep focus shortcuts, IME and Enter behavior. */
+  inputProps: InputHTMLAttributes<HTMLInputElement> & { ref: RefObject<HTMLInputElement | null> };
+  defaultInput: ReactElement;
+  defaultOptions: ReactElement;
+}>;
+/** Return a component to use hooks. Null/undefined uses the standard search; false hides it. */
+export type ExplorerSearchRenderer = (context: ExplorerSearchRenderContext) => Exclude<ReactNode, Promise<unknown>>;
+
+export type ExplorerSearchResultRenderContext = Readonly<{
+  entry: ExplorerItemInfo;
+  hit: ExplorerSearchHit;
+  /** Confirmed search text, unaffected by an unsubmitted draft. */
+  query: string;
+  view: ExplorerViewMode;
+  selected: boolean;
+  defaultContent: ReactElement;
+}>;
+/** Override only the supplementary area beneath an external search result's name.
+ * Null/undefined uses plain-text snippet/reason; false hides the supplementary content. */
+export type ExplorerSearchResultRenderer = (context: ExplorerSearchResultRenderContext) => Exclude<ReactNode, Promise<unknown>>;
+
+export type ExplorerEmptyStateReason = "folder" | "search" | "favorites" | "recent";
+
+export type ExplorerEmptyStateRenderContext = Readonly<{
+  reason: ExplorerEmptyStateReason;
+  location: ExplorerLocationInfo;
+  /** Confirmed search text, unaffected by an unsubmitted draft. */
+  query: string;
+  /** Temporarily disables actions while a conflicting operation is running. */
+  disabled: boolean;
+  /** Available only in an ordinary folder without a search, according to readOnly and features.
+   * Invoke directly from a user event. Retained callbacks cannot act on another folder or tab. */
+  actions: Readonly<{
+    addFiles?: () => void;
+    addFolders?: () => void;
+    createFolder?: () => void;
+  }>;
+  defaultContent: ReactElement;
+}>;
+/** Synchronous empty-list presentation, never called for loading or errors.
+ * Return a component for hooks. Null/undefined uses defaultContent; false hides it. */
+export type ExplorerEmptyStateRenderer = (context: ExplorerEmptyStateRenderContext) => Exclude<ReactNode, Promise<unknown>>;
+
+export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave" | "onRefresh" | "onEditRequest" | "getEntryPermissions" | "onLoadFolder" | "folderLoading"> & {
   /** Read/edit the main pane's draft, navigate/select/preview, and manage host notifications. */
   ref?: Ref<ExplorerHandle>;
   /** Read on mount only. Change the React key to open another workspace. */
@@ -69,8 +125,14 @@ export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave
   upload?: ExplorerUploadOptions;
   /** Search on input (default) or submit. Optional debounce applies to external input searches. */
   search?: ExplorerSearchOptions;
-  /** Replace name matching with host-owned search; return existing entry IDs in result order. */
+  /** Host search returns ranked IDs/hits or streamed batches. With onLoadFolder, { hits, entries } also hydrates uncached entries and ancestors. */
   onSearchRequest?: ExplorerSearchHandler;
+  /** Rearrange or replace search controls while keeping the built-in search lifecycle. */
+  renderSearch?: ExplorerSearchRenderer;
+  /** Customize supplementary content of external hits, including ID-only results. */
+  renderSearchResult?: ExplorerSearchResultRenderer;
+  /** Customize empty folders, searches, favorites and recent lists. Loading and errors keep their standard UI. */
+  renderEmptyState?: ExplorerEmptyStateRenderer;
   /** Append conditional items to entry/background context menus. Prepare changes; do not mutate in the handler. */
   getContextMenuItems?: ExplorerContextMenuProvider;
   /** Defaults to block. Confirm permits concurrent edits and asks before applying; reject-if-changed rejects stale results. */

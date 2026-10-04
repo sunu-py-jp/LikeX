@@ -91,7 +91,7 @@ function entries(count) {
     kind: 'file', mime: 'text/plain', size: 1, favorite: 0, createdAt: '2026-09-01T00:00:00Z', updatedAt: '2026-09-01T00:00:00Z', source: { kind: 'existing', id: `content-${index}` } }));
 }
 
-async function mountList(t, mode, count = 10000, renderIcon) {
+async function mountList(t, mode, count = 10000, renderIcon, overrides = {}) {
   let controller, renderer;
   const listeners = new Map();
   const renameControls = new Map();
@@ -101,7 +101,7 @@ async function mountList(t, mode, count = 10000, renderIcon) {
     addEventListener(type, callback) { listeners.set(type, callback); }, removeEventListener(type) { listeners.delete(type); },
     querySelectorAll() { return Array.from({ length: count }, (_, index) => ({ dataset: { explorerEntryId: `file-${index}` }, focus: () => focused.push(`file-${index}`) })); } };
   const props = { initialEntries: entries(count), onSave: async () => {}, view: { defaultMode: mode },
-    ui: { thumbnails: false, contextMenu: false, rowActions: false }, features: { favorites: false }, renderIcon };
+    ui: { thumbnails: false, contextMenu: false, rowActions: false }, features: { favorites: false }, renderIcon, ...overrides };
   function App() { controller = useExplorerController(props); return h(ExplorerProvider, { value: controller }, h(ExplorerFileList)); }
   await change(() => { renderer = create(h(StrictMode, null, h(App)), { createNodeMock(element) {
     if (element.props['data-explorer-virtualized']) return scroll;
@@ -257,4 +257,20 @@ test('select all and arrow navigation address the full result set beyond mounted
   assert.deepEqual(list.controller.selected, ['file-9998']);
   assert.equal(list.focused.at(-1), 'file-9998');
   assert(list.rows().some(row => row.props['data-explorer-entry-id'] === 'file-9998'));
+});
+
+for (const mode of modes) test(`${mode}: rich search details retain bounded virtualization and final-row reachability`, async t => {
+  const list = await mountList(t, mode, 10000, undefined, { search: { resultDetailsHeight: 96 },
+    onSearchRequest: ({ entries }) => entries.map(entry => ({ entryId: entry.id, snippet: 'Matching text', reason: 'Keyword match' })) });
+  await change(() => list.controller.setQuery('external'));
+  assert(list.rows().length < 160);
+  const first = list.rows()[0];
+  const expected = explorerListLayout(10000, mode, false, mode !== 'details', true, viewport, 96);
+  assert.equal(first.props.style.height, expected.rowHeight);
+  assert.equal(list.root.findAllByProps({ 'data-explorer-search-result': 'file-0' })[0].props.style.height, 96);
+  await list.scrollTo(mode === 'list' ? 0 : 10000000, mode === 'list' ? 10000000 : 0);
+  assert(list.rows().some(row => row.props['data-explorer-entry-id'] === 'file-9999'));
+  assert(list.rows().length < 170);
+  await change(() => list.controller.focusEntryRef.current('file-0'));
+  assert.equal(list.focused.at(-1), 'file-0');
 });

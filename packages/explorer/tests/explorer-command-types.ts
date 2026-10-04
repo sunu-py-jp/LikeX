@@ -9,6 +9,9 @@ export function commands(handle: ExplorerHandle) {
   const saved: Promise<boolean> = api.save();
   const discarded: Promise<boolean> = api.discard();
   const refreshed: Promise<boolean> = api.refresh();
+  const loaded: Promise<boolean> = api.loadFolder("folder", { recursive: true, signal: new AbortController().signal });
+  // @ts-expect-error Folder targets are explicit IDs.
+  api.loadFolder({ path: "/Folder" });
   const downloaded: Promise<boolean> = api.download({ path: "/Folder" });
   handle.selectEntries([{ id: "folder" }, { id: "file" }]);
   handle.previewFile({ path: "/Folder/file.txt" });
@@ -16,7 +19,7 @@ export function commands(handle: ExplorerHandle) {
   api.execute({ action: "undo" });
   // @ts-expect-error Upload destinations are explicit.
   api.upload([]);
-  return { entries, changed, uploaded, saved, discarded, refreshed, downloaded };
+  return { entries, changed, uploaded, saved, discarded, refreshed, downloaded, loaded };
 }
 
 export const created = applyAction(createDraftSnapshot([]), { action: "create", name: "Folder" });

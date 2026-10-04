@@ -1,3 +1,4 @@
+import type { ExplorerFolderLoadOptions } from "./folder-loading";
 import type { ExplorerAction } from "./draft";
 import type { ExplorerItemInfo } from "./item-info";
 import type { ExplorerEntryTarget } from "./navigation";
@@ -6,6 +7,8 @@ import type { ExplorerEntryTarget } from "./navigation";
 export type ExplorerCommandHandle = Readonly<{
   /** Isolated current metadata, or null while the main pane is unavailable. */
   getEntries(): readonly ExplorerItemInfo[] | null;
+  /** Hydrate a folder cache, optionally all descendants, without editing or changing dirty state. */
+  loadFolder(folderId: string, options?: ExplorerFolderLoadOptions): Promise<boolean>;
   /** Explicit targets only; never substitutes the current selection. False means no change. */
   execute(action: ExplorerAction): Promise<boolean>;
   /** Uses the same validation, conflict dialog, progress and edit gate as GUI import. */

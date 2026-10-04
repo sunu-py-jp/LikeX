@@ -3,8 +3,12 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 const demos = {
   explorer: lazy(() => import("./explorer-demo")),
+  "explorer/search": lazy(() => import("./explorer-search-demo")),
+  "explorer/lazy-loading": lazy(() => import("./explorer-lazy-loading-demo")),
+  "explorer/picker": lazy(() => import("./explorer-picker-demo")),
   "explorer-preview": lazy(() => import("./explorer-preview-demo")),
   spreadsheet: lazy(() => import("./spreadsheet-demo")),
+  "spreadsheet/search": lazy(() => import("./spreadsheet-search-demo")),
   "spreadsheet/ai": lazy(() => import("./spreadsheet-ai-demo")),
   slide: lazy(() => import("./slide-demo")),
   "slide/ai": lazy(() => import("./slide-ai-demo")),

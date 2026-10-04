@@ -4,12 +4,12 @@ import { artifactRoot, projectRoot } from './run.mjs';
 
 // Distribution differences live here; build/pack/consumer checks are shared.
 const modules = {
-  core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [], headlessEntries: { ooxml: 'ooxml.ts', json: 'json.ts', connectors: 'connectors.ts', 'office-shapes': 'office-shapes.ts' }, browserEntries: { browser: 'browser.ts' } },
+  core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [], headlessDependencies: ['re2js'], headlessEntries: { ooxml: 'ooxml.ts', json: 'json.ts', connectors: 'connectors.ts', 'office-shapes': 'office-shapes.ts', 'text-search': 'text-search.ts' }, browserEntries: { browser: 'browser.ts' } },
   explorer: {
     ui: true,
     headlessEntries: { model: 'model-entry.ts' },
-    headlessDependencies: ['@likex/core', '@likex/core/json', 'pdf-lib'],
-    modelRuntimeDependencies: ['pdf-lib'],
+    headlessDependencies: ['@likex/core', '@likex/core/json', '@likex/core/text-search', 'pdf-lib'],
+    modelRuntimeDependencies: ['pdf-lib', 're2js'],
     modelTypeLibraries: ['ES2022', 'DOM'],
     moduleDependencies: ['core'],
     generatedStyles: true, bundledDependencies: ['tailwindcss'],
@@ -21,7 +21,8 @@ const modules = {
     ui: true,
     skillName: 'likex-spreadsheet',
     headlessEntries: { model: 'model-entry.ts' },
-    headlessDependencies: ['@likex/core/office-shapes', '@likex/core/connectors', '@likex/core', '@likex/core/ooxml', '@likex/core/json'],
+    modelRuntimeDependencies: ['re2js'],
+    headlessDependencies: ['@likex/core/text-search', '@likex/core/office-shapes', '@likex/core/connectors', '@likex/core', '@likex/core/ooxml', '@likex/core/json'],
     moduleDependencies: ['core'],
     generatedStyles: false, bundledDependencies: [],
     marker: 'data-likex-spreadsheet', classPrefix: '.lxs-', propertyPrefix: '--lxs-', keyframePrefix: 'lxs',

@@ -724,6 +724,9 @@
         "wholeCell": {
           "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
+        "useRegex": {
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+        },
         "lookIn": {
           "$ref": "#/$defs/SpreadsheetCommand_6_query_lookIn"
         }

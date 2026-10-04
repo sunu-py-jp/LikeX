@@ -89,3 +89,33 @@ test('live session and scoped readers follow edits, renames, reordering and undo
   assert.equal(session.execute({ type: 'sheets.delete', sheetId: 'sales' }).ok, true);
   assert.throws(() => scoped.findCells({ text: '' }), /シート/);
 });
+
+test('regular expressions work through model queries, scoped readers, and literal replacement commands', () => {
+  const workbook = sample();
+  assert.deepEqual(findSpreadsheetSheets(workbook, { text: '^sales 202[56]$', useRegex: true }).map(match => match.sheetId), ['sales', 'archive']);
+  assert.deepEqual(findSpreadsheetSheets(workbook, { text: '^sales', useRegex: true, matchCase: true }).map(match => match.sheetId), ['archive']);
+  assert.deepEqual(findSpreadsheetCells(workbook, { text: '^targ.t$', useRegex: true }, { sheetId: 'sales' }).map(match => match.address), ['B2', 'C3']);
+  assert.deepEqual(findSpreadsheetCells(workbook, { text: 'targ.t', useRegex: true, matchCase: true, wholeCell: true }, { sheetId: 'sales' }).map(match => match.address), ['B2']);
+  assert.deepEqual(findSpreadsheetCells(workbook, { text: 'targ.t' }), []);
+  const session = createSpreadsheetSession(workbook);
+  assert.equal(session.sheet('sales').findCells({ text: '^Target$', useRegex: true, matchCase: true }).length, 1);
+  const applied = session.execute({ type: 'cells.replace', sheetId: 'sales', query: { text: '(target)', useRegex: true, lookIn: 'formulas' }, replacement: '$1/$&' });
+  assert.equal(applied.ok, true);
+  assert.equal(session.getWorkbook().sheets[0].cells.C3.value, '$1/$&');
+  assert.equal(session.getWorkbook().sheets[0].cells.A1.value, '$1/$& outside');
+  assert.equal(session.undo(), true);
+  assert.equal(session.getWorkbook().sheets[0].cells.C3.value, 'Target');
+});
+
+test('invalid and unsupported regex conditions fail before any batch mutation', () => {
+  for (const text of ['[', '(?=target)', '(target)\\1', 'x'.repeat(4097)]) {
+    const workbook = sample(), session = createSpreadsheetSession(workbook);
+    assert.throws(() => findSpreadsheetCells(workbook, { text, useRegex: true }));
+    assert.throws(() => findSpreadsheetSheets(workbook, { text, useRegex: true }));
+    const result = session.batch([{ type: 'cells.set', sheetId: 'sales', values: { A1: 'partial' } }, { type: 'cells.replace', sheetId: 'sales', query: { text, useRegex: true }, replacement: 'changed' }]);
+    assert.equal(result.ok, false); assert.equal(session.getWorkbook().sheets[0].cells.A1.value, 'target outside');
+  }
+  assert.throws(() => findSpreadsheetCells(sample(), { text: 'target', useRegex: 'yes' }));
+  assert.throws(() => findSpreadsheetSheets(sample(), { text: 'sales', useRegex: 1 }));
+  assert.deepEqual(findSpreadsheetCells(sample(), { text: '', useRegex: true }), []);
+});

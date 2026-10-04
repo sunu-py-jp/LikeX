@@ -1,7 +1,7 @@
 import type { SpreadsheetWriteConflictPolicy } from "../model/workbook/write-conflicts";
 import type { SpreadsheetCell, SpreadsheetCellFormat, SpreadsheetCellPosition, SpreadsheetComment, SpreadsheetMergedRange, SpreadsheetMoveSource } from "../model/types";
 
-export type SpreadsheetSearchQuery = Readonly<{ text: string; matchCase?: boolean; wholeCell?: boolean; lookIn?: "values" | "formulas" }>;
+export type SpreadsheetSearchQuery = Readonly<{ text: string; matchCase?: boolean; wholeCell?: boolean; useRegex?: boolean; lookIn?: "values" | "formulas" }>;
 export type SpreadsheetSearchMatch = Readonly<{ sheetId: string; address: string; value: string; matchedText: string }>;
 export type SpreadsheetPasteMode = "all" | "values" | "formulas" | "formats";
 /** Preserve merges that extend beyond a copied/pasted rectangle. Defaults to rejecting partial merges. */

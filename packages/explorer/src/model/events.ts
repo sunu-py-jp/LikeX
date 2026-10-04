@@ -5,6 +5,7 @@ import type { ExplorerPreviewRequest } from "./preview";
 import type { ExplorerUploadRejection } from "./upload";
 import type { ExplorerDownloadProgress } from "./download";
 import type { ExplorerEditModeEvent } from "./edit-session";
+import type { ExplorerFolderLoadEvent } from "./folder-loading";
 import { notifyHost, type EventHandler, type ContextMenuExecutionEvent } from "../core";
 
 export type ExplorerLocationInfo =
@@ -45,8 +46,10 @@ export type ExplorerUploadSkippedEvent = Readonly<{
 /** Observe local edits and upload omissions; storage is still owned by onSave. */
 export type ExplorerDraftEvent =
   | ExplorerEditModeEvent
+  | ExplorerFolderLoadEvent
   | ExplorerUploadRejectedEvent
   | ExplorerUploadSkippedEvent
+  | Readonly<{ type: "search-hydrate"; addedCount: number }>
   | Readonly<{
       type: "change";
       action: ExplorerAction["action"] | "upload";

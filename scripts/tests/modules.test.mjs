@@ -26,6 +26,8 @@ test('artifacts for separate libraries cannot overwrite each other', () => {
 test('the core profile is headless and still participates in every distribution check', () => {
   const core = libraryModule('core');
   assert.equal(core.ui, false);
+  assert.equal(core.headlessEntries['text-search'], 'text-search.ts');
+  assert.ok(core.headlessDependencies.includes('re2js'));
   assert.deepEqual(core.bundledDependencies, []);
   assert.ok(core.artifactRoot.endsWith('/artifacts/core'));
   assert.ok(requestedModules(['--all']).includes('core'));

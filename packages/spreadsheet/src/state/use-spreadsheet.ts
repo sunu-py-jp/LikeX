@@ -104,7 +104,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   useEffect(() => { emitEvent({ type: "unsaved-changes", dirty, pending: pendingInput, hasUnsavedChanges }); },
     [emitEvent, dirty, pendingInput, hasUnsavedChanges]);
 
-  return { ...zoom, workbook: draft.workbook, activeSheet: view.activeSheet, selection: view.selection,
+  return { search: props.search, renderSearch: props.renderSearch, onSearchRequest: props.onSearchRequest, ...zoom, workbook: draft.workbook, activeSheet: view.activeSheet, selection: view.selection,
     selectionApi: view.selectionApi, selectionFocus: view.selectionFocus, selectionReveal: view.selectionReveal, gridRevealRequest: view.gridRevealRequest,
     select: view.select, selectRange: view.selectRange, selectAxisRange: view.selectAxisRange, toggleAxisRange: view.toggleAxisRange,
     toggleSelection: view.toggleSelection, toggleSelectionRange: view.toggleSelectionRange,

@@ -67,6 +67,9 @@ try {
 | `onChange` | `(workbook: SpreadsheetWorkbook) => void` | 下書きの変更通知。永続化は行いません。 |
 | `onSave` | `SpreadsheetSaveHandler` | 保存処理。省略すると読み取り専用。 |
 | `onBeforeSave` | `SpreadsheetBeforeSaveHandler` | 保存前チェック。`false`で中止。 |
+| `search` | `SpreadsheetSearchSettings` | 入力／送信時の検索、外部検索の待機時間、独自のJSON条件。 |
+| `renderSearch` | `(context: SpreadsheetSearchRenderContext) => ReactNode` | 標準入力・詳細条件を再利用できる検索UIスロット。[検索UIの注入](./editing-tools.md#検索uiと外部検索の注入)。 |
+| `onSearchRequest` | `SpreadsheetSearchHandler` | 任意の外部セル検索。スナップショットとキャンセル信号を受け取り、既存セルの検索結果を返す。 |
 | `onEditRequest` | `SpreadsheetEditHandler` | 初回の実変更前に編集許可を要求。未指定なら即時許可。 |
 | `onRefresh` | `SpreadsheetRefreshHandler` | 最新ブックの再取得。未指定なら更新ボタンは非表示。 |
 | `onEvent` | `SpreadsheetEventHandler` | 保存・編集モード・操作等の型付き通知。 |

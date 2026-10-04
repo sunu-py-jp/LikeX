@@ -37,7 +37,7 @@ const { resolveExplorerOptions, useExplorerController, FAVORITES, RECENT } = awa
 
 const featureNames = [
   'favorites', 'recent', 'createFolder', 'createFile', 'uploadFiles', 'uploadFolders', 'copy', 'move',
-  'rename', 'delete', 'preview', 'download', 'details', 'search', 'sort', 'tabs', 'pathInput', 'detachTabs', 'resizeSidebar', 'mouseNavigation',
+  'rename', 'delete', 'preview', 'download', 'details', 'search', 'sort', 'tabs', 'pathInput', 'detachTabs', 'resizeSidebar', 'resizeColumns', 'mouseNavigation',
 ];
 const allFeatures = enabled => Object.fromEntries(featureNames.map(name => [name, enabled]));
 const entry = (id, name, size = 4, kind = 'file', mime = 'text/plain') => ({
@@ -185,7 +185,7 @@ test('omitted options preserve every feature, multiple selection and the eight e
   assert.deepEqual(resolveExplorerOptions(), {
     readOnly: false,
     features: allFeatures(true),
-    selection: { mode: 'multiple', checkboxes: true },
+    selection: { mode: 'multiple', kind: 'both', checkboxes: true },
     ui: { sidebar: true, contextMenu: true, rowActions: true, thumbnails: true },
     view: {
       allowedModes: ['extra-large', 'large', 'medium', 'small', 'list', 'details', 'tiles', 'content'],
@@ -197,7 +197,7 @@ test('omitted options preserve every feature, multiple selection and the eight e
   });
   assert.deepEqual(first.features, { ...allFeatures(true), copy: false });
   assert.deepEqual(first.ui, { sidebar: false, contextMenu: true, rowActions: true, thumbnails: true });
-  assert.deepEqual(first.selection, { mode: 'none', checkboxes: false });
+  assert.deepEqual(first.selection, { mode: 'none', kind: 'both', checkboxes: false });
   assert.equal(resolveExplorerOptions().features.copy, true, 'one instance cannot alter defaults');
 });
 
@@ -705,7 +705,7 @@ test('switching to single or none immediately restricts all selection paths with
   assert.deepEqual(hook.current.selected, ['alpha']);
 
   await hook.update({ selection: { mode: 'none', checkboxes: true } });
-  assert.deepEqual(hook.current.selectionOptions, { mode: 'none', checkboxes: false });
+  assert.deepEqual(hook.current.selectionOptions, { mode: 'none', kind: 'both', checkboxes: false });
   assert.deepEqual(hook.current.selected, []);
   await act(async () => {
     hook.current.setSelected(['alpha', 'beta']);
@@ -1182,4 +1182,19 @@ test('multiple selection rejects unchanged roots but allows moves with a root fr
   assert.equal(hook.current.entries.length, 4);
   assert.equal(hook.current.dirty, true);
   assert.equal(hook.current.notification.message, '移動しました');
+});
+
+
+test('detail column width defaults are display-only and column resizing remains available in read-only views', async t => {
+  const defaults = Object.freeze({ name: 420, updatedAt: 160 });
+  const resolved = resolveExplorerOptions({ readOnly: true, view: { defaultColumnWidths: defaults } });
+  assert.deepEqual(resolved.view.defaultColumnWidths, defaults);
+  assert.equal(resolved.features.resizeColumns, true);
+  const hook = await mountController(t, { readOnly: true, view: { defaultColumnWidths: defaults } });
+  assert.deepEqual(hook.current.defaultColumnWidths, defaults); assert.equal(hook.current.features.resizeColumns, true);
+  const entries = hook.current.entries;
+  await hook.update({ features: { resizeColumns: false }, view: { defaultColumnWidths: { size: 200 } } });
+  assert.equal(hook.current.features.resizeColumns, false); assert.deepEqual(hook.current.defaultColumnWidths, { size: 200 });
+  assert.equal(hook.current.entries, entries); assert.equal(hook.current.dirty, false);
+  assert.deepEqual(defaults, { name: 420, updatedAt: 160 });
 });

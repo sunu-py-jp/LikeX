@@ -34,6 +34,8 @@ async function testConsumer(module) {
       await cp(dependency.sourceRoot, target, { recursive: true });
       await assertSourceBoundary(target, dependencyManifest);
       copiedDependencies.push({ name: dependencyManifest.name, directory: target });
+      // Source-copied workspace dependencies may themselves have runtime dependencies.
+      Object.assign(declared, dependencyManifest.dependencies, dependencyManifest.peerDependencies);
       delete declared[dependencyManifest.name];
     }
     if (ui && await access(path.join(copiedSource, 'browser.ts')).then(() => true, () => false))
@@ -44,6 +46,8 @@ async function testConsumer(module) {
       await writeFile(path.join(copiedSource, 'ooxml.ts'), 'export * from "../core/ooxml";\n');
     if (ui && await access(path.join(copiedSource, 'model/core-connectors.ts')).then(() => true, () => false))
       await writeFile(path.join(copiedSource, 'model/core-connectors.ts'), 'export * from "../../core/connectors";\n');
+    if (ui && await access(path.join(copiedSource, 'model/core-text-search.ts')).then(() => true, () => false))
+      await writeFile(path.join(copiedSource, 'model/core-text-search.ts'), 'export * from "../../core/text-search";\n');
     if (ui && await access(path.join(copiedSource, 'model/core-office-shapes.ts')).then(() => true, () => false))
       await writeFile(path.join(copiedSource, 'model/core-office-shapes.ts'), 'export * from "../../core/office-shapes";\n');
     if (ui && await access(path.join(copiedSource, 'json.ts')).then(() => true, () => false))
@@ -95,7 +99,7 @@ async function testConsumer(module) {
     const headlessModel = libraryModule(module).headlessEntries?.model ? await checkModelConsumer({ module, sourceDirectory: copiedSource }) : undefined;
     const report = {
       source: `packages/${module}/src copied to components/${module} in a temporary project outside the repository`,
-      ...(ui ? { coreSource: 'packages/core/src copied unchanged to components/core', adapterChange: 'core.ts → ../core; browser.ts / ooxml.ts / json.ts (when present) → ../core/browser / ../core/ooxml / ../core/json; model/core-connectors.ts / model/core-office-shapes.ts (when present) → ../../core/connectors / ../../core/office-shapes' } : {}),
+      ...(ui ? { coreSource: 'packages/core/src copied unchanged to components/core', adapterChange: 'core.ts → ../core; browser.ts / ooxml.ts / json.ts (when present) → ../core/browser / ../core/ooxml / ../core/json; model/core-connectors.ts / model/core-office-shapes.ts / model/core-text-search.ts (when present) → ../../core/connectors / ../../core/office-shapes / ../../core/text-search' } : {}),
       copiedSourceFiles, packageImportAvailable: false, installMode, linkedDependencies, testedVersions, dependencyLocations,
       networkInstallationTested: online, typeResolution: 'Bundler, strict, skipLibCheck=false; no aliases', ...(headlessModel ? { headlessModel } : {}),
       ...(ui ? { ssrBytes: ssr.renderedBytes, stylesheetImport: `components/${module}/styles.css` } : { nodeImport: 'passed without React or browser globals' }), ...styles, ...nextStyles,

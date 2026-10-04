@@ -230,3 +230,14 @@ export function readonlyUploadContract(options: ExplorerUploadOptions, event: Ex
   // @ts-expect-error Rejection metadata is readonly; File identity is retained.
   event.rejections[0].name = "changed.txt";
 }
+
+
+export const resizeColumns = { resizeColumns: false } satisfies ExplorerFeatures;
+export const initialColumnWidths = { defaultColumnWidths: { name: 420, updatedAt: 160, extension: 80, size: 96 } } satisfies ExplorerViewOptions;
+export const partialColumnWidths = { defaultColumnWidths: { name: 420 } } satisfies ExplorerViewOptions;
+// @ts-expect-error Widths use pixel numbers, not CSS lengths.
+export const invalidColumnWidth = { defaultColumnWidths: { name: "420px" } } satisfies ExplorerViewOptions;
+// @ts-expect-error Only the supported detail columns accept width preferences.
+export const unknownColumnWidth = { defaultColumnWidths: { checkbox: 40 } } satisfies ExplorerViewOptions;
+export const publicColumn: import("../src").ExplorerDetailsColumn = "updatedAt";
+export const publicWidths: import("../src/model-entry").ExplorerDetailsColumnWidths = { name: 420, location: 240, updatedAt: 160, extension: 80, size: 96 };

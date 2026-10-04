@@ -7,7 +7,7 @@ import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { fillSpreadsheetCells } from "../model/editing/fill";
 import { getCellPasteRange, pasteSpreadsheetCells } from "../model/editing/paste";
 import { getCellMoveRange, moveSpreadsheetCells } from "../model/editing/move";
-import { findSpreadsheetCells, replaceSpreadsheetCells, replaceSpreadsheetText } from "../model/editing/search";
+import { createSpreadsheetSearchMatcher, findSpreadsheetCells, replaceSpreadsheetCells } from "../model/editing/search";
 import { duplicateSheetWithIds } from "../model/workbook/sheets";
 import type { SpreadsheetMergedRange, SpreadsheetSheet, SpreadsheetWorkbook } from "../model/types";
 import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
@@ -28,11 +28,14 @@ export function stageEditingCommand(workbook: SpreadsheetWorkbook, command: Spre
   switch (command.type) {
     case "cells.replace": {
       requireCommandFeature(features, "replace");
-      commandKeys(commandRecord(command.query, "検索条件"), ["text", "matchCase", "wholeCell", "lookIn"], "検索条件");
+      commandKeys(commandRecord(command.query, "検索条件"), ["text", "matchCase", "wholeCell", "useRegex", "lookIn"], "検索条件");
       const addresses = command.addresses === undefined ? undefined : requireCommandAddresses(sheet, command.addresses);
       if (typeof command.replacement !== "string") return rejectCommand("INVALID_COMMAND", "置換後の文字列を指定してください");
-      if (!features.formulas && command.query.lookIn === "formulas") for (const match of findSpreadsheetCells(workbook, command.query, { sheetId: sheet.id })) {
-        if ((!addresses || addresses.includes(match.address)) && isFormulaValue(replaceSpreadsheetText(match.matchedText, command.query, command.replacement), sheet.cells[match.address]?.format)) requireCommandFeature(features, "formulas");
+      if (!features.formulas && command.query.lookIn === "formulas") {
+        const matcher = createSpreadsheetSearchMatcher(command.query);
+        for (const match of findSpreadsheetCells(workbook, command.query, { sheetId: sheet.id })) {
+          if ((!addresses || addresses.includes(match.address)) && isFormulaValue(matcher.replace(match.matchedText, command.replacement), sheet.cells[match.address]?.format)) requireCommandFeature(features, "formulas");
+        }
       }
       return finish(replaceSpreadsheetCells(workbook, sheet.id, command.query, command.replacement, addresses, { onConflict: command.onConflict, skippedAddresses }));
     }

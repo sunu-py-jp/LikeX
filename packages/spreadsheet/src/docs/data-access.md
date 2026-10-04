@@ -138,19 +138,19 @@ const formulas = findSpreadsheetCells(workbook, {
 // 例: [{ sheetId: "sales", address: "F3", value: "=D3*E3", matchedText: "=D3*E3" }]
 ```
 
-`SpreadsheetSheetSearchQuery` は `{ text, matchCase?, wholeName? }`、結果の `SpreadsheetSheetSearchMatch` は次の形式です。`index` は検索結果内の位置ではなく、元のタブ位置（0始まり）です。
+`SpreadsheetSheetSearchQuery` は `{ text, matchCase?, wholeName?, useRegex? }`、結果の `SpreadsheetSheetSearchMatch` は次の形式です。`index` は検索結果内の位置ではなく、元のタブ位置（0始まり）です。
 
 ```json
 [{ "sheetId": "sales", "name": "売上速報", "index": 2, "rowCount": 300, "columnCount": 26 }]
 ```
 
-`SpreadsheetSearchQuery` は `{ text, matchCase?, wholeCell?, lookIn? }`、セル検索の `SpreadsheetSearchMatch` は次の形式です。`value` は保存された入力文字列、`matchedText` は実際に検索した表示文字列または入力文字列です。たとえば数式の表示結果で検索した場合は、両者が異なります。
+`SpreadsheetSearchQuery` は `{ text, matchCase?, wholeCell?, useRegex?, lookIn? }`、セル検索の `SpreadsheetSearchMatch` は次の形式です。`value` は保存された入力文字列、`matchedText` は実際に検索した表示文字列または入力文字列です。たとえば数式の表示結果で検索した場合は、両者が異なります。
 
 ```json
 [{ "sheetId": "sales", "address": "F3", "value": "=D3*E3", "matchedText": "2160" }]
 ```
 
-上記の `"2160"` は数値書式で桁区切りを付けていない例です。通貨・日付などの表示値はそのセルの書式に従います。結果はブックのタブ順、セルは行・列順です。両APIとも既定は大文字・小文字を区別しない部分一致で、正規表現ではありません。空文字列・一致なしは凍結された空配列です。
+上記の `"2160"` は数値書式で桁区切りを付けていない例です。通貨・日付などの表示値はそのセルの書式に従います。結果はブックのタブ順、セルは行・列順です。両APIとも既定は大文字・小文字を区別しない通常の部分一致です。`useRegex: true` でRE2形式の正規表現へ切り替えます（4,096文字以内、後方参照・先読み・後読みは未対応）。空文字列・一致なしは凍結された空配列です。
 
 セル検索の第3引数 `SpreadsheetSearchOptions` では、`sheetId` を省略すると全シート、指定するとそのシートを検索します。`range` を指定する場合は `sheetId` が必要で、A1表記・単一セル・0始まりの長方形オブジェクトに対応します。範囲外・逆順・不明なシートIDは空検索でも例外になります。検索は保存セルだけを走査するため、大きな範囲でも `getRange` の配列生成上限（10,000セル）は適用しません。`calculated` に同じブックの `calculateWorkbook` の結果を渡すと、表示値検索の計算を再利用できます。
 

@@ -5,15 +5,27 @@ export {
   addFilesAsync, addFilesWithResultAsync, prepareFilesWithProgressAsync,
 } from "./draft";
 export type { ExplorerEntry, ExplorerSnapshot, ExplorerAction, ExplorerSavePayload } from "./draft";
+export { mergeExplorerFolderEntries } from "./folder-loading";
+export { mergeExplorerSearchEntries } from "./search-entries";
+export type { ExplorerFolderLoadRequest, ExplorerFolderLoadContext, ExplorerFolderLoadHandler, ExplorerFolderLoadingOptions,
+  ExplorerFolderLoadOptions, ExplorerFolderLoadState, ExplorerFolderLoadEvent } from "./folder-loading";
 export { describeEntry, describeEntries } from "./item-info";
 export type { ExplorerItemInfo } from "./item-info";
+export { resolveExplorerPickerItems } from "./picker";
+export type { ExplorerPickerKind, ExplorerPickerItem, ExplorerPickerRootItem, ExplorerPickerOptions,
+  ExplorerPickerErrorCode, ExplorerPickerResult } from "./picker";
+export { resolveExplorerSearchHits, resolveExplorerSearchIds } from "./search";
+export type {
+  ExplorerSearchConditions, ExplorerSearchOptions, ExplorerSearchRequest, ExplorerSearchContext,
+  ExplorerSearchHit, ExplorerSearchResult, ExplorerSearchStream, ExplorerSearchBatch, ExplorerSearchResponse, ExplorerSearchHandler,
+} from "./search";
 export { assertExplorerEntryPermissions, checksForExplorerAction, checksForExplorerChanges, ExplorerOperationDeniedError } from "./entry-permissions";
 export type {
   ExplorerEntryOperation, ExplorerEntryPermission, ExplorerEntryPermissions, ExplorerEntryPermissionTarget,
   ExplorerEntryPermissionsResolver, ExplorerEntryPermissionCheck,
 } from "./entry-permissions";
 export { formatExplorerPath, resolveExplorerPath } from "./path";
-export { resolveExplorerNavigation, resolveExplorerFileTargets, resolveExplorerEntryTargets } from "./navigation";
+export { resolveExplorerNavigation, resolveExplorerFileTargets, resolveExplorerEntryTargets, resolveExplorerContainingFolder } from "./navigation";
 export type {
   ExplorerEntryTarget, ExplorerFileTarget, ExplorerNavigationResult, ExplorerNavigationErrorCode,
   ExplorerNavigationResolution, ExplorerEntryTargetResolution,
@@ -32,3 +44,6 @@ export type {
   ExplorerUploadInvalidFileBehavior, ExplorerUploadResult, ExplorerImportProgress,
   ExplorerUploadRejection, ExplorerUploadRejectionReason,
 } from "./upload";
+
+export type { ExplorerDetailsColumn, ExplorerDetailsColumnWidths } from "./column-size";
+export type { ExplorerSelectionKind } from "./config";

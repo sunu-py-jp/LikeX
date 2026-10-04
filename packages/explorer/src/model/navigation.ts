@@ -15,7 +15,7 @@ export type ExplorerShowFileOptions = Readonly<{ mode?: "select" | "preview" }>;
 export type ExplorerNavigationErrorCode =
   | "invalid-target" | "invalid-path" | "not-found" | "not-file" | "not-folder"
   | "ambiguous-path" | "different-folders" | "invalid-hierarchy"
-  | "not-ready" | "selection-disabled" | "selection-limit" | "preview-disabled" | "permission-denied" | "invalid-mode" | "not-visible";
+  | "not-ready" | "selection-disabled" | "selection-limit" | "selection-kind" | "preview-disabled" | "permission-denied" | "invalid-mode" | "not-visible";
 
 export type ExplorerNavigationResult =
   | Readonly<{ ok: true }>
@@ -27,6 +27,8 @@ export type ExplorerNavigationHandle = Readonly<{
   selectFiles(targets: readonly ExplorerFileTarget[]): ExplorerNavigationResult;
   /** Select files or folders. Mixed parents must already be visible in the current listing. */
   selectEntries(targets: readonly ExplorerEntryTarget[]): ExplorerNavigationResult;
+  /** Open a file or folder's parent and reveal the item, even when selection is disabled. */
+  openContainingFolder(target: ExplorerEntryTarget): ExplorerNavigationResult;
   showFile(target: ExplorerFileTarget, options?: ExplorerShowFileOptions): ExplorerNavigationResult;
   /** Preview without requiring selection to be enabled. */
   previewFile(target: ExplorerFileTarget): ExplorerNavigationResult;
@@ -38,6 +40,7 @@ type NavigationLocation = Readonly<{
   /** Null means clear the selection without navigating. */
   location: string | null;
   expanded: readonly string[];
+  /** Target IDs to select/reveal. For containing-folder navigation this may include a folder. */
   fileIds: readonly string[];
 }>;
 export type ExplorerNavigationResolution =
@@ -140,6 +143,19 @@ export function resolveExplorerNavigation(entries: readonly NavigationEntry[], p
     if (entry && entry.kind !== "folder") fail("not-folder", `「${entry.name}」はファイルです。フォルダを指定してください`);
     return resolved(entries, index, entry?.id ?? "root", []);
   } catch (error) { return failure(error); }
+}
+
+/** Resolve the parent of a cached file or folder. This never requests missing metadata. */
+export function resolveExplorerContainingFolder(entries: readonly NavigationEntry[], target: ExplorerEntryTarget): ExplorerNavigationResolution {
+  try {
+    const index = navigationIndex(entries);
+    const entry = targetEntry(index, target, new Map(), false);
+    return resolved(entries, index, entry.parent, [entry.id]);
+  } catch (error) {
+    if (error instanceof ResolutionError && error.code === "not-file")
+      return failure(new ResolutionError("invalid-target", "ルートには親フォルダがありません"));
+    return failure(error);
+  }
 }
 
 /** Resolve all targets first. Failed batches never produce a partial selection. */

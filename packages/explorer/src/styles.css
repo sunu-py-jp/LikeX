@@ -602,6 +602,9 @@ SOFTWARE.
   .lxe\:h-\[290px\]:where([data-likex-explorer], [data-likex-explorer] *) {
     height: 290px;
   }
+  .lxe\:h-\[min\(760px\,90dvh\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    height: min(760px, 90dvh);
+  }
   .lxe\:h-auto:where([data-likex-explorer], [data-likex-explorer] *) {
     height: auto;
   }
@@ -680,6 +683,9 @@ SOFTWARE.
   .lxe\:w-1\.5:where([data-likex-explorer], [data-likex-explorer] *) {
     width: calc(var(--lxe-spacing) * 1.5);
   }
+  .lxe\:w-2:where([data-likex-explorer], [data-likex-explorer] *) {
+    width: calc(var(--lxe-spacing) * 2);
+  }
   .lxe\:w-5:where([data-likex-explorer], [data-likex-explorer] *) {
     width: calc(var(--lxe-spacing) * 5);
   }
@@ -689,15 +695,6 @@ SOFTWARE.
   .lxe\:w-9:where([data-likex-explorer], [data-likex-explorer] *) {
     width: calc(var(--lxe-spacing) * 9);
   }
-  .lxe\:w-20:where([data-likex-explorer], [data-likex-explorer] *) {
-    width: calc(var(--lxe-spacing) * 20);
-  }
-  .lxe\:w-24:where([data-likex-explorer], [data-likex-explorer] *) {
-    width: calc(var(--lxe-spacing) * 24);
-  }
-  .lxe\:w-32:where([data-likex-explorer], [data-likex-explorer] *) {
-    width: calc(var(--lxe-spacing) * 32);
-  }
   .lxe\:w-52:where([data-likex-explorer], [data-likex-explorer] *) {
     width: calc(var(--lxe-spacing) * 52);
   }
@@ -706,9 +703,6 @@ SOFTWARE.
   }
   .lxe\:w-\[15ch\]:where([data-likex-explorer], [data-likex-explorer] *) {
     width: 15ch;
-  }
-  .lxe\:w-\[68px\]:where([data-likex-explorer], [data-likex-explorer] *) {
-    width: 68px;
   }
   .lxe\:w-\[230px\]:where([data-likex-explorer], [data-likex-explorer] *) {
     width: 230px;
@@ -725,11 +719,17 @@ SOFTWARE.
   .lxe\:w-\[min\(390px\,90\%\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     width: min(390px, 90%);
   }
+  .lxe\:w-\[min\(1100px\,96vw\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    width: min(1100px, 96vw);
+  }
   .lxe\:w-full:where([data-likex-explorer], [data-likex-explorer] *) {
     width: 100%;
   }
   .lxe\:w-px:where([data-likex-explorer], [data-likex-explorer] *) {
     width: 1px;
+  }
+  .lxe\:max-w-64:where([data-likex-explorer], [data-likex-explorer] *) {
+    max-width: calc(var(--lxe-spacing) * 64);
   }
   .lxe\:max-w-72:where([data-likex-explorer], [data-likex-explorer] *) {
     max-width: calc(var(--lxe-spacing) * 72);
@@ -1139,6 +1139,12 @@ SOFTWARE.
       background-color: color-mix(in oklab, var(--lxe-color-black) 30%, transparent);
     }
   }
+  .lxe\:bg-black\/40:where([data-likex-explorer], [data-likex-explorer] *) {
+    background-color: var(--lxe-color-black);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--lxe-color-black) 40%, transparent);
+    }
+  }
   .lxe\:bg-transparent:where([data-likex-explorer], [data-likex-explorer] *) {
     background-color: transparent;
   }
@@ -1340,6 +1346,10 @@ SOFTWARE.
   }
   .lxe\:text-\[17px\]:where([data-likex-explorer], [data-likex-explorer] *) {
     font-size: 17px;
+  }
+  .lxe\:leading-4:where([data-likex-explorer], [data-likex-explorer] *) {
+    --lxe-tw-leading: calc(var(--lxe-spacing) * 4);
+    line-height: calc(var(--lxe-spacing) * 4);
   }
   .lxe\:leading-5:where([data-likex-explorer], [data-likex-explorer] *) {
     --lxe-tw-leading: calc(var(--lxe-spacing) * 5);
@@ -1612,6 +1622,9 @@ SOFTWARE.
   .lxe\:focus-visible\:outline-offset-2:focus-visible:where([data-likex-explorer], [data-likex-explorer] *) {
     outline-offset: 2px;
   }
+  .lxe\:focus-visible\:outline-offset-\[-2px\]:focus-visible:where([data-likex-explorer], [data-likex-explorer] *) {
+    outline-offset: -2px;
+  }
   .lxe\:focus-visible\:outline-\[var\(--explorer-accent\)\]:focus-visible:where([data-likex-explorer], [data-likex-explorer] *) {
     outline-color: var(--explorer-accent);
   }
@@ -1703,8 +1716,8 @@ SOFTWARE.
     .lxe\:\@\[1000px\]\/explorer\:inline:where([data-likex-explorer], [data-likex-explorer] *) {
       display: inline;
     }
-    .lxe\:\@\[1000px\]\/explorer\:basis-60:where([data-likex-explorer], [data-likex-explorer] *) {
-      flex-basis: calc(var(--lxe-spacing) * 60);
+    .lxe\:\@\[1000px\]\/explorer\:basis-72:where([data-likex-explorer], [data-likex-explorer] *) {
+      flex-basis: calc(var(--lxe-spacing) * 72);
     }
     .lxe\:\@\[1000px\]\/explorer\:flex-nowrap:where([data-likex-explorer], [data-likex-explorer] *) {
       flex-wrap: nowrap;
