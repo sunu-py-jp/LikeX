@@ -90,9 +90,9 @@ test('conditional ranges move/expand/shrink on structural changes and disappear 
 
 test('automatic sizing honors font metrics, explicit newline, wrapping, merged width and bounded dimensions', () => {
   const sheet = book({ A1: { value: 'ab\ncd', format: { fontSize: 20 } }, B2: { value: '0123456789'.repeat(10), format: { wrap: true } } }).sheets[0];
-  assert.equal(m.autoFitRowHeight(sheet, 0, {}), 62);
+  assert.equal(m.autoFitRowHeight(sheet, 0, {}), 54, 'two 24px lines plus border and fit margin');
   assert.ok(m.autoFitRowHeight(sheet, 1, {}) > 100);
-  assert.equal(m.autoFitColumnWidth(sheet, 0, {}, text => text.length * 10), 36);
+  assert.equal(m.autoFitColumnWidth(sheet, 0, {}, text => text.length * 10), 26, '20px text plus compact padding, border and rounding room');
   assert.equal(m.autoFitColumnWidth(book({ A1: { value: 'a'.repeat(10000) } }).sheets[0], 0, {}), 1000);
   assert.equal(m.autoFitColumnWidth(book({ A1: { value: 'long title' } }, { merges: [{ top: 0, bottom: 0, left: 0, right: 2 }] }).sheets[0], 0, {}), 24);
 });

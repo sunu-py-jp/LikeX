@@ -39,6 +39,10 @@ test('XlsxWriter workbook imports shared strings, formulas, styles, tables, vali
   assert.equal(workbook.namedRanges[0].name, '売上明細');
   const image = sheet.drawings.find(item => item.type === 'image');
   assert.equal(image.alt, 'テスト画像');
+  // This producer omits both defaultColWidth and baseColWidth. Its two-cell
+  // image spans one 64px default column plus a 16px offset, retaining 80px.
+  assert.equal(sheet.columnWidths[5], 64);
+  assert.deepEqual(image.anchor, { row: 1, column: 5, offsetX: 0, offsetY: 0 });
   assert.ok(Math.abs(image.width - 80) < 0.001); assert.ok(Math.abs(image.height - 40) < 0.001);
   const resource = workbook.resources.images[image.resourceId];
   assert.equal(resource.width, 160); assert.equal(resource.height, 80);

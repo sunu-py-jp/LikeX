@@ -10,6 +10,7 @@ LikeXの操作・見た目を確認するVite + Reactのデモです。通常の
 | `/explorer/picker` | ファイル・フォルダを選ぶ埋め込み画面とモーダル。単一／複数選択、遅延取得、未取得の名前検索、確定したIDとパスを確認できます。 |
 | `/spreadsheet` | Spreadsheet。売上計画・経費・挿入・関数などのサンプルで編集・数式・書式・挿入を確認できます。 |
 | `/spreadsheet/search` | 同じ検索UIをSpreadsheetへ渡すデモ。ホームの検索またはCtrl／Cmd+Fで開き、検索結果からセルに移動できます。 |
+| `/spreadsheet/ribbon` | リボンの常時表示・タブのみ・自動非表示・完全非表示を外側のセレクターから切り替えます。`?ribbon=hidden` で完全非表示のまま初期表示します。 |
 | `/spreadsheet/ai` | 保存済みブックの一覧と新規作成。開いたブックをSpreadsheet＋LikeAIChatで編集します。 |
 | `/slide` | LikeSlide。スライド・図形・テキスト・アニメーションを編集します。 |
 | `/slide/ai` | 保存済み資料の一覧と新規作成。開いた資料をLikeSlide＋LikeAIChatで編集します。 |

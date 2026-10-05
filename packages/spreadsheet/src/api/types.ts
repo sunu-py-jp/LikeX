@@ -7,6 +7,7 @@ import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetWorkbookS
 import type { SpreadsheetReadApi } from "../model/query-reader";
 import type { SpreadsheetHistoryState } from "../history/workbook-history";
 import type { SpreadsheetSelectionApi } from "./selection";
+import type { SpreadsheetRibbonDisplayMode } from "../props";
 export type { SpreadsheetSelectionApi, SpreadsheetSelectionOptions, SpreadsheetSelectedDrawing } from "./selection";
 
 export type * from "../commands/types";
@@ -26,6 +27,13 @@ export type SpreadsheetHandle = SpreadsheetReadApi & SpreadsheetSelectionApi & R
   getZoom(): number;
   /** Clamps to 25–200%. Returns false when disabled or the number is not finite. */
   setZoom(percent: number): boolean;
+  /** Current ribbon presentation, independent of workbook data and history. */
+  getRibbonDisplayMode(): SpreadsheetRibbonDisplayMode;
+  /**
+   * Requests a view-only change, including during read-only viewing. False for invalid, unchanged,
+   * unmounted or controlled-without-callback requests. True does not imply host acceptance in controlled mode.
+   */
+  setRibbonDisplayMode(mode: SpreadsheetRibbonDisplayMode): boolean;
   /** Uses the same edit permission and history as GUI actions. Unfinished input is not discarded. */
   undo(): MaybePromise<boolean>;
   redo(): MaybePromise<boolean>;

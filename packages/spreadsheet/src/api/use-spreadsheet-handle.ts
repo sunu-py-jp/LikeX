@@ -31,6 +31,8 @@ export function useSpreadsheetHandle(ref: Ref<SpreadsheetHandle> | undefined, co
     getMutationSnapshot: () => latest.current.getMutationSnapshot(),
     getZoom: () => latest.current.getZoom(),
     setZoom: percent => latest.current.setZoom(percent),
+    getRibbonDisplayMode: () => latest.current.getRibbonDisplayMode(),
+    setRibbonDisplayMode: mode => latest.current.setRibbonDisplayMode(mode),
     undo: () => latest.current.externalUndo(),
     redo: () => latest.current.externalRedo(),
     getHistoryState: () => latest.current.getHistoryState(),

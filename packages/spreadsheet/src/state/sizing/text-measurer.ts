@@ -26,7 +26,7 @@ function readCellStyle(document?: Document, source?: Element | null): CellMeasur
       fontWeight: css.fontWeight || fallback.fontWeight, fontStyle: css.fontStyle || fallback.fontStyle,
       lineHeight: pixels(css.lineHeight, size * fallback.lineHeight) / size,
       letterSpacing: pixels(css.letterSpacing, 0), wordSpacing: pixels(css.wordSpacing, 0),
-      paddingX: pixels(css.paddingLeft, 7) + pixels(css.paddingRight, 7),
+      paddingX: pixels(css.paddingLeft, fallback.paddingX / 2) + pixels(css.paddingRight, fallback.paddingX / 2),
       paddingY: pixels(css.paddingTop, 0) + pixels(css.paddingBottom, 0),
       borderLeft: pixels(css.borderLeftWidth, 0), borderRight: pixels(css.borderRightWidth, 1),
       borderTop: pixels(css.borderTopWidth, 0), borderBottom: pixels(css.borderBottomWidth, 1),

@@ -2,6 +2,7 @@ import { parseCellAddress } from "../model/address";
 import { SPREADSHEET_LIMITS, type SpreadsheetMergedRange, type SpreadsheetSheet } from "../model/types";
 import type { ImportContext } from "./types";
 import { child, type XmlNode } from "./xml";
+import { xlsxBaseColumnWidthToPixels, xlsxColumnWidthToPixels } from "../xlsx-column-width";
 
 export function omitted(context: ImportContext, sheet: SpreadsheetSheet, message: string, count = 1): void {
   context.warn({ code: "omitted", sheetName: sheet.name, message, count });
@@ -23,7 +24,11 @@ export function growSheet(sheet: SpreadsheetSheet, row: number, column: number):
 export function worksheetDefaultSizes(node: XmlNode) {
   const format = child(node, "sheetFormatPr");
   const row = Number(format?.attributes.defaultRowHeight ?? 15) / 0.75;
-  const column = Math.round(Number(format?.attributes.defaultColWidth ?? 8.43) * 7 + 5);
+  const storedWidth = format?.attributes.defaultColWidth, baseWidth = format?.attributes.baseColWidth;
+  const width = Number(storedWidth ?? baseWidth ?? 0);
+  if (!Number.isFinite(width) || width < 0 || storedWidth === undefined && !Number.isInteger(width)) throw new Error("Excelの標準の行高・列幅が不正です");
+  // Excel/XlsxWriter omit both attributes for their ordinary 64px columns.
+  const column = storedWidth !== undefined ? xlsxColumnWidthToPixels(width) : baseWidth !== undefined ? xlsxBaseColumnWidthToPixels(width) : 64;
   if (!Number.isFinite(row) || row < 0 || !Number.isFinite(column) || column < 0) throw new Error("Excelの標準の行高・列幅が不正です");
   const rowSize = Math.min(1000, Math.max(16, row)), columnSize = Math.min(1000, Math.max(24, column));
   return { row: rowSize, column: columnSize, adjusted: row !== rowSize || column !== columnSize };

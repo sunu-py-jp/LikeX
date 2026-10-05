@@ -68,6 +68,8 @@
 
 セル文字サイズはCSSピクセル（1〜200）。列幅24〜1,000px、行高16〜1,000px。色には `#RRGGBB` を使うと意図が明確になる。Spreadsheetの描画色・セル色の検証契約はSlideの16進色限定契約と同じではない。
 
+標準セルの余白は左右各2px、行間は文字サイズの1.2倍。これらは表示・自動調整の基準で、SPONのセル書式フィールドではない。折り返しやXLSX取り込みで保存行高を自動的に広げず、必要な対象へ `dimensions.autoFit` を実行する。XLSXの行高はptとCSS pxを0.75倍で相互変換し、列幅はCalibri 11pt・96dpiの最大数字幅7pxを基準とする。独自の標準フォントや代替フォントでは表示が近似になるため、[Excel取り込みの制約](../../../src/docs/excel-import.md#読み込む内容と制約)も確認する。
+
 `SpreadsheetDataValidation` は共通で `allowBlank?`（既定true）と `message?`（255文字以内）を持つ。
 
 | `type` | 固有フィールド |

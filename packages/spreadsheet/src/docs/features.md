@@ -77,6 +77,8 @@ const features = {
 
 ## 読み取り専用との違い
 
+リボン自体の表示は `initialRibbonDisplayMode` / `ribbonDisplayMode` で変更します。常時表示・タブのみ・自動非表示・完全非表示を選べます。リボンを隠すだけでは操作API・ショートカット・右クリックメニューの編集を禁止しません。編集の禁止は `readOnly`、個別操作の禁止は `features` を使ってください。[リボンの表示と非表示](./ribbon-display.md)
+
 `readOnly` はすべての変更操作を止める設定です。`onSave` を省略した場合も読み取り専用になります。許可されたコピー・選択・閲覧は利用できます。
 
 `features.save: false` は保存操作だけを止めます。`onSave` があれば編集は可能で、変更は `onChange` で受け取れます。値の入力を含むすべての編集を止めたい場合は `readOnly` を使ってください。

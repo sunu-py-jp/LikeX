@@ -1,4 +1,4 @@
-.lxs-root .lxs-cell { display: flex; flex-direction: column; line-height: 1.4; }
+.lxs-root .lxs-cell { display: flex; flex-direction: column; line-height: 1.2; }
 .lxs-root .lxs-cell-text { position: relative; z-index: 1; flex: 0 1 auto; width: 100%; min-height: 0; overflow: hidden; text-overflow: clip; white-space: inherit; overflow-wrap: inherit; pointer-events: none; }
 .lxs-root textarea.lxs-cell-input { position: relative; z-index: 1; flex: 0 1 auto; min-height: 0; min-width: 0; resize: none; overflow: hidden; white-space: pre; border-radius: 0; box-sizing: border-box; }
 .lxs-root .lxs-cell-wrap textarea.lxs-cell-input { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -10,7 +10,7 @@
 .lxs-root .lxs-cell-text-overflow { max-height: 100%; text-overflow: clip; }
 .lxs-root .lxs-cell-text-origin { display: flex; white-space: inherit; }
 .lxs-root .lxs-cell-text-content { flex: none; }
-.lxs-root textarea.lxs-cell-input[data-passive] { position: absolute; top: 0; left: 7px; width: calc(100% - 14px); height: 100% !important; color: transparent; text-decoration: none; }
+.lxs-root textarea.lxs-cell-input[data-passive] { position: absolute; top: 0; left: 2px; width: calc(100% - 4px); height: 100% !important; color: transparent; text-decoration: none; }
 .lxs-root .lxs-cell-text-shrink { text-overflow: clip; }
 .lxs-root .lxs-cell-text-measure { position: absolute; left: 0; top: 0; width: max-content; white-space: pre; visibility: hidden; }
 .lxs-root .lxs-row-header { position: sticky; }

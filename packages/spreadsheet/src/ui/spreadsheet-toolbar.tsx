@@ -6,7 +6,8 @@ import { selectionBounds } from "../state/selection";
 import { isMultiRangeSelection } from "../state/selection";
 import type { useSpreadsheetClipboard } from "../state/use-spreadsheet-clipboard";
 import { Command, Icon } from "./spreadsheet-controls";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import type { SpreadsheetRibbonDisplayMode } from "../props";
 import { SpreadsheetInsertToolbar } from "./spreadsheet-insert-toolbar";
 import { SpreadsheetFunctionPicker } from "./spreadsheet-function-picker";
 import { SpreadsheetPersistenceControls } from "./spreadsheet-persistence-controls";
@@ -33,8 +34,56 @@ export function SpreadsheetToolbar({ controller: c, clipboard, namedRangeManager
   const tabs: { key: Tab; label: string }[] = [...(canFile ? [{ key: "file" as const, label: "ファイル" }] : []), { key: "home", label: "ホーム" },
     ...(canInsert ? [{ key: "insert" as const, label: "挿入" }] : []), ...(canData ? [{ key: "data" as const, label: "データ" }] : [])];
   const active = tabs.some(item => item.key === tab) ? tab : "home";
-  const changeTab = (next: Tab) => { setTab(next); refs.current[next]?.focus(); };
-  return <div className="lxs-ribbon-container">
+  const container = useRef<HTMLDivElement>(null), reveal = useRef<HTMLButtonElement>(null);
+  const focusAfterRender = useRef<"tab" | "reveal" | null>(null);
+  const mode = c.ribbonDisplayMode;
+  const [disclosure, setDisclosure] = useState({ mode, open: false });
+  // Reset the temporary overlay synchronously when a host changes the mode.
+  // Keep the toolbar mounted: its dialogs, imports and unfinished forms survive.
+  if (disclosure.mode !== mode) setDisclosure({ mode, open: false });
+  const temporary = (mode === "tabs" || mode === "autoHide") && disclosure.mode === mode && disclosure.open;
+  const headerVisible = mode !== "hidden" && (mode !== "autoHide" || temporary);
+  const panelVisible = mode === "expanded" || (mode !== "hidden" && temporary);
+  const close = (restoreFocus = false) => {
+    setDisclosure({ mode, open: false });
+    if (restoreFocus) focusAfterRender.current = mode === "autoHide" ? "reveal" : "tab";
+  };
+  useEffect(() => {
+    if (!temporary) return;
+    const element = container.current, document = element?.ownerDocument;
+    if (!element || !document) return;
+    const outside = (event: Event) => {
+      if (event.target && !element.contains(event.target as Node)) setDisclosure({ mode, open: false });
+    };
+    document.addEventListener("pointerdown", outside, true);
+    document.addEventListener("focusin", outside);
+    return () => { document.removeEventListener("pointerdown", outside, true); document.removeEventListener("focusin", outside); };
+  }, [temporary, mode]);
+  useLayoutEffect(() => {
+    if (focusAfterRender.current) {
+      const target = focusAfterRender.current; focusAfterRender.current = null;
+      (target === "reveal" ? reveal.current : refs.current[active])?.focus({ preventScroll: true });
+      return;
+    }
+    const element = container.current, focused = element?.ownerDocument?.activeElement;
+    if (element && focused && element.contains(focused) && focused.closest?.("[hidden]")) {
+      if (mode === "hidden") c.requestGridFocus();
+      else if (mode === "autoHide" && !temporary) reveal.current?.focus({ preventScroll: true });
+      else refs.current[active]?.focus({ preventScroll: true });
+    }
+  });
+  const changeTab = (next: Tab) => { setTab(next); setDisclosure({ mode, open: true }); refs.current[next]?.focus(); };
+  return <div ref={container} className="lxs-ribbon-container" data-display-mode={mode} hidden={mode === "hidden"}
+    onKeyDown={event => {
+      if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229) return;
+      if (event.key === "Escape" && temporary) { event.preventDefault(); event.stopPropagation(); close(true); }
+    }}>
+    <button ref={reveal} type="button" className="lxs-ribbon-reveal" aria-label="リボンを表示" title="リボンを表示"
+      hidden={mode !== "autoHide" || temporary} aria-expanded={temporary} aria-controls={`${id}-surface`}
+      onClick={() => { focusAfterRender.current = "tab"; setDisclosure({ mode, open: true }); }}>
+      <span aria-hidden="true">···</span>
+    </button>
+    <div id={`${id}-surface`} className="lxs-ribbon-surface" hidden={!headerVisible}>
     <div className="lxs-ribbon-header">
       <div className="lxs-ribbon-tabs" role="tablist" aria-label="リボンのタブ" onKeyDown={event => {
         if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing) return;
@@ -48,14 +97,27 @@ export function SpreadsheetToolbar({ controller: c, clipboard, namedRangeManager
       }}>
         {tabs.map(item => <button key={item.key} ref={element => { refs.current[item.key] = element; }} type="button" role="tab"
           id={`${id}-${item.key}`} aria-controls={`${id}-${item.key}-panel`} aria-selected={active === item.key}
-          tabIndex={active === item.key ? 0 : -1} className="lxs-ribbon-tab" onClick={() => setTab(item.key)}>{item.label}</button>)}
+          tabIndex={active === item.key ? 0 : -1} className="lxs-ribbon-tab"
+          onClick={() => { setTab(item.key); setDisclosure({ mode, open: active === item.key ? !temporary : true }); }}
+          onDoubleClick={() => c.setRibbonDisplayMode(mode === "expanded" ? "tabs" : "expanded")}>{item.label}</button>)}
       </div>
       {c.features.undoRedo && !c.readOnly && <div className="lxs-ribbon-quick-access" role="group" aria-label="操作履歴">
         <Command label="元に戻す" disabled={c.disabled || !c.canUndo} onClick={c.undo}><Icon name="undo" /></Command>
         <Command label="やり直す" disabled={c.disabled || !c.canRedo} onClick={c.redo}><Icon name="redo" /></Command>
       </div>}
       <SpreadsheetPersistenceControls controller={c} />
+      <label className="lxs-ribbon-display" title="リボンの表示">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M3 4h18v16H3zM3 9h18M7 6.5h3m3 0h4M7 13h3m3 0h4" /></svg>
+        <span aria-hidden="true">▾</span>
+        <select aria-label="リボンの表示" value={mode === "hidden" ? "expanded" : mode} disabled={c.ribbonDisplayModeLocked}
+          onChange={event => c.setRibbonDisplayMode(event.currentTarget.value as SpreadsheetRibbonDisplayMode)}>
+          <option value="expanded">常にリボンを表示</option>
+          <option value="tabs">タブのみ表示</option>
+          <option value="autoHide">リボンを自動非表示</option>
+        </select>
+      </label>
     </div>
+    <div className="lxs-ribbon-panels" hidden={!panelVisible}>
     {canFile && <SpreadsheetFileControls controller={c} active={active === "file"} panelId={`${id}-file-panel`} tabId={`${id}-file`} />}
     <div role="tabpanel" id={`${id}-home-panel`} aria-labelledby={`${id}-home`} hidden={active !== "home"}>
       <SpreadsheetHomeToolbar controller={c} clipboard={clipboard} />
@@ -66,6 +128,8 @@ export function SpreadsheetToolbar({ controller: c, clipboard, namedRangeManager
     {canData && <div role="tabpanel" id={`${id}-data-panel`} aria-labelledby={`${id}-data`} hidden={active !== "data"}>
       <HorizontalScrollStrip className="lxs-ribbon" role="toolbar" aria-label="データの操作" itemSelector=".lxs-ribbon-group" previousLabel="前のリボングループを表示" nextLabel="次のリボングループを表示"><SpreadsheetNamedRanges controller={c} manager={namedRangeManager} /><SpreadsheetDataToolbar controller={c} /></HorizontalScrollStrip>
     </div>}
+    </div>
+    </div>
   </div>;
 }
 

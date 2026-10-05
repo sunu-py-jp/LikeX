@@ -1,12 +1,30 @@
 /* Ribbon layout is shared by Home, Insert, and Data. Controls keep their
    intrinsic widths; a narrow sheet scrolls this band without adding rows. */
 .lxs-ribbon-container {
+  position: relative;
   flex: 0 0 auto;
   min-width: 0;
   background: var(--lxs-panel);
 }
-.lxs-ribbon-container [hidden] { display: none; }
-.lxs-ribbon-container > [role="tabpanel"] { min-width: 0; }
+.lxs-root .lxs-ribbon-container[hidden] { display: none; }
+.lxs-root .lxs-ribbon-container [hidden] { display: none; }
+.lxs-ribbon-panels, .lxs-ribbon-panels > [role="tabpanel"] { min-width: 0; }
+.lxs-ribbon-container[data-display-mode="tabs"] .lxs-ribbon-panels,
+.lxs-ribbon-container[data-display-mode="autoHide"] .lxs-ribbon-surface {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 12;
+  background: var(--lxs-panel); box-shadow: 0 5px 10px #0002;
+}
+.lxs-ribbon-container[data-display-mode="autoHide"] { height: 22px; }
+.lxs-ribbon-container[data-display-mode="autoHide"] .lxs-ribbon-surface { top: 0; }
+.lxs-root .lxs-ribbon-reveal { display: block; margin-left: auto; width: 44px; height: 22px; font-weight: 700; line-height: 16px; }
+.lxs-root .lxs-ribbon-reveal:hover { background: var(--lxs-hover); }
+.lxs-root .lxs-ribbon-display { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 36px; gap: 2px; width: 36px; height: 28px; border: 1px solid transparent; border-radius: 3px; }
+.lxs-ribbon-display > span { font-size: 10px; }
+.lxs-ribbon-display:hover { background: var(--lxs-hover); border-color: var(--lxs-border); }
+.lxs-ribbon-display:focus-within { outline: 2px solid var(--lxs-accent); outline-offset: -2px; }
+.lxs-root .lxs-ribbon-display select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.lxs-ribbon-display:has(select:disabled) { opacity: .45; }
+.lxs-root .lxs-ribbon-display select:disabled { cursor: default; }
 .lxs-ribbon-header {
   display: flex;
   flex-wrap: wrap;

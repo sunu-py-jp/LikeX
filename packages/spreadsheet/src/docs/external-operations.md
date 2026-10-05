@@ -62,6 +62,7 @@ export default function Report() {
 | `undo()` / `redo()` | 編集許可を待って履歴を移動。`boolean` または `Promise<boolean>` を返す |
 | `getHistoryState()` | `canUndo` / `canRedo` / `undoCount` / `redoCount` |
 | `getZoom()` / `setZoom(percent)` | 現在の表示倍率を取得／変更。保存データ・履歴・未保存状態は変えません。[表示倍率](./zoom.md) |
+| `getRibbonDisplayMode()` / `setRibbonDisplayMode(mode)` | リボンの常時表示・タブのみ・自動非表示・完全非表示を取得／変更。制御用prop使用時は変更要求を親に通知します。[リボンの表示](./ribbon-display.md) |
 | `getSelection()` / `selectCell(...)` / `selectRanges(...)` など | セル・範囲・行列・シート・図形の表示上の選択。既定ではスクロールしません。[選択API](./selection.md#refから表示中の選択を変更する) |
 | `executeAsync(command)` / `batchAsync(commands)` | 外部の編集許可を待てる操作。結果をPromiseで返す |
 

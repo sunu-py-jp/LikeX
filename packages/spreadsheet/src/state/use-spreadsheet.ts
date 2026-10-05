@@ -18,6 +18,7 @@ import { useSpreadsheetCommands, type SpreadsheetGuiCommandOptions } from "./use
 import { useWorkbookDraft } from "./use-workbook-draft";
 import { findHistoryTarget, type SpreadsheetHistoryTarget } from "./history-target";
 import { useSpreadsheetZoom } from "./use-spreadsheet-zoom";
+import { useSpreadsheetRibbon } from "./use-spreadsheet-ribbon";
 
 export { MAX_SELECTION_CELLS, MAX_SELECTION_RANGES, selectedAddresses, selectionBounds, selectionRanges, rangeBounds,
   isCellSelected, isRangeSelected, isMultiRangeSelection, selectionCellCount } from "./selection";
@@ -29,6 +30,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const features = resolveSpreadsheetFeatures(props.features);
   const draft = useWorkbookDraft(props);
   const zoom = useSpreadsheetZoom(props, draft.emitEvent);
+  const ribbon = useSpreadsheetRibbon(props);
   const view = useSpreadsheetSelection(draft.workbook, features, draft.reportError, draft.propsRef,
     () => draft.workbookRef.current, () => !cellEdit.editingRef.current && !pending.pendingObjectEditRef.current);
   const { selectionRef, setSelection } = view;
@@ -104,7 +106,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   useEffect(() => { emitEvent({ type: "unsaved-changes", dirty, pending: pendingInput, hasUnsavedChanges }); },
     [emitEvent, dirty, pendingInput, hasUnsavedChanges]);
 
-  return { search: props.search, renderSearch: props.renderSearch, onSearchRequest: props.onSearchRequest, ...zoom, workbook: draft.workbook, activeSheet: view.activeSheet, selection: view.selection,
+  return { search: props.search, renderSearch: props.renderSearch, onSearchRequest: props.onSearchRequest, ...zoom, ...ribbon, workbook: draft.workbook, activeSheet: view.activeSheet, selection: view.selection,
     selectionApi: view.selectionApi, selectionFocus: view.selectionFocus, selectionReveal: view.selectionReveal, gridRevealRequest: view.gridRevealRequest,
     select: view.select, selectRange: view.selectRange, selectAxisRange: view.selectAxisRange, toggleAxisRange: view.toggleAxisRange,
     toggleSelection: view.toggleSelection, toggleSelectionRange: view.toggleSelectionRange,

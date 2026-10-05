@@ -110,8 +110,9 @@ test('worksheet ordering preserves dimensions, merges, drawing links and schema 
   const before = JSON.stringify(workbook), styles = createXlsxStyles(workbook);
   const contents = worksheetXml(workbook, workbook.sheets[0], styles, calculateWorkbook(workbook), { drawingId: 'rIdDrawing', commentsDrawingId: 'rIdCommentsDrawing' });
   assert.match(contents, /defaultRowHeight="21"/);
+  assert.match(contents, /defaultColWidth="14.28515625"/);
   assert.match(contents, /<row r="2" ht="30" customHeight="1"><\/row>/);
-  assert.match(contents, /<col min="3" max="3" width="27.85546875" customWidth="1"/);
+  assert.match(contents, /<col min="3" max="3" width="28.5703125" customWidth="1"/);
   assert.match(contents, /<mergeCell ref="A5:C5"/);
   const order = ['<cols>', '<sheetData>', '<mergeCells', '<drawing ', '<legacyDrawing '].map(element => contents.indexOf(element));
   assert.ok(order.every((position, index) => index === 0 || position > order[index - 1]));

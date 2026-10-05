@@ -22,8 +22,44 @@ test('supported and shared formulas calculate; unsupported formulas use safe cac
 });
 test('sheet order, names, merges and actual dimensions ignore exaggerated usedRange', async () => {
   const result = await read({ sheets: [{ name: 'Second', xml: '<dimension ref="A1:XFD1048576"/><sheetData><row r="501" ht="30"><c r="AA501"><v>1</v></c></row></sheetData><cols><col min="2" max="2" width="20"/></cols><mergeCells><mergeCell ref="B2:C3"/></mergeCells>' }, { name: 'First', xml: '<sheetData/>', state: 'hidden' }], workbookExtra: '<definedNames><definedName name="Data">Second!$AA$501:$AB$502</definedName></definedNames>' });
-  assert.deepEqual(result.workbook.sheets.map(s => s.name), ['Second', 'First']); assert.equal(get(result).rowCount, 502); assert.equal(get(result).columnCount, 28); assert.equal(get(result).rowHeights[500], 40); assert.equal(get(result).columnWidths[1], 145); assert.equal(get(result).rowHeights[0], 20); assert.equal(get(result).columnWidths[0], 64);
+  assert.deepEqual(result.workbook.sheets.map(s => s.name), ['Second', 'First']); assert.equal(get(result).rowCount, 502); assert.equal(get(result).columnCount, 28); assert.equal(get(result).rowHeights[500], 40); assert.equal(get(result).columnWidths[1], 140); assert.equal(get(result).rowHeights[0], 20); assert.equal(get(result).columnWidths[0], 64);
   assert.deepEqual(get(result).merges[0], { top: 1, left: 1, bottom: 2, right: 2 }); assert.equal(result.workbook.namedRanges[0].name, 'Data');
+});
+test('OOXML stored widths include padding and default widths distinguish base character counts', async () => {
+  // Microsoft documents 8 characters at MDW 7 as width="8.7109375", or 61px.
+  const result = await read({ sheets: [
+    { name: 'Explicit', xml: '<sheetFormatPr baseColWidth="20" defaultColWidth="9.140625" defaultRowHeight="15"/><cols><col min="1" max="1" width="8.7109375" bestFit="1"/><col min="2" max="2" width="20"/></cols><sheetData/>' },
+    { name: 'Base', xml: '<sheetFormatPr baseColWidth="10" defaultRowHeight="15"/><sheetData/>' },
+    { name: 'Fallback', xml: '<sheetFormatPr defaultRowHeight="15"/><sheetData/>' },
+  ] });
+  const [explicit, base, fallback] = result.workbook.sheets;
+  assert.equal(explicit.columnWidths[0], 61);
+  assert.equal(explicit.columnWidths[1], 140);
+  assert.equal(explicit.columnWidths[2], 64, 'explicit defaultColWidth takes precedence over baseColWidth');
+  assert.equal(base.columnWidths[0], 75, 'baseColWidth excludes the 5px margin/grid allowance');
+  assert.equal(fallback.columnWidths[0], 64, 'absent width metadata retains the ordinary Excel/XlsxWriter fallback');
+  assert.equal(explicit.rowHeights[0], 20);
+  assert.equal(result.warnings.length, 0);
+});
+test('invalid raw XLSX widths are rejected before pixel rounding or model clamping', async () => {
+  for (const width of ['-0.01', 'NaN', 'Infinity', '1e308']) {
+    await assert.rejects(read({ sheets: [{ name: 'Width', xml: `<cols><col min="1" max="1" width="${width}"/></cols><sheetData/>` }] }), /列幅/);
+    await assert.rejects(read({ sheets: [{ name: 'Default', xml: `<sheetFormatPr defaultColWidth="${width}" defaultRowHeight="15"/><sheetData/>` }] }), /標準の行高・列幅/);
+  }
+  await assert.rejects(read({ sheets: [{ name: 'Base', xml: '<sheetFormatPr baseColWidth="8.5" defaultRowHeight="15"/><sheetData/>' }] }), /標準の行高・列幅/);
+});
+test('XLSX preserves column pixels through export and reimport, including defaults and drawing anchors', async () => {
+  const columnWidths = { 0: 24, 1: 61, 2: 64, 3: 100, 4: 200, 5: 1000, 6: 64.25 };
+  const rowHeights = { 0: 20, 1: 28, 2: 40.5 };
+  const drawing = { id: 'shape', type: 'shape', shape: 'rectangle', anchor: { row: 2, column: 4, offsetX: 3, offsetY: 4 }, width: 120, height: 60, fill: '#FFFFFF', stroke: '#000000', strokeWidth: 0 };
+  const workbook = { sheets: [{ id: 's', name: 'Dimensions', rowCount: 30, columnCount: 10, cells: {}, columnWidths, rowHeights, drawings: [drawing] }] };
+  const imported = get(await importSpreadsheetXlsx(await exportSpreadsheetXlsx(workbook)));
+  for (const [column, width] of Object.entries(columnWidths)) assert.ok(Math.abs(imported.columnWidths[column] - width) < 1, `${column}: ${imported.columnWidths[column]} vs ${width}`);
+  assert.equal(imported.columnWidths[7], 100);
+  for (const [row, height] of Object.entries(rowHeights)) assert.equal(imported.rowHeights[row], height);
+  assert.deepEqual(imported.drawings[0].anchor, drawing.anchor);
+  assert.equal(imported.drawings[0].width, drawing.width);
+  assert.equal(imported.drawings[0].height, drawing.height);
 });
 test('fonts, fill, border, alignment, number styles and 1904 dates are converted', async () => {
   const styles = `<styleSheet xmlns="${main}"><fonts><font/><font><b/><i/><u/><name val="Arial"/><sz val="12"/><color rgb="FF123456"/></font></fonts><fills><fill/><fill><patternFill patternType="solid"><fgColor rgb="FFABCDEF"/></patternFill></fill></fills><borders><border/><border><bottom style="double"><color rgb="FF112233"/></bottom></border></borders><cellXfs><xf/><xf fontId="1" fillId="1" borderId="1" numFmtId="14"><alignment horizontal="right" vertical="center" wrapText="1"/></xf></cellXfs></styleSheet>`;

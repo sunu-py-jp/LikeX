@@ -45,6 +45,7 @@ Next.js App Routerでは `app/layout.tsx` にCSSのimportを置きます。コ�
 - [公開API・保存と機能設定](./api.md)
 - [保存・編集許可・イベントの注入](./lifecycle.md)
 - [機能のON/OFF](./features.md)
+- [リボンの表示と非表示](./ribbon-display.md)
 - [条件付きの右クリックメニュー](./context-menu.md)
 - [外部からセル・行列・画像・図形を操作する](./external-operations.md)
 - [画面なしでJSONを編集する](./headless.md)

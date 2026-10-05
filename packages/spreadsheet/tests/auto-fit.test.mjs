@@ -46,14 +46,26 @@ test('canvas fallback keeps the real default font size and spacing rather than a
   assert.equal(m.createTextMeasurer()('日本語'), 39);
 });
 
+test('headless and browser-less sizing share compact cell insets and line boxes without changing saved dimensions', () => {
+  const workbook = book({ A1: { value: 'ABCD\nEFGH', format: { fontSize: 11 * 96 / 72 } } },
+    { rowHeights: { 0: 20 }, columnWidths: { 0: 100 } });
+  const sheet = workbook.sheets[0];
+  assert.equal(m.autoFitColumnWidth(sheet, 0, {}, tenPixels), 46, '40px text + 4px padding + border and rounding room');
+  assert.equal(m.autoFitRowHeight(sheet, 0, {}, tenPixels), 42, 'two 17.6px lines plus border and existing fit margin');
+  assert.equal(m.autoFitCommand(workbook, 's', 'row', [0]).rowHeights[0], 42);
+  assert.equal(m.autoFitRowHeight(sheet, 0, {}, m.createTextMeasurer()), 42);
+  assert.equal(sheet.rowHeights[0], 20);
+  assert.equal(sheet.columnWidths[0], 100);
+});
+
 test('fit measures formatted formula results, preserved text and the longest explicit line, and can shrink', () => {
   const workbook = book({ A1: { value: '=SUM(1000,234)', format: { numberFormat: 'currency' } },
     B1: { value: '00123' }, C1: { value: '日本語\r\n列' } }, { columnWidths: { 0: 600, 1: 600, 2: 600, 3: 600 } });
   const values = { A1: 1234, B1: '00123', C1: '日本語\r\n列' };
   const sizes = m.autoFitDimensions(workbook.sheets[0], 'column', new Set([0, 1, 2, 3]), values, tenPixels);
-  assert.equal(sizes.get(0), tenPixels(m.formatCellValue(1234, workbook.sheets[0].cells.A1.format)) + 16);
-  assert.equal(sizes.get(1), 66);
-  assert.equal(sizes.get(2), 46);
+  assert.equal(sizes.get(0), tenPixels(m.formatCellValue(1234, workbook.sheets[0].cells.A1.format)) + 6);
+  assert.equal(sizes.get(1), 56);
+  assert.equal(sizes.get(2), 36);
   assert.equal(sizes.get(3), 24, 'empty columns shrink to the minimum');
   assert.equal(workbook.sheets[0].columnWidths[0], 600, 'measurement does not mutate the workbook');
 });
@@ -63,32 +75,32 @@ test('conditional fonts and number formats are measured exactly as their display
     ranges: [{ top: 0, bottom: 0, left: 0, right: 0 }], format: { fontSize: 30, bold: true, numberFormat: 'percent' } }] });
   const measured = [];
   const measure = (text, format) => { measured.push({ text, format }); return text.length * format.fontSize; };
-  assert.equal(m.autoFitColumnWidth(workbook.sheets[0], 0, { A1: 0.5 }, measure), 106);
+  assert.equal(m.autoFitColumnWidth(workbook.sheets[0], 0, { A1: 0.5 }, measure), 96);
   assert.equal(measured[0].text, '50%'); assert.equal(measured[0].format.bold, true);
-  assert.equal(m.autoFitDimensions(workbook.sheets[0], 'column', new Set([0]), { A1: 0.5 }, measure).get(0), 106);
+  assert.equal(m.autoFitDimensions(workbook.sheets[0], 'column', new Set([0]), { A1: 0.5 }, measure).get(0), 96);
 });
 
 test('checkboxes fit both control and feature-disabled text, lists reserve the dropdown, and borders contribute width', () => {
   const sheet = book({ A1: { value: 'FALSE', validation: { type: 'checkbox' } }, B1: { value: 'yes', validation: { type: 'list', values: ['yes'] } },
     C1: { value: 'yes', format: { borders: { left: { width: 3 }, right: { width: 3 } } } } }).sheets[0];
-  assert.equal(m.autoFitColumnWidth(sheet, 0, {}, tenPixels), 66, 'FALSE stays readable when checkbox rendering is disabled');
-  assert.equal(m.autoFitColumnWidth(sheet, 1, {}, tenPixels), 70);
-  assert.equal(m.autoFitColumnWidth(sheet, 2, {}, tenPixels), 51);
+  assert.equal(m.autoFitColumnWidth(sheet, 0, {}, tenPixels), 56, 'FALSE stays readable when checkbox rendering is disabled');
+  assert.equal(m.autoFitColumnWidth(sheet, 1, {}, tenPixels), 60);
+  assert.equal(m.autoFitColumnWidth(sheet, 2, {}, tenPixels), 41);
   assert.equal(m.autoFitRowHeight(sheet, 0, {}, tenPixels), 28);
 });
 
 test('wrapped rows preserve word boundaries and shaped whole strings instead of summing isolated glyphs', () => {
   const sheet = book({ A1: { value: 'aaaa aaaa aaaa', format: { wrap: true } }, B2: { value: 'fifififi', format: { wrap: true } }, C3: { value: '日本語日本語', format: { wrap: true } } },
     { columnWidths: { 0: 86, 1: 76, 2: 36 } }).sheets[0];
-  assert.equal(m.autoFitRowHeight(sheet, 0, {}, tenPixels), 61, 'three word lines, even though character sums suggest two');
+  assert.equal(m.autoFitRowHeight(sheet, 0, {}, tenPixels), 53, 'three word lines, even though character sums suggest two');
   const ligatures = text => text.replaceAll('fi', 'X').length * 10;
   assert.equal(m.autoFitRowHeight(sheet, 1, {}, ligatures), 28, 'all four shaped ligatures fit on one line');
-  assert.equal(m.autoFitRowHeight(sheet, 2, {}, tenPixels), 61);
+  assert.equal(m.autoFitRowHeight(sheet, 2, {}, tenPixels), 38, 'three CJK glyphs now fit per line with compact cell padding');
 });
 
 test('merged labels do not widen their constituent columns, and dimensions remain bounded', () => {
   const merged = book({ A1: { value: 'A very long merged title' }, A2: { value: 'x' } }, { merges: [{ top: 0, bottom: 0, left: 0, right: 2 }] }).sheets[0];
-  assert.equal(m.autoFitColumnWidth(merged, 0, {}, tenPixels), 26);
+  assert.equal(m.autoFitColumnWidth(merged, 0, {}, tenPixels), 24);
   assert.equal(m.autoFitColumnWidth(merged, 1, {}, tenPixels), 24);
   const large = book({ A1: { value: 'x'.repeat(10000), format: { wrap: true, fontSize: 30 } } }).sheets[0];
   assert.equal(m.autoFitColumnWidth(large, 0, {}, tenPixels), 1000);

@@ -2,7 +2,7 @@
 
 [利用ガイドへ戻る](./README.md)
 
-`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetMergedRange`、`SpreadsheetSelection`、`SpreadsheetSelectionRange`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode` を公開しています。
+`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetMergedRange`、`SpreadsheetSelection`、`SpreadsheetSelectionRange`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode`、`SpreadsheetRibbonDisplayMode` を公開しています。
 
 ## ブックの形式
 
@@ -64,6 +64,9 @@ try {
 | `ref` | `Ref<SpreadsheetHandle>` | `SpreadsheetHandle`。表示中の下書きへ `execute` / `batch` で操作し、`getWorkbook` で取得。[外部操作API](./external-operations.md) |
 | `initialWorkbook` | `SpreadsheetWorkbook` | マウント時の初期ブック。省略時は空の300行×26列。再代入で下書きは置き換わりません。 |
 | `initialZoom` | `number` | マウント時の表示倍率。既定100％、25〜200へ補正。有限でない数値は100。[表示倍率](./zoom.md) |
+| `initialRibbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | マウント時のリボン表示。`expanded`（既定）・`tabs`・`autoHide`・`hidden`。[リボンの表示](./ribbon-display.md) |
+| `ribbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | 親が管理するリボン表示。初期値より優先し、表示中の変更にも追従します。 |
+| `onRibbonDisplayModeChange` | `(mode: SpreadsheetRibbonDisplayMode) => void` | UI／Handleからの表示変更要求。制御用prop使用時は親が値を反映します。初期表示とprop更新では通知しません。 |
 | `onChange` | `(workbook: SpreadsheetWorkbook) => void` | 下書きの変更通知。永続化は行いません。 |
 | `onSave` | `SpreadsheetSaveHandler` | 保存処理。省略すると読み取り専用。 |
 | `onBeforeSave` | `SpreadsheetBeforeSaveHandler` | 保存前チェック。`false`で中止。 |

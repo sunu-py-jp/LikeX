@@ -5,6 +5,7 @@ export type {
   SpreadsheetProps,
   SpreadsheetFeatures,
   SpreadsheetColorMode,
+  SpreadsheetRibbonDisplayMode,
   SpreadsheetSelection,
   SpreadsheetSelectionRange,
   SpreadsheetSaveHandler,

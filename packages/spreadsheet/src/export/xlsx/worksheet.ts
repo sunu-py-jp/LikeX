@@ -9,6 +9,7 @@ import { conditionalFormattingXml } from "./conditional-formatting";
 import { dataValidationsXml } from "./data-validation";
 import { xml, xlsxText } from "./xml";
 import { tablePartsXml } from "./tables";
+import { pixelsToXlsxColumnWidth as columnWidth } from "../../xlsx-column-width";
 
 type Calculated = Record<string, Record<string, SpreadsheetCalculatedValue>>;
 type Links = { drawingId?: string; commentsDrawingId?: string; formulaForList?: (values: readonly string[]) => string;
@@ -57,8 +58,6 @@ function cellXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, address
   if (/^(true|false)$/i.test(value)) return `<c ${attributes} t="b"><v>${value.toLowerCase() === "true" ? 1 : 0}</v></c>`;
   return `<c ${attributes} t="inlineStr"><is><t xml:space="preserve">${xlsxText(value)}</t></is></c>`;
 }
-const columnWidth = (pixels: number) => Math.floor(((pixels - 5) / 7) * 256) / 256;
-
 /** Worksheet schema ordering is centralized here; drawing relationships are supplied by the package assembler. */
 export function worksheetXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, styles: XlsxStyles, calculated: Calculated, links: Links = {}): string {
   const tableHeaders = new Map((sheet.tables ?? []).flatMap(table => table.columns.map((column, index) =>

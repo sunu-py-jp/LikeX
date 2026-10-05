@@ -10,8 +10,8 @@ export type CellMeasurementStyle = {
 export type TextMeasurer = ((text: string, format?: SpreadsheetCellFormat) => number) & { cellStyle?: CellMeasurementStyle };
 export const DEFAULT_CELL_MEASUREMENT: CellMeasurementStyle = {
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif',
-  fontSize: 13, fontWeight: "400", fontStyle: "normal", lineHeight: 1.4,
-  letterSpacing: 0, wordSpacing: 0, paddingX: 14, paddingY: 0,
+  fontSize: 13, fontWeight: "400", fontStyle: "normal", lineHeight: 1.2,
+  letterSpacing: 0, wordSpacing: 0, paddingX: 4, paddingY: 0,
   borderLeft: 0, borderRight: 1, borderTop: 0, borderBottom: 1,
   checkboxWidth: 16, checkboxHeight: 16, listWidth: 24,
 };

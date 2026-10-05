@@ -6,6 +6,7 @@ import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, t
 import { XLSX_IMPORT_LIMITS, type ImportContext } from "./types";
 import { child, children, localName, spreadsheetText, textContent, type XmlNode } from "./xml";
 import { worksheetDefaultSizes } from "./worksheet-shared";
+import { xlsxColumnWidthToPixels } from "../xlsx-column-width";
 
 const functions = new Set<string>(SUPPORTED_SPREADSHEET_FUNCTIONS.map(item => item.name));
 const numeric = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
@@ -151,8 +152,10 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
     if (["1", "true"].includes(col.attributes.hidden)) warn("adjusted", "非表示の行・列を表示状態で読み込みました");
     if (col.attributes.style !== undefined) warn("omitted", "行全体・列全体の書式設定を省略しました");
     if (col.attributes.width !== undefined) {
-      const width = Math.round(Number(col.attributes.width) * 7 + 5);
-      if (!Number.isFinite(width) || width < 0) return fail("列幅が不正です");
+      const storedWidth = Number(col.attributes.width);
+      if (!Number.isFinite(storedWidth) || storedWidth < 0) return fail("列幅が不正です");
+      const width = xlsxColumnWidthToPixels(storedWidth);
+      if (!Number.isFinite(width)) return fail("列幅が不正です");
       for (let index = min - 1; index < Math.min(max, SPREADSHEET_LIMITS.columns); index++) columnWidths[index] = sizes(width, 24);
       if (min <= SPREADSHEET_LIMITS.columns) columnCount = Math.max(columnCount, Math.min(max, SPREADSHEET_LIMITS.columns));
       if (width !== sizes(width, 24)) warn("adjusted", "行・列のサイズを対応範囲へ調整しました");

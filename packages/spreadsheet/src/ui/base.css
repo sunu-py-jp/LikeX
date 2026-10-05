@@ -59,7 +59,7 @@
 .lxs-row { position: absolute; left: 0; display: flex; }
 .lxs-row-header { position: sticky; left: 0; z-index: 3; width: 48px; flex-shrink: 0; background: var(--lxs-panel); color: var(--lxs-muted); border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); }
 .lxs-header-selected { color: var(--lxs-accent); background: var(--lxs-selection); }
-.lxs-cell { position: relative; flex-shrink: 0; height: 100%; line-height: 27px; padding: 0 7px; border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; touch-action: pan-y; }
+.lxs-cell { position: relative; flex-shrink: 0; height: 100%; line-height: 1.2; padding: 0 2px; border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; touch-action: pan-y; }
 .lxs-cell-placeholder { position: relative; flex-shrink: 0; height: 100%; }
 .lxs-cell-merged { position: absolute; left: 0; top: 0; z-index: 1; display: flex; align-items: center; background: var(--lxs-background); }
 .lxs-cell-merged > span { min-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; }

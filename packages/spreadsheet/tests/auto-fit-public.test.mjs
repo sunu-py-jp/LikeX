@@ -29,7 +29,7 @@ test('JSON autoFit is deterministic in Node and shares the public injected measu
     measureText(text) { texts.push(text); return text.length * 10; },
   });
   assert.ok(texts.includes('24.00'), 'measurement uses the formatted calculated value');
-  assert.equal(measured.columnWidths[1], 66);
+  assert.equal(measured.columnWidths[1], 56);
   assert.ok(Object.keys(output.metafile.inputs).every(path => !/\/(ui|state)\/|react|\.tsx$/.test(path)));
 });
 
@@ -42,7 +42,7 @@ test('autoFit follows preceding edits, records one batch history entry and obeys
   ]);
   assert.equal(result.ok, true);
   assert.ok(session.getWorkbook().sheets[0].columnWidths[0] > fit(before, { sheetId: 's', axis: 'column', indices: [0] }).columnWidths[0]);
-  assert.equal(session.getWorkbook().sheets[0].rowHeights[0], 62);
+  assert.equal(session.getWorkbook().sheets[0].rowHeights[0], 54);
   assert.equal(session.undo(), true);
   assert.deepEqual(session.getWorkbook(), before);
   assert.equal(session.undo(), false);

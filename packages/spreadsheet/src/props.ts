@@ -10,6 +10,9 @@ export type { SpreadsheetSaveHandler } from "./api/lifecycle";
 
 export type SpreadsheetColorMode = "light" | "dark" | "system";
 
+/** View-only ribbon presentation; never stored in the workbook or its history. */
+export type SpreadsheetRibbonDisplayMode = "expanded" | "tabs" | "autoHide" | "hidden";
+
 export type SpreadsheetSelectionRange = Readonly<{
   anchor: Readonly<SpreadsheetCellPosition>;
   /** Geometric endpoint; the active cell is SpreadsheetSelection.focus. */
@@ -47,6 +50,12 @@ export type SpreadsheetProps = {
   initialWorkbook?: SpreadsheetWorkbook;
   /** Initial view magnification in percent (25–200, default 100). Not saved in the workbook. */
   initialZoom?: number;
+  /** Read once at mount, default expanded. Ignored while ribbonDisplayMode is supplied. */
+  initialRibbonDisplayMode?: SpreadsheetRibbonDisplayMode;
+  /** Host-controlled ribbon presentation. Without a change callback the mode is locked. */
+  ribbonDisplayMode?: SpreadsheetRibbonDisplayMode;
+  /** UI/API change request. Controlled hosts apply it by updating ribbonDisplayMode. Exceptions are isolated. */
+  onRibbonDisplayModeChange?: (mode: SpreadsheetRibbonDisplayMode) => void;
   /** Observes draft changes. This notification does not perform persistence. */
   onChange?: (workbook: SpreadsheetWorkbook) => void;
   /** Owns persistence. Omit this callback for read-only viewing. */

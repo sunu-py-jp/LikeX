@@ -1475,6 +1475,49 @@
     ]
   },
   {
+    "id": "spreadsheet/ribbon-display",
+    "title": "リボンの表示と非表示",
+    "component": "spreadsheet",
+    "section": "基本",
+    "output": "spreadsheet/ribbon-display/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/ribbon-display.md"
+    ],
+    "keywords": [
+      "SpreadsheetRibbonDisplayMode",
+      "initialRibbonDisplayMode",
+      "ribbonDisplayMode",
+      "onRibbonDisplayModeChange",
+      "getRibbonDisplayMode",
+      "setRibbonDisplayMode",
+      "expanded",
+      "tabs",
+      "autoHide",
+      "hidden",
+      "Ctrl F1",
+      "リボン",
+      "非表示",
+      "プレビュー"
+    ],
+    "headings": [
+      {
+        "id": "初期表示を指定する",
+        "title": "初期表示を指定する",
+        "depth": 2
+      },
+      {
+        "id": "親アプリから表示を制御する",
+        "title": "親アプリから表示を制御する",
+        "depth": 2
+      },
+      {
+        "id": "handleで取得変更する",
+        "title": "Handleで取得・変更する",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/selection",
     "title": "セルと範囲の選択",
     "component": "spreadsheet",

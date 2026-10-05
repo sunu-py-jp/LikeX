@@ -67,6 +67,10 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
     onCopy={clipboard.onCopy} onCut={clipboard.onCut} onPaste={clipboard.onPaste}
     onKeyDown={event => {
       if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229 || event.altKey) return;
+      if (event.ctrlKey && !event.metaKey && !event.shiftKey && event.key === "F1") {
+        if (c.ribbonDisplayMode !== "hidden" && c.setRibbonDisplayMode(c.ribbonDisplayMode === "expanded" ? "tabs" : "expanded")) event.preventDefault();
+        return;
+      }
       if (event.key === "Escape" && contextMenu.state.phase !== "idle") { event.preventDefault(); contextMenu.cancel(); return; }
       if (event.key === "Escape" && c.requesting) { event.preventDefault(); c.cancelEditRequest(); return; }
       const primary = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey);

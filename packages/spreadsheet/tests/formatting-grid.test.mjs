@@ -59,8 +59,8 @@ test('row resize previews on drag, commits once, supports undo and cancels stale
 
 test('row/column separator double click auto-fits text and multiline font metrics', async t => {
   const ui = await mount(t);
-  await ui.resize('1行の高さ', 'onDoubleClick'); assert.equal(ui.c.activeSheet.rowHeights[0], 62);
-  await ui.resize('A列の幅', 'onDoubleClick'); assert.equal(ui.c.activeSheet.columnWidths[0], 66);
+  await ui.resize('1行の高さ', 'onDoubleClick'); assert.equal(ui.c.activeSheet.rowHeights[0], 54);
+  await ui.resize('A列の幅', 'onDoubleClick'); assert.equal(ui.c.activeSheet.columnWidths[0], 56);
 });
 
 test('zoomed row and column resizing converts pointer movement to saved logical sizes', async t => {

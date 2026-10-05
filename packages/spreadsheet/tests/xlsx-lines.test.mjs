@@ -12,7 +12,7 @@ function add(book, start, end, extra = {}) {
 async function imported(xml, initial, extraFiles = {}) {
   const warnings = [], files = new Map(Object.entries({ [path]: bytes(xml), ...extraFiles }));
   const context = { archive: { paths: [...files.keys()], has: name => files.has(name), read: async name => { assert.ok(files.has(name), name); return files.get(name); } }, resources: {}, warnings, warn: warning => warnings.push(warning) };
-  const sheet = await m.readWorksheetDrawings(m.parseXml(bytes('<worksheet><sheetFormatPr defaultRowHeight="21" defaultColWidth="13.5714285714"/><drawing r:id="draw"/></worksheet>')), initial,
+  const sheet = await m.readWorksheetDrawings(m.parseXml(bytes('<worksheet><sheetFormatPr defaultRowHeight="21" defaultColWidth="14.28515625"/><drawing r:id="draw"/></worksheet>')), initial,
     new Map([['draw', { id: 'draw', type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing', target: path, external: false }]]), context);
   return { sheet, warnings, resources: context.resources };
 }
