@@ -81,7 +81,7 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 
 全フィールドは [SPON JSON Schema](references/spon.schema.json)、全コマンドの引数は [commands JSON Schema](references/commands.schema.json) にある。公開APIを直接使うコードでは `@likex/spreadsheet/model` をimportする。CLIはローカルファイルの作成・変更を行い、アプリの保存処理や表示中の下書きを自動更新しない。
 
-XLSXとの変換を明示的に求められた場合は、`/model` の `importSpreadsheetXlsx`／`exportSpreadsheetXlsx` を使える。NodeではPNG／通常のJPEGはそのまま出力でき、WebP／GIFやEXIFの補正が必要な画像は `SpreadsheetXlsxExportOptions.rasterizeImage`（`SpreadsheetImageRasterizer`）を注入する。[Excel出力ガイド](../../src/docs/excel-export.md)で対応範囲と画像変換を確認する。CLIの `create/apply/inspect/validate` はネイティブSPON操作のまま使う。
+XLSXとの変換を明示的に求められた場合は、`/model` の `importSpreadsheetXlsx`／`exportSpreadsheetXlsx` を使える。NodeではPNG／通常のJPEGはそのまま出力でき、WebP／GIFやEXIFの補正が必要な画像は `SpreadsheetXlsxExportOptions.rasterizeImage`（`SpreadsheetImageRasterizer`）を注入する。[Excel出力ガイド](../../src/docs/excel-export.md)で対応範囲と画像変換を確認する。CLIの `create/apply/inspect/validate` はネイティブSPON操作のまま使う。 取り込み時の数値書式 `formatCode` は4,096文字まで。不正な引用符・角括弧・末尾エスケープや上限超過は、値・数式などを保持し、その数値書式だけを標準表示へ変更して `adjusted` を返す。取り込み結果の警告を確認する。
 
 シートの右クリックによる名前変更は `sheets.rename`、描画の複製は `copySpreadsheetDrawing` と `drawings.paste`、反転・回転リセットは描画型の更新コマンドと同じ操作です。保存形式の追加はありません。GUIの対象と機能制御は [右クリックメニュー](../../src/docs/context-menu.md) を参照してください。
 

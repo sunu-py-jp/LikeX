@@ -20,6 +20,45 @@ test('raw SVG is an ordinary bounded image preserving UTF8 through commands, his
   assert.ok(m.createSlideSvgSource('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30"><circle cx="30" cy="15" r="12"/></svg>'));
 });
 
+test('SVG dimensions preserve integer, decimal and px syntax with surrounding whitespace', () => {
+  for (const value of ['40', '40px', '40.', '40.px', '040.00px', '.5', '.5px', ' 40.0px ', '0'.repeat(126) + '40']) {
+    const source = shell('').replace('width="40"', `width="${value}"`);
+    const src = m.createSlideSvgSource(source);
+    assert.equal(Buffer.from(src.split(',')[1], 'base64').toString('utf8'), source);
+    assert.equal(m.createSlideElement({ type: 'image', src }).src, src);
+  }
+  for (const value of ['40pxx', '40 x', '40.1.2', '40e0', '+40', '-40', '.', 'px', '0', 'Infinity']) {
+    assert.throws(() => m.createSlideSvgSource(shell('').replace('width="40"', `width="${value}"`)), /SVG/);
+  }
+});
+
+test('overlong SVG dimensions are rejected before syntax parsing through public and native input', () => {
+  const native = JSON.parse(m.serializeSlideDeck(makeDeck()));
+  // Small, bounded cases cover the exact limit and the formerly ambiguous invalid numeric suffix.
+  for (const length of [129, 256, 512, 1024]) {
+    for (const value of ['0'.repeat(length - 2) + '40', '1'.repeat(length - 1) + 'x']) {
+      for (const attribute of ['width', 'height']) {
+        const source = shell('').replace(new RegExp(`${attribute}="[^"]*"`), `${attribute}="${value}"`);
+        const src = `data:image/svg+xml;base64,${Buffer.from(source).toString('base64')}`;
+        assert.throws(() => m.createSlideSvgSource(source), /128文字/);
+        assert.throws(() => m.createSlideElement({ type: 'image', src }), /128文字/);
+        native.slides[0].elements[0].src = src;
+        assert.throws(() => m.parseSlideDeck(JSON.stringify(native)), /128文字/);
+      }
+    }
+  }
+});
+
+test('SVG numeric scanning bounds individual tokens while preserving long paths and SVG number forms', () => {
+  const longPath = 'M0 0' + ' L1.5 -2.5e-1'.repeat(256);
+  const source = shell(`<path d="${longPath}"/><path d="M+1 +.5L1.e1 -2E-2Z"/><rect x="${'0'.repeat(127)}1"/>`);
+  assert.ok(m.createSlideSvgSource(source));
+  for (const body of [`<path d="M0 0L${'0'.repeat(128)}1 0"/>`, `<rect x="${'0'.repeat(128)}1"/>`,
+    `<path d="M0 0L1e${'0'.repeat(127)} 0"/>`, '<path d="M0 0L1e999 0"/>', '<rect x="-1000001"/>']) {
+    assert.throws(() => m.createSlideSvgSource(shell(body)), /数値/);
+  }
+});
+
 test('active content, external references, unsupported effects and malformed SVG fail before model publication', () => {
   const invalid = [shell('<script>alert(1)</script>'), shell('<rect onload="alert(1)"/>'), shell('<image href="https://example.test/a.png"/>'), shell('<foreignObject/>'), shell('<use href="#a"/>'), shell('<rect style="fill:red"/>'), shell('<rect fill="url(https://example.test/a.svg#x)"/>'), shell('<rect fill="u&#114;l(#missing)"/>'), shell('<rect clip-path="url(#missing)"/>'), shell('<style>@import "x";</style>'), shell('<filter id="x"/>'), shell('<svg/>'), shell('<path d="M0 0 L1e999 2"/>'), shell('<rect xmlns="urn:evil"/>'), shell('<text id="a">1</text><text id="a">2</text>'), shell('<g>'.repeat(33) + '</g>'.repeat(33)), '<!DOCTYPE svg [<!ENTITY bad SYSTEM "file:///etc/passwd">]>' + shell(''), '<?xml-stylesheet href="https://example.test/style.css"?>' + shell(''), shell('').replace('width="40"', 'width="999999"'), shell('').replace('height="20"', 'height="0"'), shell('<rect/>'.repeat(10_001))];
   for (const source of invalid) {
@@ -48,10 +87,24 @@ test('PPTX preserves SVG and real PNG fallback, deduplicates sources and roundtr
 
 test('unsafe imported SVG uses embedded PNG and explicit diagnostic', async () => {
   const file = await m.exportSlidePptx(makeDeck(), { rasterizeSvg }), zip = await m.openOfficePackage(file);
-  const entries = await Promise.all([...zip.paths].map(async path => ({ path, content: new Blob([path.endsWith('.svg') ? shell('<script>alert(1)</script>') : await zip.read(path)]) })));
-  const result = await m.importSlidePptx(await m.createZipArchive(entries));
-  assert.ok(result.diagnostics.some(diagnostic => diagnostic.message.includes('SVG')));
-  assert.ok(result.deck.slides[0].elements[0].src.startsWith('data:image/png;base64,'));
+  for (const source of [shell('<script>alert(1)</script>'), shell('').replace('width="40"', `width="${'1'.repeat(512)}x"`), shell(`<path d="M0 0 L${'0'.repeat(128)}1 0"/>`)]) {
+    const entries = await Promise.all([...zip.paths].map(async path => ({ path, content: new Blob([path.endsWith('.svg') ? source : await zip.read(path)]) })));
+    const result = await m.importSlidePptx(await m.createZipArchive(entries));
+    assert.ok(result.diagnostics.some(diagnostic => diagnostic.message.includes('SVG')));
+    assert.ok(result.deck.slides[0].elements[0].src.startsWith('data:image/png;base64,'));
+  }
+});
+
+test('decimal px dimensions and long paths retain their SVG bytes through PPTX', async () => {
+  const source = shell(`<path d="M0 0${' L1 2'.repeat(256)}"/>`).replace('width="40"', 'width=" 40.0px "').replace('height="20"', 'height="20.px"');
+  const src = m.createSlideSvgSource(source);
+  const deck = m.applySlideCommands(makeDeck(), { type: 'element.update', slideId: 'page', elementId: 'art', patch: { src } }).deck;
+  const file = await m.exportSlidePptx(deck, { rasterizeSvg: async request => {
+    assert.equal(request.width, 40); assert.equal(request.height, 20); return rasterizeSvg();
+  } });
+  const result = await m.importSlidePptx(file);
+  assert.deepEqual(result.warnings, []);
+  assert.equal(result.deck.slides[0].elements[0].src, src);
 });
 
 test('headless export requires matching real PNG and cancels pending rasterization', async () => {

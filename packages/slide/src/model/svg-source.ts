@@ -5,17 +5,26 @@ import { SLIDE_LIMITS } from "./limits";
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** SVG is a static, bounded embedded asset. It never loads fonts, images or external resources. */
 export const SLIDE_SVG_LIMITS = Object.freeze({ bytes: 1024 * 1024, nodes: 10_000, depth: 32 });
+const NUMBER_TOKEN_LIMIT = 128;
 const tags = new Set(["svg", "g", "defs", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "linearGradient", "radialGradient", "stop", "clipPath", "text", "tspan", "title", "desc"]);
 const attributes = new Set(["id", "xmlns", "viewBox", "width", "height", "preserveAspectRatio", "x", "y", "x1", "x2", "y1", "y2", "cx", "cy", "r", "rx", "ry", "fx", "fy", "fr", "d", "points", "transform", "fill", "color", "fill-opacity", "fill-rule", "stroke", "stroke-width", "stroke-opacity", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "stroke-dasharray", "stroke-dashoffset", "opacity", "clip-path", "clip-rule", "clipPathUnits", "gradientUnits", "gradientTransform", "spreadMethod", "offset", "stop-color", "stop-opacity", "font-family", "font-size", "font-weight", "font-style", "text-anchor", "dominant-baseline", "alignment-baseline", "letter-spacing", "word-spacing", "dx", "dy", "rotate", "textLength", "lengthAdjust", "xml:space", "vector-effect"]);
 const numeric = new Set(["width", "height", "x", "y", "x1", "x2", "y1", "y2", "cx", "cy", "r", "rx", "ry", "fx", "fy", "fr", "stroke-width", "stroke-miterlimit", "stroke-dashoffset", "offset", "font-size", "letter-spacing", "word-spacing", "dx", "dy", "rotate", "textLength"]);
 const fail = (detail: string): never => { throw new Error(`SVGを使用できません: ${detail}`); };
 const hasInvalidNumber = (value: string): boolean => {
-  for (const match of value.matchAll(/[-+]?(?:\d*\.\d+|\d+\.?\d*)(?:[eE][-+]?\d+)?/g)) {
+  // The integer and leading-dot branches do not overlap; each match consumes a complete token.
+  // Bound each number, not the entire path/points/transform attribute containing many numbers.
+  for (const match of value.matchAll(/[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?/g)) {
+    if (match[0].length > NUMBER_TOKEN_LIMIT) return true;
     const number = Number(match[0]); if (!Number.isFinite(number) || Math.abs(number) > 1_000_000) return true;
   }
   return false;
 };
-const dimension = (value: string | undefined): number | undefined => value === undefined ? undefined : /^\s*(?:\d*\.\d+|\d+\.?\d*)(?:px)?\s*$/.test(value) ? Number(value.trim().replace(/px$/, "")) : fail("width / height は正の px 値にしてください");
+const dimension = (value: string | undefined): number | undefined => {
+  if (value === undefined) return undefined;
+  if (value.length > NUMBER_TOKEN_LIMIT) return fail("width / height は128文字以下にしてください");
+  if (!/^\s*(?:\d+(?:\.\d*)?|\.\d+)(?:px)?\s*$/.test(value)) return fail("width / height は正の px 値にしてください");
+  return Number(value.trim().replace(/px$/, ""));
+};
 
 /** Validates source without DOM/XML entity expansion/network access; preserves source bytes. */
 export function inspectSlideSvg(svg: string): { width: number; height: number } {
@@ -53,7 +62,7 @@ export function inspectSlideSvg(svg: string): { width: number; height: number } 
       } else if (["fill", "stroke", "stop-color", "color"].includes(key) && !/^(?:#[0-9a-f]{3,8}|[A-Za-z]+|(?:rgb|rgba|hsl|hsla)\([0-9.,%+\-\s]+\))$/i.test(value)) return fail(`${key} は色または url(#id) にしてください`);
       else if (key === "clip-path" && value !== "none") return fail("clip-path は url(#id) または none にしてください");
       if (numeric.has(key) || ["viewBox", "points", "d", "transform", "gradientTransform", "stroke-dasharray"].includes(key)) {
-        if (hasInvalidNumber(value)) return fail(`${key} の数値が大きすぎます`);
+        if (hasInvalidNumber(value)) return fail(`${key} の数値が大きすぎるか、数値表記が128文字を超えています`);
       }
     }
     if (count + pending.length + node.children.length > SLIDE_SVG_LIMITS.nodes) return fail("要素数が上限を超えています");

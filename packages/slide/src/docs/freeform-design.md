@@ -49,6 +49,8 @@ const result = applySlideCommands(deck, {
 
 対応するのは静的な `path`、基本図形、グループ、グラデーション、クリッピング、テキスト等です。スクリプト、イベント属性、外部参照、CSS、`foreignObject`、埋め込み画像、アニメーションは受け付けません。ルートはSVG名前空間付きの `svg` とし、正の `width/height` または `viewBox` が必要です。入力は1 MiB、10,000ノード、深さ32までで、寸法・資料全体の画像量の上限も検証します。不対応の機能を黙って削除して取り込む処理ではありません。詳しい入力条件は [スキルのSVG参照](../../skills/likex-slide/references/image-export.md#svg素材の入力) にあります。
 
+ルートの `width/height` 属性値は単位・空白を含めて各128文字まで、座標やパス中の数値表記も1つにつき128文字までです。パス属性全体に128文字の制限はありません。この検証はSVG作成API、SLON読み込み、PPTX読み込みで共通です。PPTX内のSVGが条件を満たさない場合は、診断を返して利用可能な代替画像を使います。
+
 ## 描画後に確かめる
 
 `measureSlideText` と `getSlideLayoutDiagnostics` で文字のはみ出しやページ外の配置を調べ、`exportImage` / `exportImages` で最後の編集後の画像を確認します。測定は描画環境の関数を注入でき、取得や診断だけでは資料を変更しません。

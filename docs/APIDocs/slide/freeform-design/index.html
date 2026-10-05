@@ -39,6 +39,7 @@
 });</code></pre></div>
 <p>この例はAPIの使い方を示すもので、座標や図の形を推奨するテンプレートではありません。GUIでは「挿入」の画像からSVGファイルを追加できます。画像として移動・拡大縮小・回転・削除でき、SLONにはSVG本体が保存されます。</p>
 <p>対応するのは静的な <code>path</code>、基本図形、グループ、グラデーション、クリッピング、テキスト等です。スクリプト、イベント属性、外部参照、CSS、<code>foreignObject</code>、埋め込み画像、アニメーションは受け付けません。ルートはSVG名前空間付きの <code>svg</code> とし、正の <code>width/height</code> または <code>viewBox</code> が必要です。入力は1 MiB、10,000ノード、深さ32までで、寸法・資料全体の画像量の上限も検証します。不対応の機能を黙って削除して取り込む処理ではありません。詳しい入力条件は <a href="https://github.com/sunu-py-jp/LikeX/blob/main/packages/slide/skills/likex-slide/references/image-export.md#svg素材の入力">スキルのSVG参照</a> にあります。</p>
+<p>ルートの <code>width/height</code> 属性値は単位・空白を含めて各128文字まで、座標やパス中の数値表記も1つにつき128文字までです。パス属性全体に128文字の制限はありません。この検証はSVG作成API、SLON読み込み、PPTX読み込みで共通です。PPTX内のSVGが条件を満たさない場合は、診断を返して利用可能な代替画像を使います。</p>
 <h2 id="描画後に確かめる">描画後に確かめる<a class="heading-link" href="#%E6%8F%8F%E7%94%BB%E5%BE%8C%E3%81%AB%E7%A2%BA%E3%81%8B%E3%82%81%E3%82%8B" aria-label="この見出しへのリンク">#</a></h2>
 <p><code>measureSlideText</code> と <code>getSlideLayoutDiagnostics</code> で文字のはみ出しやページ外の配置を調べ、<code>exportImage</code> / <code>exportImages</code> で最後の編集後の画像を確認します。測定は描画環境の関数を注入でき、取得や診断だけでは資料を変更しません。</p>
 <p>診断で判定するのは寸法や文字の収まりです。主張が伝わるか、図が内容を説明しているか、強調・余白・文字階層が適切か、全ページが単調になっていないかは画像を見て評価します。修正後はそのページを再度描画します。詳しくは <a href="../image-export/index.html">画像出力</a> と <a href="../commands/index.html#%E6%96%87%E5%AD%97%E3%81%AE%E5%8F%8E%E3%81%BE%E3%82%8A">文字の収まり</a> を参照してください。</p>

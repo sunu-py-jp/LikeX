@@ -2,6 +2,7 @@ import type { SpreadsheetCellFormat } from "../model/types";
 import type { SpreadsheetCellBorders, SpreadsheetCellBorder } from "../model/formatting/types";
 import { normalizeCellFormat } from "../model/formatting/normalize";
 import type { ImportContext } from "./types";
+import { numberFormat } from "./number-format";
 import { child, children, localName, parseXml, type XmlNode } from "./xml";
 import type { XlsxRelationship } from "./relationships";
 
@@ -18,31 +19,6 @@ export function styleColor(node: XmlNode | undefined, context: ImportContext): s
     if (amount) context.warn({ code: "adjusted", message: "テーマ色の濃淡をRGB色へ近似しました" });
   }
   return color;
-}
-const builtins: Record<number, string> = { 0: "General", 1: "0", 2: "0.00", 3: "#,##0", 4: "#,##0.00", 5: '"$"#,##0', 6: '"$"#,##0;[Red]("$"#,##0)', 7: '"$"#,##0.00', 8: '"$"#,##0.00;[Red]("$"#,##0.00)', 9: "0%", 10: "0.00%", 11: "0.00E+00", 12: "# ?/?", 13: "# ??/??", 14: "mm-dd-yy", 15: "d-mmm-yy", 16: "d-mmm", 17: "mmm-yy", 18: "h:mm AM/PM", 19: "h:mm:ss AM/PM", 20: "h:mm", 21: "h:mm:ss", 22: "m/d/yy h:mm", 37: "#,##0;(#,##0)", 38: "#,##0;[Red](#,##0)", 39: "#,##0.00;(#,##0.00)", 40: "#,##0.00;[Red](#,##0.00)", 45: "mm:ss", 46: "[h]:mm:ss", 47: "mmss.0", 48: "##0.0E+0", 49: "@" };
-function numberFormat(id: number, custom: Map<number, string>, context: ImportContext): SpreadsheetCellFormat {
-  const code = custom.get(id) ?? builtins[id] ?? (id >= 27 && id <= 36 || id >= 50 && id <= 58 ? "yyyy/mm/dd" : undefined);
-  if (code === undefined) { context.warn({ code: "adjusted", message: "未対応の数値書式を標準表示へ変更しました" }); return {}; }
-  if (code.toLowerCase() === "general") return {};
-  if (/^General;/i.test(code)) {
-    const red = /\[red\]/i.test(code), parentheses = code.split(";")[1]?.includes("(");
-    return red || parentheses ? { negativeFormat: red ? parentheses ? "red-parentheses" : "red" : "parentheses" } : {};
-  }
-  if (code === "@") return { numberFormat: "text" };
-  const cleaned = code.replace(/"[^"]*"|\\.|\[[^\]]*\]/g, "").toLowerCase();
-  const date = /[yd]/.test(cleaned), time = /[hs]/.test(cleaned) || /\[[hms]\]/i.test(code);
-  if (date || time || /m/.test(cleaned)) {
-    if (code !== "yyyy/mm/dd" && code !== "hh:mm:ss" && code !== "yyyy/mm/dd hh:mm:ss") context.warn({ code: "adjusted", message: "日付・時刻の表示書式をLikeXの書式へ変更しました" });
-    return { numberFormat: date && time ? "datetime" : time ? "time" : "date" };
-  }
-  if (!/[0#]/.test(cleaned) || /[?Ee]|\[[<>=]/.test(code)) { context.warn({ code: "adjusted", message: "未対応の数値書式を標準表示へ変更しました" }); return {}; }
-  const currency = /[$¥￥€£]|\[\$/.test(code), places = /\.([0#]+)/.exec(cleaned)?.[1];
-  if (currency && /[$€£]/.test(code.replace(/\[\$-?\w+\]/g, ""))) context.warn({ code: "adjusted", message: "通貨の表示記号を円へ変更しました" });
-  if (code.split(";").length > 2 || /\[[<>=]/.test(code) || /"[^"¥￥$€£]+"/.test(code)) context.warn({ code: "adjusted", message: "独自の数値書式を対応する書式へ近似しました" });
-  const negative = /\[red\]/i.test(code), parentheses = code.split(";")[1]?.includes("(");
-  return { numberFormat: currency ? "currency" : cleaned.includes("%") ? "percent" : "number", useGrouping: cleaned.includes(","),
-    ...(places && /^0+$/.test(places) ? { decimalPlaces: Math.min(places.length, 10) } : places ? {} : { decimalPlaces: 0 }),
-    ...(negative || parentheses ? { negativeFormat: negative ? parentheses ? "red-parentheses" : "red" : "parentheses" } : {}) };
 }
 const enabled = (node: XmlNode | undefined): boolean => !!node && !["0", "false", "none"].includes(node.attributes.val ?? "");
 function fontFormat(node: XmlNode | undefined, context: ImportContext): SpreadsheetCellFormat {

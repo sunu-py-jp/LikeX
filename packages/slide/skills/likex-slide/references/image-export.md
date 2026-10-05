@@ -66,6 +66,7 @@ node "$skill_dir/scripts/render-images.mjs" --project "$project_dir" \
 AIホストの `add_svg_image` がある場合は、生のSVG文字列と配置先・寸法を渡せる。実際のツール定義を優先する。playgroundでは `slideId`, `elementId`, `svg`, `x`, `y`, `width`, `height` と、公開された `name` / `alt` / `dryRun` / `resolvesFailureIds` を指定する。既存のSVG素材を直す場合は `update_svg_image { slideId, elementId, svg, dryRun, resolvesFailureIds }` を使い、画像のID・配置・寸法・書式を維持して元のSVGだけを更新する。文字や図形を対象にしない。LLM接続やSVG生成はホスト側、本体は検証・描画・保存を担当する。
 
 - ルートは `<svg xmlns="http://www.w3.org/2000/svg">`。正のpx値による `width/height`、または `viewBox="x y width height"` を指定する。
+- ルートの `width/height` は単位・空白を含めて各128文字まで。座標・パス等の数値表記は1つにつき128文字までで、パス属性全体を128文字に制限するものではない。SVG作成・SLON読み込み・PPTX読み込みで同じ検証を使い、PPTXでは不正なSVGを診断して利用可能な代替画像を使う。
 - 対応要素: `svg`（ルートのみ）、`g`, `defs`, `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `linearGradient`, `radialGradient`, `stop`, `clipPath`, `text`, `tspan`, `title`, `desc`。
 - 配置・形状の属性に加えて `transform`, `fill`, `stroke`, `opacity`、線幅・破線、グラデーション、クリッピング、基本の文字書式などのpresentation属性を使う。CSSの `style` / `class`、スタイルシート、スクリプト、イベント属性、`href` / `xlink:href`、外部参照、`image` / `use` / `filter` / `foreignObject` / アニメーションは使わない。
 - 内部参照は `fill` / `stroke` の `url(#gradientId)` と `clip-path` の `url(#clipId)`。IDは文書内で一意にし、参照先は対応するグラデーションまたは `clipPath` にする。グラデーションの継承参照は使わない。
