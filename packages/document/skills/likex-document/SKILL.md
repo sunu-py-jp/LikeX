@@ -1,6 +1,6 @@
 ---
 name: likex-document
-description: LikeX DocumentのネイティブJSON（.dcon）を作成・検証・取得・編集する。文章・段落・書式・表・画像・図形を公開モデルAPIで操作する場合に使う。一般的なWordファイルやGoogle Docsの編集には使わない。
+description: LikeX DocumentのネイティブJSON（.dcon）を作成・検証・取得・編集し、埋め込み画像の重複と配置を調べる。文章・段落・書式・表・画像・図形を公開モデルAPIで操作する場合に使う。一般的なWordファイルやGoogle Docsの編集には使わない。
 ---
 
 # LikeX Document
@@ -19,6 +19,8 @@ node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input 
 ```
 
 既存文書の編集前に `inspect` でブロックIDと現在の `from` / `to` / `contentFrom` / `contentTo` を取得する。通常は本文を返さない。必要なブロックだけ `inspect --block-id ID --include-data` で読む。一覧は `--offset N --limit N` で取得でき、既定100件・最大1,000件。画像のBase64は返さない。
+
+埋め込み画像の一覧と使用箇所は `inspect --images` で取得する。同じ画像本体をSHA-256でまとめ、表示寸法・ブロックID・ProseMirror位置を配置ごとに返す。表やリスト内の画像も対象で、ページ番号は推測しない。実画像を再圧縮・リサイズしたものは別IDになる。CLIは画像本体を出力せず、外部解析サービスも呼ばない。ホストで画像本体を扱う場合は公開 `collectDocumentImages` を使う。[画像収集の参照](references/image-analysis.md)に引数・制約と利用例がある。
 
 [コマンドの説明](references/commands.md)で該当操作を選び、コマンドをJSON**配列**としてファイルへ書く。新しい文書も `create` 後に同じ手順で編集できる。
 

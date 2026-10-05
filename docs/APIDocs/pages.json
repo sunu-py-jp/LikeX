@@ -2838,6 +2838,52 @@
     ]
   },
   {
+    "id": "spreadsheet/image-collection",
+    "title": "画像の収集と重複判定",
+    "component": "spreadsheet",
+    "section": "親アプリとの連携",
+    "output": "spreadsheet/image-collection/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/image-collection.md"
+    ],
+    "keywords": [
+      "collectSpreadsheetImages",
+      "SpreadsheetImageAsset",
+      "SpreadsheetImagePlacement",
+      "SHA-256",
+      "画像解析",
+      "重複",
+      "XLSX"
+    ],
+    "headings": [
+      {
+        "id": "excelから一度ずつ画像を解析する",
+        "title": "Excelから一度ずつ画像を解析する",
+        "depth": 2
+      },
+      {
+        "id": "戻り値",
+        "title": "戻り値",
+        "depth": 2
+      },
+      {
+        "id": "検証とキャンセル",
+        "title": "検証とキャンセル",
+        "depth": 2
+      },
+      {
+        "id": "画像形式とxlsxの対応範囲",
+        "title": "画像形式とXLSXの対応範囲",
+        "depth": 2
+      },
+      {
+        "id": "cliで配置を確認する",
+        "title": "CLIで配置を確認する",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/excel-export",
     "title": "Excel出力",
     "component": "spreadsheet",
@@ -3396,6 +3442,95 @@
     ]
   },
   {
+    "id": "slide/image-analysis",
+    "title": "画像の収集と重複判定",
+    "component": "slide",
+    "section": "読み込みと出力",
+    "output": "slide/image-analysis/index.html",
+    "sources": [
+      "packages/slide/src/docs/image-analysis.md"
+    ],
+    "keywords": [
+      "LikeSlide",
+      "collectSlideImages",
+      "imageId",
+      "SHA-256",
+      "画像解析",
+      "重複",
+      "placements",
+      "images"
+    ],
+    "headings": [
+      {
+        "id": "返す値と収集範囲",
+        "title": "返す値と収集範囲",
+        "depth": 2
+      },
+      {
+        "id": "ホスト側で画像解析結果を再利用する",
+        "title": "ホスト側で画像解析結果を再利用する",
+        "depth": 2
+      },
+      {
+        "id": "同一判定と変換の限界",
+        "title": "同一判定と変換の限界",
+        "depth": 2
+      },
+      {
+        "id": "cliで画像の使われ方を調べる",
+        "title": "CLIで画像の使われ方を調べる",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "slide/pdf-viewer",
+    "title": "PDFの閲覧",
+    "component": "slide",
+    "section": "読み込みと出力",
+    "output": "slide/pdf-viewer/index.html",
+    "sources": [
+      "packages/slide/src/docs/pdf-viewer.md"
+    ],
+    "keywords": [
+      "LikeSlidePdfViewer",
+      "PDF",
+      "PDF.js",
+      "createSlidePdfLoader",
+      "SlidePdfLoader",
+      "閲覧",
+      "プレビュー",
+      "サムネイル"
+    ],
+    "headings": [
+      {
+        "id": "pdfjsで表示する",
+        "title": "PDF.jsで表示する",
+        "depth": 2
+      },
+      {
+        "id": "表示の操作と通知",
+        "title": "表示の操作と通知",
+        "depth": 2
+      },
+      {
+        "id": "複数ページを選択してまとめて取得する",
+        "title": "複数ページを選択してまとめて取得する",
+        "depth": 2
+      },
+      {
+        "id": "外部レンダラーとライフサイクル",
+        "title": "外部レンダラーとライフサイクル",
+        "depth": 2
+      },
+      {
+        "id": "ソースコピー",
+        "title": "ソースコピー",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "document/getting-started",
     "title": "導入と初期表示",
     "component": "document",
@@ -3614,6 +3749,48 @@
       {
         "id": "保存するデータ",
         "title": "保存するデータ",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "document/image-analysis",
+    "title": "画像の収集と重複判定",
+    "component": "document",
+    "section": "親アプリとの連携",
+    "output": "document/image-analysis/index.html",
+    "sources": [
+      "packages/document/src/docs/image-analysis.md"
+    ],
+    "keywords": [
+      "LikeDocument",
+      "collectDocumentImages",
+      "DocumentImageAsset",
+      "DocumentImagePlacement",
+      "SHA-256",
+      "画像解析",
+      "重複",
+      "DOCX"
+    ],
+    "headings": [
+      {
+        "id": "画像本体と配置",
+        "title": "画像本体と配置",
+        "depth": 2
+      },
+      {
+        "id": "ホスト側で解析を再利用する",
+        "title": "ホスト側で解析を再利用する",
+        "depth": 2
+      },
+      {
+        "id": "入力形式と限界",
+        "title": "入力形式と限界",
+        "depth": 2
+      },
+      {
+        "id": "cliで画像一覧を読む",
+        "title": "CLIで画像一覧を読む",
         "depth": 2
       }
     ]
@@ -4600,6 +4777,11 @@
       {
         "id": "ソースをコピーして使う",
         "title": "ソースをコピーして使う",
+        "depth": 2
+      },
+      {
+        "id": "埋め込み画像の共通id",
+        "title": "埋め込み画像の共通ID",
         "depth": 2
       },
       {

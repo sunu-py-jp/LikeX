@@ -33,3 +33,8 @@ test('Spreadsheet and Slide distribute their dedicated inspect references', () =
   for (const moduleName of ['spreadsheet', 'slide', 'document'])
     assert.equal(allowedPackageFile(`skills/likex-${moduleName}/references/inspect.md`, moduleName), ['spreadsheet', 'slide'].includes(moduleName));
 });
+
+test('Document distributes its explicit image analysis reference only', () => {
+  for (const moduleName of ['spreadsheet', 'slide', 'document'])
+    assert.equal(allowedPackageFile(`skills/likex-${moduleName}/references/image-analysis.md`, moduleName), moduleName === 'document');
+});

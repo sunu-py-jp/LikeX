@@ -1,0 +1,9 @@
+{
+  "title": "PDFの閲覧",
+  "summary": "PowerPoint風のページ一覧・拡大縮小でPDFを表示し、外部の描画エンジンを接続します。",
+  "source": "packages/slide/src/docs/pdf-viewer.md",
+  "order": 46,
+  "section": "読み込みと出力",
+  "keywords": ["LikeSlidePdfViewer", "PDF", "PDF.js", "createSlidePdfLoader", "SlidePdfLoader", "閲覧", "プレビュー", "サムネイル"],
+  "screenshots": []
+}

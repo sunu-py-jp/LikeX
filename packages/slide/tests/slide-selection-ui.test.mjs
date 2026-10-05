@@ -68,19 +68,80 @@ test('pointer selection is applied once despite the following click, even when r
   assert.equal(app.editor.dirty, false);
 });
 
+test('selected page queries follow current deck order and active page independently after moves and undo', async t => {
+  const app = await mount(t), handle = app.ref.current;
+  assert.equal(handle.getPageNumber(), 1);
+  assert.deepEqual(handle.getSelectedPageNumbers(), [1]);
+  assert.deepEqual(handle.getSelectedSlides().map(slide => slide.id), ['one']);
+  await change(() => handle.select({ slideId: 'four', slideIds: ['four', 'two'], elementIds: [] }));
+  assert.equal(handle.getPageNumber(), 4, 'active page need not be the first selected page');
+  assert.deepEqual(handle.getSelectedPageNumbers(), [2, 4]);
+  assert.deepEqual(handle.getSelectedSlides().map(slide => slide.id), ['two', 'four']);
+  const pageNumbers = handle.getSelectedPageNumbers();
+  pageNumbers.reverse(); pageNumbers.push(99);
+  assert.deepEqual(handle.getSelectedPageNumbers(), [2, 4]);
+  await change(() => handle.execute({ type: 'slide.move', slideId: 'four', index: 0 }));
+  assert.equal(handle.getPageNumber(), 1);
+  assert.deepEqual(handle.getSelectedPageNumbers(), [1, 3]);
+  assert.deepEqual(handle.getSelectedSlides().map(slide => slide.id), ['four', 'two']);
+  await change(() => handle.undo());
+  assert.equal(handle.getPageNumber(), 4);
+  assert.deepEqual(handle.getSelectedPageNumbers(), [2, 4]);
+  assert.deepEqual(handle.getSelectedSlides().map(slide => slide.id), ['two', 'four']);
+});
+
+test('selected slide queries return detached final or authored data and remain available in read-only mode', async t => {
+  const initialDeck = structuredClone(fixture());
+  initialDeck.slides[0].elements[0].x = 10;
+  initialDeck.slides[0].animations = [{ id: 'move', trigger: { type: 'click' }, animation: {
+    type: 'tween', elementId: 'a', durationMs: 500, easing: 'linear', to: { x: 500 },
+  } }];
+  let permissionCalls = 0;
+  const app = await mount(t, { initialDeck, readOnly: true, features: { export: false }, onSave: undefined,
+    onEditRequest: () => { permissionCalls++; return false; } });
+  await change(() => app.ref.current.select({ slideId: 'three', slideIds: ['three', 'one'], elementIds: [] }));
+  assert.equal(app.ref.current.getPageNumber(), 3);
+  assert.deepEqual(app.ref.current.getSelectedPageNumbers(), [1, 3]);
+  const final = app.ref.current.getSelectedSlides();
+  assert.deepEqual(final.map(slide => slide.id), ['one', 'three']);
+  assert.equal(final[0].elements[0].x, 500); assert.equal(final[0].animations, undefined);
+  assert.deepEqual(final, ['one', 'three'].map(id => app.ref.current.getSlide(id)));
+  final[0].elements[0].x = 900; final[0].name = 'host mutation'; final.reverse(); final.pop();
+  const authored = app.ref.current.getSelectedSlides({ includeAnimations: true });
+  assert.equal(authored[0].elements[0].x, 10); assert.equal(authored[0].animations[0].animation.to.x, 500);
+  assert.deepEqual(authored, ['one', 'three'].map(id => app.ref.current.getSlide(id, { includeAnimations: true })));
+  authored[0].elements[0].x = 800; authored[0].animations[0].animation.to.x = 999;
+  assert.equal(app.ref.current.getSelectedSlides()[0].elements[0].x, 500);
+  assert.equal(app.ref.current.getSelectedSlides()[0].name, 'one');
+  assert.equal(app.ref.current.getSelectedSlides({ includeAnimations: true })[0].elements[0].x, 10);
+  assert.equal(app.ref.current.getSelectedSlides({ includeAnimations: true })[0].animations[0].animation.to.x, 500);
+  assert.throws(() => app.ref.current.getSelectedSlides({ includeAnimations: 'yes' }));
+  assert.throws(() => app.ref.current.getSelectedSlides({ unknown: true }));
+  assert.equal(permissionCalls, 0); assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false);
+});
+
 test('selected pages delete atomically, choose a surviving neighbor, and restore selection with one undo', async t => {
   const events = [], app = await mount(t, { onEvent: event => events.push(event) });
   await change(() => app.ref.current.select({ slideId: 'two', slideIds: ['one', 'two'], elementIds: [] }));
   await change(async () => assert.equal((await app.ref.current.deleteSelection('slides')).changed, true));
   assert.deepEqual(app.ref.current.getDeck().slides.map(slide => slide.id), ['three', 'four']);
   assert.deepEqual(app.ref.current.getSelection(), { slideId: 'three', elementIds: [] });
+  assert.equal(app.ref.current.getPageNumber(), 1);
+  assert.deepEqual(app.ref.current.getSelectedPageNumbers(), [1]);
+  assert.deepEqual(app.ref.current.getSelectedSlides().map(slide => slide.id), ['three']);
   assert.equal(events.filter(event => event.type === 'change').length, 1);
   await change(async () => assert.equal(await app.ref.current.undo(), true));
   assert.deepEqual(app.ref.current.getSelection(), { slideId: 'two', elementIds: [], slideIds: ['one', 'two'] });
+  assert.equal(app.ref.current.getPageNumber(), 2);
+  assert.deepEqual(app.ref.current.getSelectedPageNumbers(), [1, 2]);
+  assert.deepEqual(app.ref.current.getSelectedSlides().map(slide => slide.id), ['one', 'two']);
   assert.equal(app.ref.current.getDeck().slides.length, 4);
   await change(async () => assert.equal(await app.ref.current.undo(), false));
   await change(async () => assert.equal(await app.ref.current.redo(), true));
   assert.deepEqual(app.ref.current.getDeck().slides.map(slide => slide.id), ['three', 'four']);
+  assert.equal(app.ref.current.getPageNumber(), 1);
+  assert.deepEqual(app.ref.current.getSelectedPageNumbers(), [1]);
+  assert.deepEqual(app.ref.current.getSelectedSlides().map(slide => slide.id), ['three']);
   await change(() => app.ref.current.select({ slideId: 'four', slideIds: ['three', 'four'], elementIds: [] }));
   await change(async () => assert.equal(await app.ref.current.deleteSelection('slides'), null));
   assert.equal(app.ref.current.getDeck().slides.length, 2);

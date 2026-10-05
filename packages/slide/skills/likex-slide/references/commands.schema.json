@@ -1713,6 +1713,10 @@
         "rotation": {
           "type": "number"
         },
+        "src": {
+          "type": "string",
+          "description": "Embedded PNG/JPEG/GIF/WebP or validated static SVG data URL. No remote requests are made when rendering a deck."
+        },
         "alt": {
           "type": "string"
         },
@@ -1727,10 +1731,6 @@
         "layoutPlaceholderId": {
           "type": "string",
           "description": "Links a local editable element to one slot of its page's layout."
-        },
-        "src": {
-          "type": "string",
-          "description": "Embedded PNG/JPEG/GIF/WebP or validated static SVG data URL. No remote requests are made when rendering a deck."
         }
       },
       "additionalProperties": false

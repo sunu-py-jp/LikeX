@@ -49,4 +49,6 @@ npm run check:licenses -- --artifacts
 
 `react-remove-scroll-bar@2.3.8`はMITを宣言していますが、配布tarballにLICENSE本文がありません。同じupstreamの通知をリビジョン固定で保存し、名前・バージョンが完全一致した場合だけ補います。本文は改変しません。
 
+PlaygroundのPDF.jsが持つNode.js向け任意依存 `@napi-rs/canvas@1.0.10` のOS・CPU別11パッケージにも、同じ方式を適用します。全パッケージのMIT宣言と配布元を確認し、npmのリリースコミットにあるLICENSEを固定して保存しました。親パッケージ同梱の本文とも一致します。対象は各パッケージの1.0.10版のみで、依存を検証対象から除外しません。
+
 取得元と確認根拠は [scripts/license-notices/README.md](../scripts/license-notices/README.md) に記録しています。更新先の版へ自動流用せず、未知の通知不足はビルドで検出します。ビルド中にネットワークから通知を取得する処理はありません。

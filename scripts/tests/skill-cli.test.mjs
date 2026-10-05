@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { build } from 'esbuild';
 import { copyFile, mkdir, mkdtemp, open, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
@@ -72,6 +73,44 @@ const modelFunctions = (kind, model) => {
   }[kind];
   return { parse: model[`parse${suffix}`], serialize: model[`serialize${suffix}`], apply: model[applyName], result: value => resultKey ? value[resultKey] : value };
 };
+
+test('image inspection shares byte IDs across Spreadsheet, Slide and Document without exposing image payloads', async () => {
+  const src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j5ncAAAAASUVORK5CYII=';
+  const bytes = Buffer.from(src.split(',')[1], 'base64'), imageId = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+  for (const kind of ['spreadsheet', 'slide', 'document']) {
+    const { model } = fixtures[kind], { serialize } = modelFunctions(kind, model), files = await paths(kind);
+    let value;
+    if (kind === 'spreadsheet') {
+      const book = model.createWorkbook(), resource = { name: 'Logo', mimeType: 'image/png', dataUrl: src, width: 1, height: 1 };
+      value = { ...book, resources: { images: { first: resource, second: { ...resource, name: 'Renamed logo' } } },
+        sheets: book.sheets.map(sheet => ({ ...sheet, drawings: ['first', 'second'].map((resourceId, index) => ({
+          id: resourceId, type: 'image', resourceId, anchor: { row: index, column: index, offsetX: 0, offsetY: 0 },
+          width: 100 + index * 50, height: 100 + index * 50, alt: `Use ${index}`,
+        })) })) };
+    } else if (kind === 'slide') value = model.createSlideDeck({ slides: [{ id: 'page', name: 'Page', background: '#ffffff', notes: '',
+      elements: [1, 2].map(index => model.createSlideElement({ type: 'image', src, id: `image-${index}`, width: index * 100, height: index * 100 })),
+    }] });
+    else value = model.createDocument({ content: { type: 'doc', content: [1, 2].map(index => ({
+      type: 'image', attrs: { id: `image-${index}`, src, width: index * 100, height: index * 100, alt: `Use ${index}` },
+    })) } });
+    const before = serialize(value); await writeFile(files.input, before);
+    const result = await run(kind, ['inspect', '--input', files.input, '--images', ...(kind === 'document' ? [] : ['--compact-summary'])]);
+    assert.equal(result.status, 0, JSON.stringify(result.json));
+    assert.deepEqual(result.json.selection.images, [{ imageId, mimeType: 'image/png', byteLength: bytes.length }]);
+    assert.equal(result.json.selection.placements.length, 2);
+    assert.ok(result.json.selection.placements.every(placement => placement.imageId === imageId));
+    assert.doesNotMatch(JSON.stringify(result.json), /base64|iVBORw0KGgo|"src"|"dataUrl"/);
+    assert.equal(await readFile(files.input, 'utf8'), before);
+    for (const option of ['--include-data', '--offset']) {
+      const invalid = await run(kind, ['inspect', '--input', files.input, '--images', option, ...(option === '--offset' ? ['0'] : [])]);
+      assert.equal(invalid.status, 1); assert.equal(invalid.json.error.code, 'USAGE');
+    }
+    if (kind !== 'slide') {
+      const invalid = await run(kind, ['inspect', '--input', files.input, '--images', '--include-animations']);
+      assert.equal(invalid.status, 1); assert.equal(invalid.json.error.code, 'USAGE');
+    }
+  }
+});
 
 test('conditional CLI rejects stale spreadsheet/slide snapshots without changing output', async () => {
   for (const kind of ['spreadsheet', 'slide']) {

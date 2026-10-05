@@ -2,6 +2,8 @@
 
 `@likex/slide/model` はReactやDOMなしで利用できます。GUIも同じコマンド処理と編集セッションを使います。PPTXの読み込み・出力もこの入口から利用できます。永続データに関数・Blob・DOM要素は含まれません。
 
+埋め込み画像を解析用に取り出すときは `await collectSlideImages(deck)` を使います。同一バイト列の画像をSHA-256でまとめた `images` と、各ページでの位置・寸法を保つ `placements` を返します。利用例・取得範囲・ホスト側のキャッシュは[画像の収集と重複判定](image-analysis.md)を参照してください。
+
 ## JSONの構造
 
 ```ts
@@ -274,9 +276,21 @@ const result = await ref.current?.execute({ type: "element.add",
   slideId: deck.slides[0].id, element: { type: "text", text: "外部から追加" } });
 ```
 
-`SlideHandle` の `getDeck()`、`getSlides()`、`getSlide()`、`getElements()`、`getElement()`、`getAnimations()`、`getSelection()`、`select(selection)`、`deleteSelection(scope)`、`execute()`、`undo()`、`redo()`、`save()`、`discard()`、`importNative()`、`exportNative()`、`importPptx()`、`exportPptx()`、`exportImage()`、`exportImages()` が使えます。`execute` は拒否時に `null`、`undo` / `redo` / `save` は成功をbooleanで返します。`execute` と履歴操作は編集許可・読み取り専用・機能設定を通ります。ヘッドレスAPIには認証の責務はありません。
+`SlideHandle` の `getDeck()`、`getSlides()`、`getSlide()`、`getPageNumber()`、`getSelectedPageNumbers()`、`getSelectedSlides()`、`getElements()`、`getElement()`、`getAnimations()`、`getSelection()`、`select(selection)`、`deleteSelection(scope)`、`execute()`、`undo()`、`redo()`、`save()`、`discard()`、`importNative()`、`exportNative()`、`importPptx()`、`exportPptx()`、`exportImage()`、`exportImages()` が使えます。`execute` は拒否時に `null`、`undo` / `redo` / `save` は成功をbooleanで返します。`execute` と履歴操作は編集許可・読み取り専用・機能設定を通ります。ヘッドレスAPIには認証の責務はありません。
 
 `SlideSelection` は `{ slideId, elementIds, slideIds? }` です。`slideId` はキャンバスで表示するページ、`slideIds` は複数選択したページを表します。存在しないIDと重複は取り除き、アクティブな `slideId` を含めて資料順に揃えます。2枚以上のときだけ `slideIds` を返し、`elementIds` は空にします。単一ページは従来の `{ slideId, elementIds }` のままです。選択自体は未保存状態や履歴を増やしません。
+
+`getPageNumber(): number` は表示中のページ番号、`getSelectedPageNumbers(): number[]` は選択中のページ番号を資料順に返します。番号は1始まりで、並べ替えや削除後は現在の資料順から求めます。アクティブなページが選択配列の先頭になるとは限りません。`getSelectedSlides(options?: SlideQueryOptions): Slide[]` は選択したスライドを資料順にまとめて返し、単一選択でも配列になります。`getSlides()` / `getSlide()` と同じく既定はアニメーションの最終静止状態、`{ includeAnimations: true }` は元の要素値と定義です。返す配列・スライド・ネストした要素は防御コピーで、書き換えても内部状態へ影響しません。
+
+```ts
+const activePage = ref.current?.getPageNumber(); // 例: 4
+const pageNumbers = ref.current?.getSelectedPageNumbers(); // 例: [2, 4]
+const selectedSlides = ref.current?.getSelectedSlides({ includeAnimations: true });
+const selection = ref.current?.getSelection();
+const selectedIds = selection ? selection.slideIds ?? [selection.slideId] : [];
+```
+
+選択IDは従来の `getSelection()` と `onSelectionChange(selection)` でも取得できます。これらの取得APIは読み取り専用でも使え、編集許可や出力機能のON/OFFには依存しません。表示中の確定済みデータと選択を同期取得するUI APIで、入力途中の編集を確定したり、選択状態を保存したりしません。画面なしのモデルAPI・CLIには選択状態がないため、対象IDを明示して取得してください。
 
 ```ts
 ref.current?.select({ slideId: "page-2", slideIds: ["page-1", "page-2"], elementIds: [] });

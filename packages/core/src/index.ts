@@ -29,6 +29,8 @@ export type { ModelEditorController } from "./editor/create-model-editor-control
 export type { ModelEditorAdapter, ModelEditorOptions, ModelEditorSnapshot, ModelEditorEvent, ModelEditorNotice, ModelEditorExecuteOptions, ModelEditorTaskContext } from "./editor/types";
 export { inspectEmbeddedImage } from "./embedded-image";
 export type { EmbeddedImageOptions } from "./embedded-image";
+export { collectEmbeddedImageAssets, IMAGE_ASSET_LIMITS } from "./image-assets";
+export type { EmbeddedImageAsset, EmbeddedImageCollection, EmbeddedImageCollectionOptions } from "./image-assets";
 export { getDragScrollDelta, getDragInsertionIndex } from "./drag";
 export type { DragPoint, DragBounds, DragScrollOptions } from "./drag";
 export { CONNECTOR_PORTS, CONNECTOR_ARROWHEADS, isConnectorPort, isConnectorArrowhead, getConnectorPortPoint, getConnectorPortPoints, findNearestConnectorPort,

@@ -1,5 +1,5 @@
 import { createRef } from "react";
-import LikeSlide, { createSlideDeck, createSlideElement, applySlideCommands, createSlideSession, exportImage, exportImages, type SlideImageResult, type SlideProps, type SlideHandle, type SlideCommand, type SlideSelection } from "__LIBRARY_IMPORT__";
+import LikeSlide, { createSlideDeck, createSlideElement, applySlideCommands, createSlideSession, collectSlideImages, exportImage, exportImages, type SlideImageCollection, type SlideImageResult, type SlideProps, type SlideHandle, type SlideCommand, type SlideSelection } from "__LIBRARY_IMPORT__";
 const deck = createSlideDeck();
 const command: SlideCommand = { type: "element.add", slideId: deck.slides[0].id, element: { type: "text", text: "API" } };
 const updated = applySlideCommands(deck, command);
@@ -11,6 +11,10 @@ const view = <LikeSlide ref={ref} {...props} />;
 const selectedPages: SlideSelection = { slideId: 'one', slideIds: ['one', 'two'], elementIds: [] };
 ref.current?.select(selectedPages);
 void ref.current?.getSelection().slideIds;
+const activePageNumber: number | undefined = ref.current?.getPageNumber();
+const selectedPageNumbers: number[] | undefined = ref.current?.getSelectedPageNumbers();
+const selectedSlideData = ref.current?.getSelectedSlides({ includeAnimations: true });
+void [activePageNumber, selectedPageNumbers, selectedSlideData];
 void ref.current?.deleteSelection('slides');
 void ref.current?.deleteSelection('elements');
 // @ts-expect-error Selection deletion scope must be pages or elements.
@@ -27,6 +31,8 @@ const badPatch: SlideCommand = { type: "element.update", slideId: "slide", eleme
 void badPatch;
 const png: Promise<SlideImageResult<Blob>> = exportImage(deck, { pageNumber: 1 });
 const pages: Promise<SlideImageResult<Blob>[]> = exportImages(deck, { range: { from: 1, to: 2 }, scale: 2 });
+const collectedImages: Promise<SlideImageCollection> = collectSlideImages(deck, { signal: new AbortController().signal });
+void collectedImages;
 void png; void pages;
 void ref.current?.exportImage({ slideId: deck.slides[0].id });
 void ref.current?.exportImages({ pageNumbers: [2, 1] });
@@ -81,3 +87,22 @@ const ribbonAccepted: boolean | undefined = ref.current?.setRibbonDisplayMode('e
 // @ts-expect-error Unsupported ribbon modes are rejected.
 ref.current?.setRibbonDisplayMode('collapsed');
 void [ribbonModes, ribbonProps, ribbonMode, ribbonAccepted];
+
+import { LikeSlidePdfViewer, createSlidePdfLoader, SLIDE_PDF_LIMITS, type SlidePdfLoader, type SlidePdfViewerHandle, type SlidePdfJsModule } from "__LIBRARY_IMPORT__";
+declare const pdfjs: SlidePdfJsModule;
+const loadPdf: SlidePdfLoader = createSlidePdfLoader(pdfjs, new Uint8Array([37, 80, 68, 70]));
+const pdfRef = createRef<SlidePdfViewerHandle>();
+const pdfViewer = <LikeSlidePdfViewer ref={pdfRef} loadPdf={loadPdf} title="PDF" initialPageNumber={2}
+  initialSelectedPageNumbers={[1, 3]} selectedPageNumbers={[1, 3]}
+  onSelectionChange={({ pageNumbers, pageNumber, pageCount }) => { const selected: number[] = pageNumbers; void [selected, pageNumber, pageCount]; }}
+  onPageChange={({ pageNumber, pageCount }) => { const page: number = pageNumber; void [page, pageCount]; }} />;
+const pdfMoved: boolean | undefined = pdfRef.current?.goToPage(3);
+const selectedPdfPages: number[] | undefined = pdfRef.current?.getSelectedPageNumbers();
+const pdfSelectionAccepted: boolean | undefined = pdfRef.current?.selectPages([1, 3]);
+// @ts-expect-error PDF selection takes page numbers, not slide IDs.
+pdfRef.current?.selectPages(['cover']);
+// @ts-expect-error PDF bytes must be supplied by the host; the library does not fetch PDF URLs.
+createSlidePdfLoader(pdfjs, "https://example.test/document.pdf");
+// @ts-expect-error PDF viewers do not expose editing/persistence.
+const editablePdf = <LikeSlidePdfViewer loadPdf={loadPdf} onSave={() => {}} />;
+void [pdfViewer, pdfMoved, selectedPdfPages, pdfSelectionAccepted, editablePdf, SLIDE_PDF_LIMITS];

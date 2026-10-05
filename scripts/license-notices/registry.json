@@ -5,5 +5,82 @@
     "source": "https://raw.githubusercontent.com/theKashey/react-remove-scroll-bar/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE",
     "reviewedOn": "2026-09-16",
     "basis": "The installed 2.3.8 package declares MIT and identifies Anton Korzunov as its author, but excludes LICENSE from its files. The notice is copied verbatim from the same upstream project's pinned repository revision. This is a notice recovery, not a relicensing of the dependency."
+  },
+  "@napi-rs/canvas-android-arm64@1.0.10": {
+    "file": "napi-rs-canvas-1.0.10.txt",
+    "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+    "source": "https://raw.githubusercontent.com/Brooooooklyn/canvas/7d19abed029287e7c26b14eaa6e67d560a37d853/LICENSE",
+    "reviewedOn": "2026-10-06",
+    "basis": "This 1.0.10 platform package declares MIT and the same upstream repository as @napi-rs/canvas@1.0.10, whose exact optionalDependencies include this package. The notice is copied verbatim from the parent release npm gitHead and is byte-identical to the parent package LICENSE. This recovers a missing package notice without changing its license or omitting the dependency from validation."
+  },
+  "@napi-rs/canvas-darwin-arm64@1.0.10": {
+    "file": "napi-rs-canvas-1.0.10.txt",
+    "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+    "source": "https://raw.githubusercontent.com/Brooooooklyn/canvas/7d19abed029287e7c26b14eaa6e67d560a37d853/LICENSE",
+    "reviewedOn": "2026-10-06",
+    "basis": "This 1.0.10 platform package declares MIT and the same upstream repository as @napi-rs/canvas@1.0.10, whose exact optionalDependencies include this package. The notice is copied verbatim from the parent release npm gitHead and is byte-identical to the parent package LICENSE. This recovers a missing package notice without changing its license or omitting the dependency from validation."
+  },
+  "@napi-rs/canvas-darwin-x64@1.0.10": {
+    "file": "napi-rs-canvas-1.0.10.txt",
+    "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+    "source": "https://raw.githubusercontent.com/Brooooooklyn/canvas/7d19abed029287e7c26b14eaa6e67d560a37d853/LICENSE",
+    "reviewedOn": "2026-10-06",
+    "basis": "This 1.0.10 platform package declares MIT and the same upstream repository as @napi-rs/canvas@1.0.10, whose exact optionalDependencies include this package. The notice is copied verbatim from the parent release npm gitHead and is byte-identical to the parent package LICENSE. This recovers a missing package notice without changing its license or omitting the dependency from validation."
+  },
+  "@napi-rs/canvas-linux-arm-gnueabihf@1.0.10": {
+    "file": "napi-rs-canvas-1.0.10.txt",
+    "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+    "source": "https://raw.githubusercontent.com/Brooooooklyn/canvas/7d19abed029287e7c26b14eaa6e67d560a37d853/LICENSE",
+    "reviewedOn": "2026-10-06",
+    "basis": "This 1.0.10 platform package declares MIT and the same upstream repository as @napi-rs/canvas@1.0.10, whose exact optionalDependencies include this package. The notice is copied verbatim from the parent release npm gitHead and is byte-identical to the parent package LICENSE. This recovers a missing package notice without changing its license or omitting the dependency from validation."
+  },
+  "@napi-rs/canvas-linux-arm64-gnu@1.0.10": {
+    "file": "napi-rs-canvas-1.0.10.txt",
+    "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+    "source": "https://raw.githubusercontent.com/Brooooooklyn/canvas/7d19abed029287e7c26b14eaa6e67d560a37d853/LICENSE",
+    "reviewedOn": "2026-10-06",
+    "basis": "This 1.0.10 platform package declares MIT and the same upstream repository as @napi-rs/canvas@1.0.10, whose exact optionalDependencies include this package. The notice is copied verbatim from the parent release npm gitHead and is byte-identical to the parent package LICENSE. This recovers a missing package notice without changing its license or omitting the dependency from validation."
+  },
+  "@napi-rs/canvas-linux-arm64-musl@1.0.10": {
+    "file": "napi-rs-canvas-1.0.10.txt",
+    "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+    "source": "https://raw.githubusercontent.com/Brooooooklyn/canvas/7d19abed029287e7c26b14eaa6e67d560a37d853/LICENSE",
+    "reviewedOn": "2026-10-06",
+    "basis": "This 1.0.10 platform package declares MIT and the same upstream repository as @napi-rs/canvas@1.0.10, whose exact optionalDependencies include this package. The notice is copied verbatim from the parent release npm gitHead and is byte-identical to the parent package LICENSE. This recovers a missing package notice without changing its license or omitting the dependency from validation."
+  },
+  "@napi-rs/canvas-linux-riscv64-gnu@1.0.10": {
+    "file": "napi-rs-canvas-1.0.10.txt",
+    "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+    "source": "https://raw.githubusercontent.com/Brooooooklyn/canvas/7d19abed029287e7c26b14eaa6e67d560a37d853/LICENSE",
+    "reviewedOn": "2026-10-06",
+    "basis": "This 1.0.10 platform package declares MIT and the same upstream repository as @napi-rs/canvas@1.0.10, whose exact optionalDependencies include this package. The notice is copied verbatim from the parent release npm gitHead and is byte-identical to the parent package LICENSE. This recovers a missing package notice without changing its license or omitting the dependency from validation."
+  },
+  "@napi-rs/canvas-linux-x64-gnu@1.0.10": {
+    "file": "napi-rs-canvas-1.0.10.txt",
+    "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+    "source": "https://raw.githubusercontent.com/Brooooooklyn/canvas/7d19abed029287e7c26b14eaa6e67d560a37d853/LICENSE",
+    "reviewedOn": "2026-10-06",
+    "basis": "This 1.0.10 platform package declares MIT and the same upstream repository as @napi-rs/canvas@1.0.10, whose exact optionalDependencies include this package. The notice is copied verbatim from the parent release npm gitHead and is byte-identical to the parent package LICENSE. This recovers a missing package notice without changing its license or omitting the dependency from validation."
+  },
+  "@napi-rs/canvas-linux-x64-musl@1.0.10": {
+    "file": "napi-rs-canvas-1.0.10.txt",
+    "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+    "source": "https://raw.githubusercontent.com/Brooooooklyn/canvas/7d19abed029287e7c26b14eaa6e67d560a37d853/LICENSE",
+    "reviewedOn": "2026-10-06",
+    "basis": "This 1.0.10 platform package declares MIT and the same upstream repository as @napi-rs/canvas@1.0.10, whose exact optionalDependencies include this package. The notice is copied verbatim from the parent release npm gitHead and is byte-identical to the parent package LICENSE. This recovers a missing package notice without changing its license or omitting the dependency from validation."
+  },
+  "@napi-rs/canvas-win32-arm64-msvc@1.0.10": {
+    "file": "napi-rs-canvas-1.0.10.txt",
+    "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+    "source": "https://raw.githubusercontent.com/Brooooooklyn/canvas/7d19abed029287e7c26b14eaa6e67d560a37d853/LICENSE",
+    "reviewedOn": "2026-10-06",
+    "basis": "This 1.0.10 platform package declares MIT and the same upstream repository as @napi-rs/canvas@1.0.10, whose exact optionalDependencies include this package. The notice is copied verbatim from the parent release npm gitHead and is byte-identical to the parent package LICENSE. This recovers a missing package notice without changing its license or omitting the dependency from validation."
+  },
+  "@napi-rs/canvas-win32-x64-msvc@1.0.10": {
+    "file": "napi-rs-canvas-1.0.10.txt",
+    "sha256": "8802fecf9da4367bc23bcf20b21cc143785fc6c92b152f3fa7fbe6ce08d344d6",
+    "source": "https://raw.githubusercontent.com/Brooooooklyn/canvas/7d19abed029287e7c26b14eaa6e67d560a37d853/LICENSE",
+    "reviewedOn": "2026-10-06",
+    "basis": "This 1.0.10 platform package declares MIT and the same upstream repository as @napi-rs/canvas@1.0.10, whose exact optionalDependencies include this package. The notice is copied verbatim from the parent release npm gitHead and is byte-identical to the parent package LICENSE. This recovers a missing package notice without changing its license or omitting the dependency from validation."
   }
 }

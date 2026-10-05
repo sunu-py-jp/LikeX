@@ -1,0 +1,9 @@
+{
+  "title": "画像の収集と重複判定",
+  "summary": "Excelの埋め込み画像を重複なく取得し、シート・セル位置・描画IDから同じ解析結果を参照します。",
+  "source": "packages/spreadsheet/src/docs/image-collection.md",
+  "order": 166,
+  "section": "親アプリとの連携",
+  "keywords": ["collectSpreadsheetImages", "SpreadsheetImageAsset", "SpreadsheetImagePlacement", "SHA-256", "画像解析", "重複", "XLSX"],
+  "screenshots": []
+}

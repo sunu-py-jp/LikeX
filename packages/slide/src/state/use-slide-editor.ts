@@ -603,6 +603,17 @@ export function useSlideEditor(props: SlideProps) {
     getDeck: options => copy(getDeck(session.getSnapshot().deck, options)),
     getSlides: options => copy(getSlides(session.getSnapshot().deck, options)),
     getSlide: (slideId, options) => copy(getSlide(session.getSnapshot().deck, slideId, options)),
+    getPageNumber: () => Math.max(0, session.getSnapshot().deck.slides.findIndex(slide => slide.id === selectionRef.current.slideId)) + 1,
+    getSelectedPageNumbers: () => {
+      const current = selectionRef.current;
+      const selected = new Set(current.slideIds ?? [current.slideId]);
+      return session.getSnapshot().deck.slides.flatMap((slide, index) => selected.has(slide.id) ? [index + 1] : []);
+    },
+    getSelectedSlides: options => {
+      const current = selectionRef.current;
+      const selected = new Set(current.slideIds ?? [current.slideId]);
+      return copy(getSlides(session.getSnapshot().deck, options).filter(slide => selected.has(slide.id)));
+    },
     getElements: (slideId, options) => copy(getElements(session.getSnapshot().deck, slideId, options)),
     getElement: (slideId, elementId, options) => copy(getElement(session.getSnapshot().deck, slideId, elementId, options)),
     getAnimations: slideId => copy(getAnimations(session.getSnapshot().deck, slideId)),

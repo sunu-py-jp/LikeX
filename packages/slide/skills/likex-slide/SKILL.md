@@ -1,6 +1,6 @@
 ---
 name: likex-slide
-description: LikeX SlideのネイティブJSON（.slon）を作成・検証・取得・編集し、PNG画像へ出力する。スライド、要素、アニメーションを公開ヘッドレスAPIで操作する場合に使う。Google Slidesや一般的なPowerPointファイル編集には使わない。
+description: LikeX SlideのネイティブJSON（.slon）を作成・検証・取得・編集し、埋め込み画像の重複と配置を調べ、PNG画像へ出力する。スライド、要素、アニメーションを公開ヘッドレスAPIで操作する場合に使う。Google Slidesや一般的なPowerPointファイル編集には使わない。
 ---
 
 # LikeX Slide
@@ -8,6 +8,10 @@ description: LikeX SlideのネイティブJSON（.slon）を作成・検証・�
 `.slon` を読み、必要なページや要素をコマンドで変更して、正規のシリアライザーで保存する。モデルの編集にはReactのマウント・DOM・CSSは不要。画像出力ではブラウザーか、ホストが提供する描画アダプターを使う。
 
 リボンの `expanded` / `tabs` / `autoHide` / `hidden` はホストUIの表示設定です。`.slon` やPPTXには保存せず、モデルコマンドやCLIで変更しません。利用ホストは `initialRibbonDisplayMode` / `ribbonDisplayMode` またはrefの `setRibbonDisplayMode` を使います。
+
+表示中の通常スライドはrefの `getPageNumber()`、`getSelectedPageNumbers()`、`getSelectedSlides(options?)` で現在ページと複数選択したページを取得できます。番号は1始まり、複数の結果は資料順で、内容は既定で最終静止状態、`{ includeAnimations: true }` なら元の値と定義です。選択IDは `getSelection()` / `onSelectionChange` の `slideIds ?? [slideId]` で取得します。これらは読み取り専用でも使えるUI状態APIで、保存モデルやCLIの対象ではありません。
+
+`LikeSlidePdfViewer` はホストUIでPDFを閲覧する別のコンポーネントです。PDFをSLONへ変換する機能ではなく、このスキルのモデルAPI・CLIではPDFを開いたり編集したりしません。PDF表示にはホストが `SlidePdfLoader`、またはPDF.jsを注入する `createSlidePdfLoader` を用意します。PDFの複数選択もrefの `getSelectedPageNumbers()` / `selectPages()` と選択props・通知で扱うUI状態で、CLIの対象ではありません。
 
 ## 必要な環境
 
@@ -53,6 +57,7 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 | 空の資料を作る | `create --output PATH [--commands FILE] [--dry-run]` |
 | タイトルと全体の件数だけを読む | `inspect --input PATH --overview` |
 | 全スライドの概要・IDを読む | `inspect --input PATH` |
+| 重複をまとめた画像一覧と全配置を読む | `inspect --input PATH --images [--compact-summary] [--include-animations]` |
 | 最終静止状態のスライドを読む | `inspect --input PATH --slide-id ID` |
 | 1ページの全要素の詳細をまとめて読む | `inspect --input PATH --slide-id ID --include-data [--compact-summary]` |
 | 元の値とアニメーション定義を読む | `inspect --input PATH [--slide-id ID] --include-animations` |
@@ -66,6 +71,8 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 `--overview` は `format`、`title`、`slideCount`、`elementCount` と、カタログがある場合の `masterCount` / `layoutCount` を `summary` に返し、ページ一覧や要素情報は返さない。他の取得セレクター、`--include-data`、`--include-animations` と併用しない。必要な対象を選んだ後の通常の `inspect` で詳細を取得する。
 
 画像出力は `scripts/render-images.mjs` に分ける。単一ページ・範囲・任意ページを指定でき、Nodeでは `--renderer` が必須。引数と実行環境は [画像出力の参照](references/image-export.md)を確認する。既存のcreate/applyに画像出力オプションを混ぜない。
+
+埋め込み画像の使われ方や重複は `inspect --images` で確認する。画像本体の同一バイト列をSHA-256でまとめ、配置情報を別配列に保つ。表示倍率が違っても同じ画像本体なら同じIDになるが、再圧縮・実画像のリサイズ・別形式への変換は別の画像になる。CLIは画像バイトを出力しない。画像本体を解析へ渡すホストは公開 `collectSlideImages` を使い、モデル・版・解析設定を含む条件で結果をキャッシュする。取得範囲・引数とホスト側の例は[画像一覧の取得](references/inspect.md#画像一覧と配置の取得)を読む。外部解析サービスへの送信はこのCLIでは実行しない。
 
 `inspect` とget APIは既定で全アニメーション完了後の静止値を返す。アニメーションを編集するときは `inspect --include-animations` または `getDeck/getSlides/getSlide` の `{ includeAnimations: true }` で元の値と定義を取得し、`animation.set` / `animation.remove` を使う。`getElements/getElement` は同オプションでも元の要素値だけを返すため、定義には `getAnimations` などを使う。SLON保存とcreate/applyは全定義を保持する。PPTXは標準アニメーションへ変換する。透明度・ばねに加え、文字サイズ・線幅・透明色は近似される。`diagnostics` / `onDiagnostic` でページ・要素・プロパティと省略・近似の扱いを確認する。独立系列は省略可能な `timelineId` で指定し、同じ要素の同じプロパティを複数の系列へ分けない。[アニメーションのコマンドと取得](references/commands.md#アニメーション)を参照する。
 

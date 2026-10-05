@@ -100,3 +100,16 @@ void svgCommand;
 // @ts-expect-error Fixed-composition commands have been removed; author ordinary elements instead.
 const removedComposition: SlideCommand = { type: 'slide.compose', slideId: 'page', composition: { layout: 'hero', title: 'Title' } };
 void removedComposition;
+
+import { collectSlideImages, type SlideImageAsset, type SlideImagePlacement, type SlideImageCollection, type SlideImageCollectionOptions } from '__MODEL_IMPORT__';
+const collectionOptions: SlideImageCollectionOptions = { animationState: 'initial' };
+const collection: Promise<SlideImageCollection> = collectSlideImages(deck, collectionOptions);
+void collection.then(result => {
+  const image: SlideImageAsset | undefined = result.images[0];
+  const placement: SlideImagePlacement | undefined = result.placements[0];
+  const id: string | undefined = image?.imageId;
+  const source: 'slide' | 'master' | 'layout' | undefined = placement?.source;
+  void [id, source];
+});
+// @ts-expect-error Image collection compares original bytes; fuzzy matching is not supported.
+void collectSlideImages(deck, { similarity: 0.9 });

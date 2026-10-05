@@ -29,6 +29,8 @@
 
 用紙・余白はmm、文字の `text_style.attrs.fontSize` はpt、画像の幅・高さはpx。文字書式は `marks`、段落の揃えは `attrs.align`。画像はPNG／JPEGの埋め込みdata URLで、外部URLを自動取得しない。
 
+読み取りAPI `collectDocumentImages` の `imageId` は画像バイト列のSHA-256で、ブロックの `attrs.id` とは別物。DCONにハッシュや画像カタログを追加せず、画像本体と全配置を読み取り結果として返す。重複をまとめても保存モデルのサイズ上限は変更しない。[画像収集の参照](image-analysis.md)を確認する。
+
 全ノード・書式・属性は [DCON JSON Schema](dcon.schema.json) を参照する。JSON Schemaは位置の有効性・文書スキーマの親子関係・画像の実体を保証しないため、最後にCLIの `validate` か `parseDocument` で確認する。選択・履歴・未保存状態・UI設定はファイルに保存しない。
 
 図形は `{ "type": "shape", "attrs": { "preset": "bentArrow", "text": "承認", "width": 240, "height": 140 } }`。`content` を持たず、安定IDを `attrs.id` に保持する。`fill` / `stroke` はRGBまたはnull、`strokeWidth` はpx、`rotation` は度、`flipH` / `flipV` はboolean、`color` は文字色、`fontSize` はpt。未指定属性は既定値を補う。既存version 1への追加ノードで、図形非対応の旧版へ渡す場合は利用側の更新が必要。

@@ -8,7 +8,7 @@ import { libraryModule } from '../lib/modules.mjs';
 for (const moduleName of ['spreadsheet', 'slide', 'document']) test(`${moduleName} declaration bridges use pure Core subpaths, preserving their complete export lists`, async () => {
   const { declarationBridgeTargets, sourceRoot } = libraryModule(moduleName);
   assert.deepEqual(Object.keys(declarationBridgeTargets), ['json.d.ts', 'ooxml.d.ts', 'model/core-connectors.d.ts',
-    'model/core-office-shapes.d.ts', ...(moduleName === 'spreadsheet' ? ['model/core-text-search.d.ts'] : [])]);
+    'model/core-office-shapes.d.ts', 'model/core-image-assets.d.ts', ...(moduleName === 'spreadsheet' ? ['model/core-text-search.d.ts'] : [])]);
   for (const [file, target] of Object.entries(declarationBridgeTargets)) {
     // These maintained bridges contain only the named re-exports emitted into their declarations.
     const contents = await readFile(path.join(sourceRoot, file.replace(/\.d\.ts$/, '.ts')), 'utf8');

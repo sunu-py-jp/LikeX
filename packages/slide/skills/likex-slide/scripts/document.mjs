@@ -27,7 +27,7 @@ const adapters = {
   form: ['Form', 'executeFormCommands', null, 8],
 };
 const selectorsByKind = {
-  spreadsheet: ['overview', 'compact-summary', 'sheet-id', 'range', 'drawing-id', 'search', 'text', 'match-case', 'regex', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'slide-id', 'element-id', 'master-id', 'layout-id'], document: ['block-id', 'offset', 'limit'],
+  spreadsheet: ['overview', 'compact-summary', 'images', 'sheet-id', 'range', 'drawing-id', 'search', 'text', 'match-case', 'regex', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'images', 'slide-id', 'element-id', 'master-id', 'layout-id'], document: ['images', 'block-id', 'offset', 'limit'],
   board: ['column-id', 'card-id', 'offset', 'limit'], dataview: ['row-id', 'field-id', 'offset', 'limit'],
   diagram: ['node-id', 'edge-id', 'offset', 'limit'], whiteboard: ['element-id', 'offset', 'limit'],
   calendar: ['event-id', 'start', 'end', 'offset', 'limit'], chat: ['conversation-id', 'message-id', 'offset', 'limit'],
@@ -44,7 +44,7 @@ const identity = value => value && [value.dev, value.ino, value.size, value.mtim
 const sameFile = (a, b) => a && b && a.dev === b.dev && a.ino === b.ino;
 
 function usage(kind, version) {
-  const selectors = selectorsByKind[kind].map(key => ['overview', 'compact-summary', 'match-case', 'regex', 'exact'].includes(key) ? `--${key}` : `--${key} ${['offset', 'limit', 'preview-length'].includes(key) ? 'N' : ['start', 'end'].includes(key) ? 'YYYY-MM-DD' : key === 'range' ? 'A1:C5' : key === 'search' ? 'sheets|cells' : key === 'text' ? 'KEYWORD' : key === 'look-in' ? 'values|formulas' : 'ID'}`).join(' | ');
+  const selectors = selectorsByKind[kind].map(key => ['overview', 'compact-summary', 'images', 'match-case', 'regex', 'exact'].includes(key) ? `--${key}` : `--${key} ${['offset', 'limit', 'preview-length'].includes(key) ? 'N' : ['start', 'end'].includes(key) ? 'YYYY-MM-DD' : key === 'range' ? 'A1:C5' : key === 'search' ? 'sheets|cells' : key === 'text' ? 'KEYWORD' : key === 'look-in' ? 'values|formulas' : 'ID'}`).join(' | ');
   return {
     ok: true, kind, libraryVersion: version,
     usage: [
@@ -66,6 +66,7 @@ function usage(kind, version) {
         'Search and sheet-content lists accept --offset and --limit (default 100, maximum 1000). Ordinary inspect summaries and range reads do not use pagination.'] : []),
       ...(['chat', 'aichat'].includes(kind) ? ['--message-id requires --conversation-id. Select a conversation to list its messages.'] : []),
       ...(kind === 'calendar' ? ['--start and --end must be supplied together; end is exclusive and dates use calendar.timeZone.'] : []),
+      ...(['spreadsheet', 'slide', 'document'].includes(kind) ? ['--images returns unique embedded-image metadata in selection.images and all uses in selection.placements, with SHA-256 IDs based on exact image bytes. Image bytes are omitted. Do not combine with item selectors or --include-data. --compact-summary is allowed for spreadsheet/slide; --include-animations is allowed for slide and selects original placements without animation definitions.'] : []),
       ...(kind === 'slide' ? ['--slide-id ID --include-data returns all elements of that slide in selection.elements, including text/style details but excluding image bytes. Add --element-id to read one element.',
         'Imported masters/layouts are listed in the summary. Use --master-id ID or --layout-id ID with optional --include-data to read their decorations and placeholder prototypes. A slide with a layout returns inheritedElements separately; these are not editable page elements.',
         'inspect defaults to final static values. --include-animations returns original values and the animation definitions; it does not modify the file.'] : []),
@@ -81,7 +82,7 @@ function argumentsFor(argv, kind) {
   if (argv.length === 0 || (argv.length === 1 && argv[0] === '--help')) return { operation: 'help' };
   if (argv.length === 1 && argv[0] === '--version') return { operation: 'version' };
   if (!['create', 'inspect', 'apply', 'validate'].includes(args.operation)) fail('USAGE', 'Expected create, inspect, apply, or validate. Use --help.');
-  const flags = new Set(['dry-run', 'include-data', 'include-animations', 'overview', 'compact-summary', 'match-case', 'regex', 'exact', 'help']);
+  const flags = new Set(['dry-run', 'include-data', 'include-animations', 'overview', 'compact-summary', 'images', 'match-case', 'regex', 'exact', 'help']);
   const values = new Set(['input', 'output', 'commands', 'project', 'expected', 'expected-scope', ...Object.values(selectorsByKind).flat()]);
   for (let index = 1; index < argv.length; index++) {
     const raw = argv[index];
@@ -112,6 +113,8 @@ function argumentsFor(argv, kind) {
   const wrongKeys = queryKeys.filter(key => !['include-data', 'include-animations'].includes(key) && !ownKeys.includes(key));
   if (wrongKeys.some(key => args[key])) fail('USAGE', `Unsupported selector for ${kind}.`);
   if (args.overview && queryKeys.some(key => key !== 'overview' && args[key] !== undefined)) fail('USAGE', '--overview cannot be combined with other inspection selectors or flags.');
+  if (args.images && queryKeys.some(key => !['images', 'compact-summary', 'include-animations'].includes(key) && args[key] !== undefined))
+    fail('USAGE', '--images accepts only --compact-summary and --include-animations among inspection selectors and flags.');
   const sheetData = kind === 'spreadsheet' && Boolean(args['sheet-id'] && args['include-data'] && !args['drawing-id']);
   const slideData = kind === 'slide' && Boolean((args['slide-id'] || args['master-id'] || args['layout-id']) && args['include-data']);
   if (kind === 'spreadsheet') {
@@ -485,10 +488,15 @@ export async function runDocumentCli({ argv = process.argv.slice(2), kind = DOCU
       } catch (error) { if (error instanceof CliError) throw error; fail('COMMAND_FAILED', error.message); }
     }
     if (operation === 'inspect') {
-      const inspected = kind === 'slide' && !args.overview ? model.getDeck(document, { includeAnimations: Boolean(args['include-animations']) }) : document;
-      const selection = args.overview ? undefined : selectionFor(kind, model, inspected, args);
+      const inspected = kind === 'slide' && !args.overview && !args.images ? model.getDeck(document, { includeAnimations: Boolean(args['include-animations']) }) : document;
+      let selection;
+      if (args.images) {
+        const collector = { slide: 'collectSlideImages', spreadsheet: 'collectSpreadsheetImages', document: 'collectDocumentImages' }[kind];
+        const collected = await model[collector](document, kind === 'slide' ? { animationState: args['include-animations'] ? 'initial' : 'final' } : {});
+        selection = { images: collected.images.map(({ imageId, mimeType, byteLength }) => ({ imageId, mimeType, byteLength })), placements: collected.placements };
+      } else selection = args.overview ? undefined : selectionFor(kind, model, inspected, args);
       stdout.write(`${encodedResponse({ ...base, summary: summaryFor(kind, inspected, model, Boolean(args.overview), Boolean(args['compact-summary'])), ...(selection ? { selection } : {}),
-        ...(kind === 'slide' && args['include-animations'] && !args['slide-id'] ? { animations: inspected.slides.map(slide => ({ slideId: slide.id, animations: model.getAnimations(inspected, slide.id) })) } : {}) })}\n`);
+        ...(kind === 'slide' && args['include-animations'] && !args['slide-id'] && !args.images ? { animations: inspected.slides.map(slide => ({ slideId: slide.id, animations: model.getAnimations(inspected, slide.id) })) } : {}) })}\n`);
       return 0;
     }
     // A complete native serialization and parse must succeed before any output is created.

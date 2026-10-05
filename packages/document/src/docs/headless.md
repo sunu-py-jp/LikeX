@@ -45,6 +45,8 @@ const json = serializeDocument(result.document);
 
 位置は現在の文書に対するProseMirrorの位置です。最初の段落の先頭は `1` で、ブロックの開閉境界も数えます。編集後に続けて操作する場合は、新しい位置を取得するか、直前の編集を反映した値を使います。
 
+`await collectDocumentImages(document, { signal? })` は、同一バイト列の画像をSHA-256でまとめた `images` と、本文・表・リスト内の全画像ブロックの `placements` を返します。画像の表示サイズが違っても本体が同じなら共通の `imageId` になります。ブロックID・ProseMirror位置は保持し、描画に依存するページ番号は生成しません。[画像の収集と重複判定](image-analysis.md)にホスト解析とキャッシュの例があります。
+
 ## ローカルの履歴
 
 ```ts

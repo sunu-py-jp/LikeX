@@ -171,6 +171,8 @@ GUIの要素メニューは `element.update`（テキスト・ロック）、`el
 
 一覧の複数ページ選択は表示中の `SlideSelection.slideIds?`、キャンバスの範囲選択は `elementIds` で取得できる。`SlideHandle.deleteSelection("slides" | "elements")` は選択した対象を既存コマンドで一括削除し、1回のUndoで内容と選択を戻す。CLIでは複数の `slide.delete` を配列にするか、複数IDを持つ `element.delete` を使う。全ページの削除やロック要素を含む削除は全体を拒否する。これらの選択状態はSLON・PPTXへ保存しない。
 
+ホストUIでは `SlideHandle.getPageNumber()` がアクティブページの1始まり番号、`getSelectedPageNumbers()` が選択ページの1始まり番号を資料順に返す。並べ替え・削除・Undo後は現在の資料順を使う。`getSelectedSlides(options?: SlideQueryOptions)` は選択したスライドを資料順の配列で返し、`getSlides` / `getSlide` と同じく既定は最終静止状態、`{ includeAnimations: true }` は元の値とアニメーション定義を保持する。取得結果はネストした内容まで防御コピーされ、読み取り専用でも取得できる。選択IDは `getSelection()` / `onSelectionChange` の `slideIds ?? [slideId]` で取得できる。UI状態の取得なのでモデルAPI・CLIは追加しない。画面なしで扱う場合は対象IDを明示する。
+
 ## CLIの出力と失敗
 
 CLIは処理概要のJSONを標準出力へ返す。共通情報は `ok`, `kind`, `operation`, `libraryVersion`。作成・適用時は `dryRun`, `written`, `output`, `commandCount`, `changed`, `summary` で処理対象と書き込み結果を確認できる。dry-runでは `written` がfalseになる。ネイティブAPIの `deck` / `slideId` / `elementIds` 自体は出力しない。

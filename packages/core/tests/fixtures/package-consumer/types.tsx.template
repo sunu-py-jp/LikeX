@@ -80,3 +80,12 @@ function openHostMenu(anchor: HTMLElement) {
   return [close, browserEntry];
 }
 void openHostMenu;
+import { collectEmbeddedImageAssets, IMAGE_ASSET_LIMITS, type EmbeddedImageCollection, type EmbeddedImageAsset } from '__LIBRARY_IMPORT__';
+const imageAssets: Promise<EmbeddedImageCollection> = collectEmbeddedImageAssets([], { signal: new AbortController().signal });
+void imageAssets.then(result => {
+  const image: EmbeddedImageAsset | undefined = result.images[0];
+  const imageId: string | undefined = result.imageIds[0];
+  return [image, imageId, IMAGE_ASSET_LIMITS.imageBytes];
+});
+// @ts-expect-error Sources must be embedded data URL strings.
+void collectEmbeddedImageAssets([new Uint8Array()]);

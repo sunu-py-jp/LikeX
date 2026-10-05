@@ -49,3 +49,21 @@ node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input 
 レイアウト取得は `selection.layout`、`selection.elements`（そのレイアウトの装飾）、`selection.placeholders`（id/kind/element）を返す。マスター取得は `selection.master`、`selection.elements`、所属 `selection.layouts` を返す。`--include-data` で要素の本文・書式を含め、画像バイトは常に除く。`--slide-id` / `--master-id` / `--layout-id` は相互に排他。
 
 レイアウトのあるページ取得は `selection.slide.layoutId` と解決後の `background`、通常の `selection.elements` に加えて `selection.inheritedElements` を返す。継承要素はマスター→レイアウトの順の読み取り専用装飾で、ページの `element.update` では変更できない。`selection.elements` の `layoutPlaceholderId` が、編集可能な本文とレイアウト内の欄の対応。これにより背景ロゴを本文と誤認せず、そのページの見た目を一括取得できる。
+
+## 画像一覧と配置の取得
+
+```bash
+node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input deck.slon --images --compact-summary
+# 保存された元の配置が必要なとき
+node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input deck.slon --images --include-animations --compact-summary
+```
+
+`--images` は公開 `collectSlideImages` を呼び、`selection.images` に `{ imageId, mimeType, byteLength }`、`selection.placements` に `{ imageId, slideId, pageNumber, elementId, source, sourceId, x, y, width, height, rotation, opacity, name, alt }` を返す。画像の `src` やBase64本体は出力しない。画像がなければ両配列とも空。画像一覧は初出順、配置はページ順・描画順を保つ。`pageNumber` は1から始まる。
+
+`imageId` は埋め込み画像のバイト列に対する `sha256:` と64桁の小文字16進数。同じバイト列の画像は表示サイズ・位置・回転が違っても1件にまとまり、使われる場所はすべて配置へ残る。元画像のリサイズ、再圧縮、形式やメタデータの変更は別IDになる。類似画像の判定ではない。
+
+`source` は `slide` / `master` / `layout`、`sourceId` はその元のページ・マスター・レイアウトのID。適用中のレイアウト装飾を含め、マスター装飾はページとレイアウトの両方で `showMasterShapes` が `false` でない場合に含む。この設定でマスター装飾を非表示にしても、レイアウト装飾は収集される。未使用カタログやプレースホルダー原型は除く。ページ自身の画像は透明度0や画面外も含む。背景を含むページ全体を画像化する `render-images.mjs` とは別の取得操作。
+
+既定はアニメーション終了後の配置。`--include-animations` を併用すると `animationState: "initial"` で保存された元の配置を返す。この取得モードではアニメーション定義は返さない。tweenの `from` を適用した再生時刻0のフレームとも区別する。取得オプションの併用は `--compact-summary` / `--include-animations` のみ。ページ・要素・マスター・レイアウト指定、`--overview`、`--include-data`、ページングは併用不可。Slideの `inspect` 専用でファイルは変更しない。
+
+1 MiBの出力上限を超えると部分的な一覧ではなく `RESPONSE_TOO_LARGE` を返す。`--compact-summary` でも配置情報自体が大きすぎる場合、ホストで公開APIを呼び必要な情報に絞る。モデルAPIは `images` に `src` も返すので、画像ごとの解析を1回だけ行い、結果を `imageId` で全配置へ対応付けられる。解析サービスの接続・認証・結果キャッシュはホストの責務。キャッシュには画像IDと解析モデル・版・プロンプト・オプションを含める。詳しい例とWeb Cryptoの動作条件は[画像の収集と重複判定](../../../src/docs/image-analysis.md)を参照する。

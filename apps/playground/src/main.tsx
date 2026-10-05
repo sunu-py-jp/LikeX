@@ -12,6 +12,7 @@ const demos = {
   "spreadsheet/ribbon": lazy(() => import("./spreadsheet-ribbon-demo")),
   "spreadsheet/ai": lazy(() => import("./spreadsheet-ai-demo")),
   slide: lazy(() => import("./slide-demo")),
+  "slide/pdf": lazy(() => import("./slide-pdf-demo")),
   "slide/ribbon": lazy(() => import("./office-ribbon-demo").then(module => ({ default: module.SlideRibbonDemo }))),
   "slide/ai": lazy(() => import("./slide-ai-demo")),
   document: lazy(() => import("./document-demo")),

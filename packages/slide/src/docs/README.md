@@ -2,6 +2,8 @@
 
 LikeSlideはスライドをJSONで保持するReactコンポーネントです。標準ファイルは `.slon` で、中身はJSONです。保存先への通信は親アプリに任せ、編集はクライアント側の下書きとして扱います。
 
+PDFを同じ外観で閲覧する場合は、[PDFの閲覧](pdf-viewer.md)の `LikeSlidePdfViewer` を使います。閲覧時だけPDF.js等の描画エンジンをホストから注入します。
+
 ## パッケージで使う
 
 CoreとSlideのtarballをインストールします。npmレジストリへの公開は未実施です。
@@ -74,4 +76,4 @@ Coreへの参照は `slide/core.ts` に集約されています。`browser.ts`�
 
 `primaryColor` は一番上のタイトルバー・保存ボタン・選択表示などのUI色です。文字色や選択色は読みやすさに合わせて調整します。値を変更すれば表示へ即時反映され、スライド内の文字・図形・背景の色や保存するJSONは変わりません。未指定・不正な値は既定色を使用します。`style` で明示したCSS変数は優先します。
 
-[リボンの表示](ribbon-display.md) · [編集](editing.md) · [保存とイベント](lifecycle.md) · [コマンドとJSON](commands.md) · [自由な資料設計とSVG](freeform-design.md) · [PowerPoint入出力](powerpoint.md) · [PNG画像の書き出し](image-export.md) · [アニメーション](animations.md)
+[リボンの表示](ribbon-display.md) · [編集](editing.md) · [保存とイベント](lifecycle.md) · [コマンドとJSON](commands.md) · [自由な資料設計とSVG](freeform-design.md) · [PowerPoint入出力](powerpoint.md) · [PNG画像の書き出し](image-export.md) · [画像の収集と重複判定](image-analysis.md) · [アニメーション](animations.md)

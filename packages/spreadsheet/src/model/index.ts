@@ -10,6 +10,8 @@ export { parseTsv, stringifyTsv } from "./tsv";
 export { workbooksEqual } from "./equality";
 export { getDrawingBounds, getDrawingPlacement } from "./drawing-placement";
 export type { SpreadsheetDrawingBounds, SpreadsheetDrawingPlacement, SpreadsheetDrawingPlacementOptions } from "./drawing-placement";
+export { collectSpreadsheetImages } from "./image-collection";
+export type { SpreadsheetImageAsset, SpreadsheetImagePlacement, SpreadsheetImageCollection, SpreadsheetImageCollectionOptions } from "./image-collection";
 export { getCell, getRange, getSheet, getDrawing, getImage, getShape, getTextBox, getImageResource, getCellComment,
   getNamedRange, getRangeByName, getTable, getTableByName,
   getSheets, getSheetCells, getNamedRanges, getDrawings, getImages, getShapes, getTextBoxes, getTables } from "./query";

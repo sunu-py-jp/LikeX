@@ -13,3 +13,7 @@ export { exportSlidePptx } from "./export/export-pptx-browser";
 export type { SlidePptxExportOptions, SlideSvgRasterizer, SlideSvgRasterizeRequest } from "./export/types";
 export type { SlidePptxDiagnostic, SlidePptxDiagnosticCode, SlidePptxDiagnosticLocation } from "./office/types";
 export * from "./render-entry";
+export { LikeSlidePdfViewer } from "./pdf/pdf-viewer";
+export type { SlidePdfViewerProps, SlidePdfViewerHandle } from "./pdf/viewer-types";
+export { createSlidePdfLoader, SLIDE_PDF_LIMITS } from "./pdf/pdfjs-loader";
+export type { SlidePdfLoader, SlidePdfDocument, SlidePdfPage, SlidePdfInput, SlidePdfJsModule, SlidePdfLoaderOptions, SlidePdfRenderOptions } from "./pdf/types";

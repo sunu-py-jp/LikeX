@@ -44,6 +44,11 @@
       "types": "./dist/types/text-search.d.ts",
       "import": "./dist/text-search.js",
       "default": "./dist/text-search.js"
+    },
+    "./image-assets": {
+      "types": "./dist/types/image-assets.d.ts",
+      "import": "./dist/image-assets.js",
+      "default": "./dist/image-assets.js"
     }
   },
   "files": [

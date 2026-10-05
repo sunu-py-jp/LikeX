@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -110,4 +111,65 @@ test('imported layouts are discoverable and inherited decorations remain separat
   assert.equal((await query(['--layout-id', 'absent'])).json.error.code, 'NOT_FOUND');
   assert.equal((await query(['--layout-id', layoutId, '--slide-id', 'page'])).json.error.code, 'USAGE');
   assert.equal((await query(['--layout-id', layoutId, '--include-animations'])).json.error.code, 'USAGE');
+});
+
+test('image inspection deduplicates bytes, preserves placements and never returns image payloads', async () => {
+  const src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6xkAAAAASUVORK5CYII=';
+  const bytes = Buffer.from(src.split(',')[1], 'base64'), imageId = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+  const deck = model.createSlideDeck({ slides: [
+    { id: 'first', name: 'First', background: '#ffffff', notes: '', elements: [
+      model.createSlideElement({ id: 'small', type: 'image', src, name: 'Logo', alt: 'Brand mark', x: 12, width: 30, height: 20, opacity: 0 }),
+    ], animations: [{ id: 'grow', animation: { type: 'tween', elementId: 'small', durationMs: 300, from: { x: 0 }, to: { x: 80, width: 90, opacity: 1 } } }] },
+    { id: 'second', name: 'Second', background: '#ffffff', notes: '', elements: [
+      model.createSlideElement({ id: 'large', type: 'image', src, x: 200, width: 300, height: 200 }),
+    ] },
+  ] });
+  const imageFile = path.join(temporary, 'image-deck.slon'), before = model.serializeSlideDeck(deck);
+  await writeFile(imageFile, before);
+  const query = args => run(['inspect', '--input', imageFile, '--images', ...args]);
+  const final = await query([]);
+  assert.equal(final.status, 0, JSON.stringify(final.json));
+  assert.deepEqual(final.json.selection.images, [{ imageId, mimeType: 'image/png', byteLength: bytes.length }]);
+  assert.deepEqual(final.json.selection.placements.map(item => [item.imageId, item.slideId, item.pageNumber, item.elementId, item.source, item.sourceId, item.x, item.width, item.opacity]), [
+    [imageId, 'first', 1, 'small', 'slide', 'first', 80, 90, 1],
+    [imageId, 'second', 2, 'large', 'slide', 'second', 200, 300, 1],
+  ]);
+  assert.equal(final.json.selection.placements[0].name, 'Logo'); assert.equal(final.json.selection.placements[0].alt, 'Brand mark');
+  assert.doesNotMatch(JSON.stringify(final.json), /base64|iVBORw0KGgo|"src"|"dataUrl"/);
+  const initial = await query(['--include-animations', '--compact-summary']);
+  assert.equal(initial.status, 0, JSON.stringify(initial.json));
+  assert.equal(initial.json.selection.placements[0].x, 12); assert.equal(initial.json.selection.placements[0].width, 30); assert.equal(initial.json.selection.placements[0].opacity, 0);
+  assert.deepEqual(initial.json.selection.images, final.json.selection.images);
+  assert.equal(initial.json.summary.slides, undefined); assert.equal(initial.json.animations, undefined);
+  assert.equal(await readFile(imageFile, 'utf8'), before);
+  const empty = await inspect(['--images', '--compact-summary']);
+  assert.equal(empty.status, 0); assert.deepEqual(empty.json.selection, { images: [], placements: [] });
+});
+
+test('image inspection rejects other selectors, other operations and other modules', async () => {
+  for (const selector of [['--overview'], ['--slide-id', 'cover'], ['--element-id', 'heading'], ['--master-id', 'brand'], ['--layout-id', 'layout'], ['--include-data'], ['--offset', '0']]) {
+    const result = await inspect(['--images', ...selector]);
+    assert.equal(result.status, 1); assert.equal(result.json.error.code, 'USAGE', JSON.stringify(result.json));
+  }
+  for (const operation of ['validate', 'create', 'apply']) {
+    const options = operation === 'create' ? ['--dry-run'] : ['--input', input, ...(operation === 'apply' ? ['--commands', input, '--dry-run'] : [])];
+    const result = await run([operation, ...options, '--images']);
+    assert.equal(result.status, 1); assert.equal(result.json.error.code, 'USAGE');
+  }
+  const other = path.join(temporary, 'board-images.mjs'); await writeFile(other, await generatedSkillScript('board'));
+  const unsupported = await run(['inspect', '--input', input, '--images'], other);
+  assert.equal(unsupported.status, 1); assert.equal(unsupported.json.error.code, 'USAGE');
+  const help = await run(['--help']);
+  assert.ok(help.json.usage.some(line => line.includes('--images returns') && line.includes('SHA-256')));
+});
+
+test('image inspection keeps the response-size guard and returns no partial image report', async () => {
+  const src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6xkAAAAASUVORK5CYII=';
+  const deck = model.createSlideDeck({ slides: [{ id: 'many-images', name: 'Images', background: '#ffffff', notes: '', elements:
+    Array.from({ length: 110 }, (_, index) => model.createSlideElement({ id: `image-${index}`, type: 'image', src, alt: 'a'.repeat(10_000) })),
+  }] });
+  const file = path.join(temporary, 'large-image-report.slon'); await writeFile(file, model.serializeSlideDeck(deck));
+  const result = await run(['inspect', '--input', file, '--images', '--compact-summary']);
+  assert.equal(result.status, 1); assert.equal(result.json.error.code, 'RESPONSE_TOO_LARGE');
+  assert.equal(result.json.selection, undefined);
 });

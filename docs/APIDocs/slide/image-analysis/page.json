@@ -1,0 +1,9 @@
+{
+  "title": "画像の収集と重複判定",
+  "summary": "埋め込み画像をSHA-256でまとめ、配置情報と分けて取得し、ホスト側の画像解析に渡します。",
+  "source": "packages/slide/src/docs/image-analysis.md",
+  "order": 46,
+  "section": "読み込みと出力",
+  "keywords": ["LikeSlide", "collectSlideImages", "imageId", "SHA-256", "画像解析", "重複", "placements", "images"],
+  "screenshots": []
+}

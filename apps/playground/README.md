@@ -15,6 +15,7 @@ LikeXの操作・見た目を確認するVite + Reactのデモです。通常の
 | `/slide` | LikeSlide。スライド・図形・テキスト・アニメーションを編集します。 |
 | `/slide/ribbon` | LikeSlideのリボン4モードを切り替えます。`?ribbon=hidden` でタブも含めて完全非表示で開きます。 |
 | `/slide/ai` | 保存済み資料の一覧と新規作成。開いた資料をLikeSlide＋LikeAIChatで編集します。 |
+| `/slide/pdf` | PowerPoint風UIでPDFを閲覧します。3ページのサンプルとローカルPDFの選択、ページ移動・ズームを試せます。 |
 | `/document` | LikeDocument。文章・書式・表・画像・図形を編集します。 |
 | `/document/ribbon` | LikeDocumentのリボン4モードを切り替えます。`?ribbon=hidden` でタブも含めて完全非表示で開きます。 |
 

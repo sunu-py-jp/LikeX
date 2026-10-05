@@ -193,10 +193,10 @@
         "textColor": {
           "type": "string"
         },
-        "alt": {
+        "src": {
           "type": "string"
         },
-        "src": {
+        "alt": {
           "type": "string"
         }
       },

@@ -1,7 +1,8 @@
 import {
   applySpreadsheetCommands, createWorkbook, setCellBorders, type SpreadsheetBorderPreset, parseWorkbook, serializeWorkbook, expandCellAddresses, CellAddressExpansionError,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
-  createSpreadsheetSession, copySpreadsheetCells, importSpreadsheetXlsx, exportSpreadsheetXlsx,
+  createSpreadsheetSession, copySpreadsheetCells, importSpreadsheetXlsx, exportSpreadsheetXlsx, collectSpreadsheetImages,
+  type SpreadsheetImageCollection, type SpreadsheetImageCollectionOptions, type SpreadsheetImageAsset, type SpreadsheetImagePlacement,
   getSheets, getSheetCells, type SpreadsheetStoredCell, getSheetReader, getNamedRange, getRangeByName, findSpreadsheetSheets, findSpreadsheetCells,
   type SpreadsheetSheetSearchQuery, type SpreadsheetSheetSearchMatch, type SpreadsheetSearchOptions, type SpreadsheetSearchMatch,
   type SpreadsheetTable, type SpreadsheetTableColumn, type SpreadsheetSheetReadApi, type SpreadsheetCellGridWriteOptions,
@@ -11,6 +12,14 @@ import {
   SPREADSHEET_FILE_VERSION, type SpreadsheetFile, type SpreadsheetFileRow,
   type SpreadsheetSession, type SpreadsheetSessionOptions, type SpreadsheetHistoryState, type SpreadsheetPastePayload,
 } from '__MODEL_IMPORT__';
+
+const imageCollectionOptions: SpreadsheetImageCollectionOptions = {};
+const imageCollection: Promise<SpreadsheetImageCollection> = collectSpreadsheetImages(createWorkbook(), imageCollectionOptions);
+void imageCollection.then(collection => {
+  const image: SpreadsheetImageAsset | undefined = collection.images[0];
+  const placement: SpreadsheetImagePlacement | undefined = collection.placements[0];
+  return [image?.imageId, placement?.sheetIndex, placement?.anchor.row];
+});
 
 const expandedAddresses: readonly string[] = expandCellAddresses(createWorkbook().sheets[0], ['A1', '$b$2:$c$3']);
 const expansionFailure = new CellAddressExpansionError(1, 'A0:B2', 'invalid range');

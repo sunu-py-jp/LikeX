@@ -34,6 +34,12 @@ export type SlideHandle = {
   getDeck(options?: SlideQueryOptions): SlideDeck;
   getSlides(options?: SlideQueryOptions): Slide[];
   getSlide(slideId: string, options?: SlideQueryOptions): Slide | undefined;
+  /** One-based number of the active page in the current deck order. */
+  getPageNumber(): number;
+  /** One-based selected page numbers in deck order; returns a detached array. */
+  getSelectedPageNumbers(): number[];
+  /** Selected pages in deck order. Returns detached copies; defaults to the final static state. */
+  getSelectedSlides(options?: SlideQueryOptions): Slide[];
   getElements(slideId: string, options?: SlideQueryOptions): SlideElement[];
   getElement(slideId: string, elementId: string, options?: SlideQueryOptions): SlideElement | undefined;
   getAnimations(slideId: string): SlideAnimationStep[];

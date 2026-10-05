@@ -1,10 +1,12 @@
 import { createRef } from "react";
-import LikeDocument, { createDocument, executeDocumentCommands, createDocumentSession,
-  type DocumentProps, type DocumentHandle, type DocumentCommand } from "__LIBRARY_IMPORT__";
+import LikeDocument, { createDocument, executeDocumentCommands, createDocumentSession, collectDocumentImages,
+  type DocumentProps, type DocumentHandle, type DocumentCommand, type DocumentImageCollection } from "__LIBRARY_IMPORT__";
 const document = createDocument({ title: "LikeDocument consumer" });
 const command: DocumentCommand = { type: "text.insert", from: 1, text: "Document consumer content" };
 const updated = executeDocumentCommands(document, command);
 const session = createDocumentSession(updated.document);
+const collectedImages: Promise<DocumentImageCollection> = collectDocumentImages(updated.document, { signal: new AbortController().signal });
+void collectedImages;
 session.undo(); session.markSaved();
 const props: DocumentProps = { initialDocument: document, colorMode: "system", primaryColor: "#2563eb",
   features: { images: false }, onSave: async current => current,

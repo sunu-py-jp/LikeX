@@ -65,6 +65,8 @@ const cells: readonly SpreadsheetStoredCell[] = getSheetCells(workbook, sheetId)
 
 ## IDで画像・図形を取得する
 
+ブック全体の元画像を重複なく読みたい場合は、非同期の `collectSpreadsheetImages(workbook, { signal? })` を使います。同じ画像は `images` に1件、使用先は `placements` にすべて残ります。未使用リソースは対象外で、シートと描画の順を保ちます。[元画像と配置の収集](./image-collection.md)を参照してください。
+
 ```ts
 import { getImage, getImageResource, type SpreadsheetWorkbookSnapshot } from "@likex/spreadsheet/model";
 

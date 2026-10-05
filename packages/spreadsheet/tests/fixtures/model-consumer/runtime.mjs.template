@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { applySpreadsheetCommands, parseWorkbook, serializeWorkbook, createWorkbook, setCellBorders, setCellValues,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
   createSpreadsheetSession, copySpreadsheetCells, getSheets, getSheetReader, getNamedRange, getRangeByName,
-  importSpreadsheetXlsx, exportSpreadsheetXlsx } from '__MODEL_IMPORT__';
+  importSpreadsheetXlsx, exportSpreadsheetXlsx, collectSpreadsheetImages } from '__MODEL_IMPORT__';
 
 const require = createRequire(import.meta.url);
 assert.throws(() => require.resolve('react'), { code: 'MODULE_NOT_FOUND' });
@@ -62,6 +62,13 @@ const withImage = applySpreadsheetCommands(original, [{ type: 'images.insert', s
   resource: { name: 'sample.png', mimeType: 'image/png', width: 1, height: 1,
     dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVZkAAAAASUVORK5CYII=' } }]);
 assert.equal(withImage.ok, true);
+const imageCollection = await collectSpreadsheetImages(withImage.workbook);
+assert.equal(imageCollection.images.length, 1);
+assert.match(imageCollection.images[0].imageId, /^sha256:[a-f0-9]{64}$/);
+assert.equal(imageCollection.placements[0].imageId, imageCollection.images[0].imageId);
+assert.equal(imageCollection.placements[0].sheetIndex, 0);
+assert.equal(imageCollection.placements[0].alt, '説明画像');
+assert.equal(imageCollection.placements[0].resourceId, withImage.results[0].resourceId);
 const image = withImage.results[0];
 assert.deepEqual(image.placement, { nextRow: 10, nextColumn: 3 });
 const bounds = getDrawingBounds(withImage.workbook, 'sheet-1', image.drawingId);

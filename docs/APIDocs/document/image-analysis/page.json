@@ -1,0 +1,9 @@
+{
+  "title": "画像の収集と重複判定",
+  "summary": "本文・表・リスト内の埋め込み画像をまとめ、ブロックIDと位置を保ってホストの解析へ渡します。",
+  "source": "packages/document/src/docs/image-analysis.md",
+  "order": 35,
+  "section": "親アプリとの連携",
+  "keywords": ["LikeDocument", "collectDocumentImages", "DocumentImageAsset", "DocumentImagePlacement", "SHA-256", "画像解析", "重複", "DOCX"],
+  "screenshots": []
+}

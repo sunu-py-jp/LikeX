@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createDocument, executeDocumentCommands, getDocumentText, getBlock, getBlocks, getImages,
-  serializeDocument, parseDocument, createDocumentSession, importDocumentDocx, exportDocumentDocx } from "__MODEL_IMPORT__";
+  serializeDocument, parseDocument, createDocumentSession, importDocumentDocx, exportDocumentDocx, collectDocumentImages } from "__MODEL_IMPORT__";
 
 assert.equal(typeof window, "undefined");
 assert.equal(typeof document, "undefined");
@@ -16,6 +16,15 @@ assert.equal(getDocumentText(original), "", "commands leave the source unchanged
 assert.equal(getDocumentText(result.document), "Headless content");
 assert.equal(getBlock(result.document, first.id).contentTo, 17);
 assert.deepEqual(getImages(result.document), []);
+assert.deepEqual(await collectDocumentImages(result.document), { images: [], placements: [] });
+const pixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6xkAAAAASUVORK5CYII=';
+const imageDocument = createDocument({ content: { type: 'doc', content: [
+  { type: 'image', attrs: { id: 'small', src: pixel, width: 20, height: 20 } },
+  { type: 'image', attrs: { id: 'large', src: pixel, width: 100, height: 100 } },
+] } });
+const collected = await collectDocumentImages(imageDocument);
+assert.equal(collected.images.length, 1); assert.match(collected.images[0].imageId, /^sha256:[a-f0-9]{64}$/);
+assert.deepEqual(collected.placements.map(({ blockId, width }) => ({ blockId, width })), [{ blockId: 'small', width: 20 }, { blockId: 'large', width: 100 }]);
 assert.deepEqual(parseDocument(serializeDocument(result.document)), result.document);
 assert.equal(serializeDocument(parseDocument(serializeDocument(result.document))), serializeDocument(result.document));
 assert.throws(() => parseDocument(JSON.stringify({ ...result.document, version: 2 })));

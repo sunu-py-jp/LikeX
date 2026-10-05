@@ -60,6 +60,25 @@ Coreは複数のコンポーネントで共有できます。LikeDocumentのPros
 
 ブラウザーの共通メニューは `openContextMenu` と `ContextMenuAction` / `ContextMenuSurfaceOptions` 型を `@likex/core` または `@likex/core/browser` から読み込んで使います。両入口は同じ実装を共有し、import時はDOMへアクセスしません。メニューの表示にはDOMが必要です。
 
+## 埋め込み画像の共通ID
+
+Spreadsheet・LikeSlide・LikeDocumentの `collectSpreadsheetImages` / `collectSlideImages` / `collectDocumentImages` は、共通の `collectEmbeddedImageAssets` を使います。同じ画像バイトなら資料形式をまたいでも同じ `sha256:...` のIDとなり、ホストが画像ごとの解析結果を再利用できます。配置や名前、表示サイズはIDに含めません。画像を再圧縮・リサイズした場合や、メタデータが異なる場合は別のIDです。
+
+Coreの関数と型は `@likex/core` と `@likex/core/image-assets` の両方から利用できます。後者はDOM型を含まない入口で、ブラウザーの型定義を読み込まないNodeプロジェクトにも対応します。ソースコピー時に変更する入口は従来どおり各モジュールの `core.ts` だけです。
+
+```ts
+import { collectEmbeddedImageAssets } from "@likex/core";
+
+// 各モデル等で内容を検証済みの画像データURLを渡します。
+const result = await collectEmbeddedImageAssets([imageSource, imageSource], { signal });
+// result.images: 重複を除いた { imageId, src, mimeType, byteLength }[]
+// result.imageIds: 入力順のID配列。上記の2要素には同じIDが入ります。
+```
+
+Coreの関数はbase64形式と容量を検証しますが、画像ファイルの実体・SVGの安全性を検証するものではありません。通常は各モジュールの収集APIを使い、既存のモデル検証を通してください。画素へのデコード・描画・外部通信は行わず、ブラウザーのWeb Crypto（HTTPS / localhost）またはNode.js 22.13以降で動きます。`signal` による中断と不正な入力はPromiseをrejectし、部分結果を返しません。入力文字列は最初の非同期処理前に取り込みます。
+
+共通の `IMAGE_ASSET_LIMITS` は入力100,000件、画像1件10MiB、異なるデータURLの合計100MiBです。モジュールから呼ぶ場合は、各モデルのより小さい上限も維持します。`EmbeddedImageAsset` / `EmbeddedImageCollection` / `EmbeddedImageCollectionOptions` を公開します。保存形式にハッシュは追加せず、解析サービスへの送信・キャッシュの所有者はホストです。
+
 ## どのページを読むか
 
 | やりたいこと | API |

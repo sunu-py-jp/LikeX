@@ -19,9 +19,10 @@ const officeDeclarationBridgeTargets = {
   'ooxml.d.ts': { from: './core', to: '@likex/core/ooxml', expectedExports: 2 },
   'model/core-connectors.d.ts': { from: '../core', to: '@likex/core/connectors', expectedExports: 2 },
   'model/core-office-shapes.d.ts': { from: '../core', to: '@likex/core/office-shapes', expectedExports: 2 },
+  'model/core-image-assets.d.ts': { from: '../core', to: '@likex/core/image-assets', expectedExports: 2 },
 };
 const modules = {
-  core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [], headlessDependencies: ['re2js'], headlessEntries: { ooxml: 'ooxml.ts', json: 'json.ts', connectors: 'connectors.ts', 'office-shapes': 'office-shapes.ts', 'text-search': 'text-search.ts' }, browserEntries: { browser: 'browser.ts' } },
+  core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [], headlessDependencies: ['re2js'], headlessEntries: { ooxml: 'ooxml.ts', json: 'json.ts', connectors: 'connectors.ts', 'office-shapes': 'office-shapes.ts', 'text-search': 'text-search.ts', 'image-assets': 'image-assets.ts' }, browserEntries: { browser: 'browser.ts' } },
   explorer: {
     ui: true,
     headlessEntries: { model: 'model-entry.ts' },

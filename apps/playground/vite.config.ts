@@ -4,6 +4,7 @@ import { defineConfig } from "vite";
 import { explorerStyles } from "./build/explorer-styles.ts";
 import { licenseInventory } from "./build/license-inventory.ts";
 import { aiPlayground } from "./build/ai-playground.ts";
+import { pdfAssets } from "./build/pdf-assets.ts";
 
 const workspaceRoot = fileURLToPath(new URL("../..", import.meta.url));
 const coreSource = fileURLToPath(new URL("../../packages/core/src/index.ts", import.meta.url));
@@ -13,7 +14,7 @@ const documentSource = fileURLToPath(new URL("../../packages/document/src/index.
 const slideSource = fileURLToPath(new URL("../../packages/slide/src/index.ts", import.meta.url));
 
 export default defineConfig({
-  plugins: [aiPlayground(), explorerStyles(), react(), licenseInventory()],
+  plugins: [aiPlayground(), explorerStyles(), react(), pdfAssets(), licenseInventory()],
   resolve: {
     // Develop the library directly without a separate dist build or watcher.
     alias: [

@@ -17,6 +17,8 @@ Node.js **22.13以降**と、このskillに対応する版の `@likex/spreadshee
 
 新規作成には `create` を使う。既存ファイルはまず `inspect --overview` でブック全体の件数だけを確認する。続いて必要なシートを `inspect --search sheets --text ...` で探すか、通常の `inspect` でID一覧を取得し、対象シートのセルだけを `--sheet-id ID --include-data` でページ取得する。単一セル・特定範囲は `--range` で読む。[取得・検索の説明](references/inspect.md)で用途に合う読み方を選び、全シートの本文を最初から展開しない。対象のシートID・描画ID・表・名前付き範囲を取得し、[コマンドの説明](references/commands.md)の該当部分を読んでJSON配列を作る。ファイル全体を手書きする場合や保存構造を確認する場合は、[SPONの構造](references/schema-guide.md)を読む。
 
+画像を解析する場合は、公開APIの `collectSpreadsheetImages(workbook, { signal? })` で元画像と配置先を収集する。`images` を1件ずつ解析し、結果を `imageId` で `placements` に対応付ける。異なる `resourceId`・名前・位置・サイズでも元バイト列が同じなら1画像になり、全配置を保持する。未使用リソースは含めない。保存用のリソースIDや描画IDをハッシュへ置き換えない。[画像収集の契約](../../src/docs/image-collection.md)と[取得ガイド](references/inspect.md#画像を一度ずつ解析する)を参照する。
+
 以下の `skill_dir` はこのSKILL.mdのあるフォルダ、`project_dir` は対応ランタイムを利用できるプロジェクトの**絶対パス**に置き換える。入力・出力・コマンドファイルの相対パスは、実行時の作業ディレクトリから解決される。`--project` はその基準を変えない。
 
 ```bash
