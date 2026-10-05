@@ -47,6 +47,9 @@ Coreへの参照は `slide/core.ts` に集約されています。`browser.ts`�
 | `readOnly` | `boolean` | `onSave` の有無に従う |
 | `colorMode` | `"light" / "dark" / "system"` | ライト |
 | `primaryColor` | `string`（`#RGB` / `#RRGGBB`） | オレンジ |
+| `initialRibbonDisplayMode` | `SlideRibbonDisplayMode` | 初回は `expanded` |
+| `ribbonDisplayMode` | `SlideRibbonDisplayMode` | 省略時は内部管理 |
+| `onRibbonDisplayModeChange` | `(mode) => void` | 制御中の変更要求を通知 |
 | `title` | `string` | 資料のタイトルを利用 |
 | `exportFileName` | `string` | 資料のタイトルをダウンロード名に利用。`.slon` / `.json` / `.pptx` の末尾は出力形式に合わせて置換 |
 | `style` / `className` | Reactの標準型 | 親側で高さを指定 |
@@ -71,4 +74,4 @@ Coreへの参照は `slide/core.ts` に集約されています。`browser.ts`�
 
 `primaryColor` は一番上のタイトルバー・保存ボタン・選択表示などのUI色です。文字色や選択色は読みやすさに合わせて調整します。値を変更すれば表示へ即時反映され、スライド内の文字・図形・背景の色や保存するJSONは変わりません。未指定・不正な値は既定色を使用します。`style` で明示したCSS変数は優先します。
 
-[編集](editing.md) · [保存とイベント](lifecycle.md) · [コマンドとJSON](commands.md) · [自由な資料設計とSVG](freeform-design.md) · [PowerPoint入出力](powerpoint.md) · [PNG画像の書き出し](image-export.md) · [アニメーション](animations.md)
+[リボンの表示](ribbon-display.md) · [編集](editing.md) · [保存とイベント](lifecycle.md) · [コマンドとJSON](commands.md) · [自由な資料設計とSVG](freeform-design.md) · [PowerPoint入出力](powerpoint.md) · [PNG画像の書き出し](image-export.md) · [アニメーション](animations.md)

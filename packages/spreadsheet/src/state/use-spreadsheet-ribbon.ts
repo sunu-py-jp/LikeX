@@ -1,21 +1,14 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { notifyHost } from "../core";
+import { isRibbonDisplayMode, normalizeRibbonDisplayMode, notifyHost } from "../core";
 import type { SpreadsheetProps, SpreadsheetRibbonDisplayMode } from "../props";
-
-function isRibbonDisplayMode(value: unknown): value is SpreadsheetRibbonDisplayMode {
-  return value === "expanded" || value === "tabs" || value === "autoHide" || value === "hidden";
-}
-function normalizeMode(value: unknown): SpreadsheetRibbonDisplayMode {
-  return isRibbonDisplayMode(value) ? value : "expanded";
-}
 
 /** Ribbon presentation never requests an editing lease or changes the saved workbook. */
 export function useSpreadsheetRibbon(props: SpreadsheetProps) {
   const controlled = props.ribbonDisplayMode !== undefined;
-  const [localMode, updateMode] = useState(() => normalizeMode(props.ribbonDisplayMode ?? props.initialRibbonDisplayMode));
-  const ribbonDisplayMode = controlled ? normalizeMode(props.ribbonDisplayMode) : localMode;
+  const [localMode, updateMode] = useState(() => normalizeRibbonDisplayMode(props.ribbonDisplayMode ?? props.initialRibbonDisplayMode));
+  const ribbonDisplayMode = controlled ? normalizeRibbonDisplayMode(props.ribbonDisplayMode) : localMode;
   // Derive the fallback before commit so releasing host control retains its last displayed mode.
   if (controlled && localMode !== ribbonDisplayMode) updateMode(ribbonDisplayMode);
   const current = useRef(ribbonDisplayMode);

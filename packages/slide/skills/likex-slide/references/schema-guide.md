@@ -144,3 +144,5 @@ JSON内のアニメーションは宣言的データであり、JavaScriptや数
 任意の `deck.masters` は `{ id, name, background, elements }`、`deck.layouts` は `{ id, masterId, name, background?, elements, placeholders, showMasterShapes? }` の配列。`placeholders` は `{ id, kind, element }` の配列で、elementは欄の原型。マスターとレイアウトの装飾 `elements` にも保存用 `stackOrder` が必要だが、単体の原型 `placeholder.element` には不要。
 
 ページの `layoutId` がレイアウトを指す。`inheritBackground` がtrueなら共通背景を使い、`showMasterShapes: false` はマスターの装飾を非表示にする。ページ自身の欄は普通の要素に `layoutPlaceholderId` を付けて保持する。旧来のカタログなしSLONは変更不要で、parse/serializeは存在しないカタログを勝手に追加しない。必ず参照と上限を検証する公開APIを通す。
+
+リボン表示モードはホストUIの設定で、SLONには含めません。`expanded` / `tabs` / `autoHide` / `hidden` の切り替えはReactのprops/refで行い、資料の検証・履歴・PPTX入出力を変更しません。

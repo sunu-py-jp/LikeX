@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
 import type { SpreadsheetCellPosition, SpreadsheetWorkbook } from "./model/types";
 import type { SpreadsheetHandle } from "./api/types";
-import type { ContextMenuExecutionMode } from "./core";
+import type { ContextMenuExecutionMode, RibbonDisplayMode } from "./core";
 import type { SpreadsheetContextMenuProvider } from "./api/context-menu";
 import type { SpreadsheetFeatures } from "./api/features";
 import type { SpreadsheetBeforeSaveHandler, SpreadsheetEditHandler, SpreadsheetEventHandler, SpreadsheetRefreshHandler, SpreadsheetSaveHandler } from "./api/lifecycle";
@@ -11,7 +11,7 @@ export type { SpreadsheetSaveHandler } from "./api/lifecycle";
 export type SpreadsheetColorMode = "light" | "dark" | "system";
 
 /** View-only ribbon presentation; never stored in the workbook or its history. */
-export type SpreadsheetRibbonDisplayMode = "expanded" | "tabs" | "autoHide" | "hidden";
+export type SpreadsheetRibbonDisplayMode = RibbonDisplayMode;
 
 export type SpreadsheetSelectionRange = Readonly<{
   anchor: Readonly<SpreadsheetCellPosition>;

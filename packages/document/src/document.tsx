@@ -64,6 +64,10 @@ export default function LikeDocument(props: DocumentProps) {
     const target = event.target as HTMLElement;
     if (event.nativeEvent.isComposing || target.closest(".lxd-dialog")) return;
     const mod = event.ctrlKey || event.metaKey, key = event.key.toLowerCase();
+    if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && key === "f1") {
+      if (editor.ribbonDisplayMode !== "hidden") { event.preventDefault(); event.stopPropagation(); editor.setRibbonDisplayMode(editor.ribbonDisplayMode === "expanded" ? "tabs" : "expanded"); }
+      return;
+    }
     if (!mod) return;
     if (target.closest("input:not([type=color]):not([type=range]):not([type=checkbox]),textarea") && key !== "s") return;
     if (key === "s") { event.preventDefault(); event.stopPropagation(); void editor.save(); }

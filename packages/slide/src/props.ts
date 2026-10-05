@@ -1,5 +1,5 @@
 import type { CSSProperties, Ref } from "react";
-import type { MaybePromise, OperationContext, SaveHandler } from "./core";
+import type { MaybePromise, OperationContext, SaveHandler, RibbonDisplayMode } from "./core";
 import type { Slide, SlideElement, SlideCommand, SlideCommandResult, SlideDeck, SlideMaster, SlideLayout } from "./model/types";
 import type { SlideAnimationStep, SlideQueryOptions } from "./model";
 import type { SlideConditionalEdit, SlideConditionalEditResult, SlideMutationSnapshot, SlideMutationToken } from "./model";
@@ -8,6 +8,8 @@ import type { SlidePptxExportOptions } from "./export/types";
 import type { SlideImageExportOptions, SlideImagesExportOptions } from "./render/browser-export";
 import type { SlideImageResult } from "./render/types";
 import type { SlidePptxDiagnostic } from "./office/types";
+
+export type SlideRibbonDisplayMode = RibbonDisplayMode;
 
 export type SlideFeatures = Partial<Record<"addSlides" | "deleteSlides" | "reorderSlides" | "text" | "shapes" | "images" | "formatting" | "masters" | "animations" | "notes" | "import" | "export" | "presentation" | "history", boolean>>;
 export type SlideConditionalEditOptions = Readonly<{ expected?: SlideMutationToken; signal?: AbortSignal }>;
@@ -25,6 +27,9 @@ export type SlideEvent =
   | { type: "conversion"; phase: "import" | "export"; warnings: readonly string[]; diagnostics: readonly SlidePptxDiagnostic[] }
   | { type: "edit-mode"; mode: "view" | "requesting" | "edit" };
 export type SlideHandle = {
+  getRibbonDisplayMode(): SlideRibbonDisplayMode;
+  /** Requests a view-only change; controlled props determine acceptance. */
+  setRibbonDisplayMode(mode: SlideRibbonDisplayMode): boolean;
   /** Defaults to the final static state. Pass includeAnimations:true for editable source data. */
   getDeck(options?: SlideQueryOptions): SlideDeck;
   getSlides(options?: SlideQueryOptions): Slide[];
@@ -76,6 +81,11 @@ export type SlideProps = {
   onSelectionChange?: (selection: SlideSelection) => void;
   onEvent?: (event: SlideEvent) => MaybePromise<void>;
   readOnly?: boolean;
+  /** Initial presentation, read once. Default: expanded. */
+  initialRibbonDisplayMode?: SlideRibbonDisplayMode;
+  /** Controlled presentation. Without a callback, UI/API changes are locked. */
+  ribbonDisplayMode?: SlideRibbonDisplayMode;
+  onRibbonDisplayModeChange?: (mode: SlideRibbonDisplayMode) => void;
   warnOnUnsavedChanges?: boolean;
   features?: SlideFeatures;
   colorMode?: "light" | "dark" | "system";

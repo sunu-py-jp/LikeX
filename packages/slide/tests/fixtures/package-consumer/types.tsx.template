@@ -72,3 +72,12 @@ const svgImage: SlideCommand = { type: 'element.add', slideId: deck.slides[0].id
 declare const svgRasterizer: SlideSvgRasterizer;
 void ref.current?.execute(svgImage);
 void ref.current?.exportPptx({ rasterizeSvg: svgRasterizer });
+
+import type { SlideRibbonDisplayMode } from "__LIBRARY_IMPORT__";
+const ribbonModes: SlideRibbonDisplayMode[] = ['expanded', 'tabs', 'autoHide', 'hidden'];
+const ribbonProps: SlideProps = { initialRibbonDisplayMode: 'hidden', ribbonDisplayMode: 'tabs', onRibbonDisplayModeChange: mode => { const next: SlideRibbonDisplayMode = mode; void next; } };
+const ribbonMode: SlideRibbonDisplayMode | undefined = ref.current?.getRibbonDisplayMode();
+const ribbonAccepted: boolean | undefined = ref.current?.setRibbonDisplayMode('expanded');
+// @ts-expect-error Unsupported ribbon modes are rejected.
+ref.current?.setRibbonDisplayMode('collapsed');
+void [ribbonModes, ribbonProps, ribbonMode, ribbonAccepted];

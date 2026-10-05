@@ -13,7 +13,10 @@ LikeXの操作・見た目を確認するVite + Reactのデモです。通常の
 | `/spreadsheet/ribbon` | リボンの常時表示・タブのみ・自動非表示・完全非表示を外側のセレクターから切り替えます。`?ribbon=hidden` で完全非表示のまま初期表示します。 |
 | `/spreadsheet/ai` | 保存済みブックの一覧と新規作成。開いたブックをSpreadsheet＋LikeAIChatで編集します。 |
 | `/slide` | LikeSlide。スライド・図形・テキスト・アニメーションを編集します。 |
+| `/slide/ribbon` | LikeSlideのリボン4モードを切り替えます。`?ribbon=hidden` でタブも含めて完全非表示で開きます。 |
 | `/slide/ai` | 保存済み資料の一覧と新規作成。開いた資料をLikeSlide＋LikeAIChatで編集します。 |
+| `/document` | LikeDocument。文章・書式・表・画像・図形を編集します。 |
+| `/document/ribbon` | LikeDocumentのリボン4モードを切り替えます。`?ribbon=hidden` でタブも含めて完全非表示で開きます。 |
 
 `/like-slide/ai` と `/slides/ai` も `/slide/ai` と同じデモを開きます。
 

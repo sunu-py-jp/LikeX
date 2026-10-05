@@ -270,3 +270,32 @@ test('canvas component permissions and feature flags cover GUI and ref changes',
     assert.equal(serializeDocument(ref.current.getDocument()), snapshot);
   }
 });
+
+test('Ctrl+F1 toggles Document ribbon locally, leaves hidden mode and dialog shortcuts alone', async t => {
+  for (const mode of ['expanded', 'tabs', 'autoHide', 'hidden']) {
+    const { renderer, ref } = await mount(t, { initialDocument: body('Text'), initialRibbonDisplayMode: mode });
+    const root = renderer.root.findByProps({ 'data-likex-document': '' });
+    const key = { key: 'F1', ctrlKey: true, nativeEvent: {}, target: { closest() { return null; } }, preventDefault() { this.defaultPrevented = true; }, stopPropagation() {} };
+    await change(() => root.props.onKeyDownCapture(key));
+    assert.equal(ref.current.getRibbonDisplayMode(), mode === 'hidden' ? 'hidden' : mode === 'expanded' ? 'tabs' : 'expanded');
+    assert.equal(!!key.defaultPrevented, mode !== 'hidden');
+    const before = ref.current.getRibbonDisplayMode();
+    await change(() => root.props.onKeyDownCapture({ ...key, target: { closest: selector => selector === '.lxd-dialog' ? {} : null } }));
+    assert.equal(ref.current.getRibbonDisplayMode(), before);
+  }
+});
+
+test('Document ribbon presentation keeps active insertion dialog, editor instance and text selection', async t => {
+  const { renderer, ref, view } = await mount(t, { initialDocument: body('Retain this selection'), onSave() {} }, true);
+  await change(() => ref.current.select({ from: 1, to: 7 }));
+  const before = ref.current.getDocument();
+  await change(() => tab(renderer, '挿入').props.onClick());
+  await change(() => button(renderer, '表を挿入').props.onClick());
+  const form = renderer.root.findByType('form'), columns = renderer.root.findByProps({ name: 'columns' });
+  await change(() => ref.current.setRibbonDisplayMode('hidden'));
+  assert.equal(renderer.root.findByType('form'), form); assert.equal(renderer.root.findByProps({ name: 'columns' }), columns);
+  assert.equal(view.destroyed, undefined); assert.equal(ref.current.getDocument(), before);
+  assert.deepEqual(ref.current.getSelection(), { from: 1, to: 7 });
+  await change(() => ref.current.setRibbonDisplayMode('expanded'));
+  assert.equal(renderer.root.findByType('form'), form);
+});

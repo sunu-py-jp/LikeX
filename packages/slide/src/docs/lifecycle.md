@@ -30,6 +30,7 @@ import { serializeSlideDeck } from "@likex/slide/model";
 | --- | --- | --- |
 | `onChange` | `SlideDeck` | 下書きの変更通知 |
 | `onDirtyChange` | `boolean` | 親側のページ遷移ガード |
+| `onRibbonDisplayModeChange` | `SlideRibbonDisplayMode` | リボン表示の変更要求。保存・編集イベントとは独立 |
 | `onSelectionChange` | `{ slideId, elementIds, slideIds? }` | スライド・要素の選択通知。複数ページ時だけ `slideIds` を含む |
 | `onBeforeSave` | `SlideDeck` | `false` で保存中止。非同期可 |
 | `onSave` | `SlideDeck` | JSONやPPTXを保存。非同期可 |

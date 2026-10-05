@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   AlignCenter, AlignLeft, AlignRight, ArrowDownToLine, Bold, BringToFront,
   ClipboardPaste, Copy, FileJson, Image as ImageIcon, Italic, Minus, MonitorPlay, PanelBottom,
@@ -10,6 +10,7 @@ import {
 import { SLIDE_SHAPES, resolveSlideAppearance } from "../model/index";
 import { SlideMasterControls } from "./slide-master-controls";
 import type { SlideCommand, SlideElementPatch, SlideShapeKind } from "../model/types";
+import type { SlideRibbonDisplayMode } from "../props";
 import type { SlideEditor } from "../state/use-slide-editor";
 import { SlideScrollStrip } from "./slide-scroll-strip";
 import { createMoveAnimation } from "./slide-animations";
@@ -47,8 +48,43 @@ export function SlideRibbon({ editor, onImage, onImport, onImportMasters, onPres
   propertiesOpen: boolean; notesOpen: boolean; onProperties(): void; onNotes(): void; onFit(): void; ownerDocument: Document | null;
 }) {
   const [tab, setTab] = useState<RibbonTab>("home");
-  const root = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null), reveal = useRef<HTMLButtonElement>(null);
+  const refs = useRef<Partial<Record<RibbonTab, HTMLButtonElement | null>>>({});
+  const focusAfterRender = useRef<"tab" | "reveal" | null>(null);
+  const id = useId();
+  const mode = editor.ribbonDisplayMode;
+  const [disclosure, setDisclosure] = useState({ mode, open: false });
+  // Mode changes hide rather than unmount the ribbon and its current controls.
+  if (disclosure.mode !== mode) setDisclosure({ mode, open: false });
+  const temporary = (mode === "tabs" || mode === "autoHide") && disclosure.mode === mode && disclosure.open;
+  const headerVisible = mode !== "hidden" && (mode !== "autoHide" || temporary);
+  const panelVisible = mode === "expanded" || (mode !== "hidden" && temporary);
+  useEffect(() => {
+    if (!temporary) return;
+    const element = root.current, document = element?.ownerDocument;
+    if (!element || !document) return;
+    const outside = (event: Event) => {
+      if (event.target && !element.contains(event.target as Node)) setDisclosure({ mode, open: false });
+    };
+    document.addEventListener("pointerdown", outside, true);
+    document.addEventListener("focusin", outside);
+    return () => { document.removeEventListener("pointerdown", outside, true); document.removeEventListener("focusin", outside); };
+  }, [mode, temporary]);
   const activeTab = tab === "animations" && !editor.features.animations ? "home" : tab;
+  useLayoutEffect(() => {
+    if (focusAfterRender.current) {
+      const target = focusAfterRender.current; focusAfterRender.current = null;
+      (target === "reveal" ? reveal.current : refs.current[activeTab])?.focus({ preventScroll: true });
+      return;
+    }
+    const element = root.current, focused = element?.ownerDocument.activeElement;
+    if (element && focused && element.contains(focused) && focused.closest?.("[hidden]")) {
+      if (mode === "hidden") element.closest<HTMLElement>("[data-likex-slide]")?.focus({ preventScroll: true });
+      else if (mode === "autoHide" && !temporary) reveal.current?.focus({ preventScroll: true });
+      else refs.current[activeTab]?.focus({ preventScroll: true });
+    }
+  });
+  const changeTab = (next: RibbonTab) => { setTab(next); setDisclosure({ mode, open: true }); refs.current[next]?.focus(); };
   const slide = editor.deck.slides.find(item => item.id === editor.selection.slideId);
   const background = slide ? resolveSlideAppearance(editor.deck, slide).background : "#ffffff";
   const selected = slide?.elements.filter(element => editor.selection.elementIds.includes(element.id)) ?? [];
@@ -76,11 +112,44 @@ export function SlideRibbon({ editor, onImage, onImport, onImportMasters, onPres
     if (!propertiesOpen) onProperties();
     ownerDocument?.defaultView?.requestAnimationFrame(() => root.current?.closest("[data-likex-slide]")?.querySelector<HTMLElement>("[data-slide-animations]")?.scrollIntoView({ block: "nearest" }));
   };
-  return <div className="lxp-ribbon" ref={root}>
-    <div className="lxp-ribbon-tabs" role="tablist" aria-label="リボンのタブ">
+  return <div className="lxp-ribbon" ref={root} data-display-mode={mode} hidden={mode === "hidden"}
+    onKeyDown={event => {
+      if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229) return;
+      if (event.key === "Escape" && temporary) {
+        event.preventDefault(); event.stopPropagation();
+        focusAfterRender.current = mode === "autoHide" ? "reveal" : "tab";
+        setDisclosure({ mode, open: false });
+      }
+    }}>
+    <button ref={reveal} type="button" className="lxp-ribbon-reveal" aria-label="リボンを表示" title="リボンを表示"
+      hidden={mode !== "autoHide" || temporary} aria-expanded={temporary} aria-controls={`${id}-surface`}
+      onClick={() => { focusAfterRender.current = "tab"; setDisclosure({ mode, open: true }); }}><span aria-hidden="true">···</span></button>
+    <div className="lxp-ribbon-surface" id={`${id}-surface`} hidden={!headerVisible}>
+    <div className="lxp-ribbon-header">
+    <div className="lxp-ribbon-tabs" role="tablist" aria-label="リボンのタブ" onKeyDown={event => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing || event.keyCode === 229) return;
+      if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+        event.preventDefault();
+        const current = tabs.findIndex(item => item.id === activeTab);
+        const index = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
+          : (current + (event.key === "ArrowLeft" ? -1 : 1) + tabs.length) % tabs.length;
+        changeTab(tabs[index].id);
+      }
+    }}>
       {tabs.map(item => <button type="button" key={item.id} role="tab" aria-selected={activeTab === item.id} className={activeTab === item.id ? "is-active" : ""}
-        onClick={() => setTab(item.id)}>{item.label}</button>)}
+        ref={element => { refs.current[item.id] = element; }} id={`${id}-${item.id}`} aria-controls={`${id}-panel`} tabIndex={activeTab === item.id ? 0 : -1}
+        onClick={() => { setTab(item.id); setDisclosure({ mode, open: activeTab === item.id ? !temporary : true }); }}
+        onDoubleClick={() => editor.setRibbonDisplayMode(mode === "expanded" ? "tabs" : "expanded")}>{item.label}</button>)}
     </div>
+    <label className="lxp-ribbon-display" title="リボンの表示">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M3 4h18v16H3zM3 9h18M7 6.5h3m3 0h4M7 13h3m3 0h4" /></svg><span aria-hidden="true">▾</span>
+      <select aria-label="リボンの表示" value={mode === "hidden" ? "expanded" : mode} disabled={editor.ribbonDisplayModeLocked}
+        onChange={event => editor.setRibbonDisplayMode(event.currentTarget.value as SlideRibbonDisplayMode)}>
+        <option value="expanded">常にリボンを表示</option><option value="tabs">タブのみ表示</option><option value="autoHide">リボンを自動非表示</option>
+      </select>
+    </label>
+    </div>
+    <div className="lxp-ribbon-panel" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${activeTab}`} hidden={!panelVisible}>
     <SlideScrollStrip>
       {activeTab === "file" && <>
         {!editor.readOnly && <Group name="保存"><Action label="保存" icon={<Save size={22} />} big disabled={!!editor.busy} onClick={() => void editor.save()} /></Group>}
@@ -152,5 +221,7 @@ export function SlideRibbon({ editor, onImage, onImport, onImportMasters, onPres
           <Action label="画面に合わせる" icon={<RectangleHorizontal size={24} />} big onClick={onFit} /></Group>
       </>}
     </SlideScrollStrip>
+    </div>
+    </div>
   </div>;
 }

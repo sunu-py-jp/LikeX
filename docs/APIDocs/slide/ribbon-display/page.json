@@ -1,0 +1,23 @@
+{
+  "title": "リボンの表示と非表示",
+  "summary": "常時表示・タブのみ・自動非表示・完全非表示を選び、親アプリから初期状態と表示の切り替えを制御します。",
+  "source": "packages/slide/src/docs/ribbon-display.md",
+  "order": 12,
+  "section": "編集と発表",
+  "keywords": [
+    "SlideRibbonDisplayMode",
+    "initialRibbonDisplayMode",
+    "ribbonDisplayMode",
+    "onRibbonDisplayModeChange",
+    "getRibbonDisplayMode",
+    "setRibbonDisplayMode",
+    "expanded",
+    "tabs",
+    "autoHide",
+    "hidden",
+    "Ctrl F1",
+    "リボン",
+    "非表示"
+  ],
+  "screenshots": []
+}

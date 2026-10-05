@@ -2968,6 +2968,48 @@
     ]
   },
   {
+    "id": "slide/ribbon-display",
+    "title": "リボンの表示と非表示",
+    "component": "slide",
+    "section": "編集と発表",
+    "output": "slide/ribbon-display/index.html",
+    "sources": [
+      "packages/slide/src/docs/ribbon-display.md"
+    ],
+    "keywords": [
+      "SlideRibbonDisplayMode",
+      "initialRibbonDisplayMode",
+      "ribbonDisplayMode",
+      "onRibbonDisplayModeChange",
+      "getRibbonDisplayMode",
+      "setRibbonDisplayMode",
+      "expanded",
+      "tabs",
+      "autoHide",
+      "hidden",
+      "Ctrl F1",
+      "リボン",
+      "非表示"
+    ],
+    "headings": [
+      {
+        "id": "初期状態を指定する",
+        "title": "初期状態を指定する",
+        "depth": 2
+      },
+      {
+        "id": "外側で状態を管理する",
+        "title": "外側で状態を管理する",
+        "depth": 2
+      },
+      {
+        "id": "refから操作する",
+        "title": "refから操作する",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "slide/commands",
     "title": "JSON・コマンド・履歴",
     "component": "slide",
@@ -3067,6 +3109,11 @@
       {
         "id": "officeの図形プリセット",
         "title": "Officeの図形プリセット",
+        "depth": 2
+      },
+      {
+        "id": "リボンの表示",
+        "title": "リボンの表示",
         "depth": 2
       }
     ]
@@ -3437,6 +3484,53 @@
       {
         "id": "機能を無効にする",
         "title": "機能を無効にする",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "document/ribbon-display",
+    "title": "リボンの表示と非表示",
+    "component": "document",
+    "section": "文書の編集",
+    "output": "document/ribbon-display/index.html",
+    "sources": [
+      "packages/document/src/docs/ribbon-display.md"
+    ],
+    "keywords": [
+      "DocumentRibbonDisplayMode",
+      "initialRibbonDisplayMode",
+      "ribbonDisplayMode",
+      "onRibbonDisplayModeChange",
+      "getRibbonDisplayMode",
+      "setRibbonDisplayMode",
+      "expanded",
+      "tabs",
+      "autoHide",
+      "hidden",
+      "Ctrl F1",
+      "リボン",
+      "非表示"
+    ],
+    "headings": [
+      {
+        "id": "初期状態を指定する",
+        "title": "初期状態を指定する",
+        "depth": 2
+      },
+      {
+        "id": "外側で表示を管理する",
+        "title": "外側で表示を管理する",
+        "depth": 2
+      },
+      {
+        "id": "refで操作する",
+        "title": "refで操作する",
+        "depth": 2
+      },
+      {
+        "id": "画面内の操作",
+        "title": "画面内の操作",
         "depth": 2
       }
     ]
@@ -4610,6 +4704,11 @@
       "無効化"
     ],
     "headings": [
+      {
+        "id": "リボンの表示契約",
+        "title": "リボンの表示契約",
+        "depth": 2
+      },
       {
         "id": "観測用の通知",
         "title": "観測用の通知",

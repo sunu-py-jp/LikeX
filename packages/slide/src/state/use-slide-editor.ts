@@ -1,4 +1,5 @@
 "use client";
+import { useSlideRibbon } from "./use-slide-ribbon";
 import { copySlideLine } from "../model/lines";
 
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -58,6 +59,8 @@ function permitted(command: SlideCommand, features: SlideFeatureState, deck: Sli
 
 /** UI orchestration only. Persistent edits and history belong to the headless session. */
 export function useSlideEditor(props: SlideProps) {
+  const ribbon = useSlideRibbon(props);
+  const { getRibbonDisplayMode, setRibbonDisplayMode } = ribbon;
   const [session] = useState(() => createSlideSession(props.initialDeck));
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot);
   const propsRef = useRef(props);
@@ -596,6 +599,7 @@ export function useSlideEditor(props: SlideProps) {
   }, [execute]);
 
   useImperativeHandle(props.ref, () => ({
+    getRibbonDisplayMode, setRibbonDisplayMode,
     getDeck: options => copy(getDeck(session.getSnapshot().deck, options)),
     getSlides: options => copy(getSlides(session.getSnapshot().deck, options)),
     getSlide: (slideId, options) => copy(getSlide(session.getSnapshot().deck, slideId, options)),
@@ -610,9 +614,9 @@ export function useSlideEditor(props: SlideProps) {
     execute: command => execute(command), executeConditional,
     undo: () => history("undo"), redo: () => history("redo"), save, discard,
     getSelection: () => copy(selectionRef.current), select, deleteSelection, importNative, exportNative, importPptx, importPptxMasters, cancelMasterImport, exportPptx, exportImage, exportImages,
-  }), [discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
+  }), [getRibbonDisplayMode, setRibbonDisplayMode, discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
 
-  return { ...snapshot, dirty, selection, select, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
+  return { ...snapshot, ...ribbon, dirty, selection, select, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
     copyElements, pasteElements, canPasteElements, prepareCommands, registerInputFlush, refreshPendingInput, notice, setNotice, conversionReport, reportError, features, readOnly, busy, requesting,
     editable: !readOnly && !busy && !requesting };
 }

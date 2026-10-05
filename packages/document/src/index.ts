@@ -1,7 +1,7 @@
 "use client";
 
 export { default, default as LikeDocument } from "./document";
-export type { DocumentProps, DocumentHandle, DocumentFeatures, DocumentEvent } from "./props";
+export type { DocumentProps, DocumentHandle, DocumentFeatures, DocumentEvent, DocumentRibbonDisplayMode } from "./props";
 export * from "./model/index";
 export * from "./io/index";
 export { createDocumentSession } from "./session/create-document-session";

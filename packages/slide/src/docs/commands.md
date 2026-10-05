@@ -334,3 +334,7 @@ const result = applySlideCommands(deck, {
 主な追加名は `bentArrow`（カギ矢印）、`bentUpArrow`、`uturnArrow`、`leftUpArrow`、`leftRightUpArrow`、`quadArrow`、`chevron`、`homePlate`、`pentagon`、`hexagon`、`octagon`、`star5`、`plus` です。フロー図には `flowChartProcess`、`flowChartDecision`、`flowChartTerminator`、`flowChartInputOutput`、`flowChartPredefinedProcess`、`flowChartDocument`、`flowChartMultidocument`、`flowChartPreparation`、`flowChartManualInput`、`flowChartManualOperation`、`flowChartMerge`、`flowChartDelay` を使えます。全一覧は `SLIDE_SHAPES` が正本です。既存の右ブロック矢印は引き続き `arrow`（Officeでは `rightArrow`）、線は `line.add` / `line.update` で扱います。カギ矢印は面を持つ図形で、端点を持つ折れ線コネクターではありません。
 
 文字領域は図形に合わせて決まり、`getSlideShapeTextRect` が返す領域を、UI、PNG、文字収まりの診断で共有します。追加図形も8接続点に線を接続できます。SLON version 1の追加プリセットとして保存します。新しい図形を含むファイルを以前の実装で開くには、対応版への更新が必要です。
+
+## リボンの表示
+
+`SlideHandle.getRibbonDisplayMode()` と `setRibbonDisplayMode(mode): boolean` で、表示中のリボンを操作できます。`SlideRibbonDisplayMode` は `expanded` / `tabs` / `autoHide` / `hidden` です。保存する資料・履歴・編集許可には影響しません。[初期値・制御props・操作例](ribbon-display.md)を参照してください。

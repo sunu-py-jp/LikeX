@@ -1,8 +1,10 @@
 import type { CSSProperties, Ref } from "react";
-import type { MaybePromise, OperationContext, SaveHandler } from "./core";
+import type { MaybePromise, OperationContext, RibbonDisplayMode, SaveHandler } from "./core";
 import type { DocumentCommand, DocumentCommandResult, DocumentModel, DocumentSelection } from "./model/types";
 
 export type { DocumentSelection } from "./model/types";
+/** View-only ribbon presentation, shared with the other Office editors. */
+export type DocumentRibbonDisplayMode = RibbonDisplayMode;
 export type DocumentFeatures = Partial<Record<"text" | "formatting" | "lists" | "tables" | "images" | "shapes" | "pageLayout" | "import" | "export" | "history", boolean>>;
 export type DocumentEvent =
   | { type: "change"; source: "command" | "import" | "undo" | "redo" | "save"; document: DocumentModel }
@@ -11,6 +13,9 @@ export type DocumentEvent =
   | { type: "edit-mode"; mode: "view" | "requesting" | "edit" };
 export type DocumentHandle = {
   getDocument(): DocumentModel;
+  getRibbonDisplayMode(): DocumentRibbonDisplayMode;
+  /** true means the request was accepted; controlled mode still requires a prop update. */
+  setRibbonDisplayMode(mode: DocumentRibbonDisplayMode): boolean;
   getSelection(): DocumentSelection;
   select(selection: DocumentSelection): void;
   execute(command: DocumentCommand | readonly DocumentCommand[]): Promise<DocumentCommandResult | null>;
@@ -35,6 +40,11 @@ export type DocumentProps = {
   onDirtyChange?: (dirty: boolean) => void;
   onSelectionChange?: (selection: DocumentSelection) => void;
   onEvent?: (event: DocumentEvent) => MaybePromise<void>;
+  /** Initial view-only mode. Read once at mount; defaults to expanded. */
+  initialRibbonDisplayMode?: DocumentRibbonDisplayMode;
+  /** Controlled mode. Without a change callback, user/ref requests are disabled. */
+  ribbonDisplayMode?: DocumentRibbonDisplayMode;
+  onRibbonDisplayModeChange?: (mode: DocumentRibbonDisplayMode) => void;
   readOnly?: boolean;
   warnOnUnsavedChanges?: boolean;
   features?: DocumentFeatures;

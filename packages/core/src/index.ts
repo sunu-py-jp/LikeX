@@ -3,6 +3,8 @@ export type { MaybePromise, OperationContext, EventHandler, SaveHandler, Refresh
 export { notifyHost } from "./notifications";
 export { isPromiseLike, chainResult } from "./async";
 export { resolveFeatureFlags } from "./features";
+export { isRibbonDisplayMode, normalizeRibbonDisplayMode } from "./ribbon";
+export type { RibbonDisplayMode } from "./ribbon";
 export type { FeatureFlags } from "./features";
 export { createPrimaryColorPalette } from "./primary-color";
 export type { PrimaryColorPalette } from "./primary-color";

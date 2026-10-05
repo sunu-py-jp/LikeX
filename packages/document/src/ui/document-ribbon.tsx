@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, ChevronLeft, ChevronRight, Clipboard, Copy, Download, FileJson, ImagePlus, Italic, Link, List, ListOrdered, PanelLeft, Scissors, Table2, Type, Underline, Upload, WrapText } from "lucide-react";
 import { DocumentCanvasTools } from "./document-canvas-tools";
 import { getCanvases, getShapes } from "../model/index";
@@ -9,6 +9,8 @@ import { toggleMark } from "prosemirror-commands";
 import type { DocumentEditor } from "../state/use-document-editor";
 import type { DocumentSurfaceHandle } from "./document-surface";
 import type { DocumentAlignment, DocumentMarkName, DocumentTextStyle } from "../model/types";
+
+import type { DocumentRibbonDisplayMode } from "../props";
 
 function Group({ title, children }: { title: string; children: ReactNode }) { return <section className="lxd-ribbon-group" aria-label={title}><div className="lxd-ribbon-controls">{children}</div><div className="lxd-group-label">{title}</div></section>; }
 function Action({ label, icon, onClick, disabled, big, active }: { label: string; icon: ReactNode; onClick(): void; disabled?: boolean; big?: boolean; active?: boolean }) {
@@ -19,6 +21,37 @@ export function DocumentRibbon({ editor, surface, onImport, onExport, onImage, o
   onImage(): void; onTable(): void; onLink(): void; outline: boolean; onOutline(): void;
 }) {
   const [tab, setTab] = useState("home"), scroll = useRef<HTMLDivElement>(null);
+  const id = useId(), container = useRef<HTMLDivElement>(null), reveal = useRef<HTMLButtonElement>(null);
+  const tabsRef = useRef<Record<string, HTMLButtonElement | null>>({});
+  const focusAfterRender = useRef<"tab" | "reveal" | null>(null);
+  const mode = editor.ribbonDisplayMode;
+  const [disclosure, setDisclosure] = useState({ mode, open: false });
+  // Presentation changes keep commands, input drafts and portaled dialogs mounted.
+  if (disclosure.mode !== mode) setDisclosure({ mode, open: false });
+  const temporary = (mode === "tabs" || mode === "autoHide") && disclosure.mode === mode && disclosure.open;
+  const headerVisible = mode !== "hidden" && (mode !== "autoHide" || temporary);
+  const panelVisible = mode === "expanded" || temporary;
+  useEffect(() => {
+    if (!temporary) return;
+    const element = container.current, doc = element?.ownerDocument;
+    if (!element || !doc) return;
+    const outside = (event: Event) => { if (event.target && !element.contains(event.target as Node)) setDisclosure({ mode, open: false }); };
+    doc.addEventListener("pointerdown", outside, true); doc.addEventListener("focusin", outside);
+    return () => { doc.removeEventListener("pointerdown", outside, true); doc.removeEventListener("focusin", outside); };
+  }, [temporary, mode]);
+  useLayoutEffect(() => {
+    if (focusAfterRender.current) {
+      const target = focusAfterRender.current; focusAfterRender.current = null;
+      (target === "reveal" ? reveal.current : tabsRef.current[tab])?.focus({ preventScroll: true });
+      return;
+    }
+    const element = container.current, focused = element?.ownerDocument.activeElement;
+    if (element && focused && element.contains(focused) && focused.closest("[hidden]")) {
+      if (mode === "hidden") surface.current?.focus();
+      else if (mode === "autoHide" && !temporary) reveal.current?.focus({ preventScroll: true });
+      else tabsRef.current[tab]?.focus({ preventScroll: true });
+    }
+  });
   const [arrows, setArrows] = useState({ left: false, right: false });
   const { features, selection } = editor;
   const disabled = !editor.editable;
@@ -27,7 +60,7 @@ export function DocumentRibbon({ editor, surface, onImport, onExport, onImage, o
   const marks = state?.storedMarks ?? state?.selection.$from.marks() ?? [];
   const style = marks.find(mark => mark.type.name === "text_style")?.attrs ?? {};
   function track() { const node = scroll.current; if (node) setArrows({ left: node.scrollLeft > 1, right: node.scrollLeft + node.clientWidth < node.scrollWidth - 1 }); }
-  useEffect(() => { const node = scroll.current; if (!node) return; const observer = new ResizeObserver(track); observer.observe(node); for (const child of node.children) observer.observe(child); track(); return () => observer.disconnect(); }, [tab, features]);
+  useEffect(() => { const node = scroll.current; if (!node) return; const observer = new ResizeObserver(track); observer.observe(node); for (const child of node.children) observer.observe(child); track(); return () => observer.disconnect(); }, [tab, features, panelVisible]);
   const stepScroll = (direction: 1 | -1) => {
     const node = scroll.current; if (!node) return;
     const groups = [...node.children] as HTMLElement[];
@@ -62,9 +95,33 @@ export function DocumentRibbon({ editor, surface, onImport, onExport, onImage, o
     surface.current?.focus();
   }
   const tabs = [{ id: "file", label: "ファイル" }, { id: "home", label: "ホーム" }, { id: "insert", label: "挿入" }, { id: "layout", label: "レイアウト" }, { id: "view", label: "表示" }];
-  return <div className="lxd-ribbon" onMouseDown={event => { if ((event.target as Element).closest("button")) event.preventDefault(); }}>
-    <div className="lxd-ribbon-tabs" role="tablist" aria-label="リボン">{tabs.map(item => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "is-active" : ""} onClick={() => setTab(item.id)}>{item.label}</button>)}</div>
-    <div className="lxd-ribbon-strip">{arrows.left && <button type="button" className="lxd-scroll-arrow" aria-label="左のグループを表示" onClick={() => stepScroll(-1)}><ChevronLeft size={16} /></button>}
+  return <div ref={container} className="lxd-ribbon" data-display-mode={mode} hidden={mode === "hidden"} onMouseDown={event => { if ((event.target as Element).closest("button")) event.preventDefault(); }}
+    onKeyDown={event => {
+      if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229) return;
+      if (event.key === "Escape" && temporary) { event.preventDefault(); event.stopPropagation(); focusAfterRender.current = mode === "autoHide" ? "reveal" : "tab"; setDisclosure({ mode, open: false }); }
+    }}>
+    <button ref={reveal} type="button" className="lxd-ribbon-reveal" aria-label="リボンを表示" title="リボンを表示" hidden={mode !== "autoHide" || temporary} aria-expanded={temporary} aria-controls={`${id}-surface`}
+      onClick={() => { focusAfterRender.current = "tab"; setDisclosure({ mode, open: true }); }}><span aria-hidden="true">···</span></button>
+    <div id={`${id}-surface`} className="lxd-ribbon-surface" hidden={!headerVisible}>
+    <div className="lxd-ribbon-header">
+    <div className="lxd-ribbon-tabs" role="tablist" aria-label="リボン" onKeyDown={event => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing) return;
+      if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+        event.preventDefault(); const current = tabs.findIndex(item => item.id === tab);
+        const index = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowLeft" ? -1 : 1) + tabs.length) % tabs.length;
+        const next = tabs[index].id; setTab(next); setDisclosure({ mode, open: true }); tabsRef.current[next]?.focus();
+      }
+    }}>{tabs.map(item => <button key={item.id} ref={node => { tabsRef.current[item.id] = node; }} type="button" role="tab" id={`${id}-${item.id}`} aria-controls={`${id}-panel`} aria-selected={tab === item.id} tabIndex={tab === item.id ? 0 : -1} className={tab === item.id ? "is-active" : ""}
+      onClick={() => { setTab(item.id); setDisclosure({ mode, open: tab === item.id ? !temporary : true }); }}
+      onDoubleClick={() => editor.setRibbonDisplayMode(mode === "expanded" ? "tabs" : "expanded")}>{item.label}</button>)}</div>
+    <label className="lxd-ribbon-display" title="リボンの表示">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M3 4h18v16H3zM3 9h18M7 6.5h3m3 0h4M7 13h3m3 0h4" /></svg><span aria-hidden="true">▾</span>
+      <select aria-label="リボンの表示" value={mode === "hidden" ? "expanded" : mode} disabled={editor.ribbonDisplayModeLocked} onChange={event => editor.setRibbonDisplayMode(event.currentTarget.value as DocumentRibbonDisplayMode)}>
+        <option value="expanded">常にリボンを表示</option><option value="tabs">タブのみ表示</option><option value="autoHide">リボンを自動非表示</option>
+      </select>
+    </label>
+    </div>
+    <div className="lxd-ribbon-strip" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`} hidden={!panelVisible}>{arrows.left && <button type="button" className="lxd-scroll-arrow" aria-label="左のグループを表示" onClick={() => stepScroll(-1)}><ChevronLeft size={16} /></button>}
       <div ref={scroll} className="lxd-ribbon-scroll" onScroll={track}>
         {features.shapes && (tab === "insert" || shapeSelected) && <Group title="図形"><DocumentShapeTools editor={editor} insert={tab === "insert"} /><DocumentCanvasTools editor={editor} insert={tab === "insert"} /></Group>}
         {tab === "file" && <>
@@ -96,5 +153,6 @@ export function DocumentRibbon({ editor, surface, onImport, onExport, onImage, o
         </>}
         {tab === "view" && <Group title="表示"><Action label="ナビゲーション" icon={<PanelLeft size={24} />} big active={outline} onClick={onOutline} /><span className="lxd-ribbon-hint">見出しをクリックして移動できます。</span></Group>}
       </div>{arrows.right && <button type="button" className="lxd-scroll-arrow" aria-label="右のグループを表示" onClick={() => stepScroll(1)}><ChevronRight size={16} /></button>}</div>
+    </div>
   </div>;
 }

@@ -20,3 +20,13 @@ void nativeExport; void docxExport; void view;
 // @ts-expect-error Commands reject unknown text mark names.
 const badCommand: DocumentCommand = { type: "mark.set", from: 1, to: 2, mark: "video" };
 void badCommand;
+
+// Public ribbon presentation is available in packaged consumers as well.
+import type { DocumentRibbonDisplayMode } from "__LIBRARY_IMPORT__";
+const ribbonMode: DocumentRibbonDisplayMode = "hidden";
+const ribbonProps: DocumentProps = { initialRibbonDisplayMode: ribbonMode, onRibbonDisplayModeChange: mode => { void mode; } };
+const currentRibbonMode: DocumentRibbonDisplayMode | undefined = ref.current?.getRibbonDisplayMode();
+const ribbonAccepted: boolean | undefined = ref.current?.setRibbonDisplayMode("tabs");
+// @ts-expect-error Unsupported ribbon modes are rejected.
+ref.current?.setRibbonDisplayMode("collapsed");
+void [ribbonProps, currentRibbonMode, ribbonAccepted];

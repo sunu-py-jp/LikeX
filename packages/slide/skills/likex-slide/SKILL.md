@@ -7,6 +7,8 @@ description: LikeX SlideのネイティブJSON（.slon）を作成・検証・�
 
 `.slon` を読み、必要なページや要素をコマンドで変更して、正規のシリアライザーで保存する。モデルの編集にはReactのマウント・DOM・CSSは不要。画像出力ではブラウザーか、ホストが提供する描画アダプターを使う。
 
+リボンの `expanded` / `tabs` / `autoHide` / `hidden` はホストUIの表示設定です。`.slon` やPPTXには保存せず、モデルコマンドやCLIで変更しません。利用ホストは `initialRibbonDisplayMode` / `ribbonDisplayMode` またはrefの `setRibbonDisplayMode` を使います。
+
 ## 必要な環境
 
 Node.js **22.13以降**と、このskillに対応する版の `@likex/slide` が必要。skillフォルダだけをコピーしてもランタイムは含まれない。パッケージを導入したプロジェクト、またはパッケージをビルド済みのLikeXリポジトリを `--project` に指定する。既存の導入方法を使い、npmレジストリに公開済みとは仮定しない。

@@ -8,9 +8,12 @@ import { createDocumentSession } from "../session/create-document-session";
 import { importDocumentDocx, exportDocumentDocx } from "../io/index";
 import { assertDocumentFeatures, resolveDocumentFeatures } from "./document-features";
 
+import { useDocumentRibbon } from "./use-document-ribbon";
+
 type BusyKind = "save" | "import" | "export" | "permission";
 type Operation = { id: number; epoch: number; signal: AbortSignal };
 export function useDocumentEditor(props: DocumentProps) {
+  const ribbon = useDocumentRibbon(props);
   const latest = useRef(props);
   useLayoutEffect(() => { latest.current = props; });
   const [session] = useState(() => createDocumentSession(props.initialDocument));
@@ -169,9 +172,9 @@ export function useDocumentEditor(props: DocumentProps) {
     finally { release(operation); }
   }
   const select = (selection: DocumentSelection) => { if (!control.current.mounted) return; try { session.select(selection); } catch (cause) { error(cause); } };
-  useImperativeHandle(props.ref, () => ({ getDocument: () => session.getSnapshot().document, getSelection: () => ({ ...session.getSnapshot().selection }), select, execute, undo: () => history("undo"), redo: () => history("redo"), save, discard,
+  useImperativeHandle(props.ref, () => ({ getRibbonDisplayMode: ribbon.getRibbonDisplayMode, setRibbonDisplayMode: ribbon.setRibbonDisplayMode, getDocument: () => session.getSnapshot().document, getSelection: () => ({ ...session.getSnapshot().selection }), select, execute, undo: () => history("undo"), redo: () => history("redo"), save, discard,
     importNative: input => importFile(input, "dcon"), importDocx: input => importFile(input, "docx"), exportNative: () => exportFile("dcon"), exportDocx: () => exportFile("docx"),
   }));
-  return { ...snapshot, session, features, readOnly, editable: !readOnly && !busy, busy, notice, setNotice, error, execute, select, history, save, discard, importFile, exportFile };
+  return { ...snapshot, ...ribbon, session, features, readOnly, editable: !readOnly && !busy, busy, notice, setNotice, error, execute, select, history, save, discard, importFile, exportFile };
 }
 export type DocumentEditor = ReturnType<typeof useDocumentEditor>;

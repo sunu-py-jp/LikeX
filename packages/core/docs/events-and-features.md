@@ -1,5 +1,11 @@
 # 通知・機能設定
 
+## リボンの表示契約
+
+`RibbonDisplayMode` はSpreadsheet・LikeSlide・LikeDocumentで共有する `"expanded" | "tabs" | "autoHide" | "hidden"` です。`isRibbonDisplayMode(value)` は有効な値かを判定し、`normalizeRibbonDisplayMode(value)` は未指定・不正値を `expanded` にします。Coreは型と検証のみを提供し、React・DOMへの依存はありません。
+
+各UIの `initialRibbonDisplayMode`、`ribbonDisplayMode`、`onRibbonDisplayModeChange` とHandleの `getRibbonDisplayMode` / `setRibbonDisplayMode` で表示を制御します。編集権限や保存対象とは独立し、変更通知・Undo・Office入出力には影響しません。利用者ごとの設定保存は親アプリが担当します。
+
 `notifyHost` は操作結果を利用側へ通知します。`resolveFeatureFlags` は機能設定の未指定項目を既定値で補います。どちらもCoreのデータモデルやReactの状態を必要としません。
 
 ## 観測用の通知

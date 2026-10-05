@@ -72,7 +72,14 @@ export default function LikeSlide(props: SlideProps) {
     node.addEventListener("wheel", wheel, { passive: false }); return () => node.removeEventListener("wheel", wheel);
   }, []);
   const keyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.defaultPrevented || event.nativeEvent.isComposing) return;
+    if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229) return;
+    if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey && event.key === "F1") {
+      if (editor.ribbonDisplayMode !== "hidden") {
+        event.preventDefault();
+        editor.setRibbonDisplayMode(editor.ribbonDisplayMode === "expanded" ? "tabs" : "expanded");
+      }
+      return;
+    }
     const target = event.target as HTMLElement;
     const editing = target.closest("input,textarea,select,[contenteditable=true]");
     const scope = target.closest<HTMLElement>("[data-slide-selection-scope]")?.dataset?.slideSelectionScope;

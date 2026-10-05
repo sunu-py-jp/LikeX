@@ -32,6 +32,8 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 
 ## 編集上の契約
 
+- リボンの `expanded` / `tabs` / `autoHide` / `hidden` はホストUIの表示状態。`.dcon`・DOCXには保存せず、CLI編集コマンドの対象にしない。UI利用側は `initialRibbonDisplayMode` / `ribbonDisplayMode` とrefの `getRibbonDisplayMode()` / `setRibbonDisplayMode()` を使う。
+
 - 位置はProseMirrorの位置で、最初の段落の先頭文字が `1`。ブロック境界も数えるため、本文の文字数だけから推測しない。後続コマンドは前の変更後の位置を使う。
 - ブロックのIDは `attrs.id`。文字は `text`、書式は `marks`。用紙と余白はmm、文字サイズはpt、画像寸法はpx。
 - GUIの右クリックと同じ画像複製は `getImage` で取得した画像の `src`・`alt`・`width`・`height` を `image.insert` に渡し、元画像の `to` へ挿入する。サイズ変更は `image.update`、画像・表全体の削除は `block.delete`。操作後は新しい位置とIDを取得する。
