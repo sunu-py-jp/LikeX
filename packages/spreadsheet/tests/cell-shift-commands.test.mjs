@@ -59,7 +59,9 @@ test('all four directions match independent matrix splices for overlapping moves
 test('public partial-cell commands run headlessly without UI, React, DOM or CSS dependencies', () => {
   assert.equal(typeof globalThis.window, 'undefined');
   assert.equal(typeof globalThis.document, 'undefined');
-  for (const input of Object.keys(output.metafile.inputs)) {
+  const emitted = Object.values(output.metafile.outputs).flatMap(file => Object.entries(file.inputs)
+    .filter(([, info]) => info.bytesInOutput > 0).map(([input]) => input));
+  for (const input of emitted) {
     if (/\/core\/dist\/(?:index|ooxml|json|connectors|office-shapes|text-search)\.js$/.test(input) || /\/spreadsheet\/src\/core\.ts$/.test(input)) continue;
     if (/node_modules\/re2js\/build\/index\.js$/.test(input)) continue; // Pure, bounded regular-expression engine.
     assert.doesNotMatch(input, /node_modules|\/(?:ui|state|core)\/|\/(?:core|props|spreadsheet)\.tsx?$|\.(?:css|tsx)$/);

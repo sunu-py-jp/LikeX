@@ -22,30 +22,27 @@ const document = createDocument({ title: "企画書" });
 
 ## ソースをコピーする
 
-`packages/document/src/` を `components/document/`、`packages/core/src/` を `components/core/` に配置します。`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/` も残します。Document側の5つのアダプターを変更してください。
+`packages/document/src/` 全体を `components/document/`、`packages/core/src/` 全体を `components/core/` に配置します。`model/`・`state/`・`ui/`・CSSを含め、`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/` も残します。コピー後に変更するCoreの参照は、`components/document/core.ts` の次の1行だけです。
 
 ```ts
 // components/document/core.ts
 export * from "../core";
-// components/document/json.ts
-export * from "../core/json";
-// components/document/ooxml.ts
-export * from "../core/ooxml";
-// components/document/browser.ts
-export { openContextMenu } from "../core/browser";
-export type { ContextMenuAction } from "../core/browser";
-// components/document/model/core-office-shapes.ts
-export * from "../../core/office-shapes";
 ```
 
-利用先にはReact / React DOMに加え、コピー元の `package.json` と同じProseMirror・lucide-react依存を導入します。
+`json.ts`・`ooxml.ts`・`browser.ts`・`model/core-connectors.ts`・`model/core-office-shapes.ts` は内部で `core.ts` へ接続するため変更しません。以前のコピーから更新する場合は、DocumentとCoreを同じバージョンから一緒に更新してください。以前に参照先を書き換えたアダプターも新しいファイルをコピーし直し、利用先への参照変更は `core.ts` に集約します。
+
+利用先にはReact / React DOM `^19.2.6` に加え、コピー元の `package.json` と同じProseMirror・lucide-react依存と、Coreの実行時依存 `re2js@2.8.6` を導入します。
 
 ```bash
-npm install lucide-react prosemirror-model prosemirror-state prosemirror-view \
-  prosemirror-commands prosemirror-keymap prosemirror-schema-list prosemirror-transform
+npm install lucide-react@^1.31.0 prosemirror-model@^1.25.12 \
+  prosemirror-state@^1.4.4 prosemirror-view@^1.42.5 prosemirror-commands@^1.7.2 \
+  prosemirror-keymap@^1.2.3 prosemirror-schema-list@^1.5.1 \
+  prosemirror-transform@^1.12.1 re2js@2.8.6
 ```
 
 コピー後は `components/document` からコンポーネント、`components/document/model-entry` から画面なしのAPIをimportし、`components/document/styles.css` を1回読み込みます。共通Provider・独自パスエイリアス・Tailwind CSSは不要です。
+
+TypeScriptではReact / React DOMの型定義を導入し、`lib: ["ES2022", "DOM", "DOM.Iterable"]` を指定してください。コピーしたソースは画面なしの `model-entry.ts` だけを使う場合もDOM型定義を必要としますが、モデルの実行時にはReactやDOMを使いません。
 
 ## 表示設定
 

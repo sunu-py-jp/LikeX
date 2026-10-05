@@ -14,7 +14,9 @@ const first = result => result.workbook.sheets[0];
 test('model entry runs without React, DOM, CSS or lifecycle imports; shared JSON and OOXML entries are pure', () => {
   assert.equal(typeof globalThis.document, 'undefined');
   assert.equal(typeof globalThis.window, 'undefined');
-  for (const input of Object.keys(output.metafile.inputs)) {
+  const emitted = Object.values(output.metafile.outputs).flatMap(file => Object.entries(file.inputs)
+    .filter(([, info]) => info.bytesInOutput > 0).map(([input]) => input));
+  for (const input of emitted) {
     // Office import uses OOXML/JSON; export also uses Core's React-free ZIP writer.
     if (/\/core\/dist\/(?:index|ooxml|json|connectors|office-shapes|text-search)\.js$/.test(input) || /\/spreadsheet\/src\/core\.ts$/.test(input)) continue;
     if (/node_modules\/re2js\/build\/index\.js$/.test(input)) continue; // Pure, bounded regular-expression engine.

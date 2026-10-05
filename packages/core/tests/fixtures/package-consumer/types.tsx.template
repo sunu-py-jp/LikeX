@@ -55,7 +55,28 @@ const invalidMenu: ContextMenuProvider<{ id: string }, { text: string }> = () =>
 const invalidMode: ContextMenuExecutionMode = 'automatic';
 void [invalidMenu, invalidMode];
 
-import { createTextSearchMatcher, type TextSearchQuery } from "__LIBRARY_IMPORT__/text-search";
+import { createTextSearchMatcher, type TextSearchMatcher, type TextSearchQuery } from "__LIBRARY_IMPORT__";
+import { createTextSearchMatcher as createSubpathTextSearchMatcher, type TextSearchMatcher as SubpathTextSearchMatcher,
+  type TextSearchQuery as SubpathTextSearchQuery } from "__LIBRARY_IMPORT__/text-search";
 const searchQuery: TextSearchQuery = { text: "^Sales", useRegex: true, matchCase: false };
-const found: boolean = createTextSearchMatcher(searchQuery).test("sales 2026");
-void found;
+const matcher: TextSearchMatcher = createTextSearchMatcher(searchQuery);
+const subpathQuery: SubpathTextSearchQuery = searchQuery;
+const subpathMatcher: SubpathTextSearchMatcher = createSubpathTextSearchMatcher(subpathQuery);
+const found: boolean = matcher.test("sales 2026");
+const replaced: string = subpathMatcher.replace("sales 2026", "Revenue");
+// @ts-expect-error Search flags retain boolean types through the root entry.
+createTextSearchMatcher({ text: "Sales", matchCase: "yes" });
+void [found, replaced];
+
+import { openContextMenu, type ContextMenuAction, type ContextMenuSurfaceOptions } from '__LIBRARY_IMPORT__';
+import { openContextMenu as openBrowserContextMenu } from '__LIBRARY_IMPORT__/browser';
+const menuAction: ContextMenuAction = { id: 'open', label: 'Open', onSelect: () => {} };
+function openHostMenu(anchor: HTMLElement) {
+  const options: ContextMenuSurfaceOptions = { anchor, items: [menuAction] };
+  const close: () => void = openContextMenu(options);
+  const browserEntry: typeof openContextMenu = openBrowserContextMenu;
+  // @ts-expect-error Menu anchors must be DOM elements.
+  openContextMenu({ anchor: 'body', items: [menuAction] });
+  return [close, browserEntry];
+}
+void openHostMenu;

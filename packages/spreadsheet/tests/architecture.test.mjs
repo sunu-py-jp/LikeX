@@ -65,6 +65,20 @@ const dependencies = new Map(await Promise.all(files.map(async path => {
 const display = path => relative(sourceRoot, path).split(sep).join('/');
 const layer = path => path && localFiles.has(path) ? display(path).split('/')[0] : null;
 
+test('core.ts is the sole Core package reference for both runtime and type-only dependencies', () => {
+  const violations = [], references = [];
+  for (const [path, edges] of dependencies) {
+    for (const edge of edges) {
+      if (!/^@likex\/core(?:\/|$)/.test(edge.specifier)) continue;
+      references.push({ file: display(path), specifier: edge.specifier });
+      if (path !== join(sourceRoot, 'core.ts') || edge.specifier !== '@likex/core')
+        violations.push(`${display(path)}:${edge.line} → ${edge.specifier}`);
+    }
+  }
+  assert.deepEqual(violations, [], `Source-copy installation must require changing only core.ts:\n${violations.join('\n')}`);
+  assert.deepEqual(references, [{ file: 'core.ts', specifier: '@likex/core' }]);
+});
+
 test('data, commands, history and sessions remain independent of view state, UI, React and component props', () => {
   const violations = [];
   for (const [path, edges] of dependencies) {

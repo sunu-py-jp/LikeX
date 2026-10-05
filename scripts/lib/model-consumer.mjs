@@ -10,6 +10,9 @@ import { run } from './run.mjs';
 /** Verify a DOM-free runtime in a project without React. File-based models use DOM type declarations only. */
 export async function checkModelConsumer({ module, installed, sourceDirectory }) {
   const { packageRoot, modelTypeLibraries = ['ES2022'], modelRuntimeDependencies = [] } = libraryModule(module);
+  const coreDirectory = installed ? path.join(path.dirname(installed), 'core') : libraryModule('core').packageRoot;
+  const coreManifest = JSON.parse(await readFile(path.join(coreDirectory, 'package.json'), 'utf8'));
+  const runtimeDependencies = new Set([...modelRuntimeDependencies, ...Object.keys(coreManifest.dependencies ?? {})]);
   const consumer = await mkdtemp(path.join(tmpdir(), `likex-${module}-model-`));
   let passed = false;
   try {
@@ -27,7 +30,7 @@ export async function checkModelConsumer({ module, installed, sourceDirectory })
         outfile: path.join(consumer, 'model.mjs'), bundle: true, format: 'esm', platform: 'neutral',
         packages: 'external', target: 'es2022', metafile: true });
       for (const output of Object.values(result.metafile.outputs)) for (const imported of output.imports)
-        assert.ok(modelRuntimeDependencies.includes(imported.path), `Unexpected model dependency: ${imported.path}`);
+        assert.ok(runtimeDependencies.has(imported.path), `Unexpected model dependency: ${imported.path}`);
       assert.doesNotMatch(await readFile(path.join(consumer, 'model.mjs'), 'utf8'), /^['"]use client['"]/);
       imported = './model.mjs';
     }
@@ -43,7 +46,7 @@ export async function checkModelConsumer({ module, installed, sourceDirectory })
       for (const child of Object.keys(manifest.dependencies ?? {})) await copyDependency(child, directory);
     };
     // Copy the actual consumer's parser and transitives, never UI/React packages.
-    for (const name of modelRuntimeDependencies) await copyDependency(name, installed ?? sourceDirectory);
+    for (const name of runtimeDependencies) await copyDependency(name, installed ?? sourceDirectory);
     const fixtureDirectory = path.join(packageRoot, 'tests/fixtures/model-consumer');
     const runtime = (await readFile(path.join(fixtureDirectory, 'runtime.mjs.template'), 'utf8')).replaceAll('__MODEL_IMPORT__', imported);
     await writeFile(path.join(consumer, 'runtime.mjs'), runtime);

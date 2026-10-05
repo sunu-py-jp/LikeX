@@ -80,6 +80,29 @@ test('click selects without confirming and the explicit confirmation returns fil
   assert.equal(ui.events.some(event => event.type === 'change' || event.type === 'save'), false);
 });
 
+test('host footer messages update without resetting selection or triggering picker actions', async t => {
+  for (const dialog of [false, true]) await t.test(dialog ? 'dialog' : 'embedded', async t => {
+    const ui = await mount(t, { footerMessage: '<b>共有する資料を選択してください</b>' }, dialog);
+    const message = () => ui.root.findByProps({ 'data-explorer-picker-message': true });
+    assert.deepEqual(message().children, ['<b>共有する資料を選択してください</b>'], 'strings remain literal text');
+    await change(() => row(ui, 'alpha').props.onClick(mouse()));
+    let helpOpened = 0;
+    await ui.update({ footerMessage: h('div', null,
+      h('span', null, '共有範囲を確認してください。'),
+      h('button', { type: 'button', onClick: () => { helpOpened++; } }, '共有の説明')) });
+    await change(() => message().findByType('button').props.onClick());
+    assert.equal(helpOpened, 1);
+    assert.deepEqual(ui.selected.at(-1).map(item => item.id), ['alpha']);
+    assert.equal(ui.confirmed.length, 0);
+    assert.equal(ui.cancelled.length, 0);
+    assert.equal(button(ui).props.disabled, false);
+    await ui.update({ footerMessage: null });
+    assert.equal(ui.root.findAllByProps({ 'data-explorer-picker-message': true }).length, 0);
+    await change(() => button(ui).props.onClick());
+    assert.deepEqual(ui.confirmed.at(-1).items.map(item => item.id), ['alpha']);
+  });
+});
+
 test('folder picker can confirm the virtual root and the currently open nested folder', async t => {
   const ui = await mount(t, { kind: 'folder', rootLabel: '共有資料' });
   await change(() => button(ui, '現在のフォルダを選択').props.onClick());

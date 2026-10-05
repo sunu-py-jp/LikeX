@@ -3,6 +3,23 @@ import path from 'node:path';
 import { artifactRoot, projectRoot } from './run.mjs';
 
 // Distribution differences live here; build/pack/consumer checks are shared.
+const coreSourceCopyAdapters = {
+  'core.ts': '../core',
+  'browser.ts': '../core/browser',
+  'ooxml.ts': '../core/ooxml',
+  'json.ts': '../core/json',
+  'model/core-connectors.ts': '../../core/connectors',
+  'model/core-office-shapes.ts': '../../core/office-shapes',
+  'model/core-text-search.ts': '../../core/text-search',
+};
+// Package model declarations retain narrow, DOM-free dependencies even though
+// maintained source uses the single core.ts adapter for copy installation.
+const officeDeclarationBridgeTargets = {
+  'json.d.ts': { from: './core', to: '@likex/core/json', expectedExports: 2 },
+  'ooxml.d.ts': { from: './core', to: '@likex/core/ooxml', expectedExports: 2 },
+  'model/core-connectors.d.ts': { from: '../core', to: '@likex/core/connectors', expectedExports: 2 },
+  'model/core-office-shapes.d.ts': { from: '../core', to: '@likex/core/office-shapes', expectedExports: 2 },
+};
 const modules = {
   core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [], headlessDependencies: ['re2js'], headlessEntries: { ooxml: 'ooxml.ts', json: 'json.ts', connectors: 'connectors.ts', 'office-shapes': 'office-shapes.ts', 'text-search': 'text-search.ts' }, browserEntries: { browser: 'browser.ts' } },
   explorer: {
@@ -22,7 +39,12 @@ const modules = {
     skillName: 'likex-spreadsheet',
     headlessEntries: { model: 'model-entry.ts' },
     modelRuntimeDependencies: ['re2js'],
-    headlessDependencies: ['@likex/core/text-search', '@likex/core/office-shapes', '@likex/core/connectors', '@likex/core', '@likex/core/ooxml', '@likex/core/json'],
+    headlessDependencies: ['@likex/core'],
+    sourceCopyAdapters: { 'core.ts': '../core' },
+    declarationBridgeTargets: {
+      ...officeDeclarationBridgeTargets,
+      'model/core-text-search.d.ts': { from: '../core', to: '@likex/core/text-search', expectedExports: 2 },
+    },
     moduleDependencies: ['core'],
     generatedStyles: false, bundledDependencies: [],
     marker: 'data-likex-spreadsheet', classPrefix: '.lxs-', propertyPrefix: '--lxs-', keyframePrefix: 'lxs',
@@ -34,7 +56,9 @@ const modules = {
     skillName: 'likex-slide',
     headlessEntries: { model: 'model-entry.ts' },
     browserEntries: { render: 'render-entry.ts' },
-    headlessDependencies: ['@likex/core/office-shapes', '@likex/core/connectors', '@likex/core', '@likex/core/ooxml', '@likex/core/json'],
+    headlessDependencies: ['@likex/core'],
+    sourceCopyAdapters: { 'core.ts': '../core' },
+    declarationBridgeTargets: officeDeclarationBridgeTargets,
     moduleDependencies: ['core'],
     generatedStyles: false, bundledDependencies: [],
     marker: 'data-likex-slide', classPrefix: '.lxp-', propertyPrefix: '--lxp-', keyframePrefix: 'lxp',
@@ -45,8 +69,10 @@ const modules = {
     ui: true,
     skillName: 'likex-document',
     headlessEntries: { model: 'model-entry.ts' },
-    headlessDependencies: ['@likex/core/office-shapes', '@likex/core/connectors', '@likex/core', '@likex/core/ooxml', '@likex/core/json', 'prosemirror-model',
+    headlessDependencies: ['@likex/core', 'prosemirror-model',
       'prosemirror-state', 'prosemirror-transform', 'prosemirror-commands', 'prosemirror-schema-list'],
+    sourceCopyAdapters: { 'core.ts': '../core' },
+    declarationBridgeTargets: officeDeclarationBridgeTargets,
     modelRuntimeDependencies: ['prosemirror-model', 'prosemirror-state', 'prosemirror-transform', 'prosemirror-schema-list'],
     modelTypeLibraries: ['ES2022', 'DOM'],
     moduleDependencies: ['core'],
@@ -125,7 +151,7 @@ export const moduleNames = Object.freeze(Object.keys(modules));
 export function libraryModule(name = 'explorer') {
   assert.ok(Object.hasOwn(modules, name), `Unknown library module: ${name}`);
   const packageRoot = path.join(projectRoot, 'packages', name);
-  return { ...modules[name], name, packageRoot, sourceRoot: path.join(packageRoot, 'src'),
+  return { sourceCopyAdapters: modules[name].ui ? coreSourceCopyAdapters : {}, ...modules[name], name, packageRoot, sourceRoot: path.join(packageRoot, 'src'),
     npmCacheRoot: path.join(artifactRoot, 'npm-cache'),
     // Keep existing Explorer artifact paths for current scripts and consumers.
     artifactRoot: name === 'explorer' ? artifactRoot : path.join(artifactRoot, name),

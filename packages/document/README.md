@@ -27,6 +27,8 @@ export default function DocumentEditor() {
 npm install ./likex-core-0.1.0.tgz ./likex-document-0.1.0.tgz
 ```
 
+ソースコピーでは、同じバージョンの `packages/document/src/` と `packages/core/src/` 全体を隣接フォルダに配置し、Documentの `core.ts` の1行だけを変更します。ProseMirror・lucide-reactとCoreの `re2js@2.8.6` も導入してください。詳しい配置・依存・更新手順は[導入・ソースコピー](src/docs/getting-started.md)にあります。
+
 - [導入・ソースコピー](src/docs/getting-started.md)
 - [文章・書式・表・画像の編集](src/docs/editing.md)
 - [画面なしのモデルAPI・コマンド・履歴](src/docs/headless.md)

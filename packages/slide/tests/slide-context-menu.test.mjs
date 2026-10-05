@@ -17,7 +17,7 @@ const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
 `, resolveDir: packageRoot }, bundle: true, platform: 'node', format: 'esm', write: false,
 plugins: [{ name: 'shared-react-and-menu', setup(builder) {
   builder.onResolve({ filter: /^(react|react-dom|lucide-react)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
-  builder.onResolve({ filter: /^@likex\/core\/browser$/ }, () => ({ path: 'context-menu', namespace: 'test-menu' }));
+  builder.onResolve({ filter: /^\.\.\/browser$/ }, () => ({ path: 'context-menu', namespace: 'test-menu' }));
   builder.onLoad({ filter: /.*/, namespace: 'test-menu' }, () => ({ contents: `export const openContextMenu = options => globalThis.__slideTestMenu(options);` }));
 } }] });
 const { LikeSlide, SlideCanvas, SlideFilmstrip, useSlideEditor, createSlideDeck, createSlideElement } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);

@@ -33,6 +33,8 @@ export default function Presentation() {
 
 配布用tarballは `npm run pack:library -- --module slide` で作ります。利用先ではCoreとSlideの両方をインストールしてください。npmレジストリへの公開は未実施です。
 
+ソースをコピーする場合はCoreとSlideの `src/` 全体を同じバージョンで配置し、Slideの `core.ts` の1行だけをCoreへの相対パスに変更します。更新時も両方の `src/` 全体を差し替えて接続先を再設定してください。依存の導入を含む手順は[導入ガイド](src/docs/README.md)を参照してください。
+
 ```bash
 npm install ./likex-core-0.1.0.tgz ./likex-slide-0.1.0.tgz
 ```

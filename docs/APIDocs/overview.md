@@ -60,7 +60,7 @@ npm run pack:library -- --all
 
 生成されたCoreと利用するUIのtarballを、利用先のプロジェクトへインストールします。コマンドの詳細は [Explorerのパッケージ導入](../../packages/explorer/README.md) または [Spreadsheetのパッケージ導入](../../packages/spreadsheet/README.md) を参照してください。
 
-コピーする場合は `packages/core/src/` と利用するUIの `src/` を隣り合うフォルダへ置きます。UI側の `core.ts` を `export * from "../core";` に変更し、UIのCSSを1回読み込んでください。Spreadsheet・LikeSlide・LikeDocumentでは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更します。 Spreadsheet・LikeSlide・LikeDocumentの `model/core-office-shapes.ts` は `export * from "../../core/office-shapes";` に変更します。表示枠の高さも親側で指定します。
+コピーする場合は `packages/core/src/` と利用するUIの `src/` の全体を隣り合うフォルダへ置きます。UI側の `core.ts` を `export * from "../core";` に変更し、Coreの依存 `re2js@2.8.6` をインストールして、UIのCSSを1回読み込んでください。Spreadsheet・LikeSlide・LikeDocumentで変更するCoreの参照はこの1か所だけで、`ooxml.ts`・`json.ts`・`model/core-*.ts` と、LikeSlide・LikeDocumentの `browser.ts` は内部で `core.ts` を参照します。他のモジュールで変更する追加の入口は、[Explorerの導入ガイド](../../packages/explorer/src/docs/README.md)など各モジュールの手順に従ってください。表示枠の高さも親側で指定します。
 
 ## APIと利用例の読み方
 

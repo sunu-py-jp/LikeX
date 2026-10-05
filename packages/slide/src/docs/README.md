@@ -32,13 +32,11 @@ CSSはアプリの入口で1回importします。Next.js App Routerでは `app/l
 1. `packages/core/src/` を `components/core/` にコピーします。
 2. `packages/slide/src/` を `components/slide/` にコピーします。
 3. `slide/core.ts` を `export * from "../core";` に変更します。
-4. `slide/ooxml.ts` を `export * from "../core/ooxml";` に変更します。
-5. `slide/json.ts` を `export * from "../core/json";` に変更します。
-6. `slide/model/core-connectors.ts` を `export * from "../../core/connectors";` に変更します。
-7. `slide/model/core-office-shapes.ts` を `export * from "../../core/office-shapes";` に変更します。
-7. `react`、`react-dom`、`lucide-react` を利用先へインストールし、`components/slide` と `components/slide/styles.css` をimportします。
+4. `react`、`react-dom`、`lucide-react`、`re2js` を利用先へインストールし、`components/slide` と `components/slide/styles.css` をimportします。
 
-`LICENSE` と `THIRD_PARTY_NOTICES.md` は両方のフォルダに残してください。
+Coreへの参照は `slide/core.ts` に集約されています。`browser.ts`・`ooxml.ts`・`json.ts`・`model/core-*.ts` の変更は不要です。`re2js` はCoreの依存です。各依存の対応バージョンはCoreとSlideの `package.json` を参照してください。
+
+更新時はCoreとSlideの `src/` 全体を同じバージョンで差し替え、`slide/core.ts` の接続先を再設定してください。`LICENSE` と `THIRD_PARTY_NOTICES.md` は両方のフォルダに残してください。
 
 ## 表示と編集の設定
 

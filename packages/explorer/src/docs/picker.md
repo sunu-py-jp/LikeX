@@ -47,6 +47,7 @@ export function AttachmentPicker({ entries }: { entries: readonly ExplorerEntry[
 | `onConfirm` | 必須。確定した項目と `{ signal: AbortSignal }` を受け取り、`void` または `Promise<void>` を返します。 |
 | `onCancel` | キャンセルの通知。確定済みの結果を利用側で消すかどうかは利用側の判断です。 |
 | `confirmLabel` / `cancelLabel` | 確定・キャンセルボタンの文言。 |
+| `footerMessage` | 任意の `ReactNode`。選択状況・操作ボタンの下に、利用側の補足メッセージを表示します。文字列とJSXを渡せます。 |
 | `ref` | 任意の `React.Ref<ExplorerPickerHandle>`。下記の移動・選択・確定操作を呼び出せます。 |
 
 ダイアログではさらに `open: boolean` と `onOpenChange: (open: boolean) => void` が必須で、`dialogTitle`・`dialogDescription` を指定できます。
@@ -63,6 +64,39 @@ type ExplorerPickerRootItem = Readonly<{
   name: string; // rootLabel。省略時は「ファイル」
 }>;
 type ExplorerPickerItem = ExplorerItemInfo | ExplorerPickerRootItem;
+```
+
+## フッターに補足メッセージを表示する
+
+`ExplorerPicker` と `ExplorerPickerDialog` の `footerMessage` に、選択時の注意やヘルプを渡せます。メッセージは選択状況・操作ボタンの下に独立した領域として表示され、長い文章は折り返します。既存の選択状況・処理中表示・エラー・ボタンはそのまま表示されます。
+
+```tsx
+<ExplorerPicker
+  initialEntries={entries}
+  footerMessage="共有できる資料だけを選択してください。"
+  onConfirm={items => setSelected(items)}
+/>
+```
+
+文字列は通常のReactのテキストとして表示され、HTMLとして解釈しません。リンク・アイコン・ボタンなどを含める場合は、描画関数ではなくJSXを渡します。利用側でpropsを更新すると、メッセージも更新されます。省略した場合と `null`・`undefined`・`false` の場合はメッセージ領域を表示しません。
+
+```tsx
+<ExplorerPickerDialog
+  open={open}
+  onOpenChange={setOpen}
+  initialEntries={entries}
+  dialogTitle="添付する資料"
+  footerMessage={
+    <div>
+      <span aria-hidden="true">ⓘ</span>{" "}
+      選択する資料の共有範囲を確認してください。{" "}
+      <button type="button" onClick={() => setSharingHelpOpen(true)}>
+        共有の注意点を見る
+      </button>
+    </div>
+  }
+  onConfirm={items => setSelected(items)}
+/>
 ```
 
 ## 読み込み・検索・確定処理

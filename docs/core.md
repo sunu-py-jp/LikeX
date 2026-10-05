@@ -16,6 +16,7 @@
 | `createZipArchive` | パス検証・CRC32・UTF-8・無圧縮ZIPの組み立て。ファイル取得・ツリー列挙・ファイル形式の生成は各利用側が担当 |
 | `ContextMenuProvider` / `ContextMenuItem` / `ContextMenuResult` | 条件付きのメニュー項目と、親が準備する変更計画 |
 | `createContextMenuExecutor` | 変更計画の準備・確認・反映・キャンセルを管理する。データ変更と描画は各UIへ委譲 |
+| `openContextMenu` | ブラウザーで共通メニューを表示。通常の入口と `/browser` で同じ実装を共有し、import時にDOMへアクセスしない |
 
 固有の型はコンポーネント側に残します。ExplorerはファイルID・一覧・差分、Spreadsheetはシート・セル・ワークブックを受け渡します。保存や操作イベントを巨大な共通unionにまとめません。例えば編集許可後の新しい初期データは `EditPermission<Entries, "entries">` と `EditPermission<Workbook, "workbook">` で同じ規則を使います。
 
@@ -50,6 +51,8 @@ packages/core/src/                  共通処理の実装
   async.ts / unsaved-changes.ts      非同期の接続・離脱確認
 packages/explorer/src/core.ts        export * from "@likex/core"
 packages/spreadsheet/src/core.ts     export * from "@likex/core"
+packages/slide/src/core.ts           export * from "@likex/core"
+packages/document/src/core.ts        export * from "@likex/core"
 ```
 
 各UIは通常のnpm依存として `@likex/core` を使います。利用先に共通Providerや継承階層を追加する必要はありません。tarball配布ではcoreとUIの両ファイルを `npm install` に渡します。レジストリ公開後は通常の依存解決に従います。
@@ -57,19 +60,21 @@ packages/spreadsheet/src/core.ts     export * from "@likex/core"
 コピー導入は次の3手順です。
 
 1. `packages/core/src/` を利用先の `components/core/` へコピーする。
-2. UIの `src/` を `components/explorer/` または `components/spreadsheet/` へコピーする。
-3. UIフォルダの `core.ts` を `export * from "../core";` に変更する。Spreadsheet・LikeSlideは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更する。 Spreadsheet・LikeSlide・LikeDocumentの `model/core-office-shapes.ts` は `export * from "../../core/office-shapes";` に変更する。
+2. UIの `src/` を隣接する `components/<module>/` へコピーする。
+3. UIフォルダの `core.ts` を `export * from "../core";` に変更する。
 
-coreは両UIで1つを共有できます。コピー後も元の `@likex/core` に依存させる選択は可能ですが、上記手順ではLikeXパッケージのインストールは不要です。Reactなどの外部依存とUIのCSS読み込みは引き続き必要です。共通実装の自動複製・生成確認・特殊なパス解決は行いません。
+Spreadsheet・LikeSlide・LikeDocumentで変更するCoreの参照は `core.ts` の1か所だけです。`ooxml.ts`・`json.ts`・`model/core-*.ts` と、LikeSlide・LikeDocumentの `browser.ts` は内部でこの入口を参照します。既存のコピーは利用するUIとCoreを同じバージョンから一緒に更新し、以前に書き換えたこれらのファイルもコピーし直してください。他のモジュールで変更する追加の入口は、[Explorerの導入ガイド](../packages/explorer/src/docs/README.md)など各モジュールの手順に従ってください。
+
+coreは複数のUIで1つを共有できます。コピー後も元の `@likex/core` に依存させる選択は可能ですが、上記手順ではLikeXパッケージのインストールは不要です。Coreの実行時依存 `re2js@2.8.6`、React、LikeDocumentのProseMirrorなどの外部依存とUIのCSS読み込みは引き続き必要です。共通実装の自動複製・生成確認・特殊なパス解決は行いません。
 
 `build:library` / `pack:library` は依存順にcoreを先に処理します。UIの `test` / `typecheck` もcoreのビルドから開始します。導入検証は、coreとUIの両tarballからの依存解決と、上記3手順によるソースコピーを実際に検証します。
 
-`@likex/core` 単体もReact・DOMに依存しないESMパッケージとしてビルド・pack・Nodeインポート・strict型検証・ソースコピーを確認します。UIのない基盤なのでCSSやNext.jsページの検証は対象外です。Explorer・Spreadsheet・LikeSlideのNext.js・CSS・コピー導入検証は引き続き実行します。
+`@likex/core` 単体もReactに依存せず、import時にDOMを使わないESMパッケージとしてビルド・pack・Nodeインポート・strict型検証・ソースコピーを確認します。`openContextMenu` の実行にはDOMが必要です。CoreのCSSやNext.jsページの検証は対象外です。各UIのNext.js・CSS・コピー導入検証は引き続き実行します。
 
 ## 文字列検索
 
-`@likex/core/text-search` の `createTextSearchMatcher({ text, matchCase?, wholeText?, useRegex? })` は、部分一致・全体一致・大文字小文字の区別・正規表現を共通化します。返り値の `test(text)` と `replace(text, replacement)` は繰り返し呼べ、置換後の文字列は `$1` 等もリテラルとして扱います。空の検索語は一致せず、置換も行いません。
+`@likex/core` と `@likex/core/text-search` の両方から、`createTextSearchMatcher` と `TextSearchMatcher` / `TextSearchQuery` 型を利用できます。`createTextSearchMatcher({ text, matchCase?, wholeText?, useRegex? })` は、部分一致・全体一致・大文字小文字の区別・正規表現を共通化します。返り値の `test(text)` と `replace(text, replacement)` は繰り返し呼べ、置換後の文字列は `$1` 等もリテラルとして扱います。空の検索語は一致せず、置換も行いません。
 
 通常文字列は100,000文字、正規表現は4,096文字までです。コンパイル前に繰り返しの展開コストを20,000命令相当までに制限し、短い式でも巨大なグループの繰り返しはエラーにします。独立した繰り返しや選択肢のコストは足し合わせ、入れ子やグループに付く回数だけを掛け合わせます。コンパイル後も命令数を検証します。正規表現は [RE2JS](https://github.com/le0pard/re2js) のRE2形式で、グループ・選択・量指定・文字クラス・アンカー・Unicode文字クラスに対応し、先読み・後読み・後方参照には対応しません。不正な構文・未対応構文・過大なパターンは例外になり、UI側でエラーとして表示します。バックトラッキングにより指数時間を要するJavaScriptの正規表現を、未検証の検索語から直接実行しません。標準の検索条件は表示状態で、OfficeやLikeXの保存ファイルには書き込みません。
 
-ソースコピー導入ではcoreの依存 `re2js@2.8.6` をインストールし、Explorer・Spreadsheetの `model/core-text-search.ts` を `export * from "../../core/text-search";` に変更します。
+ソースコピー導入ではcoreの依存 `re2js@2.8.6` をインストールします。Explorerは `model/core-text-search.ts` を `export * from "../../core/text-search";` に変更します。Spreadsheetは `core.ts` を経由するため、このファイルの変更は不要です。

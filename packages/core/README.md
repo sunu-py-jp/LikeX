@@ -1,6 +1,6 @@
 # @likex/core
 
-LikeXコンポーネントの保存・編集許可・通知・機能設定に使う共通の型と小さなヘルパーです。React、Provider、継承用の抽象クラスには依存しません。検索専用の `/text-search` はMITライセンスのRE2JSを利用し、通常の入口はこのエンジンを読み込みません。
+LikeXコンポーネントの保存・編集許可・通知・機能設定に使う共通の型と小さなヘルパーです。React、Provider、継承用の抽象クラスには依存しません。文字列検索はMITライセンスのRE2JSを利用し、通常の入口と専用の `/text-search` の両方から使えます。
 
 `@likex/core/connectors` はReact・DOM・ホスト連携を含まない純粋な幾何専用の公開入口です。同じAPIを通常の `@likex/core` からも使えます。
 
@@ -52,18 +52,18 @@ const zip = await createZipArchive([
 
 全パスを検証してから本体を順番に読み、1件でも失敗した場合は全体を中止します。絶対パス・`..`・バックスラッシュ・NUL・不正Unicode・重複・ファイルと親フォルダの衝突を拒否します。ZIP64や圧縮には未対応で、全体は4 GiB未満、65,534項目まで、各パスはUTF-8で65,535バイトまでです。未指定・無効な日時は1980年1月1日、範囲外の将来日時は2107年末に丸めます。端末メモリ内で生成し、ダウンロード開始やストレージ通信は行いません。`signal` による中止は処理境界で確認するため、中止できない外部読込の完了は待ちます。
 
-各UIは通常のnpm依存として `@likex/core` を利用します。tarballで導入する際はcoreとUIの両tarballをnpmに渡してください。コピー導入では `core/src/` とUIの `src/` を隣接フォルダへ置き、UI側の `core.ts` を `export * from "../core";` へ変更します。Spreadsheet・Slideは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";`、`model/core-connectors.ts` を `export * from "../../core/connectors";` に変更します。Spreadsheet・Slide・Documentは `model/core-office-shapes.ts` を `export * from "../../core/office-shapes";` に変更します。自動生成や特殊な解決設定はありません。core単体も `src/` のコピーで利用できます。
+各UIは通常のnpm依存として `@likex/core` を利用します。tarballで導入する際はcoreとUIの両tarballをnpmに渡してください。コピー導入では `core/src/` とUIの `src/` の全体を隣接フォルダへ置き、UI側の `core.ts` を `export * from "../core";` へ変更し、Coreの実行時依存 `re2js@2.8.6` をインストールします。Spreadsheet・LikeSlide・LikeDocumentで変更するCoreの参照はこの1か所だけです。`ooxml.ts`・`json.ts`・`model/core-*.ts` と、LikeSlide・LikeDocumentの `browser.ts` は内部で `core.ts` を参照します。他のモジュールで変更する追加の入口は、各モジュールの導入ガイドに従ってください。自動生成や特殊な解決設定はありません。core単体も `src/` のコピーで利用できます。
 
 [MITライセンス](LICENSE)です。コピーする場合は`src/LICENSE`と`src/THIRD_PARTY_NOTICES.md`も保持してください。npm公開は未実施で、`private: true`は誤公開防止のため維持しています。
 
 ## ブラウザー用のメニュー
 
-`@likex/core/browser` は任意のDOMヘルパーの入口です。`openContextMenu` でLikeXの共通メニューを表示できます。Reactには依存しませんがDOMを使うため、純粋モデルからはimportしません。通常の `@likex/core` と `/json` はこの入口を読み込みません。UI側に `browser.ts` がある場合、ソースコピーでは `export * from "../core/browser";` に変更します。
+`openContextMenu` と `ContextMenuAction` / `ContextMenuSurfaceOptions` 型は、通常の `@likex/core` と `@likex/core/browser` の両方から使えます。両入口は同じメニュー実装を共有します。Reactには依存せず、import時にDOMへアクセスしません。メニューを表示するときはDOMが必要で、純粋モデルからは呼び出しません。LikeSlide・LikeDocumentの `browser.ts` は `core.ts` を参照するため、コピー時の変更は不要です。他のUIの `browser.ts` は各導入ガイドに従ってください。
 
 ## 文字列検索
 
-`@likex/core/text-search` の `createTextSearchMatcher({ text, matchCase?, wholeText?, useRegex? })` は、部分一致・全体一致・大文字小文字の区別・正規表現を共通化します。返り値の `test(text)` と `replace(text, replacement)` は繰り返し呼べ、置換後の文字列は `$1` 等もリテラルとして扱います。空の検索語は一致せず、置換も行いません。
+`@likex/core` と `@likex/core/text-search` の両方から、`createTextSearchMatcher` と `TextSearchMatcher` / `TextSearchQuery` 型を利用できます。`createTextSearchMatcher({ text, matchCase?, wholeText?, useRegex? })` は、部分一致・全体一致・大文字小文字の区別・正規表現を共通化します。返り値の `test(text)` と `replace(text, replacement)` は繰り返し呼べ、置換後の文字列は `$1` 等もリテラルとして扱います。空の検索語は一致せず、置換も行いません。
 
 通常文字列は100,000文字、正規表現は4,096文字までです。コンパイル前に繰り返しの展開コストを20,000命令相当までに制限し、短い式でも巨大なグループの繰り返しはエラーにします。独立した繰り返しや選択肢のコストは足し合わせ、入れ子やグループに付く回数だけを掛け合わせます。コンパイル後も命令数を検証します。正規表現は [RE2JS](https://github.com/le0pard/re2js) のRE2形式で、グループ・選択・量指定・文字クラス・アンカー・Unicode文字クラスに対応し、先読み・後読み・後方参照には対応しません。不正な構文・未対応構文・過大なパターンは例外になり、UI側でエラーとして表示します。バックトラッキングにより指数時間を要するJavaScriptの正規表現を、未検証の検索語から直接実行しません。標準の検索条件は表示状態で、OfficeやLikeXの保存ファイルには書き込みません。
 
-ソースコピー導入ではcoreの依存 `re2js@2.8.6` をインストールし、Explorer・Spreadsheetの `model/core-text-search.ts` を `export * from "../../core/text-search";` に変更します。
+ソースコピー導入ではcoreの依存 `re2js@2.8.6` をインストールします。Explorerは `model/core-text-search.ts` を `export * from "../../core/text-search";` に変更します。Spreadsheetは `core.ts` を経由するため、このファイルの変更は不要です。

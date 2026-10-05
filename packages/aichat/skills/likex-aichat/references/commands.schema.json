@@ -510,11 +510,11 @@
         "error": {
           "type": "string"
         },
-        "content": {
-          "type": "string"
-        },
         "status": {
           "$ref": "#/$defs/AIChatMessageInput_status"
+        },
+        "content": {
+          "type": "string"
         },
         "attachments": {
           "$ref": "#/$defs/AIChatMessage_attachments"

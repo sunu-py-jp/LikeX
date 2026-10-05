@@ -48,13 +48,16 @@ export default function ExplorerPickerDemo() {
       {modes.map(item => <button key={item.id} type="button" className="picker-demo-mode" aria-pressed={mode.id === item.id} onClick={() => { setMode(item); setCandidate([]); setStatus(`${item.label}に切り替えました。`); }}>{item.label}</button>)}
     </div><button type="button" className="picker-demo-launch" onClick={() => setOpen(true)}>ダイアログで選ぶ</button></div>
     <div className="picker-demo-workspace"><main className="picker-demo-main"><div className="picker-demo-section-title"><h2>ページに埋め込む</h2><span>{mode.multiple ? "Ctrl / Cmd または Shift で複数選択" : "単一選択"}</span></div>
-      <div className="picker-demo-embedded"><ExplorerPicker key={mode.id} {...shared} title="資料を選択" aria-label="埋め込みファイル選択" onSelectionChange={setCandidate} onConfirm={items => confirm("埋め込み画面", items)} onCancel={() => setStatus("埋め込み画面の選択をキャンセルしました。確定済みの結果は保持します。")} style={{ height: "100%" }} /></div>
+      <div className="picker-demo-embedded"><ExplorerPicker key={mode.id} {...shared} title="資料を選択" aria-label="埋め込みファイル選択" footerMessage="このデモでは、資料を確定してもファイルの内容は変更されません。" onSelectionChange={setCandidate} onConfirm={items => confirm("埋め込み画面", items)} onCancel={() => setStatus("埋め込み画面の選択をキャンセルしました。確定済みの結果は保持します。")} style={{ height: "100%" }} /></div>
     </main><aside className="picker-demo-aside" aria-label="選択結果">
       <section><h2>確定した結果</h2><p className="picker-demo-status" role="status">{status}</p>{result ? <><p className="picker-demo-caption">{result.source} / {result.mode}</p><ol className="picker-demo-results">{result.items.map(item => <li key={item.id}><strong>{item.name}</strong><span>{item.kind === "root" ? "ルート" : item.kind === "folder" ? "フォルダ" : "ファイル"}</span><code>{item.path}</code><small>ID: {item.id}</small></li>)}</ol></> : <p>項目を選んで「選択を確定」を押すと、IDとパスをここへ表示します。</p>}</section>
       <section><h2>埋め込み画面の選択候補</h2><p>{candidate.length ? candidate.map(item => item.name).join("、") : "選択なし"}</p><p className="picker-demo-caption">選択変更と確定は別の通知です。選択しただけでは結果を更新しません。</p></section>
-      <section><h2>操作のヒント</h2><p>ファイルはダブルクリックか Enter で確定します。フォルダは開いて中へ移動します。</p>{mode.kind !== "file" && <p>「現在のフォルダを選択」で、開いているフォルダやルートも選べます。</p>}<p>検索は未取得の資料も含む名前検索です。「機能仕様」などを入力できます。</p></section>
+      <section id="picker-demo-help"><h2>操作のヒント</h2><p>ファイルはダブルクリックか Enter で確定します。フォルダは開いて中へ移動します。</p>{mode.kind !== "file" && <p>「現在のフォルダを選択」で、開いているフォルダやルートも選べます。</p>}<p>検索は未取得の資料も含む名前検索です。「機能仕様」などを入力できます。</p></section>
       <section><h2>必要な場所だけ取得</h2><p>初めにルート直下4項目を渡し、フォルダを開くと直下一覧を取得します。</p>{requests.length > 0 && <ol className="picker-demo-requests">{requests.map((path, index) => <li key={`${index}:${path}`}><code>{path}</code></li>)}</ol>}<p className="picker-demo-caption">350msの待機を入れたローカルデモです。外部通信・保存・端末上のファイル選択は行いません。ダイアログを開き直すと新しい選択セッションになります。</p></section>
     </aside></div>
-    <ExplorerPickerDialog {...shared} open={open} onOpenChange={setOpen} dialogTitle={mode.label} dialogDescription="共有資料から選択してください。フォルダを開くと必要な一覧だけを取得します。" onConfirm={items => confirm("ダイアログ", items)} onCancel={() => setStatus("ダイアログをキャンセルしました。確定済みの結果は保持します。")} />
+    <ExplorerPickerDialog {...shared} open={open} onOpenChange={setOpen} dialogTitle={mode.label} dialogDescription="共有資料から選択してください。フォルダを開くと必要な一覧だけを取得します。" footerMessage={<span className="picker-demo-footer-note">
+      <svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="10" cy="10" r="7.5" /><path d="M10 9v5" /><circle cx="10" cy="6" r=".75" fill="currentColor" stroke="none" /></svg>
+      <span>確定した資料名と保存場所は「確定した結果」で確認できます。 <a href="#picker-demo-help" onClick={() => setOpen(false)}>操作のヒントを見る</a></span>
+    </span>} onConfirm={items => confirm("ダイアログ", items)} onCancel={() => setStatus("ダイアログをキャンセルしました。確定済みの結果は保持します。")} />
   </div>;
 }

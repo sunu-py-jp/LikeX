@@ -189,11 +189,17 @@
         "ellipse",
         "rect",
         "roundRect",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartPredefinedProcess",
+        "flowChartPreparation",
+        "flowChartDelay",
+        "rightArrow",
+        "leftArrow",
         "rtTriangle",
         "parallelogram",
         "trapezoid",
-        "rightArrow",
-        "leftArrow",
         "upArrow",
         "downArrow",
         "leftRightArrow",
@@ -211,18 +217,12 @@
         "octagon",
         "star5",
         "plus",
-        "flowChartProcess",
-        "flowChartDecision",
-        "flowChartTerminator",
         "flowChartInputOutput",
-        "flowChartPredefinedProcess",
         "flowChartDocument",
         "flowChartMultidocument",
-        "flowChartPreparation",
         "flowChartManualInput",
         "flowChartManualOperation",
-        "flowChartMerge",
-        "flowChartDelay"
+        "flowChartMerge"
       ]
     },
     "DocumentCanvasShape_flipH": {
@@ -509,11 +509,17 @@
         "ellipse",
         "rect",
         "roundRect",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartPredefinedProcess",
+        "flowChartPreparation",
+        "flowChartDelay",
+        "rightArrow",
+        "leftArrow",
         "rtTriangle",
         "parallelogram",
         "trapezoid",
-        "rightArrow",
-        "leftArrow",
         "upArrow",
         "downArrow",
         "leftRightArrow",
@@ -531,18 +537,12 @@
         "octagon",
         "star5",
         "plus",
-        "flowChartProcess",
-        "flowChartDecision",
-        "flowChartTerminator",
         "flowChartInputOutput",
-        "flowChartPredefinedProcess",
         "flowChartDocument",
         "flowChartMultidocument",
-        "flowChartPreparation",
         "flowChartManualInput",
         "flowChartManualOperation",
-        "flowChartMerge",
-        "flowChartDelay"
+        "flowChartMerge"
       ]
     },
     "DocumentCommand_5": {
@@ -591,6 +591,9 @@
         "end": {
           "$ref": "#/$defs/ConnectorEndpoint"
         },
+        "start": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
         "stroke": {
           "type": "string"
         },
@@ -599,9 +602,6 @@
         },
         "strokeWidth": {
           "type": "number"
-        },
-        "start": {
-          "$ref": "#/$defs/ConnectorEndpoint"
         },
         "startArrow": {
           "$ref": "#/$defs/DocumentCanvasConnector_startArrow"
@@ -649,6 +649,9 @@
         "end": {
           "$ref": "#/$defs/ConnectorEndpoint"
         },
+        "start": {
+          "$ref": "#/$defs/ConnectorEndpoint"
+        },
         "stroke": {
           "type": "string"
         },
@@ -657,9 +660,6 @@
         },
         "strokeWidth": {
           "type": "number"
-        },
-        "start": {
-          "$ref": "#/$defs/ConnectorEndpoint"
         },
         "startArrow": {
           "$ref": "#/$defs/DocumentCanvasConnector_startArrow"
@@ -766,11 +766,11 @@
     "DocumentMarkName": {
       "enum": [
         "underline",
-        "strong",
         "em",
+        "link",
+        "strong",
         "strike",
-        "text_style",
-        "link"
+        "text_style"
       ]
     },
     "DocumentCommand_11_attrs": {
@@ -1416,8 +1416,8 @@
     "DocumentMark_1_type": {
       "enum": [
         "underline",
-        "strong",
         "em",
+        "strong",
         "strike"
       ]
     },

@@ -59,10 +59,11 @@ function consumePickerItems(items: readonly ExplorerPickerItem[]) {
   }
 }
 const pickerProps: ExplorerPickerProps = { initialEntries: entries, kind: pickerKind, multiple: true,
-  initialSelectedIds: ["file-a"], onSelectionChange: consumePickerItems,
+  initialSelectedIds: ["file-a"], onSelectionChange: consumePickerItems, footerMessage: "共有できる資料を選んでください。",
   onConfirm: async (items, context: ExplorerPickerConfirmContext) => { context.signal.throwIfAborted(); consumePickerItems(items); }, onCancel() {} };
 const picker = <ExplorerPicker {...pickerProps} ref={pickerRef} confirmLabel="確定" cancelLabel="取消" />;
-const pickerDialogProps: ExplorerPickerDialogProps = { ...pickerProps, open: true, onOpenChange(open) { const value: boolean = open; void value; }, dialogTitle: "選択", dialogDescription: "資料を選んでください。" };
+const pickerDialogProps: ExplorerPickerDialogProps = { ...pickerProps, open: true, onOpenChange(open) { const value: boolean = open; void value; }, dialogTitle: "選択", dialogDescription: "資料を選んでください。",
+  footerMessage: <span><span aria-hidden="true">ⓘ</span> 共有範囲を確認してください。 <a href="#sharing-help">共有の注意点</a></span> };
 const pickerDialog = <ExplorerPickerDialog {...pickerDialogProps} />;
 async function controlPicker() {
   const api = pickerRef.current;

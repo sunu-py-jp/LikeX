@@ -423,6 +423,9 @@ SOFTWARE.
   .lxe\:mt-1:where([data-likex-explorer], [data-likex-explorer] *) {
     margin-top: var(--lxe-spacing);
   }
+  .lxe\:mt-2:where([data-likex-explorer], [data-likex-explorer] *) {
+    margin-top: calc(var(--lxe-spacing) * 2);
+  }
   .lxe\:mt-2\.5:where([data-likex-explorer], [data-likex-explorer] *) {
     margin-top: calc(var(--lxe-spacing) * 2.5);
   }

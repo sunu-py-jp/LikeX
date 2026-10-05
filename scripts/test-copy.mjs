@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile, access } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { run, runNpm } from './lib/run.mjs';
 import { dependencyOrder, libraryModule, requestedModules } from './lib/modules.mjs';
 import { assertSourceBoundary } from './lib/source-boundary.mjs';
+import { rewriteSourceCopyAdapters } from './lib/source-copy.mjs';
 import { consumerDevDependencies, consumerDependencies, copyConsumerFixtures,
   checkConsumerTypes, checkConsumerStyles, checkConsumerNext } from './lib/consumer.mjs';
 import { checkModelConsumer } from './lib/model-consumer.mjs';
@@ -38,20 +39,7 @@ async function testConsumer(module) {
       Object.assign(declared, dependencyManifest.dependencies, dependencyManifest.peerDependencies);
       delete declared[dependencyManifest.name];
     }
-    if (ui && await access(path.join(copiedSource, 'browser.ts')).then(() => true, () => false))
-      await writeFile(path.join(copiedSource, 'browser.ts'), 'export * from "../core/browser";\n');
-    // Change only the adapters documented for source-copy installation.
-    if (ui) await writeFile(path.join(copiedSource, 'core.ts'), 'export * from "../core";\n');
-    if (ui && await access(path.join(copiedSource, 'ooxml.ts')).then(() => true, () => false))
-      await writeFile(path.join(copiedSource, 'ooxml.ts'), 'export * from "../core/ooxml";\n');
-    if (ui && await access(path.join(copiedSource, 'model/core-connectors.ts')).then(() => true, () => false))
-      await writeFile(path.join(copiedSource, 'model/core-connectors.ts'), 'export * from "../../core/connectors";\n');
-    if (ui && await access(path.join(copiedSource, 'model/core-text-search.ts')).then(() => true, () => false))
-      await writeFile(path.join(copiedSource, 'model/core-text-search.ts'), 'export * from "../../core/text-search";\n');
-    if (ui && await access(path.join(copiedSource, 'model/core-office-shapes.ts')).then(() => true, () => false))
-      await writeFile(path.join(copiedSource, 'model/core-office-shapes.ts'), 'export * from "../../core/office-shapes";\n');
-    if (ui && await access(path.join(copiedSource, 'json.ts')).then(() => true, () => false))
-      await writeFile(path.join(copiedSource, 'json.ts'), 'export * from "../core/json";\n');
+    const adapterChanges = await rewriteSourceCopyAdapters(copiedSource, module);
     const copiedSourceFiles = await assertSourceBoundary(copiedSource, manifest,
       { allowedSourceRoots: copiedDependencies.map(dependency => dependency.directory) });
     if (ui) assert.match(await readFile(path.join(copiedSource, 'index.ts'), 'utf8'), /^['"]use client['"];/);
@@ -99,7 +87,8 @@ async function testConsumer(module) {
     const headlessModel = libraryModule(module).headlessEntries?.model ? await checkModelConsumer({ module, sourceDirectory: copiedSource }) : undefined;
     const report = {
       source: `packages/${module}/src copied to components/${module} in a temporary project outside the repository`,
-      ...(ui ? { coreSource: 'packages/core/src copied unchanged to components/core', adapterChange: 'core.ts → ../core; browser.ts / ooxml.ts / json.ts (when present) → ../core/browser / ../core/ooxml / ../core/json; model/core-connectors.ts / model/core-office-shapes.ts / model/core-text-search.ts (when present) → ../../core/connectors / ../../core/office-shapes / ../../core/text-search' } : {}),
+      ...(ui ? { coreSource: 'packages/core/src copied unchanged to components/core',
+        adapterChange: Object.entries(adapterChanges).map(([file, imported]) => `${file} → ${imported}`).join('; ') } : {}),
       copiedSourceFiles, packageImportAvailable: false, installMode, linkedDependencies, testedVersions, dependencyLocations,
       networkInstallationTested: online, typeResolution: 'Bundler, strict, skipLibCheck=false; no aliases', ...(headlessModel ? { headlessModel } : {}),
       ...(ui ? { ssrBytes: ssr.renderedBytes, stylesheetImport: `components/${module}/styles.css` } : { nodeImport: 'passed without React or browser globals' }), ...styles, ...nextStyles,

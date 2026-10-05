@@ -196,4 +196,4 @@ const state = api.getEditState();
 
 ブラウザの再読み込み・タブやウィンドウを閉じる操作は、未保存時に標準の確認を表示します。`warnOnUnsavedChanges: false` でOFFにできます。文言や確認が表示される条件はブラウザが管理します。SPA内の画面遷移や親によるアンマウントは、`onUnsavedChangesChange` を使って親が確認してください。
 
-この共通契約の型・通知の例外隔離・離脱ガード・機能解決は `@likex/core` が担当します。パッケージでは通常の依存関係として利用します。ソースコピーでは `core` とコンポーネントを並べて配置し、コンポーネントの `core.ts`・`ooxml.ts`・`json.ts` を隣接するcoreへの相対参照へ変更します。生成・同期するコードはありません。
+この共通契約の型・通知の例外隔離・離脱ガード・機能解決は `@likex/core` が担当します。パッケージでは通常の依存関係として利用します。ソースコピーではCoreとSpreadsheetの `src/` 全体を隣接フォルダへ配置し、Spreadsheetの `core.ts` だけを `export * from "../core";` に変更します。`ooxml.ts`・`json.ts`・`model/core-*.ts` は内部でこの入口を参照します。Coreの依存 `re2js@2.8.6` も利用先へインストールします。生成・同期するコードはありません。

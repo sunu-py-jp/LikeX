@@ -30,5 +30,9 @@
 .picker-demo-results span, .picker-demo-results small { color: #64758c; font-size: 11px; }
 .picker-demo-results code { font-size: 11px; white-space: pre-wrap; }
 .picker-demo-requests { padding-left: 18px; max-height: 110px; overflow-y: auto; font-size: 11px; color: #64758c; }
+.picker-demo-footer-note { display: flex; align-items: flex-start; gap: 6px; }
+.picker-demo-footer-note > svg { flex-shrink: 0; margin-top: 1px; }
+.picker-demo-footer-note a { color: #365b94; text-decoration: underline; text-underline-offset: 2px; }
+.picker-demo-footer-note a:focus-visible { outline: 2px solid #97b9e8; outline-offset: 2px; }
 @media (max-width: 1050px) { .picker-demo { padding: 18px; } .picker-demo-workspace { grid-template-columns: minmax(0, 1fr); } .picker-demo-aside { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; } .picker-demo-aside section + section { border-top: 0; margin-top: 0; padding-top: 0; } }
 @media (max-width: 650px) { .picker-demo-header, .picker-demo-controls { align-items: flex-start; flex-direction: column; } .picker-demo-aside { grid-template-columns: minmax(0, 1fr); } .picker-demo-section-title { align-items: flex-start; flex-direction: column; } }

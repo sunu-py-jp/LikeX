@@ -1,4 +1,4 @@
-import type { Ref } from "react";
+import type { ReactNode, Ref } from "react";
 import type { ExplorerProps } from "./props";
 import type { ExplorerNavigationHandle } from "./model/navigation";
 import type { ExplorerPickerItem, ExplorerPickerKind } from "./model/picker";
@@ -28,6 +28,8 @@ export type ExplorerPickerProps = Omit<ExplorerProps,
   onCancel?: () => void;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Optional content below the selection controls. Strings are plain text; nodes may include interactive UI. */
+  footerMessage?: ReactNode;
 };
 
 export type ExplorerPickerDialogProps = ExplorerPickerProps & {

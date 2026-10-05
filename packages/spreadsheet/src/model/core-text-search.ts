@@ -1,2 +1,2 @@
-// Source-copy installation: replace with export * from "../../core/text-search".
-export * from "@likex/core/text-search";
+export { createTextSearchMatcher } from "../core";
+export type { TextSearchQuery, TextSearchMatcher } from "../core";

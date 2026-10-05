@@ -35,3 +35,8 @@ export type { ConnectorPoint, ConnectorPort, ConnectorArrowhead, ConnectorBindin
   ConnectorPortPoint, ConnectorTarget, ConnectorSnap, ConnectorPath, ConnectorPathCommand, ConnectorRouting, ConnectorRoute, ConnectorRouteOptions } from "./connectors";
 export { OFFICE_SHAPE_PRESETS, isOfficeShapePreset, getOfficeShapeGeometry, getOfficeShapeOutline } from "./office-shapes";
 export type { OfficeShapePreset, OfficeShapeCategory, OfficeShapeGeometry } from "./office-shapes";
+export { createTextSearchMatcher } from "./text-search";
+export type { TextSearchQuery, TextSearchMatcher } from "./text-search";
+// Import-safe on the server; the host supplies a DOM anchor when opening a menu.
+export { openContextMenu } from "./browser";
+export type { ContextMenuAction, ContextMenuSurfaceOptions } from "./browser";

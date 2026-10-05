@@ -38,7 +38,7 @@ export function ExplorerPicker(props: ExplorerPickerProps) {
 }
 
 function PickerSession({ ref, kind = "file", multiple = false, initialSelectedIds,
-  onConfirm, onCancel, onSelectionChange, confirmLabel, cancelLabel, onAccepted, onCancelled,
+  onConfirm, onCancel, onSelectionChange, confirmLabel, cancelLabel, footerMessage, onAccepted, onCancelled,
   ...explorerProps }: SessionProps) {
   const props: ExplorerProps = {
     ...explorerProps, ref: undefined, readOnly: true, onSave: undefined, onEditRequest: undefined,
@@ -64,16 +64,16 @@ function PickerSession({ ref, kind = "file", multiple = false, initialSelectedId
     footer={<PickerFooter workspace={workspace} bridge={bridge} kind={kind} multiple={multiple}
       initialSelectedIds={initialSelectedIds} onConfirm={onConfirm} onCancel={onCancel}
       onSelectionChange={onSelectionChange} onAccepted={onAccepted} onCancelled={onCancelled}
-      confirmLabel={confirmLabel} cancelLabel={cancelLabel} rootLabel={props.rootLabel} />} />;
+      confirmLabel={confirmLabel} cancelLabel={cancelLabel} footerMessage={footerMessage} rootLabel={props.rootLabel} />} />;
 }
 
 type FooterProps = Pick<SessionProps, "kind" | "multiple" | "initialSelectedIds" | "onConfirm" | "onCancel" |
-  "onSelectionChange" | "onAccepted" | "onCancelled" | "confirmLabel" | "cancelLabel" | "rootLabel"> & {
+  "onSelectionChange" | "onAccepted" | "onCancelled" | "confirmLabel" | "cancelLabel" | "footerMessage" | "rootLabel"> & {
   workspace: ExplorerWorkspace;
   bridge: PickerBridge;
 };
 function PickerFooter({ workspace, bridge, kind = "file", multiple = false, rootLabel, initialSelectedIds,
-  onConfirm, onCancel, onSelectionChange, onAccepted, onCancelled, confirmLabel, cancelLabel }: FooterProps) {
+  onConfirm, onCancel, onSelectionChange, onAccepted, onCancelled, confirmLabel, cancelLabel, footerMessage }: FooterProps) {
   const { entries, selected, locationInfo, query, activeTabId, folderPending, searchPending, folderError, searchError } =
     useExplorerFields("entries", "selected", "locationInfo", "query", "activeTabId", "folderPending", "searchPending", "folderError", "searchError");
   const [pending, setPending] = useState(false);
@@ -174,6 +174,10 @@ function PickerFooter({ workspace, bridge, kind = "file", multiple = false, root
       <button type="button" className={`${buttonClass} lxe:bg-[var(--explorer-accent)] lxe:text-[var(--explorer-accent-foreground)]`}
         disabled={unavailable || !selection.ok} onClick={() => { void confirm(); }}>{confirmLabel ?? "選択"}</button>
     </div>
+    {footerMessage != null && typeof footerMessage !== "boolean" && footerMessage !== "" &&
+      <div data-explorer-picker-message className="lxe:mt-2 lxe:min-w-0 lxe:whitespace-pre-wrap lxe:break-words lxe:text-xs lxe:leading-relaxed lxe:text-[var(--explorer-muted)]">
+        {footerMessage}
+      </div>}
   </div>;
 }
 

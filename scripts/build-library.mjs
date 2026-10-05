@@ -10,6 +10,7 @@ import { collectRuntimeNotices } from './lib/licenses.mjs';
 import { assertSourceBoundary } from './lib/source-boundary.mjs';
 import { dependencyOrder, libraryModule, requestedModules } from './lib/modules.mjs';
 import { bundlePlainStyles } from './lib/plain-styles.mjs';
+import { narrowDeclarationBridge } from './lib/declaration-bridges.mjs';
 
 async function declarationFiles(directory) {
   const files = [];
@@ -47,6 +48,11 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
   };
   const result = await build({ ...buildOptions,
     entryPoints: [path.join(sourceRoot, 'index.ts')], outfile: path.join(packageRoot, 'dist/index.js'),
+    // A single menu registry must be shared by root and /browser consumers.
+    ...(module === 'core' ? { plugins: [{ name: 'shared-core-browser-entry', setup(builder) {
+      builder.onResolve({ filter: /^\.\/browser$/ }, args => args.importer === path.join(sourceRoot, 'index.ts')
+        ? { path: './browser.js', external: true } : undefined);
+    } }] } : {}),
   });
   const headlessEntries = {}, browserEntries = {};
   const headlessResults = [];
@@ -71,6 +77,7 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
   const declared = new Set([...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.peerDependencies ?? {})]);
   for (const built of buildResults) for (const output of Object.values(built.metafile.outputs)) for (const imported of output.imports) {
     if (!imported.external) continue;
+    if (module === 'core' && imported.path === './browser.js') continue;
     const parts = imported.path.split('/');
     const dependency = imported.path.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
     if (!declared.has(dependency)) throw new Error(`Undeclared runtime dependency: ${imported.path}`);
@@ -96,7 +103,8 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
   if (emitted.emitSkipped) throw new Error('Type declaration generation failed.');
   // ESM .js specifiers resolve to .d.ts in both bundler and NodeNext consumers.
   for (const file of await declarationFiles(declarationRoot)) {
-    const contents = await readFile(file, 'utf8');
+    const contents = narrowDeclarationBridge(path.relative(declarationRoot, file).split(path.sep).join('/'),
+      await readFile(file, 'utf8'), profile.declarationBridgeTargets);
     await writeFile(file, contents.replace(/((?:from\s+|import\s*\()\s*["'])(\.[^"']+)(["'])/g, (match, before, specifier, after) => {
       const target = path.resolve(path.dirname(file), specifier);
       if (existsSync(`${target}.d.ts`)) return `${before}${specifier}.js${after}`;

@@ -6,9 +6,19 @@
 
 ## コピー導入
 
-正規表現検索の実行時依存として `npm install re2js@2.8.6` を実行し、コピー後の `spreadsheet/model/core-text-search.ts` は `export * from "../../core/text-search";` に変更します。パッケージ導入ではcoreの依存として自動解決します。
+リポジトリの `packages/spreadsheet/src/` 全体を `components/spreadsheet/`、`packages/core/src/` 全体を `components/core/` にコピーします。`model/`・`state/`・`ui/`・CSSも含めてください。Spreadsheetの配置先は `components/like-spreadsheet/` などの名前でも、Coreと隣接していれば同じ手順です。
 
-リポジトリの `packages/spreadsheet/src/` 全体を `components/spreadsheet/`、`packages/core/src/` 全体を `components/core/` にコピーします。`components/spreadsheet/core.ts` の1行を `export * from "../core";` に変更します。`spreadsheet/ooxml.ts` も `export * from "../core/ooxml";` に変更します。 `spreadsheet/model/core-connectors.ts` は `export * from "../../core/connectors";`、`spreadsheet/model/core-office-shapes.ts` は `export * from "../../core/office-shapes";` に変更します。`spreadsheet/json.ts` も `export * from "../core/json";` に変更します。`model/`・`state/`・`ui/`・CSSを含めてください。React / React DOM `^19.2.6` と、TypeScript環境では対応する型定義が必要です。
+コピー後に変更するCoreの参照は、`components/spreadsheet/core.ts` の次の1行だけです。
+
+```ts
+export * from "../core";
+```
+
+`ooxml.ts`・`json.ts`・`model/core-connectors.ts`・`model/core-office-shapes.ts`・`model/core-text-search.ts` は、内部で `core.ts` へ接続するため変更しません。Coreの実行時依存として `npm install re2js@2.8.6` を実行します。パッケージ導入ではcoreの依存として自動解決します。React / React DOM `^19.2.6` と、TypeScript環境では対応する型定義も必要です。
+
+コピーしたソースの型チェックには、画面なしの `model-entry.ts` だけを使う場合もTypeScriptの `lib: ["ES2022", "DOM", "DOM.Iterable"]` を指定してください。これは型定義の要件で、モデルの実行時にはReactやDOMを使いません。パッケージの `@likex/spreadsheet/model` は、DOM型定義を追加しない `lib: ["ES2022"]` のstrict環境でも使えます。
+
+以前のコピーから更新する場合は、SpreadsheetとCoreのソースを同じバージョンから一緒に更新してください。以前に参照先を書き換えた `ooxml.ts`・`json.ts`・`model/core-*.ts` も新しいファイルをコピーし直し、利用先への参照変更は `core.ts` に集約します。
 
 ```tsx
 "use client";

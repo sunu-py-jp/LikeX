@@ -11,8 +11,8 @@ npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explore
 | `packages/<module>/package.json` | 配布する名前・公開入口・依存・バージョン・ライセンスを宣言します。 |
 | `packages/core/src` | 保存・編集許可・通知・機能設定などの共通契約とヘルパーの唯一の編集元。 |
 | `packages/<module>/src/core.ts` | `@likex/core` の公開入口を再export。コピー導入時は相対importに変更します。 |
-| `packages/<module>/src/json.ts（利用するモジュール）` | `@likex/core/json` の固定JSON出力への入口。コピー時は `../core/json` へ変更します。 |
-| `packages/{spreadsheet,slide,document}/src/ooxml.ts` | `@likex/core/ooxml` のZIP・XML・参照関係処理の入口。コピー時はこちらも相対importへ変更します。 |
+| `packages/<module>/src/json.ts（利用するモジュール）` | 共通の固定JSON出力への入口。Spreadsheet・LikeSlide・LikeDocumentは `core.ts` を経由し、他のモジュールは `@likex/core/json` をコピー時に `../core/json` へ変更します。 |
+| `packages/{spreadsheet,slide,document}/src/ooxml.ts` | 共通のZIP・XML・参照関係処理の入口。`core.ts` を経由するため、コピー時の変更は不要です。 |
 | `apps/playground` | サンプルデータとデモの保存先を持つ利用者側の例です。ライブラリには含めません。 |
 | `scripts` | ビルド・型生成・配布物検査・導入検証をまとめます。 |
 | `docs` | リポジトリ全体の方針、公開手順、レビュー記録を置きます。 |
@@ -59,7 +59,7 @@ Explorerでは `.spon` を緑の表計算アイコン、`.slon` をオレンジ�
 
 配布用にもう一つ実装を持ちません。`src/` から `dist/` のESMと型宣言を生成し、`src/README.md` と `src/docs/` の利用ガイドを同じ配置で配布物へ同梱します。READMEは導入と詳細への入口、`docs/` は責務ごとの詳細です。
 
-コピー導入ではUIの `src/` 全体と `packages/core/src/` を隣接フォルダへ配置し、UI側の `core.ts` のimport先を変更します。Spreadsheet・LikeSlide・LikeDocumentでは `ooxml.ts` を `export * from "../core/ooxml";`、`json.ts` を `export * from "../core/json";` に変更します。 Spreadsheet・LikeSlide・LikeDocumentの `model/core-office-shapes.ts` は `export * from "../../core/office-shapes";` に変更します。リポジトリ固有のパスエイリアスや共通Providerは不要です。Reactなどの外部依存は明示します。更新時は取得元バージョンと利用側での変更差分を管理します。
+コピー導入ではUIの `src/` 全体と `packages/core/src/` 全体を隣接フォルダへ配置し、UI側の `core.ts` を `export * from "../core";` に変更します。Spreadsheet・LikeSlide・LikeDocumentで変更するCoreの参照はこの1か所だけで、`ooxml.ts`・`json.ts`・`model/core-*.ts` と、LikeSlide・LikeDocumentの `browser.ts` は内部で `core.ts` を参照します。他のモジュールで変更する追加の入口は、[Explorerの導入ガイド](../packages/explorer/src/docs/README.md)など各モジュールの手順に従ってください。リポジトリ固有のパスエイリアスや共通Providerは不要です。Coreの依存 `re2js@2.8.6` とReactなどの外部依存は利用先へ導入します。更新時は取得元バージョンと利用側での変更差分を管理し、利用するUIとCoreを同じバージョンから一緒に更新してください。
 
 共通のホスト契約と小さなヘルパーは `@likex/core` で管理します。各UIは通常のnpm依存として利用し、生成コピーは作りません。coreの詳細とコピー導入手順は [共通基盤](core.md) を参照してください。React状態や個別の保存データは各コンポーネントが管理します。
 
@@ -112,7 +112,7 @@ LikeX/
 
 LikeSlideの `model/` はJSONとコマンド、`session/` は履歴、`state/` は編集許可・保存とUI状態、`ui/` はリボン・キャンバス・スライド一覧・プロパティ表示、`import/` と `export/` はPPTX変換を担当します。Officeファイル共通の安全なZIP・XML読み取りは `core/ooxml/` を使います。
 
-LikeDocumentはProseMirrorの文書スキーマとトランザクションをGUI・公開コマンドで共用します。保存するのは `.dcon` のJSONで、エディターのDOMやReactの状態は含めません。`/model` はNode.jsでも動作し、公開型でProseMirrorのDOM型宣言を参照しても、実行時のDOM生成は不要です。LikeDocumentのCSSは `lxd-` クラスに限定します。ソースコピーでは `core.ts`・`json.ts`・`ooxml.ts` の3つのアダプターを変更し、ProseMirrorの依存を利用先へ導入します。
+LikeDocumentはProseMirrorの文書スキーマとトランザクションをGUI・公開コマンドで共用します。保存するのは `.dcon` のJSONで、エディターのDOMやReactの状態は含めません。`/model` はNode.jsでも動作し、公開型でProseMirrorのDOM型宣言を参照しても、実行時のDOM生成は不要です。LikeDocumentのCSSは `lxd-` クラスに限定します。ソースコピーでは `core.ts` の1か所を変更し、Coreの `re2js` とProseMirrorの依存を利用先へ導入します。
 
 ## 追加のJSONエディター
 

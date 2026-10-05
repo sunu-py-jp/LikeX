@@ -250,8 +250,8 @@
     "DocumentMark_1_type": {
       "enum": [
         "underline",
-        "strong",
         "em",
+        "strong",
         "strike"
       ]
     },
@@ -711,11 +711,17 @@
         "ellipse",
         "rect",
         "roundRect",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartPredefinedProcess",
+        "flowChartPreparation",
+        "flowChartDelay",
+        "rightArrow",
+        "leftArrow",
         "rtTriangle",
         "parallelogram",
         "trapezoid",
-        "rightArrow",
-        "leftArrow",
         "upArrow",
         "downArrow",
         "leftRightArrow",
@@ -733,18 +739,12 @@
         "octagon",
         "star5",
         "plus",
-        "flowChartProcess",
-        "flowChartDecision",
-        "flowChartTerminator",
         "flowChartInputOutput",
-        "flowChartPredefinedProcess",
         "flowChartDocument",
         "flowChartMultidocument",
-        "flowChartPreparation",
         "flowChartManualInput",
         "flowChartManualOperation",
-        "flowChartMerge",
-        "flowChartDelay"
+        "flowChartMerge"
       ]
     },
     "DocumentShapeAttributes_flipH": {

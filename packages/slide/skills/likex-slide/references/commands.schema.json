@@ -412,10 +412,16 @@
         "ellipse",
         "rect",
         "roundRect",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartPredefinedProcess",
+        "flowChartPreparation",
+        "flowChartDelay",
+        "leftArrow",
         "rtTriangle",
         "parallelogram",
         "trapezoid",
-        "leftArrow",
         "upArrow",
         "downArrow",
         "leftRightArrow",
@@ -433,18 +439,12 @@
         "octagon",
         "star5",
         "plus",
-        "flowChartProcess",
-        "flowChartDecision",
-        "flowChartTerminator",
         "flowChartInputOutput",
-        "flowChartPredefinedProcess",
         "flowChartDocument",
         "flowChartMultidocument",
-        "flowChartPreparation",
         "flowChartManualInput",
         "flowChartManualOperation",
         "flowChartMerge",
-        "flowChartDelay",
         "arrow"
       ]
     },
@@ -1219,12 +1219,12 @@
         "name": {
           "type": "string"
         },
+        "x": {
+          "type": "number"
+        },
         "line": {
           "$ref": "#/$defs/SlideLineGeometry",
           "description": "Only shape:line. Absolute document coordinates; bound points follow their target."
-        },
-        "x": {
-          "type": "number"
         },
         "y": {
           "type": "number"
@@ -1286,10 +1286,16 @@
         "ellipse",
         "rect",
         "roundRect",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartPredefinedProcess",
+        "flowChartPreparation",
+        "flowChartDelay",
+        "leftArrow",
         "rtTriangle",
         "parallelogram",
         "trapezoid",
-        "leftArrow",
         "upArrow",
         "downArrow",
         "leftRightArrow",
@@ -1307,18 +1313,12 @@
         "octagon",
         "star5",
         "plus",
-        "flowChartProcess",
-        "flowChartDecision",
-        "flowChartTerminator",
         "flowChartInputOutput",
-        "flowChartPredefinedProcess",
         "flowChartDocument",
         "flowChartMultidocument",
-        "flowChartPreparation",
         "flowChartManualInput",
         "flowChartManualOperation",
         "flowChartMerge",
-        "flowChartDelay",
         "arrow"
       ]
     },
@@ -1636,12 +1636,12 @@
         "name": {
           "type": "string"
         },
+        "x": {
+          "type": "number"
+        },
         "line": {
           "$ref": "#/$defs/SlideLineGeometry",
           "description": "Only shape:line. Absolute document coordinates; bound points follow their target."
-        },
-        "x": {
-          "type": "number"
         },
         "y": {
           "type": "number"
