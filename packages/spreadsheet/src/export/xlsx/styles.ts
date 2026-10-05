@@ -23,7 +23,7 @@ function fontXml(format?: SpreadsheetCellFormat, differential = false) {
 }
 function fillXml(color: string) { return `<fill><patternFill patternType="solid"><fgColor rgb="FF${color}"/><bgColor indexed="64"/></patternFill></fill>`; }
 function alignmentXml(format?: SpreadsheetCellFormat, differential = false) {
-  return `<alignment${!differential || format?.verticalAlign ? ` vertical="${format?.verticalAlign === "middle" || !format?.verticalAlign ? "center" : format.verticalAlign}"` : ""}${format?.align ? ` horizontal="${format.align}"` : ""}${!differential || format?.wrap !== undefined ? ` wrapText="${format?.wrap ? 1 : 0}"` : ""}/>`;
+  return `<alignment${!differential || format?.verticalAlign ? ` vertical="${format?.verticalAlign === "middle" || !format?.verticalAlign ? "center" : format.verticalAlign}"` : ""}${format?.align ? ` horizontal="${format.align}"` : ""}${!differential || format?.wrap !== undefined ? ` wrapText="${format?.wrap ? 1 : 0}"` : ""}${!differential || format?.shrinkToFit !== undefined ? ` shrinkToFit="${format?.shrinkToFit ? 1 : 0}"` : ""}/>`;
 }
 /** Deduplicate fonts, fills, edges, number formats and conditional differential formats. */
 export function createXlsxStyles(workbook: SpreadsheetWorkbook): XlsxStyles {
@@ -33,7 +33,7 @@ export function createXlsxStyles(workbook: SpreadsheetWorkbook): XlsxStyles {
   const ids = new Map<string, number>(), styles: ReturnType<typeof description>[] = [];
   const add = (format?: SpreadsheetCellFormat) => { const style = description(format), key = JSON.stringify(style); if (!ids.has(key)) { ids.set(key, styles.length); styles.push(style); } };
   const dxfs: string[] = [], dxfIds = new Map<string, number>();
-  const dxfXml = (format: SpreadsheetCellFormat) => `<dxf>${["bold", "italic", "underline", "color", "fontFamily", "fontSize"].some(key => format[key as keyof SpreadsheetCellFormat] !== undefined) ? fontXml(format, true) : ""}${format.numberFormat ? `<numFmt numFmtId="${numberId(format)}" formatCode="${xml(cellNumberFormatCode(format) ?? "General")}"/>` : ""}${format.background ? fillXml(opaqueXlsxColor(format.background, "FFFFFF")) : ""}${format.align || format.verticalAlign || format.wrap !== undefined ? alignmentXml(format, true) : ""}${format.borders ? borderXml(format) : ""}</dxf>`;
+  const dxfXml = (format: SpreadsheetCellFormat) => `<dxf>${["bold", "italic", "underline", "color", "fontFamily", "fontSize"].some(key => format[key as keyof SpreadsheetCellFormat] !== undefined) ? fontXml(format, true) : ""}${format.numberFormat ? `<numFmt numFmtId="${numberId(format)}" formatCode="${xml(cellNumberFormatCode(format) ?? "General")}"/>` : ""}${format.background ? fillXml(opaqueXlsxColor(format.background, "FFFFFF")) : ""}${format.align || format.verticalAlign || format.wrap !== undefined || format.shrinkToFit !== undefined ? alignmentXml(format, true) : ""}${format.borders ? borderXml(format) : ""}</dxf>`;
   add();
   for (const sheet of workbook.sheets) {
     for (const cell of Object.values(sheet.cells)) add(xlsxCellFormat(cell));

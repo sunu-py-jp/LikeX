@@ -117,7 +117,8 @@ export async function readXlsxStyles(relationships: ReadonlyMap<string, XlsxRela
       else if (horizontal && horizontal !== "general") context.warn({ code: "adjusted", message: "均等割り付けなど未対応の配置を標準配置へ変更しました" });
       if (["top", "bottom", "center"].includes(vertical)) result.verticalAlign = vertical === "center" ? "middle" : vertical as "top" | "bottom";
       if (wrapText !== undefined) result.wrap = ["1", "true"].includes(wrapText);
-      if (Number(textRotation) || Number(indent) || ["1", "true"].includes(shrinkToFit)) context.warn({ code: "omitted", message: "セルの文字回転・字下げ・縮小表示を省略しました" });
+      if (shrinkToFit !== undefined) result.shrinkToFit = ["1", "true"].includes(shrinkToFit);
+      if (Number(textRotation) || Number(indent)) context.warn({ code: "omitted", message: "セルの文字回転・字下げを省略しました" });
     }
     return normalizeCellFormat(result);
   }) : [undefined];

@@ -65,7 +65,7 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
           </div>
         </div>}
         <div className="lxs-ribbon-stack">
-          {c.features.formatting && <Command className="lxs-ribbon-command-label" label="折り返して全体を表示" disabled={disabled} aria-pressed={!!format?.wrap} onClick={() => patch({ wrap: !format?.wrap })}><Icon name="wrap" /><span>折り返し</span></Command>}
+          {c.features.formatting && <Command className="lxs-ribbon-command-label" label="折り返して全体を表示" disabled={disabled} aria-pressed={!!format?.wrap} onClick={() => patch({ wrap: !format?.wrap, shrinkToFit: false })}><Icon name="wrap" /><span>折り返し</span></Command>}
           <SpreadsheetMergeToolbar controller={c} />
         </div>
       </div>
@@ -73,7 +73,7 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
     {c.features.formatting && <RibbonGroup label="表示形式">
       <div className="lxs-ribbon-stack">
         <select className="lxs-select" aria-label="数値の表示形式" title="表示形式" value={format?.numberFormat ?? "general"} disabled={disabled} onChange={event => patch({ numberFormat: event.currentTarget.value as SpreadsheetCellFormat["numberFormat"] })}>{NUMBER_FORMAT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-        <Command className="lxs-ribbon-command-label" label="罫線と数値の書式" disabled={disabled} onClick={() => c.afterCommit(() => setDialog("format"))}><Icon name="borders" /><span>書式…</span></Command>
+        <Command className="lxs-ribbon-command-label" label="セルの書式設定" disabled={disabled} onClick={() => c.afterCommit(() => setDialog("format"))}><Icon name="borders" /><span>書式…</span></Command>
       </div>
     </RibbonGroup>}
     {c.features.formatting && c.features.conditionalFormatting && <RibbonGroup label="スタイル">
@@ -102,20 +102,22 @@ export function SpreadsheetAutoFitControl({ controller: c }: { controller: Sprea
 }
 
 export function CellFormatDialog({ controller: c, onClose, target, initialTab = "number" }: { controller: SpreadsheetController; onClose: () => void;
-  target?: {sheetId: string; selection: SpreadsheetSelection}; initialTab?: "number" | "border" }) {
+  target?: {sheetId: string; selection: SpreadsheetSelection}; initialTab?: "number" | "alignment" | "border" }) {
   const [snapshot] = useState(() => ({ workbook: c.getWorkbook(), sheetId: target?.sheetId ?? c.activeSheet.id, selection: target?.selection ?? c.selection }));
   const stale = c.workbook !== snapshot.workbook;
   const { cancelEditRequest } = c;
   useEffect(() => cancelEditRequest, [cancelEditRequest]);
   const initial = snapshot.workbook.sheets.find(sheet => sheet.id === snapshot.sheetId)?.cells[cellAddress(snapshot.selection.focus.row, snapshot.selection.focus.column)]?.format;
   const [format, setFormat] = useState<SpreadsheetCellFormat>({ numberFormat: initial?.numberFormat ?? "number", decimalPlaces: initial?.decimalPlaces ?? 2, useGrouping: initial?.useGrouping ?? true, negativeFormat: initial?.negativeFormat ?? "minus" });
-  const [borderEnabled, setBorderEnabled] = useState(initialTab === "border"), [edges, setEdges] = useState<string[]>(["top", "right", "bottom", "left"]);
+  const [tab, setTab] = useState(initialTab), [edges, setEdges] = useState<string[]>(["top", "right", "bottom", "left"]);
+  const [textMode, setTextMode] = useState(initial?.wrap ? "wrap" : initial?.shrinkToFit ? "shrink" : "standard");
   const [color, setColor] = useState("#808080"), [width, setWidth] = useState<1 | 2 | 3>(1), [style, setStyle] = useState<"solid" | "dashed" | "dotted" | "double" | "none">("solid");
   const disabled = c.disabled || c.requesting || stale;
   const apply = () => {
     if (disabled || c.getWorkbook() !== snapshot.workbook) return;
     try { const addresses = selectedAddresses(snapshot.selection);
-      const patch: SpreadsheetCellFormat = borderEnabled ? { borders: Object.fromEntries(edges.map(edge => [edge, { color, width, style }])) } : format;
+      const patch: SpreadsheetCellFormat = tab === "border" ? { borders: Object.fromEntries(edges.map(edge => [edge, { color, width, style }])) }
+        : tab === "alignment" ? { wrap: textMode === "wrap", shrinkToFit: textMode === "shrink" } : format;
       void Promise.resolve(c.executeCommands([{ type: "cells.format", sheetId: snapshot.sheetId, addresses, format: patch }],
         {isCurrent: () => c.getWorkbook() === snapshot.workbook})).then(result => { if (result.ok) onClose(); }, c.reportError);
     } catch (cause) { c.reportError(cause); }
@@ -123,8 +125,11 @@ export function CellFormatDialog({ controller: c, onClose, target, initialTab = 
   return <SpreadsheetDialog title="セルの書式" onClose={onClose} actions={<><button type="button" onClick={onClose}>キャンセル</button><button type="button" disabled={disabled} onClick={apply}>適用</button></>}>
     {stale && <p role="alert">データが変更されました。閉じて選択し直してください。</p>}
     <div className="lxs-format-dialog-fields">
-      <label className="lxs-field-full">設定する書式<select disabled={disabled} value={borderEnabled ? "border" : "number"} onChange={event => setBorderEnabled(event.currentTarget.value === "border")}><option value="number">表示形式</option><option value="border">罫線</option></select></label>
-      {!borderEnabled ? <>
+      <label className="lxs-field-full">設定する書式<select disabled={disabled} value={tab} onChange={event => setTab(event.currentTarget.value as typeof tab)}><option value="number">表示形式</option><option value="alignment">配置</option><option value="border">罫線</option></select></label>
+      {tab === "alignment" ? <>
+        <label className="lxs-field-full">文字の表示<select aria-label="文字の表示" disabled={disabled} value={textMode} onChange={event => setTextMode(event.currentTarget.value)}><option value="standard">標準（空白セルにはみ出す）</option><option value="wrap">折り返して全体を表示</option><option value="shrink">縮小して全体を表示</option></select></label>
+        <p className="lxs-field-full">標準では、隣のセルが空白の場合に文字列をはみ出して表示します。値のあるセルの手前で表示を止めます。</p>
+      </> : tab === "number" ? <>
         <label>表示形式<select disabled={disabled} value={format.numberFormat} onChange={event => setFormat({ ...format, numberFormat: event.currentTarget.value as SpreadsheetCellFormat["numberFormat"] })}>{NUMBER_FORMAT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         {format.numberFormat === "text" ? <p className="lxs-field-full">先頭のゼロや「=」で始まる内容を、文字列として表示します。</p> : <>
         <label>小数点以下の桁数<input disabled={disabled} type="number" min="0" max="10" value={format.decimalPlaces} onChange={event => setFormat({ ...format, decimalPlaces: Number(event.currentTarget.value) })} /></label>

@@ -97,6 +97,8 @@
 
 セル書式・規則の全フィールドは [schema-guide.md](schema-guide.md) を参照。`cells.format` は指定書式を適用する。`cells.validation: null` は値・書式を保持して規則を外す。`conditionalFormats.set` はシートの既存ルール全体を置き換えるので、追加の依頼なら既存ルールも配列に残す。
 
+文字の表示は `cells.format` の `format` で指定する。標準の空白セルへのはみ出しは `{ "wrap": false, "shrinkToFit": false }`、折り返しは `{ "wrap": true, "shrinkToFit": false }`、縮小して全体表示は `{ "wrap": false, "shrinkToFit": true }`。部分適用なので、表示方法を切り替えるときは両方を指定する。元の値・数式・`fontSize` は変更しない。両方trueを入力した場合は折り返しを優先するが、保存されたフラグは残す。XLSXにも両フラグを出力する。
+
 `cells.format` / `cells.validation` / `cells.replace` の `addresses` は `["A1", "$B$2:$F$2"]` のようにセルと同じシート内の範囲を混在できる。大文字の番地へ展開して重複を除き、範囲を含む配列は合計10,000セルまで。セル単体だけの配列は従来どおり使えるが、入力規則は従来の入力配列10,000件上限も保持する。逆順・シート外・不正な範囲は `addresses[index]` とコマンド位置を返し、バッチ全体を適用しない。`cells.clear` / `cells.insert` / `cells.delete` は既存の `range` を使い、`addresses` は付けない。
 
 `cells.borders` は各範囲の形に従って格子・外枠・内側・各辺を設定し、対象外の辺・値・数式・他書式は保持する。省略値は実線1px・`#808080`。`none` は全罫線を消し、`border: { "style": "none" }` はプリセット対象の辺だけを消す。通常のグリッド線は残る。範囲は1〜1,000件で、結合全体への拡張後、重複を除いて10,000セルまで。結合内部へ新しい線は引かない。共有辺は隣接セルの反対側も同期し、隣が結合セルならその辺全体へ伝播するため、選択外のセルも変わることがある。伝播先にも更新上限があり、超過時は全体を拒否する。保存は既存のセル罫線を使い、SPON・XLSXで保持する。公開関数は `setCellBorders(workbook, sheetId, ranges, preset, border?)`。

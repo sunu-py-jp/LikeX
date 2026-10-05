@@ -62,7 +62,7 @@
 `SpreadsheetCellFormat` の全フィールド:
 
 - 文字: `bold`, `italic`, `underline`, `fontFamily`, `fontSize`, `color`。
-- 配置: `align`（`left` / `center` / `right`）、`verticalAlign`（`top` / `middle` / `bottom`）、`wrap`, `background`。
+- 配置: `align`（`left` / `center` / `right`）、`verticalAlign`（`top` / `middle` / `bottom`）、`wrap`, `shrinkToFit`, `background`。`wrap` / `shrinkToFit` はbooleanで、省略・両方falseは標準の空白セルへのはみ出し表示。折り返しは `{ wrap: true, shrinkToFit: false }`、セル幅に縮小する場合は `{ wrap: false, shrinkToFit: true }`。両方trueなら折り返しを優先し、保存フラグは保持する。縮小で `fontSize` や保存値は書き換えない。
 - 表示形式: `numberFormat`（`general`, `text`, `number`, `currency`, `percent`, `date`, `time`, `datetime`）、`decimalPlaces`（0〜10）、`useGrouping`、`negativeFormat`（`minus`, `parentheses`, `red`, `red-parentheses`）。
 - `borders`: `top` / `right` / `bottom` / `left` の各辺に `{ style?, width?, color? }`。`style` は `none` / `solid` / `dashed` / `dotted` / `double`、`width` は1 / 2 / 3。空の `borders: {}` は辺を消す指定に使える。
 

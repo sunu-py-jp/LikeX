@@ -10,7 +10,7 @@ export function normalizeCellFormat(value: SpreadsheetCellFormat | undefined): S
   if (value === undefined) return undefined;
   if (!value || typeof value !== "object" || Array.isArray(value)) return fail("セルの書式が正しくありません");
   const result: SpreadsheetCellFormat = {};
-  for (const key of ["bold", "italic", "underline", "wrap", "useGrouping"] as const) if (value[key] !== undefined) {
+  for (const key of ["bold", "italic", "underline", "wrap", "shrinkToFit", "useGrouping"] as const) if (value[key] !== undefined) {
     if (typeof value[key] !== "boolean") return fail("セルの書式が正しくありません");
     result[key] = value[key];
   }
@@ -52,7 +52,7 @@ export function normalizeCellFormat(value: SpreadsheetCellFormat | undefined): S
 }
 function canonical(format: SpreadsheetCellFormat | undefined) {
   return { ...format, bold: !!format?.bold, italic: !!format?.italic, underline: !!format?.underline,
-    wrap: !!format?.wrap, verticalAlign: format?.verticalAlign ?? "middle", numberFormat: format?.numberFormat ?? "general",
+    wrap: !!format?.wrap, shrinkToFit: !!format?.shrinkToFit, verticalAlign: format?.verticalAlign ?? "middle", numberFormat: format?.numberFormat ?? "general",
     negativeFormat: format?.negativeFormat ?? "minus", borders: ["top", "right", "bottom", "left"].map(edge => {
       const border = format?.borders?.[edge as keyof SpreadsheetCellBorders];
       return !border || border.style === "none" ? null : { style: border.style ?? "solid", width: border.width ?? 1, color: border.color ?? "#808080" };

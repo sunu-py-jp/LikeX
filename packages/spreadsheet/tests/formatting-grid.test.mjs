@@ -119,7 +119,7 @@ test('typing a formula-like literal into a Text cell does not require the formul
 });
 
 
-for (const [label, title, commitLabel] of [['罫線と数値の書式', 'セルの書式', '適用'], ['条件付き書式', '条件付き書式', 'ルールを追加']]) {
+for (const [label, title, commitLabel] of [['セルの書式設定', 'セルの書式', '適用'], ['条件付き書式', '条件付き書式', 'ルールを追加']]) {
   const dialog = ui => ui.renderer.root.find(instance => typeof instance.type === 'function' && instance.type.name === 'SpreadsheetDialog' && instance.props.title === title);
   const button = ui => dialog(ui).props.actions.props.children.find(element => element.props.children === commitLabel);
   test(`${title}: cancelling a pending permission prevents late changes`, async t => {

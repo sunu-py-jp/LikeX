@@ -19,7 +19,10 @@ export type SpreadsheetCellFormat = {
    * @maximum 200
    */
   fontSize?: number;
+  /** Wrap within the cell. Takes display priority when shrinkToFit is also true. */
   wrap?: boolean;
+  /** Reduce the displayed text size to fit the cell without changing fontSize. Omitted means false. */
+  shrinkToFit?: boolean;
   verticalAlign?: "top" | "middle" | "bottom";
   borders?: SpreadsheetCellBorders;
   numberFormat?: "general" | "text" | "number" | "currency" | "percent" | "date" | "time" | "datetime";

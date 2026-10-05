@@ -94,7 +94,7 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
       requireCommandFeature(features, "formatting");
       const addresses = requireCommandAddresses(sheet, command.addresses);
       commandKeys(commandRecord(command.format, "セル書式"), ["bold", "italic", "underline", "align", "color", "background", "numberFormat",
-        "fontFamily", "fontSize", "wrap", "verticalAlign", "borders", "decimalPlaces", "useGrouping", "negativeFormat"], "セル書式");
+        "fontFamily", "fontSize", "wrap", "shrinkToFit", "verticalAlign", "borders", "decimalPlaces", "useGrouping", "negativeFormat"], "セル書式");
       const next = formatCells(workbook, sheet.id, addresses, command.format);
       if (!features.formulas) for (const address of addresses) {
         const position = parseCellAddress(address)!, key = cellAddress(position.row, position.column);

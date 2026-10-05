@@ -6,6 +6,8 @@ const heading: SpreadsheetCellFormat = { bold: true, color: "#ffffff", backgroun
 const numeric: SpreadsheetCellFormat = { numberFormat: "number", decimalPlaces: 0, useGrouping: true, borders: grid };
 
 function formattingAndInput(): SpreadsheetSheet {
+  const overflowText = "列幅を超える長い文字列は、隣の空白セルへ続けて表示されます。";
+  const overflowLabel: SpreadsheetCellFormat = { bold: true, wrap: true, color: "#526359" };
   const cells: Record<string, SpreadsheetCell> = {
     A1: { value: "書式・入力規則のサンプル", format: { fontSize: 22, bold: true, color: "#217346", verticalAlign: "middle" } },
     A2: { value: "ホームで書式を変更／データで入力規則を設定。完了欄をクリック、状態欄でプルダウンを試せます。", format: { wrap: true, color: "#526359", verticalAlign: "middle" } },
@@ -23,6 +25,27 @@ function formattingAndInput(): SpreadsheetSheet {
     C16: { value: "下寄せ\n複数行の文章", format: { wrap: true, verticalAlign: "bottom", align: "right", borders: grid } },
     E16: { value: "二重線・点線", format: { borders: { bottom: { style: "double", width: 3, color: "#217346" }, top: { style: "dotted", width: 1, color: "#217346" } } } },
     A19: { value: "入力規則：数量は0〜100の整数、状態は選択肢、メモは40文字以内。無効な値を入力すると元の値を保持します。", format: { wrap: true, color: "#526359" } },
+    A22: { value: "列幅を超える文字の表示", format: { bold: true, fontSize: 16, color: "#217346" } },
+    A23: { value: "同じ文章を比較できます。ホームの「書式…」→「配置」→「文字の表示」で切り替え、B列の幅を変えて試してください。", format: { wrap: true, color: "#526359" } },
+    A25: { value: "標準・隣が空白", format: overflowLabel },
+    B25: { value: overflowText },
+    A26: { value: "隣に値あり", format: overflowLabel },
+    B26: { value: overflowText },
+    C26: { value: "入力済み", format: { background: "#e2f4e9" } },
+    A27: { value: "空文字の数式あり", format: overflowLabel },
+    B27: { value: overflowText },
+    C27: { value: '=""' },
+    A28: { value: "折り返して表示", format: overflowLabel },
+    B28: { value: overflowText, format: { wrap: true } },
+    A29: { value: "縮小して全体を表示", format: overflowLabel },
+    B29: { value: overflowText, format: { shrinkToFit: true } },
+    A31: { value: "文字列を返す数式", format: overflowLabel },
+    B31: { value: `="${overflowText}"` },
+    A32: { value: "右寄せ", format: overflowLabel },
+    E32: { value: overflowText, format: { align: "right" } },
+    A33: { value: "中央寄せ", format: overflowLabel },
+    D33: { value: overflowText, format: { align: "center" } },
+    A35: { value: "C26の値やC27の数式を削除すると、B列の文章が続けて表示されます。文字はB列のセルだけに保存されます。", format: { wrap: true, color: "#526359" } },
   };
   ["取引日", "案件", "数量", "単価", "進捗", "状態", "完了", "メモ"].forEach((value, column) => {
     cells[`${String.fromCharCode(65 + column)}4`] = { value, format: heading };
@@ -42,8 +65,10 @@ function formattingAndInput(): SpreadsheetSheet {
   });
   return { id: "formatting-and-input", name: "書式と入力", cells, rowCount: 80, columnCount: 16,
     columnWidths: { 0: 160, 1: 180, 2: 100, 3: 130, 4: 155, 5: 130, 6: 65, 7: 220 },
-    rowHeights: { 0: 52, 1: 48, 3: 34, 4: 58, 5: 42, 6: 42, 7: 42, 8: 42, 13: 42, 15: 82, 18: 54 },
-    merges: [{ top: 0, left: 0, bottom: 0, right: 7 }, { top: 1, left: 0, bottom: 1, right: 7 }, { top: 18, left: 0, bottom: 18, right: 7 }],
+    rowHeights: { 0: 52, 1: 48, 3: 34, 4: 58, 5: 42, 6: 42, 7: 42, 8: 42, 13: 42, 15: 82, 18: 54,
+      21: 36, 22: 44, 27: 84, 28: 36, 34: 44 },
+    merges: [{ top: 0, left: 0, bottom: 0, right: 7 }, { top: 1, left: 0, bottom: 1, right: 7 }, { top: 18, left: 0, bottom: 18, right: 7 },
+      { top: 21, left: 0, bottom: 21, right: 7 }, { top: 22, left: 0, bottom: 22, right: 7 }, { top: 34, left: 0, bottom: 34, right: 7 }],
     conditionalFormats: [
       { id: "progress-bar", type: "dataBar", ranges: [{ top: 4, left: 4, bottom: 8, right: 4 }], color: "#63ba8b", min: 0, max: 1 },
       { id: "completed-label", type: "text", ranges: [{ top: 4, left: 5, bottom: 8, right: 5 }], operator: "contains", value: "完了", format: { background: "#e2f4e9", color: "#185d37", bold: true } },

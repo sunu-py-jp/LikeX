@@ -694,7 +694,12 @@
           "description": "Font size in CSS pixels. XLSX converts pixels to points."
         },
         "wrap": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX",
+          "description": "Wrap within the cell. Takes display priority when shrinkToFit is also true."
+        },
+        "shrinkToFit": {
+          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX",
+          "description": "Reduce the displayed text size to fit the cell without changing fontSize. Omitted means false."
         },
         "verticalAlign": {
           "$ref": "#/$defs/SpreadsheetCellFormat_verticalAlign"

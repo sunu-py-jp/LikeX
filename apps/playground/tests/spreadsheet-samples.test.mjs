@@ -59,3 +59,21 @@ test('the complete demo with expanded functions and shapes can still be exported
   const bytes = new Uint8Array(await blob.arrayBuffer());
   assert.deepEqual([...bytes.slice(0, 4)], [0x50, 0x4b, 3, 4]);
 });
+
+test('the formatting demo compares overflow, blockers, wrapping and shrinking without merging sample cells', () => {
+  const workbook = normalizeWorkbook(createDemoWorkbook());
+  const sheet = workbook.sheets.find(item => item.id === 'formatting-and-input');
+  const calculated = calculateWorkbook(workbook)[sheet.id];
+  const text = sheet.cells.B25.value;
+  assert.equal(sheet.cells.C25, undefined, 'the standard example has an empty neighbor');
+  assert.equal(sheet.cells.C26.value, '入力済み');
+  assert.equal(sheet.cells.C27.value, '=""', 'a visually empty formula still occupies the neighboring cell');
+  assert.equal(calculated.C27, '');
+  for (const address of ['B26', 'B27', 'B28', 'B29']) assert.equal(sheet.cells[address].value, text);
+  assert.equal(sheet.cells.B28.format.wrap, true);
+  assert.equal(sheet.cells.B29.format.shrinkToFit, true);
+  assert.equal(calculated.B31, text, 'formula results use the same text as literal examples');
+  assert.equal(sheet.cells.E32.format.align, 'right');
+  assert.equal(sheet.cells.D33.format.align, 'center');
+  assert.ok(sheet.merges.every(merge => merge.bottom < 24 || merge.top > 32));
+});
