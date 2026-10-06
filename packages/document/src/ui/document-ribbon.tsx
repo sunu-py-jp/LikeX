@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, ChevronLeft, ChevronRight, Clipboard, Copy, Download, FileJson, ImagePlus, Italic, Link, List, ListOrdered, PanelLeft, Scissors, Table2, Type, Underline, Upload, WrapText } from "lucide-react";
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, ChevronLeft, ChevronRight, Clipboard, Copy, Download, FileJson, ImagePlus, Italic, Link, List, ListOrdered, PanelLeft, Scissors, Search, Table2, Type, Underline, Upload, WrapText } from "lucide-react";
 import { DocumentCanvasTools } from "./document-canvas-tools";
 import { getCanvases, getShapes } from "../model/index";
 import { DocumentShapeTools } from "./document-shape-tools";
@@ -130,6 +130,7 @@ export function DocumentRibbon({ editor, surface, onImport, onExport, onImage, o
           <Group title="ファイル形式"><span className="lxd-ribbon-hint">標準形式は .dcon<br />Word文書は .docx</span></Group>
         </>}
         {tab === "home" && <>
+          {features.search && <Group title="検索"><Action label="検索" icon={<Search size={23} />} big active={editor.search.open} onClick={() => editor.search.openSearch()} /></Group>}
           <Group title="クリップボード"><Action label="貼り付け" icon={<Clipboard size={24} />} big disabled={disabled || !features.text} onClick={() => void clipboard("paste")} /><div className="lxd-stack"><Action label="切り取り" icon={<Scissors size={15} />} disabled={disabled || !features.text || selection.from === selection.to} onClick={() => void clipboard("cut")} /><Action label="コピー" icon={<Copy size={15} />} disabled={selection.from === selection.to} onClick={() => void clipboard("copy")} /></div></Group>
           {features.formatting && <Group title="フォント"><div className="lxd-stack"><div className="lxd-row"><select aria-label="フォント" value={style.fontFamily ?? "Arial"} disabled={disabled} onChange={event => textStyle({ fontFamily: event.target.value })}>{["Arial", "Calibri", "Times New Roman", "Yu Gothic", "Meiryo"].map(font => <option key={font}>{font}</option>)}</select><select aria-label="フォントサイズ" className="lxd-font-size" value={style.fontSize ?? 11} disabled={disabled} onChange={event => textStyle({ fontSize: Number(event.target.value) })}>{[8,9,10,11,12,14,16,18,20,24,28,32,36,48,72].map(size => <option key={size}>{size}</option>)}</select></div>
             <div className="lxd-row">{([{ name: "strong", label: "太字", icon: <Bold size={17} /> }, { name: "em", label: "斜体", icon: <Italic size={17} /> }, { name: "underline", label: "下線", icon: <Underline size={17} /> }] as const).map(item => <button key={item.name} type="button" className="lxd-icon-button" title={item.label} aria-label={item.label} aria-pressed={marks.some(mark => mark.type.name === item.name)} disabled={disabled} onClick={() => mark(item.name)}>{item.icon}</button>)}

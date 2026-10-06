@@ -89,6 +89,27 @@
 .lxd-style-card.lxd-style-2>span { font-size:19px; }
 .lxd-style-card:not(:disabled):hover { background:var(--lxd-selection); }
 .lxd-workspace { display:flex; flex:1; min-height:0; min-width:0; overflow:hidden; }
+/* Keep native list markers even inside a host with a list-reset stylesheet. */
+.lxd-root .lxd-editor ol { list-style:decimal outside; }
+.lxd-root .lxd-editor ul { list-style:disc outside; }
+.lxd-root .lxd-editor li { display:list-item; }
+.lxd-search-panel { display:flex; flex-direction:column; width:280px; max-width:55%; min-width:180px; flex:none; padding:14px; gap:12px; background:var(--lxd-panel); border-right:1px solid var(--lxd-border); }
+.lxd-search-heading, .lxd-search-controls { display:flex; align-items:center; gap:6px; }
+.lxd-search-heading h2 { flex:1; margin:0; font-size:15px; }
+.lxd-search-panel button { padding:5px; border-radius:4px; }
+.lxd-search-panel button:hover { background:var(--lxd-hover); }
+.lxd-search-input { display:flex; gap:6px; align-items:center; padding:7px; border:1px solid var(--lxd-border); border-radius:4px; background:var(--lxd-background); }
+.lxd-search-input input { min-width:0; width:100%; border:0; background:transparent; }
+.lxd-search-option { display:flex; align-items:center; gap:6px; margin-top:10px; font-size:12px; }
+.lxd-search-controls { font-size:12px; }
+.lxd-search-controls>span { flex:1; overflow-wrap:anywhere; }
+.lxd-search-results { min-height:0; overflow:auto; }
+.lxd-search-results>button { display:block; width:100%; text-align:left; padding:10px 8px; margin-bottom:4px; overflow-wrap:anywhere; border:1px solid transparent; }
+.lxd-search-results>button[aria-current=true] { background:var(--lxd-selection); border-color:var(--lxd-accent); }
+.lxd-search-results>button>span, .lxd-search-hint { font-size:11px; color:var(--lxd-muted); }
+.lxd-search-results p { margin:4px 0; }
+.lxd-search-results mark, .lxd-editor .lxd-search-highlight { background:#ffdf80; color:#242424; }
+.lxd-editor .lxd-search-highlight { outline:2px solid #bf8700; }
 .lxd-navigation { width:218px; min-width:160px; flex:none; overflow:auto; background:var(--lxd-panel); border-right:1px solid var(--lxd-border); padding:18px 0; }
 .lxd-navigation h2 { margin:0 16px 15px; font-size:15px; font-weight:600; }
 .lxd-navigation-label { margin:0 14px 12px; padding-bottom:7px; border-bottom:2px solid var(--lxd-accent); color:var(--lxd-accent); font-size:12px; }
@@ -107,8 +128,12 @@
 .lxd-editor h1,.lxd-editor h2,.lxd-editor h3,.lxd-editor h4,.lxd-editor h5,.lxd-editor h6 { line-height:1.35; font-weight:600; color:#2b579a; margin:18pt 0 8pt; }
 .lxd-editor h1 { font-size:24pt; }.lxd-editor h2 { font-size:17pt; }.lxd-editor h3 { font-size:14pt; }.lxd-editor h4,.lxd-editor h5,.lxd-editor h6 { font-size:12pt; }
 .lxd-editor ul,.lxd-editor ol { padding-left:24px; margin:9pt 0; }.lxd-editor li>p { margin-bottom:4pt; }
-.lxd-editor table { border-collapse:collapse; width:100%; table-layout:fixed; margin:12pt 0; }
-.lxd-editor td,.lxd-editor th { position:relative; vertical-align:top; border:1px solid #adb8c9; padding:7px 9px; min-width:35px; }
+.lxd-editor table { --lxd-cell-padding-top:7px; --lxd-cell-padding-right:9px; --lxd-cell-padding-bottom:7px; --lxd-cell-padding-left:9px; border-collapse:collapse; width:100%; table-layout:fixed; margin:12pt 0; white-space:pre-wrap; overflow-wrap:break-word; }
+.lxd-editor td,.lxd-editor th { position:relative; vertical-align:top; border:1px solid #adb8c9; padding:var(--lxd-cell-padding-top) var(--lxd-cell-padding-right) var(--lxd-cell-padding-bottom) var(--lxd-cell-padding-left); min-width:35px; }
+.lxd-editor table[data-document-layout] > tbody > tr > :is(td,th) { min-width:0; }
+.lxd-editor table[data-document-layout] > tbody > tr > :is(td,th) > :is(ol,ul) { margin:0; }
+.lxd-editor table[data-document-layout=auto] > tbody > tr > [data-document-nowrap=true][data-document-width-unit=px] { min-width:var(--lxd-cell-preferred-width); }
+.lxd-editor table[data-document-layout=auto] > tbody > tr > [data-document-nowrap=true]:not([data-document-width-unit=px]) { white-space:pre; overflow-wrap:normal; }
 .lxd-editor th { background:#e9eff7; text-align:left; font-weight:600; }.lxd-editor td p,.lxd-editor th p { margin:0; }
 .lxd-editor img { display:block; max-width:100%; height:auto; object-fit:contain; margin:12pt 0; }
 .lxd-editor a { color:#245ca0; text-decoration:underline; cursor:text; }

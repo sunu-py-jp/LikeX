@@ -9,6 +9,7 @@ import { createDocumentSession } from "../session/create-document-session";
 import { importDocumentDocx, exportDocumentDocx } from "../io/index";
 import { assertDocumentFeatures, resolveDocumentFeatures } from "./document-features";
 
+import { useDocumentSearch } from "./use-document-search";
 import { useDocumentRibbon } from "./use-document-ribbon";
 
 type BusyKind = "save" | "import" | "export" | "permission";
@@ -38,7 +39,7 @@ export function useDocumentEditor(props: DocumentProps) {
   const control = useRef({ mounted: true, busy: false, kind: null as BusyKind | null, edit: false, epoch: 0, operationId: 0, abort: new AbortController() });
   const readOnly = props.readOnly === true || !props.onSave;
   const features = resolveDocumentFeatures(props.features);
-  const policy = JSON.stringify(features);
+  const policy = JSON.stringify({ ...features, search: undefined });
   const emit = useCallback((event: DocumentEvent) => { if (!control.current.mounted) return; try { void Promise.resolve(latest.current.onEvent?.(event)).catch(() => {}); } catch { /* Observers cannot roll back an operation. */ } }, []);
   function error(value: unknown) { if (control.current.mounted) setNotice({ kind: "error", text: value instanceof Error ? value.message : "処理に失敗しました。" }); }
   function writable() { return control.current.mounted && !latest.current.readOnly && !!latest.current.onSave; }
@@ -211,9 +212,14 @@ export function useDocumentEditor(props: DocumentProps) {
       session.select({ from: position, to: position }); setPageReveal({ document, position }); setNotice(null); return true;
     } catch (cause) { error(cause); return false; }
   }
-  useImperativeHandle(props.ref, () => ({ getRibbonDisplayMode: ribbon.getRibbonDisplayMode, setRibbonDisplayMode: ribbon.setRibbonDisplayMode, getDocument: () => session.getSnapshot().document, getSelection: () => ({ ...session.getSnapshot().selection }), select, goToPage, execute, undo: () => history("undo"), redo: () => history("redo"), save, discard,
+  const search = useDocumentSearch(snapshot.document, features.search, location => {
+    if (!control.current.mounted || !resolveDocumentFeatures(latest.current.features).search) return;
+    session.select({ from: location.match.from, to: location.match.to });
+    setPageReveal({ document: session.getSnapshot().document, position: location.match.from });
+  });
+  useImperativeHandle(props.ref, () => ({ openSearch: search.openSearch, closeSearch: search.closeSearch, getRibbonDisplayMode: ribbon.getRibbonDisplayMode, setRibbonDisplayMode: ribbon.setRibbonDisplayMode, getDocument: () => session.getSnapshot().document, getSelection: () => ({ ...session.getSnapshot().selection }), select, goToPage, execute, undo: () => history("undo"), redo: () => history("redo"), save, discard,
     importNative: (input, options) => importFile(input, "dcon", options), importDocx: (input, options) => importFile(input, "docx", options), exportNative: () => exportFile("dcon"), exportDocx: () => exportFile("docx"),
   }));
-  return { ...snapshot, ...ribbon, session, features, readOnly, editable: !readOnly && !busy, busy, notice, setNotice, error, execute, select, goToPage, pageReveal, history, save, discard, importFile, exportFile };
+  return { ...snapshot, ...ribbon, search, session, features, readOnly, editable: !readOnly && !busy, busy, notice, setNotice, error, execute, select, goToPage, pageReveal, history, save, discard, importFile, exportFile };
 }
 export type DocumentEditor = ReturnType<typeof useDocumentEditor>;

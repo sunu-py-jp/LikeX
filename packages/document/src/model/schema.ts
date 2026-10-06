@@ -3,17 +3,18 @@ import { canvasDom } from "./canvas-dom";
 import { normalizeShapeAttributes } from "./shape-attributes";
 import { shapeDom } from "./shape-dom";
 import { inspectDocumentImage } from "./image-source";
+import { parseTableCellDom, parseTableDom, tableCellDom, tableDom } from "./table";
 import { Schema, type NodeSpec, type MarkSpec } from "prosemirror-model";
 
 const id = { default: null };
 const alignment = { default: "left" };
 const blockAttrs = (dom: HTMLElement) => ({ id: dom.getAttribute("data-document-id"), align: dom.style.textAlign || "left" });
 const blockDomAttrs = (attrs: Record<string, unknown>) => ({ "data-document-id": attrs.id, style: attrs.align === "left" ? null : `text-align:${attrs.align}` });
-const cellAttrs = { id, colspan: { default: 1 }, rowspan: { default: 1 }, colwidth: { default: null }, backgroundColor: { default: null } };
+const cellAttrs = { id, colspan: { default: 1 }, rowspan: { default: 1 }, colwidth: { default: null }, backgroundColor: { default: null }, preferredWidth: { default: null }, margins: { default: null }, noWrap: { default: null }, fitText: { default: null } };
 const cellSpec = (tag: "td" | "th"): NodeSpec => ({
   content: "block+", attrs: cellAttrs, isolating: true,
-  parseDOM: [{ tag, getAttrs: node => ({ id: node.getAttribute("data-document-id"), colspan: Number(node.getAttribute("colspan") || 1), rowspan: Number(node.getAttribute("rowspan") || 1), backgroundColor: node.style.backgroundColor || null }) }],
-  toDOM: node => [tag, { colspan: node.attrs.colspan, rowspan: node.attrs.rowspan, style: [node.attrs.backgroundColor ? `background-color:${node.attrs.backgroundColor}` : null, Array.isArray(node.attrs.colwidth) ? `width:${node.attrs.colwidth.reduce((sum: number, width: number) => sum + width, 0)}px` : null].filter(Boolean).join(";"), "data-document-id": node.attrs.id }, 0],
+  parseDOM: [{ tag, getAttrs: parseTableCellDom }],
+  toDOM: node => tableCellDom(node, tag),
 });
 const nodes: Record<string, NodeSpec> = {
   doc: { content: "block+" },
@@ -24,7 +25,7 @@ const nodes: Record<string, NodeSpec> = {
   bullet_list: { content: "list_item+", group: "block", attrs: { id }, parseDOM: [{ tag: "ul" }], toDOM: node => ["ul", { "data-document-id": node.attrs.id }, 0] },
   ordered_list: { content: "list_item+", group: "block", attrs: { id, order: { default: 1 } }, parseDOM: [{ tag: "ol", getAttrs: node => ({ order: Number(node.getAttribute("start") || 1) }) }], toDOM: node => ["ol", { start: node.attrs.order, "data-document-id": node.attrs.id }, 0] },
   list_item: { content: "paragraph block*", defining: true, attrs: { id }, parseDOM: [{ tag: "li" }], toDOM: node => ["li", { "data-document-id": node.attrs.id }, 0] },
-  table: { content: "table_row+", group: "block", isolating: true, attrs: { id }, parseDOM: [{ tag: "table" }], toDOM: node => ["table", { "data-document-id": node.attrs.id }, ["tbody", 0]] },
+  table: { content: "table_row+", group: "block", isolating: true, attrs: { id, width: { default: null }, layout: { default: null }, cellMargins: { default: null } }, parseDOM: [{ tag: "table", getAttrs: parseTableDom }], toDOM: tableDom },
   table_row: { content: "(table_cell | table_header)*", attrs: { id }, parseDOM: [{ tag: "tr" }], toDOM: node => ["tr", { "data-document-id": node.attrs.id }, 0] },
   table_cell: cellSpec("td"), table_header: cellSpec("th"),
   image: { group: "block", atom: true, draggable: true, attrs: { id, src: {}, alt: { default: "" }, width: { default: 320 }, height: { default: 200 } }, parseDOM: [{ tag: "img[src]", getAttrs: node => {

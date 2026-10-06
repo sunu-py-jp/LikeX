@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
-  AlignCenter, AlignLeft, AlignRight, ArrowDownToLine, Bold, BringToFront,
+  Search, AlignCenter, AlignLeft, AlignRight, ArrowDownToLine, Bold, BringToFront,
   ClipboardPaste, Copy, FileJson, Image as ImageIcon, Italic, Minus, MonitorPlay, PanelBottom,
   PanelRight, Plus, RectangleHorizontal, RotateCcw, Save, Scissors, SendToBack, Trash2, Type, Upload,
   AlignVerticalJustifyCenter, AlignVerticalJustifyStart, AlignVerticalJustifyEnd,
@@ -187,7 +187,10 @@ export function SlideRibbon({ editor, onImage, onImport, onImportMasters, onPres
         {lineMenu}
         {editor.features.formatting && <Group name="配置"><div className="lxp-ribbon-stack"><Action label="最前面へ" icon={<BringToFront size={16} />} disabled={disabled || !hasSelection} onClick={() => { if (slide) void editor.execute({ type: "element.order", slideId: slide.id, elementIds: editor.selection.elementIds, direction: "front" }); }} />
           <Action label="最背面へ" icon={<SendToBack size={16} />} disabled={disabled || !hasSelection} onClick={() => { if (slide) void editor.execute({ type: "element.order", slideId: slide.id, elementIds: editor.selection.elementIds, direction: "back" }); }} /></div></Group>}
-        {!editor.readOnly && <Group name="編集"><Action label="削除" icon={<Trash2 size={22} />} big disabled={disabled || !hasSelection} onClick={remove} /></Group>}
+        {(editor.features.search || !editor.readOnly) && <Group name="編集">
+          {editor.features.search && <Action label="検索" icon={<Search size={22} />} big onClick={() => editor.openSearch()} />}
+          {!editor.readOnly && <Action label="削除" icon={<Trash2 size={22} />} big disabled={disabled || !hasSelection} onClick={remove} />}
+        </Group>}
       </>}
       {activeTab === "insert" && <>
         {editor.features.text && !editor.readOnly && <Group name="テキスト"><Action label="テキスト ボックス" icon={<Type size={25} />} big disabled={disabled || !slide} onClick={addText} /></Group>}

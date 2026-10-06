@@ -1,0 +1,9 @@
+{
+  "title": "文書内を検索する",
+  "summary": "検索パネル・前後移動・一致箇所の強調表示を、読み取り専用やリボン非表示でも利用します。",
+  "source": "packages/document/src/docs/search.md",
+  "order": 13,
+  "section": "文書の編集",
+  "keywords": ["検索", "openSearch", "closeSearch", "features.search", "Ctrl F", "読み取り専用"],
+  "screenshots": []
+}

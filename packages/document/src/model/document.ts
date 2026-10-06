@@ -2,6 +2,7 @@ import { canvasAttributeKeys, normalizeCanvasAttributes } from "./canvas";
 import { normalizeShapeAttributes, shapeAttributeKeys } from "./shape-attributes";
 import { documentSchema } from "./schema";
 import { inspectDocumentImage } from "./image-source";
+import { normalizeTableMargins, normalizeTableWidth, tableBoolean } from "./table";
 import { serializeStableJson } from "../json";
 import { DOCUMENT_LIMITS, choice, color, fontFamily, identifier, link, number, record, text } from "./validation";
 import type { DocumentInput, DocumentMark, DocumentModel, DocumentNode, DocumentPage, DocumentRootNode, DocumentTextStyle } from "./types";
@@ -64,7 +65,7 @@ export function normalizeDocumentMark(input: unknown): DocumentMark {
   return { type };
 }
 const attrKeys: Record<string, string[]> = {
-  paragraph: ["id", "align"], heading: ["id", "align", "level"], bullet_list: ["id"], ordered_list: ["id", "order"], list_item: ["id"], table: ["id"], table_row: ["id"], table_cell: ["id", "colspan", "rowspan", "colwidth", "backgroundColor"], table_header: ["id", "colspan", "rowspan", "colwidth", "backgroundColor"], image: ["id", "src", "alt", "width", "height"], shape: shapeAttributeKeys, drawing_canvas: canvasAttributeKeys, page_break: ["id"], hard_break: [], text: [], doc: [],
+  paragraph: ["id", "align"], heading: ["id", "align", "level"], bullet_list: ["id"], ordered_list: ["id", "order"], list_item: ["id"], table: ["id", "width", "layout", "cellMargins"], table_row: ["id"], table_cell: ["id", "colspan", "rowspan", "colwidth", "backgroundColor", "preferredWidth", "margins", "noWrap", "fitText"], table_header: ["id", "colspan", "rowspan", "colwidth", "backgroundColor", "preferredWidth", "margins", "noWrap", "fitText"], image: ["id", "src", "alt", "width", "height"], shape: shapeAttributeKeys, drawing_canvas: canvasAttributeKeys, page_break: ["id"], hard_break: [], text: [], doc: [],
 };
 function normalizeContent(input: unknown): DocumentRootNode {
   const ids = new Set<string>();
@@ -83,10 +84,19 @@ function normalizeContent(input: unknown): DocumentRootNode {
     if (type === "paragraph" || type === "heading") attrs.align = choice(originalAttrs.align ?? "left", ["left", "center", "right", "justify"], "Alignment");
     if (type === "heading") attrs.level = number(originalAttrs.level ?? 1, "Heading level", 1, 6, true);
     if (type === "ordered_list") attrs.order = number(originalAttrs.order ?? 1, "List start", 1, 1_000_000, true);
+    if (type === "table") {
+      attrs.width = normalizeTableWidth(originalAttrs.width);
+      attrs.layout = originalAttrs.layout == null ? null : choice(originalAttrs.layout, ["auto", "fixed"], "Table layout");
+      attrs.cellMargins = normalizeTableMargins(originalAttrs.cellMargins);
+    }
     if (type === "table_cell" || type === "table_header") {
       attrs.colspan = number(originalAttrs.colspan ?? 1, "Column span", 1, 100, true);
       attrs.rowspan = number(originalAttrs.rowspan ?? 1, "Row span", 1, 500, true);
       attrs.backgroundColor = originalAttrs.backgroundColor == null ? null : color(originalAttrs.backgroundColor);
+      attrs.preferredWidth = normalizeTableWidth(originalAttrs.preferredWidth);
+      attrs.margins = normalizeTableMargins(originalAttrs.margins);
+      attrs.noWrap = tableBoolean(originalAttrs.noWrap);
+      attrs.fitText = tableBoolean(originalAttrs.fitText);
       attrs.colwidth = null;
       if (originalAttrs.colwidth != null) {
         if (!Array.isArray(originalAttrs.colwidth) || originalAttrs.colwidth.length !== attrs.colspan) throw new Error("Cell column widths must match the column span.");

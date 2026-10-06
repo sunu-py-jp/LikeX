@@ -6,6 +6,7 @@ import type { SlideEditor } from "./use-slide-editor";
 type TextControl = HTMLInputElement | HTMLTextAreaElement;
 function textControl(target: EventTarget | null): TextControl | null {
   const element = target as HTMLElement | null;
+  if (element?.closest?.("[data-slide-view-only]")) return null;
   return element?.matches?.("textarea, input:not([type]), input[type=text], input[type=number], input[type=search]") ? element as TextControl : null;
 }
 

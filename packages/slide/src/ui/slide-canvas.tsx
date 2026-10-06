@@ -294,6 +294,7 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
     if (openMenu(event, items)) { cancelGesture(); cancelMarquee(); if (slide) editor.select({ slideId: slide.id, elementIds: [] }); }
   };
   const appearance = slide ? resolveSlideAppearance(deck, slide) : undefined;
+  const searchElementId = editor.features.search && editor.search.open && editor.searchMatch?.slideId === slide?.id ? editor.searchMatch?.elementId : undefined;
   const renderedElements = slide ? resolveSlideLines(slide.elements.map(element => ({ ...element, ...preview.get(element.id) } as SlideElement))) : [];
   return <div ref={viewport} className="lxp-canvas-viewport" tabIndex={0} aria-label="スライド編集キャンバス" data-slide-selection-scope="elements"
     onContextMenu={canvasMenu}
@@ -309,6 +310,9 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
             original={slide.elements.find(item => item.id === element.id)!} selected={selected.has(element.id)}
             editable={editor.editable} formatting={editor.features.formatting} textEnabled={editor.features.text}
             moving={moving && preview.has(element.id)} scale={scale} onBegin={begin} onMenu={elementMenu} onEdit={setEditing} />)}
+          {searchElementId && [...appearance?.inheritedElements ?? [], ...renderedElements].filter(element => element.id === searchElementId).map(element =>
+            <div key={`search:${element.id}`} className="lxp-search-highlight" data-slide-search-highlight={element.id} aria-hidden="true"
+              style={{ ...elementStyle(element), opacity: 1, borderWidth: 3 / scale }} />)}
           {connecting && renderedElements.filter(element => element.id === connecting).flatMap(element => getConnectorPortPoints(element, getSlideConnectorOutline(element)).map(({ port, point }) => <div key={`${element.id}:${port}`} className="lxp-connection-port" data-connection-target={element.id} data-connection-port={port} style={{ left: point.x, top: point.y, width: 7 / scale, height: 7 / scale }} />))}
           {marqueePreview && <div className="lxp-canvas-marquee" aria-hidden="true" style={{ left: marqueePreview.box.x, top: marqueePreview.box.y,
             width: marqueePreview.box.width, height: marqueePreview.box.height, borderWidth: 1 / scale }} />}
@@ -321,7 +325,7 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
                 fontFamily: element.type === "text" ? element.fontFamily : "inherit" }}
               onChange={event => setEditing({ id: element.id, text: event.target.value })} onBlur={commitText}
               onKeyDown={event => {
-                if (event.key.toLowerCase() === "s" && (event.ctrlKey || event.metaKey)) return;
+                if (["s", "f"].includes(event.key.toLowerCase()) && (event.ctrlKey || event.metaKey)) return;
                 event.stopPropagation();
                 if (event.key === "Escape") { event.preventDefault(); setEditing(null); }
                 else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); commitText(); }

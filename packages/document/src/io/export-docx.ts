@@ -2,7 +2,9 @@ import { writeDocxCanvas } from "./docx-canvas";
 import { writeDocxShape } from "./docx-shapes";
 import { createZipArchive, type ZipArchiveEntry } from "../core";
 import { normalizeDocument } from "../model/document";
-import type { DocumentModel } from "../model/types";
+import type { DocumentModel, DocumentTableMargins, DocumentTableWidth } from "../model/types";
+import { documentTableGrid } from "../model/table";
+import { writeDocxTableMargins, writeDocxTableWidth } from "./docx-tables";
 import { OFFICE_PACKAGE_LIMITS } from "../ooxml";
 import { PIC, R, header, namespaces, relationships, twips, xml, type Link } from "./docx-xml";
 import type { DocumentDocxExportResult, DocumentDocxOptions } from "./types";
@@ -90,8 +92,9 @@ export async function exportDocumentDocx(input: DocumentModel, options: Document
       for (const cell of row.content ?? []) {
         continuations();
         const attrs = cell.attrs ?? {}, span = Number(attrs.colspan ?? 1), rowspan = Number(attrs.rowspan ?? 1);
-        const widths = Array.isArray(attrs.colwidth) ? attrs.colwidth as number[] : [];
-        const properties = `${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ""}${rowspan > 1 ? '<w:vMerge w:val="restart"/>' : ""}${widths.length ? `<w:tcW w:w="${Math.round(widths.reduce((a, b) => a + b, 0) * 15)}" w:type="dxa"/>` : ""}${attrs.backgroundColor ? `<w:shd w:val="clear" w:fill="${hex(attrs.backgroundColor)}"/>` : ""}`;
+        const legacyWidths = node.attrs?.layout == null && Array.isArray(attrs.colwidth) ? attrs.colwidth as number[] : [];
+        const preferredWidth = attrs.preferredWidth as DocumentTableWidth | null ?? (legacyWidths.length ? { unit: "px" as const, value: legacyWidths.reduce((sum, value) => sum + value, 0) } : null);
+        const properties = `${writeDocxTableWidth("tcW", preferredWidth)}${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ""}${rowspan > 1 ? '<w:vMerge w:val="restart"/>' : ""}${attrs.backgroundColor ? `<w:shd w:val="clear" w:fill="${hex(attrs.backgroundColor)}"/>` : ""}${attrs.noWrap == null ? "" : `<w:noWrap w:val="${attrs.noWrap ? "1" : "0"}"/>`}${writeDocxTableMargins("tcMar", attrs.margins as DocumentTableMargins | null)}${attrs.fitText == null ? "" : `<w:tcFitText w:val="${attrs.fitText ? "1" : "0"}"/>`}`;
         let content = (cell.content ?? []).map(child => block(child)).join("") || "<w:p/>";
         if (!content.endsWith("</w:p>") && !content.endsWith("<w:p/>")) content += "<w:p/>";
         output += `<w:tc><w:tcPr>${properties}</w:tcPr>${content}</w:tc>`;
@@ -102,12 +105,8 @@ export async function exportDocumentDocx(input: DocumentModel, options: Document
       return `<w:tr>${(row.content ?? []).every(cell => cell.type === "table_header") ? '<w:trPr><w:tblHeader/></w:trPr>' : ""}${output}</w:tr>`;
     }).join("");
     const borders = ["top", "left", "bottom", "right", "insideH", "insideV"].map(edge => `<w:${edge} w:val="single" w:sz="4" w:color="C7CDD5"/>`).join("");
-    const first = rows[0]?.content ?? [];
-    const grid = first.flatMap(cell => {
-      const attrs = cell.attrs ?? {}, widths = Array.isArray(attrs.colwidth) ? attrs.colwidth as number[] : [];
-      return Array.from({ length: Number(attrs.colspan ?? 1) }, (_, index) => `<w:gridCol w:w="${Math.round((widths[index] ?? 120) * 15)}"/>`);
-    }).join("");
-    return `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>${borders}</w:tblBorders></w:tblPr><w:tblGrid>${grid}</w:tblGrid>${rowXml}</w:tbl>`;
+    const attrs = node.attrs ?? {}, grid = documentTableGrid(rows).map(width => `<w:gridCol w:w="${Math.round((width ?? 120) * 15)}"/>`).join("");
+    return `<w:tbl><w:tblPr>${writeDocxTableWidth("tblW", attrs.width as DocumentTableWidth | null)}<w:tblBorders>${borders}</w:tblBorders>${attrs.layout ? `<w:tblLayout w:type="${attrs.layout === "auto" ? "autofit" : "fixed"}"/>` : ""}${writeDocxTableMargins("tblCellMar", attrs.cellMargins as DocumentTableMargins | null)}</w:tblPr><w:tblGrid>${grid}</w:tblGrid>${rowXml}</w:tbl>`;
   }
 
   function block(node: Node, list?: { id: number; level: number }): string {

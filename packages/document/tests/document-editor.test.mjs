@@ -373,3 +373,40 @@ test('same-document import does not defer selection past a newer host navigation
   assert.deepEqual(ref.current.getSelection(), { from: 0, to: 0 }); assert.equal(app.editor.pageReveal.position, 0);
   assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false);
 });
+
+
+test('search handles navigate literals and case-sensitive matches without history and obey feature changes', async t => {
+  let permissions = 0;
+  const ref = { current: null }, app = await mount(t, { ref, readOnly: true, initialDocument: createDocument({ content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Alpha alpha A.b Axb' }] }] } }), onEditRequest() { permissions++; return true; } });
+  const api = ref.current, before = serializeDocument(app.editor.document);
+  await change(() => assert.equal(api.openSearch('alpha'), true));
+  assert.equal(app.editor.search.locations.length, 2);
+  assert.deepEqual(api.getSelection(), { from: 1, to: 6 });
+  await change(() => app.editor.search.goTo(-1));
+  assert.deepEqual(api.getSelection(), { from: 7, to: 12 });
+  await change(() => app.editor.search.setCaseSensitive(true));
+  assert.equal(app.editor.search.locations.length, 1);
+  await change(() => api.openSearch('A.b'));
+  assert.equal(app.editor.search.locations.length, 1);
+  assert.deepEqual(api.getSelection(), { from: 13, to: 16 });
+  await change(() => api.openSearch('missing'));
+  assert.equal(app.editor.search.index, -1);
+  assert.equal(serializeDocument(app.editor.document), before); assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false); assert.equal(permissions, 0);
+  await app.update({ features: { search: false } });
+  assert.equal(app.editor.search.open, false);
+  await change(() => assert.equal(api.openSearch('Alpha'), false));
+  await app.update({ features: { search: true } });
+  assert.equal(app.editor.search.open, false);
+  await app.unmount(); assert.equal(api.openSearch(), false); api.closeSearch();
+});
+
+test('open document search refreshes locations after edits and undo', async t => {
+  const ref = { current: null }, app = await mount(t, { ref });
+  await change(() => ref.current.openSearch('Alpha'));
+  assert.equal(app.editor.search.locations.length, 1);
+  await change(() => ref.current.execute({ type: 'text.insert', from: 1, text: 'Alpha ' }));
+  assert.equal(app.editor.search.locations.length, 2);
+  assert.deepEqual(ref.current.getSelection(), { from: 7, to: 7 }, 'search refresh must not move the typing caret');
+  await change(() => ref.current.undo());
+  assert.equal(app.editor.search.locations.length, 1);
+});

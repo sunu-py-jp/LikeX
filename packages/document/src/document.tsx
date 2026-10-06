@@ -8,6 +8,7 @@ import { getBlocks, getDocumentText, inspectDocumentImage, DOCUMENT_LIMITS } fro
 import { useDocumentEditor } from "./state/use-document-editor";
 import { useDocumentTheme } from "./state/use-document-theme";
 import { DocumentSurface, type DocumentSurfaceHandle } from "./ui/document-surface";
+import { DocumentSearchPanel } from "./ui/document-search-panel";
 import { DocumentRibbon } from "./ui/document-ribbon";
 import { DocumentDialog } from "./ui/document-dialog";
 import { useDocumentContextMenu } from "./ui/use-document-context-menu";
@@ -62,11 +63,14 @@ export default function LikeDocument(props: DocumentProps) {
   }
   return <div ref={attach} data-likex-document="" className={`lxd-root ${props.className ?? ""}`} style={{ ...theme, ...props.style }} role="region" aria-label={props["aria-label"] ?? "文書エディター"} onKeyDownCapture={event => {
     const target = event.target as HTMLElement;
-    if (event.nativeEvent.isComposing || target.closest(".lxd-dialog")) return;
+    if (event.nativeEvent.isComposing || event.keyCode === 229 || target.closest(".lxd-dialog")) return;
     const mod = event.ctrlKey || event.metaKey, key = event.key.toLowerCase();
     if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && key === "f1") {
       if (editor.ribbonDisplayMode !== "hidden") { event.preventDefault(); event.stopPropagation(); editor.setRibbonDisplayMode(editor.ribbonDisplayMode === "expanded" ? "tabs" : "expanded"); }
       return;
+    }
+    if (mod && !event.altKey && key === "f" && editor.features.search) {
+      event.preventDefault(); event.stopPropagation(); editor.search.openSearch(); return;
     }
     if (!mod) return;
     if (target.closest("input:not([type=color]):not([type=range]):not([type=checkbox]),textarea") && key !== "s") return;
@@ -84,7 +88,8 @@ export default function LikeDocument(props: DocumentProps) {
     </header>
     <DocumentRibbon editor={editor} surface={surface} onImport={openFile} onExport={format => void download(format)} onImage={() => imageInput.current?.click()} onTable={() => setDialog("table")} onLink={() => setDialog("link")} outline={outline} onOutline={() => setOutline(value => !value)} />
     <div className="lxd-workspace">
-      {outline && <aside className="lxd-navigation" aria-label="見出しナビゲーション"><h2>ナビゲーション</h2><div className="lxd-navigation-label">見出し</div>{headings.length ? headings.map(block => <button type="button" key={block.id} style={{ paddingLeft: 14 + ((block.node.type === "heading" ? block.node.attrs?.level ?? 1 : 1) - 1) * 12 }} onClick={() => {
+      {editor.search.open && <DocumentSearchPanel editor={editor} onClose={() => { editor.search.closeSearch(); surface.current?.focus(); }} />}
+      {outline && !editor.search.open && <aside className="lxd-navigation" aria-label="見出しナビゲーション"><h2>ナビゲーション</h2><div className="lxd-navigation-label">見出し</div>{headings.length ? headings.map(block => <button type="button" key={block.id} style={{ paddingLeft: 14 + ((block.node.type === "heading" ? block.node.attrs?.level ?? 1 : 1) - 1) * 12 }} onClick={() => {
         editor.select({ from: block.contentFrom, to: block.contentFrom }); surface.current?.focus();
         root.current?.querySelector<HTMLElement>(`[data-document-id="${CSS.escape(block.id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
       }}>{block.node.type === "heading" ? block.node.content?.map(node => node.type === "text" ? node.text : "").join("") : ""}</button>) : <p>見出しを設定すると、ここに表示されます。</p>}</aside>}

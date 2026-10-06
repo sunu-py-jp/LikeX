@@ -36,13 +36,19 @@ export type DocumentListItemNode = { type: "list_item"; attrs?: { id?: string | 
 export type DocumentListNode =
   | { type: "bullet_list"; attrs?: { id?: string | null }; content: DocumentListItemNode[] }
   | { type: "ordered_list"; attrs?: { id?: string | null; order?: number }; content: DocumentListItemNode[] };
+/** Preferred table/cell width. Pixels use the same 96 dpi scale as column widths. */
+export type DocumentTableWidth = { unit: "px" | "percent"; value: number };
+/** Cell padding in pixels. Missing sides inherit the table's margins. */
+export type DocumentTableMargins = { top?: number; right?: number; bottom?: number; left?: number };
 export type DocumentTableCellNode = {
   type: "table_cell" | "table_header";
-  attrs?: { id?: string | null; colspan?: number; rowspan?: number; colwidth?: number[] | null; backgroundColor?: string | null };
+  attrs?: { id?: string | null; colspan?: number; rowspan?: number; colwidth?: number[] | null; backgroundColor?: string | null;
+    preferredWidth?: DocumentTableWidth | null; margins?: DocumentTableMargins | null; noWrap?: boolean | null; fitText?: boolean | null };
   content: DocumentBlock[];
 };
 export type DocumentTableRowNode = { type: "table_row"; attrs?: { id?: string | null }; content: DocumentTableCellNode[] };
-export type DocumentTableNode = { type: "table"; attrs?: { id?: string | null }; content: DocumentTableRowNode[] };
+export type DocumentTableNode = { type: "table"; attrs?: { id?: string | null; width?: DocumentTableWidth | null;
+  layout?: "fixed" | "auto" | null; cellMargins?: DocumentTableMargins | null }; content: DocumentTableRowNode[] };
 export type DocumentImageNode = {
   type: "image";
   attrs: { id?: string | null; src: string; alt?: string; width?: number; height?: number };

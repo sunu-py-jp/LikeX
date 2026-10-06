@@ -15,6 +15,7 @@ import { SlideFilmstrip } from "./ui/slide-filmstrip";
 import { SlideProperties } from "./ui/slide-properties";
 import { SlidePresentation } from "./ui/slide-presentation";
 import { SlideRibbon } from "./ui/slide-ribbon";
+import { SlideSearchPanel } from "./ui/slide-search-panel";
 import { SlideConversionReport } from "./ui/slide-conversion-report";
 
 async function imageData(file: File, ownerDocument: Document) {
@@ -80,6 +81,10 @@ export default function LikeSlide(props: SlideProps) {
       }
       return;
     }
+    if (!event.altKey && !event.shiftKey && event.ctrlKey !== event.metaKey && event.key.toLowerCase() === "f") {
+      if (editor.openSearch()) event.preventDefault();
+      return;
+    }
     const target = event.target as HTMLElement;
     const editing = target.closest("input,textarea,select,[contenteditable=true]");
     const scope = target.closest<HTMLElement>("[data-slide-selection-scope]")?.dataset?.slideSelectionScope;
@@ -133,7 +138,7 @@ export default function LikeSlide(props: SlideProps) {
     </header>
     <SlideRibbon editor={editor} onImage={() => { if (slide) requestImage({ deck: editor.deck, slideId: slide.id }); }} onImport={importFile} onImportMasters={() => masterInput.current?.click()} onPresent={() => setPresenting(true)} propertiesOpen={propertiesOpen} notesOpen={notesOpen}
       onProperties={() => setPropertiesOpen(value => !value)} onNotes={() => setNotesOpen(value => !value)} onFit={() => setZoom(100)} ownerDocument={ownerDocument} />
-    <div className="lxp-workspace"><SlideFilmstrip editor={editor} /><div className="lxp-slide-workspace"><SlideCanvas key={slide?.id} deck={editor.deck} slide={slide} editor={editor} zoom={zoom} onImage={requestImage}
+    <div className="lxp-workspace">{editor.search.open && editor.features.search && <SlideSearchPanel editor={editor} onClose={() => { editor.closeSearch(); root.current?.querySelector<HTMLElement>(".lxp-canvas-viewport")?.focus(); }} />}<SlideFilmstrip editor={editor} /><div className="lxp-slide-workspace"><SlideCanvas key={slide?.id} deck={editor.deck} slide={slide} editor={editor} zoom={zoom} onImage={requestImage}
       onProperties={() => { setConversionOpen(false); setPropertiesOpen(true); }} />
       {editor.features.notes && notesOpen && <div className="lxp-notes"><label htmlFor={`${editor.deck.id}-notes`}>ノート</label><textarea key={`${slide?.id}:${slide?.notes}`} id={`${editor.deck.id}-notes`} aria-label="発表者ノート" defaultValue={slide?.notes ?? ""} placeholder="クリックしてノートを入力" disabled={!editor.editable || !slide}
         onBlur={event => {

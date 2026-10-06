@@ -29,6 +29,10 @@
 
 用紙・余白はmm、文字の `text_style.attrs.fontSize` はpt、画像の幅・高さはpx。文字書式は `marks`、段落の揃えは `attrs.align`。画像はPNG／JPEGの埋め込みdata URLで、外部URLを自動取得しない。
 
+表の列幅 `table_cell.attrs.colwidth` とセル余白はpx。表の `attrs.width` とセルの `attrs.preferredWidth` は `{ unit: "px" | "percent", value }` またはnullで、pxは0.01〜5000、percentは0.01〜500。表の `layout` は `fixed` / `auto` / null、`cellMargins` は `{ top?, right?, bottom?, left? }` またはnull。セルの `margins` が指定された辺だけを上書きする。余白の各辺は0〜5000px。
+
+セルの `noWrap` / `fitText` はbooleanまたはnull。`noWrap` はautoレイアウトの幅決定にのみ使い、空の隣セルへの文字の溢れを意味しない。`fitText` はDOCXの文字間隔伸縮設定を保持するが、ブラウザー表示の自動伸縮は未対応。表の新属性は未指定なら従来表示を維持するversion 1への追加で、新属性非対応の旧版へ渡す場合はライブラリ更新が必要。詳細は [DOCX入出力](../../../src/docs/docx.md) を確認する。
+
 読み取りAPI `collectDocumentImages` の `imageId` は画像バイト列のSHA-256で、ブロックの `attrs.id` とは別物。DCONにハッシュや画像カタログを追加せず、画像本体と全配置を読み取り結果として返す。重複をまとめても保存モデルのサイズ上限は変更しない。[画像収集の参照](image-analysis.md)を確認する。
 
 全ノード・書式・属性は [DCON JSON Schema](dcon.schema.json) を参照する。JSON Schemaは位置の有効性・文書スキーマの親子関係・画像の実体を保証しないため、最後にCLIの `validate` か `parseDocument` で確認する。選択・履歴・未保存状態・UI設定はファイルに保存しない。

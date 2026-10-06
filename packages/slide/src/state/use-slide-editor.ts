@@ -16,11 +16,12 @@ import { createSlideSession } from "../session/create-slide-session";
 import { awaitSlideImageTask, throwIfSlideImageAborted } from "../render/async";
 import type { SlideImageExportOptions, SlideImagesExportOptions } from "../render/browser-export";
 import type { SlideImageCommonOptions } from "../render/types";
+import type { SlideSearchMatch } from "../model/search";
 import type { SlidePptxDiagnostic } from "../office/types";
 
 const featureDefaults = {
   addSlides: true, deleteSlides: true, reorderSlides: true, text: true, shapes: true, images: true,
-  formatting: true, masters: true, animations: true, notes: true, import: true, export: true, presentation: true, history: true,
+  formatting: true, masters: true, animations: true, notes: true, import: true, export: true, presentation: true, history: true, search: true,
 };
 export type SlideFeatureState = typeof featureDefaults;
 export type SlideNotice = { kind: "info" | "error" | "success"; text: string; conversion?: true } | null;
@@ -67,6 +68,21 @@ export function useSlideEditor(props: SlideProps) {
   const propsRef = useRef(props);
   useLayoutEffect(() => { propsRef.current = props; });
   const mounted = useRef(true);
+  const [search, setSearch] = useState({ open: false, query: "", focusVersion: 0 });
+  const [searchMatch, setSearchMatch] = useState<SlideSearchMatch | null>(null);
+  const openSearch = useCallback((query?: string) => {
+    if (!mounted.current || propsRef.current.features?.search === false || query !== undefined && (typeof query !== "string" || query.length > 4096)) return false;
+    setSearch(previous => ({ open: true, query: query ?? previous.query, focusVersion: previous.focusVersion + 1 }));
+    return true;
+  }, []);
+  const closeSearch = useCallback(() => {
+    if (!mounted.current) return;
+    setSearch(previous => ({ ...previous, open: false })); setSearchMatch(null);
+  }, []);
+  const setSearchQuery = useCallback((query: string) => {
+    setSearch(previous => ({ ...previous, query })); setSearchMatch(null);
+  }, []);
+  useEffect(() => { if (props.features?.search === false) closeSearch(); }, [props.features?.search, closeSearch]);
   const [initialTarget] = useState(() => {
     try { return { ...resolveSlidePageTarget(snapshot.deck, { pageNumber: props.initialPageNumber, slideId: props.initialSlideId }), error: undefined }; }
     catch (cause) { return { slideId: snapshot.deck.slides[0]?.id ?? "", error: cause instanceof Error ? cause.message : "表示するページを指定できませんでした。" }; }
@@ -196,6 +212,19 @@ export function useSlideEditor(props: SlideProps) {
     setSelection(value);
     try { propsRef.current.onSelectionChange?.(copy(value)); } catch { /* Selection stays valid even if an observer fails. */ }
   }, [session]);
+  const highlightSearchMatch = useCallback((match: SlideSearchMatch | null, expectedDeck: SlideDeck) => {
+    if (!mounted.current || propsRef.current.features?.search === false || session.getSnapshot().deck !== expectedDeck) return;
+    setSearchMatch(match);
+  }, [session]);
+  const selectSearchMatch = useCallback((match: SlideSearchMatch | null, expectedDeck: SlideDeck) => {
+    if (!mounted.current || propsRef.current.features?.search === false || busyRef.current || snapshotPending.current || inputRegistration.current?.pending() || mutations.current.size || session.getSnapshot().deck !== expectedDeck) return false;
+    if (match) {
+      if (!expectedDeck.slides.some(slide => slide.id === match.slideId)) return false;
+      select({ slideId: match.slideId, elementIds: match.owner === "slide" && match.elementId ? [match.elementId] : [] });
+    }
+    setSearchMatch(match);
+    return true;
+  }, [select, session]);
   const goToPage = useCallback((pageNumber: number) => {
     if (!Number.isSafeInteger(pageNumber) || !mounted.current || busyRef.current || snapshotPending.current || inputRegistration.current?.pending()) return false;
     try {
@@ -619,7 +648,7 @@ export function useSlideEditor(props: SlideProps) {
   }, [execute]);
 
   useImperativeHandle(props.ref, () => ({
-    getRibbonDisplayMode, setRibbonDisplayMode,
+    getRibbonDisplayMode, setRibbonDisplayMode, openSearch, closeSearch,
     getDeck: options => copy(getDeck(session.getSnapshot().deck, options)),
     getSlides: options => copy(getSlides(session.getSnapshot().deck, options)),
     getSlide: (slideId, options) => copy(getSlide(session.getSnapshot().deck, slideId, options)),
@@ -646,9 +675,9 @@ export function useSlideEditor(props: SlideProps) {
     execute: command => execute(command), executeConditional,
     undo: () => history("undo"), redo: () => history("redo"), save, discard,
     getSelection: () => copy(selectionRef.current), select, deleteSelection, importNative, exportNative, importPptx, importPptxMasters, cancelMasterImport, exportPptx, exportImage, exportImages,
-  }), [getRibbonDisplayMode, setRibbonDisplayMode, goToPage, discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
+  }), [getRibbonDisplayMode, setRibbonDisplayMode, openSearch, closeSearch, goToPage, discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
 
-  return { ...snapshot, ...ribbon, dirty, selection, select, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
+  return { ...snapshot, ...ribbon, dirty, selection, select, search, searchMatch, openSearch, closeSearch, setSearchQuery, selectSearchMatch, highlightSearchMatch, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
     copyElements, pasteElements, canPasteElements, prepareCommands, registerInputFlush, refreshPendingInput, notice, setNotice, conversionReport, reportError, features, readOnly, busy, requesting,
     editable: !readOnly && !busy && !requesting };
 }

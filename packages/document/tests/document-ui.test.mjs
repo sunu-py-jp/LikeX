@@ -6,7 +6,8 @@ import { create } from 'react-test-renderer';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-const mockViewSource = `export class EditorView {
+const mockViewSource = `export { Decoration, DecorationSet } from ${JSON.stringify(new URL('../../../node_modules/prosemirror-view/dist/index.js', import.meta.url).pathname)};
+export class EditorView {
   static instances = [];
   constructor(place, props) { this.props = props; this.state = props.state; this.updates = 0; this.dom = place; EditorView.instances.push(this); }
   updateState(state) { this.state = state; this.updates++; }
@@ -20,7 +21,7 @@ const output = await build({ stdin: { contents: `export {default as LikeDocument
   { name: 'react-and-view', setup(builder) {
     builder.onResolve({ filter: /^(react|react-dom|lucide-react)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
     builder.onResolve({ filter: /^prosemirror-view$/ }, () => ({ path: 'pm-test-view', namespace: 'pm-test-view' }));
-    builder.onLoad({ filter: /.*/, namespace: 'pm-test-view' }, () => ({ contents: mockViewSource, loader: 'js' }));
+    builder.onLoad({ filter: /.*/, namespace: 'pm-test-view' }, () => ({ contents: mockViewSource, loader: 'js', resolveDir: new URL('../', import.meta.url).pathname }));
   } },
 ] });
 const { LikeDocument, createDocument, serializeDocument, getDocumentText, getDocumentPage, getBlocks, getImages, getCanvases, getDocumentCanvasConnectorRoute, TestEditorView } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text + '\n//# sourceURL=likex-document-ui-tests.js').toString('base64')}`);
@@ -330,4 +331,28 @@ test('page reveal targets image-only and empty pages without jumping to a later 
   await change(() => assert.equal(ref.current.goToPage(3), true));
   assert.equal(view.state.selection.node.type.name, 'page_break');
   assert.equal(view.state.selection.from, getDocumentPage(document, 3).from);
+});
+
+
+test('search UI opens from the ribbon and hidden-ribbon shortcut without acquiring edit permission', async t => {
+  let requests = 0;
+  const { renderer, ref, view } = await mount(t, { initialDocument: body('Alpha beta Alpha'), initialRibbonDisplayMode: 'hidden', readOnly: true, onEditRequest() { requests++; return true; } }, true);
+  const before = serializeDocument(ref.current.getDocument());
+  const event = { target: { closest: () => null }, nativeEvent: {}, ctrlKey: true, key: 'f', preventDefault() { this.prevented = true; }, stopPropagation() {} };
+  await change(() => renderer.root.findByProps({ 'data-likex-document': '' }).props.onKeyDownCapture(event));
+  assert.equal(event.prevented, true);
+  const input = button(renderer, '検索する文字列');
+  await change(() => input.props.onChange({ currentTarget: { value: 'Alpha' } }));
+  assert.deepEqual(ref.current.getSelection(), { from: 1, to: 6 });
+  assert.equal(view.props.decorations(view.state).find().length, 1);
+  await change(() => button(renderer, '次の検索結果').props.onClick());
+  assert.deepEqual(ref.current.getSelection(), { from: 12, to: 17 });
+  await change(() => button(renderer, '次の検索結果').props.onClick());
+  assert.deepEqual(ref.current.getSelection(), { from: 1, to: 6 });
+  await change(() => button(renderer, '検索を閉じる').props.onClick());
+  assert.equal(view.props.decorations(view.state).find().length, 0);
+  assert.equal(view.focused, true);
+  assert.equal(serializeDocument(ref.current.getDocument()), before); assert.equal(requests, 0);
+  await change(() => renderer.root.findAllByType('button').find(node => node.props['aria-label'] === '検索').props.onClick());
+  assert.equal(renderer.root.findAllByProps({ 'aria-label': '文書内を検索' }).length, 1);
 });

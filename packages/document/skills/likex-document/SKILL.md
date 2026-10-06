@@ -36,6 +36,8 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 
 ## 編集上の契約
 
+- ホストの検索UIはホーム／Ctrl・Cmd+F、および `ref.openSearch(query?)` / `closeSearch()` から利用する。読み取り専用・リボン非表示でも使え、`features.search: false` で無効にできる。検索の表示状態は文書・履歴・CLI編集コマンドに含めない。
+
 - 一覧用の `LikeDocumentThumbnail` は `@likex/document/thumbnail` から使う表示専用コンポーネント。`document` / `pageNumber` propsの更新で指定した明示改ページ区切りの用紙1枚分を表示し、編集refは持たない。描画上限による省略はモデルを変更せず、厳密なWordの自動改ページを保証しない。`pageNumber` は1始まりで既定値1、先行ページは描画予算を消費しない。不正・存在しない番号はプレースホルダーと `onError` へ通知する。サムネイルの表示設定を保存形式やCLI編集コマンドへ追加しない。
 - `getDocumentPage(document, pageNumber = 1)` は表・リスト内も含む明示 `page_break` 区切りの `{ pageNumber, from, to }` を返す。存在しなければ `undefined`、不正番号は例外。Wordの自動改ページ番号を推測しない。通常表示は `initialPageNumber`、後からは `ref.goToPage` で移動でき、読み取り専用でも編集許可・未保存状態・履歴に影響しない。refの `importNative` / `importDocx` は第2引数 `{ pageNumber }` を適用前に検証し、不正なら旧draftを保持する。純粋な入出力APIの表示オプションやCLIコマンドには追加しない。
 

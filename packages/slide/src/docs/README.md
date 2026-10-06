@@ -4,7 +4,7 @@ LikeSlideはスライドをJSONで保持するReactコンポーネントです�
 
 PDFを同じ外観で閲覧する場合は、[PDFの閲覧](pdf-viewer.md)の `LikeSlidePdfViewer` を使います。閲覧時だけPDF.js等の描画エンジンをホストから注入します。
 
-サーバー側でキーワードからページ・要素を探す場合は、[描画しないキーワード検索](search.md)の `searchSlides` を使います。
+サーバー側でキーワードからページ・要素を探す場合は、[キーワード検索](search.md)の `searchSlides` を使います。
 
 一覧カードなどでタイトルと先頭ページだけを表示する場合は、[軽量サムネイル](thumbnail.md)の `LikeSlideThumbnail` / `LikeSlidePdfThumbnail` を使います。
 
@@ -63,7 +63,7 @@ Coreへの参照は `slide/core.ts` に集約されています。`browser.ts`�
 | `features` | `SlideFeatures` | 全機能有効 |
 | `warnOnUnsavedChanges` | `boolean` | 未保存の離脱確認を有効化 |
 
-`features` のキーは `addSlides`、`deleteSlides`、`reorderSlides`、`text`、`shapes`、`images`、`formatting`、`masters`、`animations`、`notes`、`import`、`export`、`presentation`、`history` です。`false` の機能は画面から隠し、対応する操作も受け付けません。
+`features` のキーは `addSlides`、`deleteSlides`、`reorderSlides`、`text`、`shapes`、`images`、`formatting`、`masters`、`animations`、`notes`、`import`、`export`、`presentation`、`history`、`search` です。`false` の機能は画面から隠し、対応する操作も受け付けません。
 
 ```tsx
 <LikeSlide initialDeck={deck} onSave={saveDeck}

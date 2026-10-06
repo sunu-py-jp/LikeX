@@ -72,28 +72,58 @@ export type NumberingLevel = { type: "ordered_list" | "bullet_list"; order: numb
 export function readNumbering(root: XmlNode | undefined, warn: (message: string) => void) {
   const abstracts = new Map(children(root, "abstractNum").map(node => [attr(node, "abstractNumId"), node]));
   const nums = new Map(children(root, "num").map(node => [attr(node, "numId"), node]));
-  return (id: string, level: number): NumberingLevel => {
+  type Definition = NumberingLevel & { restartAfter: number | null };
+  const definitions = new Map<string, Map<number, Definition>>(), counters = new Map<string, Map<number, number>>();
+  function definition(id: string, level: number): Definition {
+    let levels = definitions.get(id);
+    if (!levels) definitions.set(id, levels = new Map());
+    const cached = levels.get(level); if (cached) return cached;
     const num = nums.get(id), abstract = abstracts.get(attr(child(num, "abstractNumId"), "val"));
+    const inherited = children(abstract, "lvl").find(node => Number(attr(node, "ilvl")) === level);
     const override = children(num, "lvlOverride").find(node => Number(attr(node, "ilvl")) === level);
-    const source = child(override, "lvl") ?? children(abstract, "lvl").find(node => Number(attr(node, "ilvl")) === level);
+    const source = child(override, "lvl") ?? inherited;
     const format = attr(child(source, "numFmt"), "val") ?? "decimal";
     if (!["decimal", "bullet"].includes(format)) warn("独自の番号書式は連番に変換しました");
+    const label = attr(child(source, "lvlText"), "val");
+    if (label !== undefined && label !== (format === "bullet" ? "•" : `%${level + 1}.`))
+      warn("番号・箇条書きの記号や接頭辞・区切りを標準表示へ変換しました");
     const start = Number(attr(child(override, "startOverride"), "val") ?? attr(child(source, "start"), "val") ?? 1);
-    return { type: format === "bullet" ? "bullet_list" : "ordered_list", order: Number.isInteger(start) && start >= 1 ? start : 1 };
+    // Word ignores lvlRestart inside a level override; zero on the abstract level means never restart.
+    const restart = Number(attr(child(inherited, "lvlRestart"), "val") ?? level);
+    const restartAfter = level === 0 || restart === 0 ? null : Number.isInteger(restart) && restart > 0 && restart <= level ? restart - 1 : level - 1;
+    const result: Definition = { type: format === "bullet" ? "bullet_list" : "ordered_list", order: Number.isInteger(start) && start >= 1 ? start : 1, restartAfter };
+    levels.set(level, result); return result;
+  }
+  const resolve = (id: string, level: number): NumberingLevel => {
+    const { type, order } = definition(id, level); return { type, order };
   };
+  /** Consume once per source paragraph, before recursively reading later tables or content controls. */
+  const next = (id: string, level: number): NumberingLevel => {
+    const specification = definition(id, level);
+    let levels = counters.get(id);
+    if (!levels) counters.set(id, levels = new Map());
+    const order = levels.get(level) ?? specification.order;
+    levels.set(level, order + 1);
+    for (const nested of levels.keys()) {
+      const restartAfter = definition(id, nested).restartAfter;
+      if (nested > level && restartAfter !== null && level <= restartAfter) levels.delete(nested);
+    }
+    return { type: specification.type, order };
+  };
+  return Object.assign(resolve, { next });
 }
 
-export type ListedBlock = { node: Node; numId?: string; level?: number };
+export type ListedBlock = { node: Node; numId?: string; level?: number; numbering?: NumberingLevel };
 /** Consecutive numbering paragraphs become actual nested lists, instead of literal bullet text. */
 export function groupLists(blocks: ListedBlock[], numbering: ReturnType<typeof readNumbering>): Node[] {
   const output: Node[] = [], stack: { id: string; level: number; list: Node; last: Node }[] = [];
   for (const block of blocks) {
     if (!block.numId || block.numId === "0") { stack.length = 0; output.push(block.node); continue; }
-    const level = block.level ?? 0;
+    const level = block.level ?? 0, specification = block.numbering ?? numbering.next(block.numId, level);
     while (stack.length && (stack[stack.length - 1].level > level || stack[stack.length - 1].level === level && stack[stack.length - 1].id !== block.numId)) stack.pop();
     let current = stack[stack.length - 1];
     if (!current || current.level !== level) {
-      const specification = numbering(block.numId, level), list: Node = { type: specification.type, attrs: specification.type === "ordered_list" ? { order: specification.order } : {}, content: [] };
+      const list: Node = { type: specification.type, attrs: specification.type === "ordered_list" ? { order: specification.order } : {}, content: [] };
       if (current) current.last.content!.push(list); else output.push(list);
       current = { id: block.numId, level, list, last: { type: "list_item", content: [] } }; stack.push(current);
     }

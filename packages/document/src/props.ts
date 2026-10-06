@@ -6,13 +6,16 @@ export type { DocumentSelection } from "./model/types";
 /** View-only ribbon presentation, shared with the other Office editors. */
 export type DocumentRibbonDisplayMode = RibbonDisplayMode;
 export type DocumentImportOptions = { /** 1-based page delimited by explicit page_break nodes. */ pageNumber?: number };
-export type DocumentFeatures = Partial<Record<"text" | "formatting" | "lists" | "tables" | "images" | "shapes" | "pageLayout" | "import" | "export" | "history", boolean>>;
+export type DocumentFeatures = Partial<Record<"text" | "formatting" | "lists" | "tables" | "images" | "shapes" | "pageLayout" | "import" | "export" | "history" | "search", boolean>>;
 export type DocumentEvent =
   | { type: "change"; source: "command" | "import" | "undo" | "redo" | "save"; document: DocumentModel }
   | { type: "save"; phase: "start" | "success" | "error" | "cancelled"; error?: string }
   | { type: "import" | "export"; format: "dcon" | "docx"; warnings: readonly string[] }
   | { type: "edit-mode"; mode: "view" | "requesting" | "edit" };
 export type DocumentHandle = {
+  /** Opens view-only search, including with a hidden ribbon or read-only document. */
+  openSearch(query?: string): boolean;
+  closeSearch(): void;
   getDocument(): DocumentModel;
   getRibbonDisplayMode(): DocumentRibbonDisplayMode;
   /** true means the request was accepted; controlled mode still requires a prop update. */

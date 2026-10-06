@@ -3619,6 +3619,16 @@
     ],
     "headings": [
       {
+        "id": "画面内で検索する",
+        "title": "画面内で検索する",
+        "depth": 2
+      },
+      {
+        "id": "描画しないキーワード検索",
+        "title": "描画しないキーワード検索",
+        "depth": 2
+      },
+      {
         "id": "条件と一致単位",
         "title": "条件と一致単位",
         "depth": 2
@@ -3788,6 +3798,31 @@
     ]
   },
   {
+    "id": "document/search",
+    "title": "文書内を検索する",
+    "component": "document",
+    "section": "文書の編集",
+    "output": "document/search/index.html",
+    "sources": [
+      "packages/document/src/docs/search.md"
+    ],
+    "keywords": [
+      "検索",
+      "openSearch",
+      "closeSearch",
+      "features.search",
+      "Ctrl F",
+      "読み取り専用"
+    ],
+    "headings": [
+      {
+        "id": "外側から検索を開く",
+        "title": "外側から検索を開く",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "document/headless",
     "title": "モデルAPI・コマンド・履歴",
     "component": "document",
@@ -3942,6 +3977,11 @@
       {
         "id": "対応範囲",
         "title": "対応範囲",
+        "depth": 2
+      },
+      {
+        "id": "表の幅とセル内の表示",
+        "title": "表の幅とセル内の表示",
         "depth": 2
       },
       {

@@ -494,6 +494,82 @@
       "properties": {
         "id": {
           "$ref": "#/$defs/DocumentParagraphNode_attrs_id"
+        },
+        "width": {
+          "$ref": "#/$defs/DocumentTableNode_attrs_width"
+        },
+        "layout": {
+          "$ref": "#/$defs/DocumentTableNode_attrs_layout"
+        },
+        "cellMargins": {
+          "$ref": "#/$defs/DocumentTableNode_attrs_cellMargins"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DocumentTableNode_attrs_width": {
+      "anyOf": [
+        {
+          "const": null
+        },
+        {
+          "$ref": "#/$defs/DocumentTableWidth"
+        }
+      ]
+    },
+    "DocumentTableWidth": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "$ref": "#/$defs/DocumentTableWidth_unit"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "unit",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentTableWidth_unit": {
+      "enum": [
+        "percent",
+        "px"
+      ]
+    },
+    "DocumentTableNode_attrs_layout": {
+      "enum": [
+        null,
+        "fixed",
+        "auto"
+      ]
+    },
+    "DocumentTableNode_attrs_cellMargins": {
+      "anyOf": [
+        {
+          "const": null
+        },
+        {
+          "$ref": "#/$defs/DocumentTableMargins"
+        }
+      ]
+    },
+    "DocumentTableMargins": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "number"
+        },
+        "right": {
+          "type": "number"
+        },
+        "bottom": {
+          "type": "number"
+        },
+        "left": {
+          "type": "number"
         }
       },
       "additionalProperties": false
@@ -580,6 +656,18 @@
         },
         "backgroundColor": {
           "$ref": "#/$defs/DocumentParagraphNode_attrs_id"
+        },
+        "preferredWidth": {
+          "$ref": "#/$defs/DocumentTableNode_attrs_width"
+        },
+        "margins": {
+          "$ref": "#/$defs/DocumentTableNode_attrs_cellMargins"
+        },
+        "noWrap": {
+          "$ref": "#/$defs/DocumentTableCellNode_attrs_noWrap"
+        },
+        "fitText": {
+          "$ref": "#/$defs/DocumentTableCellNode_attrs_noWrap"
         }
       },
       "additionalProperties": false
@@ -599,6 +687,13 @@
       "items": {
         "type": "number"
       }
+    },
+    "DocumentTableCellNode_attrs_noWrap": {
+      "enum": [
+        null,
+        false,
+        true
+      ]
     },
     "DocumentImageNode": {
       "type": "object",

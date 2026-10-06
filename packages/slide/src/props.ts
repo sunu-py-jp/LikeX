@@ -13,7 +13,7 @@ export type { SlidePageTarget } from "./state/slide-page-target";
 
 export type SlideRibbonDisplayMode = RibbonDisplayMode;
 
-export type SlideFeatures = Partial<Record<"addSlides" | "deleteSlides" | "reorderSlides" | "text" | "shapes" | "images" | "formatting" | "masters" | "animations" | "notes" | "import" | "export" | "presentation" | "history", boolean>>;
+export type SlideFeatures = Partial<Record<"addSlides" | "deleteSlides" | "reorderSlides" | "text" | "shapes" | "images" | "formatting" | "masters" | "animations" | "notes" | "import" | "export" | "presentation" | "history" | "search", boolean>>;
 export type SlideConditionalEditOptions = Readonly<{ expected?: SlideMutationToken; signal?: AbortSignal }>;
 export type SlideSelection = {
   /** The active page displayed on the canvas. */
@@ -29,6 +29,9 @@ export type SlideEvent =
   | { type: "conversion"; phase: "import" | "export"; warnings: readonly string[]; diagnostics: readonly SlidePptxDiagnostic[] }
   | { type: "edit-mode"; mode: "view" | "requesting" | "edit" };
 export type SlideHandle = {
+  /** Open/focus the view-only literal search panel. False if disabled or unmounted. */
+  openSearch(query?: string): boolean;
+  closeSearch(): void;
   getRibbonDisplayMode(): SlideRibbonDisplayMode;
   /** Requests a view-only change; controlled props determine acceptance. */
   setRibbonDisplayMode(mode: SlideRibbonDisplayMode): boolean;

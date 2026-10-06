@@ -84,3 +84,5 @@ const result = searchSlides(deck, {
 返り値は `{ matches, truncated }`。一致フィールドごとの `{ slideId, pageNumber, elementId?, source, owner, ownerId, text, matches: [{ keyword, from, to }] }` がページ順に並ぶ。`pageNumber` は1始まり。内側の `from` / `to` はその `text` 内のUTF-16オフセットで終了位置を含まない。`source` は `text` / `name` / `notes` / `alt`。継承装飾も表示構成に従って検索し、`owner: "master" | "layout"` の要素をページローカルの編集コマンドに渡さない。使われていないカタログやプレースホルダー原型は対象外。
 
 `limit` は一致フィールドの上限で既定1,000、最大10,000。上限を超える続きがあれば `truncated: true` なので全件と扱わない。1フィールドの位置が10,000件、返す位置の総数が100,000件を超える場合は例外として終了する。標準CLIの検索フラグはなく、ホストがこのAPIで得たIDを通常の `inspect --slide-id ... --element-id ...` に渡す。検索はモデルを変更しない。外部検索サービス・OCR・ファイル列挙・アクセス制御はホストが担当する。詳しい使用例は[描画しないキーワード検索](../../../src/docs/search.md)を参照する。
+
+通常LikeSlideの検索UIはホームの「検索」またはCtrl/Cmd+Fで開き、refの `openSearch(query?)` / `closeSearch()` でも制御する。文字列を1語のリテラルとして扱い、大文字小文字の区別・前後移動・要素の強調表示を提供する。`features.search: false` で無効化できるUI状態であり、SLON・PPTX・CLIへ検索パネルの状態を保存しない。

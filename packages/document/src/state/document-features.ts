@@ -4,7 +4,7 @@ import type { DocumentCommand, DocumentModel } from "../model/types";
 import { documentSchema, executeDocumentCommands } from "../model/index";
 import { Step } from "prosemirror-transform";
 
-export const defaultDocumentFeatures = Object.freeze({ text: true, formatting: true, lists: true, tables: true, images: true, shapes: true, pageLayout: true, import: true, export: true, history: true });
+export const defaultDocumentFeatures = Object.freeze({ text: true, formatting: true, lists: true, tables: true, images: true, shapes: true, pageLayout: true, import: true, export: true, history: true, search: true });
 export function resolveDocumentFeatures(features?: DocumentFeatures) {
   const result: Record<keyof typeof defaultDocumentFeatures, boolean> = { ...defaultDocumentFeatures };
   for (const key of Object.keys(result) as (keyof typeof result)[]) if (features?.[key] === false) result[key] = false;

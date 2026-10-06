@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, type Ref, useImperativeHandle } from "react";
 import { AllSelection, EditorState, NodeSelection, Selection, TextSelection, type Transaction } from "prosemirror-state";
-import { EditorView } from "prosemirror-view";
+import { Decoration, DecorationSet, EditorView } from "prosemirror-view";
 import { baseKeymap, chainCommands, exitCode } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import { splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list";
@@ -48,7 +48,13 @@ export function DocumentSurface({ editor, surfaceRef, onViewChange }: { editor: 
       lastPageReveal.current = reveal;
     }
     if (changedState) changed.current();
-    current.setProps({ editable: () => latest.current.editable && latest.current.features.text });
+    current.setProps({ editable: () => latest.current.editable && latest.current.features.text, decorations: state => {
+      const active = latest.current.search.active;
+      if (!latest.current.search.open || !active || !state.doc.eq(documentSchema.nodeFromJSON(latest.current.document.content))) return DecorationSet.empty;
+      const { from, to } = active.match;
+      const inline = active.kind === "paragraph" || active.kind === "heading";
+      return DecorationSet.create(state.doc, [inline ? Decoration.inline(from, to, { class: "lxd-search-highlight" }) : Decoration.node(from, to, { class: "lxd-search-highlight" })]);
+    } });
   }
   useImperativeHandle(surfaceRef, () => ({ getState: () => view.current?.state, dispatch: transaction => view.current?.dispatch(transaction), focus: () => view.current?.focus() }));
   useEffect(() => {
@@ -82,6 +88,6 @@ export function DocumentSurface({ editor, surfaceRef, onViewChange }: { editor: 
     syncView();
     return () => { dragFeedback.current?.destroy(); dragFeedback.current = null; view.current = null; lastPageReveal.current = null; pm.destroy(); };
   }, []);
-  useLayoutEffect(syncView, [editor.document, editor.selection, editor.editable, editor.features.text, editor.features.images, editor.features.shapes, editor.pageReveal]);
+  useLayoutEffect(syncView, [editor.document, editor.selection, editor.editable, editor.features.text, editor.features.images, editor.features.shapes, editor.pageReveal, editor.search.active, editor.search.open]);
   return <div className="lxd-surface"><div ref={container} /><div className="lxd-ssr-content" aria-hidden="true">{getDocumentText(editor.document)}</div></div>;
 }

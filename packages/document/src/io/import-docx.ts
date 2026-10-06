@@ -3,6 +3,7 @@ import { readDocxShape } from "./docx-shapes";
 import { normalizeDocument } from "../model/document";
 import { openOfficePackage, officeXml, readOfficeRelationships, resolveOfficePart, type OfficePackageInput } from "../ooxml";
 import { millimetres } from "./docx-xml";
+import { createDocxTableReader } from "./docx-tables";
 import { child, children, attr, localName, textContent, descendants, relation, readStyles, readNumbering, runStyle, paragraphStyle, styleMarks, groupLists, type Node, type XmlNode, type Mark, type ListedBlock } from "./docx-reader";
 import type { DocumentDocxImportResult, DocumentDocxOptions } from "./types";
 
@@ -42,7 +43,8 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
     }
   }
   const styleLink = relation(links, "styles"), numberingLink = relation(links, "numbering");
-  const styles = readStyles(styleLink ? await root(styleLink.target) : undefined, warn);
+  const stylesRoot = styleLink ? await root(styleLink.target) : undefined;
+  const styles = readStyles(stylesRoot, warn), readTable = createDocxTableReader(stylesRoot, warn);
   const numbering = readNumbering(numberingLink ? await root(numberingLink.target) : undefined, warn);
   const core = relation(packageLinks, "core-properties"), title = core ? textContent(child(await root(core.target), "title")) : "";
   const themeLink = relation(links, "theme"), theme = new Map<string, string>();
@@ -81,10 +83,14 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
     const heading = /^(?:heading|見出し)\s*([1-6])$/i.exec(id ?? "");
     if (heading) style.level = Number(heading[1]);
     let inline: Node[] = [];
+    let numbered = false;
     const result: ListedBlock[] = [];
     const flush = (force = false) => {
       if (!inline.length && !force) return;
-      result.push({ node: { type: style.level ? "heading" : "paragraph", attrs: { align: style.align ?? "left", ...(style.level ? { level: style.level } : {}) }, content: inline }, numId: style.numId, level: style.listLevel });
+      const numId = !numbered && style.numId !== "0" ? style.numId : undefined;
+      result.push({ node: { type: style.level ? "heading" : "paragraph", attrs: { align: style.align ?? "left", ...(style.level ? { level: style.level } : {}) }, content: inline }, numId, level: numId ? style.listLevel : undefined,
+        ...(numId ? { numbering: numbering.next(numId, style.listLevel ?? 0) } : {}) });
+      numbered = true;
       inline = [];
     };
     if (onProperty(properties, "pageBreakBefore")) result.push({ node: { type: "page_break" } });
@@ -140,7 +146,13 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
   }
 
   async function table(source: XmlNode): Promise<Node> {
-    const rows: Node[] = [], spans = new Map<number, Node>(), grid = children(child(source, "tblGrid"), "gridCol").map(col => Number(attr(col, "w")) / 15);
+    const format = readTable(child(source, "tblPr"));
+    const rows: Node[] = [], spans = new Map<number, Node>(), grid = children(child(source, "tblGrid"), "gridCol").map(col => {
+      const width = Number(attr(col, "w")) / 15;
+      if (!Number.isFinite(width) || width < 1 || width > 5000) { warn("表の不正または未確定の列幅をセル幅から補完しました"); return undefined; }
+      return width;
+    });
+    if (grid.length > 100) return fail("表の列数が読み込み上限を超えています");
     for (const row of children(source, "tr")) {
       const cells: Node[] = [], previous = new Map(spans); spans.clear();
       let col = 0;
@@ -153,8 +165,17 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
           if (origin && origin.attrs?.colspan === span) { origin.attrs!.rowspan = Number(origin.attrs!.rowspan ?? 1) + 1; spans.set(col, origin); col += span; continue; }
           warn("開始セルのない結合を通常のセルとして読み込みました");
         }
-        const background = attr(child(properties, "shd"), "fill"), widths = grid.slice(col, col + span);
-        const node: Node = { type: onProperty(child(row, "trPr"), "tblHeader") ? "table_header" : "table_cell", attrs: { colspan: span, rowspan: 1, ...(widths.length === span && widths.every(width => width >= 1 && width <= 5000) ? { colwidth: widths } : {}), ...(background && /^[\da-f]{6}$/i.test(background) ? { backgroundColor: `#${background.toUpperCase()}` } : {}) }, content: await blocks(cell) };
+        const background = attr(child(properties, "shd"), "fill"), cellFormat = format.cell(properties, child(row, "tblPrEx"));
+        const widths = Array.from({ length: span }, (_, offset) => grid[col + offset]);
+        const preferred = cellFormat.preferredWidth;
+        const preferredPixels = preferred?.unit === "px" ? preferred.value : preferred?.unit === "percent" && format.attrs.width?.unit === "px" ? preferred.value * format.attrs.width.value / 100 : undefined;
+        const missing = widths.filter(width => width == null).length;
+        if (missing && preferredPixels != null) {
+          const remaining = (preferredPixels - widths.reduce<number>((total, width) => total + (width ?? 0), 0)) / missing;
+          if (remaining >= 1 && remaining <= 5000) widths.forEach((width, offset) => { if (width == null) widths[offset] = remaining; });
+        }
+        const node: Node = { type: onProperty(child(row, "trPr"), "tblHeader") ? "table_header" : "table_cell", attrs: { colspan: span, rowspan: 1, ...cellFormat,
+          ...(widths.every(width => width != null && width >= 1 && width <= 5000) ? { colwidth: widths } : {}), ...(background && /^[\da-f]{6}$/i.test(background) ? { backgroundColor: `#${background.toUpperCase()}` } : {}) }, content: await blocks(cell) };
         if (!node.content?.length) node.content = [{ type: "paragraph" }];
         cells.push(node); if (merge) spans.set(col, node); col += span;
       }
@@ -164,7 +185,7 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
     if (!rows.length) return { type: "paragraph" };
     const borders = descendants(source, "tcBorders").concat(descendants(source, "tblBorders"));
     if (borders.some(border => border.children.some(edge => attr(edge, "val") !== "single" || ![undefined, "4"].includes(attr(edge, "sz")) || ![undefined, "C7CDD5", "auto"].includes(attr(edge, "color"))))) warn("表の独自の罫線は標準の罫線で表示します");
-    return { type: "table", content: rows };
+    return { type: "table", attrs: format.attrs, content: rows };
   }
 
   async function blocks(source: XmlNode): Promise<Node[]> {
