@@ -28,6 +28,12 @@
 .lxp-titlebar-end { display:flex; flex:none; align-items:center; gap:12px; margin-left:auto; }
 .lxp-titlebar-end button { display:flex; align-items:center; justify-content:center; gap:6px; min-height:29px; border-radius:4px; padding:4px 10px; white-space:nowrap; font-size:12px; }
 .lxp-titlebar-end .lxp-save { background:var(--lxp-primary); color:var(--lxp-on-primary); padding:4px 13px; border:1px solid color-mix(in srgb,var(--lxp-on-primary) 35%,transparent); }
+/* Preview-only shell: no editing state, page list, scroll area or zoom controls. */
+.lxp-root.lxp-thumbnail-root { height:280px; min-height:0; }
+.lxp-thumbnail-root .lxp-title-context { margin-left:auto; }
+.lxp-thumbnail-root .lxp-thumbnail-content { flex:1; min-width:0; min-height:0; display:flex; align-items:center; justify-content:center; padding:12px; overflow:hidden; background:var(--lxp-canvas); }
+.lxp-thumbnail-root .lxp-thumbnail-art { position:relative; overflow:hidden; user-select:none; pointer-events:none; }
+.lxp-thumbnail-root .lxp-thumbnail-error { color:var(--lxp-muted); padding:12px; }
 .lxp-titlebar-end .lxp-save:not(:disabled):hover { background:var(--lxp-primary-hover); }
 .lxp-ribbon { position:relative; flex:none; min-width:0; background:var(--lxp-background); border-bottom:1px solid var(--lxp-border); }
 .lxp-ribbon-header { display:flex; align-items:center; min-width:0; border-bottom:1px solid var(--lxp-border); }
@@ -248,6 +254,10 @@
 .lxp-pdf-root .lxp-pdf-page-frame { overflow:hidden; }
 .lxp-pdf-root .lxp-pdf-canvas { display:block; }
 .lxp-pdf-root .lxp-pdf-placeholder { display:flex; flex:1; width:100%; min-height:0; align-items:center; justify-content:center; flex-direction:column; gap:12px; padding:24px; color:var(--lxp-muted); text-align:center; overflow:auto; }
+.lxp-pdf-thumbnail-root { height:280px; min-height:0; }
+.lxp-pdf-thumbnail-root .lxp-pdf-thumbnail-viewport { display:flex; flex:1; min-width:0; min-height:0; align-items:center; justify-content:center; padding:16px; overflow:hidden; background:var(--lxp-canvas); }
+.lxp-pdf-thumbnail-root .lxp-pdf-thumbnail-page { display:block; width:100%; height:100%; min-width:0; min-height:0; }
+.lxp-pdf-thumbnail-root .lxp-pdf-thumbnail-paper { background:#fff; }
 @container likex-slide (max-width:650px) {
   .lxp-pdf-root .lxp-pdf-filmstrip { width:100px; }
   .lxp-pdf-root .lxp-pdf-page-item { padding:8px 5px; }

@@ -1,0 +1,9 @@
+.thumbnail-demo { min-height:100dvh; padding:24px; background:#f3f5f8; color:#243042; font:14px/1.5 "Segoe UI","Yu Gothic UI",Meiryo,sans-serif; }
+.thumbnail-demo .thumbnail-demo-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; max-width:1160px; margin:0 auto 20px; }
+.thumbnail-demo .thumbnail-demo-heading h1 { font-size:24px; margin:0 0 4px; }
+.thumbnail-demo .thumbnail-demo-heading p { margin:0; color:#596a80; }
+.thumbnail-demo .thumbnail-demo-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; max-width:1160px; margin:auto; }
+.thumbnail-demo .thumbnail-demo-grid section { min-width:0; }
+.thumbnail-demo .thumbnail-demo-grid h2 { font-size:14px; font-weight:600; margin:0 0 8px; }
+.thumbnail-demo .thumbnail-demo-grid a { display:inline-block; margin-top:8px; color:#315dac; }
+@media(max-width:640px) { .thumbnail-demo .thumbnail-demo-grid { grid-template-columns:minmax(0,1fr); } .thumbnail-demo .thumbnail-demo-heading { align-items:flex-start; } }

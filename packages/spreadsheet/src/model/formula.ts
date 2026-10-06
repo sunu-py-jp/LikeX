@@ -112,8 +112,8 @@ export function parseFormula(formula: string): Node {
   return node;
 }
 
-/** Calculate populated cells only; reference matrices retain blanks and their exact shape. */
-export function calculateWorkbook(workbook: SpreadsheetWorkbook): Record<string, Record<string, Value>> {
+/** Internal evaluator shared by full calculation and bounded reads. Inputs are already validated. */
+export function createWorkbookCalculator(workbook: SpreadsheetWorkbook) {
   const result: Record<string, Record<string, Value>> = Object.create(null);
   const sheets = new Map(workbook.sheets.map(sheet => [sheet.name.toLocaleLowerCase("en-US"), sheet]));
   const byId = new Map(workbook.sheets.map(sheet => [sheet.id, sheet]));
@@ -251,13 +251,19 @@ export function calculateWorkbook(workbook: SpreadsheetWorkbook): Record<string,
       }
     }
   }
-  for (const sheet of workbook.sheets) for (const [address, cell] of Object.entries(sheet.cells)) {
-    try { if (cell.value) get(sheet.id, address, 0); else result[sheet.id][address] = ""; }
-    catch (error) { result[sheet.id][address] = error instanceof FormulaError ? error.code : "#ERROR!"; }
-  }
-  return result;
+  return { result, getCell(sheetId: string, address: string): Value {
+    try { return get(sheetId, address, 0) ?? ""; }
+    catch (error) { return error instanceof FormulaError ? error.code : "#ERROR!"; }
+  } };
 }
 
+/** Calculate populated cells only; reference matrices retain blanks and their exact shape. */
+export function calculateWorkbook(workbook: SpreadsheetWorkbook): Record<string, Record<string, Value>> {
+  const calculator = createWorkbookCalculator(workbook);
+  for (const sheet of workbook.sheets) for (const address of Object.keys(sheet.cells))
+    calculator.result[sheet.id][address] = calculator.getCell(sheet.id, address);
+  return calculator.result;
+}
 
 function shiftedReference(reference: FormulaReference, row: number, column: number): string {
   if (row < 0 || column < 0 || row >= SPREADSHEET_LIMITS.rows || column >= SPREADSHEET_LIMITS.columns) return "#REF!";

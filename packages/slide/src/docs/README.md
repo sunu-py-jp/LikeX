@@ -4,6 +4,8 @@ LikeSlideはスライドをJSONで保持するReactコンポーネントです�
 
 PDFを同じ外観で閲覧する場合は、[PDFの閲覧](pdf-viewer.md)の `LikeSlidePdfViewer` を使います。閲覧時だけPDF.js等の描画エンジンをホストから注入します。
 
+一覧カードなどでタイトルと先頭ページだけを表示する場合は、[軽量サムネイル](thumbnail.md)の `LikeSlideThumbnail` / `LikeSlidePdfThumbnail` を使います。
+
 ## パッケージで使う
 
 CoreとSlideのtarballをインストールします。npmレジストリへの公開は未実施です。

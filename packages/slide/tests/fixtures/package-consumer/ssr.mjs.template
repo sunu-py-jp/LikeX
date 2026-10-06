@@ -15,4 +15,12 @@ const pdfMarkup = renderToStaticMarkup(createElement(LikeSlidePdfViewer, {
 }));
 assert.match(pdfMarkup, /PDF consumer/);
 assert.match(pdfMarkup, /data-likex-slide/);
+const { LikeSlideThumbnail, LikeSlidePdfThumbnail } = await import('__LIBRARY_IMPORT__/thumbnail');
+const previewMarkup = renderToStaticMarkup(createElement(LikeSlideThumbnail, { deck }));
+assert.match(previewMarkup, /Presentation content/);
+assert.doesNotMatch(previewMarkup, /<button|<input|<textarea/);
+const pdfPreviewMarkup = renderToStaticMarkup(createElement(LikeSlidePdfThumbnail, {
+  title: 'PDF thumbnail', loadPdf: async () => { throw new Error('SSR must not load PDF engines'); },
+}));
+assert.match(pdfPreviewMarkup, /PDF thumbnail/);
 console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

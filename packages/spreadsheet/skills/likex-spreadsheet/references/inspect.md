@@ -2,6 +2,8 @@
 
 CLIの `inspect` は `.spon` を読み取るだけで、ブックや保存内容を変更しない。`skill_dir` と `project_dir` はSKILL.mdと同じ絶対パスを指定する。出力は標準出力の1行のJSONで、`ok`、`kind`、`operation`、`libraryVersion`、`summary`、必要に応じて `selection` を持つ。
 
+数式の計算値を必要な範囲だけ取得する場合は、公開モデルAPI `calculateSpreadsheetRange(workbook, sheetId, range)` を使う。範囲はA1表記か0始まりの矩形で、最大10,000セル。完全な入力検証後、指定範囲と参照依存先だけを既存評価器で計算し、要求したA1アドレスをキーに持つ読み取り専用の `SpreadsheetCalculatedRange` を返す。空セルは空文字、計算エラーは既存のエラー文字列。通常のCLI `inspect --range` は保存値を返す従来どおりの取得で、数式を計算しない。UIの `SpreadsheetThumbnail` はこの範囲計算と共通の処理を使い、選択・編集・ズームは提供しない。[詳細](../../../src/docs/thumbnail.md)
+
 ## 画像を一度ずつ解析する
 
 公開APIの `collectSpreadsheetImages(workbook, options?)` は、配置された画像の元バイト列をSHA-256で識別する。`@likex/spreadsheet/model` からimportし、SPONなら `parseWorkbook`、Excelなら `importSpreadsheetXlsx` のブックを渡す。Excel取り込みの警告は収集結果と別に確認する。

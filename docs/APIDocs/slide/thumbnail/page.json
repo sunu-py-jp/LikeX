@@ -1,0 +1,9 @@
+{
+  "title": "軽量サムネイル",
+  "summary": "タイトルとスライド・PDFの先頭ページだけを、編集UIなしで表示します。",
+  "source": "packages/slide/src/docs/thumbnail.md",
+  "order": 47,
+  "section": "読み込みと出力",
+  "keywords": ["LikeSlideThumbnail", "LikeSlidePdfThumbnail", "プレビュー", "サムネイル"],
+  "screenshots": []
+}

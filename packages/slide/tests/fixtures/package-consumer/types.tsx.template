@@ -106,3 +106,14 @@ createSlidePdfLoader(pdfjs, "https://example.test/document.pdf");
 // @ts-expect-error PDF viewers do not expose editing/persistence.
 const editablePdf = <LikeSlidePdfViewer loadPdf={loadPdf} onSave={() => {}} />;
 void [pdfViewer, pdfMoved, selectedPdfPages, pdfSelectionAccepted, editablePdf, SLIDE_PDF_LIMITS];
+
+import { LikeSlideThumbnail, LikeSlidePdfThumbnail, type SlideThumbnailProps, type SlidePdfThumbnailProps } from '__LIBRARY_IMPORT__/thumbnail';
+const slideThumbnailProps: SlideThumbnailProps = { deck, colorMode: 'dark', style: { height: 280 } };
+const pdfThumbnailProps: SlidePdfThumbnailProps = { loadPdf, title: 'PDF preview' };
+const slideThumbnail = <LikeSlideThumbnail {...slideThumbnailProps} />;
+const pdfThumbnail = <LikeSlidePdfThumbnail {...pdfThumbnailProps} />;
+// @ts-expect-error Preview-only components do not expose editing/selection handles.
+const editableThumbnail = <LikeSlideThumbnail deck={deck} ref={ref} />;
+// @ts-expect-error Only the first PDF page is displayed; no navigation props.
+const navigableThumbnail = <LikeSlidePdfThumbnail loadPdf={loadPdf} pageNumber={3} />;
+void [slideThumbnail, pdfThumbnail, editableThumbnail, navigableThumbnail];

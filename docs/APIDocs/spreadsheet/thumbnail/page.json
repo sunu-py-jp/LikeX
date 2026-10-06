@@ -1,0 +1,9 @@
+{
+  "title": "軽量サムネイル",
+  "summary": "編集UIを起動せず、タイトルと先頭シートの限られた範囲を表示します。",
+  "source": "packages/spreadsheet/src/docs/thumbnail.md",
+  "order": 47,
+  "section": "読み込みと出力",
+  "keywords": ["SpreadsheetThumbnail", "calculateSpreadsheetRange", "プレビュー", "サムネイル"],
+  "screenshots": []
+}

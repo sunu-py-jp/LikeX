@@ -1,0 +1,9 @@
+{
+  "title": "軽量サムネイル",
+  "summary": "編集エンジンを起動せず、タイトルと文書先頭の用紙1枚分を表示します。",
+  "source": "packages/document/src/docs/thumbnail.md",
+  "order": 47,
+  "section": "読み込みと出力",
+  "keywords": ["LikeDocumentThumbnail", "プレビュー", "サムネイル"],
+  "screenshots": []
+}

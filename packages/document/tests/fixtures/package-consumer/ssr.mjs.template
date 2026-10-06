@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import LikeDocument, { LikeDocument as NamedLikeDocument, createDocument } from "__LIBRARY_IMPORT__";
+import { LikeDocumentThumbnail } from "__LIBRARY_IMPORT__/thumbnail";
 assert.equal(LikeDocument, NamedLikeDocument);
 assert.equal(typeof window, "undefined");
 const document = createDocument({ title: "LikeDocument consumer", content: { type: "doc", content: [
@@ -11,4 +12,8 @@ const markup = renderToStaticMarkup(createElement(LikeDocument, { initialDocumen
 assert.match(markup, /data-likex-document/);
 assert.match(markup, /Document consumer content/);
 assert.match(markup, /height:360px/);
+const thumbnail = renderToStaticMarkup(createElement(LikeDocumentThumbnail, { document }));
+assert.match(thumbnail, /data-likex-document-thumbnail/);
+assert.match(thumbnail, /LikeDocument consumer/);
+assert.ok(!thumbnail.includes('role="textbox"'));
 console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));

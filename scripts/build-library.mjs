@@ -68,7 +68,18 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
     (profile.browserEntries?.[name] ? browserEntries : headlessEntries)[name] = { source, javascriptBytes: Buffer.byteLength(code), gzipBytes: gzipSync(code).length };
     headlessResults.push(built);
   }
-  const buildResults = [result, ...headlessResults];
+  const uiEntries = {}, uiResults = [];
+  for (const [name, source] of Object.entries(profile.uiEntries ?? {})) {
+    if (!profile.ui) throw new Error(`Non-UI module ${module} cannot expose client entry ${name}.`);
+    const built = await build({ ...buildOptions,
+      entryPoints: [path.join(sourceRoot, source)], outfile: path.join(packageRoot, `dist/${name}.js`),
+    });
+    const code = await readFile(path.join(packageRoot, `dist/${name}.js`), 'utf8');
+    if (!/^['"]use client['"];/.test(code)) throw new Error(`Client entry ${name} lost its use client directive.`);
+    uiEntries[name] = { source, javascriptBytes: Buffer.byteLength(code), gzipBytes: gzipSync(code).length };
+    uiResults.push(built);
+  }
+  const buildResults = [result, ...headlessResults, ...uiResults];
   const sourceFiles = new Set(buildResults.flatMap(built => Object.keys(built.metafile.inputs)));
   for (const input of sourceFiles) {
     if (!path.resolve(projectRoot, input).startsWith(sourceRoot + path.sep))
@@ -87,7 +98,7 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
   if (!profile.ui && /^['"]use client['"];/.test(javascript)) throw new Error('The core entry must remain usable outside React clients.');
 
   const declarationRoot = path.join(packageRoot, 'dist/types');
-  const program = ts.createProgram(['index.ts', ...Object.values({ ...profile.headlessEntries, ...profile.browserEntries })].map(source => path.join(sourceRoot, source)), {
+  const program = ts.createProgram(['index.ts', ...Object.values({ ...profile.headlessEntries, ...profile.browserEntries, ...profile.uiEntries })].map(source => path.join(sourceRoot, source)), {
     target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler, jsx: ts.JsxEmit.ReactJSX,
     strict: true, skipLibCheck: true, esModuleInterop: true,
@@ -131,7 +142,7 @@ export async function buildLibrary({ module = 'explorer' } = {}) {
     gzipBytes: gzipSync(javascript).length, declarationFiles: (await declarationFiles(declarationRoot)).length,
     stylesheetBytes: Buffer.byteLength(css), stylesheetGzipBytes: profile.ui ? gzipSync(css).length : 0,
     publishBlocked: manifest.private === true, license: manifest.license, dependencies: [...declared].sort(),
-    sourceFiles: sourceFiles.size, ...(Object.keys(headlessEntries).length ? { headlessEntries } : {}), ...(Object.keys(browserEntries).length ? { browserEntries } : {}) };
+    sourceFiles: sourceFiles.size, ...(Object.keys(headlessEntries).length ? { headlessEntries } : {}), ...(Object.keys(browserEntries).length ? { browserEntries } : {}), ...(Object.keys(uiEntries).length ? { uiEntries } : {}) };
   await writeFile(path.join(artifactRoot, 'library-build.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify(report, null, 2));
   return report;

@@ -9,6 +9,7 @@ LikeDocumentはローカルの文書下書きを編集するReactコンポーネ
 | サーバー・CLI・表示中の文書を操作する | [モデルAPI・コマンド・履歴](headless.md) |
 | `.dcon`を検証・保存する | [ネイティブ保存形式](native-files.md) |
 | リボンを折りたたむ・完全に隠す | [リボンの表示](ribbon-display.md) |
+| 一覧カードに先頭1枚だけ表示する | [軽量サムネイル](thumbnail.md) |
 | Wordと文書を受け渡す | [DOCX入出力](docx.md) |
 | 同じ画像をまとめて解析へ渡す | [画像の収集と重複判定](image-analysis.md) |
 | 保存先と権限、未保存状態をつなぐ | [保存・編集許可・イベント](lifecycle.md) |

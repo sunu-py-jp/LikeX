@@ -1,4 +1,4 @@
-import { createSlideDeck, createSlideElement, type Slide, type SlideElementInput } from "@likex/slide";
+import { createSlideDeck, createSlideElement, type Slide, type SlideElementInput } from "@likex/slide/model";
 import imageSamples from "./spreadsheet-image-samples.json";
 
 const text = (text: string, x: number, y: number, width: number, height: number, extra: Partial<Extract<SlideElementInput, { type: "text" }>> = {}) =>

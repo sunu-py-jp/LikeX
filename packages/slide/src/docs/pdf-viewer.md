@@ -43,6 +43,25 @@ PDF.jsはブラウザーで読み込むため、SSRするホストではPDF.js�
 
 ## 表示の操作と通知
 
+### 1ページ目だけの専用サムネイル
+
+一覧カードなどには `LikeSlidePdfThumbnail` を使えます。タイトルバーを残して1ページ目だけを表示し、ページ一覧・選択・ズーム・編集操作を持ちません。同じ `loadPdf` 契約を使うため、PDF.jsと独自レンダラーのどちらでも利用できます。
+
+```tsx
+import { LikeSlidePdfThumbnail } from "@likex/slide/thumbnail";
+import "@likex/slide/styles.css";
+
+<LikeSlidePdfThumbnail loadPdf={loadPdf} title="資料.pdf"
+  colorMode="system" style={{ width: 360, height: 280 }}
+  onError={error => console.error(error.message)} />;
+```
+
+公開型は `SlidePdfThumbnailProps` です。サムネイル用の公開入口 `@likex/slide/thumbnail` からコンポーネント・型・`createSlidePdfLoader` を利用できます。`loadPdf` が必須で、`title`・`colorMode`・`primaryColor`・`className`・`style`・`aria-label`・`onError` を指定できます。表示操作用refや選択通知はありません。既定の高さは280px、最小高さは0で、表示領域の変更に合わせて縦横比を保って自動で縮小します。原寸のscale 1を超える拡大はせず、描画はサムネイル用の最大約20万画素に制限します。領域のサイズ変更は描画済みCanvasの表示サイズだけを変え、PDFを再描画しません。
+
+サムネイルは `getPage(1)` だけを呼び出し、他のページやページ一覧を読み込み・描画しません。読み込み中とエラーの表示を備え、PDFの切替・アンマウント時には読み込みと描画を中断し、古い結果を反映せずドキュメントを破棄します。`loadPdf` の参照は同じ資料では保ってください。複数のViewerやサムネイルへ同じLoaderを渡す場合も、呼び出しごとに独立したドキュメントを返す必要があります。
+
+### ページ一覧付きViewerの操作
+
 | props | 内容 |
 | --- | --- |
 | `loadPdf` | PDFを読み込む `SlidePdfLoader`。`useMemo` / `useCallback` で同じ資料では参照を保つ |

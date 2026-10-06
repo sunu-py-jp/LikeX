@@ -1518,6 +1518,34 @@
     ]
   },
   {
+    "id": "spreadsheet/thumbnail",
+    "title": "軽量サムネイル",
+    "component": "spreadsheet",
+    "section": "読み込みと出力",
+    "output": "spreadsheet/thumbnail/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/thumbnail.md"
+    ],
+    "keywords": [
+      "SpreadsheetThumbnail",
+      "calculateSpreadsheetRange",
+      "プレビュー",
+      "サムネイル"
+    ],
+    "headings": [
+      {
+        "id": "負荷と表示範囲",
+        "title": "負荷と表示範囲",
+        "depth": 2
+      },
+      {
+        "id": "指定範囲の計算値を画面なしで取得する",
+        "title": "指定範囲の計算値を画面なしで取得する",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/selection",
     "title": "セルと範囲の選択",
     "component": "spreadsheet",
@@ -3514,6 +3542,16 @@
         "depth": 2
       },
       {
+        "id": "1ページ目だけの専用サムネイル",
+        "title": "1ページ目だけの専用サムネイル",
+        "depth": 3
+      },
+      {
+        "id": "ページ一覧付きviewerの操作",
+        "title": "ページ一覧付きViewerの操作",
+        "depth": 3
+      },
+      {
         "id": "複数ページを選択してまとめて取得する",
         "title": "複数ページを選択してまとめて取得する",
         "depth": 2
@@ -3529,6 +3567,23 @@
         "depth": 2
       }
     ]
+  },
+  {
+    "id": "slide/thumbnail",
+    "title": "軽量サムネイル",
+    "component": "slide",
+    "section": "読み込みと出力",
+    "output": "slide/thumbnail/index.html",
+    "sources": [
+      "packages/slide/src/docs/thumbnail.md"
+    ],
+    "keywords": [
+      "LikeSlideThumbnail",
+      "LikeSlidePdfThumbnail",
+      "プレビュー",
+      "サムネイル"
+    ],
+    "headings": []
   },
   {
     "id": "document/getting-started",
@@ -3828,6 +3883,22 @@
         "depth": 2
       }
     ]
+  },
+  {
+    "id": "document/thumbnail",
+    "title": "軽量サムネイル",
+    "component": "document",
+    "section": "読み込みと出力",
+    "output": "document/thumbnail/index.html",
+    "sources": [
+      "packages/document/src/docs/thumbnail.md"
+    ],
+    "keywords": [
+      "LikeDocumentThumbnail",
+      "プレビュー",
+      "サムネイル"
+    ],
+    "headings": []
   },
   {
     "id": "document/lifecycle",

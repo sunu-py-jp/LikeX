@@ -9,6 +9,8 @@ description: LikeX SlideのネイティブJSON（.slon）を作成・検証・�
 
 リボンの `expanded` / `tabs` / `autoHide` / `hidden` はホストUIの表示設定です。`.slon` やPPTXには保存せず、モデルコマンドやCLIで変更しません。利用ホストは `initialRibbonDisplayMode` / `ribbonDisplayMode` またはrefの `setRibbonDisplayMode` を使います。
 
+一覧カードの `LikeSlideThumbnail` / `LikeSlidePdfThumbnail` は `@likex/slide/thumbnail` から利用する専用UIです。タイトルと先頭ページだけを静止表示し、ページ選択・編集・ズーム操作は持ちません。保存モデル・コマンド・CLIの機能ではありません。
+
 表示中の通常スライドはrefの `getPageNumber()`、`getSelectedPageNumbers()`、`getSelectedSlides(options?)` で現在ページと複数選択したページを取得できます。番号は1始まり、複数の結果は資料順で、内容は既定で最終静止状態、`{ includeAnimations: true }` なら元の値と定義です。選択IDは `getSelection()` / `onSelectionChange` の `slideIds ?? [slideId]` で取得します。これらは読み取り専用でも使えるUI状態APIで、保存モデルやCLIの対象ではありません。
 
 `LikeSlidePdfViewer` はホストUIでPDFを閲覧する別のコンポーネントです。PDFをSLONへ変換する機能ではなく、このスキルのモデルAPI・CLIではPDFを開いたり編集したりしません。PDF表示にはホストが `SlidePdfLoader`、またはPDF.jsを注入する `createSlidePdfLoader` を用意します。PDFの複数選択もrefの `getSelectedPageNumbers()` / `selectPages()` と選択props・通知で扱うUI状態で、CLIの対象ではありません。

@@ -37,6 +37,7 @@ const modules = {
   },
   spreadsheet: {
     ui: true,
+    uiEntries: { thumbnail: 'thumbnail.ts' },
     skillName: 'likex-spreadsheet',
     headlessEntries: { model: 'model-entry.ts' },
     modelRuntimeDependencies: ['re2js'],
@@ -54,6 +55,7 @@ const modules = {
   },
   slide: {
     ui: true,
+    uiEntries: { thumbnail: 'thumbnail.ts' },
     skillName: 'likex-slide',
     headlessEntries: { model: 'model-entry.ts' },
     browserEntries: { render: 'render-entry.ts' },
@@ -68,6 +70,7 @@ const modules = {
   },
   document: {
     ui: true,
+    uiEntries: { thumbnail: 'thumbnail.ts' },
     skillName: 'likex-document',
     headlessEntries: { model: 'model-entry.ts' },
     headlessDependencies: ['@likex/core', 'prosemirror-model',

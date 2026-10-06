@@ -31,6 +31,7 @@ npm install ./likex-core-0.1.0.tgz ./likex-document-0.1.0.tgz
 
 - [導入・ソースコピー](src/docs/getting-started.md)
 - [文章・書式・表・画像の編集](src/docs/editing.md)
+- [先頭の用紙1枚分を表示する軽量サムネイル](src/docs/thumbnail.md)
 - [画面なしのモデルAPI・コマンド・履歴](src/docs/headless.md)
 - [DCONファイルの保存構造](src/docs/native-files.md)
 - [DOCXの読み込み・出力と対応範囲](src/docs/docx.md)

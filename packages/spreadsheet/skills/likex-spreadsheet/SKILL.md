@@ -9,6 +9,8 @@ description: LikeX SpreadsheetのネイティブJSON（.spon）を作成・検�
 
 リボンの表示方法はホストUIの `initialRibbonDisplayMode` / `ribbonDisplayMode` とHandleで制御する。SPON／XLSXやCLIコマンドの対象ではないため、リボンを隠す目的でブックや機能設定を書き換えない。[リボンの表示ガイド](../../src/docs/ribbon-display.md)を参照する。
 
+一覧用の軽量表示は `@likex/spreadsheet/thumbnail` の `SpreadsheetThumbnail` を使う。タイトルと先頭シートのA1:J20を最大200セル・100図形で表示し、編集・選択・ズーム用のHandleを持たない。全入力の検証後、必要な範囲と依存先だけ数式計算する。モデルで同じ範囲の計算値を得るには `calculateSpreadsheetRange(workbook, sheetId, range)` を使う。サムネイルはUI表示なので保存形式やCLIを変更しない。[表示の制約と範囲計算](../../src/docs/thumbnail.md)を参照する。
+
 ## 必要な環境
 
 Node.js **22.13以降**と、このskillに対応する版の `@likex/spreadsheet` が必要。skillフォルダだけをコピーしてもランタイムは含まれない。パッケージを導入したプロジェクト、またはパッケージをビルド済みのLikeXリポジトリを `--project` に指定する。既存の導入方法を使い、npmレジストリに公開済みとは仮定しない。

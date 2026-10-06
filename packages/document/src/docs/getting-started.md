@@ -20,6 +20,8 @@ const document = createDocument({ title: "企画書" });
 
 `onSave` 未指定では読み取り専用です。編集する場合は [保存のコールバック](lifecycle.md) を渡します。`initialDocument` は初期値で、後から別文書へ切り替える場合はReactの `key` を変えて新しく表示するか、refの `execute({ type: "document.replace", document })` を使います。後者は表示中の編集許可・履歴の処理を通ります。
 
+一覧カードなどの小さな表示には `@likex/document/thumbnail` の `LikeDocumentThumbnail` を使います。タイトルを残し、編集エンジンを起動せず先頭の用紙1枚分を表示します。[軽量サムネイル](thumbnail.md)にpropsと表示範囲をまとめています。
+
 ## ソースをコピーする
 
 `packages/document/src/` 全体を `components/document/`、`packages/core/src/` 全体を `components/core/` に配置します。`model/`・`state/`・`ui/`・CSSを含め、`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/` も残します。コピー後に変更するCoreの参照は、`components/document/core.ts` の次の1行だけです。

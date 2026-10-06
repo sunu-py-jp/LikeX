@@ -14,6 +14,10 @@ export type { SlidePptxExportOptions, SlideSvgRasterizer, SlideSvgRasterizeReque
 export type { SlidePptxDiagnostic, SlidePptxDiagnosticCode, SlidePptxDiagnosticLocation } from "./office/types";
 export * from "./render-entry";
 export { LikeSlidePdfViewer } from "./pdf/pdf-viewer";
+export { LikeSlideThumbnail } from "./ui/slide-thumbnail";
+export type { SlideThumbnailProps } from "./ui/slide-thumbnail";
+export { LikeSlidePdfThumbnail } from "./pdf/pdf-thumbnail";
+export type { SlidePdfThumbnailProps } from "./pdf/pdf-thumbnail";
 export type { SlidePdfViewerProps, SlidePdfViewerHandle } from "./pdf/viewer-types";
 export { createSlidePdfLoader, SLIDE_PDF_LIMITS } from "./pdf/pdfjs-loader";
 export type { SlidePdfLoader, SlidePdfDocument, SlidePdfPage, SlidePdfInput, SlidePdfJsModule, SlidePdfLoaderOptions, SlidePdfRenderOptions } from "./pdf/types";

@@ -1,0 +1,9 @@
+.lxs-root.lxs-thumbnail[data-likex-spreadsheet] { min-width: 0; min-height: 0; user-select: none; }
+.lxs-thumbnail .lxs-thumbnail-viewport { display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: var(--lxs-panel); }
+.lxs-thumbnail .lxs-thumbnail-fit { display: block; min-width: 0; min-height: 0; flex-shrink: 1; pointer-events: none; }
+.lxs-thumbnail .lxs-thumbnail-content { position: relative; overflow: hidden; background: var(--lxs-background); color: var(--lxs-foreground); }
+.lxs-thumbnail .lxs-thumbnail-cell { position: absolute; display: flex; flex-direction: column; justify-content: center; }
+.lxs-thumbnail .lxs-cell-text { position: relative; z-index: 1; }
+.lxs-thumbnail .lxs-thumbnail-drawing, .lxs-thumbnail .lxs-thumbnail-line { position: absolute; pointer-events: none; cursor: default; }
+.lxs-thumbnail .lxs-thumbnail-line { left: 0; top: 0; overflow: hidden; }
+.lxs-thumbnail .lxs-thumbnail-placeholder { padding: 16px; color: var(--lxs-muted); font-size: 12px; }

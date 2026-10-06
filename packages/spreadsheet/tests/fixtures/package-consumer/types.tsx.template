@@ -12,8 +12,14 @@ import Spreadsheet, {
   getSheetCells, type SpreadsheetStoredCell,
 } from "__LIBRARY_IMPORT__";
 import { createRef } from "react";
+import { SpreadsheetThumbnail, type SpreadsheetThumbnailProps } from "__LIBRARY_IMPORT__/thumbnail";
 
 const workbook: SpreadsheetWorkbook = createWorkbook();
+const thumbnailProps: SpreadsheetThumbnailProps = { workbook, title: "Preview", colorMode: "light", style: { height: 200 }, onError: error => { const message: string = error.message; void message; } };
+const thumbnail = <SpreadsheetThumbnail {...thumbnailProps} />;
+// @ts-expect-error A static thumbnail does not expose the editor handle.
+const editableThumbnail = <SpreadsheetThumbnail workbook={workbook} ref={createRef<SpreadsheetHandle>()} />;
+void [thumbnail, editableThumbnail];
 const expandedAddresses: readonly string[] = expandCellAddresses(workbook.sheets[0], ['A1', '$b$2:$c$3']);
 const expansionFailure: Error = new CellAddressExpansionError(1, 'A0:B2', 'invalid range');
 void [expandedAddresses, expansionFailure];

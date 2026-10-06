@@ -1,4 +1,4 @@
-import { createDocument, type DocumentBlock, type DocumentMark, type DocumentTableCellNode } from "@likex/document";
+import { createDocument, type DocumentBlock, type DocumentMark, type DocumentTableCellNode } from "@likex/document/model";
 const text = (value: string, marks?: DocumentMark[]) => ({ type: "text" as const, text: value, ...(marks ? { marks } : {}) });
 const paragraph = (value: string): DocumentBlock => ({ type: "paragraph", content: [text(value)] });
 const heading = (value: string, level = 1): DocumentBlock => ({ type: "heading", attrs: { level }, content: [text(value)] });

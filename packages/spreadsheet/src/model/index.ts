@@ -6,6 +6,8 @@ export type { SpreadsheetShapeKind, SpreadsheetShapeCategory, SpreadsheetShapeIn
 export { cellAddress, parseCellAddress } from "./address";
 export { expandCellAddresses, CellAddressExpansionError } from "./cell-addresses";
 export { calculateWorkbook, translateFormula } from "./formula";
+export { calculateSpreadsheetRange } from "./calculated-range";
+export type { SpreadsheetCalculatedRange } from "./calculated-range";
 export { parseTsv, stringifyTsv } from "./tsv";
 export { workbooksEqual } from "./equality";
 export { getDrawingBounds, getDrawingPlacement } from "./drawing-placement";

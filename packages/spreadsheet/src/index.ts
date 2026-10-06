@@ -1,6 +1,8 @@
 "use client";
 
 export { default, default as Spreadsheet } from "./spreadsheet";
+export { SpreadsheetThumbnail } from "./thumbnail";
+export type { SpreadsheetThumbnailProps } from "./thumbnail";
 export type {
   SpreadsheetProps,
   SpreadsheetFeatures,

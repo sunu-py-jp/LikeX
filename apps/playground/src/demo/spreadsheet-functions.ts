@@ -1,4 +1,4 @@
-import { SUPPORTED_SPREADSHEET_FUNCTIONS, type SpreadsheetCell, type SpreadsheetSheet } from "@likex/spreadsheet";
+import { SUPPORTED_SPREADSHEET_FUNCTIONS, type SpreadsheetCell, type SpreadsheetSheet } from "@likex/spreadsheet/model";
 
 const heading = { bold: true, background: "#217346", color: "#ffffff" } as const;
 const input = { background: "#eef7f0", color: "#24563a" } as const;

@@ -9,6 +9,9 @@
       "node"
     ],
     "paths": {
+      "@likex/spreadsheet/thumbnail": ["../../packages/spreadsheet/src/thumbnail.ts"],
+      "@likex/slide/thumbnail": ["../../packages/slide/src/thumbnail.ts"],
+      "@likex/document/thumbnail": ["../../packages/document/src/thumbnail.ts"],
       "@likex/explorer": [
         "../../packages/explorer/src/index.ts"
       ],

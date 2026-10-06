@@ -1,7 +1,7 @@
 import {
   applySpreadsheetCommands, createWorkbook, setCellBorders, type SpreadsheetBorderPreset, parseWorkbook, serializeWorkbook, expandCellAddresses, CellAddressExpansionError,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
-  createSpreadsheetSession, copySpreadsheetCells, importSpreadsheetXlsx, exportSpreadsheetXlsx, collectSpreadsheetImages,
+  createSpreadsheetSession, copySpreadsheetCells, importSpreadsheetXlsx, exportSpreadsheetXlsx, collectSpreadsheetImages, calculateSpreadsheetRange, type SpreadsheetCalculatedRange,
   type SpreadsheetImageCollection, type SpreadsheetImageCollectionOptions, type SpreadsheetImageAsset, type SpreadsheetImagePlacement,
   getSheets, getSheetCells, type SpreadsheetStoredCell, getSheetReader, getNamedRange, getRangeByName, findSpreadsheetSheets, findSpreadsheetCells,
   type SpreadsheetSheetSearchQuery, type SpreadsheetSheetSearchMatch, type SpreadsheetSearchOptions, type SpreadsheetSearchMatch,
@@ -12,6 +12,12 @@ import {
   SPREADSHEET_FILE_VERSION, type SpreadsheetFile, type SpreadsheetFileRow,
   type SpreadsheetSession, type SpreadsheetSessionOptions, type SpreadsheetHistoryState, type SpreadsheetPastePayload,
 } from '__MODEL_IMPORT__';
+
+const calculatedRange: SpreadsheetCalculatedRange = calculateSpreadsheetRange(createWorkbook(), 'sheet-1', 'A1:B2');
+const calculatedValue: string | number | boolean = calculatedRange.A1;
+// @ts-expect-error Calculated query results are readonly.
+calculatedRange.A1 = 0;
+void calculatedValue;
 
 const imageCollectionOptions: SpreadsheetImageCollectionOptions = {};
 const imageCollection: Promise<SpreadsheetImageCollection> = collectSpreadsheetImages(createWorkbook(), imageCollectionOptions);

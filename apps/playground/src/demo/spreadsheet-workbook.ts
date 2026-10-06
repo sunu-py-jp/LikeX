@@ -1,4 +1,4 @@
-import { createWorkbook, type SpreadsheetCell, type SpreadsheetWorkbook } from "@likex/spreadsheet";
+import { createWorkbook, type SpreadsheetCell, type SpreadsheetWorkbook } from "@likex/spreadsheet/model";
 import { insertionDemoImage, insertionDemoSheet } from "./spreadsheet-insertions";
 import { functionDemoSheet } from "./spreadsheet-functions";
 import { mergeDemoSheet } from "./spreadsheet-merges";

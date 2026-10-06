@@ -1,7 +1,13 @@
 import { createRef } from "react";
+import { LikeDocumentThumbnail, type DocumentThumbnailProps } from "__LIBRARY_IMPORT__/thumbnail";
 import LikeDocument, { createDocument, executeDocumentCommands, createDocumentSession, collectDocumentImages,
   type DocumentProps, type DocumentHandle, type DocumentCommand, type DocumentImageCollection } from "__LIBRARY_IMPORT__";
 const document = createDocument({ title: "LikeDocument consumer" });
+const thumbnailProps: DocumentThumbnailProps = { document, style: { height: 280 }, onError: error => { void error.message; } };
+const thumbnail = <LikeDocumentThumbnail {...thumbnailProps} />;
+// @ts-expect-error A thumbnail does not expose the editing handle.
+const editableThumbnail = <LikeDocumentThumbnail document={document} ref={createRef<DocumentHandle>()} />;
+void [thumbnail, editableThumbnail];
 const command: DocumentCommand = { type: "text.insert", from: 1, text: "Document consumer content" };
 const updated = executeDocumentCommands(document, command);
 const session = createDocumentSession(updated.document);

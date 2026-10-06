@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { SpreadsheetThumbnail } from "__LIBRARY_IMPORT__/thumbnail";
 import Spreadsheet, { Spreadsheet as NamedSpreadsheet, createWorkbook, setCellValue,
   calculateWorkbook, parseTsv, stringifyTsv, addDrawing, setCellComment, serializeWorkbook, parseWorkbook, mergeCells } from "__LIBRARY_IMPORT__";
 
@@ -10,6 +11,12 @@ const workbook = { sheets: [{ id: "sheet-consumer", name: "Consumer sheet", rowC
   cells: { A1: { value: "Spreadsheet consumer cell" }, B1: { value: "4" }, C1: { value: "=SUM(B1,6)" },
     A2: { value: '=ROUND(1.005,2)' }, B2: { value: '=IFERROR(1/0,"Ready")' },
     C2: { value: '=CONCAT("Like", "X")' } } }] };
+const thumbnailMarkup = renderToStaticMarkup(createElement(SpreadsheetThumbnail, { workbook, title: "Consumer thumbnail" }));
+assert.match(thumbnailMarkup, /Consumer thumbnail/);
+assert.match(thumbnailMarkup, /data-likex-spreadsheet-thumbnail/);
+assert.match(thumbnailMarkup, /role="img"/);
+assert.match(thumbnailMarkup, /data-lxs-thumbnail-cell="C1"[^>]*><span[^>]*>10<\/span>/);
+assert.doesNotMatch(thumbnailMarkup, /<button|<input|<textarea|role="grid"/);
 assert.equal(calculateWorkbook(workbook)["sheet-consumer"].C1, 10);
 const blank = createWorkbook();
 assert.equal(setCellValue(blank, blank.sheets[0].id, "A1", "7").sheets[0].cells.A1.value, "7");

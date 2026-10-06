@@ -56,3 +56,9 @@ export type DocumentProps = {
   style?: CSSProperties;
   "aria-label"?: string;
 };
+
+/** Controlled, static preview of the beginning of a document. No editing handle is exposed. */
+export type DocumentThumbnailProps = Pick<DocumentProps, "title" | "colorMode" | "primaryColor" | "className" | "style" | "aria-label"> & {
+  document: DocumentModel;
+  onError?: (error: Error) => void;
+};

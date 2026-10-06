@@ -10,17 +10,9 @@ import { drawingTextColor, visibleDrawing } from "./drawing-helpers";
 import { updateDrawingFromUI } from "./drawing-commands";
 
 export { Shape } from "./shape";
+export { DrawingText } from "./drawing-text";
 
 type TextDrawing = Exclude<SpreadsheetDrawing, { type: "image" }>;
-
-export function DrawingText({ drawing }: { drawing: TextDrawing }) {
-  return <div className={drawing.type === "shape" ? "lxs-shape-text" : "lxs-text-box"}
-    style={{ fontSize: drawing.fontSize ?? 16, color: drawingTextColor(drawing),
-      background: drawing.type === "text" ? drawing.background : undefined, fontWeight: drawing.bold ? 700 : 400,
-      ...(drawing.type === "shape" ? { ...shapeTextFrame(drawing), right: "auto", bottom: "auto" } : {}) }}>
-    <span>{drawing.text || (drawing.type === "text" ? "テキストを入力" : "")}</span>
-  </div>;
-}
 
 export function DrawingTextEditor({ drawing, controller: c, onDone }: { drawing: TextDrawing; controller: SpreadsheetController; onDone: () => void }) {
   const originalText = drawing.text ?? "";

@@ -34,6 +34,8 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 
 ## 編集上の契約
 
+- 一覧用の `LikeDocumentThumbnail` は `@likex/document/thumbnail` から使う表示専用コンポーネント。`document` propsの更新で先頭の用紙1枚分を表示し、編集refは持たない。描画上限による省略はモデルを変更せず、厳密なWordの自動改ページを保証しない。サムネイルの表示設定を保存形式やCLI編集コマンドへ追加しない。
+
 - リボンの `expanded` / `tabs` / `autoHide` / `hidden` はホストUIの表示状態。`.dcon`・DOCXには保存せず、CLI編集コマンドの対象にしない。UI利用側は `initialRibbonDisplayMode` / `ribbonDisplayMode` とrefの `getRibbonDisplayMode()` / `setRibbonDisplayMode()` を使う。
 
 - 位置はProseMirrorの位置で、最初の段落の先頭文字が `1`。ブロック境界も数えるため、本文の文字数だけから推測しない。後続コマンドは前の変更後の位置を使う。

@@ -162,3 +162,11 @@
 .lxd-root .lxd-canvas-properties label { font-size: 12px; display: flex; gap: 5px; align-items: center; }
 .lxd-root .lxd-canvas-properties input[type=number] { width: 76px; }
 .lxd-root .lxd-drawing-canvas { margin: 12px 0; user-select: none; }
+
+/* Static first-page previews share document typography without mounting an editor. */
+.lxd-root.lxd-thumbnail { height:280px; min-height:0; }
+.lxd-thumbnail-viewport { display:flex; flex:1; min-height:0; min-width:0; align-items:center; justify-content:center; overflow:hidden; background:var(--lxd-canvas); }
+.lxd-thumbnail-fit { flex:none; position:relative; pointer-events:none; user-select:none; }
+.lxd-thumbnail-page { position:absolute; inset:0 auto auto 0; transform-origin:top left; overflow:hidden; }
+.lxd-thumbnail-body { height:var(--lxd-page-height); overflow:hidden; }
+.lxd-thumbnail-placeholder { color:var(--lxd-muted); padding:16px; text-align:center; }
