@@ -6,4 +6,8 @@
 .thumbnail-demo .thumbnail-demo-grid section { min-width:0; }
 .thumbnail-demo .thumbnail-demo-grid h2 { font-size:14px; font-weight:600; margin:0 0 8px; }
 .thumbnail-demo .thumbnail-demo-grid a { display:inline-block; margin-top:8px; color:#315dac; }
+.thumbnail-demo .thumbnail-demo-target { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; min-height:42px; margin-bottom:8px; font-size:12px; }
+.thumbnail-demo .thumbnail-demo-target label { display:flex; align-items:center; gap:6px; min-width:0; }
+.thumbnail-demo .thumbnail-demo-target select { min-width:0; max-width:260px; border:1px solid #cbd2dd; border-radius:4px; padding:5px; background:#fff; color:#243042; }
+.thumbnail-demo .thumbnail-demo-target span { color:#596a80; }
 @media(max-width:640px) { .thumbnail-demo .thumbnail-demo-grid { grid-template-columns:minmax(0,1fr); } .thumbnail-demo .thumbnail-demo-heading { align-items:flex-start; } }

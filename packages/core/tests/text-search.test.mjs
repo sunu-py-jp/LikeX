@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createTextSearchMatcher } from '../src/text-search.ts';
+import { build } from 'esbuild';
+const built = await build({ entryPoints: [new URL('../src/text-search.ts', import.meta.url).pathname], bundle: true, platform: 'node', format: 'esm', write: false,
+  plugins: [{ name: 'external-re2', setup(builder) { builder.onResolve({ filter: /^re2js$/ }, () => ({ path: import.meta.resolve('re2js'), external: true })); } }],
+});
+const { createTextSearchMatcher } = await import(`data:text/javascript;base64,${Buffer.from(built.outputFiles[0].text).toString('base64')}`);
 
 test('literal search preserves metacharacters, case options and reusable matching', () => {
   const matcher = createTextSearchMatcher({ text: 'A+B[1].' });

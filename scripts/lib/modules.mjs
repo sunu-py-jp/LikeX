@@ -20,6 +20,7 @@ const officeDeclarationBridgeTargets = {
   'model/core-connectors.d.ts': { from: '../core', to: '@likex/core/connectors', expectedExports: 2 },
   'model/core-office-shapes.d.ts': { from: '../core', to: '@likex/core/office-shapes', expectedExports: 2 },
   'model/core-image-assets.d.ts': { from: '../core', to: '@likex/core/image-assets', expectedExports: 2 },
+  'model/core-text-search.d.ts': { from: '../core', to: '@likex/core/text-search', expectedExports: 2 },
 };
 const modules = {
   core: { ui: false, generatedStyles: false, bundledDependencies: [], moduleDependencies: [], headlessDependencies: ['re2js'], headlessEntries: { ooxml: 'ooxml.ts', json: 'json.ts', connectors: 'connectors.ts', 'office-shapes': 'office-shapes.ts', 'text-search': 'text-search.ts', 'image-assets': 'image-assets.ts' }, browserEntries: { browser: 'browser.ts' } },
@@ -57,7 +58,7 @@ const modules = {
     ui: true,
     uiEntries: { thumbnail: 'thumbnail.ts' },
     skillName: 'likex-slide',
-    headlessEntries: { model: 'model-entry.ts' },
+    headlessEntries: { model: 'model-entry.ts', pdf: 'pdf-entry.ts' },
     browserEntries: { render: 'render-entry.ts' },
     headlessDependencies: ['@likex/core'],
     sourceCopyAdapters: { 'core.ts': '../core' },

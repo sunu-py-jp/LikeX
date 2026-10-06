@@ -1,5 +1,7 @@
 import type { SpreadsheetCellPosition } from "../model/types";
 import type { SpreadsheetSelection, SpreadsheetSelectionRange } from "../props";
+import type { SpreadsheetSheetTarget } from "../model/sheet-target";
+export type { SpreadsheetSheetTarget } from "../model/sheet-target";
 
 export type SpreadsheetSelectionOptions = Readonly<{
   /** Scroll the chosen cell/drawing into view. Omitted/false preserves scroll and keyboard focus. */
@@ -11,7 +13,8 @@ export type SpreadsheetSelectedDrawing = Readonly<{ sheetId: string; drawingId: 
 export type SpreadsheetSelectionApi = Readonly<{
   getSelection(): SpreadsheetSelection;
   getSelectedDrawing(): SpreadsheetSelectedDrawing | null;
-  selectSheet(sheetId: string, options?: SpreadsheetSelectionOptions): boolean;
+  /** A string is an exact ID. Object selectors also accept an exact name; invalid/ambiguous targets return false. */
+  selectSheet(target: string | SpreadsheetSheetTarget, options?: SpreadsheetSelectionOptions): boolean;
   selectCell(sheetId: string, position: Readonly<SpreadsheetCellPosition>, options?: SpreadsheetSelectionOptions): boolean;
   selectRange(sheetId: string, range: SpreadsheetSelectionRange, options?: SpreadsheetSelectionOptions): boolean;
   selectRanges(sheetId: string, ranges: readonly SpreadsheetSelectionRange[], options?: SpreadsheetSelectionOptions): boolean;

@@ -63,6 +63,7 @@ try {
 | --- | --- | --- |
 | `ref` | `Ref<SpreadsheetHandle>` | `SpreadsheetHandle`。表示中の下書きへ `execute` / `batch` で操作し、`getWorkbook` で取得。[外部操作API](./external-operations.md) |
 | `initialWorkbook` | `SpreadsheetWorkbook` | マウント時の初期ブック。省略時は空の300行×26列。再代入で下書きは置き換わりません。 |
+| `initialSheetId` / `initialSheetName` | `string` | マウント時に開くシートのID／名前。完全一致。両指定は同じシートが必要。不正な指定は先頭＋エラー通知。[対象シート](./selection.md#最初に開くシートを指定する) |
 | `initialZoom` | `number` | マウント時の表示倍率。既定100％、25〜200へ補正。有限でない数値は100。[表示倍率](./zoom.md) |
 | `initialRibbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | マウント時のリボン表示。`expanded`（既定）・`tabs`・`autoHide`・`hidden`。[リボンの表示](./ribbon-display.md) |
 | `ribbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | 親が管理するリボン表示。初期値より優先し、表示中の変更にも追従します。 |

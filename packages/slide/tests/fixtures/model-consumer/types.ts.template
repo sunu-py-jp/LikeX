@@ -113,3 +113,16 @@ void collection.then(result => {
 });
 // @ts-expect-error Image collection compares original bytes; fuzzy matching is not supported.
 void collectSlideImages(deck, { similarity: 0.9 });
+
+import { searchSlides, type KeywordSearchQuery, type KeywordTextMatch, type SlideSearchMatch, type SlideSearchOptions, type SlideSearchResult } from '__MODEL_IMPORT__';
+const slideSearchQuery: KeywordSearchQuery = { keywords: ['customer', 'meeting'], operator: 'and', matchCase: false };
+const slideSearchOptions: SlideSearchOptions = { matchBy: 'page', includeNotes: true, limit: 1000 };
+const slideSearch: SlideSearchResult = searchSlides(deck, slideSearchQuery, slideSearchOptions);
+const slideHit: SlideSearchMatch | undefined = slideSearch.matches[0];
+const slideKeywordHit: KeywordTextMatch | undefined = slideHit?.matches[0];
+const slidePage: number | undefined = slideHit?.pageNumber;
+void [slideKeywordHit, slidePage, slideSearch.truncated];
+// @ts-expect-error Only AND and OR literal operators are supported.
+searchSlides(deck, { keywords: ['x'], operator: 'xor' });
+// @ts-expect-error A slide search cannot match across a whole workbook.
+searchSlides(deck, slideSearchQuery, { matchBy: 'workbook' });

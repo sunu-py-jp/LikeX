@@ -80,6 +80,69 @@ function inputBuffer(app, command = rename('Buffered edit')) {
   };
 }
 
+test('opening at a page or stable ID is view-only and later navigation works in readonly mode', async t => {
+  const deck = createSlideDeck({ slides: ['one', 'two', 'three'].map(id => ({ id, name: id, notes: '', background: '#fff', elements: [] })) });
+  for (const initial of [{ initialPageNumber: 2 }, { initialSlideId: 'two' }, { initialPageNumber: 2, initialSlideId: 'two' }]) {
+    const ref = { current: null }, selections = [];
+    const app = await mount(t, { initialDeck: deck, ...initial, ref, readOnly: true, onSelectionChange: value => selections.push(value) });
+    assert.equal(ref.current.getPageNumber(), 2); assert.equal(app.editor.selection.slideId, 'two');
+    await app.update({ initialPageNumber: 3, initialSlideId: undefined });
+    assert.equal(ref.current.getPageNumber(), 2);
+    await change(() => assert.equal(ref.current.goToPage(3), true));
+    assert.equal(app.editor.selection.slideId, 'three'); assert.equal(selections.at(-1).slideId, 'three');
+    assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false); assert.equal(app.editor.deck, deck);
+    for (const number of [undefined, 0, 4, 1.2, NaN, Infinity, 3]) assert.equal(ref.current.goToPage(number), false);
+    const retained = ref.current; await app.unmount(); assert.equal(retained.goToPage(1), false);
+  }
+  for (const target of [{ initialPageNumber: 0 }, { initialPageNumber: 4 }, { initialSlideId: 'missing' }, { initialPageNumber: 1, initialSlideId: 'two' }]) {
+    const app = await mount(t, { initialDeck: deck, ...target });
+    assert.equal(app.editor.selection.slideId, 'one'); assert.equal(app.editor.notice.kind, 'error'); assert.equal(app.editor.dirty, false);
+  }
+});
+
+test('page-targeted native import validates before replacement and preserves undo selection', async t => {
+  const next = createSlideDeck({ id: 'other-deck', slides: ['first', 'second'].map(id => ({ id, name: id, notes: '', background: '#fff', elements: [] })) });
+  const ref = { current: null }, app = await mount(t, { ref });
+  const before = app.editor.deck, originalSelection = app.editor.selection;
+  await change(() => ref.current.importNative(serializeSlideDeck(next), null));
+  assert.equal(app.editor.deck, before); assert.equal(app.editor.notice.kind, 'error');
+  await change(() => ref.current.importNative(serializeSlideDeck(next), { pageNumber: 3 }));
+  assert.equal(app.editor.deck, before); assert.equal(app.editor.canUndo, false); assert.equal(app.editor.notice.kind, 'error');
+  await change(() => ref.current.importNative(serializeSlideDeck(next), { pageNumber: 2, slideId: 'second' }));
+  assert.equal(ref.current.getPageNumber(), 2); assert.equal(app.editor.selection.slideId, 'second');
+  await change(() => ref.current.undo());
+  assert.equal(app.editor.deck, before); assert.deepEqual(app.editor.selection, originalSelection);
+  await change(() => ref.current.redo());
+  assert.equal(ref.current.getPageNumber(), 2);
+});
+
+test('page navigation does not discard unfinished input or interrupt a pending import', async t => {
+  const deck = createSlideDeck({ slides: ['one', 'two'].map(id => ({ id, name: id, notes: '', background: '#fff', elements: [] })) });
+  const ref = { current: null }, app = await mount(t, { initialDeck: deck, ref });
+  const buffer = inputBuffer(app);
+  await change(() => buffer.type()); assert.equal(ref.current.goToPage(2), false); assert.equal(buffer.pending, true);
+  await change(() => buffer.cancel());
+  const waiting = deferred(); let pending;
+  await change(() => { pending = ref.current.importNative({ size: 10, text: () => waiting.promise }, { pageNumber: 2 }); });
+  assert.equal(ref.current.goToPage(2), false);
+  await change(async () => { waiting.resolve(serializeSlideDeck(deck)); await pending; });
+  assert.equal(ref.current.getPageNumber(), 2);
+});
+
+test('PPTX imports accept a page target and invalid targets leave the existing draft untouched', async t => {
+  const sourceRef = { current: null };
+  await mount(t, { ref: sourceRef, initialDeck: createSlideDeck({ slides: ['Overview', 'Architecture'].map(name => ({ id: name, name, notes: '', background: '#fff', elements: [] })) }) });
+  let pptx;
+  await change(async () => { pptx = await sourceRef.current.exportPptx(); });
+  const ref = { current: null }, app = await mount(t, { ref }), before = app.editor.deck;
+  await change(() => ref.current.importPptx(pptx, { pageNumber: 3 }));
+  assert.equal(app.editor.deck, before); assert.equal(app.editor.canUndo, false); assert.equal(app.editor.notice.kind, 'error');
+  await change(() => ref.current.importPptx(pptx, { pageNumber: 2 }));
+  assert.equal(ref.current.getPageNumber(), 2); assert.equal(app.editor.deck.slides[1].name, 'Architecture');
+  await change(() => ref.current.undo());
+  assert.equal(app.editor.deck, before);
+});
+
 test('explicit read-only and omitted persistence prevent all edits without asking permission', async t => {
   for (const options of [{ readOnly: true }, { onSave: undefined }]) {
     const permissions = [], events = [];

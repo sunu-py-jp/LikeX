@@ -140,3 +140,60 @@ test('DOM rendering failures show a placeholder and async error observers cannot
   assert.ok(instance.host.textContent.includes('First'));
   await act(async () => instance.renderer.unmount());
 });
+
+test('selected pages get a fresh budget and never create preceding or following content', () => {
+  const document = model([
+    paragraph('x'.repeat(20000)), ...Array.from({ length: 800 }, () => paragraph('Previous')),
+    { type: 'table', content: Array.from({ length: 80 }, () => ({ type: 'table_row', content: [{ type: 'table_cell', content: [paragraph('Old row')] }] })) },
+    { type: 'image', attrs: { src: png } }, { type: 'page_break' },
+    paragraph('Selected'), { type: 'image', attrs: { src: png } },
+    { type: 'page_break' }, paragraph('Following'), { type: 'image', attrs: { src: png } },
+  ]);
+  const content = documentThumbnailContent(document, 2), instance = surface(500);
+  renderDocumentThumbnail(instance.host, content, 0, 'target');
+  assert.equal(instance.host.textContent, 'Selected'); assert.deepEqual(instance.loaded, [png]);
+  assert.equal(content.content.length, 2); assert.equal(instance.made.filter(node => node.tag === 'img').length, 1);
+  assert.throws(() => documentThumbnailContent(document, 4), /4ページ目/);
+});
+
+test('nested breaks preserve selected list numbering and table columns without other-page text', () => {
+  const list = model([{ type: 'ordered_list', attrs: { order: 7 }, content: [
+    { type: 'list_item', content: [paragraph('Old')] },
+    { type: 'list_item', content: [paragraph('Before'), { type: 'page_break' }, paragraph('Selected')] },
+    { type: 'list_item', content: [paragraph('Still selected'), { type: 'page_break' }, paragraph('Later')] },
+  ] }]);
+  const selected = documentThumbnailContent(list, 2);
+  assert.equal(selected.content[0].attrs.order, 8);
+  assert.equal(selected.content[0].content.length, 2);
+  assert.doesNotMatch(JSON.stringify(selected), /Old|Before|Later|page_break/);
+  const table = model([{ type: 'table', content: [{ type: 'table_row', content: [
+    { type: 'table_cell', content: [paragraph('Old cell')] },
+    { type: 'table_cell', content: [paragraph('Before'), { type: 'page_break' }, paragraph('Selected')] },
+    { type: 'table_cell', content: [paragraph('Next cell')] },
+  ] }] }]);
+  const cells = documentThumbnailContent(table, 2).content[0].content[0].content;
+  assert.equal(cells.length, 3); assert.deepEqual(cells[0].content, []);
+  assert.equal(cells[1].content[0].content[0].text, 'Selected');
+  assert.equal(cells[2].content[0].content[0].text, 'Next cell');
+  const instance = surface(500); renderDocumentThumbnail(instance.host, documentThumbnailContent(table, 2), 0, 'table');
+  assert.equal(instance.host.textContent, 'SelectedNext cell');
+  assert.deepEqual(documentThumbnailContent(model([{ type: 'page_break' }]), 2).content, []);
+});
+
+test('controlled page changes preserve title on invalid targets and recover without changing document', async () => {
+  const document = model([paragraph('First'), { type: 'page_break' }, paragraph('Second')]), errors = [];
+  const instance = await mount(document, error => errors.push(error));
+  try {
+    await act(async () => instance.renderer.update(h(LikeDocumentThumbnail, { document, pageNumber: 2 })));
+    assert.equal(instance.host.textContent, 'Second');
+    for (const pageNumber of [0, -1, 1.5, NaN, Infinity, '2', null, 3]) {
+      await act(async () => instance.renderer.update(h(LikeDocumentThumbnail, { document, pageNumber, onError: error => errors.push(error) })));
+      assert.equal(instance.renderer.root.findByProps({ className: 'lxd-document-title' }).props.children, 'Preview');
+      assert.equal(instance.renderer.root.findAllByProps({ role: 'status' }).length, 1);
+      assert.equal(instance.host.textContent, '');
+    }
+    assert.equal(errors.length, 8);
+    await act(async () => instance.renderer.update(h(LikeDocumentThumbnail, { document, pageNumber: 1 })));
+    assert.equal(instance.host.textContent, 'First'); assert.equal(instance.renderer.root.findAllByProps({ role: 'status' }).length, 0);
+  } finally { await act(async () => instance.renderer.unmount()); }
+});

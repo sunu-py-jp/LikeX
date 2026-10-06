@@ -20,7 +20,7 @@ const document = createDocument({ title: "企画書" });
 
 `onSave` 未指定では読み取り専用です。編集する場合は [保存のコールバック](lifecycle.md) を渡します。`initialDocument` は初期値で、後から別文書へ切り替える場合はReactの `key` を変えて新しく表示するか、refの `execute({ type: "document.replace", document })` を使います。後者は表示中の編集許可・履歴の処理を通ります。
 
-一覧カードなどの小さな表示には `@likex/document/thumbnail` の `LikeDocumentThumbnail` を使います。タイトルを残し、編集エンジンを起動せず先頭の用紙1枚分を表示します。[軽量サムネイル](thumbnail.md)にpropsと表示範囲をまとめています。
+一覧カードなどの小さな表示には `@likex/document/thumbnail` の `LikeDocumentThumbnail` を使います。タイトルを残し、編集エンジンを起動せず指定したページの用紙1枚分を表示します。[軽量サムネイル](thumbnail.md)にpropsと表示範囲をまとめています。
 
 ## ソースをコピーする
 
@@ -51,6 +51,7 @@ TypeScriptではReact / React DOMの型定義を導入し、`lib: ["ES2022", "DO
 | props | 使い方 |
 | --- | --- |
 | `initialDocument` | 初期の `DocumentModel`。省略時は空の文書 |
+| `initialPageNumber` | 初期表示する明示改ページ区切りのページ（1始まり）。省略時は先頭 |
 | `title` | UIのタイトル表示 |
 | `colorMode` | `light` / `dark` / `system` |
 | `primaryColor` | リボンなどの強調色 |
@@ -60,3 +61,5 @@ TypeScriptではReact / React DOMの型定義を導入し、`lib: ["ES2022", "DO
 | `features` | [編集機能](editing.md)を個別に無効にする |
 
 用紙の寸法・余白は文書の `page` に保存されます。UIの配色と文書内の文字色は別の設定です。Next.js App RouterではCSSを `app/layout.tsx` で読み込み、コールバックを渡す親コンポーネントに `"use client"` を付けてください。
+
+`initialPageNumber={2}` は初回マウント時に2ページ目へ移動します。後から移動するときは `ref.current?.goToPage(2)` を使います。いずれも読み取り専用で使え、編集許可・未保存判定・履歴を変更しません。不正な番号や存在しないページは通知し、文書を維持します。ページは `page_break` で明示的に区切った範囲で、Wordの自動改ページではありません。[ページ取得とref操作](headless.md)も参照してください。

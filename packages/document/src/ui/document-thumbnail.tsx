@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import { FileText } from "lucide-react";
 import { normalizeDocument } from "../model/document";
+import type { DocumentRootNode } from "../model/types";
 import type { DocumentThumbnailProps } from "../props";
 import { useDocumentTheme } from "../state/use-document-theme";
 import { documentThumbnailContent, renderDocumentThumbnail } from "./document-thumbnail-content";
@@ -14,10 +15,15 @@ export function LikeDocumentThumbnail(props: DocumentThumbnailProps) {
   const [renderError, setRenderError] = useState<{ result: object; error: Error } | null>(null);
   const callback = useRef(props.onError);
   useEffect(() => { callback.current = props.onError; }, [props.onError]);
-  const result = useMemo(() => {
-    try { const document = normalizeDocument(props.document); return { document, content: documentThumbnailContent(document) }; }
+  const source = useMemo(() => {
+    try { return { document: normalizeDocument(props.document) }; }
     catch (cause) { return { error: asError(cause) }; }
   }, [props.document]);
+  const result = useMemo<{ content?: DocumentRootNode; error?: Error }>(() => {
+    if (!source.document) return { error: source.error };
+    try { return { content: documentThumbnailContent(source.document, props.pageNumber) }; }
+    catch (cause) { return { error: asError(cause) }; }
+  }, [source, props.pageNumber]);
   const error = result.error ?? (renderError?.result === result ? renderError.error : undefined);
   useEffect(() => { if (error) { try { void Promise.resolve(callback.current?.(error)).catch(() => {}); } catch { /* An observer cannot break a preview. */ } } }, [error]);
   const theme = useDocumentTheme(props.colorMode ?? "light", root?.ownerDocument ?? null, props.primaryColor);
@@ -32,7 +38,7 @@ export function LikeDocumentThumbnail(props: DocumentThumbnailProps) {
     if (Observer) { const observer = new Observer(update); observer.observe(node); return () => observer.disconnect(); }
     win.addEventListener("resize", update); return () => win.removeEventListener("resize", update);
   }, [root]);
-  const page = result.document?.page;
+  const page = source.document?.page;
   const width = (page?.width ?? 210) * 96 / 25.4, height = (page?.height ?? 297) * 96 / 25.4;
   const scale = Math.max(0, Math.min(1, (size.width - 24) / width, (size.height - 24) / height));
   useEffect(() => {
@@ -43,7 +49,7 @@ export function LikeDocumentThumbnail(props: DocumentThumbnailProps) {
     catch (cause) { node.replaceChildren(); queueMicrotask(() => { if (active) setRenderError({ result, error: asError(cause) }); }); }
     return () => { active = false; node.replaceChildren(); };
   }, [result, page, props.document, scale, instanceId]);
-  const title = props.title ?? result.document?.title ?? "文書";
+  const title = props.title ?? source.document?.title ?? "文書";
   return <div ref={attach} data-likex-document="" data-likex-document-thumbnail="" className={`lxd-root lxd-thumbnail ${props.className ?? ""}`} style={{ ...theme, ...props.style }} role="region" aria-label={props["aria-label"] ?? `${title}のサムネイル`}>
     <header className="lxd-titlebar"><FileText className="lxd-document-mark" size={23} /><span className="lxd-document-title">{title}</span><div className="lxd-titlebar-end"><span>LikeX</span></div></header>
     <div ref={viewport} className="lxd-thumbnail-viewport">

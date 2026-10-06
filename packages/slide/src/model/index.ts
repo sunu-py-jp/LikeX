@@ -16,5 +16,7 @@ export { getSlideMasters, getSlideLayouts, getSlideLayout, resolveSlideAppearanc
 export { createSlideSvgSource } from "./svg-source";
 export { collectSlideImages } from "./image-collection";
 export type { SlideImageAsset, SlideImagePlacement, SlideImageCollection, SlideImageCollectionOptions } from "./image-collection";
+export { searchSlides } from "./search";
+export type { SlideSearchOptions, SlideSearchMatch, SlideSearchResult, KeywordSearchQuery, KeywordTextMatch } from "./search";
 
 export { SLIDE_SHAPES, getSlideOfficeShapePreset, getSlideShapeTextRect } from "./shapes";

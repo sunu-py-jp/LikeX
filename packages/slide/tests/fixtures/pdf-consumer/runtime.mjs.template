@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import { searchPdf, createPdfTextLoader, PDF_SEARCH_LIMITS } from '__PDF_IMPORT__';
+
+assert.equal(typeof window, 'undefined');
+assert.equal(typeof document, 'undefined');
+assert.equal(typeof HTMLCanvasElement, 'undefined');
+const bytes = new TextEncoder().encode('%PDF-1.7 injected engine fixture'), expected = bytes.slice();
+let destroyed = 0, cleaned = 0, renders = 0;
+const engine = { getDocument(options) {
+  assert.deepEqual(options.data, expected); assert.equal(options.isEvalSupported, false);
+  return { promise: Promise.resolve({ numPages: 2, async getPage(pageNumber) {
+    return { async getTextContent() { return { items: pageNumber === 1 ? [{ str: 'Rev' }, { str: 'enue 2026' }] : [{ str: 'Revenue' }] }; },
+      render() { renders++; throw new Error('No rendering'); }, cleanup() { cleaned++; } };
+  } }), async destroy() { destroyed++; } };
+} };
+const load = createPdfTextLoader(engine, bytes); bytes.fill(0);
+const result = await searchPdf(load, { keywords: ['revenue', '2026'] });
+assert.deepEqual(result.matches.map(match => match.pageNumber), [1]);
+assert.equal(result.matches[0].text, 'Revenue 2026');
+assert.deepEqual(result.matches[0].matches.map(match => match.from), [0, 8]);
+assert.equal(result.truncated, false); assert.equal(destroyed, 1); assert.equal(cleaned, 2); assert.equal(renders, 0);
+const limited = await searchPdf(load, { keywords: ['Revenue'] }, { limit: 1 });
+assert.equal(limited.truncated, true); assert.equal(limited.matches.length, 1);
+assert.equal(PDF_SEARCH_LIMITS.totalMatchRanges, 100000);
+console.log(JSON.stringify({ noReact: true, noDOM: true, pdfTextSearch: 'passed', cleanup: 'passed' }));

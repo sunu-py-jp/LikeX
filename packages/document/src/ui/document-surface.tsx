@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, type Ref, useImperativeHandle } from "react";
-import { AllSelection, EditorState, NodeSelection, TextSelection, type Transaction } from "prosemirror-state";
+import { AllSelection, EditorState, NodeSelection, Selection, TextSelection, type Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { baseKeymap, chainCommands, exitCode } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
@@ -15,6 +15,7 @@ export function DocumentSurface({ editor, surfaceRef, onViewChange }: { editor: 
   const container = useRef<HTMLDivElement>(null), view = useRef<EditorView | null>(null), latest = useRef(editor), changed = useRef(onViewChange);
   useLayoutEffect(() => { latest.current = editor; changed.current = onViewChange; });
   const dragFeedback = useRef<ReturnType<typeof createDocumentDragFeedback> | null>(null);
+  const lastPageReveal = useRef<DocumentEditor["pageReveal"]>(null);
   function syncView() {
     dragFeedback.current?.check();
     const current = view.current; if (!current) return;
@@ -22,14 +23,30 @@ export function DocumentSurface({ editor, surfaceRef, onViewChange }: { editor: 
     let transaction = current.state.tr;
     if (!doc.eq(current.state.doc)) transaction = transaction.replaceWith(0, current.state.doc.content.size, doc.content);
     const { from, to } = snapshot.selection;
+    const reveal = latest.current.pageReveal;
+    const pageTarget = !!reveal && reveal.document === snapshot.document && reveal.position === from && from === to;
     if (from !== transaction.selection.from || to !== transaction.selection.to) {
       const node = doc.nodeAt(from);
-      if (from === 0 && to === doc.content.size) transaction.setSelection(new AllSelection(transaction.doc));
+      if (pageTarget) transaction.setSelection(Selection.near(transaction.doc.resolve(from)));
+      else if (from === 0 && to === doc.content.size) transaction.setSelection(new AllSelection(transaction.doc));
       else if (node && (node.isAtom || node.type.name === "table") && !node.isText && from + node.nodeSize === to) transaction.setSelection(NodeSelection.create(transaction.doc, from));
       else transaction.setSelection(TextSelection.between(transaction.doc.resolve(from), transaction.doc.resolve(to)));
     }
-    const changedState = transaction.docChanged || transaction.selectionSet;
+    const shouldReveal = !!reveal && reveal !== lastPageReveal.current && reveal.document === snapshot.document;
+    if (shouldReveal) transaction.scrollIntoView();
+    const changedState = transaction.docChanged || transaction.selectionSet || shouldReveal;
     current.updateState(changedState ? current.state.apply(transaction) : current.state);
+    if (shouldReveal) {
+      // ProseMirror skips scrollToSelection when the DOM selection is outside the editor.
+      // An external/read-only navigation must reveal its position without taking focus.
+      const viewport = current.dom.closest<HTMLElement>(".lxd-document-viewport");
+      if (viewport) {
+        const bounds = viewport.getBoundingClientRect(), target = current.coordsAtPos(current.state.selection.from, 1);
+        viewport.scrollTop += target.top - bounds.top - viewport.clientTop - 12;
+        if (target.left < bounds.left || target.right > bounds.right) viewport.scrollLeft += target.left - bounds.left - viewport.clientLeft - 12;
+      }
+      lastPageReveal.current = reveal;
+    }
     if (changedState) changed.current();
     current.setProps({ editable: () => latest.current.editable && latest.current.features.text });
   }
@@ -62,8 +79,9 @@ export function DocumentSurface({ editor, surfaceRef, onViewChange }: { editor: 
       handleClick(_view, _pos, event) { if ((event.target as Element).closest("a")) { event.preventDefault(); return true; } return false; },
     });
     view.current = pm; dragFeedback.current = createDocumentDragFeedback(pm, () => latest.current);
-    return () => { dragFeedback.current?.destroy(); dragFeedback.current = null; view.current = null; pm.destroy(); };
+    syncView();
+    return () => { dragFeedback.current?.destroy(); dragFeedback.current = null; view.current = null; lastPageReveal.current = null; pm.destroy(); };
   }, []);
-  useLayoutEffect(syncView, [editor.document, editor.selection, editor.editable, editor.features.text, editor.features.images, editor.features.shapes]);
+  useLayoutEffect(syncView, [editor.document, editor.selection, editor.editable, editor.features.text, editor.features.images, editor.features.shapes, editor.pageReveal]);
   return <div className="lxd-surface"><div ref={container} /><div className="lxd-ssr-content" aria-hidden="true">{getDocumentText(editor.document)}</div></div>;
 }

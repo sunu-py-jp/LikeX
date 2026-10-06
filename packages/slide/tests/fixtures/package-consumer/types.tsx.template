@@ -7,11 +7,13 @@ const session = createSlideSession(updated.deck);
 session.undo(); session.markSaved();
 const props: SlideProps = { initialDeck: deck, colorMode: "system", primaryColor: "#2563eb", features: { images: false }, onSave: async current => current, onEditRequest: async (_request, { signal }) => !signal.aborted, onBeforeSave: () => true };
 const ref = createRef<SlideHandle>();
-const view = <LikeSlide ref={ref} {...props} />;
+const view = <LikeSlide ref={ref} {...props} initialPageNumber={1} initialSlideId={deck.slides[0].id} />;
 const selectedPages: SlideSelection = { slideId: 'one', slideIds: ['one', 'two'], elementIds: [] };
 ref.current?.select(selectedPages);
 void ref.current?.getSelection().slideIds;
 const activePageNumber: number | undefined = ref.current?.getPageNumber();
+const pageChanged: boolean | undefined = ref.current?.goToPage(2);
+void pageChanged;
 const selectedPageNumbers: number[] | undefined = ref.current?.getSelectedPageNumbers();
 const selectedSlideData = ref.current?.getSelectedSlides({ includeAnimations: true });
 void [activePageNumber, selectedPageNumbers, selectedSlideData];
@@ -23,6 +25,10 @@ const nativeExport: Promise<Blob> | undefined = ref.current?.exportNative();
 void nativeExport;
 void ref.current?.importNative('{"format":"likex.slide"}');
 void ref.current?.importNative(new Blob());
+void ref.current?.importNative(new Blob(), { pageNumber: 2 });
+void ref.current?.importPptx(new Blob(), { slideId: 'architecture' });
+// @ts-expect-error Page numbers must be numeric.
+ref.current?.goToPage('2');
 void view; void createSlideElement({ type: "shape", shape: "ellipse" });
 // @ts-expect-error Only supported element kinds can be created.
 createSlideElement({ type: "video" });
@@ -108,12 +114,23 @@ const editablePdf = <LikeSlidePdfViewer loadPdf={loadPdf} onSave={() => {}} />;
 void [pdfViewer, pdfMoved, selectedPdfPages, pdfSelectionAccepted, editablePdf, SLIDE_PDF_LIMITS];
 
 import { LikeSlideThumbnail, LikeSlidePdfThumbnail, type SlideThumbnailProps, type SlidePdfThumbnailProps } from '__LIBRARY_IMPORT__/thumbnail';
-const slideThumbnailProps: SlideThumbnailProps = { deck, colorMode: 'dark', style: { height: 280 } };
-const pdfThumbnailProps: SlidePdfThumbnailProps = { loadPdf, title: 'PDF preview' };
+const slideThumbnailProps: SlideThumbnailProps = { deck, pageNumber: 1, slideId: deck.slides[0].id, colorMode: 'dark', style: { height: 280 } };
+const pdfThumbnailProps: SlidePdfThumbnailProps = { loadPdf, title: 'PDF preview', pageNumber: 3 };
 const slideThumbnail = <LikeSlideThumbnail {...slideThumbnailProps} />;
 const pdfThumbnail = <LikeSlidePdfThumbnail {...pdfThumbnailProps} />;
 // @ts-expect-error Preview-only components do not expose editing/selection handles.
 const editableThumbnail = <LikeSlideThumbnail deck={deck} ref={ref} />;
-// @ts-expect-error Only the first PDF page is displayed; no navigation props.
+// The host chooses one page without exposing an in-thumbnail navigation UI.
 const navigableThumbnail = <LikeSlidePdfThumbnail loadPdf={loadPdf} pageNumber={3} />;
 void [slideThumbnail, pdfThumbnail, editableThumbnail, navigableThumbnail];
+
+import { searchPdf, createPdfTextLoader, type PdfSearchResult } from '__LIBRARY_PDF__';
+const searchablePdf = createPdfTextLoader(pdfjs, new Blob([new Uint8Array([37, 80, 68, 70])]));
+const pdfSearch: Promise<PdfSearchResult> = searchPdf(searchablePdf, { keywords: ['Revenue', '2026'], operator: 'and' }, { signal: new AbortController().signal });
+void pdfSearch;
+
+import { searchSlides, type KeywordSearchQuery, type SlideSearchResult } from '__LIBRARY_IMPORT__';
+const searchQuery: KeywordSearchQuery = { keywords: ['顧客', '会議'], operator: 'or' };
+const searchResults: SlideSearchResult = searchSlides(createSlideDeck(), searchQuery, { matchBy: 'page' });
+const resultPage: number | undefined = searchResults.matches[0]?.pageNumber;
+void resultPage;

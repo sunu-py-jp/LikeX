@@ -19,6 +19,9 @@ const { LikeSlideThumbnail, LikeSlidePdfThumbnail } = await import('__LIBRARY_IM
 const previewMarkup = renderToStaticMarkup(createElement(LikeSlideThumbnail, { deck }));
 assert.match(previewMarkup, /Presentation content/);
 assert.doesNotMatch(previewMarkup, /<button|<input|<textarea/);
+const otherDeck = createSlideDeck({ slides: [...deck.slides, { id: 'second', name: 'Second', background: '#fff', notes: '', elements: [createSlideElement({ type: 'text', text: 'Selected page content' })] }] });
+const targetMarkup = renderToStaticMarkup(createElement(LikeSlideThumbnail, { deck: otherDeck, pageNumber: 2, slideId: 'second' }));
+assert.match(targetMarkup, /Selected page content/); assert.doesNotMatch(targetMarkup, /Presentation content/);
 const pdfPreviewMarkup = renderToStaticMarkup(createElement(LikeSlidePdfThumbnail, {
   title: 'PDF thumbnail', loadPdf: async () => { throw new Error('SSR must not load PDF engines'); },
 }));

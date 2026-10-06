@@ -7,7 +7,7 @@ import { parseCellAddress } from "../address";
 import { calculateWorkbook } from "../formula";
 import { effectiveCellFormat, formatCellValue } from "../formatting";
 import { createConditionalFormatter } from "../conditional-formatting";
-import type { SpreadsheetCalculatedValue, SpreadsheetWorkbook } from "../types";
+import type { SpreadsheetCalculatedValue, SpreadsheetSheet, SpreadsheetWorkbook } from "../types";
 import { setCellValues } from "../workbook/cells";
 import type { SpreadsheetReadRangeInput } from "../query";
 import { copyQuerySnapshot, type QuerySnapshot } from "../query-snapshot";
@@ -48,26 +48,37 @@ export function createSpreadsheetSearchMatcher(query: SpreadsheetSearchQuery) {
 /** Text or explicit regular-expression search over populated cells; formula mode searches raw expressions. */
 export function findSpreadsheetCells(workbook: QuerySnapshot<SpreadsheetWorkbook>, query: SpreadsheetSearchQuery,
   options: SpreadsheetSearchOptions = {}): readonly SpreadsheetSearchMatch[] {
+  const matcher = createSpreadsheetSearchMatcher(query);
+  const sheets = searchSheets(workbook, options);
+  if (!query.text) return Object.freeze([]);
+  return copyQuerySnapshot(collectSpreadsheetSearchCells(workbook, query.lookIn, options, sheets).filter(item => matcher.test(item.matchedText)));
+}
+
+function searchSheets(workbook: QuerySnapshot<SpreadsheetWorkbook>, options: SpreadsheetSearchOptions): readonly QuerySnapshot<SpreadsheetSheet>[] {
   requireWorkbook(workbook);
   if (!options || typeof options !== "object" || Array.isArray(options)) throw new Error("検索の対象が正しくありません");
   if (options.range !== undefined && options.sheetId === undefined) throw new Error("範囲を検索する場合はシートIDも指定してください");
   const sheets = options.sheetId === undefined ? workbook.sheets.map(sheet => requireSheet(workbook, sheet.id)) : [requireSheet(workbook, options.sheetId)];
+  if (options.range !== undefined) requireRange(sheets[0], options.range);
+  return sheets;
+}
+
+/** Shared cell formatting/ordering for literal, regex and grouped keyword search. Internal API. */
+export function collectSpreadsheetSearchCells(workbook: QuerySnapshot<SpreadsheetWorkbook>, lookIn: "values" | "formulas" = "values",
+  options: SpreadsheetSearchOptions = {}, sheets: readonly QuerySnapshot<SpreadsheetSheet>[] = searchSheets(workbook, options)): SpreadsheetSearchMatch[] {
   const range = options.range === undefined ? undefined : requireRange(sheets[0], options.range);
-  const matcher = createSpreadsheetSearchMatcher(query);
-  if (!query.text) return Object.freeze([]);
-  const calculated = query.lookIn === "formulas" ? undefined : options.calculated ?? calculateWorkbook(workbook);
-  const matches = sheets.flatMap(sheet => {
-    const display = query.lookIn === "formulas" ? undefined : createConditionalFormatter(sheet, calculated?.[sheet.id]);
+  const calculated = lookIn === "formulas" ? undefined : options.calculated ?? calculateWorkbook(workbook);
+  return sheets.flatMap(sheet => {
+    const display = lookIn === "formulas" ? undefined : createConditionalFormatter(sheet, calculated?.[sheet.id]);
     return Object.entries(sheet.cells).map(([address, cell]) => ({ address, cell, position: parseCellAddress(address)! }))
       .filter(({ position }) => !range || position.row >= range.top && position.row <= range.bottom && position.column >= range.left && position.column <= range.right)
       .sort((a, b) => a.position.row - b.position.row || a.position.column - b.position.column).flatMap(({ address, cell, position }) => {
       const calculatedValue = calculated?.[sheet.id]?.[address];
       const format = display?.(position.row, position.column, calculatedValue, effectiveCellFormat(cell)).format;
-      const matchedText = query.lookIn === "formulas" ? cell.value : formatCellValue(calculatedValue, format);
-      return matcher.test(matchedText) ? [{ sheetId: sheet.id, address, value: cell.value, matchedText }] : [];
+      const matchedText = lookIn === "formulas" ? cell.value : formatCellValue(calculatedValue, format);
+      return [{ sheetId: sheet.id, address, value: cell.value, matchedText }];
     });
   });
-  return copyQuerySnapshot(matches);
 }
 export function replaceSpreadsheetText(value: string, query: SpreadsheetSearchQuery, replacement: string): string {
   if (typeof replacement !== "string" || replacement.length > 100_000) throw new Error("置換後の文字列を正しく指定してください");

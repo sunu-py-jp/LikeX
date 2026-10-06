@@ -51,6 +51,32 @@ export async function checkModelConsumer({ module, installed, sourceDirectory })
     const runtime = (await readFile(path.join(fixtureDirectory, 'runtime.mjs.template'), 'utf8')).replaceAll('__MODEL_IMPORT__', imported);
     await writeFile(path.join(consumer, 'runtime.mjs'), runtime);
     const result = JSON.parse((await run(process.execPath, ['--conditions=react-server', 'runtime.mjs'], { cwd: consumer, capture: true })).trim());
+    let pdfTextSearch;
+    if (module === 'slide') {
+      let pdfImport = '@likex/slide/pdf';
+      if (!installed) {
+        const pdfBundle = await build({ entryPoints: [path.join(sourceDirectory, 'pdf-entry.ts')],
+          outfile: path.join(consumer, 'pdf.mjs'), bundle: true, format: 'esm', platform: 'neutral',
+          packages: 'external', target: 'es2022', metafile: true });
+        for (const output of Object.values(pdfBundle.metafile.outputs)) for (const imported of output.imports)
+          assert.ok(runtimeDependencies.has(imported.path), `Unexpected PDF search dependency: ${imported.path}`);
+        pdfImport = './pdf.mjs';
+      }
+      const pdfFixtures = path.join(packageRoot, 'tests/fixtures/pdf-consumer');
+      const runtime = (await readFile(path.join(pdfFixtures, 'runtime.mjs.template'), 'utf8')).replaceAll('__PDF_IMPORT__', pdfImport);
+      await writeFile(path.join(consumer, 'pdf-runtime.mjs'), runtime);
+      pdfTextSearch = JSON.parse((await run(process.execPath, ['--conditions=react-server', 'pdf-runtime.mjs'], { cwd: consumer, capture: true })).trim());
+      if (installed) {
+        const types = (await readFile(path.join(pdfFixtures, 'types.ts.template'), 'utf8')).replaceAll('__PDF_IMPORT__', pdfImport);
+        await writeFile(path.join(consumer, 'pdf-types.ts'), types);
+        await writeFile(path.join(consumer, 'pdf-tsconfig.json'), JSON.stringify({ compilerOptions: {
+          target: 'ES2022', lib: ['ES2022'], module: 'NodeNext', moduleResolution: 'NodeNext',
+          types: [], strict: true, skipLibCheck: false, noEmit: true,
+        }, files: ['pdf-types.ts'] }));
+        const typescript = await installedPackage('typescript');
+        await run(process.execPath, [path.join(typescript.directory, 'bin/tsc'), '-p', 'pdf-tsconfig.json'], { cwd: consumer, capture: true });
+      }
+    }
     if (installed) {
       const types = (await readFile(path.join(fixtureDirectory, 'types.ts.template'), 'utf8')).replaceAll('__MODEL_IMPORT__', imported);
       await writeFile(path.join(consumer, 'types.ts'), types);
@@ -62,7 +88,7 @@ export async function checkModelConsumer({ module, installed, sourceDirectory })
       await run(process.execPath, [path.join(typescript.directory, 'bin/tsc'), '-p', 'tsconfig.json'], { cwd: consumer, capture: true });
     }
     passed = true;
-    return { ...result, ...(installed ? { typeResolution: `NodeNext strict, ${modelTypeLibraries.join(' + ')}, no React typings` } : {}) };
+    return { ...result, ...(pdfTextSearch ? { pdfTextSearch } : {}), ...(installed ? { typeResolution: `NodeNext strict, ${modelTypeLibraries.join(' + ')}, no React typings` } : {}) };
   } finally {
     if (passed) await rm(consumer, { recursive: true, force: true });
     else console.error(`Failed headless consumer retained for inspection: ${consumer}`);

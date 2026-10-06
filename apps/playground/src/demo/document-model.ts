@@ -22,5 +22,16 @@ export function createDemoDocument() {
       { type: "table_row", content: [cell("振り返り"), cell("効果の確認と次の改善"), cell("11月中旬")] },
     ] },
     { type: "paragraph", content: [text("次のアクション：", [{ type: "strong" }]), text("各チームで、日々の作業で困っていることを3つ挙げてください。", [{ type: "text_style", attrs: { backgroundColor: "#fff2cc" } }])] },
+    { type: "page_break" },
+    heading("運用と評価"),
+    paragraph("小さく始めて、使いながら改善する。チームが自分たちの運用として続けられることを重視します。"),
+    heading("運用ルール", 2),
+    { type: "bullet_list", content: ["会議の決定事項は当日中に共有する", "資料の責任者と次回更新日を明記する", "週次で困りごとを集めて改善を決める"].map(value => ({ type: "list_item", content: [paragraph(value)] })) },
+    heading("効果の確認", 2),
+    { type: "table", content: [
+      { type: "table_row", content: [cell("指標", true), cell("確認方法", true), cell("頻度", true)] },
+      { type: "table_row", content: [cell("資料を探す時間"), cell("利用者アンケート"), cell("月次")] },
+      { type: "table_row", content: [cell("決定事項の完了率"), cell("担当者による実績確認"), cell("週次")] },
+    ] },
   ] } });
 }

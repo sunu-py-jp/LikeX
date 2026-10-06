@@ -32,11 +32,19 @@ export type SpreadsheetRefreshHandler = (context: OperationContext) => MaybeProm
 export type SpreadsheetDiscardOptions = Readonly<{ discardChanges?: boolean }>;
 /** Import replaces the draft only. Saving remains an explicit host-owned operation. */
 export type SpreadsheetImportExcelOptions = SpreadsheetExcelImportOptions & SpreadsheetDiscardOptions & Readonly<{
+  /** Initial imported view. Both exact selectors must identify the same sheet; invalid targets reject before publication. */
+  sheetId?: string;
+  sheetName?: string;
   /** Runs once after parsing and before permission/application. False cancels the import. */
   onReview?: (result: SpreadsheetExcelImportResult) => MaybePromise<boolean>;
 }>;
 /** Native JSON has no conversion review; malformed data rejects before changing the draft. */
-export type SpreadsheetImportNativeOptions = SpreadsheetDiscardOptions & Readonly<{ signal?: AbortSignal }>;
+export type SpreadsheetImportNativeOptions = SpreadsheetDiscardOptions & Readonly<{
+  signal?: AbortSignal;
+  /** Exact imported sheet selectors. Invalid targets leave the existing draft unchanged. */
+  sheetId?: string;
+  sheetName?: string;
+}>;
 export type SpreadsheetEvent =
   | Readonly<{ type: "zoom-change"; zoom: number; previousZoom: number }>
   | ContextMenuExecutionEvent

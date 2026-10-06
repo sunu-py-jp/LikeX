@@ -10,11 +10,12 @@ const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
 export { useDocumentEditor } from './src/state/use-document-editor.ts';
 export { createDocumentSession } from './src/session/create-document-session.ts';
-export { createDocument, serializeDocument, parseDocument, executeDocumentCommands, getDocumentText } from './src/model/index.ts';
+export { createDocument, serializeDocument, parseDocument, executeDocumentCommands, getDocumentText, getDocumentPage } from './src/model/index.ts';
+export { exportDocumentDocx } from './src/io/index.ts';
 export { resolveDocumentFeatures, assertDocumentFeatures } from './src/state/document-features.ts';
 `, resolveDir: packageRoot }, bundle: true, platform: 'node', format: 'esm', write: false,
 plugins: [{ name: 'shared-react', setup(builder) { builder.onResolve({ filter: /^(react|react-dom)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true })); } }] });
-const { useDocumentEditor, createDocumentSession, createDocument, serializeDocument, parseDocument, executeDocumentCommands, getDocumentText, resolveDocumentFeatures, assertDocumentFeatures } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { useDocumentEditor, createDocumentSession, createDocument, serializeDocument, parseDocument, executeDocumentCommands, getDocumentText, getDocumentPage, exportDocumentDocx, resolveDocumentFeatures, assertDocumentFeatures } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text + '\n//# sourceURL=likex-document-editor-tests.js').toString('base64')}`);
 const change = async callback => { await act(async () => { await callback(); }); };
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const rename = title => ({ type: 'document.update', title });
@@ -264,4 +265,111 @@ test('shape text and visual edits honor their respective feature flags through c
   await change(async () => assert.ok(await noFormat.editor.execute({ type: 'shape.insert', at: 0, preset: 'bentArrow', text: 'Allowed text' })));
   const node = noFormat.editor.document.content.content.find(node => node.type === 'shape');
   await change(async () => assert.ok(await noFormat.editor.execute({ type: 'shape.update', id: node.attrs.id, text: 'Updated text' })));
+});
+
+const paged = () => createDocument({ title: 'Two pages', content: { type: 'doc', content: [
+  { type: 'paragraph', content: [{ type: 'text', text: 'First page' }] }, { type: 'page_break' },
+  { type: 'paragraph', content: [{ type: 'text', text: 'Second page' }] },
+] } });
+
+test('initial page and imperative page navigation work read-only without permission, dirty state or history', async t => {
+  const document = paged(), ref = { current: null }, events = []; let requests = 0;
+  const app = await mount(t, { initialDocument: document, initialPageNumber: 2, onSave: undefined, ref,
+    onEditRequest() { requests++; return true; }, onEvent: event => events.push(event) });
+  assert.deepEqual(ref.current.getSelection(), { from: getDocumentPage(document, 2).from, to: getDocumentPage(document, 2).from });
+  assert.equal(app.editor.pageReveal.document, document);
+  await app.update({ initialPageNumber: 1 }); assert.equal(ref.current.getSelection().from, getDocumentPage(document, 2).from);
+  await change(() => assert.equal(ref.current.goToPage(1), true));
+  assert.deepEqual(ref.current.getSelection(), { from: 0, to: 0 });
+  for (const invalid of [0, 1.5, NaN, '2', 3]) await change(() => assert.equal(ref.current.goToPage(invalid), false));
+  assert.deepEqual(ref.current.getSelection(), { from: 0, to: 0 });
+  assert.equal(app.editor.notice.kind, 'error');
+  await change(() => assert.equal(ref.current.goToPage(2), true)); assert.equal(app.editor.notice, null);
+  assert.equal(app.editor.document, document); assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false);
+  assert.equal(requests, 0); assert.deepEqual(events, []);
+  const handle = ref.current; await app.unmount(); assert.equal(handle.goToPage(1), false);
+});
+
+test('an invalid initial page retains its document and can recover through the handle', async t => {
+  const document = paged(), app = await mount(t, { initialDocument: document, initialPageNumber: 3 });
+  assert.equal(app.editor.document, document); assert.equal(app.editor.notice.kind, 'error'); assert.equal(app.editor.pageReveal, null);
+  await change(() => assert.equal(app.editor.goToPage(2), true)); assert.equal(app.editor.notice, null);
+});
+
+test('import page targets validate before publication and commit content and selection atomically', async t => {
+  const document = paged(), position = getDocumentPage(document, 2).from, ref = { current: null }, selections = []; let requests = 0;
+  const app = await mount(t, { ref, onEditRequest() { requests++; return true; }, onChange() { selections.push(ref.current.getSelection()); } });
+  const old = app.editor.document, originalSelection = ref.current.getSelection();
+  for (const pageNumber of [0, 1.5, NaN, '2', 3]) await change(() => ref.current.importNative(serializeDocument(document), { pageNumber }));
+  assert.equal(app.editor.document, old); assert.deepEqual(ref.current.getSelection(), originalSelection); assert.equal(app.editor.canUndo, false);
+  assert.equal(requests, 0); assert.deepEqual(selections, []);
+  await change(() => ref.current.importNative(serializeDocument(document), { pageNumber: 2 }));
+  assert.equal(app.editor.document.title, document.title); assert.deepEqual(selections, [{ from: position, to: position }]);
+  assert.equal(app.editor.pageReveal.document, app.editor.document); assert.equal(requests, 1);
+  await change(() => ref.current.undo()); assert.equal(app.editor.document, old); assert.deepEqual(ref.current.getSelection(), originalSelection);
+  await change(() => ref.current.redo()); assert.equal(ref.current.getSelection().from, position);
+});
+
+test('DOCX target validation preserves the old draft on failure and selects the imported explicit page', async t => {
+  const { blob } = await exportDocumentDocx(paged()), ref = { current: null }, app = await mount(t, { ref });
+  const before = app.editor.document;
+  await change(() => ref.current.importDocx(blob, { pageNumber: 3 }));
+  assert.equal(app.editor.document, before); assert.equal(app.editor.canUndo, false); assert.match(app.editor.notice.text, /3ページ目/);
+  await change(() => ref.current.importDocx(blob, { pageNumber: 2 }));
+  assert.equal(ref.current.getSelection().from, getDocumentPage(app.editor.document, 2).from);
+  assert.ok(getDocumentText(app.editor.document).includes('Second page'));
+});
+
+test('import target options are snapshotted and stale imports cannot navigate', async t => {
+  for (const reason of ['mutation', 'readonly', 'features', 'unmount']) {
+    const data = deferred(), ref = { current: null }, app = await mount(t, { ref }), before = app.editor.document;
+    class DelayedBlob extends Blob { text() { return data.promise; } }
+    const options = { pageNumber: 2 }; let pending;
+    await change(() => { pending = ref.current.importNative(new DelayedBlob(['pending']), options); });
+    options.pageNumber = 1;
+    if (reason === 'readonly') { await app.update({ readOnly: true }); await app.update({ readOnly: false }); }
+    if (reason === 'features') { await app.update({ features: { import: false } }); await app.update({ features: { import: true } }); }
+    if (reason === 'unmount') await app.unmount();
+    await change(async () => { data.resolve(serializeDocument(paged())); await pending; });
+    if (reason === 'mutation') assert.equal(app.editor.selection.from, getDocumentPage(app.editor.document, 2).from);
+    else { assert.equal(app.editor.document, before); assert.equal(app.editor.pageReveal, null); assert.equal(app.editor.canUndo, false); }
+  }
+});
+
+test('same-document import can navigate without edits, while denied import cannot reveal another page', async t => {
+  const document = paged(), app = await mount(t, { initialDocument: document, onEditRequest: () => false });
+  await change(() => app.editor.importFile(serializeDocument(document), 'dcon', { pageNumber: 2 }));
+  assert.equal(app.editor.selection.from, getDocumentPage(document, 2).from); assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false);
+  await change(() => app.editor.goToPage(1));
+  await change(() => app.editor.importFile(serializeDocument(executeDocumentCommands(document, rename('Other')).document), 'dcon', { pageNumber: 2 }));
+  assert.equal(app.editor.document, document); assert.equal(app.editor.selection.from, 0); assert.equal(app.editor.pageReveal.position, 0);
+});
+
+test('import completion preserves a newer host navigation from the change notification', async t => {
+  for (const navigation of ['page', 'selection']) {
+    const document = paged(), ref = { current: null }, selections = [];
+    const app = await mount(t, { ref, onChange() {
+      selections.push(ref.current.getSelection());
+      if (navigation === 'page') assert.equal(ref.current.goToPage(1), true);
+      else ref.current.select({ from: 0, to: 0 });
+      assert.equal(ref.current.getSelection().from, 0);
+    } });
+    await change(() => ref.current.importNative(serializeDocument(document), { pageNumber: 2 }));
+    const position = getDocumentPage(document, 2).from;
+    assert.deepEqual(selections, [{ from: position, to: position }]);
+    assert.deepEqual(ref.current.getSelection(), { from: 0, to: 0 });
+    assert.equal(app.editor.pageReveal?.position ?? 0, 0);
+    assert.equal(app.editor.document.title, document.title); assert.equal(app.editor.canUndo, true);
+  }
+});
+
+test('same-document import does not defer selection past a newer host navigation', async t => {
+  const document = paged(), ref = { current: null }, app = await mount(t, { ref, initialDocument: document });
+  await change(async () => {
+    const pending = ref.current.importNative(serializeDocument(document), { pageNumber: 2 });
+    ref.current.goToPage(1);
+    await pending;
+  });
+  assert.deepEqual(ref.current.getSelection(), { from: 0, to: 0 }); assert.equal(app.editor.pageReveal.position, 0);
+  assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false);
 });

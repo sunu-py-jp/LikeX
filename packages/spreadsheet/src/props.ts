@@ -48,6 +48,10 @@ export type SpreadsheetProps = {
   ref?: Ref<SpreadsheetHandle>;
   /** Read once at mount. Change the React key to open another workbook. */
   initialWorkbook?: SpreadsheetWorkbook;
+  /** Exact initial sheet ID, read only at mount. Invalid targets show an error and use the first sheet. */
+  initialSheetId?: string;
+  /** Exact initial sheet name. When both selectors are set they must identify the same sheet. */
+  initialSheetName?: string;
   /** Initial view magnification in percent (25–200, default 100). Not saved in the workbook. */
   initialZoom?: number;
   /** Read once at mount, default expanded. Ignored while ribbonDisplayMode is supplied. */

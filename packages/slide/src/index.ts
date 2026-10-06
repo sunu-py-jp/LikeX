@@ -1,7 +1,7 @@
 "use client";
 
 export { default, default as LikeSlide } from "./slide";
-export type { SlideProps, SlideRibbonDisplayMode, SlideHandle, SlideFeatures, SlideSelection, SlideEvent, SlideConditionalEditOptions } from "./props";
+export type { SlideProps, SlideRibbonDisplayMode, SlideHandle, SlideFeatures, SlideSelection, SlideEvent, SlideConditionalEditOptions, SlidePageTarget } from "./props";
 export * from "./model";
 export { createSlideSession } from "./session/create-slide-session";
 export type { SlideSession, SlideSessionSnapshot } from "./session/create-slide-session";
@@ -21,3 +21,4 @@ export type { SlidePdfThumbnailProps } from "./pdf/pdf-thumbnail";
 export type { SlidePdfViewerProps, SlidePdfViewerHandle } from "./pdf/viewer-types";
 export { createSlidePdfLoader, SLIDE_PDF_LIMITS } from "./pdf/pdfjs-loader";
 export type { SlidePdfLoader, SlidePdfDocument, SlidePdfPage, SlidePdfInput, SlidePdfJsModule, SlidePdfLoaderOptions, SlidePdfRenderOptions } from "./pdf/types";
+export * from "./pdf-entry";

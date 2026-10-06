@@ -23,6 +23,8 @@ export type { SpreadsheetReadApi } from "./query-reader";
 export { getSheetReader } from "./sheet-reader";
 export type { SpreadsheetSheetReadApi } from "./sheet-reader";
 export { findSpreadsheetSheets, findSpreadsheetCells } from "./editing/search";
+export { searchSpreadsheet } from "./keyword-search";
+export type { SpreadsheetKeywordSearchQuery, SpreadsheetKeywordSearchOptions, SpreadsheetKeywordSearchMatch, SpreadsheetKeywordSearchResult } from "./keyword-search";
 export type { SpreadsheetSheetSearchQuery, SpreadsheetSheetSearchMatch, SpreadsheetSearchOptions } from "./editing/search";
 export type { SpreadsheetSearchQuery, SpreadsheetSearchMatch } from "../api/editing-commands";
 export { copySpreadsheetCells } from "./editing/copy";

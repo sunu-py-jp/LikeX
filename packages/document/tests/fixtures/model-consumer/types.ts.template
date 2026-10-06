@@ -1,9 +1,13 @@
-import { createDocument, executeDocumentCommands, getBlocks, getImages, getDocumentText, parseDocument,
+import { createDocument, executeDocumentCommands, getBlocks, getImages, getDocumentText, getDocumentPage, searchDocument, parseDocument,
   serializeDocument, createDocumentSession, importDocumentDocx, exportDocumentDocx, collectDocumentImages,
-  type DocumentModel, type DocumentCommand, type DocumentSelection, type DocumentDocxOptions,
+  type DocumentModel, type DocumentPageInfo, type KeywordSearchQuery, type DocumentSearchOptions, type DocumentSearchResult, type DocumentSearchMatch, type DocumentSearchTextMatch, type DocumentCommand, type DocumentSelection, type DocumentDocxOptions,
   type DocumentImageCollection, type DocumentImageCollectionOptions, type DocumentImageAsset, type DocumentImagePlacement } from "__MODEL_IMPORT__";
 
 const document: DocumentModel = createDocument({ title: "Headless", page: { margins: { left: 25 } } });
+const page: DocumentPageInfo | undefined = getDocumentPage(document, 1);
+// @ts-expect-error Page numbers are numeric.
+getDocumentPage(document, "2");
+void page;
 const marker: "likex.document" = document.format;
 const command: DocumentCommand = { type: "text.insert", from: 1, text: "Text" };
 const result = executeDocumentCommands(document, [command]);
@@ -38,3 +42,15 @@ const badVersion: DocumentModel = { ...document, version: 2 };
 // @ts-expect-error Unknown mark names are not accepted.
 const badMark: DocumentCommand = { type: "mark.set", from: 1, to: 2, mark: "script" };
 void badPosition; void badVersion; void badMark;
+
+const searchQuery: KeywordSearchQuery = { keywords: ["headless", "text"], operator: "and", matchCase: false };
+const searchOptions: DocumentSearchOptions = { matchBy: "page", limit: 100 };
+const searched: DocumentSearchResult = searchDocument(document, searchQuery, searchOptions);
+const found: DocumentSearchMatch | undefined = searched.matches[0];
+const foundText: DocumentSearchTextMatch | undefined = found?.matches[0];
+if (foundText) session.select({ from: foundText.from, to: foundText.to });
+// @ts-expect-error Search uses literal keyword arrays, not regex conditions.
+searchDocument(document, { keywords: ["text"], useRegex: true });
+// @ts-expect-error Search scope is page or block.
+searchDocument(document, searchQuery, { matchBy: "document" });
+void [searched.truncated, found?.pageNumber, found?.canvasShapeId, foundText?.textFrom];

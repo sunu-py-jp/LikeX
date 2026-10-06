@@ -47,7 +47,7 @@ test('core builds first for a single UI package and is deduplicated for all modu
 
 test('each UI module exposes a separate headless model entry without changing its UI entry', () => {
   for (const name of moduleNames.filter(name => name !== 'core')) {
-    assert.deepEqual(libraryModule(name).headlessEntries, { model: 'model-entry.ts' });
+    assert.deepEqual(libraryModule(name).headlessEntries, { model: 'model-entry.ts', ...(name === 'slide' ? { pdf: 'pdf-entry.ts' } : {}) });
     assert.equal(libraryModule(name).ui, true);
   }
 });
@@ -68,10 +68,19 @@ test('dedicated UI entries have distinct outputs and never become headless/brows
   }
 });
 
+test('PDF text search exposes a separate headless package entry', async () => {
+  const profile = libraryModule('slide'), manifest = JSON.parse(await readFile(path.join(profile.packageRoot, 'package.json'), 'utf8'));
+  assert.equal(profile.headlessEntries.pdf, 'pdf-entry.ts');
+  assert.deepEqual(manifest.exports['./pdf'], { types: './dist/types/pdf-entry.d.ts', import: './dist/pdf.js', default: './dist/pdf.js' });
+  const source = await readFile(path.join(profile.sourceRoot, 'pdf-entry.ts'), 'utf8');
+  assert.doesNotMatch(source, /use client|pdf-viewer|pdf-thumbnail/);
+  assert.match(source, /searchPdf/);
+});
+
 const thumbnailExports = {
   spreadsheet: { runtime: ['SpreadsheetThumbnail'], types: ['SpreadsheetThumbnailProps'] },
   slide: { runtime: ['LikeSlideThumbnail', 'LikeSlidePdfThumbnail', 'createSlidePdfLoader', 'SLIDE_PDF_LIMITS'],
-    types: ['SlideThumbnailProps', 'SlidePdfThumbnailProps', 'SlidePdfLoader', 'SlidePdfDocument', 'SlidePdfPage', 'SlidePdfInput', 'SlidePdfJsModule', 'SlidePdfLoaderOptions', 'SlidePdfRenderOptions'] },
+    types: ['SlideThumbnailProps', 'SlidePageTarget', 'SlidePdfThumbnailProps', 'SlidePdfLoader', 'SlidePdfDocument', 'SlidePdfPage', 'SlidePdfInput', 'SlidePdfJsModule', 'SlidePdfLoaderOptions', 'SlidePdfRenderOptions'] },
   document: { runtime: ['LikeDocumentThumbnail', 'default'], types: ['DocumentThumbnailProps'] },
 };
 

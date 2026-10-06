@@ -24,7 +24,7 @@ export type {
   SpreadsheetInsertValue,
   SpreadsheetMutationToken, SpreadsheetMutationSnapshot, SpreadsheetExpectedWorkbook,
   SpreadsheetCommandOptions, SpreadsheetAsyncCommandOptions, SpreadsheetConditionalEditConflict,
-  SpreadsheetSelectionApi, SpreadsheetSelectionOptions, SpreadsheetSelectedDrawing,
+  SpreadsheetSelectionApi, SpreadsheetSelectionOptions, SpreadsheetSelectedDrawing, SpreadsheetSheetTarget,
 } from "./api/types";
 export { readImageResource as prepareSpreadsheetImage } from "./state/read-image";
 export { createTextMeasurer as createSpreadsheetTextMeasurer } from "./state/sizing/text-measurer";

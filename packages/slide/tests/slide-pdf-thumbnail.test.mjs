@@ -15,8 +15,8 @@ function pdf({ render, getPage, width = 800, height = 600, marker = 'first' } = 
   const signals = [], requests = [], renders = [];
   const document = { pageCount: 1000, destroyed: 0, async destroy() { document.destroyed++; }, async getPage(number, { signal }) {
     requests.push({ number, signal }); if (getPage) return getPage(number, signal);
-    return { width, height, async render(options) { const call = { ...options, width: options.canvas.width, height: options.canvas.height };
-      renders.push(call); options.canvas.marker = marker; await render?.(call); } };
+    return { width, height, async render(options) { const call = { ...options, number, width: options.canvas.width, height: options.canvas.height };
+      renders.push(call); options.canvas.marker = typeof marker === 'function' ? marker(number) : marker; await render?.(call); } };
   } };
   return { document, signals, requests, renders, async loadPdf({ signal }) { signals.push(signal); return document; } };
 }
@@ -99,4 +99,79 @@ test('PDF thumbnail exposes loading, input/page/render failures and SSR without 
   await ui.update({ loadPdf: renderFailed.loadPdf, onError: async () => { throw new Error('observer'); } });
   assert.equal(ui.root.findByProps({ role: 'alert' }).children.join(''), 'render unavailable');
   await ui.unmount(); assert.equal(renderFailed.document.destroyed, 1);
+});
+
+test('PDF thumbnail displays the requested page and changes pages without reloading the document', async t => {
+  const source = pdf({ marker: number => `page-${number}` }), ui = await mount(t, { loadPdf: source.loadPdf, pageNumber: 3 });
+  assert.deepEqual(source.requests.map(request => request.number), [3]); assert.deepEqual(source.renders.map(render => render.number), [3]);
+  assert.equal(ui.root.findByType('canvas').props['aria-label'], 'PDFページ 3');
+  assert.equal(ui.root.findByProps({ className: 'lxp-titlebar-end lxp-pdf-view-label' }).children.join(''), '3ページ目');
+  const firstCanvas = ui.canvases[0];
+  await ui.update({ pageNumber: 7 });
+  assert.deepEqual(source.requests.map(request => request.number), [3, 7]); assert.deepEqual(source.renders.map(render => render.number), [3, 7]);
+  assert.equal(source.signals.length, 1); assert.equal(source.signals[0].aborted, false); assert.equal(source.document.destroyed, 0);
+  assert.equal(firstCanvas.width, 0); assert.deepEqual(ui.canvases.at(-1).draws, ['page-7']);
+  assert.equal(ui.root.findByType('canvas').props['aria-label'], 'PDFページ 7');
+  await ui.update({ pageNumber: 3 }); assert.equal(source.requests.length, 2, 'Revisiting a cached page reuses the same session');
+  assert.deepEqual(ui.canvases.at(-1).draws, ['page-3']);
+});
+
+test('PDF thumbnail rejects invalid page numbers as a whole and recovers on a valid page', async t => {
+  const source = pdf(), ui = await mount(t, { loadPdf: source.loadPdf, pageNumber: 0 });
+  assert.equal(ui.errors.length, 1); assert.equal(source.requests.length, 0);
+  for (const pageNumber of [-1, 1.5, NaN, Infinity, 1001, '2', null]) {
+    const count = ui.errors.length; await ui.update({ pageNumber });
+    assert.equal(ui.errors.length, count + 1); assert.equal(source.requests.length, 0);
+    assert.equal(ui.root.findAllByProps({ role: 'alert' }).length, 1); assert.equal(ui.root.findAllByType('canvas').length, 0);
+  }
+  await ui.update({ pageNumber: 5 }); assert.deepEqual(source.requests.map(request => request.number), [5]);
+  assert.equal(ui.root.findAllByProps({ role: 'alert' }).length, 0);
+  await ui.update({ pageNumber: undefined }); assert.deepEqual(source.requests.map(request => request.number), [5, 1]);
+  assert.equal(source.signals.length, 1); assert.equal(source.document.destroyed, 0);
+});
+
+test('PDF thumbnail checks the final page number against the loaded document before requesting it', async t => {
+  const loading = deferred(), source = pdf(); source.document.pageCount = 4;
+  const ui = await mount(t, { loadPdf: () => loading.promise, pageNumber: 10 });
+  await ui.update({ pageNumber: 6 }); assert.equal(ui.errors.length, 0);
+  await change(() => loading.resolve(source.document)); assert.equal(ui.errors.length, 1); assert.equal(source.requests.length, 0);
+  await ui.update({ pageNumber: 4 }); assert.deepEqual(source.requests.map(request => request.number), [4]);
+  assert.equal(ui.root.findAllByProps({ role: 'alert' }).length, 0);
+});
+
+test('PDF thumbnail aborts obsolete page fetches and excludes their late errors and results', async t => {
+  const pending = new Map(), source = pdf({ getPage: number => {
+    const gate = deferred(); pending.set(number, gate); return gate.promise;
+  } });
+  const ui = await mount(t, { loadPdf: source.loadPdf, pageNumber: 2 });
+  await ui.update({ pageNumber: 3 }); assert.ok(source.requests[0].signal.aborted);
+  await change(() => pending.get(2).reject(new Error('old page error'))); assert.deepEqual(ui.errors, []);
+  await ui.update({ pageNumber: 4 }); assert.ok(source.requests[1].signal.aborted);
+  let obsoleteRenders = 0;
+  await change(() => pending.get(3).resolve({ width: 800, height: 600, async render() { obsoleteRenders++; } }));
+  await change(() => pending.get(4).resolve({ width: 800, height: 600, async render({ canvas }) { canvas.marker = 'page-4'; } }));
+  assert.equal(obsoleteRenders, 0); assert.deepEqual(ui.errors, []); assert.deepEqual(ui.canvases.at(-1).draws, ['page-4']);
+  await ui.update({ pageNumber: 5 });
+  await change(() => pending.get(5).reject(new Error('page 5 fetch error')));
+  assert.equal(ui.root.findByProps({ role: 'alert' }).children.join(''), 'page 5 fetch error');
+  await ui.update({ pageNumber: 6 });
+  await change(() => pending.get(6).resolve({ width: 800, height: 600, async render({ canvas }) { canvas.marker = 'page-6'; } }));
+  assert.equal(ui.root.findAllByProps({ role: 'alert' }).length, 0); assert.deepEqual(ui.canvases.at(-1).draws, ['page-6']);
+  assert.equal(source.signals.length, 1);
+});
+
+test('PDF thumbnail discards old page renders and scopes render errors to their target page', async t => {
+  const waiting = deferred(), source = pdf({ marker: number => `page-${number}`, render: async call => {
+    if (call.number === 2) await waiting.promise;
+    if (call.number === 4) throw new Error('page 4 render error');
+  } });
+  const ui = await mount(t, { loadPdf: source.loadPdf, pageNumber: 2 }), obsoleteCanvas = ui.canvases[0];
+  await ui.update({ pageNumber: 3 }); assert.ok(source.renders[0].signal.aborted);
+  await change(() => waiting.reject(new Error('obsolete render error')));
+  assert.deepEqual(ui.errors, []); assert.equal(obsoleteCanvas.draws.length, 0); assert.equal(obsoleteCanvas.width, 0);
+  assert.deepEqual(ui.canvases.at(-1).draws, ['page-3']);
+  await ui.update({ pageNumber: 4 }); assert.equal(ui.errors.length, 1);
+  assert.equal(ui.root.findByProps({ role: 'alert' }).children.join(''), 'page 4 render error');
+  await ui.update({ pageNumber: 5 }); assert.equal(ui.root.findAllByProps({ role: 'alert' }).length, 0);
+  assert.deepEqual(ui.canvases.at(-1).draws, ['page-5']); assert.equal(source.signals.length, 1);
 });

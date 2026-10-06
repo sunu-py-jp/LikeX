@@ -12,6 +12,8 @@
 
 `parseWorkbook(json)` と `serializeWorkbook(workbook)` のAPIは同じです。`parseWorkbook` は保存形式を編集用の `SpreadsheetWorkbook`（`schemaVersion: 1`、A1形式の `cells`）へ変換します。`onSave` やセル操作APIもこの編集用モデルを受け取ります。`JSON.parse` だけではこの変換を行わないため、ファイルを開くときは `parseWorkbook` を使ってください。
 
+特定のシートから開く場合は `<Spreadsheet initialWorkbook={parseWorkbook(json)} initialSheetName="売上" />` のように初期ID・名前を指定します。表示中に取り込む場合は `await ref.current.importNative(file, { sheetId: "sales", sheetName: "売上" })` で、取り込むブック内の対象を指定できます。どちらのキーも任意で、両方指定した場合は同じシートへの完全一致が必要です。取り込み時の不正な対象は適用前にPromiseをrejectし、元の下書き・選択・履歴を保持します。対象指定は表示状態で、保存データやUndo件数を追加しません。初期propsはマウント時だけ、取り込みoptionsはその1回だけ有効です。[対象指定と表示後の切替](./selection.md#最初に開くシートを指定する)
+
 ## 行ごとの保存構造
 
 `rows` は行オブジェクトの配列で、先頭が1行目です。各行の `cells` に、列名をキーとしてセルを置きます。数値・数式も従来どおり文字列で指定します。

@@ -12,6 +12,7 @@
     ".": { "types": "./dist/types/index.d.ts", "import": "./dist/index.js", "default": "./dist/index.js" },
     "./thumbnail": { "types": "./dist/types/thumbnail.d.ts", "import": "./dist/thumbnail.js", "default": "./dist/thumbnail.js" },
     "./model": { "types": "./dist/types/model-entry.d.ts", "import": "./dist/model.js", "default": "./dist/model.js" },
+    "./pdf": { "types": "./dist/types/pdf-entry.d.ts", "import": "./dist/pdf.js", "default": "./dist/pdf.js" },
     "./render": { "types": "./dist/types/render-entry.d.ts", "import": "./dist/render.js", "default": "./dist/render.js" },
     "./styles.css": "./dist/styles.css",
     "./package.json": "./package.json"

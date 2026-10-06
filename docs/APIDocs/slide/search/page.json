@@ -1,0 +1,9 @@
+{
+  "title": "描画しないキーワード検索",
+  "summary": "AND／ORでスライド本文を検索し、スライドID・ページ番号・要素ID・一致箇所をサーバー側で取得します。",
+  "source": "packages/slide/src/docs/search.md",
+  "order": 47,
+  "section": "読み込みと出力",
+  "keywords": ["LikeSlide", "searchSlides", "AND", "OR", "キーワード", "検索", "ページ番号", "headless"],
+  "screenshots": []
+}

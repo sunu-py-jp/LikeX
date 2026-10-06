@@ -5,14 +5,18 @@ import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 
 import type { SpreadsheetWorkbookSnapshot } from "../commands/types";
 import type { SpreadsheetColorMode } from "../props";
 import { createPrimaryColorPalette } from "../core";
-import { prepareSpreadsheetThumbnail } from "./thumbnail/prepare-thumbnail";
+import { normalizeSpreadsheetThumbnail, prepareNormalizedSpreadsheetThumbnail } from "./thumbnail/prepare-thumbnail";
 import { Shape } from "./drawings/shape";
 import { DrawingText } from "./drawings/drawing-text";
 import { LineMarker } from "./drawings/line-marker";
 
 export type SpreadsheetThumbnailProps = {
-  /** Replacing this immutable input updates the preview. Only the first sheet's A1:J20 is displayed. */
+  /** Replacing this immutable input updates the preview. Only the selected sheet's A1:J20 is displayed. */
   workbook: SpreadsheetWorkbookSnapshot;
+  /** Exact sheet ID. Omitting both selectors shows the first sheet. */
+  sheetId?: string;
+  /** Exact, case-sensitive sheet name. Both selectors, when provided, must identify the same sheet. */
+  sheetName?: string;
   title?: string;
   colorMode?: SpreadsheetColorMode;
   primaryColor?: string;
@@ -29,10 +33,15 @@ export function SpreadsheetThumbnail(props: SpreadsheetThumbnailProps) {
   const { onError } = props;
   const errorObserver = useRef(onError);
   useEffect(() => { errorObserver.current = onError; }, [onError]);
-  const prepared = useMemo(() => {
-    try { return { scene: prepareSpreadsheetThumbnail(props.workbook) }; }
+  const normalized = useMemo(() => {
+    try { return { workbook: normalizeSpreadsheetThumbnail(props.workbook) }; }
     catch (cause) { return { error: cause instanceof Error ? cause : new Error("サムネイルを表示できません") }; }
   }, [props.workbook]);
+  const prepared = useMemo(() => {
+    if (normalized.error) return { error: normalized.error };
+    try { return { scene: prepareNormalizedSpreadsheetThumbnail(normalized.workbook!, props.sheetId, props.sheetName) }; }
+    catch (cause) { return { error: cause instanceof Error ? cause : new Error("サムネイルを表示できません") }; }
+  }, [normalized, props.sheetId, props.sheetName]);
   useEffect(() => {
     if (prepared.error) try { void Promise.resolve(errorObserver.current?.(prepared.error)).catch(() => {}); }
     catch { /* Observer errors do not break the placeholder. */ }

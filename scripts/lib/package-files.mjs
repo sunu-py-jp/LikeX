@@ -10,5 +10,7 @@ export function allowedPackageFile(file, module) {
   if (module === 'slide' && /^(references\/(image-export|design-guide|layout-examples)\.md|scripts\/render-images\.mjs)$/.test(relative)) return true;
   if (['spreadsheet', 'slide'].includes(module) && relative === 'references/inspect.md') return true;
   if (module === 'document' && relative === 'references/image-analysis.md') return true;
+  if (['slide', 'document'].includes(module) && relative === 'references/search.md') return true;
+  if (module === 'slide' && relative === 'references/pdf-search.md') return true;
   return /^(SKILL\.md|references\/(schema-guide\.md|commands\.md|commands\.schema\.json|spon\.schema\.json|slon\.schema\.json|dcon\.schema\.json|board\.schema\.json|dataview\.schema\.json|diagram\.schema\.json|whiteboard\.schema\.json|calendar\.schema\.json|aichat\.schema\.json|chat\.schema\.json|form\.schema\.json)|scripts\/document\.mjs)$/.test(relative);
 }

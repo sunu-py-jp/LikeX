@@ -11,6 +11,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 export default function SlidePdfDemo() {
   const [source, setSource] = useState<{ title: string; data: Uint8Array | File }>(() => ({ title: "Northstar — PDF資料", data: createSlidePdfSample() }));
   const [theme] = useState(() => getDemoComponentTheme("system"));
+  const [initialPageNumber] = useState(() => { const page = new URLSearchParams(window.location.search).get("page"); return page === null ? undefined : Number(page); });
   const [fileError, setFileError] = useState("");
   const viewer = useRef<SlidePdfViewerHandle>(null);
   const [selection, setSelection] = useState<{ loader: SlidePdfLoader; pageNumber: number; pageNumbers: number[] } | null>(null);
@@ -35,7 +36,7 @@ export default function SlidePdfDemo() {
         : "読み込み中"}</output>
       <span>Ctrl／⌘＋クリックで追加・解除、Shift＋クリックで範囲選択</span>
     </div>
-    <LikeSlidePdfViewer ref={viewer} loadPdf={loader} title={source.title} {...theme} style={{ flex: 1, minHeight: 0 }}
+    <LikeSlidePdfViewer ref={viewer} loadPdf={loader} initialPageNumber={initialPageNumber} title={source.title} {...theme} style={{ flex: 1, minHeight: 0 }}
       onLoad={() => setSelection({ loader, pageNumber: viewer.current?.getPageNumber() ?? 0, pageNumbers: viewer.current?.getSelectedPageNumbers() ?? [] })}
       onPageChange={({ pageNumber }) => setSelection(previous => ({ loader, pageNumber, pageNumbers: previous?.loader === loader ? previous.pageNumbers : [] }))}
       onSelectionChange={({ pageNumber, pageNumbers }) => setSelection({ loader, pageNumber, pageNumbers })} />

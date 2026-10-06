@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { DocumentCommand, DocumentCommandResult, DocumentModel } from "../model/types";
-import type { DocumentEvent, DocumentProps, DocumentSelection } from "../props";
-import { DOCUMENT_LIMITS, executeDocumentCommands, normalizeDocument, parseDocument, serializeDocument } from "../model/index";
+import type { DocumentEvent, DocumentImportOptions, DocumentProps, DocumentSelection } from "../props";
+import { DOCUMENT_LIMITS, executeDocumentCommands, getDocumentPage, normalizeDocument, parseDocument, serializeDocument } from "../model/index";
+import { record } from "../model/validation";
 import { createDocumentSession } from "../session/create-document-session";
 import { importDocumentDocx, exportDocumentDocx } from "../io/index";
 import { assertDocumentFeatures, resolveDocumentFeatures } from "./document-features";
@@ -12,14 +13,28 @@ import { useDocumentRibbon } from "./use-document-ribbon";
 
 type BusyKind = "save" | "import" | "export" | "permission";
 type Operation = { id: number; epoch: number; signal: AbortSignal };
+const pagePosition = (document: DocumentModel, pageNumber: number) => {
+  const page = getDocumentPage(document, pageNumber);
+  if (!page) throw new Error(`明示的な改ページで区切られた${pageNumber}ページ目がありません。`);
+  return page.from;
+};
 export function useDocumentEditor(props: DocumentProps) {
   const ribbon = useDocumentRibbon(props);
   const latest = useRef(props);
   useLayoutEffect(() => { latest.current = props; });
-  const [session] = useState(() => createDocumentSession(props.initialDocument));
+  const [initial] = useState(() => {
+    const session = createDocumentSession(props.initialDocument);
+    try {
+      const position = props.initialPageNumber === undefined ? undefined : pagePosition(session.getSnapshot().document, props.initialPageNumber);
+      if (position !== undefined) session.select({ from: position, to: position });
+      return { session, position };
+    } catch (cause) { return { session, error: cause instanceof Error ? cause.message : "ページを表示できません。" }; }
+  });
+  const session = initial.session;
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot);
   const [busy, setBusy] = useState<BusyKind | null>(null);
-  const [notice, setNotice] = useState<{ kind: "error" | "success" | "info"; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ kind: "error" | "success" | "info"; text: string } | null>(() => initial.error ? { kind: "error", text: initial.error } : null);
+  const [pageReveal, setPageReveal] = useState<{ document: DocumentModel; position: number } | null>(() => initial.position === undefined ? null : { document: session.getSnapshot().document, position: initial.position });
   const control = useRef({ mounted: true, busy: false, kind: null as BusyKind | null, edit: false, epoch: 0, operationId: 0, abort: new AbortController() });
   const readOnly = props.readOnly === true || !props.onSave;
   const features = resolveDocumentFeatures(props.features);
@@ -139,20 +154,37 @@ export function useDocumentEditor(props: DocumentProps) {
     invalidate(); session.discard(); setNotice(null);
     if (changed) notifyChange("command");
   }
-  async function importFile(input: string | Blob | ArrayBuffer | Uint8Array, format: "dcon" | "docx") {
+  async function importFile(input: string | Blob | ArrayBuffer | Uint8Array, format: "dcon" | "docx", options: DocumentImportOptions = {}) {
     if (!writable() || control.current.busy || !resolveDocumentFeatures(latest.current.features).import) return;
     const operation = reserve("import"), before = session.getSnapshot().document;
     try {
+      const requestedPage = record(options, "Document import options", ["pageNumber"]).pageNumber;
+      if (requestedPage !== undefined && (typeof requestedPage !== "number" || !Number.isSafeInteger(requestedPage) || requestedPage < 1)) throw new Error("ページ番号は1以上の整数を指定してください。");
       let document: DocumentModel, warnings: readonly string[] = [];
       if (format === "docx") { const result = await importDocumentDocx(input as Blob | ArrayBuffer | Uint8Array, { signal: operation.signal }); document = result.document; warnings = result.warnings; }
       else {
         if (typeof input !== "string" && (!(input instanceof Blob) || input.size > DOCUMENT_LIMITS.jsonLength)) throw new Error("40 MiB以下のDCONファイルを選択してください。");
         document = parseDocument(typeof input === "string" ? input : await input.text());
       }
+      const position = requestedPage === undefined ? undefined : pagePosition(document, requestedPage as number);
       if (!current(operation) || !writable() || !resolveDocumentFeatures(latest.current.features).import || session.getSnapshot().document !== before) return;
       // Hand the reservation to the edit-permission path; this operation must not later release that newer reservation.
       release(operation);
-      const result = await execute({ type: "document.replace", document }, { source: "import" });
+      if (serializeDocument(document) === serializeDocument(before)) {
+        if (position !== undefined) {
+          session.select({ from: position, to: position });
+          setPageReveal({ document: before, position }); setNotice(null);
+        }
+        return;
+      }
+      const commands: DocumentCommand[] = [{ type: "document.replace", document }];
+      if (position !== undefined) commands.push({ type: "transaction.apply", steps: [], selection: { from: position, to: position } });
+      const result = await execute(commands, { source: "import" }), after = session.getSnapshot();
+      // The batch already selected the target before notifying the host. A later host
+      // selection/navigation wins; only reveal an import selection that is still current.
+      if (position !== undefined && result && after.document === result.document && after.selection.from === position && after.selection.to === position && control.current.epoch === operation.epoch && !operation.signal.aborted && writable() && resolveDocumentFeatures(latest.current.features).import) {
+        setPageReveal({ document: after.document, position }); setNotice(null);
+      }
       if (result && control.current.mounted && writable() && resolveDocumentFeatures(latest.current.features).import) {
         setNotice({ kind: warnings.length ? "info" : "success", text: warnings.length ? warnings.join("\n") : "文書を読み込みました。" }); emit({ type: "import", format, warnings });
       }
@@ -172,9 +204,16 @@ export function useDocumentEditor(props: DocumentProps) {
     finally { release(operation); }
   }
   const select = (selection: DocumentSelection) => { if (!control.current.mounted) return; try { session.select(selection); } catch (cause) { error(cause); } };
-  useImperativeHandle(props.ref, () => ({ getRibbonDisplayMode: ribbon.getRibbonDisplayMode, setRibbonDisplayMode: ribbon.setRibbonDisplayMode, getDocument: () => session.getSnapshot().document, getSelection: () => ({ ...session.getSnapshot().selection }), select, execute, undo: () => history("undo"), redo: () => history("redo"), save, discard,
-    importNative: input => importFile(input, "dcon"), importDocx: input => importFile(input, "docx"), exportNative: () => exportFile("dcon"), exportDocx: () => exportFile("docx"),
+  function goToPage(pageNumber: number): boolean {
+    if (!control.current.mounted) return false;
+    try {
+      const document = session.getSnapshot().document, position = pagePosition(document, pageNumber);
+      session.select({ from: position, to: position }); setPageReveal({ document, position }); setNotice(null); return true;
+    } catch (cause) { error(cause); return false; }
+  }
+  useImperativeHandle(props.ref, () => ({ getRibbonDisplayMode: ribbon.getRibbonDisplayMode, setRibbonDisplayMode: ribbon.setRibbonDisplayMode, getDocument: () => session.getSnapshot().document, getSelection: () => ({ ...session.getSnapshot().selection }), select, goToPage, execute, undo: () => history("undo"), redo: () => history("redo"), save, discard,
+    importNative: (input, options) => importFile(input, "dcon", options), importDocx: (input, options) => importFile(input, "docx", options), exportNative: () => exportFile("dcon"), exportDocx: () => exportFile("docx"),
   }));
-  return { ...snapshot, ...ribbon, session, features, readOnly, editable: !readOnly && !busy, busy, notice, setNotice, error, execute, select, history, save, discard, importFile, exportFile };
+  return { ...snapshot, ...ribbon, session, features, readOnly, editable: !readOnly && !busy, busy, notice, setNotice, error, execute, select, goToPage, pageReveal, history, save, discard, importFile, exportFile };
 }
 export type DocumentEditor = ReturnType<typeof useDocumentEditor>;

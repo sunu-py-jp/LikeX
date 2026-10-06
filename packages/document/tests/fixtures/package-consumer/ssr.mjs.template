@@ -8,12 +8,16 @@ assert.equal(typeof window, "undefined");
 const document = createDocument({ title: "LikeDocument consumer", content: { type: "doc", content: [
   { type: "paragraph", content: [{ type: "text", text: "Document consumer content" }] },
 ] } });
-const markup = renderToStaticMarkup(createElement(LikeDocument, { initialDocument: document, title: "LikeDocument consumer", style: { height: 360 } }));
+const markup = renderToStaticMarkup(createElement(LikeDocument, { initialDocument: document, initialPageNumber: 1, title: "LikeDocument consumer", style: { height: 360 } }));
 assert.match(markup, /data-likex-document/);
 assert.match(markup, /Document consumer content/);
 assert.match(markup, /height:360px/);
-const thumbnail = renderToStaticMarkup(createElement(LikeDocumentThumbnail, { document }));
+const thumbnail = renderToStaticMarkup(createElement(LikeDocumentThumbnail, { document, pageNumber: 1 }));
 assert.match(thumbnail, /data-likex-document-thumbnail/);
 assert.match(thumbnail, /LikeDocument consumer/);
 assert.ok(!thumbnail.includes('role="textbox"'));
 console.log(JSON.stringify({ resolved: import.meta.resolve("__LIBRARY_RESOLVE__"), renderedBytes: markup.length }));
+
+const missingPage = renderToStaticMarkup(createElement(LikeDocumentThumbnail, { document, pageNumber: 2 }));
+assert.match(missingPage, /LikeDocument consumer/);
+assert.match(missingPage, /role="status"/);

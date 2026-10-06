@@ -1,6 +1,10 @@
 # ブックの取得と検索
 
+複数キーワードのAND/ORは公開ヘッドレスAPI `searchSpreadsheet(workbook, { keywords, operator?: "and" | "or", matchCase? }, { matchBy?: "sheet" | "cell", sheetId?, range?, lookIn?, limit? })` を使う。既定は同一シート内のANDで、別セルの語も組み合わせる。戻り値 `{ matches, truncated }` の各場所はシートID・シート名・セル番地・入力値・検索文字列・一致位置を持つ。AND判定後にセル数limit（既定1000、最大10000）を適用する。今回のCLI `inspect --search --text` は従来の単一条件のままで、複数語は利用側からこのモデルAPIを呼ぶ。[複数キーワード検索](../../../src/docs/data-access.md#複数キーワードをandorで検索する)
+
 CLIの `inspect` は `.spon` を読み取るだけで、ブックや保存内容を変更しない。`skill_dir` と `project_dir` はSKILL.mdと同じ絶対パスを指定する。出力は標準出力の1行のJSONで、`ok`、`kind`、`operation`、`libraryVersion`、`summary`、必要に応じて `selection` を持つ。
+
+UIで開く対象は通常Spreadsheetの `initialSheetId` / `initialSheetName`、表示後の `selectSheet(id | { sheetId?, sheetName? })`、取り込みoptionsの `sheetId` / `sheetName` で指定する。サムネイルは `sheetId` / `sheetName` propsで継続的に制御する。すべて完全一致で、両指定は同じシートであることを検証する。名前は改名すると一致しなくなるため、追随させる場合はIDを使う。CLIの `inspect --sheet-id` は引き続きIDのみで、表示選択や初期propsは扱わない。[通常表示](../../../src/docs/selection.md#最初に開くシートを指定する)と[サムネイル](../../../src/docs/thumbnail.md)を参照する。
 
 数式の計算値を必要な範囲だけ取得する場合は、公開モデルAPI `calculateSpreadsheetRange(workbook, sheetId, range)` を使う。範囲はA1表記か0始まりの矩形で、最大10,000セル。完全な入力検証後、指定範囲と参照依存先だけを既存評価器で計算し、要求したA1アドレスをキーに持つ読み取り専用の `SpreadsheetCalculatedRange` を返す。空セルは空文字、計算エラーは既存のエラー文字列。通常のCLI `inspect --range` は保存値を返す従来どおりの取得で、数式を計算しない。UIの `SpreadsheetThumbnail` はこの範囲計算と共通の処理を使い、選択・編集・ズームは提供しない。[詳細](../../../src/docs/thumbnail.md)
 

@@ -2,6 +2,21 @@
 
 [利用ガイドへ戻る](./README.md)
 
+## 最初に開くシートを指定する
+
+```tsx
+<Spreadsheet initialWorkbook={workbook} initialSheetId="sales" />;
+<Spreadsheet initialWorkbook={workbook} initialSheetName="売上" />;
+```
+
+`initialSheetId` / `initialSheetName` はマウント時だけ読み、最初の描画からそのシートのA1を表示します。ID・名前は完全一致で、大文字小文字や空白を補正しません。両方を指定した場合は同じシートを指す必要があり、省略時は先頭シートです。不正な指定は先頭シートを表示して既存のエラー通知へ報告します。読み取り専用でも使用でき、選択の指定でブック・未保存判定・履歴・編集許可は変わりません。初期propsを後から変更しても移動しません。
+
+表示後の移動には既存の `ref.current.selectSheet("sales")`、または `ref.current.selectSheet({ sheetName: "売上" })` を使います。`SpreadsheetSheetTarget` は `{ sheetId, sheetName? }` または `{ sheetId?, sheetName }` です。IDと名前の両方を渡す照合も可能で、未知・空・曖昧な対象、不一致、改名後の古い名前は `false` を返し、現在の選択を維持します。`{ reveal: true }`、シート機能設定、入力中・アンマウント後の制御は従来どおりです。
+
+`SpreadsheetThumbnail` の `sheetId` / `sheetName` は外側で制御するpropsで、変更ごとに表示を切り替えます。対象不正時は内容を描かずエラー表示になるため、通常のSpreadsheetの初期指定とは区別してください。[軽量サムネイル](./thumbnail.md)
+
+## 画面で選択する
+
 連続した範囲と、離れた複数の範囲を選択できます。Windows/LinuxではCtrl、macOSではCmdを追加選択に使います。
 
 | 操作 | 結果 |
@@ -60,7 +75,7 @@ Ctrl／Cmd＋矢印は、セルの入力値で空かどうかを判断します�
 | --- | --- |
 | `getSelection()` | 現在のシートID、セル・範囲・行列選択のコピー |
 | `getSelectedDrawing()` | `{ sheetId, drawingId }` または `null` |
-| `selectSheet(sheetId, options?)` | シートを表示してA1を選択 |
+| `selectSheet(sheetIdOrTarget, options?)` | ID文字列、またはID・名前の対象オブジェクトでシートを表示してA1を選択 |
 | `selectCell(sheetId, { row, column }, options?)` | 0始まりのセル位置 |
 | `selectRange(sheetId, { anchor, focus, kind? }, options?)` | 1つの範囲 |
 | `selectRanges(sheetId, ranges, options?)` | 同じシート内の複数範囲。最後がアクティブ |

@@ -43,22 +43,24 @@ PDF.jsはブラウザーで読み込むため、SSRするホストではPDF.js�
 
 ## 表示の操作と通知
 
-### 1ページ目だけの専用サムネイル
+### 指定した1ページだけの専用サムネイル
 
-一覧カードなどには `LikeSlidePdfThumbnail` を使えます。タイトルバーを残して1ページ目だけを表示し、ページ一覧・選択・ズーム・編集操作を持ちません。同じ `loadPdf` 契約を使うため、PDF.jsと独自レンダラーのどちらでも利用できます。
+一覧カードなどには `LikeSlidePdfThumbnail` を使えます。タイトルバーを残して指定した1ページだけを表示し、ページ一覧・選択・ズーム・編集操作を持ちません。同じ `loadPdf` 契約を使うため、PDF.jsと独自レンダラーのどちらでも利用できます。
 
 ```tsx
 import { LikeSlidePdfThumbnail } from "@likex/slide/thumbnail";
 import "@likex/slide/styles.css";
 
-<LikeSlidePdfThumbnail loadPdf={loadPdf} title="資料.pdf"
+<LikeSlidePdfThumbnail loadPdf={loadPdf} title="資料.pdf" pageNumber={3}
   colorMode="system" style={{ width: 360, height: 280 }}
   onError={error => console.error(error.message)} />;
 ```
 
-公開型は `SlidePdfThumbnailProps` です。サムネイル用の公開入口 `@likex/slide/thumbnail` からコンポーネント・型・`createSlidePdfLoader` を利用できます。`loadPdf` が必須で、`title`・`colorMode`・`primaryColor`・`className`・`style`・`aria-label`・`onError` を指定できます。表示操作用refや選択通知はありません。既定の高さは280px、最小高さは0で、表示領域の変更に合わせて縦横比を保って自動で縮小します。原寸のscale 1を超える拡大はせず、描画はサムネイル用の最大約20万画素に制限します。領域のサイズ変更は描画済みCanvasの表示サイズだけを変え、PDFを再描画しません。
+公開型は `SlidePdfThumbnailProps` です。サムネイル用の公開入口 `@likex/slide/thumbnail` からコンポーネント・型・`createSlidePdfLoader` を利用できます。`loadPdf` が必須で、`pageNumber`・`title`・`colorMode`・`primaryColor`・`className`・`style`・`aria-label`・`onError` を指定できます。`pageNumber` は1始まりで、省略時は1です。不正な番号やページ数を超える指定は表示位置を丸めず、プレースホルダーと `onError` で通知します。後から有効な番号へ変更すると、そのページの表示に戻ります。
 
-サムネイルは `getPage(1)` だけを呼び出し、他のページやページ一覧を読み込み・描画しません。読み込み中とエラーの表示を備え、PDFの切替・アンマウント時には読み込みと描画を中断し、古い結果を反映せずドキュメントを破棄します。`loadPdf` の参照は同じ資料では保ってください。複数のViewerやサムネイルへ同じLoaderを渡す場合も、呼び出しごとに独立したドキュメントを返す必要があります。
+表示操作用refや選択通知はありません。既定の高さは280px、最小高さは0で、表示領域の変更に合わせて縦横比を保って自動で縮小します。原寸のscale 1を超える拡大はせず、描画はサムネイル用の最大約20万画素に制限します。領域のサイズ変更は描画済みCanvasの表示サイズだけを変え、PDFを再描画しません。
+
+サムネイルは指定したページだけを取得・描画し、ページ一覧を作りません。同じ `loadPdf` のまま `pageNumber` を変える場合は、文書を読み直さず同じセッションを使います。変更前のページ取得・描画を中断し、古い結果やエラーを新しいページへ反映しません。PDFの切替・アンマウント時には読み込みと描画を中断し、ドキュメントを破棄します。`loadPdf` の参照は同じ資料では保ってください。複数のViewerやサムネイルへ同じLoaderを渡す場合も、呼び出しごとに独立したドキュメントを返す必要があります。
 
 ### ページ一覧付きViewerの操作
 
@@ -77,6 +79,8 @@ import "@likex/slide/styles.css";
 | `ref` | `SlidePdfViewerHandle` による表示操作 |
 
 refの `getPageNumber()` / `goToPage(pageNumber)`、`getZoom()` / `setZoom(zoom)` / `fitToPage()` は画面操作と同じ経路です。ページ数の取得前の `getPageNumber()` は0です。倍率は25〜400%。`pageNumber` を制御する場合、`onPageChange` はホストへの変更要求であり、表示は新しいpropsに従います。
+
+通常のファイル閲覧を特定ページから開くには、`<LikeSlidePdfViewer loadPdf={loadPdf} initialPageNumber={3} />` と指定します。表示後も利用側からページを切り替える場合は、冒頭の例の `pageNumber` と `onPageChange` を使います。`initialPageNumber` の更新だけでは同じPDFの表示ページは変わりません。
 
 キーボードのPageUp/PageDown・Home/Endで移動し、Ctrl＋ホイールで拡大縮小できます。縦長・横長のページが混在してもページごとにフィットします。ページ変更はPDF原本・編集履歴・未保存状態へ影響しません。
 
@@ -119,6 +123,42 @@ Viewerは読み込んだドキュメントを所有し、資料の切替・ア�
 
 同梱アダプターは入力サイズ・ページ数・描画サイズを検証します。暗号化やパスワード付きPDFは対象外です。PDFが要求する日本語CMap・フォント・画像デコーダー等は上記の補助資材から読み込みます。未埋め込みフォントやPDF.jsが未対応のPDF表現は、作成元アプリと描画結果が異なる場合があります。
 
+## 画面を起動せずPDFの本文を検索する
+
+`@likex/slide/pdf` はReact・DOM・Canvasを起動しない文字検索の入口です。Node.jsでも使え、公開型はDOM型定義を必要としません。PDF.jsは上記と同じくホストから渡します。表示用の `SlidePdfLoader` と文字用の `PdfTextLoader` は別の契約です。
+
+```ts
+import { createPdfTextLoader, searchPdf } from "@likex/slide/pdf";
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+
+// Worker・CMap・標準フォントなどの設定と、PDF bytesの取得はホストで行う。
+const loadText = createPdfTextLoader(pdfjs, bytes, {
+  cMapUrl: "/pdfjs/cmaps/",
+  standardFontDataUrl: "/pdfjs/standard_fonts/",
+  wasmUrl: "/pdfjs/wasm/",
+});
+const result = await searchPdf(loadText, {
+  keywords: ["売上", "2026"], operator: "and", matchCase: false,
+}, { signal: controller.signal, limit: 1000 });
+
+for (const hit of result.matches) {
+  console.log(hit.pageNumber, hit.text, hit.matches);
+  // 表示中のPDFで開く場合: viewerRef.current?.goToPage(hit.pageNumber)
+}
+```
+
+`bytes` は `Uint8Array` / `ArrayBuffer`、または `size` と `arrayBuffer()` を持つファイルです。ブラウザーの `Blob` も渡せます。URL文字列を受け取ってPDF本体を取得する処理はありません。Node.jsでは `readFile()` の結果を渡し、必要な補助資材はPDF.jsが読めるローカルパスなどで設定します。
+
+戻り値は `{ matches, truncated }`、各ページの結果は `{ pageNumber, text, matches }` です。`pageNumber` は1始まりで、資料順に返します。ページ内の `matches` は `{ keyword, from, to }` の配列で、位置は返却した `text` に対するUTF-16の半開区間です。`text.slice(from, to)` で一致文字列を取り出せます。ANDは同じページ内に全キーワード、ORは1個以上があるページを返します。複数ページの内容を合わせてANDを満たすことはありません。
+
+キーワードはリテラル文字列です。既定は `operator: "and"`、`matchCase: false`。最大64語・各1〜4,096文字・合計16,384文字で、空配列は読み込みなしの0件、空文字はエラーです。正規表現の指定はありません。検索条件・上限は開始時に取り込み、待機中の引数の書き換えは反映しません。
+
+同梱アダプターはPDF.jsの [`getTextContent`](https://mozilla.github.io/pdf.js/api/draft/module-pdfjsLib-PDFPageProxy.html#getTextContent) を使います。抽出順に各文字断片の `str` をそのまま連結し、`hasEOL` がある断片の後ろにLFを追加します。別断片へ分割された単語も連結後に検索できます。座標からの読書順・段組みの復元、行末のハイフン補正、改行の空白への置換はしません。検索位置はPDF座標ではありません。OCRはなく、画像だけのPDFは検索可能な文字層がなければ一致しません。注釈・リンク先・添付ファイル・メタデータは対象外です。
+
+`limit` は一致するページ数の上限で、既定1,000、1〜10,000です。上限を超える一致ページを実際に見つけたときだけ `truncated: true` で停止します。ファイルは100 MiB・2,000ページまで。文字情報は1ページ100万文字・10万項目、走査合計2,000万文字、一致位置は1ページ1万件・検索全体10万件までで、予算超過は部分結果を返さずエラーになります。文字数はUTF-16単位です。1ページずつ走査し、一致ページの文字と位置を結果として保持します。文字サイズの検証は抽出後に行うため、PDF.js自体が解析中に使うメモリ全体を保証する上限ではありません。
+
+`PdfTextLoader` は呼び出しごとに独立した `PdfTextDocument` を返し、`pageCount`、`getPageText(pageNumber, { signal })`、`destroy()` を提供します。検索APIがその文書を所有し、正常終了・エラー・中断時に破棄します。Viewerの文書と共有しないでください。中断時は遅れて返る結果を採用せず、遅れて届く文書も破棄します。文字取得に対応しないローダーはエラーです。サーバーで索引を保存したり別の抽出器へ置き換えたりする場合も、この文字専用契約を使えます。
+
 ## ソースコピー
 
-通常どおりSlideとCoreの `src/` 全体をコピーし、`slide/core.ts` を変更します。PDFを表示するホストにだけ `pdfjs-dist` を追加し、Workerと補助資材を設定してください。PDF.jsのApache-2.0ライセンスと付属通知をホストの配布物にも含めます。`/model` や操作CLIはPDFを開かず、既存のSLON/PPTXモデルを扱います。
+通常どおりSlideとCoreの `src/` 全体をコピーし、`slide/core.ts` を変更します。PDFを表示・検索するホストにだけ `pdfjs-dist` を追加し、Workerと補助資材を設定してください。文字検索の入口は `components/slide/pdf-entry` です。PDF.jsのApache-2.0ライセンスと付属通知をホストの配布物にも含めます。`/model` や操作CLIはPDFを開かず、既存のSLON/PPTXモデルを扱います。

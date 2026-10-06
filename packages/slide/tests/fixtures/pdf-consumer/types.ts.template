@@ -1,0 +1,31 @@
+import { searchPdf, createPdfTextLoader, PDF_SEARCH_LIMITS,
+  type PdfInput, type PdfLoaderOptions, type PdfJsModule, type PdfTextLoader, type PdfTextDocument,
+  type PdfSearchQuery, type PdfSearchOptions, type PdfSearchMatch, type PdfSearchResult } from '__PDF_IMPORT__';
+
+const input: PdfInput = { size: 4, arrayBuffer: async () => new Uint8Array([37, 80, 68, 70]).buffer };
+const options: PdfLoaderOptions = { standardFontDataUrl: '/fonts/' };
+declare const pdfjs: PdfJsModule;
+const load: PdfTextLoader = createPdfTextLoader(pdfjs, input, options);
+const query: PdfSearchQuery = { keywords: ['Revenue', '2026'], operator: 'and', matchCase: false };
+const searchOptions: PdfSearchOptions = { limit: 10, signal: { aborted: false, reason: undefined,
+  throwIfAborted() {}, addEventListener() {}, removeEventListener() {} } };
+const result: Promise<PdfSearchResult> = searchPdf(load, query, searchOptions);
+void result.then(value => {
+  const match: PdfSearchMatch | undefined = value.matches[0];
+  const offset: number | undefined = match?.matches[0]?.from;
+  const keyword: string | undefined = match?.matches[0]?.keyword;
+  const page: number | undefined = match?.pageNumber;
+  const truncated: boolean = value.truncated;
+  void [offset, keyword, page, truncated];
+});
+const custom: PdfTextDocument = { pageCount: 1, async getPageText() { return 'Revenue 2026'; }, async destroy() {} };
+void searchPdf(async () => custom, query);
+// @ts-expect-error PDF input is bytes/file-like, not an automatically fetched URL.
+createPdfTextLoader(pdfjs, 'https://example.test/file.pdf');
+// @ts-expect-error Literal search does not accept a regex option.
+searchPdf(load, { keywords: ['a.*b'], useRegex: true });
+// @ts-expect-error Keywords are strings.
+searchPdf(load, { keywords: [2026] });
+// @ts-expect-error A drawing-only loader is not a text loader.
+searchPdf(async () => ({ pageCount: 1, async getPage() {}, async destroy() {} }), query);
+void PDF_SEARCH_LIMITS;

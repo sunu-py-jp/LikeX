@@ -1,4 +1,5 @@
 import {
+  searchSpreadsheet, type SpreadsheetKeywordSearchQuery, type SpreadsheetKeywordSearchResult,
   applySpreadsheetCommands, createWorkbook, setCellBorders, type SpreadsheetBorderPreset, parseWorkbook, serializeWorkbook, expandCellAddresses, CellAddressExpansionError,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
   createSpreadsheetSession, copySpreadsheetCells, importSpreadsheetXlsx, exportSpreadsheetXlsx, collectSpreadsheetImages, calculateSpreadsheetRange, type SpreadsheetCalculatedRange,
@@ -12,6 +13,12 @@ import {
   SPREADSHEET_FILE_VERSION, type SpreadsheetFile, type SpreadsheetFileRow,
   type SpreadsheetSession, type SpreadsheetSessionOptions, type SpreadsheetHistoryState, type SpreadsheetPastePayload,
 } from '__MODEL_IMPORT__';
+
+const keywordQuery: SpreadsheetKeywordSearchQuery = {keywords:['顧客','会議'],operator:'and'};
+const keywordResult: SpreadsheetKeywordSearchResult = searchSpreadsheet(createWorkbook(),keywordQuery,{matchBy:'sheet',limit:10});
+// @ts-expect-error Regex is not an AND/OR keyword option.
+searchSpreadsheet(createWorkbook(),{keywords:['a'],useRegex:true});
+void keywordResult;
 
 const calculatedRange: SpreadsheetCalculatedRange = calculateSpreadsheetRange(createWorkbook(), 'sheet-1', 'A1:B2');
 const calculatedValue: string | number | boolean = calculatedRange.A1;

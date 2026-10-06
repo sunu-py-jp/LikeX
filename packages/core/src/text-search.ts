@@ -1,4 +1,6 @@
 import { RE2JS } from "re2js";
+export { createKeywordSearchMatcher } from "./keyword-search";
+export type { KeywordSearchQuery, KeywordTextMatch, KeywordSearchMatcher } from "./keyword-search";
 
 /** Literal by default. Regex uses RE2 syntax, without lookaround or backreferences. */
 export type TextSearchQuery = Readonly<{

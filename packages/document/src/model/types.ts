@@ -7,6 +7,8 @@ export type DocumentPage = {
   height: number;
   margins: { top: number; right: number; bottom: number; left: number };
 };
+/** A section delimited by explicit page_break nodes, in ProseMirror positions. */
+export type DocumentPageInfo = Readonly<{ pageNumber: number; from: number; to: number }>;
 export type DocumentTextStyle = {
   fontFamily?: string | null;
   fontSize?: number | null;

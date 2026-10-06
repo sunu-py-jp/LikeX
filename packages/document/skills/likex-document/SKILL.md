@@ -22,6 +22,8 @@ node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input 
 
 埋め込み画像の一覧と使用箇所は `inspect --images` で取得する。同じ画像本体をSHA-256でまとめ、表示寸法・ブロックID・ProseMirror位置を配置ごとに返す。表やリスト内の画像も対象で、ページ番号は推測しない。実画像を再圧縮・リサイズしたものは別IDになる。CLIは画像本体を出力せず、外部解析サービスも呼ばない。ホストで画像本体を扱う場合は公開 `collectDocumentImages` を使う。[画像収集の参照](references/image-analysis.md)に引数・制約と利用例がある。
 
+画面なしの複数キーワード検索には公開 `searchDocument(document, { keywords, operator?: "and" | "or", matchCase? }, { matchBy?: "page" | "block", limit? })` を使う。既定は同じ明示改ページ内でのAND。`{ matches, truncated }` がページ番号・ブロックID・本文位置を返す。文字列offsetとProseMirror位置を区別し、図形はノード範囲を選択する。検索は保存内容・履歴を変更せず、CLIの新規編集コマンドにはしない。[検索と位置の参照](references/search.md)を確認する。
+
 [コマンドの説明](references/commands.md)で該当操作を選び、コマンドをJSON**配列**としてファイルへ書く。新しい文書も `create` 後に同じ手順で編集できる。
 
 ```bash
@@ -34,7 +36,8 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 
 ## 編集上の契約
 
-- 一覧用の `LikeDocumentThumbnail` は `@likex/document/thumbnail` から使う表示専用コンポーネント。`document` propsの更新で先頭の用紙1枚分を表示し、編集refは持たない。描画上限による省略はモデルを変更せず、厳密なWordの自動改ページを保証しない。サムネイルの表示設定を保存形式やCLI編集コマンドへ追加しない。
+- 一覧用の `LikeDocumentThumbnail` は `@likex/document/thumbnail` から使う表示専用コンポーネント。`document` / `pageNumber` propsの更新で指定した明示改ページ区切りの用紙1枚分を表示し、編集refは持たない。描画上限による省略はモデルを変更せず、厳密なWordの自動改ページを保証しない。`pageNumber` は1始まりで既定値1、先行ページは描画予算を消費しない。不正・存在しない番号はプレースホルダーと `onError` へ通知する。サムネイルの表示設定を保存形式やCLI編集コマンドへ追加しない。
+- `getDocumentPage(document, pageNumber = 1)` は表・リスト内も含む明示 `page_break` 区切りの `{ pageNumber, from, to }` を返す。存在しなければ `undefined`、不正番号は例外。Wordの自動改ページ番号を推測しない。通常表示は `initialPageNumber`、後からは `ref.goToPage` で移動でき、読み取り専用でも編集許可・未保存状態・履歴に影響しない。refの `importNative` / `importDocx` は第2引数 `{ pageNumber }` を適用前に検証し、不正なら旧draftを保持する。純粋な入出力APIの表示オプションやCLIコマンドには追加しない。
 
 - リボンの `expanded` / `tabs` / `autoHide` / `hidden` はホストUIの表示状態。`.dcon`・DOCXには保存せず、CLI編集コマンドの対象にしない。UI利用側は `initialRibbonDisplayMode` / `ribbonDisplayMode` とrefの `getRibbonDisplayMode()` / `setRibbonDisplayMode()` を使う。
 

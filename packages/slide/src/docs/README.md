@@ -4,6 +4,8 @@ LikeSlideはスライドをJSONで保持するReactコンポーネントです�
 
 PDFを同じ外観で閲覧する場合は、[PDFの閲覧](pdf-viewer.md)の `LikeSlidePdfViewer` を使います。閲覧時だけPDF.js等の描画エンジンをホストから注入します。
 
+サーバー側でキーワードからページ・要素を探す場合は、[描画しないキーワード検索](search.md)の `searchSlides` を使います。
+
 一覧カードなどでタイトルと先頭ページだけを表示する場合は、[軽量サムネイル](thumbnail.md)の `LikeSlideThumbnail` / `LikeSlidePdfThumbnail` を使います。
 
 ## パッケージで使う
@@ -47,6 +49,7 @@ Coreへの参照は `slide/core.ts` に集約されています。`browser.ts`�
 | プロパティ | 型 | 省略した場合 |
 | --- | --- | --- |
 | `initialDeck` | `SlideDeck` | 空のスライド1枚 |
+| `initialPageNumber` / `initialSlideId` | `number` / `string` | 先頭ページ。初回のみ適用し、両方指定すると一致を検証 |
 | `onSave` | `(deck) => void または Promise<void / SlideDeck>` | 読み取り専用 |
 | `readOnly` | `boolean` | `onSave` の有無に従う |
 | `colorMode` | `"light" / "dark" / "system"` | ライト |

@@ -94,3 +94,9 @@ DOCXではWord 2010の編集可能なDrawingMLプリセットへ変換する。�
 端点の `binding` は同じキャンバス内の図形だけを参照する。`port` は上下左右と四隅の `top` / `topRight` / `right` / `bottomRight` / `bottom` / `bottomLeft` / `left` / `topLeft`。座標は接続先から自動更新される。`routing` は `elbow`（既定の自動直交）または `straight`。`startArrow` / `endArrow` は `none` / `triangle` / `openArrow` / `diamond` / `oval` / `stealth`。色と線幅は `stroke` / `strokeWidth`。接続先を削除すると線端の位置を保って関連だけ解除する。
 
 図形・線はそれぞれ最大500個。直交経路は接続先の輪郭に合わせるが、第三の図形を避けることは保証しない。`getDocumentCanvasConnectorRoute` は現在の描画頂点を返す。DOCXでは編集可能なWordグループ図形・ネイティブ接続参照として出力し、外部Wordの未対応接続点などは解除を警告する。
+
+## 明示改ページの取得と表示
+
+`getDocumentPage(document, pageNumber = 1)` は明示的な `page_break` で区切る `{ pageNumber, from, to }` を返す。表・リスト内も文書順に数え、連続／末尾の改ページによる空白ページを含む。`from` / `to` は改ページノードを除くProseMirror位置。存在しないページは `undefined`、1以上の安全な整数でない番号は例外。Wordの自動改ページや印刷ページ数を推測しない。
+
+ページ移動は文書編集コマンドではない。通常UIは `initialPageNumber` / `ref.goToPage(number)`、サムネイルはcontrolledな `pageNumber` を使い、保存JSONや履歴を変更しない。refの `importNative` / `importDocx` は第2引数 `{ pageNumber }` を適用前に検証し、失敗時に旧draftを保持する。画面なしの `importDocumentDocx` は文書を変換するだけで、表示ページは返されたモデルを使うUI側で指定する。

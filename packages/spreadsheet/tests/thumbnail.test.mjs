@@ -15,6 +15,11 @@ const bundle = await build({ stdin: { contents: `export * from './src/thumbnail'
       assert.ok(source.includes(target));
       return { contents: source.replace(target, 'globalThis.__thumbnailFormulaReads?.push(`${sheetId}:${canonical}`);\n' + target), loader: 'ts' };
     });
+    b.onLoad({ filter: /\/model\/workbook\/normalize\.ts$/ }, async ({ path }) => {
+      const source = await readFile(path, 'utf8'), target = 'export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkbook {';
+      assert.ok(source.includes(target));
+      return { contents: source.replace(target, target + '\n globalThis.__thumbnailNormalizations = (globalThis.__thumbnailNormalizations ?? 0) + 1;'), loader: 'ts' };
+    });
   } }] });
 const { SpreadsheetThumbnail, calculateSpreadsheetRange, calculateWorkbook, prepareSpreadsheetThumbnail } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text + '\n//# sourceURL=spreadsheet-thumbnail-tests.mjs').toString('base64')}`);
 const input = () => ({ sheets: [
@@ -151,4 +156,43 @@ test('async error observers are isolated and replacing an observer alone does no
   await act(() => renderer.update(h(SpreadsheetThumbnail, { workbook: { sheets: [] }, onError: replacement })));
   assert.equal(first.length, 1); assert.equal(second.length, 1);
   assert.equal(renderer.root.findAllByType('foreignObject').length, 0);
+});
+
+test('exact sheet ID and name selectors render only the target and compute only its dependencies', () => {
+  const workbook = input();
+  for (const selectors of [{ sheetId: 'other' }, { sheetName: 'Other' }, { sheetId: 'other', sheetName: 'Other' }]) {
+    globalThis.__thumbnailFormulaReads = [];
+    const html = renderToStaticMarkup(h(SpreadsheetThumbnail, { workbook, ...selectors }));
+    assert.match(html, /OTHER SHEET CONTENT/); assert.doesNotMatch(html, /https:\/\/example.invalid/);
+    assert.equal((html.match(/data-lxs-thumbnail-cell=/g) ?? []).length, 200);
+    assert.deepEqual(globalThis.__thumbnailFormulaReads, ['other:A1', 'other:B1']);
+  }
+  for (const selectors of [{ sheetId: '' }, { sheetId: 'missing' }, { sheetName: '' }, { sheetName: 'other' },
+    { sheetName: ' Other' }, { sheetName: 'missing' }, { sheetId: 'first', sheetName: 'Other' }]) {
+    const html = renderToStaticMarkup(h(SpreadsheetThumbnail, { workbook, title: 'Preserved title', ...selectors }));
+    assert.match(html, /Preserved title/); assert.match(html, /サムネイルを表示できません/); assert.doesNotMatch(html, /foreignObject|data-lxs-thumbnail-cell/);
+  }
+  const ambiguous = input(); ambiguous.sheets[0].name = 'Other';
+  assert.throws(() => prepareSpreadsheetThumbnail(ambiguous, undefined, 'Other'));
+});
+
+test('thumbnail selectors are controlled and a renamed selected sheet reports an error instead of falling back', async t => {
+  const workbook = input(), errors = []; let renderer;
+  globalThis.__thumbnailNormalizations = 0;
+  const onError = error => errors.push(error);
+  await act(() => { renderer = create(h(SpreadsheetThumbnail, { workbook, onError })); });
+  t.after(() => act(() => renderer.unmount()));
+  const value = () => renderer.root.findByProps({ 'data-lxs-thumbnail-cell': 'A1' }).findByType('span').children[0];
+  assert.equal(value(), '54');
+  await act(() => renderer.update(h(SpreadsheetThumbnail, { workbook, sheetId: 'other', onError })));
+  assert.equal(value(), '42');
+  await act(() => renderer.update(h(SpreadsheetThumbnail, { workbook, sheetName: 'First', onError })));
+  assert.equal(value(), '54');
+  assert.equal(globalThis.__thumbnailNormalizations, 1, 'Changing only the target reuses the validated workbook');
+  const renamed = input(); renamed.sheets[0].name = 'Renamed';
+  await act(() => renderer.update(h(SpreadsheetThumbnail, { workbook: renamed, sheetName: 'First', onError })));
+  assert.equal(errors.length, 1); assert.equal(renderer.root.findAllByType('foreignObject').length, 0);
+  assert.equal(globalThis.__thumbnailNormalizations, 2);
+  await act(() => renderer.update(h(SpreadsheetThumbnail, { workbook: renamed, sheetId: 'first', onError })));
+  assert.equal(value(), '54');
 });

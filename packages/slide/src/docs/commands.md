@@ -4,6 +4,8 @@
 
 埋め込み画像を解析用に取り出すときは `await collectSlideImages(deck)` を使います。同一バイト列の画像をSHA-256でまとめた `images` と、各ページでの位置・寸法を保つ `placements` を返します。利用例・取得範囲・ホスト側のキャッシュは[画像の収集と重複判定](image-analysis.md)を参照してください。
 
+サーバーで本文を検索するときは `searchSlides(deck, { keywords: ["顧客", "会議"], operator: "and" })` でページ番号・スライドID・要素ID・一致箇所を取得できます。AND／ORの一致単位、継承要素、ノート等の指定は[描画しないキーワード検索](search.md)を参照してください。
+
 ## JSONの構造
 
 ```ts
@@ -276,7 +278,7 @@ const result = await ref.current?.execute({ type: "element.add",
   slideId: deck.slides[0].id, element: { type: "text", text: "外部から追加" } });
 ```
 
-`SlideHandle` の `getDeck()`、`getSlides()`、`getSlide()`、`getPageNumber()`、`getSelectedPageNumbers()`、`getSelectedSlides()`、`getElements()`、`getElement()`、`getAnimations()`、`getSelection()`、`select(selection)`、`deleteSelection(scope)`、`execute()`、`undo()`、`redo()`、`save()`、`discard()`、`importNative()`、`exportNative()`、`importPptx()`、`exportPptx()`、`exportImage()`、`exportImages()` が使えます。`execute` は拒否時に `null`、`undo` / `redo` / `save` は成功をbooleanで返します。`execute` と履歴操作は編集許可・読み取り専用・機能設定を通ります。ヘッドレスAPIには認証の責務はありません。
+`SlideHandle` の `getDeck()`、`getSlides()`、`getSlide()`、`getPageNumber()`、`goToPage(pageNumber)`、`getSelectedPageNumbers()`、`getSelectedSlides()`、`getElements()`、`getElement()`、`getAnimations()`、`getSelection()`、`select(selection)`、`deleteSelection(scope)`、`execute()`、`undo()`、`redo()`、`save()`、`discard()`、`importNative()`、`exportNative()`、`importPptx()`、`exportPptx()`、`exportImage()`、`exportImages()` が使えます。`execute` は拒否時に `null`、`undo` / `redo` / `save` は成功をbooleanで返します。`execute` と履歴操作は編集許可・読み取り専用・機能設定を通ります。ヘッドレスAPIには認証の責務はありません。
 
 `SlideSelection` は `{ slideId, elementIds, slideIds? }` です。`slideId` はキャンバスで表示するページ、`slideIds` は複数選択したページを表します。存在しないIDと重複は取り除き、アクティブな `slideId` を含めて資料順に揃えます。2枚以上のときだけ `slideIds` を返し、`elementIds` は空にします。単一ページは従来の `{ slideId, elementIds }` のままです。選択自体は未保存状態や履歴を増やしません。
 
@@ -306,7 +308,7 @@ await ref.current?.importNative(file); // Blob / File または現在のSLON形�
 const native: Blob | undefined = await ref.current?.exportNative();
 ```
 
-`importNative(input: string | Blob): Promise<void>` はGUIと同じ検証・編集許可・機能設定を通り、資料全体を未保存の下書きとして置き換えます。入力途中の編集と実行中の操作を先に確定するため、Undoで読み込み直前の内容と選択へ戻せます。不正なJSONは元の資料を維持し、エラーを画面の通知へ表示します。読み取り専用・機能無効・別の入出力処理中・編集許可の拒否では適用せず、既存の `importPptx` と同様に成功値や例外を返しません。成功時は `import` イベント、内容が変わった場合は `change` イベントも通知します。
+`importNative(input: string | Blob, target?: SlidePageTarget): Promise<void>` はGUIと同じ検証・編集許可・機能設定を通り、資料全体を未保存の下書きとして置き換えます。入力途中の編集と実行中の操作を先に確定するため、Undoで読み込み直前の内容と選択へ戻せます。不正なJSONは元の資料を維持し、エラーを画面の通知へ表示します。読み取り専用・機能無効・別の入出力処理中・編集許可の拒否では適用せず、既存の `importPptx` と同様に成功値や例外を返しません。成功時は `import` イベント、内容が変わった場合は `change` イベントも通知します。
 
 `exportNative(): Promise<Blob>` は入力途中の編集と実行中の操作を待って、`application/json` のSLONを返します。ダウンロード・保存済み化・`onSave` の呼び出しは行いません。読み取り専用でも利用できますが、`features.export === false`、別の入出力処理中、アンマウント後はPromiseをrejectします。`getDeck({ includeAnimations: true })` は確定済みの元の値と定義を同期取得するため、入力途中の内容も含むファイルが必要なら `exportNative()` を使います。
 
@@ -352,3 +354,20 @@ const result = applySlideCommands(deck, {
 ## リボンの表示
 
 `SlideHandle.getRibbonDisplayMode()` と `setRibbonDisplayMode(mode): boolean` で、表示中のリボンを操作できます。`SlideRibbonDisplayMode` は `expanded` / `tabs` / `autoHide` / `hidden` です。保存する資料・履歴・編集許可には影響しません。[初期値・制御props・操作例](ribbon-display.md)を参照してください。
+
+
+### 指定ページから開く
+
+```tsx
+<LikeSlide initialDeck={deck} initialPageNumber={3} />
+// スライドIDは並べ替え後も同じページを指します。
+<LikeSlide initialDeck={deck} initialSlideId="architecture" />
+
+ref.current?.goToPage(3); // 読み取り専用でも移動可能。番号は1始まり。
+await ref.current?.importNative(file, { pageNumber: 3 });
+await ref.current?.importPptx(pptx, { slideId: "architecture" });
+```
+
+`initialPageNumber` / `initialSlideId` は初回だけ読み、後のprops変更は無視します。初期指定が不正ならエラー通知を表示して先頭ページを開きます。表示先は保存内容・未保存状態・Undo履歴に影響しません。`goToPage` は移動を受け付けると `true`、無効番号・同じページ・アンマウント後・入出力処理中・未確定入力がある場合は `false` です。移動は既存の `select` と同じ選択通知を通ります。ID指定で後から移動する場合は `select({ slideId, elementIds: [] })` が使えます。
+
+`SlidePageTarget` は `{ pageNumber?: number; slideId?: string }` です。`importNative` / `importPptx` の第2引数に指定すると、読み込み後の資料に対して検証してから一括で置き換えます。指定が不正なら元の資料と選択を維持し、画面へエラーを通知します。両方を渡した場合は同じページである必要があります。インポート本来の編集許可・読み取り専用・Undoの規約は変わりません。省略時は従来どおり先頭ページです。

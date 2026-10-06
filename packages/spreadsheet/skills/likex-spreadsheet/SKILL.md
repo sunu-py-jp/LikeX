@@ -5,11 +5,15 @@ description: LikeX SpreadsheetのネイティブJSON（.spon）を作成・検�
 
 # LikeX Spreadsheet
 
+サーバーで複数キーワードを検索する場合は、公開モデルAPI `searchSpreadsheet(workbook, { keywords, operator?: "and" | "or", matchCase? }, options?)` を使う。シート単位（既定）またはセル単位で判定し、`{ matches, truncated }` からシートID・セル番地・一致位置を取得できる。通常文字列専用で、単一検索用CLIの `--text` とは区別する。詳細は [取得と検索](references/inspect.md) を読む。
+
 `.spon` を読み、必要な箇所をコマンドで変更して、正規のシリアライザーで保存する。Reactのマウント・DOM・CSSは不要。
 
 リボンの表示方法はホストUIの `initialRibbonDisplayMode` / `ribbonDisplayMode` とHandleで制御する。SPON／XLSXやCLIコマンドの対象ではないため、リボンを隠す目的でブックや機能設定を書き換えない。[リボンの表示ガイド](../../src/docs/ribbon-display.md)を参照する。
 
-一覧用の軽量表示は `@likex/spreadsheet/thumbnail` の `SpreadsheetThumbnail` を使う。タイトルと先頭シートのA1:J20を最大200セル・100図形で表示し、編集・選択・ズーム用のHandleを持たない。全入力の検証後、必要な範囲と依存先だけ数式計算する。モデルで同じ範囲の計算値を得るには `calculateSpreadsheetRange(workbook, sheetId, range)` を使う。サムネイルはUI表示なので保存形式やCLIを変更しない。[表示の制約と範囲計算](../../src/docs/thumbnail.md)を参照する。
+一覧用の軽量表示は `@likex/spreadsheet/thumbnail` の `SpreadsheetThumbnail` を使う。タイトルと指定シートのA1:J20を最大200セル・100図形で表示し、編集・選択・ズーム用のHandleを持たない。`sheetId` / `sheetName` propsは完全一致で、両方指定した場合は同じシートを指す必要がある。省略時は先頭、不正な対象はエラー表示で、props変更ごとに更新する。全入力の検証後、必要な範囲と依存先だけ数式計算する。モデルで同じ範囲の計算値を得るには `calculateSpreadsheetRange(workbook, sheetId, range)` を使う。サムネイルはUI表示なので保存形式やCLIを変更しない。[表示の制約と範囲計算](../../src/docs/thumbnail.md)を参照する。
+
+通常のSpreadsheetはマウント時の `initialSheetId` / `initialSheetName`、表示後の `ref.selectSheet(id | { sheetId?, sheetName? })`、ファイル取り込み時の `importExcel` / `importNative` optionsの `sheetId` / `sheetName` で対象を指定する。同じ完全一致の規約を使い、両指定は同じ対象でなければ拒否する。初期対象不正は先頭＋通知、表示後の選択不正はfalse、取り込み対象不正は適用前にrejectして旧下書きを保持する。初期propsは後から変えても移動しない。いずれもUIの選択で、SPON・XLSXやCLIに選択状態を保存しない。[対象指定ガイド](../../src/docs/selection.md#最初に開くシートを指定する)
 
 ## 必要な環境
 

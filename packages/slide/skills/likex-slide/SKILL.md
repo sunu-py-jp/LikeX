@@ -9,7 +9,9 @@ description: LikeX SlideのネイティブJSON（.slon）を作成・検証・�
 
 リボンの `expanded` / `tabs` / `autoHide` / `hidden` はホストUIの表示設定です。`.slon` やPPTXには保存せず、モデルコマンドやCLIで変更しません。利用ホストは `initialRibbonDisplayMode` / `ribbonDisplayMode` またはrefの `setRibbonDisplayMode` を使います。
 
-一覧カードの `LikeSlideThumbnail` / `LikeSlidePdfThumbnail` は `@likex/slide/thumbnail` から利用する専用UIです。タイトルと先頭ページだけを静止表示し、ページ選択・編集・ズーム操作は持ちません。保存モデル・コマンド・CLIの機能ではありません。
+一覧カードの `LikeSlideThumbnail` / `LikeSlidePdfThumbnail` は `@likex/slide/thumbnail` から利用する専用UIです。タイトルと `pageNumber`（1始まり）または通常スライドの `slideId` で指定する1ページを静止表示し、ページ選択・編集・ズーム操作は持ちません。保存モデル・コマンド・CLIの機能ではありません。
+
+通常スライドの初期表示は `initialPageNumber` / `initialSlideId`、後からの移動はrefの `goToPage` または `select`、ファイル読み込み時は `importNative` / `importPptx` の第2引数 `{ pageNumber?, slideId? }` で指定します。いずれもページ指定はUI状態でありCLIの対象ではありません。
 
 表示中の通常スライドはrefの `getPageNumber()`、`getSelectedPageNumbers()`、`getSelectedSlides(options?)` で現在ページと複数選択したページを取得できます。番号は1始まり、複数の結果は資料順で、内容は既定で最終静止状態、`{ includeAnimations: true }` なら元の値と定義です。選択IDは `getSelection()` / `onSelectionChange` の `slideIds ?? [slideId]` で取得します。これらは読み取り専用でも使えるUI状態APIで、保存モデルやCLIの対象ではありません。
 
@@ -53,6 +55,10 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 `--dry-run` はファイルを書き込まない。新しいIDを生成する操作のdry-run結果を、本実行のIDとして使わない。検証後は出力の対象スライド・要素を `inspect` して内容を確認する。画像化やレイアウトの視認が必要なら、[PNG画像出力](references/image-export.md)を読み、ブラウザーAPIまたは描画アダプター付きの専用CLIを使う。
 
 ## CLIの使い分け
+
+PDFは専用の `@likex/slide/pdf` にある `searchPdf` / `createPdfTextLoader` を使う。PDF.jsの注入と文字抽出の範囲は[PDFのキーワード検索](references/pdf-search.md)を参照する。標準CLIはPDFを検索しない。
+
+キーワードで対象ページを探すホストは、公開 `searchSlides(deck, { keywords, operator: "and" | "or", matchCase? }, options?)` を使える。既定はページ単位でANDを評価し、別要素に分かれた語も同じページなら一致する。結果は `{ matches, truncated }` で、各一致に1始まりの `pageNumber`・`slideId`・`elementId`・本文内の位置・継承元を返す。標準CLIに検索フラグはないため、このAPIで候補IDを絞ってから `inspect` する。ノート・名前・画像代替テキストは明示した場合のみ対象にする。結果の上限と利用例は[キーワード検索](references/inspect.md#キーワードで対象ページを探す)を読む。
 
 | 操作 | 引数 |
 | --- | --- |

@@ -123,6 +123,38 @@ for (const sheet of getSheets(workbook)) {
 
 ## キーワードでシート・セルを探す
 
+### 複数キーワードをAND・ORで検索する
+
+`searchSpreadsheet` はサーバーやWorkerで描画せずに使う検索APIです。既存の単一文字列・正規表現検索とは独立した通常文字列検索で、検索による編集・選択変更はありません。
+
+```ts
+import { searchSpreadsheet, parseWorkbook, importSpreadsheetXlsx } from "@likex/spreadsheet/model";
+
+const workbook = parseWorkbook(sponJson);
+// Excelなら const { workbook, warnings } = await importSpreadsheetXlsx(bytes);
+const result = searchSpreadsheet(workbook, {
+  keywords: ["顧客", "会議"], operator: "and", matchCase: false,
+}, { matchBy: "sheet", limit: 1000 });
+// { matches: [{ sheetId: "minutes", sheetName: "議事録", address: "B12",
+//   value: "顧客会議", text: "顧客会議",
+//   matches: [{ keyword: "顧客", from: 0, to: 2 }, { keyword: "会議", from: 2, to: 4 }]
+// }], truncated: false }
+```
+
+`SpreadsheetKeywordSearchQuery` は `{ keywords: readonly string[], operator?: "and" | "or", matchCase?: boolean }`。既定はAND・大小文字を区別しない部分一致です。スペースは語の区切りにせず、配列内の各文字列をそのまま検索します。正規表現モードはありません。空配列は一致なし、空文字の語は例外。同一語の重複は除去します。
+
+`SpreadsheetKeywordSearchOptions` の `matchBy` は `"sheet"`（既定）または `"cell"`。シート単位のANDでは「顧客」がA1、「会議」がB5にあっても一致し、両方のセル位置を返します。別シートの語とは組み合わせません。セル単位なら1セルで条件を満たす必要があります。範囲外やキーワードを含まないセルは返しません。`sheetId` / `range` で対象を絞った場合は、その範囲内だけでANDを判定します。`range` は `sheetId` が必要です。
+
+`lookIn` は `"values"`（既定の書式付き計算値）または `"formulas"`（保存された数式・入力値）。同じブックの `calculated` を渡すと計算値を再利用できます。セル以外の図形・コメント・シート名はこのAPIの対象外です。
+
+返り値は `SpreadsheetKeywordSearchResult` の `{ matches, truncated }`。各場所は `SpreadsheetKeywordSearchMatch`（シートID・名前、A1番地、保存値 `value`、検索した `text`、その文字列内の一致位置 `matches`）です。位置はUTF-16・0始まり・終端を含まない範囲。同一語の位置は非重複で数え、異なる語は重なりを許します。結果はシート順・行列順の凍結した独立データです。
+
+`limit` は返すセル数で、既定1,000、最大10,000。ANDの成立を判定してから適用し、残りがある場合は `truncated: true` を返します。キーワードは最大64個・各4,096文字・合計16,384文字、一致位置は1文字列あたり10,000件、結果全体100,000件まで。位置の上限超過は例外で、黙って省略しません。
+
+結果の `sheetId` は通常画面の `initialSheetId` やサムネイルの `sheetId` にそのまま渡せます。セルへ移動するには `parseCellAddress(hit.address)` と `ref.selectCell(hit.sheetId, position, { reveal: true })` を使います。ファイルを横断する索引・認証・検索用HTTP APIはホストアプリの責務です。[選択API](selection.md)
+
+### 単一キーワードと正規表現
+
 名前によるシート検索と、ブック・シート・範囲内のセル検索を画面なしで実行できます。シート一覧の全データは `getSheets`、一致したシートのID・名前・位置だけが必要なら `findSpreadsheetSheets` を使います。
 
 ```ts

@@ -9,17 +9,25 @@ import Spreadsheet, {
   SPREADSHEET_FILE_VERSION, type SpreadsheetFile, type SpreadsheetFileRow,
   prepareSpreadsheetImage, type SpreadsheetHandle, type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot,
   findSpreadsheetSheets, findSpreadsheetCells, type SpreadsheetSheetSearchMatch, type SpreadsheetSearchOptions,
-  getSheetCells, type SpreadsheetStoredCell,
+  getSheetCells, type SpreadsheetStoredCell, type SpreadsheetSheetTarget, type SpreadsheetImportExcelOptions,
 } from "__LIBRARY_IMPORT__";
 import { createRef } from "react";
 import { SpreadsheetThumbnail, type SpreadsheetThumbnailProps } from "__LIBRARY_IMPORT__/thumbnail";
 
 const workbook: SpreadsheetWorkbook = createWorkbook();
-const thumbnailProps: SpreadsheetThumbnailProps = { workbook, title: "Preview", colorMode: "light", style: { height: 200 }, onError: error => { const message: string = error.message; void message; } };
+const thumbnailProps: SpreadsheetThumbnailProps = { workbook, sheetId: workbook.sheets[0].id, sheetName: workbook.sheets[0].name, title: "Preview", colorMode: "light", style: { height: 200 }, onError: error => { const message: string = error.message; void message; } };
 const thumbnail = <SpreadsheetThumbnail {...thumbnailProps} />;
 // @ts-expect-error A static thumbnail does not expose the editor handle.
 const editableThumbnail = <SpreadsheetThumbnail workbook={workbook} ref={createRef<SpreadsheetHandle>()} />;
 void [thumbnail, editableThumbnail];
+const target: SpreadsheetSheetTarget = { sheetName: workbook.sheets[0].name };
+const openingProps: SpreadsheetProps = { initialWorkbook: workbook, initialSheetId: workbook.sheets[0].id, initialSheetName: workbook.sheets[0].name };
+const importTarget: SpreadsheetImportExcelOptions = { sheetId: workbook.sheets[0].id, sheetName: workbook.sheets[0].name };
+const nativeTarget: SpreadsheetImportNativeOptions = { sheetName: workbook.sheets[0].name };
+function selectNamedSheet(handle: SpreadsheetHandle) { const selected: boolean = handle.selectSheet(target, { reveal: true }); return selected; }
+// @ts-expect-error Object targets need at least one selector.
+const emptyTarget: SpreadsheetSheetTarget = {};
+void [openingProps, importTarget, nativeTarget, selectNamedSheet, emptyTarget];
 const expandedAddresses: readonly string[] = expandCellAddresses(workbook.sheets[0], ['A1', '$b$2:$c$3']);
 const expansionFailure: Error = new CellAddressExpansionError(1, 'A0:B2', 'invalid range');
 void [expandedAddresses, expansionFailure];
@@ -175,3 +183,8 @@ const borderCommand: SpreadsheetCommand = { type: "cells.borders", sheetId: "she
 // @ts-expect-error Diagonal borders are not a preset.
 const invalidBorderPreset: SpreadsheetBorderPreset = "diagonal";
 void [borderedWorkbook, borderCommand, invalidBorderPreset];
+import { searchSpreadsheet, createWorkbook as createKeywordWorkbook, type SpreadsheetKeywordSearchResult } from '__LIBRARY_IMPORT__';
+const keywordResult: SpreadsheetKeywordSearchResult = searchSpreadsheet(createKeywordWorkbook(), { keywords: ['顧客','会議'], operator:'or' });
+// @ts-expect-error Search result limits are integers, not strings.
+searchSpreadsheet(createKeywordWorkbook(), { keywords: ['顧客'] }, { limit:'10' });
+void keywordResult;

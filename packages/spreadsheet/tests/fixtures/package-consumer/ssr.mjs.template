@@ -17,6 +17,15 @@ assert.match(thumbnailMarkup, /data-likex-spreadsheet-thumbnail/);
 assert.match(thumbnailMarkup, /role="img"/);
 assert.match(thumbnailMarkup, /data-lxs-thumbnail-cell="C1"[^>]*><span[^>]*>10<\/span>/);
 assert.doesNotMatch(thumbnailMarkup, /<button|<input|<textarea|role="grid"/);
+const targetedWorkbook = { sheets: [...workbook.sheets, { id: "target", name: "Target", rowCount: 2, columnCount: 2, cells: { A1: { value: "Target sheet content" } } }] };
+for (const selectors of [{ sheetId: "target" }, { sheetName: "Target" }, { sheetId: "target", sheetName: "Target" }]) {
+  const targeted = renderToStaticMarkup(createElement(SpreadsheetThumbnail, { workbook: targetedWorkbook, ...selectors }));
+  assert.match(targeted, /Target sheet content/); assert.doesNotMatch(targeted, /Spreadsheet consumer cell/);
+}
+const conflictingTarget = renderToStaticMarkup(createElement(SpreadsheetThumbnail, { workbook: targetedWorkbook, sheetId: "target", sheetName: "Consumer sheet" }));
+assert.match(conflictingTarget, /サムネイルを表示できません/); assert.doesNotMatch(conflictingTarget, /foreignObject/);
+const openedTarget = renderToStaticMarkup(createElement(Spreadsheet, { initialWorkbook: targetedWorkbook, initialSheetName: "Target" }));
+assert.match(openedTarget, /Target sheet content/); assert.doesNotMatch(openedTarget, /Spreadsheet consumer cell/);
 assert.equal(calculateWorkbook(workbook)["sheet-consumer"].C1, 10);
 const blank = createWorkbook();
 assert.equal(setCellValue(blank, blank.sheets[0].id, "A1", "7").sheets[0].cells.A1.value, "7");

@@ -8,6 +8,8 @@ import type { SlidePptxExportOptions } from "./export/types";
 import type { SlideImageExportOptions, SlideImagesExportOptions } from "./render/browser-export";
 import type { SlideImageResult } from "./render/types";
 import type { SlidePptxDiagnostic } from "./office/types";
+import type { SlidePageTarget } from "./state/slide-page-target";
+export type { SlidePageTarget } from "./state/slide-page-target";
 
 export type SlideRibbonDisplayMode = RibbonDisplayMode;
 
@@ -36,6 +38,8 @@ export type SlideHandle = {
   getSlide(slideId: string, options?: SlideQueryOptions): Slide | undefined;
   /** One-based number of the active page in the current deck order. */
   getPageNumber(): number;
+  /** View-only navigation; false for invalid, unchanged, unmounted, busy or unfinished-input requests. */
+  goToPage(pageNumber: number): boolean;
   /** One-based selected page numbers in deck order; returns a detached array. */
   getSelectedPageNumbers(): number[];
   /** Selected pages in deck order. Returns detached copies; defaults to the final static state. */
@@ -62,10 +66,10 @@ export type SlideHandle = {
   /** Delete the selected pages or elements as one undoable edit. At least one page must remain. */
   deleteSelection(scope: "slides" | "elements"): Promise<SlideCommandResult | null>;
   /** Load current .slon JSON as an undoable draft; failures are reported through the editor notice. */
-  importNative(input: string | Blob): Promise<void>;
+  importNative(input: string | Blob, target?: SlidePageTarget): Promise<void>;
   /** Flush pending input and return current .slon JSON without marking the draft saved. */
   exportNative(): Promise<Blob>;
-  importPptx(input: Blob | ArrayBuffer | Uint8Array): Promise<void>;
+  importPptx(input: Blob | ArrayBuffer | Uint8Array, target?: SlidePageTarget): Promise<void>;
   /** Import PPTX/POTX master/layout definitions as one undoable edit without replacing pages or selection. */
   importPptxMasters(input: Blob | ArrayBuffer | Uint8Array, options?: SlidePptxImportOptions): Promise<void>;
   /** Cancel a pending master import, including an outstanding edit-permission request. */
@@ -79,6 +83,10 @@ export type SlideHandle = {
 export type SlideProps = {
   ref?: Ref<SlideHandle>;
   initialDeck?: SlideDeck;
+  /** One-based initial page, read once at mount. Invalid targets show a notice and use page one. */
+  initialPageNumber?: number;
+  /** Stable initial page ID. If both selectors are set they must identify the same page. */
+  initialSlideId?: string;
   onSave?: SaveHandler<SlideDeck>;
   onBeforeSave?: (deck: SlideDeck) => MaybePromise<boolean | void>;
   onEditRequest?: (request: { deck: SlideDeck }, context: OperationContext) => MaybePromise<boolean>;

@@ -63,3 +63,12 @@ assert.equal(collected.placements.length, 2);
 assert.match(collected.images[0].imageId, /^sha256:[a-f0-9]{64}$/);
 assert.equal(collected.images[0].mimeType, 'image/svg+xml');
 assert.ok(collected.placements.every(placement => placement.imageId === collected.images[0].imageId));
+
+const { searchSlides } = await import('__MODEL_IMPORT__');
+const matchingSlide = searchSlides(imported.deck, { keywords: ['headless', 'content'], operator: 'and' });
+assert.equal(matchingSlide.truncated, false);
+assert.equal(matchingSlide.matches.length, 1);
+assert.equal(matchingSlide.matches[0].pageNumber, 1);
+assert.equal(matchingSlide.matches[0].slideId, imported.deck.slides[0].id);
+assert.equal(matchingSlide.matches[0].elementId, imported.deck.slides[0].elements[0].id);
+assert.deepEqual(matchingSlide.matches[0].matches.map(match => matchingSlide.matches[0].text.slice(match.from, match.to)), ['Headless', 'content']);

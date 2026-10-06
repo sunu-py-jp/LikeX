@@ -61,6 +61,7 @@ export async function copyConsumerFixtures(consumer, { module = 'explorer', pack
       const contents = (await readFile(path.join(source, item.name), 'utf8'))
         .replaceAll('__LIBRARY_IMPORT__', imported)
         .replaceAll('__LIBRARY_MODEL__', sourceDirectory ? `${imported}/model-entry` : `${packageName}/model`)
+        .replaceAll('__LIBRARY_PDF__', sourceDirectory ? `${imported}/pdf-entry` : `${packageName}/pdf`)
         .replaceAll('__LIBRARY_RESOLVE__', sourceDirectory ? `${imported}/index.ts` : packageName)
         .replaceAll('__LIBRARY_STYLES__', `${imported}/styles.css`)
         .replaceAll('__EXPLORER_IMPORT__', imported)

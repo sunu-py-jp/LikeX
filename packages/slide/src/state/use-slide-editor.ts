@@ -1,6 +1,7 @@
 "use client";
 import { useSlideRibbon } from "./use-slide-ribbon";
 import { copySlideLine } from "../model/lines";
+import { resolveSlidePageTarget, type SlidePageTarget } from "./slide-page-target";
 
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { SlideCommand, SlideCommandResult, SlideDeck, SlideElement } from "../model/types";
@@ -66,11 +67,15 @@ export function useSlideEditor(props: SlideProps) {
   const propsRef = useRef(props);
   useLayoutEffect(() => { propsRef.current = props; });
   const mounted = useRef(true);
-  const [selection, setSelection] = useState<SlideSelection>(() => ({ slideId: snapshot.deck.slides[0]?.id ?? "", elementIds: [] }));
+  const [initialTarget] = useState(() => {
+    try { return { ...resolveSlidePageTarget(snapshot.deck, { pageNumber: props.initialPageNumber, slideId: props.initialSlideId }), error: undefined }; }
+    catch (cause) { return { slideId: snapshot.deck.slides[0]?.id ?? "", error: cause instanceof Error ? cause.message : "表示するページを指定できませんでした。" }; }
+  });
+  const [selection, setSelection] = useState<SlideSelection>(() => ({ slideId: initialTarget.slideId, elementIds: [] }));
   const selectionRef = useRef(selection);
   const slideSelectionVersion = useRef(0);
   useLayoutEffect(() => { selectionRef.current = selection; }, [selection]);
-  const [notice, setNotice] = useState<SlideNotice>(null);
+  const [notice, setNotice] = useState<SlideNotice>(() => initialTarget.error ? { kind: "error", text: initialTarget.error } : null);
   const [conversionReport, setConversionReport] = useState<SlideConversionReport | null>(null);
   const conversionReportRef = useRef<SlideConversionReport | null>(null);
   const [busy, setBusy] = useState<"save" | "import" | "export" | null>(null);
@@ -191,6 +196,15 @@ export function useSlideEditor(props: SlideProps) {
     setSelection(value);
     try { propsRef.current.onSelectionChange?.(copy(value)); } catch { /* Selection stays valid even if an observer fails. */ }
   }, [session]);
+  const goToPage = useCallback((pageNumber: number) => {
+    if (!Number.isSafeInteger(pageNumber) || !mounted.current || busyRef.current || snapshotPending.current || inputRegistration.current?.pending()) return false;
+    try {
+      const target = resolveSlidePageTarget(session.getSnapshot().deck, { pageNumber });
+      if (target.slideId === selectionRef.current.slideId) return false;
+      select({ slideId: target.slideId, elementIds: [] });
+      return true;
+    } catch { return false; }
+  }, [select, session]);
   useEffect(() => {
     const current = selectionRef.current;
     const slide = snapshot.deck.slides.find(item => item.id === current.slideId)
@@ -414,9 +428,14 @@ export function useSlideEditor(props: SlideProps) {
     session.discard(); selectionPast.current = []; selectionFuture.current = []; setInputPending(false);
   }, [endEdit, session]);
 
-  const importDeck = useCallback(async (loader: () => Promise<{ deck: SlideDeck; warnings: readonly string[]; diagnostics?: readonly SlidePptxDiagnostic[] }>) => {
+  const importDeck = useCallback(async (loader: () => Promise<{ deck: SlideDeck; warnings: readonly string[]; diagnostics?: readonly SlidePptxDiagnostic[] }>, target: SlidePageTarget = {}) => {
     const importEnabled = () => propsRef.current.features?.import !== false;
     if (snapshotPending.current || busyRef.current || !mounted.current || !importEnabled() || (propsRef.current.readOnly ?? !propsRef.current.onSave)) return;
+    let requestedTarget: SlidePageTarget;
+    try {
+      if (!target || typeof target !== "object" || Array.isArray(target)) throw new Error("表示先はページ番号またはスライドIDを持つオブジェクトで指定してください。");
+      requestedTarget = { pageNumber: target.pageNumber, slideId: target.slideId };
+    } catch (error) { reportError(error); return; }
     const generation = operationGeneration.current;
     // Preserve an in-progress edit in the history before replacing its document.
     inputRegistration.current?.flush();
@@ -430,12 +449,13 @@ export function useSlideEditor(props: SlideProps) {
       busyRef.current = true;
       const result = await loader();
       if (!applicable()) return;
+      const opened = resolveSlidePageTarget(result.deck, requestedTarget);
       const before = session.getSnapshot().deck;
       const previous = copy(selectionRef.current);
       session.replace(result.deck, { saved: false });
       const changed = session.getSnapshot().deck !== before;
       if (changed) rememberSelection(previous);
-      if (result.deck.slides[0]) select({ slideId: result.deck.slides[0].id, elementIds: [] });
+      select({ slideId: opened.slideId, elementIds: [] });
       if (result.diagnostics) recordConversion({ phase: "import", warnings: result.warnings, diagnostics: result.diagnostics });
       setNotice({ kind: result.warnings.length ? "info" : "success", text: result.warnings.length ? `読み込みました。${result.diagnostics?.length ?? result.warnings.length}件の変換内容を確認してください。` : "読み込みました。",
         ...(result.diagnostics?.length ? { conversion: true } : {}) });
@@ -444,8 +464,8 @@ export function useSlideEditor(props: SlideProps) {
     } catch (error) { reportError(error); }
     finally { busyRef.current = false; snapshotPending.current = false; if (mounted.current) setBusy(null); }
   }, [authorize, emit, recordConversion, rememberSelection, reportError, select, session]);
-  const importPptx = useCallback(async (input: Blob | ArrayBuffer | Uint8Array) => {
-    await importDeck(async () => (await import("../import/import-pptx")).importSlidePptx(input));
+  const importPptx = useCallback(async (input: Blob | ArrayBuffer | Uint8Array, target?: SlidePageTarget) => {
+    await importDeck(async () => (await import("../import/import-pptx")).importSlidePptx(input), target);
   }, [importDeck]);
   const cancelMasterImport = useCallback(() => { masterImport.current?.abort(); }, []);
   const importPptxMasters = useCallback(async (input: Blob | ArrayBuffer | Uint8Array, options: SlidePptxImportOptions = {}) => {
@@ -489,13 +509,13 @@ export function useSlideEditor(props: SlideProps) {
       if (mounted.current) { setBusy(null); setImportingMasters(false); }
     }
   }, [authorize, emit, recordConversion, rememberSelection, reportError, session]);
-  const importNative = useCallback(async (input: string | Blob) => {
+  const importNative = useCallback(async (input: string | Blob, target?: SlidePageTarget) => {
     await importDeck(async () => {
       // UTF-8 can use three bytes per JavaScript string code unit. The parser
       // separately enforces jsonLength after decoding, including ASCII files.
       if (typeof input !== "string" && input.size > SLIDE_LIMITS.jsonLength * 3) throw new Error("LikeSlideファイルが大きすぎます。");
       return { deck: parseSlideDeck(typeof input === "string" ? input : await input.text()), warnings: [] };
-    });
+    }, target);
   }, [importDeck]);
   const withExportSnapshot = useCallback(async <T,>(signal: SlideImageCommonOptions["signal"], consume: (deck: SlideDeck, signal: AbortSignal) => Promise<T>): Promise<T> => {
     if (propsRef.current.features?.export === false) throw new Error("エクスポート機能は無効です。");
@@ -604,6 +624,7 @@ export function useSlideEditor(props: SlideProps) {
     getSlides: options => copy(getSlides(session.getSnapshot().deck, options)),
     getSlide: (slideId, options) => copy(getSlide(session.getSnapshot().deck, slideId, options)),
     getPageNumber: () => Math.max(0, session.getSnapshot().deck.slides.findIndex(slide => slide.id === selectionRef.current.slideId)) + 1,
+    goToPage,
     getSelectedPageNumbers: () => {
       const current = selectionRef.current;
       const selected = new Set(current.slideIds ?? [current.slideId]);
@@ -625,7 +646,7 @@ export function useSlideEditor(props: SlideProps) {
     execute: command => execute(command), executeConditional,
     undo: () => history("undo"), redo: () => history("redo"), save, discard,
     getSelection: () => copy(selectionRef.current), select, deleteSelection, importNative, exportNative, importPptx, importPptxMasters, cancelMasterImport, exportPptx, exportImage, exportImages,
-  }), [getRibbonDisplayMode, setRibbonDisplayMode, discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
+  }), [getRibbonDisplayMode, setRibbonDisplayMode, goToPage, discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
 
   return { ...snapshot, ...ribbon, dirty, selection, select, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
     copyElements, pasteElements, canPasteElements, prepareCommands, registerInputFlush, refreshPendingInput, notice, setNotice, conversionReport, reportError, features, readOnly, busy, requesting,

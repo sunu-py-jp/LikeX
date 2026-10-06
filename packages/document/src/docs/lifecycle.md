@@ -22,7 +22,7 @@ import { serializeDocument } from "@likex/document/model";
   style={{ height: 720 }} />
 ```
 
-`onSave` 未指定または `readOnly` の場合は編集できません。`onEditRequest` は編集許可の取得に使い、`false` で変更を止めます。ロックの有効期限・解放・保存時のバージョン比較は親側で実装してください。
+`onSave` 未指定または `readOnly` の場合は編集できません。`initialPageNumber` / `goToPage` によるページ移動は読み取り専用でも使え、選択とスクロールだけを変更します。移動による `onChange`・編集許可・Undo履歴は発生しません。`onEditRequest` は編集許可の取得に使い、`false` で変更を止めます。ロックの有効期限・解放・保存時のバージョン比較は親側で実装してください。
 
 ## コールバック
 

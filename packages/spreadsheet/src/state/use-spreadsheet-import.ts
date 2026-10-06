@@ -6,11 +6,12 @@ import type { SpreadsheetExcelImportResult } from "../import/types";
 import { normalizeWorkbook, parseWorkbook, SPREADSHEET_LIMITS } from "../model";
 import type { DraftSelection, Workbook } from "./types";
 import type { useWorkbookDraft } from "./use-workbook-draft";
+import { resolveSpreadsheetSheet } from "../model/sheet-target";
 
 type ImportView = DraftSelection & {
   hasPendingEdits: () => boolean;
   capturePendingEdits: () => () => boolean;
-  resetView: (workbook: Workbook) => void;
+  resetView: (workbook: Workbook, sheetId?: string) => void;
   isExporting: () => boolean;
 };
 const cancelled = (message = "取り込みをキャンセルしました") => new DOMException(message, "AbortError");
@@ -34,6 +35,7 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
     options: SpreadsheetImportExcelOptions = {}, source: "ui" | "api" = "api", format: "xlsx" | "spon" = "xlsx"): Promise<SpreadsheetExcelImportResult> => {
     const feature = format === "xlsx" ? "importExcel" : "importNative";
     const label = format === "xlsx" ? "Excel" : "SPON";
+    const { sheetId, sheetName } = options;
     const { draft: current, view: currentView } = latest.current;
     if (!mounted.current) throw new Error("スプレッドシートは表示されていません");
     if (current.propsRef.current.features?.[feature] === false) throw new Error(`${label}取り込みは無効です`);
@@ -90,6 +92,8 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
       // Freeze a validated copy before host review so approval cannot mutate the candidate.
       const result: SpreadsheetExcelImportResult = Object.freeze({ workbook: normalizeWorkbook(parsed.workbook),
         warnings: Object.freeze(parsed.warnings.map(warning => Object.freeze({ ...warning }))) });
+      const targetSheetId = sheetId !== undefined || sheetName !== undefined
+        ? resolveSpreadsheetSheet(result.workbook, { sheetId, sheetName }).id : undefined;
       if (options.onReview) {
         const accepted = await wait(options.onReview(result));
         ensureCurrent();
@@ -103,7 +107,7 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
         },
         beforePublish: () => {
           current.conditionalStructureRevisionRef.current++;
-          latest.current.view.resetView(result.workbook); published = true;
+          latest.current.view.resetView(result.workbook, targetSheetId); published = true;
         },
       });
       if (committed instanceof Promise && current.getEditState().mode === "requesting") permissionId = current.getEditState().requestId;
@@ -116,7 +120,7 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
       }
       if (!applied.changed) {
         current.conditionalStructureRevisionRef.current++;
-        latest.current.view.resetView(current.workbookRef.current);
+        latest.current.view.resetView(current.workbookRef.current, targetSheetId);
       }
       current.emitEvent({ ...eventBase, status: "success", workbook: result.workbook, warnings: result.warnings });
       return result;

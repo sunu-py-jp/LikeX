@@ -41,6 +41,8 @@ export { OFFICE_SHAPE_PRESETS, isOfficeShapePreset, getOfficeShapeGeometry, getO
 export type { OfficeShapePreset, OfficeShapeCategory, OfficeShapeGeometry } from "./office-shapes";
 export { createTextSearchMatcher } from "./text-search";
 export type { TextSearchQuery, TextSearchMatcher } from "./text-search";
+export { createKeywordSearchMatcher } from "./keyword-search";
+export type { KeywordSearchQuery, KeywordTextMatch, KeywordSearchMatcher } from "./keyword-search";
 // Import-safe on the server; the host supplies a DOM anchor when opening a menu.
 export { openContextMenu } from "./browser";
 export type { ContextMenuAction, ContextMenuSurfaceOptions } from "./browser";

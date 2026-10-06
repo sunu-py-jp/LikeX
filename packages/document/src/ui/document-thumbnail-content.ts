@@ -1,5 +1,7 @@
 import { DOMSerializer, type DOMOutputSpec } from "prosemirror-model";
+import { normalizeDocument } from "../model/document";
 import { documentSchema } from "../model/schema";
+import { documentNodeRange, getDocumentPage } from "../model/pages";
 import type { DocumentCanvasAttributes, DocumentModel, DocumentNode, DocumentRootNode } from "../model/types";
 
 /** Rendering budgets are separate from the native document's validation limits. */
@@ -10,7 +12,11 @@ const clip = (text: string, length: number) => {
 };
 
 /** A disposable rendering prefix; never published or saved as a document model. */
-export function documentThumbnailContent(document: DocumentModel): DocumentRootNode {
+export function documentThumbnailContent(document: DocumentModel, pageNumber = 1): DocumentRootNode {
+  document = normalizeDocument(document);
+  const page = getDocumentPage(document, pageNumber);
+  if (!page) throw new Error(`明示的な改ページで区切られた${pageNumber}ページ目がありません。`);
+  const { from, to } = page;
   let nodes = 0, characters = 0, rows = 0, stopped = false;
   const takeText = (value: string) => {
     const accepted = clip(value, limits.text - characters);
@@ -20,7 +26,8 @@ export function documentThumbnailContent(document: DocumentModel): DocumentRootN
   };
   function visit(node: DocumentNode): DocumentNode | undefined {
     if (stopped || nodes >= limits.nodes) return undefined;
-    if (node.type === "page_break") { stopped = true; return undefined; }
+    const range = documentNodeRange(document, node);
+    if (node.type === "page_break" || range.to <= from || range.from >= to) return undefined;
     if (node.type === "table_row" && ++rows > limits.rows) { stopped = true; return undefined; }
     nodes++;
     if (node.type === "text") { const text = takeText(node.text); return text ? { ...node, text } : undefined; }
@@ -34,13 +41,17 @@ export function documentThumbnailContent(document: DocumentModel): DocumentRootN
     }
     if (!("content" in node) || !node.content) return node;
     const content: DocumentNode[] = [];
-    for (const child of node.content) {
-      const next = visit(child); if (next) content.push(next);
+    let first = -1;
+    for (const [index, child] of node.content.entries()) {
+      const next = visit(child);
+      if (next) { if (first < 0) first = index; content.push(next); }
+      else if (node.type === "table_row" && nodes < limits.nodes) { nodes++; content.push({ ...child, content: [] } as DocumentNode); }
       if (stopped || nodes >= limits.nodes) break;
     }
-    return { ...node, content } as DocumentNode;
+    if (first < 0 && node.content.length && !["doc", "paragraph", "heading"].includes(node.type)) return undefined;
+    return { ...node, ...(node.type === "ordered_list" && first > 0 ? { attrs: { ...node.attrs, order: (node.attrs?.order ?? 1) + first } } : {}), content } as DocumentNode;
   }
-  return visit(document.content) as DocumentRootNode;
+  return visit(document.content) as DocumentRootNode ?? { type: "doc", content: [] };
 }
 
 /** Uses the editor's toDOM rules, but never creates EditorView, EditorState, or a session. */

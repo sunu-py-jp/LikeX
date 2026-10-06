@@ -68,6 +68,15 @@ const replaced: string = subpathMatcher.replace("sales 2026", "Revenue");
 createTextSearchMatcher({ text: "Sales", matchCase: "yes" });
 void [found, replaced];
 
+import { createKeywordSearchMatcher, type KeywordSearchQuery, type KeywordTextMatch } from '__LIBRARY_IMPORT__/text-search';
+const keywords: KeywordSearchQuery = { keywords: ['顧客', '会議'], operator: 'and' };
+const keywordMatches: readonly KeywordTextMatch[] = createKeywordSearchMatcher(keywords).find('顧客会議');
+// @ts-expect-error Keyword search has no regex mode.
+createKeywordSearchMatcher({ keywords: ['a'], useRegex: true });
+// @ts-expect-error Only AND/OR are supported.
+createKeywordSearchMatcher({ keywords: ['a'], operator: 'not' });
+void keywordMatches;
+
 import { openContextMenu, type ContextMenuAction, type ContextMenuSurfaceOptions } from '__LIBRARY_IMPORT__';
 import { openContextMenu as openBrowserContextMenu } from '__LIBRARY_IMPORT__/browser';
 const menuAction: ContextMenuAction = { id: 'open', label: 'Open', onSelect: () => {} };

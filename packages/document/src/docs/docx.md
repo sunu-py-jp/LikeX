@@ -43,10 +43,12 @@ const exportWarnings = exported.warnings;
 
 ## 表示中コンポーネントとの連携
 
-refの `importDocx(input)` は表示中の編集許可を通して下書きを置き換え、`exportDocx()` はBlobを返します。警告は `onEvent` の `{ type: "import" | "export", format: "docx", warnings }` で受け取れます。純粋な `exportDocumentDocx` は `{ blob, warnings }` を返し、refはBlobを返す点に注意してください。
+refの `importDocx(input, { pageNumber? })` は表示中の編集許可を通して下書きを置き換え、`exportDocx()` はBlobを返します。警告は `onEvent` の `{ type: "import" | "export", format: "docx", warnings }` で受け取れます。純粋な `exportDocumentDocx` は `{ blob, warnings }` を返し、refはBlobを返す点に注意してください。
 
 図形は `wps:wsp` と `a:prstGeom` を使い、画像化しません。Wordの `mc:AlternateContent` は対応するDrawingMLの分岐だけを読み、VMLの代替表示を重複して取り込みません。テーマ色は同梱テーマのRGBへ解決し、色の濃淡・透明度の変換やテーマ未解決も警告します。Officeの整数単位への変換により、寸法・線幅・角度は微小に丸められます。図形内の文字サイズはWordの0.5 pt単位です。
 
 描画キャンバスは本文中に配置します。浮動配置のグループはインラインへ変換し、グループ全体の回転・反転は省略することを警告します。各図形の回転・反転は保持しますが、非均等なグループ拡大と回転の組み合わせは近似となり警告します。接続線は図形の背面に置き、異なる重なり順の入力は警告します。
 
 キャンバス内の図形には標準DrawingMLの接続点付き形状を出力し、接続情報も標準の `stCxn` / `endCxn` を使います。外部Word図形の既定の接続点は対応可能な点へ変換します。未対応の点、調整済み図形、存在しない接続先、重複したOffice IDへの接続は解除して端点位置を残し、警告します。独自JSONや画像に置き換える方式ではありません。
+
+`pageNumber` は1始まりの明示改ページ区切りで、Wordの自動改ページではありません。指定ページが変換後の文書に存在しない場合は下書きを置き換えず通知します。成功時は文書と選択をまとめて適用してスクロールします。`importNative` にも同じ指定ができます。純粋な `importDocumentDocx` のオプションには表示ページを含めません。読み取り専用の初期表示には変換後のモデルと `initialPageNumber` を渡してください。

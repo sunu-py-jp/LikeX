@@ -9,11 +9,18 @@ import { notifySpreadsheetHost } from "./notifications";
 import { axisSelectionRange, clampPosition, clampSelection, createSelection, initialSheetSelection, selectionForSheet, selectionRanges, toggleRangeSelection } from "./selection";
 import type { Position, ReportError, SelectionUpdate, Workbook } from "./types";
 import type { SpreadsheetHistoryTarget } from "./history-target";
+import { resolveSpreadsheetSheet } from "../model/sheet-target";
 
 /** Owns cell and object selection plus view focus; editing and persistence are coordinated by the caller. */
 export function useSpreadsheetSelection(workbook: Workbook, features: SpreadsheetFeatureSettings,
-  reportError: ReportError, propsRef: RefObject<SpreadsheetProps>, getWorkbook: () => Workbook, canChange: () => boolean) {
-  const [selection, setSelectionState] = useState<SpreadsheetSelection>(() => initialSheetSelection(workbook.sheets[0]));
+  reportError: ReportError, propsRef: RefObject<SpreadsheetProps>, getWorkbook: () => Workbook, canChange: () => boolean,
+  initialTarget: { sheetId?: string; sheetName?: string } = {}) {
+  const [initial] = useState(() => {
+    try { return { selection: initialSheetSelection(resolveSpreadsheetSheet(workbook, initialTarget)) }; }
+    catch (error) { return { selection: initialSheetSelection(workbook.sheets[0]), error }; }
+  });
+  const [selection, setSelectionState] = useState<SpreadsheetSelection>(() => initial.selection);
+  useEffect(() => { if (initial.error) reportError(initial.error); }, [initial, reportError]);
   const selectionRef = useRef(selection);
   const mounted = useRef(false);
   useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -119,7 +126,14 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
       catch { return null; }
       return { sheetId: selected.sheetId, drawingId: selected.id };
     },
-    selectSheet: (sheetId, options) => applySelection({ type: "sheet", sheetId }, options, true),
+    selectSheet: (target, options) => {
+      try {
+        const selectors = typeof target === "string" ? { sheetId: target } : target;
+        const sheet = resolveSpreadsheetSheet(getWorkbook(), selectors);
+        if (!selectors || (selectors.sheetId === undefined && selectors.sheetName === undefined)) return false;
+        return applySelection({ type: "sheet", sheetId: sheet.id }, options, true);
+      } catch { return false; }
+    },
     selectCell: (sheetId, position, options) => applySelection({ type: "ranges", sheetId, ranges: [{ anchor: position, focus: position }] }, options, true),
     selectRange: (sheetId, range, options) => applySelection({ type: "ranges", sheetId, ranges: [range] }, options, true),
     selectRanges: (sheetId, ranges, options) => applySelection({ type: "ranges", sheetId, ranges }, options, true),
@@ -132,10 +146,16 @@ export function useSpreadsheetSelection(workbook: Workbook, features: Spreadshee
       setGridRevealRequest(value => value + 1); return true;
     },
   };
-  const resetForWorkbook = (next: Workbook, options?: { preserveFocus?: boolean; historyTarget?: SpreadsheetHistoryTarget | null }) => {
+  const resetForWorkbook = (next: Workbook, options?: { preserveFocus?: boolean; historyTarget?: SpreadsheetHistoryTarget | null; sheetId?: string }) => {
     setCommentOpen(false);
     setViewRevision(value => value + 1);
     const previous = selectionRef.current;
+    if (options?.sheetId !== undefined) {
+      const sheet = resolveSpreadsheetSheet(next, { sheetId: options.sheetId });
+      clearDrawingSelection();
+      setSelection(initialSheetSelection(sheet));
+      return;
+    }
     const target = options?.historyTarget;
     const targetSheet = target && next.sheets.find(sheet => sheet.id === target.sheetId);
     if (target && !targetSheet) {

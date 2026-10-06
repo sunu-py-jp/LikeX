@@ -5,16 +5,26 @@ import { effectiveCellFormat, formatCellValue } from "../../model/formatting";
 import { createConditionalFormatter } from "../../model/conditional-formatting";
 import { sheetDrawingGeometry, getSpreadsheetLineRoute, isSpreadsheetLine, spreadsheetLineRouteMidpoint } from "../../model/lines";
 import { rotatedDrawingBounds } from "../../model/drawing-transform";
+import { resolveSpreadsheetSheet } from "../../model/sheet-target";
 import type { SpreadsheetWorkbookSnapshot } from "../../commands/types";
 import type { SpreadsheetMergedRange, SpreadsheetWorkbook } from "../../model/types";
 import { cellFormatStyle, collapseSharedCellBorders } from "../grid/cell-style";
 
 const MAX_ROWS = 20, MAX_COLUMNS = 10, MAX_DRAWINGS = 100, MAX_TEXT = 2_000;
 
-/** Complete validation once; rendering and root formula evaluations stay inside A1:J20. */
-export function prepareSpreadsheetThumbnail(input: SpreadsheetWorkbookSnapshot) {
+export function normalizeSpreadsheetThumbnail(input: SpreadsheetWorkbookSnapshot) {
   if (input === undefined) throw new Error("表示するブックを指定してください");
-  const workbook = normalizeWorkbook(input as SpreadsheetWorkbook), sheet = workbook.sheets[0];
+  return normalizeWorkbook(input as SpreadsheetWorkbook);
+}
+
+/** Complete validation once; rendering and root formula evaluations stay inside A1:J20. */
+export function prepareSpreadsheetThumbnail(input: SpreadsheetWorkbookSnapshot, sheetId?: string, sheetName?: string) {
+  return prepareNormalizedSpreadsheetThumbnail(normalizeSpreadsheetThumbnail(input), sheetId, sheetName);
+}
+
+/** Already validated input lets controlled sheet changes avoid revalidating the complete workbook. */
+export function prepareNormalizedSpreadsheetThumbnail(workbook: SpreadsheetWorkbook, sheetId?: string, sheetName?: string) {
+  const sheet = resolveSpreadsheetSheet(workbook, { sheetId, sheetName });
   const rowCount = Math.min(MAX_ROWS, sheet.rowCount), columnCount = Math.min(MAX_COLUMNS, sheet.columnCount);
   const range = { top: 0, left: 0, bottom: rowCount - 1, right: columnCount - 1 };
   const values = calculateNormalizedRange(workbook, sheet.id, range);

@@ -12,6 +12,7 @@ const mockViewSource = `export class EditorView {
   updateState(state) { this.state = state; this.updates++; }
   setProps(props) { this.props = {...this.props,...props}; }
   dispatch(transaction) { this.props.dispatchTransaction(transaction); }
+  coordsAtPos(position) { return {top: position * 24, bottom: position * 24 + 20, left: 20, right: 40}; }
   focus() { this.focused = true; }
   destroy() { this.destroyed = true; }
 }`;
@@ -22,7 +23,7 @@ const output = await build({ stdin: { contents: `export {default as LikeDocument
     builder.onLoad({ filter: /.*/, namespace: 'pm-test-view' }, () => ({ contents: mockViewSource, loader: 'js' }));
   } },
 ] });
-const { LikeDocument, createDocument, serializeDocument, getDocumentText, getBlocks, getImages, getCanvases, getDocumentCanvasConnectorRoute, TestEditorView } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text + '\n//# sourceURL=likex-document-ui-tests.js').toString('base64')}`);
+const { LikeDocument, createDocument, serializeDocument, getDocumentText, getDocumentPage, getBlocks, getImages, getCanvases, getDocumentCanvasConnectorRoute, TestEditorView } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text + '\n//# sourceURL=likex-document-ui-tests.js').toString('base64')}`);
 const change = async callback => act(async () => { await callback(); });
 const body = value => createDocument({ content: { type: 'doc', content: [{ type: 'paragraph', content: value ? [{ type: 'text', text: value }] : [] }] } });
 const button = (renderer, label) => renderer.root.findByProps({ 'aria-label': label });
@@ -30,15 +31,16 @@ const tab = (renderer, name) => renderer.root.findAllByType('button').find(node 
 const notice = renderer => renderer.root.findAllByType('span').map(node => typeof node.props.children === 'string' ? node.props.children : '').join(' ');
 async function mount(t, props, nodes = false) {
   const ref = createRef(), listeners = new Map(), ownerDocument = { activeElement: null, defaultView: { addEventListener(name, fn) { listeners.set(name, fn); }, removeEventListener(name) { listeners.delete(name); }, confirm: () => true } };
+  const viewport = {scrollTop: 0, scrollLeft: 0, clientTop: 0, clientLeft: 0, getBoundingClientRect: () => ({top: 0, left: 0, right: 800})};
   const root = { ownerDocument, isConnected: true, addEventListener() {}, removeEventListener() {}, querySelector() { return null; } };
   let renderer;
   await change(() => { renderer = create(h(LikeDocument, { ref, ...props }), nodes ? { createNodeMock: element => {
     if (element.props['data-likex-document'] === '') return root;
-    if (element.type === 'div' && Object.keys(element.props).every(key => key === 'ref')) return { ownerDocument };
+    if (element.type === 'div' && Object.keys(element.props).every(key => key === 'ref')) return { ownerDocument, closest: () => viewport };
     return null;
   } } : undefined); });
   t.after(() => change(() => renderer.unmount()));
-  return { renderer, ref, root, listeners, view: TestEditorView.instances.at(-1) };
+  return { renderer, ref, root, listeners, viewport, view: TestEditorView.instances.at(-1) };
 }
 
 test('server rendering includes home ribbon groups, native extension, text and isolated primary color', () => {
@@ -298,4 +300,34 @@ test('Document ribbon presentation keeps active insertion dialog, editor instanc
   assert.deepEqual(ref.current.getSelection(), { from: 1, to: 7 });
   await change(() => ref.current.setRibbonDisplayMode('expanded'));
   assert.equal(renderer.root.findByType('form'), form);
+});
+
+test('read-only initial and imperative page targets reveal through the editor view without focus or edits', async t => {
+  const document = createDocument({ content: { type: 'doc', content: [
+    { type: 'paragraph', content: [{ type: 'text', text: 'First' }] }, { type: 'page_break' },
+    { type: 'paragraph', content: [{ type: 'text', text: 'Second' }] },
+  ] } });
+  const events = [], { ref, view, viewport } = await mount(t, { initialDocument: document, initialPageNumber: 2, onEvent: event => events.push(event) }, true);
+  assert.equal(view.state.scrollToSelection, 1); assert.equal(ref.current.getSelection().from, getDocumentPage(document, 2).from);
+  assert.equal(view.state.selection.from, getDocumentPage(document, 2).from + 1);
+  assert.equal(view.focused, undefined); assert.ok(viewport.scrollTop > 0);
+  await change(() => assert.equal(ref.current.goToPage(1), true));
+  assert.equal(view.state.scrollToSelection, 2); assert.equal(view.state.selection.from, 1);
+  await change(() => assert.equal(ref.current.goToPage(1), true)); assert.equal(view.state.scrollToSelection, 3);
+  await change(() => assert.equal(ref.current.goToPage(3), false)); assert.equal(view.state.scrollToSelection, 3);
+  assert.equal(ref.current.getDocument(), document); assert.deepEqual(events, []);
+});
+
+test('page reveal targets image-only and empty pages without jumping to a later text page', async t => {
+  const document = createDocument({ content: { type: 'doc', content: [
+    { type: 'paragraph', content: [{ type: 'text', text: 'First' }] }, { type: 'page_break' },
+    { type: 'shape', attrs: { preset: 'rect', text: 'Second page shape' } }, { type: 'page_break' },
+    { type: 'page_break' }, { type: 'paragraph', content: [{ type: 'text', text: 'Fourth' }] },
+  ] } });
+  const { ref, view } = await mount(t, { initialDocument: document, initialPageNumber: 2 }, true);
+  assert.equal(view.state.selection.node.type.name, 'shape');
+  assert.equal(view.state.selection.from, getDocumentPage(document, 2).from);
+  await change(() => assert.equal(ref.current.goToPage(3), true));
+  assert.equal(view.state.selection.node.type.name, 'page_break');
+  assert.equal(view.state.selection.from, getDocumentPage(document, 3).from);
 });

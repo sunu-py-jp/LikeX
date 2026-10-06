@@ -8,7 +8,7 @@ import type { SpreadsheetReadApi } from "../model/query-reader";
 import type { SpreadsheetHistoryState } from "../history/workbook-history";
 import type { SpreadsheetSelectionApi } from "./selection";
 import type { SpreadsheetRibbonDisplayMode } from "../props";
-export type { SpreadsheetSelectionApi, SpreadsheetSelectionOptions, SpreadsheetSelectedDrawing } from "./selection";
+export type { SpreadsheetSelectionApi, SpreadsheetSelectionOptions, SpreadsheetSelectedDrawing, SpreadsheetSheetTarget } from "./selection";
 
 export type * from "../commands/types";
 

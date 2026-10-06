@@ -30,6 +30,28 @@ test('first page uses final static animation state without animation playback', 
   assert.match(markup, /left:500px/); assert.doesNotMatch(markup, /left:80px/);
 });
 
+test('controlled page number and stable ID render only the requested page and reject mismatched targets', async t => {
+  const deck = createSlideDeck({ title: 'Chosen deck', slides: [page('one', 'First content'), page('two', 'Second content'), page('three', 'Third content')] });
+  for (const target of [{ pageNumber: 2 }, { slideId: 'two' }, { pageNumber: 2, slideId: 'two' }]) {
+    const markup = renderToStaticMarkup(h(LikeSlideThumbnail, { deck, ...target }));
+    assert.match(markup, /Second content/); assert.match(markup, /の2ページ目/); assert.doesNotMatch(markup, /First content|Third content/);
+  }
+  let view; const errors = [];
+  const render = target => h(LikeSlideThumbnail, { deck, onError: error => errors.push(error), ...target });
+  await act(async () => { view = create(render({ pageNumber: 2 })); });
+  t.after(async () => { await act(async () => view.unmount()); });
+  await act(async () => view.update(render({ slideId: 'three' })));
+  assert.match(JSON.stringify(view.toJSON()), /Third content/); assert.doesNotMatch(JSON.stringify(view.toJSON()), /Second content/);
+  for (const invalid of [{ pageNumber: 0 }, { pageNumber: 4 }, { pageNumber: 1.5 }, { pageNumber: NaN }, { pageNumber: Infinity }, { slideId: 'missing' }, { slideId: '' }, { pageNumber: 1, slideId: 'two' }]) {
+    const count = errors.length;
+    await act(async () => view.update(render(invalid)));
+    assert.equal(errors.length, count + 1); assert.match(JSON.stringify(view.toJSON()), /プレビューできません/);
+    assert.doesNotMatch(JSON.stringify(view.toJSON()), /First content|Second content|Third content/);
+  }
+  await act(async () => view.update(render({ pageNumber: 1 })));
+  assert.match(JSON.stringify(view.toJSON()), /First content/);
+});
+
 test('thumbnail updates when the host replaces the model and contains invalid input errors', async t => {
   let view; const errors = [];
   const render = deck => h(LikeSlideThumbnail, { deck, title: 'Host title', onError: async error => { errors.push(error); throw new Error('observer'); } });

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createDocument, executeDocumentCommands, getDocumentText, getBlock, getBlocks, getImages,
+import { createDocument, executeDocumentCommands, getDocumentText, getBlock, getBlocks, getImages, getDocumentPage, searchDocument,
   serializeDocument, parseDocument, createDocumentSession, importDocumentDocx, exportDocumentDocx, collectDocumentImages } from "__MODEL_IMPORT__";
 
 assert.equal(typeof window, "undefined");
@@ -46,6 +46,19 @@ const exported = await exportDocumentDocx(result.document);
 assert.equal(typeof exported.blob.arrayBuffer, "function");
 const imported = await importDocumentDocx(exported.blob);
 assert.equal(getDocumentText(imported.document), "Headless content");
+assert.deepEqual(searchDocument(imported.document, { keywords: ["headless", "content"], operator: "and" }).matches.map(hit => ({ pageNumber: hit.pageNumber, text: hit.text })), [{ pageNumber: 1, text: "Headless content" }]);
 assert.deepEqual(exported.warnings, []);
 assert.deepEqual(imported.warnings, []);
 console.log(JSON.stringify({ noReact: true, noDOM: true, commandsAndHistory: "passed", nativeRoundtrip: "passed", officeRoundtrip: "passed" }));
+
+const paged = createDocument({ content: { type: "doc", content: [{ type: "page_break" }, { type: "paragraph", content: [{ type: "text", text: "Second" }] }] } });
+assert.deepEqual(getDocumentPage(paged, 1), { pageNumber: 1, from: 0, to: 0 });
+assert.deepEqual(getDocumentPage(paged, 2), { pageNumber: 2, from: 1, to: 9 });
+assert.equal(getDocumentPage(paged, 3), undefined);
+assert.throws(() => getDocumentPage(paged, 0));
+
+const searched = searchDocument(result.document, { keywords: ["Headless", "content"], operator: "and" });
+assert.equal(searched.truncated, false); assert.equal(searched.matches.length, 1);
+assert.equal(searched.matches[0].pageNumber, 1); assert.equal(searched.matches[0].blockId, first.id);
+assert.equal(searched.matches[0].matches[0].from, 1); assert.equal(searched.matches[0].matches[0].textFrom, 0);
+assert.deepEqual(searchDocument(result.document, { keywords: ["Headless", "missing"] }).matches, []);

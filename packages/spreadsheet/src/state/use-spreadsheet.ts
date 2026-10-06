@@ -32,7 +32,8 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const zoom = useSpreadsheetZoom(props, draft.emitEvent);
   const ribbon = useSpreadsheetRibbon(props);
   const view = useSpreadsheetSelection(draft.workbook, features, draft.reportError, draft.propsRef,
-    () => draft.workbookRef.current, () => !cellEdit.editingRef.current && !pending.pendingObjectEditRef.current);
+    () => draft.workbookRef.current, () => !cellEdit.editingRef.current && !pending.pendingObjectEditRef.current,
+    { sheetId: props.initialSheetId, sheetName: props.initialSheetName });
   const { selectionRef, setSelection } = view;
   // The editor only calls this after initialization; command guards can then inspect its live ref.
   const executeGuiCommands = (items: readonly SpreadsheetCommand[], options?: SpreadsheetGuiCommandOptions): MaybePromise<SpreadsheetCommandResult> =>
@@ -67,9 +68,9 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const switchSheet = (id: string) => {
     afterCommit(() => view.switchSheet(id));
   };
-  const resetWorkbookView = (workbook: Workbook) => {
+  const resetWorkbookView = (workbook: Workbook, sheetId?: string) => {
     cellEdit.cancelEdit();
-    view.resetForWorkbook(workbook);
+    view.resetForWorkbook(workbook, { sheetId });
   };
   const restoreHistoryView = (workbook: Workbook, previous: Workbook, target?: SpreadsheetHistoryTarget) => {
     cellEdit.cancelEdit();
@@ -91,7 +92,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
       const cell = cellEdit.editingRef.current, revision = pending.pendingEditRevisionRef.current;
       return () => cellEdit.editingRef.current === cell && pending.pendingEditRevisionRef.current === revision;
     },
-    resetView: workbook => { pending.clearPendingObjectEdits(); resetWorkbookView(workbook); },
+    resetView: (workbook, sheetId) => { pending.clearPendingObjectEdits(); resetWorkbookView(workbook, sheetId); },
     isExporting: fileExport.isExporting });
   const exportExcel = (options?: SpreadsheetExcelExportOptions) => fileImport.isImporting()
     ? Promise.reject(new Error("取り込みの処理が完了してから出力してください")) : fileExport.exportExcel(options);

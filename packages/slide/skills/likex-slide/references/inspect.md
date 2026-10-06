@@ -67,3 +67,20 @@ node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input 
 既定はアニメーション終了後の配置。`--include-animations` を併用すると `animationState: "initial"` で保存された元の配置を返す。この取得モードではアニメーション定義は返さない。tweenの `from` を適用した再生時刻0のフレームとも区別する。取得オプションの併用は `--compact-summary` / `--include-animations` のみ。ページ・要素・マスター・レイアウト指定、`--overview`、`--include-data`、ページングは併用不可。Slideの `inspect` 専用でファイルは変更しない。
 
 1 MiBの出力上限を超えると部分的な一覧ではなく `RESPONSE_TOO_LARGE` を返す。`--compact-summary` でも配置情報自体が大きすぎる場合、ホストで公開APIを呼び必要な情報に絞る。モデルAPIは `images` に `src` も返すので、画像ごとの解析を1回だけ行い、結果を `imageId` で全配置へ対応付けられる。解析サービスの接続・認証・結果キャッシュはホストの責務。キャッシュには画像IDと解析モデル・版・プロンプト・オプションを含める。詳しい例とWeb Cryptoの動作条件は[画像の収集と重複判定](../../../src/docs/image-analysis.md)を参照する。
+
+## キーワードで対象ページを探す
+
+ホストがSLON／PPTXを読み込んだモデルに対して、React・DOM・描画なしで検索する。
+
+```ts
+import { searchSlides } from "@likex/slide/model";
+const result = searchSlides(deck, {
+  keywords: ["顧客", "会議"], operator: "and", matchCase: false,
+}, { matchBy: "page", limit: 1000 });
+```
+
+`operator` は `and`（既定）または `or`。語はリテラルとして扱い、正規表現に変換しない。空配列は0件、空文字の語はエラー。既定の `matchBy: "page"` は同一ページ内の別々のテキスト／図形要素に分かれたANDも一致とする。1語が要素境界をまたぐ場合は一致しない。`matchBy: "element"` は同じ要素だけで評価する。ノートは `includeNotes`、ページ・要素名は `includeNames`、画像代替テキストは `includeImageAlt` を `true` にしたときだけ含む。資料タイトルは対象外。
+
+返り値は `{ matches, truncated }`。一致フィールドごとの `{ slideId, pageNumber, elementId?, source, owner, ownerId, text, matches: [{ keyword, from, to }] }` がページ順に並ぶ。`pageNumber` は1始まり。内側の `from` / `to` はその `text` 内のUTF-16オフセットで終了位置を含まない。`source` は `text` / `name` / `notes` / `alt`。継承装飾も表示構成に従って検索し、`owner: "master" | "layout"` の要素をページローカルの編集コマンドに渡さない。使われていないカタログやプレースホルダー原型は対象外。
+
+`limit` は一致フィールドの上限で既定1,000、最大10,000。上限を超える続きがあれば `truncated: true` なので全件と扱わない。1フィールドの位置が10,000件、返す位置の総数が100,000件を超える場合は例外として終了する。標準CLIの検索フラグはなく、ホストがこのAPIで得たIDを通常の `inspect --slide-id ... --element-id ...` に渡す。検索はモデルを変更しない。外部検索サービス・OCR・ファイル列挙・アクセス制御はホストが担当する。詳しい使用例は[描画しないキーワード検索](../../../src/docs/search.md)を参照する。

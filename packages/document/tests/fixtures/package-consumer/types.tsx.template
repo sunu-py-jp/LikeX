@@ -1,9 +1,9 @@
 import { createRef } from "react";
 import { LikeDocumentThumbnail, type DocumentThumbnailProps } from "__LIBRARY_IMPORT__/thumbnail";
-import LikeDocument, { createDocument, executeDocumentCommands, createDocumentSession, collectDocumentImages,
-  type DocumentProps, type DocumentHandle, type DocumentCommand, type DocumentImageCollection } from "__LIBRARY_IMPORT__";
+import LikeDocument, { createDocument, executeDocumentCommands, createDocumentSession, collectDocumentImages, searchDocument,
+  type DocumentProps, type DocumentHandle, type DocumentImportOptions, type DocumentCommand, type DocumentImageCollection } from "__LIBRARY_IMPORT__";
 const document = createDocument({ title: "LikeDocument consumer" });
-const thumbnailProps: DocumentThumbnailProps = { document, style: { height: 280 }, onError: error => { void error.message; } };
+const thumbnailProps: DocumentThumbnailProps = { document, pageNumber: 1, style: { height: 280 }, onError: error => { void error.message; } };
 const thumbnail = <LikeDocumentThumbnail {...thumbnailProps} />;
 // @ts-expect-error A thumbnail does not expose the editing handle.
 const editableThumbnail = <LikeDocumentThumbnail document={document} ref={createRef<DocumentHandle>()} />;
@@ -14,15 +14,20 @@ const session = createDocumentSession(updated.document);
 const collectedImages: Promise<DocumentImageCollection> = collectDocumentImages(updated.document, { signal: new AbortController().signal });
 void collectedImages;
 session.undo(); session.markSaved();
-const props: DocumentProps = { initialDocument: document, colorMode: "system", primaryColor: "#2563eb",
+const props: DocumentProps = { initialDocument: document, initialPageNumber: 1, colorMode: "system", primaryColor: "#2563eb",
   features: { images: false }, onSave: async current => current,
   onEditRequest: async (_request, { signal }) => !signal.aborted, onBeforeSave: () => true };
 const ref = createRef<DocumentHandle>();
 const view = <LikeDocument ref={ref} {...props} />;
 const nativeExport: Promise<Blob> | undefined = ref.current?.exportNative();
 const docxExport: Promise<Blob> | undefined = ref.current?.exportDocx();
-void ref.current?.importNative(new Blob());
-void ref.current?.importDocx(new Uint8Array());
+const importOptions: DocumentImportOptions = { pageNumber: 1 };
+void ref.current?.importNative(new Blob(), importOptions);
+void ref.current?.importDocx(new Uint8Array(), importOptions);
+const pageAccepted: boolean | undefined = ref.current?.goToPage(1);
+// @ts-expect-error Page numbers are numeric.
+ref.current?.goToPage("2");
+void pageAccepted;
 void ref.current?.select({ from: 1, to: 1 });
 void nativeExport; void docxExport; void view;
 // @ts-expect-error Commands reject unknown text mark names.
@@ -38,3 +43,6 @@ const ribbonAccepted: boolean | undefined = ref.current?.setRibbonDisplayMode("t
 // @ts-expect-error Unsupported ribbon modes are rejected.
 ref.current?.setRibbonDisplayMode("collapsed");
 void [ribbonProps, currentRibbonMode, ribbonAccepted];
+
+const searchResult = searchDocument(document, { keywords: ["consumer"] });
+void searchResult.matches[0]?.pageNumber;

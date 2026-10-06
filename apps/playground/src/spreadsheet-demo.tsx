@@ -24,6 +24,9 @@ const contextMenuItems: SpreadsheetContextMenuProvider = context => {
 
 export default function SpreadsheetDemo() {
   const [initialWorkbook] = useState(createDemoWorkbook);
+  const [target] = useState(() => { const query = new URLSearchParams(window.location.search); return {
+    initialSheetId: query.get("sheetId") ?? undefined, initialSheetName: query.get("sheetName") ?? undefined,
+  }; });
   const [theme] = useState(() => getDemoComponentTheme("light"));
   const [contextMenuMode] = useState(getDemoContextMenuMode);
   const savedJson = useRef<string | null>(null);
@@ -36,6 +39,7 @@ export default function SpreadsheetDemo() {
     title="LikeX サンプルブック"
     exportFileName="LikeX_Excel出力サンプル.xlsx"
     initialWorkbook={initialWorkbook}
+    {...target}
     onSave={save}
     getContextMenuItems={contextMenuItems}
     contextMenuExecutionMode={contextMenuMode}
