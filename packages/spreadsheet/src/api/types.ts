@@ -1,4 +1,4 @@
-import type { MaybePromise } from "../core";
+import type { MaybePromise, SearchPanelHandle } from "../core";
 import type { SpreadsheetDiscardOptions, SpreadsheetEditIntent, SpreadsheetEditState, SpreadsheetImportExcelOptions, SpreadsheetImportNativeOptions } from "./lifecycle";
 import type { SpreadsheetExcelImportResult, SpreadsheetNativeImportResult } from "../import/types";
 import type { SpreadsheetExcelExportOptions, SpreadsheetNativeExportOptions } from "../export/types";
@@ -15,7 +15,7 @@ export type * from "../commands/types";
 /** Cancels this UI command without canceling another pending edit request. */
 export type SpreadsheetAsyncCommandOptions = SpreadsheetCommandOptions & Readonly<{ signal?: AbortSignal }>;
 
-export type SpreadsheetHandle = SpreadsheetReadApi & SpreadsheetSelectionApi & Readonly<{
+export type SpreadsheetHandle = SearchPanelHandle & SpreadsheetReadApi & SpreadsheetSelectionApi & Readonly<{
   execute(command: SpreadsheetCommand, options?: SpreadsheetCommandOptions): SpreadsheetCommandResult;
   batch(commands: readonly SpreadsheetCommand[], options?: SpreadsheetCommandOptions): SpreadsheetCommandResult;
   executeAsync(command: SpreadsheetCommand, options?: SpreadsheetAsyncCommandOptions): Promise<SpreadsheetCommandResult>;

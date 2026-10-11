@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createSearchPanelState, isSearchPanelQuery, type SearchPanelInitialState } from "../core";
 import { searchDocument, type DocumentSearchMatch, type DocumentSearchTextMatch } from "../model/search";
 import type { DocumentModel } from "../model/types";
 
 export type DocumentSearchLocation = DocumentSearchMatch & { match: DocumentSearchTextMatch };
 
 /** Search is view state; navigation never executes an editing command. */
-export function useDocumentSearch(document: DocumentModel, enabled: boolean, reveal: (location: DocumentSearchLocation) => void) {
-  const [request, setRequest] = useState({ open: false, query: "", focus: 0 });
+export function useDocumentSearch(document: DocumentModel, enabled: boolean, reveal: (location: DocumentSearchLocation) => void, initial: SearchPanelInitialState = {}) {
+  const [request, setRequest] = useState(() => { const state = createSearchPanelState(initial); return { ...state, open: enabled && state.open }; });
   const [caseSensitive, setCaseSensitive] = useState(false);
   const latest = useRef({ enabled, reveal, mounted: true });
   useLayoutEffect(() => { latest.current = { enabled, reveal, mounted: true }; });
@@ -35,7 +36,7 @@ export function useDocumentSearch(document: DocumentModel, enabled: boolean, rev
     if (active) latest.current.reveal(active);
   }, [open, intent, active]);
   function openSearch(query?: string): boolean {
-    if (!latest.current.mounted || !latest.current.enabled || (query !== undefined && (typeof query !== "string" || query.length > 4096))) return false;
+    if (!latest.current.mounted || !latest.current.enabled || (query !== undefined && !isSearchPanelQuery(query))) return false;
     setRequest(value => ({ open: true, query: query ?? value.query, focus: value.focus + 1 })); return true;
   }
   function closeSearch() { if (latest.current.mounted) setRequest(value => ({ ...value, open: false })); }

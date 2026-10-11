@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { act, createElement as h, createRef } from 'react';
 import { create } from 'react-test-renderer';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = await build({ stdin: { contents: `export {default as LikeSlide} from './src/slide'; export {useSlideEditor} from './src/state/use-slide-editor'; export {SlideSearchPanel} from './src/ui/slide-search-panel'; export {SlideCanvas} from './src/ui/slide-canvas'; export * from './src/model';`, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false,
@@ -147,4 +148,53 @@ test('a search delayed by pending input navigates once, then later content chang
   await change(() => app.ref.current.select({ slideId: 'one', elementIds: ['text-one'] }));
   await change(() => app.ref.current.execute({ type: 'element.update', slideId: 'one', elementId: 'text-one', patch: { text: 'Another edit' } }));
   assert.equal(app.ref.current.getPageNumber(), 1);
+});
+
+
+test('initial slide search renders on the first paint with a hidden ribbon and read-only deck', () => {
+  const html = renderToStaticMarkup(h(LikeSlide, { initialDeck: fixture(), readOnly: true, initialRibbonDisplayMode: 'hidden', initialSearchOpen: true, initialSearchQuery: 'needle' }));
+  assert.match(html, /class="lxp-search-panel"/);
+  assert.match(html, /aria-label="検索する文字列"[^>]*value="needle"/);
+  assert.match(html, /class="lxp-ribbon" data-display-mode="hidden" hidden=""/);
+  const disabled = renderToStaticMarkup(h(LikeSlide, { initialDeck: fixture(), initialSearchOpen: true, initialSearchQuery: 'needle', features: { search: false } }));
+  assert.doesNotMatch(disabled, /class="lxp-search-panel"/);
+});
+
+test('initial slide search is mount-only, navigates without edits, and keeps the query through close and feature changes', async t => {
+  let permissions = 0, changes = 0;
+  const app = await mount(t, { readOnly: true, initialSearchOpen: true, initialSearchQuery: 'needle', onEditRequest() { permissions++; return true; }, onChange() { changes++; } });
+  const api = app.ref.current;
+  assert.equal(app.label('検索する文字列').props.value, 'needle');
+  assert.equal(app.status, '1 / 2 件'); assert.equal(api.getPageNumber(), 2);
+  assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false); assert.equal(permissions, 0); assert.equal(changes, 0);
+  await app.update({ initialSearchOpen: false, initialSearchQuery: 'Sales review' });
+  assert.equal(app.label('検索する文字列').props.value, 'needle');
+  await change(() => api.closeSearch());
+  await app.update({ initialSearchOpen: true, initialSearchQuery: 'Sales review' });
+  assert.equal(app.label('検索する文字列'), undefined);
+  await change(() => assert.equal(api.openSearch(), true));
+  assert.equal(app.label('検索する文字列').props.value, 'needle');
+  await app.update({ features: { search: false } });
+  await app.update({ features: { search: true } });
+  assert.equal(app.label('検索する文字列'), undefined);
+  await change(() => assert.equal(api.openSearch(''), true));
+  assert.equal(app.label('検索する文字列').props.value, '');
+});
+
+test('initially closed or disabled slide search retains its initial query and invalid inputs do not open it', async t => {
+  for (const features of [undefined, { search: false }]) {
+    const app = await mount(t, { initialSearchOpen: features ? true : false, initialSearchQuery: 'needle', features });
+    assert.equal(app.label('検索する文字列'), undefined);
+    await app.update({ features: { search: true } });
+    assert.equal(app.label('検索する文字列'), undefined);
+    await open(app); assert.equal(app.label('検索する文字列').props.value, 'needle');
+  }
+  for (const initialSearchQuery of [123, null, 'x'.repeat(4097)]) {
+    const app = await mount(t, { initialSearchOpen: true, initialSearchQuery });
+    assert.equal(app.label('検索する文字列').props.value, '');
+    const api = app.ref.current;
+    await change(() => api.closeSearch());
+    assert.equal(api.openSearch(initialSearchQuery), false);
+    assert.equal(app.label('検索する文字列'), undefined);
+  }
 });

@@ -178,3 +178,59 @@ test('excessive page counts, invalid page dimensions and password errors fail wi
   loading.reject(Object.assign(new Error('Password needed'), { name: 'PasswordException' }));
   await assert.rejects(pending, /パスワード/); await tick(); assert.equal(host.counts.taskDestroy, 1);
 });
+
+test('the standard drawing loader exposes native text from its existing PDF without a second load', async () => {
+  const host = engine();
+  host.page.getTextContent = async options => {
+    assert.deepEqual(options, { includeMarkedContent: false });
+    return { items: [{ str: 'Alpha', hasEOL: true }, { str: 'Beta' }] };
+  };
+  const document = await host.load();
+  assert.equal(await document.getPageText(1), 'Alpha\nBeta');
+  assert.equal(host.requests.length, 1); assert.equal(host.counts.cleanup, 1);
+  for (const number of [0, 4, 1.5]) await assert.rejects(document.getPageText(number), /ページ番号/);
+  await document.destroy(); await assert.rejects(document.getPageText(1), { name: 'AbortError' });
+});
+
+test('text extraction and rendering share page cleanup even if either consumer cancels first', async () => {
+  const host = engine({ delayedRender: true }), reading = deferred();
+  host.page.getTextContent = () => reading.promise;
+  const document = await host.load(), page = await document.getPage(1), controller = new AbortController();
+  const render = page.render({ canvas: canvas(), scale: 1 });
+  const text = document.getPageText(1, { signal: controller.signal });
+  await tick(); controller.abort(); await assert.rejects(text, { name: 'AbortError' });
+  reading.resolve({ items: [{ str: 'late text' }] }); await tick();
+  assert.equal(host.counts.cleanup, 0, 'finishing cancelled extraction must not clean an active render');
+  host.renders[0].work.resolve(); await render;
+  assert.equal(host.counts.cleanup, 1);
+  await document.destroy();
+});
+
+test('finishing a render leaves concurrent extraction alive until it settles', async () => {
+  const host = engine({ delayedRender: true }), reading = deferred();
+  host.page.getTextContent = () => reading.promise;
+  const document = await host.load(), page = await document.getPage(1);
+  const text = document.getPageText(1); await tick();
+  const render = page.render({ canvas: canvas(), scale: 1 });
+  host.renders[0].work.resolve(); await render;
+  assert.equal(host.counts.cleanup, 0);
+  reading.resolve({ items: [{ str: 'Still searchable' }] });
+  assert.equal(await text, 'Still searchable'); assert.equal(host.counts.cleanup, 1);
+  await document.destroy();
+});
+
+test('late cancelled page acquisitions cannot clean an active native text read or render', async () => {
+  for (const kind of ['render', 'text']) {
+    const host = engine({ delayedRender: true }), acquiring = deferred(), extracting = deferred(); let pages = 0;
+    host.page.getTextContent = () => extracting.promise;
+    host.document.getPage = async () => ++pages === 1 ? host.page : acquiring.promise;
+    const document = await host.load(), controller = new AbortController();
+    const running = kind === 'render' ? (await document.getPage(1)).render({ canvas: canvas(), scale: 1 }) : document.getPageText(1);
+    await tick();
+    const pending = kind === 'render' ? document.getPageText(1, { signal: controller.signal }) : document.getPage(1, { signal: controller.signal });
+    await tick(); controller.abort(); await assert.rejects(pending, { name: 'AbortError' });
+    acquiring.resolve(host.page); await tick(); assert.equal(host.counts.cleanup, 0);
+    if (kind === 'render') host.renders[0].work.resolve(); else extracting.resolve({ items: [] });
+    await running; assert.equal(host.counts.cleanup, 1); await document.destroy();
+  }
+});

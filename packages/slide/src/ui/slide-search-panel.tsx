@@ -17,7 +17,7 @@ function Snippet({ hit }: { hit: Hit }) {
 export function SlideSearchPanel({ editor, onClose }: { editor: SlideEditor; onClose(): void }) {
   const id = useId(), input = useRef<HTMLInputElement>(null), active = useRef<HTMLButtonElement>(null);
   const [matchCase, setMatchCase] = useState(false);
-  const { query, focusVersion } = editor.search;
+  const { query, focus } = editor.search;
   const deck = editor.deck, select = editor.selectSearchMatch, highlight = editor.highlightSearchMatch;
   const lastIntent = useRef("");
   const result = useMemo(() => {
@@ -27,14 +27,14 @@ export function SlideSearchPanel({ editor, onClose }: { editor: SlideEditor; onC
       return { hits: found.matches.flatMap(field => field.matches.map(({ from, to }) => ({ field, from, to }))), truncated: found.truncated, error: "" };
     } catch (error) { return { hits: [] as Hit[], truncated: false, error: error instanceof Error ? error.message : "検索できませんでした。" }; }
   }, [deck, query, matchCase]);
-  const intent = JSON.stringify([query, matchCase, focusVersion]);
+  const intent = JSON.stringify([query, matchCase, focus]);
   const [navigation, setNavigation] = useState<{ result: typeof result | null; index: number; intent: string }>({ result: null, index: -1, intent: "" });
   const previous = navigation.intent === intent ? navigation.result?.hits[navigation.index] : undefined, previousField = previous?.field ?? editor.searchMatch;
   const sameField = (hit: Hit) => previousField?.slideId === hit.field.slideId && previousField.owner === hit.field.owner && previousField.elementId === hit.field.elementId;
   const exact = result.hits.findIndex(hit => sameField(hit) && hit.from === previous?.from);
   const retained = exact >= 0 ? exact : result.hits.findIndex(sameField);
   const index = navigation.result === result && navigation.intent === intent ? navigation.index : retained >= 0 ? retained : result.hits.length ? 0 : -1;
-  useEffect(() => { input.current?.focus(); input.current?.select(); }, [focusVersion]);
+  useEffect(() => { input.current?.focus(); input.current?.select(); }, [focus]);
   useEffect(() => {
     if (lastIntent.current !== intent) {
       // A pending input may delay this request, but content changes after a

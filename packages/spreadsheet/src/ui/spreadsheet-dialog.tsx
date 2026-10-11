@@ -1,15 +1,16 @@
 "use client";
 
-import { useCallback, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useId, useLayoutEffect, useRef, useState, type KeyboardEventHandler, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
 const focusableSelector = 'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])';
 
 /** Shared form dialog, scoped to the embedded component rather than the host window. */
-export function SpreadsheetDialog({ title, children, onClose, actions, initialFocusRef, className = "" }: {
+export function SpreadsheetDialog({ title, children, onClose, onKeyDown, actions, initialFocusRef, className = "" }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  onKeyDown?: KeyboardEventHandler<HTMLDivElement>;
   actions?: ReactNode;
   initialFocusRef?: RefObject<HTMLElement | null>;
   className?: string;
@@ -37,7 +38,9 @@ export function SpreadsheetDialog({ title, children, onClose, actions, initialFo
       }}
       onKeyDown={event => {
         event.stopPropagation();
-        if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+        if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229) return;
+        onKeyDown?.(event);
+        if (event.defaultPrevented) return;
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") event.preventDefault();
         if (event.key === "Escape") { event.preventDefault(); onClose(); }
         if (event.key === "Tab") {

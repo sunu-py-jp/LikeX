@@ -21,4 +21,4 @@ const result = searchDocument(document,
 
 検索後に文書が変わった場合、前の位置は再利用せず新しいモデルで検索する。検索条件や結果をDCON・DOCXの保存項目へ追加しない。
 
-ホストUIにはホームの検索ボタンとCtrl/Cmd+Fの検索パネルがある。`ref.openSearch(query?)` / `closeSearch()` は表示専用で、読み取り専用・リボン完全非表示でも利用できる。`features.search: false` はUIだけを無効にする。単一文字列と大文字小文字の条件で検索し、一致箇所を選択・強調する。CLIや保存用コマンドへ検索パネル操作を追加しない。
+ホストUIにはホームの検索ボタンとCtrl/Cmd+Fの検索パネルがある。`ref.openSearch(query?)` / `closeSearch()`（省略時は検索語を保持、空文字でクリア） は表示専用で、読み取り専用・リボン完全非表示でも利用できる。`features.search: false` はUIだけを無効にする。単一文字列と大文字小文字の条件で検索し、一致箇所を選択・強調する。CLIや保存用コマンドへ検索パネル操作を追加しない。 初期表示は`initialSearchOpen`／`initialSearchQuery`を指定し、どちらもマウント時に一度だけ読む。初期検索語だけでは開かず、`features.search: false`が優先する。

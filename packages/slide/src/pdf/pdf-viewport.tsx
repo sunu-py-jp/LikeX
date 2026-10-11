@@ -14,16 +14,29 @@ export function PdfViewport({ session, pageNumber, zoom, onError }: {
   useLayoutEffect(() => {
     const node = viewport.current;
     if (!node) return;
-    const update = () => setSize(previous => {
-      const next = { width: node.clientWidth || 900, height: node.clientHeight || 600 };
+    const update = (entry?: ResizeObserverEntry) => setSize(previous => {
+      // clientHeight/clientWidth round fractional layout up and exclude scrollbars.
+      // Feeding them back into the page's minimum size can alternate both scrollbars
+      // forever. Measure the stable outer box and round down before fitting.
+      const box = entry?.borderBoxSize?.[0], css = node.ownerDocument.defaultView?.getComputedStyle?.(node);
+      const pixels = (value?: string) => { const number = Number.parseFloat(value ?? ""); return Number.isFinite(number) ? number : undefined; };
+      const borderWidth = (pixels(css?.borderLeftWidth) ?? 0) + (pixels(css?.borderRightWidth) ?? 0);
+      const borderHeight = (pixels(css?.borderTopWidth) ?? 0) + (pixels(css?.borderBottomWidth) ?? 0);
+      const cssWidth = pixels(css?.width), cssHeight = pixels(css?.height);
+      // Computed layout pixels avoid applying an ancestor's CSS transform twice,
+      // unlike getBoundingClientRect's visual pixels.
+      const width = box ? box.inlineSize - borderWidth : cssWidth === undefined ? node.offsetWidth ?? node.clientWidth : cssWidth - (css?.boxSizing === "border-box" ? borderWidth : 0);
+      const height = box ? box.blockSize - borderHeight : cssHeight === undefined ? node.offsetHeight ?? node.clientHeight : cssHeight - (css?.boxSizing === "border-box" ? borderHeight : 0);
+      const next = { width: Math.floor(width) || 900, height: Math.floor(height) || 600 };
       return next.width === previous.width && next.height === previous.height ? previous : next;
     });
     update();
     const Observer = node.ownerDocument.defaultView?.ResizeObserver;
-    const observer = Observer ? new Observer(update) : undefined; observer?.observe(node);
-    const window = node.ownerDocument.defaultView;
-    window?.addEventListener("resize", update);
-    return () => { observer?.disconnect(); window?.removeEventListener("resize", update); };
+    const observer = Observer ? new Observer(entries => update(entries.find(entry => entry.target === node))) : undefined;
+    observer?.observe(node, { box: "border-box" });
+    const window = node.ownerDocument.defaultView, resize = () => update();
+    window?.addEventListener("resize", resize);
+    return () => { observer?.disconnect(); window?.removeEventListener("resize", resize); };
   }, []);
   useLayoutEffect(() => { if (viewport.current) { viewport.current.scrollTop = 0; viewport.current.scrollLeft = 0; } }, [pageNumber, session]);
   const scale = page ? Math.min(Math.max(1, size.width - 48) / page.width, Math.max(1, size.height - 48) / page.height) * zoom / 100 : 1;

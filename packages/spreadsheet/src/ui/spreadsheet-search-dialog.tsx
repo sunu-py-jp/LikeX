@@ -14,7 +14,12 @@ export function SpreadsheetSearchDialog({ controller: c, initialMode, onClose }:
   controller: SpreadsheetController; initialMode: "find" | "replace"; onClose: () => void;
 }) {
   const first = useRef<HTMLInputElement>(null), mounted = useRef(true);
-  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const pendingReplacement = useRef(false), cancelPermission = useRef(c.cancelEditRequest);
+  useInsertionEffect(() => { cancelPermission.current = c.cancelEditRequest; });
+  useEffect(() => { mounted.current = true; return () => {
+    mounted.current = false;
+    if (pendingReplacement.current) cancelPermission.current();
+  }; }, []);
   const search = useSpreadsheetSearch(c, initialMode);
   const { query, setQuery, scope, setScope, replacement, setReplacement, results: matches, searching, error } = search;
   const latest = useRef(search);
@@ -32,11 +37,12 @@ export function SpreadsheetSearchDialog({ controller: c, initialMode, onClose }:
   const [busy, setBusy] = useState(false);
   const selectedIndex = matches.findIndex(match => match.address === selected?.address && match.sheetId === selected.sheetId);
   const replacing = initialMode === "replace" && c.features.replace && !c.readOnly;
-  const locked = busy || c.requesting || c.saving || c.refreshing;
+  const locked = busy || !!c.editing || c.pendingObjectEdit || replacing && (c.requesting || c.saving || c.refreshing);
   const choose = (match: SpreadsheetSearchMatch) => {
     if (locked || searching || error) return;
-    setSelected(match); setMessage("");
-    c.selectCellInSheet(match.sheetId, parseCellAddress(match.address)!);
+    if (c.selectionApi.selectCell(match.sheetId, parseCellAddress(match.address)!, { reveal: true })) {
+      setSelected(match); setMessage("");
+    }
   };
   const navigate = (direction: 1 | -1) => {
     if (!matches.length) { setMessage("一致するセルがありません"); return; }
@@ -59,10 +65,10 @@ export function SpreadsheetSearchDialog({ controller: c, initialMode, onClose }:
     const groups = new Map<string, string[]>();
     for (const match of targets) { const addresses = groups.get(match.sheetId) ?? []; addresses.push(match.address); groups.set(match.sheetId, addresses); }
     const commands: SpreadsheetCommand[] = [...groups].map(([sheetId, addresses]) => ({ type: "cells.replace", sheetId, query, replacement, addresses }));
-    setBusy(true);
+    pendingReplacement.current = true; setBusy(true);
     void chainResult(c.executeCommands(commands, { isCurrent: () => mounted.current && c.getWorkbook() === source && latest.current.query === query && latest.current.scope === scope && latest.current.results === matches }), result => {
       if (!mounted.current) return;
-      setBusy(false);
+      pendingReplacement.current = false; setBusy(false);
       if (result.ok) { setMessage(`${targets.length}個のセルを置換しました`); setSelected(null); }
       else setMessage(result.message);
     });
@@ -81,6 +87,9 @@ export function SpreadsheetSearchDialog({ controller: c, initialMode, onClose }:
   const context = { ...search, mode: replacing ? "replace" as const : "find" as const, defaultInput, defaultOptions, defaultReplacement, disabled: locked };
   const fields = c.renderSearch?.(context) ?? <>{defaultInput}{defaultReplacement}{defaultOptions}</>;
   return <SpreadsheetDialog title={replacing ? "検索と置換" : "検索"} initialFocusRef={first} onClose={() => { if (busy) c.cancelEditRequest(); onClose(); }} className="lxs-search-dialog"
+    onKeyDown={event => {
+      if (!event.altKey && !event.shiftKey && event.ctrlKey !== event.metaKey && event.key.toLowerCase() === "f" && c.openSearch()) event.preventDefault();
+    }}
     actions={<>{c.search?.trigger === "submit" && <button type="button" disabled={locked || !query.text} onClick={search.submit}>検索する</button>}
       <button type="button" disabled={locked || searching || !!error || !matches.length} onClick={() => navigate(-1)}>前を検索</button><button type="button" disabled={locked || searching || !!error || !matches.length} onClick={() => navigate(1)}>次を検索</button>
       {replacing && <><button type="button" disabled={locked || searching || search.pending || !!error || c.disabled || !matches.length} onClick={() => replace(false)}>置換</button><button type="button" disabled={locked || searching || search.pending || !!error || c.disabled || !matches.length} onClick={() => replace(true)}>すべて置換</button></>}</>}>

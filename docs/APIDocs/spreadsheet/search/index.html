@@ -17,6 +17,22 @@
 <p>置換の既定対象は「数式・入力値」です。「表示値」で置換すると、数式自体も置換後の表示結果へ変わります。たとえば <code>=&quot;会議A&quot;</code> の表示値「会議A」を「会議B」に置換した場合、セルは文字列「会議B」になり、元の数式は残りません。文字列の先頭が <code>=</code> でも、表示値の置換で新しい数式として実行しません。</p>
 <p>読み取り専用では検索だけ使えます。置換する値が入力規則に違反した場合は全体を反映せず、元の下書きを維持します。検索文字列を空にした場合は検索しません。</p>
 <p><code>features.search: false</code> で検索と置換を無効にできます。検索を残して置換だけを止める場合は <code>features.replace: false</code> を指定します。</p>
+<h3 id="初期表示外側からの開閉">初期表示・外側からの開閉<a class="heading-link" href="#%E5%88%9D%E6%9C%9F%E8%A1%A8%E7%A4%BA%E5%A4%96%E5%81%B4%E3%81%8B%E3%82%89%E3%81%AE%E9%96%8B%E9%96%89" aria-label="この見出しへのリンク">#</a></h3>
+<p>スプレッドシート・スライド・文書・PDFビューアーで同じ設定名・呼び出し方を使えます。</p>
+<div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">const</span> editor = useRef&lt;SpreadsheetHandle&gt;(<span class="syntax-keyword">null</span>);
+
+&lt;Spreadsheet ref={editor} initialWorkbook={workbook} readOnly
+  initialRibbonDisplayMode=<span class="syntax-string">&quot;hidden&quot;</span>
+  initialSearchOpen initialSearchQuery=<span class="syntax-string">&quot;売上&quot;</span> /&gt;;
+
+editor.current?.openSearch(<span class="syntax-string">&quot;受注&quot;</span>); <span class="syntax-comment">// 検索欄を開き、入力欄へフォーカス</span>
+editor.current?.openSearch();       <span class="syntax-comment">// 前回の検索語を保持して再表示</span>
+editor.current?.openSearch(<span class="syntax-string">&quot;&quot;</span>);     <span class="syntax-comment">// 検索語をクリアして表示</span>
+editor.current?.closeSearch();      <span class="syntax-comment">// 検索語を保持して閉じる</span></code></pre></div>
+<p><code>initialSearchOpen</code> は既定で <code>false</code>、<code>initialSearchQuery</code> は既定で空文字です。両方ともマウント時に一度だけ読み、検索語だけを指定しても検索欄は開きません。初期検索語が文字列でない、または4,096文字を超える場合は空文字にします。</p>
+<p><code>openSearch(query?: string): boolean</code> は要求を受け付けたら <code>true</code> を返します。検索の完了を意味しません。引数は通常の文字列として検索し、既存の詳細条件は既定に戻ります。引数省略では前回の入力文字列を保持します。不正な引数、検索機能OFF、アンマウント後は <code>false</code> を返し、状態を変更しません。<code>closeSearch(): void</code> は実行中の外部検索も中止します。<code>features.search: false</code> は初期表示より優先し、OFFからONへ戻しても勝手に再表示しません。</p>
+<p>検索の開閉はリボンの状態や読み取り専用と独立しており、リボン完全非表示でも <code>Ctrl+F</code> / <code>Cmd+F</code> とAPIで開けます。ブック・保存・Undo履歴は変更しません。セル・数式・図形の入力が未確定の間は、検索内の操作を止めて入力を維持します。検索を閉じて元の入力を確定・取り消してから操作してください。</p>
+<p><code>search.trigger: &quot;submit&quot;</code> を指定した場合は、初期検索語やAPIで検索語を渡してもEnter・「検索する」で確定するまで実行しません。標準の <code>&quot;input&quot;</code> は開いた時点の検索語で自動検索します。UIの通常文字列検索は引き続き100,000文字まで、4種類共通の初期設定と <code>openSearch</code> の引数は4,096文字までです。</p>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> { findSpreadsheetCells, findSpreadsheetSheets } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/spreadsheet/model&quot;</span>;
 
 <span class="syntax-keyword">const</span> matches = findSpreadsheetCells(workbook, {

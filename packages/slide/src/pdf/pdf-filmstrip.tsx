@@ -17,7 +17,7 @@ export function PdfFilmstrip({ session, pageNumber, selectedPageNumbers, disable
   session: PdfSession; pageNumber: number; selectedPageNumbers: readonly number[]; disabled: boolean;
   selectPage(page: number, options?: { extend?: boolean; toggle?: boolean }): boolean; onError(error: Error): void;
 }) {
-  const list = useRef<HTMLOListElement>(null);
+  const list = useRef<HTMLOListElement>(null), pendingFocus = useRef<number | null>(null);
   const [range, setRange] = useState({ top: 0, height: 600 });
   const update = useCallback(() => { const node = list.current; if (node) setRange(previous => {
     const next = { top: node.scrollTop, height: node.clientHeight || 600 };
@@ -34,6 +34,9 @@ export function PdfFilmstrip({ session, pageNumber, selectedPageNumbers, disable
   useLayoutEffect(() => {
     const node = list.current;
     if (!node) return;
+    // Keep keyboard focus on the active thumbnail, including when virtualized
+    // rows must first be mounted after scrolling. Never focus the entire list.
+    pendingFocus.current = node.contains(node.ownerDocument.activeElement) ? pageNumber : null;
     const top = (pageNumber - 1) * ROW_HEIGHT, bottom = top + ROW_HEIGHT, height = node.clientHeight || 600;
     if (top < node.scrollTop) node.scrollTop = top;
     else if (bottom > node.scrollTop + height) node.scrollTop = bottom - height;
@@ -42,13 +45,19 @@ export function PdfFilmstrip({ session, pageNumber, selectedPageNumbers, disable
   const start = Math.max(0, Math.floor(range.top / ROW_HEIGHT) - OVERSCAN);
   const end = Math.min(session.pageCount, Math.ceil((range.top + range.height) / ROW_HEIGHT) + OVERSCAN);
   const items = Array.from({ length: Math.max(0, end - start) }, (_, index) => start + index + 1);
+  useLayoutEffect(() => {
+    const number = pendingFocus.current;
+    if (number === null || number !== pageNumber) return;
+    const target = list.current?.querySelector<HTMLButtonElement>(`button[data-pdf-page="${number}"]`);
+    if (target) { target.focus({ preventScroll: true }); pendingFocus.current = null; }
+  }, [pageNumber, session, start, end]);
   return <aside className="lxp-filmstrip lxp-pdf-filmstrip" aria-label="PDFページ一覧">
     <div className="lxp-filmstrip-heading"><span>ページ</span><span>{session.pageCount}</span></div>
     <ol ref={list} className="lxp-pdf-page-list" onScroll={update} aria-label="PDFページの選択" tabIndex={0}>
       <li aria-hidden="true" className="lxp-pdf-list-spacer" style={{ height: session.pageCount * ROW_HEIGHT }} />
       {items.map(number => <li key={number} className={`lxp-pdf-page-item${selectedPageNumbers.includes(number) ? " is-selected" : ""}${number === pageNumber ? " is-active" : ""}`}
         style={{ top: (number - 1) * ROW_HEIGHT, height: ROW_HEIGHT }} aria-posinset={number} aria-setsize={session.pageCount}>
-        <button type="button" className="lxp-pdf-thumbnail" aria-label={`PDFページ ${number} を表示`} aria-current={number === pageNumber ? "page" : undefined}
+        <button type="button" data-pdf-page={number} className="lxp-pdf-thumbnail" aria-label={`PDFページ ${number} を表示`} aria-current={number === pageNumber ? "page" : undefined}
           aria-pressed={selectedPageNumbers.includes(number)} tabIndex={number === pageNumber ? 0 : -1}
           disabled={disabled} onClick={event => selectPage(number, { extend: event.shiftKey, toggle: event.ctrlKey || event.metaKey })}>
           <Thumbnail session={session} pageNumber={number} onError={onError} /><span className="lxp-pdf-page-caption">{number}</span>

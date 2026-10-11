@@ -85,4 +85,4 @@ const result = searchSlides(deck, {
 
 `limit` は一致フィールドの上限で既定1,000、最大10,000。上限を超える続きがあれば `truncated: true` なので全件と扱わない。1フィールドの位置が10,000件、返す位置の総数が100,000件を超える場合は例外として終了する。標準CLIの検索フラグはなく、ホストがこのAPIで得たIDを通常の `inspect --slide-id ... --element-id ...` に渡す。検索はモデルを変更しない。外部検索サービス・OCR・ファイル列挙・アクセス制御はホストが担当する。詳しい使用例は[描画しないキーワード検索](../../../src/docs/search.md)を参照する。
 
-通常LikeSlideの検索UIはホームの「検索」またはCtrl/Cmd+Fで開き、refの `openSearch(query?)` / `closeSearch()` でも制御する。文字列を1語のリテラルとして扱い、大文字小文字の区別・前後移動・要素の強調表示を提供する。`features.search: false` で無効化できるUI状態であり、SLON・PPTX・CLIへ検索パネルの状態を保存しない。
+通常LikeSlideの検索UIはホームの「検索」またはCtrl/Cmd+Fで開き、refの `openSearch(query?)` / `closeSearch()`（省略時は検索語を保持、空文字でクリア） でも制御する。文字列を1語のリテラルとして扱い、大文字小文字の区別・前後移動・要素の強調表示を提供する。`features.search: false` で無効化できるUI状態であり、SLON・PPTX・CLIへ検索パネルの状態を保存しない。 初期表示は`initialSearchOpen`／`initialSearchQuery`を指定し、どちらもマウント時に一度だけ読む。初期検索語だけでは開かず、`features.search: false`が優先する。

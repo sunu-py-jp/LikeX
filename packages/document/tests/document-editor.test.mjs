@@ -410,3 +410,43 @@ test('open document search refreshes locations after edits and undo', async t =>
   await change(() => ref.current.undo());
   assert.equal(app.editor.search.locations.length, 1);
 });
+
+
+test('initial document search uses mount-only props, navigates read-only content and preserves its query', async t => {
+  let permissions = 0, changes = 0;
+  const ref = { current: null }, app = await mount(t, { ref, readOnly: true, initialRibbonDisplayMode: 'hidden', initialSearchOpen: true, initialSearchQuery: 'Alpha', onEditRequest() { permissions++; return true; }, onChange() { changes++; } });
+  const api = ref.current;
+  assert.equal(app.editor.search.open, true); assert.equal(app.editor.search.query, 'Alpha');
+  assert.equal(app.editor.search.locations.length, 1); assert.deepEqual(api.getSelection(), { from: 1, to: 6 });
+  assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false); assert.equal(permissions, 0); assert.equal(changes, 0);
+  await app.update({ initialSearchOpen: false, initialSearchQuery: 'beta' });
+  assert.equal(app.editor.search.open, true); assert.equal(app.editor.search.query, 'Alpha');
+  await change(() => api.closeSearch());
+  await app.update({ initialSearchOpen: true, initialSearchQuery: 'beta' });
+  assert.equal(app.editor.search.open, false);
+  await change(() => assert.equal(api.openSearch(), true));
+  assert.equal(app.editor.search.query, 'Alpha');
+  await app.update({ features: { search: false } });
+  await app.update({ features: { search: true } });
+  assert.equal(app.editor.search.open, false);
+  await change(() => assert.equal(api.openSearch(''), true));
+  assert.equal(app.editor.search.query, ''); assert.equal(app.editor.search.locations.length, 0);
+  await app.unmount(); assert.equal(api.openSearch('beta'), false); api.closeSearch();
+});
+
+test('initially closed or disabled document search retains the query and normalizes invalid initial values', async t => {
+  for (const features of [undefined, { search: false }]) {
+    const ref = { current: null }, app = await mount(t, { ref, initialSearchOpen: features ? true : false, initialSearchQuery: 'Alpha', features });
+    assert.equal(app.editor.search.open, false); assert.equal(app.editor.search.locations.length, 0);
+    await app.update({ features: { search: true } });
+    assert.equal(app.editor.search.open, false);
+    await change(() => assert.equal(ref.current.openSearch(), true));
+    assert.equal(app.editor.search.query, 'Alpha'); assert.equal(app.editor.search.locations.length, 1);
+  }
+  for (const initialSearchQuery of [123, null, 'x'.repeat(4097)]) {
+    const ref = { current: null }, app = await mount(t, { ref, initialSearchOpen: true, initialSearchQuery });
+    assert.equal(app.editor.search.open, true); assert.equal(app.editor.search.query, '');
+    await change(() => ref.current.closeSearch());
+    assert.equal(ref.current.openSearch(initialSearchQuery), false); assert.equal(app.editor.search.open, false);
+  }
+});

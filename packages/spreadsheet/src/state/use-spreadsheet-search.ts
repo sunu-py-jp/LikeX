@@ -16,7 +16,7 @@ function conditionsKey(value: Conditions) {
 }
 /** Search results belong to confirmed conditions and a precise workbook snapshot. */
 export function useSpreadsheetSearch(c: SpreadsheetController, mode: "find" | "replace") {
-  const [query, updateQuery] = useState<SpreadsheetSearchQuery>({ text: "", lookIn: mode === "replace" ? "formulas" : "values" });
+  const [query, updateQuery] = useState<SpreadsheetSearchQuery>(() => ({ text: c.searchPanel?.query ?? "", lookIn: mode === "replace" ? "formulas" : "values" }));
   const [scope, updateScope] = useState<SpreadsheetSearchScope>("sheet");
   const [replacement, setReplacement] = useState("");
   const [composing, setComposing] = useState(false);
@@ -50,6 +50,7 @@ export function useSpreadsheetSearch(c: SpreadsheetController, mode: "find" | "r
   const setQuery = (next: SpreadsheetSearchQuery) => {
     if (conditionsKey({ ...latest.current.draft, query: next }) === conditionsKey(latest.current.draft)) return;
     if (trigger !== "submit") invalidate(); updateQuery({ ...next });
+    c.setSearchPanelQuery(next.text);
   };
   const setScope = (next: SpreadsheetSearchScope) => { if (next === latest.current.draft.scope) return; if (trigger !== "submit") invalidate(); updateScope(next); };
   const onCompositionStart = () => { if (trigger !== "submit") invalidate(); setComposing(true); };
@@ -58,7 +59,7 @@ export function useSpreadsheetSearch(c: SpreadsheetController, mode: "find" | "r
     if (latest.current.composing) return;
     cancel(); setConfirmed({ ...latest.current.draft, query: copyQuerySnapshot(latest.current.draft.query) }); setSubmission(value => value + 1);
   };
-  const clear = () => { invalidate(); updateQuery(previous => ({ ...previous, text: "" })); setConfirmed(null); };
+  const clear = () => { invalidate(); updateQuery(previous => ({ ...previous, text: "" })); c.setSearchPanelQuery(""); setConfirmed(null); };
   useEffect(() => {
     const { applied: conditions, controller: capturedController } = latest.current;
     if (identity.paused || !conditions?.query.text) return;

@@ -13,13 +13,18 @@ const { LikeSlide, useSlideEditor, SlideFilmstrip, createSlideDeck, createSlideE
 const change = callback => act(async () => { await callback(); });
 const fixture = () => createSlideDeck({ slides: ['one', 'two', 'three', 'four'].map(id => ({ id, name: id, notes: '', background: '#fff',
   elements: id === 'one' ? ['a', 'b', 'locked'].map(id => createSlideElement({ type: 'text', id, text: id, locked: id === 'locked' })) : [] })) });
-async function mount(t, supplied = {}, full = false) {
+async function mount(t, supplied = {}, full = false, nodes = false) {
   const ref = createRef(); let editor, renderer, props = { initialDeck: fixture(), onSave() {}, ref, ...supplied };
   function Probe() { editor = useSlideEditor(props); return h(SlideFilmstrip, { editor }); }
   const view = () => full ? h(LikeSlide, props) : h(Probe);
-  await change(() => { renderer = create(view()); });
+  let focused = null; const scrolled = [];
+  const controls = props.initialDeck.slides.map(slide => ({ focus() { focused = slide.id; }, scrollIntoView() { scrolled.push(slide.id); } }));
+  await change(() => { renderer = create(view(), nodes ? { createNodeMock(element) {
+    if (element.props.className === 'lxp-slide-list') return { querySelectorAll() { return controls; } };
+    return null;
+  } } : undefined); });
   t.after(() => change(() => renderer.unmount()));
-  return { ref, renderer, get editor() { return editor; }, async update(patch) { props = { ...props, ...patch }; await change(() => renderer.update(view())); } };
+  return { ref, renderer, get focused() { return focused; }, scrolled, get editor() { return editor; }, async update(patch) { props = { ...props, ...patch }; await change(() => renderer.update(view())); } };
 }
 const thumbnail = (app, id) => app.renderer.root.findByProps({ 'data-filmstrip-id': id }).findByProps({ className: 'lxp-slide-thumbnail' });
 const click = (app, id, modifiers = {}) => change(() => thumbnail(app, id).props.onClick(modifiers));
@@ -202,4 +207,44 @@ test('individual page controls delete only that page and disable the last-page c
   assert.deepEqual(app.ref.current.getDeck().slides.map(slide => slide.id), ['one', 'two', 'three']);
   await change(() => app.ref.current.execute([{ type: 'slide.delete', slideId: 'one' }, { type: 'slide.delete', slideId: 'two' }]));
   assert.equal(app.renderer.root.findByProps({ 'aria-label': 'threeを削除' }).props.disabled, true);
+});
+
+
+function filmstripKey(app, key, options = {}) {
+  const event = { key, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, defaultPrevented: false, nativeEvent: {}, ...options,
+    target: { closest(selector) {
+      if (selector === '[data-filmstrip-id]') return options.focused ? { dataset: { filmstripId: options.focused } } : null;
+      return options.input ? {} : null;
+    } }, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; } };
+  app.renderer.root.findByProps({ 'aria-label': 'スライド一覧' }).props.onKeyDown(event); return event;
+}
+
+test('filmstrip arrows select and reveal neighboring pages, retain focus and stop at the first/last page in read-only mode', async t => {
+  const selected = [], app = await mount(t, { readOnly: true, onSelectionChange(selection) { selected.push(selection.slideId); } }, false, true);
+  await change(() => assert.equal(filmstripKey(app, 'ArrowDown').defaultPrevented, true));
+  assert.equal(app.ref.current.getPageNumber(), 2); assert.equal(app.focused, 'two'); assert.equal(app.scrolled.at(-1), 'two');
+  await change(() => filmstripKey(app, 'ArrowDown')); assert.equal(app.ref.current.getPageNumber(), 3);
+  await change(() => filmstripKey(app, 'ArrowDown')); assert.equal(app.ref.current.getPageNumber(), 4);
+  await change(() => filmstripKey(app, 'ArrowDown')); assert.equal(app.ref.current.getPageNumber(), 4);
+  await click(app, 'one');
+  await change(() => filmstripKey(app, 'ArrowUp')); assert.equal(app.ref.current.getPageNumber(), 1); assert.equal(app.focused, 'one');
+  assert.ok(selected.includes('two')); assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false);
+});
+
+test('filmstrip arrows preserve range modifiers and do not intercept text input, IME, Alt or action buttons', async t => {
+  const app = await mount(t, {}, false, true);
+  await click(app, 'two');
+  await change(() => filmstripKey(app, 'ArrowDown', { shiftKey: true }));
+  assert.deepEqual(app.ref.current.getSelectedPageNumbers(), [2, 3]); assert.equal(app.ref.current.getPageNumber(), 3);
+  await change(() => filmstripKey(app, 'ArrowDown', { shiftKey: true }));
+  assert.deepEqual(app.ref.current.getSelectedPageNumbers(), [2, 3, 4]);
+  await change(() => filmstripKey(app, 'ArrowUp'));
+  assert.deepEqual(app.ref.current.getSelectedPageNumbers(), [3]); assert.equal(app.focused, 'three');
+  for (const options of [{ input: true }, { nativeEvent: { isComposing: true } }, { keyCode: 229 }, { altKey: true }, { defaultPrevented: true }]) {
+    await change(() => filmstripKey(app, 'ArrowDown', options)); assert.equal(app.ref.current.getPageNumber(), 3);
+  }
+  await change(() => filmstripKey(app, 'ArrowUp', { ctrlKey: true }));
+  assert.equal(app.ref.current.getPageNumber(), 3); assert.equal(app.focused, 'two');
+  await change(() => filmstripKey(app, 'ArrowUp', { ctrlKey: true, focused: 'two' }));
+  assert.equal(app.ref.current.getPageNumber(), 3); assert.equal(app.focused, 'one');
 });

@@ -136,6 +136,7 @@ export function useExplorerViewController({
     pendingUploadEntryIds,
     dirty,
     saving,
+    importing,
     refreshing,
     refreshError,
     canRefresh,
@@ -942,7 +943,7 @@ export function useExplorerViewController({
     }
   }
   async function saveChanges(): Promise<boolean> {
-    if (!mounted.current || ownerDocument?.defaultView?.closed || currentOptions.current.readOnly) return false;
+    if (!mounted.current || ownerDocument?.defaultView?.closed || currentOptions.current.readOnly || currentDraft.current.isImporting()) return false;
     const notificationRevision = workspace.notifications.getRevision();
     setNotification(null);
     const completion = save(windowId);
@@ -1550,7 +1551,7 @@ export function useExplorerViewController({
       }
       if (!currentOptions.current.readOnly && matchesExplorerShortcut(event, "save")) {
         event.preventDefault();
-        if (!busy && !event.repeat && (dirty || editMode === "edit")) void saveChanges();
+        if (!busy && !currentDraft.current.isImporting() && !event.repeat && (dirty || editMode === "edit")) void saveChanges();
       } else if (canRefresh && matchesExplorerShortcut(event, "refresh")) {
         event.preventDefault();
         if (!busy && !event.repeat) void refreshEntries();
@@ -1620,6 +1621,7 @@ export function useExplorerViewController({
     dirty,
     busy,
     saving,
+    importing,
     refreshing,
     refreshError,
     canRefresh,

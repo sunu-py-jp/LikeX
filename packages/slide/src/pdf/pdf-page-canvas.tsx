@@ -13,6 +13,10 @@ export function PdfPageCanvas({ page, width, height, label, thumbnail = false, o
   const [finished, setFinished] = useState<{ page: SlidePdfPage; width: number; height: number } | null>(null);
   useEffect(() => {
     const target = canvas.current;
+    return () => { if (target) target.width = target.height = 0; };
+  }, []);
+  useEffect(() => {
+    const target = canvas.current;
     if (!target) return;
     const controller = new AbortController();
     const scratch = target.ownerDocument.createElement("canvas");
@@ -33,11 +37,11 @@ export function PdfPageCanvas({ page, width, height, label, thumbnail = false, o
       } catch (error) { if (!controller.signal.aborted) onError(pdfError(error)); }
       finally { scratch.width = 0; scratch.height = 0; }
     })();
-    return () => { controller.abort(); target.width = 0; target.height = 0; scratch.width = 0; scratch.height = 0; };
+    return () => { controller.abort(); scratch.width = 0; scratch.height = 0; };
   }, [page, width, height, thumbnail, onError]);
   const ready = finished?.page === page && finished.width === width && finished.height === height;
   return <canvas ref={canvas} className="lxp-pdf-canvas" role="img" aria-label={label} aria-busy={!ready}
-    style={{ width, height, visibility: ready ? "visible" : "hidden" }}>{label}</canvas>;
+    style={{ width, height, visibility: finished?.page === page ? "visible" : "hidden" }}>{label}</canvas>;
 }
 
 export function usePdfPage(session: PdfSession, pageNumber: number, onError: (error: Error) => void) {

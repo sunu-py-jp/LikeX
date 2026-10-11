@@ -1,5 +1,6 @@
 import type { SlidePdfInput, SlidePdfJsModule, SlidePdfLoader, SlidePdfLoaderOptions, SlidePdfPage, SlidePdfRenderOptions } from "./types";
-import { aborted, check, cleanupPage, createPdfSource, promiseLike, SLIDE_PDF_LIMITS, wait } from "./pdfjs-source";
+import { aborted, check, createPdfSource, promiseLike, SLIDE_PDF_LIMITS, wait } from "./pdfjs-source";
+import { createPdfPageActivity, createPdfPageTextReader } from "./pdf-page-text";
 export { SLIDE_PDF_LIMITS } from "./pdfjs-source";
 
 type Viewport = { width: number; height: number };
@@ -27,21 +28,19 @@ export function createSlidePdfLoader(pdfjs: SlidePdfJsModule, data: SlidePdfInpu
   const loadSource = createPdfSource(pdfjs, data, options);
   return async context => {
     const source = await loadSource(context), document = source.document;
-    const pageStates = new WeakMap<PdfPage, { renders: number }>();
+    const activity = createPdfPageActivity();
     return Object.freeze({
       pageCount: document.numPages,
       destroy: source.destroy,
+      getPageText: createPdfPageTextReader(source, activity),
       async getPage(pageNumber: number, { signal: pageSignal }: { signal?: AbortSignal } = {}): Promise<SlidePdfPage> {
         check(source.signal, pageSignal);
         if (!Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > document!.numPages) throw new Error("PDFページ番号が範囲外です");
-        const page = await wait(() => document.getPage(pageNumber) as PromiseLike<PdfPage>, [source.signal, pageSignal], undefined, cleanupPage);
+        const page = await wait(() => document.getPage(pageNumber) as PromiseLike<PdfPage>, [source.signal, pageSignal], undefined, activity.cleanupIfIdle);
         if (!page || typeof page.getViewport !== "function" || typeof page.render !== "function") throw new Error("PDFページを取得できません");
         let base: Viewport;
         try { check(source.signal, pageSignal); base = page.getViewport({ scale: 1 }); validViewport(base, false); }
-        catch (error) { cleanupPage(page); throw error; }
-        let state = pageStates.get(page);
-        if (!state) { state = { renders: 0 }; pageStates.set(page, state); }
-        const pageState = state;
+        catch (error) { activity.cleanupIfIdle(page); throw error; }
         return Object.freeze({ width: base.width, height: base.height,
           async render({ canvas, scale, signal: renderSignal }: SlidePdfRenderOptions) {
             check(source.signal, renderSignal);
@@ -59,10 +58,10 @@ export function createSlidePdfLoader(pdfjs: SlidePdfJsModule, data: SlidePdfInpu
             canvasOwners.get(canvas)?.(); canvasOwners.set(canvas, cancel);
             let renderTask: RenderTask | undefined;
             const cancelTask = () => { renderTask?.cancel(); };
-            const released = () => { pageState.renders--; if (!pageState.renders) cleanupPage(page); };
+            const released = () => activity.release(page);
             try {
               await wait(() => {
-                pageState.renders++;
+                activity.retain(page);
                 try {
                   renderTask = page.render({ canvas: staging, canvasContext: context, viewport, annotationMode: 0 });
                   if (!renderTask || !promiseLike(renderTask.promise) || typeof renderTask.cancel !== "function") throw new Error("PDFの描画タスクが正しくありません");

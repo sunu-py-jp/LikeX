@@ -113,10 +113,25 @@ export function useExplorerDraft({
   const current = useRef(state);
   const folderLoadingRef = useRef<ReturnType<typeof useExplorerFolderLoading> | null>(null);
   const mounted = useRef(true);
-  const pendingAsyncAdds = useRef(new Set<AbortController>());
-  const cancelAsyncAdds = useCallback(() => {
-    const pending = [...pendingAsyncAdds.current];
-    pendingAsyncAdds.current.clear();
+  // Shared by file discovery, UI imports and low-level addAsync. This is a
+  // save gate only: browsing and the import's own commit must remain available.
+  const pendingImports = useRef(new Set<AbortController>());
+  const [importing, setImporting] = useState(false);
+  const isImporting = useCallback(() => pendingImports.current.size > 0, []);
+  const registerImport = useCallback((controller: AbortController) => {
+    if (!mounted.current || controller.signal.aborted) return () => {};
+    pendingImports.current.add(controller);
+    setImporting(true);
+    const unregister = () => {
+      controller.signal.removeEventListener("abort", unregister);
+      if (pendingImports.current.delete(controller) && mounted.current)
+        setImporting(pendingImports.current.size > 0);
+    };
+    controller.signal.addEventListener("abort", unregister, { once: true });
+    return unregister;
+  }, []);
+  const cancelImports = useCallback(() => {
+    const pending = [...pendingImports.current];
     for (const controller of pending) controller.abort();
   }, []);
   // Save and refresh are mutually exclusive and share the same effect lifetime.
@@ -211,12 +226,13 @@ export function useExplorerDraft({
     // then reuse this hook state. Restore the released ref state in that setup.
     publishEdit(currentEditState.current);
     setEditRevision(currentEditRevision.current);
+    setImporting(isImporting());
     setState(current.current);
     setContextMenuBusy(menuOperation.current !== null);
     setMutationBlocked(menuOperation.current?.blocking ?? false);
     return () => {
       mounted.current = false;
-      cancelAsyncAdds();
+      cancelImports();
       persistenceRequest.current = null;
       // React can reuse hook state after cleaning up its effects. A response
       // from the old lifetime must not retain a lock or overwrite newer edits.
@@ -224,10 +240,10 @@ export function useExplorerDraft({
         current.current = { ...current.current, saving: false, refreshing: false };
       finishEdit("unmounted");
     };
-  }, [finishEdit, publishEdit, cancelAsyncAdds]);
+  }, [finishEdit, publishEdit, cancelImports, isImporting]);
   useLayoutEffect(() => {
-    if (readOnly) { cancelAsyncAdds(); finishEdit("read-only"); }
-  }, [readOnly, finishEdit, cancelAsyncAdds]);
+    if (readOnly) { cancelImports(); finishEdit("read-only"); }
+  }, [readOnly, finishEdit, cancelImports]);
 
   const folderLoading = useExplorerFolderLoading({
     handler: onLoadFolder, options: folderLoadingOptions,
@@ -393,9 +409,9 @@ export function useExplorerDraft({
     if (current.current.refreshing) throw new Error("再読み込みが完了するまで操作をお待ちください");
     if (hasChanges(current.current.baseline, current.current.draft))
       throw new Error("未保存の変更を保存または破棄してください");
-    cancelAsyncAdds();
+    cancelImports();
     return finishEdit("ended");
-  }, [finishEdit, canMutate, cancelAsyncAdds]);
+  }, [finishEdit, canMutate, cancelImports]);
   const requireEdit = useCallback((intent: ExplorerEditIntent, owner?: symbol) => {
     if (endingEdit.current) throw new Error("編集を開始してから変更してください");
     if (session.current?.phase === "edit") return;
@@ -663,7 +679,7 @@ export function useExplorerDraft({
     const abort = () => controller.abort();
     if (execution.signal?.aborted) abort();
     else execution.signal?.addEventListener("abort", abort, { once: true });
-    pendingAsyncAdds.current.add(controller);
+    const unregister = registerImport(controller);
     try {
       for (;;) {
         const prepared = await prepareAddAsync(captured, parent, answers, uploadSession, {
@@ -675,10 +691,10 @@ export function useExplorerDraft({
         }
       }
     } finally {
-      pendingAsyncAdds.current.delete(controller);
+      unregister();
       execution.signal?.removeEventListener("abort", abort);
     }
-  }, [checkWritable, prepareAddAsync]);
+  }, [checkWritable, prepareAddAsync, registerImport]);
 
   const discard = useCallback(() => {
     if (!mounted.current) return;
@@ -691,7 +707,7 @@ export function useExplorerDraft({
     if (previous.refreshing)
       throw new Error("再読み込みが完了するまで操作をお待ちください");
     if (endingEdit.current) return;
-    cancelAsyncAdds();
+    cancelImports();
     endingEdit.current++;
     try {
       const draft = previous.baseline;
@@ -703,13 +719,12 @@ export function useExplorerDraft({
     } finally {
       endingEdit.current--;
     }
-  }, [commit, emit, finishEdit, canMutate, cancelAsyncAdds]);
+  }, [commit, emit, finishEdit, canMutate, cancelImports]);
 
   const save = useCallback(async (windowId = "main"): Promise<boolean> => {
     if (!mounted.current || !canMutate()) return false;
     if (currentPolicy.current.readOnly || currentPolicy.current.onSave === undefined ||
-      current.current.saving || current.current.refreshing || endingEdit.current) return false;
-    cancelAsyncAdds();
+      current.current.saving || current.current.refreshing || endingEdit.current || isImporting()) return false;
     if (!hasChanges(current.current.baseline, current.current.draft)) {
       finishEdit("saved");
       return true;
@@ -722,7 +737,7 @@ export function useExplorerDraft({
     }
     const { readOnly, onSave: saveHandler } = currentPolicy.current;
     if (!mounted.current || !canMutate() || readOnly || !saveHandler || endingEdit.current || current.current.saving || current.current.refreshing ||
-      session.current?.phase !== "edit") return false;
+      session.current?.phase !== "edit" || isImporting()) return false;
     const previous = current.current;
     const savingSession = session.current;
     const request = {};
@@ -801,13 +816,13 @@ export function useExplorerDraft({
     } finally {
       if (persistenceRequest.current === request) persistenceRequest.current = null;
     }
-  }, [commit, emit, finishEdit, requestEdit, canMutate, cancelAsyncAdds]);
+  }, [commit, emit, finishEdit, requestEdit, canMutate, isImporting]);
 
   const refresh = useCallback(async (): Promise<boolean> => {
     const refreshHandler = currentPolicy.current.onRefresh;
     if (!mounted.current || !canMutate() || typeof refreshHandler !== "function" || current.current.saving || current.current.refreshing ||
       session.current?.phase === "requesting" || endingEdit.current) return false;
-    cancelAsyncAdds();
+    cancelImports();
     const previous = current.current;
     const previousSession = session.current;
     const request = {};
@@ -854,7 +869,7 @@ export function useExplorerDraft({
     } finally {
       if (persistenceRequest.current === request) persistenceRequest.current = null;
     }
-  }, [commit, emit, finishEdit, canMutate, cancelAsyncAdds]);
+  }, [commit, emit, finishEdit, canMutate, cancelImports]);
 
   return {
     readOnly,
@@ -862,6 +877,10 @@ export function useExplorerDraft({
     pendingUploadEntryIds,
     dirty,
     saving: state.saving,
+    importing,
+    isImporting,
+    registerImport,
+    cancelImports,
     saveError: state.saveError,
     refreshing: state.refreshing,
     refreshError: state.refreshError,

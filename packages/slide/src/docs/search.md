@@ -8,10 +8,21 @@
 
 ```tsx
 const ref = useRef<SlideHandle>(null);
-<LikeSlide ref={ref} initialDeck={deck} readOnly initialRibbonDisplayMode="hidden" />;
-ref.current?.openSearch("売上"); // 開いて文字列を設定。省略時は前回の文字列を保持
+<LikeSlide
+  ref={ref}
+  initialDeck={deck}
+  initialSearchOpen
+  initialSearchQuery="受注番号"
+  readOnly
+  initialRibbonDisplayMode="hidden"
+/>;
+ref.current?.openSearch("売上"); // 開いて文字列を設定。省略時は前回の文字列を保持。空文字ならクリア
 ref.current?.closeSearch();
 ```
+
+`initialSearchOpen`（既定`false`）で最初の描画から検索欄を表示し、`initialSearchQuery`（既定`""`）で検索語を指定します。両方ともマウント時に一度だけ読みます。検索語だけでは欄を開きませんが、後から`openSearch()`したときに使います。不正な初期検索語（文字列以外・4,096文字超）は空文字として扱います。初期検索が一致すると、通常の検索と同じように最初の一致箇所へ移動します。
+
+表示後の変更にはrefを使います。`features.search: false`は初期表示指定より優先し、表示中の欄も閉じます。その後`true`に戻しても自動では開きません。Spreadsheet・Slide・Document・PDFで共通のprops／ref名と引数を使い、型はCoreの`SearchPanelInitialState`／`SearchPanelHandle`を共有します。サムネイルには検索UIを表示しません。
 
 `openSearch(query?: string): boolean` は受付時にtrueを返します。機能無効・アンマウント後・不正な文字列（4,096文字超過を含む）の場合はfalseです。`features={{ search: false }}` でボタン・ショートカット・表示中パネル・refからの呼び出しを無効にします。公開モデルの`searchSlides`はその設定の影響を受けません。
 

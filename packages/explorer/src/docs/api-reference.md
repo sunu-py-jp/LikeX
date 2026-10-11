@@ -182,7 +182,7 @@ if (result && !result.ok) {
 | `loadFolder(folderId: string, options?: ExplorerFolderLoadOptions): Promise<boolean>` | 直下を取得します。`recursive: true` は配下全体、`signal` は利用側からの取消し。取得済みは再通信せず、取消しや取得失敗はfalse。表示の移動や未保存化はしません。[必要な配下を先に取得する](./folder-loading.md) |
 | `execute(action: ExplorerAction): Promise<boolean>` | `create` / `createFile` / `rename` / `move` / `copy` / `delete` / `favorite` を実行します。対象の `ids` と作成・移動先の `parent` を指定します。`ids` を省略してもGUIの現在選択は使いません。作成先の省略はモデルと同じ `root` です。 |
 | `upload(files: readonly File[], parentId: string): Promise<boolean>` | 指定フォルダへ取り込みます。`webkitRelativePath` のある `File` はフォルダ取込です。サイズ・拡張子・件数制限、同名競合の確認、処理中表示、取消しはGUIと共通です。 |
-| `save(): Promise<boolean>` | 変更を `onSave` へ渡します。変更なしの場合は保存先を呼ばず編集セッションを終了します。 |
+| `save(): Promise<boolean>` | 変更を `onSave` へ渡します。同じワークスペースで取り込み中なら `false` を返し、取り込み・編集セッションを維持します。取り込みがなく変更なしの場合は保存先を呼ばず編集セッションを終了します。 |
 | `discard(): Promise<boolean>` | 未保存の変更をすべて破棄し、選択・クリップボード・プレビュー等を解除します。この明示コマンド自体は追加の確認を表示しないため、ホストが確認を必要とする場合は呼ぶ前に行います。Undo/Redoではありません。 |
 | `refresh(): Promise<boolean>` | `onRefresh` で一覧を再取得します。未保存の変更がある場合は通常の確認ダイアログを開き、その呼出しは `false` を返します。ユーザーが確認するとGUIの経路で再取得し、結果は `onEvent` で通知します。 |
 | `download(target: ExplorerEntryTarget): Promise<boolean>` | 指定ファイルを取得します。フォルダは内蔵ZIP、`onDownloadRequest` 指定時は親へ委譲します。認証・進捗・取消し・イベントの契約は[ダウンロード](./downloads.md)と共通です。 |
@@ -199,6 +199,6 @@ if (api) {
 }
 ```
 
-`execute` による改名も拡張子を保ちます。ファイル名全体を渡しますが、拡張子の変更・追加・除去は拒否します。編集許可を待つ間に操作元のタブ・場所・編集対象が変わった場合は古い結果を反映しません。取込はGUIと同様、閲覧先を変えても呼出し時の取込先を保持します。アンマウント・読み取り専用化・保存等で取り消される取込は反映しません。
+`execute` による改名も拡張子を保ちます。ファイル名全体を渡しますが、拡張子の変更・追加・除去は拒否します。編集許可を待つ間に操作元のタブ・場所・編集対象が変わった場合は古い結果を反映しません。取込はGUIと同様、閲覧先を変えても呼出し時の取込先を保持します。アンマウント・読み取り専用化・破棄等で取り消される取込は反映しません。取り込み中の保存は開始せず、すべての取り込みが終了した後に再度 `save()` を呼び出せます。
 
 Reactも画面も用意しない処理は、別の[公開モデルAPI](./model-api.md)を使います。

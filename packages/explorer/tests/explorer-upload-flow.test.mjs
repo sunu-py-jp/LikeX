@@ -188,17 +188,36 @@ test('a conflicting file changed by another view is confirmed again', async t =>
   assert.equal(app.main.uploadPrompt, null); assert.equal(app.main.entries.find(item => item.id === 'a').favorite, 1);
 });
 
-for (const reason of ['readonly', 'feature', 'save', 'discard', 'unmount']) test(`pending child confirmation is invalidated by ${reason}`, async t => {
+for (const reason of ['readonly', 'feature', 'discard', 'unmount']) test(`pending child confirmation is invalidated by ${reason}`, async t => {
   const app = await mount(t), before = app.main.entries;
   await change(() => app.child.addLocalFiles([file('A.txt')], 'file', 'folder'));
   const retained = app.child.answerUploadConflict;
   if (reason === 'readonly') await app.update({ readOnly: true });
   if (reason === 'feature') await app.update({ features: { uploadFiles: false } });
-  if (reason === 'save') await change(() => app.workspace.draft.save());
   if (reason === 'discard') await change(() => app.workspace.draft.discard());
   if (reason === 'unmount') await app.closeChild();
   await change(() => retained('overwrite', true));
   assert.equal(app.main.entries, before); assert.equal(app.requests.length, 0);
+});
+
+test('save preserves a pending overwrite confirmation and persists it only after the decision', async t => {
+  const app = await mount(t);
+  await change(() => app.main.act('favorite', ['b']));
+  const replacement = file('A.txt');
+  await change(() => app.child.addLocalFiles([replacement], 'file', 'folder'));
+  const prompt = app.child.uploadPrompt;
+  assert.equal(app.main.importing, true);
+  await change(async () => assert.equal(await app.workspace.draft.save(), false));
+  assert.equal(app.child.uploadPrompt, prompt);
+  assert.equal(app.main.entries.find(item => item.id === 'a').source.kind, 'existing');
+  assert.equal(app.main.editMode, 'edit');
+  assert.equal(app.saves.length, 0);
+  await change(() => app.child.answerUploadConflict('overwrite', false));
+  assert.equal(app.workspace.draft.isImporting(), false);
+  await change(async () => assert.equal(await app.main.saveChanges(), true));
+  assert.equal(app.saves.length, 1);
+  assert.equal(app.saves[0].entries.find(item => item.id === 'a').source.file, replacement);
+  assert.equal(app.saves[0].entries.find(item => item.id === 'b').favorite, 1);
 });
 
 test('duplicate incoming names complete within one batch with stable newly assigned IDs', async t => {
@@ -293,12 +312,11 @@ test('a concurrent pane edit remains present after a large import commits', asyn
   assert.equal(app.events.filter(e => e.type === 'change' && e.action === 'upload').length, 1);
 });
 
-for (const reason of ['cancel', 'save', 'discard', 'readonly']) test(`${reason} stops a large preparation without late changes or rejection notices`, async t => {
+for (const reason of ['cancel', 'discard', 'readonly']) test(`${reason} stops a large preparation without late changes or rejection notices`, async t => {
   const app = await mount(t, { upload: { allowedExtensions: ['.pdf'] } }), before = app.main.entries;
   let pending;
   await change(() => { pending = app.main.addLocalFiles(Array.from({ length: 600 }, (_, i) => file(`new-${i}.txt`))); });
   if (reason === 'cancel') await change(() => app.main.cancelUpload());
-  if (reason === 'save') await change(() => app.workspace.draft.save());
   if (reason === 'discard') await change(() => app.workspace.draft.discard());
   if (reason === 'readonly') await app.update({ readOnly: true });
   await change(() => pending);
@@ -306,6 +324,26 @@ for (const reason of ['cancel', 'save', 'discard', 'readonly']) test(`${reason} 
   assert.equal(app.main.notification, null);
   assert.equal(app.events.filter(e => e.type === 'upload' || e.type === 'change').length, 0);
   assert.equal(app.requests.length, 0);
+});
+
+test('save is blocked synchronously while a large picker selection prepares and resumes after its atomic commit', async t => {
+  const app = await mount(t);
+  await change(() => app.main.act('favorite', ['b']));
+  let pending, saving;
+  await change(() => {
+    pending = app.child.addLocalFiles(Array.from({ length: 600 }, (_, i) => file(`new-${i}.txt`)));
+    assert.equal(app.workspace.draft.isImporting(), true);
+    saving = app.workspace.draft.save();
+  });
+  assert.equal(await saving, false);
+  assert.equal(app.saves.length, 0);
+  await change(() => pending);
+  assert.equal(app.workspace.draft.isImporting(), false);
+  assert.equal(app.main.entries.filter(item => item.source?.kind === 'local').length, 600);
+  await change(async () => assert.equal(await app.workspace.draft.save(), true));
+  assert.equal(app.saves.length, 1);
+  assert.equal(app.saves[0].changes.created.length, 600);
+  assert.equal(app.saves[0].entries.find(item => item.id === 'b').favorite, 1);
 });
 
 test('a large batch still waits for every overwrite decision before its atomic commit', async t => {
@@ -408,7 +446,7 @@ test('the low-level addAsync hook validates content before its atomic commit and
   assert.equal(app.events.filter(event => event.type === 'change' && event.action === 'upload').length, 1);
 });
 
-for (const reason of ['signal', 'readonly', 'save', 'discard']) test(`low-level addAsync stops a pending inspector after ${reason}`, async t => {
+for (const reason of ['signal', 'readonly', 'discard']) test(`low-level addAsync stops a pending inspector after ${reason}`, async t => {
   const started = deferred(), metadata = deferred(), controller = new AbortController();
   let inspectionSignal;
   const app = await mount(t, { onEditRequest: undefined, upload: { inspectFile({ signal }) {
@@ -421,7 +459,6 @@ for (const reason of ['signal', 'readonly', 'save', 'discard']) test(`low-level 
   await change(() => started.promise);
   if (reason === 'signal') await change(() => controller.abort());
   if (reason === 'readonly') await app.update({ readOnly: true });
-  if (reason === 'save') await change(() => app.workspace.draft.save());
   if (reason === 'discard') await change(() => app.workspace.draft.discard());
   let result;
   await change(async () => { result = await pending; });
@@ -431,6 +468,29 @@ for (const reason of ['signal', 'readonly', 'save', 'discard']) test(`low-level 
   await change(() => metadata.resolve({ kind: 'video', durationSeconds: 20 }));
   assert.equal(app.main.entries, before);
   assert.equal(app.events.filter(event => event.type === 'upload' || event.type === 'change').length, 0);
+});
+
+test('low-level addAsync blocks workspace saves without aborting the inspector', async t => {
+  const started = deferred(), metadata = deferred();
+  let inspectionSignal;
+  const app = await mount(t, { onEditRequest: undefined, upload: { inspectFile({ signal }) {
+    inspectionSignal = signal; started.resolve(); return metadata.promise;
+  } } });
+  let pending;
+  await change(() => { pending = app.workspace.draft.addAsync([file('Pending.mp4')], 'root'); });
+  await change(() => started.promise);
+  assert.equal(app.workspace.draft.importing, true);
+  assert.equal(app.main.importing, true);
+  assert.equal(app.child.importing, true);
+  await change(async () => assert.equal(await app.workspace.draft.save(), false));
+  assert.equal(inspectionSignal.aborted, false);
+  assert.equal(app.saves.length, 0);
+  await change(() => metadata.resolve({ kind: 'video', durationSeconds: 20 }));
+  await change(() => pending);
+  assert.equal(app.workspace.draft.importing, false);
+  await change(async () => assert.equal(await app.workspace.draft.save(), true));
+  assert.equal(app.saves.length, 1);
+  assert.deepEqual(app.saves[0].changes.created.map(item => item.name), ['Pending.mp4']);
 });
 
 test('relaxing a page limit during inspection reuses metadata without reporting the obsolete rejection', async t => {
@@ -524,7 +584,7 @@ test('content rejections and overwrite decisions preserve original indexes and r
   assert.equal(skipped[0].rejections[0].file, invalid);
 });
 
-for (const reason of ['cancel', 'readonly', 'feature', 'close', 'save', 'discard']) test(`${reason} aborts one pending content inspection without a late edit or error notice`, async t => {
+for (const reason of ['cancel', 'readonly', 'feature', 'close', 'discard']) test(`${reason} aborts one pending content inspection without a late edit or error notice`, async t => {
   const started = deferred(), metadata = deferred();
   let inspectionSignal;
   const app = await mount(t, { upload: { inspectFile({ signal }) {
@@ -538,7 +598,6 @@ for (const reason of ['cancel', 'readonly', 'feature', 'close', 'save', 'discard
   if (reason === 'readonly') await app.update({ readOnly: true });
   if (reason === 'feature') await app.update({ features: { uploadFiles: false } });
   if (reason === 'close') await app.closeChild();
-  if (reason === 'save') await change(() => app.workspace.draft.save());
   if (reason === 'discard') await change(() => app.workspace.draft.discard());
   await change(() => pending);
   assert.equal(inspectionSignal.aborted, true);
@@ -548,4 +607,31 @@ for (const reason of ['cancel', 'readonly', 'feature', 'close', 'save', 'discard
   await change(() => metadata.resolve({ kind: 'video', durationSeconds: 30 }));
   assert.equal(app.main.entries, before);
   assert.equal(app.events.filter(event => event.type === 'upload' || event.type === 'change').length, 0);
+});
+
+test('public saves preserve pending content inspection and the subsequent edit permission request', async t => {
+  const started = deferred(), metadata = deferred(), permissionStarted = deferred(), permission = deferred(), ref = { current: null };
+  let inspectionSignal, permissionSignal;
+  const app = await mount(t, { ref, upload: { inspectFile({ signal }) {
+    inspectionSignal = signal; started.resolve(); return metadata.promise;
+  } }, onEditRequest(_request, { signal }) { permissionSignal = signal; permissionStarted.resolve(); return permission.promise; } });
+  let pending;
+  await change(() => { pending = app.child.addLocalFiles([file('Pending.mp4')], 'file', 'root'); });
+  await change(() => started.promise);
+  await change(async () => assert.equal(await ref.current.save(), false));
+  assert.equal(inspectionSignal.aborted, false);
+  assert.equal(app.saves.length, 0);
+  await change(() => metadata.resolve({ kind: 'video', durationSeconds: 30 }));
+  await change(() => permissionStarted.promise);
+  assert.equal(app.main.editMode, 'requesting');
+  await change(async () => assert.equal(await ref.current.save(), false));
+  assert.equal(permissionSignal.aborted, false);
+  assert.equal(app.main.editMode, 'requesting');
+  assert.equal(app.saves.length, 0);
+  await change(() => permission.resolve(true));
+  await change(() => pending);
+  assert.equal(app.workspace.draft.isImporting(), false);
+  await change(async () => assert.equal(await ref.current.save(), true));
+  assert.equal(app.saves.length, 1);
+  assert.deepEqual(app.saves[0].changes.created.map(item => item.name), ['Pending.mp4']);
 });

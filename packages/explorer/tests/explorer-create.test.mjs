@@ -68,14 +68,20 @@ function eventTarget(node) {
 
 async function mount(t, supplied = {}, kind = 'draft') {
   let latest, renderer, closed = false;
-  const events = [], saves = [], pickers = [];
+  const events = [], saves = [], pickers = [], pickerNodes = new Map();
   let props = { initialEntries: initialEntries(), onSave: payload => { saves.push(payload); }, onEvent: event => events.push(event), ...supplied };
   function Draft({ options }) { latest = useExplorerDraft(options); return null; }
   function Controller({ options }) { latest = useExplorerController(options); return null; }
   const tree = () => h(StrictMode, null, kind === 'ui' ? h(Explorer, props) : h(kind === 'draft' ? Draft : Controller, { options: props }));
   await change(() => { renderer = create(tree(), { createNodeMock(element) {
     if (element.type === 'input' && element.props.type === 'file') {
-      const node = { value: '', click() { pickers.push(element.props.webkitdirectory !== undefined ? 'folder' : 'file'); } };
+      const source = element.props.webkitdirectory !== undefined ? 'folder' : 'file', listeners = new Map();
+      const node = { value: '', click() { pickers.push(source); },
+        addEventListener(type, callback) { listeners.set(type, callback); },
+        removeEventListener(type, callback) { if (listeners.get(type) === callback) listeners.delete(type); },
+        cancel() { listeners.get('cancel')?.(); },
+      };
+      pickerNodes.set(source, node);
       return node;
     }
     return null;
@@ -83,7 +89,7 @@ async function mount(t, supplied = {}, kind = 'draft') {
   events.length = 0;
   async function unmount() { if (closed) return; closed = true; await change(() => renderer.unmount()); }
   t.after(unmount);
-  return { get current() { return latest; }, get root() { return renderer.root; }, events, saves, pickers, unmount,
+  return { get current() { return latest; }, get root() { return renderer.root; }, events, saves, pickers, pickerNodes, unmount,
     async update(patch) { props = { ...props, ...patch }; await change(() => renderer.update(tree())); },
     async begin(callback) { let result; await change(() => { result = callback(); }); return { result }; },
   };
@@ -426,12 +432,11 @@ test('file and folder pickers add into the folder captured when the chooser open
   });
 });
 
-test('a cancelled picker cannot stage stale browser selections after save, discard, endEdit, read-only, feature disable or unmount', async t => {
-  for (const finish of ['save', 'discard', 'endEdit', 'readOnly', 'feature', 'cancel', 'unmount']) await t.test(finish, async subtest => {
+test('a cancelled picker cannot stage stale browser selections after discard, endEdit, read-only, feature disable or unmount', async t => {
+  for (const finish of ['discard', 'endEdit', 'readOnly', 'feature', 'cancel', 'unmount']) await t.test(finish, async subtest => {
     const hook = await mount(subtest, {}, 'controller');
     hook.current.fileInput.current = { click() {} };
     await change(() => hook.current.chooseFiles());
-    if (finish === 'save') await change(() => hook.current.saveChanges());
     if (finish === 'discard') { await change(() => hook.current.showModal('discard')); await change(() => hook.current.submitModal()); }
     if (finish === 'endEdit') await change(() => hook.current.endEditing());
     if (finish === 'readOnly') await hook.update({ readOnly: true });
@@ -441,6 +446,27 @@ test('a cancelled picker cannot stage stale browser selections after save, disca
     else await hook.update({ readOnly: false, features: { uploadFiles: true } });
     await change(() => hook.current.acceptChosenFiles([new File(['stale'], 'Stale.txt')]));
     assert.equal(hook.current.entries.length, 2); assert.equal(hook.current.dirty, false);
+  });
+});
+
+test('save waits for an open file or folder picker without cancelling its eventual selection', async t => {
+  for (const source of ['file', 'folder']) await t.test(source, async subtest => {
+    const hook = await mount(subtest, {}, 'controller');
+    hook.current.fileInput.current = { click() {} };
+    hook.current.folderInput.current = { click() {} };
+    await change(() => hook.current.act('rename', ['alpha'], { name: 'Changed.txt' }));
+    await change(() => hook.current.chooseFiles(source === 'folder'));
+    assert.equal(hook.current.importing, true);
+    await change(async () => assert.equal(await hook.current.saveChanges(), false));
+    assert.equal(hook.saves.length, 0);
+    const file = new File(['picked'], 'Picked.txt');
+    if (source === 'folder') Object.defineProperty(file, 'webkitRelativePath', { value: 'Batch/Picked.txt' });
+    await change(() => hook.current.acceptChosenFiles([file], source));
+    assert.equal(hook.current.importing, false);
+    await change(async () => assert.equal(await hook.current.saveChanges(), true));
+    assert.equal(hook.saves.length, 1);
+    assert.equal(hook.saves[0].entries.find(item => item.id === 'alpha').name, 'Changed.txt');
+    assert.equal(hook.saves[0].entries.find(item => item.name === 'Picked.txt').source.file, file);
   });
 });
 
@@ -504,6 +530,43 @@ test('the actual toolbar keeps Save and omits an end-edit button before and afte
   await change(() => ui.root.findByType('form').props.onSubmit({ preventDefault() {}, stopPropagation() {} }));
   assert.equal(calls, 1); assert.equal(ui.events.filter(event => event.type === 'change').length, 1);
   assertControls(false);
+});
+
+test('the actual Save button disables for the picker and enables again after its cancellation', async t => {
+  const ui = await mount(t, {}, 'ui');
+  await change(() => creationItems(ui.root).find(item => textOf(item) === '新しいファイル').props.onSelect());
+  await change(() => ui.root.findByType('form').props.onSubmit({ preventDefault() {}, stopPropagation() {} }));
+  const save = () => ui.root.findAllByType('button').find(button => textOf(button) === '保存');
+  assert.equal(save().props.disabled, false);
+  await change(() => creationItems(ui.root).find(item => textOf(item) === 'ファイルをアップロード').props.onSelect());
+  assert.equal(save().props.disabled, true);
+  await change(() => ui.pickerNodes.get('file').cancel());
+  assert.equal(save().props.disabled, false);
+  await change(() => save().props.onClick());
+  assert.equal(ui.saves.length, 1);
+});
+
+test('the actual Save button stays disabled through content inspection and recovers after completion or rejection', async t => {
+  for (const finish of ['complete', 'reject']) await t.test(finish, async subtest => {
+    const started = deferred(), metadata = deferred(), ref = { current: null };
+    const ui = await mount(subtest, { ref, upload: { inspectFile() { started.resolve(); return metadata.promise; } } }, 'ui');
+    await change(() => creationItems(ui.root).find(item => textOf(item) === '新しいファイル').props.onSelect());
+    await change(() => ui.root.findByType('form').props.onSubmit({ preventDefault() {}, stopPropagation() {} }));
+    const save = () => ui.root.findAllByType('button').find(button => textOf(button) === '保存');
+    assert.equal(save().props.disabled, false);
+    let pending;
+    await change(() => { pending = ref.current.upload([new File(['video'], 'Pending.mp4')], 'root'); });
+    await change(() => started.promise);
+    assert.equal(save().props.disabled, true);
+    await change(async () => assert.equal(await ref.current.save(), false));
+    assert.equal(ui.saves.length, 0);
+    await change(() => metadata.resolve({ kind: 'video', durationSeconds: finish === 'complete' ? 20 : 100_000 }));
+    await change(() => pending);
+    assert.equal(save().props.disabled, false);
+    await change(() => save().props.onClick());
+    assert.equal(ui.saves.length, 1);
+    assert.equal(ui.saves[0].entries.some(item => item.name === 'Pending.mp4'), finish === 'complete');
+  });
 });
 
 test('the actual view omits file-kind controls, the kind column and title bar while search and sorting still include all files', async t => {

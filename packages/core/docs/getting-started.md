@@ -30,6 +30,28 @@ const features = resolveFeatureFlags(
 
 上のAPIパスは利用側の実装例です。Coreは通信・認証・永続化を代行しません。各コンポーネントのPropsには、それぞれのデータモデルに合わせた型が用意されているため、通常はその型を使えます。
 
+## 検索欄の共通契約
+
+Spreadsheet・LikeSlide・LikeDocument・LikeSlidePdfViewerは `SearchPanelInitialState` と `SearchPanelHandle` を共通で使用します。
+
+```ts
+import type { SearchPanelHandle, SearchPanelInitialState } from "@likex/core";
+
+const initialSearch: SearchPanelInitialState = {
+  initialSearchOpen: true,
+  initialSearchQuery: "売上",
+};
+function openResult(view: SearchPanelHandle) {
+  view.openSearch("受注");
+  view.closeSearch();
+  view.openSearch(); // 前回の検索語を保持
+}
+```
+
+初期値はマウント時だけ読み、検索語だけの指定では開きません。`openSearch(query?)` は検索語省略で保持、空文字でクリアします。4,096文字を超える値・文字列以外・機能無効・アンマウント後は `false`、受理したら `true` です。`true` は非同期検索の完了を意味しません。初期検索語の不正値は空文字として扱います。`closeSearch()` は検索語を保持して閉じます。検索の状態は保存データ・編集履歴に含めません。
+
+Coreの `createSearchPanelState` / `isSearchPanelQuery` は初期値と入力検証だけを扱います。Reactの状態・検索実行・フォーカス・非同期処理の中止は各ビューが担当します。PDFの文字抽出には、標準 `createSlidePdfLoader` または `getPageText` に対応するカスタムローダーを使います。
+
 ## ソースをコピーして使う
 
 1. `packages/core/src/` の中身を、利用先の `components/core/` にコピーします。

@@ -15,6 +15,7 @@ import { useSpreadsheetContextMenu } from "./state/use-spreadsheet-context-menu"
 import { SpreadsheetContextMenu } from "./ui/spreadsheet-context-menu";
 import { useNamedRangeManager } from "./ui/named-ranges/use-named-range-manager";
 import { NamedRangeDialog, SpreadsheetNamedRangePanel } from "./ui/spreadsheet-named-ranges";
+import { SpreadsheetSearchDialog } from "./ui/spreadsheet-search-dialog";
 
 export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetProps) {
   const c = useSpreadsheet(props);
@@ -76,9 +77,8 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
       const primary = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey);
       if (!primary) return;
       const key = event.key.toLowerCase();
-      if ((key === "f" && c.features.search) || (key === "h" && c.features.replace && !c.readOnly)) {
-        const trigger = root.current?.querySelector<HTMLButtonElement>(key === "f" ? "[data-lxs-find]" : "[data-lxs-replace]");
-        if (trigger && !trigger.disabled) { event.preventDefault(); trigger.click(); }
+      if (!event.shiftKey && ((key === "f" && c.features.search) || (key === "h" && c.features.replace && !c.readOnly))) {
+        if (key === "f" ? c.openSearch() : c.openReplace()) event.preventDefault();
         return;
       }
       if (key === "s" && !c.readOnly && c.features.save) { event.preventDefault(); void c.save(); }
@@ -100,6 +100,8 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
       <SpreadsheetNamedRangePanel controller={c} manager={namedRangeManager} />
     </div>
     <SpreadsheetFooter key={`footer-${c.viewRevision}`} controller={c} renameRef={sheetRename} />
+    {c.searchPanel.mode && <SpreadsheetSearchDialog key={`${c.searchPanel.mode}-${c.searchPanel.focus}`}
+      controller={c} initialMode={c.searchPanel.mode} onClose={c.closeSearch} />}
     {namedRangeTarget && <NamedRangeDialog key={JSON.stringify([namedRangeTarget.id, namedRangeTarget.sheetId, namedRangeTarget.revision])}
       controller={c} target={namedRangeTarget} onClose={namedRangeManager.closeDialog} />}
     <SpreadsheetContextMenu controller={contextMenu} root={root} />

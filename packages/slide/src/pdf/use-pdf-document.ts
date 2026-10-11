@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { OfficePackageSignal } from "../ooxml";
+import { check, wait } from "./pdfjs-source";
 import type { SlidePdfDocument, SlidePdfLoader, SlidePdfPage } from "./types";
 
 export const PDF_PAGE_CACHE_SIZE = 12;
 export const PDF_VIEWER_PAGE_LIMIT = 10_000;
-export type PdfSession = { pageCount: number; getPage(pageNumber: number, signal: AbortSignal): Promise<SlidePdfPage> };
+export type PdfSession = {
+  pageCount: number;
+  getPage(pageNumber: number, signal: AbortSignal): Promise<SlidePdfPage>;
+  getPageText?: (pageNumber: number, signal?: OfficePackageSignal) => Promise<string>;
+};
 type Result = { loader: SlidePdfLoader; session?: PdfSession; error?: Error };
 export const pdfError = (error: unknown) => error instanceof Error ? error : new Error(String(error));
 export function notifyPdfObserver<T>(observer: ((value: T) => void) | undefined, value: T) {
@@ -39,6 +45,12 @@ export function usePdfDocument(loadPdf: SlidePdfLoader, onLoad?: (event: { pageC
           while (cache.size > PDF_PAGE_CACHE_SIZE) cache.delete(cache.keys().next().value!);
           return page;
         } };
+        if (typeof loaded.getPageText === "function") session.getPageText = async (pageNumber, signal) => {
+          check(controller.signal, signal);
+          const text = await wait(() => loaded.getPageText!(pageNumber, { signal }), [controller.signal, signal]);
+          check(controller.signal, signal);
+          return text;
+        };
         setResult({ loader: loadPdf, session });
         notifyPdfObserver(callbacks.current.onLoad, { pageCount: loaded.pageCount });
       } catch (error) {

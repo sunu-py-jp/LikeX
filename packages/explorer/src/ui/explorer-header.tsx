@@ -163,6 +163,7 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
     externalDownload,
     busy,
     saving,
+    importing,
     refreshing,
     canRefresh,
     refreshEntries,
@@ -181,7 +182,7 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
     canEditFavorites,
     editMode,
     cancelEditPermission,
-  } = useExplorerFields("canSort", "travel", "historyIndex", "history", "navigate", "folder", "location", "special", "provisionalLocation", "setSelected", "disabled", "showModal", "startRename", "chooseFiles", "copyToClipboard", "selected", "paste", "displayedSort", "setSort", "view", "changeView", "compact", "changeCompact", "visible", "act", "selectedEntries", "download", "externalDownload", "busy", "saving", "refreshing", "canRefresh", "refreshEntries", "dirty", "saveChanges", "setDetailId", "mobileOpen", "setOpenMobile", "instanceId", "features", "selectionOptions", "uiOptions", "allowedViewModes", "canPaste", "readOnly", "canEditFavorites", "editMode", "cancelEditPermission");
+  } = useExplorerFields("canSort", "travel", "historyIndex", "history", "navigate", "folder", "location", "special", "provisionalLocation", "setSelected", "disabled", "showModal", "startRename", "chooseFiles", "copyToClipboard", "selected", "paste", "displayedSort", "setSort", "view", "changeView", "compact", "changeCompact", "visible", "act", "selectedEntries", "download", "externalDownload", "busy", "saving", "importing", "refreshing", "canRefresh", "refreshEntries", "dirty", "saveChanges", "setDetailId", "mobileOpen", "setOpenMobile", "instanceId", "features", "selectionOptions", "uiOptions", "allowedViewModes", "canPaste", "readOnly", "canEditFavorites", "editMode", "cancelEditPermission");
   const renameMenuFocus = useRenameMenuFocus();
 
   const hasUpload = !provisionalLocation && (features.uploadFiles || features.uploadFolders);
@@ -602,7 +603,7 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
             )}
             onClick={() => void saveChanges()}
             aria-keyshortcuts={shortcutAriaKeys("save")}
-            disabled={busy || (!dirty && editMode !== "edit")}
+            disabled={busy || importing || (!dirty && editMode !== "edit")}
           >
             {saving ? (
               <Loader2

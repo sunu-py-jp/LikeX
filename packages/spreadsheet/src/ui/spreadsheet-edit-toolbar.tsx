@@ -1,26 +1,20 @@
 "use client";
 
-import { useState } from "react";
 import type { SpreadsheetPasteMode } from "../api/editing-commands";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import type { useSpreadsheetClipboard } from "../state/use-spreadsheet-clipboard";
-import { SpreadsheetSearchDialog } from "./spreadsheet-search-dialog";
 import { Command, Icon } from "./spreadsheet-controls";
 
 export function SpreadsheetEditToolbar({ controller: c }: { controller: SpreadsheetController }) {
-  const [search, setSearch] = useState<"find" | "replace" | null>(null);
-  const blocked = c.saving || c.refreshing || c.requesting || c.pendingObjectEdit;
-  const open = (mode: "find" | "replace") => c.afterCommit(() => setSearch(mode));
   return <>
     {(c.features.search || c.features.replace && !c.readOnly) && <div className="lxs-ribbon-stack lxs-edit-tools">
-      {c.features.search && <Command label="検索" className="lxs-ribbon-command-label" data-lxs-find title="検索 (Ctrl+F)" disabled={blocked} onClick={() => open("find")}><Icon name="search" /><span>検索</span></Command>}
-      {c.features.replace && !c.readOnly && <Command label="置換" className="lxs-ribbon-command-label" data-lxs-replace title="置換 (Ctrl+H)" disabled={blocked || c.disabled} onClick={() => open("replace")}><Icon name="replace" /><span>置換</span></Command>}
+      {c.features.search && <Command label="検索" className="lxs-ribbon-command-label" data-lxs-find title="検索 (Ctrl+F)" onClick={() => c.openSearch()}><Icon name="search" /><span>検索</span></Command>}
+      {c.features.replace && !c.readOnly && <Command label="置換" className="lxs-ribbon-command-label" data-lxs-replace title="置換 (Ctrl+H)" onClick={() => c.openReplace()}><Icon name="replace" /><span>置換</span></Command>}
     </div>}
-    {search && (search === "find" ? c.features.search : c.features.replace && !c.readOnly) && <SpreadsheetSearchDialog key={search} controller={c} initialMode={search} onClose={() => setSearch(null)} />}
   </>;
 }
 
-/** Paste options belong to the Clipboard group; search state stays in the Editing group. */
+/** Paste options belong to the Clipboard group; search is owned by the view. */
 export function SpreadsheetPasteSpecialControl({ controller: c, clipboard }: {
   controller: SpreadsheetController; clipboard: ReturnType<typeof useSpreadsheetClipboard>;
 }) {

@@ -219,7 +219,8 @@ export function SpreadsheetFormulaBar({ controller: c }: { controller: Spreadshe
     {c.features.formulas && <>
       <span className="lxs-formula-symbol" aria-hidden="true">ƒx</span>
       <input data-lxs-formula aria-label="セルの値・数式" className="lxs-formula-input" value={c.editing?.value ?? c.activeSheet.cells[address]?.value ?? ""} readOnly={c.disabled || c.requesting || !!c.selectedDrawingId}
-        onChange={event => c.beginEdit(c.selection.focus, event.target.value)} onBlur={() => c.commitEdit()}
+        onChange={event => c.beginEdit(c.selection.focus, event.target.value)}
+        onBlur={event => { if (!(event?.relatedTarget as HTMLElement | null)?.closest(".lxs-search-dialog")) c.commitEdit(); }}
         onKeyDown={event => {
           if (event.nativeEvent.isComposing || event.keyCode === 229) return;
           if (event.key === "Enter") { event.preventDefault(); c.commitEdit(); }

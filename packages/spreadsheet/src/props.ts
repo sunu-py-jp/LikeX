@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
 import type { SpreadsheetCellPosition, SpreadsheetWorkbook } from "./model/types";
 import type { SpreadsheetHandle } from "./api/types";
-import type { ContextMenuExecutionMode, RibbonDisplayMode } from "./core";
+import type { ContextMenuExecutionMode, RibbonDisplayMode, SearchPanelInitialState } from "./core";
 import type { SpreadsheetContextMenuProvider } from "./api/context-menu";
 import type { SpreadsheetFeatures } from "./api/features";
 import type { SpreadsheetBeforeSaveHandler, SpreadsheetEditHandler, SpreadsheetEventHandler, SpreadsheetRefreshHandler, SpreadsheetSaveHandler } from "./api/lifecycle";
@@ -37,7 +37,7 @@ export type SpreadsheetSelection = Readonly<{
 
 import type { SpreadsheetSearchHandler, SpreadsheetSearchRenderContext, SpreadsheetSearchSettings } from "./api/search";
 
-export type SpreadsheetProps = {
+export type SpreadsheetProps = SearchPanelInitialState & {
   /** Search timing and host-owned detailed conditions. */
   search?: SpreadsheetSearchSettings;
   /** Replace or augment the search dialog fields while retaining result navigation and safe replacement. */

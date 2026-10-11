@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ChevronLeft, ChevronRight, FileText, Loader2, Maximize, Minus, Plus, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Loader2, Maximize, Minus, Plus, Search, X } from "lucide-react";
 import { useSlideTheme } from "../state/use-slide-theme";
 import type { SlidePdfViewerProps } from "./viewer-types";
 import { notifyPdfObserver, usePdfDocument } from "./use-pdf-document";
 import { PdfFilmstrip } from "./pdf-filmstrip";
 import { PdfViewport } from "./pdf-viewport";
+import { usePdfSearch } from "./use-pdf-search";
+import { PdfSearchPanel } from "./pdf-search-panel";
 import { usePdfSelection } from "./use-pdf-selection";
 
 const initialPage = (value: number | undefined) => typeof value === "number" && Number.isSafeInteger(value) && value > 0 ? value : 1;
@@ -50,6 +52,8 @@ export function LikeSlidePdfViewer({ ref, ...props }: SlidePdfViewerProps) {
     if (changed) selectPage(number);
     return changed;
   }, [navigate, selectPage]);
+  const search = usePdfSearch(props, session, goToPage);
+  const { openSearch, closeSearch } = search;
   const selectAndNavigate = useCallback((number: number, options?: { extend?: boolean; toggle?: boolean }) => {
     const changed = navigate(number);
     return selectPage(number, options) || changed;
@@ -61,8 +65,8 @@ export function LikeSlidePdfViewer({ ref, ...props }: SlidePdfViewerProps) {
     if (state.zoom === next) return false;
     state.zoom = next; updateZoom(next); notifyPdfObserver(state.props.onZoomChange, next); return true;
   }, []);
-  useImperativeHandle(ref, () => ({ getPageNumber, goToPage, getSelectedPageNumbers, selectPages,
-    getZoom: () => current.current.zoom, setZoom, fitToPage: () => setZoom(100) }), [getPageNumber, goToPage, getSelectedPageNumbers, selectPages, setZoom]);
+  useImperativeHandle(ref, () => ({ openSearch, closeSearch, getPageNumber, goToPage, getSelectedPageNumbers, selectPages,
+    getZoom: () => current.current.zoom, setZoom, fitToPage: () => setZoom(100) }), [openSearch, closeSearch, getPageNumber, goToPage, getSelectedPageNumbers, selectPages, setZoom]);
   const notified = useRef(session);
   useEffect(() => { if (session && session !== notified.current) { notified.current = session; notifyPdfObserver(callbacks.current.onLoad, { pageCount: session.pageCount }); } }, [session]);
   useEffect(() => {
@@ -76,18 +80,23 @@ export function LikeSlidePdfViewer({ ref, ...props }: SlidePdfViewerProps) {
     return () => node.removeEventListener("wheel", wheel);
   }, [ownerDocument, setZoom]);
   const keyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229 || event.altKey ||
-      (event.target as HTMLElement).closest?.("input,textarea,select,[contenteditable=true]")) return;
+    if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229 || event.altKey) return;
+    if ((event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "f") {
+      if (openSearch()) event.preventDefault();
+      return;
+    }
+    if ((event.target as HTMLElement).closest?.("input,textarea,select,[contenteditable=true]")) return;
     const list = (event.target as HTMLElement).closest?.<HTMLElement>(".lxp-pdf-page-list");
     if (event.ctrlKey || event.metaKey) {
       if (session && list && event.key.toLowerCase() === "a") { event.preventDefault(); selectPages(Array.from({ length: pageCount }, (_, index) => index + 1)); }
       return;
     }
     const keys: Record<string, number> = { PageUp: pageNumber - 1, PageDown: pageNumber + 1, ArrowLeft: pageNumber - 1, ArrowRight: pageNumber + 1, Home: 1, End: pageCount };
+    if (list) { keys.ArrowUp = pageNumber - 1; keys.ArrowDown = pageNumber + 1; }
     if (session && Object.hasOwn(keys, event.key)) {
       event.preventDefault();
       if (event.shiftKey) selectAndNavigate(keys[event.key], { extend: true }); else goToPage(keys[event.key]);
-      (list ?? root.current)?.focus({ preventScroll: true });
+      if (!list) root.current?.focus({ preventScroll: true });
     }
   };
   const [draft, setDraft] = useState({ page: 0, value: "" });
@@ -107,9 +116,12 @@ export function LikeSlidePdfViewer({ ref, ...props }: SlidePdfViewerProps) {
         value={draftValue} onChange={event => setDraft({ page: pageNumber, value: event.target.value })} onBlur={submitPage}
         onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); submitPage(); } }} /><span>/ {pageCount}</span></label>
       <button type="button" aria-label="次のページ" disabled={pageLocked || pageNumber >= pageCount} onClick={() => goToPage(pageNumber + 1)}><ChevronRight size={17} /></button>
+      {props.features?.search !== false && <button type="button" aria-label="検索" title="検索 (Ctrl+F / Cmd+F)" onClick={() => openSearch()}><Search size={17} /></button>}
       <span className="lxp-pdf-toolbar-hint">閲覧専用</span>
     </div>}
     <div className="lxp-workspace">
+      {search.open && <PdfSearchPanel search={search} session={session} loadError={loaded?.error} navigationLocked={pageLocked}
+        onClose={() => { closeSearch(); root.current?.focus({ preventScroll: true }); }} />}
       {session ? <><PdfFilmstrip session={session} pageNumber={pageNumber} selectedPageNumbers={selection.pages}
         disabled={pageLocked && props.selectedPageNumbers !== undefined && !props.onSelectionChange} selectPage={selectAndNavigate} onError={reportError} />
         <PdfViewport session={session} pageNumber={pageNumber} zoom={zoom} onError={reportError} /></>

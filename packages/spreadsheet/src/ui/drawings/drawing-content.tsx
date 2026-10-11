@@ -42,7 +42,7 @@ export function DrawingTextEditor({ drawing, controller: c, onDone }: { drawing:
     className={`lxs-drawing-text-editor${drawing.type === "shape" ? " lxs-shape-text-editor" : ""}`} maxLength={SPREADSHEET_LIMITS.drawingTextLength}
     readOnly={c.disabled || c.requesting} value={text} style={{ fontSize: drawing.fontSize ?? 16, color: drawingTextColor(drawing),
       background: drawing.type === "text" ? drawing.background : "transparent", fontWeight: drawing.bold ? 700 : 400 }}
-    onChange={event => { setText(event.target.value); markPending(event.target.value !== originalText); }} onBlur={commit} onPointerDown={event => event.stopPropagation()}
+    onChange={event => { setText(event.target.value); markPending(event.target.value !== originalText); }} onBlur={event => { if (!(event?.relatedTarget as HTMLElement | null)?.closest(".lxs-search-dialog")) commit(); }} onPointerDown={event => event.stopPropagation()}
     onKeyDown={event => {
       event.stopPropagation(); if (event.nativeEvent.isComposing || event.keyCode === 229) return;
       if (event.key === "Escape") { event.preventDefault(); cancelled.current = true; c.cancelEditRequest(); markPending(false); onDone(); }

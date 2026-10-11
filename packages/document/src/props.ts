@@ -1,5 +1,5 @@
 import type { CSSProperties, Ref } from "react";
-import type { MaybePromise, OperationContext, RibbonDisplayMode, SaveHandler } from "./core";
+import type { MaybePromise, OperationContext, RibbonDisplayMode, SaveHandler, SearchPanelHandle, SearchPanelInitialState } from "./core";
 import type { DocumentCommand, DocumentCommandResult, DocumentModel, DocumentSelection } from "./model/types";
 
 export type { DocumentSelection } from "./model/types";
@@ -12,10 +12,7 @@ export type DocumentEvent =
   | { type: "save"; phase: "start" | "success" | "error" | "cancelled"; error?: string }
   | { type: "import" | "export"; format: "dcon" | "docx"; warnings: readonly string[] }
   | { type: "edit-mode"; mode: "view" | "requesting" | "edit" };
-export type DocumentHandle = {
-  /** Opens view-only search, including with a hidden ribbon or read-only document. */
-  openSearch(query?: string): boolean;
-  closeSearch(): void;
+export type DocumentHandle = SearchPanelHandle & {
   getDocument(): DocumentModel;
   getRibbonDisplayMode(): DocumentRibbonDisplayMode;
   /** true means the request was accepted; controlled mode still requires a prop update. */
@@ -34,7 +31,7 @@ export type DocumentHandle = {
   importDocx(input: Blob | ArrayBuffer | Uint8Array, options?: DocumentImportOptions): Promise<void>;
   exportDocx(): Promise<Blob>;
 };
-export type DocumentProps = {
+export type DocumentProps = SearchPanelInitialState & {
   ref?: Ref<DocumentHandle>;
   /** Initial local document. Later changes should use ref.execute(document.replace). */
   initialDocument?: DocumentModel;

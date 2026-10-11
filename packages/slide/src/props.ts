@@ -1,5 +1,5 @@
 import type { CSSProperties, Ref } from "react";
-import type { MaybePromise, OperationContext, SaveHandler, RibbonDisplayMode } from "./core";
+import type { MaybePromise, OperationContext, SaveHandler, RibbonDisplayMode, SearchPanelHandle, SearchPanelInitialState } from "./core";
 import type { Slide, SlideElement, SlideCommand, SlideCommandResult, SlideDeck, SlideMaster, SlideLayout } from "./model/types";
 import type { SlideAnimationStep, SlideQueryOptions } from "./model";
 import type { SlideConditionalEdit, SlideConditionalEditResult, SlideMutationSnapshot, SlideMutationToken } from "./model";
@@ -28,10 +28,7 @@ export type SlideEvent =
   | { type: "import"; warnings: readonly string[]; diagnostics?: readonly SlidePptxDiagnostic[] }
   | { type: "conversion"; phase: "import" | "export"; warnings: readonly string[]; diagnostics: readonly SlidePptxDiagnostic[] }
   | { type: "edit-mode"; mode: "view" | "requesting" | "edit" };
-export type SlideHandle = {
-  /** Open/focus the view-only literal search panel. False if disabled or unmounted. */
-  openSearch(query?: string): boolean;
-  closeSearch(): void;
+export type SlideHandle = SearchPanelHandle & {
   getRibbonDisplayMode(): SlideRibbonDisplayMode;
   /** Requests a view-only change; controlled props determine acceptance. */
   setRibbonDisplayMode(mode: SlideRibbonDisplayMode): boolean;
@@ -83,7 +80,7 @@ export type SlideHandle = {
   /** Inclusive range, ordered page/ID list, or all pages if selectors are omitted. */
   exportImages(options?: SlideImagesExportOptions): Promise<SlideImageResult<Blob>[]>;
 };
-export type SlideProps = {
+export type SlideProps = SearchPanelInitialState & {
   ref?: Ref<SlideHandle>;
   initialDeck?: SlideDeck;
   /** One-based initial page, read once at mount. Invalid targets show a notice and use page one. */

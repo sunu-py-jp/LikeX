@@ -211,21 +211,27 @@ test('overwrite confirmation leaves the existing file intact and clears skipped 
   assert.equal(uploadChanges(app).length, 1);
 });
 
-test('save cancels provisional discovery and never includes it in the save payload', async t => {
+test('save waits for provisional discovery and later includes the complete imported batch', async t => {
   const app = await mount(t), delayed = delayedFile();
   await change(() => app.main.act('favorite', ['existing']));
   await app.paste(directory('Batch', [fileEntry(file('First.txt')), delayed.entry]));
   await eventually(() => previews(app.main).length === 1 && delayed.started, 'discovered file should be displayed before saving');
   assert.equal(previews(app.main).length, 1);
-  await change(() => app.workspace.draft.save());
-  assert.equal(previews(app.main).length, 0);
-  assert.equal(app.saves.length, 1);
-  assert.deepEqual(app.saves[0].entries.map(item => item.id), ['folder', 'existing']);
-  assert.deepEqual(app.saves[0].changes.created, []);
+  await change(async () => assert.equal(await app.workspace.draft.save(), false));
+  assert.equal(previews(app.main).length, 1);
+  assert.equal(app.saves.length, 0);
+  assert.equal(app.main.dirty, true);
+  assert.equal(app.main.importing, true);
+  assert.equal(app.child.importing, true);
   await change(() => delayed.complete());
-  await change(() => wait(100));
+  await eventually(() => uploadChanges(app).length === 1, 'the blocked save must not cancel discovery');
   assert.equal(previews(app.main).length, 0);
-  assert.equal(uploadChanges(app).length, 0);
+  assert.equal(app.workspace.draft.isImporting(), false);
+  await change(async () => assert.equal(await app.workspace.draft.save(), true));
+  assert.equal(app.saves.length, 1);
+  assert.deepEqual(app.saves[0].changes.created.map(item => item.name).sort(), ['Batch', 'First.txt', 'Last.txt']);
+  assert.equal(app.saves[0].entries.find(item => item.id === 'existing').favorite, 1);
+  assert.equal(app.main.dirty, false);
 });
 
 for (const reason of ['discard', 'readonly', 'feature', 'unmount']) test(`${reason} removes provisional native imports and ignores late file callbacks`, async t => {

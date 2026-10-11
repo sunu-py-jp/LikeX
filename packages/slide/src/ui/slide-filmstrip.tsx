@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { getDragInsertionIndex } from "../core";
 import type { SlideEditor } from "../state/use-slide-editor";
@@ -38,6 +38,23 @@ export function SlideFilmstrip({ editor }: { editor: SlideEditor }) {
       }
     }
     state.select({ slideId: active, elementIds: [], slideIds: ids });
+  }
+  function navigateKey(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229 || event.altKey || event.ctrlKey && event.metaKey ||
+      !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("input,textarea,select,[contenteditable=true],button:not(.lxp-slide-thumbnail)")) return;
+    const state = latest.current;
+    if (state.busy || state.requesting || dragging.current?.active) return;
+    const focused = target.closest<HTMLElement>("[data-filmstrip-id]")?.dataset.filmstripId;
+    const current = state.deck.slides.findIndex(slide => slide.id === (focused ?? state.selection.slideId));
+    if (current < 0) return;
+    const index = Math.max(0, Math.min(state.deck.slides.length - 1, current + (event.key === "ArrowUp" ? -1 : 1)));
+    event.preventDefault(); event.stopPropagation();
+    // Ctrl/Cmd alone moves only keyboard focus, matching list selection behavior.
+    if ((!event.ctrlKey && !event.metaKey) || event.shiftKey) selectPage(state.deck.slides[index].id, event);
+    const button = list.current?.querySelectorAll<HTMLButtonElement>(".lxp-slide-thumbnail")[index];
+    button?.focus({ preventScroll: true }); button?.scrollIntoView({ block: "nearest" });
   }
   function contextMenu(event: MouseEvent<HTMLElement>, slideId?: string) {
     if (editor.readOnly) return;
@@ -95,7 +112,7 @@ export function SlideFilmstrip({ editor }: { editor: SlideEditor }) {
     win.addEventListener("pointermove",move);win.addEventListener("pointerup",end);win.addEventListener("pointercancel",lost);win.addEventListener("keydown",key,true);win.addEventListener("blur",cancel);capture.addEventListener("lostpointercapture",lost);capture.setPointerCapture?.(current.pointerId);
   }
   const ghost=feedback?deck.slides.find(slide=>slide.id===feedback.id):undefined;
-  return <aside ref={root} className="lxp-filmstrip" aria-label="スライド一覧" data-slide-selection-scope="slides" tabIndex={-1}
+  return <aside ref={root} className="lxp-filmstrip" aria-label="スライド一覧" data-slide-selection-scope="slides" tabIndex={-1} onKeyDown={navigateKey}
     onContextMenu={event => { if (!(event.target as HTMLElement).closest?.("[data-filmstrip-id]")) contextMenu(event); }}
     onClickCapture={event=>{if(suppressClick.current){suppressClick.current=false;pointerSelection.current=null;event.preventDefault();event.stopPropagation();}}}>
     <div className="lxp-filmstrip-heading"><span>スライド</span><span>{deck.slides.length}</span></div>

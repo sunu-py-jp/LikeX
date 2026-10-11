@@ -624,16 +624,34 @@ test('discard cancels pending imports in every pane without restoring them after
   assert.equal(hook.current.entries.find(e => e.id === 'alpha').name, 'Alpha.txt');
 });
 
-test('save cancels pending imports across panes and persists only the already-staged draft', async t => {
-  const hook = await mount(t, {}, { shared: true });
+test('public and keyboard saves in either pane wait until every pending native import finishes', async t => {
+  const ref = { current: null };
+  const hook = await mount(t, { ref }, { shared: true });
   await change(() => hook.current.act('rename', ['alpha'], { name: 'Changed.txt' }));
-  const delayed = delayedDirectory();
-  await hook.paste([], { clipboardData: directoryClipboard([delayed.directory]) }, 'child');
-  await change(() => hook.workspace.draft.save());
-  await change(() => delayed.complete());
+  const main = delayedDirectory('MainBatch'), child = delayedDirectory('ChildBatch');
+  await hook.paste([], { clipboardData: directoryClipboard([main.directory]) });
+  await hook.paste([], { clipboardData: directoryClipboard([child.directory]) }, 'child');
+  assert.equal(hook.current.importing, true);
+  assert.equal(hook.child.importing, true);
+  assert.equal(hook.workspace.draft.isImporting(), true);
+  await change(async () => assert.equal(await ref.current.save(), false));
+  await change(async () => assert.equal(await hook.child.saveChanges(), false));
+  assert.equal((await hook.key('s', { ctrlKey: true })).defaultPrevented, true);
+  assert.equal((await hook.key('s', { metaKey: true }, 'child')).defaultPrevented, true);
+  assert.equal(hook.saves.length, 0);
+  assert.equal(hook.current.dirty, true);
+  await change(() => main.complete());
+  assert.equal(hook.workspace.draft.isImporting(), true, 'the child import keeps both save routes blocked');
+  await change(async () => assert.equal(await ref.current.save(), false));
+  await change(() => child.complete());
+  assert.equal(hook.current.importing, false);
+  assert.equal(hook.child.importing, false);
+  assert.equal(hook.workspace.draft.isImporting(), false);
+  await hook.key('s', { metaKey: true }, 'child');
   assert.equal(hook.saves.length, 1);
-  assert.equal(hook.saves[0].entries.length, 2);
-  assert.equal(newEntries(hook.current).length, 0); assert.equal(hook.current.dirty, false);
+  assert.equal(hook.saves[0].entries.length, 6);
+  assert.equal(hook.saves[0].entries.find(item => item.id === 'alpha').name, 'Changed.txt');
+  assert.equal(newEntries(hook.current).length, 4); assert.equal(hook.current.dirty, false);
 });
 
 test('unmount aborts pending directory work and suppresses late events', async t => {

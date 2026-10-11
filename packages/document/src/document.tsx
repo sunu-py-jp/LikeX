@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { Check, CircleAlert, FileText, Loader2, Minus, Plus, Redo2, Save, Undo2, X } from "lucide-react";
 import { toggleMark } from "prosemirror-commands";
 import type { DocumentProps } from "./props";
@@ -15,7 +15,7 @@ import { useDocumentContextMenu } from "./ui/use-document-context-menu";
 
 /** Word-like document editing using the same commands as the headless model. */
 export default function LikeDocument(props: DocumentProps) {
-  const editor = useDocumentEditor(props), surface = useRef<DocumentSurfaceHandle>(null), root = useRef<HTMLDivElement | null>(null);
+  const editor = useDocumentEditor(props), surface = useRef<DocumentSurfaceHandle>(null), root = useRef<HTMLDivElement | null>(null), navigation = useRef<HTMLElement>(null);
   const contextMenu = useDocumentContextMenu(editor, surface);
   const [ownerDocument, setOwnerDocument] = useState<Document | null>(null);
   const attach = useCallback((node: HTMLDivElement | null) => { root.current = node; setOwnerDocument(node?.ownerDocument ?? null); }, []);
@@ -25,6 +25,25 @@ export default function LikeDocument(props: DocumentProps) {
   const [zoom, setZoom] = useState(100), [outline, setOutline] = useState(true), [dialog, setDialog] = useState<"table" | "link" | null>(null);
   const nativeInput = useRef<HTMLInputElement>(null), docxInput = useRef<HTMLInputElement>(null), imageInput = useRef<HTMLInputElement>(null);
   const headings = useMemo(() => getBlocks(editor.document).filter(block => block.node.type === "heading"), [editor.document]);
+  const activeHeading = headings.reduce((last, block, index) => block.contentFrom <= editor.selection.from ? index : last, -1);
+  function revealHeading(index: number) {
+    const block = headings[index];
+    if (!block) return;
+    editor.select({ from: block.contentFrom, to: block.contentFrom });
+    root.current?.querySelector<HTMLElement>(`[data-document-id="${CSS.escape(block.id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+  function navigateHeadings(event: KeyboardEvent<HTMLElement>) {
+    if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+      !["ArrowUp", "ArrowDown"].includes(event.key) || !headings.length) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("input,textarea,select,[contenteditable=true]")) return;
+    const focused = target.closest<HTMLElement>("[data-document-heading-index]")?.dataset.documentHeadingIndex;
+    const current = focused === undefined ? activeHeading : Number(focused);
+    const index = Math.max(0, Math.min(headings.length - 1, current + (event.key === "ArrowUp" ? -1 : 1)));
+    event.preventDefault(); event.stopPropagation(); revealHeading(index);
+    const button = navigation.current?.querySelectorAll<HTMLButtonElement>("[data-document-heading-index]")[index];
+    button?.focus({ preventScroll: true }); button?.scrollIntoView({ block: "nearest" });
+  }
   const textLength = useMemo(() => getDocumentText(editor.document).replace(/\s/g, "").length, [editor.document]);
   const page = editor.document.page;
   useEffect(() => {
@@ -69,7 +88,7 @@ export default function LikeDocument(props: DocumentProps) {
       if (editor.ribbonDisplayMode !== "hidden") { event.preventDefault(); event.stopPropagation(); editor.setRibbonDisplayMode(editor.ribbonDisplayMode === "expanded" ? "tabs" : "expanded"); }
       return;
     }
-    if (mod && !event.altKey && key === "f" && editor.features.search) {
+    if (!event.defaultPrevented && event.ctrlKey !== event.metaKey && !event.altKey && !event.shiftKey && key === "f" && editor.features.search) {
       event.preventDefault(); event.stopPropagation(); editor.search.openSearch(); return;
     }
     if (!mod) return;
@@ -89,10 +108,7 @@ export default function LikeDocument(props: DocumentProps) {
     <DocumentRibbon editor={editor} surface={surface} onImport={openFile} onExport={format => void download(format)} onImage={() => imageInput.current?.click()} onTable={() => setDialog("table")} onLink={() => setDialog("link")} outline={outline} onOutline={() => setOutline(value => !value)} />
     <div className="lxd-workspace">
       {editor.search.open && <DocumentSearchPanel editor={editor} onClose={() => { editor.search.closeSearch(); surface.current?.focus(); }} />}
-      {outline && !editor.search.open && <aside className="lxd-navigation" aria-label="見出しナビゲーション"><h2>ナビゲーション</h2><div className="lxd-navigation-label">見出し</div>{headings.length ? headings.map(block => <button type="button" key={block.id} style={{ paddingLeft: 14 + ((block.node.type === "heading" ? block.node.attrs?.level ?? 1 : 1) - 1) * 12 }} onClick={() => {
-        editor.select({ from: block.contentFrom, to: block.contentFrom }); surface.current?.focus();
-        root.current?.querySelector<HTMLElement>(`[data-document-id="${CSS.escape(block.id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
-      }}>{block.node.type === "heading" ? block.node.content?.map(node => node.type === "text" ? node.text : "").join("") : ""}</button>) : <p>見出しを設定すると、ここに表示されます。</p>}</aside>}
+      {outline && !editor.search.open && <aside ref={navigation} className="lxd-navigation" aria-label="見出しナビゲーション" onKeyDown={navigateHeadings}><h2>ナビゲーション</h2><div className="lxd-navigation-label">見出し</div>{headings.length ? headings.map((block, index) => <button type="button" key={block.id} data-document-heading-index={index} aria-current={activeHeading === index ? "true" : undefined} style={{ paddingLeft: 14 + ((block.node.type === "heading" ? block.node.attrs?.level ?? 1 : 1) - 1) * 12 }} onClick={() => revealHeading(index)}>{block.node.type === "heading" ? block.node.content?.map(node => node.type === "text" ? node.text : "").join("") : ""}</button>) : <p>見出しを設定すると、ここに表示されます。</p>}</aside>}
       <div className="lxd-document-viewport" tabIndex={0} aria-label="文書の表示領域" {...contextMenu}><div className="lxd-page-frame" style={{ zoom: zoom / 100, "--lxd-page-width": `${page.width}mm`, "--lxd-page-height": `${page.height}mm`, "--lxd-margin-top": `${page.margins.top}mm`, "--lxd-margin-right": `${page.margins.right}mm`, "--lxd-margin-bottom": `${page.margins.bottom}mm`, "--lxd-margin-left": `${page.margins.left}mm` } as CSSProperties}>
         <div className="lxd-ruler" aria-hidden="true"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span><span>12</span><span>14</span><span>16</span></div>
         <DocumentSurface editor={editor} surfaceRef={surface} onViewChange={viewChanged} />

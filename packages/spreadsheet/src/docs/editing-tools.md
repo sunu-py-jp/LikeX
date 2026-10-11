@@ -22,6 +22,31 @@ GUIなしでコピー・貼り付け・移動する例は[編集セッション�
 
 `features.search: false` で検索と置換を無効にできます。検索を残して置換だけを止める場合は `features.replace: false` を指定します。
 
+### 初期表示・外側からの開閉
+
+スプレッドシート・スライド・文書・PDFビューアーで同じ設定名・呼び出し方を使えます。
+
+```tsx
+const editor = useRef<SpreadsheetHandle>(null);
+
+<Spreadsheet ref={editor} initialWorkbook={workbook} readOnly
+  initialRibbonDisplayMode="hidden"
+  initialSearchOpen initialSearchQuery="売上" />;
+
+editor.current?.openSearch("受注"); // 検索欄を開き、入力欄へフォーカス
+editor.current?.openSearch();       // 前回の検索語を保持して再表示
+editor.current?.openSearch("");     // 検索語をクリアして表示
+editor.current?.closeSearch();      // 検索語を保持して閉じる
+```
+
+`initialSearchOpen` は既定で `false`、`initialSearchQuery` は既定で空文字です。両方ともマウント時に一度だけ読み、検索語だけを指定しても検索欄は開きません。初期検索語が文字列でない、または4,096文字を超える場合は空文字にします。
+
+`openSearch(query?: string): boolean` は要求を受け付けたら `true` を返します。検索の完了を意味しません。引数は通常の文字列として検索し、既存の詳細条件は既定に戻ります。引数省略では前回の入力文字列を保持します。不正な引数、検索機能OFF、アンマウント後は `false` を返し、状態を変更しません。`closeSearch(): void` は実行中の外部検索も中止します。`features.search: false` は初期表示より優先し、OFFからONへ戻しても勝手に再表示しません。
+
+検索の開閉はリボンの状態や読み取り専用と独立しており、リボン完全非表示でも `Ctrl+F` / `Cmd+F` とAPIで開けます。ブック・保存・Undo履歴は変更しません。セル・数式・図形の入力が未確定の間は、検索内の操作を止めて入力を維持します。検索を閉じて元の入力を確定・取り消してから操作してください。
+
+`search.trigger: "submit"` を指定した場合は、初期検索語やAPIで検索語を渡してもEnter・「検索する」で確定するまで実行しません。標準の `"input"` は開いた時点の検索語で自動検索します。UIの通常文字列検索は引き続き100,000文字まで、4種類共通の初期設定と `openSearch` の引数は4,096文字までです。
+
 ```ts
 import { findSpreadsheetCells, findSpreadsheetSheets } from "@likex/spreadsheet/model";
 

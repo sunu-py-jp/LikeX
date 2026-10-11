@@ -125,7 +125,10 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
               onKeyDown={keyDown}
               onCompositionStart={focus.onCompositionStart}
               onBeforeInput={focus.onBeforeInput}
-              onBlur={event => { if (!event.relatedTarget || !(event.relatedTarget as HTMLElement).closest("[data-lxs-formula]")) c.commitEdit(); }}
+              onBlur={event => {
+                // Opening view-only search must not commit unfinished cell input.
+                if (!event.relatedTarget || !(event.relatedTarget as HTMLElement).closest("[data-lxs-formula], .lxs-search-dialog")) c.commitEdit();
+              }}
             />}
             <CellDataControl controller={c} cell={cell} address={address} position={{ row, column }} focused={focused} editing={editing} />
             {comment && <button type="button" className="lxs-comment-marker" aria-label={`${address} のコメントを表示`} title={comment.text.slice(0, 200)}

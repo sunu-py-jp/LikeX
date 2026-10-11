@@ -26,13 +26,26 @@ function pdf(pageCount = 20, renderPage) {
 
 async function mount(t, supplied = {}, options = {}) {
   let renderer, active = true, focused = false;
-  const ref = createRef(), events = [], selections = [], zooms = [], errors = [], loads = [], canvases = [], scratch = [], rootListeners = new Map();
-  const document = { defaultView: { devicePixelRatio: 3, ResizeObserver: class { observe() {} disconnect() {} }, addEventListener() {}, removeEventListener() {} },
+  const ref = createRef(), events = [], selections = [], zooms = [], errors = [], loads = [], canvases = [], scratch = [], rootListeners = new Map(), observers = [];
+  const document = { defaultView: { devicePixelRatio: 3, ResizeObserver: class { constructor(callback) { this.callback = callback; observers.push(this); } observe(node) { this.node = node; } disconnect() { this.disconnected = true; } }, addEventListener() {}, removeEventListener() {} },
     createElement(type) { assert.equal(type, 'canvas'); const canvas = makeCanvas('scratch'); scratch.push(canvas); return canvas; } };
   function makeCanvas(label) { return { label, ownerDocument: document, width: 0, height: 0, draws: [], getContext() { return { drawImage: source => { this.draws.push({ marker: source.marker, width: source.width, height: source.height }); } }; } }; }
   const rootNode = { ownerDocument: document, focus() { focused = true; }, addEventListener(type, fn) { rootListeners.set(type, fn); }, removeEventListener(type, fn) { if (rootListeners.get(type) === fn) rootListeners.delete(type); } };
-  const listNode = { ownerDocument: document, scrollTop: 0, clientHeight: 350 };
+  const thumbnailNodes = new Map();
+  const listNode = { ownerDocument: document, scrollTop: 0, clientHeight: 350,
+    focus() { this.focused = true; document.activeElement = this; },
+    contains(node) { return node === this || node?.list === this; },
+    querySelector(selector) {
+      const number = Number(/data-pdf-page="(\d+)"/.exec(selector)?.[1]);
+      if (!renderer?.root.findAllByProps({ 'data-pdf-page': number }).length) return null;
+      if (!thumbnailNodes.has(number)) thumbnailNodes.set(number, { list: this, focus() { document.activeElement = this; listNode.focusedPage = number; } });
+      return thumbnailNodes.get(number);
+    },
+  };
+  const searchInput = { focus() { this.focused = true; }, select() { this.selected = true; } };
   const viewportNode = { ownerDocument: document, scrollTop: 0, scrollLeft: 0, clientWidth: options.width ?? 800, clientHeight: options.height ?? 600 };
+  let layout = { width: options.layoutWidth ?? viewportNode.clientWidth, height: options.layoutHeight ?? viewportNode.clientHeight };
+  document.defaultView.getComputedStyle = () => ({ width: `${layout.width}px`, height: `${layout.height}px`, boxSizing: 'border-box', borderLeftWidth: '0px', borderRightWidth: '0px', borderTopWidth: '0px', borderBottomWidth: '0px' });
   let props = { loadPdf: pdf().loadPdf, onPageChange: value => events.push(value), onSelectionChange: value => selections.push(value), onZoomChange: value => zooms.push(value), onError: value => errors.push(value),
     onLoad: value => loads.push({ ...value, pageNumber: ref.current.getPageNumber() }), ...supplied };
   const render = () => h(LikeSlidePdfViewer, { ...props, ref });
@@ -40,15 +53,26 @@ async function mount(t, supplied = {}, options = {}) {
     if (element.props['data-likex-slide-pdf'] !== undefined) return rootNode;
     if (element.props.className === 'lxp-pdf-page-list') return listNode;
     if (element.props.className === 'lxp-canvas-viewport lxp-pdf-viewport') return viewportNode;
+    if (element.type === 'input' && element.props['aria-label'] === '検索する文字列') return searchInput;
     if (element.type === 'canvas') { const canvas = makeCanvas(element.props['aria-label']); canvases.push(canvas); return canvas; }
     return null;
   } }); });
   const unmount = async () => { if (active) { active = false; await change(() => renderer.unmount()); } }; t.after(unmount);
-  return { ref, events, selections, zooms, errors, loads, canvases, scratch, listNode, viewportNode, unmount, get focused() { return focused; }, get root() { return renderer.root; },
+  return { ref, events, selections, zooms, errors, loads, canvases, scratch, listNode, searchInput, viewportNode, unmount, get focused() { return focused; }, get root() { return renderer.root; },
     async update(patch) { props = { ...props, ...patch }; await change(() => renderer.update(render())); },
+    async resizeViewport({ width = layout.width, height = layout.height, clientWidth = Math.round(width), clientHeight = Math.round(height) }) {
+      layout = { width, height }; viewportNode.clientWidth = clientWidth; viewportNode.clientHeight = clientHeight;
+      await change(() => { for (const observer of observers) if (!observer.disconnected && observer.node === viewportNode)
+        observer.callback([{ target: viewportNode, borderBoxSize: [{ inlineSize: width, blockSize: height }] }]); });
+    },
     label(value) { return renderer.root.findAllByProps({ 'aria-label': value }).filter(node => typeof node.type === 'string'); },
-    async click(value, modifiers = {}) { await change(() => this.label(value)[0].props.onClick(modifiers)); },
+    async click(value, modifiers = {}) { await change(() => {
+      const number = /^PDFページ (\d+) を表示$/.exec(value)?.[1];
+      if (number) listNode.querySelector(`button[data-pdf-page="${number}"]`)?.focus(); else document.activeElement = null;
+      this.label(value)[0].props.onClick(modifiers);
+    }); },
     async key(key, extra = {}) { const event = { key, nativeEvent: {}, target: { closest() { return null; } }, preventDefault() { this.defaultPrevented = true; }, ...extra };
+      if (event.target.closest('.lxp-pdf-page-list') === listNode && !listNode.contains(document.activeElement)) document.activeElement = listNode;
       await change(() => renderer.root.findByProps({ 'data-likex-slide-pdf': '' }).props.onKeyDown(event)); return event; },
     async wheel(deltaY, extra = {}) { const event = { ctrlKey: true, deltaY, target: { closest() { return true; } }, preventDefault() { this.defaultPrevented = true; }, ...extra };
       await change(() => rootListeners.get('wheel')?.(event)); return event; },
@@ -247,4 +271,196 @@ test('PDF selection and displayed-page control can be locked independently', asy
   assert.deepEqual(selectionRequests, [{ pageNumbers: [4], pageNumber: 2, pageCount: 5 }]);
   await ui.update({ selectedPageNumbers: [2], onSelectionChange: undefined });
   assert.equal(ui.label('PDFページ 4 を表示')[0].props.disabled, true);
+});
+
+
+function searchablePdf(texts, read) {
+  const source = pdf(texts.length), requests = [];
+  source.document.getPageText = async (number, { signal } = {}) => {
+    requests.push({ number, signal });
+    return read ? read(number, signal) : texts[number - 1];
+  };
+  return { ...source, requests };
+}
+const results = ui => ui.root.findAllByProps({ className: 'lxp-search-result' });
+const textContent = node => typeof node === 'string' ? node : node.children.map(textContent).join('');
+
+test('PDF search can start open, search native text, highlight snippets and navigate matches without reloading', async t => {
+  const source = searchablePdf(['Cover', 'Alpha beta Alpha', 'alpha more']), ui = await mount(t, {
+    loadPdf: source.loadPdf, initialSearchOpen: true, initialSearchQuery: 'Alpha',
+  }), api = ui.ref.current;
+  assert.equal(ui.label('検索する文字列')[0].props.value, 'Alpha');
+  assert.equal(ui.searchInput.focused, true); assert.equal(ui.searchInput.selected, true);
+  assert.equal(results(ui).length, 3); assert.equal(api.getPageNumber(), 2);
+  assert.deepEqual(ui.root.findAllByType('mark').map(textContent), ['Alpha', 'Alpha', 'alpha']);
+  assert.equal(source.loads.length, 1); assert.equal(source.document.destroyed, 0);
+  await ui.click('次の検索結果'); assert.equal(api.getPageNumber(), 2);
+  await ui.click('次の検索結果'); assert.equal(api.getPageNumber(), 3);
+  await ui.click('前の検索結果'); assert.equal(api.getPageNumber(), 2);
+  const checkbox = ui.root.findAllByType('input').find(node => node.props.type === 'checkbox');
+  await change(() => checkbox.props.onChange({ target: { checked: true } }));
+  assert.equal(results(ui).length, 2);
+  await ui.update({ initialSearchOpen: false, initialSearchQuery: 'Cover' });
+  assert.equal(ui.label('検索する文字列')[0].props.value, 'Alpha');
+  await change(() => api.closeSearch()); assert.equal(ui.label('検索する文字列').length, 0);
+  await change(() => assert.equal(api.openSearch(), true)); assert.equal(ui.label('検索する文字列')[0].props.value, 'Alpha');
+  await change(() => assert.equal(api.openSearch(''), true)); assert.equal(results(ui).length, 0);
+  assert.equal(ui.label('検索する文字列')[0].props.value, '');
+  assert.equal(source.document.destroyed, 0);
+  await ui.unmount(); assert.equal(source.document.destroyed, 1); assert.equal(api.openSearch(), false);
+});
+
+test('PDF openSearch works while loading and with no toolbar; search disabling closes and does not reopen', async t => {
+  const waiting = deferred(), source = searchablePdf(['Cover', 'Find me']);
+  const ui = await mount(t, { loadPdf: () => waiting.promise, toolbarVisible: false }), api = ui.ref.current;
+  assert.equal(ui.label('検索').length, 0);
+  await change(() => assert.equal(api.openSearch('Find'), true));
+  assert.equal(ui.label('検索する文字列')[0].props.value, 'Find');
+  assert.match(textContent(ui.root), /PDFを読み込んでいます/);
+  await change(() => waiting.resolve(source.document));
+  assert.equal(api.getPageNumber(), 2); assert.equal(results(ui).length, 1);
+  await ui.update({ features: { search: false } }); assert.equal(ui.label('検索する文字列').length, 0);
+  await change(() => assert.equal(api.openSearch(), false));
+  assert.equal((await ui.key('f', { ctrlKey: true })).defaultPrevented, undefined);
+  await ui.update({ features: undefined }); assert.equal(ui.label('検索する文字列').length, 0);
+  assert.equal((await ui.key('f', { ctrlKey: true, metaKey: true })).defaultPrevented, undefined);
+  assert.equal(ui.label('検索する文字列').length, 0);
+  assert.equal((await ui.key('f', { metaKey: true })).defaultPrevented, true);
+  assert.equal(ui.label('検索する文字列')[0].props.value, 'Find');
+  const panel = ui.root.findByProps({ className: 'lxp-search-panel' });
+  await change(() => panel.props.onKeyDown({ key: 'Escape', nativeEvent: {}, preventDefault() {}, stopPropagation() {} }));
+  assert.equal(ui.label('検索する文字列').length, 0); assert.equal(ui.focused, true);
+});
+
+test('PDF initial invalid queries normalize; invalid open calls leave the current query and results intact', async t => {
+  const ui = await mount(t, { loadPdf: searchablePdf(['valid']).loadPdf, initialSearchOpen: true, initialSearchQuery: 'x'.repeat(4097) }), api = ui.ref.current;
+  assert.equal(ui.label('検索する文字列')[0].props.value, '');
+  await change(() => api.openSearch('valid')); assert.equal(results(ui).length, 1);
+  await change(() => {
+    for (const value of [null, {}, 3, 'x'.repeat(4097)]) assert.equal(api.openSearch(value), false);
+  });
+  assert.equal(ui.label('検索する文字列')[0].props.value, 'valid'); assert.equal(results(ui).length, 1);
+  await change(() => api.closeSearch());
+  await change(() => assert.equal(api.openSearch(null), false)); assert.equal(ui.label('検索する文字列').length, 0);
+  const disabled = await mount(t, { loadPdf: searchablePdf(['valid']).loadPdf, initialSearchOpen: true, initialSearchQuery: 'valid', features: { search: false } });
+  assert.equal(disabled.label('検索する文字列').length, 0);
+});
+
+test('render-only custom PDF loaders report unsupported text search; errors stay inside search without destroying the viewer', async t => {
+  const source = pdf(2), ui = await mount(t, { loadPdf: source.loadPdf, initialSearchOpen: true, initialSearchQuery: 'text' });
+  assert.match(textContent(ui.root), /文字検索に対応していません/);
+  assert.equal(ui.ref.current.getPageNumber(), 1); assert.equal(source.document.destroyed, 0);
+  const bad = searchablePdf(['text'], async () => { throw new Error('Unreadable text'); });
+  await ui.update({ loadPdf: bad.loadPdf });
+  assert.match(textContent(ui.root), /Unreadable text/); assert.equal(results(ui).length, 0);
+  assert.equal(ui.ref.current.getPageNumber(), 1); assert.equal(bad.document.destroyed, 0);
+  assert.equal(ui.errors.length, 0);
+});
+
+test('search queries, close, source changes and unmount abort pending reads and never navigate for late results', async t => {
+  const reads = [], source = searchablePdf(['', ''], (number, signal) => { const item = { ...deferred(), number, signal }; reads.push(item); return item.promise; });
+  const ui = await mount(t, { loadPdf: source.loadPdf, initialSearchOpen: true, initialSearchQuery: 'old' }), api = ui.ref.current;
+  assert.equal(reads.length, 1);
+  await change(() => api.openSearch('new')); assert.ok(reads[0].signal.aborted);
+  await change(() => reads[0].resolve('old')); assert.equal(results(ui).length, 0); assert.equal(ui.events.length, 0);
+  await change(() => api.closeSearch()); assert.ok(reads[1].signal.aborted);
+  await change(() => reads[1].resolve('new')); assert.equal(ui.events.length, 0);
+  await change(() => api.openSearch('again')); assert.equal(reads.length, 3);
+  const next = searchablePdf(['No match', 'replacement']);
+  await ui.update({ loadPdf: next.loadPdf }); assert.ok(reads[2].signal.aborted);
+  await change(() => reads[2].resolve('again')); assert.equal(ui.ref.current.getPageNumber(), 1); assert.equal(results(ui).length, 0);
+  await change(() => api.openSearch('replacement')); assert.equal(api.getPageNumber(), 2);
+  assert.equal(results(ui).length, 1); assert.equal(source.document.destroyed, 1); assert.equal(next.document.destroyed, 0);
+  await ui.update({ loadPdf: source.loadPdf });
+  const last = reads.at(-1); await ui.unmount(); assert.ok(last.signal.aborted);
+  const eventsBefore = ui.events.length; await change(() => last.resolve('replacement')); assert.equal(ui.events.length, eventsBefore);
+});
+
+test('search source guards reject retained result handlers, and controlled page locks do not block searching', async t => {
+  const first = searchablePdf(['none', 'match']), second = searchablePdf(['none', 'none', 'none']);
+  const ui = await mount(t, { loadPdf: first.loadPdf, initialSearchOpen: true, initialSearchQuery: 'match', pageNumber: 1, onPageChange: undefined });
+  assert.equal(results(ui).length, 1); assert.equal(results(ui)[0].props.disabled, true); assert.equal(ui.ref.current.getPageNumber(), 1);
+  const stale = results(ui)[0].props.onClick;
+  await ui.update({ loadPdf: second.loadPdf, pageNumber: undefined, onPageChange: event => ui.events.push(event) });
+  await change(stale); assert.equal(ui.ref.current.getPageNumber(), 1); assert.equal(ui.events.length, 0);
+});
+
+test('search feature disable aborts a read immediately, leaves PDF usable and does not restart when re-enabled', async t => {
+  const reading = deferred(), source = searchablePdf(['one'], () => reading.promise);
+  const ui = await mount(t, { loadPdf: source.loadPdf, initialSearchOpen: true, initialSearchQuery: 'one' });
+  await ui.update({ features: { search: false } }); assert.equal(source.requests[0].signal.aborted, true);
+  await change(() => reading.resolve('one')); assert.equal(ui.label('検索する文字列').length, 0);
+  await ui.update({ features: { search: true } }); assert.equal(source.requests.length, 1);
+  assert.equal(source.document.destroyed, 0);
+});
+
+test('PDF page-list Up/Down select, show, focus and scroll the adjacent page without capturing outside/input keys', async t => {
+  const ui = await mount(t, { loadPdf: pdf(10).loadPdf, initialPageNumber: 2 }), api = ui.ref.current;
+  const target = { closest(selector) { return selector === '.lxp-pdf-page-list' ? ui.listNode : null; } };
+  assert.equal((await ui.key('ArrowDown', { target })).defaultPrevented, true);
+  assert.equal(api.getPageNumber(), 3); assert.deepEqual(api.getSelectedPageNumbers(), [3]);
+  assert.notEqual(ui.listNode.focused, true); assert.equal(ui.listNode.focusedPage, 3); assert.ok(ui.listNode.scrollTop > 0);
+  await ui.key('ArrowUp', { target }); assert.equal(api.getPageNumber(), 2); assert.deepEqual(api.getSelectedPageNumbers(), [2]);
+  await ui.key('ArrowDown', { target, shiftKey: true }); assert.deepEqual(api.getSelectedPageNumbers(), [2, 3]);
+  assert.equal((await ui.key('ArrowDown')).defaultPrevented, undefined);
+  assert.equal((await ui.key('ArrowDown', { target: { closest: () => ({}) } })).defaultPrevented, undefined);
+  assert.equal(api.getPageNumber(), 3);
+  await ui.update({ pageNumber: 3, onPageChange: undefined });
+  await ui.key('ArrowDown', { target }); assert.equal(api.getPageNumber(), 3); assert.deepEqual(api.getSelectedPageNumbers(), [2, 3]);
+  await ui.update({ pageNumber: undefined, selectedPageNumbers: [1, 2], onSelectionChange: undefined });
+  await ui.key('ArrowUp', { target }); assert.equal(api.getPageNumber(), 2); assert.deepEqual(api.getSelectedPageNumbers(), [1, 2]);
+});
+
+
+test('fractional viewport heights fit a portrait PDF without scrollbar-driven redraw oscillation', async t => {
+  const source = pdf(4), ui = await mount(t, { loadPdf: source.loadPdf, initialPageNumber: 2 },
+    { width: 586, height: 809, layoutWidth: 586, layoutHeight: 808.5 });
+  const image = () => ui.label('PDFページ 2').find(node => node.type === 'canvas');
+  assert.equal(image().props['aria-busy'], false);
+  assert.ok(image().props.style.height + 48 <= 808.5, 'fit uses fractional layout height instead of the rounded-up clientHeight');
+  assert.ok(Math.abs(image().props.style.width / image().props.style.height - 600 / 800) < 1e-12);
+  const renders = source.renders.length;
+  for (let index = 0; index < 6; index++) await ui.resizeViewport({ clientWidth: index % 2 ? 586 : 575, clientHeight: index % 2 ? 809 : 798 });
+  assert.equal(source.renders.length, renders, 'scrollbars do not change the border-box fit target or repeatedly cancel rendering');
+  assert.equal(image().props['aria-busy'], false);
+  assert.equal(image().props.style.visibility, 'visible');
+  await ui.resizeViewport({ width: 1180, height: 808.5 });
+  assert.equal(image().props['aria-busy'], false);
+  await ui.resizeViewport({ width: 586, height: 808.5 });
+  assert.equal(image().props['aria-busy'], false); assert.ok(image().props.style.height + 48 <= 808.5);
+});
+
+test('a completed PDF bitmap stays visible during a same-page resize and releases on unmount', async t => {
+  let wait = false;
+  const pending = [], source = pdf(2, () => { if (!wait) return; const item = deferred(); pending.push(item); return item.promise; });
+  const ui = await mount(t, { loadPdf: source.loadPdf }), target = ui.canvases.find(canvas => canvas.label === 'PDFページ 1');
+  assert.ok(target.width > 0); const previousWidth = target.width;
+  wait = true; await ui.resizeViewport({ width: 600, height: 500 });
+  const image = ui.label('PDFページ 1').find(node => node.type === 'canvas');
+  assert.equal(image.props['aria-busy'], true); assert.equal(image.props.style.visibility, 'visible');
+  assert.equal(target.width, previousWidth, 'resizing must not blank the last completed bitmap while its replacement is pending');
+  await change(() => pending.forEach(item => item.resolve()));
+  assert.equal(ui.label('PDFページ 1').find(node => node.type === 'canvas').props['aria-busy'], false);
+  await ui.unmount(); assert.equal(target.width, 0); assert.equal(target.height, 0);
+});
+
+
+test('PDF keyboard navigation focuses the destination thumbnail, including virtualized rows and controlled updates', async t => {
+  const ui = await mount(t, { loadPdf: pdf(30).loadPdf }), api = ui.ref.current;
+  const target = { closest(selector) { return selector === '.lxp-pdf-page-list' ? ui.listNode : null; } };
+  await ui.click('PDFページ 1 を表示');
+  await ui.key('ArrowDown', { target }); assert.equal(ui.listNode.focusedPage, 2);
+  await ui.key('ArrowDown', { target }); assert.equal(ui.listNode.focusedPage, 3);
+  await ui.key('ArrowUp', { target, shiftKey: true });
+  assert.equal(ui.listNode.focusedPage, 2); assert.deepEqual(api.getSelectedPageNumbers(), [2, 3]);
+  await ui.key('End', { target }); assert.equal(api.getPageNumber(), 30); assert.equal(ui.listNode.focusedPage, 30);
+  await ui.key('ArrowDown', { target }); assert.equal(ui.listNode.focusedPage, 30);
+  await ui.key('Home', { target }); assert.equal(ui.listNode.focusedPage, 1);
+  await ui.key('ArrowUp', { target }); assert.equal(ui.listNode.focusedPage, 1);
+  await ui.update({ pageNumber: 1 });
+  await ui.key('ArrowDown', { target }); assert.equal(api.getPageNumber(), 1); assert.equal(ui.listNode.focusedPage, 1);
+  await ui.update({ pageNumber: 2 }); assert.equal(ui.listNode.focusedPage, 2);
+  await ui.update({ onPageChange: undefined });
+  await ui.key('ArrowDown', { target }); assert.equal(ui.listNode.focusedPage, 2);
+  assert.notEqual(ui.listNode.focused, true, 'keyboard navigation never moves focus to the list container');
 });

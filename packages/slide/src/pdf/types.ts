@@ -1,3 +1,5 @@
+import type { PdfTextDocument } from "./text-types";
+
 /** Page dimensions at PDF.js viewport scale 1 (normally PDF points), including page rotation. */
 export type SlidePdfPage = {
   readonly width: number;
@@ -14,6 +16,8 @@ export type SlidePdfDocument = {
   readonly pageCount: number;
   /** Page numbers are one-based. */
   getPage(pageNumber: number, options?: { signal?: AbortSignal }): Promise<SlidePdfPage>;
+  /** Optional native text extraction. The standard PDF.js loader includes this; no OCR. */
+  getPageText?: PdfTextDocument["getPageText"];
   destroy(): Promise<void>;
 };
 /** Aborting the loader context also closes its successfully loaded document. */

@@ -9,7 +9,7 @@ description: LikeX SlideのネイティブJSON（.slon）を作成・検証・�
 
 リボンの `expanded` / `tabs` / `autoHide` / `hidden` はホストUIの表示設定です。`.slon` やPPTXには保存せず、モデルコマンドやCLIで変更しません。利用ホストは `initialRibbonDisplayMode` / `ribbonDisplayMode` またはrefの `setRibbonDisplayMode` を使います。
 
-通常LikeSlideの検索パネルはホームの検索ボタン・Ctrl/Cmd+F・refの `openSearch(query?)` / `closeSearch()` で扱うUI状態です。`features.search` で無効化でき、読み取り専用・リボン非表示でも使えます。検索条件や結果はSLON／PPTXへ保存せず、CLIでは引き続き公開 `searchSlides` を利用します。
+通常LikeSlideの検索パネルはホームの検索ボタン・Ctrl/Cmd+F・refの `openSearch(query?)` / `closeSearch()`（省略時は検索語を保持、空文字でクリア） で扱うUI状態です。`features.search` で無効化でき、読み取り専用・リボン非表示でも使えます。検索条件や結果はSLON／PPTXへ保存せず、CLIでは引き続き公開 `searchSlides` を利用します。 初期表示は`initialSearchOpen`／`initialSearchQuery`を指定し、どちらもマウント時に一度だけ読む。初期検索語だけでは開かず、`features.search: false`が優先する。
 
 一覧カードの `LikeSlideThumbnail` / `LikeSlidePdfThumbnail` は `@likex/slide/thumbnail` から利用する専用UIです。タイトルと `pageNumber`（1始まり）または通常スライドの `slideId` で指定する1ページを静止表示し、ページ選択・編集・ズーム操作は持ちません。保存モデル・コマンド・CLIの機能ではありません。
 

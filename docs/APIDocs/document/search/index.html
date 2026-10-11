@@ -10,10 +10,19 @@
 <p>前後ボタン、Enter（次へ）、Shift+Enter（前へ）で循環移動します。Escapeまたは閉じるボタンでパネルを閉じ、本文へフォーカスを戻します。文書の編集・取り込み・Undo後は現在の内容で再検索します。一覧は100件ずつ、移動対象は最大1,000一致位置です。上限到達時は表示で知らせます。</p>
 <h2 id="外側から検索を開く">外側から検索を開く<a class="heading-link" href="#%E5%A4%96%E5%81%B4%E3%81%8B%E3%82%89%E6%A4%9C%E7%B4%A2%E3%82%92%E9%96%8B%E3%81%8F" aria-label="この見出しへのリンク">#</a></h2>
 <div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">const</span> editor = useRef&lt;DocumentHandle&gt;(<span class="syntax-keyword">null</span>);
-&lt;LikeDocument ref={editor} initialDocument={document} readOnly initialRibbonDisplayMode=<span class="syntax-string">&quot;hidden&quot;</span> /&gt;;
+&lt;LikeDocument
+  ref={editor}
+  initialDocument={document}
+  initialSearchOpen
+  initialSearchQuery=<span class="syntax-string">&quot;受注番号&quot;</span>
+  readOnly
+  initialRibbonDisplayMode=<span class="syntax-string">&quot;hidden&quot;</span>
+/&gt;;
 
 editor.current?.openSearch(<span class="syntax-string">&quot;受注番号&quot;</span>);
 editor.current?.closeSearch();</code></pre></div>
+<p><code>initialSearchOpen</code>（既定<code>false</code>）で最初の描画から検索欄を表示し、<code>initialSearchQuery</code>（既定<code>&quot;&quot;</code>）で検索語を指定します。両方ともマウント時に一度だけ読みます。検索語だけでは欄を開きませんが、後から<code>openSearch()</code>したときに使います。不正な初期検索語（文字列以外・4,096文字超）は空文字として扱います。初期検索が一致すると、通常の検索と同じように最初の一致箇所へ移動します。</p>
+<p>表示後の変更にはrefを使います。<code>features.search: false</code>は初期表示指定より優先し、表示中の欄も閉じます。その後<code>true</code>に戻しても自動では開きません。Spreadsheet・Slide・Document・PDFで共通のprops／ref名と引数を使い、型はCoreの<code>SearchPanelInitialState</code>／<code>SearchPanelHandle</code>を共有します。サムネイルには検索UIを表示しません。</p>
 <p><code>openSearch(query?: string)</code> はパネルを開いて入力欄にフォーカスします。query省略時は前回の検索語を保ち、空文字ならクリアします。不正なquery（文字列以外・4,096文字超）、<code>features.search: false</code> またはアンマウント後は <code>false</code>、受け付けた場合は <code>true</code> を返します。検索UIを無効にしても、純粋な <code>searchDocument</code> APIは使用できます。</p>
 <p>検索の状態はDCONやDOCXに保存しません。検索UIは公開 <code>searchDocument</code> と同じ判定を使います。外側から複数キーワードのAND/OR検索を組み立てる方法は<a href="../headless/index.html#%E3%82%AD%E3%83%BC%E3%83%AF%E3%83%BC%E3%83%89%E3%81%A7%E6%8E%A2%E3%81%99">画面なしの検索</a>を参照してください。</p>
 <nav class="page-navigation" aria-label="前後のページ"><a href="../ribbon-display/index.html"><span>前のページ</span>リボンの表示と非表示</a><a href="../headless/index.html"><span>次のページ</span>モデルAPI・コマンド・履歴</a></nav><footer class="article-footer">編集元: <a href="https://github.com/sunu-py-jp/LikeX/blob/main/packages/document/src/docs/search.md">search.md</a><br>本文は公開APIと利用ガイドから生成しています。</footer></article><aside class="page-toc" aria-label="このページの見出し"><p>このページ</p><ol><li><a href="#%E5%A4%96%E5%81%B4%E3%81%8B%E3%82%89%E6%A4%9C%E7%B4%A2%E3%82%92%E9%96%8B%E3%81%8F">外側から検索を開く</a></li></ol></aside></div></main></div><p class="copy-status" role="status" aria-live="polite"></p></body></html>

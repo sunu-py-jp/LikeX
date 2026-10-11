@@ -90,6 +90,44 @@ async function mountSharedViews(t, supplied = {}) {
     async update(patch) { props = { ...props, ...patch }; await change(() => renderer.update(tree())); } };
 }
 
+test('standalone draft addAsync blocks retained saves immediately and releases them after completion, cancellation or failure', async t => {
+  for (const finish of ['complete', 'cancel', 'reject']) await t.test(finish, async subtest => {
+    let resolveMetadata, inspectionSignal, startInspection;
+    const metadata = new Promise(resolve => { resolveMetadata = resolve; });
+    const started = new Promise(resolve => { startInspection = resolve; });
+    const controller = new AbortController();
+    const hook = await mountDraft(subtest, { upload: { inspectFile({ signal }) { inspectionSignal = signal; startInspection(); return metadata; } } });
+    await change(() => hook.current.add([file('Staged.txt')], 'root'));
+    const retainedSave = hook.current.save;
+    let pending, saving;
+    await change(() => {
+      pending = hook.current.addAsync([file('Pending.mp4')], 'root', [], undefined, { signal: controller.signal })
+        .then(value => ({ value }), error => ({ error }));
+      assert.equal(hook.current.isImporting(), true, 'save must be blocked before the next render');
+      saving = retainedSave();
+    });
+    assert.equal(await saving, false);
+    await change(() => started);
+    assert.equal(hook.current.importing, true);
+    assert.equal(inspectionSignal.aborted, false);
+    assert.equal(hook.saves.length, 0);
+    if (finish === 'cancel') await change(() => controller.abort());
+    else await change(() => resolveMetadata({ kind: 'video', durationSeconds: finish === 'complete' ? 20 : 100_000 }));
+    let result;
+    await change(async () => { result = await pending; });
+    if (finish === 'cancel') assert.equal(result.error?.name, 'AbortError');
+    if (finish === 'reject') assert.equal(result.error?.name, 'ExplorerUploadValidationError');
+    assert.equal(hook.current.importing, false);
+    assert.equal(hook.current.isImporting(), false);
+    await change(async () => assert.equal(await retainedSave(), true));
+    assert.equal(hook.saves.length, 1);
+    assert.deepEqual(hook.saves[0].changes.created.map(item => item.name).sort(),
+      finish === 'complete' ? ['Pending.mp4', 'Staged.txt'] : ['Staged.txt']);
+    if (finish === 'cancel') await change(() => resolveMetadata({ kind: 'video', durationSeconds: 20 }));
+    assert.equal(hook.current.dirty, false);
+  });
+});
+
 function dropEvent(files) {
   return { ctrlKey: false, preventDefault() {}, stopPropagation() {}, dataTransfer: {
     files, types: ['Files'], getData: () => '', effectAllowed: 'all', dropEffect: 'none',

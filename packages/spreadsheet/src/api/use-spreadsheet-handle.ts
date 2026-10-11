@@ -12,6 +12,8 @@ export function useSpreadsheetHandle(ref: Ref<SpreadsheetHandle> | undefined, co
   const reader = useMemo(() => createSpreadsheetReader(controller.getWorkbook), [controller.getWorkbook]);
   const handle = useMemo<SpreadsheetHandle>(() => ({
     ...reader,
+    openSearch: query => latest.current.openSearch(query),
+    closeSearch: () => latest.current.closeSearch(),
     getSelection: () => latest.current.selectionApi.getSelection(),
     getSelectedDrawing: () => latest.current.selectionApi.getSelectedDrawing(),
     selectSheet: (...args) => latest.current.selectionApi.selectSheet(...args),

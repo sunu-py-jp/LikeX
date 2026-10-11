@@ -216,7 +216,7 @@ export function useDocumentEditor(props: DocumentProps) {
     if (!control.current.mounted || !resolveDocumentFeatures(latest.current.features).search) return;
     session.select({ from: location.match.from, to: location.match.to });
     setPageReveal({ document: session.getSnapshot().document, position: location.match.from });
-  });
+  }, props);
   useImperativeHandle(props.ref, () => ({ openSearch: search.openSearch, closeSearch: search.closeSearch, getRibbonDisplayMode: ribbon.getRibbonDisplayMode, setRibbonDisplayMode: ribbon.setRibbonDisplayMode, getDocument: () => session.getSnapshot().document, getSelection: () => ({ ...session.getSnapshot().selection }), select, goToPage, execute, undo: () => history("undo"), redo: () => history("redo"), save, discard,
     importNative: (input, options) => importFile(input, "dcon", options), importDocx: (input, options) => importFile(input, "docx", options), exportNative: () => exportFile("dcon"), exportDocx: () => exportFile("docx"),
   }));

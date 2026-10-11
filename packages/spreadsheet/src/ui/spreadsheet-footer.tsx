@@ -49,7 +49,7 @@ export function SpreadsheetFooter({ controller: c, renameRef }: { controller: Sp
       {c.features.sheets ? <HorizontalScrollStrip className="lxs-sheet-tabs" role="tablist" aria-label="ワークシート"
         itemSelector=".lxs-sheet-tab, .lxs-sheet-name-input, .lxs-command" previousLabel="左のシートを表示" nextLabel="右のシートを表示"
         onDragOver={reorder.onDragOver} onDrop={reorder.onDrop} onDragLeave={reorder.onDragLeave}>
-        {c.workbook.sheets.map(sheet => renaming?.id === sheet.id && c.features.renameSheet && !c.readOnly ? <input key={sheet.id} autoFocus className="lxs-sheet-name-input" aria-label="シート名" value={renaming.value} readOnly={c.disabled || c.requesting} maxLength={31} onFocus={event => event.currentTarget.select()} onChange={event => { setRenaming({ id: sheet.id, value: event.target.value }); markPending(event.target.value !== sheet.name); }} onBlur={commitName} onKeyDown={event => {
+        {c.workbook.sheets.map(sheet => renaming?.id === sheet.id && c.features.renameSheet && !c.readOnly ? <input key={sheet.id} autoFocus className="lxs-sheet-name-input" aria-label="シート名" value={renaming.value} readOnly={c.disabled || c.requesting} maxLength={31} onFocus={event => event.currentTarget.select()} onChange={event => { setRenaming({ id: sheet.id, value: event.target.value }); markPending(event.target.value !== sheet.name); }} onBlur={event => { if (!(event?.relatedTarget as HTMLElement | null)?.closest(".lxs-search-dialog")) commitName(); }} onKeyDown={event => {
           if (event.nativeEvent.isComposing || event.keyCode === 229) return;
           if (event.key === "Enter") { event.preventDefault(); commitName(); }
           if (event.key === "Escape") { event.preventDefault(); c.cancelEditRequest(); markPending(false); setRenaming(null); }

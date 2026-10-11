@@ -42,7 +42,7 @@ function CommentEditor({ controller: c, address, comment }: { controller: Spread
     {comment?.author && <p className="lxs-comment-author">{comment.author}</p>}
     <label className="lxs-comment-label" htmlFor={inputId}>コメント</label>
     <textarea id={inputId} className="lxs-comment-editor" aria-label={`${address} のコメントを編集`} placeholder="コメントを入力" maxLength={SPREADSHEET_LIMITS.commentLength} value={text} readOnly={c.disabled || c.requesting}
-      onChange={event => { setText(event.target.value); markPending(event.target.value !== (comment?.text ?? "")); }} onBlur={() => commit()}
+      onChange={event => { setText(event.target.value); markPending(event.target.value !== (comment?.text ?? "")); }} onBlur={event => { if (!(event?.relatedTarget as HTMLElement | null)?.closest(".lxs-search-dialog")) commit(); }}
       onKeyDown={event => {
         event.stopPropagation();
         if (event.nativeEvent.isComposing || event.keyCode === 229) return;

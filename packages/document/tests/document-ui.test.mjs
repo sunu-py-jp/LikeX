@@ -356,3 +356,71 @@ test('search UI opens from the ribbon and hidden-ribbon shortcut without acquiri
   await change(() => renderer.root.findAllByType('button').find(node => node.props['aria-label'] === '検索').props.onClick());
   assert.equal(renderer.root.findAllByProps({ 'aria-label': '文書内を検索' }).length, 1);
 });
+
+
+test('initial document search is present in server markup with a hidden ribbon and disabled by its feature', () => {
+  const props = { initialDocument: body('Alpha beta'), readOnly: true, initialRibbonDisplayMode: 'hidden', initialSearchOpen: true, initialSearchQuery: 'Alpha' };
+  const html = renderToStaticMarkup(h(LikeDocument, props));
+  assert.match(html, /class="lxd-search-panel"/);
+  assert.match(html, /aria-label="検索する文字列"[^>]*value="Alpha"/);
+  assert.match(html, /class="lxd-ribbon" data-display-mode="hidden" hidden=""/);
+  const disabled = renderToStaticMarkup(h(LikeDocument, { ...props, features: { search: false } }));
+  assert.doesNotMatch(disabled, /class="lxd-search-panel"/);
+});
+
+test('heading navigation arrows move the selection and view while retaining list focus, without adding page navigation', async t => {
+  const initialDocument = createDocument({ content: { type: 'doc', content: ['First', 'Second', 'Third'].flatMap((value, index) => [
+    { type: 'heading', attrs: { id: `heading-${index}`, level: 1 }, content: [{ type: 'text', text: value }] },
+    { type: 'paragraph', content: [{ type: 'text', text: 'Body' }] },
+  ]) } });
+  const headings = getBlocks(initialDocument).filter(block => block.node.type === 'heading');
+  const ref = createRef(), calls = [], beforeCss = globalThis.CSS;
+  globalThis.CSS = { escape: value => value }; t.after(() => { if (beforeCss === undefined) delete globalThis.CSS; else globalThis.CSS = beforeCss; });
+  let renderer, focused;
+  const buttons = headings.map((block, index) => ({ focus() { focused = index; }, scrollIntoView() { calls.push(`list:${block.id}`); } }));
+  const root = { addEventListener() {}, removeEventListener() {}, querySelector(selector) { return { scrollIntoView() { calls.push(selector); } }; } };
+  await change(() => { renderer = create(h(LikeDocument, { ref, initialDocument, readOnly: true }), { createNodeMock(element) {
+    if (element.props['data-likex-document'] === '') return root;
+    if (element.props['aria-label'] === '見出しナビゲーション') return { querySelectorAll() { return buttons; } };
+    return null;
+  } }); });
+  t.after(() => change(() => renderer.unmount()));
+  const navigation = () => renderer.root.findByProps({ 'aria-label': '見出しナビゲーション' });
+  const keyboard = (key, options = {}) => {
+    const event = { key, defaultPrevented: false, nativeEvent: {}, ...options, target: { closest(selector) {
+      if (selector === '[data-document-heading-index]') return focused === undefined ? null : { dataset: { documentHeadingIndex: String(focused) } };
+      return options.input ? {} : null;
+    } }, preventDefault() { this.defaultPrevented = true; }, stopPropagation() {} };
+    navigation().props.onKeyDown(event); return event;
+  };
+  await change(() => navigation().findByProps({ 'data-document-heading-index': 0 }).props.onClick()); focused = 0;
+  await change(() => assert.equal(keyboard('ArrowDown').defaultPrevented, true));
+  assert.deepEqual(ref.current.getSelection(), { from: headings[1].contentFrom, to: headings[1].contentFrom });
+  assert.equal(focused, 1); assert.equal(calls.at(-1), 'list:heading-1'); assert.ok(calls.includes('[data-document-id="heading-1"]'));
+  await change(() => keyboard('ArrowDown')); await change(() => keyboard('ArrowDown'));
+  assert.equal(focused, 2); assert.equal(ref.current.getSelection().from, headings[2].contentFrom);
+  await change(() => keyboard('ArrowUp')); await change(() => keyboard('ArrowUp')); await change(() => keyboard('ArrowUp'));
+  assert.equal(focused, 0); assert.equal(ref.current.getSelection().from, headings[0].contentFrom);
+  for (const options of [{ input: true }, { ctrlKey: true }, { altKey: true }, { nativeEvent: { isComposing: true } }, { keyCode: 229 }]) {
+    await change(() => assert.equal(keyboard('ArrowDown', options).defaultPrevented, false));
+    assert.equal(focused, 0);
+  }
+  assert.equal(serializeDocument(ref.current.getDocument()), serializeDocument(initialDocument));
+  assert.equal(renderer.root.findAllByProps({ 'aria-label': 'ページ一覧' }).length, 0);
+});
+
+test('document search shortcut requires exactly Ctrl or Cmd without Shift, Alt, IME or an already handled event', async t => {
+  const { renderer, ref } = await mount(t, { initialDocument: body('Alpha'), readOnly: true, initialRibbonDisplayMode: 'hidden' });
+  const send = options => {
+    const event = { key: 'f', ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, defaultPrevented: false, nativeEvent: {}, target: { closest: () => null }, ...options,
+      preventDefault() { this.prevented = true; }, stopPropagation() {} };
+    renderer.root.findByProps({ 'data-likex-document': '' }).props.onKeyDownCapture(event); return event;
+  };
+  for (const options of [{ ctrlKey: false }, { metaKey: true }, { shiftKey: true }, { altKey: true }, { nativeEvent: { isComposing: true } }, { keyCode: 229 }, { defaultPrevented: true }]) {
+    await change(() => assert.notEqual(send(options).prevented, true));
+    assert.equal(renderer.root.findAllByProps({ 'aria-label': '文書内を検索' }).length, 0);
+  }
+  await change(() => assert.equal(send({ ctrlKey: false, metaKey: true }).prevented, true));
+  assert.equal(renderer.root.findAllByProps({ 'aria-label': '文書内を検索' }).length, 1);
+  await change(() => ref.current.closeSearch());
+});

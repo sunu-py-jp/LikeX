@@ -47,23 +47,9 @@ export function useExplorerWorkspace(props: ExplorerProps) {
   useLayoutEffect(() => unsavedChangesGuard.register(typeof window === "undefined" ? null : window), [unsavedChangesGuard]);
   const [downloads] = useState(createDownloadManager);
   useLayoutEffect(() => () => downloads.cancelAll("unmounted"), [downloads]);
-  const pendingImports = useRef(new Set<AbortController>());
-  const cancelImports = useCallback(() => {
-    for (const controller of pendingImports.current) controller.abort();
-    pendingImports.current.clear();
-  }, []);
-  const registerImport = useCallback((controller: AbortController) => {
-    pendingImports.current.add(controller);
-    return () => { pendingImports.current.delete(controller); };
-  }, []);
-  useEffect(() => cancelImports, [cancelImports]);
-  const saveDraft = draft.save, refreshDraft = draft.refresh, discardDraft = draft.discard, endDraftEdit = draft.endEdit;
+  const { registerImport, cancelImports } = draft;
+  const refreshDraft = draft.refresh, discardDraft = draft.discard, endDraftEdit = draft.endEdit;
   const canMutate = draft.canMutate;
-  const save = useCallback((windowId?: string) => {
-    if (!canMutate()) return Promise.resolve(false);
-    cancelImports();
-    return saveDraft(windowId);
-  }, [cancelImports, saveDraft, canMutate]);
   const { canRefresh, isBusy } = draft;
   const refresh = useCallback(() => {
     if (!canMutate() || !canRefresh || isBusy())
@@ -328,7 +314,7 @@ export function useExplorerWorkspace(props: ExplorerProps) {
       hostDocument.current = null;
     };
   }, []);
-  return { draft: { ...draft, save, refresh, discard, endEdit }, registerImport, tabs, defaultStart, initialStart, takeInitialPreview, clipboard, setClipboard, getClipboard, draggedIds, workspaceId, windows, detachTab, reattachWindow, closeDetachedWindows, mediaCache, downloads, unsavedChangesGuard, notifications, navigation, commands };
+  return { draft: { ...draft, refresh, discard, endEdit }, registerImport, tabs, defaultStart, initialStart, takeInitialPreview, clipboard, setClipboard, getClipboard, draggedIds, workspaceId, windows, detachTab, reattachWindow, closeDetachedWindows, mediaCache, downloads, unsavedChangesGuard, notifications, navigation, commands };
 }
 
 export type ExplorerWorkspace = ReturnType<typeof useExplorerWorkspace>;

@@ -2,7 +2,7 @@
 
 `LikeSlidePdfViewer` は、LikeSlideと同じ外観のタイトルバー・左ページ一覧・中央ページ・ズーム操作を持つPDF閲覧コンポーネントです。`@likex/slide` の名前付きexportから利用します。既存の `LikeSlide` は引き続きSLON/PPTXの編集を担当します。
 
-PDFは画像スライドへ変換して保存せず、ページをCanvasへ描画します。原本のページ順・ページごとの縦横比を保ち、拡大時には描き直します。文字・図形の編集、テキストの範囲選択・検索、リンク操作、注釈編集、SLON/PPTXへの変換は提供しません。PDF内のJavaScript・添付ファイル・リンク先を実行・開く機能もありません。
+PDFは画像スライドへ変換して保存せず、ページをCanvasへ描画します。原本のページ順・ページごとの縦横比を保ち、拡大時には描き直します。文字検索は検索パネルの結果一覧から一致ページへ移動できます。文字・図形の編集、テキストの範囲選択、リンク操作、注釈編集、SLON/PPTXへの変換は提供しません。PDF内のJavaScript・添付ファイル・リンク先を実行・開く機能もありません。
 
 ## PDF.jsで表示する
 
@@ -74,7 +74,9 @@ import "@likex/slide/styles.css";
 | `initialZoom` / `onZoomChange` | 初期の倍率と倍率変更通知。100%は画面に収まるサイズ |
 | `onLoad` | 読み込み後に `{ pageCount }` を通知 |
 | `onError` | 読み込み・描画エラーを通知 |
-| `toolbarVisible` | 閲覧操作のツールバーの表示 |
+| `toolbarVisible` | 閲覧操作のツールバーの表示。非表示でも検索API・ショートカットは利用可能 |
+| `initialSearchOpen` / `initialSearchQuery` | 初回マウント時の検索パネル表示と文字列 |
+| `features.search` | `false` で検索UI・ショートカット・検索開閉APIを無効化 |
 | `title`, `colorMode`, `primaryColor`, `className`, `style` | LikeSlideと同じ外観設定 |
 | `ref` | `SlidePdfViewerHandle` による表示操作 |
 
@@ -82,7 +84,35 @@ refの `getPageNumber()` / `goToPage(pageNumber)`、`getZoom()` / `setZoom(zoom)
 
 通常のファイル閲覧を特定ページから開くには、`<LikeSlidePdfViewer loadPdf={loadPdf} initialPageNumber={3} />` と指定します。表示後も利用側からページを切り替える場合は、冒頭の例の `pageNumber` と `onPageChange` を使います。`initialPageNumber` の更新だけでは同じPDFの表示ページは変わりません。
 
-キーボードのPageUp/PageDown・Home/Endで移動し、Ctrl＋ホイールで拡大縮小できます。縦長・横長のページが混在してもページごとにフィットします。ページ変更はPDF原本・編集履歴・未保存状態へ影響しません。
+キーボードのPageUp/PageDown・Home/Endで移動し、Ctrl＋ホイールで拡大縮小できます。左ページ一覧内にフォーカスがあるときは↑／↓で前／次のページを1枚選択して表示し、一覧のスクロールと移動先サムネイルのフォーカスも追従します。Shift＋↑／↓では範囲選択を拡張します。入力欄では矢印を奪わず、ページや選択を外部制御している場合は既存のコールバック契約に従います。縦長・横長のページが混在してもページごとにフィットします。小数ピクセルの表示領域でも収まる寸法で計算し、同じページのサイズ変更中は直前の描画を保持します。ページ変更はPDF原本・編集履歴・未保存状態へ影響しません。
+
+## 検索パネルを開いて表示する
+
+```tsx
+import { useRef } from "react";
+import { LikeSlidePdfViewer, type SlidePdfViewerHandle } from "@likex/slide";
+
+const viewerRef = useRef<SlidePdfViewerHandle>(null);
+
+<LikeSlidePdfViewer ref={viewerRef} loadPdf={loadPdf}
+  initialSearchOpen initialSearchQuery="売上" />;
+
+// 表示後に利用側のボタンなどから呼び出せます。PDF読み込み中でも受け付けます。
+viewerRef.current?.openSearch("利益");
+viewerRef.current?.closeSearch();
+viewerRef.current?.openSearch();   // 前回の文字列を保持
+viewerRef.current?.openSearch(""); // 文字列をクリアして開く
+```
+
+`initialSearchOpen` と `initialSearchQuery` はマウント時に1度だけ読みます。省略時は閉じた状態・空文字列です。初期文字列の不正な値や4,096文字超過は空文字列にします。表示後の初期props更新では変更しないため、後から開く場合は `openSearch` を使います。`openSearch(query?: string): boolean` は操作の受付で `true`、検索機能無効・アンマウント後・不正な文字列では `false` です。検索完了を表す戻り値ではありません。
+
+ツールバーの検索ボタン、またはViewer内の **Ctrl+F / Cmd+F** でも開けます。`toolbarVisible={false}` でもショートカットとrefの操作は利用できます。Escまたは閉じるボタンでViewerへフォーカスを戻します。`features={{ search: false }}` は開いているパネルを閉じ、進行中の検索も中止します。有効化し直しただけでは再表示せず、文字列は次の `openSearch()` 用に保持します。
+
+文字列を1語のリテラルとして検索し、大文字・小文字を区別する条件を選べます。検索は1ページずつ非同期で行い、完了後に一致箇所を強調した抜粋と件数を表示し、最初の一致ページを開きます。「前へ／次へ」、入力欄でのEnter／Shift+Enter、結果クリックで一致ページへ移動します。表示ページを外部制御している場合は `onPageChange` へ移動を要求し、コールバックがなければ移動を受け付けません。結果の多い場合は100件ずつ表示し、前後の操作では全取得結果を巡回します。
+
+同梱の `createSlidePdfLoader` は表示済みPDFから文字情報も取得するため、検索専用のローダー注入やPDFの二重読み込みは不要です。検索語・大小文字条件の変更、パネルの閉鎖、PDF切替、アンマウントで検索を中止し、古い結果で表示やページを移動しません。検索を閉じてもPDFの表示は継続します。
+
+検索対象はPDFに含まれる文字情報です。画像だけのPDFのOCRや、Canvas本文上の一致文字の強調は行いません。検索パネル内の抜粋を強調し、該当ページを表示します。検索は最大2,000ページ、結果は最大1,000一致ページで、それ以降がある場合は省略を通知します。文字数・一致位置は下記の検索APIと共通の上限です。文字取得や解析のエラーは検索パネル内に表示し、閲覧文書を破棄しません。
 
 ## 複数ページを選択してまとめて取得する
 
@@ -117,7 +147,7 @@ viewerRef.current?.selectPages([]); // 選択解除
 
 ## 外部レンダラーとライフサイクル
 
-`SlidePdfLoader` は `{ signal }` を受け取り、`SlidePdfDocument` を返します。ドキュメントは `pageCount`、`getPage(pageNumber, { signal })`、`destroy()` を提供します。ページは寸法 `width` / `height` と `render({ canvas, scale, signal })` を提供します。自社のPDF描画エンジンも、この契約で接続できます。型はすべてUIの公開入口から取得できます。
+`SlidePdfLoader` は `{ signal }` を受け取り、`SlidePdfDocument` を返します。ドキュメントは `pageCount`、`getPage(pageNumber, { signal })`、`destroy()` を提供します。検索にも対応させる場合は任意の `getPageText(pageNumber, { signal })` を追加し、抽出した文字列を返してください。描画だけを提供する既存ローダーもそのまま使用できますが、検索パネルでは文字検索に未対応であることを表示します。ページは寸法 `width` / `height` と `render({ canvas, scale, signal })` を提供します。自社のPDF描画エンジンも、この契約で接続できます。型はすべてUIの公開入口から取得できます。
 
 Viewerは読み込んだドキュメントを所有し、資料の切替・アンマウント時に中断・破棄します。独自Loaderも呼び出しごとに独立したドキュメントを返し、異なるViewer間で破棄対象を共有しないでください。古い非同期結果は表示せず、中央とサムネイルの描画をキャンセルします。サムネイルは一覧の表示範囲の周辺だけ描画します。
 
@@ -125,7 +155,7 @@ Viewerは読み込んだドキュメントを所有し、資料の切替・ア�
 
 ## 画面を起動せずPDFの本文を検索する
 
-`@likex/slide/pdf` はReact・DOM・Canvasを起動しない文字検索の入口です。Node.jsでも使え、公開型はDOM型定義を必要としません。PDF.jsは上記と同じくホストから渡します。表示用の `SlidePdfLoader` と文字用の `PdfTextLoader` は別の契約です。
+`@likex/slide/pdf` はReact・DOM・Canvasを起動しない文字検索の入口です。Node.jsでも使え、公開型はDOM型定義を必要としません。PDF.jsは上記と同じくホストから渡します。画面なしの利用には文字用の `PdfTextLoader` を使います。Viewerの表示用 `SlidePdfLoader` は任意の文字取得にも対応しますが、この検索APIへ表示中の文書を直接渡して破棄対象を共有しないでください。
 
 ```ts
 import { createPdfTextLoader, searchPdf } from "@likex/slide/pdf";

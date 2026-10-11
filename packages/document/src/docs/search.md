@@ -10,11 +10,22 @@
 
 ```tsx
 const editor = useRef<DocumentHandle>(null);
-<LikeDocument ref={editor} initialDocument={document} readOnly initialRibbonDisplayMode="hidden" />;
+<LikeDocument
+  ref={editor}
+  initialDocument={document}
+  initialSearchOpen
+  initialSearchQuery="受注番号"
+  readOnly
+  initialRibbonDisplayMode="hidden"
+/>;
 
 editor.current?.openSearch("受注番号");
 editor.current?.closeSearch();
 ```
+
+`initialSearchOpen`（既定`false`）で最初の描画から検索欄を表示し、`initialSearchQuery`（既定`""`）で検索語を指定します。両方ともマウント時に一度だけ読みます。検索語だけでは欄を開きませんが、後から`openSearch()`したときに使います。不正な初期検索語（文字列以外・4,096文字超）は空文字として扱います。初期検索が一致すると、通常の検索と同じように最初の一致箇所へ移動します。
+
+表示後の変更にはrefを使います。`features.search: false`は初期表示指定より優先し、表示中の欄も閉じます。その後`true`に戻しても自動では開きません。Spreadsheet・Slide・Document・PDFで共通のprops／ref名と引数を使い、型はCoreの`SearchPanelInitialState`／`SearchPanelHandle`を共有します。サムネイルには検索UIを表示しません。
 
 `openSearch(query?: string)` はパネルを開いて入力欄にフォーカスします。query省略時は前回の検索語を保ち、空文字ならクリアします。不正なquery（文字列以外・4,096文字超）、`features.search: false` またはアンマウント後は `false`、受け付けた場合は `true` を返します。検索UIを無効にしても、純粋な `searchDocument` APIは使用できます。
 

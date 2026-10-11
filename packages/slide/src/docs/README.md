@@ -50,6 +50,7 @@ Coreへの参照は `slide/core.ts` に集約されています。`browser.ts`�
 | --- | --- | --- |
 | `initialDeck` | `SlideDeck` | 空のスライド1枚 |
 | `initialPageNumber` / `initialSlideId` | `number` / `string` | 先頭ページ。初回のみ適用し、両方指定すると一致を検証 |
+| `initialSearchOpen` / `initialSearchQuery` | `boolean` / `string` | 検索欄は閉じた状態・空文字。初回のみ適用（[検索](search.md)） |
 | `onSave` | `(deck) => void または Promise<void / SlideDeck>` | 読み取り専用 |
 | `readOnly` | `boolean` | `onSave` の有無に従う |
 | `colorMode` | `"light" / "dark" / "system"` | ライト |

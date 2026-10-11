@@ -1,4 +1,5 @@
 "use client";
+import { createSearchPanelState, isSearchPanelQuery } from "../core";
 import { useSlideRibbon } from "./use-slide-ribbon";
 import { copySlideLine } from "../model/lines";
 import { resolveSlidePageTarget, type SlidePageTarget } from "./slide-page-target";
@@ -68,11 +69,11 @@ export function useSlideEditor(props: SlideProps) {
   const propsRef = useRef(props);
   useLayoutEffect(() => { propsRef.current = props; });
   const mounted = useRef(true);
-  const [search, setSearch] = useState({ open: false, query: "", focusVersion: 0 });
+  const [search, setSearch] = useState(() => { const initial = createSearchPanelState(props); return { ...initial, open: props.features?.search !== false && initial.open }; });
   const [searchMatch, setSearchMatch] = useState<SlideSearchMatch | null>(null);
   const openSearch = useCallback((query?: string) => {
-    if (!mounted.current || propsRef.current.features?.search === false || query !== undefined && (typeof query !== "string" || query.length > 4096)) return false;
-    setSearch(previous => ({ open: true, query: query ?? previous.query, focusVersion: previous.focusVersion + 1 }));
+    if (!mounted.current || propsRef.current.features?.search === false || query !== undefined && !isSearchPanelQuery(query)) return false;
+    setSearch(previous => ({ open: true, query: query ?? previous.query, focus: previous.focus + 1 }));
     return true;
   }, []);
   const closeSearch = useCallback(() => {
@@ -82,7 +83,9 @@ export function useSlideEditor(props: SlideProps) {
   const setSearchQuery = useCallback((query: string) => {
     setSearch(previous => ({ ...previous, query })); setSearchMatch(null);
   }, []);
-  useEffect(() => { if (props.features?.search === false) closeSearch(); }, [props.features?.search, closeSearch]);
+  if (props.features?.search === false && search.open) {
+    setSearch(previous => ({ ...previous, open: false })); setSearchMatch(null);
+  }
   const [initialTarget] = useState(() => {
     try { return { ...resolveSlidePageTarget(snapshot.deck, { pageNumber: props.initialPageNumber, slideId: props.initialSlideId }), error: undefined }; }
     catch (cause) { return { slideId: snapshot.deck.slides[0]?.id ?? "", error: cause instanceof Error ? cause.message : "表示するページを指定できませんでした。" }; }
