@@ -2,13 +2,33 @@
 .lxs-edit-tools .lxs-command { padding-inline: 7px; }
 .lxs-paste-special { max-width: 175px; min-height: 29px; border: 1px solid var(--lxs-border); border-radius: 4px; background: var(--lxs-background); color: var(--lxs-foreground); }
 .lxs-search-dialog { width: min(560px, calc(100% - 24px)); }
-.lxs-search-fields { display: grid; gap: 10px; }
-.lxs-search-fields > label { display: grid; grid-template-columns: 135px minmax(0, 1fr); align-items: center; gap: 8px; }
+.lxs-floating-layer { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
+.lxs-floating-window { position: absolute; pointer-events: auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; max-width: 100%; max-height: 100%; padding: 0; overflow: visible; border: 1px solid var(--lxs-border); border-radius: 9px; background: var(--lxs-background); color: var(--lxs-foreground); box-shadow: 0 8px 30px #0004; white-space: normal; }
+.lxs-floating-window-heading { flex: 0 0 auto; min-width: 0; padding: 10px 14px; border-bottom: 1px solid var(--lxs-border); cursor: move; touch-action: none; user-select: none; }
+.lxs-floating-window-heading h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+.lxs-floating-window-heading button { cursor: pointer; }
+.lxs-floating-window-content { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: auto; padding: 8px 18px 12px; }
+.lxs-floating-window-content p { margin: 8px 0; line-height: 1.7; }
+.lxs-search-dialog > .lxs-floating-window-content { display: flex; flex-direction: column; }
+.lxs-search-dialog > .lxs-floating-window-content > :not(.lxs-search-results) { flex: 0 0 auto; }
+.lxs-floating-window > .lxs-dialog-actions { flex: 0 1 auto; flex-wrap: wrap; gap: 6px; max-height: 40%; overflow: auto; margin: 0; padding: 10px 14px; border-top: 1px solid var(--lxs-border); }
+.lxs-floating-window-resize { position: absolute; z-index: 1; touch-action: none; }
+.lxs-floating-window-resize-n, .lxs-floating-window-resize-s { left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
+.lxs-floating-window-resize-n { top: -3px; }.lxs-floating-window-resize-s { bottom: -3px; }
+.lxs-floating-window-resize-e, .lxs-floating-window-resize-w { top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
+.lxs-floating-window-resize-e { right: -3px; }.lxs-floating-window-resize-w { left: -3px; }
+.lxs-floating-window-resize-ne, .lxs-floating-window-resize-nw, .lxs-floating-window-resize-se, .lxs-floating-window-resize-sw { width: 12px; height: 12px; }
+.lxs-floating-window-resize-ne { top: -3px; right: -3px; cursor: nesw-resize; }.lxs-floating-window-resize-nw { top: -3px; left: -3px; cursor: nwse-resize; }
+.lxs-floating-window-resize-se { bottom: -3px; right: -3px; cursor: nwse-resize; }.lxs-floating-window-resize-sw { bottom: -3px; left: -3px; cursor: nesw-resize; }
+.lxs-floating-window-resize-se::after { content: ""; position: absolute; right: 4px; bottom: 4px; width: 6px; height: 6px; border-right: 2px solid var(--lxs-border); border-bottom: 2px solid var(--lxs-border); }
+.lxs-search-fields { display: grid; gap: 10px; min-width: 0; }
+.lxs-search-fields > label { display: grid; grid-template-columns: minmax(0, 135px) minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; margin: 0; }
 .lxs-search-fields input:not([type="checkbox"]), .lxs-search-fields select { min-width: 0; padding: 6px 8px; border: 1px solid var(--lxs-border); border-radius: 4px; background: var(--lxs-background); color: var(--lxs-foreground); }
 .lxs-search-options { display: flex; gap: 16px; flex-wrap: wrap; }
-.lxs-search-options label { display: flex; align-items: center; gap: 8px; }
+.lxs-search-options label { display: flex; align-items: center; gap: 8px; margin: 0; }
 .lxs-search-fields > .lxs-search-checkbox { display: flex; gap: 8px; }
 .lxs-search-results { max-height: 200px; overflow: auto; border: 1px solid var(--lxs-border); border-radius: 4px; }
+.lxs-search-dialog .lxs-search-results { flex: 1 0 100px; min-height: 100px; max-height: none; }
 .lxs-search-results > button { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; width: 100%; padding: 7px 8px; text-align: left; }
 .lxs-search-results > button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lxs-search-results > button:hover, .lxs-search-results > button[aria-current="true"] { background: var(--lxs-selection); }

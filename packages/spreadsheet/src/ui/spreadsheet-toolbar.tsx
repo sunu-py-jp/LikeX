@@ -224,7 +224,7 @@ export function SpreadsheetFormulaBar({ controller: c }: { controller: Spreadshe
         onKeyDown={event => {
           if (event.nativeEvent.isComposing || event.keyCode === 229) return;
           if (event.key === "Enter") { event.preventDefault(); c.commitEdit(); }
-          if (event.key === "Escape") { event.preventDefault(); c.cancelEdit(); }
+          if (event.key === "Escape" && (c.editing || !c.searchPanel.mode)) { event.preventDefault(); c.cancelEdit(); }
         }} />
       {c.editing && <><Command label="入力を取り消す" disabled={c.disabled || c.requesting} onMouseDown={event => event.preventDefault()} onClick={c.cancelEdit}><Icon name="close" /></Command><Command label="入力を確定" disabled={c.disabled || c.requesting} onMouseDown={event => event.preventDefault()} onClick={() => void c.commitEdit()}><Icon name="check" /></Command></>}
     </>}

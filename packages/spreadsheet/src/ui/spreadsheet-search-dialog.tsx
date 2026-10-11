@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useInsertionEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useInsertionEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { chainResult } from "../core";
 import type { SpreadsheetSearchMatch } from "../api/editing-commands";
 import type { SpreadsheetCommand } from "../api/types";
@@ -8,10 +8,11 @@ import { parseCellAddress } from "../model/address";
 import { findSpreadsheetCells, validateSpreadsheetSearchMatches } from "../model/editing/search";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { useSpreadsheetSearch } from "../state/use-spreadsheet-search";
-import { SpreadsheetDialog } from "./spreadsheet-dialog";
+import { SpreadsheetFloatingWindow, type SpreadsheetFloatingWindowFrame } from "./spreadsheet-floating-window";
 
-export function SpreadsheetSearchDialog({ controller: c, initialMode, onClose }: {
+export function SpreadsheetSearchDialog({ controller: c, initialMode, onClose, frameRef }: {
   controller: SpreadsheetController; initialMode: "find" | "replace"; onClose: () => void;
+  frameRef?: RefObject<SpreadsheetFloatingWindowFrame | null>;
 }) {
   const first = useRef<HTMLInputElement>(null), mounted = useRef(true);
   const pendingReplacement = useRef(false), cancelPermission = useRef(c.cancelEditRequest);
@@ -86,7 +87,7 @@ export function SpreadsheetSearchDialog({ controller: c, initialMode, onClose }:
   </>;
   const context = { ...search, mode: replacing ? "replace" as const : "find" as const, defaultInput, defaultOptions, defaultReplacement, disabled: locked };
   const fields = c.renderSearch?.(context) ?? <>{defaultInput}{defaultReplacement}{defaultOptions}</>;
-  return <SpreadsheetDialog title={replacing ? "検索と置換" : "検索"} initialFocusRef={first} onClose={() => { if (busy) c.cancelEditRequest(); onClose(); }} className="lxs-search-dialog"
+  return <SpreadsheetFloatingWindow title={replacing ? "検索と置換" : "検索"} initialFocusRef={first} frameRef={frameRef} onClose={() => { if (busy) c.cancelEditRequest(); onClose(); }} className="lxs-search-dialog"
     onKeyDown={event => {
       if (!event.altKey && !event.shiftKey && event.ctrlKey !== event.metaKey && event.key.toLowerCase() === "f" && c.openSearch()) event.preventDefault();
     }}
@@ -106,5 +107,5 @@ export function SpreadsheetSearchDialog({ controller: c, initialMode, onClose }:
       <button key={`${match.sheetId}:${match.address}`} type="button" role="listitem" disabled={locked || searching} aria-current={match === matches[selectedIndex] ? "true" : undefined} onClick={() => choose(match)}>
         <span>{c.workbook.sheets.find(sheet => sheet.id === match.sheetId)?.name}!{match.address}</span><span>{match.matchedText.slice(0, 150)}</span>
       </button>)}{matches.length > 200 && <p>先頭200件を表示しています。次を検索で全件を移動できます。</p>}</div>}
-  </SpreadsheetDialog>;
+  </SpreadsheetFloatingWindow>;
 }

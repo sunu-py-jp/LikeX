@@ -11,7 +11,7 @@ description: LikeX SpreadsheetのネイティブJSON（.spon）を作成・検�
 
 リボンの表示方法はホストUIの `initialRibbonDisplayMode` / `ribbonDisplayMode` とHandleで制御する。SPON／XLSXやCLIコマンドの対象ではないため、リボンを隠す目的でブックや機能設定を書き換えない。[リボンの表示ガイド](../../src/docs/ribbon-display.md)を参照する。
 
-検索UIは `initialSearchOpen` / `initialSearchQuery` で初期表示し、表示後はHandleの `openSearch(query?)` / `closeSearch()` で操作する。LikeSlide・LikeDocument・PDFビューアーと共通の契約で、リボン非表示・読み取り専用でも使える。`features.search: false` の場合は開けない。検索の表示状態はSPON／XLSXやCLIの対象ではない。[検索UIの組み込み方](../../src/docs/editing-tools.md)を参照する。
+検索UIは `initialSearchOpen` / `initialSearchQuery` で初期表示し、表示後はHandleの `openSearch(query?)` / `closeSearch()` で操作する。LikeSlide・LikeDocument・PDFビューアーと共通の契約で、リボン非表示・読み取り専用でも使える。`features.search: false` の場合は開けない。検索は同じdocumentのbodyへPortal表示するフローティングウィンドウで、ブラウザーの表示領域内なら親コンポーネントの外側へも移動・サイズ変更できる。親の配色を引き継ぎ、開いたまま背後のシートを操作でき、閉じるボタン・Escで閉じる。セル編集中のEscは入力取消を優先する。位置とサイズはマウント中の再表示でも維持する。検索の表示状態はSPON／XLSXやCLIの対象ではない。[検索UIの組み込み方](../../src/docs/editing-tools.md)を参照する。
 
 一覧用の軽量表示は `@likex/spreadsheet/thumbnail` の `SpreadsheetThumbnail` を使う。タイトルと指定シートのA1:J20を最大200セル・100図形で表示し、編集・選択・ズーム用のHandleを持たない。`sheetId` / `sheetName` propsは完全一致で、両方指定した場合は同じシートを指す必要がある。省略時は先頭、不正な対象はエラー表示で、props変更ごとに更新する。全入力の検証後、必要な範囲と依存先だけ数式計算する。モデルで同じ範囲の計算値を得るには `calculateSpreadsheetRange(workbook, sheetId, range)` を使う。サムネイルはUI表示なので保存形式やCLIを変更しない。[表示の制約と範囲計算](../../src/docs/thumbnail.md)を参照する。
 

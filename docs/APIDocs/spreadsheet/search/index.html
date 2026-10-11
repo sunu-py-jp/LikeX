@@ -7,6 +7,9 @@
 <button class="mobile-backdrop" aria-label="メニューを閉じる" hidden></button>
 <main id="main" tabindex="-1"><div class="page-topline"><a href="../../index.html">ドキュメント</a><span aria-hidden="true">/</span><span>Spreadsheet</span></div><div class="reading-layout"><article><header class="article-header"><p class="package-name">@likex/spreadsheet</p><h1>検索・置換</h1><p class="page-summary">表示値または数式・入力値を、全ブック・指定シート・指定範囲から検索し、セル番地と一致内容を取得できます。</p><a class="screen-shortcut" href="#operation-screenshots">画面例を見る ↓</a></header><h2 id="検索と置換">検索と置換<a class="heading-link" href="#%E6%A4%9C%E7%B4%A2%E3%81%A8%E7%BD%AE%E6%8F%9B" aria-label="この見出しへのリンク">#</a></h2>
 <p>ヘッダーの「検索」「置換」、または <code>Ctrl+F</code> / <code>Ctrl+H</code> から開きます。macOSでは <code>⌘</code> も使えます。</p>
+<p>検索・置換はシートを覆わないフローティングウィンドウで表示します。タイトル部分をドラッグして親コンポーネントの外側へも移動し、四辺・四隅でサイズを変更できます。移動・サイズ変更の範囲はブラウザーの表示領域です。画面を狭くした場合は、閉じるボタンを含めて画面内に収まるよう補正します。開いたまま背後のセル選択・編集やシート切替ができ、検索結果も最新の内容に更新されます。位置とサイズはコンポーネントがマウントされている間、閉じて開き直したときや検索・置換を切り替えたときも保持します。</p>
+<p>検索窓はSpreadsheetと同じ <code>ownerDocument.body</code> にPortalで表示します。親の <code>overflow: hidden</code> や拡大縮小に切り取られず、ページをスクロールしても画面上の位置を保ちます。iframe内に配置した場合は、そのiframeの表示領域内で動きます。標準の配色・テーマ変数・フォントは元のSpreadsheetから引き継ぎます。独自の検索UIをCSSで装飾するときは、親アプリ内のDOM階層に依存せず、そのUI自身のクラスを対象にしてください。</p>
+<p>閉じるボタンまたは <code>Esc</code> で閉じます。背後のセル・数式を編集中の <code>Esc</code> は入力取消を優先し、再度押すと検索窓を閉じます。IME変換中の <code>Esc</code> は検索窓を閉じません。Tab移動を検索窓内に閉じ込めず、外側をクリックしても検索窓は開いたままです。</p>
 <ul>
 <li>現在のシート／ブック全体を検索できます。<code>features.sheets: false</code> の場合は現在のシートだけです。</li>
 <li>「表示値」は数式の計算結果と日付・通貨などの表示書式を検索します。「数式・入力値」は <code>=SUM(A1:A3)</code> などの入力内容を検索します。</li>
@@ -31,7 +34,7 @@ editor.current?.openSearch(<span class="syntax-string">&quot;&quot;</span>);    
 editor.current?.closeSearch();      <span class="syntax-comment">// 検索語を保持して閉じる</span></code></pre></div>
 <p><code>initialSearchOpen</code> は既定で <code>false</code>、<code>initialSearchQuery</code> は既定で空文字です。両方ともマウント時に一度だけ読み、検索語だけを指定しても検索欄は開きません。初期検索語が文字列でない、または4,096文字を超える場合は空文字にします。</p>
 <p><code>openSearch(query?: string): boolean</code> は要求を受け付けたら <code>true</code> を返します。検索の完了を意味しません。引数は通常の文字列として検索し、既存の詳細条件は既定に戻ります。引数省略では前回の入力文字列を保持します。不正な引数、検索機能OFF、アンマウント後は <code>false</code> を返し、状態を変更しません。<code>closeSearch(): void</code> は実行中の外部検索も中止します。<code>features.search: false</code> は初期表示より優先し、OFFからONへ戻しても勝手に再表示しません。</p>
-<p>検索の開閉はリボンの状態や読み取り専用と独立しており、リボン完全非表示でも <code>Ctrl+F</code> / <code>Cmd+F</code> とAPIで開けます。ブック・保存・Undo履歴は変更しません。セル・数式・図形の入力が未確定の間は、検索内の操作を止めて入力を維持します。検索を閉じて元の入力を確定・取り消してから操作してください。</p>
+<p>検索の開閉はリボンの状態や読み取り専用と独立しており、リボン完全非表示でも <code>Ctrl+F</code> / <code>Cmd+F</code> とAPIで開けます。ブック・保存・Undo履歴は変更しません。セル・数式・図形の入力が未確定の間は、検索内の操作を止めて入力を維持します。背後の入力へ戻り、確定・取り消してから検索を続けられます。</p>
 <p><code>search.trigger: &quot;submit&quot;</code> を指定した場合は、初期検索語やAPIで検索語を渡してもEnter・「検索する」で確定するまで実行しません。標準の <code>&quot;input&quot;</code> は開いた時点の検索語で自動検索します。UIの通常文字列検索は引き続き100,000文字まで、4種類共通の初期設定と <code>openSearch</code> の引数は4,096文字までです。</p>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> { findSpreadsheetCells, findSpreadsheetSheets } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/spreadsheet/model&quot;</span>;
 

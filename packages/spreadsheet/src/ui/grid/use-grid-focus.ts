@@ -100,7 +100,11 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
   };
   const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-    if (event.key === "Escape") { event.preventDefault(); c.cancelEdit(); activeInput.current?.setSelectionRange(0, 0); return; }
+    if (event.key === "Escape") {
+      // Let the root close the modeless search window once cell editing is finished.
+      if (!c.editing && c.searchPanel.mode) return;
+      event.preventDefault(); c.cancelEdit(); activeInput.current?.setSelectionRange(0, 0); return;
+    }
     if (event.key === "F2") { event.preventDefault(); if (!c.editing) beginTextEdit(); return; }
     if (event.key === "Enter" && event.altKey) {
       event.preventDefault(); if (c.disabled || c.requesting) return;

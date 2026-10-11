@@ -10,9 +10,9 @@ const bundle = await build({ stdin: { contents: `export {default as Spreadsheet}
   resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
   plugins: [{ name: 'same-react', setup(builder) {
     builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
-    builder.onResolve({ filter: /\/spreadsheet-dialog$/ }, () => ({ path: 'dialog', namespace: 'inline-dialog' }));
+    builder.onResolve({ filter: /\/spreadsheet-(?:dialog|floating-window)$/ }, () => ({ path: 'dialog', namespace: 'inline-dialog' }));
     builder.onLoad({ filter: /.*/, namespace: 'inline-dialog' }, () => ({ contents:
-      'import {createElement} from "react"; export const SpreadsheetDialog=({children,actions,title,onClose})=>createElement("div",{role:"dialog","aria-label":title},children,actions,createElement("button",{"aria-label":"閉じる",onClick:onClose},"閉じる"));', loader: 'js' }));
+      'import {createElement} from "react"; export const SpreadsheetDialog=({children,actions,title,onClose})=>createElement("div",{role:"dialog","aria-label":title},children,actions,createElement("button",{"aria-label":"閉じる",onClick:onClose},"閉じる")); export const SpreadsheetFloatingWindow=SpreadsheetDialog;', loader: 'js' }));
   } }] });
 const { Spreadsheet, useSpreadsheet, useSpreadsheetHandle } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const workbook = () => ({ sheets: [{ id: 'main', name: 'Main', rowCount: 10, columnCount: 5,
@@ -190,6 +190,80 @@ test('moving cell or formula focus into search preserves unfinished input and bl
     await act(async () => next.props.onClick());
     assert.equal(app.ref.current.getSelection().focus.row, 0);
     await app.close(); assert.equal(app.ref.current.getWorkbook(), source);
+    await app.unmount();
+  }
+});
+
+test('the open search window follows edits, Undo and sheet navigation performed in the workbook', async t => {
+  const initialWorkbook = workbook();
+  initialWorkbook.sheets.push({ id: 'other', name: 'Other', rowCount: 10, columnCount: 5, cells: { B2: { value: 'Alpha on another sheet' } } });
+  const app = await mount(t, { initialWorkbook, initialSearchOpen: true, initialSearchQuery: 'Alpha' }, true);
+  assert.equal(app.ctx.results[0].sheetId, 'main');
+  const formula = () => app.root.findByProps({ 'aria-label': 'セルの値・数式' });
+  await act(async () => formula().props.onChange({ target: { value: 'Changed in the workbook' } }));
+  assert.equal(app.ctx.disabled, true, 'unfinished cell input still prevents stale search selection');
+  await act(async () => formula().props.onKeyDown({ key: 'Enter', nativeEvent: {}, preventDefault() {} }));
+  assert.equal(app.ref.current.getWorkbook().sheets[0].cells.A1.value, 'Changed in the workbook');
+  assert.equal(app.dialogs().length, 1); assert.equal(app.ctx.query.text, 'Alpha'); assert.equal(app.ctx.disabled, false);
+  assert.equal(app.ctx.results.length, 0);
+  await act(async () => app.ref.current.undo());
+  assert.equal(app.ctx.results[0].address, 'A1'); assert.equal(app.dialogs().length, 1);
+  await act(async () => app.root.findByProps({ 'data-lxs-sheet-id': 'other' }).props.onClick({ detail: 1 }));
+  assert.equal(app.ref.current.getSelection().sheetId, 'other');
+  assert.equal(app.ctx.results.length, 1); assert.equal(app.ctx.results[0].address, 'B2');
+  assert.equal(app.ctx.results[0].sheetId, 'other'); assert.equal(app.dialogs().length, 1);
+  await act(async () => app.root.findAllByType('button').find(node => node.children.join('') === '次を検索').props.onClick());
+  assert.deepEqual(app.ref.current.getSelection().focus, { row: 1, column: 1 });
+  await act(async () => app.ctx.setScope('workbook'));
+  assert.equal(app.ctx.results.length, 2);
+  await act(async () => app.root.findByProps({ 'data-lxs-sheet-id': 'main' }).props.onClick({ detail: 1 }));
+  assert.equal(app.ctx.results.length, 2, 'workbook search remains scoped to every sheet');
+  assert.equal(app.dialogs().length, 1);
+});
+
+test('changing the background sheet aborts its old external search and ignores its late response', async t => {
+  const initialWorkbook = workbook();
+  initialWorkbook.sheets.push({ id: 'other', name: 'Other', rowCount: 10, columnCount: 5, cells: { B2: { value: 'Alpha elsewhere' } } });
+  const requests = [], app = await mount(t, { initialWorkbook, initialSearchOpen: true, initialSearchQuery: 'Alpha',
+    onSearchRequest(request, { signal }) { const wait = deferred(); requests.push({ request, signal, ...wait }); return wait.promise; } }, true);
+  const previous = requests.at(-1);
+  await act(async () => app.root.findByProps({ 'data-lxs-sheet-id': 'other' }).props.onClick({ detail: 1 }));
+  const current = requests.at(-1);
+  assert.equal(previous.signal.aborted, true); assert.equal(current.request.sheetId, 'other');
+  assert.equal(app.ctx.searching, true); assert.deepEqual(app.ctx.results, []);
+  await act(async () => previous.resolve([{ sheetId: 'main', address: 'A1', value: 'Alpha', matchedText: 'Alpha' }]));
+  assert.deepEqual(app.ctx.results, []); assert.equal(app.ref.current.getSelection().sheetId, 'other');
+  await act(async () => current.resolve([{ sheetId: 'other', address: 'B2', value: 'Alpha elsewhere', matchedText: 'Alpha elsewhere' }]));
+  assert.equal(app.ctx.results[0].sheetId, 'other'); assert.equal(app.ctx.searching, false); assert.equal(app.dialogs().length, 1);
+});
+
+test('Escape from the background grid or formula bar cancels unfinished edits first, then closes search', async t => {
+  for (const label of ['A1の値', 'セルの値・数式']) {
+    const app = await mount(t, { initialSearchOpen: true, initialSearchQuery: 'Alpha' }, true);
+    const source = app.ref.current.getWorkbook();
+    const input = () => app.root.findByProps({ 'aria-label': label });
+    const press = async (extra = {}) => {
+      const event = { key: 'Escape', ctrlKey: false, metaKey: false, altKey: false, shiftKey: false, nativeEvent: {},
+        target: { closest() { return null; } }, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; }, ...extra };
+      await act(async () => {
+        // Reproduce bubbling before React publishes state updates from the editor handler.
+        const rootKey = app.root.findByProps({ 'data-likex-spreadsheet': true }).props.onKeyDown;
+        input().props.onKeyDown(event);
+        if (!event.stopped) rootKey(event);
+      });
+      return event;
+    };
+    for (const extra of [{ nativeEvent: { isComposing: true } }, { keyCode: 229 }]) {
+      assert.notEqual((await press(extra)).defaultPrevented, true);
+      assert.equal(app.dialogs().length, 1);
+    }
+    await act(async () => input().props.onChange({ target: { value: 'Unfinished' } }));
+    assert.equal(input().props.value, 'Unfinished');
+    assert.equal((await press()).defaultPrevented, true);
+    assert.equal(input().props.value, 'Alpha'); assert.equal(app.dialogs().length, 1, 'first Escape only cancels editing');
+    assert.equal((await press()).defaultPrevented, true);
+    assert.equal(app.dialogs().length, 0, 'next Escape closes the window from the sheet');
+    assert.equal(app.ref.current.getWorkbook(), source); assert.deepEqual(app.changes, []);
     await app.unmount();
   }
 });

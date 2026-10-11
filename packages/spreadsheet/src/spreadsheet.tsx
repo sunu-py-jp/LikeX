@@ -16,6 +16,7 @@ import { SpreadsheetContextMenu } from "./ui/spreadsheet-context-menu";
 import { useNamedRangeManager } from "./ui/named-ranges/use-named-range-manager";
 import { NamedRangeDialog, SpreadsheetNamedRangePanel } from "./ui/spreadsheet-named-ranges";
 import { SpreadsheetSearchDialog } from "./ui/spreadsheet-search-dialog";
+import type { SpreadsheetFloatingWindowFrame } from "./ui/spreadsheet-floating-window";
 
 export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetProps) {
   const c = useSpreadsheet(props);
@@ -23,6 +24,7 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
   const namedRangeTarget = namedRangeManager.dialogTarget;
   useSpreadsheetHandle(handleRef, c);
   const root = useRef<HTMLElement>(null);
+  const searchWindowFrame = useRef<SpreadsheetFloatingWindowFrame | null>(null);
   const gridHadFocus = useRef(false);
   const focusedViewRevision = useRef(c.viewRevision);
   useLayoutEffect(() => {
@@ -74,6 +76,7 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
       }
       if (event.key === "Escape" && contextMenu.state.phase !== "idle") { event.preventDefault(); contextMenu.cancel(); return; }
       if (event.key === "Escape" && c.requesting) { event.preventDefault(); c.cancelEditRequest(); return; }
+      if (event.key === "Escape" && c.searchPanel.mode && !c.editing && !c.pendingObjectEdit) { event.preventDefault(); c.closeSearch(); return; }
       const primary = (event.ctrlKey || event.metaKey) && !(event.ctrlKey && event.metaKey);
       if (!primary) return;
       const key = event.key.toLowerCase();
@@ -101,7 +104,7 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
     </div>
     <SpreadsheetFooter key={`footer-${c.viewRevision}`} controller={c} renameRef={sheetRename} />
     {c.searchPanel.mode && <SpreadsheetSearchDialog key={`${c.searchPanel.mode}-${c.searchPanel.focus}`}
-      controller={c} initialMode={c.searchPanel.mode} onClose={c.closeSearch} />}
+      controller={c} initialMode={c.searchPanel.mode} onClose={c.closeSearch} frameRef={searchWindowFrame} />}
     {namedRangeTarget && <NamedRangeDialog key={JSON.stringify([namedRangeTarget.id, namedRangeTarget.sheetId, namedRangeTarget.revision])}
       controller={c} target={namedRangeTarget} onClose={namedRangeManager.closeDialog} />}
     <SpreadsheetContextMenu controller={contextMenu} root={root} />
