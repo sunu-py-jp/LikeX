@@ -1,4 +1,4 @@
-import { Spreadsheet, type SpreadsheetHandle, type SpreadsheetProps, type SpreadsheetSearchHandler, type SpreadsheetSearchRenderContext } from "../src/index";
+import { Spreadsheet, type SpreadsheetExternalSearchOptions, type SpreadsheetExternalSearchTarget, type SpreadsheetHandle, type SpreadsheetProps, type SpreadsheetSearchHandler, type SpreadsheetSearchRenderContext } from "../src/index";
 import { findSpreadsheetCells, findSpreadsheetSheets, type SpreadsheetSearchQuery, type SpreadsheetSheetSearchQuery } from "../src/model-entry";
 const query: SpreadsheetSearchQuery = { text: "^order-\\d+$", useRegex: true, matchCase: true };
 const sheets: SpreadsheetSheetSearchQuery = { text: "^sales", useRegex: true };
@@ -28,3 +28,20 @@ const invalidVisibility: SpreadsheetProps = { initialSearchOpen: "open" };
 // @ts-expect-error Initial query injection accepts only text.
 const invalidQuery: SpreadsheetProps = { initialSearchQuery: ["売上"] };
 void [initiallyOpen, searchPanelApi, invalidVisibility, invalidQuery];
+
+const target: SpreadsheetExternalSearchTarget = { sheetId: "sales", range: "B2:F20" };
+const externalSearch: SpreadsheetExternalSearchOptions = { results: [{ id: "sales-result", title: "売上", snippet: "対象セルの説明", target }],
+  onResultSelect(result) { const range: string = result.target.range; void range; } };
+const externalProps: SpreadsheetProps = { initialSearchOpen: true, initialSearchMode: "external", externalSearch };
+function externalSearchApi(handle: SpreadsheetHandle) {
+  const selected: boolean = handle.openExternalSearch("sales-result");
+  const reopened: boolean = handle.openExternalSearch();
+  // @ts-expect-error The result identity is a string, not a target object.
+  handle.openExternalSearch(target);
+  return { selected, reopened };
+}
+// @ts-expect-error Spreadsheet destinations require both a sheet identity and an A1 range.
+const missingRange: SpreadsheetExternalSearchTarget = { sheetId: "sales" };
+// @ts-expect-error The common mode is local/external, not a document-specific value.
+const invalidMode: SpreadsheetProps = { initialSearchMode: "sheet" };
+void [externalProps, externalSearchApi, missingRange, invalidMode];

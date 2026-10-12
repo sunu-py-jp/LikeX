@@ -15,6 +15,8 @@ import { SlideFilmstrip } from "./ui/slide-filmstrip";
 import { SlideProperties } from "./ui/slide-properties";
 import { SlidePresentation } from "./ui/slide-presentation";
 import { SlideRibbon } from "./ui/slide-ribbon";
+import { ExternalSearchPanel } from "./ui/external-search-panel";
+import { SearchRail } from "./ui/search-rail";
 import { SlideSearchPanel } from "./ui/slide-search-panel";
 import { SlideConversionReport } from "./ui/slide-conversion-report";
 
@@ -138,7 +140,19 @@ export default function LikeSlide(props: SlideProps) {
     </header>
     <SlideRibbon editor={editor} onImage={() => { if (slide) requestImage({ deck: editor.deck, slideId: slide.id }); }} onImport={importFile} onImportMasters={() => masterInput.current?.click()} onPresent={() => setPresenting(true)} propertiesOpen={propertiesOpen} notesOpen={notesOpen}
       onProperties={() => setPropertiesOpen(value => !value)} onNotes={() => setNotesOpen(value => !value)} onFit={() => setZoom(100)} ownerDocument={ownerDocument} />
-    <div className="lxp-workspace">{editor.search.open && editor.features.search && <SlideSearchPanel editor={editor} onClose={() => { editor.closeSearch(); root.current?.querySelector<HTMLElement>(".lxp-canvas-viewport")?.focus(); }} />}<SlideFilmstrip editor={editor} /><div className="lxp-slide-workspace"><SlideCanvas key={slide?.id} deck={editor.deck} slide={slide} editor={editor} zoom={zoom} onImage={requestImage}
+    <div className="lxp-workspace">
+      {props.externalSearch ? <SearchRail open={editor.search.open && editor.features.search} pageTab={editor.search.pageTab} onTab={editor.setSearchPageTab}
+        search={<>
+          <div className="lxp-search-mode-pane" hidden={editor.search.mode !== "external"}><ExternalSearchPanel search={editor.externalSearch}
+            visible={editor.search.open && editor.search.mode === "external" && !editor.search.pageTab} focus={editor.search.focus}
+            location={target => `スライド ${editor.deck.slides.findIndex(item => item.id === target.slideId) + 1}`}
+            onClose={() => editor.closeSearch()} onLocalSearch={() => editor.openSearch(editor.search.query)} /></div>
+          <div className="lxp-search-mode-pane" hidden={editor.search.mode !== "local"}><SlideSearchPanel editor={editor} onClose={editor.closeSearch} /></div>
+        </>} pages={<SlideFilmstrip editor={editor} />} /> : <>
+        {editor.search.open && editor.features.search && <SlideSearchPanel editor={editor} onClose={() => { editor.closeSearch(); root.current?.querySelector<HTMLElement>(".lxp-canvas-viewport")?.focus(); }} />}
+        <SlideFilmstrip editor={editor} />
+      </>}
+      <div className="lxp-slide-workspace"><SlideCanvas key={slide?.id} deck={editor.deck} slide={slide} editor={editor} zoom={zoom} onImage={requestImage}
       onProperties={() => { setConversionOpen(false); setPropertiesOpen(true); }} />
       {editor.features.notes && notesOpen && <div className="lxp-notes"><label htmlFor={`${editor.deck.id}-notes`}>ノート</label><textarea key={`${slide?.id}:${slide?.notes}`} id={`${editor.deck.id}-notes`} aria-label="発表者ノート" defaultValue={slide?.notes ?? ""} placeholder="クリックしてノートを入力" disabled={!editor.editable || !slide}
         onBlur={event => {

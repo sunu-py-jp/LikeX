@@ -35,9 +35,11 @@ export type SpreadsheetSelection = Readonly<{
   ranges?: readonly SpreadsheetSelectionRange[];
 }>;
 
-import type { SpreadsheetSearchHandler, SpreadsheetSearchRenderContext, SpreadsheetSearchSettings } from "./api/search";
+import type { SpreadsheetExternalSearchOptions, SpreadsheetSearchHandler, SpreadsheetSearchRenderContext, SpreadsheetSearchSettings } from "./api/search";
 
 export type SpreadsheetProps = SearchPanelInitialState & {
+  /** Host-provided destinations, retained separately from local search. Supply a fresh results array after replacing the workbook. */
+  externalSearch?: SpreadsheetExternalSearchOptions;
   /** Search timing and host-owned detailed conditions. */
   search?: SpreadsheetSearchSettings;
   /** Replace or augment the search dialog fields while retaining result navigation and safe replacement. */

@@ -51,6 +51,8 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   const revisionRef = useRef(0);
   const structureRevisionRef = useRef(0);
   const conditionalStructureRevisionRef = useRef(0);
+  // External destinations belong to one opened workbook, independent of ordinary edits/history.
+  const replacementRevisionRef = useRef(0);
   const [mutationSessionId] = useState(() => crypto.randomUUID());
   const setContextMenuLock = useCallback((owner: object | null) => {
     contextMenuOwnerRef.current = owner;
@@ -86,6 +88,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
     setHistoryStatus(history.getState());
   }, [history]);
   const replaceBaseline = useCallback((next: Workbook, options?: { preserveHistory?: boolean }) => {
+    if (!options?.preserveHistory) replacementRevisionRef.current++;
     revisionRef.current++;
     structureRevisionRef.current++;
     conditionalStructureRevisionRef.current++;
@@ -204,7 +207,7 @@ export function useWorkbookDraft(props: SpreadsheetProps) {
   return { workbook, workbookRef, propsRef, readOnly, disabled: readOnly || persistence.saving || persistence.refreshing || contextMenuLocked,
     isOperationPending: () => !!(savingRef.current || refreshingRef.current || saveStartingRef.current || transactionRef.current ||
       contextMenuOwnerRef.current || edit.getEditState().mode === "requesting" || edit.isEndingEdit()),
-    setContextMenuLock, contextMenuLocked, revisionRef, structureRevisionRef, conditionalStructureRevisionRef, mutationSessionId,
+    setContextMenuLock, contextMenuLocked, revisionRef, structureRevisionRef, conditionalStructureRevisionRef, replacementRevisionRef, mutationSessionId,
     dirty, isDirty: () => !workbooksEqual(workbookRef.current, savedRef.current), error, setError, reportError, applyTransaction, getMutationFailure, changeHistory,
     getHistoryState: history.getState, ...historyStatus,
     ...persistence, ...edit, endEdit, emitEvent, resetViewRef };

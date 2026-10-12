@@ -28,8 +28,8 @@ export const renderMeetingSearchResult: ExplorerSearchResultRenderer = ({ entry,
   const customer = hit.metadata?.customerName, meetingDate = hit.metadata?.meetingDate;
   if (typeof customer !== "string" || typeof meetingDate !== "string") return undefined;
   return <div className="meeting-search-hit">
-    <div className="meeting-search-hit-meta"><span className="meeting-search-customer">{customer}</span><span>会議日 <time dateTime={meetingDate}>{meetingDate}</time></span><span className="meeting-search-updated">ファイル更新 {entry.updatedAt.slice(0, 10)}</span></div>
     {hit.snippet && <p className="meeting-search-snippet">{hit.snippet}</p>}
+    <div className="meeting-search-hit-meta"><span className="meeting-search-customer">{customer}</span><span>会議日 <time dateTime={meetingDate}>{meetingDate}</time></span><span className="meeting-search-updated">ファイル更新 {entry.updatedAt.slice(0, 10)}</span></div>
     {hit.reason && <p className="meeting-search-reason">{hit.reason}</p>}
   </div>;
 };

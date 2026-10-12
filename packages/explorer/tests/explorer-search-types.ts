@@ -42,6 +42,9 @@ export const invalidStream: ExplorerSearchStream = (async function* () { yield h
 // @ts-expect-error Each yielded batch still has to contain valid result items.
 export const numericStream: ExplorerSearchHandler = async function* () { yield [123]; };
 export const detailHeight = { resultDetailsHeight: 120 } satisfies ExplorerSearchOptions;
+export const detailLines = { resultDetailsMaxLines: 3 } satisfies ExplorerSearchOptions;
+// @ts-expect-error Line limits are numeric, not CSS values.
+export const invalidDetailLines = { resultDetailsMaxLines: "3" } satisfies ExplorerSearchOptions;
 // @ts-expect-error Supplemental text cannot be a rendered element or arbitrary object.
 export const invalidSnippet: ExplorerSearchHit = { entryId: "alpha", snippet: { text: "paragraph" } };
 // @ts-expect-error A rich result must identify an existing entry by entryId.

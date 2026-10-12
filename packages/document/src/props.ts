@@ -1,5 +1,5 @@
 import type { CSSProperties, Ref } from "react";
-import type { MaybePromise, OperationContext, RibbonDisplayMode, SaveHandler, SearchPanelHandle, SearchPanelInitialState } from "./core";
+import type { MaybePromise, OperationContext, RibbonDisplayMode, SaveHandler, SearchPanelHandle, SearchPanelInitialState, ExternalSearchOptions } from "./core";
 import type { DocumentCommand, DocumentCommandResult, DocumentModel, DocumentSelection } from "./model/types";
 
 export type { DocumentSelection } from "./model/types";
@@ -12,6 +12,17 @@ export type DocumentEvent =
   | { type: "save"; phase: "start" | "success" | "error" | "cancelled"; error?: string }
   | { type: "import" | "export"; format: "dcon" | "docx"; warnings: readonly string[] }
   | { type: "edit-mode"; mode: "view" | "requesting" | "edit" };
+/** Stable target in the loaded DocumentModel, independent of Word's printed page numbers. */
+export type DocumentExternalSearchTarget = {
+  blockId: string;
+  canvasShapeId?: string;
+  /** UTF-16 offsets in the block's plain text (hard breaks count as one character). */
+  textFrom?: number;
+  textTo?: number;
+  /** Full block/shape text at search time; rejects outdated remote results. */
+  expectedText?: string;
+};
+export type { ExternalSearchOptions, ExternalSearchResult } from "./core";
 export type DocumentHandle = SearchPanelHandle & {
   getDocument(): DocumentModel;
   getRibbonDisplayMode(): DocumentRibbonDisplayMode;
@@ -33,6 +44,7 @@ export type DocumentHandle = SearchPanelHandle & {
 };
 export type DocumentProps = SearchPanelInitialState & {
   ref?: Ref<DocumentHandle>;
+  externalSearch?: ExternalSearchOptions<DocumentExternalSearchTarget>;
   /** Initial local document. Later changes should use ref.execute(document.replace). */
   initialDocument?: DocumentModel;
   /** Read once at mount. Uses explicit page breaks, not Word's automatic pagination. */

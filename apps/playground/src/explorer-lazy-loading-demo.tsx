@@ -9,7 +9,7 @@ const statusLabels = { loading: "取得中", success: "完了", cancelled: "中�
 type SearchTrace = { id: number; query: string; hits: number; metadata: number; status: keyof typeof statusLabels };
 const renderSearch: ExplorerSearchRenderer = context => <div className="lazy-folder-search">
   <span className="lazy-folder-search-scope">検索範囲：全件（未取得含む）</span>
-  <div className="lazy-folder-search-input">{context.defaultInput}{context.defaultOptions}</div>
+  <div className="lazy-folder-search-input">{context.defaultInput}</div>
   <div className="lazy-folder-search-examples"><button type="button" onClick={() => { context.setConditions({ useRegex: true, wholeName: false, matchCase: false }); context.setQuery(lazySearchExample); }}>例：未取得の開発資料8件</button><button type="button" onClick={() => { context.setConditions({ useRegex: false, wholeName: false, matchCase: false }); context.setQuery("東雲製作所"); }}>例：未取得のフォルダ</button></div>
   <small>対象はファイル・フォルダ名です。結果の場所はパスで表示します。</small>
 </div>;
@@ -94,7 +94,7 @@ export default function ExplorerLazyLoadingDemo() {
       <section aria-label="保存の結果"><h3>保存の結果</h3><p>{saveSummary}</p></section>
       <section aria-label="移動イベント"><h3>移動イベント</h3><p className="lazy-folder-note">初回表示ではnavigateを通知しません。</p>{events.length ? <ol>{events.map((event, index) => <li key={`${index}:${event}`}>{event}</li>)}</ol> : <p>フォルダへ移動すると表示します。</p>}</section>
       <p className="lazy-folder-note">350msの待機を入れたローカルデモです。外部通信・永続保存はなく、再読込で初期状態に戻ります。</p>
-    </aside><main><div className="lazy-folder-explorer"><Explorer ref={explorer} title="フォルダ単位の取得" initialEntries={server.initialEntries} onLoadFolder={onLoadFolder} folderLoading={{ initialLoadedFolderIds: [] }} onSearchRequest={onSearchRequest} renderSearch={renderSearch} renderEmptyState={renderEmptyState} search={{ debounceMs: 180, resultDetailsHeight: 48 }} onSave={onSave} onEvent={onEvent} onDirtyChange={setDirty} readFile={server.readFile} colorMode="light" view={{ defaultMode: "details" }} style={{ height: "100%", border: 0, borderRadius: 0 }} /></div>
+    </aside><main><div className="lazy-folder-explorer"><Explorer ref={explorer} title="フォルダ単位の取得" initialEntries={server.initialEntries} onLoadFolder={onLoadFolder} folderLoading={{ initialLoadedFolderIds: [] }} onSearchRequest={onSearchRequest} renderSearch={renderSearch} renderEmptyState={renderEmptyState} search={{ debounceMs: 180 }} onSave={onSave} onEvent={onEvent} onDirtyChange={setDirty} readFile={server.readFile} colorMode="light" view={{ defaultMode: "details" }} style={{ height: "100%", border: 0, borderRadius: 0 }} /></div>
       <section className="lazy-folder-requests" aria-label="フォルダ取得履歴"><h2>フォルダ取得履歴 <small>{requests[0]?.id ?? 0} リクエスト</small></h2><p>既に読み込んだ場所へ戻っても、この履歴は増えません。</p><div><table><thead><tr><th>#</th><th>要求したパス</th><th>状態</th><th>直下の件数</th></tr></thead><tbody>{requests.map(item => <tr key={item.id}><td>{item.id}</td><td><code>{item.path}</code></td><td>{statusLabels[item.status]}</td><td>{item.count ?? "—"}</td></tr>)}</tbody></table></div></section>
     </main></div>
   </div>;

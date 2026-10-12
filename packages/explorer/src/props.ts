@@ -60,6 +60,7 @@ export type ExplorerSearchRenderContext = Readonly<{
   /** Spread onto a custom input to keep focus shortcuts, IME and Enter behavior. */
   inputProps: InputHTMLAttributes<HTMLInputElement> & { ref: RefObject<HTMLInputElement | null> };
   defaultInput: ReactElement;
+  /** Optional advanced-conditions menu. Only shown when the host explicitly renders it. */
   defaultOptions: ReactElement;
 }>;
 /** Return a component to use hooks. Null/undefined uses the standard search; false hides it. */

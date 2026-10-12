@@ -30,7 +30,6 @@ export { DEFAULT_ROW_HEIGHT as ROW_HEIGHT, DEFAULT_COLUMN_WIDTH as COLUMN_WIDTH 
 export function useSpreadsheet(props: SpreadsheetProps) {
   const features = resolveSpreadsheetFeatures(props.features);
   const draft = useWorkbookDraft(props);
-  const searchPanel = useSpreadsheetSearchPanel(props, features, draft.readOnly);
   const zoom = useSpreadsheetZoom(props, draft.emitEvent);
   const ribbon = useSpreadsheetRibbon(props);
   const view = useSpreadsheetSelection(draft.workbook, features, draft.reportError, draft.propsRef,
@@ -46,6 +45,8 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const pending = usePendingObjectEdits();
   const commands = useSpreadsheetCommands(draft, { selectionRef, setSelection,
     editingRef: cellEdit.editingRef, pendingObjectEditRef: pending.pendingObjectEditRef });
+  const searchPanel = useSpreadsheetSearchPanel(props, features, draft.readOnly, { getWorkbook: () => draft.workbookRef.current,
+    getReplacementRevision: () => draft.replacementRevisionRef.current, selectionApi: view.selectionApi });
   const calculated = useMemo(() => calculateWorkbook(draft.workbook), [draft.workbook]);
   const { resetViewRef } = draft;
   useLayoutEffect(() => { resetViewRef.current = view.resetForWorkbook; }, [resetViewRef, view.resetForWorkbook]);

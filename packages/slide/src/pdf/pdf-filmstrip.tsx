@@ -13,7 +13,8 @@ function Thumbnail({ session, pageNumber, onError }: { session: PdfSession; page
     : <span>{result?.error ? "表示できません" : pageNumber}</span>}</span>;
 }
 
-export function PdfFilmstrip({ session, pageNumber, selectedPageNumbers, disabled, selectPage, onError }: {
+export function PdfFilmstrip({ session, pageNumber, selectedPageNumbers, disabled, selectPage, onError, searchHitCounts }: {
+  searchHitCounts?: ReadonlyMap<number, number>;
   session: PdfSession; pageNumber: number; selectedPageNumbers: readonly number[]; disabled: boolean;
   selectPage(page: number, options?: { extend?: boolean; toggle?: boolean }): boolean; onError(error: Error): void;
 }) {
@@ -60,7 +61,7 @@ export function PdfFilmstrip({ session, pageNumber, selectedPageNumbers, disable
         <button type="button" data-pdf-page={number} className="lxp-pdf-thumbnail" aria-label={`PDFページ ${number} を表示`} aria-current={number === pageNumber ? "page" : undefined}
           aria-pressed={selectedPageNumbers.includes(number)} tabIndex={number === pageNumber ? 0 : -1}
           disabled={disabled} onClick={event => selectPage(number, { extend: event.shiftKey, toggle: event.ctrlKey || event.metaKey })}>
-          <Thumbnail session={session} pageNumber={number} onError={onError} /><span className="lxp-pdf-page-caption">{number}</span>
+          <Thumbnail session={session} pageNumber={number} onError={onError} /><span className="lxp-pdf-page-caption">{number}{!!searchHitCounts?.get(number) && <span className="lxp-search-hit-badge" aria-label={`${searchHitCounts.get(number)}件の検索結果`}>{searchHitCounts.get(number)} 件</span>}</span>
         </button>
       </li>)}
     </ol>

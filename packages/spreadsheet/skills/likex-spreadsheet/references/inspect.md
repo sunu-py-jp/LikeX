@@ -2,6 +2,8 @@
 
 複数キーワードのAND/ORは公開ヘッドレスAPI `searchSpreadsheet(workbook, { keywords, operator?: "and" | "or", matchCase? }, { matchBy?: "sheet" | "cell", sheetId?, range?, lookIn?, limit? })` を使う。既定は同一シート内のANDで、別セルの語も組み合わせる。戻り値 `{ matches, truncated }` の各場所はシートID・シート名・セル番地・入力値・検索文字列・一致位置を持つ。AND判定後にセル数limit（既定1000、最大10000）を適用する。今回のCLI `inspect --search --text` は従来の単一条件のままで、複数語は利用側からこのモデルAPIを呼ぶ。[複数キーワード検索](../../../src/docs/data-access.md#複数キーワードをandorで検索する)
 
+外部で検索済みの場所を表示中UIへ渡す場合は `externalSearch.results` の各要素を `{ id, title?, snippet?, locationLabel?, target: { sheetId, range } }` とする。たとえばセル検索結果の `address` を `range` に渡せる。`initialSearchOpen` で最初から一覧を表示し、Handleの `openExternalSearch(resultId?)` で案内する。これは再検索・保存・CLIコマンドを実行せず、シートとセル範囲の表示選択だけを行う。取り込み・再読み込み・破棄でブックを差し替えた後は、そのブック向けの新しい結果配列を供給する。古い配列はシートIDが一致していても移動に使えない。[外部結果の表示](../../../src/docs/editing-tools.md#外側で取得した検索結果を表示する)
+
 CLIの `inspect` は `.spon` を読み取るだけで、ブックや保存内容を変更しない。`skill_dir` と `project_dir` はSKILL.mdと同じ絶対パスを指定する。出力は標準出力の1行のJSONで、`ok`、`kind`、`operation`、`libraryVersion`、`summary`、必要に応じて `selection` を持つ。
 
 UIで開く対象は通常Spreadsheetの `initialSheetId` / `initialSheetName`、表示後の `selectSheet(id | { sheetId?, sheetName? })`、取り込みoptionsの `sheetId` / `sheetName` で指定する。サムネイルは `sheetId` / `sheetName` propsで継続的に制御する。すべて完全一致で、両指定は同じシートであることを検証する。名前は改名すると一致しなくなるため、追随させる場合はIDを使う。CLIの `inspect --sheet-id` は引き続きIDのみで、表示選択や初期propsは扱わない。[通常表示](../../../src/docs/selection.md#最初に開くシートを指定する)と[サムネイル](../../../src/docs/thumbnail.md)を参照する。

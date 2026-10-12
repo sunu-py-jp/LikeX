@@ -54,7 +54,7 @@ export const ExplorerSearch = memo(function ExplorerSearch() {
     submit: submitSearch, clear: clearSearch, inputProps, defaultInput, defaultOptions };
   const custom = renderSearch?.(context);
   return <div role="search" aria-label="ファイル検索" className="lxe:flex lxe:min-w-0 lxe:basis-full lxe:flex-wrap lxe:items-center lxe:gap-1 lxe:@[1000px]/explorer:basis-72">
-    {custom ?? <>{defaultInput}{defaultOptions}</>}
+    {custom ?? defaultInput}
     <span id={`${instanceId}-search-hint`} className="lxe:sr-only">{searchTrigger === "submit" ? "Enter キーまたは検索ボタンで検索します" : "入力すると検索します"}</span>
   </div>;
 });

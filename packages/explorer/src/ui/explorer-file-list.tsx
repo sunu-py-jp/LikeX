@@ -478,6 +478,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     retryFolder,
     searchResultHits,
     searchResultDetailsHeight,
+    searchResultDetailsMaxLines,
     renderSearchResult,
     renderEmptyState,
     emptyStateActions,
@@ -513,7 +514,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     previewTrigger,
     fileActivationEnabled,
     canEditFavorites,
-  } = useExplorerFields("rootLabel", "entries", "navigationEntries", "visible", "pendingImportEntries", "openPendingImportFolder", "selectedSet", "activeTabId", "focusEntryRef", "revealRequest", "clipboard", "disabled", "busy", "view", "defaultColumnWidths", "compact", "query", "searchPending", "folderPending", "folderError", "retryFolder", "searchResultHits", "searchResultDetailsHeight", "renderSearchResult", "renderEmptyState", "emptyStateActions", "locationInfo", "searchError", "retrySearch", "canSort", "location", "special", "provisionalLocation", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "renamingEntryId", "previewTrigger", "fileActivationEnabled", "canEditFavorites");
+  } = useExplorerFields("rootLabel", "entries", "navigationEntries", "visible", "pendingImportEntries", "openPendingImportFolder", "selectedSet", "activeTabId", "focusEntryRef", "revealRequest", "clipboard", "disabled", "busy", "view", "defaultColumnWidths", "compact", "query", "searchPending", "folderPending", "folderError", "retryFolder", "searchResultHits", "searchResultDetailsHeight", "searchResultDetailsMaxLines", "renderSearchResult", "renderEmptyState", "emptyStateActions", "locationInfo", "searchError", "retrySearch", "canSort", "location", "special", "provisionalLocation", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "renamingEntryId", "previewTrigger", "fileActivationEnabled", "canEditFavorites");
   const { scheduleRename, cancelPendingRename } = useEntryRenameDelay();
   const suppressNamePreview = useRef(false);
   const horizontal = view === "small" || view === "list";
@@ -550,9 +551,11 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
   const locationIndex = useMemo(() => getEntryIndex(navigationEntries), [navigationEntries]);
   const parentPath = (entry: Entry) => formatExplorerPath(navigationEntries, entry.parent, locationIndex);
   const hitsById = useMemo(() => new Map(searchResultHits?.map(hit => [hit.entryId, hit]) ?? []), [searchResultHits]);
-  const resultDetailsHeight = searchResultHits?.length && (renderSearchResult || searchResultHits.some(hit => hit.snippet || hit.reason)) ? searchResultDetailsHeight : 0;
+  const resultDetailsHeight = searchResultHits?.length && (renderSearchResult || searchResultHits.some(hit => hit.snippet || hit.reason))
+    ? searchResultDetailsHeight ?? searchResultDetailsMaxLines * 16 + 8 : 0;
   const resultDetails = (entry: Entry, absolute = false) => <ExplorerSearchResult entry={entry} entries={entries} hit={hitsById.get(entry.id)}
     query={query} view={view} selected={checked(entry)} render={renderSearchResult} height={resultDetailsHeight}
+    maxLines={searchResultDetailsHeight === undefined ? searchResultDetailsMaxLines : undefined}
     style={absolute ? { position: "absolute", bottom: descriptive ? (compact ? 4 : 8) : horizontal ? 2 : 8,
       left: descriptive ? 80 : horizontal ? 30 : 8, right: 8 } : undefined} />;
   const pendingById = useMemo(() => new Map(pendingImportEntries.map(preview => [preview.entry.id, preview])), [pendingImportEntries]);

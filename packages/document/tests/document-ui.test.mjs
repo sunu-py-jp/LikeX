@@ -424,3 +424,30 @@ test('document search shortcut requires exactly Ctrl or Cmd without Shift, Alt, 
   assert.equal(renderer.root.findAllByProps({ 'aria-label': '文書内を検索' }).length, 1);
   await change(() => ref.current.closeSearch());
 });
+
+test('external search renders host descriptions, scrolls the actual document and preserves mounted navigation views', async t => {
+  const initialDocument = createDocument({ content: { type: 'doc', content: [
+    { type: 'heading', attrs: { id: 'heading' }, content: [{ type: 'text', text: 'Contents' }] },
+    { type: 'paragraph', attrs: { id: 'body' }, content: [{ type: 'text', text: 'Alpha beta semantic contents' }] },
+  ] } });
+  const { renderer, ref, viewport, view } = await mount(t, { initialDocument, readOnly: true, initialSearchOpen: true, initialRibbonDisplayMode: 'hidden', externalSearch: { title: '関連資料の説明', results: [
+    { id: 'result', title: '事業計画に関連する節', snippet: '<script>not executable</script>', locationLabel: '本文の説明', target: { blockId: 'body', textFrom: 6, textTo: 10 } },
+  ] } }, true);
+  const panel = renderer.root.findByProps({ 'aria-label': '外部検索結果' });
+  assert.equal(panel.props.hidden, false); assert.ok(viewport.scrollTop > 0, 'initial external target scrolls the real viewport');
+  assert.notEqual(view.focused, true, 'navigation does not focus the editable body');
+  const local = renderer.root.findByProps({ className: 'lxd-search-local' });
+  assert.equal(local.props.hidden, true);
+  assert.equal(renderer.root.findAllByType('script').length, 0);
+  const nav = renderer.root.findByProps({ 'aria-label': '見出しナビゲーション' });
+  const tabs = renderer.root.findByProps({ 'aria-label': '左ペインの表示' });
+  await change(() => tabs.findAllByType('button').find(button => button.props.children === '見出し').props.onClick());
+  assert.equal(panel.props.hidden, true); assert.equal(nav.props.hidden, false);
+  await change(() => ref.current.select({ from: 1, to: 1 })); viewport.scrollTop = 0;
+  await change(() => tabs.findAllByType('button').find(button => button.props.children === '検索結果').props.onClick());
+  assert.equal(panel, renderer.root.findByProps({ 'aria-label': '外部検索結果' }));
+  assert.equal(nav, renderer.root.findByProps({ 'aria-label': '見出しナビゲーション' }));
+  assert.deepEqual(ref.current.getSelection(), { from: 1, to: 1 }); assert.equal(viewport.scrollTop, 0);
+  await change(() => renderer.root.findAllByType('button').find(button => button.props.children === '選択した結果に戻る').props.onClick());
+  assert.ok(viewport.scrollTop > 0); assert.equal(view.props.decorations(view.state).find().length, 1);
+});

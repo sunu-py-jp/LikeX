@@ -25,4 +25,32 @@ editor.current?.closeSearch();</code></pre></div>
 <p>表示後の変更にはrefを使います。<code>features.search: false</code>は初期表示指定より優先し、表示中の欄も閉じます。その後<code>true</code>に戻しても自動では開きません。Spreadsheet・Slide・Document・PDFで共通のprops／ref名と引数を使い、型はCoreの<code>SearchPanelInitialState</code>／<code>SearchPanelHandle</code>を共有します。サムネイルには検索UIを表示しません。</p>
 <p><code>openSearch(query?: string)</code> はパネルを開いて入力欄にフォーカスします。query省略時は前回の検索語を保ち、空文字ならクリアします。不正なquery（文字列以外・4,096文字超）、<code>features.search: false</code> またはアンマウント後は <code>false</code>、受け付けた場合は <code>true</code> を返します。検索UIを無効にしても、純粋な <code>searchDocument</code> APIは使用できます。</p>
 <p>検索の状態はDCONやDOCXに保存しません。検索UIは公開 <code>searchDocument</code> と同じ判定を使います。外側から複数キーワードのAND/OR検索を組み立てる方法は<a href="../headless/index.html#%E3%82%AD%E3%83%BC%E3%83%AF%E3%83%BC%E3%83%89%E3%81%A7%E6%8E%A2%E3%81%99">画面なしの検索</a>を参照してください。</p>
-<nav class="page-navigation" aria-label="前後のページ"><a href="../ribbon-display/index.html"><span>前のページ</span>リボンの表示と非表示</a><a href="../headless/index.html"><span>次のページ</span>モデルAPI・コマンド・履歴</a></nav><footer class="article-footer">編集元: <a href="https://github.com/sunu-py-jp/LikeX/blob/main/packages/document/src/docs/search.md">search.md</a><br>本文は公開APIと利用ガイドから生成しています。</footer></article><aside class="page-toc" aria-label="このページの見出し"><p>このページ</p><ol><li><a href="#%E5%A4%96%E5%81%B4%E3%81%8B%E3%82%89%E6%A4%9C%E7%B4%A2%E3%82%92%E9%96%8B%E3%81%8F">外側から検索を開く</a></li></ol></aside></div></main></div><p class="copy-status" role="status" aria-live="polite"></p></body></html>
+<h2 id="外部検索の結果を表示する">外部検索の結果を表示する<a class="heading-link" href="#%E5%A4%96%E9%83%A8%E6%A4%9C%E7%B4%A2%E3%81%AE%E7%B5%90%E6%9E%9C%E3%82%92%E8%A1%A8%E7%A4%BA%E3%81%99%E3%82%8B" aria-label="この見出しへのリンク">#</a></h2>
+<p>意味検索・RAGなどの検索処理は利用側で行い、見つかった位置と説明を<code>externalSearch</code>へ渡せます。ビュー自身は外部へ通信せず、受け取った順序で結果を表示します。検索語の一致や置換対象としては扱いません。</p>
+<div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> LikeDocument, { <span class="syntax-keyword">type</span> DocumentHandle, <span class="syntax-keyword">type</span> ExternalSearchResult,
+  <span class="syntax-keyword">type</span> DocumentExternalSearchTarget } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/document&quot;</span>;
+
+<span class="syntax-keyword">const</span> results: ExternalSearchResult&lt;DocumentExternalSearchTarget&gt;[] = [{
+  id: <span class="syntax-string">&quot;result-1&quot;</span>,
+  title: <span class="syntax-string">&quot;運用設計について説明した節&quot;</span>,
+  snippet: <span class="syntax-string">&quot;検索サービスが返した説明や抜粋をそのまま表示できます。&quot;</span>,
+  locationLabel: <span class="syntax-string">&quot;運用と評価&quot;</span>,
+  target: { blockId: <span class="syntax-string">&quot;operations&quot;</span>, textFrom: <span class="syntax-number">0</span>, textTo: <span class="syntax-number">5</span>,
+    expectedText: <span class="syntax-string">&quot;運用と評価&quot;</span> },
+}];
+
+&lt;LikeDocument ref={editor} initialDocument={document} initialSearchOpen
+  externalSearch={{ title: <span class="syntax-string">&quot;関連する箇所&quot;</span>, results, initialResultId: <span class="syntax-string">&quot;result-1&quot;</span>,
+    onResultSelect: result =&gt; console.log(result.id) }} /&gt;;
+
+editor.current?.openExternalSearch(<span class="syntax-string">&quot;result-1&quot;</span>);
+editor.current?.openSearch(<span class="syntax-string">&quot;運用&quot;</span>); <span class="syntax-comment">// 文書内の文字列検索へ切り替える</span>
+editor.current?.openSearch(); <span class="syntax-comment">// 現在の検索モードと検索語を保持して開く</span>
+editor.current?.closeSearch();</code></pre></div>
+<p>結果には現在読み込んでいるモデルの<code>blockId</code>を使います。本文・見出しでは任意の<code>textFrom</code>／<code>textTo</code>でブロック内のUTF-16範囲を指定でき、改行は1文字です。省略すると本文全体を対象にします。Wordの印刷ページ番号や文書全体の絶対文字位置は使いません。描画キャンバス内の図形は<code>canvasShapeId</code>も指定し、キャンバス全体の選択・強調と図形の文字の検証を行います。通常図形は<code>blockId</code>だけで指定できます。</p>
+<p><code>expectedText</code>は検索時のブロック／図形の全文です。サーバー検索から表示までに内容が変わった結果を拒否するために指定します。ビューが受領した後に対象本文が変わった場合も、同じ結果オブジェクトを再利用しての移動を拒否します。位置の前に別の段落が挿入されても対象ブロックの内容が変わらなければ、IDから現在の位置を解決します。利用側で検索し直したときは新しい結果オブジェクトを渡してください（同じ結果IDで構いません）。古いオブジェクトを新しい配列に並べ直すだけでは更新とは扱いません。</p>
+<p><code>initialSearchMode</code>は<code>&quot;local&quot;</code>または<code>&quot;external&quot;</code>です。明示指定を優先し、省略時は<code>externalSearch</code>があれば外部検索、ただし空でない<code>initialSearchQuery</code>も渡した場合は文字列検索で始めます。<code>initialSearchOpen</code>はどちらのモードにも共通です。最初に開いたときは<code>initialResultId</code>または先頭の結果へ移動します。その後、結果の追加・並べ替えや文書の編集だけで現在位置を移動させません。</p>
+<p>外部検索中の左ペインは「検索結果／見出し」で切り替えます。件数が多い場合は結果一覧だけをスクロールし、件数・前後移動・選択した結果に戻る操作は上部に残ります。結果と見出しの一覧を保持するため、通常の文書閲覧と往復できます。「選択した結果に戻る」は選択位置と本文のスクロールを再実行します。「文書内を検索／外部検索結果」で文字列検索と切り替えても、外部結果は保持します。引数なしの再表示やモード切替では、閲覧中の位置を変更しません。初回表示、明示した結果ID、結果の選択操作だけが本文へ移動します。</p>
+<p><code>openExternalSearch(resultId?)</code>は検索無効・アンマウント後・外部結果未設定・存在しないIDの場合に<code>false</code>を返します。受け付けた<code>true</code>は表示要求の受付であり、移動先の有効性を保証しません。削除済みブロック・不正な文字範囲・古い本文は画面に理由を表示し、別の内容へ移動しません。重複IDや不正な結果の共通フィールドは除外します。<code>onResultSelect</code>は移動を受け付けたときだけ通知し、コールバックの例外やPromise失敗は表示操作に影響しません。</p>
+<p>検索モード・検索結果・選択説明はDCON／DOCXへ保存せず、変更履歴や編集許可も発生しません。保存・認証・検索インデックスとの紐づけは利用側が管理します。</p>
+<nav class="page-navigation" aria-label="前後のページ"><a href="../ribbon-display/index.html"><span>前のページ</span>リボンの表示と非表示</a><a href="../headless/index.html"><span>次のページ</span>モデルAPI・コマンド・履歴</a></nav><footer class="article-footer">編集元: <a href="https://github.com/sunu-py-jp/LikeX/blob/main/packages/document/src/docs/search.md">search.md</a><br>本文は公開APIと利用ガイドから生成しています。</footer></article><aside class="page-toc" aria-label="このページの見出し"><p>このページ</p><ol><li><a href="#%E5%A4%96%E5%81%B4%E3%81%8B%E3%82%89%E6%A4%9C%E7%B4%A2%E3%82%92%E9%96%8B%E3%81%8F">外側から検索を開く</a></li><li><a href="#%E5%A4%96%E9%83%A8%E6%A4%9C%E7%B4%A2%E3%81%AE%E7%B5%90%E6%9E%9C%E3%82%92%E8%A1%A8%E7%A4%BA%E3%81%99%E3%82%8B">外部検索の結果を表示する</a></li></ol></aside></div></main></div><p class="copy-status" role="status" aria-live="polite"></p></body></html>

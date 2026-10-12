@@ -13,6 +13,7 @@ export function useSpreadsheetHandle(ref: Ref<SpreadsheetHandle> | undefined, co
   const handle = useMemo<SpreadsheetHandle>(() => ({
     ...reader,
     openSearch: query => latest.current.openSearch(query),
+    openExternalSearch: resultId => latest.current.openExternalSearch(resultId),
     closeSearch: () => latest.current.closeSearch(),
     getSelection: () => latest.current.selectionApi.getSelection(),
     getSelectedDrawing: () => latest.current.selectionApi.getSelectedDrawing(),

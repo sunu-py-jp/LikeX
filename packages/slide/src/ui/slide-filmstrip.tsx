@@ -111,6 +111,10 @@ export function SlideFilmstrip({ editor }: { editor: SlideEditor }) {
     const capture=event.currentTarget;current.stop=()=>{stopMotion();win.removeEventListener("pointermove",move);win.removeEventListener("pointerup",end);win.removeEventListener("pointercancel",lost);win.removeEventListener("keydown",key,true);win.removeEventListener("blur",cancel);capture.removeEventListener("lostpointercapture",lost);if(capture.hasPointerCapture?.(current.pointerId))capture.releasePointerCapture(current.pointerId);};
     win.addEventListener("pointermove",move);win.addEventListener("pointerup",end);win.addEventListener("pointercancel",lost);win.addEventListener("keydown",key,true);win.addEventListener("blur",cancel);capture.addEventListener("lostpointercapture",lost);capture.setPointerCapture?.(current.pointerId);
   }
+  const hits = new Map<string, number>();
+  if (editor.features.search && editor.externalSearch?.validSource) for (const result of editor.externalSearch.results) {
+    if (!editor.externalSearch.resultError(result)) hits.set(result.target.slideId, (hits.get(result.target.slideId) ?? 0) + 1);
+  }
   const ghost=feedback?deck.slides.find(slide=>slide.id===feedback.id):undefined;
   return <aside ref={root} className="lxp-filmstrip" aria-label="スライド一覧" data-slide-selection-scope="slides" tabIndex={-1} onKeyDown={navigateKey}
     onContextMenu={event => { if (!(event.target as HTMLElement).closest?.("[data-filmstrip-id]")) contextMenu(event); }}
@@ -122,7 +126,7 @@ export function SlideFilmstrip({ editor }: { editor: SlideEditor }) {
         <span className="lxp-slide-number">{index + 1}</span><div className="lxp-slide-item-main">
           <button type="button" className="lxp-slide-thumbnail" aria-label={`スライド ${index + 1}: ${slide.name}`} aria-pressed={selected.has(slide.id)} aria-current={editor.selection.slideId === slide.id ? "true" : undefined} style={{ aspectRatio: `${deck.width}/${deck.height}` }} onClick={event => { if (pointerSelection.current === slide.id) { pointerSelection.current = null; return; } selectPage(slide.id, event); }}>
             <SlideArtwork deck={deck} slide={slide} scale={164 / deck.width} />
-          </button><div className="lxp-slide-caption"><span title={slide.name}>{slide.name}</span>
+          </button><div className="lxp-slide-caption"><span title={slide.name}>{slide.name}</span>{!!hits.get(slide.id) && <span className="lxp-search-hit-badge" aria-label={`${hits.get(slide.id)}件の検索結果`}>{hits.get(slide.id)} 件</span>}
             {editor.features.addSlides && !editor.readOnly && <button type="button" aria-label={`${slide.name}を複製`} title="スライドを複製" disabled={!editor.editable} onClick={() => void editor.execute({ type: "slide.duplicate", slideId: slide.id })}><Copy size={12} /></button>}
             {editor.features.deleteSlides && !editor.readOnly && <button type="button" aria-label={`${slide.name}を削除`} title="スライドを削除" disabled={!editor.editable || deck.slides.length <= 1} onClick={() => { root.current?.focus({ preventScroll: true }); void editor.execute({ type: "slide.delete", slideId: slide.id }); }}><Trash2 size={12} /></button>}
           </div></div>

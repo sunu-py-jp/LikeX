@@ -40,14 +40,14 @@ const editor = useRef<SpreadsheetHandle>(null);
   initialSearchOpen initialSearchQuery="売上" />;
 
 editor.current?.openSearch("受注"); // 検索欄を開き、入力欄へフォーカス
-editor.current?.openSearch();       // 前回の検索語を保持して再表示
+editor.current?.openSearch();       // 前回の検索モード・検索語を保持して再表示
 editor.current?.openSearch("");     // 検索語をクリアして表示
 editor.current?.closeSearch();      // 検索語を保持して閉じる
 ```
 
 `initialSearchOpen` は既定で `false`、`initialSearchQuery` は既定で空文字です。両方ともマウント時に一度だけ読み、検索語だけを指定しても検索欄は開きません。初期検索語が文字列でない、または4,096文字を超える場合は空文字にします。
 
-`openSearch(query?: string): boolean` は要求を受け付けたら `true` を返します。検索の完了を意味しません。引数は通常の文字列として検索し、既存の詳細条件は既定に戻ります。引数省略では前回の入力文字列を保持します。不正な引数、検索機能OFF、アンマウント後は `false` を返し、状態を変更しません。`closeSearch(): void` は実行中の外部検索も中止します。`features.search: false` は初期表示より優先し、OFFからONへ戻しても勝手に再表示しません。
+`openSearch(query?: string): boolean` は要求を受け付けたら `true` を返します。検索の完了を意味しません。引数は通常の文字列として検索し、既存の詳細条件は既定に戻ります。文字列を渡すと文書内検索へ切り替わり、引数省略では前回のモードと入力文字列を保持します。不正な引数、検索機能OFF、アンマウント後は `false` を返し、状態を変更しません。`closeSearch(): void` は実行中の検索リクエストも中止します。`features.search: false` は初期表示より優先し、OFFからONへ戻しても勝手に再表示しません。
 
 検索の開閉はリボンの状態や読み取り専用と独立しており、リボン完全非表示でも `Ctrl+F` / `Cmd+F` とAPIで開けます。ブック・保存・Undo履歴は変更しません。セル・数式・図形の入力が未確定の間は、検索内の操作を止めて入力を維持します。背後の入力へ戻り、確定・取り消してから検索を続けられます。
 
@@ -88,6 +88,49 @@ if (result && !result.ok) console.error(result.message);
 ```
 
 ## 検索UIと外部検索の注入
+
+### 外側で取得した検索結果を表示する
+
+サーバー検索やAI検索の結果をそのまま案内する場合は `externalSearch` を渡します。キーワードを再検索する `onSearchRequest` とは別の機能です。ライブラリは渡された並び順・IDを保ち、結果のシートと範囲へ移動します。
+
+```tsx
+import { Spreadsheet, type SpreadsheetExternalSearchOptions, type SpreadsheetHandle } from "@likex/spreadsheet";
+
+const editor = useRef<SpreadsheetHandle>(null);
+const externalSearch: SpreadsheetExternalSearchOptions = {
+  title: "受注に関する検索結果", // 省略時: 外部検索結果
+  results: [
+    { id: "order-summary", title: "受注一覧", snippet: "承認待ちの受注です。",
+      locationLabel: "受注管理 / 明細", target: { sheetId: "orders", range: "B2:F20" } },
+    { id: "order-total", target: { sheetId: "summary", range: "C8" } },
+  ],
+  initialResultId: "order-summary",
+  onResultSelect: result => console.log(result.id, result.target),
+};
+
+<Spreadsheet ref={editor} initialWorkbook={workbook}
+  initialSearchOpen externalSearch={externalSearch} />;
+
+editor.current?.openExternalSearch("order-total"); // 外部結果を開き、指定IDへ移動
+editor.current?.openExternalSearch();              // 結果一覧を再表示、現在のセルを保持
+editor.current?.openSearch("受注");                // 文書内のキーワード検索へ切替
+editor.current?.openSearch();                      // 最後の検索モードで再表示
+editor.current?.closeSearch();                     // 結果・選択した結果IDを保持して閉じる
+```
+
+公開型は `SpreadsheetExternalSearchTarget = { sheetId: string; range: string }`、`SpreadsheetExternalSearchResult`、`SpreadsheetExternalSearchOptions` です。`range` は `"A1"` / `"A1:C4"` 形式（絶対参照記号も可）、シートはIDで指定します。表示中のブックにないシートやシート外・不正な範囲は選択せず、メッセージを表示します。大きい範囲も全体を選択し、左上を表示します。ズームは変更しません。
+
+`externalSearch` があれば初期モードは外部結果、なければ文書内検索です。空でない `initialSearchQuery` がある場合は文書内検索を優先します。`initialSearchMode: "local" | "external"` を明示すると、その指定を優先します（外部結果が未設定なら文書内検索）。どのモードでも、初期表示には `initialSearchOpen` が必要です。
+
+外部結果を初めて開いた際に、`initialResultId` と一致する結果へ一度だけ移動します。IDを省略した場合は先頭の結果へ移動します。空の結果配列や、指定IDがまだ配信されていない場合は対象の結果の到着を待ち、途中の結果へは自動移動しません。結果配列の更新・並び替え・一覧の再表示・モード切り替えではセルの位置を奪いません。シートやセルを自由に閲覧した後は「選択した結果に戻る」で移動できます。選択した結果が一覧から消えた場合も別の結果へ自動移動しません。`externalSearch` 自体を取り除くと外部結果の窓を閉じます。
+
+結果は配列を供給した時点のブックに結び付けます。`importNative` / `importExcel` / `refresh` / `discard` 等でブック全体を差し替えると、シートIDが一致していても古い結果からは移動できません。現在のブック向けの結果を取得して、新しい `results` 配列として供給してください。通常のセル編集・Undo/Redo・保存では、この結び付きを維持します。ホストは同じ結果の配列を再利用し、結果が更新された時に新しい配列を渡してください。
+
+外部モードでは入力欄・詳細条件・置換を表示せず、結果の場所・タイトル・抜粋と前後移動を表示します。「文書内を検索」「外部検索結果」で相互に切り替えられます。結果一覧内は上下キーでも移動でき、Escで閉じます。既存の移動・サイズ変更できるウィンドウを使い、モード間でも窓の位置とサイズを保持します。背後のシートタブ・セル操作も使えます。
+
+`openExternalSearch(resultId?): boolean` は外部結果未設定・検索OFF・不明なID・アンマウント後は `false` です。指定IDの対象が消えた場合や未確定のセル入力等で移動できない場合は、結果の窓と理由を表示して `false` を返します。`onResultSelect` は実際に移動できたときだけ呼び、例外は本体の操作から分離します。読み取り専用・リボン非表示でも利用できます。編集許可の取得・保存・Undo履歴の更新は行いません。検索結果や窓の状態はSPON/XLSXの保存対象外です。
+
+### 文書内の検索入力・検索処理を差し替える
 
 `renderSearch(context)` は検索ウィンドウの入力部分を差し替えます。`defaultInput`・`defaultOptions`・`defaultReplacement` をそのまま描画して独自条件や正規表現プレビューを追加できます。結果一覧・前後移動・置換・Undoは本体に残ります。`null` / `undefined` を返すと標準表示、`false` は入力領域を非表示にします。
 

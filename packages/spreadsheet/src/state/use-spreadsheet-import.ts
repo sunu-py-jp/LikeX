@@ -107,6 +107,7 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
         },
         beforePublish: () => {
           current.conditionalStructureRevisionRef.current++;
+          current.replacementRevisionRef.current++;
           latest.current.view.resetView(result.workbook, targetSheetId); published = true;
         },
       });
@@ -120,6 +121,7 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
       }
       if (!applied.changed) {
         current.conditionalStructureRevisionRef.current++;
+        current.replacementRevisionRef.current++;
         latest.current.view.resetView(current.workbookRef.current, targetSheetId);
       }
       current.emitEvent({ ...eventBase, status: "success", workbook: result.workbook, warnings: result.warnings });

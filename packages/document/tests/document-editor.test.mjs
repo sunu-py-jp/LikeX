@@ -450,3 +450,115 @@ test('initially closed or disabled document search retains the query and normali
     assert.equal(ref.current.openSearch(initialSearchQuery), false); assert.equal(app.editor.search.open, false);
   }
 });
+
+const externalDocument = () => createDocument({ content: { type: 'doc', content: [
+  { type: 'paragraph', attrs: { id: 'first' }, content: [{ type: 'text', text: 'Alpha beta' }] },
+  { type: 'paragraph', attrs: { id: 'second' }, content: [{ type: 'text', text: 'Gamma delta' }] },
+] } });
+const externalRows = () => [
+  { id: 'rank-one', title: 'Meaningful result', snippet: 'Not a literal keyword', target: { blockId: 'second', textFrom: 6, textTo: 11, expectedText: 'Gamma delta' } },
+  { id: 'rank-two', target: { blockId: 'first' } },
+];
+
+test('external search follows host order, opens once, preserves browsing and returns to the result without editing', async t => {
+  const ref = { current: null }, selected = [], initialDocument = externalDocument();
+  const app = await mount(t, { ref, initialDocument, readOnly: true, initialSearchOpen: true, externalSearch: { results: externalRows(), onResultSelect(row) { selected.push(row.id); row.target.blockId = 'mutated'; } } });
+  const api = ref.current;
+  assert.equal(app.editor.search.mode, 'external'); assert.equal(app.editor.search.query, '');
+  assert.equal(app.editor.search.external.active.result.id, 'rank-one'); assert.equal(app.editor.search.active.match.keyword, 'delta');
+  assert.equal(app.editor.pageReveal.position, app.editor.search.active.match.from); assert.deepEqual(selected, ['rank-one']);
+  const target = api.getSelection(); await change(() => api.select({ from: 1, to: 1 }));
+  await app.update({ externalSearch: { results: externalRows(), onResultSelect(row) { selected.push(row.id); } } });
+  assert.deepEqual(api.getSelection(), { from: 1, to: 1 }); assert.deepEqual(selected, ['rank-one']);
+  await change(() => app.editor.search.goToExternal(0)); assert.deepEqual(api.getSelection(), target);
+  await change(() => app.editor.search.goToExternal(1)); assert.equal(app.editor.search.external.selectedId, 'rank-two');
+  await change(() => api.openSearch('Gamma')); assert.equal(app.editor.search.mode, 'local'); assert.equal(app.editor.search.query, 'Gamma');
+  await change(() => api.openExternalSearch()); assert.equal(app.editor.search.external.selectedId, 'rank-two');
+  await change(() => api.closeSearch()); await change(() => api.openSearch()); assert.equal(app.editor.search.mode, 'external');
+  assert.equal(serializeDocument(api.getDocument()), serializeDocument(initialDocument)); assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false);
+});
+
+test('external results reject changed text, removed blocks and invalid offsets without selecting unrelated content', async t => {
+  const ref = { current: null }, app = await mount(t, { ref, initialDocument: externalDocument(), initialSearchOpen: true, externalSearch: { initialResultId: 'rank-two', results: externalRows() } });
+  const api = ref.current;
+  await change(() => api.execute({ type: 'text.insert', from: 1, text: 'Changed ' }));
+  const afterEdit = api.getSelection();
+  await change(() => assert.equal(app.editor.search.goToExternal(1), false));
+  assert.deepEqual(api.getSelection(), afterEdit); assert.match(app.editor.search.externalError, /変更/);
+  await change(() => api.undo()); await change(() => assert.equal(app.editor.search.goToExternal(1), true));
+  await app.update({ externalSearch: { results: [
+    { id: 'missing', target: { blockId: 'deleted' } },
+    { id: 'bounds', target: { blockId: 'first', textFrom: 0, textTo: 999 } },
+    { id: 'old', target: { blockId: 'first', expectedText: 'Old content' } },
+  ] } });
+  const before = api.getSelection();
+  for (let index = 0; index < 3; index++) await change(() => assert.equal(app.editor.search.goToExternal(index), false));
+  assert.deepEqual(api.getSelection(), before); assert.equal(api.openExternalSearch('unknown'), false);
+  await app.update({ features: { search: false } }); assert.equal(api.openExternalSearch(), false);
+  await app.unmount(); assert.equal(api.openExternalSearch(), false);
+});
+
+test('empty external results can arrive later and initial query/explicit mode select the proper search source', async t => {
+  const ref = { current: null }, app = await mount(t, { ref, initialDocument: externalDocument(), initialSearchOpen: true, externalSearch: { results: [] } });
+  assert.equal(app.editor.search.mode, 'external');
+  await app.update({ externalSearch: { results: externalRows() } });
+  assert.equal(app.editor.search.external.selectedId, 'rank-one'); assert.equal(app.editor.search.active.match.keyword, 'delta');
+  for (const [options, mode] of [[{ initialSearchQuery: 'Alpha' }, 'local'], [{ initialSearchMode: 'local' }, 'local'], [{ initialSearchQuery: 'Alpha', initialSearchMode: 'external' }, 'external']]) {
+    const item = await mount(t, { initialDocument: externalDocument(), initialSearchOpen: true, externalSearch: { results: externalRows() }, ...options });
+    assert.equal(item.editor.search.mode, mode);
+  }
+});
+
+test('host refreshing a result object revalidates changed content while a new array of stale objects remains invalid', async t => {
+  const row = { id: 'stable-result', target: { blockId: 'first', textFrom: 0, textTo: 5 } };
+  const ref = { current: null }, app = await mount(t, { ref, initialDocument: externalDocument(), initialSearchOpen: true, externalSearch: { results: [row] } });
+  await change(() => ref.current.execute({ type: 'text.insert', from: 1, text: 'New ' }));
+  await app.update({ externalSearch: { results: [row] } });
+  await change(() => assert.equal(app.editor.search.goToExternal(0), false));
+  const selection = ref.current.getSelection();
+  await app.update({ externalSearch: { results: [{ ...row, target: { ...row.target } }] } });
+  assert.deepEqual(ref.current.getSelection(), selection, 'host refresh does not seize the current position');
+  await change(() => assert.equal(app.editor.search.goToExternal(0), true));
+  assert.equal(app.editor.search.active.match.keyword, 'New A');
+});
+
+test('external canvas results use stable shape ids and isolate rejected observer promises', async t => {
+  const initialDocument = createDocument({ content: { type: 'doc', content: [{ type: 'drawing_canvas', attrs: { id: 'canvas', shapes: [
+    { id: 'shape', preset: 'rect', text: 'Target shape', x: 0, y: 0 },
+  ] } }] } });
+  const app = await mount(t, { initialDocument, initialSearchOpen: true, readOnly: true, externalSearch: { results: [{ id: 'shape-result', target: { blockId: 'canvas', canvasShapeId: 'shape' } }], onResultSelect: async () => { throw new Error('observer'); } } });
+  assert.equal(app.editor.search.active.kind, 'canvas-shape'); assert.equal(app.editor.search.active.canvasShapeId, 'shape');
+  assert.equal(app.editor.search.active.match.to, app.editor.search.active.match.from + 1);
+  assert.equal(app.editor.dirty, false);
+});
+
+
+test('an initially empty external session waits for its requested result to arrive', async t => {
+  for (const initialResultId of [undefined, 'rank-two']) {
+    const app = await mount(t, { initialDocument: externalDocument(), initialSearchOpen: true, externalSearch: { initialResultId, results: [] } });
+    await app.update({ externalSearch: { initialResultId: 'rank-two', results: externalRows() } });
+    assert.equal(app.editor.search.external.selectedId, 'rank-two');
+    assert.equal(app.editor.search.active.blockId, 'first');
+  }
+});
+
+
+test('reopening and switching to external results preserves browsing until an explicit result is requested', async t => {
+  const ref = { current: null }, selected = [], app = await mount(t, { ref, initialDocument: externalDocument(),
+    externalSearch: { results: externalRows(), onResultSelect(row) { selected.push(row.id); } } });
+  const api = ref.current;
+  await change(() => assert.equal(api.openExternalSearch(), true));
+  const resultSelection = api.getSelection(); assert.equal(app.editor.search.external.selectedId, 'rank-one');
+  await change(() => api.select({ from: 1, to: 1 }));
+  const browsing = api.getSelection(), reveal = app.editor.pageReveal;
+  await change(() => api.closeSearch()); await change(() => api.openSearch());
+  assert.deepEqual(api.getSelection(), browsing); assert.equal(app.editor.pageReveal, reveal);
+  await change(() => api.closeSearch()); await change(() => api.openExternalSearch());
+  assert.deepEqual(api.getSelection(), browsing); assert.equal(app.editor.pageReveal, reveal);
+  await change(() => api.openSearch('')); await change(() => api.openExternalSearch());
+  assert.deepEqual(api.getSelection(), browsing); assert.equal(app.editor.pageReveal, reveal);
+  assert.deepEqual(selected, ['rank-one']);
+  await change(() => assert.equal(api.openExternalSearch('rank-one'), true));
+  assert.deepEqual(api.getSelection(), resultSelection); assert.notEqual(app.editor.pageReveal, reveal);
+  assert.deepEqual(selected, ['rank-one', 'rank-one']);
+});

@@ -1,7 +1,12 @@
 import type { ReactNode } from "react";
-import type { MaybePromise, OperationContext } from "../core";
+import type { ExternalSearchOptions, ExternalSearchResult, MaybePromise, OperationContext } from "../core";
 import type { SpreadsheetWorkbookSnapshot } from "./types";
 import type { SpreadsheetSearchMatch, SpreadsheetSearchQuery } from "./editing-commands";
+
+/** A destination in the mounted workbook. Range accepts A1 or A1:C4 notation. */
+export type SpreadsheetExternalSearchTarget = Readonly<{ sheetId: string; range: string }>;
+export type SpreadsheetExternalSearchResult = ExternalSearchResult<SpreadsheetExternalSearchTarget>;
+export type SpreadsheetExternalSearchOptions = ExternalSearchOptions<SpreadsheetExternalSearchTarget>;
 
 export type SpreadsheetSearchScope = "sheet" | "workbook";
 export type SpreadsheetSearchSettings = Readonly<{

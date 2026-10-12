@@ -31,6 +31,7 @@ async function mount(t, supplied = {}, options = {}) {
     createElement(type) { assert.equal(type, 'canvas'); const canvas = makeCanvas('scratch'); scratch.push(canvas); return canvas; } };
   function makeCanvas(label) { return { label, ownerDocument: document, width: 0, height: 0, draws: [], getContext() { return { drawImage: source => { this.draws.push({ marker: source.marker, width: source.width, height: source.height }); } }; } }; }
   const rootNode = { ownerDocument: document, focus() { focused = true; }, addEventListener(type, fn) { rootListeners.set(type, fn); }, removeEventListener(type, fn) { if (rootListeners.get(type) === fn) rootListeners.delete(type); } };
+  const externalNodes = new Map(), externalList = { focus() { document.activeElement = this; } };
   const thumbnailNodes = new Map();
   const listNode = { ownerDocument: document, scrollTop: 0, clientHeight: 350,
     focus() { this.focused = true; document.activeElement = this; },
@@ -51,6 +52,12 @@ async function mount(t, supplied = {}, options = {}) {
   const render = () => h(LikeSlidePdfViewer, { ...props, ref });
   await change(() => { renderer = create(render(), { createNodeMock(element) {
     if (element.props['data-likex-slide-pdf'] !== undefined) return rootNode;
+    if (element.props.className === 'lxp-search-results lxp-external-search-results') return externalList;
+    if (element.props['data-external-result-id'] !== undefined) {
+      const id = element.props['data-external-result-id'];
+      if (!externalNodes.has(id)) externalNodes.set(id, { id, focus() { document.activeElement = this; }, scrolls: 0, scrollIntoView() { this.scrolls++; } });
+      return externalNodes.get(id);
+    }
     if (element.props.className === 'lxp-pdf-page-list') return listNode;
     if (element.props.className === 'lxp-canvas-viewport lxp-pdf-viewport') return viewportNode;
     if (element.type === 'input' && element.props['aria-label'] === '検索する文字列') return searchInput;
@@ -58,7 +65,7 @@ async function mount(t, supplied = {}, options = {}) {
     return null;
   } }); });
   const unmount = async () => { if (active) { active = false; await change(() => renderer.unmount()); } }; t.after(unmount);
-  return { ref, events, selections, zooms, errors, loads, canvases, scratch, listNode, searchInput, viewportNode, unmount, get focused() { return focused; }, get root() { return renderer.root; },
+  return { ref, events, selections, zooms, errors, loads, canvases, scratch, listNode, get focusedExternalId() { return document.activeElement?.id; }, externalNodes, searchInput, viewportNode, unmount, get focused() { return focused; }, get root() { return renderer.root; },
     async update(patch) { props = { ...props, ...patch }; await change(() => renderer.update(render())); },
     async resizeViewport({ width = layout.width, height = layout.height, clientWidth = Math.round(width), clientHeight = Math.round(height) }) {
       layout = { width, height }; viewportNode.clientWidth = clientWidth; viewportNode.clientHeight = clientHeight;
@@ -463,4 +470,115 @@ test('PDF keyboard navigation focuses the destination thumbnail, including virtu
   await ui.update({ onPageChange: undefined });
   await ui.key('ArrowDown', { target }); assert.equal(ui.listNode.focusedPage, 2);
   assert.notEqual(ui.listNode.focused, true, 'keyboard navigation never moves focus to the list container');
+});
+
+const externallyVisible = node => { for (let item = node; item; item = item.parent) if (item.props.hidden) return false; return true; };
+const externalPdfRows = ui => ui.root.findAll(node => node.type === 'button' && node.props['data-external-result-id'] !== undefined);
+const pdfExternalButton = (ui, text) => ui.root.findAll(node => node.type === 'button' && node.children.includes(text) && externallyVisible(node))[0];
+const pdfExternalResults = () => [
+  { id: 'first', title: 'Ranked relevance', snippet: 'An externally generated summary', target: { pageNumber: 3 } },
+  { id: 'second', target: { pageNumber: 2 } },
+];
+
+test('PDF external results need no text extraction and preserve browsing position, result rank and rendered pages', async t => {
+  const source = pdf(4), selected = [], results = pdfExternalResults();
+  const ui = await mount(t, { loadPdf: source.loadPdf, initialSearchOpen: true, toolbarVisible: false,
+    externalSearch: { results, onResultSelect(result) { selected.push(result.id); } } }), api = ui.ref.current;
+  assert.equal(api.getPageNumber(), 3); assert.deepEqual(api.getSelectedPageNumbers(), [3]);
+  assert.deepEqual(externalPdfRows(ui).map(row => row.props['data-external-result-id']), ['first', 'second']);
+  assert.equal(externallyVisible(ui.label('検索する文字列')[0]), false);
+  assert.ok(ui.label('PDFページ 3').some(canvas => canvas.props['aria-busy'] === false));
+  const list = ui.label('PDFページの選択')[0];
+  await change(() => pdfExternalButton(ui, '全ページ').props.onClick()); assert.equal(externallyVisible(list), true);
+  await ui.click('PDFページ 1 を表示');
+  await change(() => pdfExternalButton(ui, '検索結果').props.onClick()); assert.equal(api.getPageNumber(), 1);
+  await change(() => pdfExternalButton(ui, '選択した結果に戻る').props.onClick()); assert.equal(api.getPageNumber(), 3);
+  await change(() => ui.label('次の検索結果').find(externallyVisible).props.onClick()); assert.equal(api.getPageNumber(), 2);
+  await change(() => api.closeSearch()); await change(() => api.goToPage(1)); await change(() => api.openSearch());
+  assert.equal(api.getPageNumber(), 1); assert.equal(externallyVisible(ui.label('検索する文字列')[0]), false);
+  await change(() => pdfExternalButton(ui, '選択した結果に戻る').props.onClick()); assert.equal(api.getPageNumber(), 2);
+  await change(() => api.openSearch('a local query')); assert.equal(externallyVisible(ui.label('検索する文字列')[0]), true);
+  await change(() => api.openExternalSearch()); assert.equal(api.getPageNumber(), 2);
+  assert.deepEqual(selected, ['first', 'first', 'second', 'second']); assert.equal(source.loads.length, 1);
+});
+
+test('PDF external selection queues until loaded and stale document results never navigate a replacement', async t => {
+  const gate = deferred(), source = pdf(4), results = pdfExternalResults(), loader = () => gate.promise;
+  const ui = await mount(t, { loadPdf: loader, initialSearchOpen: true, externalSearch: { results } }), api = ui.ref.current;
+  await change(() => assert.equal(api.openExternalSearch('second'), true)); assert.equal(api.getPageNumber(), 0);
+  await change(() => gate.resolve(source.document)); assert.equal(api.getPageNumber(), 2);
+  const next = pdf(4); await ui.update({ loadPdf: next.loadPdf }); assert.equal(api.getPageNumber(), 1);
+  assert.equal(api.openExternalSearch('first'), false);
+  assert.ok(externalPdfRows(ui).every(row => row.props.disabled));
+  await ui.update({ externalSearch: { results: [...results], onResultSelect() { throw Error('observer'); } } });
+  assert.equal(api.getPageNumber(), 3); assert.equal(ui.errors.length, 0);
+  await change(() => api.openExternalSearch('second')); assert.equal(api.getPageNumber(), 2);
+  await ui.unmount(); assert.equal(api.openExternalSearch(), false);
+});
+
+test('PDF external target validation, initial mode, controlled pages and feature flags share normal navigation contracts', async t => {
+  const results = [...pdfExternalResults(), { id: 'bad', target: { pageNumber: 100 } }, { id: 'malformed', target: {} }];
+  const ui = await mount(t, { loadPdf: pdf(4).loadPdf, pageNumber: 1, initialSearchOpen: true,
+    initialSearchQuery: 'not executed', initialSearchMode: 'external', externalSearch: { results, initialResultId: 'second' } }), api = ui.ref.current;
+  assert.equal(api.getPageNumber(), 1); assert.deepEqual(ui.events, [{ pageNumber: 2, pageCount: 4 }]);
+  await ui.update({ pageNumber: 2 }); assert.equal(api.getPageNumber(), 2); assert.equal(ui.events.length, 1);
+  assert.equal(api.openExternalSearch('bad'), false); assert.equal(api.openExternalSearch('malformed'), false); assert.equal(api.openExternalSearch('missing'), false);
+  assert.ok(externalPdfRows(ui).slice(2).every(row => row.props.disabled));
+  await ui.update({ onPageChange: undefined });
+  assert.ok(externalPdfRows(ui).every(row => row.props.disabled));
+  assert.equal(api.openExternalSearch('bad'), false, 'loaded targets remain validated when controlled navigation is locked');
+  await change(() => assert.equal(api.openExternalSearch(), true));
+  await ui.update({ features: { search: false } }); assert.equal(api.openExternalSearch(), false);
+  assert.equal(externallyVisible(externalPdfRows(ui)[0]), false);
+  await ui.update({ features: { search: true } }); assert.equal(externallyVisible(externalPdfRows(ui)[0]), false);
+});
+
+
+test('external PDF results focus the initial row and arrow navigation focuses its destination without editing pages', async t => {
+  const ui = await mount(t, { loadPdf: pdf(4).loadPdf, initialSearchOpen: true, externalSearch: { results: pdfExternalResults() } });
+  assert.equal(ui.focusedExternalId, 'first');
+  const list = ui.label('外部検索結果')[0];
+  const event = { key: 'ArrowDown', nativeEvent: {}, preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; } };
+  await change(() => list.props.onKeyDown(event));
+  assert.equal(event.defaultPrevented, true); assert.equal(event.stopped, true);
+  assert.equal(ui.focusedExternalId, 'second'); assert.equal(ui.ref.current.getPageNumber(), 2);
+  await change(() => ui.ref.current.goToPage(1));
+  assert.equal(ui.ref.current.getPageNumber(), 1, 'browsing never returns to a hit without explicit navigation');
+});
+
+
+test('external result tab restoration keeps manual result-list scroll position', async t => {
+  const ui = await mount(t, { loadPdf: pdf(4).loadPdf, initialSearchOpen: true, externalSearch: { results: pdfExternalResults() } });
+  const before = ui.externalNodes.get('first').scrolls;
+  await change(() => pdfExternalButton(ui, '全ページ').props.onClick());
+  await change(() => ui.ref.current.goToPage(1));
+  await change(() => pdfExternalButton(ui, '検索結果').props.onClick());
+  assert.equal(ui.externalNodes.get('first').scrolls, before, 'restoring the retained pane never scrolls back to its active row');
+  assert.equal(ui.ref.current.getPageNumber(), 1);
+});
+
+test('local PDF results retain their search intent when switching all-pages tabs', async t => {
+  const source = searchablePdf(['none', 'needle', 'needle']);
+  const ui = await mount(t, { loadPdf: source.loadPdf, initialSearchOpen: true, initialSearchQuery: 'needle', externalSearch: { results: pdfExternalResults() } });
+  assert.equal(ui.ref.current.getPageNumber(), 2);
+  await change(() => pdfExternalButton(ui, '全ページ').props.onClick());
+  await change(() => ui.ref.current.goToPage(1));
+  await change(() => pdfExternalButton(ui, '検索結果').props.onClick());
+  assert.equal(ui.ref.current.getPageNumber(), 1, 'tab restoration never repeats the same query and jumps to its first hit');
+  assert.equal(ui.label('次の検索結果').find(externallyVisible).props.disabled, false);
+  await change(() => ui.label('次の検索結果').find(externallyVisible).props.onClick());
+  assert.equal(ui.ref.current.getPageNumber(), 3);
+});
+
+
+test('partial PDF result batches wait for initialResultId instead of selecting an earlier result', async t => {
+  const results = pdfExternalResults(), selected = [];
+  const externalSearch = { results: [results[1]], initialResultId: 'first', onResultSelect: result => selected.push(result.id) };
+  const ui = await mount(t, { loadPdf: pdf(4).loadPdf, initialSearchOpen: true, externalSearch }), api = ui.ref.current;
+  assert.equal(api.getPageNumber(), 1); assert.deepEqual(selected, []);
+  await ui.update({ externalSearch: { ...externalSearch, results } });
+  assert.equal(api.getPageNumber(), 3); assert.deepEqual(selected, ['first']);
+  await change(() => api.goToPage(1));
+  await ui.update({ externalSearch: { ...externalSearch, results: [...results] } });
+  assert.equal(api.getPageNumber(), 1); assert.deepEqual(selected, ['first']);
 });

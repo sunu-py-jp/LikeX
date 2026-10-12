@@ -60,4 +60,5 @@ export { importSpreadsheetXlsx } from "./import/import-xlsx";
 export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, SpreadsheetNativeImportResult, SpreadsheetExcelImportWarning } from "./import/types";
 export type { SpreadsheetImportExcelOptions, SpreadsheetImportNativeOptions } from "./api/lifecycle";
 
-export type { SpreadsheetSearchScope, SpreadsheetSearchSettings, SpreadsheetSearchRequest, SpreadsheetSearchHandler, SpreadsheetSearchRenderContext } from "./api/search";
+export type { SpreadsheetSearchScope, SpreadsheetSearchSettings, SpreadsheetSearchRequest, SpreadsheetSearchHandler, SpreadsheetSearchRenderContext,
+  SpreadsheetExternalSearchTarget, SpreadsheetExternalSearchResult, SpreadsheetExternalSearchOptions } from "./api/search";

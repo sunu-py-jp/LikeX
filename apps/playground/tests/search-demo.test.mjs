@@ -10,6 +10,7 @@ const output = await build({ stdin: { contents: `export {default as ExplorerDemo
   bundle: true, write: false, platform: "node", format: "esm", jsx: "automatic", loader: { ".css": "empty" },
   plugins: [{ name: "component-boundary", setup(builder) {
     builder.onResolve({ filter: /^react(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^@likex\/core(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
     builder.onResolve({ filter: /^@likex\/(explorer|spreadsheet)$/ }, ({ path }) => ({ path, namespace: "demo-boundary" }));
     builder.onLoad({ filter: /.*/, namespace: "demo-boundary" }, ({ path }) => ({ resolveDir: root, contents: `import {createElement} from 'react'; export default props=>createElement('${path.endsWith("explorer") ? "demo-explorer" : "demo-spreadsheet"}',props); ${path.endsWith("spreadsheet") ? `export {createWorkbook} from './packages/spreadsheet/src/model/index'; export {findSpreadsheetCells} from './packages/spreadsheet/src/model/editing/search';` : ""}` }));
   } }],
@@ -150,7 +151,8 @@ test("meeting demo passes host filters through search.params and preserves the s
   const button = renderer.root.findAllByType("button").find(button => button.props.children === "議事録の本文");
   await act(async () => button.props.onClick());
   assert.equal(component().props.search.params.mode, "minutes");
-  assert.equal(component().props.search.resultDetailsHeight, 192);
+  assert.equal(component().props.search.resultDetailsHeight, undefined, "meeting excerpts use the default line limit without an inner scrollbar");
+  assert.equal(component().props.search.resultDetailsMaxLines, 1, "the result line control starts at the default one-line limit");
   const calls = []; let custom;
   const context = { query: "", trigger: "submit", inputProps: { value: "", readOnly: true }, setQuery: value => calls.push(value), submit() {}, clear() {}, searching: false, error: null };
   await act(async () => { custom = create(component().props.renderSearch(context)); });
@@ -167,11 +169,33 @@ test("meeting demo passes host filters through search.params and preserves the s
   assert.equal(component().props.renderSearchResult, renderMeetingSearchResult);
 });
 
+test("meeting result controls configure the line limit and toggle the standard renderer without altering search conditions", async t => {
+  const renderer = await mount(t, ExplorerDemo), component = () => renderer.root.findByType("demo-explorer");
+  assert.equal(renderer.root.findAllByProps({ "aria-label": "結果の表示行数" }).length, 0);
+  await act(async () => renderer.root.findAllByType("button").find(button => button.props.children === "議事録の本文").props.onClick());
+  const lines = () => renderer.root.findByProps({ "aria-label": "結果の表示行数" });
+  assert.equal(lines().props.value, 1); assert.equal(lines().props.min, 1); assert.equal(lines().props.max, 30);
+  assert.equal(component().props.renderSearchResult, renderMeetingSearchResult);
+  const params = component().props.search.params;
+  await act(async () => lines().props.onChange({ target: { value: "3" } }));
+  assert.equal(component().props.search.resultDetailsMaxLines, 3); assert.equal(component().props.search.params, params);
+  const standard = () => renderer.root.findAllByType("label").find(label => label.children.some(child => typeof child === "string" && child.includes("標準の抜粋表示"))).findByType("input");
+  assert.equal(standard().props.checked, false);
+  await act(async () => standard().props.onChange({ target: { checked: true } }));
+  assert.equal(component().props.renderSearchResult, undefined); assert.equal(component().props.search.params, params);
+  await act(async () => standard().props.onChange({ target: { checked: false } }));
+  assert.equal(component().props.renderSearchResult, renderMeetingSearchResult);
+  for (const [value, expected] of [["0", 1], ["99", 30], ["3.8", 3], ["invalid", 1]]) {
+    await act(async () => lines().props.onChange({ target: { value } })); assert.equal(component().props.search.resultDetailsMaxLines, expected);
+  }
+});
+
 test("custom meeting result displays meeting date and file update independently and leaves filename hits at the default", async t => {
   const entries = createMeetingSearchEntries(), hit = searchMeetingMinutes(entries, "料金改定", meetingSearchExample).at(-1), entry = entries.find(entry => entry.id === hit.entryId);
   let renderer; await act(async () => { renderer = create(renderMeetingSearchResult({ entry, hit, query: "料金改定", view: "details", selected: false, defaultContent: h("span", null, "default") })); });
   t.after(async () => { await act(async () => renderer.unmount()); });
   assert.equal(renderer.root.findByType("time").props.dateTime, "2026-09-12");
+  assert.equal(renderer.toJSON().children[0].props.className, "meeting-search-snippet", "the one-line result starts with the matching excerpt");
   const text = JSON.stringify(renderer.toJSON());
   assert.match(text, /2026-10-03/); assert.match(text, /東雲製作所/); assert.match(text, /料金改定/);
   assert.equal(renderMeetingSearchResult({ entry, hit: { entryId: entry.id } }), undefined);

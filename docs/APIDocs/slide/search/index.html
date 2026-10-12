@@ -23,6 +23,32 @@ ref.current?.closeSearch();</code></pre></div>
 <p>表示後の変更にはrefを使います。<code>features.search: false</code>は初期表示指定より優先し、表示中の欄も閉じます。その後<code>true</code>に戻しても自動では開きません。Spreadsheet・Slide・Document・PDFで共通のprops／ref名と引数を使い、型はCoreの<code>SearchPanelInitialState</code>／<code>SearchPanelHandle</code>を共有します。サムネイルには検索UIを表示しません。</p>
 <p><code>openSearch(query?: string): boolean</code> は受付時にtrueを返します。機能無効・アンマウント後・不正な文字列（4,096文字超過を含む）の場合はfalseです。<code>features={{ search: false }}</code> でボタン・ショートカット・表示中パネル・refからの呼び出しを無効にします。公開モデルの<code>searchSlides</code>はその設定の影響を受けません。</p>
 <p>Escまたは閉じるボタンでパネルを閉じるとキャンバスへ戻ります。読み込み・保存等の処理中や未確定の入力がある場合は結果への移動を受け付けません。結果は最大1,000フィールド、一致位置はその内側で数えます。大量の結果は100件ずつ表示し、前後の移動では全取得結果を巡回します。上限による省略は画面で通知します。</p>
+<h2 id="外部の検索結果を表示する">外部の検索結果を表示する<a class="heading-link" href="#%E5%A4%96%E9%83%A8%E3%81%AE%E6%A4%9C%E7%B4%A2%E7%B5%90%E6%9E%9C%E3%82%92%E8%A1%A8%E7%A4%BA%E3%81%99%E3%82%8B" aria-label="この見出しへのリンク">#</a></h2>
+<p>利用側の全文検索・意味検索などで取得した結果は <code>externalSearch</code> へ渡します。ライブラリは結果の順位と抜粋をそのまま表示し、指定されたスライド・要素へ移動します。抜粋を検索語として再検索せず、資料を書き換えません。</p>
+<div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>&lt;LikeSlide
+  ref={ref}
+  initialDeck={deck}
+  initialSearchOpen
+  externalSearch={{
+    title: <span class="syntax-string">&quot;顧客会議の検索結果&quot;</span>,
+    results: [
+      { id: <span class="syntax-string">&quot;hit-42&quot;</span>, title: <span class="syntax-string">&quot;提案内容&quot;</span>, snippet: <span class="syntax-string">&quot;前回会議の合意事項…&quot;</span>,
+        locationLabel: <span class="syntax-string">&quot;提案書 / 3ページ&quot;</span>,
+        target: { slideId: <span class="syntax-string">&quot;proposal&quot;</span>, elementIds: [<span class="syntax-string">&quot;summary&quot;</span>] } },
+      { id: <span class="syntax-string">&quot;hit-7&quot;</span>, target: { slideId: <span class="syntax-string">&quot;overview&quot;</span> } },
+    ],
+    initialResultId: <span class="syntax-string">&quot;hit-42&quot;</span>,
+    onResultSelect: result =&gt; console.log(result.id),
+  }}
+/&gt;;
+ref.current?.openExternalSearch(<span class="syntax-string">&quot;hit-7&quot;</span>);
+ref.current?.openSearch(<span class="syntax-string">&quot;売上&quot;</span>); <span class="syntax-comment">// 文書内検索へ切り替える</span>
+ref.current?.openSearch();       <span class="syntax-comment">// 前回のモード・文字列を保持して開く</span></code></pre></div>
+<p><code>SlideExternalSearchTarget</code> は <code>{ slideId: string; elementIds?: readonly string[] }</code> です。要素IDを省略するとページだけへ移動します。存在しないページ・削除済み要素・別ページの要素は移動せず、結果に理由を表示します。継承元のマスター／レイアウト要素は直接選択できないため、それらの結果は <code>elementIds</code> を省略してください。結果IDは非空で一覧内一意にし、更新時も同じ結果に同じIDを使います。重複IDは最初の有効な結果だけを表示します。</p>
+<p><code>initialSearchMode</code> は <code>&quot;local&quot; | &quot;external&quot;</code>。省略すると、外部結果があり、空でない初期検索語がなければ外部モードで開きます。明示したモードが初期検索語より優先します。<code>initialSearchOpen</code> が表示を決め、<code>initialResultId</code> または先頭結果へ最初の表示時に一度だけ移動します。段階的な結果取得で指定IDがまだ含まれない間は待機し、到着後に移動します。結果の追加・並べ替え・文書の編集では閲覧中のページを奪いません。選択中の結果を削除しても勝手に別の結果を選びません。</p>
+<p>外部結果がある場合、左側の「検索結果／全ページ」で結果一覧と通常の一覧を切り替えます。両者はマウントを維持しスクロール位置を保持します。「選択した結果に戻る」で閲覧前の結果を再表示でき、「文書内を検索／外部検索結果」で検索モードを切り替えられます。前後ボタンと結果一覧内の上下キーは外部順位に従います。大量の結果は初めに200件を表示し「さらに表示」で増やせます。API・前後移動先の結果も表示します。全ページ一覧にはヒット件数を付けます。</p>
+<p>閉じる操作は表示だけを閉じ、一覧・選択ID・検索モードを保持します。<code>openExternalSearch(resultId?)</code> は受付で <code>true</code>、外部結果なし・機能無効・不明なID・読み込み済み資料への不正な参照・アンマウント後は <code>false</code>。ID省略なら現在の閲覧位置を保持して開き、指定時はその結果へ移動します。<code>onResultSelect</code> は移動を受け付けた場合だけ呼ぶ通知で、例外で表示を巻き戻しません。</p>
+<p>検索結果は現在の <code>deck.id</code> に結び付けます。別のIDの資料へ置き換えた場合、旧 <code>results</code> 配列のままでは参照先IDが偶然一致しても移動しません。利用側が新しい資料を検索して新しい <code>results</code> 配列を渡してください。結果は現在の資料に対応するものだけを渡し、別資料の管理・認可・検索・結果保存は利用側で行います。表示状態のみの追加なのでSLON／PPTXや編集CLIの変更はありません。</p>
 <h2 id="描画しないキーワード検索">描画しないキーワード検索<a class="heading-link" href="#%E6%8F%8F%E7%94%BB%E3%81%97%E3%81%AA%E3%81%84%E3%82%AD%E3%83%BC%E3%83%AF%E3%83%BC%E3%83%89%E6%A4%9C%E7%B4%A2" aria-label="この見出しへのリンク">#</a></h2>
 <p><code>searchSlides</code> はサーバーやWorkerで、モデルの本文を検索してスライドID・ページ番号・要素IDを返します。React、DOM、スライド描画は不要です。SLONは <code>parseSlideDeck</code>、PPTXは <code>importSlidePptx</code> でモデルへ読み込んでから呼びます。</p>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> { importSlidePptx, searchSlides } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/slide/model&quot;</span>;
@@ -55,4 +81,4 @@ ref.current?.closeSearch();</code></pre></div>
 <p>結果はページ順で、ページ名、継承要素、ページ自身の要素、ノートの順に並びます。要素はモデル内の描画順を維持します。<code>owner</code> / <code>ownerId</code> がその要素の定義元を示します。1つのフィールドに複数の一致があっても外側の結果は1件で、内側の <code>matches</code> に一致語と開始／終了位置を返します。<code>from</code> / <code>to</code> は返した <code>text</code> 内のUTF-16オフセットで、終了位置は含みません。<code>text.slice(from, to)</code> で元の表記を取得できます。</p>
 <p><code>limit</code> は一致条件の評価を切り詰めず、返すフィールド数だけを制限します。続きが存在すると <code>truncated: true</code> になるので、全件と誤認せず条件や上限を調整してください。1フィールドの一致箇所が10,000、返す位置の総数が100,000を超える場合は例外になり、不完全な位置一覧を成功として返しません。戻り値は元のモデルから独立し、検索で資料・ID・保存形式・編集履歴を変更しません。保存対象の追加機能ではないため、SLON／PPTX形式の変更もありません。</p>
 <p>アクセス権、ファイルの列挙、更新日時などによる候補の絞り込み、外部検索インデックス、検索結果の保存は利用側が担当します。</p>
-<nav class="page-navigation" aria-label="前後のページ"><a href="../pdf-viewer/index.html"><span>前のページ</span>PDFの閲覧</a><a href="../thumbnail/index.html"><span>次のページ</span>軽量サムネイル</a></nav><footer class="article-footer">編集元: <a href="https://github.com/sunu-py-jp/LikeX/blob/main/packages/slide/src/docs/search.md">search.md</a><br>本文は公開APIと利用ガイドから生成しています。</footer></article><aside class="page-toc" aria-label="このページの見出し"><p>このページ</p><ol><li><a href="#%E7%94%BB%E9%9D%A2%E5%86%85%E3%81%A7%E6%A4%9C%E7%B4%A2%E3%81%99%E3%82%8B">画面内で検索する</a></li><li><a href="#%E6%8F%8F%E7%94%BB%E3%81%97%E3%81%AA%E3%81%84%E3%82%AD%E3%83%BC%E3%83%AF%E3%83%BC%E3%83%89%E6%A4%9C%E7%B4%A2">描画しないキーワード検索</a></li><li><a href="#%E6%9D%A1%E4%BB%B6%E3%81%A8%E4%B8%80%E8%87%B4%E5%8D%98%E4%BD%8D">条件と一致単位</a></li><li><a href="#%E6%A4%9C%E7%B4%A2%E7%AF%84%E5%9B%B2%E3%81%A8%E7%B5%90%E6%9E%9C%E3%81%AE%E4%BD%8D%E7%BD%AE">検索範囲と結果の位置</a></li></ol></aside></div></main></div><p class="copy-status" role="status" aria-live="polite"></p></body></html>
+<nav class="page-navigation" aria-label="前後のページ"><a href="../pdf-viewer/index.html"><span>前のページ</span>PDFの閲覧</a><a href="../thumbnail/index.html"><span>次のページ</span>軽量サムネイル</a></nav><footer class="article-footer">編集元: <a href="https://github.com/sunu-py-jp/LikeX/blob/main/packages/slide/src/docs/search.md">search.md</a><br>本文は公開APIと利用ガイドから生成しています。</footer></article><aside class="page-toc" aria-label="このページの見出し"><p>このページ</p><ol><li><a href="#%E7%94%BB%E9%9D%A2%E5%86%85%E3%81%A7%E6%A4%9C%E7%B4%A2%E3%81%99%E3%82%8B">画面内で検索する</a></li><li><a href="#%E5%A4%96%E9%83%A8%E3%81%AE%E6%A4%9C%E7%B4%A2%E7%B5%90%E6%9E%9C%E3%82%92%E8%A1%A8%E7%A4%BA%E3%81%99%E3%82%8B">外部の検索結果を表示する</a></li><li><a href="#%E6%8F%8F%E7%94%BB%E3%81%97%E3%81%AA%E3%81%84%E3%82%AD%E3%83%BC%E3%83%AF%E3%83%BC%E3%83%89%E6%A4%9C%E7%B4%A2">描画しないキーワード検索</a></li><li><a href="#%E6%9D%A1%E4%BB%B6%E3%81%A8%E4%B8%80%E8%87%B4%E5%8D%98%E4%BD%8D">条件と一致単位</a></li><li><a href="#%E6%A4%9C%E7%B4%A2%E7%AF%84%E5%9B%B2%E3%81%A8%E7%B5%90%E6%9E%9C%E3%81%AE%E4%BD%8D%E7%BD%AE">検索範囲と結果の位置</a></li></ol></aside></div></main></div><p class="copy-status" role="status" aria-live="polite"></p></body></html>

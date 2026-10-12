@@ -16,6 +16,7 @@ import { SpreadsheetContextMenu } from "./ui/spreadsheet-context-menu";
 import { useNamedRangeManager } from "./ui/named-ranges/use-named-range-manager";
 import { NamedRangeDialog, SpreadsheetNamedRangePanel } from "./ui/spreadsheet-named-ranges";
 import { SpreadsheetSearchDialog } from "./ui/spreadsheet-search-dialog";
+import { SpreadsheetExternalSearchDialog } from "./ui/spreadsheet-external-search-dialog";
 import type { SpreadsheetFloatingWindowFrame } from "./ui/spreadsheet-floating-window";
 
 export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetProps) {
@@ -103,7 +104,7 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
       <SpreadsheetNamedRangePanel controller={c} manager={namedRangeManager} />
     </div>
     <SpreadsheetFooter key={`footer-${c.viewRevision}`} controller={c} renameRef={sheetRename} />
-    {c.searchPanel.mode && <SpreadsheetSearchDialog key={`${c.searchPanel.mode}-${c.searchPanel.focus}`}
+    {c.searchPanel.mode === "external" ? <SpreadsheetExternalSearchDialog key={`external-${c.searchPanel.focus}`} controller={c} frameRef={searchWindowFrame} /> : c.searchPanel.mode && <SpreadsheetSearchDialog key={`${c.searchPanel.mode}-${c.searchPanel.focus}`}
       controller={c} initialMode={c.searchPanel.mode} onClose={c.closeSearch} frameRef={searchWindowFrame} />}
     {namedRangeTarget && <NamedRangeDialog key={JSON.stringify([namedRangeTarget.id, namedRangeTarget.sheetId, namedRangeTarget.revision])}
       controller={c} target={namedRangeTarget} onClose={namedRangeManager.closeDialog} />}

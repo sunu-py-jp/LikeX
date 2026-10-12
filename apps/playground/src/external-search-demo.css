@@ -1,0 +1,12 @@
+.external-demo { height: 100dvh; display: flex; flex-direction: column; background: #f5f7fa; color: #23354a; font-family: system-ui, sans-serif; }
+.external-demo-header { min-height: 44px; box-sizing: border-box; display: flex; gap: 24px; align-items: center; padding: 6px 20px; border-bottom: 1px solid #dce3eb; }
+.external-demo-header strong { font-size: 16px; }
+.external-demo-header nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.external-demo-header nav span { color: #617286; font-size: 12px; margin-right: 8px; }
+.external-demo-header a { color: #52657b; border-radius: 6px; padding: 7px 13px; text-decoration: none; font-size: 13px; }
+.external-demo-header a[aria-current] { color: #fff; background: #264f79; }
+.external-demo-header a:hover { box-shadow: inset 0 0 0 1px #9ab2ca; }
+.external-demo-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 4px 20px; font-size: 12px; }
+.external-demo-actions span { flex: 1; color: #63748a; }
+.external-demo-actions button { border: 1px solid #c7d3df; border-radius: 5px; padding: 5px 10px; background: white; color: #264f79; cursor: pointer; }
+.external-demo-view { flex: 1; min-height: 0; overflow: hidden; }

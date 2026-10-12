@@ -11,8 +11,8 @@ function Snippet({ hit }: { hit: PdfSearchHit }) {
   return <span className="lxp-search-snippet">{start > 0 ? "…" : ""}{hit.page.text.slice(start, hit.from)}<mark>{hit.page.text.slice(hit.from, hit.to)}</mark>{hit.page.text.slice(hit.to, end)}{end < hit.page.text.length ? "…" : ""}</span>;
 }
 
-export function PdfSearchPanel({ search, session, loadError, navigationLocked, onClose }: {
-  search: PdfSearch; session: PdfSession | undefined; loadError?: Error; navigationLocked: boolean; onClose(): void;
+export function PdfSearchPanel({ search, session, loadError, navigationLocked, onClose, onExternalSearch }: {
+  search: PdfSearch; session: PdfSession | undefined; loadError?: Error; navigationLocked: boolean; onClose(): void; onExternalSearch?(): void;
 }) {
   const id = useId(), input = useRef<HTMLInputElement>(null), active = useRef<HTMLButtonElement>(null);
   const result = search.result, hits = result?.hits ?? [], index = result?.index ?? -1;
@@ -22,14 +22,16 @@ export function PdfSearchPanel({ search, session, loadError, navigationLocked, o
   const error = loadError?.message ?? result?.error;
   const disabled = navigationLocked || !hits.length;
   const start = Math.floor(Math.max(0, index) / PAGE_SIZE) * PAGE_SIZE;
-  useEffect(() => { input.current?.focus(); input.current?.select(); }, [search.focus]);
-  useEffect(() => { active.current?.scrollIntoView?.({ block: "nearest" }); }, [index]);
+  const visible = search.open && search.mode === "local" && !search.pageTab;
+  useEffect(() => { if (visible) { input.current?.focus(); input.current?.select(); } }, [visible, search.focus]);
+  useEffect(() => { if (visible) active.current?.scrollIntoView?.({ block: "nearest" }); }, [visible, index]);
   return <aside className="lxp-search-panel" aria-labelledby={`${id}-heading`} onKeyDown={event => {
     if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229) return;
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); }
   }}>
     <div className="lxp-search-heading"><h2 id={`${id}-heading`}>検索</h2><button type="button" aria-label="検索を閉じる" onClick={onClose}><X size={17} /></button></div>
     <div className="lxp-search-controls">
+      {onExternalSearch && <button type="button" className="lxp-search-mode" onClick={onExternalSearch}>外部検索結果</button>}
       <div className="lxp-search-input"><Search size={16} aria-hidden="true" /><input ref={input} type="text" aria-label="検索する文字列" placeholder="PDF内を検索" maxLength={4096} value={search.query}
         onChange={event => search.setQuery(event.target.value)} onKeyDown={event => {
           if (event.key === "Enter" && !event.nativeEvent.isComposing && event.keyCode !== 229 && !disabled) {

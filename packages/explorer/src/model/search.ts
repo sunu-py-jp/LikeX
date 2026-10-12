@@ -20,7 +20,9 @@ export type ExplorerSearchOptions = Readonly<{
   debounceMs?: number;
   /** Host-owned filters. Update immutably; submitted searches capture these on submit. */
   params?: Readonly<Record<string, unknown>>;
-  /** Search result detail area height in px, clamped to 24–480. Defaults to 72. */
+  /** Maximum supplementary lines before an ellipsis. Defaults to 1; clamped to integer 1–30. */
+  resultDetailsMaxLines?: number;
+  /** Opt into a fixed, scrollable detail area in px (24–480), overriding resultDetailsMaxLines. */
   resultDetailsHeight?: number;
 }>;
 

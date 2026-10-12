@@ -33,10 +33,10 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `onSearchRequest` | `ExplorerSearchHandler`。従来の項目ID／hit配列、`ExplorerSearchBatch`（`{ hits, entries }`）、またはそれらをyieldする `ExplorerSearchStream` を受け取ります。いずれもPromiseで返せます。部分キャッシュではヒットと未取得の祖先メタデータを渡せます。逐次受信中も部分結果を表示し、完了まで `searching: true`。途中エラーは正常な受信済み結果を保持し、中断後のバッチは反映しません。未指定ならキャッシュ内の名前を内蔵検索します。[結果と逐次検索の契約](./search.md) |
 | `getContextMenuItems` | `ExplorerContextMenuProvider`。ファイル・フォルダ・空白の右クリック時の情報から、条件付きの追加メニューを返します。ハンドラーは変更プランを返し、反映はExplorerが担当します。[使い方](./context-menu.md) |
 | `contextMenuExecutionMode` | Core共通の `"block"`（既定） / `"confirm"` / `"reject-if-changed"`。処理中の変更禁止・完了時の反映確認・データ変更時の中止を選べます。 |
-| `renderSearch` | `ExplorerSearchRenderer`。標準入力・詳細条件の再配置、任意UIへの置換。`inputProps` でIME・Enter・フォーカス操作を引き継げます。 |
+| `renderSearch` | `ExplorerSearchRenderer`。標準は大小文字を区別しない部分一致の入力欄だけを表示します。利用側が詳細条件や任意UIを追加でき、既存の条件メニューは `defaultOptions` を明示的に配置して再利用できます。`conditions` / `setConditions` と `inputProps` のIME・Enter・フォーカス操作も利用できます。 |
 | `renderSearchResult` | `ExplorerSearchResultRenderer`。外部検索結果の名前の下の補足領域を差し替えます。確定検索語・項目・hit・選択状態・表示モード・標準補足を受け取り、null/undefinedは標準、falseは内容を非表示にします。[結果の表示](./search.md) |
 | `renderEmptyState` | `ExplorerEmptyStateRenderer`。空フォルダ・検索結果0件・お気に入り／最近0件の案内を差し替えます。場所・理由・標準操作・標準表示を受け取り、null/undefinedは標準、falseは案内を非表示にします。読み込み中とエラー時は呼びません。[例とcontext](./empty-state.md) |
-| `search` | `ExplorerSearchOptions`。`trigger` は `"input"`（既定）または `"submit"`。`debounceMs` は外部の入力検索だけに適用する待機時間で、既定は `0`。`params` はJSON互換の外部条件で、input時は内容変更で再検索、submit時はEnterで確定します。`resultDetailsHeight` は検索結果の補足枠の高さ（px、既定72、有限値を24〜480に制限）。 |
+| `search` | `ExplorerSearchOptions`。`trigger` は `"input"`（既定）または `"submit"`。`debounceMs` は外部の入力検索だけに適用する待機時間で、既定は `0`。`params` はJSON互換の外部条件で、input時は内容変更で再検索、submit時はEnterで確定します。`resultDetailsMaxLines` は補足領域の最大行数（既定1、有限値を整数化して1〜30行）。超えた内容は省略記号で表示し、枠内の縦スクロールはありません。`resultDetailsHeight` に有限の数値を指定すると行数指定より優先し、24〜480pxの固定高さと枠内スクロールを使います。全表示モードで仮想スクロールを維持します。 |
 | `previewTrigger` | `ExplorerPreviewTrigger`。`"doubleClick"`（既定）または `"click"`。後者はファイル名の単クリックでプレビューします。 |
 | `onEvent` | `ExplorerEventHandler`。ローカル操作・選択・移動・表示状態・保存等を親へ通知します。通知の戻り値や例外は操作の成否を変えません。 |
 | `renderIcon` | `ExplorerIconRenderer`。項目情報・描画箇所・選択状態等から独自アイコンを返します。`null` / `undefined` は既定表示、`false` は枠だけを残します。 |

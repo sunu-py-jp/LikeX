@@ -2,13 +2,15 @@
 
 [ドキュメント一覧](./README.md)
 
-入力時とEnter確定時の検索、詳細条件、検索UIの差し替え、および親へ委譲する検索と結果の逐次表示の型・実装例です。
+入力時とEnter確定時の検索、利用側が追加する詳細条件、検索UIの差し替え、および親へ委譲する検索と結果の逐次表示の型・実装例です。
 
 <a id="search-integration"></a>
 
 ## 検索の実行タイミングと外部検索
 
 `search` と `onSearchRequest` を省略すると、現在の下書きにある全項目を対象に、名前を入力と同時に検索します。現在のフォルダ配下だけの検索ではありません。検索語の前後の空白は除去し、空になれば通常のフォルダ・お気に入り・最近の一覧へ戻ります。IME変換中は検索を実行しません。
+
+標準の検索UIは入力欄だけで、名前を大文字・小文字を区別せず部分一致で検索します。詳細条件のメニューは表示しません。大小文字・全体一致・正規表現などの条件を切り替えるUIが必要なら、利用側が `renderSearch` で追加します。
 
 [`onLoadFolder`](./folder-loading.md) で遅延読み込みしている場合、内蔵検索は取得済みキャッシュを対象にします。未取得を含む全件を検索するには、利用側の `onSearchRequest` でサーバー等を検索し、ヒットと必要な項目・祖先のメタデータを `{ hits, entries }` で返します。Explorerは検索サービスを実装せず、渡されたメタデータの検証・追加・表示を担当します。
 
@@ -174,7 +176,7 @@ const searchFiles: ExplorerSearchHandler = async function* (request, { signal })
 
 ## 詳細条件
 
-標準検索欄の「検索オプション」で次の条件を切り替えられます。既定はすべてfalseで、大小を区別しない部分一致です。
+次の条件は `renderSearch` の `conditions` / `setConditions` から利用できます。既定はすべてfalseで、大小を区別しない部分一致です。標準検索UIには条件の切り替えを表示せず、利用側が必要な条件だけを独自UIで提供します。既存の条件メニューを使いたい場合は、レンダラーへ `context.defaultOptions` を明示的に配置できます。
 
 | 条件 | 動作 |
 | --- | --- |
@@ -188,7 +190,7 @@ const searchFiles: ExplorerSearchHandler = async function* (request, { signal })
 
 ## 検索UIを外側から組み立てる
 
-`renderSearch` で検索エリアの中身を差し替えます。標準入力を `defaultInput`、詳細条件を `defaultOptions` として別々に配置でき、入力から生成した正規表現や任意の説明・選択肢も表示できます。
+`renderSearch` で検索エリアの中身を差し替えます。標準入力は `defaultInput` として再利用でき、入力から生成した正規表現や任意の説明・選択肢も表示できます。`defaultOptions` は既存の詳細条件メニューを再利用するための要素で、利用側が配置した場合だけ表示します。次の例は、入力欄に詳細条件メニューと正規表現のプレビューを追加します。
 
 ```tsx
 import Explorer, { type ExplorerSearchRenderer } from "@likex/explorer";
@@ -216,9 +218,10 @@ const renderSearch: ExplorerSearchRenderer = context => (
 | `submit()` / `clear()` | 入力・条件を確定して検索／検索語を消す |
 | `trigger` / `searching` / `error` | 実行タイミング、処理中、確定した検索のエラー |
 | `inputProps` | 標準inputのvalue、イベント、ref、IME処理、Enter、最大長、アクセシビリティ属性 |
-| `defaultInput` / `defaultOptions` | 再利用できる標準コントロールのReactElement |
+| `defaultInput` | 標準の検索入力欄のReactElement |
+| `defaultOptions` | 利用側が明示的に配置できる詳細条件メニューのReactElement。標準UIには表示しない |
 
-完全に独自の入力欄へ変える場合は `<input {...context.inputProps} className="my-search" />` のように使います。refとイベントを保つことでCtrl/⌘+F・KのフォーカスとIME確定を維持できます。`setQuery` を別のコントロールから呼ぶ場合も、検索の取消し・結果の更新は本体が扱います。レンダラーの戻り値がnull/undefinedなら標準表示、falseなら非表示です。フックを使う場合はレンダラー内で直接呼ばず、返すReactコンポーネント内で使ってください。
+完全に独自の入力欄へ変える場合は `<input {...context.inputProps} className="my-search" />` のように使います。refとイベントを保つことでCtrl/⌘+F・KのフォーカスとIME確定を維持できます。`setQuery` を別のコントロールから呼ぶ場合も、検索の取消し・結果の更新は本体が扱います。レンダラーの戻り値がnull/undefinedなら標準の入力欄だけを表示し、falseなら非表示です。フックを使う場合はレンダラー内で直接呼ばず、返すReactコンポーネント内で使ってください。
 
 ### 任意の追加条件を外部検索へ渡す
 
@@ -282,7 +285,7 @@ const renderSearchResult: ExplorerSearchResultRenderer = ({ hit, defaultContent 
 </>;
 
 <Explorer initialEntries={entries} onSearchRequest={searchMeetings}
-  renderSearchResult={renderSearchResult} search={{ trigger: "submit", resultDetailsHeight: 96 }} />
+  renderSearchResult={renderSearchResult} search={{ trigger: "submit", resultDetailsMaxLines: 3 }} />
 ```
 
 `searchMeetingIndex` は利用側の検索サービスです。返された業務情報は検索時点の表示用スナップショットで、ファイル本体や `ExplorerEntry`、保存データ、未保存判定を更新しません。通常一覧に戻ると表示から消え、次の検索で置き換わります。submit方式では未確定の入力・条件を変更しても、確定済みの結果と補足情報を維持します。
@@ -299,9 +302,13 @@ const renderSearchResult: ExplorerSearchResultRenderer = ({ hit, defaultContent 
 
 標準は `snippet` / `reason` をHTMLとして解釈せず表示します。`metadata` は意味を決めずに渡すJSONオブジェクトで、標準UIは自動展開しません。`Date` はISO形式の文字列に変換してください。取り込み時に複製し、ネストした配列・オブジェクトも読み取り専用に固定します。応答は最大100,000件、抜粋と理由は各10,000 UTF-16文字、metadataは1件100,000 JSON文字、応答全体は5,000,000 JSON文字です。逐次応答の件数と全体サイズは累積で適用します。形式や上限に違反した応答は検索エラーとして扱います。
 
-全表示モードで仮想化の行高を保つため、補足領域は固定の高さと枠内スクロールを使います。`search.resultDetailsHeight` はpx単位で既定72、有限値は24〜480に収め、非数値・非有限値は既定値を使います。標準で補足のある結果が1件以上ある場合、またはレンダラーを指定した場合は、同じ一覧の全行に同じ高さを確保します。`false` を返した行も高さは残ります。IDだけの結果でレンダラーもない場合は従来の行高を使います。
+補足領域は既定で最大1行を表示し、超えた内容を省略記号で短く表示します。枠内に縦スクロールは作りません。`search={{ resultDetailsMaxLines: 5 }}` のように表示行数を変更できます。有限値は整数化して1〜30行に収め、非数値・非有限値は既定の1行を使います。標準の抜粋・理由と `renderSearchResult` の補足領域に共通で適用し、全表示モードで仮想スクロールを維持します。
 
-補足内のダブルクリックはファイルを開かず、通常のテキスト選択に使えます。枠にフォーカスすれば矢印キーでスクロールできます。標準のbutton・a・input・select・textarea等やrole=button/linkのクリック・ドラッグ開始は親行へ伝播させず、枠内のキーボード操作も保持します。それ以外の独自コントロールを置く場合は、親行の選択・開く・ドラッグ処理へ意図せず伝わらないよう、必要なイベントの `stopPropagation()` を利用側で設定してください。例えば操作パネルのラッパーに `onPointerDown`、`onClick`、`onDoubleClick`、`onKeyDown` を設定し、ドラッグを開始させないコントロールでは `onDragStart` で `preventDefault()` と `stopPropagation()` を呼びます。コンテキストメニューの扱いも利用側のコントロールに合わせて選べます。
+上の例では顧客・会議日と抜粋を表示するために3行を指定しています。独自レンダラーも領域の高さ制限を受けますが、省略記号が付くのはテキストの行です。flex/grid、画像やボタンを含む複雑なUIでは、必要な行数を確保するか `resultDetailsHeight` で固定高さを指定してください。内側の配置やテキストの省略方法はレンダラーで調整でき、限られた行数では本文抜粋など優先する情報を先に置けます。
+
+枠内スクロールを使いたい場合は、従来どおり `search={{ resultDetailsHeight: 96 }}` とpx単位の数値を指定します。有限値は24〜480に収め、`resultDetailsMaxLines` より優先します。`resultDetailsHeight` の省略・非数値・非有限値は行数制限の表示になります。数値指定時は、標準で補足のある結果が1件以上ある場合、またはレンダラーを指定した場合に、同じ一覧の全行へ同じ高さを確保します。`false` を返した行も指定の高さは残ります。IDだけの結果でレンダラーもない場合は従来の行高を使います。
+
+補足内のダブルクリックはファイルを開かず、通常のテキスト選択に使えます。高さを数値指定した枠は、フォーカスすれば矢印キーでスクロールできます。標準のbutton・a・input・select・textarea等やrole=button/linkのクリック・ドラッグ開始は親行へ伝播させず、枠内のキーボード操作も保持します。それ以外の独自コントロールを置く場合は、親行の選択・開く・ドラッグ処理へ意図せず伝わらないよう、必要なイベントの `stopPropagation()` を利用側で設定してください。例えば操作パネルのラッパーに `onPointerDown`、`onClick`、`onDoubleClick`、`onKeyDown` を設定し、ドラッグを開始させないコントロールでは `onDragStart` で `preventDefault()` と `stopPropagation()` を呼びます。コンテキストメニューの扱いも利用側のコントロールに合わせて選べます。
 
 従来の `string[]` を返す検索コールバックはそのまま利用できます。利用側が `ExplorerSearchHandler` を直接呼ぶ場合は、Promiseを解決した後に配列・`{ hits, entries }`・AsyncIterableを判別してください。hit配列の正規化には `@likex/explorer/model` の `resolveExplorerSearchIds` / `resolveExplorerSearchHits` を使えます。これらは1つのhit配列を対象とし、entryの追加やストリームの読み込み・バッチをまたぐ重複排除や累積上限の管理は行いません。Explorer本体へハンドラーを渡せば、それらの管理とキャンセルは本体が扱います。
 

@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ChevronLeft, ChevronRight, FileText, Loader2, Maximize, Minus, Plus, Search, X } from "lucide-react";
 import { useSlideTheme } from "../state/use-slide-theme";
-import type { SlidePdfViewerProps } from "./viewer-types";
+import { useExternalSearch } from "../state/use-external-search";
+import { ExternalSearchPanel } from "../ui/external-search-panel";
+import { SearchRail } from "../ui/search-rail";
+import type { PdfExternalSearchTarget, SlidePdfViewerProps } from "./viewer-types";
 import { notifyPdfObserver, usePdfDocument } from "./use-pdf-document";
 import { PdfFilmstrip } from "./pdf-filmstrip";
 import { PdfViewport } from "./pdf-viewport";
@@ -53,7 +56,22 @@ export function LikeSlidePdfViewer({ ref, ...props }: SlidePdfViewerProps) {
     return changed;
   }, [navigate, selectPage]);
   const search = usePdfSearch(props, session, goToPage);
-  const { openSearch, closeSearch } = search;
+  const { openSearch, closeSearch, setExternalMode } = search;
+  const validateExternalTarget = useCallback((target: PdfExternalSearchTarget) => {
+    if (!target || !Number.isSafeInteger(target.pageNumber) || target.pageNumber < 1 || target.pageNumber > (session?.pageCount ?? 0)) return "対象のページは表示中のPDFにありません。";
+    return null;
+  }, [session]);
+  const navigateExternalTarget = useCallback((target: PdfExternalSearchTarget) => {
+    const value = current.current;
+    if (!value.active || value.props.features?.search === false || validateExternalTarget(target) || value.controlled && !value.props.onPageChange) return false;
+    if (target.pageNumber === value.pageNumber) { selectPage(target.pageNumber); return true; }
+    return goToPage(target.pageNumber);
+  }, [goToPage, selectPage, validateExternalTarget]);
+  const externalSearch = useExternalSearch({ options: props.externalSearch, source: props.loadPdf, enabled: props.features?.search !== false,
+    visible: search.open && search.mode === "external" && !search.pageTab, ready: !!session, navigationEnabled: !controlled || !!props.onPageChange,
+    validate: validateExternalTarget, navigate: navigateExternalTarget });
+  const { open: openExternalResults } = externalSearch;
+  const openExternalSearch = useCallback((id?: string) => openExternalResults(id) && setExternalMode(), [openExternalResults, setExternalMode]);
   const selectAndNavigate = useCallback((number: number, options?: { extend?: boolean; toggle?: boolean }) => {
     const changed = navigate(number);
     return selectPage(number, options) || changed;
@@ -65,8 +83,8 @@ export function LikeSlidePdfViewer({ ref, ...props }: SlidePdfViewerProps) {
     if (state.zoom === next) return false;
     state.zoom = next; updateZoom(next); notifyPdfObserver(state.props.onZoomChange, next); return true;
   }, []);
-  useImperativeHandle(ref, () => ({ openSearch, closeSearch, getPageNumber, goToPage, getSelectedPageNumbers, selectPages,
-    getZoom: () => current.current.zoom, setZoom, fitToPage: () => setZoom(100) }), [openSearch, closeSearch, getPageNumber, goToPage, getSelectedPageNumbers, selectPages, setZoom]);
+  useImperativeHandle(ref, () => ({ openSearch, openExternalSearch, closeSearch, getPageNumber, goToPage, getSelectedPageNumbers, selectPages,
+    getZoom: () => current.current.zoom, setZoom, fitToPage: () => setZoom(100) }), [openSearch, openExternalSearch, closeSearch, getPageNumber, goToPage, getSelectedPageNumbers, selectPages, setZoom]);
   const notified = useRef(session);
   useEffect(() => { if (session && session !== notified.current) { notified.current = session; notifyPdfObserver(callbacks.current.onLoad, { pageCount: session.pageCount }); } }, [session]);
   useEffect(() => {
@@ -120,11 +138,24 @@ export function LikeSlidePdfViewer({ ref, ...props }: SlidePdfViewerProps) {
       <span className="lxp-pdf-toolbar-hint">閲覧専用</span>
     </div>}
     <div className="lxp-workspace">
-      {search.open && <PdfSearchPanel search={search} session={session} loadError={loaded?.error} navigationLocked={pageLocked}
-        onClose={() => { closeSearch(); root.current?.focus({ preventScroll: true }); }} />}
-      {session ? <><PdfFilmstrip session={session} pageNumber={pageNumber} selectedPageNumbers={selection.pages}
-        disabled={pageLocked && props.selectedPageNumbers !== undefined && !props.onSelectionChange} selectPage={selectAndNavigate} onError={reportError} />
-        <PdfViewport session={session} pageNumber={pageNumber} zoom={zoom} onError={reportError} /></>
+      {props.externalSearch ? <SearchRail open={search.open} pageTab={search.pageTab} onTab={search.setPageTab}
+        search={<>
+          <div className="lxp-search-mode-pane" hidden={search.mode !== "external"}><ExternalSearchPanel search={externalSearch}
+            visible={search.open && search.mode === "external" && !search.pageTab} focus={search.focus} location={target => `ページ ${target.pageNumber}`}
+            onClose={closeSearch} onLocalSearch={() => openSearch(search.query)} /></div>
+          <div className="lxp-search-mode-pane" hidden={search.mode !== "local"}><PdfSearchPanel search={search} session={session} loadError={loaded?.error}
+            navigationLocked={pageLocked} onClose={closeSearch} onExternalSearch={() => openExternalSearch()} /></div>
+        </>} pages={session && <PdfFilmstrip session={session} pageNumber={pageNumber} selectedPageNumbers={selection.pages}
+          disabled={pageLocked && props.selectedPageNumbers !== undefined && !props.onSelectionChange} selectPage={selectAndNavigate} onError={reportError}
+          searchHitCounts={props.features?.search !== false && externalSearch.validSource ? externalSearch.results.reduce((counts, result) => {
+            if (!validateExternalTarget(result.target)) counts.set(result.target.pageNumber, (counts.get(result.target.pageNumber) ?? 0) + 1); return counts;
+          }, new Map<number, number>()) : undefined} />} /> : <>
+        {search.open && <PdfSearchPanel search={search} session={session} loadError={loaded?.error} navigationLocked={pageLocked}
+          onClose={() => { closeSearch(); root.current?.focus({ preventScroll: true }); }} />}
+        {session && <PdfFilmstrip session={session} pageNumber={pageNumber} selectedPageNumbers={selection.pages}
+          disabled={pageLocked && props.selectedPageNumbers !== undefined && !props.onSelectionChange} selectPage={selectAndNavigate} onError={reportError} />}
+      </>}
+      {session ? <PdfViewport session={session} pageNumber={pageNumber} zoom={zoom} onError={reportError} />
         : <div className="lxp-pdf-placeholder" role={loaded?.error ? "alert" : "status"}>{loaded?.error ? loaded.error.message : <><Loader2 size={26} className="lxp-spin" /><span>PDFを読み込んでいます…</span></>}</div>}
     </div>
     <footer className="lxp-statusbar"><span>ページ {pageNumber} / {pageCount}</span><span>選択 {selection.pages.length} ページ</span>

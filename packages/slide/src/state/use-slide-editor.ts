@@ -1,5 +1,6 @@
 "use client";
-import { createSearchPanelState, isSearchPanelQuery } from "../core";
+import { createSearchPanelState, getInitialSearchMode, isSearchPanelQuery } from "../core";
+import { useExternalSearch } from "./use-external-search";
 import { useSlideRibbon } from "./use-slide-ribbon";
 import { copySlideLine } from "../model/lines";
 import { resolveSlidePageTarget, type SlidePageTarget } from "./slide-page-target";
@@ -8,7 +9,7 @@ import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, u
 import type { SlideCommand, SlideCommandResult, SlideDeck, SlideElement } from "../model/types";
 import { prepareSlideConditionalEdit, applySlideConditionalEdit } from "../model/conditional-edit";
 import type { SlideConditionalEdit, SlideConditionalEditResult } from "../model/conditional-edit";
-import type { SlideEvent, SlideProps, SlideSelection, SlideConditionalEditOptions } from "../props";
+import type { SlideEvent, SlideProps, SlideSelection, SlideConditionalEditOptions, SlideExternalSearchTarget } from "../props";
 import { applySlideCommands, normalizeSlideDeck, parseSlideDeck, serializeSlideDeck, getSlideMasters, getSlideLayouts, getSlideLayout, SLIDE_LIMITS } from "../model/index";
 import { getDeck, getSlides, getSlide, getElements, getElement, getAnimations } from "../model/query";
 import type { SlidePptxImportOptions } from "../import/import-pptx";
@@ -69,11 +70,11 @@ export function useSlideEditor(props: SlideProps) {
   const propsRef = useRef(props);
   useLayoutEffect(() => { propsRef.current = props; });
   const mounted = useRef(true);
-  const [search, setSearch] = useState(() => { const initial = createSearchPanelState(props); return { ...initial, open: props.features?.search !== false && initial.open }; });
+  const [search, setSearch] = useState(() => { const initial = createSearchPanelState(props); return { ...initial, open: props.features?.search !== false && initial.open, mode: getInitialSearchMode(props), pageTab: false }; });
   const [searchMatch, setSearchMatch] = useState<SlideSearchMatch | null>(null);
   const openSearch = useCallback((query?: string) => {
     if (!mounted.current || propsRef.current.features?.search === false || query !== undefined && !isSearchPanelQuery(query)) return false;
-    setSearch(previous => ({ open: true, query: query ?? previous.query, focus: previous.focus + 1 }));
+    setSearch(previous => ({ ...previous, open: true, query: query ?? previous.query, focus: previous.focus + 1, mode: query === undefined ? previous.mode : "local", pageTab: false }));
     return true;
   }, []);
   const closeSearch = useCallback(() => {
@@ -81,7 +82,7 @@ export function useSlideEditor(props: SlideProps) {
     setSearch(previous => ({ ...previous, open: false })); setSearchMatch(null);
   }, []);
   const setSearchQuery = useCallback((query: string) => {
-    setSearch(previous => ({ ...previous, query })); setSearchMatch(null);
+    setSearch(previous => ({ ...previous, query, mode: "local" })); setSearchMatch(null);
   }, []);
   if (props.features?.search === false && search.open) {
     setSearch(previous => ({ ...previous, open: false })); setSearchMatch(null);
@@ -237,6 +238,27 @@ export function useSlideEditor(props: SlideProps) {
       return true;
     } catch { return false; }
   }, [select, session]);
+  const validateExternalTarget = useCallback((target: SlideExternalSearchTarget): string | null => {
+    if (!target || typeof target !== "object" || typeof target.slideId !== "string" || !target.slideId) return "スライドの参照先が正しくありません。";
+    const slide = session.getSnapshot().deck.slides.find(item => item.id === target.slideId);
+    if (!slide) return "対象のスライドは現在の資料にありません。";
+    if (target.elementIds !== undefined && (!Array.isArray(target.elementIds) || target.elementIds.some(id => typeof id !== "string" || !slide.elements.some(element => element.id === id)))) return "対象の要素は現在のスライドにありません。";
+    return null;
+  }, [session]);
+  const navigateExternalTarget = useCallback((target: SlideExternalSearchTarget) => {
+    if (!mounted.current || propsRef.current.features?.search === false || busyRef.current || snapshotPending.current || inputRegistration.current?.pending() || mutations.current.size || validateExternalTarget(target)) return false;
+    setSearchMatch(null); select({ slideId: target.slideId, elementIds: [...(target.elementIds ?? [])] }); return true;
+  }, [select, validateExternalTarget]);
+  const externalSearch = useExternalSearch({ options: props.externalSearch, source: snapshot.deck.id, enabled: features.search,
+    visible: search.open && search.mode === "external" && !search.pageTab, ready: !busy && !requesting && !inputPending,
+    validate: validateExternalTarget, navigate: navigateExternalTarget });
+  const { open: openExternalResults } = externalSearch;
+  const openExternalSearch = useCallback((id?: string) => {
+    if (!openExternalResults(id)) return false;
+    setSearch(previous => ({ ...previous, open: true, mode: "external", pageTab: false, focus: previous.focus + 1 })); setSearchMatch(null);
+    return true;
+  }, [openExternalResults]);
+  const setSearchPageTab = useCallback((pageTab: boolean) => { setSearch(previous => ({ ...previous, pageTab })); }, []);
   useEffect(() => {
     const current = selectionRef.current;
     const slide = snapshot.deck.slides.find(item => item.id === current.slideId)
@@ -651,7 +673,7 @@ export function useSlideEditor(props: SlideProps) {
   }, [execute]);
 
   useImperativeHandle(props.ref, () => ({
-    getRibbonDisplayMode, setRibbonDisplayMode, openSearch, closeSearch,
+    getRibbonDisplayMode, setRibbonDisplayMode, openSearch, openExternalSearch, closeSearch,
     getDeck: options => copy(getDeck(session.getSnapshot().deck, options)),
     getSlides: options => copy(getSlides(session.getSnapshot().deck, options)),
     getSlide: (slideId, options) => copy(getSlide(session.getSnapshot().deck, slideId, options)),
@@ -678,9 +700,9 @@ export function useSlideEditor(props: SlideProps) {
     execute: command => execute(command), executeConditional,
     undo: () => history("undo"), redo: () => history("redo"), save, discard,
     getSelection: () => copy(selectionRef.current), select, deleteSelection, importNative, exportNative, importPptx, importPptxMasters, cancelMasterImport, exportPptx, exportImage, exportImages,
-  }), [getRibbonDisplayMode, setRibbonDisplayMode, openSearch, closeSearch, goToPage, discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
+  }), [getRibbonDisplayMode, setRibbonDisplayMode, openSearch, openExternalSearch, closeSearch, goToPage, discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
 
-  return { ...snapshot, ...ribbon, dirty, selection, select, search, searchMatch, openSearch, closeSearch, setSearchQuery, selectSearchMatch, highlightSearchMatch, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
+  return { ...snapshot, ...ribbon, dirty, selection, select, search, searchMatch, externalSearch, openSearch, openExternalSearch, closeSearch, setSearchPageTab, setSearchQuery, selectSearchMatch, highlightSearchMatch, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
     copyElements, pasteElements, canPasteElements, prepareCommands, registerInputFlush, refreshPendingInput, notice, setNotice, conversionReport, reportError, features, readOnly, busy, requesting,
     editable: !readOnly && !busy && !requesting };
 }

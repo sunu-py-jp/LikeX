@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = await build({ stdin: { contents: `export {default as LikeSlide} from './src/slide'; export {useSlideEditor} from './src/state/use-slide-editor'; export {SlideSearchPanel} from './src/ui/slide-search-panel'; export {SlideCanvas} from './src/ui/slide-canvas'; export * from './src/model';`, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'react', setup(builder) { builder.onResolve({ filter: /^(react|react-dom|lucide-react)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true })); } }] });
-const { LikeSlide, useSlideEditor, SlideSearchPanel, createSlideDeck, createSlideElement } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { LikeSlide, useSlideEditor, SlideSearchPanel, createSlideDeck, createSlideElement, serializeSlideDeck } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const change = callback => act(async () => { await callback(); });
 const fixture = () => createSlideDeck({ slides: ['one', 'two'].map((id, index) => ({ id, name: id, notes: 'Notes needle', background: '#fff',
   elements: [createSlideElement({ type: 'text', id: `text-${id}`, text: index ? 'Needle needle' : 'Sales review' })] })) });
@@ -197,4 +197,82 @@ test('initially closed or disabled slide search retains its initial query and in
     assert.equal(api.openSearch(initialSearchQuery), false);
     assert.equal(app.label('検索する文字列'), undefined);
   }
+});
+
+const externalVisible = node => { for (let item = node; item; item = item.parent) if (item.props.hidden) return false; return true; };
+const externalButton = (app, text) => app.renderer.root.findAll(node => node.type === 'button' && node.children.includes(text) && externalVisible(node))[0];
+const externalRows = app => app.renderer.root.findAll(node => node.type === 'button' && node.props['data-external-result-id'] !== undefined);
+const externalResults = () => [
+  { id: 'rank-first', title: 'External relevance', snippet: 'A summary absent from the slide', target: { slideId: 'two', elementIds: ['text-two'] } },
+  { id: 'rank-second', locationLabel: 'Sales / page one', target: { slideId: 'one' } },
+];
+
+test('external slide results retain rank and selection across all-pages browsing, local search and close', async t => {
+  const selected = [], results = externalResults(), app = await mount(t, { readOnly: true, initialRibbonDisplayMode: 'hidden', initialSearchOpen: true,
+    externalSearch: { results, onResultSelect: result => selected.push(result.id) } }, true), api = app.ref.current;
+  assert.equal(api.getPageNumber(), 2); assert.deepEqual(api.getSelection().elementIds, ['text-two']);
+  const before = api.getDeck();
+  assert.deepEqual(externalRows(app).map(row => row.props['data-external-result-id']), ['rank-first', 'rank-second']);
+  assert.equal(externalVisible(app.label('検索する文字列')), false, 'external mode never runs its summary as a local query');
+  const pages = app.label('スライド一覧');
+  await change(() => externalButton(app, '全ページ').props.onClick());
+  assert.equal(externalVisible(pages), true);
+  await change(() => api.goToPage(1));
+  await change(() => externalButton(app, '検索結果').props.onClick());
+  assert.equal(api.getPageNumber(), 1, 'returning to the list does not steal page position');
+  await change(() => externalButton(app, '選択した結果に戻る').props.onClick()); assert.equal(api.getPageNumber(), 2);
+  await change(() => api.openSearch('Sales')); assert.equal(api.getPageNumber(), 1); assert.equal(externalVisible(app.label('検索する文字列')), true);
+  await change(() => api.openExternalSearch()); assert.equal(api.getPageNumber(), 1, 'switching modes retains the external active result without auto-navigation');
+  await change(() => externalButton(app, '選択した結果に戻る').props.onClick()); assert.equal(api.getPageNumber(), 2);
+  await change(() => api.closeSearch()); await change(() => api.goToPage(1)); await change(() => api.openSearch());
+  assert.equal(externalVisible(app.label('検索する文字列')), false); assert.equal(api.getPageNumber(), 1);
+  assert.deepEqual(api.getDeck(), before); assert.deepEqual(selected, ['rank-first', 'rank-first', 'rank-first']);
+});
+
+test('external slide result IDs survive updates and invalid targets never select another element', async t => {
+  const results = externalResults(), app = await mount(t, { initialSearchOpen: true, externalSearch: { results } }, true), api = app.ref.current;
+  await change(() => assert.equal(api.openExternalSearch('rank-second'), true)); assert.equal(api.getPageNumber(), 1);
+  await app.update({ externalSearch: { results: [...results].reverse(), onResultSelect() { throw Error('observer'); } } });
+  assert.equal(api.getPageNumber(), 1); assert.equal(externalRows(app)[0].props['aria-current'], 'true');
+  await change(() => api.openExternalSearch('rank-first')); assert.equal(api.getPageNumber(), 2);
+  await change(() => api.execute({ type: 'element.delete', slideId: 'two', elementIds: ['text-two'] }));
+  const stale = externalRows(app).find(row => row.props['data-external-result-id'] === 'rank-first'); assert.equal(stale.props.disabled, true);
+  assert.equal(api.openExternalSearch('rank-first'), false); assert.equal(api.openExternalSearch('missing'), false);
+  await change(() => api.openExternalSearch('rank-second')); assert.equal(api.getPageNumber(), 1);
+  await app.update({ features: { search: false } }); assert.equal(api.openExternalSearch(), false);
+  await app.update({ features: { search: true } }); assert.equal(externalVisible(externalRows(app)[0]), false);
+  await app.unmount(); assert.equal(api.openExternalSearch(), false);
+});
+
+test('external slide results are bound to the loaded document and refreshed explicitly for a replacement', async t => {
+  const results = externalResults(), app = await mount(t, { initialSearchOpen: true, externalSearch: { results } }, true), api = app.ref.current;
+  const replacement = createSlideDeck({ ...fixture(), id: 'a-new-document' });
+  await change(() => api.importNative(serializeSlideDeck(replacement)));
+  assert.equal(api.getDeck().id, 'a-new-document');
+  assert.equal(api.openExternalSearch('rank-first'), false, 'matching slide IDs in another document do not reuse old results');
+  await app.update({ externalSearch: { results: [...results] } });
+  assert.equal(api.getPageNumber(), 2);
+});
+
+test('external slide list is bounded, preserves full order and skips malformed or duplicate result IDs', async t => {
+  const results = Array.from({ length: 1200 }, (_, n) => ({ id: String(n), title: `Rank ${n}`, target: { slideId: 'one' } }));
+  const app = await mount(t, { initialSearchOpen: true, externalSearch: { results: [null, ...results, results[0]] } }, true);
+  assert.equal(externalRows(app).length, 200);
+  const more = app.renderer.root.findAll(node => node.type === 'button' && node.children.some(child => typeof child === 'string' && child.startsWith('さらに表示')))[0];
+  await change(() => more.props.onClick()); assert.equal(externalRows(app).length, 400);
+  await change(() => app.ref.current.openExternalSearch('1199'));
+  assert.equal(externalRows(app).at(-1).props['data-external-result-id'], '1199');
+});
+
+
+test('partial external slide results wait for their requested initial result and navigate only once', async t => {
+  const results = externalResults(), selected = [];
+  const externalSearch = { results: [results[1]], initialResultId: 'rank-first', onResultSelect: result => selected.push(result.id) };
+  const app = await mount(t, { initialSearchOpen: true, externalSearch }, true), api = app.ref.current;
+  assert.equal(api.getPageNumber(), 1); assert.deepEqual(selected, []);
+  await app.update({ externalSearch: { ...externalSearch, results } });
+  assert.equal(api.getPageNumber(), 2); assert.deepEqual(selected, ['rank-first']);
+  await change(() => api.goToPage(1));
+  await app.update({ externalSearch: { ...externalSearch, results: [...results] } });
+  assert.equal(api.getPageNumber(), 1); assert.deepEqual(selected, ['rank-first']);
 });

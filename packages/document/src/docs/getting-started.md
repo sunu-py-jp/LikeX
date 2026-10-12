@@ -52,6 +52,7 @@ TypeScriptではReact / React DOMの型定義を導入し、`lib: ["ES2022", "DO
 | --- | --- |
 | `initialDocument` | 初期の `DocumentModel`。省略時は空の文書 |
 | `initialPageNumber` | 初期表示する明示改ページ区切りのページ（1始まり）。省略時は先頭 |
+| `externalSearch` / `initialSearchMode` | 利用側の検索結果と説明を表示。`local`／`external`の初期モードを選択（[外部検索](search.md#外部検索の結果を表示する)） |
 | `initialSearchOpen` / `initialSearchQuery` | 検索欄を最初から表示・検索語を設定。初回のみ。省略時は閉じた状態・空文字（[検索](search.md)） |
 | `title` | UIのタイトル表示 |
 | `colorMode` | `light` / `dark` / `system` |

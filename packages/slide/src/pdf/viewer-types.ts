@@ -1,6 +1,8 @@
 import type { CSSProperties, Ref } from "react";
-import type { SearchPanelHandle, SearchPanelInitialState } from "../core";
+import type { SearchPanelHandle, SearchPanelInitialState, ExternalSearchOptions } from "../core";
 import type { SlidePdfLoader } from "./types";
+
+export type PdfExternalSearchTarget = { pageNumber: number };
 
 export type SlidePdfViewerHandle = SearchPanelHandle & {
   /** One-based page number; 0 until the current PDF has loaded. */
@@ -22,6 +24,7 @@ export type SlidePdfViewerProps = SearchPanelInitialState & {
   /** Keep the loader identity stable until the source PDF changes. The viewer owns and destroys its result. */
   loadPdf: SlidePdfLoader;
   title?: string;
+  externalSearch?: ExternalSearchOptions<PdfExternalSearchTarget>;
   /** Search is available in read-only PDFs and with a hidden toolbar. Default: enabled. */
   features?: { search?: boolean };
   initialPageNumber?: number;

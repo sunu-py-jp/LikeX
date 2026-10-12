@@ -21,6 +21,7 @@ export default function ExplorerSearchDemo() {
   const [mode, setMode] = useState<"names" | "minutes">("names");
   const [filters, setFilters] = useState<MeetingSearchFilters>({ customerName: "", dateFrom: "", dateTo: "" });
   const [incremental, setIncremental] = useState(true);
+  const [resultLines, setResultLines] = useState(1), [standardResults, setStandardResults] = useState(false);
   const entries = mode === "minutes" ? meetingEntries : nameEntries;
   const params = useMemo(() => ({ mode, ...(mode === "minutes" ? { ...filters, incremental } : {}) }), [mode, filters, incremental]);
   const [trace, setTrace] = useState<SearchDemoTrace | null>(null), sequence = useRef(0);
@@ -52,10 +53,16 @@ export default function ExplorerSearchDemo() {
   const render = useCallback<ExplorerSearchRenderer>(context => mode === "minutes" ? <MeetingSearchControl context={context} filters={filters} onFilters={setFilters} incremental={incremental} onIncremental={setIncremental} /> : renderSearch(context), [mode, filters, incremental]);
   const introduction = <><div className="meeting-search-mode" role="group" aria-label="検索サンプルの種類">{([ ["names", "ファイル名"], ["minutes", "議事録の本文"] ] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={mode === value} onClick={() => { setMode(value); setTrace(null); }}>{label}</button>)}</div>
     <p>{mode === "minutes" ? "顧客・会議日・本文のキーワードから議事録を探します。会議日や抜粋は、利用側が定義した結果表示です。" : "右上の検索欄を試してください。名前と一致したファイルが表示されます。"}</p></>;
-  const meetingExamples = mode === "minutes" ? <div className="search-demo-examples meeting-search-guide"><h3>例：9月の料金改定の会議</h3><p>検索欄の「例を入力」で、東雲製作所・9月・料金改定をセットできます。</p><p>「見つかった順に表示」は1件ずつ届く様子を再現します。短い待機はデモ用で、通信は行いません。</p><p>9月12日の会議録は10月3日に更新されています。絞り込みには<strong>会議日</strong>を使います。</p><p>本文キーワードは必須です。空にすると通常のファイル一覧へ戻ります。</p><p>これは業務フィルターと本文検索のデモです。自然言語の依頼を解釈する場合は、利用側の外部検索APIやLLMを接続します。このデモはLLMを呼び出しません。</p></div> : undefined;
+  const meetingExamples = mode === "minutes" ? <div className="search-demo-examples meeting-search-guide"><h3>例：9月の料金改定の会議</h3><p>検索欄の「例を入力」で、東雲製作所・9月・料金改定をセットできます。</p>
+    <p><label>結果の表示行数 <input type="number" aria-label="結果の表示行数" min={1} max={30} step={1} value={resultLines} style={{ width: 64 }} onChange={event => {
+      const value = Number(event.target.value); setResultLines(Number.isFinite(value) ? Math.max(1, Math.min(30, Math.floor(value))) : 1);
+    }} /></label></p>
+    <p><label><input type="checkbox" checked={standardResults} onChange={event => setStandardResults(event.target.checked)} /> 標準の抜粋表示</label></p>
+    <p>行数を増やすと長い抜粋も確認できます。「標準の抜粋表示」を外すと、会議情報を含む独自表示になります。</p>
+    <p>「見つかった順に表示」は1件ずつ届く様子を再現します。短い待機はデモ用で、通信は行いません。</p><p>9月12日の会議録は10月3日に更新されています。絞り込みには<strong>会議日</strong>を使います。</p><p>本文キーワードは必須です。空にすると通常のファイル一覧へ戻ります。</p><p>これは業務フィルターと本文検索のデモです。自然言語の依頼を解釈する場合は、利用側の外部検索APIやLLMを接続します。このデモはLLMを呼び出しません。</p></div> : undefined;
   return <SearchDemoFrame kind="explorer" trigger={trigger} onTrigger={setTrigger} trace={trace} introduction={introduction} examples={meetingExamples}>
     <Explorer key={mode} title={mode === "minutes" ? "顧客との会議議事録" : "名前の検索サンプル"} initialEntries={entries} colorMode="light"
-      search={{ trigger, debounceMs: 180, params, resultDetailsHeight: mode === "minutes" ? 192 : 72 }} renderSearch={render} onSearchRequest={search} renderSearchResult={mode === "minutes" ? renderMeetingSearchResult : undefined}
+      search={{ trigger, debounceMs: 180, params, resultDetailsMaxLines: mode === "minutes" ? resultLines : undefined }} renderSearch={render} onSearchRequest={search} renderSearchResult={mode === "minutes" && !standardResults ? renderMeetingSearchResult : undefined}
       onSave={payload => [...payload.entries]} readFile={async id => new Blob([mode === "minutes" ? meetingSearchFile(id) : entries.find(entry => entry.id === id)?.name ?? "検索サンプル"], { type: "text/plain" })}
       features={{ uploadFiles: false, uploadFolders: false, createFile: false, createFolder: false, favorites: false }}
       view={{ defaultMode: "details" }} style={{ height: "100%", border: 0, borderRadius: 0 }} />

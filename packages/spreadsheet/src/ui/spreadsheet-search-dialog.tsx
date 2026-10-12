@@ -100,6 +100,7 @@ export function SpreadsheetSearchDialog({ controller: c, initialMode, onClose, f
     }}>
       {fields}
     </div>
+    {c.externalSearch && <div className="lxs-search-source"><button type="button" onClick={() => c.openExternalSearch()}>外部検索結果</button></div>}
     {replacing && query.lookIn === "values" && <p className="lxs-search-note">表示値を置換すると、数式のセルも表示結果の文字列・値に置き換わります。</p>}
     {error && <p role="alert">{error}</p>}
     <p role="status">{searching ? "検索中…" : message || (query.text ? `${matches.length}個のセルが一致${selectedIndex >= 0 ? `（${selectedIndex + 1}/${matches.length}）` : ""}` : "検索する文字列を入力してください")}</p>

@@ -259,15 +259,19 @@ test('select all and arrow navigation address the full result set beyond mounted
   assert(list.rows().some(row => row.props['data-explorer-entry-id'] === 'file-9998'));
 });
 
-for (const mode of modes) test(`${mode}: rich search details retain bounded virtualization and final-row reachability`, async t => {
-  const list = await mountList(t, mode, 10000, undefined, { search: { resultDetailsHeight: 96 },
+for (const mode of modes) for (const [label, search, height] of [
+  ['fixed', { resultDetailsHeight: 96 }, 96],
+  ['default one line', {}, 24],
+  ['three lines', { resultDetailsMaxLines: 3 }, 56],
+]) test(`${mode}: ${label} rich search details retain bounded virtualization and final-row reachability`, async t => {
+  const list = await mountList(t, mode, 10000, undefined, { search,
     onSearchRequest: ({ entries }) => entries.map(entry => ({ entryId: entry.id, snippet: 'Matching text', reason: 'Keyword match' })) });
   await change(() => list.controller.setQuery('external'));
   assert(list.rows().length < 160);
   const first = list.rows()[0];
-  const expected = explorerListLayout(10000, mode, false, mode !== 'details', true, viewport, 96);
+  const expected = explorerListLayout(10000, mode, false, mode !== 'details', true, viewport, height);
   assert.equal(first.props.style.height, expected.rowHeight);
-  assert.equal(list.root.findAllByProps({ 'data-explorer-search-result': 'file-0' })[0].props.style.height, 96);
+  assert.equal(list.root.findAllByProps({ 'data-explorer-search-result': 'file-0' })[0].props.style.height, height);
   await list.scrollTo(mode === 'list' ? 0 : 10000000, mode === 'list' ? 10000000 : 0);
   assert(list.rows().some(row => row.props['data-explorer-entry-id'] === 'file-9999'));
   assert(list.rows().length < 170);

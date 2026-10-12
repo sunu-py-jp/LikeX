@@ -75,7 +75,8 @@ import "@likex/slide/styles.css";
 | `onLoad` | 読み込み後に `{ pageCount }` を通知 |
 | `onError` | 読み込み・描画エラーを通知 |
 | `toolbarVisible` | 閲覧操作のツールバーの表示。非表示でも検索API・ショートカットは利用可能 |
-| `initialSearchOpen` / `initialSearchQuery` | 初回マウント時の検索パネル表示と文字列 |
+| `initialSearchOpen` / `initialSearchQuery` / `initialSearchMode` | 初回マウント時の検索表示・文字列・モード |
+| `externalSearch` | 利用側で検索したページの順位・抜粋・移動先 |
 | `features.search` | `false` で検索UI・ショートカット・検索開閉APIを無効化 |
 | `title`, `colorMode`, `primaryColor`, `className`, `style` | LikeSlideと同じ外観設定 |
 | `ref` | `SlidePdfViewerHandle` による表示操作 |
@@ -85,6 +86,35 @@ refの `getPageNumber()` / `goToPage(pageNumber)`、`getZoom()` / `setZoom(zoom)
 通常のファイル閲覧を特定ページから開くには、`<LikeSlidePdfViewer loadPdf={loadPdf} initialPageNumber={3} />` と指定します。表示後も利用側からページを切り替える場合は、冒頭の例の `pageNumber` と `onPageChange` を使います。`initialPageNumber` の更新だけでは同じPDFの表示ページは変わりません。
 
 キーボードのPageUp/PageDown・Home/Endで移動し、Ctrl＋ホイールで拡大縮小できます。左ページ一覧内にフォーカスがあるときは↑／↓で前／次のページを1枚選択して表示し、一覧のスクロールと移動先サムネイルのフォーカスも追従します。Shift＋↑／↓では範囲選択を拡張します。入力欄では矢印を奪わず、ページや選択を外部制御している場合は既存のコールバック契約に従います。縦長・横長のページが混在してもページごとにフィットします。小数ピクセルの表示領域でも収まる寸法で計算し、同じページのサイズ変更中は直前の描画を保持します。ページ変更はPDF原本・編集履歴・未保存状態へ影響しません。
+
+## 外部検索の結果から閲覧する
+
+`externalSearch` は、サーバーや独自のOCR・意味検索で取得した結果を表示する入口です。`PdfExternalSearchTarget` は `{ pageNumber: number }`（1始まり）で、本文の文字取得に未対応の描画専用ローダーでも使えます。スニペットをローカルで再検索せず、指定ページへ移動します。Canvasへの矩形ハイライトは含みません。
+
+```tsx
+<LikeSlidePdfViewer
+  ref={viewerRef}
+  loadPdf={loadPdf}
+  initialSearchOpen
+  externalSearch={{
+    title: "契約書の検索結果",
+    results: [
+      { id: "rank-1", title: "契約期間", snippet: "期間に関する検索エンジンの抜粋…", target: { pageNumber: 3 } },
+      { id: "rank-2", target: { pageNumber: 2 } },
+    ],
+    onResultSelect: result => console.log(result.id),
+  }}
+/>;
+viewerRef.current?.openExternalSearch("rank-2");
+viewerRef.current?.openSearch("売上"); // 文書内検索へ切り替える
+viewerRef.current?.closeSearch();
+```
+
+左の「検索結果／全ページ」で一覧を切り替え、「選択した結果に戻る」で選択済みの結果へ戻れます。一覧・スクロール位置・外部順位は保持し、結果の更新やモードへの復帰だけで現在のページを変更しません。前後ボタンと結果一覧内の上下キーは検索順位に従います。初めは200件を描画し「さらに表示」で増やせます。ページ一覧は既存の仮想スクロールを使い、ヒット件数も表示します。
+
+`initialSearchMode`（`"local" | "external"`）・`initialResultId`・共通の結果型とAPIの詳細は[検索](./search.md)を参照してください。読み込み中でもパネルを開けます。初期結果または指定した結果への移動は現在のPDFの読み込み後に行います。PDFが変わると未処理の旧移動要求を引き継ぎません。不正なページは無効な結果として表示し、別ページへの丸め込みはしません。`pageNumber` を外部制御している場合は通常の `onPageChange` を呼び、実際の表示は親のprops更新に従います。
+
+結果は `loadPdf` の関数IDに結び付けます。PDF切替でローダーを変更した場合は、新しい資料に対応する新しい `results` 配列も指定してください。旧配列のままでは同じページ番号があっても移動しません。`features.search: false` は外部結果・ボタン・ショートカット・APIにも適用されます。閉じるだけでは結果や前回の検索モードを消しません。
 
 ## 検索パネルを開いて表示する
 

@@ -330,6 +330,24 @@ test('IME also defers condition and host filter changes until composition ends',
   assert.equal(calls.length, 2); assert.equal(calls[1].query, '日本'); assert.equal(calls[1].conditions.matchCase, true); assert.deepEqual(calls[1].params, { mode: 'two' });
 });
 
+for (const trigger of ['input', 'submit']) test(`${trigger}: default search shows only the simple input without advanced controls`, async t => {
+  const hook = await mount(t, { search: { trigger } }, true);
+  const input = () => hook.root.findByProps({ role: 'searchbox' });
+  const assertSimple = () => {
+    assert.equal(hook.root.findAllByProps({ 'aria-label': '検索オプション' }).length, 0);
+    assert.equal(hook.root.findAllByProps({ 'aria-label': '検索条件' }).length, 0);
+    assert.doesNotMatch(textOf(hook.root), /大文字と小文字を区別|ファイル名全体に一致|正規表現を使用/);
+  };
+  assertSimple();
+  await change(() => input().props.onChange({ target: { value: 'lPh' } }));
+  if (trigger === 'submit') await change(() => input().props.onKeyDown(enter()));
+  assert.deepEqual(ids(hook.current), ['alpha'], 'default name search stays case-insensitive and partial');
+  await change(() => hook.root.findByProps({ 'aria-label': '検索をクリア' }).props.onClick());
+  assert.equal(hook.current.query, '');
+  await hook.update({ renderSearch: () => null }); assertSimple();
+  await hook.update({ renderSearch: () => undefined }); assertSimple();
+});
+
 test('custom search UI can reuse or replace standard controls and reacts to a new renderer', async t => {
   let context;
   const hook = await mount(t, { renderSearch: value => { context = value; return h('div', { 'data-custom-search': true }, value.defaultInput, value.defaultOptions, h('output', {}, value.conditions.useRegex ? value.query : 'literal')); } }, true);
@@ -449,7 +467,7 @@ test('result slot observes committed hits and query, selection and renderer chan
   assert.equal(rich.query, 'confirmed'); assert.equal(rich.entry.path, '/Alpha.txt'); assert.deepEqual(plain.hit, { entryId: 'nested' });
   await change(() => { hook.current.setQuery('draft'); hook.current.setSearchConditions({ matchCase: true }); });
   await hook.update({ search: { trigger: 'submit', params: { customer: 'Two' } } });
-  assert.equal(calls.length, 1); assert.equal(textOf(hook.root.findByProps({ 'data-result-custom': 'alpha' })), 'confirmedreasonOne');
+  assert.equal(calls.length, 1); assert.equal(textOf(hook.root.findByProps({ 'data-result-custom': 'alpha' })), 'confirmed · reasonOne');
   await change(() => hook.current.setSelected(['alpha']));
   assert.equal(contexts.filter(context => context.entry.id === 'alpha').at(-1).selected, true);
   assert.equal(contexts.filter(context => context.entry.id === 'alpha').at(-1).query, 'confirmed');
@@ -457,7 +475,7 @@ test('result slot observes committed hits and query, selection and renderer chan
   assert.equal(textOf(hook.root.findByProps({ 'data-explorer-search-result': 'alpha' })), ''); assert.equal(calls.length, 1);
   assert.equal(hook.root.findByProps({ 'data-explorer-search-result': 'alpha' }).props.tabIndex, undefined);
   await hook.update({ renderSearchResult: () => null });
-  assert.equal(textOf(hook.root.findByProps({ 'data-explorer-search-result': 'alpha' })), 'confirmedreason');
+  assert.equal(textOf(hook.root.findByProps({ 'data-explorer-search-result': 'alpha' })), 'confirmed · reason');
   await change(() => hook.current.submitSearch());
   assert.equal(calls.length, 2); assert.equal(hook.current.searchResultHits[0].metadata.customer, 'Two');
   await change(() => hook.current.clearSearch());
@@ -472,11 +490,33 @@ test('ID-only search preserves compact rows without a renderer and clamps custom
   const hook = await mount(t, { view: { defaultMode: 'list' }, onSearchRequest: () => ['alpha'] }, true);
   await change(() => hook.current.setQuery('alpha'));
   assert.equal(hook.root.findAllByProps({ 'data-explorer-search-result': 'alpha' }).length, 0);
-  for (const [requested, expected] of [[-1, 24], [999, 480], [NaN, 72], [Infinity, 72]]) {
+  for (const [requested, expected] of [[-1, 24], [999, 480], [NaN, 24], [Infinity, 24]]) {
     await hook.update({ renderSearchResult: ({ defaultContent }) => defaultContent, search: { resultDetailsHeight: requested } });
     assert.equal(hook.root.findByProps({ 'data-explorer-search-result': 'alpha' }).props.style.height, expected);
   }
 });
+
+for (const mode of ['details', 'list', 'small', 'medium', 'large', 'extra-large', 'tiles', 'content']) {
+  test(`${mode}: search supplements default to one line without inner scrolling and accept a line limit`, async t => {
+    const hook = await mount(t, { view: { defaultMode: mode },
+      onSearchRequest: () => [{ entryId: 'alpha', snippet: 'Long excerpt\n'.repeat(20), reason: 'Match reason' }] }, true);
+    await change(() => hook.current.setQuery('external'));
+    const region = () => hook.root.findByProps({ 'data-explorer-search-result': 'alpha' });
+    assert.equal(region().props.style.height, 24);
+    assert.match(region().props.className, /lxe:overflow-hidden/);
+    assert.doesNotMatch(region().props.className, /lxe:overflow-auto/);
+    assert.equal(region().findByProps({ 'data-explorer-result-lines': 1 }).props.style.WebkitLineClamp, 1);
+    for (const [requested, expected] of [[3, 3], [5, 5], [2.9, 2], [0, 1], [-3, 1], [100, 30], [NaN, 1], [Infinity, 1]]) {
+      await hook.update({ search: { resultDetailsMaxLines: requested } });
+      assert.equal(region().props.style.height, expected * 16 + 8);
+      assert.equal(region().findByProps({ 'data-explorer-result-lines': expected }).props.style.WebkitLineClamp, expected);
+    }
+    await hook.update({ search: { resultDetailsMaxLines: 3, resultDetailsHeight: 96 } });
+    assert.equal(region().props.style.height, 96);
+    assert.match(region().props.className, /lxe:overflow-auto/);
+    assert.equal(region().findAll(node => node.props['data-explorer-result-lines']).length, 0);
+  });
+}
 
 
 test('result supplement preserves native text selection and isolates custom controls from row events', async t => {

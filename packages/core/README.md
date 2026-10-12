@@ -12,6 +12,8 @@ LikeXコンポーネントの保存・編集許可・通知・機能設定に使
 
 `RibbonDisplayMode` はSpreadsheet・LikeSlide・LikeDocument共通の表示契約（`expanded` / `tabs` / `autoHide` / `hidden`）です。`isRibbonDisplayMode(value)` は値を検証し、`normalizeRibbonDisplayMode(value)` は未指定・不正値を `expanded` に揃えます。文書データやOfficeファイルへ保存せず、表示中の状態は各UIのpropsとHandleで管理します。
 
+`ExternalSearchOptions<TTarget>` / `ExternalSearchResult<TTarget>` はSpreadsheet・LikeSlide・LikeDocument・PDFの外部検索結果の共通契約です。結果は安定した `id` と資料固有の `target`、任意の `title` / `snippet` / `locationLabel` を持ち、渡された順番で表示します。検索・ランキング・結果の更新は利用側が担当します。`initialSearchOpen` / `initialSearchMode` と `openExternalSearch(resultId?)` で表示でき、`openSearch(query)` は通常検索へ切り替えます。表示を閉じても結果は保持し、編集・保存データには含めません。
+
 `serializeStableJson(value, { maxLength?, compareKeys?, space? })` は、オブジェクトのキーを全階層でUTF-16昇順に揃え、配列順を保ってJSON文字列を返します。`@likex/core/json` からも読み込めます。`space` は0〜10の整数で、既定の0はコンパクト、2は2スペースのインデントです。書式上の改行はLF、BOM・末尾改行は追加せず、文字列の内容も変えません。`compareKeys(left, right, path)` でドメイン固有のキー順を指定でき、0または非有限の戻り値はUTF-16順になります。`path` は対象オブジェクトまでのキー・配列添字です。`maxLength` は正の整数のUTF-16文字数（インデントを含む）で、上限超過は全体文字列の生成前に `RangeError` になります。循環参照、非有限数、BigInt、関数、Symbolの値・キー、Date等の通常のJSONでない値は拒否します。`undefined` はオブジェクト内なら省略し、配列内なら `null`、ルートならエラーです。LikeXの保存用ルールであり、RFC 8785への完全準拠は表明していません。
 
 ```ts

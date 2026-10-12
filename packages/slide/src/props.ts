@@ -1,5 +1,5 @@
 import type { CSSProperties, Ref } from "react";
-import type { MaybePromise, OperationContext, SaveHandler, RibbonDisplayMode, SearchPanelHandle, SearchPanelInitialState } from "./core";
+import type { MaybePromise, OperationContext, SaveHandler, RibbonDisplayMode, SearchPanelHandle, SearchPanelInitialState, ExternalSearchOptions } from "./core";
 import type { Slide, SlideElement, SlideCommand, SlideCommandResult, SlideDeck, SlideMaster, SlideLayout } from "./model/types";
 import type { SlideAnimationStep, SlideQueryOptions } from "./model";
 import type { SlideConditionalEdit, SlideConditionalEditResult, SlideMutationSnapshot, SlideMutationToken } from "./model";
@@ -10,6 +10,8 @@ import type { SlideImageResult } from "./render/types";
 import type { SlidePptxDiagnostic } from "./office/types";
 import type { SlidePageTarget } from "./state/slide-page-target";
 export type { SlidePageTarget } from "./state/slide-page-target";
+
+export type SlideExternalSearchTarget = { slideId: string; elementIds?: readonly string[] };
 
 export type SlideRibbonDisplayMode = RibbonDisplayMode;
 
@@ -83,6 +85,8 @@ export type SlideHandle = SearchPanelHandle & {
 export type SlideProps = SearchPanelInitialState & {
   ref?: Ref<SlideHandle>;
   initialDeck?: SlideDeck;
+  /** Host-ranked results for this deck; list text is not run as a local search. */
+  externalSearch?: ExternalSearchOptions<SlideExternalSearchTarget>;
   /** One-based initial page, read once at mount. Invalid targets show a notice and use page one. */
   initialPageNumber?: number;
   /** Stable initial page ID. If both selectors are set they must identify the same page. */

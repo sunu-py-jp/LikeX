@@ -22,3 +22,6 @@ const result = searchDocument(document,
 検索後に文書が変わった場合、前の位置は再利用せず新しいモデルで検索する。検索条件や結果をDCON・DOCXの保存項目へ追加しない。
 
 ホストUIにはホームの検索ボタンとCtrl/Cmd+Fの検索パネルがある。`ref.openSearch(query?)` / `closeSearch()`（省略時は検索語を保持、空文字でクリア） は表示専用で、読み取り専用・リボン完全非表示でも利用できる。`features.search: false` はUIだけを無効にする。単一文字列と大文字小文字の条件で検索し、一致箇所を選択・強調する。CLIや保存用コマンドへ検索パネル操作を追加しない。 初期表示は`initialSearchOpen`／`initialSearchQuery`を指定し、どちらもマウント時に一度だけ読む。初期検索語だけでは開かず、`features.search: false`が優先する。
+
+
+ホストは`externalSearch: { title?, results: [{ id, title?, snippet?, locationLabel?, target: { blockId, canvasShapeId?, textFrom?, textTo?, expectedText? } }], initialResultId?, onResultSelect? }`で外部検索結果を渡せる。本文への移動は安定したブロックIDと任意のブロック内UTF-16範囲を使い、印刷ページ番号は使わない。`expectedText`は検索時の対象全文で、古い結果を誤った本文へ適用しないために使う。検索し直すときは新しい結果オブジェクトを渡す。同じIDでも更新できるが、同じオブジェクトを配列に入れ直すだけでは古い本文の検証を解除しない。`openExternalSearch(id?)`は表示専用。検索結果／見出し、外部検索／文書内検索を切り替え、選択した結果へ戻れる。検索結果はホストが返した順序で表示し、文字列検索や置換の一致とは扱わない。DCON・DOCX・CLIコマンドの変更はない。

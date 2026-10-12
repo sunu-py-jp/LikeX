@@ -289,3 +289,18 @@
 .lxp-search-snippet mark { background:#ffe58a; color:#292000; }
 .lxp-search-highlight { position:absolute; border:3px solid #e5a000; background:#ffd54f20; pointer-events:none; z-index:3; }
 @container likex-slide (max-width:960px) { .lxp-search-panel { position:absolute; z-index:11; left:0; top:0; bottom:0; box-shadow:4px 0 10px #0002; } .lxp-workspace { position:relative; } }
+
+/* External search keeps ranked results and all-page navigation in the same rail. */
+[data-likex-slide] .lxp-search-rail { width: 280px; flex: 0 0 280px; min-height: 0; display: flex; flex-direction: column; background: var(--lxp-panel); border-right: 1px solid var(--lxp-border); }
+[data-likex-slide] .lxp-search-rail.is-closed { width: 220px; flex-basis: 220px; }
+[data-likex-slide] .lxp-search-tabs { display: flex; flex: none; border-bottom: 1px solid var(--lxp-border); }
+[data-likex-slide] .lxp-search-tabs button { flex: 1; border: 0; border-bottom: 2px solid transparent; padding: 10px 6px; background: transparent; color: inherit; cursor: pointer; }
+[data-likex-slide] .lxp-search-tabs button[aria-selected="true"] { color: var(--lxp-primary); border-bottom-color: var(--lxp-primary); font-weight: 600; }
+[data-likex-slide] .lxp-search-rail-pane, [data-likex-slide] .lxp-search-mode-pane { display: flex; flex: 1; min-width: 0; min-height: 0; }
+[data-likex-slide] .lxp-search-rail-pane[hidden], [data-likex-slide] .lxp-search-mode-pane[hidden], [data-likex-slide] .lxp-search-tabs[hidden] { display: none !important; }
+[data-likex-slide] .lxp-search-rail .lxp-search-panel, [data-likex-slide] .lxp-search-rail .lxp-filmstrip { position: static; flex: 1; width: 100%; max-width: none; border-right: 0; box-shadow: none; }
+[data-likex-slide] .lxp-search-mode { border: 0; background: transparent; padding: 5px 0; text-align: left; color: var(--lxp-primary); cursor: pointer; }
+[data-likex-slide] .lxp-search-mode:disabled { opacity: .5; cursor: default; }
+[data-likex-slide] .lxp-search-hit-badge { flex: none; margin-left: 6px; padding: 1px 5px; border-radius: 8px; font-size: 10px; color: var(--lxp-primary); background: var(--lxp-selection); white-space: nowrap; }
+
+[data-likex-slide] .lxp-external-search-results:focus { outline: none; }

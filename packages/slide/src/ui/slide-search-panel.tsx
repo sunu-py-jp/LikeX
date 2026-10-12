@@ -18,6 +18,7 @@ export function SlideSearchPanel({ editor, onClose }: { editor: SlideEditor; onC
   const id = useId(), input = useRef<HTMLInputElement>(null), active = useRef<HTMLButtonElement>(null);
   const [matchCase, setMatchCase] = useState(false);
   const { query, focus } = editor.search;
+  const visible = editor.search.open && editor.search.mode === "local" && !editor.search.pageTab;
   const deck = editor.deck, select = editor.selectSearchMatch, highlight = editor.highlightSearchMatch;
   const lastIntent = useRef("");
   const result = useMemo(() => {
@@ -34,8 +35,9 @@ export function SlideSearchPanel({ editor, onClose }: { editor: SlideEditor; onC
   const exact = result.hits.findIndex(hit => sameField(hit) && hit.from === previous?.from);
   const retained = exact >= 0 ? exact : result.hits.findIndex(sameField);
   const index = navigation.result === result && navigation.intent === intent ? navigation.index : retained >= 0 ? retained : result.hits.length ? 0 : -1;
-  useEffect(() => { input.current?.focus(); input.current?.select(); }, [focus]);
+  useEffect(() => { if (visible) { input.current?.focus(); input.current?.select(); } }, [visible, focus]);
   useEffect(() => {
+    if (!visible) return;
     if (lastIntent.current !== intent) {
       // A pending input may delay this request, but content changes after a
       // completed search never move the user's current page or selection.
@@ -43,8 +45,8 @@ export function SlideSearchPanel({ editor, onClose }: { editor: SlideEditor; onC
       return;
     }
     highlight(result.hits[index]?.field ?? null, deck);
-  }, [result, deck, select, highlight, intent, index, editor.busy, editor.requesting, editor.dirty]);
-  useEffect(() => { active.current?.scrollIntoView?.({ block: "nearest" }); }, [index]);
+  }, [visible, result, deck, select, highlight, intent, index, editor.busy, editor.requesting, editor.dirty]);
+  useEffect(() => { if (visible) active.current?.scrollIntoView?.({ block: "nearest" }); }, [visible, index]);
   const navigate = (next: number) => {
     if (!result.hits.length) return;
     const target = (next + result.hits.length) % result.hits.length;
@@ -58,6 +60,7 @@ export function SlideSearchPanel({ editor, onClose }: { editor: SlideEditor; onC
   }}>
     <div className="lxp-search-heading"><h2 id={`${id}-heading`}>検索</h2><button type="button" aria-label="検索を閉じる" onClick={onClose}><X size={17} /></button></div>
     <div className="lxp-search-controls">
+      {editor.externalSearch.available && <button type="button" className="lxp-search-mode" onClick={() => editor.openExternalSearch()}>外部検索結果</button>}
       <div className="lxp-search-input"><Search size={16} aria-hidden="true" /><input ref={input} type="text" aria-label="検索する文字列" placeholder="スライド内を検索" maxLength={4096} value={query}
         onChange={event => editor.setSearchQuery(event.target.value)} onKeyDown={event => {
           if (event.key === "Enter" && !event.nativeEvent.isComposing && event.keyCode !== 229 && !blocked) { event.preventDefault(); navigate(index + (event.shiftKey ? -1 : 1)); }
