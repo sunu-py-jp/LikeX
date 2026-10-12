@@ -10,7 +10,7 @@ const output = await build({ stdin: { contents: `
   export * from './packages/spreadsheet/src/model/function-definitions.ts';
   export { exportSpreadsheetXlsx } from './packages/spreadsheet/src/export/export-xlsx.ts';
 `, resolveDir: root },
-alias: { '@likex/spreadsheet': `${root}/packages/spreadsheet/src/model/index.ts` },
+alias: { '@likex/spreadsheet/model': `${root}/packages/spreadsheet/src/model-entry.ts` },
 bundle: true, platform: 'node', format: 'esm', write: false });
 const { createDemoWorkbook, normalizeWorkbook, calculateWorkbook, SPREADSHEET_SHAPES,
   SUPPORTED_SPREADSHEET_FUNCTIONS, exportSpreadsheetXlsx } = await import(
