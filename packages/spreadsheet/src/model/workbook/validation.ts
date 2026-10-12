@@ -26,8 +26,8 @@ export function normalizeSizes(input: Readonly<Record<number, number>> | undefin
   const result: Record<number, number> = {};
   for (const [key, value] of Object.entries(input)) {
     const index = Number(key);
-    if (!Number.isInteger(index) || index < 0 || index >= count || !Number.isFinite(value) || value < (row ? 16 : 24) || value > 1000)
-      fail("行列のサイズが範囲外です");
+    if (!Number.isInteger(index) || index < 0 || index >= count || !Number.isFinite(value) || value < 1 || value > 1000)
+      fail(`${row ? "行の高さ" : "列の幅"}は1〜1000pxで指定してください`);
     result[index] = value;
   }
   return Object.freeze(result);

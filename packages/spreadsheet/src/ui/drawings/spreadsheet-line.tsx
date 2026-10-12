@@ -34,7 +34,7 @@ export function SpreadsheetLineDrawing({ drawing, sheet, controller: c, geometry
       <polyline points={vertices} fill="none" strokeLinejoin="round" stroke={drawing.stroke} strokeWidth={drawing.strokeWidth} strokeLinecap="round"
         markerStart={startArrow !== "none" ? `url(#${marker}-start)` : undefined} markerEnd={endArrow !== "none" ? `url(#${marker}-end)` : undefined} />
       <polyline data-lxs-line-hit="true" points={vertices} fill="none" strokeLinejoin="round" stroke="transparent" strokeLinecap="round" strokeWidth={Math.max(12 / (c.zoom / 100), drawing.strokeWidth)} style={{ pointerEvents: "stroke", cursor: c.disabled ? "default" : "move" }} />
-      {!!drawing.text && <text x={labelPoint.x} y={labelPoint.y} textAnchor="middle" fill={drawing.color ?? "#1f2937"} fontSize={drawing.fontSize ?? 16} fontWeight={drawing.bold ? "bold" : undefined}>{drawing.text}</text>}
+      {!!drawing.text && <text x={labelPoint.x} y={labelPoint.y} textAnchor="middle" fill={drawing.color ?? "#1f2937"} fontSize={drawing.fontSize ?? 16} fontWeight={drawing.bold ? "bold" : undefined} fontFamily={drawing.fontFamily} fontStyle={drawing.italic ? "italic" : undefined} textDecoration={drawing.underline ? "underline" : undefined}>{drawing.text}</text>}
       {drag && drag.kind !== "move" && targets.filter(target => target.id === drag.nearbyTarget).flatMap(target => getConnectorPortPoints(target.box, target.outline).map(({ port, point }) => {
         const p = display(point), attached = points[drag.kind as "start" | "end"].binding;
         return <circle key={`${target.id}:${port}`} data-lxs-connection-port={`${target.id}:${port}`} cx={p.x} cy={p.y} r={attached?.targetId === target.id && attached.port === port ? 5 : 3}

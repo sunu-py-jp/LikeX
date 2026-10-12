@@ -72,7 +72,7 @@ test('formatting merges known properties without losing values and bounds column
   assert.equal(next.sheets[0].cells.A1.value, '12'); assert.equal(next.sheets[0].cells.B2.value, '');
   assert.equal(formatCells(next, first(wb), ['A1'], { italic: true }), next);
   assert.equal(resizeColumn(wb, first(wb), 0, 100), wb);
-  assert.equal(resizeColumn(wb, first(wb), 0, 1).sheets[0].columnWidths[0], 24);
+  assert.equal(resizeColumn(wb, first(wb), 0, 1).sheets[0].columnWidths[0], 1);
   assert.equal(resizeColumn(wb, first(wb), 0, 2000).sheets[0].columnWidths[0], 1000);
   assert.throws(() => formatCells(wb, first(wb), ['A1'], { background: 'red;position:fixed' }));
 });

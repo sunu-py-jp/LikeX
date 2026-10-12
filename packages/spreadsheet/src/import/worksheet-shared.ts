@@ -30,6 +30,6 @@ export function worksheetDefaultSizes(node: XmlNode) {
   // Excel/XlsxWriter omit both attributes for their ordinary 64px columns.
   const column = storedWidth !== undefined ? xlsxColumnWidthToPixels(width) : baseWidth !== undefined ? xlsxBaseColumnWidthToPixels(width) : 64;
   if (!Number.isFinite(row) || row < 0 || !Number.isFinite(column) || column < 0) throw new Error("Excelの標準の行高・列幅が不正です");
-  const rowSize = Math.min(1000, Math.max(16, row)), columnSize = Math.min(1000, Math.max(24, column));
+  const rowSize = Math.min(1000, Math.max(1, row)), columnSize = Math.min(1000, Math.max(1, column));
   return { row: rowSize, column: columnSize, adjusted: row !== rowSize || column !== columnSize };
 }

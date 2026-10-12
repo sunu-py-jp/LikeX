@@ -1,3 +1,5 @@
+import { pickDrawingTextStyle } from "../../model/drawing-text";
+import type { SpreadsheetDrawingTextStyle } from "../../model/types";
 import { normalizeDrawings } from "../../model/annotations";
 import { normalizeResources } from "../../model/image-resources";
 import { getShapeDefinition, shapeBodyFrame } from "../../model/shapes";
@@ -123,16 +125,17 @@ function shape(drawing: Extract<SpreadsheetDrawing, { type: "shape" }>, id: numb
 }
 
 /** DrawingML uses one text body inside either a native shape or a text box. */
-function drawingTextBody(text: string, style: { fontSize?: number; color?: string; bold?: boolean; rotation?: number; flipY?: boolean }, alignment: "center" | "top-left") {
-  const centered = alignment === "center";
-  const properties = `sz="${Math.max(100, Math.round((style.fontSize ?? 16) * 75))}" b="${style.bold ? 1 : 0}"`;
-  const paragraphs = text.split(/\r\n|\r|\n/).map(line => `<a:p><a:pPr algn="${centered ? "ctr" : "l"}"><a:lnSpc><a:spcPct val="140000"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft></a:pPr><a:r><a:rPr ${properties}>${fill(style.color ?? "currentColor", "000000")}<a:latin typeface="Segoe UI"/><a:ea typeface="Noto Sans JP"/></a:rPr><a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr ${properties}/></a:p>`).join("");
-  // Upright ignores all rotation, including bodyPr.rot. Preserve old flip-only behavior,
-  // but let rotated text follow the frame. DrawingML keeps letters unmirrored yet flipV
-  // adds a half turn; cancel it (also for short lines' effective flips).
-  // Cross-checked against Apache POI REL_5_4_1 DrawTextShape.drawContent.
+function drawingTextBody(text: string, style: SpreadsheetDrawingTextStyle & { fontSize?: number; color?: string; bold?: boolean; rotation?: number; flipY?: boolean }, alignment: "center" | "top-left") {
+  const centered = alignment === "center", insets = style.textInsets ?? { left: 8, top: 8, right: 8, bottom: 8 };
+  const properties = `sz="${Math.max(100, Math.round((style.fontSize ?? 16) * 75))}" b="${style.bold ? 1 : 0}"${style.italic === undefined ? "" : ` i="${style.italic ? 1 : 0}"`}${style.underline === undefined ? "" : ` u="${style.underline ? "sng" : "none"}"`}`;
+  const align = ({ left: "l", center: "ctr", right: "r" } as const)[style.textAlign ?? (centered ? "center" : "left")];
+  const font = style.fontFamily ? `<a:latin typeface="${xml(style.fontFamily)}"/><a:ea typeface="${xml(style.fontFamily)}"/>` : '<a:latin typeface="Segoe UI"/><a:ea typeface="Noto Sans JP"/>';
+  const paragraphs = text.split(/\r\n|\r|\n/).map(line => `<a:p><a:pPr algn="${align}"><a:lnSpc><a:spcPct val="${Math.round((style.textLineHeight ?? 1.4) * 100000)}"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft></a:pPr><a:r><a:rPr ${properties}>${fill(style.color ?? "currentColor", "000000")}${font}</a:rPr><a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr ${properties}/></a:p>`).join("");
+  // Text follows rotated frames while a vertical reflection keeps letters readable.
   const textRotation = style.rotation && style.flipY ? ' rot="10800000"' : "";
-  return `<xdr:txBody><a:bodyPr wrap="square" lIns="${emu(8)}" tIns="${emu(8)}" rIns="${emu(8)}" bIns="${emu(8)}" anchor="${centered ? "ctr" : "t"}" upright="${style.rotation ? 0 : 1}"${textRotation} vertOverflow="clip" horzOverflow="clip"><a:noAutofit/></a:bodyPr><a:lstStyle/>${paragraphs}</xdr:txBody>`;
+  const anchor = ({ top: "t", middle: "ctr", bottom: "b" } as const)[style.textVerticalAlign ?? (centered ? "middle" : "top")];
+  const autoFit = style.textAutoFit === "shrink" ? `<a:normAutofit${style.textFontScale === undefined ? "" : ` fontScale="${Math.round(style.textFontScale * 100000)}"`}/>` : style.textAutoFit === "resize" ? "<a:spAutoFit/>" : "<a:noAutofit/>";
+  return `<xdr:txBody><a:bodyPr wrap="${style.textWrap === "none" ? "none" : "square"}" lIns="${emu(insets.left)}" tIns="${emu(insets.top)}" rIns="${emu(insets.right)}" bIns="${emu(insets.bottom)}" anchor="${anchor}" upright="${style.rotation ? 0 : 1}"${textRotation} vertOverflow="${style.textVerticalOverflow ?? "clip"}" horzOverflow="${style.textOverflow ?? "clip"}">${autoFit}</a:bodyPr><a:lstStyle/>${paragraphs}</xdr:txBody>`;
 }
 
 function textBox(drawing: Extract<SpreadsheetDrawing, { type: "text" }>, id: number, rectangle: Rectangle, connected = false) {
@@ -208,7 +211,7 @@ export async function prepareWorksheetDrawings(sheet: SpreadsheetSheet, inputRes
       const labelPoint = spreadsheetLineRouteMidpoint(getSpreadsheetLineRoute({ ...sheet, drawings }, drawing.id).points);
       const labelFrame = { x: Math.max(0, labelPoint.x - width / 2), y: Math.max(0, labelPoint.y - height / 2), width, height };
       const label: Extract<SpreadsheetDrawing, { type: "text" }> = { id: `${drawing.id}-label`, type: "text", anchor: drawing.anchor, width, height,
-        text: drawing.text, fontSize: drawing.fontSize ?? 16, color: drawing.color ?? "#1f2937", bold: drawing.bold, background: "transparent" };
+        ...pickDrawingTextStyle(drawing), text: drawing.text, fontSize: drawing.fontSize ?? 16, color: drawing.color ?? "#1f2937", bold: drawing.bold, background: "transparent" };
       const labelXml = anchored(labelFrame, textBox(label, drawings.length + index + 1, labelFrame), grid);
       characters += labelXml.length;
       if (characters > SPREADSHEET_LIMITS.serializedCharacters || anchors.length + drawings.length - index > SPREADSHEET_LIMITS.drawings)

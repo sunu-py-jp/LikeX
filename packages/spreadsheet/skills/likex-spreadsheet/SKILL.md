@@ -42,6 +42,8 @@ node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input 
 
 処理フローなどの接続線は `lines.insert` / `lines.update` の始点・終点で編集する。先に図形を作ってIDを取得し、同シートの対象IDと8方向の `binding.port` で接続する。矩形の幅・高さ・回転で線を編集しない。両端矢印は `startArrow` / `endArrow` で個別設定する。フロー図を直角の線で結ぶ場合は `routing: "elbow"` を指定し、途中の曲がり角は自動計算に任せる。直線は `routing: "straight"` または新規作成時の省略。詳しくは[直線・接続線](references/commands.md#直線接続線)を参照する。
 
+図形・テキストボックスの文字レイアウトは共通の `SpreadsheetDrawingTextStyle` を使い、`shapes.insert` / `textBoxes.insert` へ直接、更新コマンドの `patch` へ指定する。`fontFamily`・装飾・`textInsets`・折り返し・配置・はみ出し・行間・縮小指定はSPONとXLSXで保持する。狭い注記枠の全文を表示する場合は、必要に応じてゼロ余白と `textWrap: "none"`, `textOverflow: "overflow"` を指定し、文字列を短縮して再現しない。既存属性の省略時は8px余白・折り返し・切り取りの従来設定を維持する。`textAutoFit: "resize"` は文字領域だけを拡張し、図形外形は保存サイズのまま。混在する文字書式は取り込み時に先頭へ統一され、再出力で元の混在書式は復元しない。[文字レイアウトのコマンド](references/commands.md#文字レイアウト)と[保存属性](references/schema-guide.md#描画の文字レイアウト)を確認する。
+
 対象IDと変更内容が揃った編集は、複数シートのセル入力・書式・罫線・行列操作でも1つの配列にまとめて `apply` する。必要範囲の取得 → 一括編集 → 対象範囲の確認を基本にする。新しいシートは `sheets.add` で発行されたIDを取得し、その後の編集をまとめて次の呼び出しで実行する。
 
 表示中のブックへ逐次反映するホストでは、計画前の `getMutationSnapshot()` を `batchAsync(commands, { expected })` へ渡して条件付き更新する。`PRECONDITION_FAILED` は最新の内容を再取得して計画し直す。単に期待値を新しくして同じ編集を再送しない。参照した別セルから固定値を作る場合は `expected.scope: "workbook"` を使う。CLIの `apply` は `--expected before.spon` でブック全体を照合でき、`--expected-scope targets` でコマンドの依存項目だけに絞れる。UIのセッショントークンや共有ストレージの排他は利用側で管理する。[条件付き更新のAPI](references/commands.md#条件付き更新)を参照する。
@@ -94,6 +96,8 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 全フィールドは [SPON JSON Schema](references/spon.schema.json)、全コマンドの引数は [commands JSON Schema](references/commands.schema.json) にある。公開APIを直接使うコードでは `@likex/spreadsheet/model` をimportする。CLIはローカルファイルの作成・変更を行い、アプリの保存処理や表示中の下書きを自動更新しない。
 
 XLSXとの変換を明示的に求められた場合は、`/model` の `importSpreadsheetXlsx`／`exportSpreadsheetXlsx` を使える。NodeではPNG／通常のJPEGはそのまま出力でき、WebP／GIFやEXIFの補正が必要な画像は `SpreadsheetXlsxExportOptions.rasterizeImage`（`SpreadsheetImageRasterizer`）を注入する。[Excel出力ガイド](../../src/docs/excel-export.md)で対応範囲と画像変換を確認する。CLIの `create/apply/inspect/validate` はネイティブSPON操作のまま使う。 取り込み時の数値書式 `formatCode` は4,096文字まで。不正な引用符・角括弧・末尾エスケープや上限超過は、値・数式などを保持し、その数値書式だけを標準表示へ変更して `adjusted` を返す。取り込み結果の警告を確認する。
+
+XLSXでは、シート上限外の値・数式を持たない空セルとその書式、上限外の名前付き範囲、1セルだけの結合指定を警告付きで省略する。結合範囲の左上以外に値・数式がある場合は内容を保持してその結合だけを解除する。不正な参照や重複、範囲外の値・数式、安全な処理上限の超過は拒否する。警告を確認して採用し、未対応メタデータの完全な往復は期待しない。行高・列幅は1〜1,000pxを保持する。
 
 シートの右クリックによる名前変更は `sheets.rename`、描画の複製は `copySpreadsheetDrawing` と `drawings.paste`、反転・回転リセットは描画型の更新コマンドと同じ操作です。保存形式の追加はありません。GUIの対象と機能制御は [右クリックメニュー](../../src/docs/context-menu.md) を参照してください。
 

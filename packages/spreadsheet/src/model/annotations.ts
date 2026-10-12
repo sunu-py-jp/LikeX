@@ -1,10 +1,11 @@
+import { normalizeDrawingTextStyle, drawingTextStylesEqual } from "./drawing-text";
 import { isConnectorArrowhead } from "./core-connectors";
 import { cellAddress, parseCellAddress } from "./address";
 import { validateObjectId } from "./image-resources";
 import { isSpreadsheetShapeKind } from "./shapes";
 import { normalizeDrawingRotation } from "./drawing-transform";
 import { isSpreadsheetLine, normalizeStoredLine, validateLineBindings } from "./lines";
-import { SPREADSHEET_LIMITS, type SpreadsheetComment, type SpreadsheetDrawing, type SpreadsheetSheet, type SpreadsheetTextDrawing, type SpreadsheetWorkbook } from "./types";
+import { SPREADSHEET_LIMITS, type SpreadsheetComment, type SpreadsheetDrawing, type SpreadsheetSheet, type SpreadsheetTextDrawing, type SpreadsheetWorkbook, type SpreadsheetDrawingTextStyle } from "./types";
 
 const fail = (message: string): never => { throw new Error(message); };
 function text(value: string, limit: number, label: string): string {
@@ -22,9 +23,9 @@ function color(value: string): string {
     return fail("描画オブジェクトの色が正しくありません");
   return value;
 }
-function drawingText(input: Pick<SpreadsheetTextDrawing, "text" | "fontSize" | "color" | "bold">, label: string) {
+function drawingText(input: Pick<SpreadsheetTextDrawing, "text" | "fontSize" | "color" | "bold"> & SpreadsheetDrawingTextStyle, label: string) {
   if (input.bold !== undefined && typeof input.bold !== "boolean") return fail(`${label}の書式が正しくありません`);
-  return { text: text(input.text, SPREADSHEET_LIMITS.drawingTextLength, label),
+  return { ...normalizeDrawingTextStyle(input), text: text(input.text, SPREADSHEET_LIMITS.drawingTextLength, label),
     fontSize: number(input.fontSize, 1, 400), color: color(input.color),
     ...(input.bold !== undefined ? { bold: input.bold } : {}) };
 }
@@ -50,7 +51,7 @@ export function normalizeDrawing(input: SpreadsheetDrawing, sheet: Pick<Spreadsh
   }
   if (input.type === "shape") {
     if (!isSpreadsheetShapeKind(input.shape)) return fail("図形の種類が正しくありません");
-    const content = drawingText({ text: input.text === undefined ? "" : input.text,
+    const content = drawingText({ ...input, text: input.text === undefined ? "" : input.text,
       fontSize: input.fontSize === undefined ? 16 : input.fontSize,
       color: input.color === undefined ? "#1f2937" : input.color, bold: input.bold }, "図形のテキスト");
     if (input.line && !isSpreadsheetLine(input)) return fail("始点・終点を持てるのは直線と矢印付き直線だけです");
@@ -59,7 +60,7 @@ export function normalizeDrawing(input: SpreadsheetDrawing, sheet: Pick<Spreadsh
       return fail("線の経路は2つの端点を持つ線へstraightまたはelbowを指定してください");
     for (const key of ["startArrow", "endArrow"] as const)
       if (input[key] !== undefined && (!isSpreadsheetLine(input) || !isConnectorArrowhead(input[key]))) return fail("線の矢印の種類が正しくありません");
-    return Object.freeze({ ...common, type: "shape", shape: input.shape, fill: color(input.fill), stroke: color(input.stroke),
+    return Object.freeze({ ...common, ...normalizeDrawingTextStyle(input), type: "shape", shape: input.shape, fill: color(input.fill), stroke: color(input.stroke),
       strokeWidth: number(input.strokeWidth, 0, 100),
       ...(input.startArrow !== undefined ? { startArrow: input.startArrow } : {}), ...(input.endArrow !== undefined ? { endArrow: input.endArrow } : {}),
       ...(input.routing === "elbow" ? { routing: "elbow" as const } : {}),
@@ -121,6 +122,7 @@ export function drawingsEqual(left: SpreadsheetDrawing, right: SpreadsheetDrawin
     left.anchor.row !== right.anchor.row || left.anchor.column !== right.anchor.column ||
     left.anchor.offsetX !== right.anchor.offsetX || left.anchor.offsetY !== right.anchor.offsetY) return false;
   if (left.type === "image" && right.type === "image") return left.resourceId === right.resourceId && left.alt === right.alt;
+  if (left.type !== "image" && right.type !== "image" && !drawingTextStylesEqual(left, right)) return false;
   if (left.type === "shape" && right.type === "shape") return left.shape === right.shape && left.fill === right.fill && left.stroke === right.stroke &&
     left.startArrow === right.startArrow && left.endArrow === right.endArrow && JSON.stringify(left.line) === JSON.stringify(right.line) &&
     left.routing === right.routing && left.strokeWidth === right.strokeWidth && (left.text ?? "") === (right.text ?? "") && (left.fontSize ?? 16) === (right.fontSize ?? 16) &&

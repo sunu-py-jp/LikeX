@@ -12,6 +12,7 @@ import { readXlsxStyles } from "./styles";
 import { importRange, readWorksheet, richText } from "./worksheet";
 import { readWorksheetExtras } from "./sheet-extras";
 import { worksheetDefaultSizes } from "./worksheet-shared";
+import { isExcelRangeOutsideModel } from "./worksheet-address";
 import { XLSX_IMPORT_LIMITS, type ImportContext, type SpreadsheetExcelImportInput, type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult, type SpreadsheetExcelImportWarning } from "./types";
 
 const workbookType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml";
@@ -90,10 +91,11 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
     sheetIds.add(sheetId);
     if (sheetNode.attributes.state && sheetNode.attributes.state !== "visible") context.warn({ code: "adjusted", message: "非表示のシートを表示状態で読み込みました", sheetName: name });
     const root = parseXml(await archive.read(relation.target));
+    // Count source cells as well as retained cells so omitted empty metadata cannot bypass the import budget.
+    cells += children(child(root, "sheetData"), "row").reduce((count, row) => count + children(row, "c").length, 0);
+    if (cells > SPREADSHEET_LIMITS.cells) return fail("ブック全体のセル数が100,000件を超えています");
     const sheet = await readWorksheet(root, `xlsx-sheet-${index + 1}`, name, shared, styles, date1904, context);
     worksheetParts.push({ root, path: relation.target });
-    cells += Object.keys(sheet.cells).length;
-    if (cells > SPREADSHEET_LIMITS.cells) return fail("ブック全体のセル数が100,000件を超えています");
     sheets.push(sheet);
     await new Promise<void>(resolve => setTimeout(resolve, 0));
   }
@@ -126,6 +128,7 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
     if (cells > SPREADSHEET_LIMITS.cells) return fail("ブック全体のセル数が100,000件を超えています");
   }
   const namedRanges: SpreadsheetNamedRange[] = [], names = new Set<string>();
+  let sourceNamedRanges = 0;
   for (const node of definitions) {
     const name = spreadsheetText(node.attributes.name ?? ""), value = textContent(node);
     const match = /^(?:'((?:[^']|'')+)'|([^'!]+))!(\$?[A-Z]+\$?[1-9]\d*(?::\$?[A-Z]+\$?[1-9]\d*)?)$/i.exec(value);
@@ -136,8 +139,13 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
     const sheetIndex = sheets.findIndex(sheet => sheet.name.toLocaleLowerCase("en-US") === sheetName?.toLocaleLowerCase("en-US"));
     const key = name.toLocaleLowerCase("en-US");
     if (!valid || sheetIndex < 0 || names.has(key)) { context.warn({ code: "omitted", message: "シート固有・計算式・予約名など未対応の名前定義を省略しました" }); continue; }
+    // Budget recognized source definitions before omission, including their individual diagnostic messages.
+    if (++sourceNamedRanges > SPREADSHEET_LIMITS.namedRanges) return fail("名前付き範囲の件数が上限を超えています");
+    if (isExcelRangeOutsideModel(match![3])) {
+      context.warn({ code: "omitted", sheetName: sheets[sheetIndex].name, message: `シート上限外の名前付き範囲「${name}」を省略しました（セルの値は保持）` });
+      continue;
+    }
     const range = importRange(match![3]);
-    if (namedRanges.length >= SPREADSHEET_LIMITS.namedRanges) return fail("名前付き範囲の件数が上限を超えています");
     names.add(key);
     const previous = sheets[sheetIndex], rowCount = Math.max(previous.rowCount, range.bottom + 1), columnCount = Math.max(previous.columnCount, range.right + 1);
     const rowHeights = { ...previous.rowHeights }, columnWidths = { ...previous.columnWidths }, defaults = worksheetDefaultSizes(worksheetParts[sheetIndex].root);

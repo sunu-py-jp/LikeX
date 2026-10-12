@@ -53,7 +53,30 @@ type SpreadsheetDrawingBase = {
   rotation?: number;
 };
 export type SpreadsheetImageDrawing = SpreadsheetDrawingBase & { type: "image"; resourceId: string; alt: string };
-export type SpreadsheetShapeDrawing = SpreadsheetDrawingBase & {
+/** Optional drawing text properties; omitted fields retain the original LikeX defaults. */
+export type SpreadsheetDrawingTextStyle = {
+  fontFamily?: string; italic?: boolean; underline?: boolean;
+  /** Insets in CSS pixels. Defaults to 8px on each side for native LikeX objects. */
+  textInsets?: Readonly<{ left: number; top: number; right: number; bottom: number }>;
+  textWrap?: "wrap" | "none";
+  textOverflow?: "clip" | "overflow";
+  textVerticalOverflow?: "clip" | "overflow";
+  textAlign?: "left" | "center" | "right";
+  textVerticalAlign?: "top" | "middle" | "bottom";
+  /** shrink fits text to the frame; resize allows the text area to grow vertically. */
+  textAutoFit?: "none" | "shrink" | "resize";
+  /** Saved DrawingML font scale, used before browser measurements are available.
+   * @minimum 0.01
+   * @maximum 1
+   */
+  textFontScale?: number;
+  /** Line height as a font-size multiple.
+   * @minimum 0.1
+   * @maximum 10
+   */
+  textLineHeight?: number;
+};
+export type SpreadsheetShapeDrawing = SpreadsheetDrawingBase & SpreadsheetDrawingTextStyle & {
   type: "shape"; shape: SpreadsheetShapeKind; fill: string; stroke: string;
   /** @minimum 0
    * @maximum 100
@@ -72,7 +95,7 @@ export type SpreadsheetShapeDrawing = SpreadsheetDrawingBase & {
    */
   fontSize?: number; color?: string; bold?: boolean;
 };
-export type SpreadsheetTextDrawing = SpreadsheetDrawingBase & {
+export type SpreadsheetTextDrawing = SpreadsheetDrawingBase & SpreadsheetDrawingTextStyle & {
   type: "text"; text: string;
   /** @minimum 1
    * @maximum 400
@@ -81,7 +104,7 @@ export type SpreadsheetTextDrawing = SpreadsheetDrawingBase & {
 };
 export type SpreadsheetDrawing = SpreadsheetImageDrawing | SpreadsheetShapeDrawing | SpreadsheetTextDrawing;
 /** Identity and drawing type are stable; an anchor update supplies all four coordinates. */
-export type SpreadsheetDrawingPatch = Partial<Omit<SpreadsheetDrawingBase, "id"> & {
+export type SpreadsheetDrawingPatch = Partial<Omit<SpreadsheetDrawingBase, "id"> & SpreadsheetDrawingTextStyle & {
   resourceId: string; alt: string; shape: SpreadsheetShapeDrawing["shape"]; fill: string; stroke: string;
   /** @minimum 0
    * @maximum 100

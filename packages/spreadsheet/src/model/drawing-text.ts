@@ -1,0 +1,30 @@
+import type { SpreadsheetDrawingTextStyle } from "./types";
+
+/** Shared by command validation, snapshots and normalization. */
+export const DRAWING_TEXT_STYLE_KEYS = ["fontFamily", "italic", "underline", "textInsets", "textWrap", "textOverflow", "textVerticalOverflow",
+  "textAlign", "textVerticalAlign", "textAutoFit", "textFontScale", "textLineHeight"] as const;
+export function pickDrawingTextStyle(input: SpreadsheetDrawingTextStyle): SpreadsheetDrawingTextStyle {
+  return Object.fromEntries(DRAWING_TEXT_STYLE_KEYS.filter(key => input[key] !== undefined).map(key => [key, input[key]]));
+}
+export function normalizeDrawingTextStyle(input: SpreadsheetDrawingTextStyle): SpreadsheetDrawingTextStyle {
+  const result = pickDrawingTextStyle(input);
+  const fail = (): never => { throw new Error("描画オブジェクトの文字レイアウトが正しくありません"); };
+  if (input.fontFamily !== undefined && (typeof input.fontFamily !== "string" || !input.fontFamily.trim() || input.fontFamily.length > 100 || /[;{}<>\u0000-\u001f]/.test(input.fontFamily))) fail();
+  for (const key of ["italic", "underline"] as const) if (input[key] !== undefined && typeof input[key] !== "boolean") fail();
+  const choices = { textWrap: ["wrap", "none"], textOverflow: ["clip", "overflow"], textVerticalOverflow: ["clip", "overflow"],
+    textAlign: ["left", "center", "right"], textVerticalAlign: ["top", "middle", "bottom"], textAutoFit: ["none", "shrink", "resize"] };
+  for (const key of Object.keys(choices) as (keyof typeof choices)[]) if (input[key] !== undefined && !choices[key].includes(input[key]!)) fail();
+  for (const [key, min, max] of [["textFontScale", 0.01, 1], ["textLineHeight", 0.1, 10]] as const)
+    if (input[key] !== undefined && (!Number.isFinite(input[key]) || input[key]! < min || input[key]! > max)) fail();
+  if (input.textInsets !== undefined) {
+    const value = input.textInsets, keys = ["left", "top", "right", "bottom"] as const;
+    if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some(key => !(keys as readonly string[]).includes(key)) ||
+      keys.some(key => !Number.isFinite(value[key]) || value[key] < 0 || value[key] > 10_000)) fail();
+    result.textInsets = Object.freeze({ left: value.left, top: value.top, right: value.right, bottom: value.bottom });
+  }
+  return result;
+}
+export function drawingTextStylesEqual(left: SpreadsheetDrawingTextStyle, right: SpreadsheetDrawingTextStyle): boolean {
+  return DRAWING_TEXT_STYLE_KEYS.every(key => key === "textInsets" ? ["left", "top", "right", "bottom"].every(edge =>
+    left.textInsets?.[edge as keyof NonNullable<SpreadsheetDrawingTextStyle["textInsets"]>] === right.textInsets?.[edge as keyof NonNullable<SpreadsheetDrawingTextStyle["textInsets"]>]) : left[key] === right[key]);
+}

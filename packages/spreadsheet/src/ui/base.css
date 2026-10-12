@@ -117,9 +117,9 @@
 .lxs-line-drawing [data-lxs-line-hit] { touch-action: none; }
 .lxs-drawing img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 .lxs-shape { display: block; pointer-events: none; }
-.lxs-text-box { width: 100%; height: 100%; padding: 8px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
-.lxs-shape-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 8px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; text-align: center; line-height: 1.4; pointer-events: none; }
-.lxs-shape-text > span { min-width: 0; max-width: 100%; max-height: 100%; overflow: hidden; }
+.lxs-text-box { display: flex; flex-direction: column; width: 100%; height: 100%; }
+.lxs-shape-text { position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; }
+.lxs-text-box > span, .lxs-shape-text > span { display: block; flex: none; width: 100%; min-width: 0; }
 .lxs-image-missing { display: flex; height: 100%; align-items: center; justify-content: center; background: var(--lxs-panel); color: var(--lxs-muted); font-size: 12px; }
 .lxs-root .lxs-drawing-resize { position: absolute; width: 10px; height: 10px; border: 1px solid var(--lxs-background); background: var(--lxs-accent); cursor: nwse-resize; touch-action: none; }
 .lxs-root .lxs-drawing-rotate { position: absolute; left: 50%; top: -31px; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 1px solid var(--lxs-accent); border-radius: 50%; color: var(--lxs-accent); background: var(--lxs-background); cursor: grab; touch-action: none; }

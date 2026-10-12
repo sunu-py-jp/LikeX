@@ -55,6 +55,17 @@ export async function readXlsxStyles(relationships: ReadonlyMap<string, XlsxRela
       const color = child(scheme, key)?.children[0], value = color?.attributes.lastClr ?? color?.attributes.val;
       return value && /^[a-f0-9]{6}$/i.test(value) ? `#${value.toUpperCase()}` : defaultTheme[index];
     });
+    const fonts = child(child(root, "themeElements"), "fontScheme");
+    const resolved: Record<string, string> = {};
+    for (const [name, prefix] of [["majorFont", "+mj"], ["minorFont", "+mn"]] as const) {
+      const font = child(fonts, name), japanese = children(font, "font").find(item => item.attributes.script === "Jpan")?.attributes.typeface;
+      const latin = child(font, "latin")?.attributes.typeface, eastAsian = child(font, "ea")?.attributes.typeface || japanese;
+      if (latin) resolved[`${prefix}-lt`] = latin;
+      if (eastAsian) resolved[`${prefix}-ea`] = eastAsian;
+      const complex = child(font, "cs")?.attributes.typeface;
+      if (complex) resolved[`${prefix}-cs`] = complex;
+    }
+    context.themeFonts = resolved;
   }
   const relation = [...relationships.values()].find(item => item.type.endsWith("/styles") && !item.external);
   if (!relation) return [undefined];

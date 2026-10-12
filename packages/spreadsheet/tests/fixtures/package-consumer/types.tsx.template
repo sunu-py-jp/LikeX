@@ -4,7 +4,7 @@ import Spreadsheet, {
   type SpreadsheetWorkbook, type SpreadsheetSheet, type SpreadsheetCell,
   type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps, type SpreadsheetCellGridWriteOptions,
   type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSelectionRange, type SpreadsheetSaveHandler,
-  type SpreadsheetDrawing, type SpreadsheetMergedRange,
+  type SpreadsheetDrawing, type SpreadsheetDrawingTextStyle, type SpreadsheetMergedRange,
   type SpreadsheetImportNativeOptions, type SpreadsheetNativeExportOptions, type SpreadsheetNativeImportResult, SPREADSHEET_FORMAT,
   SPREADSHEET_FILE_VERSION, type SpreadsheetFile, type SpreadsheetFileRow,
   prepareSpreadsheetImage, type SpreadsheetHandle, type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot,
@@ -101,7 +101,9 @@ function rejectMutation(next: SpreadsheetWorkbook, selection: SpreadsheetSelecti
 void [cell, format, position, calculated, asyncSave, notifySave, editable, readOnly, empty,
   numericCell, unsupported, invalidSave, invalidFormat, rejectMutation, stringifyTsv(parseTsv("a\tb"))];
 
-const drawing: SpreadsheetDrawing = { id: "note", type: "text", text: "JSONメモ", fontSize: 16,
+const drawingTextStyle: SpreadsheetDrawingTextStyle = { fontFamily: "MS Pゴシック", textInsets: { left: 0, top: 0, right: 0, bottom: 0 },
+  textWrap: "none", textOverflow: "overflow", textVerticalOverflow: "overflow", textAutoFit: "none", textAlign: "left", textVerticalAlign: "top" };
+const drawing: SpreadsheetDrawing = { id: "note", type: "text", text: "JSONメモ", fontSize: 16, ...drawingTextStyle,
   color: "#333333", background: "transparent", anchor: { row: 1, column: 1, offsetX: 0, offsetY: 0 }, width: 200, height: 100 };
 const annotated = setCellComment(addDrawing(populated, sheet.id, drawing), sheet.id, "A1", { id: "comment", text: "確認済み" });
 const serialized: string = serializeWorkbook(annotated);

@@ -1,3 +1,4 @@
+import { DRAWING_TEXT_STYLE_KEYS, pickDrawingTextStyle } from "../model/drawing-text";
 import type { SpreadsheetCommand, SpreadsheetCommandAnchor } from "./types";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { addDrawing, deleteDrawing, insertImage, updateDrawing } from "../model/workbook";
@@ -62,7 +63,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       if (!isSpreadsheetShapeKind(command.shape)) return rejectCommand("INVALID_COMMAND", "図形の種類が正しくありません");
       const anchor = drawingAnchor(command.anchor), drawingId = nextId();
       const line = getShapeDefinition(command.shape).geometry.type === "line";
-      return receipt(addDrawing(workbook, sheet.id, { id: drawingId, type: "shape", shape: command.shape, anchor,
+      return receipt(addDrawing(workbook, sheet.id, { ...pickDrawingTextStyle(command), id: drawingId, type: "shape", shape: command.shape, anchor,
         width: command.width ?? 160, height: command.height ?? (line ? 72 : 100), flipX: command.flipX, flipY: command.flipY, rotation: command.rotation,
         fill: command.fill ?? (line ? "transparent" : "#e8f3ec"), stroke: command.stroke ?? "#217346", strokeWidth: command.strokeWidth ?? 2,
         ...(command.text !== undefined ? { text: command.text } : {}), ...(command.fontSize !== undefined ? { fontSize: command.fontSize } : {}),
@@ -71,7 +72,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
     case "textBoxes.insert": {
       requireCommandFeature(features, "textBoxes");
       const anchor = drawingAnchor(command.anchor), drawingId = nextId();
-      return receipt(addDrawing(workbook, sheet.id, { id: drawingId, type: "text", anchor,
+      return receipt(addDrawing(workbook, sheet.id, { ...pickDrawingTextStyle(command), id: drawingId, type: "text", anchor,
         text: command.text ?? "テキスト", width: command.width ?? 200, height: command.height ?? 80,
         flipX: command.flipX, flipY: command.flipY, rotation: command.rotation,
         fontSize: command.fontSize ?? 16, color: command.color ?? "currentColor", background: command.background ?? "transparent",
@@ -90,7 +91,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       const patch = commandRecord(command.patch, "更新内容");
       const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape" ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "startArrow", "endArrow", "routing"]
         : ["text", "fontSize", "color", "background", "bold"];
-      commandKeys(patch, ["anchor", "width", "height", "flipX", "flipY", "rotation", ...specific], "更新内容");
+      commandKeys(patch, ["anchor", "width", "height", "flipX", "flipY", "rotation", ...specific, ...(drawing.type === "image" ? [] : DRAWING_TEXT_STYLE_KEYS)], "更新内容");
       if (drawing.type === "shape" && Object.hasOwn(patch, "shape") && !isSpreadsheetShapeKind(patch.shape))
         return rejectCommand("INVALID_COMMAND", "図形の種類が正しくありません");
       for (const key of ["flipX", "flipY"] as const)

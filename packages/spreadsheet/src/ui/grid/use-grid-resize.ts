@@ -11,7 +11,7 @@ export function useGridResize(c: SpreadsheetController, axis: "row" | "column") 
   const update = (session: Session | null) => { sessionRef.current = session; setResizing(session); };
   const scale = (c.zoom ?? 100) / 100;
   const eligible = (session: Session) => !c.disabled && !c.requesting && c.features.resize && c.getWorkbook() === session.workbook && c.activeSheet.id === session.sheetId && session.scale === scale;
-  const clamp = (size: number) => Math.min(1000, Math.max(axis === "row" ? 16 : 24, size));
+  const clamp = (size: number) => Math.min(1000, Math.max(1, size));
   const resize = (sheetId: string, index: number, value: number) => c.executeCommand(axis === "row" ? { type: "rows.resize", sheetId, row: index, height: value } : { type: "columns.resize", sheetId, column: index, width: value });
   const handlers = (index: number, size: number): HTMLAttributes<HTMLSpanElement> => ({
     onDoubleClick: event => {

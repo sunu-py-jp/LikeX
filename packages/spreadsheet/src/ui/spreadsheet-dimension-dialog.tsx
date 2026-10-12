@@ -20,7 +20,7 @@ export function SpreadsheetDimensionDialog({controller: c, target, onClose}: {
     return String(row ? sheet.rowHeights?.[indices[0]] ?? DEFAULT_ROW_HEIGHT : sheet.columnWidths?.[indices[0]] ?? DEFAULT_COLUMN_WIDTH);
   });
   const action = useSpreadsheetDialogCommand(c, target.revision);
-  const size = Number(value), valid = value.trim() !== "" && Number.isFinite(size) && size >= (row ? 16 : 24) && size <= 1000;
+  const size = Number(value), valid = value.trim() !== "" && Number.isFinite(size) && size >= 1 && size <= 1000;
   return <SpreadsheetDialog title={title} onClose={onClose} actions={<>
     <button type="button" onClick={onClose}>キャンセル</button>
     <button type="button" disabled={action.disabled || !valid} onClick={() => {
@@ -29,7 +29,7 @@ export function SpreadsheetDimensionDialog({controller: c, target, onClose}: {
       void action.run({type: "dimensions.resize", sheetId: target.sheetId, ...(row ? {rowHeights: dimensions} : {columnWidths: dimensions})}, onClose);
     }}>適用</button>
   </>}>
-    <label>{title}（px）<input type="number" min={row ? 16 : 24} max={1000} value={value} disabled={action.disabled}
+    <label>{title}（px）<input type="number" min={1} max={1000} value={value} disabled={action.disabled}
       onChange={event => setValue(event.target.value)} /></label>
     {action.error && <p role="alert">{action.error}</p>}
   </SpreadsheetDialog>;

@@ -1,3 +1,4 @@
+import { DRAWING_TEXT_STYLE_KEYS } from "../drawing-text";
 import type { SpreadsheetFeatures } from "../../api/features";
 import { resolveSpreadsheetFeatures } from "../../api/resolve-features";
 import { validateSpreadsheetFeatures } from "../../api/validate-features";
@@ -29,7 +30,7 @@ export function normalizeDrawingPastePayload(input: SpreadsheetDrawingPastePaylo
   const common = ["id", "type", "anchor", "width", "height", "flipX", "flipY", "rotation"];
   const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape"
     ? ["shape", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "line", "startArrow", "endArrow", "routing"] : ["text", "fontSize", "color", "background", "bold"];
-  if (Object.keys(drawing).some(key => !common.includes(key) && !specific.includes(key)) || !drawing.anchor ||
+  if (Object.keys(drawing).some(key => !common.includes(key) && !specific.includes(key) && !(drawing.type !== "image" && (DRAWING_TEXT_STYLE_KEYS as readonly string[]).includes(key))) || !drawing.anchor ||
     Object.keys(drawing.anchor).some(key => !["row", "column", "offsetX", "offsetY"].includes(key)))
     throw new Error("図形のコピー内容に未対応のプロパティがあります");
   const resource = drawing.type === "image" ? normalizeImageResource(input.resource!) : undefined;

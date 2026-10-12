@@ -14,7 +14,7 @@ import { setSheetCellValues } from "./cells";
 export function resizeColumn(workbook: SpreadsheetWorkbook, sheetId: string, column: number, width: number): SpreadsheetWorkbook {
   const sheet = getWorkbookSheet(workbook, sheetId);
   if (!Number.isInteger(column) || column < 0 || column >= sheet.columnCount || !Number.isFinite(width)) return fail("列の位置または幅が正しくありません");
-  const value = Math.min(1000, Math.max(24, Math.round(width)));
+  const value = Math.min(1000, Math.max(1, Math.round(width)));
   if ((sheet.columnWidths?.[column] ?? DEFAULT_COLUMN_WIDTH) === value) return workbook;
   return replaceWorkbookSheet(workbook, { ...sheet, columnWidths: Object.freeze({ ...sheet.columnWidths, [column]: value }) });
 }

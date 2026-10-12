@@ -171,8 +171,8 @@
 | `type` | 引数 |
 | --- | --- |
 | `images.insert` | `sheetId`, `resource: SpreadsheetImageResource`, `anchor`, `width?`, `height?`, `alt?`, `flipX?`, `flipY?`, `rotation?` |
-| `shapes.insert` | `sheetId`, `shape`, `anchor`, `width?`, `height?`, `flipX?`, `flipY?`, `rotation?`, `fill?`, `stroke?`, `strokeWidth?`, `text?`, `fontSize?`, `color?`, `bold?` |
-| `textBoxes.insert` | `sheetId`, `anchor`, `text?`, `width?`, `height?`, `fontSize?`, `color?`, `background?`, `bold?`, `flipX?`, `flipY?`, `rotation?` |
+| `shapes.insert` | `sheetId`, `shape`, `anchor`, `width?`, `height?`, `flipX?`, `flipY?`, `rotation?`, `fill?`, `stroke?`, `strokeWidth?`, `text?`, `fontSize?`, `color?`, `bold?`、下記の共通文字レイアウト属性 |
+| `textBoxes.insert` | `sheetId`, `anchor`, `text?`, `width?`, `height?`, `fontSize?`, `color?`, `background?`, `bold?`, `flipX?`, `flipY?`, `rotation?`、下記の共通文字レイアウト属性 |
 | `images.update` / `shapes.update` / `textBoxes.update` | `sheetId`, `drawingId`, `patch`。対応する描画型のフィールドのみ |
 | `drawings.paste` | `sheetId`, `payload: { drawing, resource? }`, `anchor?` |
 | `drawings.delete` | `sheetId`, `drawingId` |
@@ -191,6 +191,27 @@
 更新patchでは `id` / `type` を変えない。アンカーを指定する場合は `row` / `column` が必要で、オフセット省略は0になる。`images.update.patch.resourceId` はブック内の既存画像リソースを参照する。画像bytesを入れ替える `src` フィールドはない。
 
 `drawings.paste` は描画1つを新しいIDで複製する。公開API `copySpreadsheetDrawing(workbook, sheetId, drawingId)` が検証済みpayloadを返す。画像ではresourceも必須。anchorを省略すると元の行列に置き、元のオフセットへ16pxずつ加える。画像は同じID・内容のリソースが貼り付け先にあれば共有し、なければ新しいresourceIdを生成する。
+
+### 文字レイアウト
+
+`shapes.insert` / `textBoxes.insert` は `fontFamily?`, `italic?`, `underline?`, `textInsets?`, `textWrap?`, `textOverflow?`, `textVerticalOverflow?`, `textAlign?`, `textVerticalAlign?`, `textAutoFit?`, `textFontScale?`, `textLineHeight?` をコマンドの直下へ指定できる。`shapes.update` / `textBoxes.update` では同じ属性を `patch` に置く。省略した更新属性は維持し、文字だけのGUI編集・コピー・Undo/Redoでも落とさない。属性の値域と省略時は[保存構造](schema-guide.md#描画の文字レイアウト)を参照する。
+
+次は既存の注記をゼロ余白・折り返しなし・はみ出し表示へ変更する。`drawingId` は事前にinspectしたテキストボックスのIDへ置き換える。
+
+```json
+[
+  {
+    "type": "textBoxes.update", "sheetId": "sales", "drawingId": "inspected-textbox-id",
+    "patch": {
+      "fontFamily": "ＭＳ Ｐゴシック", "color": "#ff0000",
+      "textInsets": { "left": 0, "top": 0, "right": 0, "bottom": 0 },
+      "textWrap": "none", "textOverflow": "overflow", "textVerticalOverflow": "overflow"
+    }
+  }
+]
+```
+
+枠内への縮小は `textAutoFit: "shrink"`、固定表示は `"none"` を使う。`"resize"` は文字領域だけが拡張され、図形の外形は変わらない。`textFontScale` は保存された縮小率として保持されるため、文字サイズの変更と取り違えない。XLSXで文字ごとの書式が混在していた場合は取り込み時の単一書式化が警告され、これらのコマンドや再出力だけでは元の混在書式を復元できない。
 
 ## コメントとシート
 

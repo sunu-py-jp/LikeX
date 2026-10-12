@@ -225,3 +225,35 @@ const result = applySpreadsheetCommands(workbook, [{
 折れ線は `routing: "elbow"` と2つの端点を保存し、途中の曲がり角は保存せず再計算します。接続された2つの図形の外側へ回る経路を優先しますが、無関係な図形の回避は行わず、接続先が重なる場合は交差することがあります。`getDrawingBounds` は曲がり角を含む経路全体を返します。
 
 XLSXには編集可能な標準の接続線（`cxnSp`）とカスタム経路を出力し、端点・接続先・矢印を保持します。外部Excelの `bentConnector2`〜`bentConnector5` も取り込めますが、手動の経由点・調整値は保持せず、自動経路へ変換した警告を返します。Excel側で接続先を編集した際の再配線はOfficeの実装に依存し、LikeXと同じ経路になる保証はありません。
+
+
+## 図形・テキストボックスの文字レイアウト
+
+`SpreadsheetDrawingTextStyle` は図形とテキストボックスに共通の任意属性です。`shapes.insert` / `textBoxes.insert` へ直接、`shapes.update` / `textBoxes.update` の `patch` へ指定できます。`getDrawing` / `getShape` / `getTextBox` で取得でき、SPON保存・コピー・Undo/Redo・XLSX入出力で維持します。従来の省略したJSONもそのまま読み込めます。
+
+| 属性 | 意味・省略時 |
+| --- | --- |
+| `fontFamily`, `italic`, `underline` | フォント名・斜体・下線。省略時は表示環境の標準フォント、装飾なし |
+| `textInsets` | `{ left, top, right, bottom }` の余白（px、0〜10,000）。省略時は各8px |
+| `textWrap` | `wrap` / `none`。省略時は折り返しあり |
+| `textOverflow`, `textVerticalOverflow` | 横／縦方向の `clip` / `overflow`。省略時は切り取り |
+| `textAlign`, `textVerticalAlign` | `left` / `center` / `right`、`top` / `middle` / `bottom`。省略時は図形が中央、テキストボックスが左上 |
+| `textAutoFit` | `none` / `shrink` / `resize`。`shrink` はブラウザーで測った文字を枠に収め、`resize` は文字領域を縦に拡張する |
+| `textFontScale` | XLSXに保存された文字の縮小率（0.01〜1）。縮小前の `fontSize` に掛ける。`shrink` のブラウザー測定でもこの値を上限とする |
+| `textLineHeight` | 文字サイズに対する行高の倍率（0.1〜10）。省略時1.4 |
+
+例えば、細い枠の注記を折り返さず表示するには次を指定します。
+
+```ts
+const result = applySpreadsheetCommands(workbook, [{
+  type: "textBoxes.insert", sheetId, anchor: { row: 3, column: 4 },
+  width: 48, height: 20, text: "消費税区分名称", fontSize: 12,
+  fontFamily: "ＭＳ Ｐゴシック", color: "#ff0000",
+  textInsets: { left: 0, top: 0, right: 0, bottom: 0 },
+  textWrap: "none", textOverflow: "overflow", textVerticalOverflow: "overflow",
+}]);
+```
+
+XLSXではrunの書式を段落・リストの既定書式から属性単位で継承し、フォント・余白・折り返し・配置・はみ出し・自動調整を取り込みます。フォントの表示は利用環境にインストールされた書体に依存します。文字ごとに異なる書式や段落ごとに異なる配置は先頭へ統一し、未対応の縦書き・字下げ・段落前後の余白・縮小時の行間圧縮は警告します。固定値の行間は倍率へ変換します。
+
+`resize` は文字領域を伸ばしますが図形の外形は保存されたサイズを維持するため、XLSX読込時に近似を警告します。Excelへは元の自動拡大指定を書き戻します。`shrink` のブラウザーでの縮小は表示時の計算で、保存済みのサイズ・縮小率を変更しません。

@@ -9,6 +9,7 @@ import { resolveSpreadsheetSheet } from "../../model/sheet-target";
 import type { SpreadsheetWorkbookSnapshot } from "../../commands/types";
 import type { SpreadsheetMergedRange, SpreadsheetWorkbook } from "../../model/types";
 import { cellFormatStyle, collapseSharedCellBorders } from "../grid/cell-style";
+import { fitCellBoxStyle } from "../grid/cell-box-style";
 
 const MAX_ROWS = 20, MAX_COLUMNS = 10, MAX_DRAWINGS = 100, MAX_TEXT = 2_000;
 
@@ -49,9 +50,10 @@ export function prepareNormalizedSpreadsheetThumbnail(workbook: SpreadsheetWorkb
     const bounds = merge ? { ...merge, right: Math.min(merge.right, columnCount - 1), bottom: Math.min(merge.bottom, rowCount - 1) }
       : { top: row, bottom: row, left: column, right: column };
     const text = sheet.cells[address]?.validation?.type === "checkbox" ? (value === true || String(value).toLowerCase() === "true" ? "☑" : "☐") : formatCellValue(value, format);
+    const width = grid.columns[bounds.right + 1] - grid.columns[column], height = grid.rows[bounds.bottom + 1] - grid.rows[row];
     cells.push({ address, text: text.slice(0, MAX_TEXT), dataBar, style: {
-      left: grid.columns[column], top: grid.rows[row], width: grid.columns[bounds.right + 1] - grid.columns[column], height: grid.rows[bounds.bottom + 1] - grid.rows[row],
-      ...collapseSharedCellBorders(cellFormatStyle(format, value), bounds, (r, c) => appearance(r, c).format),
+      left: grid.columns[column], top: grid.rows[row], width, height,
+      ...fitCellBoxStyle(collapseSharedCellBorders(cellFormatStyle(format, value), bounds, (r, c) => appearance(r, c).format), width, height),
     } });
   }
   const drawings = [];

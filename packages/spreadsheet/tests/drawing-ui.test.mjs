@@ -604,3 +604,22 @@ test('switching drawings flushes an object property before the shared selection 
   assert.equal(ui.c.selectedDrawingId, 'text');
   await act(async () => ui.drawing('text').props.onPointerCancel());
 });
+
+
+test('editing imported text preserves its layout through commit, Undo, Redo and save', async t => {
+  const layout = { fontFamily: 'Yu Gothic', italic: true, underline: true, textInsets: { left: 0, top: 0, right: 0, bottom: 0 },
+    textWrap: 'none', textOverflow: 'overflow', textVerticalOverflow: 'overflow', textAlign: 'right', textVerticalAlign: 'bottom', textLineHeight: 1.2 };
+  const initial = book(); initial.sheets[0].drawings[1] = { ...textBox, ...layout };
+  const ui = await mount(t, { initialWorkbook: initial });
+  await act(async () => ui.c.selectDrawing('text'));
+  await act(async () => ui.drawing('text').props.onKeyDown(event({ key: 'Enter' })));
+  assert.equal(ui.textarea().props.style.fontFamily, 'Yu Gothic'); assert.equal(ui.textarea().props.style.padding, '0px 0px 0px 0px');
+  assert.equal(ui.textarea().props.wrap, 'off');
+  await act(async () => ui.textarea().props.onChange(event({ target: { value: '変更した注記' } })));
+  await act(async () => ui.textarea().props.onBlur());
+  const check = drawing => { for (const key of Object.keys(layout)) assert.deepEqual(drawing[key], layout[key], key); };
+  check(ui.c.activeSheet.drawings[1]);
+  await act(async () => ui.c.undo()); check(ui.c.activeSheet.drawings[1]); assert.equal(ui.c.activeSheet.drawings[1].text, 'before');
+  await act(async () => ui.c.redo()); check(ui.c.activeSheet.drawings[1]); assert.equal(ui.c.activeSheet.drawings[1].text, '変更した注記');
+  await act(async () => ui.c.save()); check(ui.saves[0].sheets[0].drawings[1]);
+});

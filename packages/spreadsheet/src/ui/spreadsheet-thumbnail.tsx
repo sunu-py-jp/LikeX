@@ -82,7 +82,7 @@ export function SpreadsheetThumbnail(props: SpreadsheetThumbnailProps) {
                   <defs><LineMarker id={`${id}-start`} kind={start} color={line.stroke} /><LineMarker id={`${id}-end`} kind={end} color={line.stroke} /></defs>
                   <polyline points={item.points} fill="none" stroke={line.stroke} strokeWidth={line.strokeWidth} strokeLinejoin="round" strokeLinecap="round"
                     markerStart={start !== "none" ? `url(#${id}-start)` : undefined} markerEnd={end !== "none" ? `url(#${id}-end)` : undefined} />
-                  {!!line.text && <text x={item.label.x} y={item.label.y} textAnchor="middle" fill={line.color ?? "#1f2937"} fontSize={line.fontSize ?? 16} fontWeight={line.bold ? "bold" : undefined}>{line.text}</text>}
+                  {!!line.text && <text x={item.label.x} y={item.label.y} textAnchor="middle" fill={line.color ?? "#1f2937"} fontSize={line.fontSize ?? 16} fontWeight={line.bold ? "bold" : undefined} fontFamily={line.fontFamily} fontStyle={line.italic ? "italic" : undefined} textDecoration={line.underline ? "underline" : undefined}>{line.text}</text>}
                 </svg>;
               }
               return <div key={drawing.id} data-lxs-thumbnail-drawing={drawing.id} className="lxs-drawing lxs-thumbnail-drawing" style={{ left: item.left, top: item.top,

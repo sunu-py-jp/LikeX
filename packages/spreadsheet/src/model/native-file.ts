@@ -67,7 +67,7 @@ export function fileToWorkbook(input: unknown): SpreadsheetWorkbook {
       const row = object(inputRow);
       if (Object.keys(row).some(key => key !== "height" && key !== "cells")) return invalidFile();
       if (Object.hasOwn(row, "height")) {
-        if (typeof row.height !== "number" || !Number.isFinite(row.height) || row.height < 16 || row.height > 1000) return invalidFile();
+        if (typeof row.height !== "number" || !Number.isFinite(row.height) || row.height < 1 || row.height > 1000) return invalidFile();
         rowHeights[index] = row.height;
       }
       if (!Object.hasOwn(row, "cells")) continue;

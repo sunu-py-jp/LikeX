@@ -18,7 +18,7 @@ export function stageFormattingCommand(workbook: SpreadsheetWorkbook, command: S
     return replaceWorkbookSheet(workbook, { ...sheet, ...(changedRows ? { rowHeights: Object.freeze({ ...sheet.rowHeights, ...rows }) } : {}), ...(changedColumns ? { columnWidths: Object.freeze({ ...sheet.columnWidths, ...columns }) } : {}) });
   }
   if (command.type === "rows.resize") {
-    if (!Number.isInteger(command.row) || command.row < 0 || command.row >= sheet.rowCount || !Number.isFinite(command.height) || command.height < 16 || command.height > 1000) throw new Error("行の高さは16〜1000pxで指定してください");
+    if (!Number.isInteger(command.row) || command.row < 0 || command.row >= sheet.rowCount || !Number.isFinite(command.height) || command.height < 1 || command.height > 1000) throw new Error("行の高さは1〜1000pxで指定してください");
     if ((sheet.rowHeights?.[command.row] ?? 28) === command.height) return workbook;
     return replaceWorkbookSheet(workbook, { ...sheet, rowHeights: Object.freeze({ ...sheet.rowHeights, [command.row]: command.height }) });
   }

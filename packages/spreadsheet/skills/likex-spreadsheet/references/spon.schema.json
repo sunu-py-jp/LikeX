@@ -318,6 +318,50 @@
           "type": "number",
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
         },
+        "fontFamily": {
+          "type": "string"
+        },
+        "italic": {
+          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+        },
+        "underline": {
+          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+        },
+        "textInsets": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textInsets",
+          "description": "Insets in CSS pixels. Defaults to 8px on each side for native LikeX objects."
+        },
+        "textWrap": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textWrap"
+        },
+        "textOverflow": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textOverflow"
+        },
+        "textVerticalOverflow": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textOverflow"
+        },
+        "textAlign": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textAlign"
+        },
+        "textVerticalAlign": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textVerticalAlign"
+        },
+        "textAutoFit": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textAutoFit",
+          "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
+        },
+        "textFontScale": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 1,
+          "description": "Saved DrawingML font scale, used before browser measurements are available."
+        },
+        "textLineHeight": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 10,
+          "description": "Line height as a font-size multiple."
+        },
         "type": {
           "const": "shape"
         },
@@ -378,6 +422,63 @@
         "strokeWidth"
       ],
       "additionalProperties": false
+    },
+    "SpreadsheetShapeDrawing_textInsets": {
+      "type": "object",
+      "properties": {
+        "left": {
+          "type": "number"
+        },
+        "top": {
+          "type": "number"
+        },
+        "right": {
+          "type": "number"
+        },
+        "bottom": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "left",
+        "top",
+        "right",
+        "bottom"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetShapeDrawing_textWrap": {
+      "enum": [
+        "none",
+        "wrap"
+      ]
+    },
+    "SpreadsheetShapeDrawing_textOverflow": {
+      "enum": [
+        "clip",
+        "overflow"
+      ]
+    },
+    "SpreadsheetShapeDrawing_textAlign": {
+      "enum": [
+        "right",
+        "left",
+        "center"
+      ]
+    },
+    "SpreadsheetShapeDrawing_textVerticalAlign": {
+      "enum": [
+        "top",
+        "bottom",
+        "middle"
+      ]
+    },
+    "SpreadsheetShapeDrawing_textAutoFit": {
+      "enum": [
+        "none",
+        "resize",
+        "shrink"
+      ]
     },
     "SpreadsheetShapeKind": {
       "enum": [
@@ -524,6 +625,50 @@
         "rotation": {
           "type": "number",
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
+        },
+        "fontFamily": {
+          "type": "string"
+        },
+        "italic": {
+          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+        },
+        "underline": {
+          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+        },
+        "textInsets": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textInsets",
+          "description": "Insets in CSS pixels. Defaults to 8px on each side for native LikeX objects."
+        },
+        "textWrap": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textWrap"
+        },
+        "textOverflow": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textOverflow"
+        },
+        "textVerticalOverflow": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textOverflow"
+        },
+        "textAlign": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textAlign"
+        },
+        "textVerticalAlign": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textVerticalAlign"
+        },
+        "textAutoFit": {
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textAutoFit",
+          "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
+        },
+        "textFontScale": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 1,
+          "description": "Saved DrawingML font scale, used before browser measurements are available."
+        },
+        "textLineHeight": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 10,
+          "description": "Line height as a font-size multiple."
         },
         "type": {
           "const": "text"
@@ -676,7 +821,7 @@
           "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
         },
         "align": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_align"
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textAlign"
         },
         "color": {
           "type": "string"
@@ -702,7 +847,7 @@
           "description": "Reduce the displayed text size to fit the cell without changing fontSize. Omitted means false."
         },
         "verticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_verticalAlign"
+          "$ref": "#/$defs/SpreadsheetShapeDrawing_textVerticalAlign"
         },
         "borders": {
           "$ref": "#/$defs/SpreadsheetCellFormat_borders"
@@ -721,20 +866,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "SpreadsheetCellFormat_align": {
-      "enum": [
-        "right",
-        "left",
-        "center"
-      ]
-    },
-    "SpreadsheetCellFormat_verticalAlign": {
-      "enum": [
-        "top",
-        "bottom",
-        "middle"
-      ]
     },
     "SpreadsheetCellFormat_borders": {
       "type": "object",

@@ -139,7 +139,7 @@ test('missing, ambiguous or malformed sheet/drawing identities reject clearly', 
 test('malformed dimensions, size overrides and drawing coordinates reject without full resource parsing', () => {
   for (const sheet of [{ rowCount: 0 }, { columnCount: 1.5 }, { rowCount: Infinity }, { rowCount: SPREADSHEET_LIMITS.rows + 1 },
     { rowHeights: { 0: 0 } }, { rowHeights: { 0: NaN } }, { rowHeights: { 0: 1001 } }, { rowHeights: { 10: 20 } },
-    { columnWidths: { '-1': 24 } }, { columnWidths: { x: 100 } }, { columnWidths: { 0: 23 } },
+    { columnWidths: { '-1': 24 } }, { columnWidths: { x: 100 } }, { columnWidths: { 0: 0 } },
     { rowHeights: [] }, { columnWidths: null }]) assert.throws(() => placement(workbook(sheet)));
   for (const patch of [{ width: 0 }, { height: -1 }, { width: Infinity }, { height: 10_001 },
     { anchor: null }, { anchor: { row: 10, column: 0, offsetX: 0, offsetY: 0 } },

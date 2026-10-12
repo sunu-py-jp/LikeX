@@ -21,6 +21,7 @@ import { useGridAutofill } from "./grid/use-grid-autofill";
 import { CellDataControl } from "./grid/cell-data-control";
 import { SelectionOutline } from "./grid/selection-outline";
 import { cellFormatStyle, collapseSharedCellBorders } from "./grid/cell-style";
+import { fitCellBoxStyle } from "./grid/cell-box-style";
 import { createConditionalFormatter } from "../model/conditional-formatting";
 import { CellText } from "./grid/cell-text";
 import { cellTextOverflow, rowTextOverflowLimits } from "./grid/cell-text-layout";
@@ -65,7 +66,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
         <div role="columnheader" className="lxs-corner" style={{ width: ROW_HEADER_WIDTH }} aria-label="行と列"><button type="button" className="lxs-header-button" aria-label="すべてのセルを選択" onClick={focus.selectAll}>◢</button></div>
         {widths.map((width, column) => <div role="columnheader" data-lxs-column-header={column} aria-colindex={column + 2} key={column} className={`lxs-column-header ${selectedBounds.some(bounds => column >= bounds.left && column <= bounds.right) ? "lxs-header-selected" : ""}`} style={{ width: resizing?.column === column ? resizing.value : width }}>
           <button type="button" className="lxs-header-button" onPointerDown={event => startSelection(event, { row: 0, column }, "column")} onPointerEnter={event => extendSelection(event, { row: 0, column })} onClick={event => selectHeaderWithKeyboard(event, { row: 0, column }, "column")}>{cellAddress(0, column).replace(/\d+$/, "")}</button>
-          {c.features.resize && <span role="separator" aria-label={`${cellAddress(0, column).replace(/\d+$/, "")}列の幅`} aria-orientation="vertical" aria-valuemin={24} aria-valuemax={1000} aria-valuenow={width} tabIndex={c.disabled ? -1 : 0} className="lxs-column-resize"
+          {c.features.resize && <span role="separator" aria-label={`${cellAddress(0, column).replace(/\d+$/, "")}列の幅`} aria-orientation="vertical" aria-valuemin={1} aria-valuemax={1000} aria-valuenow={width} tabIndex={c.disabled ? -1 : 0} className="lxs-column-resize"
             {...resize.handlers(column, width)} />}
         </div>)}
       </div>
@@ -74,7 +75,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
           c.features.dataValidation && c.features.checkboxes, c.editing && c.selection.focus.row === row ? c.selection.focus.column : undefined);
         return <div key={row} role="row" aria-rowindex={row + 2} className="lxs-row" style={{ top: rowOffsets[row], height: rowOffsets[row + 1] - rowOffsets[row], width: gridWidth }}>
         <div role="rowheader" data-lxs-row-header={row} className={`lxs-row-header ${selectedBounds.some(bounds => row >= bounds.top && row <= bounds.bottom) ? "lxs-header-selected" : ""}`}><button type="button" className="lxs-header-button" onPointerDown={event => startSelection(event, { row, column: 0 }, "row")} onPointerEnter={event => extendSelection(event, { row, column: 0 })} onClick={event => selectHeaderWithKeyboard(event, { row, column: 0 }, "row")}>{row + 1}</button>
-          {c.features.resize && <span role="separator" aria-label={`${row + 1}行の高さ`} aria-orientation="horizontal" aria-valuemin={16} aria-valuemax={1000} aria-valuenow={rowOffsets[row + 1] - rowOffsets[row]} tabIndex={c.disabled ? -1 : 0} className="lxs-row-resize" {...rowResize.handlers(row, rowOffsets[row + 1] - rowOffsets[row])} />}
+          {c.features.resize && <span role="separator" aria-label={`${row + 1}行の高さ`} aria-orientation="horizontal" aria-valuemin={1} aria-valuemax={1000} aria-valuenow={rowOffsets[row + 1] - rowOffsets[row]} tabIndex={c.disabled ? -1 : 0} className="lxs-row-resize" {...rowResize.handlers(row, rowOffsets[row + 1] - rowOffsets[row])} />}
         </div>
         {widths.map((width, column) => {
           const merge = renderedMerges.get(row * c.activeSheet.columnCount + column);
@@ -99,7 +100,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
           const rendered = <div key={column} role="gridcell" data-lxs-row={row} data-lxs-column={column} data-editing={editing || undefined} aria-colindex={column + 2} aria-colspan={merge ? merge.right - merge.left + 1 : undefined} aria-rowspan={merge ? merge.bottom - merge.top + 1 : undefined} aria-selected={selected} aria-label={`${address}${text ? ` ${text}` : ""}${comment ? ", コメントあり" : ""}`} title={error ? value : undefined}
             className={`lxs-cell ${merge ? "lxs-cell-merged" : ""} ${overflow.before || overflow.after ? "lxs-cell-overflow" : ""} ${format?.background ? "lxs-cell-filled" : ""} ${format?.wrap ? "lxs-cell-wrap" : ""} ${checkbox ? "lxs-cell-has-checkbox" : ""} ${selected ? "lxs-cell-selected" : ""} ${focused ? "lxs-cell-active" : ""} ${error ? "lxs-cell-error" : ""}`}
             style={{ width: cellWidth, height: merge ? cellHeight : undefined,
-              ...collapseSharedCellBorders(cellFormatStyle(format, value), merge ?? { top: row, bottom: row, left: column, right: column }, neighbourFormat) }}
+              ...fitCellBoxStyle(collapseSharedCellBorders(cellFormatStyle(format, value), merge ?? { top: row, bottom: row, left: column, right: column }, neighbourFormat), cellWidth, cellHeight) }}
             onPointerDown={event => {
               if (event.button !== 0 || (focused && c.editing)) return;
               // A later click in the selected input uses native caret placement.

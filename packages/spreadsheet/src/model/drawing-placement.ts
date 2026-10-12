@@ -53,7 +53,7 @@ function axisGeometry(count: number, input: Readonly<Record<number, number>> | u
     for (const [key, value] of Object.entries(input)) {
       const index = Number(key);
       if (!Number.isInteger(index) || index < 0 || index >= count) return fail("行列のサイズが範囲外です");
-      sizes.set(index, boundedNumber(value, row ? 16 : 24, 1000));
+      sizes.set(index, boundedNumber(value, 1, 1000));
     }
   }
   const defaultSize = row ? DEFAULT_ROW_HEIGHT : DEFAULT_COLUMN_WIDTH, offsets = [0];

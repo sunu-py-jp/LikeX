@@ -90,7 +90,7 @@ await spreadsheetRef.current?.executeAsync({
 
 `format` は既存の書式に部分適用します。ただし `borders` は辺のマップ全体を置き換えます。`borders: {}` または辺の `style: "none"` で明示罫線を消します（通常のグリッド線は残ります）。辺は `top/right/bottom/left`、線種は `solid/dashed/dotted/double/none`、太さは `1/2/3` です。
 
-`fontSize` は1〜200、`decimalPlaces` は0〜10。行の高さは16〜1000、列の幅は24〜1000です。`rows.resize` による単一行の変更もできます。`dimensions.resize` は複数サイズを1操作として適用するため、一度のUndoで戻せます。XLSXには別途Excelの上限が適用されます（[Excel出力](./excel-export.md)）。
+`fontSize` は1〜200、`decimalPlaces` は0〜10。行の高さ・列の幅はともに1〜1000pxです。Excelから取り込んだ小さい寸法も保持します。`rows.resize` による単一行の変更もできます。`dimensions.resize` は複数サイズを1操作として適用するため、一度のUndoで戻せます。XLSXには別途Excelの上限が適用されます（[Excel出力](./excel-export.md)）。
 
 `numberFormat` は `general/text/number/currency/percent/date/time/datetime`。数値は日本語ロケール、通貨はJPYです。日付はISO形式（`2026-09-10`）、時刻は `12:30:00`、日時は `2026-09-10T12:30:00` またはExcelの1900日付方式のシリアル値を表示できます。日時にオフセットがある場合はUTCとして表示します。JSON内のISO文字列は保持し、XLSX出力時だけ対応する日付/時刻シリアルへ変換します。日付の入力規則があるセルは、標準書式でも日付表示になります。
 

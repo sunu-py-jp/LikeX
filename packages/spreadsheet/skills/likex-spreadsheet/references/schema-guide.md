@@ -66,7 +66,7 @@
 - 表示形式: `numberFormat`（`general`, `text`, `number`, `currency`, `percent`, `date`, `time`, `datetime`）、`decimalPlaces`（0〜10）、`useGrouping`、`negativeFormat`（`minus`, `parentheses`, `red`, `red-parentheses`）。
 - `borders`: `top` / `right` / `bottom` / `left` の各辺に `{ style?, width?, color? }`。`style` は `none` / `solid` / `dashed` / `dotted` / `double`、`width` は1 / 2 / 3。空の `borders: {}` は辺を消す指定に使える。
 
-セル文字サイズはCSSピクセル（1〜200）。列幅24〜1,000px、行高16〜1,000px。色には `#RRGGBB` を使うと意図が明確になる。Spreadsheetの描画色・セル色の検証契約はSlideの16進色限定契約と同じではない。
+セル文字サイズはCSSピクセル（1〜200）。列幅・行高はともに1〜1,000px。色には `#RRGGBB` を使うと意図が明確になる。Spreadsheetの描画色・セル色の検証契約はSlideの16進色限定契約と同じではない。
 
 標準セルの余白は左右各2px、行間は文字サイズの1.2倍。これらは表示・自動調整の基準で、SPONのセル書式フィールドではない。折り返しやXLSX取り込みで保存行高を自動的に広げず、必要な対象へ `dimensions.autoFit` を実行する。XLSXの行高はptとCSS pxを0.75倍で相互変換し、列幅はCalibri 11pt・96dpiの最大数字幅7pxを基準とする。独自の標準フォントや代替フォントでは表示が近似になるため、[Excel取り込みの制約](../../../src/docs/excel-import.md#読み込む内容と制約)も確認する。
 
@@ -115,8 +115,8 @@
 | `type` | 固有フィールド |
 | --- | --- |
 | `image` | `resourceId`, `alt` |
-| `shape` | `shape`, `fill`, `stroke`, `strokeWidth`、任意の `text`, `fontSize`, `color`, `bold` |
-| `text` | `text`, `fontSize`, `color`, `background`、任意の `bold` |
+| `shape` | `shape`, `fill`, `stroke`, `strokeWidth`、任意の `text`, `fontSize`, `color`, `bold` と下記の文字レイアウト属性 |
+| `text` | `text`, `fontSize`, `color`, `background`、任意の `bold` と下記の文字レイアウト属性 |
 
 `shape` は `rectangle`, `roundedRectangle`, `ellipse`, `triangle`, `rightTriangle`, `diamond`, `parallelogram`, `trapezoid`, `rightArrow`, `leftArrow`, `upArrow`, `downArrow`, `leftRightArrow`, `upDownArrow`, `line`, `arrow`に加え、`bentArrow`, `bentUpArrow`, `uturnArrow`, `leftUpArrow`, `leftRightUpArrow`, `quadArrow`, `chevron`, `homePlate`, `pentagon`, `hexagon`, `octagon`, `star5`, `plus`、および`flowChartProcess`, `flowChartDecision`, `flowChartTerminator`, `flowChartInputOutput`, `flowChartPredefinedProcess`, `flowChartDocument`, `flowChartMultidocument`, `flowChartPreparation`, `flowChartManualInput`, `flowChartManualOperation`, `flowChartMerge`, `flowChartDelay`。カギ矢印は`bentArrow`、上向きカギ矢印は`bentUpArrow`。塗りのあるブロック図形で、2端点の接続線とは異なる。Excelの標準プリセットから取り込み、画像化せず再出力する。Officeの個別調整値は警告して既定形へ戻す。Slideの `rect` / `roundRect` とは異なる。
 
@@ -131,6 +131,27 @@
 `mimeType` は `image/png` / `image/jpeg` / `image/webp` / `image/gif`。`dataUrl` はそのMIMEと一致する `data:image/…;base64,…`。外部URL、Blob URL、SVGを入れない。`width` / `height` はエンコードされた画像ヘッダーの実寸と一致させる。JPEGのEXIF回転後の表示寸法とは区別する。画像内容・ヘッダー・Base64もランタイムで検証する。
 
 コマンドの画像挿入は表示サイズを省略すると比率を保って最大320×240pxに収め、拡大しない。片辺だけ指定するともう片辺を比率から計算する。両辺を指定すると指定した枠を保持する。`images.update` は指定した辺だけを変更し、この自動計算を行わない。
+
+### 描画の文字レイアウト
+
+`SpreadsheetDrawingTextStyle` の任意属性は `shape` と `text` に共通で、描画オブジェクトの直下へ保存する。セルの `format` とは別の属性であり、`textStyle` 等のラッパーは付けない。省略した既存SPONも同じ見た目で読み込める。
+
+| 属性 | 値・省略時の表示 |
+| --- | --- |
+| `fontFamily` | 空でない100文字以内のフォント名。省略時は表示環境の標準フォント |
+| `italic`, `underline` | boolean。省略時false |
+| `textInsets` | `{ left, top, right, bottom }`。各0〜10,000px、省略時は各8px |
+| `textWrap` | `wrap` / `none`。省略時`wrap` |
+| `textOverflow`, `textVerticalOverflow` | 横／縦の `clip` / `overflow`。省略時`clip` |
+| `textAlign` | `left` / `center` / `right`。省略時は図形が中央、テキストボックスが左 |
+| `textVerticalAlign` | `top` / `middle` / `bottom`。省略時は図形が中央、テキストボックスが上 |
+| `textAutoFit` | `none` / `shrink` / `resize`。省略時は自動調整なし |
+| `textFontScale` | 0.01〜1の保存済み縮小率。省略時1。`fontSize` に掛け、`shrink` の実測縮小の上限にも使う |
+| `textLineHeight` | 行高の文字サイズに対する倍率（0.1〜10）。省略時1.4 |
+
+`shrink` はブラウザーで文字を測定して枠内へ縮小するが、その測定値で保存済みの文字サイズや縮小率を上書きしない。ヘッドレス操作は指定した属性を保持する。`resize` は文字領域を縦に拡張し、図形の外形は保存済みの大きさを維持する近似。XLSX取り込みではこの近似を警告し、再出力には自動拡大指定を残す。
+
+XLSXのrun書式は段落・リストの既定書式から属性ごとに継承する。ただし文字ごとに異なる書式や段落ごとに異なる配置は先頭へ統一され、警告される。SPONはこの単一書式を保存するため、再出力で元の混在書式は復元しない。明示した余白・折り返し・配置・はみ出し・自動調整・行間はXLSXでも保持する。フォント自体を埋め込む機能はなく、端末の代替フォントで文字幅が変わる場合がある。
 
 ## 上限とID
 

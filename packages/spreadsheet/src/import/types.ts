@@ -32,6 +32,7 @@ export type ImportContext = {
   signal?: SpreadsheetExcelImportSignal;
   resources: Record<string, SpreadsheetImageResource>;
   themeColors?: readonly string[];
+  themeFonts?: Readonly<Record<string, string>>;
   date1904?: boolean;
   resolveListValues?: (reference: string, sheetName: string) => readonly string[] | undefined;
   cellTextCharacters?: number;

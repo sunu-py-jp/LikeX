@@ -9,7 +9,7 @@ import { normalizeDrawingRotation } from "../model/drawing-transform";
 import { getShapeDefinition, SPREADSHEET_SHAPES } from "../model/shapes";
 import { SPREADSHEET_LIMITS, type SpreadsheetDrawing, type SpreadsheetSheet } from "../model/types";
 import { adjusted, growSheet, omitted, worksheetDefaultSizes } from "./worksheet-shared";
-import { anchorFromFrame, drawingGrid, EMU_PER_PIXEL, finiteNumber, readDrawingFrame, readTransformFrame } from "./drawing-geometry";
+import { anchorFromFrame, drawingAnchorTransform, drawingGrid, EMU_PER_PIXEL, finiteNumber, readDrawingFrame, readTransformFrame, transformDrawingFrame, worksheetDrawingGrid } from "./drawing-geometry";
 import { readDrawingImage } from "./drawing-media";
 import { drawingColor, drawingFill, drawingText } from "./drawing-style";
 import { readRelationships, type XlsxRelationship } from "./relationships";
@@ -29,7 +29,7 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
     for (let index = current.columnCount; index < next.columnCount; index++) columnWidths[index] ??= defaults.column;
     return { ...next, rowHeights, columnWidths };
   };
-  const drawings: SpreadsheetDrawing[] = [], grid = drawingGrid(sheet, worksheetDefaultSizes(node));
+  const drawings: SpreadsheetDrawing[] = [], grid = drawingGrid(sheet, worksheetDefaultSizes(node)), sourceGrid = worksheetDrawingGrid(node);
   let visited = 0;
   const pending: PendingDrawingConnector[] = [], targets = new Map<string, ImportedDrawingTarget>(), ambiguousIds = new Set<string>();
   for (const reference of children(node, "drawing")) {
@@ -51,8 +51,11 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
       const rotationValue = finiteNumber(transform?.attributes.rot);
       const rotation = normalizeDrawingRotation((rotationValue ?? 0) / 60000);
       const nativeFrame = connector ? readConnectorFrame(transform, !!elbowEndpoints) : rotation || customKind ? readTransformFrame(transform) : undefined;
-      let frame = nativeFrame ?? readDrawingFrame(container, grid);
+      const rebase = drawingAnchorTransform(container, sourceGrid, grid);
+      const transformedFrame = nativeFrame ? transformDrawingFrame(nativeFrame, rebase, connector ? 0 : rotation) : undefined;
+      let frame = transformedFrame?.frame ?? readDrawingFrame(container, grid);
       if (!frame) { omitted(context, sheet, "対応範囲外のサイズ・位置を持つオブジェクトを省略しました"); continue; }
+      if (transformedFrame?.approximated) adjusted(context, sheet, "行・列のサイズ調整に伴う回転図形の変形を、中心位置を保って近似しました");
       if (rotation && !nativeFrame) adjusted(context, sheet, "回転したオブジェクトの位置をセルのアンカーから近似しました");
       const lineProperties = child(properties, "ln");
       const originalStroke = child(lineProperties, "noFill") ? 0 : Math.min(100, Math.max(0, (finiteNumber(lineProperties?.attributes.w) ?? 9525) / EMU_PER_PIXEL));
@@ -75,13 +78,15 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
         const elbow = !!elbowEndpoints || /^bentConnector[2-5]$/.test(preset ?? "");
         if (elbow && !elbowEndpoints) adjusted(context, sheet, "折れ線の経由点を接続先に追従する自動経路へ変更しました");
         else if (!elbow && preset !== "line" && preset !== "straightConnector1") adjusted(context, sheet, "未対応の曲線の接続線を始点と終点を結ぶ直線へ変更しました");
-        const content = drawingText(child(object, "txBody"), context, sheet);
-        const standardEndpoints = connectorPoints(frame, transform);
-        const transformBox = { ...frame, rotation, flipX: !!common.flipX, flipY: !!common.flipY };
-        const endpoints = elbowEndpoints ? {
-          start: connectorLocalToWorld({ x: elbowEndpoints.start.x * frame.width, y: elbowEndpoints.start.y * frame.height }, transformBox),
-          end: connectorLocalToWorld({ x: elbowEndpoints.end.x * frame.width, y: elbowEndpoints.end.y * frame.height }, transformBox),
+        const content = drawingText(child(object, "txBody"), context, sheet, child(child(object, "style"), "fontRef"));
+        const endpointFrame = nativeFrame ?? frame;
+        const standardEndpoints = connectorPoints(endpointFrame, transform);
+        const transformBox = { ...endpointFrame, rotation, flipX: !!common.flipX, flipY: !!common.flipY };
+        const sourceEndpoints = elbowEndpoints ? {
+          start: connectorLocalToWorld({ x: elbowEndpoints.start.x * endpointFrame.width, y: elbowEndpoints.start.y * endpointFrame.height }, transformBox),
+          end: connectorLocalToWorld({ x: elbowEndpoints.end.x * endpointFrame.width, y: elbowEndpoints.end.y * endpointFrame.height }, transformBox),
         } : standardEndpoints;
+        const endpoints = nativeFrame ? { start: rebase.point(sourceEndpoints.start), end: rebase.point(sourceEndpoints.end) } : sourceEndpoints;
         const nonvisual = child(child(object, "nvCxnSpPr"), "cNvCxnSpPr");
         const line = child(properties, "ln");
         sheet = grow(sheet, anchor.row, anchor.column);
@@ -110,7 +115,7 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
         if (!isTextBox && (!customKind && child(properties, "custGeom") || !(isSpreadsheetShapeKind(customKind) || SPREADSHEET_SHAPES.some(item => getShapeDefinition(item.kind).xlsxPreset === presetName)))) {
           omitted(context, sheet, "未対応の種類の図形を省略しました"); continue;
         }
-        const content = drawingText(child(object, "txBody"), context, sheet);
+        const content = drawingText(child(object, "txBody"), context, sheet, child(child(object, "style"), "fontRef"));
         const body = child(child(object, "txBody"), "bodyPr"), textRotation = finiteNumber(body?.attributes.rot) ?? 0;
         if (textRotation && !(rotation && common.flipY && textRotation === 10800000) || rotation && body?.attributes.upright === "1")
           adjusted(context, sheet, "図形と異なる文字の回転角度を図形の角度へ揃えました");

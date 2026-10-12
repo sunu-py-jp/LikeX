@@ -1,13 +1,46 @@
+"use client";
+
+import { useLayoutEffect, useRef, useState } from "react";
 import type { SpreadsheetDrawing } from "../../model/types";
 import { shapeTextFrame } from "../../model/shapes";
-import { drawingTextColor } from "./drawing-helpers";
+import { drawingTextStyle } from "./drawing-text-style";
 
-/** Shared non-interactive text content for the editor and compact previews. */
+/** Shared text layout for the editor and compact previews, including imported DrawingML boxes. */
 export function DrawingText({ drawing, placeholder = true }: { drawing: Exclude<SpreadsheetDrawing, { type: "image" }>; placeholder?: boolean }) {
-  return <div className={drawing.type === "shape" ? "lxs-shape-text" : "lxs-text-box"}
-    style={{ fontSize: drawing.fontSize ?? 16, color: drawingTextColor(drawing),
-      background: drawing.type === "text" ? drawing.background : undefined, fontWeight: drawing.bold ? 700 : 400,
-      ...(drawing.type === "shape" ? { ...shapeTextFrame(drawing), right: "auto", bottom: "auto" } : {}) }}>
-    <span>{drawing.text || (placeholder && drawing.type === "text" ? "テキストを入力" : "")}</span>
+  const box = useRef<HTMLDivElement>(null), content = useRef<HTMLSpanElement>(null);
+  const [scale, setScale] = useState<number>();
+  const style = drawingTextStyle(drawing), baseSize = drawing.fontSize ?? 16;
+  useLayoutEffect(() => {
+    const element = box.current, text = content.current;
+    if (!element || !text || drawing.textAutoFit !== "shrink") { setScale(undefined); return; }
+    let active = true;
+    const fit = () => {
+      if (!active) return;
+      const insets = drawing.textInsets ?? { left: 8, top: 8, right: 8, bottom: 8 };
+      const width = Math.max(0, element.clientWidth - insets.left - insets.right), height = Math.max(0, element.clientHeight - insets.top - insets.bottom);
+      if (!width || !height) return;
+      const previous = text.style.fontSize;
+      const fits = (ratio: number) => {
+        text.style.fontSize = `${baseSize * ratio}px`;
+        return text.scrollWidth <= width + 0.5 && text.scrollHeight <= height + 0.5;
+      };
+      let low = 0.01, high = drawing.textFontScale ?? 1;
+      if (!fits(high)) for (let i = 0; i < 12; i++) { const middle = (low + high) / 2; if (fits(middle)) low = middle; else high = middle; }
+      else low = high;
+      text.style.fontSize = previous;
+      setScale(low);
+    };
+    fit();
+    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(fit);
+    observer?.observe(element);
+    void element.ownerDocument.fonts?.ready.then(fit);
+    return () => { active = false; observer?.disconnect(); };
+  }, [drawing, baseSize]);
+  const frame = drawing.type === "shape" ? shapeTextFrame(drawing) : undefined;
+  const resizing = drawing.textAutoFit === "resize";
+  return <div ref={box} className={drawing.type === "shape" ? "lxs-shape-text" : "lxs-text-box"}
+    style={{ ...style, ...(frame ? { ...frame, right: "auto", bottom: "auto" } : {}),
+      ...(resizing ? { minHeight: frame?.height ?? "100%", height: "auto" } : {}) }}>
+    <span ref={content} style={{ ...(scale === undefined ? {} : { fontSize: baseSize * scale }) }}>{drawing.text || (placeholder && drawing.type === "text" ? "テキストを入力" : "")}</span>
   </div>;
 }
