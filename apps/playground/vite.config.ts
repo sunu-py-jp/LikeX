@@ -44,6 +44,7 @@ export default defineConfig({
       { find: /^@likex\/slide\/render$/, replacement: fileURLToPath(new URL("../../packages/slide/src/render-entry.ts", import.meta.url)) },
       { find: /^@likex\/document$/, replacement: documentSource },
       { find: /^@likex\/document\/thumbnail$/, replacement: fileURLToPath(new URL("../../packages/document/src/thumbnail.ts", import.meta.url)) },
+      { find: /^@likex\/document\/model$/, replacement: fileURLToPath(new URL("../../packages/document/src/model-entry.ts", import.meta.url)) },
     ],
     dedupe: ["react", "react-dom"],
   },

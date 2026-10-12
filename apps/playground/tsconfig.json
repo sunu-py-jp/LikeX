@@ -21,6 +21,9 @@
       "@likex/spreadsheet": [
         "../../packages/spreadsheet/src/index.ts"
       ],
+      "@likex/spreadsheet/model": [
+        "../../packages/spreadsheet/src/model-entry.ts"
+      ],
       "@likex/slide": [
         "../../packages/slide/src/index.ts"
       ],
@@ -32,6 +35,9 @@
       ],
       "@likex/document": [
         "../../packages/document/src/index.ts"
+      ],
+      "@likex/document/model": [
+        "../../packages/document/src/model-entry.ts"
       ],
       "@likex/board": [
         "../../packages/board/src/index.ts"
