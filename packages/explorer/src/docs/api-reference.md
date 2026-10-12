@@ -30,13 +30,13 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `preview` | `ExplorerPreviewOptions`。`formatsByExtension` で内蔵表示の形式を追加・上書きし、`pdfSandbox` でPDF iframeのsandboxを設定します。 |
 | `getProcessingLabel` | 処理中のファイル情報からプレビューに表示する文字列を返します。`processingEntryIds` と組み合わせます。 |
 | `onDownloadRequest` | `ExplorerDownloadHandler`。指定時はファイル・フォルダのダウンロードを親へ委譲します。要求情報と進捗通知・取消し用contextを受け取り、結果を明示して返します。未指定なら内蔵処理です。 |
-| `onSearchRequest` | `ExplorerSearchHandler`。従来の項目ID／hit配列、`ExplorerSearchBatch`（`{ hits, entries }`）、またはそれらをyieldする `ExplorerSearchStream` を受け取ります。いずれもPromiseで返せます。部分キャッシュではヒットと未取得の祖先メタデータを渡せます。逐次受信中も部分結果を表示し、完了まで `searching: true`。途中エラーは正常な受信済み結果を保持し、中断後のバッチは反映しません。未指定ならキャッシュ内の名前を内蔵検索します。[結果と逐次検索の契約](./search.md) |
+| `onSearchRequest` | `ExplorerSearchHandler`。従来の項目ID／hit配列、`ExplorerSearchBatch`（`{ hits, entries }`）、またはそれらをyieldする `ExplorerSearchStream` を受け取ります。`search.pageSize` 指定時は `ExplorerSearchPage`（`{ hits, entries?, nextCursor }`）を返して続きのページ取得もできます。いずれもPromiseで返せます。部分キャッシュでは未取得のヒットと祖先メタデータを渡せます。逐次応答は完了まで `searching: true`、ページ方式は初回が `searching`・追加取得が `loadingMore`。途中エラーは正常な受信済み結果を保持し、中断後は反映しません。未指定ならキャッシュ内の名前を内蔵検索します。[結果・逐次検索・ページ取得の契約](./search.md) |
 | `getContextMenuItems` | `ExplorerContextMenuProvider`。ファイル・フォルダ・空白の右クリック時の情報から、条件付きの追加メニューを返します。ハンドラーは変更プランを返し、反映はExplorerが担当します。[使い方](./context-menu.md) |
 | `contextMenuExecutionMode` | Core共通の `"block"`（既定） / `"confirm"` / `"reject-if-changed"`。処理中の変更禁止・完了時の反映確認・データ変更時の中止を選べます。 |
-| `renderSearch` | `ExplorerSearchRenderer`。標準は大小文字を区別しない部分一致の入力欄だけを表示します。利用側が詳細条件や任意UIを追加でき、既存の条件メニューは `defaultOptions` を明示的に配置して再利用できます。`conditions` / `setConditions` と `inputProps` のIME・Enter・フォーカス操作も利用できます。 |
+| `renderSearch` | `ExplorerSearchRenderer`。標準は大小文字を区別しない部分一致の入力欄だけを表示します。利用側が詳細条件や任意UIを追加でき、既存の条件メニューは `defaultOptions` を明示的に配置して再利用できます。`conditions` / `setConditions` と `inputProps` のIME・Enter・フォーカス操作も利用できます。ページ方式では `hasMore` / `loadingMore` / `loadMoreError` / `loadMoreSearchResults()` で追加取得UIを組み立てられます。 |
 | `renderSearchResult` | `ExplorerSearchResultRenderer`。外部検索結果の名前の下の補足領域を差し替えます。確定検索語・項目・hit・選択状態・表示モード・標準補足を受け取り、null/undefinedは標準、falseは内容を非表示にします。[結果の表示](./search.md) |
 | `renderEmptyState` | `ExplorerEmptyStateRenderer`。空フォルダ・検索結果0件・お気に入り／最近0件の案内を差し替えます。場所・理由・標準操作・標準表示を受け取り、null/undefinedは標準、falseは案内を非表示にします。読み込み中とエラー時は呼びません。[例とcontext](./empty-state.md) |
-| `search` | `ExplorerSearchOptions`。`trigger` は `"input"`（既定）または `"submit"`。`debounceMs` は外部の入力検索だけに適用する待機時間で、既定は `0`。`params` はJSON互換の外部条件で、input時は内容変更で再検索、submit時はEnterで確定します。`resultDetailsMaxLines` は補足領域の最大行数（既定1、有限値を整数化して1〜30行）。超えた内容は省略記号で表示し、枠内の縦スクロールはありません。`resultDetailsHeight` に有限の数値を指定すると行数指定より優先し、24〜480pxの固定高さと枠内スクロールを使います。全表示モードで仮想スクロールを維持します。 |
+| `search` | `ExplorerSearchOptions`。`trigger` は `"input"`（既定）または `"submit"`。`debounceMs` は外部の入力検索だけに適用する待機時間で、既定は `0`。`params` はJSON互換の外部条件で、input時は内容変更で再検索、submit時はEnterで確定します。`pageSize` を指定すると外部検索へcursor / limitを渡し、末尾付近で続きを取得します。正の整数を最大1,000件に収め、不正値は100件、省略は従来方式です。`resultDetailsMaxLines` は補足領域の最大行数（既定1、有限値を整数化して1〜30行）。超えた内容は省略記号で表示し、枠内の縦スクロールはありません。`resultDetailsHeight` に有限の数値を指定すると行数指定より優先し、24〜480pxの固定高さと枠内スクロールを使います。全表示モードで仮想スクロールを維持します。 |
 | `previewTrigger` | `ExplorerPreviewTrigger`。`"doubleClick"`（既定）または `"click"`。後者はファイル名の単クリックでプレビューします。 |
 | `onEvent` | `ExplorerEventHandler`。ローカル操作・選択・移動・表示状態・保存等を親へ通知します。通知の戻り値や例外は操作の成否を変えません。 |
 | `renderIcon` | `ExplorerIconRenderer`。項目情報・描画箇所・選択状態等から独自アイコンを返します。`null` / `undefined` は既定表示、`false` は枠だけを残します。 |
@@ -180,6 +180,7 @@ if (result && !result.ok) {
 | --- | --- |
 | `getEntries(): readonly ExplorerItemInfo[] \| null` | 現在の全項目を、パスを含む独立したメタデータとして取得します。遅延読み込み時は取得済みキャッシュの範囲です。配列・項目・`source` の変更は内部へ反映しません。`File` 本体は共有します。 |
 | `loadFolder(folderId: string, options?: ExplorerFolderLoadOptions): Promise<boolean>` | 直下を取得します。`recursive: true` は配下全体、`signal` は利用側からの取消し。取得済みは再通信せず、取消しや取得失敗はfalse。表示の移動や未保存化はしません。[必要な配下を先に取得する](./folder-loading.md) |
+| `loadMoreSearchResults(): boolean` | メイン領域のアクティブな検索で次のページを要求します。失敗後は同じカーソルを再試行し、既存結果・選択を保ちます。`true` は受付、検索外・続きなし・処理中・未マウント等はfalse。取得の完了を待つPromiseではありません。[検索のページ取得](./search.md#search-paging) |
 | `execute(action: ExplorerAction): Promise<boolean>` | `create` / `createFile` / `rename` / `move` / `copy` / `delete` / `favorite` を実行します。対象の `ids` と作成・移動先の `parent` を指定します。`ids` を省略してもGUIの現在選択は使いません。作成先の省略はモデルと同じ `root` です。 |
 | `upload(files: readonly File[], parentId: string): Promise<boolean>` | 指定フォルダへ取り込みます。`webkitRelativePath` のある `File` はフォルダ取込です。サイズ・拡張子・件数制限、同名競合の確認、処理中表示、取消しはGUIと共通です。 |
 | `save(): Promise<boolean>` | 変更を `onSave` へ渡します。同じワークスペースで取り込み中なら `false` を返し、取り込み・編集セッションを維持します。取り込みがなく変更なしの場合は保存先を呼ばず編集セッションを終了します。 |

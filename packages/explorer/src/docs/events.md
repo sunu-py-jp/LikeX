@@ -22,7 +22,7 @@ type ExplorerEventHandler = (event: ExplorerEvent) => void | Promise<void>;
 | `save` | `status: "start"` は保存に渡す `payload`、`"success"` は保存後の `entries`、`"error"` は `message`。 |
 | `refresh` | `status: "start"` は再取得開始、`"success"` は反映した最新の `entries`、`"error"` は失敗の `message`。未保存確認の取り消しでは発行しません。 |
 | `folder-load` | フォルダ直下の遅延取得。`status: "start"` / `"success"` / `"error"` と `folderId`・`path`。成功時はキャッシュに新規追加した `addedCount`、失敗時は `message`。取得による追加は編集の `change` ではありません。 |
-| `search-hydrate` | 外部検索の `{ hits, entries }` から新しい項目をキャッシュへ追加したとき。`addedCount` は祖先を含む追加メタデータ件数で、hit数ではありません。0件では通知せず、dirtyや編集の `change` を発生させません。 |
+| `search-hydrate` | 外部検索のバッチやページの `entries` から新しい項目をキャッシュへ追加したとき。`addedCount` は祖先を含む追加メタデータ件数で、hit数ではありません。0件では通知せず、dirtyや編集の `change` を発生させません。検索ページ間の重複メタデータは新規追加に数えません。 |
 | `edit-mode` | 編集許可の `mode`・`reason`・`requestId`・最初の操作 `request` と任意の `message`。要求・許可・拒否・取得失敗・セッション終了を通知します。 |
 | `navigate` | 表示場所が変わった後。`location` に `kind`、`id`、`name`、`path`。お気に入り・最近の一覧は `id` と `path` が `null`。 |
 | `selection` | 選択状態が変わった後。選択項目の `ids` と `entries`。 |
@@ -149,7 +149,7 @@ export default function ExplorerWithEvents(props: Props) {
 | `onLoadFolder` | 指定フォルダ直下の完全な項目一覧を取得します。通信には `signal` を渡し、取得済みキャッシュへの反映は本体が担当します。 |
 | `onEditRequest` | 最初の有効な変更を適用する直前に許可を取得します。ロックの取得・解放は親の実装に接続します。 |
 | `onPreviewRequest` | 内蔵プレビューの代わりに親の表示を開きます。 |
-| `onSearchRequest` | 名前検索を置き換え、親の検索結果を順位順に返します。部分キャッシュではヒットと未取得項目・祖先のメタデータも返せます。配列・バッチ・逐次応答に対応します。 |
+| `onSearchRequest` | 名前検索を置き換え、親の検索結果を順位順に返します。部分キャッシュではヒットと未取得項目・祖先のメタデータも返せます。配列・バッチ・逐次応答に加え、`search.pageSize` 指定時はcursor / limitによるページ応答を使えます。 |
 | `onDownloadRequest` | ダウンロードの実処理。進捗を報告し、引渡し・保存完了・取消しを返します。失敗はthrow/rejectします。 |
 | `onEvent` | 操作や状態を観測する通知。編集・保存・プレビュー・ダウンロードの実装を置き換えません。 |
 

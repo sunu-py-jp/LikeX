@@ -1,11 +1,12 @@
 import { createSnapshot } from "@likex/explorer/model";
 import { createTextSearchMatcher } from "@likex/core/text-search";
-import type { ExplorerEntry, ExplorerSavePayload, ExplorerSearchBatch, ExplorerSearchConditions } from "@likex/explorer";
+import type { ExplorerEntry, ExplorerSavePayload, ExplorerSearchBatch, ExplorerSearchConditions, ExplorerSearchPage, ExplorerSearchRequest } from "@likex/explorer";
 
 const date = "2026-10-03T03:00:00.000Z";
 const clone = (entry: ExplorerEntry): ExplorerEntry => ({ ...entry, source: entry.source && { ...entry.source } });
 export const lazyDemoSalesId = "lazy-sales";
 export const lazySearchExample = "^00[12]_機能仕様";
+export const lazySearchPageExample = "機能仕様";
 
 /** An in-memory server: its full index is deliberately not passed to Explorer. */
 export function createLazyFolderServer() {
@@ -39,25 +40,52 @@ export function createLazyFolderServer() {
     if (folderId !== "root" && entries.get(folderId)?.kind !== "folder") throw new Error("指定したフォルダがありません。");
     return [...entries.values()].filter(entry => entry.parent === folderId).map(clone);
   }
+  function findMatches(query: string, conditions: ExplorerSearchConditions) {
+    if (!query.trim()) return [];
+    const matcher = createTextSearchMatcher({ text: query.trim(), matchCase: conditions.matchCase, wholeText: conditions.wholeName, useRegex: conditions.useRegex });
+    return [...entries.values()].filter(entry => matcher.test(entry.name));
+  }
+  function makeSearchBatch(index: ReadonlyMap<string, ExplorerEntry>, matches: readonly ExplorerEntry[], sent = new Set<string>()): ExplorerSearchBatch {
+    const metadata: ExplorerEntry[] = [];
+    const hits = matches.map(entry => {
+      const chain: ExplorerEntry[] = [];
+      let current: ExplorerEntry | undefined = entry;
+      while (current) { chain.unshift(current); current = index.get(current.parent); }
+      for (const item of chain) if (!sent.has(item.id)) { sent.add(item.id); metadata.push(clone(item)); }
+      return { entryId: entry.id };
+    });
+    return { hits, entries: metadata };
+  }
+  // Cursor state belongs to the server. Each session keeps its initial ranking/tree,
+  // so later edits cannot shift page boundaries and retries return the same page.
+  type SearchSession = { key: string; matches: ExplorerEntry[]; index: ReadonlyMap<string, ExplorerEntry> };
+  const cursors = new Map<string, { session: SearchSession; offset: number }>();
+  let nextSessionId = 0;
+  async function searchPage(request: Pick<ExplorerSearchRequest, "query" | "conditions" | "cursor" | "limit">, signal: AbortSignal,
+    wait: (signal: AbortSignal) => Promise<void> = waitForLazyFolder): Promise<ExplorerSearchPage> {
+    signal.throwIfAborted();
+    const key = JSON.stringify([request.query.trim(), request.conditions.matchCase, request.conditions.wholeName, request.conditions.useRegex]);
+    const previous = request.cursor == null ? undefined : cursors.get(request.cursor);
+    if (request.cursor != null && (!previous || previous.session.key !== key)) throw new Error("検索の続きが見つかりません。最初から検索してください。");
+    const limit = Number.isFinite(request.limit) ? Math.min(1000, Math.max(1, Math.trunc(request.limit!))) : 100;
+    const session = previous?.session ?? { key, matches: findMatches(request.query, request.conditions), index: entries };
+    const offset = previous?.offset ?? 0;
+    await wait(signal);
+    signal.throwIfAborted();
+    const end = offset + limit;
+    const nextCursor = end < session.matches.length ? `lazy-search-${++nextSessionId}` : null;
+    if (nextCursor) cursors.set(nextCursor, { session, offset: end });
+    return { ...makeSearchBatch(session.index, session.matches.slice(offset, end)), nextCursor };
+  }
   /** Server-side filename search; only matches and their ancestor metadata cross the boundary. */
   async function* search(query: string, conditions: ExplorerSearchConditions, signal: AbortSignal,
     wait: (signal: AbortSignal) => Promise<void> = waitForLazyFolder): AsyncGenerator<ExplorerSearchBatch> {
     signal.throwIfAborted();
-    if (!query.trim()) return;
-    const matcher = createTextSearchMatcher({ text: query.trim(), matchCase: conditions.matchCase, wholeText: conditions.wholeName, useRegex: conditions.useRegex });
-    const index = entries, matches = [...index.values()].filter(entry => matcher.test(entry.name)), sent = new Set<string>();
+    const index = entries, matches = findMatches(query, conditions), sent = new Set<string>();
     for (let offset = 0; offset < matches.length; offset += 2) {
       await wait(signal);
       signal.throwIfAborted();
-      const metadata: ExplorerEntry[] = [];
-      const hits = matches.slice(offset, offset + 2).map(entry => {
-        const chain: ExplorerEntry[] = [];
-        let current: ExplorerEntry | undefined = entry;
-        while (current) { chain.unshift(current); current = index.get(current.parent); }
-        for (const item of chain) if (!sent.has(item.id)) { sent.add(item.id); metadata.push(clone(item)); }
-        return { entryId: entry.id };
-      });
-      yield { hits, entries: metadata };
+      yield makeSearchBatch(index, matches.slice(offset, offset + 2), sent);
     }
   }
   function save(payload: ExplorerSavePayload): ExplorerEntry[] {
@@ -93,7 +121,7 @@ export function createLazyFolderServer() {
   }
   return {
     initialEntries: [clone(entries.get(lazyDemoSalesId)!)],
-    list, search, save,
+    list, search, searchPage, save,
     snapshot: () => [...entries.values()].map(clone),
     count: () => entries.size,
     async readFile(id: string) { const blob = bodies.get(id); if (!blob) throw new Error("ファイルがありません。"); return blob; },

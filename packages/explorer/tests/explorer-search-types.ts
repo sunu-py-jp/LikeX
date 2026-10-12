@@ -14,12 +14,27 @@ import type {
   ExplorerSearchResult,
   ExplorerSearchStream,
   ExplorerSearchBatch,
+  ExplorerSearchPage,
   ExplorerSearchResponse,
 } from "../src";
 
 export const defaults = {} satisfies ExplorerSearchOptions;
 export const input = { trigger: "input", debounceMs: 300 } satisfies ExplorerSearchOptions;
 export const submit = { trigger: "submit" } satisfies ExplorerSearchOptions;
+export const paged = { pageSize: 100 } satisfies ExplorerSearchOptions;
+export const page: ExplorerSearchPage = { hits: ["alpha"], nextCursor: "next-page" };
+export const hydratedPage: ExplorerSearchPage = { hits: ["beta"], entries: [], nextCursor: null };
+export const pagedHandler: ExplorerSearchHandler = request => {
+  const cursor: string | null | undefined = request.cursor;
+  const limit: number | undefined = request.limit;
+  return cursor && limit ? hydratedPage : page;
+};
+// @ts-expect-error Pages always explicitly report their next cursor, including null at the end.
+export const missingPageCursor: ExplorerSearchPage = { hits: [] };
+// @ts-expect-error Cursor values are opaque strings, not numeric offsets.
+export const numericPageCursor: ExplorerSearchPage = { hits: [], nextCursor: 100 };
+// @ts-expect-error Page size is a number.
+export const invalidPageSize = { pageSize: "100" } satisfies ExplorerSearchOptions;
 export const synchronous: ExplorerSearchHandler = () => ["ranked-first", "ranked-second"] as const;
 export const hit = { entryId: "alpha", snippet: "Matching paragraph", reason: "Customer match", metadata: { customer: "A", pages: [1, 2] } } satisfies ExplorerSearchHit;
 export const mixed: ExplorerSearchResult = ["beta", hit];

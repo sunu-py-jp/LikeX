@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { act, createElement as h, StrictMode } from 'react';
+import { act, createElement as h, StrictMode, useLayoutEffect } from 'react';
 import { create } from 'react-test-renderer';
 import { build } from 'esbuild';
 import { importTypeScript } from './import-typescript.mjs';
@@ -41,7 +41,7 @@ async function mount(t, supplied = {}) {
   let current, renderer, closed = false;
   let options = { enabled: true, query: '', entries, location: root, tabId: 'tab-1', windowId: 'main',
     trigger: 'input', debounceMs: 0, revision: 0, ownerDocument: document, ...supplied };
-  function Probe({ value }) { current = useExplorerSearch(value); return null; }
+  function Probe({ value }) { current = useExplorerSearch(value); useLayoutEffect(() => value.onCommit?.(current)); return null; }
   const tree = () => h(StrictMode, null, h(Probe, { value: options }));
   await change(() => { renderer = create(tree()); });
   async function unmount() {
@@ -56,7 +56,7 @@ async function mount(t, supplied = {}) {
 
 test('without an external handler the hook preserves built-in search, including nonempty queries', async t => {
   const hook = await mount(t, { query: 'Alpha' });
-  assert.deepEqual(hook.current, { resultIds: null, resultHits: null, searchPending: false, searchError: null, externalSearch: false });
+  assert.deepEqual(hook.current, { resultIds: null, resultHits: null, searchPending: false, searchError: null, searchHasMore: false, searchLoadingMore: false, searchLoadMoreError: null, loadMoreSearchResults: hook.current.loadMoreSearchResults, externalSearch: false });
 });
 
 test('empty, whitespace and disabled searches never invoke the host', async t => {
@@ -136,7 +136,7 @@ test('clear, feature disable and handler removal abort pending work and restore 
     await hook.update(patch);
     assert.equal(context.signal.aborted, true);
     await change(() => result.resolve(['alpha']));
-    assert.deepEqual(hook.current, { resultIds: null, resultHits: null, searchPending: false, searchError: null, externalSearch: false });
+    assert.deepEqual(hook.current, { resultIds: null, resultHits: null, searchPending: false, searchError: null, searchHasMore: false, searchLoadingMore: false, searchLoadMoreError: null, loadMoreSearchResults: hook.current.loadMoreSearchResults, externalSearch: false });
   });
 });
 
@@ -542,4 +542,221 @@ test('prepared batch limits use the validated count even if the host clears its 
   assert.deepEqual(prepared.commit(), [{ entryId: 'alpha' }]);
   assert.throws(() => accumulator.append(Array(40_001).fill('beta')), /100,000/);
   assert.deepEqual(accumulator.append(['beta']), [{ entryId: 'alpha' }, { entryId: 'beta' }]);
+});
+
+test('cursor paging loads the first 100 once and only appends after explicit demand', async t => {
+  const records = Array.from({ length: 201 }, (_, index) => entry(`item-${index}`));
+  const calls = [];
+  const hook = await mount(t, { query: 'text', entries: records, pageSize: 100,
+    onSearchRequest(request, context) {
+      const result = deferred(); calls.push({ request, context, result }); return result.promise;
+    } });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.cursor, null);
+  assert.equal(calls[0].request.limit, 100);
+  assert.equal(hook.current.loadMoreSearchResults(), false);
+  await change(() => calls[0].result.resolve({ hits: records.slice(0, 100).map(item => item.id), nextCursor: 'p2' }));
+  assert.equal(hook.current.resultIds.length, 100);
+  assert.equal(hook.current.searchPending, false);
+  assert.equal(hook.current.searchHasMore, true);
+  assert.equal(calls.length, 1, 'receiving a page does not eagerly request the next page');
+  const snapshot = hook.current.resultHits;
+  await change(() => {
+    assert.equal(hook.current.loadMoreSearchResults(), true);
+    assert.equal(calls.length, 2, 'the host request starts synchronously');
+    assert.equal(hook.current.loadMoreSearchResults(), false, 'a second call before React renders is rejected');
+  });
+  assert.equal(calls[1].request.cursor, 'p2');
+  assert.equal(hook.current.searchLoadingMore, true);
+  assert.equal(hook.current.searchPending, false);
+  assert.equal(hook.current.resultHits, snapshot);
+  await change(() => calls[1].result.resolve({ hits: ['item-99', ...records.slice(100, 200).map(item => item.id)], nextCursor: 'p3' }));
+  assert.equal(hook.current.resultIds.length, 200);
+  assert.deepEqual(hook.current.resultIds, records.slice(0, 200).map(item => item.id));
+  assert.equal(snapshot.length, 100, 'previous snapshots stay immutable');
+  assert.equal(hook.current.searchLoadingMore, false);
+  assert.equal(calls.length, 2);
+  await change(() => assert.equal(hook.current.loadMoreSearchResults(), true));
+  await change(() => calls[2].result.resolve({ hits: ['item-200'], nextCursor: null }));
+  assert.equal(hook.current.resultIds.length, 201);
+  assert.equal(hook.current.searchHasMore, false);
+  assert.equal(hook.current.loadMoreSearchResults(), false);
+});
+
+test('append failures preserve results and explicitly retry the same cursor', async t => {
+  const calls = [];
+  const hook = await mount(t, { query: 'text', pageSize: 100, onSearchRequest(request) {
+    calls.push(request.cursor);
+    if (calls.length === 1) return { hits: [{ entryId: 'alpha', snippet: 'first' }], nextCursor: 'p2' };
+    if (calls.length === 2) throw new Error('Offline');
+    return { hits: [{ entryId: 'alpha', snippet: 'duplicate' }, 'beta'], nextCursor: null };
+  } });
+  const first = hook.current.resultHits;
+  await change(() => assert.equal(hook.current.loadMoreSearchResults(), true));
+  assert.equal(hook.current.resultHits, first);
+  assert.equal(hook.current.searchError, null);
+  assert.equal(hook.current.searchLoadMoreError, 'Offline');
+  assert.equal(hook.current.searchLoadingMore, false);
+  assert.equal(hook.current.searchHasMore, true);
+  assert.deepEqual(calls, [null, 'p2']);
+  await change(() => assert.equal(hook.current.loadMoreSearchResults(), true));
+  assert.deepEqual(calls, [null, 'p2', 'p2']);
+  assert.equal(hook.current.searchLoadMoreError, null);
+  assert.deepEqual(hook.current.resultHits, [{ entryId: 'alpha', snippet: 'first' }, { entryId: 'beta' }]);
+});
+
+test('paging is opt-in, normalizes page size, and accepts complete legacy responses as terminal', async t => {
+  for (const [pageSize, expected] of [[undefined, undefined], [1, 1], [100, 100], [2000, 1000], [0, 100], [-2, 100], [1.5, 100], [NaN, 100], [Infinity, 100]]) {
+    await t.test(String(pageSize), async subtest => {
+      let request;
+      const hook = await mount(subtest, { query: 'text', pageSize,
+        onSearchRequest(value) { request = value; return ['beta']; } });
+      assert.equal(request.limit, expected);
+      assert.equal(Object.hasOwn(request, 'cursor'), pageSize !== undefined);
+      if (pageSize !== undefined) assert.equal(request.cursor, null);
+      assert.deepEqual(hook.current.resultIds, ['beta']);
+      assert.equal(hook.current.searchHasMore, false);
+      assert.equal(hook.current.loadMoreSearchResults(), false);
+    });
+  }
+});
+
+test('paging rejects streams without pulling them and pages without the paging option', async t => {
+  const source = controlledStream();
+  const hook = await mount(t, { query: 'text', pageSize: 100, onSearchRequest: () => source.stream });
+  assert.match(hook.current.searchError, /AsyncIterable/);
+  assert.equal(source.pulls.length, 0);
+  assert.equal(source.returned, 1);
+  assert.equal(hook.current.searchHasMore, false);
+  for (const nextCursor of ['p2', null]) await t.test(String(nextCursor), async subtest => {
+    const legacy = await mount(subtest, { query: 'text', onSearchRequest: () => ({ hits: ['alpha'], nextCursor }) });
+    assert.match(legacy.current.searchError, /pageSize/);
+    assert.deepEqual(legacy.current.resultIds, []);
+  });
+});
+
+test('malformed cursors and cursor getters are rejected before entry hydration', async t => {
+  let getters = 0;
+  const pages = [undefined, '', '  ', 1, {}, 'x'.repeat(4097)]
+    .map(nextCursor => ({ hits: ['remote'], entries: [entry('remote')], nextCursor }));
+  pages.push({ hits: ['remote'], entries: [entry('remote')], get nextCursor() { getters++; return 'p2'; } });
+  for (const [index, response] of pages.entries()) await t.test(String(index), async subtest => {
+    let hydrated = 0;
+    const hook = await mount(subtest, { query: 'text', pageSize: 100, searchDataRevision: 0,
+      hydrateSearchEntries: () => { hydrated++; return { entries, addedCount: 0 }; }, onSearchRequest: () => response });
+    assert.match(hook.current.searchError, /nextCursor/);
+    assert.equal(hydrated, 0);
+    assert.deepEqual(hook.current.resultIds, []);
+  });
+  assert.equal(getters, 0);
+});
+
+test('repeated and cyclic cursors reject the entire page without consuming its cursor or hits', async t => {
+  for (const cycle of [false, true]) await t.test(String(cycle), async subtest => {
+    let attempts = 0, hydrated = 0;
+    const calls = [];
+    const hook = await mount(subtest, { query: 'text', pageSize: 100, searchDataRevision: 0,
+      hydrateSearchEntries: supplied => { hydrated++; return { entries: [...entries, ...supplied], addedCount: supplied.length }; },
+      onSearchRequest(request) {
+        calls.push(request.cursor); attempts++;
+        if (attempts === 1) return { hits: ['alpha'], nextCursor: 'p2' };
+        if (cycle && attempts === 2) return { hits: ['beta'], nextCursor: 'p3' };
+        if (attempts === (cycle ? 3 : 2)) return { hits: ['remote'], entries: [entry('remote')], nextCursor: 'p2' };
+        return { hits: ['folder'], nextCursor: null };
+      } });
+    if (cycle) await change(() => hook.current.loadMoreSearchResults());
+    const accepted = hook.current.resultIds;
+    await change(() => hook.current.loadMoreSearchResults());
+    assert.equal(hook.current.resultIds, accepted);
+    assert.equal(hydrated, 0);
+    assert.match(hook.current.searchLoadMoreError, /繰り返/);
+    await change(() => hook.current.loadMoreSearchResults());
+    assert.equal(calls.at(-1), calls.at(-2), 'a failed page retains its request cursor for explicit retry');
+    assert.deepEqual(hook.current.resultIds, [...accepted, 'folder']);
+  });
+});
+
+test('changed search contexts abort in-flight pages and reject retained load-more callbacks', async t => {
+  const patches = [{ query: 'changed' }, { conditions: { matchCase: true, wholeName: false, useRegex: false } },
+    { params: { category: 'other' } }, { tabId: 'tab-2' }, { windowId: 'popup-2' }, { revision: 1 },
+    { location: { kind: 'folder', id: 'folder', name: '資料', path: '/資料' } }, { externalPaused: true }];
+  for (const [index, patch] of patches.entries()) await t.test(String(index), async subtest => {
+    const calls = [];
+    const hook = await mount(subtest, { query: 'text', pageSize: 100,
+      onSearchRequest(request, context) {
+        const task = deferred(); calls.push({ request, context, task }); return task.promise;
+      } });
+    await change(() => calls[0].task.resolve({ hits: ['alpha'], nextCursor: 'p2' }));
+    const oldLoad = hook.current.loadMoreSearchResults;
+    await change(() => oldLoad());
+    await hook.update({ ...patch, onCommit: () => assert.equal(oldLoad(), false, 'commit invalidates callbacks before passive cleanup') });
+    assert.equal(calls[1].context.signal.aborted, true);
+    assert.equal(oldLoad(), false);
+    await change(() => calls[1].task.resolve({ hits: ['beta'], nextCursor: null }));
+    assert.deepEqual(hook.current.resultIds, []);
+    assert.equal(hook.current.searchHasMore, false);
+    if (!patch.externalPaused) {
+      assert.equal(calls.at(-1).request.cursor, null);
+      await change(() => calls.at(-1).task.resolve({ hits: ['folder'], nextCursor: null }));
+      assert.deepEqual(hook.current.resultIds, ['folder']);
+    }
+  });
+});
+
+test('unmount and pagehide stop demand and reject late pages before cache hydration', async t => {
+  for (const action of ['unmount', 'pagehide']) await t.test(action, async subtest => {
+    const pending = deferred(); let count = 0, signal, hydrated = 0;
+    const hook = await mount(subtest, { query: 'text', pageSize: 100, searchDataRevision: 0,
+      hydrateSearchEntries: supplied => { hydrated++; return { entries: [...entries, ...supplied], addedCount: supplied.length }; },
+      onSearchRequest(_, context) {
+        signal = context.signal;
+        return ++count === 1 ? { hits: ['alpha'], nextCursor: 'p2' } : pending.promise;
+      } });
+    const load = hook.current.loadMoreSearchResults;
+    await change(() => load());
+    if (action === 'unmount') await hook.unmount();
+    else await change(() => hook.document.defaultView.dispatchEvent(new Event('pagehide')));
+    assert.equal(signal.aborted, true);
+    assert.equal(load(), false);
+    await change(() => pending.resolve({ hits: ['remote'], entries: [entry('remote')], nextCursor: null }));
+    assert.equal(hydrated, 0);
+    assert.deepEqual(hook.current.resultIds, ['alpha']);
+  });
+});
+
+test('invalid append hits do not hydrate entries and cumulative hit limits survive page boundaries and retry', async t => {
+  let count = 0, hydrated = 0;
+  const hook = await mount(t, { query: 'text', pageSize: 100, searchDataRevision: 0,
+    hydrateSearchEntries: supplied => { hydrated++; return { entries: [...entries, ...supplied], addedCount: supplied.length }; },
+    onSearchRequest() {
+      count++;
+      if (count === 1) return { hits: Array(60_000).fill('alpha'), nextCursor: 'p2' };
+      if (count === 2) return { hits: ['remote', ...Array(40_000).fill('unknown')], entries: [entry('remote')], nextCursor: 'p3' };
+      return { hits: ['beta'], nextCursor: null };
+    } });
+  await change(() => hook.current.loadMoreSearchResults());
+  assert.equal(hydrated, 0);
+  assert.deepEqual(hook.current.resultIds, ['alpha']);
+  assert.match(hook.current.searchLoadMoreError, /100,000/);
+  await change(() => hook.current.loadMoreSearchResults());
+  assert.deepEqual(hook.current.resultIds, ['alpha', 'beta']);
+  assert.equal(hook.current.searchLoadMoreError, null);
+});
+
+test('page metadata hydrates uncached entries without restarting the cursor session', async t => {
+  let cached = entries, count = 0;
+  const hook = await mount(t, { query: 'text', pageSize: 100, searchDataRevision: 0,
+    getSearchDataRevision: () => 0, getEntries: () => cached,
+    hydrateSearchEntries: supplied => { cached = [...cached, ...supplied]; return { entries: cached, addedCount: supplied.length }; },
+    onSearchRequest(request) {
+      count++;
+      return request.cursor === null ? { hits: ['first'], entries: [entry('first')], nextCursor: 'p2' }
+        : { hits: ['second'], entries: [entry('second')], nextCursor: null };
+    } });
+  assert.deepEqual(hook.current.resultIds, ['first']);
+  await hook.update({ entries: cached });
+  assert.equal(count, 1);
+  await change(() => hook.current.loadMoreSearchResults());
+  assert.deepEqual(hook.current.resultIds, ['first', 'second']);
+  assert.equal(count, 2);
 });

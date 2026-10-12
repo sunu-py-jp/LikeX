@@ -2,7 +2,7 @@
 
 [ドキュメント一覧](./README.md)
 
-入力時とEnter確定時の検索、利用側が追加する詳細条件、検索UIの差し替え、および親へ委譲する検索と結果の逐次表示の型・実装例です。
+入力時とEnter確定時の検索、利用側が追加する詳細条件、検索UIの差し替え、および親へ委譲する検索・逐次表示・スクロールに応じたページ取得の型と実装例です。
 
 <a id="search-integration"></a>
 
@@ -37,7 +37,7 @@
 
 ### 公開型と結果の契約
 
-`ExplorerSearchOptions`、`ExplorerSearchConditions`、`ExplorerSearchRequest`、`ExplorerSearchContext`、`ExplorerSearchHandler`、`ExplorerSearchHit`、`ExplorerSearchResult`、`ExplorerSearchBatch`、`ExplorerSearchResponse`、`ExplorerSearchStream`、`ExplorerSearchRenderContext`、`ExplorerSearchRenderer`、`ExplorerSearchResultRenderContext`、`ExplorerSearchResultRenderer` は公開入口からimportできます。`Explorer` と `ExplorerPopup` で同じpropsを使えます。
+`ExplorerSearchOptions`、`ExplorerSearchConditions`、`ExplorerSearchRequest`、`ExplorerSearchContext`、`ExplorerSearchHandler`、`ExplorerSearchHit`、`ExplorerSearchResult`、`ExplorerSearchBatch`、`ExplorerSearchPage`、`ExplorerSearchResponse`、`ExplorerSearchStream`、`ExplorerSearchRenderContext`、`ExplorerSearchRenderer`、`ExplorerSearchResultRenderContext`、`ExplorerSearchResultRenderer` は公開入口からimportできます。`Explorer` と `ExplorerPopup` で同じpropsを使えます。
 
 ```ts
 import type {
@@ -62,11 +62,12 @@ const searchFiles: ExplorerSearchHandler = (
 | `request.query` | 前後の空白を除去した検索語。空文字の要求は送りません。 |
 | `request.conditions` | 確定済みの `matchCase` / `wholeName` / `useRegex`。外部ハンドラーが条件の意味を適用します。 |
 | `request.params` | `search.params` を確定時点でコピーした読み取り専用の追加条件。JSON互換のオブジェクトで、内部の配列・オブジェクトも固定します。 |
+| `request.cursor` / `request.limit` | `search.pageSize` を指定した外部検索だけに渡します。初回cursorは `null`、続きは前回の `nextCursor`。limitは正規化済みの要求件数です。 |
 | `request.entries` | `readonly ExplorerEntry[]`。要求時点の下書きで、未保存の追加・改名・移動も含みます。遅延読み込み時はキャッシュの範囲であり、サーバーの全件ではありません。配列・項目・`source` を変更しないでください。 |
 | `request.location` | `ExplorerLocationInfo`。通常フォルダは `kind: "folder"` と `id`・`name`・`path`、お気に入り・最近は `kind: "favorites" \| "recent"` と `id: null`・`path: null`。外部検索の範囲は親が決めます。 |
 | `request.tabId` / `windowId` | 要求元のタブ・ウィンドウのID。要求の各フィールドは読み取り専用です。 |
 | `context.signal` | `AbortSignal`。`fetch` 等の取消しに渡します。 |
-| 戻り値 | `ExplorerSearchResponse \| ExplorerSearchStream \| Promise<ExplorerSearchResponse \| ExplorerSearchStream>`。Responseは従来のID／hit配列、または `{ hits, entries }`。ストリームは追加分のResponseを順に返します。IDはファイル本体の `source.id` ではなく `entry.id` です。 |
+| 戻り値 | `ExplorerSearchResponse \| ExplorerSearchStream \| Promise<ExplorerSearchResponse \| ExplorerSearchStream>`。Responseは従来のID／hit配列、`{ hits, entries }`、またはページ形式の `{ hits, entries?, nextCursor }`。ストリームは配列／バッチの追加分を順に返します。IDはファイル本体の `source.id` ではなく `entry.id` です。 |
 
 返されたIDから現在の項目を表示します。必要なメタデータがない未知IDと重複hit IDは無視し、同じIDが複数ある場合は最初の出現とその補足情報を使います。`{ hits, entries }` では同じバッチのメタデータを取り込んでからhit IDを解決します。返却順をそのまま保つため、外部検索中は通常の名前順・フォルダ優先・最近順で並べ直さず、並べ替えUIを隠します。`[]` は正常な0件の結果です。通信や解析の失敗はthrow / rejectで伝え、正常な0件へ置き換えないようにします。
 
@@ -90,13 +91,13 @@ const searchFiles: ExplorerSearchHandler = (
 
 利用側からは `explorerRef.current?.openContainingFolder({ id: "file-a" })` を呼び出せます。このAPIはファイル・フォルダの両方を受け付け、常に対象の親へ移動します。対象と祖先はキャッシュ上で解決し、遅延読み込みで親の直下一覧が未取得なら通常の `onLoadFolder` により取得します。[公開APIとエラー](./api-reference.md#external-navigation)を参照してください。
 
-「戻る」で検索語・詳細条件・選択を復元します。同じフォルダ内で検索結果から通常一覧へ移った場合も戻れます。`submit` 方式では入力中の語・条件と確定済みの語・条件を分けて保存します。外部検索の結果自体は履歴に固定せず、当時の確定済み検索語・条件・`params` で `onSearchRequest` を再実行します。途中の検索は中断し、新しく返った結果に基づいて表示します。
+「戻る」で検索語・詳細条件・選択を復元します。同じフォルダ内で検索結果から通常一覧へ移った場合も戻れます。`submit` 方式では入力中の語・条件と確定済みの語・条件を分けて保存します。外部検索の結果自体は履歴に固定せず、当時の確定済み検索語・条件・`params` で `onSearchRequest` を再実行します。ページ方式も `cursor: null` の先頭から再検索し、以前のカーソルや取得済みページを復元しません。途中の検索は中断し、新しく返った結果に基づいて表示します。
 
 履歴はホストが管理する `search.params` の入力UIやstateを書き換えません。復元後に検索入力・詳細条件・ホストの `params` を変更すると、以降の検索には現在のpropsの条件を使います。利用側のフィルターUIと復元された条件を同じものとして扱わないようにしてください。
 
 ### 見つかった結果から逐次表示する
 
-`ExplorerSearchStream` は `AsyncIterable<ExplorerSearchResponse>` です。ハンドラーにasync generatorを渡すと、`yield` した配列または `{ hits, entries }` を受信するたびに結果へ追加します。既存の同期配列やPromiseを返すハンドラー、配列だけをyieldするgeneratorもそのまま使えます。準備処理を待ってから `Promise<ExplorerSearchStream>` を返すこともできます。
+`ExplorerSearchStream` は `AsyncIterable<ExplorerSearchResponse>` です。`search.pageSize` を省略してハンドラーにasync generatorを渡すと、`yield` した配列または `{ hits, entries }` を受信するたびに結果へ追加します。既存の同期配列やPromiseを返すハンドラー、配列だけをyieldするgeneratorもそのまま使えます。準備処理を待ってから `Promise<ExplorerSearchStream>` を返すこともできます。ストリームは終了まで順に読み進め、スクロール位置では停止しません。
 
 ```tsx
 import type { ExplorerSearchHandler } from "@likex/explorer";
@@ -127,6 +128,66 @@ const searchFiles: ExplorerSearchHandler = async function* (request, { signal })
 
 上限はバッチごとにリセットしません。1回の検索で受信した配列は累積100,000件、累積5,000,000 JSON文字までです。重複・未知IDとして表示しなかった受信分も累積に含めます。抜粋・理由・metadataの各上限も通常の配列と同じで、違反したバッチは反映せず、正常に受信済みの結果を残します。
 
+<a id="search-paging"></a>
+
+### スクロールに合わせて100件ずつ検索する
+
+`search={{ pageSize: 100 }}` を指定し、`onSearchRequest` から1ページずつ返すと、初回に100件を要求し、一覧の末尾に近づくたびに次のページを要求します。検索サービスの全結果数は不要です。`pageSize` の正の整数は最大1,000件に収め、0・負数・小数・非数値・非有限値を渡した場合は100件を使います。省略時は従来の配列・バッチ・逐次応答の動作を維持し、要求にcursorとlimitを追加しません。内蔵の名前検索には適用しません。
+
+```ts
+type ExplorerSearchPage = Readonly<{
+  hits: ExplorerSearchResult;
+  entries?: readonly ExplorerEntry[];
+  nextCursor: string | null;
+}>;
+```
+
+```tsx
+import Explorer, { type ExplorerSearchHandler } from "@likex/explorer";
+
+const searchFiles: ExplorerSearchHandler = async (request, { signal }) => {
+  // searchIndexPageは利用側のAPI。1回の呼び出しで1ページだけ取得します。
+  const page = await searchIndexPage({
+    query: request.query,
+    conditions: request.conditions,
+    params: request.params,
+    cursor: request.cursor, // 初回はnull、続きは前回応答のnextCursor
+    limit: request.limit,   // この例は100
+  }, { signal });
+  return {
+    hits: page.hits,
+    entries: page.entries, // キャッシュにないヒットと必要な祖先だけ
+    nextCursor: page.nextCursor, // 末尾はnull
+  };
+};
+
+<Explorer initialEntries={initialEntries} onLoadFolder={loadFolder}
+  onSearchRequest={searchFiles} search={{ pageSize: 100 }} />
+```
+
+`searchIndexPage` と `loadFolder` は利用側で用意します。`entries` を省略すればキャッシュ内のIDだけを解決します。未取得の項目を渡すには、従来どおり `onLoadFolder` が必要です。同じページのメタデータを取り込んでからhitを表示し、ページ間の重複IDは最初の順位と補足情報を維持して1件にまとめます。追加時は選択とスクロール位置を保ち、既存結果の末尾へ追加します。
+
+`nextCursor` は利用側が発行する空でない最大4,096 UTF-16文字の文字列、または終端を表す `null` です。Explorerは文字列の中身を解釈せず、次回の `request.cursor` へ渡します。前と同じカーソルや既に使用したカーソルを返す循環はエラーです。`hits: []` でも新しいカーソルがあれば続きありとして扱います。既存の配列または `{ hits, entries }` をページ方式で返した場合は、その1回で終端と扱います。ページ方式のAsyncIterable、および `pageSize` 未指定時の `nextCursor` 付き応答はエラーです。
+
+初回は `renderSearch` の `searching`、追加取得は `loadingMore` で確認できます。`hasMore` がtrueの間は続きがあり、同時に複数のページを要求しません。初回の失敗は検索全体を再試行します。追加ページの失敗は `loadMoreError` に保持し、既存の結果・選択・カーソルを残して自動取得を止めます。標準の再試行ボタン、`context.loadMoreSearchResults()`、または `explorerRef.current?.loadMoreSearchResults()` で同じカーソルを再要求できます。APIの戻り値は要求を受け付けたら `true`、検索外・続きなし・処理中などで開始できなければ `false` です。Promiseではなく、取得成功を表す値でもありません。
+
+```tsx
+<Explorer initialEntries={entries} onLoadFolder={loadFolder} onSearchRequest={searchFiles}
+  search={{ pageSize: 100 }}
+  renderSearch={context => <>
+    {context.defaultInput}
+    {context.hasMore && <button type="button"
+      disabled={context.searching || context.loadingMore}
+      onClick={() => context.loadMoreSearchResults()}>
+      {context.loadMoreError ? "続きの取得を再試行" : "次の100件"}
+    </button>}
+  </>} />
+```
+
+検索語・確定条件・現在地・タブ等の切り替えと中断の規則は従来どおりです。新しい検索は先頭ページから開始し、古い要求の結果を後から追加しません。`submit` 方式で入力中の条件を変えただけなら、追加取得も確定済みの検索条件を使い続けます。件数・文字数・メタデータの上限はページごとにリセットせず、1回の検索全体で累積します。
+
+検索索引・DB接続、認証・閲覧権限、検索順位、カーソル発行・失効・再試行時の整合性はホスト側で管理します。DBの更新でページ境界がずれない安定した順序やスナップショットもホスト側で決めます。Explorerのページ取得は検索結果向けで、`onLoadFolder` のフォルダ直下一覧は引き続き1回で返します。Playgroundの `/explorer/lazy-loading` では、1,280件を100件ずつ読み込み、要求回数・受信件数・追加取得の失敗と再試行を確認できます。
+
 ### 未取得の項目を検索結果と一緒に渡す
 
 外部の検索サービスが未取得のファイルを見つけた場合は、hitだけでなく表示に必要な `ExplorerEntry` と未取得の祖先フォルダを返します。利用側が渡すメタデータを受け入れるため、`onLoadFolder` による部分キャッシュの利用が必要です。
@@ -136,7 +197,7 @@ type ExplorerSearchBatch = Readonly<{
   hits: ExplorerSearchResult;
   entries: readonly ExplorerEntry[];
 }>;
-type ExplorerSearchResponse = ExplorerSearchResult | ExplorerSearchBatch;
+type ExplorerSearchResponse = ExplorerSearchResult | ExplorerSearchBatch | ExplorerSearchPage;
 type ExplorerSearchStream = AsyncIterable<ExplorerSearchResponse>;
 ```
 
@@ -217,6 +278,8 @@ const renderSearch: ExplorerSearchRenderer = context => (
 | `params` | 親からの追加条件。変更は親のstate更新を通して `search.params` へ渡す |
 | `submit()` / `clear()` | 入力・条件を確定して検索／検索語を消す |
 | `trigger` / `searching` / `error` | 実行タイミング、処理中、確定した検索のエラー |
+| `hasMore` / `loadingMore` / `loadMoreError` | ページ方式の続きの有無、追加取得中、追加取得のエラー。従来方式ではfalse / false / null |
+| `loadMoreSearchResults()` | 次のページを要求、または失敗した同じページを再試行。受付可否をbooleanで返す |
 | `inputProps` | 標準inputのvalue、イベント、ref、IME処理、Enter、最大長、アクセシビリティ属性 |
 | `defaultInput` | 標準の検索入力欄のReactElement |
 | `defaultOptions` | 利用側が明示的に配置できる詳細条件メニューのReactElement。標準UIには表示しない |
@@ -310,7 +373,7 @@ const renderSearchResult: ExplorerSearchResultRenderer = ({ hit, defaultContent 
 
 補足内のダブルクリックはファイルを開かず、通常のテキスト選択に使えます。高さを数値指定した枠は、フォーカスすれば矢印キーでスクロールできます。標準のbutton・a・input・select・textarea等やrole=button/linkのクリック・ドラッグ開始は親行へ伝播させず、枠内のキーボード操作も保持します。それ以外の独自コントロールを置く場合は、親行の選択・開く・ドラッグ処理へ意図せず伝わらないよう、必要なイベントの `stopPropagation()` を利用側で設定してください。例えば操作パネルのラッパーに `onPointerDown`、`onClick`、`onDoubleClick`、`onKeyDown` を設定し、ドラッグを開始させないコントロールでは `onDragStart` で `preventDefault()` と `stopPropagation()` を呼びます。コンテキストメニューの扱いも利用側のコントロールに合わせて選べます。
 
-従来の `string[]` を返す検索コールバックはそのまま利用できます。利用側が `ExplorerSearchHandler` を直接呼ぶ場合は、Promiseを解決した後に配列・`{ hits, entries }`・AsyncIterableを判別してください。hit配列の正規化には `@likex/explorer/model` の `resolveExplorerSearchIds` / `resolveExplorerSearchHits` を使えます。これらは1つのhit配列を対象とし、entryの追加やストリームの読み込み・バッチをまたぐ重複排除や累積上限の管理は行いません。Explorer本体へハンドラーを渡せば、それらの管理とキャンセルは本体が扱います。
+従来の `string[]` を返す検索コールバックはそのまま利用できます。利用側が `ExplorerSearchHandler` を直接呼ぶ場合は、Promiseを解決した後に配列・`{ hits, entries }`・`{ hits, entries?, nextCursor }`・AsyncIterableを判別してください。hit配列の正規化には `@likex/explorer/model` の `resolveExplorerSearchIds` / `resolveExplorerSearchHits` を使えます。これらは1つのhit配列を対象とし、entryの追加・ページ取得・ストリームの読み込み・バッチをまたぐ重複排除や累積上限の管理は行いません。Explorer本体へハンドラーを渡せば、それらの管理とキャンセルは本体が扱います。
 
 ### 親の本文キャッシュを検索する
 

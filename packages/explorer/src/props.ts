@@ -53,8 +53,14 @@ export type ExplorerSearchRenderContext = Readonly<{
   setConditions(patch: Partial<ExplorerSearchConditions>): void;
   params?: Readonly<Record<string, unknown>>;
   trigger: "input" | "submit";
+  /** Initial search (or eager stream) is running. Additional pages use loadingMore. */
   searching: boolean;
   error: string | null;
+  hasMore: boolean;
+  loadingMore: boolean;
+  loadMoreError: string | null;
+  /** Request/retry the next page for this pane. False when unavailable or already pending. */
+  loadMoreSearchResults(): boolean;
   submit(): void;
   clear(): void;
   /** Spread onto a custom input to keep focus shortcuts, IME and Enter behavior. */

@@ -7,6 +7,7 @@ export function createExplorerCommandBridge() {
   const handle: ExplorerCommandHandle = {
     getEntries: () => current?.getEntries() ?? null,
     loadFolder: (id, options) => current?.loadFolder(id, options) ?? unavailable(),
+    loadMoreSearchResults: () => current?.loadMoreSearchResults() ?? false,
     execute: action => current?.execute(action) ?? unavailable(),
     upload: (files, parentId) => current?.upload(files, parentId) ?? unavailable(),
     save: () => current?.save() ?? unavailable(),

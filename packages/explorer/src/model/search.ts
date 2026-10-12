@@ -18,6 +18,9 @@ export type ExplorerSearchOptions = Readonly<{
   trigger?: "input" | "submit";
   /** Delay external input searches; local and submitted searches are immediate. Defaults to 0. */
   debounceMs?: number;
+  /** Opt into cursor paging. Positive integers are capped at 1,000; invalid values use 100.
+   * Omit to preserve complete responses and eagerly consumed streams. */
+  pageSize?: number;
   /** Host-owned filters. Update immutably; submitted searches capture these on submit. */
   params?: Readonly<Record<string, unknown>>;
   /** Maximum supplementary lines before an ellipsis. Defaults to 1; clamped to integer 1–30. */
@@ -35,6 +38,10 @@ export type ExplorerSearchRequest = Readonly<{
   location: ExplorerLocationInfo;
   tabId: string;
   windowId: string;
+  /** Present only with pageSize. Null requests the first page; other cursors are host-owned. */
+  cursor?: string | null;
+  /** Present only with pageSize; the requested maximum page size (1–1,000). */
+  limit?: number;
 }>;
 
 export type ExplorerSearchContext = Readonly<{
@@ -56,7 +63,14 @@ export type ExplorerSearchResult = readonly (string | ExplorerSearchHit)[];
 /** An atomic set of hits and cache metadata, including every missing ancestor.
  * Entries require folder loading; they hydrate the cache without creating edits. */
 export type ExplorerSearchBatch = Readonly<{ hits: ExplorerSearchResult; entries: readonly ExplorerEntry[] }>;
-export type ExplorerSearchResponse = ExplorerSearchResult | ExplorerSearchBatch;
+/** An atomic search page. A null cursor completes the search; other cursors must be
+ * nonempty strings of at most 4,096 characters and must advance without repetition. */
+export type ExplorerSearchPage = Readonly<{
+  hits: ExplorerSearchResult;
+  entries?: readonly ExplorerEntry[];
+  nextCursor: string | null;
+}>;
+export type ExplorerSearchResponse = ExplorerSearchResult | ExplorerSearchBatch | ExplorerSearchPage;
 
 /** Each yield appends an atomic batch. First occurrences win across all batches. */
 export type ExplorerSearchStream = AsyncIterable<ExplorerSearchResponse>;

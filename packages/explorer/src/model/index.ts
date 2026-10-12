@@ -17,7 +17,7 @@ export type { ExplorerPickerKind, ExplorerPickerItem, ExplorerPickerRootItem, Ex
 export { resolveExplorerSearchHits, resolveExplorerSearchIds } from "./search";
 export type {
   ExplorerSearchConditions, ExplorerSearchOptions, ExplorerSearchRequest, ExplorerSearchContext,
-  ExplorerSearchHit, ExplorerSearchResult, ExplorerSearchStream, ExplorerSearchBatch, ExplorerSearchResponse, ExplorerSearchHandler,
+  ExplorerSearchHit, ExplorerSearchResult, ExplorerSearchStream, ExplorerSearchBatch, ExplorerSearchPage, ExplorerSearchResponse, ExplorerSearchHandler,
 } from "./search";
 export { assertExplorerEntryPermissions, checksForExplorerAction, checksForExplorerChanges, ExplorerOperationDeniedError } from "./entry-permissions";
 export type {

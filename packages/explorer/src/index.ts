@@ -47,7 +47,7 @@ export type {
   ExplorerSearchConditions,
   ExplorerSearchHit,
   ExplorerSearchResult,
-  ExplorerSearchStream, ExplorerSearchBatch, ExplorerSearchResponse,
+  ExplorerSearchStream, ExplorerSearchBatch, ExplorerSearchPage, ExplorerSearchResponse,
   ExplorerSearchOptions,
   ExplorerSearchRequest,
   ExplorerSearchContext,

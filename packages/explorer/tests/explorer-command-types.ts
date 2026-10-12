@@ -3,6 +3,7 @@ import { createDraftSnapshot, applyAction } from "../src/model-entry";
 
 export function commands(handle: ExplorerHandle) {
   const api: ExplorerCommandHandle = handle;
+  const loadingMore: boolean = api.loadMoreSearchResults();
   const entries: readonly ExplorerItemInfo[] | null = api.getEntries();
   const changed: Promise<boolean> = api.execute({ action: "rename", ids: ["file"], name: "Renamed.txt" });
   const uploaded: Promise<boolean> = api.upload([new File(["text"], "new.txt")], "root");
@@ -19,7 +20,7 @@ export function commands(handle: ExplorerHandle) {
   api.execute({ action: "undo" });
   // @ts-expect-error Upload destinations are explicit.
   api.upload([]);
-  return { entries, changed, uploaded, saved, discarded, refreshed, downloaded, loaded };
+  return { loadingMore, entries, changed, uploaded, saved, discarded, refreshed, downloaded, loaded };
 }
 
 export const created = applyAction(createDraftSnapshot([]), { action: "create", name: "Folder" });

@@ -9,6 +9,8 @@ export type ExplorerCommandHandle = Readonly<{
   getEntries(): readonly ExplorerItemInfo[] | null;
   /** Hydrate a folder cache, optionally all descendants, without editing or changing dirty state. */
   loadFolder(folderId: string, options?: ExplorerFolderLoadOptions): Promise<boolean>;
+  /** Request/retry the next search page in the main pane. False when unavailable or already pending. */
+  loadMoreSearchResults(): boolean;
   /** Explicit targets only; never substitutes the current selection. False means no change. */
   execute(action: ExplorerAction): Promise<boolean>;
   /** Uses the same validation, conflict dialog, progress and edit gate as GUI import. */

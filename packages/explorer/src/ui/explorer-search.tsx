@@ -13,9 +13,9 @@ import { iconButtonClass, menuContentClass, menuItemClass } from "./explorer-con
 
 /** Search logic stays in the controller; hosts can compose or replace these controls. */
 export const ExplorerSearch = memo(function ExplorerSearch() {
-  const { query, searchText, searchTrigger, searchPending, searchError, searchConditions, searchParams,
+  const { query, searchText, searchTrigger, searchPending, searchError, searchHasMore, searchLoadingMore, searchLoadMoreError, loadMoreSearchResults, searchConditions, searchParams,
     setSearchConditions, setQuery, submitSearch, clearSearch, setSearchComposing, searchInput, instanceId, renderSearch } = useExplorerFields(
-    "query", "searchText", "searchTrigger", "searchPending", "searchError", "searchConditions", "searchParams",
+    "query", "searchText", "searchTrigger", "searchPending", "searchError", "searchHasMore", "searchLoadingMore", "searchLoadMoreError", "loadMoreSearchResults", "searchConditions", "searchParams",
     "setSearchConditions", "setQuery", "submitSearch", "clearSearch", "setSearchComposing", "searchInput", "instanceId", "renderSearch");
   const { portalContainer } = useExplorerDom(), theme = useExplorerTheme();
   const inputProps: ExplorerSearchRenderContext["inputProps"] = {
@@ -51,6 +51,7 @@ export const ExplorerSearch = memo(function ExplorerSearch() {
   </DropdownMenu.Root>;
   const context: ExplorerSearchRenderContext = { query: searchText, setQuery, conditions: searchConditions, setConditions: setSearchConditions,
     params: searchParams, trigger: searchTrigger, searching: searchPending, error: searchError,
+    hasMore: searchHasMore, loadingMore: searchLoadingMore, loadMoreError: searchLoadMoreError, loadMoreSearchResults,
     submit: submitSearch, clear: clearSearch, inputProps, defaultInput, defaultOptions };
   const custom = renderSearch?.(context);
   return <div role="search" aria-label="ファイル検索" className="lxe:flex lxe:min-w-0 lxe:basis-full lxe:flex-wrap lxe:items-center lxe:gap-1 lxe:@[1000px]/explorer:basis-72">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useInsertionEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useInsertionEffect, useMemo, useRef, useState } from "react";
 import type { ExplorerEntry } from "../model/draft";
 import type { ExplorerLocationInfo } from "../model/events";
 import { useExplorerSearchParams } from "./use-explorer-search-params";
@@ -28,6 +28,7 @@ type SearchOptions = {
   onSearchRequest?: ExplorerSearchHandler;
   trigger: NonNullable<ExplorerSearchOptions["trigger"]>;
   debounceMs?: number;
+  pageSize?: number;
   /** Increment for an explicit submit or retry, including an unchanged query. */
   revision: number;
   ownerDocument: Document | null;
@@ -38,13 +39,14 @@ const EMPTY_HITS: readonly ExplorerSearchHit[] = Object.freeze([]);
 
 /** Resolve external search independently of the local draft and per-tab input state. */
 export function useExplorerSearch({ enabled, query, conditions = DEFAULT_EXPLORER_SEARCH_CONDITIONS, params: inputParams, paramsError, entries, location, tabId, windowId,
-  onSearchRequest, trigger, debounceMs = 0, revision, ownerDocument, searchDataRevision, getSearchDataRevision, getEntries, hydrateSearchEntries, externalPaused = false }: SearchOptions) {
+  onSearchRequest, trigger, debounceMs = 0, pageSize, revision, ownerDocument, searchDataRevision, getSearchDataRevision, getEntries, hydrateSearchEntries, externalPaused = false }: SearchOptions) {
   const parameters = useExplorerSearchParams(inputParams), params = parameters.params;
   const parameterError = paramsError ?? parameters.error;
   const hasHandler = typeof onSearchRequest === "function";
   const normalizedQuery = query.trim();
   const delay = trigger === "input" && Number.isFinite(debounceMs) && debounceMs > 0
     ? Math.min(debounceMs, 2_147_483_647) : 0;
+  const limit = pageSize === undefined ? undefined : Number.isInteger(pageSize) && pageSize > 0 ? Math.min(1000, pageSize) : 100;
   const { matchCase, wholeName, useRegex } = conditions;
   const localError = useMemo(() => {
     if (!enabled || hasHandler || !normalizedQuery) return null;
@@ -58,8 +60,8 @@ export function useExplorerSearch({ enabled, query, conditions = DEFAULT_EXPLORE
   const dataKey = searchDataRevision ?? entries;
   const key = useMemo(() => ({ enabled: externalSearch && !validationError && !externalPaused, query: normalizedQuery, dataKey, conditions: { matchCase, wholeName, useRegex }, params,
     location: { kind, id, name, path } as ExplorerLocationInfo,
-    tabId, windowId, delay, revision, ownerDocument, resumeRevision }),
-  [externalSearch, validationError, externalPaused, normalizedQuery, matchCase, wholeName, useRegex, params, dataKey, kind, id, name, path, tabId, windowId, delay, revision, ownerDocument, resumeRevision]);
+    tabId, windowId, delay, limit, revision, ownerDocument, resumeRevision }),
+  [externalSearch, validationError, externalPaused, normalizedQuery, matchCase, wholeName, useRegex, params, dataKey, kind, id, name, path, tabId, windowId, delay, limit, revision, ownerDocument, resumeRevision]);
   const handlerRef = useRef(onSearchRequest);
   const committedKey = useRef(key);
   const cacheRef = useRef({ entries, getEntries, getSearchDataRevision, hydrateSearchEntries });
@@ -69,12 +71,18 @@ export function useExplorerSearch({ enabled, query, conditions = DEFAULT_EXPLORE
     cacheRef.current = { entries, getEntries, getSearchDataRevision, hydrateSearchEntries };
   }, [onSearchRequest, key, entries, getEntries, getSearchDataRevision, hydrateSearchEntries]);
   const previousRun = useRef({ tabId, windowId, revision });
+  const demandRef = useRef<{ key: typeof key; load: () => boolean } | null>(null);
+  const loadMoreSearchResults = useCallback(() => committedKey.current === key && demandRef.current?.key === key
+    ? demandRef.current.load() : false, [key]);
   const [result, setResult] = useState<{
     key: typeof key;
     ids: readonly string[];
     hits: readonly ExplorerSearchHit[];
     pending: boolean;
     error: string | null;
+    hasMore: boolean;
+    loadingMore: boolean;
+    loadMoreError: string | null;
   } | null>(null);
 
   useEffect(() => {
@@ -95,54 +103,79 @@ export function useExplorerSearch({ enabled, query, conditions = DEFAULT_EXPLORE
     };
     const isCurrent = () => active && !controller.signal.aborted && committedKey.current === key &&
       (typeof key.dataKey !== "number" || !cacheRef.current.getSearchDataRevision || cacheRef.current.getSearchDataRevision() === key.dataKey);
-    const run = async () => {
-      if (!isCurrent()) return;
-      const handler = handlerRef.current;
-      if (!handler) return;
-      const startEntries = cacheRef.current.getEntries?.() ?? cacheRef.current.entries;
-      const accumulator = createExplorerSearchResultAccumulator(startEntries);
-      let entryCount = 0, entryTextLength = 0;
-      let hits = EMPTY_HITS, ids = EMPTY_IDS;
-      const publish = (pending: boolean, error: string | null = null) => {
-        if (isCurrent()) setResult({ key, hits, ids, pending, error });
-      };
-      const append = (response: ExplorerSearchResponse): boolean => {
-        if (!isCurrent()) return false;
-        let result: ExplorerSearchResult, preparedEntries: ReturnType<typeof prepareExplorerSearchEntries> | undefined;
-        if (Array.isArray(response)) result = response;
-        else {
-          if (!response || typeof response !== "object" || Object.getPrototypeOf(response) !== Object.prototype && Object.getPrototypeOf(response) !== null)
-            throw new Error("検索結果はヒットの配列または { hits, entries } で返してください");
-          const hitProperty = Object.getOwnPropertyDescriptor(response, "hits"), entryProperty = Object.getOwnPropertyDescriptor(response, "entries");
-          if (!hitProperty || !("value" in hitProperty) || !entryProperty || !("value" in entryProperty))
-            throw new Error("検索バッチには getter を使わず hits と entries を指定してください");
-          result = hitProperty.value as ExplorerSearchResult;
+    const accumulator = createExplorerSearchResultAccumulator(cacheRef.current.getEntries?.() ?? cacheRef.current.entries);
+    const cursors = new Set<string>();
+    let entryCount = 0, entryTextLength = 0;
+    let hits = EMPTY_HITS, ids = EMPTY_IDS;
+    let nextCursor: string | null = null, initialComplete = false, inFlight = false, loadingMore = false;
+    let loadMoreError: string | null = null;
+    const publish = (pending: boolean, error: string | null = null) => {
+      if (isCurrent()) setResult({ key, hits, ids, pending, error, hasMore: nextCursor !== null, loadingMore, loadMoreError });
+    };
+    const append = (response: ExplorerSearchResponse): boolean => {
+      if (!isCurrent()) return false;
+      let result: ExplorerSearchResult, preparedEntries: ReturnType<typeof prepareExplorerSearchEntries> | undefined;
+      let followingCursor: string | null = null;
+      if (Array.isArray(response)) result = response;
+      else {
+        if (!response || typeof response !== "object" || Object.getPrototypeOf(response) !== Object.prototype && Object.getPrototypeOf(response) !== null)
+          throw new Error("検索結果はヒットの配列または { hits, entries } で返してください");
+        const hitProperty = Object.getOwnPropertyDescriptor(response, "hits"), entryProperty = Object.getOwnPropertyDescriptor(response, "entries");
+        const cursorProperty = Object.getOwnPropertyDescriptor(response, "nextCursor");
+        if (cursorProperty) {
+          if (key.limit === undefined) throw new Error("nextCursor を返す検索には search.pageSize を指定してください");
+          if (!("value" in cursorProperty)) throw new Error("検索ページの nextCursor に getter は使用できません");
+          const cursor: unknown = cursorProperty.value;
+          if (cursor !== null && (typeof cursor !== "string" || !cursor.trim() || cursor.length > 4096))
+            throw new Error("検索ページの nextCursor は null または空でない 4,096 文字以内の文字列で指定してください");
+          if (cursor !== null && cursors.has(cursor)) throw new Error("検索ページの nextCursor が繰り返されています");
+          followingCursor = cursor;
+        }
+        if (!hitProperty || !("value" in hitProperty) || (!cursorProperty && !entryProperty) || entryProperty && !("value" in entryProperty))
+          throw new Error("検索バッチには getter を使わず hits と entries を指定してください");
+        result = hitProperty.value as ExplorerSearchResult;
+        if (entryProperty && (!cursorProperty || entryProperty.value !== undefined)) {
           preparedEntries = prepareExplorerSearchEntries(entryProperty.value as readonly ExplorerEntry[]);
           if (preparedEntries.entries.length > 100_000 - entryCount || preparedEntries.textLength > 5_000_000 - entryTextLength)
             throw new Error("1 回の検索の entries は累計 100,000 件・文字列合計 5,000,000 文字以内で返してください");
         }
-        const preparedHits = accumulator.prepare(result);
-        if (!isCurrent()) return false;
-        let currentEntries = cacheRef.current.getEntries?.() ?? cacheRef.current.entries;
-        if (preparedEntries) {
-          if (!cacheRef.current.hydrateSearchEntries || typeof key.dataKey !== "number")
-            throw new Error("検索結果の項目情報を取り込むには、フォルダの段階的な読み込みを有効にしてください");
-          const merged = cacheRef.current.hydrateSearchEntries(preparedEntries.entries, key.dataKey);
-          if (!merged) return false;
-          currentEntries = merged.entries;
-          entryCount += preparedEntries.entries.length; entryTextLength += preparedEntries.textLength;
-        }
-        const next = preparedHits.commit(currentEntries);
-        if (next !== hits) { hits = next; ids = Object.freeze(hits.map(hit => hit.entryId)); }
-        return true;
-      };
+      }
+      const preparedHits = accumulator.prepare(result);
+      if (!isCurrent()) return false;
+      let currentEntries = cacheRef.current.getEntries?.() ?? cacheRef.current.entries;
+      if (preparedEntries) {
+        if (!cacheRef.current.hydrateSearchEntries || typeof key.dataKey !== "number")
+          throw new Error("検索結果の項目情報を取り込むには、フォルダの段階的な読み込みを有効にしてください");
+        const merged = cacheRef.current.hydrateSearchEntries(preparedEntries.entries, key.dataKey);
+        if (!merged) return false;
+        currentEntries = merged.entries;
+        entryCount += preparedEntries.entries.length; entryTextLength += preparedEntries.textLength;
+      }
+      const next = preparedHits.commit(currentEntries);
+      if (next !== hits) { hits = next; ids = Object.freeze(hits.map(hit => hit.entryId)); }
+      nextCursor = followingCursor;
+      if (followingCursor !== null) cursors.add(followingCursor);
+      return true;
+    };
+    const run = async (more = false) => {
+      if (!isCurrent() || inFlight) return;
+      const handler = handlerRef.current;
+      if (!handler) return;
+      inFlight = true;
+      iterator = undefined; iteratorClosed = false; iteratorDone = false;
+      loadingMore = more;
+      loadMoreError = null;
+      publish(!more);
       try {
-        const response = await handler({ query: key.query, conditions: key.conditions, ...(key.params === undefined ? {} : { params: key.params }), entries: startEntries, location: key.location,
+        const response = await handler({ query: key.query, conditions: key.conditions, ...(key.params === undefined ? {} : { params: key.params }),
+          ...(key.limit === undefined ? {} : { cursor: more ? nextCursor : null, limit: key.limit }),
+          entries: cacheRef.current.getEntries?.() ?? cacheRef.current.entries, location: key.location,
           tabId: key.tabId, windowId: key.windowId }, { signal: controller.signal });
         if (response && !Array.isArray(response) && typeof (response as ExplorerSearchStream)[Symbol.asyncIterator] === "function") {
           iterator = (response as ExplorerSearchStream)[Symbol.asyncIterator]();
           if (!iterator || typeof iterator.next !== "function") throw new Error("検索ストリームが正しくありません。");
           if (!isCurrent()) { closeIterator(); return; }
+          if (key.limit !== undefined) throw new Error("search.pageSize を指定した検索では AsyncIterable ではなく検索ページを返してください");
           let batches = 0;
           while (isCurrent()) {
             const step = await iterator.next();
@@ -158,18 +191,29 @@ export function useExplorerSearch({ enabled, query, conditions = DEFAULT_EXPLORE
         } else {
           if (!isCurrent()) return;
           if (!append(response as ExplorerSearchResponse)) return;
+          initialComplete = true;
+          loadingMore = false;
           publish(false);
         }
       } catch (error) {
         if (!isCurrent()) return;
-        publish(false, error instanceof Error && error.message.trim() ? error.message : "検索できませんでした。もう一度お試しください。");
+        const message = error instanceof Error && error.message.trim() ? error.message : "検索できませんでした。もう一度お試しください。";
+        loadingMore = false;
+        if (more) { loadMoreError = message; publish(false); }
+        else publish(false, message);
       } finally {
+        inFlight = false;
         closeIterator();
       }
     };
+    demandRef.current = { key, load: () => {
+      if (!isCurrent() || key.limit === undefined || !initialComplete || inFlight || nextCursor === null) return false;
+      void run(true);
+      return true;
+    } };
     // A microtask avoids duplicate host requests during StrictMode's effect replay.
     if (key.delay && !submitted) timer = setTimeout(() => { void run(); }, key.delay);
-    else void Promise.resolve().then(run);
+    else void Promise.resolve().then(() => run());
     const owner = key.ownerDocument?.defaultView;
     const cancel = () => {
       controller.abort();
@@ -184,6 +228,7 @@ export function useExplorerSearch({ enabled, query, conditions = DEFAULT_EXPLORE
     owner?.addEventListener("pageshow", resume);
     return () => {
       active = false;
+      if (demandRef.current?.key === key) demandRef.current = null;
       cancel();
       owner?.removeEventListener("pagehide", cancel);
       owner?.removeEventListener("pageshow", resume);
@@ -196,6 +241,10 @@ export function useExplorerSearch({ enabled, query, conditions = DEFAULT_EXPLORE
     resultHits: validationError ? EMPTY_HITS : externalSearch ? current?.hits ?? EMPTY_HITS : null,
     searchPending: externalSearch && !validationError && !externalPaused && (current?.pending ?? true),
     searchError: validationError ?? (externalSearch ? current?.error ?? null : null),
+    searchHasMore: externalSearch && !validationError && !externalPaused && (current?.hasMore ?? false),
+    searchLoadingMore: externalSearch && !validationError && !externalPaused && (current?.loadingMore ?? false),
+    searchLoadMoreError: externalSearch ? current?.loadMoreError ?? null : null,
+    loadMoreSearchResults,
     externalSearch,
   };
 }

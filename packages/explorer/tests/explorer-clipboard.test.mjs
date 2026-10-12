@@ -589,12 +589,21 @@ test('deleting the original destination during enumeration reports an error and 
 });
 
 test('a newer file paste supersedes only that pane’s pending directory import', async t => {
-  const hook = await mount(t, {}, { shared: true });
+  let now = 0, finishImports;
+  t.mock.method(performance, 'now', () => now);
+  const completed = new Promise(resolve => { finishImports = resolve; });
+  const hook = await mount(t, {}, { shared: true, onImportComplete() {
+    if (!hook.workspace.draft.isImporting()) finishImports();
+  } });
   const parent = delayedDirectory('ParentBatch'), child = delayedDirectory('ChildBatch');
   await hook.paste([], { clipboardData: directoryClipboard([parent.directory]) });
   await hook.paste([], { clipboardData: directoryClipboard([child.directory]) }, 'child');
   await hook.paste([file('newest.txt')]);
-  await change(() => { parent.complete(); child.complete(); });
+  assert.equal(hook.workspace.draft.isImporting(), true, 'the child directory import remains pending');
+  // Force discovery to yield to a timer and await the remaining import's real
+  // completion rather than assuming act drains its task-queue work.
+  now = 20;
+  await change(async () => { parent.complete(); child.complete(); await completed; });
   const paths = pathsFor(hook.current.entries);
   assert.ok(paths.includes('/newest.txt')); assert.ok(paths.includes('/ChildBatch/late.txt'));
   assert.equal(paths.includes('/ParentBatch'), false);

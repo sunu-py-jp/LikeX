@@ -14,7 +14,7 @@ const output = await build({ stdin: { contents: `export {default as Demo} from '
     builder.onLoad({ filter: /.*/, namespace: "demo-boundary" }, () => ({ resolveDir: root, contents: `import {createElement} from 'react'; export default props=>createElement('demo-explorer',props);` }));
   } }],
 });
-const { Demo, createLazyFolderServer, lazyDemoSalesId, lazySearchExample, waitForLazyFolder, createDraftSnapshot, applyAction, getSavePayload } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString("base64")}`);
+const { Demo, createLazyFolderServer, lazyDemoSalesId, lazySearchExample, lazySearchPageExample, waitForLazyFolder, createDraftSnapshot, applyAction, getSavePayload } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString("base64")}`);
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const withScope = (baseline, draft) => ({ ...getSavePayload(baseline, draft), scope: { kind: "partial", loadedFolderIds: ["root"] } });
 const searchConditions = { matchCase: false, wholeName: false, useRegex: false };
@@ -146,6 +146,46 @@ test("cancelling whole-server search prevents the next metadata batch from being
   assert.equal((await stream.next()).done, true);
 });
 
+test("paged server returns 1280 ranked hits in requested pages and stops with a null cursor", async () => {
+  const server = createLazyFolderServer(), signal = new AbortController().signal, cached = new Map(server.list("root").map(entry => [entry.id, entry]));
+  const ids = [], counts = []; let cursor = null;
+  do {
+    const page = await server.searchPage({ query: lazySearchPageExample, conditions: searchConditions, cursor, limit: 100 }, signal, () => Promise.resolve());
+    counts.push(page.hits.length); ids.push(...page.hits.map(hit => hit.entryId));
+    for (const entry of page.entries) cached.set(entry.id, entry);
+    assert.doesNotThrow(() => createDraftSnapshot([...cached.values()]));
+    assert.ok(page.entries.filter(entry => entry.kind === "file").every(entry => page.hits.some(hit => hit.entryId === entry.id)));
+    cursor = page.nextCursor;
+  } while (cursor);
+  assert.deepEqual(counts, [...Array(12).fill(100), 80]);
+  assert.equal(new Set(ids).size, 1280);
+  assert.deepEqual(ids, server.snapshot().filter(entry => entry.name.includes(lazySearchPageExample)).map(entry => entry.id));
+  assert.equal(cached.size, 1290);
+});
+
+test("page cursors retain the initial ranking across edits and reject changed search conditions", async () => {
+  const server = createLazyFolderServer(), signal = new AbortController().signal, wait = () => Promise.resolve();
+  const request = { query: lazySearchPageExample, conditions: searchConditions, cursor: null, limit: 100 };
+  const first = await server.searchPage(request, signal, wait), next = { ...request, cursor: first.nextCursor };
+  const second = await server.searchPage(next, signal, wait);
+  const baseline = createDraftSnapshot(server.snapshot()), draft = applyAction(baseline, { action: "rename", ids: [second.hits[0].entryId], name: "検索対象外.md" });
+  server.save(withScope(baseline, draft));
+  const retried = await server.searchPage(next, signal, wait);
+  assert.deepEqual(retried.hits, second.hits);
+  assert.deepEqual(retried.entries, second.entries);
+  await assert.rejects(server.searchPage({ ...next, query: "商談記録" }, signal, wait), /続きが見つかりません/);
+  await assert.rejects(server.searchPage({ ...next, cursor: "unknown" }, signal, wait), /続きが見つかりません/);
+  const noMatches = await server.searchPage({ ...request, query: "存在しない名前" }, signal, wait);
+  assert.deepEqual(noMatches, { hits: [], entries: [], nextCursor: null });
+});
+
+test("cancelling a page request prevents returning its metadata", async () => {
+  const server = createLazyFolderServer(), controller = new AbortController(); let release;
+  const pending = server.searchPage({ query: lazySearchPageExample, conditions: searchConditions, cursor: null, limit: 100 }, controller.signal, () => new Promise(resolve => { release = resolve; }));
+  const reason = new Error("new query"); controller.abort(reason); release();
+  await assert.rejects(pending, error => error === reason);
+});
+
 test("demo wires partial loading, navigation events and cached entry counts", async t => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   let renderer;
@@ -170,7 +210,7 @@ test("demo wires partial loading, navigation events and cached entry counts", as
   assert.equal(renderer.root.findByProps({ className: "lazy-folder-stats" }).findAllByType("strong")[0].props.children, 18);
 });
 
-test("demo examples use injected search UI and search streams update received-hit and metadata counts", async t => {
+test("demo examples use injected search UI and a small page updates received-hit and metadata counts", async t => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   let renderer, controls;
   await act(async () => { renderer = create(createElement(Demo)); });
@@ -181,15 +221,38 @@ test("demo examples use injected search UI and search streams update received-hi
   await act(async () => example.props.onClick());
   assert.deepEqual(changes, [{ useRegex: true, wholeName: false, matchCase: false }, lazySearchExample]);
   assert.match(JSON.stringify(controls.toJSON()), /全件（未取得含む）/);
-  const stream = component().props.onSearchRequest({ query: lazySearchExample, conditions: { ...searchConditions, useRegex: true }, entries: component().props.initialEntries }, { signal: new AbortController().signal });
-  for (let index = 0; index < 4; index++) {
-    let pending, result;
-    await act(async () => { pending = stream.next(); });
-    await act(async () => { t.mock.timers.tick(350); result = await pending; });
-    assert.equal(result.value.hits.length, 2);
-  }
-  await act(async () => { assert.equal((await stream.next()).done, true); });
+  assert.equal(component().props.search.pageSize, 100);
+  let pending, page;
+  await act(async () => { pending = component().props.onSearchRequest({ query: lazySearchExample, conditions: { ...searchConditions, useRegex: true }, entries: component().props.initialEntries, cursor: null, limit: 100 }, { signal: new AbortController().signal }); });
+  await act(async () => { t.mock.timers.tick(350); page = await pending; });
+  assert.equal(page.hits.length, 8); assert.equal(page.nextCursor, null);
   const summary = renderer.root.findByProps({ "aria-label": "全件検索の状態" }).findByProps({ role: "status" });
   assert.deepEqual(summary.findByType("strong").props.children, [8, " 件ヒット"]);
   assert.ok(summary.props.children.includes(15)); assert.ok(summary.props.children.includes("完了"));
+});
+
+test("demo requests 100 additional hits, retains counts on failure and retries the same cursor", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let renderer;
+  await act(async () => { renderer = create(createElement(Demo)); });
+  t.after(async () => { await act(async () => renderer.unmount()); });
+  const component = () => renderer.root.findByType("demo-explorer"), signal = new AbortController().signal;
+  const request = { query: lazySearchPageExample, conditions: searchConditions, entries: component().props.initialEntries, cursor: null, limit: 100 };
+  const summary = () => renderer.root.findByProps({ "aria-label": "全件検索の状態" }).findByProps({ role: "status" });
+  let pending, page;
+  await act(async () => { pending = component().props.onSearchRequest(request, { signal }); });
+  await act(async () => { t.mock.timers.tick(350); page = await pending; });
+  assert.deepEqual(summary().findByType("strong").props.children, [100, " 件ヒット"]);
+  request.cursor = page.nextCursor;
+  await act(async () => renderer.root.findByType("input").props.onChange({ target: { checked: true } }));
+  await act(async () => { pending = component().props.onSearchRequest(request, { signal }); });
+  await act(async () => { const rejected = assert.rejects(pending, /デモ用の追加取得エラー/); t.mock.timers.tick(350); await rejected; });
+  assert.deepEqual(summary().findByType("strong").props.children, [100, " 件ヒット"]);
+  assert.ok(summary().props.children.includes("失敗"));
+  assert.equal(renderer.root.findByType("input").props.checked, false);
+  await act(async () => { pending = component().props.onSearchRequest(request, { signal }); });
+  await act(async () => { t.mock.timers.tick(350); page = await pending; });
+  assert.equal(page.hits.length, 100);
+  assert.deepEqual(summary().findByType("strong").props.children, [200, " 件ヒット"]);
+  assert.ok(summary().props.children.includes(3));
 });

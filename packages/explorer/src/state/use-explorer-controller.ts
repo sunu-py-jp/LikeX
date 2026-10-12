@@ -654,7 +654,8 @@ export function useExplorerViewController({
     ? { kind: "folder", id: location, name: title, path: addressPath }
     : { kind: location === FAVORITES ? "favorites" : "recent", id: null, name: title, path: null },
   [location, title, addressPath]);
-  const { resultIds, resultHits, searchPending, searchError, externalSearch } = useExplorerSearch({
+  const { resultIds, resultHits, searchPending, searchError, externalSearch,
+    searchHasMore, searchLoadingMore, searchLoadMoreError, loadMoreSearchResults } = useExplorerSearch({
     enabled: features.search && !provisionalLocation, query, entries, location: locationInfo,
     searchDataRevision: workspace.draft.searchDataRevision, getSearchDataRevision: workspace.draft.getSearchDataRevision,
     getEntries: workspace.draft.getEntries, hydrateSearchEntries: workspace.draft.hydrateSearchEntries,
@@ -662,7 +663,7 @@ export function useExplorerViewController({
     conditions: committedSearchConditions, params: searchTrigger === "input" && !searchComposing && !restoringSearch ? searchParams.params : committedSearchParams,
     paramsError: searchTrigger === "input" && !searchComposing && !restoringSearch ? searchParams.error : committedSearchParamsError,
     tabId: tabState.activeTabId, windowId, onSearchRequest, trigger: searchTrigger,
-    debounceMs: searchOptions?.debounceMs, revision: searchRevision, ownerDocument,
+    pageSize: searchOptions?.pageSize, debounceMs: searchOptions?.debounceMs, revision: searchRevision, ownerDocument,
   });
   const { visible, visiblePositions, selected, selectedSet, selectedEntries } = useExplorerListing({
     entries, location, query, conditions: committedSearchConditions, sort, selectedIds, selectionMode: selectionOptions.mode, selectionKind: selectionOptions.kind,
@@ -1309,6 +1310,7 @@ export function useExplorerViewController({
       if (!mounted.current || ownerDocument?.defaultView?.closed) return false;
       return loadFolder(id, loadOptions);
     },
+    loadMoreSearchResults: () => mounted.current && !ownerDocument?.defaultView?.closed && loadMoreSearchResults(),
     async execute(command) {
       if (!command || !mounted.current || ownerDocument?.defaultView?.closed) return false;
       // Omitted IDs are deliberately empty; a host command cannot accidentally
@@ -1344,6 +1346,7 @@ export function useExplorerViewController({
     return workspace.commands.register({
       getEntries: () => committedCommands.current.getEntries(),
       loadFolder: (id, loadOptions) => committedCommands.current.loadFolder(id, loadOptions),
+      loadMoreSearchResults: () => committedCommands.current.loadMoreSearchResults(),
       execute: action => committedCommands.current.execute(action),
       upload: (files, parentId) => committedCommands.current.upload(files, parentId),
       save: () => committedCommands.current.save(),
@@ -1671,6 +1674,10 @@ export function useExplorerViewController({
     searchTrigger,
     searchPending,
     searchError,
+    searchHasMore,
+    searchLoadingMore,
+    searchLoadMoreError,
+    loadMoreSearchResults,
     externalSearch,
     canSort,
     setQuery,

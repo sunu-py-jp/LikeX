@@ -19,6 +19,7 @@ import {
   FolderInput,
   FolderOpen,
   Info,
+  Loader2,
   Pencil,
   Scissors,
   Star,
@@ -28,6 +29,7 @@ import {
 import { ContextMenu, DropdownMenu } from "./explorer-overlays";
 import { mergeExplorerClasses } from "./explorer-classnames";
 import { useExplorer, useExplorerFields } from "../state/explorer-context";
+import { useExplorerSearchDemand } from "../state/use-explorer-search-demand";
 import { useExplorerVirtualList } from "../state/use-explorer-virtual-list";
 import { getEntryIndex } from "../model/entry-index";
 import { shortcutAriaKeys, shortcutLabel } from "../model/keyboard";
@@ -473,6 +475,10 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     compact,
     query,
     searchPending,
+    searchHasMore,
+    searchLoadingMore,
+    searchLoadMoreError,
+    loadMoreSearchResults,
     folderPending,
     folderError,
     retryFolder,
@@ -514,7 +520,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     previewTrigger,
     fileActivationEnabled,
     canEditFavorites,
-  } = useExplorerFields("rootLabel", "entries", "navigationEntries", "visible", "pendingImportEntries", "openPendingImportFolder", "selectedSet", "activeTabId", "focusEntryRef", "revealRequest", "clipboard", "disabled", "busy", "view", "defaultColumnWidths", "compact", "query", "searchPending", "folderPending", "folderError", "retryFolder", "searchResultHits", "searchResultDetailsHeight", "searchResultDetailsMaxLines", "renderSearchResult", "renderEmptyState", "emptyStateActions", "locationInfo", "searchError", "retrySearch", "canSort", "location", "special", "provisionalLocation", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "renamingEntryId", "previewTrigger", "fileActivationEnabled", "canEditFavorites");
+  } = useExplorerFields("rootLabel", "entries", "navigationEntries", "visible", "pendingImportEntries", "openPendingImportFolder", "selectedSet", "activeTabId", "focusEntryRef", "revealRequest", "clipboard", "disabled", "busy", "view", "defaultColumnWidths", "compact", "query", "searchPending", "searchHasMore", "searchLoadingMore", "searchLoadMoreError", "loadMoreSearchResults", "folderPending", "folderError", "retryFolder", "searchResultHits", "searchResultDetailsHeight", "searchResultDetailsMaxLines", "renderSearchResult", "renderEmptyState", "emptyStateActions", "locationInfo", "searchError", "retrySearch", "canSort", "location", "special", "provisionalLocation", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "renamingEntryId", "previewTrigger", "fileActivationEnabled", "canEditFavorites");
   const { scheduleRename, cancelPendingRename } = useEntryRenameDelay();
   const suppressNamePreview = useRef(false);
   const horizontal = view === "small" || view === "list";
@@ -566,6 +572,12 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
   const { enabled: virtualEnabled, scrollRef: scrollContainerRef, items: virtualItems, layout: virtualLayout,
     pin: pinVirtualEntry, contentStyle: virtualContentStyle } = useExplorerVirtualList(displayedEntries, view, compact, showInlineLocation, showCardControls,
     JSON.stringify([activeTabId, String(location), query, displayedSort, view]), renamingEntryId, focusEntryRef, revealRequest, resultDetailsHeight);
+  useExplorerSearchDemand(scrollContainerRef, {
+    enabled: searching && searchHasMore && !listPending,
+    horizontal: view === "list", count: visible.length,
+    contextKey: JSON.stringify([activeTabId, String(location), query, view]),
+    loading: searchLoadingMore, error: searchLoadMoreError, loadMore: loadMoreSearchResults,
+  });
   const canUpload = !provisionalLocation && (features.uploadFiles || features.uploadFolders);
   const acceptsDrop = (event: DragEvent<HTMLElement>) =>
     !provisionalLocation && !busy &&
@@ -689,6 +701,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
       </div>}
       <ExplorerBackgroundMenu><div
         ref={scrollContainerRef}
+        data-explorer-scroll-container=""
         data-explorer-drag-scroll="both"
         data-explorer-virtualized={virtualEnabled || undefined}
         className={`lxe:relative lxe:min-h-0 lxe:flex-1 lxe:overflow-auto lxe:px-2 lxe:pb-3 lxe:[scrollbar-width:thin] ${(canDrag || canUpload) && dragOver === currentParent ? "lxe:ring-2 lxe:ring-[var(--explorer-accent)] lxe:ring-inset" : ""}`}
@@ -735,7 +748,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
             </span>
           </div>
         )}
-        {((listPending || listError) && !visible.length) || !displayedEntries.length ? (provisionalLocation && !listPending && !listError ? null :
+        {((listPending || listError) && !visible.length) || !displayedEntries.length ? ((provisionalLocation || searchHasMore) && !listPending && !listError ? null :
           <ExplorerEmptyState
             reason={searching ? "search" : favoritesLocation ? "favorites" : recentLocation ? "recent" : "folder"}
             location={locationInfo} query={query} disabled={disabled} actions={emptyStateActions}
@@ -1062,6 +1075,18 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
           </div>
         )}
       </div></ExplorerBackgroundMenu>
+      {searching && (searchHasMore || searchLoadingMore || searchLoadMoreError) && <div data-explorer-search-paging=""
+        className="lxe:flex lxe:shrink-0 lxe:items-center lxe:gap-2 lxe:border-t lxe:border-[var(--explorer-border)] lxe:px-3 lxe:py-2 lxe:text-xs lxe:text-[var(--explorer-muted)]">
+        {searchLoadMoreError ? <p role="alert" className="lxe:m-0 lxe:min-w-0 lxe:flex-1 lxe:text-[var(--explorer-danger)]">
+          続きの検索結果を取得できませんでした。取得済みの{visible.length}件を表示しています。{searchLoadMoreError}
+        </p> : <span role="status" className="lxe:flex lxe:min-w-0 lxe:flex-1 lxe:items-center lxe:gap-2">
+          {searchLoadingMore && <Loader2 size={14} aria-hidden="true" className="lxe:animate-spin lxe:motion-reduce:animate-none" />}
+          {searchLoadingMore ? "検索結果を追加取得中…" : `${visible.length}件を表示`}
+        </span>}
+        <button type="button" className={buttonClass} disabled={searchLoadingMore} onClick={loadMoreSearchResults}>
+          {searchLoadMoreError ? "再試行" : "さらに読み込む"}
+        </button>
+      </div>}
     </section>
   );
 });

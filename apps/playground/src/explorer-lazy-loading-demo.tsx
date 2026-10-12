@@ -1,17 +1,18 @@
 import { useCallback, useRef, useState } from "react";
 import Explorer, { type ExplorerEmptyStateRenderer, type ExplorerEventHandler, type ExplorerHandle, type ExplorerProps, type ExplorerSavePayload, type ExplorerSearchHandler, type ExplorerSearchRenderer } from "@likex/explorer";
-import { createLazyFolderServer, lazyDemoSalesId, lazySearchExample, waitForLazyFolder } from "./demo/lazy-folder-server";
+import { createLazyFolderServer, lazyDemoSalesId, lazySearchExample, lazySearchPageExample, waitForLazyFolder } from "./demo/lazy-folder-server";
 import "../../../packages/explorer/src/styles.css";
 import "./demo/lazy-folder-demo.css";
 
 type RequestLog = { id: number; path: string; folderId: string; status: "loading" | "success" | "cancelled" | "error"; count?: number };
 const statusLabels = { loading: "取得中", success: "完了", cancelled: "中断", error: "失敗" };
-type SearchTrace = { id: number; query: string; hits: number; metadata: number; status: keyof typeof statusLabels };
+type SearchTrace = { id: number; query: string; hits: number; metadata: number; requests: number; limit: number; lastCount: number; nextCursor: string | null; status: keyof typeof statusLabels };
 const renderSearch: ExplorerSearchRenderer = context => <div className="lazy-folder-search">
   <span className="lazy-folder-search-scope">検索範囲：全件（未取得含む）</span>
   <div className="lazy-folder-search-input">{context.defaultInput}</div>
-  <div className="lazy-folder-search-examples"><button type="button" onClick={() => { context.setConditions({ useRegex: true, wholeName: false, matchCase: false }); context.setQuery(lazySearchExample); }}>例：未取得の開発資料8件</button><button type="button" onClick={() => { context.setConditions({ useRegex: false, wholeName: false, matchCase: false }); context.setQuery("東雲製作所"); }}>例：未取得のフォルダ</button></div>
-  <small>対象はファイル・フォルダ名です。結果の場所はパスで表示します。</small>
+  <div className="lazy-folder-search-examples"><button type="button" onClick={() => { context.setConditions({ useRegex: false, wholeName: false, matchCase: false }); context.setQuery(lazySearchPageExample); }}>例：開発資料1,280件を100件ずつ</button><button type="button" onClick={() => { context.setConditions({ useRegex: true, wholeName: false, matchCase: false }); context.setQuery(lazySearchExample); }}>例：未取得の開発資料8件</button><button type="button" onClick={() => { context.setConditions({ useRegex: false, wholeName: false, matchCase: false }); context.setQuery("東雲製作所"); }}>例：未取得のフォルダ</button></div>
+  <small>一覧の末尾へ進むと次の100件を取得します。対象はファイル・フォルダ名です。</small>
+  {context.hasMore && <button type="button" className="lazy-folder-more" disabled={context.loadingMore || context.searching} onClick={() => context.loadMoreSearchResults()}>{context.loadingMore ? "追加取得中…" : context.loadMoreError ? "追加取得を再試行" : "次の100件を取得"}</button>}
 </div>;
 const renderEmptyState: ExplorerEmptyStateRenderer = ({ reason, location, disabled, actions, defaultContent }) => {
   const customRoot = "/空のフォルダ";
@@ -35,17 +36,23 @@ export default function ExplorerLazyLoadingDemo() {
   const [cachedCount, setCachedCount] = useState(server.initialEntries.length), [dirty, setDirty] = useState(false), [location, setLocation] = useState("/");
   const [saveSummary, setSaveSummary] = useState("まだ保存していません。"), [serverCount, setServerCount] = useState(server.count());
   const [searchTrace, setSearchTrace] = useState<SearchTrace | null>(null), searchId = useRef(0);
-  const onSearchRequest = useCallback<ExplorerSearchHandler>(async function* (request, { signal }) {
+  const failNextPage = useRef(false), [failureArmed, setFailureArmed] = useState(false);
+  const onSearchRequest = useCallback<ExplorerSearchHandler>(async (request, { signal }) => {
     signal.throwIfAborted();
-    const id = ++searchId.current;
-    setSearchTrace({ id, query: request.query, hits: 0, metadata: 0, status: "loading" });
+    const firstPage = request.cursor == null, id = firstPage ? ++searchId.current : searchId.current;
+    if (firstPage) setSearchTrace({ id, query: request.query, hits: 0, metadata: 0, requests: 1, limit: request.limit ?? 100, lastCount: 0, nextCursor: null, status: "loading" });
+    else setSearchTrace(previous => previous?.id === id ? { ...previous, requests: previous.requests + 1, status: "loading" } : previous);
     try {
-      for await (const batch of server.search(request.query, request.conditions, signal)) {
+      if (!firstPage && failNextPage.current) {
+        failNextPage.current = false; setFailureArmed(false);
+        await waitForLazyFolder(signal);
         signal.throwIfAborted();
-        setSearchTrace(previous => previous?.id === id ? { ...previous, hits: previous.hits + batch.hits.length, metadata: previous.metadata + batch.entries.length } : previous);
-        yield batch;
+        throw new Error("デモ用の追加取得エラーです。「追加取得を再試行」で続けられます。");
       }
-      setSearchTrace(previous => previous?.id === id ? { ...previous, status: "success" } : previous);
+      const page = await server.searchPage(request, signal);
+      signal.throwIfAborted();
+      setSearchTrace(previous => previous?.id === id ? { ...previous, hits: previous.hits + page.hits.length, metadata: previous.metadata + (page.entries?.length ?? 0), lastCount: page.hits.length, nextCursor: page.nextCursor, status: "success" } : previous);
+      return page;
     } catch (error) {
       setSearchTrace(previous => previous?.id === id ? { ...previous, status: signal.aborted ? "cancelled" : "error" } : previous);
       throw error;
@@ -86,7 +93,7 @@ export default function ExplorerLazyLoadingDemo() {
     <div className="lazy-folder-workspace"><aside aria-label="遅延読み込みの状態">
       <h2>初期キャッシュは1項目</h2><p>営業資料 → 2026年度 → 東雲製作所を開くと、最後に320件のファイルが届きます。開き直したフォルダはキャッシュを使います。</p>
       <div className="lazy-folder-stats"><div><strong>{cachedCount}</strong><span>取得済み項目</span></div><div><strong>{serverCount}</strong><span>サーバー全項目</span></div></div>
-      <section className="lazy-folder-search-summary" aria-label="全件検索の状態"><h3>全件検索（未取得含む）</h3><p>検索はサーバー側の全{serverCount.toLocaleString()}項目を対象にし、ヒットと祖先だけを返します。</p>{searchTrace ? <p role="status"><strong>{searchTrace.hits} 件ヒット</strong>・{statusLabels[searchTrace.status]}<br />受信メタデータ {searchTrace.metadata} 件<br /><code>{searchTrace.query}</code></p> : <p>「未取得の開発資料8件」を試すと、初回キャッシュ4件から18件だけに増えます。</p>}<p className="lazy-folder-note">検索で届いたフォルダは直下の取得完了にはなりません。開くと残りの一覧を取得します。</p></section>
+      <section className="lazy-folder-search-summary" aria-label="全件検索の状態"><h3>全件検索を100件ずつ取得</h3><p>検索はサーバー側の全{serverCount.toLocaleString()}項目を対象にし、要求したページのヒットと祖先だけを返します。</p>{searchTrace ? <p role="status"><strong>{searchTrace.hits} 件ヒット</strong>・{statusLabels[searchTrace.status]}<br />検索要求 {searchTrace.requests} 回・1回最大 {searchTrace.limit} 件<br />前回の受信 {searchTrace.lastCount} 件<br />受信メタデータ延べ {searchTrace.metadata} 件<br />{searchTrace.nextCursor ? "続きあり：末尾へスクロールして追加取得" : searchTrace.status === "success" ? "最後のページまで受信" : "応答待ち"}<br /><code>{searchTrace.query}</code></p> : <p>「開発資料1,280件を100件ずつ」を選び、一覧を下へスクロールしてください。100件 → 200件 → 300件と増えます。</p>}<label className="lazy-folder-failure"><input type="checkbox" checked={failureArmed} onChange={event => { failNextPage.current = event.target.checked; setFailureArmed(event.target.checked); }} />次の追加取得を一度だけ失敗させる</label><p className="lazy-folder-note">失敗しても表示済みの結果を残します。再試行で同じページから続けられます。検索で届いたフォルダを開くと、残りの直下一覧を取得します。</p></section>
       <p className="lazy-folder-location">現在地：<code>{location}</code><br />{dirty ? "未保存の変更があります" : "未保存の変更なし"}</p>
       <div className="lazy-folder-actions"><button type="button" onClick={() => explorer.current?.navigate("/営業資料")}>営業資料を開く</button><button type="button" onClick={() => explorer.current?.navigate("/")}>ルートへ戻る</button><button type="button" onClick={() => { void explorer.current?.loadFolder(lazyDemoSalesId, { recursive: true }); }}>営業資料の配下を読み込む</button></div>
       <p>フォルダを含む変更やZIPは、必要な配下を読み込んでから実行します。ファイル名変更 → 保存で、未取得の資料が残る差分保存を確認できます。</p>
@@ -94,7 +101,7 @@ export default function ExplorerLazyLoadingDemo() {
       <section aria-label="保存の結果"><h3>保存の結果</h3><p>{saveSummary}</p></section>
       <section aria-label="移動イベント"><h3>移動イベント</h3><p className="lazy-folder-note">初回表示ではnavigateを通知しません。</p>{events.length ? <ol>{events.map((event, index) => <li key={`${index}:${event}`}>{event}</li>)}</ol> : <p>フォルダへ移動すると表示します。</p>}</section>
       <p className="lazy-folder-note">350msの待機を入れたローカルデモです。外部通信・永続保存はなく、再読込で初期状態に戻ります。</p>
-    </aside><main><div className="lazy-folder-explorer"><Explorer ref={explorer} title="フォルダ単位の取得" initialEntries={server.initialEntries} onLoadFolder={onLoadFolder} folderLoading={{ initialLoadedFolderIds: [] }} onSearchRequest={onSearchRequest} renderSearch={renderSearch} renderEmptyState={renderEmptyState} search={{ debounceMs: 180 }} onSave={onSave} onEvent={onEvent} onDirtyChange={setDirty} readFile={server.readFile} colorMode="light" view={{ defaultMode: "details" }} style={{ height: "100%", border: 0, borderRadius: 0 }} /></div>
+    </aside><main><div className="lazy-folder-explorer"><Explorer ref={explorer} title="フォルダ単位の取得" initialEntries={server.initialEntries} onLoadFolder={onLoadFolder} folderLoading={{ initialLoadedFolderIds: [] }} onSearchRequest={onSearchRequest} renderSearch={renderSearch} renderEmptyState={renderEmptyState} search={{ debounceMs: 180, pageSize: 100 }} onSave={onSave} onEvent={onEvent} onDirtyChange={setDirty} readFile={server.readFile} colorMode="light" view={{ defaultMode: "details" }} style={{ height: "100%", border: 0, borderRadius: 0 }} /></div>
       <section className="lazy-folder-requests" aria-label="フォルダ取得履歴"><h2>フォルダ取得履歴 <small>{requests[0]?.id ?? 0} リクエスト</small></h2><p>既に読み込んだ場所へ戻っても、この履歴は増えません。</p><div><table><thead><tr><th>#</th><th>要求したパス</th><th>状態</th><th>直下の件数</th></tr></thead><tbody>{requests.map(item => <tr key={item.id}><td>{item.id}</td><td><code>{item.path}</code></td><td>{statusLabels[item.status]}</td><td>{item.count ?? "—"}</td></tr>)}</tbody></table></div></section>
     </main></div>
   </div>;
