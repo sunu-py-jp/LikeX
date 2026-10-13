@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useInsertionEffect, useMemo, useRef } from "react";
 import { SpreadsheetGridRow, createBorderRowLookup } from "./grid/spreadsheet-grid-row";
-import { cellAddress } from "../model";
+import { cellAddress, parseCellAddress } from "../model";
 import { effectiveCellFormat } from "../model/formatting";
 import { getMergedRange } from "../model/merges";
 import { useGridEditorSize } from "./grid/use-grid-editor-size";
@@ -36,7 +36,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   useGridZoom(c, scroller);
   const autofill = useGridAutofill(c, scroller, { columnOffsets, rowOffsets });
   const conditional = useMemo(() => createConditionalFormatter(c.activeSheet, c.calculated[c.activeSheet.id]), [c.activeSheet, c.calculated]);
-  const focus = useGridFocus(c, scroller, widths, rowOffsets);
+  const focus = useGridFocus(c, scroller, drawingGeometry);
   const { activeInputRef: activeInput } = focus;
   const activeMerge = getMergedRange(c.activeSheet, c.selection.focus);
   const activeHeight = rowOffsets[(activeMerge?.bottom ?? c.selection.focus.row) + 1] - rowOffsets[activeMerge?.top ?? c.selection.focus.row];
@@ -49,6 +49,27 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   const borderRows = useMemo(() => createBorderRowLookup(c.activeSheet.merges), [c.activeSheet.merges]);
   const selectedBounds = useMemo(() => selectionRanges(c.selection).map(rangeBounds), [c.selection]);
   const visibleRows = useMemo(() => new Set(virtualRows), [virtualRows]);
+  const dataControlRows = useMemo(() => {
+    const rows = new Set<number>();
+    if (c.features.dataValidation) for (const [address, cell] of Object.entries(c.activeSheet.cells)) {
+      if (cell.validation?.type === "list" || c.features.checkboxes && cell.validation?.type === "checkbox") {
+        const position = parseCellAddress(address); if (position) rows.add(position.row);
+      }
+    }
+    return rows;
+  }, [c.activeSheet.cells, c.features.dataValidation, c.features.checkboxes]);
+  // Rows whose appearance is unchanged can keep their DOM. Their event handlers
+  // still use the latest committed controller, permissions and selection state.
+  const interactions = useRef({ controller: c, focus, selection: selectionHandlers, rowResize });
+  // Publish before focus layout effects: focus()/blur() dispatch synchronously.
+  useInsertionEffect(() => { interactions.current = { controller: c, focus, selection: selectionHandlers, rowResize }; });
+  const { bindActiveInput } = focus;
+  // Scrolling over already prepared rows changes only the viewport. Reuse the
+  // row element list as well, avoiding reconciliation of thousands of rows.
+  const rows = useMemo(() => virtualRows.map(row => <SpreadsheetGridRow key={row} row={row} controller={c} widths={widths} columnOffsets={columnOffsets}
+    rowOffsets={rowOffsets} gridWidth={gridWidth} renderedMerges={renderedMerges} visibleRows={visibleRows} borderRows={borderRows(row)}
+    selectedBounds={selectedBounds} conditional={conditional} bindActiveInput={bindActiveInput} interactions={interactions} hasDataControls={dataControlRows.has(row)} />),
+  [virtualRows, c, widths, columnOffsets, rowOffsets, gridWidth, renderedMerges, visibleRows, borderRows, selectedBounds, conditional, bindActiveInput, dataControlRows]);
   return <div className="lxs-grid-surface"><SpreadsheetDrawingInspector controller={c} /><div ref={scroller} tabIndex={-1} className="lxs-grid-scroll" style={{ zoom: (c.zoom ?? 100) / 100 }} onBlurCapture={focus.onBlurCapture} onScroll={layout.onScroll}>
     <div className="lxs-grid-canvas" style={{ width: gridWidth, height: rowOffsets.at(-1) }}><div role="grid" aria-label={c.activeSheet.name} aria-readonly={c.disabled || c.requesting} aria-rowcount={c.activeSheet.rowCount + 1} aria-colcount={c.activeSheet.columnCount + 1} aria-multiselectable="true" className="lxs-grid" style={{ width: gridWidth, height: rowOffsets.at(-1) }}>
       <div role="row" aria-rowindex={1} className="lxs-column-headers" style={{ width: gridWidth, height: ROW_HEIGHT }}>
@@ -59,9 +80,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
             {...resize.handlers(column, width)} />}
         </div>)}
       </div>
-      {virtualRows.map(row => <SpreadsheetGridRow key={row} row={row} controller={c} widths={widths} columnOffsets={columnOffsets}
-        rowOffsets={rowOffsets} gridWidth={gridWidth} renderedMerges={renderedMerges} visibleRows={visibleRows} borderRows={borderRows(row)}
-        selectedBounds={selectedBounds} conditional={conditional} focus={focus} selection={selectionHandlers} rowResize={rowResize} />)}
+      {rows}
     </div>{!c.selectedDrawingId && <SelectionOutline selection={c.selection} columnOffsets={columnOffsets} rowOffsets={rowOffsets} />}<SpreadsheetDrawings controller={c} geometry={drawingGeometry} viewport={c.renderingMode === "viewport" ? drawingViewport : undefined} />{autofill.preview}{autofill.handle}</div>
   </div></div>;
 }

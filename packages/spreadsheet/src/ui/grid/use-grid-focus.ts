@@ -2,10 +2,12 @@
 
 import { useCallback, useLayoutEffect, useRef, type FocusEvent, type InputEvent, type KeyboardEvent, type RefObject } from "react";
 import { cellAddress } from "../../model/address";
-import { getDrawingBounds } from "../../model/drawing-placement";
+import { rotatedDrawingBounds } from "../../model/drawing-transform";
+import { getSpreadsheetLineRoute } from "../../model/lines";
 import { getMergedRange, mergedCellPosition } from "../../model/merges";
 import type { SpreadsheetCellPosition, SpreadsheetSheet } from "../../model/types";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
+import { drawingRectangle, type DrawingGeometry } from "../../state/drawing-geometry";
 import { selectionRanges } from "../../state/selection";
 import { ROW_HEIGHT, ROW_HEADER_WIDTH } from "./grid-geometry";
 import { lastUsedCellPosition, nextDataCellPosition, pageRowPosition } from "./grid-navigation";
@@ -24,8 +26,24 @@ export function nextCellPosition(sheet: SpreadsheetSheet, position: Readonly<Spr
     column: (columns > 0 ? merge?.right ?? anchor.column : merge?.left ?? anchor.column) + columns };
 }
 
+/** The grid already has validated dimensions. Reuse its offsets instead of
+ * rebuilding and validating every row/column when only selection changed. */
+export function gridDrawingFocusBounds(sheet: SpreadsheetSheet, drawingId: string, geometry: DrawingGeometry) {
+  const drawing = sheet.drawings?.find(item => item.id === drawingId);
+  if (!drawing) throw new Error("描画オブジェクトが見つかりません");
+  if (drawing.type === "shape" && drawing.line) {
+    // Route directly in grid coordinates, including header offsets. A common
+    // translation preserves bound ports and automatic elbow routing.
+    const { x: left, y: top, width, height } = getSpreadsheetLineRoute(sheet, drawingId,
+      { columns: geometry.columnOffsets, rows: geometry.rowOffsets }).bounds;
+    return { left, top, right: left + width, bottom: top + height, width, height };
+  }
+  return rotatedDrawingBounds(drawingRectangle(drawing, geometry), drawing.rotation);
+}
+
 /** Coordinates the active input, scrolling and cell keyboard navigation. */
-export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRefs["scrollerRef"], widths: readonly number[], rowOffsets: readonly number[]) {
+export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRefs["scrollerRef"], geometry: DrawingGeometry) {
+  const { columnOffsets, rowOffsets } = geometry;
   const activeInput = useRef<HTMLTextAreaElement>(null);
   const replacedFocusedInput = useRef<HTMLTextAreaElement | null>(null);
   const bindActiveInput = useCallback((input: HTMLTextAreaElement | null) => {
@@ -59,13 +77,13 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
     const selectionChanged = lastSelection.current !== c.selection;
     const element = scrollerRef.current;
     if (c.selectionReveal !== false || revealRequested || focusRequested) {
-      let left = widths.slice(0, c.selection.focus.column).reduce((sum, width) => sum + width, ROW_HEADER_WIDTH);
-      let right = left + widths[c.selection.focus.column];
+      let left = columnOffsets[c.selection.focus.column];
+      let right = columnOffsets[c.selection.focus.column + 1];
       let top = rowOffsets[c.selection.focus.row], bottom = rowOffsets[c.selection.focus.row + 1];
       if (c.selectedDrawingId) {
-        const bounds = getDrawingBounds(c.workbook, c.activeSheet.id, c.selectedDrawingId);
-        left = bounds.left + ROW_HEADER_WIDTH; right = bounds.right + ROW_HEADER_WIDTH;
-        top = bounds.top + ROW_HEIGHT; bottom = bounds.bottom + ROW_HEIGHT;
+        const bounds = gridDrawingFocusBounds(c.activeSheet, c.selectedDrawingId, geometry);
+        left = bounds.left; right = bounds.right;
+        top = bounds.top; bottom = bounds.bottom;
       }
       if (top < element.scrollTop + ROW_HEIGHT || bottom - top > element.clientHeight - ROW_HEIGHT) element.scrollTop = Math.max(0, top - ROW_HEIGHT);
       else if (bottom > element.scrollTop + element.clientHeight) element.scrollTop = bottom - element.clientHeight;

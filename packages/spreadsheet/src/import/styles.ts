@@ -3,6 +3,7 @@ import type { SpreadsheetCellBorders, SpreadsheetCellBorder } from "../model/for
 import { normalizeCellFormat } from "../model/formatting/normalize";
 import type { ImportContext } from "./types";
 import { numberFormat } from "./number-format";
+import { rethrowImportFailure } from "./recovery";
 import { child, children, localName, parseXml, type XmlNode } from "./xml";
 import type { XlsxRelationship } from "./relationships";
 
@@ -26,7 +27,9 @@ function fontFormat(node: XmlNode | undefined, context: ImportContext): Spreadsh
   const result: SpreadsheetCellFormat = {};
   for (const [name, key] of [["b", "bold"], ["i", "italic"], ["u", "underline"]] as const) if (child(node, name)) result[key] = enabled(child(node, name));
   const name = child(node, "name")?.attributes.val, size = Number(child(node, "sz")?.attributes.val);
-  if (name && name.length <= 100 && !/[;{}<>\u0000-\u001f]/.test(name)) result.fontFamily = name;
+  if (name?.trim() && name.length <= 100 && !/[;{}<>\u0000-\u001f]/.test(name)) result.fontFamily = name.trim();
+  else if (name !== undefined) context.warn({ code: "adjusted", message: "不正なフォント名を標準フォントへ変更しました" });
+  if (child(node, "sz") && (!Number.isFinite(size) || size <= 0)) context.warn({ code: "adjusted", message: "不正な文字サイズを標準サイズへ変更しました" });
   if (Number.isFinite(size) && size > 0) { result.fontSize = Math.max(1, Math.min(200, size / 0.75)); if (result.fontSize !== size / 0.75) context.warn({ code: "adjusted", message: "文字サイズを対応範囲へ調整しました" }); }
   const color = styleColor(child(node, "color"), context); if (color) result.color = color;
   if (child(node, "strike") || child(node, "vertAlign") || child(node, "outline") || child(node, "shadow")) context.warn({ code: "omitted", message: "取り消し線・上付きなど未対応の文字装飾を省略しました" });
@@ -48,8 +51,11 @@ function borderFormat(node: XmlNode | undefined, context: ImportContext): Spread
 }
 export async function readXlsxStyles(relationships: ReadonlyMap<string, XlsxRelationship>, context: ImportContext): Promise<readonly (SpreadsheetCellFormat | undefined)[]> {
   const theme = [...relationships.values()].find(item => item.type.endsWith("/theme") && !item.external);
-  if (theme) {
-    const root = parseXml(await context.archive.read(theme.target)), scheme = child(child(root, "themeElements"), "clrScheme");
+  if (theme) try {
+    if (!context.archive.has(theme.target)) throw new Error("テーマの参照先がありません");
+    const root = parseXml(await context.archive.read(theme.target));
+    if (localName(root.name) !== "theme") throw new Error("テーマの構造が不正です");
+    const scheme = child(child(root, "themeElements"), "clrScheme");
     const keys = ["lt1", "dk1", "lt2", "dk2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6", "hlink", "folHlink"];
     context.themeColors = keys.map((key, index) => {
       const color = child(scheme, key)?.children[0], value = color?.attributes.lastClr ?? color?.attributes.val;
@@ -66,16 +72,26 @@ export async function readXlsxStyles(relationships: ReadonlyMap<string, XlsxRela
       if (complex) resolved[`${prefix}-cs`] = complex;
     }
     context.themeFonts = resolved;
+  } catch (error) {
+    rethrowImportFailure(error, context);
+    context.warn({ code: "adjusted", message: "テーマを読み込めないため、標準の色・フォントへ変更しました" });
   }
   const relation = [...relationships.values()].find(item => item.type.endsWith("/styles") && !item.external);
   if (!relation) return [undefined];
-  const root = parseXml(await context.archive.read(relation.target));
-  if (localName(root.name) !== "styleSheet") throw new Error("Excelのセル書式が不正です");
+  let root: XmlNode;
+  try {
+    if (!context.archive.has(relation.target)) throw new Error("セル書式の参照先がありません");
+    root = parseXml(await context.archive.read(relation.target));
+    if (localName(root.name) !== "styleSheet") throw new Error("Excelのセル書式が不正です");
+  } catch (error) {
+    rethrowImportFailure(error, context);
+    context.warn({ code: "adjusted", message: "セル書式を読み込めないため、標準書式へ変更しました（セルの値・数式は保持）" });
+    return [undefined];
+  }
   const fonts = children(child(root, "fonts"), "font"), fills = children(child(root, "fills"), "fill"), borders = children(child(root, "borders"), "border");
   const formats = new Map(children(child(root, "numFmts"), "numFmt").map(node => [Number(node.attributes.numFmtId), node.attributes.formatCode]));
   const base = children(child(root, "cellStyleXfs"), "xf");
   const styles = children(child(root, "cellXfs"), "xf");
-  if (styles.length > 65_490) throw new Error("Excelのセル書式数が上限を超えています");
   // Shared style components are parsed once; hostile repeated references cannot multiply XML scans.
   const parsedFonts = fonts.map(font => fontFormat(font, context));
   const parsedBorders = borders.map(border => borderFormat(border, context));
@@ -92,11 +108,17 @@ export async function readXlsxStyles(relationships: ReadonlyMap<string, XlsxRela
     return format;
   };
   const inheritedAlignments = base.map(item => child(item, "alignment"));
+  const component = <T>(items: readonly T[], raw: string | undefined, label: string): T | undefined => {
+    const id = Number(raw ?? 0);
+    if (Number.isInteger(id) && id >= 0 && id < items.length) return items[id];
+    if (raw !== undefined && (raw !== "0" || items.length)) context.warn({ code: "adjusted", message: `参照先が不正な${label}を標準設定へ変更しました` });
+    return undefined;
+  };
   return styles.length ? styles.map(style => {
-    const inherited = base[Number(style.attributes.xfId ?? 0)], attrs = { ...inherited?.attributes, ...style.attributes };
-    const result = { ...parsedFonts[Number(attrs.fontId ?? 0)], ...parsedNumber(Number(attrs.numFmtId ?? 0)) };
-    const color = parsedFills[Number(attrs.fillId ?? 0)]; if (color) result.background = color;
-    const border = parsedBorders[Number(attrs.borderId ?? 0)]; if (border) result.borders = border;
+    const inherited = component(base, style.attributes.xfId, "基底書式"), attrs = { ...inherited?.attributes, ...style.attributes };
+    const result = { ...component(parsedFonts, attrs.fontId, "フォント"), ...parsedNumber(Number(attrs.numFmtId ?? 0)) };
+    const color = component(parsedFills, attrs.fillId, "塗りつぶし"); if (color) result.background = color;
+    const border = component(parsedBorders, attrs.borderId, "罫線"); if (border) result.borders = border;
     const alignment = child(style, "alignment") ?? inheritedAlignments[Number(style.attributes.xfId ?? 0)];
     if (alignment) {
       const { horizontal, vertical, wrapText, textRotation, indent, shrinkToFit } = alignment.attributes;
@@ -107,6 +129,14 @@ export async function readXlsxStyles(relationships: ReadonlyMap<string, XlsxRela
       if (shrinkToFit !== undefined) result.shrinkToFit = ["1", "true"].includes(shrinkToFit);
       if (Number(textRotation) || Number(indent)) context.warn({ code: "omitted", message: "セルの文字回転・字下げを省略しました" });
     }
-    return normalizeCellFormat(result);
+    try { return normalizeCellFormat(result); }
+    catch {
+      const retained: SpreadsheetCellFormat = {};
+      for (const [key, value] of Object.entries(result)) {
+        try { Object.assign(retained, normalizeCellFormat({ [key]: value })); }
+        catch { context.warn({ code: "adjusted", message: "不正なセル書式の設定だけを標準設定へ変更しました" }); }
+      }
+      return normalizeCellFormat(retained);
+    }
   }) : [undefined];
 }

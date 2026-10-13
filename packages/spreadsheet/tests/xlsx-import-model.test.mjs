@@ -41,12 +41,16 @@ test('OOXML stored widths include padding and default widths distinguish base ch
   assert.equal(explicit.rowHeights[0], 20);
   assert.equal(result.warnings.length, 0);
 });
-test('invalid raw XLSX widths are rejected before pixel rounding or model clamping', async () => {
+test('invalid raw XLSX widths fall back to defaults without losing cells', async () => {
   for (const width of ['-0.01', 'NaN', 'Infinity', '1e308']) {
-    await assert.rejects(read({ sheets: [{ name: 'Width', xml: `<cols><col min="1" max="1" width="${width}"/></cols><sheetData/>` }] }), /列幅/);
-    await assert.rejects(read({ sheets: [{ name: 'Default', xml: `<sheetFormatPr defaultColWidth="${width}" defaultRowHeight="15"/><sheetData/>` }] }), /標準の行高・列幅/);
+    for (const xml of [`<cols><col min="1" max="1" width="${width}"/></cols>`, `<sheetFormatPr defaultColWidth="${width}" defaultRowHeight="15"/>`]) {
+      const result = await read({ sheets: [{ name: 'Width', xml: `${xml}<sheetData><row r="1"><c r="A1"><v>7</v></c></row></sheetData>` }] });
+      assert.equal(get(result).columnWidths[0], 64); assert.equal(get(result).cells.A1.value, '7');
+      assert.ok(result.warnings.some(warning => warning.message.includes('幅')));
+    }
   }
-  await assert.rejects(read({ sheets: [{ name: 'Base', xml: '<sheetFormatPr baseColWidth="8.5" defaultRowHeight="15"/><sheetData/>' }] }), /標準の行高・列幅/);
+  const result = await read({ sheets: [{ name: 'Base', xml: '<sheetFormatPr baseColWidth="8.5" defaultRowHeight="15"/><sheetData/>' }] });
+  assert.equal(get(result).columnWidths[0], 64);
 });
 test('XLSX preserves column pixels through export and reimport, including defaults and drawing anchors', async () => {
   const columnWidths = { 0: 24, 1: 61, 2: 64, 3: 100, 4: 200, 5: 1000, 6: 64.25 };
@@ -66,10 +70,10 @@ test('fonts, fill, border, alignment, number styles and 1904 dates are converted
   const result = await read({ sheets: [{ name: 'Dates', xml: '<sheetData><row r="1"><c r="A1" s="1"><v>0</v></c></row></sheetData>' }], workbookAttributes: '<workbookPr date1904="1"/>', parts: { 'xl/styles.xml': styles }, links: [{ id: 'style', type: 'styles', target: 'styles.xml' }] });
   const cell = get(result).cells.A1; assert.equal(cell.value, '1462'); assert.equal(cell.format.bold, true); assert.equal(cell.format.fontSize, 16); assert.equal(cell.format.fontFamily, 'Arial'); assert.equal(cell.format.color, '#123456'); assert.equal(cell.format.background, '#ABCDEF'); assert.equal(cell.format.borders.bottom.style, 'double'); assert.equal(cell.format.numberFormat, 'date'); assert.equal(cell.format.align, 'right'); assert.equal(cell.format.verticalAlign, 'middle'); assert.equal(cell.format.wrap, true);
 });
-test('non-XLSX, macros, malformed actual cells and oversized ranges fail atomically', async () => {
+test('non-XLSX, macros and malformed actual cells fail atomically', async () => {
   const wrong = fixture(); wrong['[Content_Types].xml'] = wrong['[Content_Types].xml'].replace('spreadsheetml.sheet.main+xml', 'ms-excel.sheet.macroEnabled.main+xml');
   await assert.rejects(importSpreadsheetXlsx(zip(wrong)), /マクロ/);
-  for (const xml of ['<sheetData><row r="10001"><c r="A10001"><v>1</v></c></row></sheetData>', '<sheetData><row r="1"><c r="ALM1"><v>1</v></c></row></sheetData>', '<sheetData><row r="1"><c r="A1"><v>1</v></c><c r="A1"><v>2</v></c></row></sheetData>', '<sheetData/><mergeCells><mergeCell ref="A1:XFD1048576"/></mergeCells>']) await assert.rejects(read({ sheets: [{ name: 'bad', xml }] }));
+  for (const xml of ['<sheetData><row r="10001"><c r="A10001"><v>1</v></c></row></sheetData>', '<sheetData><row r="1"><c r="ALM1"><v>1</v></c></row></sheetData>', '<sheetData><row r="1"><c r="A1"><v>1</v></c><c r="A1"><v>2</v></c></row></sheetData>']) await assert.rejects(read({ sheets: [{ name: 'bad', xml }] }));
 });
 test('ArrayBuffer, Uint8Array and Blob inputs produce isolated immutable snapshots', async () => {
   const bytes = zip(fixture({ sheets: [{ name: 'Input', xml: '<sheetData><row r="1"><c r="A1"><v>5</v></c></row></sheetData>' }] }));
@@ -88,8 +92,10 @@ test('shared strings cannot amplify decoded cell text beyond the import budget',
   const result = read({ sheets: [{ name: 'Amplified', xml: `<sheetData>${Array.from({ length: 400 }, (_, index) => `<row r="${index + 1}"><c r="A${index + 1}" t="s"><v>0</v></c></row>`).join('')}</sheetData>` }], parts: { 'xl/sharedStrings.xml': `<sst><si><t>${'x'.repeat(100000)}</t></si></sst>` }, links: [{ id: 'strings', type: 'sharedStrings', target: 'sharedStrings.xml' }] });
   await assert.rejects(result, /セル文字数/);
 });
-test('overlapping column definitions are rejected before repeated range expansion', async () => {
-  await assert.rejects(read({ sheets: [{ name: 'Columns', xml: '<cols><col min="1" max="1000" width="8"/><col min="1" max="1000" width="8"/></cols><sheetData/>' }] }), /列の表示設定が重複/);
+test('overlapping column definitions preserve the first valid width and warn', async () => {
+  const result = await read({ sheets: [{ name: 'Columns', xml: '<cols><col min="1" max="1000" width="8"/><col min="1" max="1000" width="16"/></cols><sheetData/>' }] });
+  assert.equal(get(result).columnWidths[0], 56); assert.equal(get(result).columnWidths[999], 56);
+  assert.ok(result.warnings.some(warning => warning.message.includes('重複する列')));
 });
 test('existing values survive incompatible Excel validation rules', async () => {
   const result = await read({ sheets: [{ name: 'Rules', xml: '<sheetData><row r="1"><c r="A1"><v>99</v></c><c r="B1"><v>3</v></c></row></sheetData><dataValidations><dataValidation type="whole" sqref="A1:B1" showErrorMessage="1" allowBlank="1"><formula1>1</formula1><formula2>10</formula2></dataValidation></dataValidations>' }] });

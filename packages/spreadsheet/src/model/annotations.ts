@@ -12,8 +12,14 @@ function text(value: string, limit: number, label: string): string {
   if (typeof value !== "string" || value.length > limit) return fail(`${label}の文字数が上限を超えています`);
   return value;
 }
-function number(value: number, minimum: number, maximum: number): number {
-  if (!Number.isFinite(value) || value < minimum || value > maximum) return fail("描画オブジェクトのサイズまたは位置が正しくありません");
+function describeInvalidNumber(value: unknown): string {
+  if (typeof value === "number" || typeof value === "boolean" || value === null || value === undefined) return String(value);
+  if (typeof value === "string") return value.length <= 40 ? `${JSON.stringify(value)}（string）` : `string（${value.length}文字）`;
+  return Array.isArray(value) ? "array" : typeof value;
+}
+function number(value: number, minimum: number, maximum: number, field: string): number {
+  if (!Number.isFinite(value) || value < minimum || value > maximum)
+    return fail(`描画オブジェクトのサイズまたは位置が正しくありません（${field}: ${describeInvalidNumber(value)}、許容範囲: ${minimum}〜${maximum}の有限数）`);
   return value;
 }
 /** Restrict SVG/CSS paint values to colors: URL paints and CSS variable indirection are not accepted. */
@@ -26,7 +32,7 @@ function color(value: string): string {
 function drawingText(input: Pick<SpreadsheetTextDrawing, "text" | "fontSize" | "color" | "bold"> & SpreadsheetDrawingTextStyle, label: string) {
   if (input.bold !== undefined && typeof input.bold !== "boolean") return fail(`${label}の書式が正しくありません`);
   return { ...normalizeDrawingTextStyle(input), text: text(input.text, SPREADSHEET_LIMITS.drawingTextLength, label),
-    fontSize: number(input.fontSize, 1, 400), color: color(input.color),
+    fontSize: number(input.fontSize, 1, 400, "fontSize"), color: color(input.color),
     ...(input.bold !== undefined ? { bold: input.bold } : {}) };
 }
 
@@ -40,9 +46,9 @@ export function normalizeDrawing(input: SpreadsheetDrawing, sheet: Pick<Spreadsh
   if (!anchor || !Number.isInteger(anchor.row) || !Number.isInteger(anchor.column) || anchor.row < 0 || anchor.row >= sheet.rowCount ||
     anchor.column < 0 || anchor.column >= sheet.columnCount) return fail("描画オブジェクトの位置がシートの範囲外です");
   const common = { id, anchor: Object.freeze({ row: anchor.row, column: anchor.column,
-    offsetX: number(anchor.offsetX, 0, 10_000), offsetY: number(anchor.offsetY, 0, 10_000) }),
-  width: number(input.width, input.type === "image" ? Number.MIN_VALUE : 1, 10_000),
-  height: number(input.height, input.type === "image" ? Number.MIN_VALUE : 1, 10_000),
+    offsetX: number(anchor.offsetX, 0, 10_000, "anchor.offsetX"), offsetY: number(anchor.offsetY, 0, 10_000, "anchor.offsetY") }),
+  width: number(input.width, input.type === "image" ? Number.MIN_VALUE : 1, 10_000, "width"),
+  height: number(input.height, input.type === "image" ? Number.MIN_VALUE : 1, 10_000, "height"),
   ...(input.flipX ? { flipX: true } : {}), ...(input.flipY ? { flipY: true } : {}), ...(rotation ? { rotation } : {}) };
   if (input.type === "image") {
     const resourceId = validateObjectId(input.resourceId);
@@ -61,8 +67,8 @@ export function normalizeDrawing(input: SpreadsheetDrawing, sheet: Pick<Spreadsh
     for (const key of ["startArrow", "endArrow"] as const)
       if (input[key] !== undefined && (!isSpreadsheetLine(input) || !isConnectorArrowhead(input[key]))) return fail("線の矢印の種類が正しくありません");
     return Object.freeze({ ...common, ...normalizeDrawingTextStyle(input), type: "shape", shape: input.shape, fill: color(input.fill), stroke: color(input.stroke),
-      strokeWidth: number(input.strokeWidth, 0, 100),
-      ...(input.cornerRadiusRatio !== undefined ? { cornerRadiusRatio: number(input.cornerRadiusRatio, 0, 0.5) } : {}),
+      strokeWidth: number(input.strokeWidth, 0, 100, "strokeWidth"),
+      ...(input.cornerRadiusRatio !== undefined ? { cornerRadiusRatio: number(input.cornerRadiusRatio, 0, 0.5, "cornerRadiusRatio") } : {}),
       ...(input.startArrow !== undefined ? { startArrow: input.startArrow } : {}), ...(input.endArrow !== undefined ? { endArrow: input.endArrow } : {}),
       ...(input.routing === "elbow" ? { routing: "elbow" as const } : {}),
       ...(input.line !== undefined ? { line: normalizeStoredLine(input.line, sheet) } : {}),

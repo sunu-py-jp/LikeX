@@ -7,7 +7,8 @@ import { XLSX_IMPORT_LIMITS, type ImportContext } from "./types";
 import { child, children, localName, spreadsheetText, textContent, type XmlNode } from "./xml";
 import { worksheetDefaultSizes } from "./worksheet-shared";
 import { excelCellAddress, readExcelCellAddress } from "./worksheet-address";
-import { normalizeMerges } from "../model/merges";
+import { normalizeMerges, rangesIntersect } from "../model/merges";
+import { indexMerges, type SpreadsheetMergeIndex } from "../model/merge-index";
 import { xlsxColumnWidthToPixels } from "../xlsx-column-width";
 
 const functions = new Set<string>(SUPPORTED_SPREADSHEET_FUNCTIONS.map(item => item.name));
@@ -18,6 +19,13 @@ export function importRange(value: string): SpreadsheetMergedRange {
   if (!/^\$?[A-Z]+\$?[1-9]\d*(?::\$?[A-Z]+\$?[1-9]\d*)?$/i.test(value)) return fail("範囲のセル番地が不正です");
   const parts = value.split(":"), start = parseCellAddress(parts[0]), end = parseCellAddress(parts[1] ?? parts[0]);
   if (parts.length > 2 || !start || !end || start.row > end.row || start.column > end.column || end.row >= SPREADSHEET_LIMITS.rows || end.column >= SPREADSHEET_LIMITS.columns) return fail("範囲が不正、または10,000行・1,000列の上限を超えています");
+  return { top: start.row, left: start.column, bottom: end.row, right: end.column };
+}
+/** Shared-formula refs describe the source group, not stored cells or the model canvas. */
+function sharedFormulaRange(value: string): SpreadsheetMergedRange {
+  const parts = value.split(":"), start = readExcelCellAddress(parts[0]), end = readExcelCellAddress(parts[1] ?? parts[0]);
+  if (parts.length > 2 || !start || !end || start.row > end.row || start.column > end.column)
+    return fail("共有数式の参照範囲が不正です");
   return { top: start.row, left: start.column, bottom: end.row, right: end.column };
 }
 /** Rich text runs are flattened without including phonetic annotations. */
@@ -95,15 +103,15 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
     if (row.attributes.hidden === "1" || row.attributes.hidden === "true") warn("adjusted", "非表示の行・列を表示状態で読み込みました");
     if (row.attributes.ht !== undefined) {
       const height = Number(row.attributes.ht) / 0.75;
-      if (!Number.isFinite(height) || height < 0) return fail("行の高さが不正です");
-      if (rowIndex < SPREADSHEET_LIMITS.rows) { rowHeights[rowIndex] = sizes(height); rowCount = Math.max(rowCount, rowIndex + 1); if (height !== rowHeights[rowIndex]) warn("adjusted", "行・列のサイズを対応範囲へ調整しました"); }
+      if (!Number.isFinite(height) || height < 0) warn("adjusted", "不正な行高を標準の高さへ変更しました");
+      else if (rowIndex < SPREADSHEET_LIMITS.rows) { rowHeights[rowIndex] = sizes(height); rowCount = Math.max(rowCount, rowIndex + 1); if (height !== rowHeights[rowIndex]) warn("adjusted", "行・列のサイズを対応範囲へ調整しました"); }
       else warn("omitted", "シート上限外の空行・空列の表示設定を省略しました");
     }
     if (row.attributes.s !== undefined) warn("omitted", "行全体・列全体の書式設定を省略しました");
     let inferredColumn = 0;
     const seenCells = new Set<number>();
     for (const item of children(row, "c")) {
-      if (++cellCount > SPREADSHEET_LIMITS.cells) return fail("セル数が100,000件を超えています");
+      cellCount++;
       if (cellCount % 1024 === 0) { await new Promise<void>(resolve => setTimeout(resolve, 0)); context.signal?.throwIfAborted(); }
       const position = item.attributes.r ? readExcelCellAddress(item.attributes.r) : { row: rowIndex, column: inferredColumn };
       if (!position || position.row !== rowIndex || position.column >= 16_384) return fail("セルの位置が不正です");
@@ -111,13 +119,16 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
       if (seenCells.has(position.column)) return fail("セルが重複しています");
       seenCells.add(position.column);
       const styleId = Number(item.attributes.s ?? 0);
-      if (!Number.isInteger(styleId) || styleId < 0 || styleId >= styles.length) return fail("セル書式の参照が不正です");
-      const value = readValue(item, shared, styles[styleId], date1904), formula = child(item, "f");
+      const validStyle = Number.isInteger(styleId) && styleId >= 0 && styleId < styles.length;
+      if (!validStyle) warn("adjusted", "参照先が不正なセル書式を標準書式へ変更しました（セルの値・数式は保持）");
+      const value = readValue(item, shared, validStyle ? styles[styleId] : undefined, date1904), formula = child(item, "f");
       if (position.row >= SPREADSHEET_LIMITS.rows || position.column >= SPREADSHEET_LIMITS.columns) {
         if (value.value || formula) return fail(`シート「${name}」のセル ${excelCellAddress(position)} は値・数式を持ち、10,000行・1,000列の上限を超えています`);
         warn("omitted", "シート上限外の値・数式を持たない空セルとその書式を省略しました");
         continue;
       }
+      // Empty source placeholders do not consume the stored-cell budget.
+      if (!value.value && !value.format && !formula) continue;
       const address = cellAddress(position.row, position.column);
       reserveText(value.value.length);
       cells[address] = value;
@@ -127,8 +138,10 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
         pending.push({ address, ...position, formula, cached: value });
         if (formula.attributes.t === "shared" && textContent(formula)) {
           const key = formula.attributes.si;
-          if (!key || !/^\d+$/.test(key) || sharedFormulas.has(key)) return fail("共有数式が重複または不正です");
-          sharedFormulas.set(key, { formula: importFormula(textContent(formula), context), ...position, ...(formula.attributes.ref ? { range: importRange(formula.attributes.ref) } : {}) });
+          if (!key || !/^\d+$/.test(key) || sharedFormulas.has(key) && formula.attributes.ref !== undefined) return fail("共有数式が重複または不正です");
+          // OOXML allows redundant expression text on dependents; their master must win.
+          if (!sharedFormulas.has(key)) sharedFormulas.set(key, { formula: importFormula(textContent(formula), context), ...position,
+            ...(formula.attributes.ref !== undefined ? { range: sharedFormulaRange(formula.attributes.ref) } : {}) });
         }
       }
     }
@@ -156,40 +169,101 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
   const seenColumns = new Set<number>();
   for (const col of children(child(node, "cols"), "col")) {
     const min = Number(col.attributes.min), max = Number(col.attributes.max);
-    if (!Number.isInteger(min) || !Number.isInteger(max) || min < 1 || max < min || max > 16_384) return fail("列の範囲が不正です");
-    for (let index = min; index <= max; index++) { if (seenColumns.has(index)) return fail("列の表示設定が重複しています"); seenColumns.add(index); }
+    if (!Number.isInteger(min) || !Number.isInteger(max) || min < 1 || max < min || max > 16_384) { warn("omitted", "範囲が不正な列の表示設定を省略しました"); continue; }
     if (["1", "true"].includes(col.attributes.hidden)) warn("adjusted", "非表示の行・列を表示状態で読み込みました");
     if (col.attributes.style !== undefined) warn("omitted", "行全体・列全体の書式設定を省略しました");
     if (col.attributes.width !== undefined) {
       const storedWidth = Number(col.attributes.width);
-      if (!Number.isFinite(storedWidth) || storedWidth < 0) return fail("列幅が不正です");
       const width = xlsxColumnWidthToPixels(storedWidth);
-      if (!Number.isFinite(width)) return fail("列幅が不正です");
-      for (let index = min - 1; index < Math.min(max, SPREADSHEET_LIMITS.columns); index++) columnWidths[index] = sizes(width);
+      if (!Number.isFinite(storedWidth) || storedWidth < 0 || !Number.isFinite(width)) { warn("adjusted", "不正な列幅を標準の幅へ変更しました"); continue; }
+      let duplicated = false;
+      for (let index = min - 1; index < Math.min(max, SPREADSHEET_LIMITS.columns); index++) {
+        if (seenColumns.has(index)) { duplicated = true; continue; }
+        seenColumns.add(index); columnWidths[index] = sizes(width);
+      }
+      if (duplicated) warn("omitted", "重複する列の表示設定を省略し、最初の有効な列幅を保持しました");
       if (min <= SPREADSHEET_LIMITS.columns) columnCount = Math.max(columnCount, Math.min(max, SPREADSHEET_LIMITS.columns));
       if (width !== sizes(width)) warn("adjusted", "行・列のサイズを対応範囲へ調整しました");
       if (max > SPREADSHEET_LIMITS.columns) warn("omitted", "シート上限外の空行・空列の表示設定を省略しました");
     }
   }
   const mergeNodes = children(child(node, "mergeCells"), "mergeCell");
-  if (mergeNodes.length > SPREADSHEET_LIMITS.merges) return fail("結合セル数が上限を超えています");
-  const candidates = mergeNodes.map(item => importRange(item.attributes.ref ?? "")).filter(range => {
-    if (range.top !== range.bottom || range.left !== range.right) return true;
-    warn("omitted", "1セルだけの結合指定を省略しました"); return false;
-  });
-  for (const range of candidates) { rowCount = Math.max(rowCount, range.bottom + 1); columnCount = Math.max(columnCount, range.right + 1); }
-  const populated = Object.entries(cells).filter(([, cell]) => !!cell.value).map(([address]) => parseCellAddress(address)!);
-  // Keep every value/formula. A conflicting merge changes presentation only and must not reject the workbook.
-  const merges = (normalizeMerges(candidates, { rowCount, columnCount }) ?? []).filter(range => {
-    if (!populated.some(position => position.row >= range.top && position.row <= range.bottom &&
-      position.column >= range.left && position.column <= range.right && (position.row !== range.top || position.column !== range.left))) return true;
-    warn("adjusted", "結合範囲の左上以外に値・数式があるため、内容を保持して結合を解除しました"); return false;
-  });
+  const candidates: SpreadsheetMergedRange[] = [];
+  const mergeIndexes: { ranges: SpreadsheetMergedRange[]; index: SpreadsheetMergeIndex | undefined }[] = [];
+  // A sparse range index distinguishes presentation-only merges from retained cell content.
+  const content = mergeNodes.length ? indexContentRows(cells) : undefined;
+  for (const [index, item] of mergeNodes.entries()) {
+    if (index % 1024 === 1023) { await new Promise<void>(resolve => setTimeout(resolve, 0)); context.signal?.throwIfAborted(); }
+    let range: SpreadsheetMergedRange;
+    try { range = importRange(item.attributes.ref ?? ""); }
+    catch { warn("omitted", "不正またはシート上限外の結合指定を省略しました（セルの値・数式は保持）"); continue; }
+    if (range.top === range.bottom && range.left === range.right) { warn("omitted", "1セルだけの結合指定を省略しました"); continue; }
+    if (hasCoveredContent(content, range, !!cells[cellAddress(range.top, range.left)]?.value)) {
+      warn("adjusted", "結合範囲の左上以外に値・数式があるため、内容を保持して結合を解除しました"); continue;
+    }
+    if ((context.mergeCount ?? 0) + candidates.length >= SPREADSHEET_LIMITS.merges) {
+      warn("omitted", `ブック全体の結合範囲上限（${SPREADSHEET_LIMITS.merges}件）を超える結合指定を省略しました（セルの値・数式は保持）`); continue;
+    }
+    if (mergeIndexes.some(previous => indexedRangesOverlap(previous?.index, range))) {
+      warn("omitted", "重複する結合指定を省略し、最初の有効な結合を保持しました"); continue;
+    }
+    candidates.push(range);
+    // Binary-sized batches keep overlap lookup bounded even for many duplicate declarations.
+    let ranges = [range], level = 0;
+    while (mergeIndexes[level]) { ranges = [...mergeIndexes[level].ranges, ...ranges]; delete mergeIndexes[level++]; }
+    mergeIndexes[level] = { ranges, index: indexMerges(ranges) };
+    rowCount = Math.max(rowCount, range.bottom + 1); columnCount = Math.max(columnCount, range.right + 1);
+  }
+  const merges = normalizeMerges(candidates, { rowCount, columnCount, name }) ?? [];
+  context.mergeCount = (context.mergeCount ?? 0) + merges.length;
   const defaults = worksheetDefaultSizes(node);
+  if (defaults.invalid) warn("adjusted", "不正な標準の行高・列幅を標準寸法へ変更しました");
   if (defaults.adjusted) warn("adjusted", "行・列のサイズを対応範囲へ調整しました");
   for (let row = 0; row < rowCount; row++) rowHeights[row] ??= defaults.row;
   for (let column = 0; column < columnCount; column++) columnWidths[column] ??= defaults.column;
   const ignored = ["conditionalFormatting", "sheetProtection", "autoFilter", "sheetViews", "hyperlinks", "oleObjects", "controls", "extLst", "pageSetup", "headerFooter", "rowBreaks", "colBreaks"];
   for (const key of ignored) if (child(node, key) && (key !== "sheetViews" || child(child(node, "sheetViews")?.children[0], "pane"))) warn("omitted", `${({ conditionalFormatting: "条件付き書式", sheetProtection: "シート保護", autoFilter: "フィルター状態", sheetViews: "ウィンドウ枠の固定", hyperlinks: "ハイパーリンク", oleObjects: "埋め込みオブジェクト", controls: "フォームコントロール", extLst: "拡張機能", pageSetup: "印刷設定", headerFooter: "ヘッダー・フッター", rowBreaks: "改ページ", colBreaks: "改ページ" } as Record<string, string>)[key]}を省略しました`);
   return { id, name, cells, rowCount, columnCount, ...(Object.keys(rowHeights).length ? { rowHeights } : {}), ...(Object.keys(columnWidths).length ? { columnWidths } : {}), ...(merges.length ? { merges } : {}) };
+}
+
+function indexedRangesOverlap(index: SpreadsheetMergeIndex | undefined, range: SpreadsheetMergedRange): boolean {
+  if (!index) return false;
+  let low = 0, high = index.byColumn.length;
+  while (low < high) { const middle = (low + high) >>> 1; if (index.byColumn[middle].right < range.left) low = middle + 1; else high = middle; }
+  for (let position = low; position < index.byColumn.length && index.byColumn[position].left <= range.right; position++)
+    if (rangesIntersect(index.byColumn[position], range)) return true;
+  return range.top < index.center && indexedRangesOverlap(index.before, range) ||
+    range.bottom > index.center && indexedRangesOverlap(index.after, range);
+}
+
+type ContentRowIndex = { top: number; bottom: number; columns: number[]; before?: ContentRowIndex; after?: ContentRowIndex };
+function indexContentRows(cells: Record<string, SpreadsheetCell>): ContentRowIndex | undefined {
+  const rows = new Map<number, number[]>();
+  for (const [address, cell] of Object.entries(cells)) if (cell.value) {
+    const position = parseCellAddress(address)!;
+    const columns = rows.get(position.row) ?? []; columns.push(position.column); rows.set(position.row, columns);
+  }
+  const entries = [...rows].sort((a, b) => a[0] - b[0]);
+  const build = (start: number, end: number): ContentRowIndex | undefined => {
+    if (start === end) return undefined;
+    const columns = entries.slice(start, end).flatMap(([, values]) => values).sort((a, b) => a - b);
+    const result: ContentRowIndex = { top: entries[start][0], bottom: entries[end - 1][0], columns };
+    if (end - start > 1) { const middle = (start + end) >>> 1; result.before = build(start, middle); result.after = build(middle, end); }
+    return result;
+  };
+  return build(0, entries.length);
+}
+function lowerBound(values: readonly number[], value: number): number {
+  let low = 0, high = values.length;
+  while (low < high) { const middle = (low + high) >>> 1; if (values[middle] < value) low = middle + 1; else high = middle; }
+  return low;
+}
+function hasCoveredContent(index: ContentRowIndex | undefined, range: SpreadsheetMergedRange, hasAnchor: boolean): boolean {
+  const count = (node: ContentRowIndex | undefined): number => {
+    if (!node || node.bottom < range.top || node.top > range.bottom) return 0;
+    if (node.top >= range.top && node.bottom <= range.bottom)
+      return lowerBound(node.columns, range.right + 1) - lowerBound(node.columns, range.left);
+    return count(node.before) + count(node.after);
+  };
+  return count(index) > (hasAnchor ? 1 : 0);
 }

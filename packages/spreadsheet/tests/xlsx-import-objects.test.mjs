@@ -117,11 +117,12 @@ test('external media, SVG, charts, grouped objects and unsupported geometry are 
   assert.ok(!env.reads.some(path => path.startsWith('http') || path.endsWith('.svg'))); assert.equal(env.warnings.length, 5);
 });
 
-test('invalid and oversized image data cannot enter the model; an oversized image rejects the import', async () => {
+test('invalid and oversized image data are omitted without entering the model', async () => {
   const invalid = harness({ drawings: one(image()), files: { 'xl/media/bad.png': new Uint8Array(20) }, drawingRels: [relationship('image', 'image', '../media/bad.png')] });
   assert.equal((await invalid.run()).drawings, undefined); assert.deepEqual(invalid.context.resources, {});
   const large = harness({ drawings: one(image()), files: { 'xl/media/large.png': new Uint8Array(5 * 1024 * 1024 + 1) }, drawingRels: [relationship('image', 'image', '../media/large.png')] });
-  await assert.rejects(large.run(), /5 MiB/);
+  assert.equal((await large.run()).drawings, undefined); assert.deepEqual(large.context.resources, {});
+  assert.ok(large.warnings.some(warning => warning.message.includes('5 MiB')));
 });
 
 test('textbox content, embedded colors and rotation import independently of the omitted outline', async () => {
@@ -152,7 +153,7 @@ test('native tables retain definitions without rewriting cell values; invalid he
 });
 
 test('simple validations cover discontiguous ranges, named lists, strict integer bounds and 1904 date conversion', async () => {
-  const env = harness({ context: { date1904: true, resolveListValues: name => name === 'Options' ? ['A', 'B'] : undefined }, sheetXml:
+  const env = harness({ cells: { D1: { value: 'A' }, B2: { value: '5' }, B3: { value: '1904-01-01' } }, context: { date1904: true, resolveListValues: name => name === 'Options' ? ['A', 'B'] : undefined }, sheetXml:
     '<dataValidations><dataValidation type="list" sqref="A1 C1:C2" allowBlank="1"><formula1>"未着手,完了"</formula1></dataValidation>' +
     '<dataValidation type="list" sqref="D1"><formula1>Options</formula1></dataValidation>' +
     '<dataValidation type="whole" operator="greaterThan" sqref="B2"><formula1>4.5</formula1></dataValidation>' +
@@ -166,15 +167,18 @@ test('simple validations cover discontiguous ranges, named lists, strict integer
 test('complex or nonblocking validation rules warn, and overlapping expansion cannot evade the work budget', async () => {
   const env = harness({ sheetXml: '<dataValidations><dataValidation type="custom" sqref="A1"><formula1>ISNUMBER(A1)</formula1></dataValidation><dataValidation type="whole" sqref="B1" errorStyle="warning"><formula1>1</formula1><formula2>5</formula2></dataValidation></dataValidations>' });
   assert.deepEqual((await env.run()).cells, {}); assert.equal(env.warnings.length, 2);
-  const repeated = '<dataValidation type="whole" sqref="A1:J10000"><formula1>0</formula1><formula2>5</formula2></dataValidation>';
+  const repeated = '<dataValidation type="whole" sqref="A1:J10000" allowBlank="1"><formula1>0</formula1><formula2>5</formula2></dataValidation>';
   const large = harness({ sheetXml: `<dataValidations>${repeated}${repeated}</dataValidations>` });
-  await assert.rejects(large.run(), /対象セル数/);
+  const recovered = await large.run();
+  assert.equal(Object.keys(recovered.cells).length, 100000);
+  assert.ok(large.warnings.some(warning => warning.message.includes("対象セル数")));
 });
 
-test('cancellation and drawing counts stop import before any pending resources are read', async () => {
+test('cancellation stops import while unsupported drawing counts do not reject it', async () => {
   const controller = new AbortController(); controller.abort();
   const env = harness({ drawings: one(image()), context: { signal: controller.signal } });
   await assert.rejects(env.run(), { name: 'AbortError' }); assert.deepEqual(env.reads, []);
   const large = harness({ drawings: Array.from({ length: 1001 }, () => one('<grpSp/>')).join('') });
-  await assert.rejects(large.run(), /オブジェクト数/);
+  assert.equal((await large.run()).drawings, undefined); assert.deepEqual(large.context.resources, {});
+  assert.equal(large.warnings.length, 1001);
 });

@@ -8,12 +8,19 @@ function base64(bytes: Uint8Array): string {
   for (let offset = 0; offset < bytes.length; offset += 8192) chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + 8192)));
   return btoa(chunks.join(""));
 }
+export type PreparedDrawingImage = {
+  id: string;
+  resource: SpreadsheetImageResource;
+  /** Count only resources whose owning drawing passed normalization. */
+  commit(): void;
+};
 /** Embedded raster bytes only; URLs and SVG markup are never fetched or rendered. */
-export async function readDrawingImage(path: string, context: ImportContext): Promise<string | undefined> {
+export async function readDrawingImage(path: string, context: ImportContext): Promise<PreparedDrawingImage | undefined> {
   context.signal?.throwIfAborted();
   let cache = caches.get(context);
   if (!cache) { cache = new Map(); caches.set(context, cache); }
-  if (cache.has(path)) return cache.get(path);
+  const cachedId = cache.get(path);
+  if (cachedId && context.resources[cachedId]) return { id: cachedId, resource: context.resources[cachedId], commit() {} };
   const mime: Record<string, SpreadsheetImageResource["mimeType"]> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
   const extension = path.split(".").at(-1)?.toLowerCase(), mimeType = extension ? mime[extension] : undefined;
   if (!mimeType) return;
@@ -32,8 +39,11 @@ export async function readDrawingImage(path: string, context: ImportContext): Pr
     resource = normalizeImageResource({ name: path.split("/").at(-1)!, mimeType, width, height,
       dataUrl: `data:${mimeType};base64,${base64(bytes)}` });
   } catch { return; }
-  const id = `image-${Object.keys(context.resources).length + 1}`;
-  context.resources[id] = resource;
-  cache.set(path, id);
-  return id;
+  let number = Object.keys(context.resources).length + 1;
+  while (Object.hasOwn(context.resources, `image-${number}`)) number++;
+  const id = `image-${number}`;
+  return { id, resource, commit() {
+    context.resources[id] = resource;
+    cache.set(path, id);
+  } };
 }

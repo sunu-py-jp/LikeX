@@ -5,6 +5,6 @@ export type { OfficePackageInput, OfficePackageMetadataInput, OfficePackageSigna
 export * as officeXml from "./ooxml/xml";
 export type { XmlNode as OfficeXmlNode } from "./ooxml/xml";
 export { readRelationships as readOfficeRelationships, resolvePart as resolveOfficePart } from "./ooxml/relationships";
-export type { OfficeRelationship } from "./ooxml/relationships";
+export type { OfficeRelationship, OfficeRelationshipReadOptions } from "./ooxml/relationships";
 export { createOfficeConnectorGeometry, readOfficeConnectorShapeTag, readOfficeConnectorCornerRadiusRatio, getOfficePresetConnectorPort, type OfficeConnectorGeometryOptions } from "./ooxml/connector-geometry";
 export { createOfficeElbowConnectorGeometry, readOfficeElbowConnectorEndpoints } from "./ooxml/elbow-connector";

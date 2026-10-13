@@ -9,6 +9,17 @@ export function gridBackgroundRowBudget(columnCount: number) {
 /** Both inputs are sorted and contain unique row indexes. Preserve identity on no-op. */
 export function mergeGridRows(previous: readonly number[], incoming: readonly number[]): readonly number[] {
   if (!incoming.length) return previous;
+  // Scrolling usually visits rows already prepared in the background. Check
+  // the small viewport set before allocating/walking the entire sheet again.
+  if (incoming.length <= previous.length && incoming.every(row => {
+    let low = 0, high = previous.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (previous[middle] < row) low = middle + 1;
+      else high = middle;
+    }
+    return previous[low] === row;
+  })) return previous;
   const rows: number[] = [];
   let left = 0, right = 0;
   while (left < previous.length || right < incoming.length) {

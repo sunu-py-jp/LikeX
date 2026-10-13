@@ -4,19 +4,21 @@ import type { SpreadsheetCell, SpreadsheetCellPosition } from "../../model/types
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 
 /** Small native controls share the ordinary cell command/permission/history boundary. */
-export function CellDataControl({ controller: c, cell, address, position, focused, editing }: {
+export function CellDataControl({ controller: c, getController, cell, address, position, focused, editing }: {
   controller: SpreadsheetController; cell?: SpreadsheetCell; address: string; position: SpreadsheetCellPosition; focused: boolean; editing: boolean;
+  getController?: () => SpreadsheetController;
 }) {
   const rule = cell?.validation;
   if (!rule || !c.features.dataValidation || editing || (rule.type !== "list" && rule.type !== "checkbox") ||
     (rule.type === "checkbox" && !c.features.checkboxes)) return null;
   const disabled = c.disabled || c.requesting || !!c.selectedDrawingId;
   const setValue = (value: string) => {
-    if (disabled) return;
-    const sheetId = c.activeSheet.id;
-    c.afterCommit(() => {
-      c.select(position);
-      c.afterCommand({ type: "cells.set", sheetId, values: { [address]: value } }, () => c.requestGridFocus());
+    const current = getController?.() ?? c;
+    if (current.disabled || current.requesting || current.selectedDrawingId) return;
+    const sheetId = current.activeSheet.id;
+    current.afterCommit(() => {
+      current.select(position);
+      current.afterCommand({ type: "cells.set", sheetId, values: { [address]: value } }, () => current.requestGridFocus());
     });
   };
   if (rule.type === "checkbox") {

@@ -35,8 +35,8 @@ test('invalid, overlapping, single-cell and excessive merges are rejected at the
     [rect(0, 0, 1, 1), rect(1, 1, 2, 2)], [rect(0, 0, 1, 1), rect(0, 0, 1, 1)],
     Array.from({ length: SPREADSHEET_LIMITS.merges + 1 }, () => rect(0, 0, 0, 1))])
     assert.throws(() => normalizeWorkbook(input(merges)));
-  const merges = Array.from({ length: 501 }, (_, i) => rect(i, 0, i, 1));
-  const base = { ...input(merges).sheets[0], rowCount: 1000 };
+  const merges = Array.from({ length: Math.floor(SPREADSHEET_LIMITS.merges / 2) + 1 }, (_, i) => rect(i, 0, i, 1));
+  const base = { ...input(merges).sheets[0], rowCount: SPREADSHEET_LIMITS.rows };
   assert.throws(() => normalizeWorkbook({ sheets: [base, { ...base, id: 'other', name: 'Other' }] }), /上限/);
 });
 

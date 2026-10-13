@@ -23,13 +23,16 @@ export function growSheet(sheet: SpreadsheetSheet, row: number, column: number):
 }
 export function worksheetDefaultSizes(node: XmlNode) {
   const format = child(node, "sheetFormatPr");
-  const row = Number(format?.attributes.defaultRowHeight ?? 15) / 0.75;
+  const sourceRow = Number(format?.attributes.defaultRowHeight ?? 15) / 0.75;
+  const validRow = Number.isFinite(sourceRow) && sourceRow >= 0;
+  const row = validRow ? sourceRow : 20;
   const storedWidth = format?.attributes.defaultColWidth, baseWidth = format?.attributes.baseColWidth;
   const width = Number(storedWidth ?? baseWidth ?? 0);
-  if (!Number.isFinite(width) || width < 0 || storedWidth === undefined && !Number.isInteger(width)) throw new Error("Excelの標準の行高・列幅が不正です");
+  const validWidth = Number.isFinite(width) && width >= 0 && (storedWidth !== undefined || Number.isInteger(width));
   // Excel/XlsxWriter omit both attributes for their ordinary 64px columns.
-  const column = storedWidth !== undefined ? xlsxColumnWidthToPixels(width) : baseWidth !== undefined ? xlsxBaseColumnWidthToPixels(width) : 64;
-  if (!Number.isFinite(row) || row < 0 || !Number.isFinite(column) || column < 0) throw new Error("Excelの標準の行高・列幅が不正です");
+  const sourceColumn = validWidth ? storedWidth !== undefined ? xlsxColumnWidthToPixels(width) : baseWidth !== undefined ? xlsxBaseColumnWidthToPixels(width) : 64 : NaN;
+  const validColumn = Number.isFinite(sourceColumn) && sourceColumn >= 0;
+  const column = validColumn ? sourceColumn : 64;
   const rowSize = Math.min(1000, Math.max(1, row)), columnSize = Math.min(1000, Math.max(1, column));
-  return { row: rowSize, column: columnSize, adjusted: row !== rowSize || column !== columnSize };
+  return { row: rowSize, column: columnSize, invalid: !validRow || !validColumn, adjusted: row !== rowSize || column !== columnSize };
 }

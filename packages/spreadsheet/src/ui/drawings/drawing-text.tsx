@@ -1,12 +1,12 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { memo, useLayoutEffect, useRef, useState } from "react";
 import type { SpreadsheetDrawing } from "../../model/types";
 import { shapeTextFrame } from "../../model/shapes";
 import { drawingTextStyle } from "./drawing-text-style";
 
 /** Shared text layout for the editor and compact previews, including imported DrawingML boxes. */
-export function DrawingText({ drawing, placeholder = true }: { drawing: Exclude<SpreadsheetDrawing, { type: "image" }>; placeholder?: boolean }) {
+export const DrawingText = memo(function DrawingText({ drawing, placeholder = true }: { drawing: Exclude<SpreadsheetDrawing, { type: "image" }>; placeholder?: boolean }) {
   const box = useRef<HTMLDivElement>(null), content = useRef<HTMLSpanElement>(null);
   const [scale, setScale] = useState<number>();
   const style = drawingTextStyle(drawing), baseSize = drawing.fontSize ?? 16;
@@ -53,4 +53,4 @@ export function DrawingText({ drawing, placeholder = true }: { drawing: Exclude<
       ...(resizing ? { minHeight: frame?.height ?? "100%", height: "auto" } : {}) }}>
     <span ref={content} style={{ ...(scale === undefined ? {} : { fontSize: baseSize * scale }) }}>{drawing.text || (placeholder && drawing.type === "text" ? "テキストを入力" : "")}</span>
   </div>;
-}
+});

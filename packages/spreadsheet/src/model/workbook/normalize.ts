@@ -41,7 +41,7 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
     const columnWidths = normalizeSizes(sheet.columnWidths, columnCount), rowHeights = normalizeSizes(sheet.rowHeights, rowCount, true);
     const drawings = normalizeDrawings(sheet.drawings, { rowCount, columnCount }, resources);
     const comments = normalizeComments(sheet.comments, { rowCount, columnCount });
-    const merges = normalizeMerges(sheet.merges, { rowCount, columnCount });
+    const merges = normalizeMerges(sheet.merges, { rowCount, columnCount, name });
     const conditionalFormats = normalizeConditionalFormats(sheet.conditionalFormats, { rowCount, columnCount });
     const tables = normalizeTables(sheet.tables, { rowCount, columnCount, cells, merges });
     validateMergedContents({ cells, comments, merges });

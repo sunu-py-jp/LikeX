@@ -167,5 +167,5 @@ export const SPREADSHEET_LIMITS = Object.freeze({ rows: 10_000, columns: 1_000, 
   clipboardCharacters: 10 * 1024 * 1024, clipboardCells: 10_000,
   imageBytes: 5 * 1024 * 1024, totalImageBytes: 20 * 1024 * 1024,
   imageDimension: 10_000, imagePixels: 16_000_000, images: 1_000,
-  drawings: 1_000, comments: 10_000, merges: 1_000, namedRanges: 1_000, tables: 1_000, commentLength: 10_000, drawingTextLength: 100_000,
+  drawings: 1_000, comments: 10_000, merges: 10_000, namedRanges: 1_000, tables: 1_000, commentLength: 10_000, drawingTextLength: 100_000,
   serializedCharacters: 64 * 1024 * 1024 });

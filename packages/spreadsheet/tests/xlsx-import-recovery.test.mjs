@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { fixture, zip } from './helpers/xlsx-import-fixtures.mjs';
 
-const bundle = await build({ stdin: { contents: 'export * from "./src/import/import-xlsx"; export * from "./src/export/export-xlsx";',
+const bundle = await build({ stdin: { contents: 'export * from "./src/import/import-xlsx"; export * from "./src/export/export-xlsx"; export { SPREADSHEET_LIMITS } from "./src/model/types";',
   resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
-const { importSpreadsheetXlsx, exportSpreadsheetXlsx } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
+const { importSpreadsheetXlsx, exportSpreadsheetXlsx, SPREADSHEET_LIMITS } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const read = (xml, extra = {}) => importSpreadsheetXlsx(zip(fixture({ sheets: [{ name: '機能仕様', xml }], ...extra })));
 
 test('empty source cells outside the model are omitted without growing the canvas or losing supported content', async () => {
@@ -22,7 +22,7 @@ test('empty source cells outside the model are omitted without growing the canva
 
 test('out-of-range values, formulas, invalid source coordinates, references and duplicate cells still reject', async () => {
   for (const cell of ['<c r="ALM1"><v>0</v></c>', '<c r="ALM1"><f>1</f></c>', '<c r="ALM1" t="inlineStr"><is><t> </t></is></c>',
-    '<c r="ALM1" s="9"/>', '<c r="ALM1" t="s"><v>0</v></c>', '<c r="XFE1"/>', '<c r="A10001"/>', '<c r="ALM1"/><c r="ALM1"/>']) {
+    '<c r="ALM1" t="s"><v>0</v></c>', '<c r="XFE1"/>', '<c r="A10001"/>', '<c r="ALM1"/><c r="ALM1"/>']) {
     await assert.rejects(read(`<sheetData><row r="1">${cell}</row></sheetData>`));
   }
   await assert.rejects(read('<sheetData><row r="1048577"><c r="A1048577"/></row></sheetData>'), /行番号/);
@@ -30,11 +30,11 @@ test('out-of-range values, formulas, invalid source coordinates, references and 
   await assert.rejects(read('<sheetData><row r="10001"><c><f>1</f></c></row></sheetData>'), /シート「機能仕様」のセル A10001/);
 });
 
-test('omitted empty cells remain subject to the workbook source-cell budget', async () => {
+test('omitted empty source cells do not consume the stored-cell budget', async () => {
   const rows = Array.from({ length: 60 }, (_, row) => `<row r="${10001 + row}">${'<c/>'.repeat(1000)}</row>`).join('');
-  await assert.rejects(importSpreadsheetXlsx(zip(fixture({ sheets: [{ name: 'One', xml: `<sheetData>${rows}</sheetData>` }, { name: 'Two', xml: `<sheetData>${rows}</sheetData>` }] }))), /ブック全体のセル数/);
+  const result = await importSpreadsheetXlsx(zip(fixture({ sheets: [{ name: 'One', xml: `<sheetData>${rows}</sheetData>` }, { name: 'Two', xml: `<sheetData>${rows}</sheetData>` }] })));
+  assert.ok(result.workbook.sheets.every(sheet => !Object.keys(sheet.cells).length));
 });
-
 test('out-of-bounds named ranges omit only the definition and preserve ordinary names and sheet contents', async () => {
   const result = await read('<sheetData><row r="1"><c r="A1"><v>7</v></c></row></sheetData>', {
     workbookExtra: '<definedNames><definedName name="AllRows">機能仕様!$A$1:$A$1048576</definedName><definedName name="AllColumns">機能仕様!$A$1:$XFD$1</definedName><definedName name="Kept">機能仕様!$A$1</definedName></definedNames>',
@@ -43,14 +43,19 @@ test('out-of-bounds named ranges omit only the definition and preserve ordinary 
   assert.deepEqual(result.workbook.namedRanges.map(item => item.name), ['Kept']);
   assert.equal(result.warnings.filter(item => item.message.includes('シート上限外の名前付き範囲')).length, 2);
   assert.ok(result.warnings.some(item => item.message.includes('AllRows') && item.sheetName === '機能仕様'));
-  await assert.rejects(read('<sheetData/>', { workbookExtra: '<definedNames><definedName name="Invalid">機能仕様!$A$1:$XFE$1</definedName></definedNames>' }), /範囲/);
+  const invalid = await read('<sheetData/>', { workbookExtra: '<definedNames><definedName name="Invalid">機能仕様!$A$1:$XFE$1</definedName></definedNames>' });
+  assert.equal(invalid.workbook.namedRanges, undefined);
+  assert.ok(invalid.warnings.some(warning => warning.message.includes('Invalid')));
 });
 
-test('recognized source named ranges remain budgeted when their out-of-bounds definitions are omitted', async () => {
+test('omitted named ranges do not consume capacity and warnings remain bounded', async () => {
   const outside = count => Array.from({ length: count }, (_, index) => `<definedName name="Outside_${index}">機能仕様!$A$1:$A$1048576</definedName>`).join('');
   const kept = '<definedName name="Kept">機能仕様!$A$1</definedName>';
-  for (const definitions of [outside(1001), outside(1000) + kept])
-    await assert.rejects(read('<sheetData/>', { workbookExtra: `<definedNames>${definitions}</definedNames>` }), /名前付き範囲の件数/);
+  for (const definitions of [outside(1001), outside(1000) + kept]) {
+    const recovered = await read('<sheetData/>', { workbookExtra: `<definedNames>${definitions}</definedNames>` });
+    assert.ok(recovered.warnings.length <= 1001);
+    assert.deepEqual((recovered.workbook.namedRanges ?? []).map(item => item.name), definitions.endsWith(kept) ? ['Kept'] : []);
+  }
   const boundary = await read('<sheetData/>', { workbookExtra: `<definedNames>${outside(999)}${kept}${kept}</definedNames>` });
   assert.deepEqual(boundary.workbook.namedRanges.map(item => item.name), ['Kept']);
   assert.equal(boundary.warnings.filter(item => item.message.includes('シート上限外の名前付き範囲')).length, 999);
@@ -78,12 +83,12 @@ test('conflicting merged cells retain all values, formulas and comments by remov
   assert.equal(roundtrip.comments.B1.text, '補足');
 });
 
-test('merge recovery does not accept overlapping, malformed, oversized or excessive merge metadata', async () => {
-  for (const merges of ['<mergeCell ref="A1:B2"/><mergeCell ref="B2:C3"/>', '<mergeCell ref="B2:A1"/>', '<mergeCell ref="A1:A10001"/>', '<mergeCell ref="A1"/>'.repeat(1001)]) {
-    await assert.rejects(read(`<sheetData/><mergeCells>${merges}</mergeCells>`));
+test('merge recovery omits invalid metadata without rejecting the workbook', async () => {
+  for (const merges of ['<mergeCell ref="A1:B2"/><mergeCell ref="B2:C3"/>', '<mergeCell ref="B2:A1"/>', '<mergeCell ref="A1:A10001"/>', '<mergeCell ref="A1"/>'.repeat(SPREADSHEET_LIMITS.merges + 1)]) {
+    const result = await read(`<sheetData/><mergeCells>${merges}</mergeCells>`);
+    assert.ok(result.warnings.some(warning => warning.code === 'omitted'));
   }
 });
-
 test('a comment without a residual value preserves the merge and relocates the comment with a warning', async () => {
   const result = await read('<sheetData><row r="1"><c r="A1"><v>1</v></c><c r="B1"/></row></sheetData><mergeCells><mergeCell ref="A1:B1"/></mergeCells>', {
     parts: {

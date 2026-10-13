@@ -1,13 +1,13 @@
 "use client";
 
 import { LineMarker } from "./line-marker";
-import { useId } from "react";
+import { memo, useId } from "react";
 import { getOfficeShapeGeometry } from "../../model/core-office-shapes";
 import type { SpreadsheetShapeDrawing } from "../../model/types";
 import { getShapeDefinition, roundedRectangleRadius, shapeBodyFrame } from "../../model/shapes";
 
 /** The insertion gallery and sheet use identical geometry, with unscaled outline widths. */
-export function Shape({ drawing }: { drawing: SpreadsheetShapeDrawing }) {
+export const Shape = memo(function Shape({ drawing }: { drawing: SpreadsheetShapeDrawing }) {
   const marker = useId().replace(/:/g, "");
   const stroke = drawing.strokeWidth;
   const startArrow = drawing.startArrow ?? "none", endArrow = drawing.endArrow ?? (drawing.shape === "arrow" ? "triangle" : "none");
@@ -29,4 +29,4 @@ export function Shape({ drawing }: { drawing: SpreadsheetShapeDrawing }) {
       y2={Math.max(stroke, drawing.height - (geometry.arrow ? stroke * 7 : stroke))}
       stroke={drawing.stroke} strokeWidth={stroke} markerStart={startArrow !== "none" ? `url(#${marker}-start)` : undefined} markerEnd={endArrow !== "none" ? `url(#${marker}-end)` : undefined} />}
   </svg>;
-}
+});

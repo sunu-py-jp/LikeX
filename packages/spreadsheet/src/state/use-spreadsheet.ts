@@ -28,7 +28,7 @@ export { DEFAULT_ROW_HEIGHT as ROW_HEIGHT, DEFAULT_COLUMN_WIDTH as COLUMN_WIDTH 
 
 /** Coordinates independent draft, view selection, and edit sessions behind the stable controller API. */
 export function useSpreadsheet(props: SpreadsheetProps) {
-  const features = resolveSpreadsheetFeatures(props.features);
+  const features = useMemo(() => resolveSpreadsheetFeatures(props.features), [props.features]);
   const draft = useWorkbookDraft(props);
   const zoom = useSpreadsheetZoom(props, draft.emitEvent);
   const ribbon = useSpreadsheetRibbon(props);

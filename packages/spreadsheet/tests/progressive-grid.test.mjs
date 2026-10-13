@@ -15,7 +15,7 @@ const bundle = await build({
     builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   } }],
 });
-const { useGridLayout, gridBackgroundRowBudget, createGridRowProgress, retainGridRows, advanceGridRows, createGridMergeCache, SpreadsheetGrid, useSpreadsheet } =
+const { useGridLayout, gridBackgroundRowBudget, createGridRowProgress, retainGridRows, advanceGridRows, mergeGridRows, createGridMergeCache, SpreadsheetGrid, useSpreadsheet } =
   await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 
 function fakeWindow(idle) {
@@ -87,6 +87,31 @@ test('wide and tall sheets make bounded progress without a silent row cap', () =
   }
   assert.equal(progress.rows.length, 10000);
   assert.equal(progress.rows[9999], 9999);
+});
+
+test('scrolling into prepared rows does not scan or allocate a whole-sheet row list', () => {
+  let reads = 0;
+  const prepared = new Proxy(Array.from({ length: 10000 }, (_, row) => row), {
+    get(target, key, receiver) {
+      if (typeof key === 'string' && /^\d+$/.test(key)) reads++;
+      return Reflect.get(target, key, receiver);
+    },
+  });
+  assert.strictEqual(mergeGridRows(prepared, Array.from({ length: 30 }, (_, row) => 8000 + row)), prepared);
+  assert.ok(reads < 500, `expected a bounded viewport lookup, got ${reads} row reads`);
+  assert.deepEqual(mergeGridRows([0, 2, 4], [1, 2, 5]), [0, 1, 2, 4, 5]);
+});
+
+test('horizontal scroll preserves row and merge lists while updating the drawing viewport', async t => {
+  const ui = await mount(t, { mode: 'viewport' });
+  const rows = ui.layout.virtualRows, merges = ui.layout.renderedMerges;
+  await ui.scroll(0, 240);
+  assert.equal(ui.layout.viewport.left, 240);
+  assert.strictEqual(ui.layout.virtualRows, rows);
+  assert.strictEqual(ui.layout.renderedMerges, merges);
+  const viewport = ui.layout.viewport;
+  await ui.scroll(0, 240);
+  assert.strictEqual(ui.layout.viewport, viewport, 'duplicate scroll events do not update layout');
 });
 
 test('viewport mode never queues background rows, but includes focused rows and visible merge anchors', async t => {

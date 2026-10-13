@@ -63,8 +63,14 @@ export const SpreadsheetDrawings = memo(function SpreadsheetDrawings({ controlle
       const reverseCursor = currentPreview && (flipX !== currentPreview.initial.flipX) !== (flipY !== currentPreview.initial.flipY);
       const selected = c.selectedDrawingId === drawing.id;
       const resource = drawing.type === "image" ? c.workbook.resources?.images?.[drawing.resourceId] : undefined;
-      const displayedDrawing = { ...drawing, width: rectangle.width, height: rectangle.height, flipX, flipY,
-        ...(currentPreview?.kind === "cornerRadius" ? { cornerRadiusRatio: currentPreview.preview.cornerRadiusRatio } : {}) };
+      // Keep the immutable model reference while selecting cells/objects or
+      // moving/rotating an object. Cloning every drawing here restarts each
+      // shrink-to-fit text measurement (and its synchronous browser layouts).
+      const visualChanged = rectangle.width !== drawing.width || rectangle.height !== drawing.height ||
+        flipX !== !!drawing.flipX || flipY !== !!drawing.flipY ||
+        currentPreview?.kind === "cornerRadius" && currentPreview.preview.cornerRadiusRatio !== (drawing.type === "shape" ? drawing.cornerRadiusRatio : undefined);
+      const displayedDrawing = visualChanged ? { ...drawing, width: rectangle.width, height: rectangle.height, flipX, flipY,
+        ...(currentPreview?.kind === "cornerRadius" ? { cornerRadiusRatio: currentPreview.preview.cornerRadiusRatio } : {}) } : drawing;
       return <div key={drawing.id} data-lxs-drawing={drawing.id} role="group" aria-label={drawingLabel(drawing)} aria-roledescription={drawing.type === "image" ? "画像" : drawing.type === "text" ? "テキストボックス" : "図形"} tabIndex={0}
         className={`lxs-drawing ${selected ? "lxs-drawing-selected" : ""} ${c.disabled ? "lxs-drawing-readonly" : ""}`}
         style={{ left: rectangle.left, top: rectangle.top, width: rectangle.width, height: rectangle.height,

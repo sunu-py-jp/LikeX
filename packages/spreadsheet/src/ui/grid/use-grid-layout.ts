@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import type { SpreadsheetRenderingMode } from "../../props";
 import type { SpreadsheetSheet } from "../../model/types";
-import { columnGeometry, createRowOffsets, visibleGridRows, visibleMergedCells, type ColumnWidthPreview, type GridViewport } from "./grid-geometry";
+import { columnGeometry, createRowOffsets, visibleGridRows, type ColumnWidthPreview, type GridViewport } from "./grid-geometry";
 import { useProgressiveGridRows } from "./use-progressive-grid-rows";
 import { createGridMergeCache } from "./grid-merge-cache";
 
@@ -17,19 +17,30 @@ export function useGridLayout(sheet: SpreadsheetSheet, focusedRow: number, resiz
     [columnCount, columnWidths, columnResizeIndex, columnResizeValue]);
   const rowResizeIndex = rowResize?.index, rowResizeValue = rowResize?.value;
   const rowOffsets = useMemo(() => createRowOffsets({ rowCount, rowHeights: rowResizeIndex !== undefined && rowResizeValue !== undefined ? { ...rowHeights, [rowResizeIndex]: rowResizeValue } : rowHeights }), [rowCount, rowHeights, rowResizeIndex, rowResizeValue]);
-  const priorityRows = useMemo(() => visibleGridRows({ rowCount, merges }, rowOffsets, viewport, focusedRow), [rowCount, merges, rowOffsets, viewport, focusedRow]);
+  const { top, height } = viewport;
+  const priorityRows = useMemo(() => visibleGridRows({ rowCount, merges }, rowOffsets, { top, height }, focusedRow), [rowCount, merges, rowOffsets, top, height, focusedRow]);
   const virtualRows = useProgressiveGridRows(id, rowCount, columnCount, priorityRows, mode, scroller);
   const mergeSession = useMemo(() => ({ sheetId: id, rowCount, mode, cache: createGridMergeCache(merges, columnCount) }), [id, merges, rowCount, columnCount, mode]);
-  const renderedMerges = useMemo(() => mergeSession.mode === "progressive" ? mergeSession.cache.include(virtualRows) : visibleMergedCells({ merges, columnCount }, virtualRows), [mergeSession, merges, columnCount, virtualRows]);
+  const renderedMerges = useMemo(() => mergeSession.mode === "progressive" ? mergeSession.cache.include(virtualRows) : mergeSession.cache.visible(virtualRows), [mergeSession, virtualRows]);
   useEffect(() => {
     const element = scroller.current;
     if (!element) return;
-    const update = () => setViewport({ top: element.scrollTop, height: element.clientHeight, left: element.scrollLeft, width: element.clientWidth });
+    const update = () => {
+      const next = { top: element.scrollTop, height: element.clientHeight, left: element.scrollLeft, width: element.clientWidth };
+      setViewport(previous => sameViewport(previous, next) ? previous : next);
+    };
     update();
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
     observer?.observe(element);
     return () => observer?.disconnect();
   }, [zoom]);
-  const onScroll = (event: UIEvent<HTMLDivElement>) => setViewport({ top: event.currentTarget.scrollTop, height: event.currentTarget.clientHeight, left: event.currentTarget.scrollLeft, width: event.currentTarget.clientWidth });
+  const onScroll = (event: UIEvent<HTMLDivElement>) => {
+    const next = { top: event.currentTarget.scrollTop, height: event.currentTarget.clientHeight, left: event.currentTarget.scrollLeft, width: event.currentTarget.clientWidth };
+    setViewport(previous => sameViewport(previous, next) ? previous : next);
+  };
   return { scroller, ...columns, rowOffsets, viewport, virtualRows, renderedMerges, onScroll };
+}
+
+function sameViewport(a: GridViewport, b: GridViewport) {
+  return a.top === b.top && a.height === b.height && a.left === b.left && a.width === b.width;
 }

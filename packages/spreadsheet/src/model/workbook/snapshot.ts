@@ -20,8 +20,9 @@ export function finishWorkbook(sheets: readonly SpreadsheetSheet[], workbook?: S
     fail("描画オブジェクトの数が上限を超えています");
   if (sheets.reduce((count, sheet) => count + Object.keys(sheet.comments ?? {}).length, 0) > SPREADSHEET_LIMITS.comments)
     fail("コメントの数が上限を超えています");
-  if (sheets.reduce((count, sheet) => count + (sheet.merges?.length ?? 0), 0) > SPREADSHEET_LIMITS.merges)
-    fail("結合範囲の数が上限を超えています");
+  const mergeCount = sheets.reduce((count, sheet) => count + (sheet.merges?.length ?? 0), 0);
+  if (mergeCount > SPREADSHEET_LIMITS.merges)
+    fail(`結合範囲の数が上限を超えています（ブック全体: ${mergeCount}範囲、上限: ${SPREADSHEET_LIMITS.merges}範囲。シート別: ${sheets.filter(sheet => sheet.merges?.length).map(sheet => `「${sheet.name}」${sheet.merges!.length}範囲`).join("、")}）`);
   const names = normalizeNamedRanges(namedRanges, sheets);
   for (const sheet of sheets) if (sheet.drawings) validateLineBindings(sheet.drawings);
   const result = Object.freeze({ format: SPREADSHEET_FORMAT, schemaVersion: 1 as const, sheets: Object.freeze([...reconcileWorkbookTables(sheets)]),

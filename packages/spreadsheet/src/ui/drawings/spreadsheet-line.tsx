@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type RefObject } from "react";
+import { useId, useMemo, type RefObject } from "react";
 import { getSpreadsheetLineRoute, spreadsheetLineRouteMidpoint } from "../../model/lines";
 import { getConnectorPortPoints, type ConnectorPoint } from "../../core";
 import type { SpreadsheetShapeDrawing, SpreadsheetSheet } from "../../model/types";
@@ -20,7 +20,7 @@ export function SpreadsheetLineDrawing({ drawing, sheet, controller: c, geometry
   const { drag, points, targets, begin, moved, finish, key, stop, lostCapture } = useLineInteractions(c, drawing, sheet, geometry, grid, layer, onEditText);
   const display = (point: ConnectorPoint) => ({ x: point.x + geometry.columnOffsets[0], y: point.y + geometry.rowOffsets[0] });
   const start = display(points.start), end = display(points.end);
-  const route = getSpreadsheetLineRoute(sheet, drawing.id, grid, points);
+  const route = useMemo(() => getSpreadsheetLineRoute(sheet, drawing.id, grid, points), [sheet, drawing.id, grid, points]);
   const labelPoint = display(spreadsheetLineRouteMidpoint(route.points));
   const vertices = (route.points.length === 1 ? [route.points[0], route.points[0]] : route.points).map(point => { const p = display(point); return `${p.x},${p.y}`; }).join(" ");
   const startArrow = drawing.startArrow ?? "none", endArrow = drawing.endArrow ?? (drawing.shape === "arrow" ? "triangle" : "none");

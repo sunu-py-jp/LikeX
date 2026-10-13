@@ -36,6 +36,13 @@ export type ImportContext = {
   date1904?: boolean;
   resolveListValues?: (reference: string, sheetName: string) => readonly string[] | undefined;
   cellTextCharacters?: number;
+  /** Retained optional features across the workbook; omitted items do not consume model capacity. */
+  mergeCount?: number;
+  drawingCount?: number;
+  commentCount?: number;
+  tableCount?: number;
+  tableNames?: Set<string>;
+  remainingExtraCells?: number;
   sheetNames?: ReadonlyMap<string, string>;
   warn(warning: SpreadsheetExcelImportWarning): void;
 };
@@ -45,6 +52,6 @@ export const XLSX_IMPORT_LIMITS = Object.freeze({
   inputBytes: 32 * 1024 * 1024, entries: 4096,
   entryBytes: 16 * 1024 * 1024, totalBytes: 64 * 1024 * 1024,
   xmlBytes: 16 * 1024 * 1024, xmlDepth: 64, xmlNodes: 600_000,
-  xmlText: 16 * 1024 * 1024, sharedStrings: 100_000,
+  xmlText: 16 * 1024 * 1024,
   cellTextCharacters: 32 * 1024 * 1024,
 });

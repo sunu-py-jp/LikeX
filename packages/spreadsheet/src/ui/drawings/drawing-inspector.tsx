@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { chainResult, CONNECTOR_ARROWHEADS, type ConnectorArrowhead, type MaybePromise } from "../../core";
 import { cellAddress, type SpreadsheetDrawing, type SpreadsheetDrawingPatch } from "../../model";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
@@ -51,7 +51,7 @@ export function SpreadsheetDrawingInspector({ controller: c }: { controller: Spr
 
 function DrawingInspectorSession({ controller: c, drawing }: { controller: SpreadsheetController; drawing: SpreadsheetDrawing }) {
   const update = (patch: SpreadsheetDrawingPatch) => !c.disabled && updateDrawingFromUI(c, c.activeSheet.id, drawing, patch);
-  const line = isSpreadsheetLine(drawing) ? getSpreadsheetLinePoints(c.activeSheet, drawing.id) : undefined;
+  const line = useMemo(() => isSpreadsheetLine(drawing) ? getSpreadsheetLinePoints(c.activeSheet, drawing.id) : undefined, [c.activeSheet, drawing]);
   const updatePoint = (endpoint: "start" | "end", axis: "x" | "y", value: string) => {
     if (c.disabled || !line) return false;
     const next = { x: line[endpoint].x, y: line[endpoint].y, [axis]: Number(value) };
