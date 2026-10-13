@@ -80,11 +80,13 @@ Handle／GUIの出力は `onEvent` に `type: "export", format: "xlsx"` を通�
 
 日付・時刻の表示形式を指定したISO文字列は、Excelの日付シリアル値と表示書式へ変換します。元のJSONでは文字列のままです。入力規則の補助シート名は既存名との重複を避けます。候補にカンマや引用符を含めても分割せず、`=` で始まる候補も数式にはしません。
 
+角丸長方形の `cornerRadiusRatio` は `roundRect` の調整値 `adj` として0も含めて出力します。省略時は従来の丸みを使用します。接続線の対象はカスタム形状の外形・接続点にも丸みを反映し、LikeXへ戻すための比率も保持します。Officeの値は10万分の1刻みへ丸めます。
+
 ## 図形とテキストボックスの文字
 
 共通型 `SpreadsheetDrawingTextStyle` の `fontFamily`・`italic`・`underline`、`textInsets`、`textWrap`、`textOverflow` / `textVerticalOverflow`、`textAlign` / `textVerticalAlign`、`textAutoFit`、`textFontScale`、`textLineHeight` をDrawingMLへ出力します。公開の `shapes.insert` / `textBoxes.insert` と各更新コマンドの `patch` で指定でき、SPON・XLSXの両方で保持します。[属性とコマンドの例](./insertions-and-json.md)を参照してください。
 
-属性を省略した既存データは従来の設定を維持し、余白は各8px、折り返しあり、はみ出しは切り取り、行間は1.4倍で出力します。配置は図形が中央、テキストボックスが左上です。指定されたゼロ余白や折り返しなしの注記を、この既定値に置き換えることはありません。
+`textInsets` の省略時は、表示・編集と同じ各0pxの余白を明示して出力します。折り返しあり、はみ出しは切り取り、行間は1.4倍が既定値です。配置は図形が中央、テキストボックスが左上です。明示された余白やExcelから取り込んだ余白（Office側の省略時の余白を含む）は保持します。既存SPONで `textInsets` を省略していた図形も0pxとなるため、以前の見た目を維持したい場合は各辺に8pxを指定してください。
 
 `textAutoFit: "shrink"` は保存済みの `textFontScale` と縮小指定を出力します。ブラウザーでの実測による追加の縮小は表示時の計算で、保存モデルや出力値を上書きしません。`"resize"` はExcelへ自動拡大指定を書き戻しますが、LikeXの表示では文字領域だけを拡張し、図形の外形を保存サイズのまま保つ近似です。この近似はXLSX取り込み時に警告します。
 

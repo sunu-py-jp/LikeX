@@ -1,5 +1,6 @@
 import { createRef } from "react";
-import Explorer, { ExplorerPopup, ExplorerPicker, ExplorerPickerDialog, useExplorerDraft, createExplorerUploadSession,
+import Explorer, { ExplorerPopup, ExplorerPicker, ExplorerPickerDialog, ExplorerPreviewError, useExplorerDraft, createExplorerUploadSession,
+  type ExplorerPreviewErrorProps,
   type ExplorerProps, type ExplorerEntry, type ExplorerEvent,
   type ExplorerPreviewHandler, type ExplorerPreviewRenderer, type ExplorerPreviewSourceResolver,
   type ExplorerPreviewOptions, type ExplorerPreviewSource,
@@ -22,6 +23,12 @@ import Explorer, { ExplorerPopup, ExplorerPicker, ExplorerPickerDialog, useExplo
   type RefreshHandler as LegacyRefreshHandler } from "__EXPLORER_IMPORT__";
 
 const previewConfig = { pdfSandbox: false, formatsByExtension: { ".mov": { mode: "video", mime: "video/quicktime" } } } satisfies ExplorerPreviewOptions;
+const previewErrorProps = { error: new Error("読み込みに失敗しました"), message: "ファイルを表示できません。", className: "host-error" } satisfies ExplorerPreviewErrorProps;
+const previewError = <ExplorerPreviewError {...previewErrorProps} />;
+const unknownPreviewError = <ExplorerPreviewError error={null as unknown} />;
+// @ts-expect-error Supply the caught exception even if it is unknown.
+const missingPreviewError = <ExplorerPreviewError message="ファイルを表示できません。" />;
+void [previewError, unknownPreviewError, missingPreviewError];
 const previewSource: ExplorerPreviewSourceResolver = (entry, { signal, processing }) => {
   signal.throwIfAborted();
   if (entry.extension !== "pptx") return null;

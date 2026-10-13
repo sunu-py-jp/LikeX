@@ -37,6 +37,10 @@ export type SlideShapeKind = Exclude<OfficeShapePreset, "rightArrow"> | "arrow" 
 export type SlideShapeElement = SlideElementBase & {
   type: "shape";
   shape: SlideShapeKind;
+  /** Rounded rectangle radius as a fraction of its shorter side; only roundRect. Omitted keeps the legacy 0.12 radius.
+   * @minimum 0
+   * @maximum 0.5 */
+  cornerRadiusRatio?: number;
   /** Only shape:line. Absolute document coordinates; bound points follow their target. */
   line?: SlideLineGeometry;
   /** Automatic orthogonal routing; omitted means a straight segment. */

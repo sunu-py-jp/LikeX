@@ -196,6 +196,34 @@ export default function ExplorerWithPreviewCard({
 
 非同期表示には `renderPreview={context => <CustomPreview {...context} />}` のように通常のコンポーネントを返し、そのコンポーネントのeffect等で読み込みます。`renderPreview={async (...) => ...}` やコールバック内部でのHook呼出は使いません。独自コンポーネントでは対象変更・アンマウント時のキャンセル、エラー表示、`allowDownload` の反映を親が実装します。
 
+### 読み込みエラーの詳細を表示する
+
+`ExplorerPreviewError` は、短い案内文の直後にエラー詳細のアイコンを表示する公開コンポーネントです。アイコンにポインターを合わせるかキーボードでフォーカスすると詳細を開き、クリックまたはEnterで固定できます。再クリック、外側のクリック、Escapeで閉じます。詳細を開いた状態のEscapeでは、親のプレビューダイアログを閉じません。長い詳細は折り返してスクロールでき、選択・コピーもできます。
+
+```tsx
+import { ExplorerPreviewError } from "@likex/explorer";
+import "@likex/explorer/styles.css";
+
+// 独自ビューの非同期読み込みで捕捉した例外を、そのまま渡します。
+function FailedPreview({ error, allowDownload }: {
+  error: unknown;
+  allowDownload: boolean;
+}) {
+  return <ExplorerPreviewError
+    error={error}
+    message={allowDownload
+      ? "ファイルを表示できません。ダウンロードして確認してください。"
+      : "ファイルを表示できません。"}
+  />;
+}
+```
+
+公開型は `ExplorerPreviewErrorProps`（`error: unknown`、`message?: string`、`className?: string`）です。`message` の既定値は「プレビューを表示できませんでした。」です。Explorerの外でも利用でき、専用のProviderは不要です。ソースコピーでは `@/components/explorer` と `@/components/explorer/styles.css` をimportします。
+
+詳細には実際の例外の `Error.message` または文字列だけをプレーンテキストとして表示します。空のメッセージやその他の値は「エラーの詳細を取得できませんでした。」となり、スタックトレースやオブジェクト全体は表示しません。ファイル形式や破損原因の推測、Office変換、元ファイルの変更は行いません。利用側が捕捉した非同期エラーは、その利用側のエラー表示でこのコンポーネントへ渡してください。
+
+内蔵プレビューの読み込み失敗と `renderPreview` コールバック自体が同期的に投げた例外にも、この表示を使います。`renderPreview` が返す独自コンポーネント内部の描画例外には、利用側のReact Error Boundaryを用意してください。
+
 ## 表示用データを差し替える
 
 `resolvePreviewSource(entry, { signal, processing })` は元の `ExplorerPreviewRequest` を受け取り、同期値またはPromiseで次の記述子を返します。`null` / `undefined` は通常の `source` / `readFile` に戻します。表示用データは保存モデルや元ファイルの読込キャッシュとは別に扱われます。

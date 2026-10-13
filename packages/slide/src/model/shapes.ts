@@ -1,6 +1,11 @@
 import { OFFICE_SHAPE_PRESETS, getOfficeShapeGeometry, type OfficeShapePreset, type OfficeShapeCategory } from "./core-office-shapes";
 import type { SlideShapeKind } from "./types";
 
+/** Radius in document pixels. Missing ratios preserve existing native files. */
+export function slideRoundRectRadius(element: { width: number; height: number; cornerRadiusRatio?: number }): number {
+  return Math.min(element.width, element.height) * (element.cornerRadiusRatio ?? .12);
+}
+
 /** Shared insert menu and model catalog. Lines use their separate endpoint API. */
 export const SLIDE_SHAPES: readonly Readonly<{ preset: OfficeShapePreset; label: string; category: OfficeShapeCategory;
   shape: Exclude<SlideShapeKind, "line"> }>[] = Object.freeze(OFFICE_SHAPE_PRESETS.map(item => Object.freeze({

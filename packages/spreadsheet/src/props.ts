@@ -10,6 +10,9 @@ export type { SpreadsheetSaveHandler } from "./api/lifecycle";
 
 export type SpreadsheetColorMode = "light" | "dark" | "system";
 
+/** View-only rendering policy. It never changes workbook data or calculation. */
+export type SpreadsheetRenderingMode = "progressive" | "viewport";
+
 /** View-only ribbon presentation; never stored in the workbook or its history. */
 export type SpreadsheetRibbonDisplayMode = RibbonDisplayMode;
 
@@ -56,6 +59,10 @@ export type SpreadsheetProps = SearchPanelInitialState & {
   initialSheetName?: string;
   /** Initial view magnification in percent (25–200, default 100). Not saved in the workbook. */
   initialZoom?: number;
+  /** Defaults to progressive: visible rows first, then the rest of the active sheet in batches.
+   * viewport keeps only nearby rows and drawings mounted to reduce memory use.
+   * May be changed while the component is mounted; not stored in the workbook. */
+  renderingMode?: SpreadsheetRenderingMode;
   /** Read once at mount, default expanded. Ignored while ribbonDisplayMode is supplied. */
   initialRibbonDisplayMode?: SpreadsheetRibbonDisplayMode;
   /** Host-controlled ribbon presentation. Without a change callback the mode is locked. */

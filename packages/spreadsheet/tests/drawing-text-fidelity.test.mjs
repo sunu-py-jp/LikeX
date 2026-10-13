@@ -66,3 +66,34 @@ test('invalid text layout fails atomically and style-only edits are detected', (
   const updated = m.applySpreadsheetCommands(initial, [{ type: 'textBoxes.update', sheetId: 'one', drawingId: 'label', patch: { textInsets: { ...layout.textInsets, left: 2 } } }]);
   assert.equal(updated.ok, true); assert.equal(updated.changed, true); assert.equal(initial.sheets[0].drawings[0].textInsets.left, 0);
 });
+
+test('native drawing defaults stay zero through public insertion, SPON and XLSX while explicit insets survive', async () => {
+  const explicitInsets = { left: 2, top: 3, right: 4, bottom: 5 };
+  const commands = ['shape', 'text'].flatMap(kind => [undefined, explicitInsets].map(textInsets => ({
+    type: kind === 'shape' ? 'shapes.insert' : 'textBoxes.insert', sheetId: 'one',
+    ...(kind === 'shape' ? { shape: 'rectangle' } : {}), anchor: { row: 1, column: 1 },
+    text: '狭い枠の文字', width: 48, height: 20, ...(textInsets ? { textInsets } : {}),
+  })));
+  const created = m.applySpreadsheetCommands({ sheets: [sheet] }, commands);
+  assert.equal(created.ok, true);
+  const saved = m.parseWorkbook(m.serializeWorkbook(created.workbook));
+  assert.deepEqual(saved, created.workbook, 'default interpretation does not rewrite the stored objects');
+  for (const [i, drawing] of saved.sheets[0].drawings.entries()) {
+    assert.equal(m.drawingTextStyle(drawing).padding, i % 2 ? '3px 4px 5px 2px' : '0px 0px 0px 0px');
+  }
+  const imported = await m.importSpreadsheetXlsx(await m.exportSpreadsheetXlsx(saved));
+  for (const [i, drawing] of imported.workbook.sheets[0].drawings.entries()) {
+    assert.deepEqual(drawing.textInsets, i % 2 ? explicitInsets : { left: 0, top: 0, right: 0, bottom: 0 });
+    assert.equal(m.drawingTextStyle(drawing).padding, m.drawingTextStyle(saved.sheets[0].drawings[i]).padding);
+  }
+  assert.deepEqual(imported.warnings, []);
+});
+
+test('Office inherited and explicit margins retain their layout instead of adopting native zero padding', async () => {
+  const { drawing } = read('<a:txBody><a:bodyPr lIns="19050"/><a:p><a:r><a:t>Excelの文字</a:t></a:r></a:p></a:txBody>');
+  const insets = { left: 2, top: 4.8, right: 9.6, bottom: 4.8 };
+  assert.deepEqual(drawing.textInsets, insets);
+  const initial = { sheets: [{ ...sheet, drawings: [box(drawing)] }] };
+  const imported = await m.importSpreadsheetXlsx(await m.exportSpreadsheetXlsx(initial));
+  assert.deepEqual(imported.workbook.sheets[0].drawings[0].textInsets, insets);
+});

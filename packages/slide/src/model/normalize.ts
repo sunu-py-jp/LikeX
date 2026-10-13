@@ -68,6 +68,10 @@ export function normalizeSlideElement(input: unknown, targets: readonly SlideEle
     result = { ...base, type, src: image.src, alt: text(raw.alt, "画像の説明", 10_000) };
     imageBytes.set(result, image.bytes);
   }
+  if (raw.cornerRadiusRatio !== undefined) {
+    if (result.type !== "shape" || result.shape !== "roundRect") throw new Error("角の丸みは角丸長方形だけに指定できます");
+    result = { ...result, cornerRadiusRatio: number(raw.cornerRadiusRatio, "角の丸み", 0, .5) };
+  }
   if (raw.routing !== undefined) {
     if (result.type !== "shape" || result.shape !== "line") throw new Error("線の経路は線だけに指定できます");
     result = { ...result, routing: choice(raw.routing, ["straight", "elbow"] as const, "線の経路") };

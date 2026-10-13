@@ -4,7 +4,7 @@ import { LineMarker } from "./line-marker";
 import { useId } from "react";
 import { getOfficeShapeGeometry } from "../../model/core-office-shapes";
 import type { SpreadsheetShapeDrawing } from "../../model/types";
-import { getShapeDefinition, shapeBodyFrame } from "../../model/shapes";
+import { getShapeDefinition, roundedRectangleRadius, shapeBodyFrame } from "../../model/shapes";
 
 /** The insertion gallery and sheet use identical geometry, with unscaled outline widths. */
 export function Shape({ drawing }: { drawing: SpreadsheetShapeDrawing }) {
@@ -17,7 +17,7 @@ export function Shape({ drawing }: { drawing: SpreadsheetShapeDrawing }) {
   return <svg className="lxs-shape" width="100%" height="100%" viewBox={`0 0 ${drawing.width} ${drawing.height}`} aria-hidden="true" overflow="visible"
     style={{ transform: `scale(${drawing.flipX ? -1 : 1}, ${drawing.flipY ? -1 : 1})`, transformOrigin: "center" }}>
     {geometry.type === "line" && <defs><LineMarker id={`${marker}-start`} kind={startArrow} color={drawing.stroke} /><LineMarker id={`${marker}-end`} kind={endArrow} color={drawing.stroke} /></defs>}
-    {geometry.type === "rectangle" && <rect {...frame} rx={geometry.rounded ? Math.min(frame.width, frame.height) * 16667 / 100000 : undefined} {...paint} />}
+    {geometry.type === "rectangle" && <rect {...frame} rx={geometry.rounded ? roundedRectangleRadius(drawing) : undefined} {...paint} />}
     {geometry.type === "office" && <g transform={`translate(${frame.x} ${frame.y})`}>
       {getOfficeShapeGeometry(geometry.preset, frame.width, frame.height).paths.map((path, index) => <path key={index}
         d={path.d} {...paint} fill={path.fill === false ? "none" : drawing.fill} stroke={path.stroke === false ? "none" : drawing.stroke} />)}

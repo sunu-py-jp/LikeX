@@ -86,6 +86,9 @@ const applyLayout: SlideCommand = { type: 'slide.applyLayout', slideId: 'page', 
 const detachLayout: SlideCommand = { type: 'slide.detachLayout', slideId: 'page' };
 const addLayout: SlideCommand = { type: 'slide.add', layoutId: 'layout' };
 void applyLayout; void detachLayout; void addLayout;
+const roundedRectangle: SlideCommand = { type: 'element.add', slideId: 'page', element: { type: 'shape', shape: 'roundRect', cornerRadiusRatio: .25 } };
+const roundedRectangleUpdate: SlideCommand = { type: 'element.update', slideId: 'page', elementId: 'rounded', patch: { cornerRadiusRatio: .4 } };
+void roundedRectangle; void roundedRectangleUpdate;
 const importedLibrary: Promise<SlidePptxMastersImportResult> = importSlidePptxMasters(new Uint8Array());
 void importedLibrary;
 

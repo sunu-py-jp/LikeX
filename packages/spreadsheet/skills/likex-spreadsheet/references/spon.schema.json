@@ -329,7 +329,7 @@
         },
         "textInsets": {
           "$ref": "#/$defs/SpreadsheetShapeDrawing_textInsets",
-          "description": "Insets in CSS pixels. Defaults to 8px on each side for native LikeX objects."
+          "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
           "$ref": "#/$defs/SpreadsheetShapeDrawing_textWrap"
@@ -378,6 +378,12 @@
           "type": "number",
           "minimum": 0,
           "maximum": 100
+        },
+        "cornerRadiusRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "description": "Rounded rectangle radius as a fraction of its shorter side. Omitted uses 0.16667."
         },
         "line": {
           "$ref": "#/$defs/SpreadsheetShapeDrawing_line",
@@ -637,7 +643,7 @@
         },
         "textInsets": {
           "$ref": "#/$defs/SpreadsheetShapeDrawing_textInsets",
-          "description": "Insets in CSS pixels. Defaults to 8px on each side for native LikeX objects."
+          "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
           "$ref": "#/$defs/SpreadsheetShapeDrawing_textWrap"

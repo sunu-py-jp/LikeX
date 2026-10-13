@@ -7,6 +7,7 @@ export type {
   SpreadsheetProps,
   SpreadsheetFeatures,
   SpreadsheetColorMode,
+  SpreadsheetRenderingMode,
   SpreadsheetRibbonDisplayMode,
   SpreadsheetSelection,
   SpreadsheetSelectionRange,

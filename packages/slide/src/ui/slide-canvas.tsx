@@ -12,9 +12,9 @@ import { elementStyle, SlideElementContent } from "./slide-artwork";
 import { SlideCanvasElement } from "./slide-canvas-element";
 import { useSlideContextMenu } from "./use-slide-context-menu";
 
-type Geometry = Pick<SlideElement, "x" | "y" | "width" | "height" | "rotation"> & { line?: SlideLineGeometry };
+type Geometry = Pick<SlideElement, "x" | "y" | "width" | "height" | "rotation"> & { line?: SlideLineGeometry; cornerRadiusRatio?: number };
 type Corner = "nw" | "ne" | "sw" | "se";
-type Gesture = { kind: "move" | "resize" | "rotate" | "start" | "end"; corner?: Corner; startX: number; startY: number; pointerId: number;
+type Gesture = { kind: "move" | "resize" | "rotate" | "start" | "end" | "corner"; corner?: Corner; startX: number; startY: number; pointerId: number;
   captureTarget: HTMLElement; elements: SlideElement[]; updates: Map<string, Geometry>; centerX: number; centerY: number; startAngle: number; deck: SlideDeck; slideId: string; scale: number; scrollX: number; scrollY: number; lastX: number; lastY: number; shiftKey: boolean; altKey: boolean; stop(): void };
 type MarqueeBox = { x: number; y: number; width: number; height: number };
 type Marquee = { deck: SlideDeck; slide: Slide; scale: number; pointerId: number; startX: number; startY: number;
@@ -59,8 +59,9 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
   const gesture = useRef<Gesture | null>(null);
   const marquee = useRef<Marquee | null>(null);
   const [marqueePreview, setMarqueePreview] = useState<{ box: MarqueeBox; elementIds: string[] } | null>(null);
-  const latest = useRef({ deck, slideId: slide?.id, editable: editor.editable, formatting: editor.features.formatting });
-  useLayoutEffect(() => { latest.current = { deck, slideId: slide?.id, editable: editor.editable, formatting: editor.features.formatting }; });
+  const scale = Math.max(.05, Math.min((size.width - 80) / deck.width, (size.height - 64) / deck.height)) * zoom / 100;
+  const latest = useRef({ deck, slideId: slide?.id, editable: editor.editable, formatting: editor.features.formatting, scale });
+  useLayoutEffect(() => { latest.current = { deck, slideId: slide?.id, editable: editor.editable, formatting: editor.features.formatting, scale }; });
   useLayoutEffect(() => () => { latest.current = { ...latest.current, slideId: undefined }; }, []);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [wasEditable, setWasEditable] = useState(editor.editable);
@@ -70,7 +71,6 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
   }
   const selected = new Set(marqueePreview?.elementIds ?? editor.selection.elementIds);
   const openMenu = useSlideContextMenu(editor);
-  const scale = Math.max(.05, Math.min((size.width - 80) / deck.width, (size.height - 64) / deck.height)) * zoom / 100;
   useLayoutEffect(() => {
     const node = viewport.current;
     if (!node) return;
@@ -80,7 +80,7 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
   }, []);
   function cancelGesture() { const current = gesture.current; gesture.current = null; current?.stop(); setPreview(new Map()); setConnecting(null); }
   function cancelMarquee() { const current = marquee.current; marquee.current = null; current?.stop(); setMarqueePreview(null); }
-  useLayoutEffect(() => { const current = gesture.current; if (current && (current.deck !== deck || current.slideId !== slide?.id || !editor.editable || !editor.features.formatting)) cancelGesture(); }, [deck, slide?.id, editor.editable, editor.features.formatting]);
+  useLayoutEffect(() => { const current = gesture.current; if (current && (current.deck !== deck || current.slideId !== slide?.id || !editor.editable || !editor.features.formatting || current.kind === "corner" && current.scale !== scale)) cancelGesture(); }, [deck, slide?.id, editor.editable, editor.features.formatting, scale]);
   useLayoutEffect(() => {
     const current = marquee.current;
     if (current && (current.deck !== deck || current.slide.id !== slide?.id || current.scale !== scale
@@ -150,11 +150,13 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
   const begin = (event: PointerEvent<HTMLElement>, element: SlideElement, kind: Gesture["kind"], corner?: Corner) => {
     if (event.button !== 0 || !slide || editing || marquee.current) return;
     event.stopPropagation(); event.preventDefault();
-    viewport.current?.focus();
+    if (kind === "corner") event.currentTarget.focus?.({ preventScroll: true });
+    else viewport.current?.focus();
     const ids = (event.shiftKey || event.ctrlKey || event.metaKey) && kind === "move" ? (selected.has(element.id) ? editor.selection.elementIds.filter(id => id !== element.id) : [...editor.selection.elementIds, element.id])
       : selected.has(element.id) ? editor.selection.elementIds : [element.id];
     editor.select({ slideId: slide.id, elementIds: ids });
     if (!ids.includes(element.id) || !editor.editable || !editor.features.formatting || element.locked) return;
+    if (kind === "corner" && (element.type !== "shape" || element.shape !== "roundRect")) return;
     setConnecting(null);
     const rect = surface.current!.getBoundingClientRect();
     const centerX = rect.left + (element.x + element.width / 2) * scale, centerY = rect.top + (element.y + element.height / 2) * scale;
@@ -165,14 +167,15 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
     if (target && win) {
       const cancel = () => cancelGesture(), key = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); cancel(); } };
       const end = (event: globalThis.PointerEvent) => finish(event), lost = (event: globalThis.PointerEvent) => { if (event.pointerId === current.pointerId) cancel(); };
-      const stopMotion = startDragEdgeMotion(target, () => gesture.current?.updates.size && gesture.current.kind !== "rotate" ? { x: gesture.current.lastX, y: gesture.current.lastY } : null, (dx, dy) => { if (!gesture.current) return; target.scrollLeft += dx; target.scrollTop += dy; updateGesture(gesture.current); });
+      const stopMotion = startDragEdgeMotion(target, () => gesture.current?.updates.size && gesture.current.kind !== "rotate" && gesture.current.kind !== "corner" ? { x: gesture.current.lastX, y: gesture.current.lastY } : null, (dx, dy) => { if (!gesture.current) return; target.scrollLeft += dx; target.scrollTop += dy; updateGesture(gesture.current); });
       current.stop = () => { stopMotion(); win.removeEventListener("pointerup", end); win.removeEventListener("pointercancel", lost); win.removeEventListener("keydown", key, true); win.removeEventListener("blur", cancel); current.captureTarget.removeEventListener("lostpointercapture", lost); if (current.captureTarget.hasPointerCapture?.(current.pointerId)) current.captureTarget.releasePointerCapture(current.pointerId); };
       win.addEventListener("pointerup", end); win.addEventListener("pointercancel", lost); win.addEventListener("keydown", key, true); win.addEventListener("blur", cancel); current.captureTarget.addEventListener("lostpointercapture", lost);
     }
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
   function updateGesture(current: Gesture) {
-    if (latest.current.deck !== current.deck || latest.current.slideId !== current.slideId || !latest.current.editable || !latest.current.formatting) { cancelGesture(); return; }
+    if (latest.current.deck !== current.deck || latest.current.slideId !== current.slideId || !latest.current.editable || !latest.current.formatting
+      || current.kind === "corner" && current.scale !== latest.current.scale) { cancelGesture(); return; }
     const scrollX = (viewport.current?.scrollLeft ?? 0) - current.scrollX, scrollY = (viewport.current?.scrollTop ?? 0) - current.scrollY;
     const dx = (current.lastX - current.startX + scrollX) / current.scale, dy = (current.lastY - current.startY + scrollY) / current.scale;
     if (Math.abs(dx) + Math.abs(dy) < 1 && !current.updates.size) return;
@@ -192,6 +195,12 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
           const line = translateSlideLine(element, dx, dy, new Set(current.elements.map(item => item.id)));
           next.set(element.id, { ...slideLineGeometry(line), line });
         } else next.set(element.id, geometry);
+      }
+      else if (current.kind === "corner" && element.type === "shape" && element.shape === "roundRect") {
+        const angle = element.rotation * Math.PI / 180;
+        const localX = dx * Math.cos(angle) + dy * Math.sin(angle);
+        const ratio = Math.max(0, Math.min(.5, (element.cornerRadiusRatio ?? .12) + localX / Math.min(element.width, element.height)));
+        if (Math.abs(ratio - (element.cornerRadiusRatio ?? .12)) > 1e-9) next.set(element.id, { ...element, cornerRadiusRatio: ratio });
       }
       else if (current.kind === "resize") next.set(element.id, resized(element, dx, dy, current.corner!, (element.type === "image" && !current.altKey) || current.shiftKey));
       else {
@@ -216,12 +225,18 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
       if (gesture.current !== current) return;
     }
     gesture.current = null; current.stop(); setPreview(new Map()); setConnecting(null);
-    if (!cancel && latest.current.deck === current.deck && latest.current.slideId === current.slideId && latest.current.editable && latest.current.formatting && current.updates.size) {
+    if (!cancel && latest.current.deck === current.deck && latest.current.slideId === current.slideId && latest.current.editable && latest.current.formatting && (current.kind !== "corner" || current.scale === latest.current.scale) && current.updates.size) {
       void editor.execute([...current.updates].map(([elementId, geometry]): SlideCommand => geometry.line ? ({ type: "line.update", slideId: current.slideId, elementId, start: geometry.line.start, end: geometry.line.end }) : ({
         type: "element.update", slideId: current.slideId, elementId,
-        patch: { x: geometry.x, y: geometry.y, width: geometry.width, height: geometry.height, rotation: geometry.rotation },
+        patch: current.kind === "corner" ? { cornerRadiusRatio: geometry.cornerRadiusRatio }
+          : { x: geometry.x, y: geometry.y, width: geometry.width, height: geometry.height, rotation: geometry.rotation },
       })), current.deck);
     }
+  };
+  const changeCorner = (element: SlideElement, cornerRadiusRatio: number) => {
+    if (!slide || editing || gesture.current || !editor.editable || !editor.features.formatting || element.locked
+      || element.type !== "shape" || element.shape !== "roundRect" || cornerRadiusRatio === (element.cornerRadiusRatio ?? .12)) return;
+    void editor.execute({ type: "element.update", slideId: slide.id, elementId: element.id, patch: { cornerRadiusRatio } }, deck);
   };
   const commitText = () => {
     if (!editing || !slide) return;
@@ -309,7 +324,7 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
           {renderedElements.map(element => <SlideCanvasElement key={element.id} element={element} elements={renderedElements}
             original={slide.elements.find(item => item.id === element.id)!} selected={selected.has(element.id)}
             editable={editor.editable} formatting={editor.features.formatting} textEnabled={editor.features.text}
-            moving={moving && preview.has(element.id)} scale={scale} onBegin={begin} onMenu={elementMenu} onEdit={setEditing} />)}
+            moving={moving && preview.has(element.id)} scale={scale} onBegin={begin} onMenu={elementMenu} onEdit={setEditing} onCornerChange={changeCorner} />)}
           {searchElementId && [...appearance?.inheritedElements ?? [], ...renderedElements].filter(element => element.id === searchElementId).map(element =>
             <div key={`search:${element.id}`} className="lxp-search-highlight" data-slide-search-highlight={element.id} aria-hidden="true"
               style={{ ...elementStyle(element), opacity: 1, borderWidth: 3 / scale }} />)}

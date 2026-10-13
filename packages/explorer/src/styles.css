@@ -632,6 +632,9 @@ SOFTWARE.
   .lxe\:max-h-\[min\(12rem\,var\(--radix-popper-available-height\)\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     max-height: min(12rem, var(--radix-popper-available-height));
   }
+  .lxe\:max-h-\[min\(16rem\,var\(--radix-popper-available-height\)\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    max-height: min(16rem, var(--radix-popper-available-height));
+  }
   .lxe\:max-h-\[min\(20rem\,calc\(100\%-4\.5rem\)\,50dvh\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     max-height: min(20rem, calc(100% - 4.5rem), 50dvh);
   }
@@ -757,6 +760,9 @@ SOFTWARE.
   }
   .lxe\:max-w-\[min\(20rem\,calc\(100vw-1\.5rem\)\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     max-width: min(20rem, calc(100vw - 1.5rem));
+  }
+  .lxe\:max-w-\[min\(32rem\,calc\(100vw-1\.5rem\)\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    max-width: min(32rem, calc(100vw - 1.5rem));
   }
   .lxe\:max-w-full:where([data-likex-explorer], [data-likex-explorer] *) {
     max-width: 100%;
@@ -1175,6 +1181,9 @@ SOFTWARE.
   .lxe\:p-3:where([data-likex-explorer], [data-likex-explorer] *) {
     padding: calc(var(--lxe-spacing) * 3);
   }
+  .lxe\:p-4:where([data-likex-explorer], [data-likex-explorer] *) {
+    padding: calc(var(--lxe-spacing) * 4);
+  }
   .lxe\:p-5:where([data-likex-explorer], [data-likex-explorer] *) {
     padding: calc(var(--lxe-spacing) * 5);
   }
@@ -1535,6 +1544,10 @@ SOFTWARE.
   .lxe\:select-none:where([data-likex-explorer], [data-likex-explorer] *) {
     -webkit-user-select: none;
     user-select: none;
+  }
+  .lxe\:select-text:where([data-likex-explorer], [data-likex-explorer] *) {
+    -webkit-user-select: text;
+    user-select: text;
   }
   .lxe\:ring-inset:where([data-likex-explorer], [data-likex-explorer] *) {
     --lxe-tw-ring-inset: inset;

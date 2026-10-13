@@ -45,6 +45,7 @@ Next.js App Routerでは `app/layout.tsx` にCSSのimportを置きます。コ�
 - [先頭範囲だけの軽量サムネイル](./thumbnail.md)
 - [埋め込み画像と配置の収集](./image-collection.md)
 - [公開API・保存と機能設定](./api.md)
+- [画面外も順次描画する・省メモリ表示へ切り替える](./api.md#シートの描画モード)
 - [保存・編集許可・イベントの注入](./lifecycle.md)
 - [機能のON/OFF](./features.md)
 - [リボンの表示と非表示](./ribbon-display.md)

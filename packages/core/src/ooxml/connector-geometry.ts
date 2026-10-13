@@ -3,6 +3,12 @@ import { child, children, type XmlNode } from "./xml";
 
 const SCALE = 100000;
 const portGuide = "likexPorts8", shapePrefix = "likexShape_";
+const cornerRadiusGuide = "likexCornerRadiusRatio";
+export type OfficeConnectorGeometryOptions = Readonly<{
+  /** Rounded-rectangle radius divided by its shorter side, from 0 to 0.5.
+   * The supplied outline must already describe this radius. */
+  cornerRadiusRatio?: number;
+}>;
 const coordinate = (value: number) => {
   const scaled = Math.round(value * SCALE);
   if (!Number.isSafeInteger(scaled)) throw new RangeError("Office connector coordinates exceed the safe integer range");
@@ -15,8 +21,12 @@ const arc = (rx: number, ry: number, start: number) => `<a:arcTo wR="${coordinat
 
 /** Standard DrawingML custom geometry. shapeTag identifies the owning module's
  * supported shape; it is an inert, validated guide name, not executable data. */
-export function createOfficeConnectorGeometry(shapeTag: string, outline?: ConnectorOutline): string {
+export function createOfficeConnectorGeometry(shapeTag: string, outline?: ConnectorOutline, options: OfficeConnectorGeometryOptions = {}): string {
   if (!/^[A-Za-z][A-Za-z0-9_]{0,47}$/.test(shapeTag)) throw new TypeError("Office connector shape tags must be short identifiers");
+  const radius = options.cornerRadiusRatio;
+  if (radius !== undefined && (typeof radius !== "number" || !Number.isFinite(radius) || radius < 0 || radius > 0.5))
+    throw new RangeError("Office rounded rectangle radius ratio must be between 0 and 0.5");
+  const adjustments = radius === undefined ? "<a:avLst/>" : `<a:avLst><a:gd name="${cornerRadiusGuide}" fmla="val ${coordinate(radius)}"/></a:avLst>`;
   const ports = getConnectorPortPoints({ x: 0, y: 0, width: 1, height: 1 }, outline);
   const guides = ports.map(({ point }, index) => `<a:gd name="lxPort${index}x" fmla="*/ w ${coordinate(point.x)} ${SCALE}"/><a:gd name="lxPort${index}y" fmla="*/ h ${coordinate(point.y)} ${SCALE}"/>`).join("");
   const connections = ports.map((_port, index) => `<a:cxn ang="${((270 + index * 45) % 360) * 60000}"><a:pos x="lxPort${index}x" y="lxPort${index}y"/></a:cxn>`).join("");
@@ -32,7 +42,7 @@ export function createOfficeConnectorGeometry(shapeTag: string, outline?: Connec
     const rect = outline.textRect;
     const rectangle = [rect.left, rect.top, rect.left + rect.width, rect.top + rect.height];
     const rectGuides = rectangle.map((value, index) => `<a:gd name="lxText${index}" fmla="*/ ${index % 2 ? 'h' : 'w'} ${coordinate(value)} ${SCALE}"/>`).join("");
-    return `<a:custGeom><a:avLst/><a:gdLst><a:gd name="${portGuide}" fmla="val 1"/><a:gd name="${shapePrefix}${shapeTag}" fmla="val 1"/>${guides}${rectGuides}</a:gdLst><a:ahLst/><a:cxnLst>${connections}</a:cxnLst><a:rect l="lxText0" t="lxText1" r="lxText2" b="lxText3"/><a:pathLst>${paths}</a:pathLst></a:custGeom>`;
+    return `<a:custGeom>${adjustments}<a:gdLst><a:gd name="${portGuide}" fmla="val 1"/><a:gd name="${shapePrefix}${shapeTag}" fmla="val 1"/>${guides}${rectGuides}</a:gdLst><a:ahLst/><a:cxnLst>${connections}</a:cxnLst><a:rect l="lxText0" t="lxText1" r="lxText2" b="lxText3"/><a:pathLst>${paths}</a:pathLst></a:custGeom>`;
   }
   let path: string;
   if (outline?.type === "ellipse") path = move(0, 0.5) + [180, 270, 0, 90].map(angle => arc(0.5, 0.5, angle)).join("");
@@ -42,7 +52,19 @@ export function createOfficeConnectorGeometry(shapeTag: string, outline?: Connec
     path = move(x, 0) + line(1 - x, 0) + arc(x, y, 270) + line(1, 1 - y) + arc(x, y, 0) +
       line(x, 1) + arc(x, y, 90) + line(0, y) + arc(x, y, 180);
   } else path = move(0, 0) + line(1, 0) + line(1, 1) + line(0, 1);
-  return `<a:custGeom><a:avLst/><a:gdLst><a:gd name="${portGuide}" fmla="val 1"/><a:gd name="${shapePrefix}${shapeTag}" fmla="val 1"/>${guides}</a:gdLst><a:ahLst/><a:cxnLst>${connections}</a:cxnLst><a:rect l="0" t="0" r="w" b="h"/><a:pathLst><a:path w="${SCALE}" h="${SCALE}">${path}<a:close/></a:path></a:pathLst></a:custGeom>`;
+  return `<a:custGeom>${adjustments}<a:gdLst><a:gd name="${portGuide}" fmla="val 1"/><a:gd name="${shapePrefix}${shapeTag}" fmla="val 1"/>${guides}</a:gdLst><a:ahLst/><a:cxnLst>${connections}</a:cxnLst><a:rect l="0" t="0" r="w" b="h"/><a:pathLst><a:path w="${SCALE}" h="${SCALE}">${path}<a:close/></a:path></a:pathLst></a:custGeom>`;
+}
+
+/** Read inert rounded-corner metadata only from our recognized eight-port geometry.
+ * The owning module still validates its shape tag; imported formulas are not evaluated. */
+export function readOfficeConnectorCornerRadiusRatio(geometry: XmlNode | undefined): number | undefined {
+  if (!readOfficeConnectorShapeTag(geometry)) return;
+  const guides = children(child(geometry, "avLst"), "gd").filter(node => node.attributes.name === cornerRadiusGuide);
+  if (guides.length !== 1) return;
+  const match = /^val ([0-9]+)$/.exec(guides[0].attributes.fmla ?? "");
+  if (!match) return;
+  const value = Number(match[1]);
+  return Number.isSafeInteger(value) && value <= SCALE / 2 ? value / SCALE : undefined;
 }
 
 /** Recognize only our versioned eight-port geometry. Each module still checks

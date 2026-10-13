@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { chainResult } from "../../core";
 import { SPREADSHEET_LIMITS, type SpreadsheetDrawing } from "../../model";
 import { shapeTextFrame } from "../../model/shapes";
+import { DEFAULT_DRAWING_TEXT_INSETS } from "../../model/drawing-text";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
 import { useObjectEditPending } from "../../state/use-object-edit-pending";
 import { visibleDrawing } from "./drawing-helpers";
@@ -24,7 +25,7 @@ export function DrawingTextEditor({ drawing, controller: c, onDone }: { drawing:
   const cancelled = useRef(false);
   const markPending = useObjectEditPending(c);
   const textStyle = drawingTextStyle(drawing);
-  const insets = drawing.textInsets ?? { left: 8, top: 8, right: 8, bottom: 8 };
+  const insets = drawing.textInsets ?? DEFAULT_DRAWING_TEXT_INSETS;
   const frame = drawing.type === "shape" ? shapeTextFrame(drawing) : undefined;
   useLayoutEffect(() => {
     const editor = textarea.current;

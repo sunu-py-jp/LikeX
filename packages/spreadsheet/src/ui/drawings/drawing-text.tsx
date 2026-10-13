@@ -16,18 +16,28 @@ export function DrawingText({ drawing, placeholder = true }: { drawing: Exclude<
     let active = true;
     const fit = () => {
       if (!active) return;
-      const insets = drawing.textInsets ?? { left: 8, top: 8, right: 8, bottom: 8 };
-      const width = Math.max(0, element.clientWidth - insets.left - insets.right), height = Math.max(0, element.clientHeight - insets.top - insets.bottom);
+      const view = element.ownerDocument.defaultView;
+      if (!view) return;
+      // CSS sizes retain fractions and exclude sheet zoom/rotation. Mixing integer
+      // clientWidth with fractional DrawingML insets can make even empty text fail.
+      const boxStyle = view.getComputedStyle(element), borderBox = boxStyle.boxSizing === "border-box";
+      const width = Math.max(0, parseFloat(boxStyle.width) - (borderBox ? parseFloat(boxStyle.paddingLeft) + parseFloat(boxStyle.paddingRight) : 0));
+      const height = Math.max(0, parseFloat(boxStyle.height) - (borderBox ? parseFloat(boxStyle.paddingTop) + parseFloat(boxStyle.paddingBottom) : 0));
       if (!width || !height) return;
-      const previous = text.style.fontSize;
+      const previous = text.style.fontSize, previousWidth = text.style.width;
+      // Fit-content measures the text itself, while still wrapping at the box
+      // width. scrollWidth is rounded and can admit a partly clipped last glyph.
+      text.style.width = "fit-content";
       const fits = (ratio: number) => {
         text.style.fontSize = `${baseSize * ratio}px`;
-        return text.scrollWidth <= width + 0.5 && text.scrollHeight <= height + 0.5;
+        const size = view.getComputedStyle(text);
+        return parseFloat(size.width) <= width && parseFloat(size.height) <= height;
       };
       let low = 0.01, high = drawing.textFontScale ?? 1;
       if (!fits(high)) for (let i = 0; i < 12; i++) { const middle = (low + high) / 2; if (fits(middle)) low = middle; else high = middle; }
       else low = high;
       text.style.fontSize = previous;
+      text.style.width = previousWidth;
       setScale(low);
     };
     fit();

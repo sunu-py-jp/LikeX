@@ -43,7 +43,7 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "columns.insert": ["index", "count", "values"], "columns.delete": ["index", "count"], "columns.resize": ["column", "width"],
   "cells.merge": ["range", "discardContent"], "cells.unmerge": ["range"],
   "images.insert": ["resource", "anchor", "width", "height", "alt", "flipX", "flipY", "rotation"],
-  "shapes.insert": [...DRAWING_TEXT_STYLE_KEYS, "shape", "anchor", "width", "height", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "flipX", "flipY", "rotation"],
+  "shapes.insert": [...DRAWING_TEXT_STYLE_KEYS, "cornerRadiusRatio", "shape", "anchor", "width", "height", "fill", "stroke", "strokeWidth", "text", "fontSize", "color", "bold", "flipX", "flipY", "rotation"],
   "textBoxes.insert": [...DRAWING_TEXT_STYLE_KEYS, "anchor", "text", "width", "height", "fontSize", "color", "background", "bold", "flipX", "flipY", "rotation"],
   "drawings.paste": ["payload", "anchor"],
   "lines.insert": ["start", "end", "routing", "shape", "stroke", "strokeWidth", "startArrow", "endArrow"],

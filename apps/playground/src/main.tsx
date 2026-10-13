@@ -12,6 +12,7 @@ const demos = {
   spreadsheet: lazy(() => import("./spreadsheet-demo")),
   "spreadsheet/search": lazy(() => import("./spreadsheet-search-demo")),
   "spreadsheet/ribbon": lazy(() => import("./spreadsheet-ribbon-demo")),
+  "spreadsheet/rendering": lazy(() => import("./spreadsheet-rendering-demo")),
   "spreadsheet/ai": lazy(() => import("./spreadsheet-ai-demo")),
   slide: lazy(() => import("./slide-demo")),
   "slide/pdf": lazy(() => import("./slide-pdf-demo")),

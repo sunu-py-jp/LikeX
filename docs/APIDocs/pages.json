@@ -584,6 +584,11 @@
         "depth": 2
       },
       {
+        "id": "読み込みエラーの詳細を表示する",
+        "title": "読み込みエラーの詳細を表示する",
+        "depth": 3
+      },
+      {
         "id": "表示用データを差し替える",
         "title": "表示用データを差し替える",
         "depth": 2
@@ -1356,6 +1361,11 @@
       "SpreadsheetSheet",
       "colorMode",
       "initialZoom",
+      "renderingMode",
+      "SpreadsheetRenderingMode",
+      "progressive",
+      "viewport",
+      "省メモリ",
       "title",
       "onSave"
     ],
@@ -1368,6 +1378,11 @@
       {
         "id": "props",
         "title": "Props",
+        "depth": 2
+      },
+      {
+        "id": "シートの描画モード",
+        "title": "シートの描画モード",
         "depth": 2
       },
       {
@@ -2227,6 +2242,11 @@
         "depth": 2
       },
       {
+        "id": "角丸長方形の丸み",
+        "title": "角丸長方形の丸み",
+        "depth": 2
+      },
+      {
         "id": "保存データの構成",
         "title": "保存データの構成",
         "depth": 2
@@ -2902,6 +2922,16 @@
         "id": "読み込む内容と制約",
         "title": "読み込む内容と制約",
         "depth": 2
+      },
+      {
+        "id": "角丸長方形",
+        "title": "角丸長方形",
+        "depth": 3
+      },
+      {
+        "id": "直線の位置指定",
+        "title": "直線の位置指定",
+        "depth": 3
       },
       {
         "id": "メタデータの調整",

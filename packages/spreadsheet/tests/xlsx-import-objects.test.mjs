@@ -4,9 +4,10 @@ import { build } from 'esbuild';
 
 const bundle = await build({ stdin: { contents: `export { readWorksheetExtras } from './import/sheet-extras';
   export { parseXml } from './import/xml'; export { normalizeWorkbook } from './model/workbook';
+  export { getSpreadsheetLinePoints } from './model/lines';
   export { SPREADSHEET_SHAPES, getShapeDefinition } from './model/shapes';`,
   resolveDir: new URL('../src/', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
-const { readWorksheetExtras, parseXml, normalizeWorkbook, SPREADSHEET_SHAPES, getShapeDefinition } =
+const { readWorksheetExtras, parseXml, normalizeWorkbook, getSpreadsheetLinePoints, SPREADSHEET_SHAPES, getShapeDefinition } =
   await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const bytes = source => typeof source === 'string' ? new TextEncoder().encode(source) : source;
 const png = Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVZkAAAAASUVORK5CYII=', 'base64'));
@@ -44,13 +45,25 @@ test('all supported native shapes retain editable kinds, text, colors, clockwise
       xfrmFrame: '<off x="1247775" y="228600"/><ext cx="1143000" cy="571500"/>', ends: kind === 'arrow' ? '<tailEnd type="triangle"/>' : '' })) });
     const imported = await env.run(), drawing = imported.drawings[0];
     assert.equal(drawing.type, 'shape'); assert.equal(drawing.shape, kind);
-    assert.equal(drawing.rotation, 45); assert.equal(drawing.flipX, true); assert.equal(drawing.flipY, true);
     assert.equal(drawing.text, '確認 & <OK>\n次\n段落'); assert.equal(drawing.fontSize, 16);
     assert.equal(drawing.fill, '#E8F3EC'); assert.equal(drawing.stroke, '#217346'); assert.equal(drawing.color, '#123456');
     assert.equal(drawing.strokeWidth, 2); assert.equal(drawing.bold, true);
-    const inset = getShapeDefinition(kind).geometry.type === 'office' ? 1 : 0;
-    assert.deepEqual(drawing.anchor, { row: 1, column: 2, offsetX: 3 - inset, offsetY: 4 - inset });
-    assert.equal(drawing.width, 120 + inset * 2); assert.equal(drawing.height, 60 + inset * 2);
+    if (kind === 'line' || kind === 'arrow') {
+      // The native (131,24,120,60) frame is flipped on both axes, then rotated
+      // 45 degrees around (191,54). Import must retain these visible endpoints.
+      const points = getSpreadsheetLinePoints(imported, drawing.id);
+      for (const [point, direction] of [[points.start, 1], [points.end, -1]]) {
+        assert.ok(Math.abs(point.x - (191 + direction * 30 / Math.sqrt(2))) < 1e-8);
+        assert.ok(Math.abs(point.y - (54 + direction * 90 / Math.sqrt(2))) < 1e-8);
+      }
+      assert.ok(drawing.line); assert.equal(drawing.rotation, undefined);
+      assert.equal(drawing.flipX, undefined); assert.equal(drawing.flipY, undefined);
+    } else {
+      assert.equal(drawing.rotation, 45); assert.equal(drawing.flipX, true); assert.equal(drawing.flipY, true);
+      const inset = getShapeDefinition(kind).geometry.type === 'office' ? 1 : 0;
+      assert.deepEqual(drawing.anchor, { row: 1, column: 2, offsetX: 3 - inset, offsetY: 4 - inset });
+      assert.equal(drawing.width, 120 + inset * 2); assert.equal(drawing.height, 60 + inset * 2);
+    }
     assert.doesNotThrow(() => normalizeWorkbook({ sheets: [imported] }));
   }
 });

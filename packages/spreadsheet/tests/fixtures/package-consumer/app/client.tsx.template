@@ -1,13 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Spreadsheet, { createWorkbook, type SpreadsheetWorkbook, type SpreadsheetProps, type SpreadsheetHandle } from "__LIBRARY_IMPORT__";
+import Spreadsheet, { createWorkbook, type SpreadsheetWorkbook, type SpreadsheetProps, type SpreadsheetHandle, type SpreadsheetRenderingMode } from "__LIBRARY_IMPORT__";
 
 export default function ClientSpreadsheet() {
   const [saved, setSaved] = useState<SpreadsheetWorkbook>(() => createWorkbook());
+  const [renderingMode, setRenderingMode] = useState<SpreadsheetRenderingMode>("progressive");
   const spreadsheet = useRef<SpreadsheetHandle>(null);
   const props = {
     initialWorkbook: saved,
+    renderingMode,
     onSave: async (workbook, context) => { void context.signal; setSaved(workbook); return workbook; },
     onBeforeSave: workbook => workbook.sheets.length > 0,
     onEditRequest: async (_request, context) => !context.signal.aborted,
@@ -30,5 +32,5 @@ export default function ClientSpreadsheet() {
   return <><button onClick={() => {
     const api = spreadsheet.current;
     if (api) void api.executeAsync({ type: "cells.set", sheetId: api.getWorkbook().sheets[0].id, values: { A1: "External API" } });
-  }}>Set sample value</button><Spreadsheet ref={spreadsheet} {...props} /></>;
+  }}>Set sample value</button><button onClick={() => setRenderingMode(mode => mode === "progressive" ? "viewport" : "progressive")}>Toggle rendering mode</button><Spreadsheet ref={spreadsheet} {...props} /></>;
 }

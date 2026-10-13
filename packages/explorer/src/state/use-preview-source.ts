@@ -16,7 +16,13 @@ type ContentState = {
   key: object; status: Status; mode?: ExplorerPreviewMode; url?: string; text?: string; error?: string; mediaError?: boolean;
 };
 
-function errorMessage(error: unknown) { return error instanceof Error ? error.message : "ファイルを読み込めませんでした"; }
+function errorMessage(error: unknown) {
+  try {
+    const message = error instanceof Error ? error.message : error;
+    if (typeof message === "string" && message.trim()) return message;
+  } catch { /* Unknown thrown values may have inaccessible properties. */ }
+  return "ファイルを読み込めませんでした";
+}
 
 export type PreviewSourceProps = {
   entry: ExplorerEntry;

@@ -4,10 +4,11 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo } from "react";
-import { AlertCircle, FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { parseDelimited, MAX_TABLE_ROWS, MAX_TABLE_COLUMNS, MAX_TABLE_CELLS, MAX_TABLE_CELL_CHARACTERS } from "../model/preview-table";
 import { usePreviewSource, type PreviewSourceProps } from "../state/use-preview-source";
 import { fileExtension } from "../model/text";
+import { ExplorerPreviewError } from "./explorer-preview-error";
 
 const unavailableClass =
   "lxe:flex lxe:h-[290px] lxe:flex-col lxe:items-center lxe:justify-center lxe:gap-[15px] lxe:rounded-lg lxe:bg-[var(--explorer-panel,#f7f9fc)] lxe:text-[var(--explorer-muted,#8798ae)]";
@@ -64,12 +65,10 @@ export default function FilePreview({
     }
     if (current.status === "error")
       return (
-        <div className={unavailableClass} role="alert">
-          <AlertCircle aria-hidden="true" />
-          <p className="lxe:mx-2.5 lxe:text-center lxe:text-xs">
-            {current.error}
-            {current.isMediaError && allowDownload && "ダウンロードして確認できます。"}
-          </p>
+        <div className={unavailableClass}>
+          <ExplorerPreviewError error={current.error} message={current.isMediaError && allowDownload
+            ? "このファイルを表示できませんでした。ダウンロードして確認できます。"
+            : "プレビューを表示できませんでした。"} />
         </div>
       );
     if (current.status === "loading" || current.status === "pending") {

@@ -1,7 +1,7 @@
 import { CONNECTOR_PORTS, getConnectorRoute, connectorLocalToWorld, getConnectorPortPoint, type ConnectorBox, type ConnectorEndpoint, type ConnectorPoint, type ConnectorOutline } from "./core-connectors";
 import { getOfficeShapeOutline } from "./core-office-shapes";
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "./sheet-dimensions";
-import { getShapeDefinition, shapeBodyFrame } from "./shapes";
+import { getShapeDefinition, roundedRectangleRadius, shapeBodyFrame } from "./shapes";
 import type { SpreadsheetDrawing, SpreadsheetDrawingAnchor, SpreadsheetLine, SpreadsheetLinePoints, SpreadsheetSheet, SpreadsheetShapeDrawing, SpreadsheetStoredLineEndpoint } from "./types";
 
 export const isSpreadsheetLine = (drawing: SpreadsheetDrawing): drawing is SpreadsheetShapeDrawing & { shape: "line" | "arrow" } => drawing.type === "shape" && (drawing.shape === "line" || drawing.shape === "arrow");
@@ -42,7 +42,7 @@ export function spreadsheetDrawingOutline(drawing: SpreadsheetDrawing): Connecto
   if (geometry.type === "ellipse") return { type: "ellipse" };
   if (geometry.type === "polygon") return { type: "polygon", points: geometry.points.map(([x, y]) => ({ x, y })) };
   if (geometry.type === "rectangle" && geometry.rounded) {
-    const frame = shapeBodyFrame(drawing.shape, drawing.width, drawing.height, drawing.strokeWidth), radius = Math.min(frame.width, frame.height) * 16667 / 100000;
+    const frame = shapeBodyFrame(drawing.shape, drawing.width, drawing.height, drawing.strokeWidth), radius = roundedRectangleRadius(drawing);
     return { type: "roundedRect", radiusX: frame.width ? radius / frame.width : 0, radiusY: frame.height ? radius / frame.height : 0 };
   }
 }

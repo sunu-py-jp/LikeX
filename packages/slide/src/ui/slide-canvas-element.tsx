@@ -7,15 +7,16 @@ import { getSlideShapeGeometry } from "../render/render-style";
 import { elementStyle, SlideElementContent } from "./slide-artwork";
 
 type Corner = "nw" | "ne" | "sw" | "se";
-type GestureKind = "move" | "resize" | "rotate" | "start" | "end";
+type GestureKind = "move" | "resize" | "rotate" | "start" | "end" | "corner";
 
 /** Pure artwork and controls; gesture refs stay in the canvas event handlers. */
-export function SlideCanvasElement({ element, elements = [], original, selected, editable, formatting, textEnabled, moving, scale, onBegin, onMenu, onEdit }: {
+export function SlideCanvasElement({ element, elements = [], original, selected, editable, formatting, textEnabled, moving, scale, onBegin, onMenu, onEdit, onCornerChange }: {
   element: SlideElement; elements?: readonly SlideElement[]; original: SlideElement; selected: boolean; editable: boolean; formatting: boolean;
   textEnabled: boolean; moving: boolean; scale: number;
   onBegin(event: PointerEvent<HTMLElement>, element: SlideElement, kind: GestureKind, corner?: Corner): void;
   onMenu(event: MouseEvent<HTMLElement>, element: SlideElement): void;
   onEdit(editing: { id: string; text: string }): void;
+  onCornerChange(element: SlideElement, ratio: number): void;
 }) {
   const line = isSlideLine(element);
   const geometry = line ? getSlideShapeGeometry(element, elements) : null;
@@ -39,6 +40,21 @@ export function SlideCanvasElement({ element, elements = [], original, selected,
       }) : <>{(["nw", "ne", "sw", "se"] as const).map(corner => <button key={corner} type="button" className={`lxp-resize-handle lxp-resize-${corner}`}
         aria-label={`${element.name}の${{ nw: "左上", ne: "右上", sw: "左下", se: "右下" }[corner]}を変形`}
         style={{ width: 8 / scale, height: 8 / scale }} onPointerDown={event => onBegin(event, original, "resize", corner)} />)}
+      {element.type === "shape" && element.shape === "roundRect" && <button type="button" role="slider" className="lxp-corner-handle"
+        aria-label={`${element.name || "角丸長方形"}の角の丸み`} aria-valuemin={0} aria-valuemax={100}
+        aria-valuenow={Math.round((element.cornerRadiusRatio ?? .12) * 200)} aria-valuetext={`${Math.round((element.cornerRadiusRatio ?? .12) * 200)}%`}
+        aria-orientation="horizontal" title="角の丸みを調整"
+        style={{ left: Math.min(element.width, element.height) * (element.cornerRadiusRatio ?? .12), top: 0, width: 12 / scale, height: 12 / scale }}
+        onPointerDown={event => onBegin(event, original, "corner")}
+        onDoubleClick={event => event.stopPropagation()}
+        onKeyDown={event => {
+          if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+          event.preventDefault(); event.stopPropagation();
+          const step = event.shiftKey ? .05 : .005;
+          const ratio = event.key === "Home" ? 0 : event.key === "End" ? .5
+            : (element.cornerRadiusRatio ?? .12) + (["ArrowRight", "ArrowUp"].includes(event.key) ? step : -step);
+          onCornerChange(original, Math.max(0, Math.min(.5, ratio)));
+        }} />}
       <button type="button" className="lxp-rotate-handle" aria-label={`${element.name}を回転`}
         style={{ width: 20 / scale, height: 20 / scale, top: -30 / scale }} onPointerDown={event => onBegin(event, original, "rotate")}><RotateCw style={{ width: 13 / scale, height: 13 / scale }} /></button></>}
     </>}

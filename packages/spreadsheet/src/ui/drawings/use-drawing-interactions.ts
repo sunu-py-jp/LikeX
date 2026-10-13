@@ -10,10 +10,11 @@ import { normalizeDrawingRotation } from "../../model/drawing-transform";
 import { blurObjectEditor } from "../../state/blur-object-editor";
 import { visibleDrawing } from "./drawing-helpers";
 import { updateDrawingFromUI } from "./drawing-commands";
+import { cornerRadiusAfterDrag } from "./corner-adjustment";
 
-type GestureRectangle = DrawingResizeRectangle & { rotation: number };
+type GestureRectangle = DrawingResizeRectangle & { rotation: number; cornerRadiusRatio?: number };
 type GesturePointer = Pick<PointerEvent, "clientX" | "clientY" | "pointerId" | "shiftKey">;
-type Gesture = { id: string; sheetId: string; workbook: Workbook; drawing: SpreadsheetDrawing; zoom: number; kind: "move" | "resize" | "rotate"; corner: DrawingResizeCorner; image: boolean; start: { x: number; y: number }; initial: GestureRectangle; preview: GestureRectangle; pointer: GesturePointer; pointerId: number; target: HTMLElement };
+type Gesture = { id: string; sheetId: string; workbook: Workbook; drawing: SpreadsheetDrawing; zoom: number; kind: "move" | "resize" | "rotate" | "cornerRadius"; corner: DrawingResizeCorner; image: boolean; start: { x: number; y: number }; initial: GestureRectangle; preview: GestureRectangle; pointer: GesturePointer; pointerId: number; target: HTMLElement };
 
 /** Owns drag previews, keyboard movement, resizing and drawing edit sessions. */
 export function useDrawingInteractions(c: SpreadsheetController, geometry: DrawingGeometry) {
@@ -46,6 +47,7 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
   const cancelGesture = () => stopGesture(true);
   const start = (event: PointerEvent<HTMLElement>, drawing: SpreadsheetDrawing, kind: Gesture["kind"], corner: DrawingResizeCorner = "se") => {
     if (event.button !== 0 || (event.target as HTMLElement).closest("textarea,input,select")) return;
+    if (kind === "cornerRadius" && (drawing.type !== "shape" || drawing.shape !== "roundedRectangle")) return;
     blurObjectEditor(event.currentTarget);
     event.stopPropagation(); event.preventDefault();
     // A permission wait can outlive pointerup; only start a drag during this pointer event.
@@ -56,7 +58,8 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     if (!synchronous) return;
     if (c.disabled || !visibleDrawing(drawing, c) || c.editing || (kind !== "move" && !c.features.resize)) return;
     cancelGesture();
-    const initial = { ...drawingRectangle(drawing, geometry), flipX: !!drawing.flipX, flipY: !!drawing.flipY, rotation: drawing.rotation ?? 0 };
+    const initial = { ...drawingRectangle(drawing, geometry), flipX: !!drawing.flipX, flipY: !!drawing.flipY, rotation: drawing.rotation ?? 0,
+      ...(kind === "cornerRadius" && drawing.type === "shape" ? { cornerRadiusRatio: drawing.cornerRadiusRatio ?? 0.16667 } : {}) };
     const session: Gesture = { id: drawing.id, sheetId: c.activeSheet.id, workbook: c.workbook, drawing, zoom: c.zoom ?? 100, kind, corner, image: drawing.type === "image", start: point(event), initial, preview: initial,
       pointer: { clientX: event.clientX, clientY: event.clientY, pointerId: event.pointerId, shiftKey: event.shiftKey }, pointerId: event.pointerId, target };
     target.setPointerCapture(event.pointerId); gesture.current = session; setPreview({ ...session });
@@ -73,11 +76,13 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     const rectangle = session.kind === "move" ? { ...session.initial,
       ...boundedDrawingRectangle({ ...session.initial, left: session.initial.left + dx, top: session.initial.top + dy }, latest.current.geometry),
       width: session.initial.width, height: session.initial.height }
+      : session.kind === "cornerRadius" && session.drawing.type === "shape" ? { ...session.initial,
+        cornerRadiusRatio: cornerRadiusAfterDrag(session.drawing, { x: dx, y: dy }) }
       : session.kind === "rotate" ? { ...session.initial, rotation: drawingRotationAtPointer(session.initial, session.initial.rotation, session.start, next, event.shiftKey) }
       : { ...session.initial, ...resizeDrawingRectangle(session.initial, session.corner, { x: dx, y: dy }, latest.current.geometry,
         { ...session.initial, preserveAspectRatio: session.image }) };
     const previous = session.preview;
-    if (rectangle.left === previous.left && rectangle.top === previous.top && rectangle.width === previous.width && rectangle.height === previous.height && rectangle.flipX === previous.flipX && rectangle.flipY === previous.flipY && rectangle.rotation === previous.rotation) return;
+    if (rectangle.left === previous.left && rectangle.top === previous.top && rectangle.width === previous.width && rectangle.height === previous.height && rectangle.flipX === previous.flipX && rectangle.flipY === previous.flipY && rectangle.rotation === previous.rotation && rectangle.cornerRadiusRatio === previous.cornerRadiusRatio) return;
     session.preview = rectangle; setPreview({ ...session });
   };
   const move = (event: GesturePointer) => {
@@ -93,11 +98,12 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     cancelGesture();
     if (!valid) return;
     const { preview: rectangle, initial } = session;
-    if (rectangle.left === initial.left && rectangle.top === initial.top && rectangle.width === initial.width && rectangle.height === initial.height && rectangle.flipX === initial.flipX && rectangle.flipY === initial.flipY && rectangle.rotation === initial.rotation) return;
+    if (rectangle.left === initial.left && rectangle.top === initial.top && rectangle.width === initial.width && rectangle.height === initial.height && rectangle.flipX === initial.flipX && rectangle.flipY === initial.flipY && rectangle.rotation === initial.rotation && rectangle.cornerRadiusRatio === initial.cornerRadiusRatio) return;
     const current = latest.current.c;
     const drawing = current.activeSheet.drawings?.find(item => item.id === session.id);
     if (drawing) updateDrawingFromUI(current, session.sheetId, drawing,
-      session.kind === "rotate" ? { rotation: rectangle.rotation }
+      session.kind === "cornerRadius" ? { cornerRadiusRatio: rectangle.cornerRadiusRatio }
+        : session.kind === "rotate" ? { rotation: rectangle.rotation }
         : session.kind === "move" ? { anchor: drawingAnchor(rectangle.left, rectangle.top, latest.current.geometry) }
         : { anchor: drawingAnchor(rectangle.left, rectangle.top, latest.current.geometry), width: rectangle.width, height: rectangle.height,
           flipX: rectangle.flipX, flipY: rectangle.flipY });
@@ -146,7 +152,7 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     scroller?.addEventListener("scroll", refresh, { passive: true });
     tracking.current = {
       resume() {
-        if (session.kind !== "rotate" && scroller && view?.requestAnimationFrame && frame === undefined && gesture.current === session)
+        if ((session.kind === "move" || session.kind === "resize") && scroller && view?.requestAnimationFrame && frame === undefined && gesture.current === session)
           frame = view.requestAnimationFrame(step);
       },
       dispose() {
@@ -194,8 +200,18 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
     const delta = (event.shiftKey ? 15 : 1) * (["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 1);
     updateDrawingFromUI(c, c.activeSheet.id, drawing, { rotation: event.key === "Home" ? 0 : normalizeDrawingRotation((drawing.rotation ?? 0) + delta) });
   };
+  const cornerRadiusKeyDown = (event: KeyboardEvent, drawing: SpreadsheetDrawing) => {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancelGesture(); return; }
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+    event.preventDefault(); event.stopPropagation();
+    if (c.disabled || !c.features.resize || !visibleDrawing(drawing, c) || drawing.type !== "shape" || drawing.shape !== "roundedRectangle") return;
+    const delta = (event.shiftKey ? 10 : 1) / 200 * (["ArrowLeft", "ArrowDown"].includes(event.key) ? -1 : 1);
+    const ratio = event.key === "Home" ? 0 : event.key === "End" ? 0.5 : Math.max(0, Math.min(0.5, (drawing.cornerRadiusRatio ?? 0.16667) + delta));
+    if (ratio !== (drawing.cornerRadiusRatio ?? 0.16667)) updateDrawingFromUI(c, c.activeSheet.id, drawing, { cornerRadiusRatio: ratio });
+  };
   const lostPointerCapture = (id: string) => { if (gesture.current?.id === id) cancelGesture(); };
   useLayoutEffect(() => { if (gesture.current && !eligible(gesture.current)) cancelGesture(); });
   useLayoutEffect(() => () => stopGesture(false), []);
-  return { layer, preview, editingText, setEditingText, start, move, finish, cancelGesture, lostPointerCapture, keyDown, resizeKeyDown, rotateKeyDown };
+  return { layer, preview, editingText, setEditingText, start, move, finish, cancelGesture, lostPointerCapture, keyDown, resizeKeyDown, rotateKeyDown, cornerRadiusKeyDown };
 }

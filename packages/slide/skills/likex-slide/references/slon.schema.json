@@ -484,6 +484,12 @@
         "shape": {
           "$ref": "#/$defs/SlideShapeKind"
         },
+        "cornerRadiusRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "description": "Rounded rectangle radius as a fraction of its shorter side; only roundRect. Omitted keeps the legacy 0.12 radius."
+        },
         "line": {
           "$ref": "#/$defs/SlideLineGeometry",
           "description": "Only shape:line. Absolute document coordinates; bound points follow their target."
@@ -979,6 +985,12 @@
         },
         "shape": {
           "$ref": "#/$defs/SlideShapeKind"
+        },
+        "cornerRadiusRatio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "description": "Rounded rectangle radius as a fraction of its shorter side; only roundRect. Omitted keeps the legacy 0.12 radius."
         },
         "line": {
           "$ref": "#/$defs/SlideLineGeometry",

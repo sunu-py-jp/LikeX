@@ -4,7 +4,7 @@ import { build } from 'esbuild';
 
 const output = await build({ stdin: { contents: 'export * from "./src/ooxml";', resolveDir: new URL('../', import.meta.url).pathname },
   bundle: true, platform: 'node', format: 'esm', write: false });
-const { createOfficeConnectorGeometry, readOfficeConnectorShapeTag, getOfficePresetConnectorPort, createOfficeElbowConnectorGeometry, readOfficeElbowConnectorEndpoints, officeXml } =
+const { createOfficeConnectorGeometry, readOfficeConnectorShapeTag, readOfficeConnectorCornerRadiusRatio, getOfficePresetConnectorPort, createOfficeElbowConnectorGeometry, readOfficeElbowConnectorEndpoints, officeXml } =
   await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const { parseXml, child, children } = officeXml;
 const parse = value => parseXml(new TextEncoder().encode(value));
@@ -45,6 +45,33 @@ test('preset indices use their real Office ordering and do not claim unsupported
   assert.equal(getOfficePresetConnectorPort('leftArrow', 3), 'right');
   for (const index of [-1, 8, NaN, 1.5]) assert.equal(getOfficePresetConnectorPort('rect', index), undefined);
   assert.equal(getOfficePresetConnectorPort('freeform', 0), undefined);
+});
+
+test('rounded rectangle metadata retains zero and adjusted radii alongside its eight ports', () => {
+  for (const ratio of [0, 0.12, 0.16667, 0.5]) {
+    const xml = createOfficeConnectorGeometry('roundRect', { type: 'roundedRect', radiusX: ratio / 2, radiusY: ratio }, { cornerRadiusRatio: ratio });
+    const geometry = parse(xml);
+    assert.equal(readOfficeConnectorShapeTag(geometry), 'roundRect');
+    assert.equal(readOfficeConnectorCornerRadiusRatio(geometry), ratio);
+    assert.equal(children(child(geometry, 'cxnLst'), 'cxn').length, 8);
+    assert.ok(child(child(geometry, 'pathLst'), 'path'));
+  }
+  assert.equal(readOfficeConnectorCornerRadiusRatio(parse(createOfficeConnectorGeometry('roundRect'))), undefined);
+  const paths = { type: 'paths', paths: [{ commands: [{ type: 'move', x: 0, y: 0 }, { type: 'line', x: 1, y: 1 }] }],
+    ports: [{x: .5,y: 0},{x: 1,y: 0},{x: 1,y: .5},{x: 1,y: 1},{x: .5,y: 1},{x: 0,y: 1},{x: 0,y: .5},{x: 0,y: 0}],
+    textRect: { left: 0, top: 0, width: 1, height: 1 } };
+  assert.equal(readOfficeConnectorCornerRadiusRatio(parse(createOfficeConnectorGeometry('roundRect', paths, { cornerRadiusRatio: .25 }))), .25);
+});
+
+test('rounded-corner metadata never evaluates imported expressions or accepts ambiguous/out-of-range guides', () => {
+  for (const ratio of [-.1, .51, Infinity, NaN, '0.2', null])
+    assert.throws(() => createOfficeConnectorGeometry('roundRect', undefined, { cornerRadiusRatio: ratio }), RangeError);
+  const xml = createOfficeConnectorGeometry('roundRect', undefined, { cornerRadiusRatio: .25 });
+  const guide = '<a:gd name="likexCornerRadiusRatio" fmla="val 25000"/>';
+  for (const changed of [xml.replace('val 25000', '*/ w 1 2'), xml.replace('val 25000', 'val -1'),
+    xml.replace('val 25000', 'val 50001'), xml.replace(guide, guide + guide), xml.replace('likexPorts8', 'unsupported')])
+    assert.equal(readOfficeConnectorCornerRadiusRatio(parse(changed)), undefined);
+  assert.equal(readOfficeConnectorCornerRadiusRatio(undefined), undefined);
 });
 
 

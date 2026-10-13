@@ -11,7 +11,7 @@ import { updateDrawingFromUI } from "./drawing-commands";
 import { ColorPropertyField } from "./color-property-field";
 import { getSpreadsheetLinePoints, isSpreadsheetLine } from "../../model/lines";
 
-function PropertyField({ label, value, onCommit, controller: c, type = "text" }: { label: string; value: string | number; onCommit: (value: string) => MaybePromise<boolean>; controller: SpreadsheetController; type?: "text" | "number" }) {
+function PropertyField({ label, value, onCommit, controller: c, type = "text", min, max }: { min?: number; max?: number; label: string; value: string | number; onCommit: (value: string) => MaybePromise<boolean>; controller: SpreadsheetController; type?: "text" | "number" }) {
   const [draft, setDraft] = useState<string | null>(null);
   const generation = useRef(0);
   const markPending = useObjectEditPending(c);
@@ -24,7 +24,7 @@ function PropertyField({ label, value, onCommit, controller: c, type = "text" }:
       return accepted;
     });
   };
-  return <label className="lxs-object-property"><span>{label}</span><input type={type} step={type === "number" ? "any" : undefined} value={text} disabled={c.disabled || c.requesting} aria-label={label} onChange={event => { generation.current++; setDraft(event.target.value); markPending(event.target.value !== base); }} onBlur={event => { if (!(event?.relatedTarget as HTMLElement | null)?.closest(".lxs-search-dialog")) commit(); }} onKeyDown={event => {
+  return <label className="lxs-object-property"><span>{label}</span><input type={type} min={min} max={max} step={type === "number" ? "any" : undefined} value={text} disabled={c.disabled || c.requesting} aria-label={label} onChange={event => { generation.current++; setDraft(event.target.value); markPending(event.target.value !== base); }} onBlur={event => { if (!(event?.relatedTarget as HTMLElement | null)?.closest(".lxs-search-dialog")) commit(); }} onKeyDown={event => {
     event.stopPropagation();
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     const primary = (event.metaKey || event.ctrlKey) && !(event.metaKey && event.ctrlKey) && !event.altKey;
@@ -78,6 +78,8 @@ function DrawingInspectorSession({ controller: c, drawing }: { controller: Sprea
       </select></label>)}
     {drawing.type === "image" && <PropertyField label="代替テキスト" value={drawing.alt} controller={c} onCommit={alt => update({ alt })} />}
     {drawing.type === "shape" && <>
+      {c.features.resize && drawing.shape === "roundedRectangle" && <PropertyField label="角の丸み（%）" type="number" min={0} max={100}
+        value={Math.round((drawing.cornerRadiusRatio ?? 0.16667) * 20000) / 100} controller={c} onCommit={value => update({ cornerRadiusRatio: Number(value) / 200 })} />}
       {!["line", "arrow"].includes(drawing.shape) && <ColorPropertyField label="塗りつぶし" value={drawing.fill} controller={c} reset={{label: "なし", value: "transparent"}} onCommit={fill => update({ fill })} />}
       <ColorPropertyField label="線の色" value={drawing.stroke} controller={c} reset={{label: "なし", value: "transparent"}} onCommit={stroke => update({ stroke })} />
       <PropertyField label="線の太さ" type="number" value={drawing.strokeWidth} controller={c} onCommit={value => update({ strokeWidth: Number(value) })} />

@@ -1,4 +1,4 @@
-import { pickDrawingTextStyle } from "../../model/drawing-text";
+import { DEFAULT_DRAWING_TEXT_INSETS, pickDrawingTextStyle } from "../../model/drawing-text";
 import type { SpreadsheetDrawingTextStyle } from "../../model/types";
 import { normalizeDrawings } from "../../model/annotations";
 import { normalizeResources } from "../../model/image-resources";
@@ -119,14 +119,15 @@ function shape(drawing: Extract<SpreadsheetDrawing, { type: "shape" }>, id: numb
   const adjustment = definition.xlsxAdjustment;
   const shortSide = Math.min(adjusted.width, adjusted.height);
   const adjustmentValue = adjustment && shortSide > 0 ? Math.round(100_000 * adjustment.ratio * adjusted[adjustment.axis] / shortSide) : 0;
-  const guides = adjustment ? `<a:avLst><a:gd name="${adjustment.name}" fmla="val ${adjustmentValue}"/></a:avLst>` : "<a:avLst/>";
+  const guides = drawing.shape === "roundedRectangle" && drawing.cornerRadiusRatio !== undefined
+    ? `<a:avLst><a:gd name="adj" fmla="val ${Math.round(drawing.cornerRadiusRatio * 100000)}"/></a:avLst>` : adjustment ? `<a:avLst><a:gd name="${adjustment.name}" fmla="val ${adjustmentValue}"/></a:avLst>` : "<a:avLst/>";
   const content = `<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="${id}" name="${xml(drawing.id)}"></xdr:cNvPr><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr>${transform(adjusted, { ...flip, rotation: drawing.rotation })}${connected ? connectorTargetGeometry(drawing) : `<a:prstGeom prst="${definition.xlsxPreset}">${guides}</a:prstGeom>`}${line ? "<a:noFill/>" : fill(drawing.fill, "FFFFFF")}${outline}</xdr:spPr>${drawingTextBody(drawing.text ?? "", { ...drawing, flipY: flip.flipY, color: drawing.color ?? "#1f2937" }, "center")}</xdr:sp>`;
   return { rectangle: adjusted, content };
 }
 
 /** DrawingML uses one text body inside either a native shape or a text box. */
 function drawingTextBody(text: string, style: SpreadsheetDrawingTextStyle & { fontSize?: number; color?: string; bold?: boolean; rotation?: number; flipY?: boolean }, alignment: "center" | "top-left") {
-  const centered = alignment === "center", insets = style.textInsets ?? { left: 8, top: 8, right: 8, bottom: 8 };
+  const centered = alignment === "center", insets = style.textInsets ?? DEFAULT_DRAWING_TEXT_INSETS;
   const properties = `sz="${Math.max(100, Math.round((style.fontSize ?? 16) * 75))}" b="${style.bold ? 1 : 0}"${style.italic === undefined ? "" : ` i="${style.italic ? 1 : 0}"`}${style.underline === undefined ? "" : ` u="${style.underline ? "sng" : "none"}"`}`;
   const align = ({ left: "l", center: "ctr", right: "r" } as const)[style.textAlign ?? (centered ? "center" : "left")];
   const font = style.fontFamily ? `<a:latin typeface="${xml(style.fontFamily)}"/><a:ea typeface="${xml(style.fontFamily)}"/>` : '<a:latin typeface="Segoe UI"/><a:ea typeface="Noto Sans JP"/>';

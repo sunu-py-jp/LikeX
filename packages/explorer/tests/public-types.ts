@@ -1,4 +1,13 @@
-import type { ExplorerPopupProps, ExplorerProps, ExplorerSelectedFileMode } from "../src";
+import { createElement } from "react";
+import { ExplorerPreviewError, type ExplorerPreviewErrorProps, type ExplorerPopupProps, type ExplorerProps, type ExplorerSelectedFileMode } from "../src";
+
+export const previewErrorProps = {
+  error: new Error("読み込みに失敗しました"), message: "ファイルを表示できません。", className: "preview-error",
+} satisfies ExplorerPreviewErrorProps;
+export const previewError = createElement(ExplorerPreviewError, previewErrorProps);
+export const unknownPreviewError = createElement(ExplorerPreviewError, { error: { reason: "unknown" } as unknown });
+// @ts-expect-error A caught error is required.
+export const missingPreviewError = createElement(ExplorerPreviewError, { message: "ファイルを表示できません。" });
 
 export const initialSelectMode = "select" satisfies ExplorerSelectedFileMode;
 export const initialPreviewMode = "preview" satisfies ExplorerSelectedFileMode;

@@ -32,6 +32,11 @@
   showMasterShapes?: <span class="syntax-keyword">boolean</span>;
 };</code></pre></div>
 <p>座標・寸法は96dpiのピクセル、角度は時計回りの度数、色はsRGBの16進数です。GUIではカラーピッカーを使います。要素は <code>type: &quot;text&quot; | &quot;shape&quot; | &quot;image&quot;</code> で区別し、共通の <code>id</code>、<code>name</code>、<code>x</code>、<code>y</code>、<code>width</code>、<code>height</code>、<code>rotation</code>、<code>opacity</code>、<code>locked</code> を持ちます。</p>
+<p>角丸長方形（<code>type: &quot;shape&quot;, shape: &quot;roundRect&quot;</code>）には <code>cornerRadiusRatio?: number</code> を指定できます。短辺に対する半径で0〜0.5の有限数を受け取り、0は直角、0.5は短辺の半分です。省略値は既存SLONとの互換性のため0.12です。<code>element.add</code> / <code>element.update</code>、GUI、複製、保存、PPTX入出力で同じ値を扱います。ほかの図形への指定は拒否します。<code>element.update</code> で別の図形に変える場合、丸みを同時に指定しなければ既存の丸みの値を除きます。新フィールドを含むSLONを読む側は、この機能に対応したライブラリへ更新してください。</p>
+<div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>applySlideCommands(deck, {
+  <span class="syntax-keyword">type</span>: <span class="syntax-string">&quot;element.update&quot;</span>, slideId: <span class="syntax-string">&quot;page&quot;</span>, elementId: <span class="syntax-string">&quot;rounded&quot;</span>,
+  patch: { cornerRadiusRatio: <span class="syntax-number">0.25</span> },
+});</code></pre></div>
 <h2 id="slon-ファイル"><code>.slon</code> ファイル<a class="heading-link" href="#slon-%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB" aria-label="この見出しへのリンク">#</a></h2>
 <p>LikeSlideの標準ファイル拡張子は <code>.slon</code> です。中身はUTF-8のJSONで、ZIPや暗号化形式ではありません。既存の <code>parseSlideDeck</code> / <code>serializeSlideDeck</code> をそのまま使います。</p>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> { parseSlideDeck, serializeSlideDeck } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/slide/model&quot;</span>;

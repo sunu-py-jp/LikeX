@@ -4,7 +4,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import type { SpreadsheetController } from "../state/use-spreadsheet";
-import { useLayoutEffect, useMemo } from "react";
+import { memo, useLayoutEffect, useMemo } from "react";
 import { isOtherTextControl } from "../state/clipboard/browser-clipboard";
 import { drawingRectangle, type DrawingGeometry, type DrawingResizeCorner } from "../state/drawing-geometry";
 import { drawingResizeCursor } from "../state/drawing-rotation";
@@ -14,6 +14,9 @@ import { useDrawingInteractions } from "./drawings/use-drawing-interactions";
 import { isSpreadsheetLine } from "../model/lines";
 import { SpreadsheetLineDrawing } from "./drawings/spreadsheet-line";
 import { drawingAnchor } from "../state/drawing-geometry";
+import { drawingBoundsIntersectViewport, drawingViewportBounds, type DrawingViewport } from "./drawings/drawing-viewport";
+
+import { cornerAdjustmentPosition } from "./drawings/corner-adjustment";
 
 export { visibleDrawing } from "./drawings/drawing-helpers";
 export { SpreadsheetDrawingInspector } from "./drawings/drawing-inspector";
@@ -23,8 +26,8 @@ const corners: { corner: DrawingResizeCorner; label: string }[] = [
 ];
 
 /** Presents drawing content and composes the interaction handlers for each object. */
-export function SpreadsheetDrawings({ controller: c, geometry }: { controller: SpreadsheetController; geometry: DrawingGeometry }) {
-  const { layer, preview, editingText, setEditingText, start, move, finish, cancelGesture, lostPointerCapture, keyDown, resizeKeyDown, rotateKeyDown } = useDrawingInteractions(c, geometry);
+export const SpreadsheetDrawings = memo(function SpreadsheetDrawings({ controller: c, geometry, viewport }: { controller: SpreadsheetController; geometry: DrawingGeometry; viewport?: DrawingViewport }) {
+  const { layer, preview, editingText, setEditingText, start, move, finish, cancelGesture, lostPointerCapture, keyDown, resizeKeyDown, rotateKeyDown, cornerRadiusKeyDown } = useDrawingInteractions(c, geometry);
   useLayoutEffect(() => {
     const element = layer.current, selectedId = c.selectedDrawingId;
     if (!element || !selectedId || c.selectionFocus === false) return;
@@ -36,11 +39,20 @@ export function SpreadsheetDrawings({ controller: c, geometry }: { controller: S
       .find(drawing => drawing.dataset.lxsDrawing === selectedId)?.focus({ preventScroll: true });
   }, [c.selectedDrawingId, c.selectionFocus, layer]);
   const lineGrid = useMemo(() => ({ columns: geometry.columnOffsets.map(value => value - geometry.columnOffsets[0]), rows: geometry.rowOffsets.map(value => value - geometry.rowOffsets[0]) }), [geometry]);
-  const currentDrawings = (c.activeSheet.drawings ?? []).filter(drawing => visibleDrawing(drawing, c));
-  const displayedSheet = preview && preview.workbook === c.workbook && !c.disabled ? { ...c.activeSheet,
+  const displayedSheet = useMemo(() => preview && preview.workbook === c.workbook && !c.disabled ? { ...c.activeSheet,
     drawings: c.activeSheet.drawings?.map(drawing => drawing.id === preview.id ? { ...drawing,
       anchor: drawingAnchor(preview.preview.left, preview.preview.top, geometry), width: preview.preview.width, height: preview.preview.height,
-      rotation: preview.preview.rotation, flipX: preview.preview.flipX, flipY: preview.preview.flipY } : drawing) } : c.activeSheet;
+      ...(preview.kind === "cornerRadius" ? { cornerRadiusRatio: preview.preview.cornerRadiusRatio } : {}),
+      rotation: preview.preview.rotation, flipX: preview.preview.flipX, flipY: preview.preview.flipY } : drawing) } : c.activeSheet,
+    [preview, c.workbook, c.disabled, c.activeSheet, geometry]);
+  const culling = c.renderingMode === "viewport" && !!viewport;
+  // Scrolling only tests cached rectangles; resolving every connected line on
+  // each scroll event would repeatedly scan the complete drawing collection.
+  const bounds = useMemo(() => culling ? new Map((displayedSheet.drawings ?? []).map(drawing =>
+    [drawing.id, drawingViewportBounds(drawing, displayedSheet, geometry, lineGrid)])) : null, [culling, displayedSheet, geometry, lineGrid]);
+  const currentDrawings = (c.activeSheet.drawings ?? []).filter(drawing => visibleDrawing(drawing, c) &&
+    (!bounds || !viewport || drawing.id === c.selectedDrawingId || drawing.id === editingText || drawing.id === preview?.id ||
+      drawingBoundsIntersectViewport(bounds.get(drawing.id)!, viewport)));
   return <div ref={layer} className="lxs-drawing-layer" role="group" aria-label="シート上のオブジェクト">
     {currentDrawings.map(drawing => {
       if (isSpreadsheetLine(drawing)) return <SpreadsheetLineDrawing key={drawing.id} drawing={drawing} sheet={displayedSheet} controller={c} geometry={geometry} grid={lineGrid} layer={layer} editing={editingText === drawing.id} onEditText={() => setEditingText(drawing.id)} onDone={() => setEditingText(null)} />;
@@ -51,7 +63,8 @@ export function SpreadsheetDrawings({ controller: c, geometry }: { controller: S
       const reverseCursor = currentPreview && (flipX !== currentPreview.initial.flipX) !== (flipY !== currentPreview.initial.flipY);
       const selected = c.selectedDrawingId === drawing.id;
       const resource = drawing.type === "image" ? c.workbook.resources?.images?.[drawing.resourceId] : undefined;
-      const displayedDrawing = { ...drawing, width: rectangle.width, height: rectangle.height, flipX, flipY };
+      const displayedDrawing = { ...drawing, width: rectangle.width, height: rectangle.height, flipX, flipY,
+        ...(currentPreview?.kind === "cornerRadius" ? { cornerRadiusRatio: currentPreview.preview.cornerRadiusRatio } : {}) };
       return <div key={drawing.id} data-lxs-drawing={drawing.id} role="group" aria-label={drawingLabel(drawing)} aria-roledescription={drawing.type === "image" ? "画像" : drawing.type === "text" ? "テキストボックス" : "図形"} tabIndex={0}
         className={`lxs-drawing ${selected ? "lxs-drawing-selected" : ""} ${c.disabled ? "lxs-drawing-readonly" : ""}`}
         style={{ left: rectangle.left, top: rectangle.top, width: rectangle.width, height: rectangle.height,
@@ -69,6 +82,14 @@ export function SpreadsheetDrawings({ controller: c, geometry }: { controller: S
           style={{ cursor: drawingResizeCursor(corner, rotation, !!reverseCursor && currentPreview?.corner === corner) }}
           onPointerDown={event => start(event, drawing, "resize", corner)} onPointerMove={move} onPointerUp={finish} onPointerCancel={cancelGesture}
           onKeyDown={event => resizeKeyDown(event, drawing, corner)} />)}
+        {selected && !c.disabled && c.features.resize && displayedDrawing.type === "shape" && displayedDrawing.shape === "roundedRectangle" && <button type="button" role="slider" className="lxs-drawing-corner-adjust"
+          aria-label={`${drawingLabel(drawing)}の角の丸み`} aria-valuemin={0} aria-valuemax={100}
+          aria-valuenow={Math.round((displayedDrawing.cornerRadiusRatio ?? 0.16667) * 200)}
+          aria-valuetext={`${Math.round((displayedDrawing.cornerRadiusRatio ?? 0.16667) * 200)}%`} aria-orientation="horizontal"
+          title="黄色の点をドラッグして角の丸みを調整（0〜100%）。矢印キーで1%、Shiftで10%、Homeで0%、Endで100%"
+          style={cornerAdjustmentPosition(displayedDrawing)}
+          onPointerDown={event => start(event, drawing, "cornerRadius")} onPointerMove={move} onPointerUp={finish} onPointerCancel={cancelGesture}
+          onDoubleClick={event => event.stopPropagation()} onKeyDown={event => cornerRadiusKeyDown(event, drawing)} />}
         {selected && !c.disabled && c.features.resize && <button type="button" className="lxs-drawing-rotate"
           aria-label={`${drawingLabel(drawing)}を回転`} title="ドラッグで回転（Shiftで15度単位）。矢印キーで1度、Shiftで15度、Homeで0度"
           onPointerDown={event => start(event, drawing, "rotate")} onPointerMove={move} onPointerUp={finish} onPointerCancel={cancelGesture}
@@ -76,4 +97,4 @@ export function SpreadsheetDrawings({ controller: c, geometry }: { controller: S
       </div>;
     })}
   </div>;
-}
+});

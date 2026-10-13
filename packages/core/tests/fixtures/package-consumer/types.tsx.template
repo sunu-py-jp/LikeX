@@ -3,7 +3,7 @@ import type { EditRequestHandler, EventHandler, SaveHandler, RequestHandler, May
 import { serializeStableJson as serializeJsonWithoutUi } from '__LIBRARY_IMPORT__/json';
 import { getConnectorPortPoint, findNearestConnectorPort, isConnectorArrowhead } from '__LIBRARY_IMPORT__';
 import type { ConnectorEndpoint, ConnectorOutline, ConnectorArrowhead } from '__LIBRARY_IMPORT__';
-import { createOfficeConnectorGeometry, readOfficeConnectorShapeTag } from '__LIBRARY_IMPORT__/ooxml';
+import { createOfficeConnectorGeometry, readOfficeConnectorShapeTag, readOfficeConnectorCornerRadiusRatio, type OfficeConnectorGeometryOptions } from '__LIBRARY_IMPORT__/ooxml';
 
 const connectorOutline: ConnectorOutline = { type: 'ellipse' };
 const connectorBox = { x: 0, y: 0, width: 120, height: 60, rotation: 30 };
@@ -12,6 +12,10 @@ const arrowhead: ConnectorArrowhead = 'openArrow';
 findNearestConnectorPort(endpoint, [{ id: 'node', box: connectorBox, outline: connectorOutline }], 12);
 createOfficeConnectorGeometry('ellipse', connectorOutline);
 readOfficeConnectorShapeTag(undefined);
+const roundedOptions: OfficeConnectorGeometryOptions = { cornerRadiusRatio: 0.25 };
+createOfficeConnectorGeometry('roundRect', { type: 'roundedRect', radiusX: .25, radiusY: .25 }, roundedOptions);
+const roundedRatio: number | undefined = readOfficeConnectorCornerRadiusRatio(undefined);
+void roundedRatio;
 isConnectorArrowhead(arrowhead);
 // @ts-expect-error Public connection ports are a closed set.
 getConnectorPortPoint(connectorBox, 'center');

@@ -71,6 +71,12 @@ export function shapeBodyFrame(kind: SpreadsheetShapeKind, width: number, height
     width: Math.max(0, width - stroke), height: Math.max(0, height - stroke) };
 }
 
+/** Round-rectangle outline radius; shared by rendering, text geometry and connectors. */
+export function roundedRectangleRadius(drawing: Pick<SpreadsheetShapeDrawing, "width" | "height" | "strokeWidth" | "cornerRadiusRatio">): number {
+  const frame = shapeBodyFrame("roundedRectangle", drawing.width, drawing.height, drawing.strokeWidth);
+  return Math.min(frame.width, frame.height) * (drawing.cornerRadiusRatio ?? 0.16667);
+}
+
 /** Native text area for new presets. Reflection changes its position, never the letters. */
 export function shapeTextFrame(drawing: SpreadsheetShapeDrawing) {
   const { width, height, shape, strokeWidth } = drawing;
@@ -85,7 +91,7 @@ export function shapeTextFrame(drawing: SpreadsheetShapeDrawing) {
   // Preserve the existing four shapes' text layout for stored workbooks.
   if (!text) return { left: 0, top: 0, width, height };
   const frame = shapeBodyFrame(shape, width, height, strokeWidth);
-  const cornerInset = Math.min(frame.width, frame.height) * 16667 / 100000 * 29289 / 100000;
+  const cornerInset = roundedRectangleRadius(drawing) * 29289 / 100000;
   const left = frame.x + (text === "rounded" ? cornerInset : frame.width * text[0]);
   const top = frame.y + (text === "rounded" ? cornerInset : frame.height * text[1]);
   const right = frame.x + (text === "rounded" ? frame.width - cornerInset : frame.width * text[2]);

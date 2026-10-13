@@ -59,7 +59,7 @@ export function resolvePptxConnections(elements: SlideElement[], sources: readon
         port = CONNECTOR_PORTS[index];
       else if (!geometry) {
         const preset = child(props, "prstGeom");
-        if (preset && !children(child(preset, "avLst"), "gd").length)
+        if (preset && (preset.attributes.prst === "roundRect" || !children(child(preset, "avLst"), "gd").length))
           port = getOfficePresetConnectorPort(preset.attributes.prst, index);
       }
       if (!port) { warning(); return; }

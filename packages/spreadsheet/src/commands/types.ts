@@ -60,6 +60,11 @@ export type SpreadsheetCommand = DeepReadonly<
   | (SpreadsheetDrawingTextStyle & { type: "shapes.insert"; sheetId: string; shape: SpreadsheetShapeDrawing["shape"]; anchor: SpreadsheetCommandAnchor;
       width?: number; height?: number; flipX?: boolean; flipY?: boolean; rotation?: number; fill?: string; stroke?: string; strokeWidth?: number;
       text?: string;
+      /** Rounded rectangle radius as a fraction of its shorter side. Omitted uses 0.16667.
+       * @minimum 0
+       * @maximum 0.5
+       */
+      cornerRadiusRatio?: number;
       /** @minimum 1
        * @maximum 400
        */

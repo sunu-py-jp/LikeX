@@ -151,6 +151,14 @@ test('every supported shape keeps its distinct path and transparent fills do not
   assert.equal(env.named('fill').length, 0);
 });
 
+test('canvas image export respects rounded rectangle corner ratios including zero and capsules', async t => {
+  const env = environment(t);
+  await renderSlideImage(request([0, .25, .5].map((cornerRadiusRatio, index) => ({ type: 'shape', id: `corner-${index}`, shape: 'roundRect', x: index * 200, width: 160, height: 80, strokeWidth: 0, cornerRadiusRatio }))));
+  const radii = env.named('arcTo').map(call => call.args[4]);
+  assert.deepEqual(radii, [...Array(4).fill(20), ...Array(4).fill(40)]);
+  assert.ok(env.named('rect').some(call => call.args.join(',') === '0,0,160,80'));
+});
+
 test('embedded images use contain sizing and finish decoding before PNG serialization', async t => {
   const env = environment(t, { holdImages: true });
   const pending = renderSlideImage(request([{ type: 'image', src: png, x: 20, y: 30, width: 100, height: 100, opacity: .6 }]));

@@ -62,6 +62,7 @@ export function normalizeDrawing(input: SpreadsheetDrawing, sheet: Pick<Spreadsh
       if (input[key] !== undefined && (!isSpreadsheetLine(input) || !isConnectorArrowhead(input[key]))) return fail("線の矢印の種類が正しくありません");
     return Object.freeze({ ...common, ...normalizeDrawingTextStyle(input), type: "shape", shape: input.shape, fill: color(input.fill), stroke: color(input.stroke),
       strokeWidth: number(input.strokeWidth, 0, 100),
+      ...(input.cornerRadiusRatio !== undefined ? { cornerRadiusRatio: number(input.cornerRadiusRatio, 0, 0.5) } : {}),
       ...(input.startArrow !== undefined ? { startArrow: input.startArrow } : {}), ...(input.endArrow !== undefined ? { endArrow: input.endArrow } : {}),
       ...(input.routing === "elbow" ? { routing: "elbow" as const } : {}),
       ...(input.line !== undefined ? { line: normalizeStoredLine(input.line, sheet) } : {}),
@@ -125,7 +126,7 @@ export function drawingsEqual(left: SpreadsheetDrawing, right: SpreadsheetDrawin
   if (left.type !== "image" && right.type !== "image" && !drawingTextStylesEqual(left, right)) return false;
   if (left.type === "shape" && right.type === "shape") return left.shape === right.shape && left.fill === right.fill && left.stroke === right.stroke &&
     left.startArrow === right.startArrow && left.endArrow === right.endArrow && JSON.stringify(left.line) === JSON.stringify(right.line) &&
-    left.routing === right.routing && left.strokeWidth === right.strokeWidth && (left.text ?? "") === (right.text ?? "") && (left.fontSize ?? 16) === (right.fontSize ?? 16) &&
+    left.cornerRadiusRatio === right.cornerRadiusRatio && left.routing === right.routing && left.strokeWidth === right.strokeWidth && (left.text ?? "") === (right.text ?? "") && (left.fontSize ?? 16) === (right.fontSize ?? 16) &&
     (left.color ?? "#1f2937") === (right.color ?? "#1f2937") && !!left.bold === !!right.bold;
   return left.type === "text" && right.type === "text" && left.text === right.text && left.fontSize === right.fontSize &&
     left.color === right.color && left.background === right.background && !!left.bold === !!right.bold;

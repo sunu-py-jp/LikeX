@@ -1,10 +1,11 @@
 import type { CSSProperties } from "react";
 import type { SpreadsheetDrawing } from "../../model/types";
+import { DEFAULT_DRAWING_TEXT_INSETS } from "../../model/drawing-text";
 import { drawingTextColor } from "./drawing-helpers";
 
 type TextDrawing = Exclude<SpreadsheetDrawing, { type: "image" }>;
 export function drawingTextStyle(drawing: TextDrawing): CSSProperties {
-  const insets = drawing.textInsets ?? { left: 8, top: 8, right: 8, bottom: 8 };
+  const insets = drawing.textInsets ?? DEFAULT_DRAWING_TEXT_INSETS;
   const horizontal = drawing.textOverflow ?? "clip", vertical = drawing.textVerticalOverflow ?? "clip";
   const resizing = drawing.textAutoFit === "resize";
   return { fontSize: (drawing.fontSize ?? 16) * (drawing.textFontScale ?? 1), fontFamily: drawing.fontFamily,

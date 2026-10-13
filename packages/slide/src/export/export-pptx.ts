@@ -39,8 +39,10 @@ function elementXml(element: SlideElement, id: number, shapeIds: ReadonlyMap<str
   const geometry = (connectorTargets.has(element.id) || placeholder && element.type === "shape") ? pptxConnectorTargetGeometry(element) : undefined;
   if (element.type === "image") return `<p:pic><p:nvPicPr>${common}<p:cNvPicPr><a:picLocks noChangeAspect="1"${lock}/></p:cNvPicPr>${nvPr}</p:nvPicPr><p:blipFill><a:blip r:embed="${imageId}">${element.opacity < 1 ? `<a:alphaModFix amt="${Math.round(element.opacity * 100000)}"/>` : ""}${svgId ? `<a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}"><asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="${svgId}"/></a:ext></a:extLst>` : ""}</a:blip><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${transform}${geometry ?? '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'}</p:spPr></p:pic>`;
   const preset = element.type === "shape" ? element.shape === "arrow" ? "rightArrow" : element.shape : "rect";
+  const adjustments = element.type === "shape" && element.shape === "roundRect"
+    ? `<a:avLst><a:gd name="adj" fmla="val ${Math.round((element.cornerRadiusRatio ?? .12) * 100000)}"/></a:avLst>` : "<a:avLst/>";
   const stroke = element.type === "shape" ? `<a:ln w="${emu(element.strokeWidth)}">${fill(element.stroke, element.opacity)}<a:prstDash val="solid"/>${element.shape === "line" ? pptxLineArrowheads(element) : ""}</a:ln>` : '<a:ln><a:noFill/></a:ln>';
-  return `<p:sp><p:nvSpPr>${common}<p:cNvSpPr${element.type === "text" ? ' txBox="1"' : ""}><a:spLocks${lock}/></p:cNvSpPr>${nvPr}</p:nvSpPr><p:spPr>${transform}${geometry ?? `<a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom>`}${fill(element.fill, element.opacity)}${stroke}</p:spPr>${textBody(element)}</p:sp>`;
+  return `<p:sp><p:nvSpPr>${common}<p:cNvSpPr${element.type === "text" ? ' txBox="1"' : ""}><a:spLocks${lock}/></p:cNvSpPr>${nvPr}</p:nvSpPr><p:spPr>${transform}${geometry ?? `<a:prstGeom prst="${preset}">${adjustments}</a:prstGeom>`}${fill(element.fill, element.opacity)}${stroke}</p:spPr>${textBody(element)}</p:sp>`;
 }
 
 /** Writes standard PresentationML only; no downloads, persistence, or network requests. */

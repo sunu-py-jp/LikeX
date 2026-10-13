@@ -27,3 +27,9 @@ const elbowUpdate: SpreadsheetCommand = { type: "lines.update", sheetId: "sheet"
 // @ts-expect-error Unknown routing names cannot be passed to the public API.
 const badRoute: SpreadsheetCommand = { type: "lines.update", sheetId: "sheet", drawingId: "line", routing: "curve" };
 void [elbowInsert, elbowUpdate, badRoute];
+
+const roundedInsert: SpreadsheetCommand = { type: "shapes.insert", sheetId: "sheet", shape: "roundedRectangle", anchor: { row: 0, column: 0 }, cornerRadiusRatio: 0.35 };
+const roundedUpdate: SpreadsheetCommand = { type: "shapes.update", sheetId: "sheet", drawingId: drawing.id, patch: { cornerRadiusRatio: 0 } };
+// @ts-expect-error Radius is a numeric ratio, never CSS pixels or percentage strings.
+const invalidRadius: SpreadsheetCommand = { type: "shapes.update", sheetId: "sheet", drawingId: drawing.id, patch: { cornerRadiusRatio: "35%" } };
+void [roundedInsert, roundedUpdate, invalidRadius];

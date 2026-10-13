@@ -11,14 +11,22 @@ const output = await build({ absWorkingDir: packageRoot,
     export { createMediaCache } from './src/state/media-cache.ts';
     export { MediaCacheContext } from './src/state/media-context.tsx';
     export { default as FilePreview } from './src/ui/file-preview.tsx';
+    export { ExplorerPreviewError } from './src/ui/explorer-preview-error.tsx';
     export { getPreviewFormat, EXPLORER_VIDEO_MIME_TYPES } from './src/model/preview-formats.ts';
   `, resolveDir: packageRoot, sourcefile: 'preview-source-test.tsx' },
   bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'shared-react', setup(builder) {
-    builder.onResolve({ filter: /^(react|react-dom|react-test-renderer|lucide-react|radix-ui)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^(react|react-dom|react-test-renderer|lucide-react)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+    builder.onResolve({ filter: /^radix-ui$/ }, () => ({ path: 'radix', namespace: 'source-test' }));
+    builder.onLoad({ filter: /.*/, namespace: 'source-test' }, () => ({ loader: 'tsx', resolveDir: packageRoot, contents: `
+      export const Tooltip = {
+        Provider: ({ children }) => children, Root: ({ children }) => children,
+        Trigger: ({ children }) => children, Portal: () => null, Content: () => null,
+      };
+    ` }));
   } }],
 });
-const { createMediaCache, MediaCacheContext, FilePreview, getPreviewFormat, EXPLORER_VIDEO_MIME_TYPES } = await import(
+const { createMediaCache, MediaCacheContext, FilePreview, ExplorerPreviewError, getPreviewFormat, EXPLORER_VIDEO_MIME_TYPES } = await import(
   `data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`,
 );
 const source = id => ({ kind: 'existing', id });
@@ -186,7 +194,9 @@ test('SVG/HTML stay inert despite extension and MIME overrides, and PDF bytes re
   const cache = cacheFor(t); const { made } = urlsFor(t);
   const props = { entry: entry('document.pdf'), readFile: async () => new Blob(['%PDF-1.7\nbytes'], { type: 'application/octet-stream' }) };
   const view = await mount(t, props, cache); assert.equal(view.root.findAllByType('iframe').length, 1); assert.equal(made[0].blob.type, 'application/pdf');
-  await view.update({ ...props, readFile: async () => new Blob(['not a PDF']) }); assert.equal(view.root.findAllByType('iframe').length, 0); assert.match(JSON.stringify(view.json), /有効なPDF/);
+  await view.update({ ...props, readFile: async () => new Blob(['not a PDF']) });
+  assert.equal(view.root.findAllByType('iframe').length, 0);
+  assert.match(view.root.findByType(ExplorerPreviewError).props.error, /有効なPDF/);
 });
 
 test('default and configured text previews enforce both metadata and actual byte limits', async t => {
@@ -260,5 +270,16 @@ test('resolver rejections while processing show waiting and retry on completion,
   assert.equal(calls, 1); assert.equal(view.root.findAllByProps({ role: 'alert' }).length, 0); assert.match(JSON.stringify(view.json), /準備完了を待っています/);
   await view.update({ ...props, processing: false }); assert.equal(calls, 2); assert.equal(view.root.findAllByType('video').length, 1);
   await view.update({ ...props, processing: false, resolvePreviewSource: async () => { throw Error('final failure'); } });
-  assert.equal(view.root.findAllByProps({ role: 'alert' }).length, 1); assert.match(JSON.stringify(view.json), /final failure/);
+  assert.equal(view.root.findAllByProps({ role: 'alert' }).length, 1);
+  assert.equal(view.root.findByType(ExplorerPreviewError).props.error, 'final failure');
+});
+
+test('reader and resolver exceptions retain string diagnostics and empty exceptions still produce an error', async t => {
+  for (const error of ['host read failed', new Error(''), null]) for (const resolver of [false, true]) {
+    const cache = cacheFor(t);
+    const failure = async () => { throw error; };
+    const view = await mount(t, { entry: entry('file.txt'), ...(resolver ? { resolvePreviewSource: failure } : { readFile: failure }) }, cache);
+    assert.equal(view.root.findAllByProps({ role: 'alert' }).length, 1);
+    assert.equal(view.root.findByType(ExplorerPreviewError).props.error, typeof error === 'string' ? error : 'ファイルを読み込めませんでした');
+  }
 });

@@ -1,5 +1,5 @@
 import { getOfficeShapeOutline } from "./core-office-shapes";
-import { getSlideOfficeShapePreset } from "./shapes";
+import { getSlideOfficeShapePreset, slideRoundRectRadius } from "./shapes";
 import { connectorLocalToWorld, getConnectorBounds, getConnectorRoute, getConnectorPortPoint, CONNECTOR_PORTS } from "./core-connectors";
 import type { ConnectorEndpoint, ConnectorOutline, ConnectorRoute } from "./core-connectors";
 import type { SlideElement, SlideElementBase, SlideLineGeometry, SlideLineRouting, SlideShapeElement } from "./types";
@@ -10,7 +10,7 @@ export function isSlideLine(element: SlideElement): element is SlideShapeElement
 export function getSlideConnectorOutline(element: SlideElement): ConnectorOutline | undefined {
   if (element.type !== "shape") return undefined;
   if (element.shape === "ellipse") return { type: "ellipse" };
-  if (element.shape === "roundRect") { const radius = Math.min(element.width, element.height) * .12; return { type: "roundedRect", radiusX: radius / element.width, radiusY: radius / element.height }; }
+  if (element.shape === "roundRect") { const radius = slideRoundRectRadius(element); return { type: "roundedRect", radiusX: radius / element.width, radiusY: radius / element.height }; }
   const points = element.shape === "triangle" ? [[.5, 0], [1, 1], [0, 1]]
     : element.shape === "diamond" ? [[.5, 0], [1, .5], [.5, 1], [0, .5]]
     : (element.shape === "arrow" || element.shape === "leftArrow") ? [[0, .28], [.65, .28], [.65, 0], [1, .5], [.65, 1], [.65, .72], [0, .72]] : undefined;

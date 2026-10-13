@@ -1,5 +1,5 @@
 import { getOfficeShapeGeometry, type OfficeShapeGeometry } from "../model/core-office-shapes";
-import { getSlideOfficeShapePreset } from "../model/shapes";
+import { getSlideOfficeShapePreset, slideRoundRectRadius } from "../model/shapes";
 import { getSlideLineRoute } from "../model/lines";
 import type { SlideElement, SlideShapeElement } from "../model/types";
 
@@ -12,7 +12,7 @@ export type SlideShapeGeometry =
   | { kind: "polyline"; points: readonly (readonly [number, number])[] }
   | { kind: "line"; x1: number; y1: number; x2: number; y2: number }
   | { kind: "rect"; x: number; y: number; width: number; height: number; radius: number };
-export function getSlideShapeGeometry(element: Pick<SlideShapeElement, "shape" | "width" | "height" | "strokeWidth"> & Partial<Pick<SlideShapeElement, "line" | "x" | "y" | "routing" | "rotation">>, elements: readonly SlideElement[] = []): SlideShapeGeometry {
+export function getSlideShapeGeometry(element: Pick<SlideShapeElement, "shape" | "width" | "height" | "strokeWidth"> & Partial<Pick<SlideShapeElement, "cornerRadiusRatio" | "line" | "x" | "y" | "routing" | "rotation">>, elements: readonly SlideElement[] = []): SlideShapeGeometry {
   const { width, height, strokeWidth } = element, pad = strokeWidth / 2;
   switch (element.shape) {
     case "ellipse": return { kind: "ellipse", cx: width / 2, cy: height / 2, rx: Math.max(0, width / 2 - pad), ry: Math.max(0, height / 2 - pad) };
@@ -24,7 +24,7 @@ export function getSlideShapeGeometry(element: Pick<SlideShapeElement, "shape" |
       if (element.routing === "elbow") return { kind: "polyline", points: getSlideLineRoute(element as SlideShapeElement, elements).points.map(point => [point.x - (element.x ?? 0), point.y - (element.y ?? 0)] as const) };
       return element.line ? { kind: "line", x1: element.line.start.x - (element.x ?? 0), y1: element.line.start.y - (element.y ?? 0), x2: element.line.end.x - (element.x ?? 0), y2: element.line.end.y - (element.y ?? 0) } : { kind: "line", x1: pad, y1: pad, x2: width - pad, y2: height - pad };
     }
-    case "rect": case "roundRect": return { kind: "rect", x: pad, y: pad, width: Math.max(0, width - strokeWidth), height: Math.max(0, height - strokeWidth), radius: element.shape === "roundRect" ? Math.min(width, height) * .12 : 0 };
+    case "rect": case "roundRect": return { kind: "rect", x: pad, y: pad, width: Math.max(0, width - strokeWidth), height: Math.max(0, height - strokeWidth), radius: element.shape === "roundRect" ? slideRoundRectRadius(element) : 0 };
     default: return { kind: "paths", paths: getOfficeShapeGeometry(getSlideOfficeShapePreset(element.shape), width, height).paths };
   }
 }

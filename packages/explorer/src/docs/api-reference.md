@@ -6,6 +6,8 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 
 選択専用の `ExplorerPicker`・`ExplorerPickerDialog` は、表示・取得propsを共有し、`kind`・`multiple`・`initialSelectedIds`・`onSelectionChange`・`onConfirm`・`onCancel` を追加します。`ExplorerPickerProps`・`ExplorerPickerDialogProps`・`ExplorerPickerHandle` と結果型、読み取り専用の契約は[選択画面のAPI](./picker.md)を参照してください。
 
+`ExplorerPreviewError` は `error: unknown`、`message?: string`、`className?: string` を受け取り、案内文とエラー詳細のアイコンを表示します。公開型は `ExplorerPreviewErrorProps` です。Explorerの外でも利用できます。[エラー表示の使い方](./previews.md#読み込みエラーの詳細を表示する)を参照してください。
+
 ## 公開props一覧
 
 <a id="explorer-props"></a>

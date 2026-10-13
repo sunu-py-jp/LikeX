@@ -5,9 +5,9 @@ export const COLUMN_WIDTH = DEFAULT_COLUMN_WIDTH;
 export const ROW_HEIGHT = DEFAULT_ROW_HEIGHT;
 export const ROW_HEADER_WIDTH = 48;
 export type ColumnWidthPreview = { column: number; value: number };
-export type GridViewport = { top: number; height: number };
+export type GridViewport = { top: number; height: number; left?: number; width?: number };
 
-export function columnGeometry(sheet: SpreadsheetSheet, preview?: ColumnWidthPreview | null) {
+export function columnGeometry(sheet: Pick<SpreadsheetSheet, "columnCount" | "columnWidths">, preview?: ColumnWidthPreview | null) {
   const widths = Array.from({ length: sheet.columnCount }, (_, column) => preview?.column === column ? preview.value : sheet.columnWidths?.[column] ?? COLUMN_WIDTH);
   const columnOffsets = [ROW_HEADER_WIDTH];
   for (const width of widths) columnOffsets.push(columnOffsets[columnOffsets.length - 1] + width);
@@ -20,7 +20,7 @@ export function createRowOffsets(sheet: Pick<SpreadsheetSheet, "rowCount" | "row
   return offsets;
 }
 
-export function visibleGridRows(sheet: SpreadsheetSheet, rowOffsets: readonly number[], viewport: GridViewport, focusedRow: number) {
+export function visibleGridRows(sheet: Pick<SpreadsheetSheet, "rowCount" | "merges">, rowOffsets: readonly number[], viewport: GridViewport, focusedRow: number) {
   const rowAt = (position: number) => {
     let low = 0, high = rowOffsets.length - 1;
     while (low < high) { const middle = Math.floor((low + high + 1) / 2); if (rowOffsets[middle] <= position) low = middle; else high = middle - 1; }
@@ -37,7 +37,7 @@ export function visibleGridRows(sheet: SpreadsheetSheet, rowOffsets: readonly nu
   return rows.sort((a, b) => a - b);
 }
 
-export function visibleMergedCells(sheet: SpreadsheetSheet, rows: readonly number[]) {
+export function visibleMergedCells(sheet: Pick<SpreadsheetSheet, "merges" | "columnCount">, rows: readonly number[]) {
   const merged = new Map<number, SpreadsheetMergedRange>();
   for (const merge of sheet.merges ?? []) for (const row of rows) {
     if (row < merge.top || row > merge.bottom) continue;

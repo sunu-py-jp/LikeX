@@ -175,6 +175,7 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
       Object.assign(source, slideLineGeometry(line), { line });
     }
     if (isSlideLine(element) && patch.shape !== undefined && patch.shape !== "line") for (const key of ["line", "startArrow", "endArrow", "routing"]) Reflect.deleteProperty(source, key);
+    if (element.type === "shape" && element.shape === "roundRect" && patch.shape !== undefined && patch.shape !== "roundRect" && !Object.hasOwn(patch, "cornerRadiusRatio")) Reflect.deleteProperty(source, "cornerRadiusRatio");
     const updated = normalizeSlideElement(source);
     if (sameSlideElement(element, updated)) return { ...unchanged, slideId: slide.id, elementIds: [id] };
     if (element.locked && Object.keys(patch).some(key => key !== "locked" && Reflect.get(element, key) !== Reflect.get(updated, key)))

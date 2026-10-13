@@ -10,7 +10,7 @@ import { child, children, type XmlNode } from "./xml";
 export type ImportedDrawingTarget = { id: string; custom: boolean; preset?: string; adjusted: boolean };
 export type PendingDrawingConnector = { drawingId: string; scope: string; points: SpreadsheetLinePoints; start?: XmlNode; end?: XmlNode };
 
-/** Connectors permit zero width/height and signed positions; the anchor is only a fallback. */
+/** Native line transforms permit zero extents and signed positions, unlike shape frames. */
 export function readConnectorFrame(transform: XmlNode | undefined, elbowRoute = false): DrawingFrame | undefined {
   const offset = child(transform, "off"), extent = child(transform, "ext");
   const x = (finiteNumber(offset?.attributes.x) ?? NaN) / EMU_PER_PIXEL, y = (finiteNumber(offset?.attributes.y) ?? NaN) / EMU_PER_PIXEL;
@@ -34,7 +34,11 @@ export function readLineArrow(line: XmlNode | undefined, endpoint: "headEnd" | "
   return "triangle";
 }
 export function presetHasAdjustments(preset: XmlNode | undefined): boolean {
-  return children(child(preset, "avLst"), "gd").length > 0;
+  const guides = children(child(preset, "avLst"), "gd");
+  // roundRect uses the same four cardinal connection sites for every radius.
+  if (preset?.attributes.prst === "roundRect") return guides.some(item => item.attributes.name !== "adj" ||
+    !/^val\s+[+-]?\d+(?:\.\d+)?$/.test(item.attributes.fmla ?? ""));
+  return guides.length > 0;
 }
 /** Resolve Office IDs only after every target has been imported. Unknown sites detach with a warning. */
 export function connectImportedDrawings(sheet: SpreadsheetSheet, drawings: SpreadsheetDrawing[], pending: PendingDrawingConnector[], targets: Map<string, ImportedDrawingTarget>, context: ImportContext): SpreadsheetDrawing[] {

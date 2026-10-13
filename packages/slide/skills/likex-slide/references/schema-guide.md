@@ -97,6 +97,8 @@ IDは空白を含まない1〜200文字。スライドIDは資料内で一意、
 
 `element.update` でID・`type` は変更不可。対象の型にないフィールドも拒否される。`locked: true` の要素は、先に `patch: { "locked": false }` のみのコマンドで解除してから変更・削除・複製・重なり順変更を行う。
 
+角丸長方形 `roundRect` の `cornerRadiusRatio?: number` は短辺に対する半径の割合（有限数0〜0.5）。省略時0.12、0は直角、0.5は短辺の半分。ほかの図形への指定は拒否する。`element.update` で別の図形へ変える場合、丸みの指定がなければ以前の値は除去される。PPTXの `roundRect` の `adj` と相互変換し、外部PPTXで調整が省略された場合はOffice標準0.16667を明示的に保存する。接続先の8点も半径に追従する。version 1の追加機能で、旧ライブラリへ渡す場合は対応版への更新が必要。
+
 ## 線の端点と接続
 
 `shape: "line"` だけは任意の `line: { start, end }` を持つ。両端は資料内pxの `{x,y,binding?:{targetId,port}}`。接続先は同じページの線以外の要素、portは `top/topRight/right/bottomRight/bottom/bottomLeft/left/topLeft`。存在しないID・他ページ・自己参照・他の線への接続を拒否する。保存座標は接続先の位置・サイズ・回転に追従して更新され、対象削除時には座標を残してbindingを除く。線を含めた複製では同時にコピーする対象だけ新IDへ張り替える。端点を持たない旧線の矩形・回転・描画は維持し、端点編集で新フィールドを追加する。水平・垂直・同一点の線も許可し、互換用width/heightは最小1px、rotationは0に正規化する。線直属に任意の `startArrow/endArrow: "none" | "triangle" | "openArrow" | "diamond" | "oval" | "stealth"` を持ち、省略値はnone。通常図形への指定は拒否する。新フィールドはversion 1の追加機能で、旧ライブラリへ渡す場合は対応版への更新が必要。

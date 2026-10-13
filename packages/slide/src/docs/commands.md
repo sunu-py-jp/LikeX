@@ -35,6 +35,15 @@ type Slide = {
 
 座標・寸法は96dpiのピクセル、角度は時計回りの度数、色はsRGBの16進数です。GUIではカラーピッカーを使います。要素は `type: "text" | "shape" | "image"` で区別し、共通の `id`、`name`、`x`、`y`、`width`、`height`、`rotation`、`opacity`、`locked` を持ちます。
 
+角丸長方形（`type: "shape", shape: "roundRect"`）には `cornerRadiusRatio?: number` を指定できます。短辺に対する半径で0〜0.5の有限数を受け取り、0は直角、0.5は短辺の半分です。省略値は既存SLONとの互換性のため0.12です。`element.add` / `element.update`、GUI、複製、保存、PPTX入出力で同じ値を扱います。ほかの図形への指定は拒否します。`element.update` で別の図形に変える場合、丸みを同時に指定しなければ既存の丸みの値を除きます。新フィールドを含むSLONを読む側は、この機能に対応したライブラリへ更新してください。
+
+```ts
+applySlideCommands(deck, {
+  type: "element.update", slideId: "page", elementId: "rounded",
+  patch: { cornerRadiusRatio: 0.25 },
+});
+```
+
 ## `.slon` ファイル
 
 LikeSlideの標準ファイル拡張子は `.slon` です。中身はUTF-8のJSONで、ZIPや暗号化形式ではありません。既存の `parseSlideDeck` / `serializeSlideDeck` をそのまま使います。

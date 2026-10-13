@@ -2,6 +2,8 @@
 
 export { default, default as Explorer } from "./explorer";
 export { ExplorerPopup } from "./explorer-popup";
+export { ExplorerPreviewError } from "./ui/explorer-preview-error";
+export type { ExplorerPreviewErrorProps } from "./ui/explorer-preview-error";
 export { ExplorerPicker, ExplorerPickerDialog } from "./explorer-picker";
 export type { ExplorerPickerProps, ExplorerPickerDialogProps, ExplorerPickerHandle, ExplorerPickerConfirmContext } from "./picker-props";
 export type {

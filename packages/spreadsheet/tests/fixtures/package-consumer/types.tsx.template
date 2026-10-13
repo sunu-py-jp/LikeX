@@ -2,7 +2,7 @@ import Spreadsheet, {
   createWorkbook, setCellBorders, type SpreadsheetBorderPreset, setCellValue, calculateWorkbook, parseTsv, stringifyTsv, expandCellAddresses, CellAddressExpansionError,
   serializeWorkbook, parseWorkbook, addDrawing, setCellComment, mergeCells, unmergeCells,
   type SpreadsheetWorkbook, type SpreadsheetSheet, type SpreadsheetCell,
-  type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps, type SpreadsheetCellGridWriteOptions,
+  type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps, type SpreadsheetCellGridWriteOptions, type SpreadsheetRenderingMode,
   type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSelectionRange, type SpreadsheetSaveHandler,
   type SpreadsheetDrawing, type SpreadsheetDrawingTextStyle, type SpreadsheetMergedRange,
   type SpreadsheetImportNativeOptions, type SpreadsheetNativeExportOptions, type SpreadsheetNativeImportResult, SPREADSHEET_FORMAT,
@@ -22,6 +22,12 @@ const editableThumbnail = <SpreadsheetThumbnail workbook={workbook} ref={createR
 void [thumbnail, editableThumbnail];
 const target: SpreadsheetSheetTarget = { sheetName: workbook.sheets[0].name };
 const openingProps: SpreadsheetProps = { initialWorkbook: workbook, initialSheetId: workbook.sheets[0].id, initialSheetName: workbook.sheets[0].name };
+const renderingModes: readonly SpreadsheetRenderingMode[] = ["progressive", "viewport"];
+const renderingProps: SpreadsheetProps = { initialWorkbook: workbook, renderingMode: renderingModes[0] };
+const viewportSpreadsheet = <Spreadsheet initialWorkbook={workbook} renderingMode="viewport" />;
+// @ts-expect-error Rendering modes use a closed union.
+const invalidRenderingMode: SpreadsheetProps = { renderingMode: "all" };
+void [renderingProps, viewportSpreadsheet, invalidRenderingMode];
 const importTarget: SpreadsheetImportExcelOptions = { sheetId: workbook.sheets[0].id, sheetName: workbook.sheets[0].name };
 const nativeTarget: SpreadsheetImportNativeOptions = { sheetName: workbook.sheets[0].name };
 function selectNamedSheet(handle: SpreadsheetHandle) { const selected: boolean = handle.selectSheet(target, { reveal: true }); return selected; }

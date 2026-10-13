@@ -1,4 +1,4 @@
-import { readOfficeConnectorShapeTag, readOfficeElbowConnectorEndpoints } from "../ooxml";
+import { readOfficeConnectorShapeTag, readOfficeConnectorCornerRadiusRatio, readOfficeElbowConnectorEndpoints } from "../ooxml";
 import { connectorLocalToWorld } from "../model/core-connectors";
 import { withLinePoints } from "../model/lines";
 import { isSpreadsheetShapeKind } from "../model/shapes";
@@ -45,22 +45,39 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
       if (!["oneCellAnchor", "twoCellAnchor", "absoluteAnchor"].includes(localName(container.name))) { omitted(context, sheet, "未対応の描画位置指定を省略しました"); continue; }
       const object = container.children.find(item => ["pic", "sp", "cxnSp", "graphicFrame", "grpSp"].includes(localName(item.name)));
       if (!object || !["pic", "sp", "cxnSp"].includes(localName(object.name))) { omitted(context, sheet, "グラフ・グループなど未対応の描画オブジェクトを省略しました"); continue; }
+      const nonvisualContainer = child(object, localName(object.name) === "pic" ? "nvPicPr" : localName(object.name) === "cxnSp" ? "nvCxnSpPr" : "nvSpPr");
+      if (["1", "true"].includes(child(nonvisualContainer, "cNvPr")?.attributes.hidden ?? "")) {
+        omitted(context, sheet, "非表示の描画オブジェクトを省略しました"); continue;
+      }
       const properties = child(object, "spPr"), transform = child(properties, "xfrm");
       const connector = localName(object.name) === "cxnSp", customKind = readOfficeConnectorShapeTag(child(properties, "custGeom"));
+      const nativeTextBox = ["1", "true"].includes(child(child(object, "nvSpPr"), "cNvSpPr")?.attributes.txBox ?? "");
+      const nativeLine = localName(object.name) === "sp" && !nativeTextBox && child(properties, "prstGeom")?.attributes.prst === "line";
+      const linear = connector || nativeLine;
       const elbowEndpoints = connector ? readOfficeElbowConnectorEndpoints(child(properties, "custGeom")) : undefined;
       const rotationValue = finiteNumber(transform?.attributes.rot);
       const rotation = normalizeDrawingRotation((rotationValue ?? 0) / 60000);
-      const nativeFrame = connector ? readConnectorFrame(transform, !!elbowEndpoints) : rotation || customKind ? readTransformFrame(transform) : undefined;
+      const nativeFrame = linear ? readConnectorFrame(transform, !!elbowEndpoints) : rotation || customKind ? readTransformFrame(transform) : undefined;
+      // An unrotated line's cell anchors already give its endpoint frame. A cached
+      // xfrm can disagree after worksheet edits or font-dependent column sizing.
+      // Rotated and custom paths still need their native local coordinate frame.
+      let anchoredLineFrame = linear && !rotation && !elbowEndpoints ? readDrawingFrame(container, grid, true) : undefined;
+      if (anchoredLineFrame && nativeFrame && localName(container.name) === "oneCellAnchor") {
+        // Our exporter uses the minimum positive anchor extent for a zero-length
+        // axis; retain the exact zero stored in the connector transform.
+        anchoredLineFrame = { ...anchoredLineFrame,
+          width: nativeFrame.width === 0 && anchoredLineFrame.width <= 1 / EMU_PER_PIXEL ? 0 : anchoredLineFrame.width,
+          height: nativeFrame.height === 0 && anchoredLineFrame.height <= 1 / EMU_PER_PIXEL ? 0 : anchoredLineFrame.height };
+      }
       const rebase = drawingAnchorTransform(container, sourceGrid, grid);
-      const transformedFrame = nativeFrame ? transformDrawingFrame(nativeFrame, rebase, connector ? 0 : rotation) : undefined;
-      let frame = transformedFrame?.frame ?? readDrawingFrame(container, grid);
+      const transformedFrame = nativeFrame && !anchoredLineFrame ? transformDrawingFrame(nativeFrame, rebase, linear ? 0 : rotation) : undefined;
+      let frame = anchoredLineFrame ?? transformedFrame?.frame ?? readDrawingFrame(container, grid, linear);
       if (!frame) { omitted(context, sheet, "対応範囲外のサイズ・位置を持つオブジェクトを省略しました"); continue; }
       if (transformedFrame?.approximated) adjusted(context, sheet, "行・列のサイズ調整に伴う回転図形の変形を、中心位置を保って近似しました");
       if (rotation && !nativeFrame) adjusted(context, sheet, "回転したオブジェクトの位置をセルのアンカーから近似しました");
       const lineProperties = child(properties, "ln");
       const originalStroke = child(lineProperties, "noFill") ? 0 : Math.min(100, Math.max(0, (finiteNumber(lineProperties?.attributes.w) ?? 9525) / EMU_PER_PIXEL));
       const nativeShape = SPREADSHEET_SHAPES.find(item => getShapeDefinition(item.kind).xlsxPreset === child(properties, "prstGeom")?.attributes.prst)?.kind;
-      const nativeTextBox = ["1", "true"].includes(child(child(object, "nvSpPr"), "cNvSpPr")?.attributes.txBox ?? "");
       // DrawingML extents follow the outline center. New presets store an outer frame
       // with an inset stroke, so reverse the exporter conversion exactly once.
       const insetOfficeShape = localName(object.name) === "sp" && !nativeTextBox && nativeShape && getShapeDefinition(nativeShape).geometry.type === "office";
@@ -73,20 +90,20 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
         ...(["1", "true"].includes(transform?.attributes.flipH ?? "") ? { flipX: true } : {}),
         ...(["1", "true"].includes(transform?.attributes.flipV ?? "") ? { flipY: true } : {}), ...(rotation ? { rotation } : {}) };
       let drawing: SpreadsheetDrawing;
-      if (connector) {
+      if (linear) {
         const preset = child(properties, "prstGeom")?.attributes.prst;
         const elbow = !!elbowEndpoints || /^bentConnector[2-5]$/.test(preset ?? "");
         if (elbow && !elbowEndpoints) adjusted(context, sheet, "折れ線の経由点を接続先に追従する自動経路へ変更しました");
         else if (!elbow && preset !== "line" && preset !== "straightConnector1") adjusted(context, sheet, "未対応の曲線の接続線を始点と終点を結ぶ直線へ変更しました");
         const content = drawingText(child(object, "txBody"), context, sheet, child(child(object, "style"), "fontRef"));
-        const endpointFrame = nativeFrame ?? frame;
+        const endpointFrame = anchoredLineFrame ?? nativeFrame ?? frame;
         const standardEndpoints = connectorPoints(endpointFrame, transform);
         const transformBox = { ...endpointFrame, rotation, flipX: !!common.flipX, flipY: !!common.flipY };
         const sourceEndpoints = elbowEndpoints ? {
           start: connectorLocalToWorld({ x: elbowEndpoints.start.x * endpointFrame.width, y: elbowEndpoints.start.y * endpointFrame.height }, transformBox),
           end: connectorLocalToWorld({ x: elbowEndpoints.end.x * endpointFrame.width, y: elbowEndpoints.end.y * endpointFrame.height }, transformBox),
         } : standardEndpoints;
-        const endpoints = nativeFrame ? { start: rebase.point(sourceEndpoints.start), end: rebase.point(sourceEndpoints.end) } : sourceEndpoints;
+        const endpoints = nativeFrame && !anchoredLineFrame ? { start: rebase.point(sourceEndpoints.start), end: rebase.point(sourceEndpoints.end) } : sourceEndpoints;
         const nonvisual = child(child(object, "nvCxnSpPr"), "cNvCxnSpPr");
         const line = child(properties, "ln");
         sheet = grow(sheet, anchor.row, anchor.column);
@@ -94,9 +111,12 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
           const endpointAnchor = anchorFromFrame({ ...frame, x: Math.max(0, point.x), y: Math.max(0, point.y) }, grid);
           if (endpointAnchor) sheet = grow(sheet, endpointAnchor.row, endpointAnchor.column);
         }
-        drawing = withLinePoints(sheet, { ...common, width: Math.max(1, common.width), height: Math.max(1, common.height), type: "shape", shape: "line", fill: "transparent",
-          stroke: drawingFill(line, "#000000", context, sheet), strokeWidth: originalStroke, ...content, ...(elbow ? { routing: "elbow" as const } : {}),
-          startArrow: readLineArrow(line, "headEnd", context, sheet), endArrow: readLineArrow(line, "tailEnd", context, sheet) }, endpoints);
+        const style = child(object, "style"), startArrow = readLineArrow(line, "headEnd", context, sheet), endArrow = readLineArrow(line, "tailEnd", context, sheet);
+        drawing = withLinePoints(sheet, { ...common, width: Math.max(1, common.width), height: Math.max(1, common.height), type: "shape",
+          shape: nativeLine && (startArrow !== "none" || endArrow !== "none") ? "arrow" : "line",
+          fill: nativeLine ? drawingFill(properties, drawingColor(child(style, "fillRef"), context) ?? "transparent", context, sheet) : "transparent",
+          stroke: drawingFill(line, drawingColor(child(style, "lnRef"), context) ?? "#000000", context, sheet), strokeWidth: originalStroke,
+          ...content, ...(elbow ? { routing: "elbow" as const } : {}), startArrow, endArrow }, endpoints);
         pending.push({ drawingId: drawing.id, scope: relation.target, points: endpoints, start: child(nonvisual, "stCxn"), end: child(nonvisual, "endCxn") });
         if (child(line, "prstDash")?.attributes.val && child(line, "prstDash")!.attributes.val !== "solid") adjusted(context, sheet, "線の破線を実線へ変更しました");
       } else if (localName(object.name) === "pic") {
@@ -137,16 +157,24 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
           if (line?.attributes.w && strokeWidth !== Number(line.attributes.w) / EMU_PER_PIXEL) adjusted(context, sheet, "図形の線幅を対応範囲へ調整しました");
           if (child(line, "prstDash")?.attributes.val && child(line, "prstDash")!.attributes.val !== "solid") adjusted(context, sheet, "図形の破線を実線へ変更しました");
           const guide = children(child(preset, "avLst"), "gd"), definition = getShapeDefinition(shape), adjustment = definition.xlsxAdjustment;
+          const radiusGuide = shape === "roundedRectangle" ? guide.find(item => item.attributes.name === "adj") : undefined;
+          const radiusValue = radiusGuide && /^val\s+[+-]?\d+(?:\.\d+)?$/.test(radiusGuide.attributes.fmla ?? "")
+            ? Number(radiusGuide.attributes.fmla.replace(/^val\s+/, "")) : undefined;
+          const cornerRadiusRatio = shape === "roundedRectangle"
+            ? customKind ? readOfficeConnectorCornerRadiusRatio(child(properties, "custGeom"))
+              : radiusValue !== undefined && Number.isFinite(radiusValue) ? Math.min(0.5, Math.max(0, radiusValue / 100000)) : undefined
+            : undefined;
           const expected = adjustment ? 100000 * adjustment.ratio * frame[adjustment.axis] / Math.min(frame.width, frame.height) : undefined;
           if (guide.some(item => {
             // New Office presets use their default guides; any explicit deformation is reported.
             if (definition.geometry.type === "office") return true;
             const value = Number(item.attributes.fmla?.replace(/^val\s+/, ""));
+            if (shape === "roundedRectangle" && item.attributes.name === "adj") return radiusValue === undefined || radiusValue < 0 || radiusValue > 50000;
             return adjustment && item.attributes.name === adjustment.name ? Math.abs(value - expected!) > 1
-              : item.attributes.name === "adj1" ? value !== 50000 : !(shape === "roundedRectangle" && item.attributes.name === "adj" && value === 16667 || shape === "triangle" && item.attributes.name === "adj" && value === 50000);
+              : item.attributes.name === "adj1" ? value !== 50000 : !(shape === "triangle" && item.attributes.name === "adj" && value === 50000);
           })) adjusted(context, sheet, "図形の細かな変形を標準の形状へ近似しました");
           drawing = { ...common, ...(presetName === "line" ? { startArrow: readLineArrow(line, "headEnd", context, sheet), endArrow: readLineArrow(line, "tailEnd", context, sheet) } : {}),
-            type: "shape", shape, fill, stroke: drawingFill(line, drawingColor(child(style, "lnRef"), context) ?? "#000000", context, sheet), strokeWidth, ...content };
+            type: "shape", shape, ...(cornerRadiusRatio !== undefined ? { cornerRadiusRatio } : {}), fill, stroke: drawingFill(line, drawingColor(child(style, "lnRef"), context) ?? "#000000", context, sheet), strokeWidth, ...content };
         }
       }
       sheet = grow(sheet, anchor.row, anchor.column);

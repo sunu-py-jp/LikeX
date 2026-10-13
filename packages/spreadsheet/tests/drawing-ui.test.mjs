@@ -623,3 +623,114 @@ test('editing imported text preserves its layout through commit, Undo, Redo and 
   await act(async () => ui.c.redo()); check(ui.c.activeSheet.drawings[1]); assert.equal(ui.c.activeSheet.drawings[1].text, '変更した注記');
   await act(async () => ui.c.save()); check(ui.saves[0].sheets[0].drawings[1]);
 });
+
+test('rounded-corner inspector edits radius through history and rejects out-of-range drafts', async t => {
+  const initial = book(); initial.sheets[0].drawings[0] = { ...shape, shape: 'roundedRectangle' };
+  const ui = await mount(t, { initialWorkbook: initial });
+  await act(async () => ui.c.selectDrawing('shape'));
+  const field = () => ui.property('角の丸み（%）');
+  assert.equal(field().props.value, '33.33'); assert.equal(field().props.min, 0); assert.equal(field().props.max, 100);
+  await act(async () => field().props.onChange(event({ target: { value: '80' } })));
+  await act(async () => field().props.onKeyDown(event({ key: 'Enter' })));
+  assert.equal(ui.c.activeSheet.drawings[0].cornerRadiusRatio, 0.4);
+  assert.equal(ui.c.pendingObjectEdit, false);
+  await act(async () => ui.c.undo()); assert.equal(ui.c.activeSheet.drawings[0].cornerRadiusRatio, undefined);
+  await act(async () => ui.c.redo()); assert.equal(ui.c.activeSheet.drawings[0].cornerRadiusRatio, 0.4);
+  await act(async () => field().props.onChange(event({ target: { value: '101' } })));
+  await act(async () => field().props.onBlur());
+  assert.equal(ui.c.activeSheet.drawings[0].cornerRadiusRatio, 0.4); assert.equal(ui.c.pendingObjectEdit, true);
+  await act(async () => field().props.onKeyDown(event({ key: 'Escape' })));
+  assert.equal(ui.c.pendingObjectEdit, false);
+  await ui.update({ readOnly: true });
+  assert.equal(field().props.disabled, true);
+  await act(async () => field().props.onChange(event({ target: { value: '0' } })));
+  await act(async () => field().props.onBlur());
+  assert.equal(ui.c.activeSheet.drawings[0].cornerRadiusRatio, 0.4);
+  await ui.update({ readOnly: false, features: { shapes: false } });
+  assert.equal(field(), undefined);
+});
+
+
+const roundedBook = (patch = {}) => {
+  const initial = book(); initial.sheets[0].drawings[0] = { ...shape, shape: 'roundedRectangle', cornerRadiusRatio: 0.25, ...patch };
+  return initial;
+};
+const adjustment = ui => ui.root.findAllByProps({ className: 'lxs-drawing-corner-adjust' })[0];
+const adjustmentPointer = (x, y, pointerId = 1) => {
+  const target = { ownerDocument: { activeElement: null }, closest: () => null, focus() {}, setPointerCapture() {}, hasPointerCapture: () => false, releasePointerCapture() {} };
+  return event({ button: 0, pointerId, currentTarget: target, clientX: x, clientY: y });
+};
+
+test('yellow adjustment handle changes only rounded corners in a live preview and one history step', async t => {
+  const ui = await mount(t, { initialWorkbook: roundedBook() });
+  assert.equal(adjustment(ui), undefined);
+  await act(async () => ui.c.selectDrawing('shape'));
+  assert.equal(adjustment(ui).props['aria-valuenow'], 50);
+  assert.deepEqual(adjustment(ui).props.style, { left: 15.5, top: 1 });
+  const before = ui.c.workbook;
+  await act(async () => adjustment(ui).props.onPointerDown(adjustmentPointer(73.5, 39)));
+  await act(async () => adjustment(ui).props.onPointerMove(adjustmentPointer(83.5, 39)));
+  assert.equal(ui.c.workbook, before);
+  assert.equal(adjustment(ui).props['aria-valuenow'], 84);
+  assert.equal(ui.drawing('shape').props.style.width, 100);
+  assert.equal(ui.drawing('shape').props.style.height, 60);
+  await act(async () => adjustment(ui).props.onPointerUp(adjustmentPointer(88, 39)));
+  assert.equal(ui.c.activeSheet.drawings[0].cornerRadiusRatio, 0.5);
+  assert.deepEqual(ui.c.activeSheet.drawings[0].anchor, before.sheets[0].drawings[0].anchor);
+  assert.equal(ui.c.selectedDrawingId, 'shape');
+  await act(async () => ui.c.undo()); assert.equal(ui.c.workbook, before); assert.equal(ui.c.canUndo, false);
+  await act(async () => ui.c.redo()); assert.equal(ui.c.activeSheet.drawings[0].cornerRadiusRatio, 0.5);
+});
+
+for (const [rotation, flipX, flipY, scale, delta] of [[90, false, false, 2, [0, 29]], [90, true, true, 0.5, [0, -7.25]], [180, false, true, 1, [-14.5, 0]]]) {
+  test(`rounded adjustment respects rotation ${rotation}, reflection ${flipX}/${flipY} and zoom ${scale}`, async t => {
+    const ui = await mount(t, { initialWorkbook: roundedBook({ rotation, flipX, flipY }), initialZoom: scale * 100 }, scale);
+    await act(async () => ui.c.selectDrawing('shape'));
+    assert.deepEqual(adjustment(ui).props.style, { left: flipX ? 84.5 : 15.5, top: flipY ? 59 : 1 });
+    const before = ui.c.workbook;
+    await act(async () => adjustment(ui).props.onPointerDown(adjustmentPointer(150, 150)));
+    await act(async () => adjustment(ui).props.onPointerUp(adjustmentPointer(150 + delta[0], 150 + delta[1])));
+    assert.equal(ui.c.activeSheet.drawings[0].cornerRadiusRatio, 0.5);
+    assert.equal(ui.c.activeSheet.drawings[0].rotation, rotation);
+    assert.equal(!!ui.c.activeSheet.drawings[0].flipX, flipX);
+    assert.equal(!!ui.c.activeSheet.drawings[0].flipY, flipY);
+    await act(async () => ui.c.undo()); assert.equal(ui.c.workbook, before);
+  });
+}
+
+for (const reason of ['Escape', 'pointercancel', 'readonly', 'resize', 'selection']) test(`rounded adjustment cancels on ${reason}`, async t => {
+  const ui = await mount(t, { initialWorkbook: roundedBook() });
+  await act(async () => ui.c.selectDrawing('shape'));
+  const before = ui.c.workbook, end = adjustmentPointer(90, 39);
+  await act(async () => adjustment(ui).props.onPointerDown(adjustmentPointer(73.5, 39)));
+  await act(async () => adjustment(ui).props.onPointerMove(end));
+  if (reason === 'Escape') await act(async () => adjustment(ui).props.onKeyDown(event({ key: 'Escape' })));
+  if (reason === 'pointercancel') await act(async () => adjustment(ui).props.onPointerCancel());
+  if (reason === 'readonly') await ui.update({ readOnly: true });
+  if (reason === 'resize') await ui.update({ features: { resize: false } });
+  if (reason === 'selection') await act(async () => ui.c.selectDrawing(null));
+  await act(async () => ui.drawing('shape').props.onPointerUp(end));
+  assert.equal(ui.c.workbook, before); assert.equal(ui.c.canUndo, false);
+  if (['readonly', 'resize', 'selection'].includes(reason)) assert.equal(adjustment(ui), undefined);
+  else assert.equal(adjustment(ui).props['aria-valuenow'], 50);
+});
+
+test('rounded adjustment keyboard exposes 0 to 100 percent and respects edit denial', async t => {
+  const ui = await mount(t, { initialWorkbook: roundedBook() });
+  await act(async () => ui.c.selectDrawing('shape'));
+  for (const [key, shiftKey, expected] of [['ArrowRight', false, 51], ['ArrowUp', true, 61], ['ArrowDown', true, 51], ['Home', false, 0], ['End', false, 100]]) {
+    await act(async () => adjustment(ui).props.onKeyDown(event({ key, shiftKey })));
+    assert.equal(adjustment(ui).props['aria-valuenow'], expected);
+    assert.equal(ui.c.selectedDrawingId, 'shape');
+  }
+  const denied = await mount(t, { initialWorkbook: roundedBook({ cornerRadiusRatio: 0.5 }), onEditRequest: async () => false });
+  await act(async () => denied.c.selectDrawing('shape'));
+  const before = denied.c.workbook;
+  await act(async () => adjustment(denied).props.onKeyDown(event({ key: 'Home' })));
+  assert.equal(denied.c.workbook, before);
+  await act(async () => adjustment(denied).props.onPointerDown(adjustmentPointer(88, 39)));
+  await act(async () => adjustment(denied).props.onPointerUp(adjustmentPointer(59, 39)));
+  assert.equal(denied.c.workbook, before); assert.equal(adjustment(denied).props['aria-valuenow'], 100);
+  await ui.update({ features: { resize: false } });
+  assert.equal(adjustment(ui), undefined); assert.equal(ui.property('角の丸み（%）'), undefined);
+});

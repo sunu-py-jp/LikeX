@@ -131,6 +131,26 @@
   }}
 /&gt;</code></pre></div>
 <div class="table-scroll" tabindex="0" role="region" aria-label="APIの一覧表"><table><thead><tr><th scope="col">context</th><th scope="col">内容</th></tr></thead><tbody><tr><td><code>entry</code></td><td><code>ExplorerPreviewRequest</code>。表示用PDFに差し替えても、元ファイルのID・名前・パス・MIME・サイズ・本体参照を保持</td></tr><tr><td><code>processing</code></td><td>対象が処理中か。現在の <code>processingEntryIds</code> を反映</td></tr><tr><td><code>processingLabel</code></td><td><code>getProcessingLabel(entry)</code> で指定したラベル</td></tr><tr><td><code>allowDownload</code></td><td>ダウンロード機能のON/OFF。項目ごとの許可はダウンロード実行時に別途確認</td></tr><tr><td><code>defaultPreview</code></td><td><code>resolvePreviewSource</code> と <code>preview</code> の設定を使う内蔵本文。任意の位置に配置可能</td></tr></tbody></table></div><p>非同期表示には <code>renderPreview={context =&gt; &lt;CustomPreview {...context} /&gt;}</code> のように通常のコンポーネントを返し、そのコンポーネントのeffect等で読み込みます。<code>renderPreview={async (...) =&gt; ...}</code> やコールバック内部でのHook呼出は使いません。独自コンポーネントでは対象変更・アンマウント時のキャンセル、エラー表示、<code>allowDownload</code> の反映を親が実装します。</p>
+<h3 id="読み込みエラーの詳細を表示する">読み込みエラーの詳細を表示する<a class="heading-link" href="#%E8%AA%AD%E3%81%BF%E8%BE%BC%E3%81%BF%E3%82%A8%E3%83%A9%E3%83%BC%E3%81%AE%E8%A9%B3%E7%B4%B0%E3%82%92%E8%A1%A8%E7%A4%BA%E3%81%99%E3%82%8B" aria-label="この見出しへのリンク">#</a></h3>
+<p><code>ExplorerPreviewError</code> は、短い案内文の直後にエラー詳細のアイコンを表示する公開コンポーネントです。アイコンにポインターを合わせるかキーボードでフォーカスすると詳細を開き、クリックまたはEnterで固定できます。再クリック、外側のクリック、Escapeで閉じます。詳細を開いた状態のEscapeでは、親のプレビューダイアログを閉じません。長い詳細は折り返してスクロールでき、選択・コピーもできます。</p>
+<div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> { ExplorerPreviewError } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/explorer&quot;</span>;
+<span class="syntax-keyword">import</span> <span class="syntax-string">&quot;@likex/explorer/styles.css&quot;</span>;
+
+<span class="syntax-comment">// 独自ビューの非同期読み込みで捕捉した例外を、そのまま渡します。</span>
+<span class="syntax-keyword">function</span> FailedPreview({ error, allowDownload }: {
+  error: <span class="syntax-keyword">unknown</span>;
+  allowDownload: <span class="syntax-keyword">boolean</span>;
+}) {
+  <span class="syntax-keyword">return</span> &lt;ExplorerPreviewError
+    error={error}
+    message={allowDownload
+      ? <span class="syntax-string">&quot;ファイルを表示できません。ダウンロードして確認してください。&quot;</span>
+      : <span class="syntax-string">&quot;ファイルを表示できません。&quot;</span>}
+  /&gt;;
+}</code></pre></div>
+<p>公開型は <code>ExplorerPreviewErrorProps</code>（<code>error: unknown</code>、<code>message?: string</code>、<code>className?: string</code>）です。<code>message</code> の既定値は「プレビューを表示できませんでした。」です。Explorerの外でも利用でき、専用のProviderは不要です。ソースコピーでは <code>@/components/explorer</code> と <code>@/components/explorer/styles.css</code> をimportします。</p>
+<p>詳細には実際の例外の <code>Error.message</code> または文字列だけをプレーンテキストとして表示します。空のメッセージやその他の値は「エラーの詳細を取得できませんでした。」となり、スタックトレースやオブジェクト全体は表示しません。ファイル形式や破損原因の推測、Office変換、元ファイルの変更は行いません。利用側が捕捉した非同期エラーは、その利用側のエラー表示でこのコンポーネントへ渡してください。</p>
+<p>内蔵プレビューの読み込み失敗と <code>renderPreview</code> コールバック自体が同期的に投げた例外にも、この表示を使います。<code>renderPreview</code> が返す独自コンポーネント内部の描画例外には、利用側のReact Error Boundaryを用意してください。</p>
 <h2 id="表示用データを差し替える">表示用データを差し替える<a class="heading-link" href="#%E8%A1%A8%E7%A4%BA%E7%94%A8%E3%83%87%E3%83%BC%E3%82%BF%E3%82%92%E5%B7%AE%E3%81%97%E6%9B%BF%E3%81%88%E3%82%8B" aria-label="この見出しへのリンク">#</a></h2>
 <p><code>resolvePreviewSource(entry, { signal, processing })</code> は元の <code>ExplorerPreviewRequest</code> を受け取り、同期値またはPromiseで次の記述子を返します。<code>null</code> / <code>undefined</code> は通常の <code>source</code> / <code>readFile</code> に戻します。表示用データは保存モデルや元ファイルの読込キャッシュとは別に扱われます。</p>
 <p>公開型は <code>ExplorerPreviewSourceResolver</code>、<code>ExplorerPreviewSource</code>、<code>ExplorerPreviewSourceContext</code>、<code>ExplorerPreviewReadContext</code> です。<code>@likex/explorer</code>（ソースコピー時は <code>@/components/explorer</code>）からimportできます。</p>

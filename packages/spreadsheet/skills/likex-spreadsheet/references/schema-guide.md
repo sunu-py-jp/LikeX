@@ -118,7 +118,9 @@
 | `shape` | `shape`, `fill`, `stroke`, `strokeWidth`、任意の `text`, `fontSize`, `color`, `bold` と下記の文字レイアウト属性 |
 | `text` | `text`, `fontSize`, `color`, `background`、任意の `bold` と下記の文字レイアウト属性 |
 
-`shape` は `rectangle`, `roundedRectangle`, `ellipse`, `triangle`, `rightTriangle`, `diamond`, `parallelogram`, `trapezoid`, `rightArrow`, `leftArrow`, `upArrow`, `downArrow`, `leftRightArrow`, `upDownArrow`, `line`, `arrow`に加え、`bentArrow`, `bentUpArrow`, `uturnArrow`, `leftUpArrow`, `leftRightUpArrow`, `quadArrow`, `chevron`, `homePlate`, `pentagon`, `hexagon`, `octagon`, `star5`, `plus`、および`flowChartProcess`, `flowChartDecision`, `flowChartTerminator`, `flowChartInputOutput`, `flowChartPredefinedProcess`, `flowChartDocument`, `flowChartMultidocument`, `flowChartPreparation`, `flowChartManualInput`, `flowChartManualOperation`, `flowChartMerge`, `flowChartDelay`。カギ矢印は`bentArrow`、上向きカギ矢印は`bentUpArrow`。塗りのあるブロック図形で、2端点の接続線とは異なる。Excelの標準プリセットから取り込み、画像化せず再出力する。Officeの個別調整値は警告して既定形へ戻す。Slideの `rect` / `roundRect` とは異なる。
+`shape` は `rectangle`, `roundedRectangle`, `ellipse`, `triangle`, `rightTriangle`, `diamond`, `parallelogram`, `trapezoid`, `rightArrow`, `leftArrow`, `upArrow`, `downArrow`, `leftRightArrow`, `upDownArrow`, `line`, `arrow`に加え、`bentArrow`, `bentUpArrow`, `uturnArrow`, `leftUpArrow`, `leftRightUpArrow`, `quadArrow`, `chevron`, `homePlate`, `pentagon`, `hexagon`, `octagon`, `star5`, `plus`、および`flowChartProcess`, `flowChartDecision`, `flowChartTerminator`, `flowChartInputOutput`, `flowChartPredefinedProcess`, `flowChartDocument`, `flowChartMultidocument`, `flowChartPreparation`, `flowChartManualInput`, `flowChartManualOperation`, `flowChartMerge`, `flowChartDelay`。カギ矢印は`bentArrow`、上向きカギ矢印は`bentUpArrow`。塗りのあるブロック図形で、2端点の接続線とは異なる。Excelの標準プリセットから取り込み、画像化せず再出力する。角丸長方形の丸み以外のOfficeの個別調整値は警告して既定形へ戻す。Slideの `rect` / `roundRect` とは異なる。
+
+`cornerRadiusRatio?: number` は角丸長方形の短辺に対する半径の比率。有限の0〜0.5を受け付け、省略は0.16667、0は角なし。図形の直下へ置く。外形・文字領域・接続点へ反映し、SPON・コピー・Undo/Redo・XLSXで保持する。XLSXの `roundRect` の `adj` は比率×100000で、Office出力時は整数へ丸める。接続先のカスタム形状も値を保持する。
 
 回転は時計回り、有限の値を0以上360未満へ正規化し、0は省略する。反転は正のサイズの枠内で行い、文字は読みやすい向きを保つ。オフセットは0〜10,000px、描画サイズは最大10,000px。画像サイズは正の小数を許可し、図形・テキストは1px以上。描画文字サイズは1〜400px、線幅は0〜100px。形状を変えてもIDは維持し、`type` は更新できない。
 
@@ -140,7 +142,7 @@
 | --- | --- |
 | `fontFamily` | 空でない100文字以内のフォント名。省略時は表示環境の標準フォント |
 | `italic`, `underline` | boolean。省略時false |
-| `textInsets` | `{ left, top, right, bottom }`。各0〜10,000px、省略時は各8px |
+| `textInsets` | `{ left, top, right, bottom }`。各0〜10,000px、省略時は各0px。Excelから取り込んだ余白は保持 |
 | `textWrap` | `wrap` / `none`。省略時`wrap` |
 | `textOverflow`, `textVerticalOverflow` | 横／縦の `clip` / `overflow`。省略時`clip` |
 | `textAlign` | `left` / `center` / `right`。省略時は図形が中央、テキストボックスが左 |
@@ -149,7 +151,7 @@
 | `textFontScale` | 0.01〜1の保存済み縮小率。省略時1。`fontSize` に掛け、`shrink` の実測縮小の上限にも使う |
 | `textLineHeight` | 行高の文字サイズに対する倍率（0.1〜10）。省略時1.4 |
 
-`shrink` はブラウザーで文字を測定して枠内へ縮小するが、その測定値で保存済みの文字サイズや縮小率を上書きしない。ヘッドレス操作は指定した属性を保持する。`resize` は文字領域を縦に拡張し、図形の外形は保存済みの大きさを維持する近似。XLSX取り込みではこの近似を警告し、再出力には自動拡大指定を残す。
+`shrink` はブラウザーで枠・余白・文字の小数ピクセル寸法を保って測定し、横幅と行の高さを枠内へ縮小する。その測定値で保存済みの文字サイズや縮小率を上書きしない。ヘッドレス操作は指定した属性を保持する。`resize` は文字領域を縦に拡張し、図形の外形は保存済みの大きさを維持する近似。XLSX取り込みではこの近似を警告し、再出力には自動拡大指定を残す。
 
 XLSXのrun書式は段落・リストの既定書式から属性ごとに継承する。ただし文字ごとに異なる書式や段落ごとに異なる配置は先頭へ統一され、警告される。SPONはこの単一書式を保存するため、再出力で元の混在書式は復元しない。明示した余白・折り返し・配置・はみ出し・自動調整・行間はXLSXでも保持する。フォント自体を埋め込む機能はなく、端末の代替フォントで文字幅が変わる場合がある。
 

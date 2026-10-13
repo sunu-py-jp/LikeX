@@ -171,7 +171,7 @@
 | `type` | 引数 |
 | --- | --- |
 | `images.insert` | `sheetId`, `resource: SpreadsheetImageResource`, `anchor`, `width?`, `height?`, `alt?`, `flipX?`, `flipY?`, `rotation?` |
-| `shapes.insert` | `sheetId`, `shape`, `anchor`, `width?`, `height?`, `flipX?`, `flipY?`, `rotation?`, `fill?`, `stroke?`, `strokeWidth?`, `text?`, `fontSize?`, `color?`, `bold?`、下記の共通文字レイアウト属性 |
+| `shapes.insert` | `sheetId`, `shape`, `anchor`, `width?`, `height?`, `flipX?`, `flipY?`, `rotation?`, `fill?`, `stroke?`, `strokeWidth?`, `cornerRadiusRatio?`, `text?`, `fontSize?`, `color?`, `bold?`、下記の共通文字レイアウト属性 |
 | `textBoxes.insert` | `sheetId`, `anchor`, `text?`, `width?`, `height?`, `fontSize?`, `color?`, `background?`, `bold?`, `flipX?`, `flipY?`, `rotation?`、下記の共通文字レイアウト属性 |
 | `images.update` / `shapes.update` / `textBoxes.update` | `sheetId`, `drawingId`, `patch`。対応する描画型のフィールドのみ |
 | `drawings.paste` | `sheetId`, `payload: { drawing, resource? }`, `anchor?` |
@@ -183,6 +183,8 @@
   { "type": "textBoxes.insert", "sheetId": "sales", "anchor": { "row": 16, "column": 0 }, "text": "金額は税抜です", "width": 260, "height": 40, "fontSize": 16 }
 ]
 ```
+
+角丸長方形（`shape: "roundedRectangle"`）の丸みは `cornerRadiusRatio`（有限の0〜0.5、省略時0.16667）で指定する。既存図形は `shapes.update` の `patch: { cornerRadiusRatio: 0.35 }` などで更新する。0は角なし。サイズ変更後も短辺に対する比率を保ち、接続点と文字領域も追従する。
 
 カギ矢印は`shape: "bentArrow"`、上向きカギ矢印は`"bentUpArrow"`、Uターン矢印は`"uturnArrow"`、書類は`"flowChartDocument"`を指定する。折れ曲がった矢印を表示したいだけならブロック図形としてこれらを使い、2点と接続先を操作する線とは分ける。
 

@@ -11,6 +11,8 @@ description: LikeX SpreadsheetのネイティブJSON（.spon）を作成・検�
 
 リボンの表示方法はホストUIの `initialRibbonDisplayMode` / `ribbonDisplayMode` とHandleで制御する。SPON／XLSXやCLIコマンドの対象ではないため、リボンを隠す目的でブックや機能設定を書き換えない。[リボンの表示ガイド](../../src/docs/ribbon-display.md)を参照する。
 
+通常ビューの描画範囲はホストの `renderingMode: "progressive" | "viewport"` で切り替える。既定の `"progressive"` は表示範囲を先に描画し、現在のシートの残りの行も順次追加して保持する。`"viewport"` は画面とその前後、入力・結合に必要な行だけを描画する省メモリモード。大きいシートや低スペック端末ではホストから指定する。これは読み込み済みデータのUI描画の設定で、ファイル取得・数式計算・SPON／XLSX・モデルAPI・CLI・専用サムネイル・印刷プレビューは変更しない。[描画モード](../../src/docs/api.md#シートの描画モード)を参照する。
+
 検索UIは `initialSearchOpen` / `initialSearchQuery` で初期表示し、表示後はHandleの `openSearch(query?)` / `closeSearch()` で操作する。LikeSlide・LikeDocument・PDFビューアーと共通の契約で、リボン非表示・読み取り専用でも使える。`features.search: false` の場合は開けない。検索は同じdocumentのbodyへPortal表示するフローティングウィンドウで、ブラウザーの表示領域内なら親コンポーネントの外側へも移動・サイズ変更できる。親の配色を引き継ぎ、開いたまま背後のシートを操作でき、閉じるボタン・Escで閉じる。セル編集中のEscは入力取消を優先する。位置とサイズはマウント中の再表示でも維持する。検索の表示状態はSPON／XLSXやCLIの対象ではない。[検索UIの組み込み方](../../src/docs/editing-tools.md)を参照する。
 
 サーバー等で取得した結果をUIに案内する場合は `externalSearch: { results: [{ id, title?, snippet?, locationLabel?, target: { sheetId, range } }], initialResultId?, onResultSelect? }` を渡す。`range` はA1表記で、`openExternalSearch(resultId?)` で結果を表示・移動できる。`initialSearchMode: "local" | "external"` は初期モードを指定する。外部結果の再表示・props更新では閲覧中セルを動かさず、明示的な結果選択で範囲の左上へ戻る。既存の `onSearchRequest` は文書内キーワード検索処理の差し替えとして別に使う。結果・表示状態はCLIやSPON/XLSXの対象外。
@@ -42,7 +44,7 @@ node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input 
 
 処理フローなどの接続線は `lines.insert` / `lines.update` の始点・終点で編集する。先に図形を作ってIDを取得し、同シートの対象IDと8方向の `binding.port` で接続する。矩形の幅・高さ・回転で線を編集しない。両端矢印は `startArrow` / `endArrow` で個別設定する。フロー図を直角の線で結ぶ場合は `routing: "elbow"` を指定し、途中の曲がり角は自動計算に任せる。直線は `routing: "straight"` または新規作成時の省略。詳しくは[直線・接続線](references/commands.md#直線接続線)を参照する。
 
-図形・テキストボックスの文字レイアウトは共通の `SpreadsheetDrawingTextStyle` を使い、`shapes.insert` / `textBoxes.insert` へ直接、更新コマンドの `patch` へ指定する。`fontFamily`・装飾・`textInsets`・折り返し・配置・はみ出し・行間・縮小指定はSPONとXLSXで保持する。狭い注記枠の全文を表示する場合は、必要に応じてゼロ余白と `textWrap: "none"`, `textOverflow: "overflow"` を指定し、文字列を短縮して再現しない。既存属性の省略時は8px余白・折り返し・切り取りの従来設定を維持する。`textAutoFit: "resize"` は文字領域だけを拡張し、図形外形は保存サイズのまま。混在する文字書式は取り込み時に先頭へ統一され、再出力で元の混在書式は復元しない。[文字レイアウトのコマンド](references/commands.md#文字レイアウト)と[保存属性](references/schema-guide.md#描画の文字レイアウト)を確認する。
+図形・テキストボックスの文字レイアウトは共通の `SpreadsheetDrawingTextStyle` を使い、`shapes.insert` / `textBoxes.insert` へ直接、更新コマンドの `patch` へ指定する。`fontFamily`・装飾・`textInsets`・折り返し・配置・はみ出し・行間・縮小指定はSPONとXLSXで保持する。狭い注記枠の全文を表示する場合は、必要に応じてゼロ余白と `textWrap: "none"`, `textOverflow: "overflow"` を指定し、文字列を短縮して再現しない。余白の省略時は表示・編集・XLSX出力とも各0pxとする。Excelから取り込んだ余白は保持し、既存SPONで以前の8px余白を維持する場合は `textInsets` に明示する。折り返し・切り取りの既定値は維持する。`textAutoFit: "resize"` は文字領域だけを拡張し、図形外形は保存サイズのまま。混在する文字書式は取り込み時に先頭へ統一され、再出力で元の混在書式は復元しない。[文字レイアウトのコマンド](references/commands.md#文字レイアウト)と[保存属性](references/schema-guide.md#描画の文字レイアウト)を確認する。
 
 対象IDと変更内容が揃った編集は、複数シートのセル入力・書式・罫線・行列操作でも1つの配列にまとめて `apply` する。必要範囲の取得 → 一括編集 → 対象範囲の確認を基本にする。新しいシートは `sheets.add` で発行されたIDを取得し、その後の編集をまとめて次の呼び出しで実行する。
 
@@ -99,8 +101,12 @@ XLSXとの変換を明示的に求められた場合は、`/model` の `importSp
 
 XLSXでは、シート上限外の値・数式を持たない空セルとその書式、上限外の名前付き範囲、1セルだけの結合指定を警告付きで省略する。結合範囲の左上以外に値・数式がある場合は内容を保持してその結合だけを解除する。不正な参照や重複、範囲外の値・数式、安全な処理上限の超過は拒否する。警告を確認して採用し、未対応メタデータの完全な往復は期待しない。行高・列幅は1〜1,000pxを保持する。
 
+取り込んだ対応描画オブジェクトは元の重なり順を保持する。非表示指定された図形・画像・線は警告付きで省略し、表示状態で復活させない。
+
+回転のない標準の直線・接続線はセルアンカーを位置の基準にする。通常図形として保存された直線も端点へ変換し、水平・垂直線、反転、両端の矢印を保持する。回転した線や独自経路は図形側の座標から算出する。
+
 シートの右クリックによる名前変更は `sheets.rename`、描画の複製は `copySpreadsheetDrawing` と `drawings.paste`、反転・回転リセットは描画型の更新コマンドと同じ操作です。保存形式の追加はありません。GUIの対象と機能制御は [右クリックメニュー](../../src/docs/context-menu.md) を参照してください。
 
 ### Office図形の挿入
 
-`shapes.insert`の`shape: "bentArrow"`でカギ矢印、`"uturnArrow"`でUターン矢印、`"flowChartDocument"`で書類を挿入できる。基本図形・ブロック矢印・フローチャートの一覧は`references/schema-guide.md`を参照する。矢印ブロックは塗り付きの図形で、線を引く場合は`lines.insert`と両端の矢印設定を使う。GUIとモデルAPIは同じ種類を受け付け、XLSXは編集可能なDrawingML図形として保存する。Office側の個別調整値は警告付きで標準形状へ近似する。
+`shapes.insert`の`shape: "bentArrow"`でカギ矢印、`"uturnArrow"`でUターン矢印、`"flowChartDocument"`で書類を挿入できる。基本図形・ブロック矢印・フローチャートの一覧は`references/schema-guide.md`を参照する。矢印ブロックは塗り付きの図形で、線を引く場合は`lines.insert`と両端の矢印設定を使う。GUIとモデルAPIは同じ種類を受け付け、XLSXは編集可能なDrawingML図形として保存する。角丸長方形は `cornerRadiusRatio`（0〜0.5、省略時0.16667）で丸みを変更し、SPON・コピー・Undo/Redo・XLSXで保持する。GUIの黄色い調整点と設定欄は0〜100%表示で、100%がAPIの0.5に相当する。ドラッグは離したときに1回の編集として確定する。その他のOffice側の個別調整値は警告付きで標準形状へ近似する。

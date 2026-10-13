@@ -5,6 +5,7 @@ import type { ExplorerProps } from "../props";
 import type { ExplorerEntry } from "../model/draft";
 import { createPreviewRequest } from "../model/preview";
 import FilePreview from "./file-preview";
+import { ExplorerPreviewError } from "./explorer-preview-error";
 
 type PreviewContentProps = Pick<ExplorerProps,
   "readFile" | "renderPreview" | "resolvePreviewSource" | "getProcessingLabel"> & {
@@ -42,7 +43,7 @@ export function ExplorerPreviewContent({ entries, entry, processing, allowDownlo
     processing={processing} processingLabel={processingLabel} previewOptions={previewOptions} />;
   try {
     return renderPreview?.({ entry: request, processing, processingLabel, allowDownload, defaultPreview }) ?? defaultPreview;
-  } catch {
-    return <p role="alert">プレビューを表示できませんでした</p>;
+  } catch (error) {
+    return <ExplorerPreviewError error={error} />;
   }
 }

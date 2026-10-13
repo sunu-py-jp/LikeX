@@ -84,6 +84,11 @@ export function SlideProperties({ editor, onClose }: { editor: SlideEditor; onCl
           <p className="lxp-muted">始点・終点を図形の接続点へドラッグすると追従します。自動の折れ線は接続先を避けて直角に曲がります。離して動かすと接続を解除します。</p>
         </Section>}
         {first.type !== "image" && !isSlideLine(first) && <>
+          {first.type === "shape" && first.shape === "roundRect" && editor.features.formatting && <Section title="図形">
+            <NumericField key={`${first.id}:cornerRadiusRatio`} label="角の丸み（%）" value={(first.cornerRadiusRatio ?? .12) * 200} min={0} max={100}
+              disabled={disabled || elements.some(item => item.type === "shape" && item.shape === "roundRect" && item.locked)}
+              onCommit={value => update({ cornerRadiusRatio: value / 200 }, elements.filter(item => item.type === "shape" && item.shape === "roundRect"))} />
+          </Section>}
           {editor.features.text && <Section title="テキスト"><TextValue key={first.id} label="内容" value={first.text} disabled={disabled || first.locked}
             onCommit={text => update({ text }, elements.filter(item => item.type !== "image"))} /></Section>}
           {editor.features.formatting && <Section title="文字と塗りつぶし">

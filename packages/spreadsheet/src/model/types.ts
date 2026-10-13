@@ -53,10 +53,10 @@ type SpreadsheetDrawingBase = {
   rotation?: number;
 };
 export type SpreadsheetImageDrawing = SpreadsheetDrawingBase & { type: "image"; resourceId: string; alt: string };
-/** Optional drawing text properties; omitted fields retain the original LikeX defaults. */
+/** Optional drawing text properties; omitted fields use the LikeX defaults. */
 export type SpreadsheetDrawingTextStyle = {
   fontFamily?: string; italic?: boolean; underline?: boolean;
-  /** Insets in CSS pixels. Defaults to 8px on each side for native LikeX objects. */
+  /** Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained. */
   textInsets?: Readonly<{ left: number; top: number; right: number; bottom: number }>;
   textWrap?: "wrap" | "none";
   textOverflow?: "clip" | "overflow";
@@ -82,6 +82,11 @@ export type SpreadsheetShapeDrawing = SpreadsheetDrawingBase & SpreadsheetDrawin
    * @maximum 100
    */
   strokeWidth: number;
+  /** Rounded rectangle radius as a fraction of its shorter side. Omitted uses 0.16667.
+   * @minimum 0
+   * @maximum 0.5
+   */
+  cornerRadiusRatio?: number;
   /** Only line/arrow shapes. Omitted on legacy rectangle-based lines. */
   line?: SpreadsheetLine;
   /** Two-endpoint routing. Omitted means straight; elbow is recalculated from current targets. */
@@ -110,6 +115,11 @@ export type SpreadsheetDrawingPatch = Partial<Omit<SpreadsheetDrawingBase, "id">
    * @maximum 100
    */
   strokeWidth: number; text: string;
+  /** Rounded rectangle radius as a fraction of its shorter side.
+   * @minimum 0
+   * @maximum 0.5
+   */
+  cornerRadiusRatio: number;
   /** @minimum 1
    * @maximum 400
    */

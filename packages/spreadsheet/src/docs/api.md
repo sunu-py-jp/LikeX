@@ -2,7 +2,7 @@
 
 [利用ガイドへ戻る](./README.md)
 
-`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetMergedRange`、`SpreadsheetSelection`、`SpreadsheetSelectionRange`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode`、`SpreadsheetRibbonDisplayMode` を公開しています。
+`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetMergedRange`、`SpreadsheetSelection`、`SpreadsheetSelectionRange`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode`、`SpreadsheetRibbonDisplayMode`、`SpreadsheetRenderingMode` を公開しています。
 
 ## ブックの形式
 
@@ -65,6 +65,7 @@ try {
 | `initialWorkbook` | `SpreadsheetWorkbook` | マウント時の初期ブック。省略時は空の300行×26列。再代入で下書きは置き換わりません。 |
 | `initialSheetId` / `initialSheetName` | `string` | マウント時に開くシートのID／名前。完全一致。両指定は同じシートが必要。不正な指定は先頭＋エラー通知。[対象シート](./selection.md#最初に開くシートを指定する) |
 | `initialZoom` | `number` | マウント時の表示倍率。既定100％、25〜200へ補正。有限でない数値は100。[表示倍率](./zoom.md) |
+| `renderingMode` | `SpreadsheetRenderingMode` | `"progressive"`（既定）は現在のシートを順次描画。`"viewport"` は表示範囲中心の省メモリ描画。表示中の変更にも追従。[描画モード](#シートの描画モード) |
 | `initialRibbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | マウント時のリボン表示。`expanded`（既定）・`tabs`・`autoHide`・`hidden`。[リボンの表示](./ribbon-display.md) |
 | `ribbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | 親が管理するリボン表示。初期値より優先し、表示中の変更にも追従します。 |
 | `onRibbonDisplayModeChange` | `(mode: SpreadsheetRibbonDisplayMode) => void` | UI／Handleからの表示変更要求。制御用prop使用時は親が値を反映します。初期表示とprop更新では通知しません。 |
@@ -98,6 +99,40 @@ try {
 保存前後の処理、楽観・悲観ロック、Handleからの保存・更新・破棄、イベント一覧は[保存・編集許可・イベント](./lifecycle.md)を参照してください。
 
 セル・行列・画像・図形の操作を外側から呼ぶ場合は `SpreadsheetHandle` を使います。公開型とバッチ、エラー、画像の準備関数 `prepareSpreadsheetImage` は[外部操作API](./external-operations.md)にまとめています。
+
+## シートの描画モード
+
+`renderingMode` で、画面外の行をどこまで描画するかを選べます。省略時は `"progressive"` です。
+
+| モード | 描画する範囲 |
+| --- | --- |
+| `"progressive"` | 最初に表示範囲を描画し、現在のシートの残りの行もバックグラウンドで分割して追加します。一度追加した行は、画面外へスクロールしても保持します。 |
+| `"viewport"` | 表示範囲とその前後の行、入力中のセルや表示中の結合セルに必要な行だけを描画します。画面から離れた行のセルDOMは保持しません。 |
+
+```tsx
+import { useState } from "react";
+import Spreadsheet, { type SpreadsheetRenderingMode, type SpreadsheetWorkbook } from "@likex/spreadsheet";
+
+function WorkbookView({ workbook }: { workbook: SpreadsheetWorkbook }) {
+  const [mode, setMode] = useState<SpreadsheetRenderingMode>("progressive");
+  return <>
+    <label>
+      <input type="checkbox" checked={mode === "viewport"}
+        onChange={event => setMode(event.target.checked ? "viewport" : "progressive")} />
+      省メモリ表示
+    </label>
+    <Spreadsheet initialWorkbook={workbook} renderingMode={mode} style={{ height: 560 }} />
+  </>;
+}
+```
+
+モードは親からいつでも変更できます。低スペックの端末や行・列が多いシートでは `"viewport"` を指定してください。端末性能による自動判定はせず、利用側の設定に従います。どちらのモードも、スクロール先の表示範囲はバックグラウンド処理の完了を待たずに描画します。
+
+`"viewport"` では図形・画像・線も表示範囲とその周辺だけを描画します。画面を横切る線、選択・編集中のオブジェクト、枠の外にはみ出した文字は表示が欠けないように保持します。接続先や重なり順のデータは変更しません。プレイグラウンドの `/spreadsheet/rendering` で表示中の切り替えを確認できます。
+
+順次描画は現在開いているシートだけを対象にします。シート切り替え、ブックの取り込み・再取得、モード変更、アンマウントでは古い対象への追加処理を止めます。別シートのセルDOMを先に作る設定ではありません。列はどちらのモードでも仮想化せず、対象行の全列を描画します。`"progressive"` では最終的に現在のシートの全行を保持するため、DOM数とメモリ使用量が増えます。
+
+これは読み込み済みのブックに対するUIの描画設定です。ファイルの取得、XLSXの取り込み、データ検証や数式計算を遅延させる設定ではありません。値・選択・編集許可・保存内容は変わらず、SPON／XLSXにも保存しません。専用の `SpreadsheetThumbnail` と印刷プレビューの描画範囲には影響しません。
 
 ## 保存
 

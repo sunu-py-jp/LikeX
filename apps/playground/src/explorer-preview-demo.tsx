@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Explorer, { type ExplorerEntry, type ExplorerPreviewHandler, type ExplorerProps } from "@likex/explorer";
 import "../../../packages/explorer/src/styles.css";
+import { ExcelPreviewExample } from "./demo/excel-preview";
 
 type Workspace = { entries: ExplorerEntry[]; originals: Map<string, Blob>; pdf: Blob; textUrl: string };
 const presentationId = "preview-presentation";
 const textId = "preview-text";
+const brokenExcelId = "preview-broken-excel";
 
 async function createWorkspace(signal: AbortSignal): Promise<Workspace> {
   const [{ PDFDocument, StandardFonts, rgb }, { exportSlidePptx }] = await Promise.all([
@@ -45,9 +47,11 @@ async function createWorkspace(signal: AbortSignal): Promise<Workspace> {
     [textId, new Blob(["LikeX プレビューの例\n\nこのテキストは元ファイルです。\nチェックを入れると別タブで開きます。\n"], { type: "text/plain;charset=utf-8" })],
     ["preview-csv", new Blob(["項目,値\n元ファイル,PPTX\n表示用データ,PDF\n保存先,このタブのメモリ\n"], { type: "text/csv;charset=utf-8" })],
     ["preview-image", image],
+    // Intentionally not a ZIP: demonstrate the real XLSX import exception without a server.
+    [brokenExcelId, new Blob(["This demo intentionally contains invalid XLSX bytes."], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })],
   ]);
   const names: Record<string, string> = {
-    [presentationId]: "プレゼンテーション.pptx", [textId]: "ガイド.txt", "preview-csv": "一覧.csv", "preview-image": "サンプル.png",
+    [presentationId]: "プレゼンテーション.pptx", [textId]: "ガイド.txt", "preview-csv": "一覧.csv", "preview-image": "サンプル.png", [brokenExcelId]: "読み込みエラーの例.xlsx",
   };
   const date = "2026-09-01T00:00:00.000Z";
   const entries = [...originals].map(([id, blob]): ExplorerEntry => ({
@@ -62,6 +66,7 @@ function PreviewWorkspace({ workspace }: { workspace: Workspace }) {
   const [newTab, setNewTab] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
   const [notice, setNotice] = useState("");
+  const [diagnosticFile, setDiagnosticFile] = useState<File | null>(null);
   const conversionController = useRef<AbortController | null>(null);
   const textUrl = workspace.textUrl;
 
@@ -105,6 +110,7 @@ function PreviewWorkspace({ workspace }: { workspace: Workspace }) {
         <h1 style={{ margin: "0 0 8px", fontSize: 22 }}>Explorer プレビュー連携</h1>
         <p style={{ margin: "4px 0 12px", fontSize: 14 }}>
           ファイル名をクリックして表示します。PPTXのPDF変換は6秒の模擬処理です。ダウンロードは元ファイルを取得します。
+          「読み込みエラーの例.xlsx」は、アイコンから失敗理由を確認するための不正ファイルです。
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px 18px", fontSize: 14 }}>
           <button type="button" onClick={() => {
@@ -118,6 +124,9 @@ function PreviewWorkspace({ workspace }: { workspace: Workspace }) {
           <label><input type="checkbox" checked={showInfo} onChange={event => setShowInfo(event.target.checked)} /> プレビューに原本情報を追加</label>
           <label><input type="checkbox" checked={newTab} onChange={event => setNewTab(event.target.checked)} /> テキストを別タブで開く</label>
           {textUrl && <a href={textUrl} target="_blank" rel="noopener noreferrer">ガイドを別タブで開く</a>}
+          <label>Excelを確認 <input type="file" accept=".xlsx" aria-label="確認するExcelファイル"
+            onChange={event => { const file = event.currentTarget.files?.[0]; if (file) setDiagnosticFile(file); event.currentTarget.value = ""; }} /></label>
+          {diagnosticFile && <button type="button" onClick={() => setDiagnosticFile(null)}>Excelの確認を終了</button>}
         </div>
         <p role="status" style={{ margin: "10px 0 0", fontSize: 13 }}>
           {processing ? "変換中 — PPTXを開くと待機表示を確認できます。" : conversion.phase === "ready" ? "PDFの準備ができました。" : "変換を中止しました。"}
@@ -125,7 +134,7 @@ function PreviewWorkspace({ workspace }: { workspace: Workspace }) {
         </p>
       </header>
       <div style={{ minHeight: 0, flex: 1, padding: 16 }}>
-        <Explorer
+        {diagnosticFile ? <ExcelPreviewExample file={diagnosticFile} name={diagnosticFile.name} /> : <Explorer
           initialEntries={workspace.entries}
           readFile={readFile}
           previewTrigger="click"
@@ -133,7 +142,8 @@ function PreviewWorkspace({ workspace }: { workspace: Workspace }) {
           resolvePreviewSource={resolvePreviewSource}
           processingEntryIds={processing ? [presentationId] : []}
           getProcessingLabel={() => "PDFへの模擬変換中"}
-          renderPreview={({ entry, defaultPreview }) => showInfo ? (
+          renderPreview={({ entry, defaultPreview }) => entry.id === brokenExcelId
+            ? <ExcelPreviewExample file={workspace.originals.get(brokenExcelId)!} name={entry.name} /> : showInfo ? (
             <section aria-label="原本情報付きプレビュー">
               <p style={{ margin: "0 0 12px", fontSize: 12, overflowWrap: "anywhere" }}>
                 原本: {entry.name} / {entry.size.toLocaleString()} bytes / {entry.mime}
@@ -147,7 +157,7 @@ function PreviewWorkspace({ workspace }: { workspace: Workspace }) {
           selection={{ checkboxes: false }}
           ui={{ sidebar: false }}
           style={{ height: "100%" }}
-        />
+        />}
       </div>
     </main>
   );

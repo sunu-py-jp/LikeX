@@ -5,7 +5,8 @@ import type { SlideElement, SlideShapeElement } from "../model/types";
 import { emu, fill, xml } from "./pptx-xml";
 
 export function pptxConnectorTargetGeometry(element: SlideElement): string {
-  return createOfficeConnectorGeometry(element.type === "shape" ? element.shape : element.type, getSlideConnectorOutline(element));
+  return createOfficeConnectorGeometry(element.type === "shape" ? element.shape : element.type, getSlideConnectorOutline(element),
+    element.type === "shape" && element.shape === "roundRect" ? { cornerRadiusRatio: element.cornerRadiusRatio ?? .12 } : undefined);
 }
 export function pptxLineArrowheads(element: SlideShapeElement): string {
   const marker = (kind: "headEnd" | "tailEnd", value: ConnectorArrowhead | undefined) =>

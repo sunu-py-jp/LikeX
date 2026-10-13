@@ -1,5 +1,8 @@
 import type { SpreadsheetDrawingTextStyle } from "./types";
 
+/** Native LikeX drawings add no padding unless an explicit layout supplies it. */
+export const DEFAULT_DRAWING_TEXT_INSETS: NonNullable<SpreadsheetDrawingTextStyle["textInsets"]> = Object.freeze({ left: 0, top: 0, right: 0, bottom: 0 });
+
 /** Shared by command validation, snapshots and normalization. */
 export const DRAWING_TEXT_STYLE_KEYS = ["fontFamily", "italic", "underline", "textInsets", "textWrap", "textOverflow", "textVerticalOverflow",
   "textAlign", "textVerticalAlign", "textAutoFit", "textFontScale", "textLineHeight"] as const;

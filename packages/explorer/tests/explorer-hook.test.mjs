@@ -28,7 +28,7 @@ const output = await build({ absWorkingDir: packageRoot,
   plugins: [{
     name: 'external-react-instance',
     setup(builder) {
-      builder.onResolve({ filter: /^(react|react-test-renderer|lucide-react)(\/.*)?$/ }, ({ path }) => ({
+      builder.onResolve({ filter: /^(react|react-dom|react-test-renderer|lucide-react|radix-ui)(\/.*)?$/ }, ({ path }) => ({
         path: import.meta.resolve(path), external: true,
       }));
     },

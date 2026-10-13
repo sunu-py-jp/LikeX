@@ -73,7 +73,7 @@ export function transformDrawingFrame(frame: DrawingFrame, transform: ReturnType
   return { frame: { x: center.x - width / 2, y: center.y - height / 2, width, height },
     approximated: Math.abs(transform.scaleX - transform.scaleY) > 1e-9 && sinSquared > 1e-9 && cosSquared > 1e-9 };
 }
-export function readDrawingFrame(node: XmlNode, grid: DrawingGrid): DrawingFrame | undefined {
+export function readDrawingFrame(node: XmlNode, grid: DrawingGrid, allowZeroExtent = false): DrawingFrame | undefined {
   const kind = localName(node.name), position = child(node, "pos"), extent = child(node, "ext");
   const start = kind === "absoluteAnchor" ? { x: (finiteNumber(position?.attributes.x) ?? NaN) / EMU_PER_PIXEL,
     y: (finiteNumber(position?.attributes.y) ?? NaN) / EMU_PER_PIXEL } : marker(child(node, "from"), grid);
@@ -81,7 +81,8 @@ export function readDrawingFrame(node: XmlNode, grid: DrawingGrid): DrawingFrame
   const end = kind === "twoCellAnchor" ? marker(child(node, "to"), grid) : undefined;
   const width = end ? end.x - start.x : (finiteNumber(extent?.attributes.cx) ?? NaN) / EMU_PER_PIXEL;
   const height = end ? end.y - start.y : (finiteNumber(extent?.attributes.cy) ?? NaN) / EMU_PER_PIXEL;
-  if (![start.x, start.y, width, height].every(Number.isFinite) || start.x < 0 || start.y < 0 || width <= 0 || height <= 0 || width > 10_000 || height > 10_000) return;
+  if (![start.x, start.y, width, height].every(Number.isFinite) || start.x < 0 || start.y < 0 || width < 0 || height < 0 ||
+    !allowZeroExtent && (width === 0 || height === 0) || width > 10_000 || height > 10_000) return;
   return { ...start, width, height };
 }
 /** Rotated two-cell anchors can describe an AABB; xfrm retains the unrotated frame. */

@@ -2,7 +2,7 @@ import { CONNECTOR_PORTS, isConnectorPort, getConnectorPortPoint, getConnectorPo
   getConnectorBounds, connectorLocalToWorld, connectorWorldToLocal } from "../src";
 import type { ConnectorPoint, ConnectorPort, ConnectorEndpoint, ConnectorBinding, ConnectorBox, ConnectorOutline, ConnectorPortPoint,
   ConnectorTarget, ConnectorSnap } from "../src";
-import { createOfficeConnectorGeometry, readOfficeConnectorShapeTag, getOfficePresetConnectorPort } from "../src/ooxml";
+import { createOfficeConnectorGeometry, readOfficeConnectorShapeTag, readOfficeConnectorCornerRadiusRatio, getOfficePresetConnectorPort, type OfficeConnectorGeometryOptions } from "../src/ooxml";
 
 const box: ConnectorBox = { x: 1, y: 2, width: 30, height: 40, rotation: 90, flipY: true };
 const binding: ConnectorBinding = { targetId: "shape-1", port: "topRight" };
@@ -14,6 +14,10 @@ const outline: ConnectorOutline = { type: "polygon", points: [{ x: 0.5, y: 0 }, 
 getConnectorPortPoints(box, outline);
 createOfficeConnectorGeometry("triangle", outline);
 readOfficeConnectorShapeTag(undefined);
+const roundedOptions: OfficeConnectorGeometryOptions = { cornerRadiusRatio: 0.25 };
+createOfficeConnectorGeometry("roundRect", { type: "roundedRect", radiusX: .25, radiusY: .25 }, roundedOptions);
+const radius: number | undefined = readOfficeConnectorCornerRadiusRatio(undefined);
+void radius;
 getOfficePresetConnectorPort("rect", 1);
 const snap: ConnectorSnap | undefined = findNearestConnectorPort(endpoint, [target], 12);
 const port: ConnectorPort = CONNECTOR_PORTS[0];
