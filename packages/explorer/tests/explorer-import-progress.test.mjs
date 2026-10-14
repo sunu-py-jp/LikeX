@@ -80,19 +80,45 @@ test('cancellation during an awaited generator result cannot publish or return i
 
 test('task-boundary cancellation stops preparation before completion and suppresses pending updates', async () => {
   const controller = new AbortController(), progress = [];
-  let visited = 0;
+  let visited = 0, closed = false;
   function* operation() {
-    for (; visited < 1000; visited++) yield { phase: 'checking', completed: visited, total: 1000 };
-    throw Error('A cancelled generator must never complete');
+    try {
+      for (; visited < 1000; visited++) yield { phase: 'checking', completed: visited, total: 1000 };
+      throw Error('A cancelled generator must never complete');
+    } finally { closed = true; }
   }
   const pending = prepareImport(operation(), controller.signal, value => progress.push(value));
   const rejected = assert.rejects(pending, error => error.name === 'AbortError');
   setTimeout(() => controller.abort(), 0);
   await rejected;
   assert.ok(visited < 1000);
+  assert.equal(closed, true);
   const finalCount = progress.length;
   await new Promise(resolve => setTimeout(resolve, 90));
   assert.equal(progress.length, finalCount);
+});
+
+test('a throwing progress observer closes suspended asynchronous work and preserves its error', async () => {
+  const background = new AbortController(), failure = Error('observer failed');
+  let closed = false;
+  async function* operation() {
+    try {
+      yield { phase: 'inspecting', completed: 0, total: 4 };
+      assert.fail('preparation must not continue after the observer fails');
+    } finally { background.abort(); closed = true; }
+  }
+  await assert.rejects(prepareImport(operation(), new AbortController().signal, () => { throw failure; }), error => error === failure);
+  assert.equal(background.signal.aborted, true);
+  assert.equal(closed, true);
+});
+
+test('iterator cleanup failures do not replace the original progress observer failure', async () => {
+  const failure = Error('observer failed');
+  async function* operation() {
+    try { yield { phase: 'inspecting', completed: 0, total: 1 }; }
+    finally { throw Error('cleanup failed'); }
+  }
+  await assert.rejects(prepareImport(operation(), new AbortController().signal, () => { throw failure; }), error => error === failure);
 });
 
 test('a throttled discovery count is published even while the next native callback is waiting', async () => {

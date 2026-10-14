@@ -70,7 +70,7 @@ test('file discoveries arrive with relative paths before a later native file rea
   let settled = false;
   const pending = job.read(undefined, undefined, value => discovered.push(value));
   void pending.then(() => { settled = true; });
-  for (let i = 0; i < 10 && !complete; i++) await Promise.resolve();
+  for (let i = 0; i < 20 && (!complete || discovered.length === 0); i++) await Promise.resolve();
   assert.equal(typeof complete, 'function');
   assert.equal(settled, false);
   assert.equal(discovered.length, 1);
@@ -98,7 +98,8 @@ test('a nested file read failure rejects the complete import rather than returni
   const broken = { name: 'blocked.txt', isFile: true, isDirectory: false, file(resolve, reject) { reject(Error('Permission denied')); } };
   const job = captureClipboardImport(transfer([directory('Batch', [fileEntry(file('good.txt')), broken, fileEntry(file('unvisited.txt'))])]));
   await assert.rejects(job.read(undefined, undefined, value => discovered.push(value)), /Permission denied/);
-  assert.deepEqual(discovered.map(value => value.webkitRelativePath), ['Batch/good.txt']);
+  // A later prefetched failure can arrive before the first ordered discovery.
+  assert.deepEqual(discovered, []);
 });
 
 test('directory enumeration errors and invalid path segments reject the complete traversal', async () => {
@@ -145,7 +146,7 @@ test('aborting an in-flight File callback preserves the abort reason and cannot 
   const controller = new AbortController(), reason = Error('Cancelled by the workspace');
   const pending = job.read(controller.signal, undefined, value => discovered.push(value));
   const rejected = assert.rejects(pending, error => error === reason);
-  for (let i = 0; i < 10 && !complete; i++) await Promise.resolve();
+  for (let i = 0; i < 20 && (!complete || discovered.length === 0); i++) await Promise.resolve();
   assert.equal(typeof complete, 'function');
   assert.deepEqual(discovered.map(value => value.webkitRelativePath), ['Batch/first.txt']);
   controller.abort(reason); await rejected;
@@ -175,4 +176,91 @@ test('directory progress reports real discoveries while totals are unknown, then
   const files = await pending;
   assert.equal(files.length, 38);
   assert.deepEqual(progress.at(-1), { phase: 'discovering', completed: 38, total: 38 });
+});
+
+test('folder reads prefetch at most 16 Files while discoveries retain depth-first order across a nested directory', async () => {
+  const waiting = [], completions = [], discovered = [];
+  let active = 0, maximum = 0, activeWhenNestedStarted = 0;
+  const deferred = name => {
+    const value = file(name);
+    return { name, isFile: true, isDirectory: false, file(resolve) {
+      active++; maximum = Math.max(maximum, active);
+      if (name === 'inside.txt') activeWhenNestedStarted = active;
+      waiting.push({ name, complete() { active--; completions.push(name); resolve(value); } });
+    } };
+  };
+  const rootFiles = Array.from({ length: 25 }, (_, i) => deferred(`${i}.txt`));
+  const nested = directory('Nested', [deferred('inside.txt')]);
+  const children = [...rootFiles.slice(0, 10), nested, ...rootFiles.slice(10)];
+  const expected = [...rootFiles.slice(0, 10).map(value => `Batch/${value.name}`),
+    'Batch/Nested/inside.txt', ...rootFiles.slice(10).map(value => `Batch/${value.name}`)];
+  let settled = false;
+  const pending = captureClipboardImport(transfer([directory('Batch', children)])).read(
+    undefined, undefined, value => discovered.push(value.webkitRelativePath));
+  void pending.then(() => { settled = true; }, () => { settled = true; });
+  for (let turns = 0; !settled && turns < 100; turns++) {
+    await new Promise(resolve => setImmediate(resolve));
+    // Reach the nested directory while sibling reads are still pending, then
+    // reverse completion order to test ordered discoveries independently.
+    const index = turns < 10 ? waiting.findIndex(value => value.name === `${turns}.txt`) : waiting.length - 1;
+    if (index >= 0) waiting.splice(index, 1)[0].complete();
+  }
+  const files = await pending;
+  assert.equal(files.length, 26);
+  assert.equal(maximum, 16);
+  assert.ok(activeWhenNestedStarted > 1 && activeWhenNestedStarted <= 16);
+  assert.equal(active, 0);
+  assert.deepEqual(files.map(value => value.webkitRelativePath), expected);
+  assert.deepEqual(discovered, expected);
+  assert.notDeepEqual(completions, expected.map(value => value.split('/').at(-1)));
+  assert.equal(nested.stats.readers, 1);
+});
+
+test('a fourth prefetched failure rejects promptly while the first is pending and observes late rejections', async t => {
+  const callbacks = [], discovered = [], unhandled = [];
+  const listen = reason => unhandled.push(reason);
+  process.on('unhandledRejection', listen);
+  t.after(() => process.off('unhandledRejection', listen));
+  const children = Array.from({ length: 26 }, (_, i) => ({ name: `${i}.txt`, isFile: true, isDirectory: false,
+    file(resolve, reject) { callbacks.push({ resolve, reject }); } }));
+  const pending = captureClipboardImport(transfer([directory('docs', children)])).read(
+    undefined, undefined, value => discovered.push(value));
+  const rejection = assert.rejects(pending, /「docs\/3\.txt」を読み込めませんでした: Permission denied/);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(callbacks.length, 16);
+  callbacks[3].reject(Error('Permission denied'));
+  await Promise.race([rejection, new Promise((_, reject) => {
+    const timer = setTimeout(() => reject(Error('Import kept waiting for the first file')), 200);
+    timer.unref();
+  })]);
+  // Neither successful nor failed native callbacks after rejection may resume traversal.
+  callbacks.forEach((callback, index) => index % 2 ? callback.reject(Error('Late failure')) : callback.resolve(file(`${index}.txt`)));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(callbacks.length, 16);
+  assert.deepEqual(discovered, []);
+  assert.deepEqual(unhandled, []);
+});
+
+test('abort cancels all prefetched waits, never starts queued reads, and ignores late callbacks', async t => {
+  const callbacks = [], discovered = [], progress = [], unhandled = [];
+  const listen = reason => unhandled.push(reason);
+  process.on('unhandledRejection', listen);
+  t.after(() => process.off('unhandledRejection', listen));
+  const controller = new AbortController(), reason = Error('Stopped by caller');
+  const children = Array.from({ length: 26 }, (_, i) => ({ name: `${i}.txt`, isFile: true, isDirectory: false,
+    file(resolve, reject) { callbacks.push({ resolve, reject }); } }));
+  const pending = captureClipboardImport(transfer([directory('Batch', children)])).read(
+    controller.signal, value => progress.push(value), value => discovered.push(value));
+  const rejection = assert.rejects(pending, error => error === reason);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(callbacks.length, 16);
+  controller.abort(reason);
+  await rejection;
+  const count = progress.length;
+  callbacks.forEach((callback, index) => index % 2 ? callback.reject(Error('Late failure')) : callback.resolve(file(`${index}.txt`)));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(callbacks.length, 16);
+  assert.deepEqual(discovered, []);
+  assert.equal(progress.length, count);
+  assert.deepEqual(unhandled, []);
 });

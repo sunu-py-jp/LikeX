@@ -90,5 +90,12 @@ export async function prepareImport<T>(
       const pause = checkpoint(step.value, step.value.completed === step.value.total);
       if (pause) await pause;
     }
+  } catch (error) {
+    // A yielded async import may already have inspections in flight. Closing
+    // the iterator lets it cancel those tasks when an observer throws or the
+    // caller stops between steps, without replacing the original failure.
+    checkpoint.dispose();
+    try { await operation.return(undefined as T); } catch { /* Keep the import failure. */ }
+    throw error;
   } finally { checkpoint.dispose(); }
 }

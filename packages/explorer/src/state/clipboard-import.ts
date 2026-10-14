@@ -6,6 +6,8 @@ type ClipboardItem = DataTransferItem & {
   getAsEntry?: () => FileSystemEntry | null;
 };
 
+const FILE_READ_CONCURRENCY = 16;
+
 type CapturedItem =
   | { kind: "file"; file: File }
   | { kind: "directory"; entry: FileSystemDirectoryEntry; name: string };
@@ -66,14 +68,77 @@ function readOperation<T>(start: (success: (result: T) => void, failure: (error:
 async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortSignal,
   onProgress?: (value: ExplorerImportProgress) => void, onFile?: (file: File) => void): Promise<File[]> {
   checkAbort(signal);
+  const controller = new AbortController();
+  const readSignal = controller.signal;
+  const onAbort = () => controller.abort(abortReason(signal!));
+  signal?.addEventListener("abort", onAbort, { once: true });
   const files: File[] = [];
   const ancestors = new Set<FileSystemEntry>();
-  const checkpoint = createImportProgress(onProgress, signal);
-  const initialPause = checkpoint({ phase: "discovering", completed: 0 }, true);
-  if (initialPause) await initialPause;
+  const checkpoint = createImportProgress(onProgress, readSignal);
+  const queuedReads: (() => void)[] = [];
+  const cancelReads = new Set<() => void>();
+  let activeReads = 0, pumpingReads = false;
+  const pumpReads = () => {
+    if (pumpingReads) return;
+    pumpingReads = true;
+    try {
+      while (!readSignal.aborted && activeReads < FILE_READ_CONCURRENCY && queuedReads.length) queuedReads.shift()!();
+    } finally { pumpingReads = false; }
+  };
+  const stopReads = () => {
+    queuedReads.length = 0;
+    for (const cancel of cancelReads) cancel();
+  };
+  readSignal.addEventListener("abort", stopReads, { once: true });
 
-  async function visit(entry: FileSystemEntry, parent: readonly string[], rootName?: string): Promise<void> {
-    checkAbort(signal);
+  // Use one abort listener for the whole pool. Native File callbacks cannot be
+  // cancelled, but every pending promise settles and ignores later callbacks.
+  function prefetchFile(entry: FileSystemFileEntry, relativePath: string): Promise<File> {
+    const pending = new Promise<File>((resolve, reject) => {
+      let started = false, settled = false;
+      const finish = (publish: () => void) => {
+        if (settled) return;
+        settled = true;
+        cancelReads.delete(cancel);
+        if (started) activeReads--;
+        publish();
+        pumpReads();
+      };
+      const cancel = () => finish(() => reject(abortReason(readSignal)));
+      const fail = (error: unknown) => {
+        if (settled) return;
+        const message = error && typeof error === "object" && "message" in error ? String(error.message) : "ファイル情報を取得できませんでした";
+        const failure = new Error(`「${relativePath}」を読み込めませんでした: ${message}`);
+        // Abort the current traversal as soon as any read fails, including a
+        // later file while an earlier file or subdirectory is still pending.
+        finish(() => { reject(failure); controller.abort(failure); });
+      };
+      cancelReads.add(cancel);
+      queuedReads.push(() => {
+        if (settled) return;
+        started = true;
+        activeReads++;
+        try {
+          if (typeof entry.file !== "function") throw unavailable();
+          entry.file(value => {
+            if (settled) return;
+            try { assertFile(value); finish(() => resolve(value)); }
+            catch (error) { fail(error); }
+          }, fail);
+        } catch (error) { fail(error); }
+      });
+    });
+    // Prefetches may fail before traversal reaches their position. Observe each
+    // rejection immediately; awaiting it later still preserves the same error.
+    void pending.catch(() => {});
+    if (readSignal.aborted) stopReads();
+    else pumpReads();
+    return pending;
+  }
+
+  async function visit(entry: FileSystemEntry, parent: readonly string[], rootName?: string,
+    prefetched?: Promise<File>): Promise<void> {
+    checkAbort(readSignal);
     const parts = [...parent, rootName ?? normalizeEntryName(entry.name)];
     const relativePath = parts.join("/");
     try {
@@ -89,23 +154,29 @@ async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortS
           // Chromium can return a directory in batches. Keep the same reader
           // and request the next batch until it returns an empty array.
           for (;;) {
-            checkAbort(signal);
+            checkAbort(readSignal);
             const batch = await readOperation<FileSystemEntry[]>((success, failure) =>
-              reader.readEntries(success, failure), signal);
-            checkAbort(signal);
+              reader.readEntries(success, failure), readSignal);
+            checkAbort(readSignal);
             if (!Array.isArray(batch)) throw unavailable();
             if (!batch.length) break;
-            for (const child of batch) await visit(child, parts);
+            const prefetched = batch.map(child => {
+              checkAbort(readSignal);
+              return child.isFile && !child.isDirectory
+                ? prefetchFile(child as FileSystemFileEntry, [...parts, normalizeEntryName(child.name)].join("/"))
+                : undefined;
+            });
+            // Only native file reads overlap. Visits, callbacks, and nested
+            // directory traversal keep their original depth-first order.
+            for (const [index, child] of batch.entries()) await visit(child, parts, undefined, prefetched[index]);
           }
         } finally {
           ancestors.delete(directory);
         }
       } else if (entry.isFile && !entry.isDirectory) {
-        const fileEntry = entry as FileSystemFileEntry;
-        if (typeof fileEntry.file !== "function") throw unavailable();
-        const file = await readOperation<File>((success, failure) => fileEntry.file(success, failure), signal);
-        checkAbort(signal);
-        assertFile(file);
+        const pending = prefetched ?? prefetchFile(entry as FileSystemFileEntry, relativePath);
+        const file = await pending;
+        checkAbort(readSignal);
         // Constructing a File from a File reuses its Blob data; no content read
         // or mutation of the native File is needed to retain the relative path.
         const copy = new File([file], file.name, { type: file.type, lastModified: file.lastModified });
@@ -116,15 +187,17 @@ async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortS
         if (pause) await pause;
       } else throw unavailable();
     } catch (error) {
-      checkAbort(signal);
+      checkAbort(readSignal);
       const message = error && typeof error === "object" && "message" in error ? String(error.message) : "ファイル情報を取得できませんでした";
       throw new Error(`「${relativePath}」を読み込めませんでした: ${message}`);
     }
   }
 
   try {
+    const initialPause = checkpoint({ phase: "discovering", completed: 0 }, true);
+    if (initialPause) await initialPause;
     for (const item of items) {
-      checkAbort(signal);
+      checkAbort(readSignal);
       if (item.kind === "file") {
         files.push(item.file);
         onFile?.(item.file);
@@ -132,11 +205,16 @@ async function readCapturedItems(items: readonly CapturedItem[], signal?: AbortS
         if (pause) await pause;
       } else await visit(item.entry, [], item.name);
     }
-    checkAbort(signal);
+    checkAbort(readSignal);
     const finalPause = checkpoint({ phase: "discovering", completed: files.length, total: files.length }, true);
     if (finalPause) await finalPause;
     return files;
-  } finally { checkpoint.dispose(); }
+  } finally {
+    controller.abort();
+    signal?.removeEventListener("abort", onAbort);
+    readSignal.removeEventListener("abort", stopReads);
+    checkpoint.dispose();
+  }
 }
 
 /** Read the transfer only during its native paste event. The returned operation

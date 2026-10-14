@@ -5,7 +5,7 @@ import {
   createExplorerUploadInspectionContext, ensureUploadContentInspection,
   getUploadContentRule, normalizeUploadContentLimits, readUploadContentInspection,
   type ExplorerUploadContentLimitsByExtension, type ExplorerUploadContentRejectionReason,
-  type ExplorerUploadInspectFile, type ExplorerUploadInspectionContext,
+  type ExplorerUploadContentRule, type ExplorerUploadInspectFile, type ExplorerUploadInspectionContext,
 } from "./upload-content";
 
 export type ExplorerUploadInvalidFileBehavior = "reject-batch" | "skip";
@@ -18,7 +18,7 @@ export type ExplorerUploadOptions = Readonly<{
   maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
   /** Videos default to 14,400 seconds. False disables one suffix's content limit. */
   contentLimitsByExtension?: ExplorerUploadContentLimitsByExtension;
-  /** Override metadata inspection; undefined results delegate to the built-in reader. */
+  /** Override metadata inspection; undefined delegates to the built-in reader. Media callbacks may run concurrently (up to four); PDF/PPTX share one serial lane. */
   inspectFile?: ExplorerUploadInspectFile;
   /** Files actually added or overwritten by one import, excluding rejected or skipped files. */
   maxFilesPerUpload?: number;
@@ -356,19 +356,95 @@ export async function* inspectUploadCandidates(files: readonly Readonly<{ file: 
   const context = inspectionContext(session);
   signal.throwIfAborted();
   yield { phase: "inspecting", completed: 0, total: files.length };
-  for (const [index, candidate] of files.entries()) {
-    signal.throwIfAborted();
-    const rule = getUploadContentRule(candidate.name, options.contentLimitsByExtension);
-    if (rule && candidate.file.size !== 0) {
-      // Only suppress the content check while applying the exact same cheap
-      // extension/size rules; rejected bytes are never parsed.
-      const unchecked = { ...options, invalidFileBehavior: "skip" as const,
-        contentLimitsByExtension: { ...options.contentLimitsByExtension, [rule.extension]: false as const } };
-      if (validateUploadFiles([candidate], unchecked).accepted.length) {
-        await ensureUploadContentInspection({ context, file: candidate.file, rule, inspectFile: options.inspectFile, builtinInspector, signal });
-        signal.throwIfAborted();
+  signal.throwIfAborted();
+  const controller = new AbortController();
+  let wake: (() => void) | undefined;
+  const notify = () => { const resume = wake; wake = undefined; resume?.(); };
+  const abort = () => { controller.abort(signal.reason); notify(); };
+  signal.addEventListener("abort", abort, { once: true });
+  const workers = new Set<Promise<void>>();
+  let completed = 0, failed = false, failure: unknown;
+  try {
+    type Job = Readonly<{ file: File; rule: ExplorerUploadContentRule }>;
+    type Lane = { jobs: Job[]; next: number; active: number; limit: number };
+    const media: Lane = { jobs: [], next: 0, active: 0, limit: 4 };
+    const documents: Lane = { jobs: [], next: 0, active: 0, limit: 1 };
+    // Repeated references to the same File keep the existing once-per-session
+    // inspection behavior even when two workers reach them together.
+    const pending = new WeakMap<File, Map<string, Promise<unknown>>>();
+    const inspect = (job: Job) => {
+      const key = `${job.rule.kind}:${job.rule.extension}`;
+      let entries = pending.get(job.file);
+      if (!entries) { entries = new Map(); pending.set(job.file, entries); }
+      let operation = entries.get(key);
+      if (!operation) {
+        // Starting here (after taking a lane slot) also starts the built-in
+        // reader's timeout here, rather than while this file is queued.
+        operation = ensureUploadContentInspection({ context, ...job, inspectFile: options.inspectFile,
+          builtinInspector, signal: controller.signal });
+        entries.set(key, operation);
       }
+      return operation;
+    };
+    const startLane = (lane: Lane) => {
+      while (lane.active < lane.limit && lane.next < lane.jobs.length) {
+        controller.signal.throwIfAborted();
+        lane.active++;
+        // Completion never dispatches another file: the consumer resumes this
+        // generator to grant more work, keeping its task-queue yields effective
+        // even for thousands of synchronous or cached inspection results.
+        const operation = inspect(lane.jobs[lane.next++]).then(() => {
+          controller.signal.throwIfAborted();
+          completed++;
+        }).catch(error => {
+          if (!failed) { failed = true; failure = error; }
+          controller.abort(error);
+        }).finally(() => { lane.active--; workers.delete(operation); notify(); });
+        // Every worker rejection is observed immediately, including workers
+        // which settle while the consumer is paused at a progress yield.
+        workers.add(operation);
+      }
+    };
+    let reported = 0, nextFile = 0;
+    while (completed < files.length) {
+      signal.throwIfAborted();
+      if (failed) throw failure;
+      // Bound metadata classification too. A checkpoint can keep the same
+      // completed count while queued files still await their actual inspection.
+      const checkpoint = Math.min(nextFile + 32, files.length);
+      while (nextFile < checkpoint) {
+        controller.signal.throwIfAborted();
+        const candidate = files[nextFile++];
+        const rule = getUploadContentRule(candidate.name, options.contentLimitsByExtension);
+        if (rule && candidate.file.size !== 0) {
+          // Rejected bytes never enter a reader. Empty and unchecked files still
+          // count as completed candidates in the inspection progress total.
+          const unchecked = { ...options, invalidFileBehavior: "skip" as const,
+            contentLimitsByExtension: { ...options.contentLimitsByExtension, [rule.extension]: false as const } };
+          if (validateUploadFiles([candidate], unchecked).accepted.length) {
+            (rule.kind === "video" || rule.kind === "audio" ? media : documents).jobs.push({ file: candidate.file, rule });
+            continue;
+          }
+        }
+        completed++;
+      }
+      startLane(media);
+      startLane(documents);
+      if (completed === files.length) break;
+      if (nextFile < files.length || completed !== reported) {
+        reported = completed;
+        yield { phase: "inspecting", completed: reported, total: files.length };
+      } else await new Promise<void>(resolve => { wake = resolve; });
     }
-    yield { phase: "inspecting", completed: index + 1, total: files.length };
+    await Promise.all(workers);
+    signal.throwIfAborted();
+    if (failed) throw failure;
+    if (files.length) yield { phase: "inspecting", completed, total: files.length };
+  } finally {
+    signal.removeEventListener("abort", abort);
+    // Closing the progress iterator is cancellation too. Abort-aware wrappers
+    // stop waiting for noncooperative custom readers and reject late evidence.
+    controller.abort();
+    await Promise.all(workers);
   }
 }

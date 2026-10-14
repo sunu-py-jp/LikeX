@@ -25,7 +25,7 @@ export type ExplorerUploadInspectFileRequest = Readonly<{
   signal: AbortSignal;
 }>;
 
-/** Return undefined to delegate this file to the built-in reader. */
+/** Return undefined to use the built-in reader. Video/audio callbacks may run concurrently (up to four combined); PDF/PPTX share a serial lane. Observe request.signal for cancellation. */
 export type ExplorerUploadInspectFile = (
   request: ExplorerUploadInspectFileRequest,
 ) => ExplorerUploadContentMetadata | undefined | Promise<ExplorerUploadContentMetadata | undefined>;

@@ -435,6 +435,63 @@ test('the public upload handle awaits the same content check and permission flow
   assert.equal(app.saves.length, 0);
 });
 
+test('parallel inspections keep the public import atomic and retain input order', { timeout: 5000 }, async t => {
+  const firstWave = deferred(), allStarted = deferred(), ref = { current: null }, inspections = new Map();
+  const incoming = Array.from({ length: 6 }, (_, index) => file(`Parallel-${index}.mp4`));
+  const app = await mount(t, { ref, upload: { inspectFile({ file, signal }) {
+    const metadata = deferred(); inspections.set(file, { ...metadata, signal });
+    if (inspections.size === 4) firstWave.resolve();
+    if (inspections.size === 6) allStarted.resolve();
+    return metadata.promise;
+  } } });
+  const before = app.main.entries;
+  let pending;
+  await change(() => { pending = ref.current.upload(incoming, 'root'); });
+  await change(() => firstWave.promise);
+  assert.equal(inspections.size, 4);
+  await change(async () => assert.equal(await ref.current.save(), false));
+  assert.ok([...inspections.values()].every(item => !item.signal.aborted));
+  await change(() => {
+    for (const index of [3, 2, 1]) inspections.get(incoming[index]).resolve({ kind: 'video', durationSeconds: 10 });
+  });
+  await change(() => allStarted.promise);
+  await change(() => {
+    for (const index of [5, 4]) inspections.get(incoming[index]).resolve({ kind: 'video', durationSeconds: 10 });
+  });
+  assert.equal(app.main.entries, before);
+  assert.equal(app.requests.length, 0);
+  await change(() => inspections.get(incoming[0]).resolve({ kind: 'video', durationSeconds: 10 }));
+  await change(async () => assert.equal(await pending, true));
+  assert.deepEqual(app.main.entries.filter(item => item.source?.kind === 'local').map(item => item.name), incoming.map(item => item.name));
+  assert.equal(app.requests.length, 1);
+  assert.equal(app.events.filter(event => event.type === 'change' && event.action === 'upload').length, 1);
+  assert.equal(app.saves.length, 0);
+});
+
+test('cancelling parallel content checks stops the queue and discards every late result', { timeout: 5000 }, async t => {
+  const firstWave = deferred(), inspections = [];
+  const app = await mount(t, { upload: { inspectFile({ signal }) {
+    const metadata = deferred(); inspections.push({ ...metadata, signal });
+    if (inspections.length === 4) firstWave.resolve();
+    return metadata.promise;
+  } } });
+  const before = app.main.entries;
+  let pending;
+  await change(() => { pending = app.child.addLocalFiles(Array.from({ length: 6 }, (_, index) => file(`Cancel-${index}.mp4`)), 'file', 'root'); });
+  await change(() => firstWave.promise);
+  await change(() => app.child.cancelUpload());
+  await change(() => pending);
+  assert.equal(inspections.length, 4);
+  assert.ok(inspections.every(item => item.signal.aborted));
+  assert.equal(app.workspace.draft.isImporting(), false);
+  assert.equal(app.child.pendingImportEntries.length, 0);
+  await change(() => inspections.forEach(item => item.resolve({ kind: 'video', durationSeconds: 10 })));
+  assert.equal(inspections.length, 4);
+  assert.equal(app.main.entries, before);
+  assert.equal(app.requests.length, 0);
+  assert.equal(app.events.filter(event => event.type === 'upload' || event.type === 'change').length, 0);
+});
+
 test('the low-level addAsync hook validates content before its atomic commit and reports progress', async t => {
   const app = await mount(t, { onEditRequest: undefined, upload: { inspectFile: () => ({ kind: 'video', durationSeconds: 20 }) } });
   const incoming = file('Checked.mp4'), progress = [];
