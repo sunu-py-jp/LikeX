@@ -174,7 +174,7 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
     if (col.attributes.style !== undefined) warn("omitted", "行全体・列全体の書式設定を省略しました");
     if (col.attributes.width !== undefined) {
       const storedWidth = Number(col.attributes.width);
-      const width = xlsxColumnWidthToPixels(storedWidth);
+      const width = xlsxColumnWidthToPixels(storedWidth, context.columnWidthMetrics);
       if (!Number.isFinite(storedWidth) || storedWidth < 0 || !Number.isFinite(width)) { warn("adjusted", "不正な列幅を標準の幅へ変更しました"); continue; }
       let duplicated = false;
       for (let index = min - 1; index < Math.min(max, SPREADSHEET_LIMITS.columns); index++) {
@@ -216,7 +216,7 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
   }
   const merges = normalizeMerges(candidates, { rowCount, columnCount, name }) ?? [];
   context.mergeCount = (context.mergeCount ?? 0) + merges.length;
-  const defaults = worksheetDefaultSizes(node);
+  const defaults = worksheetDefaultSizes(node, context.columnWidthMetrics);
   if (defaults.invalid) warn("adjusted", "不正な標準の行高・列幅を標準寸法へ変更しました");
   if (defaults.adjusted) warn("adjusted", "行・列のサイズを対応範囲へ調整しました");
   for (let row = 0; row < rowCount; row++) rowHeights[row] ??= defaults.row;

@@ -15,6 +15,7 @@ import { importRange, readWorksheet, richText } from "./worksheet";
 import { readWorksheetExtras } from "./sheet-extras";
 import { worksheetDefaultSizes } from "./worksheet-shared";
 import { isExcelRangeOutsideModel } from "./worksheet-address";
+import { prepareColumnWidthMeasurement } from "./column-width-measurement";
 import { type ImportContext, type SpreadsheetExcelImportInput, type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult, type SpreadsheetExcelImportWarning } from "./types";
 
 const workbookType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml";
@@ -82,6 +83,7 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
   if (localName(workbook.name) !== "workbook") return fail("ブックの構造が不正です");
   const workbookRelations = relationships.get(workbookPath) ?? new Map<string, XlsxRelationship>();
   const styles = await readXlsxStyles(workbookRelations, context), shared: string[] = [];
+  await prepareColumnWidthMeasurement(options, context);
   const stringsRelation = relationFor(workbookRelations, "sharedStrings");
   if (stringsRelation) {
     const strings = parseXml(await archive.read(stringsRelation.target));
@@ -182,7 +184,7 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
     }
     names.add(key);
     const previous = sheets[sheetIndex], rowCount = Math.max(previous.rowCount, range.bottom + 1), columnCount = Math.max(previous.columnCount, range.right + 1);
-    const rowHeights = { ...previous.rowHeights }, columnWidths = { ...previous.columnWidths }, defaults = worksheetDefaultSizes(worksheetParts[sheetIndex].root);
+    const rowHeights = { ...previous.rowHeights }, columnWidths = { ...previous.columnWidths }, defaults = worksheetDefaultSizes(worksheetParts[sheetIndex].root, context.columnWidthMetrics);
     for (let row = previous.rowCount; row < rowCount; row++) rowHeights[row] = defaults.row;
     for (let column = previous.columnCount; column < columnCount; column++) columnWidths[column] = defaults.column;
     sheets[sheetIndex] = { ...previous, rowCount, columnCount, rowHeights, columnWidths };

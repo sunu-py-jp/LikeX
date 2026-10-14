@@ -16,7 +16,7 @@ export async function readWorksheetExtras(node: XmlNode, initial: SpreadsheetShe
   sheet = await readWorksheetTables(node, sheet, relationships, context);
   sheet = await readWorksheetDrawings(node, sheet, relationships, context);
   // Extras can extend a small sheet. Continue its Excel defaults beyond the original canvas.
-  const defaults = worksheetDefaultSizes(node), rowHeights = { ...sheet.rowHeights }, columnWidths = { ...sheet.columnWidths };
+  const defaults = worksheetDefaultSizes(node, context.columnWidthMetrics), rowHeights = { ...sheet.rowHeights }, columnWidths = { ...sheet.columnWidths };
   for (let row = initial.rowCount; row < sheet.rowCount; row++) rowHeights[row] ??= defaults.row;
   for (let column = initial.columnCount; column < sheet.columnCount; column++) columnWidths[column] ??= defaults.column;
   context.signal?.throwIfAborted();

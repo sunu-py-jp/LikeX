@@ -23,6 +23,6 @@ export { clearCellRange } from "./model/workbook/clear";
 export type { SpreadsheetTableCommand, SpreadsheetTableData, SpreadsheetTableWriteOptions, SpreadsheetCellGridWriteOptions } from "./api/table-commands";
 export type { SpreadsheetNamedRangeCommand } from "./api/named-range-commands";
 export { importSpreadsheetXlsx } from "./import/import-xlsx";
-export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, SpreadsheetExcelImportWarning } from "./import/types";
+export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, SpreadsheetExcelImportWarning, SpreadsheetExcelColumnWidthFont, SpreadsheetExcelColumnWidthMetrics, SpreadsheetExcelColumnWidthMeasurer } from "./import/types";
 export { exportSpreadsheetXlsx } from "./export/model-export";
 export type { SpreadsheetXlsxExportOptions, SpreadsheetXlsxExportWarning, SpreadsheetImageRasterizeRequest, SpreadsheetImageRasterizer } from "./export/portable-types";

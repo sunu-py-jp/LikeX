@@ -19,7 +19,26 @@ export type SpreadsheetExcelImportSignal = {
   addEventListener(type: "abort", listener: () => void, options?: { once?: boolean }): void;
   removeEventListener(type: "abort", listener: () => void): void;
 };
-export type SpreadsheetExcelImportOptions = { signal?: SpreadsheetExcelImportSignal };
+/** The workbook's Normal style, with its point size converted to CSS pixels (96 dpi). */
+export type SpreadsheetExcelColumnWidthFont = Readonly<{
+  fontFamily: string;
+  fontSize: number;
+  bold: boolean;
+  italic: boolean;
+}>;
+/** Measure all digits 0–9 in the target environment; return the widest advance in device pixels. */
+export type SpreadsheetExcelColumnWidthMetrics = Readonly<{
+  maximumDigitWidth: number;
+  /** Device pixels per CSS pixel; supported range: 0.25–8. */
+  pixelRatio: number;
+}>;
+export type SpreadsheetExcelColumnWidthMeasurer = (font: SpreadsheetExcelColumnWidthFont) =>
+  SpreadsheetExcelColumnWidthMetrics | undefined | Promise<SpreadsheetExcelColumnWidthMetrics | undefined>;
+export type SpreadsheetExcelImportOptions = {
+  signal?: SpreadsheetExcelImportSignal;
+  /** Called once per workbook. Undefined metrics use the deterministic Calibri 11pt/96dpi fallback. */
+  columnWidthMeasurement?: SpreadsheetExcelColumnWidthMeasurer;
+};
 /** Native imports share the snapshot contract; their warnings array is always empty. */
 export type SpreadsheetNativeImportResult = SpreadsheetExcelImportResult;
 export type SpreadsheetExcelImportResult = Readonly<{
@@ -33,6 +52,8 @@ export type ImportContext = {
   resources: Record<string, SpreadsheetImageResource>;
   themeColors?: readonly string[];
   themeFonts?: Readonly<Record<string, string>>;
+  columnWidthFont?: SpreadsheetExcelColumnWidthFont;
+  columnWidthMetrics?: SpreadsheetExcelColumnWidthMetrics;
   date1904?: boolean;
   resolveListValues?: (reference: string, sheetName: string) => readonly string[] | undefined;
   cellTextCharacters?: number;

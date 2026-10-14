@@ -78,7 +78,8 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
       ensureCurrent();
       if (format === "xlsx" && fileName && !/\.xlsx$/i.test(fileName)) throw new Error(".xlsx 形式のExcelファイルを選択してください");
       const parsed = format === "xlsx"
-        ? await wait(import("../import/import-xlsx").then(({ importSpreadsheetXlsx }) => importSpreadsheetXlsx(input, { signal: controller.signal })))
+        ? await wait(import("./import-xlsx").then(({ importSpreadsheetXlsx }) => importSpreadsheetXlsx(input, {
+          signal: controller.signal, columnWidthMeasurement: options.columnWidthMeasurement })))
         : await wait((async () => {
           if (!input || typeof input !== "object" || !("text" in input) || typeof input.text !== "function" || !("size" in input))
             throw new Error("SPONファイルはBlobで指定してください");

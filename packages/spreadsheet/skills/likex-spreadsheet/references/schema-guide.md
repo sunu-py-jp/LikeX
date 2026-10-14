@@ -66,9 +66,11 @@
 - 表示形式: `numberFormat`（`general`, `text`, `number`, `currency`, `percent`, `date`, `time`, `datetime`）、`decimalPlaces`（0〜10）、`useGrouping`、`negativeFormat`（`minus`, `parentheses`, `red`, `red-parentheses`）。
 - `borders`: `top` / `right` / `bottom` / `left` の各辺に `{ style?, width?, color? }`。`style` は `none` / `solid` / `dashed` / `dotted` / `double`、`width` は1 / 2 / 3。空の `borders: {}` は辺を消す指定に使える。
 
+空白セルにはみ出す文字に重なる内部の縦線は表示上隠し、上下や文字が届かない線は残す。保存した `borders` は変更せず、SPON・XLSXで保持する。
+
 セル文字サイズはCSSピクセル（1〜200）。列幅・行高はともに1〜1,000px。色には `#RRGGBB` を使うと意図が明確になる。Spreadsheetの描画色・セル色の検証契約はSlideの16進色限定契約と同じではない。
 
-標準セルの余白は左右各2px、行間は文字サイズの1.2倍。これらは表示・自動調整の基準で、SPONのセル書式フィールドではない。折り返しやXLSX取り込みで保存行高を自動的に広げず、必要な対象へ `dimensions.autoFit` を実行する。XLSXの行高はptとCSS pxを0.75倍で相互変換し、列幅はCalibri 11pt・96dpiの最大数字幅7pxを基準とする。独自の標準フォントや代替フォントでは表示が近似になるため、[Excel取り込みの制約](../../../src/docs/excel-import.md#読み込む内容と制約)も確認する。
+標準セルの余白は左右各2px、行間は文字サイズの1.2倍。これらは表示・自動調整の基準で、SPONのセル書式フィールドではない。折り返しやXLSX取り込みで保存行高を自動的に広げず、必要な対象へ `dimensions.autoFit` を実行する。XLSXの行高はptとCSS pxを0.75倍で相互変換する。列幅は、ブラウザー入口とGUI／Handleではブックの標準（Normal）フォントを計測し、端末ピクセルで丸めてからCSS pxへ戻す。`/model` は `columnWidthMeasurement` の注入を受け付け、未指定・未計測ならCalibri 11pt・96dpi相当の最大数字幅7px、倍率1へ近似する。列幅に小数を保持でき、元の標準フォント・端末倍率はSPONに保存しない。XLSX出力はCalibri 11pt基準へ換算し、小数の列幅には量子化誤差が残る。重複する列幅指定はセル・図形とも先の有効な指定を採用する。代替フォントなどによる表示差は残るため、[Excel取り込みの制約](../../../src/docs/excel-import.md#読み込む内容と制約)も確認する。
 
 `SpreadsheetDataValidation` は共通で `allowBlank?`（既定true）と `message?`（255文字以内）を持つ。
 

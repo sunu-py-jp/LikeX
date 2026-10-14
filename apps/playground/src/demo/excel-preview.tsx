@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { ExplorerPreviewError } from "@likex/explorer";
-import Spreadsheet from "@likex/spreadsheet";
-import { importSpreadsheetXlsx, type SpreadsheetWorkbook } from "@likex/spreadsheet/model";
+import Spreadsheet, { importSpreadsheetXlsx, type SpreadsheetWorkbook } from "@likex/spreadsheet";
 import "../../../../packages/spreadsheet/src/styles.css";
 
 /** The host owns file loading and keeps the original exception for diagnostics. */

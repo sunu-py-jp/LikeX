@@ -42,7 +42,7 @@ const workbook = result.workbook;
 // 取得したworkbookはinitialWorkbookや、画面なしの操作APIへ渡せます。
 ```
 
-Node.jsでは `readFile` の結果（`Buffer` は `Uint8Array` の一種）を渡せます。DOM・Reactのマウント・外部通信は不要です。パッケージの通常の入口からも同じ関数をexportしています。コピー導入の場合は `components/spreadsheet/model-entry` が画面なしの入口です。
+Node.jsでは `readFile` の結果（`Buffer` は `Uint8Array` の一種）を渡せます。`/model` はDOM・Reactのマウント・外部通信が不要で、列幅用のフォントを自動計測しません。ブラウザー向けの通常の入口 `@likex/spreadsheet` からも `importSpreadsheetXlsx` を公開し、こちらは標準フォントを自動計測して列幅を換算します。GUIとHandleの取り込みも同じ自動計測を使います。コピー導入の場合は `components/spreadsheet/model-entry` が画面なしの入口です。
 
 ```ts
 type SpreadsheetExcelImportResult = Readonly<{
@@ -57,12 +57,66 @@ type SpreadsheetExcelImportWarning = Readonly<{
   count?: number;
 }>;
 
-type SpreadsheetExcelImportOptions = { signal?: SpreadsheetExcelImportSignal };
+type SpreadsheetExcelImportOptions = {
+  signal?: SpreadsheetExcelImportSignal;
+  columnWidthMeasurement?: SpreadsheetExcelColumnWidthMeasurer;
+};
 ```
 
 `signal` には通常の `AbortController.signal` を渡せます。公開型は必要なメソッドだけを持つ構造型で、画面なしのTypeScriptプロジェクトにDOMの型定義を要求しません。
 
 戻り値の `warnings` は同種の項目をまとめた一覧です。独立関数は警告があっても結果を返すため、利用側で確認・拒否・記録などを行ってください。図形・画像・結合・書式などの補助データは、不正な部分や保持上限を超える部分だけを省略・補正して取り込みを続けます。セルの値・数式や必須データの破損、安全なZIP処理の上限超過などはPromiseのrejectです。[部分回復の範囲](#部分的に省略して取り込める条件)と[停止条件](#取り込みが止まる条件)を参照してください。ExcelのIDをアプリのIDとして流用せず、取り込んだブックには新しいシート・描画等のIDを割り当てます。
+
+## 列幅の計測関数を指定する
+
+ブラウザーで表示する目的なら、通常の入口から読み込むだけで標準フォントの自動計測が有効になります。コンポーネントのマウントは不要です。
+
+```ts
+import { importSpreadsheetXlsx } from "@likex/spreadsheet";
+
+const { workbook, warnings } = await importSpreadsheetXlsx(file);
+```
+
+ソースコピー導入では、`components/spreadsheet/index`（コピーした `src/index.ts`）から読み込みます。既存コードが `@likex/spreadsheet/model` やコピー先の `model-entry` を使っている場合、自動計測は追加されません。ブラウザー向けの入口に切り替えるか、次のように公開ヘルパーを明示的に渡してください。
+
+```ts
+import { importSpreadsheetXlsx } from "@likex/spreadsheet/model";
+import { createSpreadsheetExcelFontMeasurer } from "@likex/spreadsheet";
+
+const result = await importSpreadsheetXlsx(file, {
+  columnWidthMeasurement: createSpreadsheetExcelFontMeasurer(document),
+});
+```
+
+`createSpreadsheetExcelFontMeasurer(ownerDocument?: Document)` は、指定documentのCanvasを使う計測関数を返します。引数の省略時は現在のdocumentを使います。iframe等へ表示する場合は、その画面のdocumentを渡せます。
+
+Node.jsや独自の描画環境では、利用側のフォント計測関数を注入します。`/model` からDOMやCanvasへの依存を読み込むことはありません。
+
+```ts
+import {
+  importSpreadsheetXlsx,
+  type SpreadsheetExcelColumnWidthMeasurer,
+} from "@likex/spreadsheet/model";
+
+async function convertXlsx(
+  bytes: Uint8Array,
+  measureFont: SpreadsheetExcelColumnWidthMeasurer,
+) {
+  return importSpreadsheetXlsx(bytes, { columnWidthMeasurement: measureFont });
+}
+```
+
+`columnWidthMeasurement` は標準フォントを引数として1ブックにつき1回呼ばれます。標準フォントを取得できない場合はCalibri 11ptを使います。`SpreadsheetExcelColumnWidthFont` は次の値を持ちます。
+
+| 引数 | 内容 |
+| --- | --- |
+| `fontFamily` | ブックの標準（Normal）スタイルのフォント名。 |
+| `fontSize` | CSS px単位の文字サイズ。Excelのpt値ではありません。11ptなら `11 / 0.75`。 |
+| `bold`, `italic` | 標準フォントの太字・斜体。 |
+
+戻り値の `SpreadsheetExcelColumnWidthMetrics` は `{ maximumDigitWidth, pixelRatio }` です。`maximumDigitWidth` には、数字0〜9を個別に計測した最大の文字送り幅を**端末ピクセル単位**で渡します。`pixelRatio` は端末ピクセル数÷CSSピクセル数です。CSS pxで計測した場合は、文字幅を対象倍率で換算してから渡してください。最大数字幅は0より大きく4,096以下で整数丸め後1以上、倍率は0.25〜8の有限値が必要です。ライブラリ側で最大数字幅を整数へ丸めます。
+
+同期の値・Promise・`undefined` を返せます。計測関数が `undefined` を返した場合、または `/model` で計測関数を省略した場合は、最大数字幅7px・倍率1に戻し、標準フォントがCalibri 11ptと異なる場合は近似の警告を返します。計測関数の例外や不正な測定値は取り込み失敗として伝えます。`signal` による中止では計測完了を待たずに取り込みを中止し、遅れて返った測定値を適用しません。利用側で開始した計測処理自体の中止は利用側で行ってください。Handleの `importExcel` でも同じ `columnWidthMeasurement` を指定でき、指定した関数を自動計測より優先します。
 
 ## 表示中のブックへ取り込む
 
@@ -118,7 +172,11 @@ Excelの図形・テキストボックスの幅または高さが正の1px未満
 
 行高は `pt ÷ 0.75` で換算します。たとえば15ptは20pxです。行高・列幅は1〜1,000pxの範囲で保持し、仕様書で使われる細い列や低い行もその寸法で読み込みます。0の寸法は警告付きで1pxへ調整し、非表示の行・列は従来どおり表示状態にします。取り込み時に文字量や折り返しに合わせて行を広げることはありません。文字が収まらない場合は、取り込み後に必要な行へ[行高の自動調整](./formatting.md#内容に合わせて自動調整するapi)を適用してください。
 
-列幅はExcelの画面に表示される文字数と、OOXMLの `width` を区別して換算します。換算の基準はCalibri 11pt・96dpiの最大数字幅7pxで、たとえば保存された `width="8.7109375"` は61pxになります。個別の列幅がない場合は `defaultColWidth`、それもなければ明示された `baseColWidth` から換算し、両方省略したシートは既定幅64pxを使います。独自の標準フォントを使うブックの列幅は近似です。また、指定フォントが端末にない場合やブラウザとExcelの文字描画に差がある場合は、同じ行列サイズでも折り返し・文字の収まり・位置が異なることがあります。
+列幅はExcelの画面に表示される文字数と、OOXMLの `width` を区別して換算します。ブラウザー向けの取り込みでは、ブックの「標準」（Normal）スタイルのフォントを1ブックにつき1回計測します。選択中のセルのフォントではありません。数字0〜9の最大幅と端末のピクセル倍率を使い、端末ピクセル単位で整数に丸めた後、CSS pxへ戻します。そのため取り込む列幅は小数になる場合があります。セルの列幅と図形の元座標には同じ換算結果を使います。
+
+画面なしの `/model` は、[列幅の計測関数](#列幅の計測関数を指定する)を指定しなければ従来のCalibri 11pt・96dpi相当（最大数字幅7px、倍率1）へ近似します。この基準では、たとえば保存された `width="8.7109375"` は61pxです。個別の列幅がない場合は `defaultColWidth`、それもなければ明示された `baseColWidth` から換算し、両方省略したシートは8.43文字分の幅と5 CSS px相当の余白から通常列幅を換算します。余白を端末ピクセルに丸めて加え、1/256文字単位へ符号化してから同じ列幅の換算を適用します（7px・倍率1の基準では64px）。重複する列幅指定は先にある有効な指定を使い、後続の指定を警告付きで省略します。セルと図形の座標計算で同じ指定を採用します。
+
+指定フォントが端末にない場合やブラウザーとExcelのフォント計測・文字描画に差がある場合は、同じ行列サイズでも折り返し・文字の収まり・位置が異なることがあります。元の標準フォントや計測環境そのものはSPONに保存せず、換算したCSS pxの寸法を保持します。既存SPONの寸法を自動変更することはありません。
 
 列幅換算の修正前にLikeXから出力したXLSXは、取り込み後の列幅が以前のLikeX表示より約5px狭くなる場合があります。これはファイル内の保存幅をOOXMLの規則に従って読み取るためで、元のSPONに保存した列幅は変更しません。
 

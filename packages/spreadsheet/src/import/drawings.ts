@@ -21,7 +21,7 @@ import { attribute, child, children, localName, parseXml, type XmlNode } from ".
 export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetSheet,
   relationships: ReadonlyMap<string, XlsxRelationship>, context: ImportContext): Promise<SpreadsheetSheet> {
   let sheet = initial;
-  const defaults = worksheetDefaultSizes(node);
+  const defaults = worksheetDefaultSizes(node, context.columnWidthMetrics);
   const grow = (current: SpreadsheetSheet, row: number, column: number) => {
     const next = growSheet(current, row, column);
     if (next.rowCount === current.rowCount && next.columnCount === current.columnCount) return next;
@@ -30,7 +30,7 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
     for (let index = current.columnCount; index < next.columnCount; index++) columnWidths[index] ??= defaults.column;
     return { ...next, rowHeights, columnWidths };
   };
-  const drawings: SpreadsheetDrawing[] = [], grid = drawingGrid(sheet, worksheetDefaultSizes(node)), sourceGrid = worksheetDrawingGrid(node);
+  const drawings: SpreadsheetDrawing[] = [], grid = drawingGrid(sheet, defaults), sourceGrid = worksheetDrawingGrid(node, context.columnWidthMetrics);
   let visited = 0;
   const pending: PendingDrawingConnector[] = [], targets = new Map<string, ImportedDrawingTarget>(), ambiguousIds = new Set<string>();
   for (const reference of children(node, "drawing")) {

@@ -19,6 +19,7 @@ import { cellFormatStyle, collapseSharedCellBorders } from "./cell-style";
 import { fitCellBoxStyle } from "./cell-box-style";
 import { CellText } from "./cell-text";
 import { cellTextOverflow, rowTextOverflowLimits } from "./cell-text-layout";
+import { useOverflowCellBorders } from "./use-overflow-cell-borders";
 
 type RowInteractions = {
   controller: SpreadsheetController; focus: ReturnType<typeof useGridFocus>;
@@ -49,7 +50,9 @@ export const SpreadsheetGridRow = memo(function SpreadsheetGridRow({ row, contro
 
   const textLimits = rowTextOverflowLimits(c.activeSheet, row, columnOffsets, renderedMerges,
     c.features.dataValidation && c.features.checkboxes, c.editing && c.selection.focus.row === row ? c.selection.focus.column : undefined);
-  return <div key={row} role="row" aria-rowindex={row + 2} className="lxs-row" style={{ top: rowOffsets[row], height: rowOffsets[row + 1] - rowOffsets[row], width: gridWidth }}>
+  const rowRef = useOverflowCellBorders(c.activeSheet, c.calculated[c.activeSheet.id], columnOffsets, conditional,
+    c.editing && c.selection.focus.row === row ? c.selection.focus.column : undefined, c.features.dataValidation && c.features.checkboxes);
+  return <div ref={rowRef} key={row} role="row" aria-rowindex={row + 2} className="lxs-row" style={{ top: rowOffsets[row], height: rowOffsets[row + 1] - rowOffsets[row], width: gridWidth }}>
     <div role="rowheader" data-lxs-row-header={row} className={`lxs-row-header ${selectedBounds.some(bounds => row >= bounds.top && row <= bounds.bottom) ? "lxs-header-selected" : ""}`}><button type="button" className="lxs-header-button" onPointerDown={event => interactions.current.selection.startSelection(event, { row, column: 0 }, "row")} onPointerEnter={event => interactions.current.selection.extendSelection(event, { row, column: 0 })} onClick={event => interactions.current.selection.selectHeaderWithKeyboard(event, { row, column: 0 }, "row")}>{row + 1}</button>
       {c.features.resize && <span role="separator" aria-label={`${row + 1}行の高さ`} aria-orientation="horizontal" aria-valuemin={1} aria-valuemax={1000} aria-valuenow={rowHeight} tabIndex={c.disabled ? -1 : 0} className="lxs-row-resize"
         onDoubleClick={event => currentResize().onDoubleClick?.(event)} onKeyDown={event => currentResize().onKeyDown?.(event)}

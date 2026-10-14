@@ -1,6 +1,8 @@
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "../model/sheet-dimensions";
 import { SPREADSHEET_LIMITS, type SpreadsheetDrawingAnchor, type SpreadsheetSheet } from "../model/types";
-import { xlsxBaseColumnWidthToPixels, xlsxColumnWidthToPixels } from "../xlsx-column-width";
+import { xlsxColumnWidthToPixels } from "../xlsx-column-width";
+import { worksheetSourceDefaultSizes } from "./worksheet-shared";
+import type { SpreadsheetExcelColumnWidthMetrics } from "./types";
 import { child, children, localName, textContent, type XmlNode } from "./xml";
 
 export const EMU_PER_PIXEL = 9525;
@@ -18,11 +20,10 @@ export function drawingGrid(sheet: Pick<SpreadsheetSheet, "rowHeights" | "column
 }
 type DrawingGrid = ReturnType<typeof drawingGrid>;
 /** Retain the source dimensions for rebasing absolute DrawingML transforms after size normalization. */
-export function worksheetDrawingGrid(node: XmlNode): DrawingGrid {
-  const format = child(node, "sheetFormatPr"), storedWidth = finiteNumber(format?.attributes.defaultColWidth), baseWidth = finiteNumber(format?.attributes.baseColWidth);
+export function worksheetDrawingGrid(node: XmlNode, metrics?: SpreadsheetExcelColumnWidthMetrics): DrawingGrid {
+  const defaults = worksheetSourceDefaultSizes(node, metrics);
   const sourceRowSize = (height: number) => height > 0 ? height / 0.75 : 1;
-  const row = sourceRowSize(finiteNumber(format?.attributes.defaultRowHeight) ?? 15);
-  const column = Math.max(1, storedWidth !== undefined ? xlsxColumnWidthToPixels(storedWidth) : baseWidth !== undefined ? xlsxBaseColumnWidthToPixels(baseWidth) : 64);
+  const row = defaults.row > 0 ? defaults.row : 1, column = Math.max(1, defaults.column);
   const rowHeights: Record<number, number> = {}, columnWidths: Record<number, number> = {};
   let inferredRow = 0;
   for (const item of children(child(node, "sheetData"), "row")) {
@@ -32,10 +33,13 @@ export function worksheetDrawingGrid(node: XmlNode): DrawingGrid {
     if (index >= 0 && index < SPREADSHEET_LIMITS.rows && height !== undefined) rowHeights[index] = sourceRowSize(height);
   }
   for (const item of children(child(node, "cols"), "col")) {
-    const width = finiteNumber(item.attributes.width);
-    if (width === undefined) continue;
-    for (let index = Math.max(0, Number(item.attributes.min) - 1); index < Math.min(SPREADSHEET_LIMITS.columns, Number(item.attributes.max)); index++)
-      columnWidths[index] = Math.max(1, xlsxColumnWidthToPixels(width));
+    const min = Number(item.attributes.min), max = Number(item.attributes.max);
+    if (!Number.isInteger(min) || !Number.isInteger(max) || min < 1 || max < min || max > 16_384 || item.attributes.width === undefined) continue;
+    const width = Number(item.attributes.width), pixels = xlsxColumnWidthToPixels(width, metrics);
+    if (!Number.isFinite(width) || width < 0 || !Number.isFinite(pixels)) continue;
+    // Match the cell importer: retain the first valid declaration for each column.
+    for (let index = min - 1; index < Math.min(SPREADSHEET_LIMITS.columns, max); index++)
+      columnWidths[index] ??= Math.max(1, pixels);
   }
   return drawingGrid({ rowHeights, columnWidths }, { row, column });
 }

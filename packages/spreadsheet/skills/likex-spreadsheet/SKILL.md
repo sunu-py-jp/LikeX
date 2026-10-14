@@ -99,6 +99,8 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 
 XLSXとの変換を明示的に求められた場合は、`/model` の `importSpreadsheetXlsx`／`exportSpreadsheetXlsx` を使える。NodeではPNG／通常のJPEGはそのまま出力でき、WebP／GIFやEXIFの補正が必要な画像は `SpreadsheetXlsxExportOptions.rasterizeImage`（`SpreadsheetImageRasterizer`）を注入する。[Excel出力ガイド](../../src/docs/excel-export.md)で対応範囲と画像変換を確認する。CLIの `create/apply/inspect/validate` はネイティブSPON操作のまま使う。 取り込み時の数値書式 `formatCode` は4,096文字まで。不正な引用符・角括弧・末尾エスケープや上限超過は、値・数式などを保持し、その数値書式だけを標準表示へ変更して `adjusted` を返す。取り込み結果の警告を確認する。
 
+XLSXの列幅計測は入口で異なる。通常のブラウザー入口 `@likex/spreadsheet` とGUI／Handleは、ブックの標準（Normal）スタイルの数字幅をCanvasで1回計測し、端末ピクセルで丸めてCSS pxへ戻す。`/model` はDOMを使わず、`SpreadsheetExcelImportOptions.columnWidthMeasurement`（`SpreadsheetExcelColumnWidthMeasurer`）へ計測関数を注入できる。未指定・未計測の場合は従来の最大数字幅7px・倍率1へ近似する。取り込んだ小数の列幅を勝手に整数へ丸めない。標準フォント・計測環境はSPONに保存せず、出力はCalibri 11pt基準へ換算するため、元Excelとの完全な往復は保証しない。[列幅の計測](../../src/docs/excel-import.md#列幅の計測関数を指定する)を確認する。
+
 XLSXでは、図形・画像・結合・書式・コメント・テーブル・名前・入力規則の不正や保持上限超過を、対象要素・定義・補助パートだけの省略／補正で回復し、`warnings` を返す。グラフ専用シートや参照先がない補助データも省略する。結合範囲の左上以外に値・数式がある場合は内容を保持して結合だけを解除する。行高・列幅は1〜1,000pxを保持し、不正な寸法や書式は標準設定へ戻す。省略・補正した内容は再出力で復元しない。
 
 空セルの宣言数だけではXLSXを拒否しない。ブック全体100,000件の保持予算は値・数式を優先し、残りに収まらない空セルの書式を省略する。入力規則は追加セルの残り予算と1シート累計100,000セルの処理予算を適用し、収まらない規則は部分適用せず丸ごと省略する。非数式セルは事前に適合を確認し、不適合な空セルを生成して予算を消費しない。後続の不適合規則が上書きする場合は古い規則も外し、規則だけで存在していた空セルは削除して予算を戻す。コメントは10,000件、テーブル・名前は各1,000件、描画は1,000件、画像は1枚5 MiB・合計20 MiBの保持上限があり、超過部分だけを警告付きで省略する。SPONのパースとモデルAPIの上限・入力検証は変更しない。
