@@ -62,9 +62,14 @@
 `SpreadsheetCellFormat` の全フィールド:
 
 - 文字: `bold`, `italic`, `underline`, `fontFamily`, `fontSize`, `color`。
-- 配置: `align`（`left` / `center` / `right`）、`verticalAlign`（`top` / `middle` / `bottom`）、`wrap`, `shrinkToFit`, `background`。`wrap` / `shrinkToFit` はbooleanで、省略・両方falseは標準の空白セルへのはみ出し表示。折り返しは `{ wrap: true, shrinkToFit: false }`、セル幅に縮小する場合は `{ wrap: false, shrinkToFit: true }`。両方trueなら折り返しを優先し、保存フラグは保持する。縮小で `fontSize` や保存値は書き換えない。
+- 横位置: `align`（`general` / `left` / `center` / `right` / `fill` / `justify` / `centerContinuous` / `distributed`）。省略・`general` は値の型で配置を決める。`fill` は表示文字列を反復し、右側に続く同じ配置の空白セルにも表示する。`justify` はセル幅で折り返して最終行以外を両端揃え、`distributed` は折り返して最終行を含めて均等割り付けする。値や `wrap` は変更しない。
+- 縦位置: `verticalAlign`（`top` / `middle` / `bottom` / `justify` / `distributed`）。SPONの省略値は従来どおり上下中央。縦の `justify` は複数行の間隔を広げ、`distributed` は行の上下にも余白を配る。1行の場合はそれぞれ上詰め・上下中央。XLSXの縦中央 `center` はモデルの `middle` に対応する。
+- インデント: `indent` は0〜250の整数、省略は0。横の `left` / `right` / `distributed` に適用し、他の配置でも設定値自体は保持する。表示は1段階をスペース3個分として近似し、Excelの標準フォントの計測結果と一致する保証はない。
+- 文字の表示・背景: `wrap`, `shrinkToFit`, `background`。`wrap` / `shrinkToFit` はbooleanで、省略・両方falseは標準の空白セルへのはみ出し表示。折り返しは `{ wrap: true, shrinkToFit: false }`、セル幅に縮小する場合は `{ wrap: false, shrinkToFit: true }`。両方trueなら折り返しを優先し、保存フラグは保持する。縮小で `fontSize` や保存値は書き換えない。
 - 表示形式: `numberFormat`（`general`, `text`, `number`, `currency`, `percent`, `date`, `time`, `datetime`）、`decimalPlaces`（0〜10）、`useGrouping`、`negativeFormat`（`minus`, `parentheses`, `red`, `red-parentheses`）。
 - `borders`: `top` / `right` / `bottom` / `left` の各辺に `{ style?, width?, color? }`。`style` は `none` / `solid` / `dashed` / `dotted` / `double`、`width` は1 / 2 / 3。空の `borders: {}` は辺を消す指定に使える。
+
+`centerContinuous` は、値を持つセルと、その右に続く同じ横位置の空白セルを使って中央に表示する。範囲の空白セルにも同じ書式を保存し、途中の値・数式・異なる配置・結合などで区切る。数値・真偽値にも適用し、値の移動・複製や結合情報の追加は行わない。XLSXでも空白セル側の配置を保持する。
 
 空白セルにはみ出す文字に重なる内部の縦線は表示上隠し、上下や文字が届かない線は残す。保存した `borders` は変更せず、SPON・XLSXで保持する。
 

@@ -17,7 +17,7 @@ export function normalizeCellFormat(value: SpreadsheetCellFormat | undefined): S
   for (const key of ["color", "background"] as const) if (value[key] !== undefined) {
     const color = validateFormatColor(value[key]); if (color) result[key] = color;
   }
-  const choices = { align: ["left", "center", "right"], verticalAlign: ["top", "middle", "bottom"],
+  const choices = { align: ["general", "left", "center", "right", "fill", "justify", "centerContinuous", "distributed"], verticalAlign: ["top", "middle", "bottom", "justify", "distributed"],
     numberFormat: ["general", "text", "number", "currency", "percent", "date", "time", "datetime"],
     negativeFormat: ["minus", "parentheses", "red", "red-parentheses"] } as const;
   for (const key of Object.keys(choices) as (keyof typeof choices)[]) if (value[key] !== undefined) {
@@ -31,6 +31,10 @@ export function normalizeCellFormat(value: SpreadsheetCellFormat | undefined): S
   if (value.fontSize !== undefined) {
     if (!Number.isFinite(value.fontSize) || value.fontSize < 1 || value.fontSize > 200) return fail("フォントサイズは1〜200pxで指定してください");
     result.fontSize = value.fontSize;
+  }
+  if (value.indent !== undefined) {
+    if (!Number.isInteger(value.indent) || value.indent < 0 || value.indent > 250) return fail("インデントは0〜250の整数で指定してください");
+    result.indent = value.indent;
   }
   if (value.decimalPlaces !== undefined) {
     if (!Number.isInteger(value.decimalPlaces) || value.decimalPlaces < 0 || value.decimalPlaces > 10) return fail("小数桁数は0〜10で指定してください");
@@ -52,7 +56,7 @@ export function normalizeCellFormat(value: SpreadsheetCellFormat | undefined): S
 }
 function canonical(format: SpreadsheetCellFormat | undefined) {
   return { ...format, bold: !!format?.bold, italic: !!format?.italic, underline: !!format?.underline,
-    wrap: !!format?.wrap, shrinkToFit: !!format?.shrinkToFit, verticalAlign: format?.verticalAlign ?? "middle", numberFormat: format?.numberFormat ?? "general",
+    wrap: !!format?.wrap, shrinkToFit: !!format?.shrinkToFit, align: format?.align ?? "general", verticalAlign: format?.verticalAlign ?? "middle", indent: format?.indent ?? 0, numberFormat: format?.numberFormat ?? "general",
     negativeFormat: format?.negativeFormat ?? "minus", borders: ["top", "right", "bottom", "left"].map(edge => {
       const border = format?.borders?.[edge as keyof SpreadsheetCellBorders];
       return !border || border.style === "none" ? null : { style: border.style ?? "solid", width: border.width ?? 1, color: border.color ?? "#808080" };

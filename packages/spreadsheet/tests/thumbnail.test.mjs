@@ -196,3 +196,83 @@ test('thumbnail selectors are controlled and a renamed selected sheet reports an
   await act(() => renderer.update(h(SpreadsheetThumbnail, { workbook: renamed, sheetId: 'first', onError })));
   assert.equal(value(), '54');
 });
+
+test('thumbnail center-across and fill use shared span rules within the fixed preview without merging cells', () => {
+  const workbook = { sheets: [{ id: 's', name: 'S', rowCount: 25, columnCount: 12, cells: {
+    B1: { value: '1234', format: { align: 'centerContinuous', numberFormat: 'text' } },
+    C1: { value: '', format: { align: 'centerContinuous' } }, D1: { value: '', format: { align: 'centerContinuous' } },
+    E1: { value: 'stop', format: { align: 'centerContinuous' } }, F1: { value: '', format: { align: 'centerContinuous' } },
+    A2: { value: '-', format: { align: 'fill' } }, B2: { value: '', format: { align: 'fill' } },
+    I3: { value: 'TRUE', format: { align: 'centerContinuous' } }, J3: { value: '', format: { align: 'centerContinuous' } },
+    K3: { value: '', format: { align: 'centerContinuous' } },
+    A4: { value: 'center', format: { align: 'centerContinuous' } }, B4: { value: '', format: { align: 'centerContinuous' } },
+    A5: { value: 'ordinary overflowing content' },
+  }, merges: [{ top: 3, bottom: 3, left: 1, right: 2 }] }] };
+  const before = JSON.stringify(workbook), scene = prepareSpreadsheetThumbnail(workbook);
+  assert.equal(cell(scene, 'B1').after, 200); assert.equal(cell(scene, 'B1').style.width, 100);
+  assert.equal(cell(scene, 'C1').after, 0); assert.equal(cell(scene, 'C1').text, '');
+  assert.equal(cell(scene, 'E1').after, 100); assert.equal(cell(scene, 'A2').after, 100);
+  assert.equal(cell(scene, 'I3').after, 100, 'No scan beyond J even when matching cells continue outside preview');
+  assert.equal(cell(scene, 'I3').style.textAlign, 'center');
+  assert.equal(cell(scene, 'A4').after, 0, 'A merge stops the shared alignment range');
+  assert.equal(cell(scene, 'A5').after, 0, 'Ordinary overflow remains clipped in thumbnails');
+  const html = renderToStaticMarkup(h(SpreadsheetThumbnail, { workbook }));
+  assert.match(html, /data-lxs-thumbnail-cell="B1"[^>]*><span[^>]*width:calc\(100% \+ 200px\)[^>]*>1234<\/span>/);
+  assert.match(html, /-{5,}/);
+  assert.equal(JSON.stringify(workbook), before);
+});
+
+test('thumbnail advanced placement shares bounded layout without DOM measurement or resize observation', async t => {
+  const previousResize = globalThis.ResizeObserver;
+  globalThis.ResizeObserver = class { constructor() { throw new Error('Thumbnail must not measure'); } };
+  let renderer;
+  t.after(async () => { if (renderer) await act(() => renderer.unmount()); globalThis.ResizeObserver = previousResize; });
+  const workbook = { sheets: [{ id: 's', name: 'S', rowCount: 6, columnCount: 3, rowHeights: { 0: 100, 1: 100, 2: 100 }, cells: {
+    A1: { value: 'first\nlast', format: { verticalAlign: 'justify' } },
+    A2: { value: 'first\nlast', format: { verticalAlign: 'distributed' } },
+    A3: { value: '均等配置', format: { align: 'distributed', indent: 1 } },
+    B1: { value: 'left', format: { align: 'left', indent: 2 } },
+    B2: { value: 'right', format: { align: 'right', indent: 2 } },
+    B3: { value: '42', format: { align: 'general' } }, C3: { value: 'TRUE', format: { align: 'general' } },
+  } }] };
+  await act(() => { renderer = create(h(SpreadsheetThumbnail, { workbook })); });
+  const text = address => renderer.root.findByProps({ 'data-lxs-thumbnail-cell': address }).findAllByType('span')[0];
+  assert.equal(text('A1').props.style.justifyContent, 'space-between');
+  assert.equal(text('A2').props.style.justifyContent, 'space-around');
+  assert.deepEqual(text('A1').findAllByProps({ className: 'lxs-thumbnail-text-content' }).map(line => line.children[0]), ['first', 'last']);
+  assert.equal(text('A3').props.style.paddingLeft, '3ch'); assert.equal(text('A3').props.style.paddingRight, '3ch');
+  const distributed = text('A3').findAllByProps({ className: 'lxs-thumbnail-text-content' })[0].props.style;
+  assert.ok(distributed.letterSpacing > 0); assert.equal(distributed.marginRight, -distributed.letterSpacing);
+  assert.equal(text('B1').props.style.paddingLeft, '6ch'); assert.equal(text('B2').props.style.paddingRight, '6ch');
+  const scene = prepareSpreadsheetThumbnail(workbook);
+  assert.equal(cell(scene, 'B3').style.textAlign, 'right'); assert.equal(cell(scene, 'C3').style.textAlign, 'center');
+});
+
+test('thumbnail falls back to native text without losing permitted characters when advanced layout exceeds its budget', async t => {
+  const cases = [
+    { value: 'x\n'.repeat(600) + 'manual-tail', format: { verticalAlign: 'justify' }, columnWidth: 100, whiteSpace: 'pre' },
+    { value: 'x'.repeat(1500) + 'soft-tail', format: { align: 'justify' }, columnWidth: 1, whiteSpace: 'pre-wrap' },
+    { value: 'y'.repeat(2500), format: { align: 'distributed', indent: 1 }, columnWidth: 1, whiteSpace: 'pre-wrap' },
+  ];
+  let renderer;
+  t.after(async () => { if (renderer) await act(() => renderer.unmount()); });
+  for (const item of cases) {
+    const workbook = { sheets: [{ id: 's', name: 'S', rowCount: 1, columnCount: 1, columnWidths: { 0: item.columnWidth },
+      cells: { A1: { value: item.value, format: item.format } } }] };
+    await act(() => {
+      if (renderer) renderer.update(h(SpreadsheetThumbnail, { workbook }));
+      else renderer = create(h(SpreadsheetThumbnail, { workbook }));
+    });
+    const fallback = renderer.root.findByProps({ className: 'lxs-cell-text lxs-thumbnail-text-fallback' });
+    assert.equal(fallback.children[0], item.value.slice(0, 2000));
+    assert.equal(fallback.props.style.whiteSpace, item.whiteSpace);
+    assert.equal(renderer.root.findAllByProps({ className: 'lxs-thumbnail-text-content' }).length, 0);
+  }
+  const value = 'x'.repeat(1999);
+  const workbook = { sheets: [{ id: 's', name: 'S', rowCount: 1, columnCount: 1, columnWidths: { 0: 40 },
+    cells: { A1: { value, format: { align: 'justify' } } } }] };
+  await act(() => renderer.update(h(SpreadsheetThumbnail, { workbook })));
+  assert.equal(renderer.root.findAllByProps({ className: 'lxs-cell-text lxs-thumbnail-text-fallback' }).length, 0);
+  assert.equal(renderer.root.findAllByProps({ className: 'lxs-thumbnail-text-content' }).map(line => line.children[0]).join(''), value,
+    'Soft wrapping does not spend the character budget on generated line boundaries');
+});

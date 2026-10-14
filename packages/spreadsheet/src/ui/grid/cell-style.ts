@@ -10,9 +10,10 @@ function borderCss(border: SpreadsheetCellBorder | undefined): string | undefine
 export function cellFormatStyle(format: SpreadsheetCellFormat | undefined, value: SpreadsheetCalculatedValue | undefined): CSSProperties {
   const style: CSSProperties = { fontWeight: format?.bold ? 700 : undefined, fontStyle: format?.italic ? "italic" : undefined,
     textDecoration: format?.underline ? "underline" : undefined, fontFamily: format?.fontFamily, fontSize: format?.fontSize,
-    textAlign: format?.align ?? (typeof value === "number" ? "right" : "left"),
+    textAlign: resolvedCellTextAlign(format, value),
     color: isNegativeRed(value, format) ? "#dc2626" : format?.color, backgroundColor: format?.background,
-    whiteSpace: format?.wrap ? "pre-wrap" : "pre", overflowWrap: format?.wrap ? "anywhere" : undefined,
+    whiteSpace: format?.wrap || format?.align === "justify" || format?.align === "distributed" ? "pre-wrap" : "pre",
+    overflowWrap: format?.wrap || format?.align === "justify" || format?.align === "distributed" ? "anywhere" : undefined,
     justifyContent: format?.verticalAlign === "top" ? "flex-start" : format?.verticalAlign === "bottom" ? "flex-end" : "center" };
   for (const edge of ["top", "right", "bottom", "left"] as const) {
     const border = borderCss(format?.borders?.[edge]); if (!border) continue;
@@ -20,6 +21,26 @@ export function cellFormatStyle(format: SpreadsheetCellFormat | undefined, value
     style[key] = border;
   }
   return style;
+}
+
+/** General alignment follows the calculated value, including text-formatted numbers. */
+export function resolvedCellTextAlign(format: SpreadsheetCellFormat | undefined, value: SpreadsheetCalculatedValue | undefined): "left" | "center" | "right" | "justify" {
+  switch (format?.align) {
+    case "left": case "center": case "right": return format.align;
+    case "centerContinuous": return "center";
+    case "fill": return "left";
+    case "justify": case "distributed": return "justify";
+    default: return typeof value === "number" ? "right" : typeof value === "boolean" ||
+      (format?.numberFormat !== "text" && typeof value === "string" && value.startsWith("#")) ? "center" : "left";
+  }
+}
+
+/** Keep indentation inside the text box so large indents never expand a tiny cell. */
+export function cellTextIndentStyle(format: Pick<SpreadsheetCellFormat, "align" | "indent"> | undefined): CSSProperties | undefined {
+  const indent = format?.indent;
+  if (!indent || !["left", "right", "distributed"].includes(format?.align ?? "")) return undefined;
+  return { boxSizing: "border-box", paddingLeft: format?.align !== "right" ? `${3 * indent}ch` : undefined,
+    paddingRight: format?.align !== "left" ? `${3 * indent}ch` : undefined };
 }
 
 /** Shared model edges are stored on both cells for Office round trips. Paint

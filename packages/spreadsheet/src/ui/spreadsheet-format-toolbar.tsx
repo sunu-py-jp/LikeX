@@ -14,11 +14,17 @@ import { SpreadsheetMergeToolbar } from "./spreadsheet-merge-toolbar";
 import { SpreadsheetBorderMenu } from "./spreadsheet-border-menu";
 import { RibbonGroup } from "./spreadsheet-ribbon-group";
 
+const HORIZONTAL_ALIGNMENT_OPTIONS = [["general", "標準"], ["left", "左詰め（インデント）"], ["center", "中央揃え"],
+  ["right", "右詰め（インデント）"], ["fill", "繰り返し"], ["justify", "両端揃え"],
+  ["centerContinuous", "選択範囲内で中央"], ["distributed", "均等割り付け（インデント）"]] as const;
+const VERTICAL_ALIGNMENT_OPTIONS = [["top", "上詰め"], ["middle", "中央揃え"], ["bottom", "下詰め"],
+  ["justify", "両端揃え"], ["distributed", "均等割り付け"]] as const;
+
 const NUMBER_FORMAT_OPTIONS = [["general", "標準"], ["text", "文字列"], ["number", "数値"], ["currency", "通貨"],
   ["percent", "パーセント"], ["date", "日付"], ["time", "時刻"], ["datetime", "日時"]] as const;
 
 export function SpreadsheetFormatToolbar({ controller: c }: { controller: SpreadsheetController }) {
-  const [dialog, setDialog] = useState<"format" | "border" | "conditional" | null>(null);
+  const [dialog, setDialog] = useState<"format" | "alignment" | "border" | "conditional" | null>(null);
   const disabled = c.disabled || c.requesting || !!c.selectedDrawingId;
   const closeDialog = () => { c.cancelEditRequest(); setDialog(null); };
   const format = c.activeSheet.cells[cellAddress(c.selection.focus.row, c.selection.focus.column)]?.format;
@@ -59,9 +65,10 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
             <Command label="下揃え" aria-pressed={(format?.verticalAlign ?? "middle") === "bottom"} disabled={disabled} onClick={() => patch({ verticalAlign: "bottom" })}><Icon name="alignBottom" /></Command>
           </div>
           <div className="lxs-ribbon-row" role="group" aria-label="文字の配置">
-            <Command label="左揃え" aria-pressed={(format?.align ?? "left") === "left"} disabled={disabled} onClick={() => patch({ align: "left" })}><Icon name="alignLeft" /></Command>
-            <Command label="中央揃え" aria-pressed={(format?.align ?? "left") === "center"} disabled={disabled} onClick={() => patch({ align: "center" })}><Icon name="alignCenter" /></Command>
-            <Command label="右揃え" aria-pressed={(format?.align ?? "left") === "right"} disabled={disabled} onClick={() => patch({ align: "right" })}><Icon name="alignRight" /></Command>
+            <Command label="左揃え" aria-pressed={(format?.align ?? "general") === "left"} disabled={disabled} onClick={() => patch({ align: "left" })}><Icon name="alignLeft" /></Command>
+            <Command label="中央揃え" aria-pressed={(format?.align ?? "general") === "center"} disabled={disabled} onClick={() => patch({ align: "center" })}><Icon name="alignCenter" /></Command>
+            <Command label="右揃え" aria-pressed={(format?.align ?? "general") === "right"} disabled={disabled} onClick={() => patch({ align: "right" })}><Icon name="alignRight" /></Command>
+            <Command label="配置の詳細設定" disabled={disabled} onClick={() => c.afterCommit(() => setDialog("alignment"))}><span aria-hidden="true">↘</span></Command>
           </div>
         </div>}
         <div className="lxs-ribbon-stack">
@@ -79,7 +86,7 @@ export function SpreadsheetFormatToolbar({ controller: c }: { controller: Spread
     {c.features.formatting && c.features.conditionalFormatting && <RibbonGroup label="スタイル">
       <Command className="lxs-ribbon-command-large" label="条件付き書式" disabled={disabled} onClick={() => c.afterCommit(() => setDialog("conditional"))}><Icon name="conditionalFormat" /><span>条件付き書式</span></Command>
     </RibbonGroup>}
-    {(dialog === "format" || dialog === "border") && c.features.formatting && <CellFormatDialog controller={c} onClose={closeDialog} initialTab={dialog === "border" ? "border" : "number"} />}
+    {(dialog === "format" || dialog === "alignment" || dialog === "border") && c.features.formatting && <CellFormatDialog controller={c} onClose={closeDialog} initialTab={dialog === "format" ? "number" : dialog} />}
     {dialog === "conditional" && c.features.formatting && c.features.conditionalFormatting && <ConditionalFormatDialog controller={c} onClose={closeDialog} />}
   </>;
 }
@@ -111,24 +118,38 @@ export function CellFormatDialog({ controller: c, onClose, target, initialTab = 
   const [format, setFormat] = useState<SpreadsheetCellFormat>({ numberFormat: initial?.numberFormat ?? "number", decimalPlaces: initial?.decimalPlaces ?? 2, useGrouping: initial?.useGrouping ?? true, negativeFormat: initial?.negativeFormat ?? "minus" });
   const [tab, setTab] = useState(initialTab), [edges, setEdges] = useState<string[]>(["top", "right", "bottom", "left"]);
   const [textMode, setTextMode] = useState(initial?.wrap ? "wrap" : initial?.shrinkToFit ? "shrink" : "standard");
+  // Only apply edited fields, so a mixed selection retains its other alignment settings.
+  const [alignmentPatch, setAlignmentPatch] = useState<SpreadsheetCellFormat>({});
+  const horizontalAlignment = alignmentPatch.align ?? initial?.align ?? "general";
+  const verticalAlignment = alignmentPatch.verticalAlign ?? initial?.verticalAlign ?? "middle";
+  const [indent, setIndent] = useState(String(initial?.indent ?? 0));
+  const supportsIndent = ["left", "right", "distributed"].includes(horizontalAlignment);
+  const validIndent = /^\d+$/.test(indent) && Number(indent) <= 250;
   const [color, setColor] = useState("#808080"), [width, setWidth] = useState<1 | 2 | 3>(1), [style, setStyle] = useState<"solid" | "dashed" | "dotted" | "double" | "none">("solid");
-  const disabled = c.disabled || c.requesting || stale;
+  const disabled = c.disabled || c.readOnly || !c.features.formatting || c.requesting || stale;
+  const invalidAlignment = tab === "alignment" && supportsIndent && !validIndent;
   const apply = () => {
-    if (disabled || c.getWorkbook() !== snapshot.workbook) return;
+    if (disabled || invalidAlignment || c.getWorkbook() !== snapshot.workbook) return;
     try { const addresses = selectedAddresses(snapshot.selection);
       const patch: SpreadsheetCellFormat = tab === "border" ? { borders: Object.fromEntries(edges.map(edge => [edge, { color, width, style }])) }
-        : tab === "alignment" ? { wrap: textMode === "wrap", shrinkToFit: textMode === "shrink" } : format;
+        : tab === "alignment" ? alignmentPatch : format;
+      if (Object.keys(patch).length === 0) { onClose(); return; }
       void Promise.resolve(c.executeCommands([{ type: "cells.format", sheetId: snapshot.sheetId, addresses, format: patch }],
         {isCurrent: () => c.getWorkbook() === snapshot.workbook})).then(result => { if (result.ok) onClose(); }, c.reportError);
     } catch (cause) { c.reportError(cause); }
   };
-  return <SpreadsheetDialog title="セルの書式" onClose={onClose} actions={<><button type="button" onClick={onClose}>キャンセル</button><button type="button" disabled={disabled} onClick={apply}>適用</button></>}>
+  return <SpreadsheetDialog title="セルの書式" onClose={onClose} actions={<><button type="button" onClick={onClose}>キャンセル</button><button type="button" disabled={disabled || invalidAlignment} onClick={apply}>適用</button></>}>
     {stale && <p role="alert">データが変更されました。閉じて選択し直してください。</p>}
     <div className="lxs-format-dialog-fields">
       <label className="lxs-field-full">設定する書式<select disabled={disabled} value={tab} onChange={event => setTab(event.currentTarget.value as typeof tab)}><option value="number">表示形式</option><option value="alignment">配置</option><option value="border">罫線</option></select></label>
       {tab === "alignment" ? <>
-        <label className="lxs-field-full">文字の表示<select aria-label="文字の表示" disabled={disabled} value={textMode} onChange={event => setTextMode(event.currentTarget.value)}><option value="standard">標準（空白セルにはみ出す）</option><option value="wrap">折り返して全体を表示</option><option value="shrink">縮小して全体を表示</option></select></label>
+        <label>横位置<select aria-label="横位置" disabled={disabled} value={horizontalAlignment} onChange={event => setAlignmentPatch({ ...alignmentPatch, align: event.currentTarget.value as SpreadsheetCellFormat["align"] })}>{HORIZONTAL_ALIGNMENT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>縦位置<select aria-label="縦位置" disabled={disabled} value={verticalAlignment} onChange={event => setAlignmentPatch({ ...alignmentPatch, verticalAlign: event.currentTarget.value as SpreadsheetCellFormat["verticalAlign"] })}>{VERTICAL_ALIGNMENT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>インデント<input aria-label="インデント" type="number" min="0" max="250" step="1" disabled={disabled || !supportsIndent} value={indent} aria-invalid={supportsIndent && !validIndent || undefined} onChange={event => { const value = event.currentTarget.value; setIndent(value); if (/^\d+$/.test(value) && Number(value) <= 250) setAlignmentPatch({ ...alignmentPatch, indent: Number(value) }); }} /></label>
+        {supportsIndent && !validIndent && <p className="lxs-field-full" role="alert">インデントは0〜250の整数で指定してください。</p>}
+        <label className="lxs-field-full">文字の表示<select aria-label="文字の表示" disabled={disabled} value={textMode} onChange={event => { const value = event.currentTarget.value; setTextMode(value); setAlignmentPatch({ ...alignmentPatch, wrap: value === "wrap", shrinkToFit: value === "shrink" }); }}><option value="standard">標準（空白セルにはみ出す）</option><option value="wrap">折り返して全体を表示</option><option value="shrink">縮小して全体を表示</option></select></label>
         <p className="lxs-field-full">標準では、隣のセルが空白の場合に文字列をはみ出して表示します。値のあるセルの手前で表示を止めます。</p>
+        {horizontalAlignment === "centerContinuous" && <p className="lxs-field-full">横に連続するセルを選択して適用すると、セルを結合せずに範囲の中央へ配置します。</p>}
       </> : tab === "number" ? <>
         <label>表示形式<select disabled={disabled} value={format.numberFormat} onChange={event => setFormat({ ...format, numberFormat: event.currentTarget.value as SpreadsheetCellFormat["numberFormat"] })}>{NUMBER_FORMAT_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         {format.numberFormat === "text" ? <p className="lxs-field-full">先頭のゼロや「=」で始まる内容を、文字列として表示します。</p> : <>

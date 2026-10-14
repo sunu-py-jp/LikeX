@@ -441,7 +441,8 @@
           "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
         },
         "align": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_align"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_align",
+          "description": "Omitted or general uses the value type. centerContinuous centers across adjacent blank cells with the same alignment."
         },
         "color": {
           "type": "string"
@@ -467,7 +468,14 @@
           "description": "Reduce the displayed text size to fit the cell without changing fontSize. Omitted means false."
         },
         "verticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_verticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_verticalAlign",
+          "description": "Omitted uses middle. XLSX calls middle \"center\"."
+        },
+        "indent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 250,
+          "description": "Integer indentation level, in units of three spaces. Used by left/right and both edges of distributed alignment."
         },
         "borders": {
           "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_borders"
@@ -494,13 +502,20 @@
       "enum": [
         "right",
         "left",
-        "center"
+        "fill",
+        "general",
+        "center",
+        "justify",
+        "centerContinuous",
+        "distributed"
       ]
     },
     "SpreadsheetCommand_5_rules_item_1_format_verticalAlign": {
       "enum": [
         "top",
         "bottom",
+        "justify",
+        "distributed",
         "middle"
       ]
     },
@@ -2039,10 +2054,10 @@
           "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_align"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_verticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
         },
         "textAutoFit": {
           "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",
@@ -2161,6 +2176,20 @@
         "overflow"
       ]
     },
+    "SpreadsheetCommand_31_textAlign": {
+      "enum": [
+        "right",
+        "left",
+        "center"
+      ]
+    },
+    "SpreadsheetCommand_31_textVerticalAlign": {
+      "enum": [
+        "top",
+        "bottom",
+        "middle"
+      ]
+    },
     "SpreadsheetCommand_31_textAutoFit": {
       "enum": [
         "none",
@@ -2239,10 +2268,10 @@
           "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_align"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_verticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
         },
         "textAutoFit": {
           "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",
@@ -2525,10 +2554,10 @@
           "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_align"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_verticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
         },
         "textAutoFit": {
           "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",
@@ -2738,10 +2767,10 @@
           "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_align"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_verticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
         },
         "textAutoFit": {
           "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",
@@ -3127,10 +3156,10 @@
           "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_align"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_verticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
         },
         "textAutoFit": {
           "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",
@@ -3388,10 +3417,10 @@
           "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_align"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_verticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
         },
         "textAutoFit": {
           "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",

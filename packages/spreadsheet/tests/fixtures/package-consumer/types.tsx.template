@@ -91,7 +91,11 @@ const unsupported = { pivotTables: true } satisfies SpreadsheetFeatures;
 // @ts-expect-error A saved result must be a workbook or void.
 const invalidSave: SpreadsheetSaveHandler = async () => 123;
 // @ts-expect-error Alignment is a defined union.
-const invalidFormat = { align: "justify" } satisfies SpreadsheetCellFormat;
+const invalidFormat = { align: "sideways" } satisfies SpreadsheetCellFormat;
+const horizontalAlignments: readonly NonNullable<SpreadsheetCellFormat["align"]>[] = ["general", "left", "center", "right", "fill", "justify", "centerContinuous", "distributed"];
+const verticalAlignments: readonly NonNullable<SpreadsheetCellFormat["verticalAlign"]>[] = ["top", "middle", "bottom", "justify", "distributed"];
+const advancedAlignment: SpreadsheetCommand = { type: "cells.format", sheetId: sheet.id, addresses: ["B2:D2"], format: { align: "centerContinuous", verticalAlign: "distributed", indent: 2 } };
+void [horizontalAlignments, verticalAlignments, advancedAlignment];
 function rejectMutation(next: SpreadsheetWorkbook, selection: SpreadsheetSelection) {
   // @ts-expect-error Sheet collections are readonly snapshots.
   next.sheets.push(sheet);

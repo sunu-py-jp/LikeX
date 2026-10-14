@@ -99,6 +99,16 @@
 
 文字の表示は `cells.format` の `format` で指定する。標準の空白セルへのはみ出しは `{ "wrap": false, "shrinkToFit": false }`、折り返しは `{ "wrap": true, "shrinkToFit": false }`、縮小して全体表示は `{ "wrap": false, "shrinkToFit": true }`。部分適用なので、表示方法を切り替えるときは両方を指定する。元の値・数式・`fontSize` は変更しない。両方trueを入力した場合は折り返しを優先するが、保存されたフラグは残す。XLSXにも両フラグを出力する。
 
+横位置は `align: "general" / "left" / "center" / "right" / "fill" / "justify" / "centerContinuous" / "distributed"`、縦位置は `verticalAlign: "top" / "middle" / "bottom" / "justify" / "distributed"`、インデントは `indent: 0..250` の整数で指定する。横の両端揃え・均等割り付けは表示時に折り返すが `wrap` を書き換えない。インデントは左詰め・右詰め・横の均等割り付けに反映する。いずれもSPONとXLSXで保持する。
+
+結合せず範囲内の中央に見出しを置く場合は、値を持つ左端と右側の空白セルに同じ `centerContinuous` を指定する。次はB2に値がありC2:E2が空白の場合の例。値・数式・結合情報を変更せず、セルは個別に選択できる。途中に値・数式、異なる配置や結合があればそこで区切る。
+
+```json
+[
+  { "type": "cells.format", "sheetId": "sales", "addresses": ["B2:E2"], "format": { "align": "centerContinuous", "verticalAlign": "middle", "wrap": false, "shrinkToFit": false } }
+]
+```
+
 `cells.format` / `cells.validation` / `cells.replace` の `addresses` は `["A1", "$B$2:$F$2"]` のようにセルと同じシート内の範囲を混在できる。大文字の番地へ展開して重複を除き、範囲を含む配列は合計10,000セルまで。セル単体だけの配列は従来どおり使えるが、入力規則は従来の入力配列10,000件上限も保持する。逆順・シート外・不正な範囲は `addresses[index]` とコマンド位置を返し、バッチ全体を適用しない。`cells.clear` / `cells.insert` / `cells.delete` は既存の `range` を使い、`addresses` は付けない。
 
 `cells.borders` は各範囲の形に従って格子・外枠・内側・各辺を設定し、対象外の辺・値・数式・他書式は保持する。省略値は実線1px・`#808080`。`none` は全罫線を消し、`border: { "style": "none" }` はプリセット対象の辺だけを消す。通常のグリッド線は残る。範囲は1〜1,000件で、結合全体への拡張後、重複を除いて10,000セルまで。結合内部へ新しい線は引かない。共有辺は隣接セルの反対側も同期し、隣が結合セルならその辺全体へ伝播するため、選択外のセルも変わることがある。伝播先にも更新上限があり、超過時は全体を拒否する。保存は既存のセル罫線を使い、SPON・XLSXで保持する。公開関数は `setCellBorders(workbook, sheetId, ranges, preset, border?)`。

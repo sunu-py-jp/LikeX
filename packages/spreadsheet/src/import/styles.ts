@@ -139,12 +139,18 @@ export async function readXlsxStyles(relationships: ReadonlyMap<string, XlsxRela
     const alignment = child(style, "alignment") ?? inheritedAlignments[Number(style.attributes.xfId ?? 0)];
     if (alignment) {
       const { horizontal, vertical, wrapText, textRotation, indent, shrinkToFit } = alignment.attributes;
-      if (["left", "center", "right"].includes(horizontal)) result.align = horizontal as "left" | "center" | "right";
-      else if (horizontal && horizontal !== "general") context.warn({ code: "adjusted", message: "均等割り付けなど未対応の配置を標準配置へ変更しました" });
-      if (["top", "bottom", "center"].includes(vertical)) result.verticalAlign = vertical === "center" ? "middle" : vertical as "top" | "bottom";
+      if (["general", "left", "center", "right", "fill", "justify", "centerContinuous", "distributed"].includes(horizontal)) result.align = horizontal as SpreadsheetCellFormat["align"];
+      else if (horizontal) context.warn({ code: "adjusted", message: "不正な横位置の配置を標準配置へ変更しました" });
+      if (["top", "bottom", "center", "justify", "distributed"].includes(vertical)) result.verticalAlign = vertical === "center" ? "middle" : vertical as SpreadsheetCellFormat["verticalAlign"];
+      else if (vertical) context.warn({ code: "adjusted", message: "不正な縦位置の配置を標準配置へ変更しました" });
       if (wrapText !== undefined) result.wrap = ["1", "true"].includes(wrapText);
       if (shrinkToFit !== undefined) result.shrinkToFit = ["1", "true"].includes(shrinkToFit);
-      if (Number(textRotation) || Number(indent)) context.warn({ code: "omitted", message: "セルの文字回転・字下げを省略しました" });
+      if (indent !== undefined) {
+        const level = Number(indent);
+        if (Number.isInteger(level) && level >= 0 && level <= 250) result.indent = level;
+        else context.warn({ code: "adjusted", message: "不正なインデントを標準設定へ変更しました" });
+      }
+      if (Number(textRotation)) context.warn({ code: "omitted", message: "セルの文字回転を省略しました" });
     }
     try { return normalizeCellFormat(result); }
     catch {

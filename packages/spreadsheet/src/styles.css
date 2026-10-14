@@ -1,6 +1,7 @@
 /* Import once. The package build bundles these files into one stylesheet. */
 @import "./ui/base.css";
 @import "./ui/formatting.css";
+@import "./ui/grid/aligned-cell-text.css";
 @import "./ui/editing.css";
 @import "./ui/data-validation.css";
 @import "./ui/ribbon.css";

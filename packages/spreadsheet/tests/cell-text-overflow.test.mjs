@@ -10,11 +10,12 @@ const bundle = await build({ stdin: { contents: `
   export { useSpreadsheet } from './src/state/use-spreadsheet';
   export { rowTextOverflowLimits, cellTextOverflow } from './src/ui/grid/cell-text-layout';
   export { columnGeometry, visibleMergedCells } from './src/ui/grid/grid-geometry';
+  export { CellText } from './src/ui/grid/cell-text';
 `, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false, jsx: 'automatic',
 plugins: [{ name: 'react', setup(builder) {
   builder.onResolve({ filter: /^react(?:-dom)?(?:\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
 } }] });
-const { SpreadsheetGrid, useSpreadsheet, rowTextOverflowLimits, cellTextOverflow, columnGeometry, visibleMergedCells } =
+const { SpreadsheetGrid, useSpreadsheet, rowTextOverflowLimits, cellTextOverflow, columnGeometry, visibleMergedCells, CellText } =
   await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 
 const longText = '幅を超える長い文字列は隣の空白セルにも続けて表示されます';
@@ -192,4 +193,69 @@ test('blank live editors stop an earlier cell until edit cancellation, and colum
   assert.equal(spillWidth(ui, 0, 0), 'calc(100% + 560px)');
   await act(async () => ui.c.undo());
   assert.equal(spillWidth(ui, 0, 0), 'calc(100% + 480px)');
+});
+
+test('center across selection uses only the same-alignment empty run, including numeric and boolean source cells', () => {
+  const across = { align: 'centerContinuous' };
+  const source = sheet({ A1: { value: '1234', format: across }, B1: { value: '', format: across }, C1: { value: '', format: across }, D1: { value: '' } });
+  for (const value of ['1234', 1234, true]) assert.deepEqual(layout(source)(0, across, value), { before: 0, after: 170 });
+  source.cells.B1.value = '=""';
+  assert.deepEqual(layout(source)(0, across), { before: 0, after: 0 }, 'stored empty-result formulas still stop the selection span');
+});
+
+test('fill follows consecutive fill-formatted empty cells and respects merges, controls and editing', () => {
+  const fill = { align: 'fill' };
+  const source = sheet({ A1: { value: '-', format: fill }, B1: { value: '', format: fill }, C1: { value: '', format: fill, validation: { type: 'checkbox' } } });
+  assert.deepEqual(layout(source)(0, fill), { before: 0, after: 120 });
+  assert.deepEqual(layout(source, 0, { checkboxes: false })(0, fill), { before: 0, after: 170 });
+  assert.deepEqual(layout(source, 0, { editingColumn: 1 })(0, fill), { before: 0, after: 0 });
+  const merged = { ...source, merges: [{ top: 0, bottom: 0, left: 1, right: 2 }] };
+  assert.deepEqual(layout(merged)(0, fill), { before: 0, after: 0 });
+});
+
+test('standard and distributed alignments do not accidentally use both-side overflow', () => {
+  const overflow = layout(sheet({ B1: { value: longText } }));
+  assert.deepEqual(overflow(1, { align: 'general' }), { before: 0, after: 360 });
+  for (const format of [{ align: 'justify' }, { align: 'distributed' }, { verticalAlign: 'justify' }, { verticalAlign: 'distributed' }])
+    assert.deepEqual(overflow(1, format), { before: 0, after: 0 });
+});
+
+test('center across display is centered over a nonmerged range and responds to neighbor edits and Undo', async t => {
+  const across = { align: 'centerContinuous' };
+  const ui = await mount(t, sheet({ A1: { value: '1234', format: across }, B1: { value: '', format: across }, C1: { value: '', format: across } }));
+  const origin = () => ui.cell(0, 0).findByProps({ className: 'lxs-cell-text-origin' });
+  assert.equal(origin().props.style.width, '100%');
+  assert.equal(origin().props.style.justifyContent, 'center');
+  assert.equal(spillWidth(ui, 0, 0), 'calc(100% + 170px)');
+  assert.equal(ui.c.activeSheet.merges?.length ?? 0, 0);
+  await ui.command({ type: 'cells.set', values: { C1: 'occupied' } });
+  assert.equal(spillWidth(ui, 0, 0), 'calc(100% + 120px)');
+  await act(async () => ui.c.undo());
+  assert.equal(spillWidth(ui, 0, 0), 'calc(100% + 170px)');
+  await ui.command({ type: 'cells.format', addresses: ['A1', 'B1', 'C1'], format: { align: 'left' } });
+  assert.equal(ui.cell(0, 0).props.style.textAlign, 'left');
+  assert.equal(spillWidth(ui, 0, 0), undefined, 'numeric data becomes a normal confined cell without the across setting');
+});
+
+test('readonly grid applies general alignment, indentation and advanced placements', async t => {
+  const ui = await mount(t, sheet({ A1: { value: '1234', format: { align: 'general' } }, A2: { value: 'TRUE', format: { align: 'general' } },
+    A3: { value: '1234', format: { align: 'general', numberFormat: 'text' } }, A4: { value: 'indent', format: { align: 'left', indent: 2 } },
+    A5: { value: 'one\ntwo', format: { align: 'right', verticalAlign: 'distributed' } }, A6: { value: 'ABC', format: { align: 'distributed' } } }), { readOnly: true });
+  assert.equal(ui.cell(0, 0).props.style.textAlign, 'right');
+  assert.equal(ui.cell(1, 0).props.style.textAlign, 'center');
+  assert.equal(ui.cell(2, 0).props.style.textAlign, 'left');
+  assert.equal(ui.cell(3, 0).findByProps({ className: 'lxs-cell-text-origin' }).props.style.paddingLeft, '6ch');
+  assert.equal(ui.cell(4, 0).findByProps({ className: 'lxs-cell-text lxs-cell-text-aligned' }).props.style.justifyContent, 'space-around');
+  assert.equal(ui.cell(5, 0).props.style.textAlign, 'justify');
+});
+
+test('shrink-to-fit subtracts indentation in the same coordinate scale as the measured text', async t => {
+  let renderer;
+  const document = { defaultView: { getComputedStyle: () => ({ width: '100px', paddingLeft: '60px', paddingRight: '0px', boxSizing: 'border-box' }) } };
+  await act(async () => { renderer = create(createElement(CellText, { text: '12345678', overflow: { before: 0, after: 0 },
+    align: 'left', indent: 2, shrink: true, revision: 'test', hidden: false }), {
+    createNodeMock: element => ({ ownerDocument: document, getBoundingClientRect: () => ({ width: element.props.className === 'lxs-cell-text-measure' ? 120 : 150 }) }),
+  }); });
+  t.after(async () => { await act(async () => renderer.unmount()); });
+  assert.equal(renderer.root.findByProps({ className: 'lxs-cell-text-scaled' }).props.style.fontSize, '50%');
 });

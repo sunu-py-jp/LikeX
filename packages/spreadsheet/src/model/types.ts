@@ -10,7 +10,8 @@ export type SpreadsheetCellFormat = {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
-  align?: "left" | "center" | "right";
+  /** Omitted or general uses the value type. centerContinuous centers across adjacent blank cells with the same alignment. */
+  align?: "general" | "left" | "center" | "right" | "fill" | "justify" | "centerContinuous" | "distributed";
   color?: string;
   background?: string;
   fontFamily?: string;
@@ -23,7 +24,13 @@ export type SpreadsheetCellFormat = {
   wrap?: boolean;
   /** Reduce the displayed text size to fit the cell without changing fontSize. Omitted means false. */
   shrinkToFit?: boolean;
-  verticalAlign?: "top" | "middle" | "bottom";
+  /** Omitted uses middle. XLSX calls middle "center". */
+  verticalAlign?: "top" | "middle" | "bottom" | "justify" | "distributed";
+  /** Integer indentation level, in units of three spaces. Used by left/right and both edges of distributed alignment.
+   * @minimum 0
+   * @maximum 250
+   */
+  indent?: number;
   borders?: SpreadsheetCellBorders;
   numberFormat?: "general" | "text" | "number" | "currency" | "percent" | "date" | "time" | "datetime";
   decimalPlaces?: number;

@@ -15,7 +15,7 @@ import type { useGridSelection } from "./use-grid-selection";
 import type { useGridResize } from "./use-grid-resize";
 import { displayCell } from "./cell-display";
 import { CellDataControl } from "./cell-data-control";
-import { cellFormatStyle, collapseSharedCellBorders } from "./cell-style";
+import { cellFormatStyle, collapseSharedCellBorders, resolvedCellTextAlign } from "./cell-style";
 import { fitCellBoxStyle } from "./cell-box-style";
 import { CellText } from "./cell-text";
 import { cellTextOverflow, rowTextOverflowLimits } from "./cell-text-layout";
@@ -48,8 +48,14 @@ export const SpreadsheetGridRow = memo(function SpreadsheetGridRow({ row, contro
     return conditional(anchorRow, anchorColumn, c.calculated[c.activeSheet.id]?.[address], effectiveCellFormat(c.activeSheet.cells[address])).format;
   };
 
+  const appearances = widths.map((_, column) => {
+    const address = cellAddress(row, column), cell = c.activeSheet.cells[address], value = c.calculated[c.activeSheet.id]?.[address];
+    const baseFormat = effectiveCellFormat(cell);
+    return { cell, value, baseFormat, appearance: conditional(row, column, value, baseFormat) };
+  });
   const textLimits = rowTextOverflowLimits(c.activeSheet, row, columnOffsets, renderedMerges,
-    c.features.dataValidation && c.features.checkboxes, c.editing && c.selection.focus.row === row ? c.selection.focus.column : undefined);
+    c.features.dataValidation && c.features.checkboxes, c.editing && c.selection.focus.row === row ? c.selection.focus.column : undefined,
+    column => appearances[column].appearance.format);
   const rowRef = useOverflowCellBorders(c.activeSheet, c.calculated[c.activeSheet.id], columnOffsets, conditional,
     c.editing && c.selection.focus.row === row ? c.selection.focus.column : undefined, c.features.dataValidation && c.features.checkboxes);
   return <div ref={rowRef} key={row} role="row" aria-rowindex={row + 2} className="lxs-row" style={{ top: rowOffsets[row], height: rowOffsets[row + 1] - rowOffsets[row], width: gridWidth }}>
@@ -66,11 +72,9 @@ export const SpreadsheetGridRow = memo(function SpreadsheetGridRow({ row, contro
         return <div key={column} className="lxs-cell-placeholder" aria-hidden="true" style={{ width }} />;
       }
       const address = cellAddress(row, column);
-      const cell = c.activeSheet.cells[address];
+      const { cell, value, baseFormat, appearance } = appearances[column];
       const comment = c.features.comments ? c.activeSheet.comments?.[address] : undefined;
-      const value = c.calculated[c.activeSheet.id]?.[address];
-      const baseFormat = effectiveCellFormat(cell);
-      const appearance = conditional(row, column, value, baseFormat), format = appearance.format;
+      const format = appearance.format;
       const text = displayCell(value, format);
       const error = baseFormat?.numberFormat !== "text" && typeof value === "string" && value.startsWith("#");
       const cellWidth = merge ? columnOffsets[merge.right + 1] - columnOffsets[merge.left] : width;
@@ -103,7 +107,8 @@ export const SpreadsheetGridRow = memo(function SpreadsheetGridRow({ row, contro
         onPointerEnter={event => interactions.current.selection.extendSelection(event, { row, column })}
         onDoubleClick={() => { const current = interactions.current.controller; if (!current.editing) current.beginEdit({ row, column }); }}>
         {appearance.dataBar && <span aria-hidden="true" className="lxs-cell-data-bar" style={{ left: `${appearance.dataBar.start}%`, width: `${appearance.dataBar.width}%`, backgroundColor: appearance.dataBar.color }} />}
-        {!editing && <CellText text={text} overflow={overflow} align={format?.align} shrink={!!format?.shrinkToFit && !format.wrap}
+        {!editing && <CellText text={text} overflow={overflow} align={format?.align} resolvedAlign={resolvedCellTextAlign(format, value)}
+          verticalAlign={format?.verticalAlign} indent={format?.indent} wrap={format?.wrap} shrink={!!format?.shrinkToFit && !format.wrap}
           revision={JSON.stringify({ format, width: cellWidth })} hidden={focused} />}
         {focused && <textarea rows={1} ref={bindActiveInput} className="lxs-cell-input" data-passive={!editing || undefined} data-editing={editing || undefined} aria-label={`${address}の値`}  value={editing ? c.editing!.value : text} readOnly={c.disabled || c.requesting}
           onFocus={event => { if (!interactions.current.controller.editing) event.currentTarget.setSelectionRange(0, 0); }}

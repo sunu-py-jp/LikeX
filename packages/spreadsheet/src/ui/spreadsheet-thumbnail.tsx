@@ -9,6 +9,7 @@ import { normalizeSpreadsheetThumbnail, prepareNormalizedSpreadsheetThumbnail } 
 import { Shape } from "./drawings/shape";
 import { DrawingText } from "./drawings/drawing-text";
 import { LineMarker } from "./drawings/line-marker";
+import { ThumbnailCellText } from "./thumbnail/thumbnail-cell-text";
 
 export type SpreadsheetThumbnailProps = {
   /** Replacing this immutable input updates the preview. Only the selected sheet's A1:J20 is displayed. */
@@ -71,7 +72,7 @@ export function SpreadsheetThumbnail(props: SpreadsheetThumbnailProps) {
           <div className="lxs-thumbnail-content" style={{ width: scene.width, height: scene.height }}>
             {scene.cells.map(cell => <div key={cell.address} data-lxs-thumbnail-cell={cell.address} className="lxs-cell lxs-thumbnail-cell" style={cell.style}>
               {cell.dataBar && <span className="lxs-cell-data-bar" style={{ left: `${cell.dataBar.start}%`, width: `${cell.dataBar.width}%`, backgroundColor: cell.dataBar.color }} />}
-              <span className="lxs-cell-text">{cell.text}</span>
+              <ThumbnailCellText text={cell.text} format={cell.format} width={Number(cell.style.width)} height={Number(cell.style.height)} after={cell.after} />
             </div>)}
             {scene.drawings.map((item, index) => {
               const drawing = item.drawing;

@@ -11,8 +11,10 @@ const borderWidth = (format: SpreadsheetCellFormat | undefined, edge: "left" | "
 };
 function horizontalInset(format: SpreadsheetCellFormat | undefined, measure: TextMeasurer, list: boolean) {
   const style = measure.cellStyle ?? DEFAULT_CELL_MEASUREMENT;
+  const indent = ["left", "right", "distributed"].includes(format?.align ?? "general")
+    ? (format?.indent ?? 0) * measure("0", format) * 3 * (format?.align === "distributed" ? 2 : 1) : 0;
   // One spare logical pixel protects against fractional glyph/border rounding.
-  return style.paddingX + borderWidth(format, "left", style.borderLeft) + borderWidth(format, "right", style.borderRight) + 1 + (list ? style.listWidth : 0);
+  return style.paddingX + borderWidth(format, "left", style.borderLeft) + borderWidth(format, "right", style.borderRight) + 1 + indent + (list ? style.listWidth : 0);
 }
 const clamp = (value: number, minimum: number) => Math.min(1000, Math.max(minimum, Math.ceil(value)));
 type ConditionalFormatter = ReturnType<typeof createConditionalFormatter>;
@@ -68,7 +70,8 @@ function fitRow(sheet: SpreadsheetSheet, row: number, values: Readonly<Record<st
     const lineHeight = (format?.fontSize ?? style.fontSize) * style.lineHeight;
     let lines = 0;
     for (const line of formatCellValue(value, format).split(/\r\n?|\n/)) {
-      lines += format?.wrap ? wrappedLineCount(line, width, format, measure, Math.ceil(1000 / lineHeight)) : 1;
+      lines += format?.align !== "fill" && (format?.wrap || format?.align === "justify" || format?.align === "distributed")
+        ? wrappedLineCount(line, width, format, measure, Math.ceil(1000 / lineHeight)) : 1;
       if (lines * lineHeight >= 1000) return 1000;
     }
     height = Math.max(height, lines * lineHeight + style.paddingY + borderWidth(format, "top", style.borderTop) + borderWidth(format, "bottom", style.borderBottom) + 5);

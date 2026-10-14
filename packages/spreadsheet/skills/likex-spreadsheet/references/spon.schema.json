@@ -827,7 +827,8 @@
           "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
         },
         "align": {
-          "$ref": "#/$defs/SpreadsheetShapeDrawing_textAlign"
+          "$ref": "#/$defs/SpreadsheetCellFormat_align",
+          "description": "Omitted or general uses the value type. centerContinuous centers across adjacent blank cells with the same alignment."
         },
         "color": {
           "type": "string"
@@ -853,7 +854,14 @@
           "description": "Reduce the displayed text size to fit the cell without changing fontSize. Omitted means false."
         },
         "verticalAlign": {
-          "$ref": "#/$defs/SpreadsheetShapeDrawing_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCellFormat_verticalAlign",
+          "description": "Omitted uses middle. XLSX calls middle \"center\"."
+        },
+        "indent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 250,
+          "description": "Integer indentation level, in units of three spaces. Used by left/right and both edges of distributed alignment."
         },
         "borders": {
           "$ref": "#/$defs/SpreadsheetCellFormat_borders"
@@ -872,6 +880,27 @@
         }
       },
       "additionalProperties": false
+    },
+    "SpreadsheetCellFormat_align": {
+      "enum": [
+        "right",
+        "left",
+        "fill",
+        "general",
+        "center",
+        "justify",
+        "centerContinuous",
+        "distributed"
+      ]
+    },
+    "SpreadsheetCellFormat_verticalAlign": {
+      "enum": [
+        "top",
+        "bottom",
+        "justify",
+        "distributed",
+        "middle"
+      ]
     },
     "SpreadsheetCellFormat_borders": {
       "type": "object",
