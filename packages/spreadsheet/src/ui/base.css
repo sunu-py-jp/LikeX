@@ -50,7 +50,9 @@
 .lxs-root .lxs-formula-input { flex: 1; border-color: transparent; border-left-color: var(--lxs-border); border-radius: 0; }
 .lxs-grid-scroll { position: relative; min-height: 0; flex: 1; overflow: auto; scrollbar-width: thin; outline: none; background: var(--lxs-background); overscroll-behavior: contain; }
 .lxs-grid { position: relative; user-select: none; }
-.lxs-column-headers { position: sticky; top: 0; z-index: 4; display: flex; background: var(--lxs-panel); }
+/* A separate scrolling layer keeps the always-mounted column labels painted
+   while virtualized cell rows are being prepared on the main thread. */
+.lxs-column-headers { position: sticky; top: 0; z-index: 4; display: flex; background: var(--lxs-panel); transform: translateZ(0); }
 .lxs-corner { position: sticky; left: 0; z-index: 5; border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); background: var(--lxs-panel); flex-shrink: 0; }
 .lxs-column-header { position: relative; flex-shrink: 0; height: 28px; border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); color: var(--lxs-muted); }
 .lxs-root .lxs-header-button { width: 100%; height: 100%; font-size: 11px; font-weight: 400; }
@@ -58,6 +60,8 @@
 .lxs-column-resize { position: absolute; right: -3px; top: 0; bottom: 0; z-index: 6; width: 7px; cursor: col-resize; touch-action: none; }
 .lxs-row { position: absolute; left: 0; display: flex; }
 .lxs-row-header { position: sticky; left: 0; z-index: 3; width: 48px; flex-shrink: 0; background: var(--lxs-panel); color: var(--lxs-muted); border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); }
+.lxs-row-labels { position: sticky; left: 0; z-index: 3; background: var(--lxs-panel); color: var(--lxs-muted); pointer-events: none; transform: translateZ(0); }
+.lxs-row-label { position: absolute; left: 0; width: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 11px; font-weight: 400; border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); }
 .lxs-header-selected { color: var(--lxs-accent); background: var(--lxs-selection); }
 .lxs-cell { position: relative; flex-shrink: 0; height: 100%; line-height: 1.2; padding: 0 2px; border-right: 1px solid var(--lxs-border); border-bottom: 1px solid var(--lxs-border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; touch-action: pan-y; }
 .lxs-cell-placeholder { position: relative; flex-shrink: 0; height: 100%; }

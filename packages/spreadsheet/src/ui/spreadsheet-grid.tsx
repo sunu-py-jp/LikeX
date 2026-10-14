@@ -2,6 +2,7 @@
 
 import { useInsertionEffect, useMemo, useRef } from "react";
 import { SpreadsheetGridRow, createBorderRowLookup } from "./grid/spreadsheet-grid-row";
+import { GridRowLabels } from "./grid/grid-row-labels";
 import { cellAddress, parseCellAddress } from "../model";
 import { effectiveCellFormat } from "../model/formatting";
 import { getMergedRange } from "../model/merges";
@@ -80,6 +81,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
             {...resize.handlers(column, width)} />}
         </div>)}
       </div>
+      <GridRowLabels rowOffsets={rowOffsets} />
       {rows}
     </div>{!c.selectedDrawingId && <SelectionOutline selection={c.selection} columnOffsets={columnOffsets} rowOffsets={rowOffsets} />}<SpreadsheetDrawings controller={c} geometry={drawingGeometry} viewport={c.renderingMode === "viewport" ? drawingViewport : undefined} />{autofill.preview}{autofill.handle}</div>
   </div></div>;

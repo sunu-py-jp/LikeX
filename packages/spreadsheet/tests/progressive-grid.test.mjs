@@ -34,7 +34,7 @@ function sheet(patch = {}) {
   return { id: 'one', name: 'One', rowCount: 250, columnCount: 8, cells: {}, ...patch };
 }
 
-async function mount(t, { initialSheet = sheet(), idle = true, mode, focus = 0 } = {}) {
+async function mount(t, { initialSheet = sheet(), idle = true, mode = 'progressive', focus = 0 } = {}) {
   let layout, renderer, mounted = true;
   let props = { sheet: initialSheet, mode, focus, revision: 0 };
   const tasks = fakeWindow(idle);
@@ -56,7 +56,7 @@ async function mount(t, { initialSheet = sheet(), idle = true, mode, focus = 0 }
   };
 }
 
-test('default mode prepares remaining rows in bounded idle batches and eventually renders the whole sheet', async t => {
+test('explicit progressive mode prepares remaining rows in bounded idle batches and eventually renders the whole sheet', async t => {
   const ui = await mount(t);
   const initial = ui.layout.virtualRows.length;
   assert.ok(initial < 250);
@@ -202,7 +202,7 @@ test('merge lookups expand only requested rows and keep their map stable as rows
   assert.strictEqual(cells.get(45000), tall);
 });
 
-test('the full grid prepares the last row and viewport switching keeps the same active editor and its draft', async t => {
+test('the full grid defaults to viewport and explicit progressive rendering keeps the same active editor and its draft', async t => {
   let controller, renderer;
   const tasks = fakeWindow(true);
   Object.assign(tasks.host, { addEventListener() {}, removeEventListener() {} });
@@ -226,10 +226,16 @@ test('the full grid prepares the last row and viewport switching keeps the same 
   t.after(async () => { await act(async () => renderer.unmount()); });
   const cell = label => renderer.root.findAllByProps({ role: 'gridcell' }).find(item => item.props['aria-label'].split(' ')[0] === label);
   const input = () => renderer.root.findByProps({ className: 'lxs-cell-input' });
+  assert.equal(controller.renderingMode, 'viewport');
   assert.equal(cell('D96'), undefined);
+  assert.equal(tasks.pending.size, 0, 'omitting renderingMode does not schedule background rows');
   await act(async () => controller.beginEdit({ row: 0, column: 0 }, 'still typing'));
   const editor = input();
   assert.equal(editor.props.value, 'still typing');
+  await act(async () => renderer.update(createElement(Probe, { mode: 'progressive' })));
+  assert.equal(controller.renderingMode, 'progressive');
+  assert.equal(tasks.pending.size, 1, 'progressive rendering remains available by explicit opt-in');
+  assert.strictEqual(input(), editor);
   let batches = 0;
   while (tasks.pending.size) {
     assert.ok(batches++ < 10);

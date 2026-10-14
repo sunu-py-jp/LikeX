@@ -34,7 +34,7 @@ async function mount(t, { cells = {}, rowCount = 200, columnCount = 20, ...optio
   const scroller = node(), target = node();
   const initialWorkbook = { sheets: [{ id: 'sheet', name: 'Sheet', rowCount, columnCount, cells }] };
   function Probe() {
-    controller = useSpreadsheet({ initialWorkbook, onSave() {}, ...props });
+    controller = useSpreadsheet({ initialWorkbook, onSave() {}, renderingMode: 'progressive', ...props });
     return createElement(SpreadsheetGrid, { controller });
   }
   await act(async () => { renderer = create(createElement(Probe), { createNodeMock: element => element.props.className === 'lxs-grid-scroll' ? scroller : node() }); });

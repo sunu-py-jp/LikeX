@@ -8,7 +8,7 @@ import { useProgressiveGridRows } from "./use-progressive-grid-rows";
 import { createGridMergeCache } from "./grid-merge-cache";
 
 /** Owns viewport observation and spatial lookup; selection/editing remain outside this hook. */
-export function useGridLayout(sheet: SpreadsheetSheet, focusedRow: number, resizing: ColumnWidthPreview | null, rowResize?: { index: number; value: number } | null, zoom = 100, mode: SpreadsheetRenderingMode = "progressive") {
+export function useGridLayout(sheet: SpreadsheetSheet, focusedRow: number, resizing: ColumnWidthPreview | null, rowResize?: { index: number; value: number } | null, zoom = 100, mode: SpreadsheetRenderingMode = "viewport") {
   const scroller = useRef<HTMLDivElement>(null);
   const { id, rowCount, columnCount, columnWidths, rowHeights, merges } = sheet;
   const [viewport, setViewport] = useState<GridViewport>({ top: 0, height: 480, left: 0, width: 800 });

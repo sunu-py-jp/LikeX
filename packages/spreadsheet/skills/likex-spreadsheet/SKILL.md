@@ -11,7 +11,7 @@ description: LikeX SpreadsheetのネイティブJSON（.spon）を作成・検�
 
 リボンの表示方法はホストUIの `initialRibbonDisplayMode` / `ribbonDisplayMode` とHandleで制御する。SPON／XLSXやCLIコマンドの対象ではないため、リボンを隠す目的でブックや機能設定を書き換えない。[リボンの表示ガイド](../../src/docs/ribbon-display.md)を参照する。
 
-通常ビューの描画範囲はホストの `renderingMode: "progressive" | "viewport"` で切り替える。既定の `"progressive"` は表示範囲を先に描画し、現在のシートの残りの行も順次追加して保持する。`"viewport"` は画面とその前後、入力・結合に必要な行だけを描画する省メモリモード。大きいシートや低スペック端末ではホストから指定する。これは読み込み済みデータのUI描画の設定で、ファイル取得・数式計算・SPON／XLSX・モデルAPI・CLI・専用サムネイル・印刷プレビューは変更しない。[描画モード](../../src/docs/api.md#シートの描画モード)を参照する。
+通常ビューの描画範囲はホストの `renderingMode: "progressive" | "viewport"` で切り替える。既定の `"viewport"` は画面とその前後、入力・結合に必要な行だけを描画する省メモリモード。`"progressive"` を明示すると、表示範囲を先に描画し、現在のシートの残りの行も順次追加して保持する。大きいシートや低スペック端末では既定の `"viewport"` を使う。これは読み込み済みデータのUI描画の設定で、ファイル取得・数式計算・SPON／XLSX・モデルAPI・CLI・専用サムネイル・印刷プレビューは変更しない。[描画モード](../../src/docs/api.md#シートの描画モード)を参照する。
 
 検索UIは `initialSearchOpen` / `initialSearchQuery` で初期表示し、表示後はHandleの `openSearch(query?)` / `closeSearch()` で操作する。LikeSlide・LikeDocument・PDFビューアーと共通の契約で、リボン非表示・読み取り専用でも使える。`features.search: false` の場合は開けない。検索は同じdocumentのbodyへPortal表示するフローティングウィンドウで、ブラウザーの表示領域内なら親コンポーネントの外側へも移動・サイズ変更できる。親の配色を引き継ぎ、開いたまま背後のシートを操作でき、閉じるボタン・Escで閉じる。セル編集中のEscは入力取消を優先する。位置とサイズはマウント中の再表示でも維持する。検索の表示状態はSPON／XLSXやCLIの対象ではない。[検索UIの組み込み方](../../src/docs/editing-tools.md)を参照する。
 

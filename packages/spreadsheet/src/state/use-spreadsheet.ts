@@ -126,7 +126,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     refreshing: draft.refreshing, requesting: draft.editState.mode === "requesting", editMode: draft.editState.mode,
     canRefresh: !!props.onRefresh && features.refresh, hasUnsavedChanges,
     ...fileExport, ...fileImport, exportExcel, exportNative, exportFileName: props.exportFileName ?? props.title ?? "spreadsheet",
-    viewRevision: view.viewRevision, renderingMode: props.renderingMode ?? "progressive",
+    viewRevision: view.viewRevision, renderingMode: props.renderingMode ?? "viewport",
     setContextMenuLock: draft.setContextMenuLock, contextMenuLocked: draft.contextMenuLocked,
     getRevision: () => draft.revisionRef.current, getStructureRevision: () => draft.structureRevisionRef.current,
     emitEvent: draft.emitEvent, getEditState: draft.getEditState, requestEdit: draft.requestEdit,

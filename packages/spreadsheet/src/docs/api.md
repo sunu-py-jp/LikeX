@@ -65,7 +65,7 @@ try {
 | `initialWorkbook` | `SpreadsheetWorkbook` | マウント時の初期ブック。省略時は空の300行×26列。再代入で下書きは置き換わりません。 |
 | `initialSheetId` / `initialSheetName` | `string` | マウント時に開くシートのID／名前。完全一致。両指定は同じシートが必要。不正な指定は先頭＋エラー通知。[対象シート](./selection.md#最初に開くシートを指定する) |
 | `initialZoom` | `number` | マウント時の表示倍率。既定100％、25〜200へ補正。有限でない数値は100。[表示倍率](./zoom.md) |
-| `renderingMode` | `SpreadsheetRenderingMode` | `"progressive"`（既定）は現在のシートを順次描画。`"viewport"` は表示範囲中心の省メモリ描画。表示中の変更にも追従。[描画モード](#シートの描画モード) |
+| `renderingMode` | `SpreadsheetRenderingMode` | `"viewport"`（既定）は表示範囲中心の省メモリ描画。`"progressive"` は現在のシートを順次描画。表示中の変更にも追従。[描画モード](#シートの描画モード) |
 | `initialRibbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | マウント時のリボン表示。`expanded`（既定）・`tabs`・`autoHide`・`hidden`。[リボンの表示](./ribbon-display.md) |
 | `ribbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | 親が管理するリボン表示。初期値より優先し、表示中の変更にも追従します。 |
 | `onRibbonDisplayModeChange` | `(mode: SpreadsheetRibbonDisplayMode) => void` | UI／Handleからの表示変更要求。制御用prop使用時は親が値を反映します。初期表示とprop更新では通知しません。 |
@@ -102,19 +102,21 @@ try {
 
 ## シートの描画モード
 
-`renderingMode` で、画面外の行をどこまで描画するかを選べます。省略時は `"progressive"` です。
+`renderingMode` で、画面外の行をどこまで描画するかを選べます。省略時は `"viewport"` です。以前の既定動作であるシート全体の順次描画を続ける場合は、`renderingMode="progressive"` を明示してください。
 
 | モード | 描画する範囲 |
 | --- | --- |
 | `"progressive"` | 最初に表示範囲を描画し、現在のシートの残りの行もバックグラウンドで分割して追加します。一度追加した行は、画面外へスクロールしても保持します。 |
-| `"viewport"` | 表示範囲とその前後の行、入力中のセルや表示中の結合セルに必要な行だけを描画します。画面から離れた行のセルDOMは保持しません。 |
+| `"viewport"`（既定） | 表示範囲とその前後の行、入力中のセルや表示中の結合セルに必要な行だけを描画します。画面から離れた行のセルDOMは保持しません。 |
+
+行番号と列見出しの表示はセル内容の描画から分離しています。行番号の軽量な表示と全列の見出しを保持するため、スクロール先のセル内容を準備している間も位置を確認できます。行・列の選択やサイズ変更は従来の見出しから行えます。
 
 ```tsx
 import { useState } from "react";
 import Spreadsheet, { type SpreadsheetRenderingMode, type SpreadsheetWorkbook } from "@likex/spreadsheet";
 
 function WorkbookView({ workbook }: { workbook: SpreadsheetWorkbook }) {
-  const [mode, setMode] = useState<SpreadsheetRenderingMode>("progressive");
+  const [mode, setMode] = useState<SpreadsheetRenderingMode>("viewport");
   return <>
     <label>
       <input type="checkbox" checked={mode === "viewport"}
@@ -126,7 +128,7 @@ function WorkbookView({ workbook }: { workbook: SpreadsheetWorkbook }) {
 }
 ```
 
-モードは親からいつでも変更できます。低スペックの端末や行・列が多いシートでは `"viewport"` を指定してください。端末性能による自動判定はせず、利用側の設定に従います。どちらのモードも、スクロール先の表示範囲はバックグラウンド処理の完了を待たずに描画します。
+モードは親からいつでも変更できます。低スペックの端末や行・列が多いシートでは既定の `"viewport"` を使い、画面外の行も保持したい場合に `"progressive"` を指定してください。端末性能による自動判定はせず、利用側の設定に従います。どちらのモードも、スクロール先の表示範囲はバックグラウンド処理の完了を待たずに描画します。
 
 `"viewport"` では図形・画像・線も表示範囲とその周辺だけを描画します。画面を横切る線、選択・編集中のオブジェクト、枠の外にはみ出した文字は表示が欠けないように保持します。接続先や重なり順のデータは変更しません。プレイグラウンドの `/spreadsheet/rendering` で表示中の切り替えを確認できます。
 

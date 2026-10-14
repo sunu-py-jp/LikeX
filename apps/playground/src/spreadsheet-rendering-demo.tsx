@@ -23,13 +23,13 @@ function createRenderingWorkbook(): SpreadsheetWorkbook {
 
 export default function SpreadsheetRenderingDemo() {
   const [workbook] = useState(createRenderingWorkbook);
-  const [mode, setMode] = useState<SpreadsheetRenderingMode>(() => new URLSearchParams(window.location.search).get("renderingMode") === "viewport" ? "viewport" : "progressive");
+  const [mode, setMode] = useState<SpreadsheetRenderingMode>(() => new URLSearchParams(window.location.search).get("renderingMode") === "progressive" ? "progressive" : "viewport");
   return <main className="ribbon-demo">
     <header className="ribbon-demo-header"><div><p className="ribbon-demo-eyebrow">Spreadsheet</p><h1>シートの読み込み</h1></div>
       <nav aria-label="スプレッドシートのデモ"><a href="/spreadsheet">標準デモ</a></nav></header>
     <section className="ribbon-demo-controls" aria-label="アプリ側の表示設定">
       <label>表示モード<select value={mode} onChange={event => setMode(event.target.value as SpreadsheetRenderingMode)}>
-        <option value="progressive">通常：シート全体を順次描画</option><option value="viewport">省エネ：表示範囲のみ</option>
+        <option value="viewport">標準：表示範囲のみ</option><option value="progressive">シート全体を順次描画</option>
       </select></label>
       <p role="status">{mode === "progressive" ? "最初の画面を表示した後、同じシートの残りの行も順次準備します。" : "表示範囲とその周辺だけを描画し、メモリ使用量を抑えます。"}</p>
     </section>

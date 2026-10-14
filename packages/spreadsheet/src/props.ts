@@ -59,8 +59,8 @@ export type SpreadsheetProps = SearchPanelInitialState & {
   initialSheetName?: string;
   /** Initial view magnification in percent (25–200, default 100). Not saved in the workbook. */
   initialZoom?: number;
-  /** Defaults to progressive: visible rows first, then the rest of the active sheet in batches.
-   * viewport keeps only nearby rows and drawings mounted to reduce memory use.
+  /** Defaults to viewport: only nearby rows and drawings stay mounted to reduce memory use.
+   * progressive renders visible rows first, then the rest of the active sheet in batches.
    * May be changed while the component is mounted; not stored in the workbook. */
   renderingMode?: SpreadsheetRenderingMode;
   /** Read once at mount, default expanded. Ignored while ribbonDisplayMode is supplied. */
