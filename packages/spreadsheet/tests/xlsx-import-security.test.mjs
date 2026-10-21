@@ -4,7 +4,12 @@ import { build } from 'esbuild';
 import { zip, fixture } from './helpers/xlsx-import-fixtures.mjs';
 
 const bundle = await build({ stdin: { contents: 'export * from "./src/import/zip"; export * from "./src/import/xml"; export * from "./src/import/relationships"; export * from "./src/import/types";', resolveDir: new URL('../', import.meta.url).pathname, sourcefile: 'xlsx-security-entry.ts' }, bundle: true, platform: 'node', format: 'esm', write: false });
-const { openXlsxArchive, parseXml, readRelationships, XLSX_IMPORT_LIMITS } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
+const { openXlsxStreamingArchive, parseXml, readRelationships, XLSX_IMPORT_LIMITS } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
+const openXlsxArchive = async (...args) => {
+  const archive = await openXlsxStreamingArchive(...args);
+  await archive.validate();
+  return archive;
+};
 const parse = value => parseXml(new TextEncoder().encode(value));
 
 test('STORE, DEFLATE and signed streaming data descriptors verify bytes and CRC', async () => {

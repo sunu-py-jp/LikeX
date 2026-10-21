@@ -12,6 +12,8 @@
     "colorMode",
     "initialZoom",
     "renderingMode",
+    "excelImportOptions",
+    "emptyCellFormatting",
     "SpreadsheetRenderingMode",
     "progressive",
     "viewport",

@@ -1,5 +1,8 @@
 /* Ribbon layout is shared by Home, Insert, and Data. Controls keep their
    intrinsic widths; a narrow sheet scrolls this band without adding rows. */
+.lxs-import-option { display: flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 12px; }
+.lxs-import-option input { accent-color: var(--lxs-accent); }
+.lxs-import-option:has(input:disabled) { opacity: .45; }
 .lxs-ribbon-container {
   position: relative;
   flex: 0 0 auto;

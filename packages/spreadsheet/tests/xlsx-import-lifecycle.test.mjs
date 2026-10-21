@@ -54,6 +54,66 @@ test('import publishes one undoable draft edit through permission; save baseline
   assert.equal(saves, 1); assert.deepEqual(dirty, [false, true, false, true, false]);
 });
 
+test('Excel import formatting policy uses explicit options, host defaults, then preserve and captures the request value', async t => {
+  const ui = await mount(t);
+  const policies = [];
+  globalThis[decoderKey] = async (_input, options) => { policies.push(options.emptyCellFormatting); return decoded(); };
+  const rejectedReview = { onReview: () => false };
+  await act(async () => { await assert.rejects(ui.ref.current.importExcel(input(), rejectedReview), { name: 'AbortError' }); });
+  await ui.update({ excelImportOptions: { emptyCellFormatting: 'omit' } });
+  await act(async () => { await assert.rejects(ui.ref.current.importExcel(input(), rejectedReview), { name: 'AbortError' }); });
+  await act(async () => {
+    const options = { ...rejectedReview, emptyCellFormatting: 'preserve' };
+    const result = ui.ref.current.importExcel(input(), options);
+    options.emptyCellFormatting = 'omit';
+    await assert.rejects(result, { name: 'AbortError' });
+  });
+  assert.deepEqual(policies, ['preserve', 'omit', 'preserve']);
+  assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.A1.value, 'before');
+});
+
+test('File ribbon exposes the empty-cell policy, follows host defaults and keeps it separate from Handle imports', async t => {
+  const ui = await mount(t, { excelImportOptions: { emptyCellFormatting: 'omit' } });
+  const option = () => ui.root.findByProps({ 'aria-label': '空セルの書式を省略' });
+  assert.equal(option().props.checked, true);
+  await act(async () => option().props.onChange({ currentTarget: { checked: false } }));
+  assert.equal(option().props.checked, false);
+  const policies = [];
+  globalThis[decoderKey] = async (_input, options) => { policies.push(options.emptyCellFormatting); return decoded(); };
+  await act(async () => { await assert.rejects(ui.ref.current.importExcel(input(), { onReview: () => false }), { name: 'AbortError' }); });
+  assert.deepEqual(policies, ['omit']);
+  await ui.update({ excelImportOptions: { emptyCellFormatting: 'preserve' } });
+  await ui.update({ excelImportOptions: { emptyCellFormatting: 'omit' } });
+  assert.equal(option().props.checked, true);
+  await act(async () => option().props.onChange({ currentTarget: { checked: false } }));
+  const read = deferred();
+  globalThis[decoderKey] = (_input, options) => { policies.push(options.emptyCellFormatting); return read.promise; };
+  await act(async () => {
+    ui.root.findByProps({ 'aria-label': '取り込むExcelファイル' }).props.onChange({ currentTarget: { files: [input()], value: 'example.xlsx' } });
+    await tick();
+  });
+  assert.equal(option().props.disabled, true);
+  await act(async () => { read.resolve(decoded()); await tick(); });
+  assert.deepEqual(policies, ['omit', 'preserve']);
+  await ui.update({ readOnly: true });
+  assert.equal(ui.root.findAllByProps({ 'aria-label': '空セルの書式を省略' }).length, 0);
+});
+
+test('changing host defaults during discard confirmation does not change the selected file policy', async t => {
+  const ui = await mount(t);
+  await act(async () => ui.ref.current.execute(set('local')));
+  let policy;
+  globalThis[decoderKey] = async (_input, options) => { policy = options.emptyCellFormatting; return decoded(); };
+  await act(async () => {
+    ui.root.findByProps({ 'aria-label': '取り込むExcelファイル' }).props.onChange({ currentTarget: { files: [input()], value: 'example.xlsx' } });
+  });
+  await ui.update({ excelImportOptions: { emptyCellFormatting: 'omit' } });
+  assert.equal(ui.root.findByProps({ 'aria-label': '空セルの書式を省略' }).props.checked, true);
+  await act(async () => { ui.root.findByProps({ className: 'lxs-dialog-confirm' }).props.onClick(); await tick(); });
+  assert.equal(policy, 'preserve');
+  assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.A1.value, 'imported');
+});
+
 test('dirty and pending edits require explicit consent; failed parsing retains both', async t => {
   const ui = await mount(t);
   await act(async () => {

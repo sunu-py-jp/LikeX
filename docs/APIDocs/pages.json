@@ -1367,6 +1367,8 @@
       "colorMode",
       "initialZoom",
       "renderingMode",
+      "excelImportOptions",
+      "emptyCellFormatting",
       "SpreadsheetRenderingMode",
       "progressive",
       "viewport",
@@ -2909,6 +2911,10 @@
       "importExcel",
       "SpreadsheetExcelImportResult",
       "SpreadsheetImportExcelOptions",
+      "excelImportOptions",
+      "emptyCellFormatting",
+      "空セル",
+      "100 MiB",
       "xlsx",
       "ファイル"
     ],
@@ -2921,6 +2927,11 @@
       {
         "id": "画面を用意せずjsonへ変換する",
         "title": "画面を用意せずJSONへ変換する",
+        "depth": 2
+      },
+      {
+        "id": "空セルの書式を省略する",
+        "title": "空セルの書式を省略する",
         "depth": 2
       },
       {

@@ -57,9 +57,9 @@ function importFormula(value: string, context: ImportContext): string {
     });
   } catch { return formula; }
 }
-function readValue(node: XmlNode, shared: readonly string[], format: SpreadsheetCellFormat | undefined, date1904: boolean): SpreadsheetCell {
+export function readWorksheetCellValue(node: XmlNode, shared: readonly string[], format: SpreadsheetCellFormat | undefined, date1904: boolean, copyFormat = true): SpreadsheetCell {
   const type = node.attributes.t, raw = textContent(child(node, "v"));
-  if (child(node, "f") && !child(node, "v") && !child(node, "is")) return { value: "", ...(format ? { format: { ...format } } : {}) };
+  if (child(node, "f") && !child(node, "v") && !child(node, "is")) return { value: "", ...(format ? { format: copyFormat ? { ...format } : format } : {}) };
   let value = raw, text = false;
   if (type === "s") {
     if (!/^\d+$/.test(raw) || shared[Number(raw)] === undefined) return fail("共有文字列の参照が不正です");
@@ -78,7 +78,7 @@ function readValue(node: XmlNode, shared: readonly string[], format: Spreadsheet
   if (value.length > SPREADSHEET_LIMITS.cellLength) return fail("セルの文字数が100,000文字を超えています");
   // Model text cells retain numeric-looking text and never interpret leading '=' as a formula.
   if (text) { format = { ...format, numberFormat: "text" }; if (value.startsWith("'")) value = `'${value}`; }
-  return { value, ...(format ? { format: { ...format } } : {}) };
+  return { value, ...(format ? { format: copyFormat ? { ...format } : format } : {}) };
 }
 export async function readWorksheet(node: XmlNode, id: string, name: string, shared: readonly string[], styles: readonly (SpreadsheetCellFormat | undefined)[], date1904: boolean, context: ImportContext): Promise<SpreadsheetSheet> {
   if (localName(node.name) !== "worksheet") return fail("ワークシートではありません");
@@ -121,7 +121,7 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
       const styleId = Number(item.attributes.s ?? 0);
       const validStyle = Number.isInteger(styleId) && styleId >= 0 && styleId < styles.length;
       if (!validStyle) warn("adjusted", "参照先が不正なセル書式を標準書式へ変更しました（セルの値・数式は保持）");
-      const value = readValue(item, shared, validStyle ? styles[styleId] : undefined, date1904), formula = child(item, "f");
+      const value = readWorksheetCellValue(item, shared, validStyle ? styles[styleId] : undefined, date1904), formula = child(item, "f");
       if (position.row >= SPREADSHEET_LIMITS.rows || position.column >= SPREADSHEET_LIMITS.columns) {
         if (value.value || formula) return fail(`シート「${name}」のセル ${excelCellAddress(position)} は値・数式を持ち、10,000行・1,000列の上限を超えています`);
         warn("omitted", "シート上限外の値・数式を持たない空セルとその書式を省略しました");

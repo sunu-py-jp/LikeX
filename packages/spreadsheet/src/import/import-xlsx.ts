@@ -5,7 +5,7 @@ import { cellTextValue, isFormulaCell } from "../model/cell-value";
 import { calculateWorkbook } from "../model/formula";
 import { dataValidationError } from "../model/data-validation";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetNamedRange, type SpreadsheetSheet } from "../model/types";
-import { openXlsxArchive } from "./zip";
+import { openXlsxStreamingArchive } from "./zip";
 import { attribute, child, children, localName, parseXml, spreadsheetText, textContent, type XmlNode } from "./xml";
 import { readImportRelationships, resolvePart, type XlsxRelationship } from "./relationships";
 import { readXlsxStyles } from "./styles";
@@ -16,6 +16,7 @@ import { readWorksheetExtras } from "./sheet-extras";
 import { worksheetDefaultSizes } from "./worksheet-shared";
 import { isExcelRangeOutsideModel } from "./worksheet-address";
 import { prepareColumnWidthMeasurement } from "./column-width-measurement";
+import { readWorksheetXml } from "./worksheet-stream";
 import { type ImportContext, type SpreadsheetExcelImportInput, type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult, type SpreadsheetExcelImportWarning } from "./types";
 
 const workbookType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml";
@@ -23,9 +24,11 @@ const fail = (message: string): never => { throw new Error(`Excelファイルを
 const relationFor = (relations: ReadonlyMap<string, XlsxRelationship>, kind: string) => [...relations.values()].find(item => item.type.endsWith(`/${kind}`) && !item.external);
 /** Import an isolated XLSX snapshot. No persistence, remote requests, DOM, or script execution. */
 export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, options: SpreadsheetExcelImportOptions = {}): Promise<SpreadsheetExcelImportResult> {
-  const { signal } = options;
+  const { signal, emptyCellFormatting = "preserve" } = options;
+  if (emptyCellFormatting !== "preserve" && emptyCellFormatting !== "omit")
+    return fail("emptyCellFormatting は preserve または omit を指定してください");
   signal?.throwIfAborted();
-  const archive = await openXlsxArchive(input, signal);
+  const archive = await openXlsxStreamingArchive(input, signal);
   const warnings: SpreadsheetExcelImportWarning[] = [], warningsByKey = new Map<string, number>();
   const context: ImportContext = { archive, warnings, signal, resources: Object.create(null), warn(warning) {
     let key = `${warning.code}\0${warning.sheetName ?? ""}\0${warning.message}`;
@@ -122,8 +125,16 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
     if (!sheetId || sheetIds.has(sheetId)) return fail("シートIDが重複または不正です");
     sheetIds.add(sheetId);
     if (sheetNode.attributes.state && sheetNode.attributes.state !== "visible") context.warn({ code: "adjusted", message: "非表示のシートを表示状態で読み込みました", sheetName: name });
-    const root = parseXml(await archive.read(relation.target));
+    const root = await readWorksheetXml(archive, relation.target, name, shared, styles, date1904, context, emptyCellFormatting);
     const sheet = await readWorksheet(root, `xlsx-sheet-${index + 1}`, name, shared, styles, date1904, context);
+    // Drawing anchors need original row heights; release all cell XML and retain
+    // only that small source-grid metadata until extras have been converted.
+    const sheetData = child(root, "sheetData");
+    if (sheetData) {
+      sheetData.children = children(sheetData, "row").filter(row => row.attributes.ht !== undefined)
+        .map(row => ({ name: row.name, attributes: row.attributes, children: [], text: "" }));
+      sheetData.text = "";
+    }
     worksheetParts.push({ root, path: relation.target });
     sheets.push(sheet);
     // Trim optional empty formatting between sheets instead of accumulating all source metadata.
@@ -211,6 +222,8 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
     }
     if (updated) sheets[index] = { ...sheet, cells: updated };
   }
+  // Even unsupported/unreferenced ZIP members must pass CRC and actual-size checks.
+  await archive.validate();
   signal?.throwIfAborted();
   const normalized = normalizeWorkbook({ schemaVersion: 1, sheets, ...(Object.keys(context.resources).length ? { resources: { images: context.resources } } : {}), ...(namedRanges.length ? { namedRanges } : {}) });
   return Object.freeze({ workbook: normalized, warnings: Object.freeze(warnings.map(item => Object.freeze(item))) });

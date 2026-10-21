@@ -66,6 +66,7 @@ try {
 | `initialSheetId` / `initialSheetName` | `string` | マウント時に開くシートのID／名前。完全一致。両指定は同じシートが必要。不正な指定は先頭＋エラー通知。[対象シート](./selection.md#最初に開くシートを指定する) |
 | `initialZoom` | `number` | マウント時の表示倍率。既定100％、25〜200へ補正。有限でない数値は100。[表示倍率](./zoom.md) |
 | `renderingMode` | `SpreadsheetRenderingMode` | `"viewport"`（既定）は表示範囲中心の省メモリ描画。`"progressive"` は現在のシートを順次描画。表示中の変更にも追従。[描画モード](#シートの描画モード) |
+| `excelImportOptions` | `Pick<SpreadsheetExcelImportOptions, "emptyCellFormatting">` | Excel取り込みの既定値。`"preserve"`（標準）は保持予算内の空セル書式を保持、`"omit"` は空セルの通常書式を省略。Handleの明示指定が優先し、GUIは独立したチェックで変更可能。[空セルの書式](./excel-import.md#空セルの書式を省略する) |
 | `initialRibbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | マウント時のリボン表示。`expanded`（既定）・`tabs`・`autoHide`・`hidden`。[リボンの表示](./ribbon-display.md) |
 | `ribbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | 親が管理するリボン表示。初期値より優先し、表示中の変更にも追従します。 |
 | `onRibbonDisplayModeChange` | `(mode: SpreadsheetRibbonDisplayMode) => void` | UI／Handleからの表示変更要求。制御用prop使用時は親が値を反映します。初期表示とprop更新では通知しません。 |

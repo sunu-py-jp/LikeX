@@ -1,5 +1,7 @@
-import { openOfficePackage } from "../ooxml";
-import type { OfficePackageArchive, OfficePackageInput, OfficePackageSignal } from "../ooxml";
+import { openOfficePackageReader } from "../ooxml";
+import { XLSX_IMPORT_LIMITS } from "./types";
+import type { OfficePackageStreamingArchive } from "../ooxml";
+import type { OfficePackageInput, OfficePackageSignal } from "../ooxml";
 export type { OfficePackageArchive as XlsxArchive } from "../ooxml";
 
 /** Keep the public Excel error context while sharing the bounded Office decoder. */
@@ -12,7 +14,17 @@ async function excelErrorContext<T>(operation: () => Promise<T>): Promise<T> {
   }
 }
 
-export async function openXlsxArchive(input: OfficePackageInput, signal?: OfficePackageSignal): Promise<OfficePackageArchive> {
-  const archive = await excelErrorContext(() => openOfficePackage(input, signal));
-  return { paths: archive.paths, has: path => archive.has(path), read: path => excelErrorContext(() => archive.read(path)) };
+/** The importer streams worksheets and verifies all remaining members before committing. */
+export async function openXlsxStreamingArchive(input: OfficePackageInput, signal?: OfficePackageSignal): Promise<OfficePackageStreamingArchive> {
+  const archive = await excelErrorContext(() => openOfficePackageReader(input, signal, XLSX_IMPORT_LIMITS));
+  return {
+    paths: archive.paths, has: path => archive.has(path),
+    // Metadata and images retain their smaller allocation budget; only worksheets stream larger parts.
+    read: path => excelErrorContext(() => archive.read(path, XLSX_IMPORT_LIMITS.xmlBytes)),
+    async *stream(path) {
+      try { yield* archive.stream(path); }
+      catch (error) { await excelErrorContext(async () => { throw error; }); }
+    },
+    validate: () => excelErrorContext(() => archive.validate()),
+  };
 }

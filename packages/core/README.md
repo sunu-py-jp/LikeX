@@ -6,6 +6,10 @@ LikeXコンポーネントの保存・編集許可・通知・機能設定に使
 
 `readOfficeRelationships(archive, part, { onMissingTarget? })` は、通常の入口と `@likex/core/ooxml` から使えます。既定では参照先の欠損をエラーにします。任意の補助データを回復して読む場合は `onMissingTarget(relationship)` で欠損を通知し、その参照だけを省略できます。必須の参照はコールバックからthrowして停止できます。パス・重複ID・XMLの検証は常に実行し、外部参照の取得は行いません。SpreadsheetのXLSX取り込みはこのオプションを使い、欠損した補助データを警告付きで省略します。LikeSlide・LikeDocumentの既定動作は変わりません。
 
+`openOfficePackageReader(input, signal?, limits?)` は通常の入口と `@likex/core/ooxml` から使える逐次展開用のZIP読み取りAPIです。`limits` は `inputBytes` / `entries` / `entryBytes` / `totalBytes` の部分指定で、未指定は従来の32 MiB入力・4,096項目・1項目16 MiB・合計64 MiBです。ZIPの構造と宣言サイズを先に検証し、展開後のデータは内部にキャッシュしません。`stream(path)` は最大64 KiBずつ返し、最後まで読むと実際のサイズとCRCを確認します。`read(path, maxBytes?)` は1項目を配列で返し、`maxBytes` でメタデータ用の低い上限も指定できます。取り込み成功を確定する前に **`await archive.validate()` を必ず呼び**、未読・途中で読むのをやめた項目もCRCを確認してください。キャンセルは入力取得・展開・検証に共通で適用します。既存の `openOfficePackage` / `openOfficePackageMetadata` の契約・上限は変更しません。
+
+`parseXmlStream(chunks, { signal?, limits?, onElement? })` はバイト列を順次解析してXMLツリーを返します。`onElement(node, parent)` が `false` を返すと、閉じた要素をツリーに保持しません。省略する要素も構文・深さ・入力ノード数などの検証を通ります。入力全体の上限と保持するノード数の上限を分け、大量の空セルなどを完全なツリーにする前に省略できます。宣言・実際のサイズやCRCはZIP側、XMLの妥当性はこのAPIで検証します。
+
 `ConnectorEndpoint` / `ConnectorBinding` と `getConnectorPortPoint` / `findNearestConnectorPort` は、線の2端点と図形の8接続点を扱います。未ズームの文書座標、中心回転、左右・上下反転、最短吸着、2点の外接矩形と座標変換を共通化します。[線の端点と接続点](https://github.com/sunu-py-jp/LikeX/blob/main/packages/core/docs/connectors.md)を参照してください。
 
 `@likex/core/office-shapes`（通常の入口からも利用可能）の `OFFICE_SHAPE_PRESETS` / `getOfficeShapeGeometry` / `getOfficeShapeOutline` は、カギ矢印・Uターン矢印など39種類のOffice標準図形のパス・文字領域・接続輪郭を提供します。[Office標準図形](https://github.com/sunu-py-jp/LikeX/blob/main/packages/core/docs/office-shapes.md)を参照してください。定義データのApache-2.0表記は[NOTICE](NOTICE)に保持しています。

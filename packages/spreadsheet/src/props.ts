@@ -5,6 +5,7 @@ import type { ContextMenuExecutionMode, RibbonDisplayMode, SearchPanelInitialSta
 import type { SpreadsheetContextMenuProvider } from "./api/context-menu";
 import type { SpreadsheetFeatures } from "./api/features";
 import type { SpreadsheetBeforeSaveHandler, SpreadsheetEditHandler, SpreadsheetEventHandler, SpreadsheetRefreshHandler, SpreadsheetSaveHandler } from "./api/lifecycle";
+import type { SpreadsheetExcelImportOptions } from "./import/types";
 export type { SpreadsheetFeatures } from "./api/features";
 export type { SpreadsheetSaveHandler } from "./api/lifecycle";
 
@@ -63,6 +64,8 @@ export type SpreadsheetProps = SearchPanelInitialState & {
    * progressive renders visible rows first, then the rest of the active sheet in batches.
    * May be changed while the component is mounted; not stored in the workbook. */
   renderingMode?: SpreadsheetRenderingMode;
+  /** Defaults for Excel imports. Explicit Handle options override these defaults; the File ribbon can override its own import mode. */
+  excelImportOptions?: Pick<SpreadsheetExcelImportOptions, "emptyCellFormatting">;
   /** Read once at mount, default expanded. Ignored while ribbonDisplayMode is supplied. */
   initialRibbonDisplayMode?: SpreadsheetRibbonDisplayMode;
   /** Host-controlled ribbon presentation. Without a change callback the mode is locked. */

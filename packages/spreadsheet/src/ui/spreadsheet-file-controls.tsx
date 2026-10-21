@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
-import type { SpreadsheetExcelImportResult } from "../import/types";
+import type { SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult } from "../import/types";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { Command, Icon } from "./spreadsheet-controls";
 import { SpreadsheetConfirmDialog } from "./spreadsheet-confirm-dialog";
@@ -9,7 +9,7 @@ import { SpreadsheetExportControls } from "./spreadsheet-export-controls";
 import { RibbonGroup } from "./spreadsheet-ribbon-group";
 import { HorizontalScrollStrip } from "./horizontal-scroll-strip";
 
-type ImportFile = { file: File; format: "xlsx" | "spon" };
+type ImportFile = { file: File; format: "xlsx" | "spon"; emptyCellFormatting?: SpreadsheetExcelImportOptions["emptyCellFormatting"] };
 export function SpreadsheetFileControls({ controller: c, active, panelId, tabId }: {
   controller: SpreadsheetController; active: boolean; panelId: string; tabId: string;
 }) {
@@ -17,6 +17,12 @@ export function SpreadsheetFileControls({ controller: c, active, panelId, tabId 
   const request = useRef<AbortController | null>(null), reviewAnswer = useRef<((accepted: boolean) => void) | null>(null);
   const [pendingFile, setPendingFile] = useState<ImportFile | null>(null);
   const [review, setReview] = useState<SpreadsheetExcelImportResult | null>(null);
+  const defaultEmptyCellFormatting = c.excelImportOptions?.emptyCellFormatting ?? "preserve";
+  const [importFormatting, setImportFormatting] = useState({ defaultValue: defaultEmptyCellFormatting, value: defaultEmptyCellFormatting });
+  // A new host default resets only the UI choice; already selected files retain their captured policy.
+  if (importFormatting.defaultValue !== defaultEmptyCellFormatting)
+    setImportFormatting({ defaultValue: defaultEmptyCellFormatting, value: defaultEmptyCellFormatting });
+  const emptyCellFormatting = importFormatting.value;
   const excelAvailable = !c.readOnly && c.features.importExcel;
   const nativeAvailable = !c.readOnly && c.features.importNative;
   const available = (format: ImportFile["format"]) => format === "xlsx" ? excelAvailable : nativeAvailable;
@@ -31,13 +37,13 @@ export function SpreadsheetFileControls({ controller: c, active, panelId, tabId 
   const answer = (accepted: boolean) => {
     reviewAnswer.current?.(accepted); reviewAnswer.current = null; setReview(null);
   };
-  const start = async ({ file, format }: ImportFile, discardChanges = false) => {
+  const start = async ({ file, format, emptyCellFormatting: selectedEmptyCellFormatting }: ImportFile, discardChanges = false) => {
     if (busy || !available(format) || request.current) return;
     const controller = new AbortController(); request.current = controller;
     try {
       const options = { signal: controller.signal, discardChanges };
       if (format === "spon") await c.importNativeFromUi(file, options);
-      else await c.importExcelFromUi(file, { ...options,
+      else await c.importExcelFromUi(file, { ...options, emptyCellFormatting: selectedEmptyCellFormatting,
         onReview: result => result.warnings.length === 0 ? true : new Promise<boolean>(resolve => {
           reviewAnswer.current = resolve; setReview(result);
         }) });
@@ -64,7 +70,7 @@ export function SpreadsheetFileControls({ controller: c, active, panelId, tabId 
                   const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
                   if (!file || busy) return;
                   if (format === "xlsx" && !/\.xlsx$/i.test(file.name)) { c.reportError(new Error(".xlsx 形式のExcelファイルを選択してください")); return; }
-                  const item = { file, format };
+                  const item = { file, format, ...(format === "xlsx" ? { emptyCellFormatting } : {}) };
                   if (c.hasUnsavedChanges || c.editing || c.pendingObjectEdit) setPendingFile(item);
                   else void start(item);
                 }} />
@@ -79,6 +85,13 @@ export function SpreadsheetFileControls({ controller: c, active, panelId, tabId 
             <span role="status" className="lxs-operation-status" aria-live="polite"><svg className="lxs-import-spinner" width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="2" strokeDasharray="32 12" /></svg>{review ? "取り込み内容を確認してください" : `${c.importingFormat === "xlsx" ? "Excel" : "SPON"}取り込み中…`}</span>
             <Command label={`${c.importingFormat === "xlsx" ? "Excel" : "SPON"}取り込みをキャンセル`} onClick={c.cancelImport}><Icon name="close" /></Command>
           </>}
+        </RibbonGroup>}
+        {excelAvailable && <RibbonGroup label="Excel取り込み設定">
+          <label className="lxs-import-option" title="値・数式のないセルの色・罫線などを省略します。空欄の入力欄の見た目も変わります。">
+            <input type="checkbox" aria-label="空セルの書式を省略" checked={emptyCellFormatting === "omit"} disabled={busy}
+              onChange={event => setImportFormatting({ defaultValue: defaultEmptyCellFormatting, value: event.currentTarget.checked ? "omit" : "preserve" })} />
+            空セルの書式を省略
+          </label>
         </RibbonGroup>}
         {(c.features.exportExcel || c.features.exportNative) && <RibbonGroup label="出力"><SpreadsheetExportControls controller={c} /></RibbonGroup>}
       </HorizontalScrollStrip>

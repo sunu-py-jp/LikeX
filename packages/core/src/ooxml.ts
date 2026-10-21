@@ -1,5 +1,9 @@
 export { openOfficePackage, openOfficePackageMetadata } from "./ooxml/zip-reader";
 export type { OfficePackageArchive } from "./ooxml/zip-reader";
+export { openOfficePackageReader } from "./ooxml/zip-stream-reader";
+export type { OfficePackageReadLimits, OfficePackageStreamingArchive } from "./ooxml/zip-stream-reader";
+export { parseXmlStream } from "./ooxml/xml-stream";
+export type { XmlStreamOptions } from "./ooxml/xml-stream";
 export { OFFICE_PACKAGE_LIMITS, OFFICE_PACKAGE_METADATA_LIMITS } from "./ooxml/types";
 export type { OfficePackageInput, OfficePackageMetadataInput, OfficePackageSignal, OfficePackageBlob } from "./ooxml/types";
 export * as officeXml from "./ooxml/xml";

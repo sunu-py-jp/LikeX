@@ -36,6 +36,8 @@ export type SpreadsheetExcelColumnWidthMeasurer = (font: SpreadsheetExcelColumnW
   SpreadsheetExcelColumnWidthMetrics | undefined | Promise<SpreadsheetExcelColumnWidthMetrics | undefined>;
 export type SpreadsheetExcelImportOptions = {
   signal?: SpreadsheetExcelImportSignal;
+  /** Preserve blank-cell formatting by default; omit explicitly for data-oriented imports. */
+  emptyCellFormatting?: "preserve" | "omit";
   /** Called once per workbook. Undefined metrics use the deterministic Calibri 11pt/96dpi fallback. */
   columnWidthMeasurement?: SpreadsheetExcelColumnWidthMeasurer;
 };
@@ -57,6 +59,8 @@ export type ImportContext = {
   date1904?: boolean;
   resolveListValues?: (reference: string, sheetName: string) => readonly string[] | undefined;
   cellTextCharacters?: number;
+  /** Nonempty source values admitted by the streaming reader; resolved formulas are checked after conversion. */
+  sourceDataCells?: number;
   /** Retained optional features across the workbook; omitted items do not consume model capacity. */
   mergeCount?: number;
   drawingCount?: number;
@@ -71,8 +75,10 @@ export type ImportContext = {
 /** Fixed, conservative limits apply before allocation and to actual inflated output. */
 export const XLSX_IMPORT_LIMITS = Object.freeze({
   inputBytes: 32 * 1024 * 1024, entries: 4096,
-  entryBytes: 16 * 1024 * 1024, totalBytes: 64 * 1024 * 1024,
+  entryBytes: 100 * 1024 * 1024, totalBytes: 100 * 1024 * 1024,
   xmlBytes: 16 * 1024 * 1024, xmlDepth: 64, xmlNodes: 600_000,
   xmlText: 16 * 1024 * 1024,
+  worksheetXmlBytes: 100 * 1024 * 1024, worksheetXmlNodes: 8_000_000,
+  worksheetXmlText: 100 * 1024 * 1024,
   cellTextCharacters: 32 * 1024 * 1024,
 });
