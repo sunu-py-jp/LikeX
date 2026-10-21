@@ -39,6 +39,9 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
     const { draft: current, view: currentView } = latest.current;
     const emptyCellFormatting = options.emptyCellFormatting ?? current.propsRef.current.excelImportOptions?.emptyCellFormatting ?? "preserve";
     const columnWidthMeasurement = options.columnWidthMeasurement;
+    // Capture nested settings before asynchronous review or host updates.
+    const selectedLimits = options.limits ?? current.propsRef.current.excelImportOptions?.limits;
+    const limits = selectedLimits && typeof selectedLimits === "object" && !Array.isArray(selectedLimits) ? { ...selectedLimits } : selectedLimits;
     if (!mounted.current) throw new Error("スプレッドシートは表示されていません");
     if (current.propsRef.current.features?.[feature] === false) throw new Error(`${label}取り込みは無効です`);
     const failure = current.getMutationFailure();
@@ -81,7 +84,7 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
       if (format === "xlsx" && fileName && !/\.xlsx$/i.test(fileName)) throw new Error(".xlsx 形式のExcelファイルを選択してください");
       const parsed = format === "xlsx"
         ? await wait(import("./import-xlsx").then(({ importSpreadsheetXlsx }) => importSpreadsheetXlsx(input, {
-          signal: controller.signal, columnWidthMeasurement, emptyCellFormatting })))
+          signal: controller.signal, columnWidthMeasurement, emptyCellFormatting, limits })))
         : await wait((async () => {
           if (!input || typeof input !== "object" || !("text" in input) || typeof input.text !== "function" || !("size" in input))
             throw new Error("SPONファイルはBlobで指定してください");

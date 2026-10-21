@@ -1,3 +1,4 @@
+import { resolveFormatRange } from "../model/format-ranges";
 import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
 import { rangesIntersect } from "../model/merges";
 import { parseCellAddress } from "../model/address";
@@ -10,6 +11,7 @@ export function clearCommandCells(workbook: SpreadsheetWorkbook, sheetId: string
   mode: SpreadsheetClearMode, features: SpreadsheetFeatureSettings): SpreadsheetWorkbook {
   const sheet = requireCommandSheet(workbook, sheetId), range = resolveCellRange(sheet, input);
   if (mode === "all") {
+    if (sheet.formatRanges?.some(item => rangesIntersect(resolveFormatRange(sheet, item.range), range))) requireCommandFeature(features, "formatting");
     const contains = (address: string) => { const p = parseCellAddress(address)!;
       return p.row >= range.top && p.row <= range.bottom && p.column >= range.left && p.column <= range.right; };
     for (const [address, cell] of Object.entries(sheet.cells)) if (contains(address)) {

@@ -33,7 +33,7 @@ test('actual inflation is capped even when the directory lies about output size'
   const central = data.readUInt32LE(data.length - 6); data.writeUInt32LE(1, 22); data.writeUInt32LE(1, central + 24);
   await assert.rejects(openXlsxArchive(data), /展開サイズ/);
   const oversized = new Blob([new Uint8Array(XLSX_IMPORT_LIMITS.inputBytes + 1)]);
-  await assert.rejects(openXlsxArchive(oversized), /32 MiB/);
+  await assert.rejects(openXlsxArchive(oversized), /128 MiB/);
 });
 test('unused ZIP members are also CRC checked', async () => {
   const data = zip({ 'unused.bin': 'bad' }, { method: 0 }); data[40] ^= 1;
@@ -63,6 +63,6 @@ test('structural file inputs verify declared size and actual buffer bytes before
   const archive = await openXlsxArchive(input);
   assert.equal(new TextDecoder().decode(await archive.read('a')), 'valid');
   for (const size of [NaN, -1, Infinity, 0.5, bytes.length - 1]) await assert.rejects(openXlsxArchive({ ...input, size }), /サイズ/);
-  await assert.rejects(openXlsxArchive({ size: 1, async arrayBuffer() { return new ArrayBuffer(XLSX_IMPORT_LIMITS.inputBytes + 1); } }), /32 MiB/);
+  await assert.rejects(openXlsxArchive({ size: 1, async arrayBuffer() { return new ArrayBuffer(XLSX_IMPORT_LIMITS.inputBytes + 1); } }), /128 MiB/);
   await assert.rejects(openXlsxArchive({ size: bytes.length, async arrayBuffer() { return bytes; } }), /ArrayBuffer/);
 });

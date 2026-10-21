@@ -1,3 +1,5 @@
+import { withFormatRangeContext } from "../formatting/range-context";
+import { getCellFormat } from "../format-ranges";
 import { parseCellAddress } from "../address";
 import { effectiveCellFormat, formatCellValue } from "../formatting";
 import { createConditionalFormatter } from "../conditional-formatting";
@@ -29,7 +31,7 @@ function fitColumn(sheet: SpreadsheetSheet, column: number, values: Readonly<Rec
       // Reserve enough room for both presentations without coupling sizing to feature flags.
       width = Math.max(width, (measure.cellStyle ?? DEFAULT_CELL_MEASUREMENT).checkboxWidth + 8);
     }
-    const value = values[address] ?? cell.value, format = conditional(position.row, column, value, effectiveCellFormat(cell)).format;
+    const value = values[address] ?? cell.value, format = conditional(position.row, column, value, effectiveCellFormat(cell, getCellFormat(sheet, position.row, position.column))).format;
     const inset = horizontalInset(format, measure, cell.validation?.type === "list");
     for (const line of formatCellValue(value, format).split(/\r\n?|\n/)) width = Math.max(width, measure(line, format) + inset);
     if (width >= 1000) return 1000;
@@ -63,7 +65,7 @@ function fitRow(sheet: SpreadsheetSheet, row: number, values: Readonly<Record<st
     const merge = sheet.merges?.find(range => row >= range.top && row <= range.bottom && position.column >= range.left && position.column <= range.right);
     if (merge && (merge.bottom > merge.top || position.column !== merge.left)) continue;
     if (cell.validation?.type === "checkbox") height = Math.max(height, style.checkboxHeight + 8);
-    const value = values[address] ?? cell.value, format = conditional(row, position.column, value, effectiveCellFormat(cell)).format;
+    const value = values[address] ?? cell.value, format = conditional(row, position.column, value, effectiveCellFormat(cell, getCellFormat(sheet, position.row, position.column))).format;
     let width = 0;
     for (let column = merge?.left ?? position.column; column <= (merge?.right ?? position.column); column++) width += sheet.columnWidths?.[column] ?? 100;
     width = Math.max(1, width - horizontalInset(format, measure, cell.validation?.type === "list"));
@@ -80,14 +82,17 @@ function fitRow(sheet: SpreadsheetSheet, row: number, values: Readonly<Record<st
 }
 
 export function autoFitColumnWidth(sheet: SpreadsheetSheet, column: number, values: Readonly<Record<string, SpreadsheetCalculatedValue>>, measure: TextMeasurer = estimateTextWidth) {
+  sheet = withFormatRangeContext(sheet);
   return fitColumn(sheet, column, values, measure, createConditionalFormatter(sheet, values));
 }
 export function autoFitRowHeight(sheet: SpreadsheetSheet, row: number, values: Readonly<Record<string, SpreadsheetCalculatedValue>>, measure: TextMeasurer = estimateTextWidth) {
+  sheet = withFormatRangeContext(sheet);
   return fitRow(sheet, row, values, measure, createConditionalFormatter(sheet, values));
 }
 
 /** Batch fitting groups sparse cells once instead of rescanning the whole sheet per selected row. */
 export function autoFitDimensions(sheet: SpreadsheetSheet, axis: "row" | "column", indices: ReadonlySet<number>, values: Readonly<Record<string, SpreadsheetCalculatedValue>>, measure: TextMeasurer = estimateTextWidth): ReadonlyMap<number, number> {
+  sheet = withFormatRangeContext(sheet);
   const groups = new Map<number, Record<string, SpreadsheetSheet["cells"][string]>>();
   for (const [address, cell] of Object.entries(sheet.cells)) {
     const position = parseCellAddress(address); if (!position || !indices.has(position[axis])) continue;

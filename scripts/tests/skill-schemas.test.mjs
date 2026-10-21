@@ -52,9 +52,10 @@ test('committed schemas reproduce from current TypeScript types, package version
 
 test('SPON validates stored rows, nested definitions, literal formats, and numeric Record keys', async () => {
   const validate = compile(await readSchema('spreadsheet', 'spon'));
-  const file = { format: 'likex.spreadsheet', schemaVersion: 1, sheets: [{
+  const file = { format: 'likex.spreadsheet', schemaVersion: 2, sheets: [{
     id: 'sheet-1', name: 'Sheet', rowCount: 20, columnCount: 10,
     columnWidths: { 0: 120, 2: 200 },
+    formatRanges: [{ range: { top: 4, left: 4, bottom: 'end', right: 8 }, format: { background: '#eeeeee', align: 'center' } }],
     rows: [{ height: 28, cells: { A: { value: 'Title', format: { bold: true, borders: { bottom: { width: 2, style: 'solid' } } } },
       B: { value: 'Yes', validation: { type: 'list', values: ['Yes', 'No'] } } } }, {}, { cells: { C: { value: '=A1' } } }],
     conditionalFormats: [{ id: 'rule', type: 'colorScale', ranges: [{ top: 0, left: 0, bottom: 2, right: 2 }], colors: ['#ff0000', '#00ff00'] }],
@@ -64,10 +65,13 @@ test('SPON validates stored rows, nested definitions, literal formats, and numer
   const rejectChange = change => { const changed = structuredClone(file); change(changed); invalid(validate, changed); };
   rejectChange(value => { delete value.format; });
   rejectChange(value => { value.format = 'likex.slide'; });
-  rejectChange(value => { value.schemaVersion = 2; });
+  rejectChange(value => { value.schemaVersion = 1; }); // Schema describes new v2 output; the runtime also reads v1.
+  rejectChange(value => { value.schemaVersion = 3; });
   rejectChange(value => { value.sheets[0].cells = {}; });
   rejectChange(value => { value.sheets[0].rowHeights = { 0: 28 }; });
   rejectChange(value => { delete value.sheets[0].rows; });
+  rejectChange(value => { value.sheets[0].formatRanges[0].range.bottom = 'last'; });
+  rejectChange(value => { value.sheets[0].formatRanges[0].format.align = 'diagonal'; });
   rejectChange(value => { value.sheets[0].rows[0].extra = true; });
   rejectChange(value => { value.sheets[0].rows[0].cells.A.value = 42; });
   rejectChange(value => { value.sheets[0].rows[0].cells.A.format.align = 'diagonal'; });

@@ -5,7 +5,7 @@ import type { SpreadsheetExcelExportOptions } from "./types";
 import type { XlsxContentType, XlsxPart, XlsxRelationship } from "./xlsx/types";
 import { xml, xlsxText } from "./xlsx/xml";
 import { createXlsxStyles } from "./xlsx/styles";
-import { worksheetXml } from "./xlsx/worksheet";
+import { worksheetBlob } from "./xlsx/worksheet";
 import { commentParts } from "./xlsx/comments";
 import { prepareWorksheetDrawings } from "./xlsx/drawings";
 import { createXlsxMediaRegistry } from "./xlsx/images";
@@ -67,9 +67,9 @@ export async function exportSpreadsheetXlsx(input: SpreadsheetWorkbook, options:
     const links = [...comments.relationships, ...tables.relationships];
     const drawingId = drawing.drawingPath ? "rIdDrawing" : undefined;
     if (drawingId) links.push({ id: drawingId, type: `${relationship}drawing`, target: drawing.drawingRelationshipTarget! });
-    parts.push(part(`xl/worksheets/sheet${number}.xml`, worksheetXml(workbook, sheet, styles, calculated,
+    parts.push({ path: `xl/worksheets/sheet${number}.xml`, content: await worksheetBlob(workbook, sheet, styles, calculated,
       { drawingId, commentsDrawingId: comments.legacyDrawingId, formulaForList: validationLists.formulaForList,
-        tableRelationshipIds: tables.relationshipIds })), ...comments.parts, ...drawing.parts, ...tables.parts);
+        tableRelationshipIds: tables.relationshipIds }, signal) }, ...comments.parts, ...drawing.parts, ...tables.parts);
     if (links.length) parts.push(part(`xl/worksheets/_rels/sheet${number}.xml.rels`, relationshipsXml(links)));
     workbookLinks.push({ id: `rId${number}`, type: `${relationship}worksheet`, target: `worksheets/sheet${number}.xml` });
     contentTypes.push({ partName: `/xl/worksheets/sheet${number}.xml`, contentType: sheetType }, ...comments.contentTypes, ...drawing.contentTypes, ...tables.contentTypes);

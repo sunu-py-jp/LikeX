@@ -1,3 +1,4 @@
+import { getCellFormat, getFormattedCell } from "../model/format-ranges";
 import { applyDrawingPasteCommand } from "./drawing-paste";
 import { stageNamedRangeCommand } from "./named-ranges";
 import { stageTableCommand } from "./tables";
@@ -84,7 +85,7 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
         requireCommandAddress(sheet, address);
         if (typeof value !== "string") return rejectCommand("INVALID_COMMAND", "セルの値は文字列で指定してください");
         const position = parseCellAddress(address)!;
-        if (isFormulaValue(value, sheet.cells[cellAddress(position.row, position.column)]?.format)) requireCommandFeature(features, "formulas");
+        if (isFormulaValue(value, getCellFormat(sheet, position.row, position.column))) requireCommandFeature(features, "formulas");
       }
       const filtered = filterCellValueWrites(sheet, command.values, command.onConflict);
       const next = setCellValues(workbook, sheet.id, filtered.values);
@@ -97,8 +98,19 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
         "fontFamily", "fontSize", "wrap", "shrinkToFit", "verticalAlign", "indent", "borders", "decimalPlaces", "useGrouping", "negativeFormat"], "セル書式");
       const next = formatCells(workbook, sheet.id, addresses, command.format);
       if (!features.formulas) for (const address of addresses) {
-        const position = parseCellAddress(address)!, key = cellAddress(position.row, position.column);
-        if (isFormulaCell(next.sheets.find(item => item.id === sheet.id)!.cells[key]) && !isFormulaCell(sheet.cells[key])) requireCommandFeature(features, "formulas");
+        const position = parseCellAddress(address)!;
+        if (isFormulaCell(getFormattedCell(next.sheets.find(item => item.id === sheet.id)!, position.row, position.column)) && !isFormulaCell(getFormattedCell(sheet, position.row, position.column))) requireCommandFeature(features, "formulas");
+      }
+      return result(next);
+    }
+    case "cells.formatRange": {
+      requireCommandFeature(features, "formatting");
+      commandKeys(commandRecord(command.format, "セル書式"), ["bold", "italic", "underline", "align", "color", "background", "numberFormat",
+        "fontFamily", "fontSize", "wrap", "shrinkToFit", "verticalAlign", "indent", "borders", "decimalPlaces", "useGrouping", "negativeFormat"], "セル書式");
+      const next = stageFormattingCommand(workbook, command), target = next.sheets.find(item => item.id === sheet.id)!;
+      if (!features.formulas) for (const address of Object.keys(sheet.cells)) {
+        const position = parseCellAddress(address)!;
+        if (isFormulaCell(getFormattedCell(target, position.row, position.column)) && !isFormulaCell(getFormattedCell(sheet, position.row, position.column))) requireCommandFeature(features, "formulas");
       }
       return result(next);
     }

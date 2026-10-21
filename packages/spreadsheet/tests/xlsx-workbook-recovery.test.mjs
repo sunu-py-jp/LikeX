@@ -48,17 +48,18 @@ test('unused shared strings do not trigger cell-count or cell-length limits, whi
   await assert.rejects(read(zip(source)), /セルの文字数/);
 });
 
-test('stored-cell budget prioritizes data in later sheets over empty formatting and skips validation without partial expansion', async () => {
+test('repeated blank formatting does not consume data capacity in later sheets and invalid blank validation is still omitted', async () => {
   const rows = Array.from({ length: 101 }, (_, row) => `<row r="${row + 1}">${'<c s="1"/>'.repeat(1000)}</row>`).join('');
   const source = fixture({ sheets: [
     { name: 'Formatted', xml: `<sheetData>${rows}</sheetData><dataValidations><dataValidation type="whole" sqref="A200"><formula1>0</formula1><formula2>10</formula2></dataValidation></dataValidations>` },
     { name: 'Data', xml: content },
   ], links: [{ id: 'styles', type: 'styles', target: 'styles.xml' }], parts: { 'xl/styles.xml': '<styleSheet><cellXfs><xf/><xf numFmtId="14"/></cellXfs></styleSheet>' } });
   const result = await read(zip(source));
-  assert.equal(Object.keys(result.workbook.sheets[0].cells).length, 99998);
+  assert.equal(Object.keys(result.workbook.sheets[0].cells).length, 0);
+  assert.deepEqual(result.workbook.sheets[0].formatRanges[0].range, { top: 0, left: 0, bottom: 100, right: 999 });
   assert.equal(result.workbook.sheets[0].cells.A200, undefined);
   assert.equal(result.workbook.sheets[1].cells.B1.value, '=A1+1');
-  assert.equal(result.warnings.find(item => item.message.includes('空セルの書式')).count, 1002);
+  assert.equal(result.warnings.some(item => item.message.includes('空セルの書式')), false);
   assert.ok(result.warnings.some(item => item.message.includes('入力規則')));
 });
 

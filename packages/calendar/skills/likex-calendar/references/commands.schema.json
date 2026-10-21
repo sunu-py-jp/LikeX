@@ -49,12 +49,12 @@
         "color": {
           "type": "string"
         },
-        "description": {
-          "type": "string"
-        },
         "end": {
           "type": "string",
           "description": "Exclusive end, including for all-day events."
+        },
+        "description": {
+          "type": "string"
         },
         "start": {
           "type": "string"
@@ -106,12 +106,12 @@
         "color": {
           "type": "string"
         },
-        "description": {
-          "type": "string"
-        },
         "end": {
           "type": "string",
           "description": "Exclusive end, including for all-day events."
+        },
+        "description": {
+          "type": "string"
         },
         "start": {
           "type": "string"

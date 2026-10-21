@@ -46,11 +46,11 @@ const annotated = setCellComment(addDrawing(workbook, "sheet-consumer", {
 }), "sheet-consumer", "A1", { id: "review", text: "Reviewed comment" });
 const saved = serializeWorkbook(annotated), nativeFile = JSON.parse(saved);
 assert.equal(nativeFile.format, "likex.spreadsheet");
-assert.equal(nativeFile.schemaVersion, 1);
+assert.equal(nativeFile.schemaVersion, 2);
 assert.equal(nativeFile.sheets[0].rows[1].cells.A.value, '=ROUND(1.005,2)');
 assert.equal('cells' in nativeFile.sheets[0], false);
 assert.throws(() => parseWorkbook(JSON.stringify(annotated)));
-assert.throws(() => parseWorkbook(JSON.stringify({ ...nativeFile, schemaVersion: 2 })));
+assert.throws(() => parseWorkbook(JSON.stringify({ ...nativeFile, schemaVersion: 3 })));
 const restored = parseWorkbook(saved);
 assert.equal(serializeWorkbook(restored), saved);
 assert.equal(restored.schemaVersion, 1);

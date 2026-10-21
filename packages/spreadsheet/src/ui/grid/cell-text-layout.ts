@@ -1,3 +1,4 @@
+import { getCellFormat } from "../../model/format-ranges";
 import { cellAddress } from "../../model/address";
 import { effectiveCellFormat } from "../../model/formatting";
 import type { SpreadsheetCalculatedValue, SpreadsheetCellFormat, SpreadsheetMergedRange, SpreadsheetSheet } from "../../model/types";
@@ -8,7 +9,7 @@ export type CellTextOverflow = Readonly<{ before: number; after: number }>;
  * live editors and checkboxes stop it. Two row sweeps keep wide sheets linear. */
 export function rowTextOverflowLimits(sheet: SpreadsheetSheet, row: number, columnOffsets: readonly number[],
   merges: ReadonlyMap<number, SpreadsheetMergedRange>, checkboxes: boolean, editingColumn?: number,
-  formatAt: (column: number) => SpreadsheetCellFormat | undefined = column => effectiveCellFormat(sheet.cells[cellAddress(row, column)])) {
+  formatAt: (column: number) => SpreadsheetCellFormat | undefined = column => effectiveCellFormat(sheet.cells[cellAddress(row, column)], getCellFormat(sheet, row, column))) {
   const blocked = Array.from({ length: sheet.columnCount }, (_, column) => {
     const cell = sheet.cells[cellAddress(row, column)];
     return !!cell?.value || merges.has(row * sheet.columnCount + column) || column === editingColumn ||

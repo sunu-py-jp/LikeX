@@ -1,6 +1,7 @@
 import type { SpreadsheetFeatureSettings } from "../api/resolve-features";
-import { cellAddress } from "../model/address";
+import { cellAddress, parseCellAddress } from "../model/address";
 import { isFormulaValue } from "../model/cell-value";
+import { getCellFormat } from "../model/format-ranges";
 import { SPREADSHEET_LIMITS, type SpreadsheetWorkbook } from "../model/types";
 import { insertAxisWithValues, insertColumns, insertRows } from "../model/workbook/structure";
 import type { SpreadsheetCommand } from "./types";
@@ -48,12 +49,20 @@ export function insertCommandAxis(workbook: SpreadsheetWorkbook, command: Insert
     for (let inner = 0; inner < lane.length; inner++) {
       if (!Object.hasOwn(lane, inner)) return rejectCommand("INVALID_COMMAND", "挿入する値の配列に欠けた要素があります");
       const value = insertCellValue(lane[inner]);
-      if (isFormulaValue(value)) requireCommandFeature(features, "formulas");
       // Inserted cells start empty. Omitted trailing values and explicit empty values need no allocation.
       if (value === "") continue;
       if (++populated > SPREADSHEET_LIMITS.cells) return rejectCommand("VALIDATION_FAILED", "保存できるセル数の上限を超えています");
       values[cellAddress(rows ? command.index + outer : inner, rows ? inner : command.index + outer)] = value;
     }
   }
-  return insertAxisWithValues(workbook, sheet.id, rows ? "row" : "column", command.index, count, values);
+  const next = insertAxisWithValues(workbook, sheet.id, rows ? "row" : "column", command.index, count, values);
+  if (!features.formulas) {
+    const target = requireCommandSheet(next, sheet.id);
+    // Structural insertion can extend or shift inherited formats. Validate against the resulting cells.
+    for (const [address, value] of Object.entries(values)) {
+      const position = parseCellAddress(address)!;
+      if (isFormulaValue(value, getCellFormat(target, position.row, position.column))) requireCommandFeature(features, "formulas");
+    }
+  }
+  return next;
 }

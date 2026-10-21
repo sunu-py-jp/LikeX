@@ -1,3 +1,4 @@
+import { getCellFormat } from "../../model/format-ranges";
 import { normalizeWorkbook } from "../../model/workbook/normalize";
 import { calculateNormalizedRange } from "../../model/calculated-range";
 import { cellAddress } from "../../model/address";
@@ -41,7 +42,7 @@ export function prepareNormalizedSpreadsheetThumbnail(workbook: SpreadsheetWorkb
   const appearance = (row: number, column: number) => {
     const merge = merges.get(row * columnCount + column);
     const address = cellAddress(merge?.top ?? row, merge?.left ?? column);
-    return conditional(row, column, values[address], effectiveCellFormat(sheet.cells[address]));
+    return conditional(row, column, values[address], effectiveCellFormat(sheet.cells[address], getCellFormat(sheet, merge?.top ?? row, merge?.left ?? column)));
   };
   const cells = [];
   const visibleSheet = { ...sheet, rowCount, columnCount };

@@ -37,7 +37,11 @@
     "getTables",
     "sheet",
     "getSheetReader",
-    "SpreadsheetSheetReadApi"
+    "SpreadsheetSheetReadApi",
+    "getSheetFormatRanges",
+    "getResolvedCellFormat",
+    "getCellFormat",
+    "getFormatRanges"
   ],
   "screenshots": []
 }

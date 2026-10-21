@@ -1,3 +1,6 @@
+import { withFormatRangeContext } from "./formatting/range-context";
+import { getFormattedCell } from "./format-ranges";
+import { parseCellAddress } from "./address";
 import { calculateWorkbook } from "./formula";
 import { cellTextValue, isFormulaCell, isFormulaValue } from "./cell-value";
 import { EXCEL_DATE_SERIAL_END, excelSerialFromUtc } from "./formatting/excel-date";
@@ -103,13 +106,16 @@ export function dataValidationError(rule: SpreadsheetDataValidation, raw: string
 const ruleCells = new WeakMap<object, readonly [string, SpreadsheetCell & { validation: SpreadsheetDataValidation } ][]>();
 /** Every mutation validates a complete candidate. Hidden controls never disable persisted rules. */
 export function assertWorkbookDataValidation(workbook: SpreadsheetWorkbook): void {
-  const entries = workbook.sheets.flatMap(sheet => {
+  const entries = workbook.sheets.map(withFormatRangeContext).flatMap(sheet => {
     let cells = ruleCells.get(sheet.cells);
     if (!cells) {
       cells = Object.entries(sheet.cells).filter((entry): entry is [string, SpreadsheetCell & { validation: SpreadsheetDataValidation }] => !!entry[1].validation);
       if (Object.isFrozen(sheet.cells)) ruleCells.set(sheet.cells, cells);
     }
-    return cells.map(([address, cell]) => ({ sheet, address, cell }));
+    return cells.map(([address, cell]) => {
+      const position = parseCellAddress(address)!;
+      return { sheet, address, cell: getFormattedCell(sheet, position.row, position.column) ?? cell };
+    });
   });
   if (!entries.length) return;
   const calculated = entries.some(({ cell }) => isFormulaCell(cell)) ? calculateWorkbook(workbook) : undefined;

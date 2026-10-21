@@ -1,3 +1,6 @@
+import { compactFormatRanges, resolveFormatRange, preserveFormatRangeEnd } from "../format-ranges";
+import { shiftRangeInterval } from "../named-ranges";
+import { getFormattedCell } from "../format-ranges";
 import { cellAddress, parseCellAddress } from "../address";
 import { isFormulaCell } from "../cell-value";
 import { normalizeConditionalFormats } from "../conditional-formatting";
@@ -48,6 +51,25 @@ function changeCellRange(workbook: SpreadsheetWorkbook, sheetId: string, input: 
     });
     return ranges.length ? [Object.freeze({ ...rule, ranges: Object.freeze(ranges) })] : [];
   });
+  const formatRanges = target.formatRanges?.flatMap(item => {
+    const area = resolveFormatRange(target, item.range), firstLane = rows ? area.left : area.top, lastLane = rows ? area.right : area.bottom;
+    if (lastLane < shift.firstLane || firstLane > shift.lastLane) return [item];
+    const first = rows ? area.top : area.left, last = rows ? area.bottom : area.right;
+    const result: import("../types").SpreadsheetFormatRange[] = [];
+    const part = (low: number, high: number, start: number, end: number, shifted: boolean) => {
+      const bounds = rows ? { top: start, bottom: end, left: low, right: high } : { left: start, right: end, top: low, bottom: high };
+      const inherited = preserveFormatRangeEnd(bounds, item.range, target);
+      const open = rows ? item.range.bottom === "end" : item.range.right === "end";
+      const range = shifted && open ? { ...inherited, ...(rows ? { bottom: "end" as const } : { right: "end" as const }) } : inherited;
+      requirePosition({ row: range.bottom === "end" ? range.top : range.bottom, column: range.right === "end" ? range.left : range.right });
+      result.push({ format: item.format, range });
+    };
+    if (firstLane < shift.firstLane) part(firstLane, shift.firstLane - 1, first, last, false);
+    const interval = shiftRangeInterval(first, last, shift.index, shift.count, remove);
+    if (interval) part(Math.max(firstLane, shift.firstLane), Math.min(lastLane, shift.lastLane), interval[0], interval[1], true);
+    if (lastLane > shift.lastLane) part(shift.lastLane + 1, lastLane, first, last, false);
+    return result;
+  });
   const tables = target.tables?.flatMap(table => {
     if (!rectangleAffected(table.range, shift)) return [table];
     const first = rows ? table.range.left : table.range.top, last = rows ? table.range.right : table.range.bottom;
@@ -84,7 +106,7 @@ function changeCellRange(workbook: SpreadsheetWorkbook, sheetId: string, input: 
         if (!next) continue;
         requirePosition(next); nextAddress = cellAddress(next.row, next.column);
       }
-      const value = isFormulaCell(cell) ? rewriteShiftedFormula(cell.value, sheet.name, target, shift, requirePosition) : cell.value;
+      const value = isFormulaCell(getFormattedCell(sheet, parseCellAddress(address)!.row, parseCellAddress(address)!.column)) ? rewriteShiftedFormula(cell.value, sheet.name, target, shift, requirePosition) : cell.value;
       if (value !== cell.value) changed = true;
       cells[nextAddress] = value === cell.value ? cell : freezeCell(value, cell.format, cell.validation);
     }
@@ -93,6 +115,7 @@ function changeCellRange(workbook: SpreadsheetWorkbook, sheetId: string, input: 
     if (sheet.id !== sheetId) return sheet;
     const dimensions = { rowCount, columnCount };
     const next = Object.freeze({ ...sheet, ...dimensions,
+      ...(target.formatRanges ? { formatRanges: compactFormatRanges(formatRanges ?? [], dimensions) } : {}),
       ...(target.comments ? { comments: Object.freeze(comments) } : {}),
       ...(drawings ? { drawings: Object.freeze(drawings) } : {}),
       ...(target.merges ? { merges: normalizeMerges(merges, dimensions) } : {}),

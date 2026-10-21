@@ -141,10 +141,231 @@
         },
         {
           "$ref": "#/$defs/SpreadsheetCommand_44"
+        },
+        {
+          "$ref": "#/$defs/SpreadsheetCommand_45"
         }
       ]
     },
     "SpreadsheetCommand_1": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "cells.formatRange"
+        },
+        "sheetId": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_range"
+        },
+        "format": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format"
+        }
+      },
+      "required": [
+        "type",
+        "sheetId",
+        "range",
+        "format"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_1_range": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "number"
+        },
+        "left": {
+          "type": "number"
+        },
+        "bottom": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_range_bottom"
+        },
+        "right": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_range_bottom"
+        }
+      },
+      "required": [
+        "top",
+        "left",
+        "bottom",
+        "right"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_1_range_bottom": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "const": "end"
+        }
+      ]
+    },
+    "SpreadsheetCommand_1_format": {
+      "type": "object",
+      "properties": {
+        "bold": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
+        },
+        "italic": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
+        },
+        "underline": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
+        },
+        "align": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_align",
+          "description": "Omitted or general uses the value type. centerContinuous centers across adjacent blank cells with the same alignment."
+        },
+        "color": {
+          "type": "string"
+        },
+        "background": {
+          "type": "string"
+        },
+        "fontFamily": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 200,
+          "description": "Font size in CSS pixels. XLSX converts pixels to points."
+        },
+        "wrap": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
+          "description": "Wrap within the cell. Takes display priority when shrinkToFit is also true."
+        },
+        "shrinkToFit": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
+          "description": "Reduce the displayed text size to fit the cell without changing fontSize. Omitted means false."
+        },
+        "verticalAlign": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_verticalAlign",
+          "description": "Omitted uses middle. XLSX calls middle \"center\"."
+        },
+        "indent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 250,
+          "description": "Integer indentation level, in units of three spaces. Used by left/right and both edges of distributed alignment."
+        },
+        "borders": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders"
+        },
+        "numberFormat": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_numberFormat"
+        },
+        "decimalPlaces": {
+          "type": "number"
+        },
+        "useGrouping": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
+        },
+        "negativeFormat": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_negativeFormat"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_1_format_bold": {
+      "type": "boolean"
+    },
+    "SpreadsheetCommand_1_format_align": {
+      "enum": [
+        "right",
+        "left",
+        "fill",
+        "general",
+        "center",
+        "justify",
+        "centerContinuous",
+        "distributed"
+      ]
+    },
+    "SpreadsheetCommand_1_format_verticalAlign": {
+      "enum": [
+        "top",
+        "bottom",
+        "justify",
+        "distributed",
+        "middle"
+      ]
+    },
+    "SpreadsheetCommand_1_format_borders": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders_top"
+        },
+        "right": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders_top"
+        },
+        "bottom": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders_top"
+        },
+        "left": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders_top"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_1_format_borders_top": {
+      "type": "object",
+      "properties": {
+        "style": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders_top_style"
+        },
+        "width": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders_top_width"
+        },
+        "color": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_1_format_borders_top_style": {
+      "enum": [
+        "none",
+        "solid",
+        "dashed",
+        "dotted",
+        "double"
+      ]
+    },
+    "SpreadsheetCommand_1_format_borders_top_width": {
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "SpreadsheetCommand_1_format_numberFormat": {
+      "enum": [
+        "number",
+        "general",
+        "text",
+        "currency",
+        "percent",
+        "date",
+        "time",
+        "datetime"
+      ]
+    },
+    "SpreadsheetCommand_1_format_negativeFormat": {
+      "enum": [
+        "minus",
+        "parentheses",
+        "red",
+        "red-parentheses"
+      ]
+    },
+    "SpreadsheetCommand_2": {
       "type": "object",
       "properties": {
         "type": {
@@ -154,13 +375,13 @@
           "type": "string"
         },
         "ranges": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges"
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges"
         },
         "preset": {
           "$ref": "#/$defs/SpreadsheetBorderPreset"
         },
         "border": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_border"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders_top"
         }
       },
       "required": [
@@ -171,13 +392,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_1_ranges": {
+    "SpreadsheetCommand_2_ranges": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
+        "$ref": "#/$defs/SpreadsheetCommand_2_ranges_item"
       }
     },
-    "SpreadsheetCommand_1_ranges_item": {
+    "SpreadsheetCommand_2_ranges_item": {
       "type": "object",
       "properties": {
         "top": {
@@ -213,38 +434,7 @@
         "inside"
       ]
     },
-    "SpreadsheetCommand_1_border": {
-      "type": "object",
-      "properties": {
-        "style": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_border_style"
-        },
-        "width": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_border_width"
-        },
-        "color": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false
-    },
-    "SpreadsheetCommand_1_border_style": {
-      "enum": [
-        "none",
-        "solid",
-        "dashed",
-        "dotted",
-        "double"
-      ]
-    },
-    "SpreadsheetCommand_1_border_width": {
-      "enum": [
-        1,
-        2,
-        3
-      ]
-    },
-    "SpreadsheetCommand_2": {
+    "SpreadsheetCommand_3": {
       "type": "object",
       "properties": {
         "type": {
@@ -254,10 +444,10 @@
           "type": "string"
         },
         "axis": {
-          "$ref": "#/$defs/SpreadsheetCommand_2_axis"
+          "$ref": "#/$defs/SpreadsheetCommand_3_axis"
         },
         "indices": {
-          "$ref": "#/$defs/SpreadsheetCommand_2_indices"
+          "$ref": "#/$defs/SpreadsheetCommand_3_indices"
         }
       },
       "required": [
@@ -268,19 +458,19 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_2_axis": {
+    "SpreadsheetCommand_3_axis": {
       "enum": [
         "row",
         "column"
       ]
     },
-    "SpreadsheetCommand_2_indices": {
+    "SpreadsheetCommand_3_indices": {
       "type": "array",
       "items": {
         "type": "number"
       }
     },
-    "SpreadsheetCommand_3": {
+    "SpreadsheetCommand_4": {
       "type": "object",
       "properties": {
         "type": {
@@ -304,7 +494,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_4": {
+    "SpreadsheetCommand_5": {
       "type": "object",
       "properties": {
         "type": {
@@ -314,10 +504,10 @@
           "type": "string"
         },
         "rowHeights": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rowHeights"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rowHeights"
         },
         "columnWidths": {
-          "$ref": "#/$defs/SpreadsheetCommand_4_rowHeights"
+          "$ref": "#/$defs/SpreadsheetCommand_5_rowHeights"
         }
       },
       "required": [
@@ -326,7 +516,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_4_rowHeights": {
+    "SpreadsheetCommand_5_rowHeights": {
       "type": "object",
       "properties": {},
       "additionalProperties": false,
@@ -336,7 +526,7 @@
         }
       }
     },
-    "SpreadsheetCommand_5": {
+    "SpreadsheetCommand_6": {
       "type": "object",
       "properties": {
         "type": {
@@ -346,7 +536,7 @@
           "type": "string"
         },
         "rules": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules"
         }
       },
       "required": [
@@ -356,42 +546,42 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_5_rules": {
+    "SpreadsheetCommand_6_rules": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_5_rules_item"
+        "$ref": "#/$defs/SpreadsheetCommand_6_rules_item"
       }
     },
-    "SpreadsheetCommand_5_rules_item": {
+    "SpreadsheetCommand_6_rules_item": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_1"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_2"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_2"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_3"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_3"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_4"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_4"
         }
       ]
     },
-    "SpreadsheetCommand_5_rules_item_1": {
+    "SpreadsheetCommand_6_rules_item_1": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         },
         "ranges": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges"
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges"
         },
         "type": {
           "const": "comparison"
         },
         "operator": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_operator"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_1_operator"
         },
         "value": {
           "type": "number"
@@ -400,10 +590,10 @@
           "type": "number"
         },
         "format": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_1_format"
         },
         "stopIfTrue": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         }
       },
       "required": [
@@ -416,7 +606,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_5_rules_item_1_operator": {
+    "SpreadsheetCommand_6_rules_item_1_operator": {
       "enum": [
         "gt",
         "gte",
@@ -428,20 +618,20 @@
         "notBetween"
       ]
     },
-    "SpreadsheetCommand_5_rules_item_1_format": {
+    "SpreadsheetCommand_6_rules_item_1_format": {
       "type": "object",
       "properties": {
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "italic": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "underline": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "align": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_align",
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_align",
           "description": "Omitted or general uses the value type. centerContinuous centers across adjacent blank cells with the same alignment."
         },
         "color": {
@@ -460,15 +650,15 @@
           "description": "Font size in CSS pixels. XLSX converts pixels to points."
         },
         "wrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
           "description": "Wrap within the cell. Takes display priority when shrinkToFit is also true."
         },
         "shrinkToFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
           "description": "Reduce the displayed text size to fit the cell without changing fontSize. Omitted means false."
         },
         "verticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_verticalAlign",
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_verticalAlign",
           "description": "Omitted uses middle. XLSX calls middle \"center\"."
         },
         "indent": {
@@ -478,108 +668,46 @@
           "description": "Integer indentation level, in units of three spaces. Used by left/right and both edges of distributed alignment."
         },
         "borders": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_borders"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders"
         },
         "numberFormat": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_numberFormat"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_numberFormat"
         },
         "decimalPlaces": {
           "type": "number"
         },
         "useGrouping": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "negativeFormat": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_negativeFormat"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_negativeFormat"
         }
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_5_rules_item_1_format_bold": {
-      "type": "boolean"
-    },
-    "SpreadsheetCommand_5_rules_item_1_format_align": {
-      "enum": [
-        "right",
-        "left",
-        "fill",
-        "general",
-        "center",
-        "justify",
-        "centerContinuous",
-        "distributed"
-      ]
-    },
-    "SpreadsheetCommand_5_rules_item_1_format_verticalAlign": {
-      "enum": [
-        "top",
-        "bottom",
-        "justify",
-        "distributed",
-        "middle"
-      ]
-    },
-    "SpreadsheetCommand_5_rules_item_1_format_borders": {
-      "type": "object",
-      "properties": {
-        "top": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_border"
-        },
-        "right": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_border"
-        },
-        "bottom": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_border"
-        },
-        "left": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_border"
-        }
-      },
-      "additionalProperties": false
-    },
-    "SpreadsheetCommand_5_rules_item_1_format_numberFormat": {
-      "enum": [
-        "number",
-        "general",
-        "text",
-        "currency",
-        "percent",
-        "date",
-        "time",
-        "datetime"
-      ]
-    },
-    "SpreadsheetCommand_5_rules_item_1_format_negativeFormat": {
-      "enum": [
-        "minus",
-        "parentheses",
-        "red",
-        "red-parentheses"
-      ]
-    },
-    "SpreadsheetCommand_5_rules_item_2": {
+    "SpreadsheetCommand_6_rules_item_2": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         },
         "ranges": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges"
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges"
         },
         "type": {
           "const": "text"
         },
         "operator": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_2_operator"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_2_operator"
         },
         "value": {
           "type": "string"
         },
         "format": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_1_format"
         },
         "stopIfTrue": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         }
       },
       "required": [
@@ -592,7 +720,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_5_rules_item_2_operator": {
+    "SpreadsheetCommand_6_rules_item_2_operator": {
       "enum": [
         "contains",
         "notContains",
@@ -600,14 +728,14 @@
         "endsWith"
       ]
     },
-    "SpreadsheetCommand_5_rules_item_3": {
+    "SpreadsheetCommand_6_rules_item_3": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         },
         "ranges": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges"
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges"
         },
         "type": {
           "const": "dataBar"
@@ -630,20 +758,20 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_5_rules_item_4": {
+    "SpreadsheetCommand_6_rules_item_4": {
       "type": "object",
       "properties": {
         "id": {
           "type": "string"
         },
         "ranges": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges"
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges"
         },
         "type": {
           "const": "colorScale"
         },
         "colors": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_4_colors"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_4_colors"
         },
         "min": {
           "type": "number"
@@ -660,17 +788,17 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_5_rules_item_4_colors": {
+    "SpreadsheetCommand_6_rules_item_4_colors": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_4_colors_1"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_4_colors_1"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_4_colors_2"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_4_colors_2"
         }
       ]
     },
-    "SpreadsheetCommand_5_rules_item_4_colors_1": {
+    "SpreadsheetCommand_6_rules_item_4_colors_1": {
       "type": "array",
       "prefixItems": [
         {
@@ -684,7 +812,7 @@
       "maxItems": 2,
       "items": false
     },
-    "SpreadsheetCommand_5_rules_item_4_colors_2": {
+    "SpreadsheetCommand_6_rules_item_4_colors_2": {
       "type": "array",
       "prefixItems": [
         {
@@ -701,7 +829,7 @@
       "maxItems": 3,
       "items": false
     },
-    "SpreadsheetCommand_6": {
+    "SpreadsheetCommand_7": {
       "type": "object",
       "properties": {
         "type": {
@@ -711,17 +839,17 @@
           "type": "string"
         },
         "query": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_query"
+          "$ref": "#/$defs/SpreadsheetCommand_7_query"
         },
         "replacement": {
           "type": "string"
         },
         "addresses": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_addresses",
+          "$ref": "#/$defs/SpreadsheetCommand_7_addresses",
           "description": "Same-sheet A1 cells/ranges. With any range, expansion is limited to 10,000 unique cells. Omit to replace across the sheet."
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict"
+          "$ref": "#/$defs/SpreadsheetCommand_7_onConflict"
         }
       },
       "required": [
@@ -732,23 +860,23 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_6_query": {
+    "SpreadsheetCommand_7_query": {
       "type": "object",
       "properties": {
         "text": {
           "type": "string"
         },
         "matchCase": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "wholeCell": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "useRegex": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "lookIn": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_query_lookIn"
+          "$ref": "#/$defs/SpreadsheetCommand_7_query_lookIn"
         }
       },
       "required": [
@@ -756,26 +884,26 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_6_query_lookIn": {
+    "SpreadsheetCommand_7_query_lookIn": {
       "enum": [
         "values",
         "formulas"
       ]
     },
-    "SpreadsheetCommand_6_addresses": {
+    "SpreadsheetCommand_7_addresses": {
       "type": "array",
       "items": {
         "type": "string"
       }
     },
-    "SpreadsheetCommand_6_onConflict": {
+    "SpreadsheetCommand_7_onConflict": {
       "enum": [
         "error",
         "overwrite",
         "skip"
       ]
     },
-    "SpreadsheetCommand_7": {
+    "SpreadsheetCommand_8": {
       "type": "object",
       "properties": {
         "type": {
@@ -785,16 +913,16 @@
           "type": "string"
         },
         "source": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges_item"
         },
         "target": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges_item"
         },
         "mode": {
-          "$ref": "#/$defs/SpreadsheetCommand_7_mode"
+          "$ref": "#/$defs/SpreadsheetCommand_8_mode"
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict"
+          "$ref": "#/$defs/SpreadsheetCommand_7_onConflict"
         }
       },
       "required": [
@@ -805,14 +933,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_7_mode": {
+    "SpreadsheetCommand_8_mode": {
       "enum": [
         "copy",
         "auto",
         "series"
       ]
     },
-    "SpreadsheetCommand_8": {
+    "SpreadsheetCommand_9": {
       "type": "object",
       "properties": {
         "type": {
@@ -822,19 +950,19 @@
           "type": "string"
         },
         "target": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_target"
+          "$ref": "#/$defs/SpreadsheetCommand_9_target"
         },
         "payload": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload"
         },
         "mode": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_mode"
+          "$ref": "#/$defs/SpreadsheetCommand_9_mode"
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict"
+          "$ref": "#/$defs/SpreadsheetCommand_7_onConflict"
         },
         "partialMerges": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_partialMerges"
+          "$ref": "#/$defs/SpreadsheetCommand_9_partialMerges"
         }
       },
       "required": [
@@ -845,7 +973,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_8_target": {
+    "SpreadsheetCommand_9_target": {
       "type": "object",
       "properties": {
         "row": {
@@ -861,35 +989,35 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_8_payload": {
+    "SpreadsheetCommand_9_payload": {
       "type": "object",
       "properties": {
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_values"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_values"
         },
         "displayedValues": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_values"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_values"
         },
         "valueTypes": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_valueTypes",
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_valueTypes",
           "description": "Distinguishes literal strings such as 00123 or =text from calculated numbers/booleans."
         },
         "formats": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_formats"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_formats"
         },
         "validations": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations"
         },
         "comments": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_comments",
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_comments",
           "description": "Copied comments receive fresh IDs on paste. Null clears a destination comment."
         },
         "merges": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges",
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges",
           "description": "Complete merged ranges relative to the copied rectangle's top-left. [] also permits replacing destination merges."
         },
         "source": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_source"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_source"
         }
       },
       "required": [
@@ -897,92 +1025,92 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_8_payload_values": {
+    "SpreadsheetCommand_9_payload_values": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_6_addresses"
+        "$ref": "#/$defs/SpreadsheetCommand_7_addresses"
       }
     },
-    "SpreadsheetCommand_8_payload_valueTypes": {
+    "SpreadsheetCommand_9_payload_valueTypes": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_8_payload_valueTypes_item"
+        "$ref": "#/$defs/SpreadsheetCommand_9_payload_valueTypes_item"
       }
     },
-    "SpreadsheetCommand_8_payload_valueTypes_item": {
+    "SpreadsheetCommand_9_payload_valueTypes_item": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_8_payload_valueTypes_item_item"
+        "$ref": "#/$defs/SpreadsheetCommand_9_payload_valueTypes_item_item"
       }
     },
-    "SpreadsheetCommand_8_payload_valueTypes_item_item": {
+    "SpreadsheetCommand_9_payload_valueTypes_item_item": {
       "enum": [
         "string",
         "number",
         "boolean"
       ]
     },
-    "SpreadsheetCommand_8_payload_formats": {
+    "SpreadsheetCommand_9_payload_formats": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_8_payload_formats_item"
+        "$ref": "#/$defs/SpreadsheetCommand_9_payload_formats_item"
       }
     },
-    "SpreadsheetCommand_8_payload_formats_item": {
+    "SpreadsheetCommand_9_payload_formats_item": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_8_payload_formats_item_item"
+        "$ref": "#/$defs/SpreadsheetCommand_9_payload_formats_item_item"
       }
     },
-    "SpreadsheetCommand_8_payload_formats_item_item": {
+    "SpreadsheetCommand_9_payload_formats_item_item": {
       "anyOf": [
         {
           "const": null
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_1_format"
         }
       ]
     },
-    "SpreadsheetCommand_8_payload_validations": {
+    "SpreadsheetCommand_9_payload_validations": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item"
+        "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item"
       }
     },
-    "SpreadsheetCommand_8_payload_validations_item": {
+    "SpreadsheetCommand_9_payload_validations_item": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item"
+        "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item_item"
       }
     },
-    "SpreadsheetCommand_8_payload_validations_item_item": {
+    "SpreadsheetCommand_9_payload_validations_item_item": {
       "anyOf": [
         {
           "const": null
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_2"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item_item_2"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_3"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item_item_3"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_4"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item_item_4"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_5"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item_item_5"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_6"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item_item_6"
         }
       ]
     },
-    "SpreadsheetCommand_8_payload_validations_item_item_2": {
+    "SpreadsheetCommand_9_payload_validations_item_item_2": {
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "message": {
           "type": "string"
@@ -991,7 +1119,7 @@
           "const": "list"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_addresses"
+          "$ref": "#/$defs/SpreadsheetCommand_7_addresses"
         }
       },
       "required": [
@@ -1000,11 +1128,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_8_payload_validations_item_item_3": {
+    "SpreadsheetCommand_9_payload_validations_item_item_3": {
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "message": {
           "type": "string"
@@ -1013,7 +1141,7 @@
           "const": "number"
         },
         "integer": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "min": {
           "type": "number"
@@ -1027,11 +1155,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_8_payload_validations_item_item_4": {
+    "SpreadsheetCommand_9_payload_validations_item_item_4": {
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "message": {
           "type": "string"
@@ -1051,11 +1179,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_8_payload_validations_item_item_5": {
+    "SpreadsheetCommand_9_payload_validations_item_item_5": {
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "message": {
           "type": "string"
@@ -1075,11 +1203,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_8_payload_validations_item_item_6": {
+    "SpreadsheetCommand_9_payload_validations_item_item_6": {
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "message": {
           "type": "string"
@@ -1093,29 +1221,29 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_8_payload_comments": {
+    "SpreadsheetCommand_9_payload_comments": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_8_payload_comments_item"
+        "$ref": "#/$defs/SpreadsheetCommand_9_payload_comments_item"
       }
     },
-    "SpreadsheetCommand_8_payload_comments_item": {
+    "SpreadsheetCommand_9_payload_comments_item": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_8_payload_comments_item_item"
+        "$ref": "#/$defs/SpreadsheetCommand_9_payload_comments_item_item"
       }
     },
-    "SpreadsheetCommand_8_payload_comments_item_item": {
+    "SpreadsheetCommand_9_payload_comments_item_item": {
       "anyOf": [
         {
           "const": null
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_comments_item_item_2"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_comments_item_item_2"
         }
       ]
     },
-    "SpreadsheetCommand_8_payload_comments_item_item_2": {
+    "SpreadsheetCommand_9_payload_comments_item_item_2": {
       "type": "object",
       "properties": {
         "text": {
@@ -1130,7 +1258,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_8_payload_source": {
+    "SpreadsheetCommand_9_payload_source": {
       "type": "object",
       "properties": {
         "row": {
@@ -1150,7 +1278,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_8_mode": {
+    "SpreadsheetCommand_9_mode": {
       "enum": [
         "values",
         "formulas",
@@ -1158,13 +1286,13 @@
         "formats"
       ]
     },
-    "SpreadsheetCommand_8_partialMerges": {
+    "SpreadsheetCommand_9_partialMerges": {
       "enum": [
         "skip",
         "reject"
       ]
     },
-    "SpreadsheetCommand_9": {
+    "SpreadsheetCommand_10": {
       "type": "object",
       "properties": {
         "type": {
@@ -1174,13 +1302,13 @@
           "type": "string"
         },
         "source": {
-          "$ref": "#/$defs/SpreadsheetCommand_9_source"
+          "$ref": "#/$defs/SpreadsheetCommand_10_source"
         },
         "target": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_target"
+          "$ref": "#/$defs/SpreadsheetCommand_9_target"
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict"
+          "$ref": "#/$defs/SpreadsheetCommand_7_onConflict"
         }
       },
       "required": [
@@ -1191,7 +1319,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_9_source": {
+    "SpreadsheetCommand_10_source": {
       "type": "object",
       "properties": {
         "sheetId": {
@@ -1219,7 +1347,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_10": {
+    "SpreadsheetCommand_11": {
       "type": "object",
       "properties": {
         "type": {
@@ -1238,7 +1366,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_11": {
+    "SpreadsheetCommand_12": {
       "type": "object",
       "properties": {
         "type": {
@@ -1248,11 +1376,11 @@
           "type": "string"
         },
         "addresses": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_addresses",
+          "$ref": "#/$defs/SpreadsheetCommand_7_addresses",
           "description": "Same-sheet A1 cells/ranges, expanded and deduplicated; at most 10,000 cells."
         },
         "validation": {
-          "$ref": "#/$defs/SpreadsheetCommand_11_validation",
+          "$ref": "#/$defs/SpreadsheetCommand_12_validation",
           "description": "null removes the rule; cell values and formatting are preserved."
         }
       },
@@ -1264,52 +1392,52 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_11_validation": {
+    "SpreadsheetCommand_12_validation": {
       "anyOf": [
         {
           "const": null
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_2"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item_item_2"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_3"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item_item_3"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_4"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item_item_4"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_5"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item_item_5"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_validations_item_item_6"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_validations_item_item_6"
         }
       ]
     },
-    "SpreadsheetCommand_12": {
+    "SpreadsheetCommand_13": {
       "type": "object",
       "properties": {
         "sheetId": {
           "type": "string"
         },
         "target": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_target"
+          "$ref": "#/$defs/SpreadsheetCommand_9_target"
         },
         "headers": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_addresses"
+          "$ref": "#/$defs/SpreadsheetCommand_7_addresses"
         },
         "data": {
-          "$ref": "#/$defs/SpreadsheetCommand_12_data"
+          "$ref": "#/$defs/SpreadsheetCommand_13_data"
         },
         "headerStyle": {
-          "$ref": "#/$defs/SpreadsheetCommand_12_headerStyle"
+          "$ref": "#/$defs/SpreadsheetCommand_13_headerStyle"
         },
         "rowNumbers": {
-          "$ref": "#/$defs/SpreadsheetCommand_12_rowNumbers",
+          "$ref": "#/$defs/SpreadsheetCommand_13_rowNumbers",
           "description": "Insert a static leading integer column. Defaults: header No., start 1."
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict",
+          "$ref": "#/$defs/SpreadsheetCommand_7_onConflict",
           "description": "Defaults to overwrite. Skipped cells keep both their value and formatting."
         },
         "type": {
@@ -1329,24 +1457,24 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_12_data": {
+    "SpreadsheetCommand_13_data": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SpreadsheetCommand_12_data_1"
+          "$ref": "#/$defs/SpreadsheetCommand_13_data_1"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_12_data_2"
+          "$ref": "#/$defs/SpreadsheetCommand_13_data_2"
         }
       ]
     },
-    "SpreadsheetCommand_12_data_1": {
+    "SpreadsheetCommand_13_data_1": {
       "type": "object",
       "properties": {
         "type": {
           "const": "rows"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_payload_values"
+          "$ref": "#/$defs/SpreadsheetCommand_9_payload_values"
         }
       },
       "required": [
@@ -1355,11 +1483,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_12_data_2": {
+    "SpreadsheetCommand_13_data_2": {
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/$defs/SpreadsheetCommand_12_data_2_type"
+          "$ref": "#/$defs/SpreadsheetCommand_13_data_2_type"
         },
         "text": {
           "type": "string"
@@ -1371,13 +1499,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_12_data_2_type": {
+    "SpreadsheetCommand_13_data_2_type": {
       "enum": [
         "csv",
         "tsv"
       ]
     },
-    "SpreadsheetCommand_12_headerStyle": {
+    "SpreadsheetCommand_13_headerStyle": {
       "type": "object",
       "properties": {
         "background": {
@@ -1389,17 +1517,17 @@
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_12_rowNumbers": {
+    "SpreadsheetCommand_13_rowNumbers": {
       "anyOf": [
         {
           "const": false
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_12_rowNumbers_2"
+          "$ref": "#/$defs/SpreadsheetCommand_13_rowNumbers_2"
         }
       ]
     },
-    "SpreadsheetCommand_12_rowNumbers_2": {
+    "SpreadsheetCommand_13_rowNumbers_2": {
       "type": "object",
       "properties": {
         "header": {
@@ -1411,34 +1539,34 @@
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_13": {
+    "SpreadsheetCommand_14": {
       "type": "object",
       "properties": {
         "sheetId": {
           "type": "string"
         },
         "target": {
-          "$ref": "#/$defs/SpreadsheetCommand_8_target"
+          "$ref": "#/$defs/SpreadsheetCommand_9_target"
         },
         "headers": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_addresses"
+          "$ref": "#/$defs/SpreadsheetCommand_7_addresses"
         },
         "data": {
-          "$ref": "#/$defs/SpreadsheetCommand_12_data"
+          "$ref": "#/$defs/SpreadsheetCommand_13_data"
         },
         "headerStyle": {
-          "$ref": "#/$defs/SpreadsheetCommand_12_headerStyle"
+          "$ref": "#/$defs/SpreadsheetCommand_13_headerStyle"
         },
         "rowNumbers": {
-          "$ref": "#/$defs/SpreadsheetCommand_12_rowNumbers",
+          "$ref": "#/$defs/SpreadsheetCommand_13_rowNumbers",
           "description": "Insert a static leading integer column. Defaults: header No., start 1."
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict",
+          "$ref": "#/$defs/SpreadsheetCommand_7_onConflict",
           "description": "Defaults to overwrite. Skipped cells keep both their value and formatting."
         },
         "border": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_border",
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders_top",
           "description": "Defaults to a 1px solid #d1d5db grid. Unspecified border properties retain these defaults."
         },
         "type": {
@@ -1454,7 +1582,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_14": {
+    "SpreadsheetCommand_15": {
       "type": "object",
       "properties": {
         "type": {
@@ -1467,7 +1595,7 @@
           "type": "string"
         },
         "clear": {
-          "$ref": "#/$defs/SpreadsheetCommand_14_clear"
+          "$ref": "#/$defs/SpreadsheetCommand_15_clear"
         }
       },
       "required": [
@@ -1477,14 +1605,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_14_clear": {
+    "SpreadsheetCommand_15_clear": {
       "enum": [
         "none",
         "values",
         "all"
       ]
     },
-    "SpreadsheetCommand_15": {
+    "SpreadsheetCommand_16": {
       "type": "object",
       "properties": {
         "type": {
@@ -1497,7 +1625,7 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_15_range"
+          "$ref": "#/$defs/SpreadsheetCommand_16_range"
         }
       },
       "required": [
@@ -1508,17 +1636,17 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_15_range": {
+    "SpreadsheetCommand_16_range": {
       "anyOf": [
         {
           "type": "string"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges_item"
         }
       ]
     },
-    "SpreadsheetCommand_16": {
+    "SpreadsheetCommand_17": {
       "type": "object",
       "properties": {
         "type": {
@@ -1534,7 +1662,7 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_16_range"
+          "$ref": "#/$defs/SpreadsheetCommand_17_range"
         }
       },
       "required": [
@@ -1544,17 +1672,17 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_16_range": {
+    "SpreadsheetCommand_17_range": {
       "anyOf": [
         {
           "type": "string"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges_item"
         }
       ]
     },
-    "SpreadsheetCommand_17": {
+    "SpreadsheetCommand_18": {
       "type": "object",
       "properties": {
         "type": {
@@ -1567,7 +1695,7 @@
           "type": "string"
         },
         "clear": {
-          "$ref": "#/$defs/SpreadsheetCommand_14_clear"
+          "$ref": "#/$defs/SpreadsheetCommand_15_clear"
         }
       },
       "required": [
@@ -1577,7 +1705,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_18": {
+    "SpreadsheetCommand_19": {
       "type": "object",
       "properties": {
         "type": {
@@ -1590,7 +1718,7 @@
           "type": "string"
         },
         "mode": {
-          "$ref": "#/$defs/SpreadsheetCommand_18_mode"
+          "$ref": "#/$defs/SpreadsheetCommand_19_mode"
         }
       },
       "required": [
@@ -1600,13 +1728,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_18_mode": {
+    "SpreadsheetCommand_19_mode": {
       "enum": [
         "values",
         "all"
       ]
     },
-    "SpreadsheetCommand_19": {
+    "SpreadsheetCommand_20": {
       "type": "object",
       "properties": {
         "type": {
@@ -1616,10 +1744,10 @@
           "type": "string"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_19_values"
+          "$ref": "#/$defs/SpreadsheetCommand_20_values"
         },
         "onConflict": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_onConflict"
+          "$ref": "#/$defs/SpreadsheetCommand_7_onConflict"
         }
       },
       "required": [
@@ -1629,14 +1757,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_19_values": {
+    "SpreadsheetCommand_20_values": {
       "type": "object",
       "properties": {},
       "additionalProperties": {
         "type": "string"
       }
     },
-    "SpreadsheetCommand_20": {
+    "SpreadsheetCommand_21": {
       "type": "object",
       "properties": {
         "type": {
@@ -1646,10 +1774,10 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_15_range"
+          "$ref": "#/$defs/SpreadsheetCommand_16_range"
         },
         "mode": {
-          "$ref": "#/$defs/SpreadsheetCommand_20_mode"
+          "$ref": "#/$defs/SpreadsheetCommand_21_mode"
         }
       },
       "required": [
@@ -1659,13 +1787,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_20_mode": {
+    "SpreadsheetCommand_21_mode": {
       "enum": [
         "values",
         "all"
       ]
     },
-    "SpreadsheetCommand_21": {
+    "SpreadsheetCommand_22": {
       "type": "object",
       "properties": {
         "type": {
@@ -1675,10 +1803,10 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_15_range"
+          "$ref": "#/$defs/SpreadsheetCommand_16_range"
         },
         "shift": {
-          "$ref": "#/$defs/SpreadsheetCommand_21_shift"
+          "$ref": "#/$defs/SpreadsheetCommand_22_shift"
         }
       },
       "required": [
@@ -1689,13 +1817,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_21_shift": {
+    "SpreadsheetCommand_22_shift": {
       "enum": [
         "right",
         "down"
       ]
     },
-    "SpreadsheetCommand_22": {
+    "SpreadsheetCommand_23": {
       "type": "object",
       "properties": {
         "type": {
@@ -1705,10 +1833,10 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_15_range"
+          "$ref": "#/$defs/SpreadsheetCommand_16_range"
         },
         "shift": {
-          "$ref": "#/$defs/SpreadsheetCommand_22_shift"
+          "$ref": "#/$defs/SpreadsheetCommand_23_shift"
         }
       },
       "required": [
@@ -1718,13 +1846,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_22_shift": {
+    "SpreadsheetCommand_23_shift": {
       "enum": [
         "left",
         "up"
       ]
     },
-    "SpreadsheetCommand_23": {
+    "SpreadsheetCommand_24": {
       "type": "object",
       "properties": {
         "type": {
@@ -1734,11 +1862,11 @@
           "type": "string"
         },
         "addresses": {
-          "$ref": "#/$defs/SpreadsheetCommand_6_addresses",
+          "$ref": "#/$defs/SpreadsheetCommand_7_addresses",
           "description": "Same-sheet A1 cells/ranges; range-containing lists expand to at most 10,000 unique cells."
         },
         "format": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format"
+          "$ref": "#/$defs/SpreadsheetCommand_6_rules_item_1_format"
         }
       },
       "required": [
@@ -1749,7 +1877,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_24": {
+    "SpreadsheetCommand_25": {
       "type": "object",
       "properties": {
         "type": {
@@ -1765,7 +1893,7 @@
           "type": "number"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_24_values"
+          "$ref": "#/$defs/SpreadsheetCommand_25_values"
         }
       },
       "required": [
@@ -1775,13 +1903,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_24_values": {
+    "SpreadsheetCommand_25_values": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_24_values_item"
+        "$ref": "#/$defs/SpreadsheetCommand_25_values_item"
       }
     },
-    "SpreadsheetCommand_24_values_item": {
+    "SpreadsheetCommand_25_values_item": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/SpreadsheetInsertValue"
@@ -1806,7 +1934,7 @@
         }
       ]
     },
-    "SpreadsheetCommand_25": {
+    "SpreadsheetCommand_26": {
       "type": "object",
       "properties": {
         "type": {
@@ -1822,7 +1950,7 @@
           "type": "number"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_24_values"
+          "$ref": "#/$defs/SpreadsheetCommand_25_values"
         }
       },
       "required": [
@@ -1832,11 +1960,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_26": {
+    "SpreadsheetCommand_27": {
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/$defs/SpreadsheetCommand_26_type"
+          "$ref": "#/$defs/SpreadsheetCommand_27_type"
         },
         "sheetId": {
           "type": "string"
@@ -1855,13 +1983,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_26_type": {
+    "SpreadsheetCommand_27_type": {
       "enum": [
         "rows.delete",
         "columns.delete"
       ]
     },
-    "SpreadsheetCommand_27": {
+    "SpreadsheetCommand_28": {
       "type": "object",
       "properties": {
         "type": {
@@ -1885,7 +2013,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_28": {
+    "SpreadsheetCommand_29": {
       "type": "object",
       "properties": {
         "type": {
@@ -1895,30 +2023,10 @@
           "type": "string"
         },
         "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges_item"
         },
         "discardContent": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
-        }
-      },
-      "required": [
-        "type",
-        "sheetId",
-        "range"
-      ],
-      "additionalProperties": false
-    },
-    "SpreadsheetCommand_29": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "const": "cells.unmerge"
-        },
-        "sheetId": {
-          "type": "string"
-        },
-        "range": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_ranges_item"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         }
       },
       "required": [
@@ -1932,16 +2040,36 @@
       "type": "object",
       "properties": {
         "type": {
+          "const": "cells.unmerge"
+        },
+        "sheetId": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/SpreadsheetCommand_2_ranges_item"
+        }
+      },
+      "required": [
+        "type",
+        "sheetId",
+        "range"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_31": {
+      "type": "object",
+      "properties": {
+        "type": {
           "const": "images.insert"
         },
         "sheetId": {
           "type": "string"
         },
         "resource": {
-          "$ref": "#/$defs/SpreadsheetCommand_30_resource"
+          "$ref": "#/$defs/SpreadsheetCommand_31_resource"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_30_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_31_anchor"
         },
         "width": {
           "type": "number"
@@ -1953,10 +2081,10 @@
           "type": "string"
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "rotation": {
           "type": "number"
@@ -1970,14 +2098,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_30_resource": {
+    "SpreadsheetCommand_31_resource": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string"
         },
         "mimeType": {
-          "$ref": "#/$defs/SpreadsheetCommand_30_resource_mimeType"
+          "$ref": "#/$defs/SpreadsheetCommand_31_resource_mimeType"
         },
         "dataUrl": {
           "type": "string"
@@ -1998,7 +2126,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_30_resource_mimeType": {
+    "SpreadsheetCommand_31_resource_mimeType": {
       "enum": [
         "image/png",
         "image/jpeg",
@@ -2006,7 +2134,7 @@
         "image/webp"
       ]
     },
-    "SpreadsheetCommand_30_anchor": {
+    "SpreadsheetCommand_31_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -2028,39 +2156,39 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_31": {
+    "SpreadsheetCommand_32": {
       "type": "object",
       "properties": {
         "fontFamily": {
           "type": "string"
         },
         "italic": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "underline": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_32_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -2085,7 +2213,7 @@
           "$ref": "#/$defs/SpreadsheetShapeKind"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_30_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_31_anchor"
         },
         "width": {
           "type": "number"
@@ -2094,10 +2222,10 @@
           "type": "number"
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "rotation": {
           "type": "number"
@@ -2129,7 +2257,7 @@
           "type": "string"
         },
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         }
       },
       "required": [
@@ -2140,7 +2268,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_31_textInsets": {
+    "SpreadsheetCommand_32_textInsets": {
       "type": "object",
       "properties": {
         "left": {
@@ -2164,33 +2292,33 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_31_textWrap": {
+    "SpreadsheetCommand_32_textWrap": {
       "enum": [
         "none",
         "wrap"
       ]
     },
-    "SpreadsheetCommand_31_textOverflow": {
+    "SpreadsheetCommand_32_textOverflow": {
       "enum": [
         "clip",
         "overflow"
       ]
     },
-    "SpreadsheetCommand_31_textAlign": {
+    "SpreadsheetCommand_32_textAlign": {
       "enum": [
         "right",
         "left",
         "center"
       ]
     },
-    "SpreadsheetCommand_31_textVerticalAlign": {
+    "SpreadsheetCommand_32_textVerticalAlign": {
       "enum": [
         "top",
         "bottom",
         "middle"
       ]
     },
-    "SpreadsheetCommand_31_textAutoFit": {
+    "SpreadsheetCommand_32_textAutoFit": {
       "enum": [
         "none",
         "resize",
@@ -2242,39 +2370,39 @@
         "rightTriangle"
       ]
     },
-    "SpreadsheetCommand_32": {
+    "SpreadsheetCommand_33": {
       "type": "object",
       "properties": {
         "fontFamily": {
           "type": "string"
         },
         "italic": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "underline": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_32_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -2296,7 +2424,7 @@
           "type": "string"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_30_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_31_anchor"
         },
         "text": {
           "type": "string"
@@ -2319,13 +2447,13 @@
           "type": "string"
         },
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "rotation": {
           "type": "number"
@@ -2338,7 +2466,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33": {
+    "SpreadsheetCommand_34": {
       "type": "object",
       "properties": {
         "type": {
@@ -2348,10 +2476,10 @@
           "type": "string"
         },
         "payload": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_30_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_31_anchor"
         }
       },
       "required": [
@@ -2361,18 +2489,18 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload": {
+    "SpreadsheetCommand_34_payload": {
       "type": "object",
       "properties": {
         "drawing": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing"
         },
         "resource": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_resource",
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_resource",
           "description": "Required for images, so the copy survives deletion of the original resource."
         },
         "linePoints": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints",
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_linePoints",
           "description": "Free endpoints relative to the copied frame, so different sheet dimensions preserve its shape."
         }
       },
@@ -2381,20 +2509,20 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload_drawing": {
+    "SpreadsheetCommand_34_payload_drawing": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_1"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_1"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_3"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_3"
         }
       ]
     },
-    "SpreadsheetCommand_33_payload_drawing_1": {
+    "SpreadsheetCommand_34_payload_drawing_1": {
       "type": "object",
       "properties": {
         "width": {
@@ -2414,11 +2542,11 @@
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
           "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "resourceId": {
           "type": "string"
@@ -2427,7 +2555,7 @@
           "type": "string"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_1_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_1_anchor"
         }
       },
       "required": [
@@ -2441,7 +2569,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload_drawing_1_anchor": {
+    "SpreadsheetCommand_34_payload_drawing_1_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -2465,17 +2593,17 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload_drawing_2": {
+    "SpreadsheetCommand_34_payload_drawing_2": {
       "type": "object",
       "properties": {
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "italic": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "underline": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "fill": {
           "type": "string"
@@ -2505,7 +2633,7 @@
           "type": "string"
         },
         "line": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line",
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_line",
           "description": "Only line/arrow shapes. Omitted on legacy rectangle-based lines."
         },
         "height": {
@@ -2516,17 +2644,17 @@
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
           "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "stroke": {
           "type": "string"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_routing",
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_routing",
           "description": "Two-endpoint routing. Omitted means straight; elbow is recalculated from current targets."
         },
         "cornerRadiusRatio": {
@@ -2541,26 +2669,26 @@
           "maximum": 100
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_32_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -2579,14 +2707,14 @@
           "$ref": "#/$defs/SpreadsheetShapeKind"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow",
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_startArrow",
           "description": "End markers. Legacy shape:arrow defaults its end to triangle; otherwise none."
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_startArrow"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_1_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_1_anchor"
         }
       },
       "required": [
@@ -2602,14 +2730,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload_drawing_2_line": {
+    "SpreadsheetCommand_34_payload_drawing_2_line": {
       "type": "object",
       "properties": {
         "start": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_line_start"
         },
         "end": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_line_start"
         }
       },
       "required": [
@@ -2618,14 +2746,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload_drawing_2_line_start": {
+    "SpreadsheetCommand_34_payload_drawing_2_line_start": {
       "type": "object",
       "properties": {
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_line_start_anchor"
         },
         "binding": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start_binding"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_line_start_binding"
         }
       },
       "required": [
@@ -2633,7 +2761,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload_drawing_2_line_start_anchor": {
+    "SpreadsheetCommand_34_payload_drawing_2_line_start_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -2657,14 +2785,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload_drawing_2_line_start_binding": {
+    "SpreadsheetCommand_34_payload_drawing_2_line_start_binding": {
       "type": "object",
       "properties": {
         "targetId": {
           "type": "string"
         },
         "port": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start_binding_port"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_line_start_binding_port"
         }
       },
       "required": [
@@ -2673,7 +2801,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload_drawing_2_line_start_binding_port": {
+    "SpreadsheetCommand_34_payload_drawing_2_line_start_binding_port": {
       "enum": [
         "top",
         "right",
@@ -2685,13 +2813,13 @@
         "topLeft"
       ]
     },
-    "SpreadsheetCommand_33_payload_drawing_2_routing": {
+    "SpreadsheetCommand_34_payload_drawing_2_routing": {
       "enum": [
         "straight",
         "elbow"
       ]
     },
-    "SpreadsheetCommand_33_payload_drawing_2_startArrow": {
+    "SpreadsheetCommand_34_payload_drawing_2_startArrow": {
       "enum": [
         "none",
         "triangle",
@@ -2701,17 +2829,17 @@
         "stealth"
       ]
     },
-    "SpreadsheetCommand_33_payload_drawing_3": {
+    "SpreadsheetCommand_34_payload_drawing_3": {
       "type": "object",
       "properties": {
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "italic": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "underline": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "color": {
           "type": "string"
@@ -2747,33 +2875,33 @@
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
           "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_32_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -2789,7 +2917,7 @@
           "description": "Line height as a font-size multiple."
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_1_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_1_anchor"
         }
       },
       "required": [
@@ -2805,14 +2933,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload_resource": {
+    "SpreadsheetCommand_34_payload_resource": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string"
         },
         "mimeType": {
-          "$ref": "#/$defs/SpreadsheetCommand_30_resource_mimeType"
+          "$ref": "#/$defs/SpreadsheetCommand_31_resource_mimeType"
         },
         "dataUrl": {
           "type": "string"
@@ -2833,14 +2961,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload_linePoints": {
+    "SpreadsheetCommand_34_payload_linePoints": {
       "type": "object",
       "properties": {
         "start": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_linePoints_start"
         },
         "end": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_linePoints_start"
         }
       },
       "required": [
@@ -2849,7 +2977,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33_payload_linePoints_start": {
+    "SpreadsheetCommand_34_payload_linePoints_start": {
       "type": "object",
       "properties": {
         "x": {
@@ -2859,7 +2987,7 @@
           "type": "number"
         },
         "binding": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start_binding"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_line_start_binding"
         }
       },
       "required": [
@@ -2868,7 +2996,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_34": {
+    "SpreadsheetCommand_35": {
       "type": "object",
       "properties": {
         "type": {
@@ -2888,7 +3016,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_35": {
+    "SpreadsheetCommand_36": {
       "type": "object",
       "properties": {
         "type": {
@@ -2898,16 +3026,16 @@
           "type": "string"
         },
         "start": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_linePoints_start"
         },
         "end": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_linePoints_start"
         },
         "shape": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_shape"
+          "$ref": "#/$defs/SpreadsheetCommand_36_shape"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_routing"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_routing"
         },
         "stroke": {
           "type": "string"
@@ -2916,10 +3044,10 @@
           "type": "number"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_startArrow"
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_startArrow"
         }
       },
       "required": [
@@ -2930,13 +3058,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_35_shape": {
+    "SpreadsheetCommand_36_shape": {
       "enum": [
         "line",
         "arrow"
       ]
     },
-    "SpreadsheetCommand_36": {
+    "SpreadsheetCommand_37": {
       "type": "object",
       "properties": {
         "type": {
@@ -2949,19 +3077,19 @@
           "type": "string"
         },
         "start": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_linePoints_start"
         },
         "end": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_linePoints_start"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_routing"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_routing"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_startArrow"
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_startArrow"
         }
       },
       "required": [
@@ -2971,89 +3099,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "const": "images.update"
-        },
-        "sheetId": {
-          "type": "string"
-        },
-        "drawingId": {
-          "type": "string"
-        },
-        "patch": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_patch"
-        }
-      },
-      "required": [
-        "type",
-        "sheetId",
-        "drawingId",
-        "patch"
-      ],
-      "additionalProperties": false
-    },
-    "SpreadsheetCommand_37_patch": {
-      "type": "object",
-      "properties": {
-        "width": {
-          "type": "number"
-        },
-        "height": {
-          "type": "number"
-        },
-        "rotation": {
-          "type": "number",
-          "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
-        },
-        "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
-          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
-        },
-        "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
-        },
-        "resourceId": {
-          "type": "string"
-        },
-        "alt": {
-          "type": "string"
-        },
-        "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_patch_anchor"
-        }
-      },
-      "additionalProperties": false
-    },
-    "SpreadsheetCommand_37_patch_anchor": {
-      "type": "object",
-      "properties": {
-        "row": {
-          "type": "number"
-        },
-        "column": {
-          "type": "number"
-        },
-        "offsetX": {
-          "type": "number"
-        },
-        "offsetY": {
-          "type": "number"
-        }
-      },
-      "required": [
-        "row",
-        "column"
-      ],
-      "additionalProperties": false
-    },
     "SpreadsheetCommand_38": {
       "type": "object",
       "properties": {
         "type": {
-          "const": "shapes.update"
+          "const": "images.update"
         },
         "sheetId": {
           "type": "string"
@@ -3076,14 +3126,92 @@
     "SpreadsheetCommand_38_patch": {
       "type": "object",
       "properties": {
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number",
+          "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
+        },
+        "flipX": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
+          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
+        },
+        "flipY": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
+        },
+        "resourceId": {
+          "type": "string"
+        },
+        "alt": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/$defs/SpreadsheetCommand_38_patch_anchor"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_38_patch_anchor": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "number"
+        },
+        "column": {
+          "type": "number"
+        },
+        "offsetX": {
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "row",
+        "column"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_39": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "shapes.update"
+        },
+        "sheetId": {
+          "type": "string"
+        },
+        "drawingId": {
+          "type": "string"
+        },
+        "patch": {
+          "$ref": "#/$defs/SpreadsheetCommand_39_patch"
+        }
+      },
+      "required": [
+        "type",
+        "sheetId",
+        "drawingId",
+        "patch"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_39_patch": {
+      "type": "object",
+      "properties": {
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "italic": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "underline": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "fill": {
           "type": "string"
@@ -3107,7 +3235,7 @@
           "type": "number"
         },
         "line": {
-          "$ref": "#/$defs/SpreadsheetCommand_38_patch_line",
+          "$ref": "#/$defs/SpreadsheetCommand_39_patch_line",
           "description": "Only line/arrow shapes. Omitted on legacy rectangle-based lines."
         },
         "height": {
@@ -3118,17 +3246,17 @@
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
           "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "stroke": {
           "type": "string"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_routing",
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_routing",
           "description": "Two-endpoint routing. Omitted means straight; elbow is recalculated from current targets."
         },
         "cornerRadiusRatio": {
@@ -3143,26 +3271,26 @@
           "maximum": 100
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_38_patch_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_39_patch_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -3178,29 +3306,29 @@
           "description": "Line height as a font-size multiple."
         },
         "shape": {
-          "$ref": "#/$defs/SpreadsheetCommand_38_patch_shape"
+          "$ref": "#/$defs/SpreadsheetCommand_39_patch_shape"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow",
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_startArrow",
           "description": "End markers. Legacy shape:arrow defaults its end to triangle; otherwise none."
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_startArrow"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_patch_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_38_patch_anchor"
         }
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_38_patch_line": {
+    "SpreadsheetCommand_39_patch_line": {
       "type": "object",
       "properties": {
         "start": {
-          "$ref": "#/$defs/SpreadsheetCommand_38_patch_line_start"
+          "$ref": "#/$defs/SpreadsheetCommand_39_patch_line_start"
         },
         "end": {
-          "$ref": "#/$defs/SpreadsheetCommand_38_patch_line_start"
+          "$ref": "#/$defs/SpreadsheetCommand_39_patch_line_start"
         }
       },
       "required": [
@@ -3209,14 +3337,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_38_patch_line_start": {
+    "SpreadsheetCommand_39_patch_line_start": {
       "type": "object",
       "properties": {
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_38_patch_line_start_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_39_patch_line_start_anchor"
         },
         "binding": {
-          "$ref": "#/$defs/SpreadsheetCommand_38_patch_line_start_binding"
+          "$ref": "#/$defs/SpreadsheetCommand_39_patch_line_start_binding"
         }
       },
       "required": [
@@ -3224,7 +3352,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_38_patch_line_start_anchor": {
+    "SpreadsheetCommand_39_patch_line_start_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -3248,14 +3376,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_38_patch_line_start_binding": {
+    "SpreadsheetCommand_39_patch_line_start_binding": {
       "type": "object",
       "properties": {
         "targetId": {
           "type": "string"
         },
         "port": {
-          "$ref": "#/$defs/SpreadsheetCommand_33_payload_drawing_2_line_start_binding_port"
+          "$ref": "#/$defs/SpreadsheetCommand_34_payload_drawing_2_line_start_binding_port"
         }
       },
       "required": [
@@ -3264,7 +3392,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_38_patch_textInsets": {
+    "SpreadsheetCommand_39_patch_textInsets": {
       "type": "object",
       "properties": {
         "left": {
@@ -3288,7 +3416,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_38_patch_shape": {
+    "SpreadsheetCommand_39_patch_shape": {
       "enum": [
         "triangle",
         "diamond",
@@ -3333,7 +3461,7 @@
         "rightTriangle"
       ]
     },
-    "SpreadsheetCommand_39": {
+    "SpreadsheetCommand_40": {
       "type": "object",
       "properties": {
         "type": {
@@ -3346,7 +3474,7 @@
           "type": "string"
         },
         "patch": {
-          "$ref": "#/$defs/SpreadsheetCommand_39_patch"
+          "$ref": "#/$defs/SpreadsheetCommand_40_patch"
         }
       },
       "required": [
@@ -3357,17 +3485,17 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_39_patch": {
+    "SpreadsheetCommand_40_patch": {
       "type": "object",
       "properties": {
         "bold": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "italic": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "underline": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "color": {
           "type": "string"
@@ -3397,33 +3525,33 @@
           "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold",
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
           "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_5_rules_item_1_format_bold"
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_38_patch_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_39_patch_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_32_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_31_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_32_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -3439,12 +3567,12 @@
           "description": "Line height as a font-size multiple."
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_patch_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_38_patch_anchor"
         }
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_40": {
+    "SpreadsheetCommand_41": {
       "type": "object",
       "properties": {
         "type": {
@@ -3457,7 +3585,7 @@
           "type": "string"
         },
         "comment": {
-          "$ref": "#/$defs/SpreadsheetCommand_40_comment"
+          "$ref": "#/$defs/SpreadsheetCommand_41_comment"
         }
       },
       "required": [
@@ -3468,17 +3596,17 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_40_comment": {
+    "SpreadsheetCommand_41_comment": {
       "anyOf": [
         {
           "const": null
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_40_comment_2"
+          "$ref": "#/$defs/SpreadsheetCommand_41_comment_2"
         }
       ]
     },
-    "SpreadsheetCommand_40_comment_2": {
+    "SpreadsheetCommand_41_comment_2": {
       "type": "object",
       "properties": {
         "text": {
@@ -3493,7 +3621,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_41": {
+    "SpreadsheetCommand_42": {
       "type": "object",
       "properties": {
         "type": {
@@ -3508,7 +3636,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_42": {
+    "SpreadsheetCommand_43": {
       "type": "object",
       "properties": {
         "type": {
@@ -3528,7 +3656,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_43": {
+    "SpreadsheetCommand_44": {
       "type": "object",
       "properties": {
         "type": {
@@ -3544,7 +3672,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_44": {
+    "SpreadsheetCommand_45": {
       "type": "object",
       "properties": {
         "type": {

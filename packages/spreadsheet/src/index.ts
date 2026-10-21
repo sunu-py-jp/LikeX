@@ -59,7 +59,7 @@ export type { SpreadsheetNamedRangeCommand } from "./api/named-range-commands";
 export type { SpreadsheetWriteReport } from "./commands/types";
 export { importSpreadsheetXlsx } from "./state/import-xlsx";
 export { createSpreadsheetExcelFontMeasurer } from "./state/excel-font-measurer";
-export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, SpreadsheetNativeImportResult, SpreadsheetExcelImportWarning,
+export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportLimits, SpreadsheetExcelImportResult, SpreadsheetNativeImportResult, SpreadsheetExcelImportWarning,
   SpreadsheetExcelColumnWidthFont, SpreadsheetExcelColumnWidthMetrics, SpreadsheetExcelColumnWidthMeasurer } from "./import/types";
 export type { SpreadsheetImportExcelOptions, SpreadsheetImportNativeOptions } from "./api/lifecycle";
 

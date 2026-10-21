@@ -1,3 +1,4 @@
+import { formatRangesEqual, resolveFormatRange } from "../model/format-ranges";
 import { parseCellAddress } from "../model/address";
 import { commentsEqual, drawingsEqual } from "../model/annotations";
 import { dataValidationsEqual } from "../model/data-validation";
@@ -115,6 +116,18 @@ export function findHistoryTarget(before: SpreadsheetWorkbook, next: Spreadsheet
       // Expand intact merged cells without introducing more than 128 ranges.
       const selection = selectionForSheet(sheet, changedRanges(cells), true, cells[0]);
       return { sheetId: sheet.id, focus: selection.focus, ranges: selection.ranges };
+    }
+    if (!formatRangesEqual(oldSheet.formatRanges, sheet.formatRanges)) {
+      const changed = [...(sheet.formatRanges ?? []), ...(oldSheet.formatRanges ?? [])].filter(item =>
+        !(sheet.formatRanges ?? []).includes(item) || !(oldSheet.formatRanges ?? []).includes(item));
+      const ranges = changed.slice(0, MAX_SELECTION_RANGES).map(item => {
+        const area = resolveFormatRange(sheet, item.range);
+        return { anchor: { row: area.top, column: area.left }, focus: { row: area.bottom, column: area.right } };
+      });
+      if (ranges.length) {
+        const selection = selectionForSheet(sheet, ranges, true, ranges[0].anchor);
+        return { sheetId: sheet.id, focus: selection.focus, ranges: selection.ranges };
+      }
     }
     const drawing = drawingTarget(before, next, oldSheet, sheet);
     if (drawing) return drawing;

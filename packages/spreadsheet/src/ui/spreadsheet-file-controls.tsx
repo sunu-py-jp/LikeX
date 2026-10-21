@@ -9,7 +9,7 @@ import { SpreadsheetExportControls } from "./spreadsheet-export-controls";
 import { RibbonGroup } from "./spreadsheet-ribbon-group";
 import { HorizontalScrollStrip } from "./horizontal-scroll-strip";
 
-type ImportFile = { file: File; format: "xlsx" | "spon"; emptyCellFormatting?: SpreadsheetExcelImportOptions["emptyCellFormatting"] };
+type ImportFile = { file: File; format: "xlsx" | "spon"; emptyCellFormatting?: SpreadsheetExcelImportOptions["emptyCellFormatting"]; limits?: SpreadsheetExcelImportOptions["limits"] };
 export function SpreadsheetFileControls({ controller: c, active, panelId, tabId }: {
   controller: SpreadsheetController; active: boolean; panelId: string; tabId: string;
 }) {
@@ -37,13 +37,13 @@ export function SpreadsheetFileControls({ controller: c, active, panelId, tabId 
   const answer = (accepted: boolean) => {
     reviewAnswer.current?.(accepted); reviewAnswer.current = null; setReview(null);
   };
-  const start = async ({ file, format, emptyCellFormatting: selectedEmptyCellFormatting }: ImportFile, discardChanges = false) => {
+  const start = async ({ file, format, emptyCellFormatting: selectedEmptyCellFormatting, limits }: ImportFile, discardChanges = false) => {
     if (busy || !available(format) || request.current) return;
     const controller = new AbortController(); request.current = controller;
     try {
       const options = { signal: controller.signal, discardChanges };
       if (format === "spon") await c.importNativeFromUi(file, options);
-      else await c.importExcelFromUi(file, { ...options, emptyCellFormatting: selectedEmptyCellFormatting,
+      else await c.importExcelFromUi(file, { ...options, emptyCellFormatting: selectedEmptyCellFormatting, limits,
         onReview: result => result.warnings.length === 0 ? true : new Promise<boolean>(resolve => {
           reviewAnswer.current = resolve; setReview(result);
         }) });
@@ -70,7 +70,7 @@ export function SpreadsheetFileControls({ controller: c, active, panelId, tabId 
                   const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
                   if (!file || busy) return;
                   if (format === "xlsx" && !/\.xlsx$/i.test(file.name)) { c.reportError(new Error(".xlsx 形式のExcelファイルを選択してください")); return; }
-                  const item = { file, format, ...(format === "xlsx" ? { emptyCellFormatting } : {}) };
+                  const item = { file, format, ...(format === "xlsx" ? { emptyCellFormatting, limits: { ...c.excelImportOptions?.limits } } : {}) };
                   if (c.hasUnsavedChanges || c.editing || c.pendingObjectEdit) setPendingFile(item);
                   else void start(item);
                 }} />

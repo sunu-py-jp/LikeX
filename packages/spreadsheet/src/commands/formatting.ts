@@ -1,3 +1,4 @@
+import { formatCellRange } from "../model/workbook/cells";
 import type { SpreadsheetFormattingCommand } from "../api/formatting-commands";
 import { conditionalFormatsEqual, normalizeConditionalFormats } from "../model/conditional-formatting";
 import { normalizeSizes } from "../model/workbook/validation";
@@ -6,6 +7,7 @@ import { getWorkbookSheet, replaceWorkbookSheet } from "../model/workbook/snapsh
 import { autoFitCommandForWorkbook } from "../model/sizing/create-auto-fit-command";
 import { setCellBorders } from "../model/workbook/borders";
 export function stageFormattingCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetFormattingCommand): SpreadsheetWorkbook {
+  if (command.type === "cells.formatRange") return formatCellRange(workbook, command.sheetId, command.range, command.format);
   if (command.type === "cells.borders") return setCellBorders(workbook, command.sheetId, command.ranges, command.preset, command.border);
   if (command.type === "dimensions.autoFit") return stageFormattingCommand(workbook,
     autoFitCommandForWorkbook(workbook, { sheetId: command.sheetId, axis: command.axis, indices: command.indices }));

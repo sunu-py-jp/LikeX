@@ -1,3 +1,5 @@
+import { parseCellAddress } from "../address";
+import { getFormattedCell } from "../format-ranges";
 import { isFormulaCell } from "../cell-value";
 import { rewriteFormulaReferences, type FormulaReference } from "../formula";
 import { pruneImageResources } from "../image-resources";
@@ -35,7 +37,7 @@ function replaceSheetReferences(workbook: SpreadsheetWorkbook, name: string, rep
     let changed = false;
     const cells = { ...sheet.cells };
     for (const [address, cell] of Object.entries(cells)) {
-      if (!isFormulaCell(cell)) continue;
+      if (!isFormulaCell(getFormattedCell(sheet, parseCellAddress(address)!.row, parseCellAddress(address)!.column))) continue;
       const matches = (reference: FormulaReference) => reference.sheet?.toLocaleLowerCase("en-US") === name.toLocaleLowerCase("en-US");
       const value = rewriteFormulaReferences(cell.value, reference => matches(reference)
         ? replacement === undefined ? "#REF!" : `'${replacement.replaceAll("'", "''")}'!${reference.address}` : undefined,
@@ -93,7 +95,7 @@ export function duplicateSheetWithIds(workbook: SpreadsheetWorkbook, sheetId: st
   };
   const id = identity();
   const cells = Object.fromEntries(Object.entries(source.cells).map(([address, cell]) => [address, Object.freeze({ ...cell,
-    value: isFormulaCell(cell) ? rewriteFormulaReferences(cell.value, reference => reference.sheet?.toLocaleLowerCase("en-US") === source.name.toLocaleLowerCase("en-US")
+    value: isFormulaCell(getFormattedCell(source, parseCellAddress(address)!.row, parseCellAddress(address)!.column)) ? rewriteFormulaReferences(cell.value, reference => reference.sheet?.toLocaleLowerCase("en-US") === source.name.toLocaleLowerCase("en-US")
       ? `'${name.replaceAll("'", "''")}'!${reference.address}` : undefined) : cell.value,
   })]));
   const tableNames = new Set([...(workbook.namedRanges ?? []).map(item => item.name.toLocaleLowerCase("en-US")),

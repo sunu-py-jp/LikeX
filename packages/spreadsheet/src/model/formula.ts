@@ -1,3 +1,5 @@
+import { withFormatRangeContext } from "./formatting/range-context";
+import { getFormattedCell } from "./format-ranges";
 import { cellTextValue, isFormulaCell } from "./cell-value";
 import { cellAddress, parseCellAddress } from "./address";
 import { FUNCTION_HANDLERS } from "./formula-functions";
@@ -115,8 +117,9 @@ export function parseFormula(formula: string): Node {
 /** Internal evaluator shared by full calculation and bounded reads. Inputs are already validated. */
 export function createWorkbookCalculator(workbook: SpreadsheetWorkbook) {
   const result: Record<string, Record<string, Value>> = Object.create(null);
-  const sheets = new Map(workbook.sheets.map(sheet => [sheet.name.toLocaleLowerCase("en-US"), sheet]));
-  const byId = new Map(workbook.sheets.map(sheet => [sheet.id, sheet]));
+  const modelSheets = workbook.sheets.map(withFormatRangeContext);
+  const sheets = new Map(modelSheets.map(sheet => [sheet.name.toLocaleLowerCase("en-US"), sheet]));
+  const byId = new Map(modelSheets.map(sheet => [sheet.id, sheet]));
   const active = new Set<string>(), parsed = new Map<string, Node>();
   let steps = 0;
   const tick = (cost = 1) => { if ((steps += cost) > SPREADSHEET_LIMITS.evaluationSteps) fail("#LIMIT!"); };
@@ -126,7 +129,7 @@ export function createWorkbookCalculator(workbook: SpreadsheetWorkbook) {
     const sheet = byId.get(sheetId), position = parseCellAddress(address);
     if (!sheet || !position || position.row >= sheet.rowCount || position.column >= sheet.columnCount) return fail("#REF!");
     const canonical = cellAddress(position.row, position.column), cache = result[sheetId];
-    const cell = sheet.cells[canonical];
+    const cell = getFormattedCell(sheet, position.row, position.column);
     if (!cell || !cell.value) return null;
     if (Object.hasOwn(cache, canonical)) return countable(cache[canonical]);
     if (cell.format?.numberFormat === "text") return cache[canonical] = cellTextValue(cell.value);

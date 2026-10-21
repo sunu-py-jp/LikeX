@@ -1,3 +1,4 @@
+import { clearSheetFormatRanges } from "../format-ranges";
 import { cellAddress } from "../address";
 import { rangeContains, rangesIntersect } from "../merges";
 import { SPREADSHEET_LIMITS, type SpreadsheetMergedRange, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
@@ -52,7 +53,7 @@ export function clearCellRange(workbook: SpreadsheetWorkbook, sheetId: string, i
     });
     return ranges.length ? [{ ...rule, ranges }] : [];
   });
-  return replaceWorkbookSheet(workbook, { ...sheet, cells: Object.freeze(cells),
+  return replaceWorkbookSheet(workbook, { ...clearSheetFormatRanges(sheet, range), cells: Object.freeze(cells),
     ...(sheet.comments ? { comments: Object.freeze(comments) } : {}),
     ...(sheet.merges ? { merges: Object.freeze(retainedMerges) } : {}),
     ...(sheet.tables ? { tables: Object.freeze(retainedTables) } : {}),

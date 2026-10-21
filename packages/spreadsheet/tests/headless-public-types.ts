@@ -9,9 +9,9 @@ const nativeRow: SpreadsheetFileRow = { height: 28, cells: { A: { value: "商品
 const nativeSheet: SpreadsheetFileSheet = { id: "sheet-1", name: "Sheet1", rowCount: 300, columnCount: 30, rows: [{}, nativeRow] };
 const nativeFile: SpreadsheetFile = { format: "likex.spreadsheet", schemaVersion: SPREADSHEET_FILE_VERSION, sheets: [nativeSheet] };
 const runtimeWorkbook: SpreadsheetWorkbookSnapshot = parseWorkbook(JSON.stringify(nativeFile));
-const nativeVersion: 1 = SPREADSHEET_FILE_VERSION;
-// @ts-expect-error Only the current SPON v1 file version is supported.
-const invalidNativeVersion: SpreadsheetFile = { ...nativeFile, schemaVersion: 2 };
+const nativeVersion: 2 = SPREADSHEET_FILE_VERSION;
+// @ts-expect-error Only the current SPON v2 file layout is written.
+const invalidNativeVersion: SpreadsheetFile = { ...nativeFile, schemaVersion: 3 };
 // @ts-expect-error Native rows are decoded before being passed to model commands.
 applySpreadsheetCommands(nativeFile, []);
 // @ts-expect-error Native rows are arrays, not a flat address map or one-based row map.

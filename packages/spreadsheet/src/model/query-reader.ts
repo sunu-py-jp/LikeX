@@ -1,4 +1,4 @@
-import { getCell, getCellComment, getDrawing, getImage, getImageResource, getRange, getShape, getSheet, getTextBox,
+import { getResolvedCellFormat, getSheetFormatRanges, getCell, getCellComment, getDrawing, getImage, getImageResource, getRange, getShape, getSheet, getTextBox,
   getNamedRange, getRangeByName, getTable, getTableByName,
   getSheets, getSheetCells, getNamedRanges, getDrawings, getImages, getShapes, getTextBoxes, getTables,
   type SpreadsheetReadRangeInput } from "./query";
@@ -11,6 +11,8 @@ import type { SpreadsheetSearchQuery } from "../api/editing-commands";
 /** Queries shared by a mounted component and a headless session; all coordinates address stored data. */
 export type SpreadsheetReadApi = Readonly<{
   getCell(sheetId: string, address: string): ReturnType<typeof getCell>;
+  getCellFormat(sheetId: string, address: string): ReturnType<typeof getResolvedCellFormat>;
+  getFormatRanges(sheetId: string): ReturnType<typeof getSheetFormatRanges>;
   getRange(sheetId: string, range: SpreadsheetReadRangeInput): ReturnType<typeof getRange>;
   getSheet(sheetId: string): ReturnType<typeof getSheet>;
   getSheetCells(sheetId: string): ReturnType<typeof getSheetCells>;
@@ -40,6 +42,8 @@ export type SpreadsheetReadApi = Readonly<{
 export function createSpreadsheetReader(getWorkbook: () => QuerySnapshot<SpreadsheetWorkbook>): SpreadsheetReadApi {
   return Object.freeze({
     getCell: (sheetId: string, address: string) => getCell(getWorkbook(), sheetId, address),
+    getCellFormat: (sheetId: string, address: string) => getResolvedCellFormat(getWorkbook(), sheetId, address),
+    getFormatRanges: (sheetId: string) => getSheetFormatRanges(getWorkbook(), sheetId),
     getRange: (sheetId: string, range: SpreadsheetReadRangeInput) => getRange(getWorkbook(), sheetId, range),
     getSheet: (sheetId: string) => getSheet(getWorkbook(), sheetId),
     getSheetCells: (sheetId: string) => getSheetCells(getWorkbook(), sheetId),

@@ -1,3 +1,5 @@
+import { getFormattedCell } from "../format-ranges";
+import { resolveFormatRange, normalizeFormatRanges } from "../format-ranges";
 import { isFormulaCell } from "../cell-value";
 import { shiftConditionalFormats } from "../conditional-formatting";
 import { cellAddress, parseCellAddress } from "../address";
@@ -110,12 +112,20 @@ function changeAxis(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" 
         if (next === null) continue;
         nextAddress = cellAddress(axis === "row" ? next : position.row, axis === "column" ? next : position.column);
       }
-      const value = isFormulaCell(cell) ? transformReferences(cell.value, sheet.name, target.name, axis, index, count, remove) : cell.value;
+      const value = isFormulaCell(getFormattedCell(sheet, parseCellAddress(address)!.row, parseCellAddress(address)!.column)) ? transformReferences(cell.value, sheet.name, target.name, axis, index, count, remove) : cell.value;
       if (value !== cell.value) changed = true;
       cells[nextAddress] = value === cell.value ? cell : freezeCell(value, cell.format, cell.validation);
     }
     if (!changed) return sheet;
     const next = Object.freeze({ ...sheet, cells: Object.freeze(cells),
+      ...(sheet.id === sheetId && sheet.formatRanges ? { formatRanges: normalizeFormatRanges(sheet.formatRanges.flatMap(item => {
+        const area = resolveFormatRange(sheet, item.range), interval = intervalAfter(axis === "row" ? area.top : area.left,
+          axis === "row" ? area.bottom : area.right, index, count, remove);
+        if (!interval || interval[0] >= total) return [];
+        const range = axis === "row" ? { ...item.range, top: interval[0], bottom: item.range.bottom === "end" ? "end" as const : interval[1] }
+          : { ...item.range, left: interval[0], right: item.range.right === "end" ? "end" as const : interval[1] };
+        return [{ ...item, range }];
+      }), { rowCount: axis === "row" ? total : sheet.rowCount, columnCount: axis === "column" ? total : sheet.columnCount }) } : {}),
       ...(sheet.id === sheetId && sheet.conditionalFormats ? { conditionalFormats: shiftConditionalFormats(sheet.conditionalFormats, axis, index, count, remove) } : {}),
       ...(sheet.id === sheetId && sheet.merges ? { merges: shiftMerges(sheet, axis, index, count, remove, total) } : {}),
       ...(sheet.id === sheetId && sheet.tables ? { tables: shiftSheetTables(sheet.tables, axis, index, count, remove) } : {}),

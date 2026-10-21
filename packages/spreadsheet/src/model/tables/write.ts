@@ -1,3 +1,4 @@
+import { getCellFormat } from "../format-ranges";
 import type { SpreadsheetCellGridWriteOptions } from "../../api/table-commands";
 import { cellAddress, parseCellAddress } from "../address";
 import { rangesIntersect } from "../merges";
@@ -82,8 +83,9 @@ export function writeSpreadsheetTable(workbook: SpreadsheetWorkbook, options: Sp
   for (const [address, value] of Object.entries(filtered.values)) {
     const previous = cells[address];
     if ((previous?.value ?? "") !== value) changedCount++;
-    const isHeader = parseCellAddress(address)!.row === plan.range.top;
-    const format = normalizeCellFormat({ ...previous?.format, borders: { ...previous?.format?.borders, ...plan.gridBorders },
+    const position = parseCellAddress(address)!;
+    const isHeader = position.row === plan.range.top, previousFormat = getCellFormat(sheet, position.row, position.column);
+    const format = normalizeCellFormat({ ...previousFormat, borders: { ...previousFormat?.borders, ...plan.gridBorders },
       ...(isHeader ? plan.headerStyle : {}) });
     cells[address] = freezeCell(value, format, previous?.validation);
   }

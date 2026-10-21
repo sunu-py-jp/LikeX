@@ -17,7 +17,7 @@ import { worksheetDefaultSizes } from "./worksheet-shared";
 import { isExcelRangeOutsideModel } from "./worksheet-address";
 import { prepareColumnWidthMeasurement } from "./column-width-measurement";
 import { readWorksheetXml } from "./worksheet-stream";
-import { type ImportContext, type SpreadsheetExcelImportInput, type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult, type SpreadsheetExcelImportWarning } from "./types";
+import { resolveXlsxImportLimits, type ImportContext, type SpreadsheetExcelImportInput, type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult, type SpreadsheetExcelImportWarning } from "./types";
 
 const workbookType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml";
 const fail = (message: string): never => { throw new Error(`Excelファイルを読み込めません: ${message}`); };
@@ -28,9 +28,10 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
   if (emptyCellFormatting !== "preserve" && emptyCellFormatting !== "omit")
     return fail("emptyCellFormatting は preserve または omit を指定してください");
   signal?.throwIfAborted();
-  const archive = await openXlsxStreamingArchive(input, signal);
+  const limits = resolveXlsxImportLimits(options.limits);
+  const archive = await openXlsxStreamingArchive(input, signal, limits);
   const warnings: SpreadsheetExcelImportWarning[] = [], warningsByKey = new Map<string, number>();
-  const context: ImportContext = { archive, warnings, signal, resources: Object.create(null), warn(warning) {
+  const context: ImportContext = { archive, limits, warnings, signal, resources: Object.create(null), warn(warning) {
     let key = `${warning.code}\0${warning.sheetName ?? ""}\0${warning.message}`;
     if (!warningsByKey.has(key) && warningsByKey.size >= 1000) {
       // Keep diagnostics bounded even when many source objects have distinct names/addresses.
@@ -125,8 +126,16 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
     if (!sheetId || sheetIds.has(sheetId)) return fail("シートIDが重複または不正です");
     sheetIds.add(sheetId);
     if (sheetNode.attributes.state && sheetNode.attributes.state !== "visible") context.warn({ code: "adjusted", message: "非表示のシートを表示状態で読み込みました", sheetName: name });
-    const root = await readWorksheetXml(archive, relation.target, name, shared, styles, date1904, context, emptyCellFormatting);
-    const sheet = await readWorksheet(root, `xlsx-sheet-${index + 1}`, name, shared, styles, date1904, context);
+    const { root, formatRanges } = await readWorksheetXml(archive, relation.target, name, shared, styles, date1904, context, emptyCellFormatting);
+    const parsedSheet = await readWorksheet(root, `xlsx-sheet-${index + 1}`, name, shared, styles, date1904, context);
+    let sheet = await formatRanges.apply(parsedSheet);
+    if (sheet.rowCount !== parsedSheet.rowCount || sheet.columnCount !== parsedSheet.columnCount) {
+      const defaults = worksheetDefaultSizes(root, context.columnWidthMetrics);
+      const rowHeights = { ...sheet.rowHeights }, columnWidths = { ...sheet.columnWidths };
+      for (let row = parsedSheet.rowCount; row < sheet.rowCount; row++) rowHeights[row] ??= defaults.row;
+      for (let column = parsedSheet.columnCount; column < sheet.columnCount; column++) columnWidths[column] ??= defaults.column;
+      sheet = { ...sheet, rowHeights, columnWidths };
+    }
     // Drawing anchors need original row heights; release all cell XML and retain
     // only that small source-grid metadata until extras have been converted.
     const sheetData = child(root, "sheetData");

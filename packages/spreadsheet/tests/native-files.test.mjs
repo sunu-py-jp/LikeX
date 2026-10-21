@@ -30,9 +30,9 @@ async function mount(t, overrides = {}) {
     async update(patch) { props = { ...props, ...patch }; await act(async () => renderer.update(createElement(Spreadsheet, props))); } };
 }
 
-test('native snapshots require the row-oriented v1 format and reject legacy JSON and other versions', () => {
+test('native snapshots write row-oriented v2 and accept v1 and reject legacy JSON and other versions', () => {
   const workbook = normalizeWorkbook(book('native')), json = serializeWorkbook(workbook), wire = JSON.parse(json);
-  assert.equal(wire.format, SPREADSHEET_FORMAT); assert.equal(wire.schemaVersion, 1);
+  assert.equal(wire.format, SPREADSHEET_FORMAT); assert.equal(wire.schemaVersion, 2);
   assert.equal(wire.sheets[0].rows[0].cells.A.value, 'native');
   assert.equal(Object.hasOwn(wire.sheets[0], 'cells'), false); assert.equal(Object.hasOwn(wire.sheets[0], 'rowHeights'), false);
   assert.deepEqual(parseWorkbook(json), workbook);
@@ -43,7 +43,7 @@ test('native snapshots require the row-oriented v1 format and reject legacy JSON
     { ...wire, sheets: [{ ...wire.sheets[0], cells: {} }] },
     { ...wire, sheets: [{ ...wire.sheets[0], rowHeights: {} }] }])
     assert.throws(() => parseWorkbook(JSON.stringify(legacy)));
-  for (const schemaVersion of [2, 999, null, '1'])
+  for (const schemaVersion of [3, 999, null, '1'])
     assert.throws(() => parseWorkbook(JSON.stringify({ ...wire, schemaVersion })), /未対応/);
   for (const format of ['likex.slide', 'other', null, 1])
     assert.throws(() => parseWorkbook(JSON.stringify({ ...wire, format })), /形式/);
@@ -90,7 +90,7 @@ test('native export emits JSON and preserves dirty history without save or edit 
   assert.equal(blob.type, 'application/json'); assert.equal(serializeWorkbook(parseWorkbook(await blob.text())), serializeWorkbook(before));
   assert.equal(await blob.text(), serializeWorkbook(before));
   const wire = JSON.parse(await blob.text());
-  assert.equal(wire.schemaVersion, 1); assert.equal(wire.sheets[0].rows[0].cells.A.value, 'draft');
+  assert.equal(wire.schemaVersion, 2); assert.equal(wire.sheets[0].rows[0].cells.A.value, 'draft');
   assert.equal(ui.ref.current.getWorkbook(), before); assert.equal(ui.ref.current.getHistoryState().canUndo, true); assert.equal(saves, 0);
   assert.deepEqual(events.filter(e => e.type === 'export').map(e => [e.format, e.status]), [['spon', 'start'], ['spon', 'success']]);
   let repeated;
@@ -177,7 +177,7 @@ test('native file controls accept SPON in a JSON file, confirm dirty input and p
 
 for (const [name, snapshot] of [
   ['old flat v1', () => ({ ...book('rejected'), format: SPREADSHEET_FORMAT, schemaVersion: 1 })],
-  ['old row-oriented v2', () => ({ ...JSON.parse(serializeWorkbook(book('rejected'))), schemaVersion: 2 })],
+  ['unsupported row-oriented v3', () => ({ ...JSON.parse(serializeWorkbook(book('rejected'))), schemaVersion: 3 })],
 ]) test(`native UI rejection of ${name} preserves the dirty workbook, unfinished input and undo/redo history`, async t => {
   const events = [], dirty = [], changes = [];
   const ui = await mount(t, { onEvent: e => events.push(e), onDirtyChange: value => dirty.push(value), onChange: value => changes.push(value) });

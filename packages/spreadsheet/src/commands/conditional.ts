@@ -56,6 +56,7 @@ function dependencies(workbook: SpreadsheetWorkbook, commands: readonly Spreadsh
     guards.set(`${base}.rowCount`, sheet?.rowCount);
     guards.set(`${base}.columnCount`, sheet?.columnCount);
     guards.set(`${base}.merges`, sheet?.merges ?? []);
+    guards.set(`${base}.formatRanges`, sheet?.formatRanges ?? []);
     const cell = (address: string) => {
       const position = parseCellAddress(address);
       return position ? cellAddress(position.row, position.column) : address;

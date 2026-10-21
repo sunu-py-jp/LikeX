@@ -1374,7 +1374,9 @@
       "viewport",
       "省メモリ",
       "title",
-      "onSave"
+      "onSave",
+      "SpreadsheetExcelImportLimits",
+      "limits"
     ],
     "headings": [
       {
@@ -2162,9 +2164,17 @@
       "createSpreadsheetTextMeasurer",
       "rows.resize",
       "conditionalFormats.set",
-      "SpreadsheetConditionalFormatRule"
+      "SpreadsheetConditionalFormatRule",
+      "formatRanges",
+      "formatCellRange",
+      "cells.formatRange"
     ],
     "headings": [
+      {
+        "id": "範囲に共通する書式",
+        "title": "範囲に共通する書式",
+        "depth": 2
+      },
       {
         "id": "画面の基本色",
         "title": "画面の基本色",
@@ -2639,12 +2649,21 @@
       "getTables",
       "sheet",
       "getSheetReader",
-      "SpreadsheetSheetReadApi"
+      "SpreadsheetSheetReadApi",
+      "getSheetFormatRanges",
+      "getResolvedCellFormat",
+      "getCellFormat",
+      "getFormatRanges"
     ],
     "headings": [
       {
         "id": "セルと範囲",
         "title": "セルと範囲",
+        "depth": 2
+      },
+      {
+        "id": "共通範囲とセルに適用される書式を取得する",
+        "title": "共通範囲とセルに適用される書式を取得する",
         "depth": 2
       },
       {
@@ -2867,7 +2886,10 @@
       "exportNative",
       "SpreadsheetImportNativeOptions",
       "SpreadsheetNativeImportResult",
-      "SpreadsheetNativeExportOptions"
+      "SpreadsheetNativeExportOptions",
+      "formatRanges",
+      "SPON v2",
+      "繰り返し書式"
     ],
     "headings": [
       {
@@ -2878,6 +2900,11 @@
       {
         "id": "行ごとの保存構造",
         "title": "行ごとの保存構造",
+        "depth": 2
+      },
+      {
+        "id": "同じ書式を範囲で保存する",
+        "title": "同じ書式を範囲で保存する",
         "depth": 2
       },
       {
@@ -2914,9 +2941,13 @@
       "excelImportOptions",
       "emptyCellFormatting",
       "空セル",
-      "100 MiB",
       "xlsx",
-      "ファイル"
+      "ファイル",
+      "128 MiB",
+      "640 MiB",
+      "limits",
+      "SpreadsheetExcelImportLimits",
+      "formatRanges"
     ],
     "headings": [
       {
@@ -2932,6 +2963,11 @@
       {
         "id": "空セルの書式を省略する",
         "title": "空セルの書式を省略する",
+        "depth": 2
+      },
+      {
+        "id": "入力展開容量の上限を指定する",
+        "title": "入力・展開容量の上限を指定する",
         "depth": 2
       },
       {

@@ -1,12 +1,13 @@
+import { getCellFormat } from "../format-ranges";
 import { cellAddress } from "../address";
 import { cellTextValue, isFormulaValue } from "../cell-value";
 import { rangesIntersect } from "../merges";
 import { normalizeNamedRangeRectangle, normalizeRangeName } from "../named-ranges";
-import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetCellFormat, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
+import { SPREADSHEET_LIMITS, type SpreadsheetCellFormat, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
 import type { SpreadsheetTable, SpreadsheetTableColumn } from "./types";
 
 export const MAX_SPREADSHEET_TABLES = SPREADSHEET_LIMITS.tables;
-type TableSheet = Pick<SpreadsheetSheet, "cells" | "rowCount" | "columnCount" | "merges">;
+type TableSheet = Pick<SpreadsheetSheet, "cells" | "rowCount" | "columnCount" | "merges" | "formatRanges">;
 const key = (name: string) => name.toLocaleLowerCase("en-US");
 function validId(value: unknown): value is string {
   return typeof value === "string" && !!value && value.length <= 200 && !/\0/.test(value);
@@ -31,10 +32,10 @@ export function validateTableHeaderLabels(headers: readonly string[]): void {
   }
 }
 
-function headerNames(table: SpreadsheetTable, cells: Readonly<Record<string, SpreadsheetCell>>): string[] {
+function headerNames(table: SpreadsheetTable, sheet: TableSheet): string[] {
   return table.columns.map((_, index) => {
-    const cell = cells[cellAddress(table.range.top, table.range.left + index)];
-    return tableHeaderLabel(cell?.value ?? "", cell?.format);
+    const cell = sheet.cells[cellAddress(table.range.top, table.range.left + index)];
+    return tableHeaderLabel(cell?.value ?? "", getCellFormat(sheet, table.range.top, table.range.left + index));
   });
 }
 
@@ -54,7 +55,7 @@ export function normalizeTables(input: readonly SpreadsheetTable[] | undefined, 
     }
     validateTableHeaderLabels(columns.map(column => column.name));
     const normalized = Object.freeze({ id: table.id, name, range, columns: Object.freeze(columns) });
-    if (headerNames(normalized, sheet.cells).some((label, index) => label !== columns[index].name))
+    if (headerNames(normalized, sheet).some((label, index) => label !== columns[index].name))
       throw new Error("テーブルの列名とヘッダセルの文字列が一致していません");
     if (result.some(other => rangesIntersect(other.range, range))) throw new Error("テーブルの範囲は重複できません");
     if (sheet.merges?.some(merge => rangesIntersect(merge, range))) throw new Error("テーブルには結合セルを含められません");
@@ -70,7 +71,7 @@ export function reconcileWorkbookTables(sheets: readonly SpreadsheetSheet[]): re
     if (!sheet.tables?.length) return sheet;
     let sheetChanged = false;
     const tables = sheet.tables.map(table => {
-      const names = headerNames(table, sheet.cells);
+      const names = headerNames(table, sheet);
       validateTableHeaderLabels(names);
       if (names.every((name, index) => name === table.columns[index].name)) return table;
       sheetChanged = true;

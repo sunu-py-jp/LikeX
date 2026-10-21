@@ -1,3 +1,4 @@
+import { resolveFormatRange } from "../../model/format-ranges";
 import { cellAddress, parseCellAddress } from "../../model/address";
 import { getMergedRange, mergedCellPosition } from "../../model/merges";
 import type { SpreadsheetCellPosition, SpreadsheetSheet } from "../../model/types";
@@ -25,6 +26,9 @@ function presenceIndex(sheet: SpreadsheetSheet): PresenceIndex {
     const position = parseCellAddress(address)!; include(position.row, position.column);
   }
   for (const merge of sheet.merges ?? []) include(merge.bottom, merge.right);
+  for (const item of sheet.formatRanges ?? []) {
+    const range = resolveFormatRange(sheet, item.range); include(range.bottom, range.right);
+  }
   presenceIndexes.set(sheet, index);
   return index;
 }

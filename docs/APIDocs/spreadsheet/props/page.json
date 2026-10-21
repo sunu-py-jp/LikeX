@@ -19,7 +19,9 @@
     "viewport",
     "省メモリ",
     "title",
-    "onSave"
+    "onSave",
+    "SpreadsheetExcelImportLimits",
+    "limits"
   ],
   "screenshots": []
 }

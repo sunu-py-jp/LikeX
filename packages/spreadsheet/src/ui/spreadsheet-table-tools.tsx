@@ -1,5 +1,7 @@
 "use client";
 
+import { getCellFormat } from "../model/format-ranges";
+
 import { useState } from "react";
 import type { SpreadsheetTableWriteOptions } from "../api/table-commands";
 import { cellAddress } from "../model/address";
@@ -21,7 +23,7 @@ function captureTable(controller: SpreadsheetController): TableTarget {
   const range = selectionBounds(controller.selection), rows = getRange(workbook, sheetId, range);
   const calculated = calculateWorkbook(workbook)[sheetId];
   const headers = rows[0].map((cell, column) => formatCellValue(calculated[cellAddress(range.top, range.left + column)],
-    effectiveCellFormat(cell ?? undefined)) || `列${column + 1}`);
+    effectiveCellFormat(cell ?? undefined, getCellFormat(controller.activeSheet, range.top, range.left + column))) || `列${column + 1}`);
   const names = new Set([...(workbook.namedRanges ?? []).map(item => item.name.toLocaleLowerCase("en-US")),
     ...workbook.sheets.flatMap(sheet => sheet.tables?.map(table => table.name.toLocaleLowerCase("en-US")) ?? [])]);
   let count = 1;

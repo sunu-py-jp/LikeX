@@ -1,5 +1,6 @@
+import { clearSheetFormatRanges, getFormattedCell, subtractFormatRectangle } from "../format-ranges";
 import { filterCellValueWrites, type SpreadsheetWriteConflictPolicy } from "../workbook/write-conflicts";
-import { cellAddress } from "../address";
+import { cellAddress, parseCellAddress } from "../address";
 import { rangeContains, rangesIntersect } from "../merges";
 import { translateFormula } from "../formula";
 import { cellTextValue, isFormulaCell, isFormulaValue } from "../cell-value";
@@ -67,7 +68,7 @@ export function fillSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: str
   for (let row = target.top; row <= target.bottom; row++) for (let column = target.left; column <= target.right; column++) {
     if (row >= source.top && row <= source.bottom && column >= source.left && column <= source.right) continue;
     const fromRow = source.top + modulo(row - source.top, height), fromColumn = source.left + modulo(column - source.left, width);
-    const original = sheet.cells[cellAddress(fromRow, fromColumn)], address = cellAddress(row, column), previous = sheet.cells[address];
+    const original = getFormattedCell(sheet, fromRow, fromColumn), address = cellAddress(row, column), previous = getFormattedCell(sheet, row, column);
     const format = policy.formatting ? original?.format : previous?.format;
     let value = original?.value ?? "";
     if (isFormulaCell(original)) {
@@ -75,8 +76,8 @@ export function fillSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: str
     } else if (original?.format?.numberFormat !== "text") {
       const lane = vertical ? fromColumn : fromRow;
       if (!generators.has(lane)) {
-        const sourceCells = vertical ? Array.from({ length: height }, (_, i) => sheet.cells[cellAddress(source.top + i, fromColumn)]) :
-          Array.from({ length: width }, (_, i) => sheet.cells[cellAddress(fromRow, source.left + i)]);
+        const sourceCells = vertical ? Array.from({ length: height }, (_, i) => getFormattedCell(sheet, source.top + i, fromColumn)) :
+          Array.from({ length: width }, (_, i) => getFormattedCell(sheet, fromRow, source.left + i));
         const values = sourceCells.map(cell => cell?.value ?? "");
         const seriesMode = mode === "auto" && ["date", "datetime"].includes(original?.format?.numberFormat ?? "") ? "series" : mode;
         generators.set(lane, sourceCells.some(cell => cell?.format?.numberFormat === "text") ? null : sequence(values, seriesMode));
@@ -89,13 +90,17 @@ export function fillSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: str
     proposed[address] = value;
     const ruleTransferEnabled = policy.dataValidation && !(policy.checkboxes === false && (original?.validation?.type === "checkbox" || previous?.validation?.type === "checkbox"));
     const validation = ruleTransferEnabled ? original?.validation : previous?.validation;
-    if (!value && !format && !validation) delete cells[address];
-    else cells[address] = Object.freeze({ value, ...(format ? { format } : {}), ...(validation ? { validation } : {}) });
+    const storedFormat = policy.formatting ? format : sheet.cells[address]?.format;
+    if (!value && !storedFormat && !validation) delete cells[address];
+    else cells[address] = Object.freeze({ value, ...(storedFormat ? { format: storedFormat } : {}), ...(validation ? { validation } : {}) });
   }
   const filtered = filterCellValueWrites(sheet, proposed, policy.onConflict);
+  let base = sheet;
+  if (policy.formatting) for (const area of subtractFormatRectangle(target, source)) base = clearSheetFormatRanges(base, area);
   for (const address of filtered.skippedAddresses) {
     policy.skippedAddresses?.add(address);
-    if (sheet.cells[address]) cells[address] = sheet.cells[address]; else delete cells[address];
+    const point = parseCellAddress(address)!, original = getFormattedCell(sheet, point.row, point.column);
+    if (original) cells[address] = original; else delete cells[address];
   }
-  return replaceWorkbookSheet(workbook, { ...sheet, cells: Object.freeze(cells) });
+  return replaceWorkbookSheet(workbook, { ...base, cells: Object.freeze(cells) });
 }

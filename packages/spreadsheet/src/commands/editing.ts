@@ -1,6 +1,7 @@
 import { cellWriteReport } from "./cell-write-report";
 import { filterCellValueWrites } from "../model/workbook/write-conflicts";
-import { cellAddress } from "../model/address";
+import { cellAddress, parseCellAddress } from "../model/address";
+import { getCellFormat } from "../model/format-ranges";
 import { isFormulaValue } from "../model/cell-value";
 import type { SpreadsheetCommand } from "./types";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
@@ -34,7 +35,8 @@ export function stageEditingCommand(workbook: SpreadsheetWorkbook, command: Spre
       if (!features.formulas && command.query.lookIn === "formulas") {
         const matcher = createSpreadsheetSearchMatcher(command.query);
         for (const match of findSpreadsheetCells(workbook, command.query, { sheetId: sheet.id })) {
-          if ((!addresses || addresses.includes(match.address)) && isFormulaValue(matcher.replace(match.matchedText, command.replacement), sheet.cells[match.address]?.format)) requireCommandFeature(features, "formulas");
+          const position = parseCellAddress(match.address)!;
+          if ((!addresses || addresses.includes(match.address)) && isFormulaValue(matcher.replace(match.matchedText, command.replacement), getCellFormat(sheet, position.row, position.column))) requireCommandFeature(features, "formulas");
         }
       }
       return finish(replaceSpreadsheetCells(workbook, sheet.id, command.query, command.replacement, addresses, { onConflict: command.onConflict, skippedAddresses }));

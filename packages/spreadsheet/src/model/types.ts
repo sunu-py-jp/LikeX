@@ -138,12 +138,17 @@ export type SpreadsheetComment = { id: string; text: string; author?: string };
 export type SpreadsheetMergedRange = Readonly<{ top: number; left: number; bottom: number; right: number }>;
 /** Workbook-scoped identity and name for a single, same-sheet rectangle. */
 export type SpreadsheetNamedRange = Readonly<{ id: string; name: string; sheetId: string; range: SpreadsheetMergedRange }>;
+/** Inclusive zero-based area. "end" follows the current sheet edge, including future growth. */
+export type SpreadsheetFormatRangeBounds = Readonly<{ top: number; left: number; bottom: number | "end"; right: number | "end" }>;
+/** A complete shared base format; ranges do not overlap. Explicit cell formats override it completely. */
+export type SpreadsheetFormatRange = Readonly<{ range: SpreadsheetFormatRangeBounds; format: SpreadsheetCellFormat }>;
 export type SpreadsheetSheet = {
   id: string;
   name: string;
   cells: Readonly<Record<string, SpreadsheetCell>>;
   rowCount: number;
   columnCount: number;
+  formatRanges?: readonly SpreadsheetFormatRange[];
   columnWidths?: Readonly<Record<number, number>>;
   rowHeights?: Readonly<Record<number, number>>;
   drawings?: readonly SpreadsheetDrawing[];
@@ -174,5 +179,5 @@ export const SPREADSHEET_LIMITS = Object.freeze({ rows: 10_000, columns: 1_000, 
   clipboardCharacters: 10 * 1024 * 1024, clipboardCells: 10_000,
   imageBytes: 5 * 1024 * 1024, totalImageBytes: 20 * 1024 * 1024,
   imageDimension: 10_000, imagePixels: 16_000_000, images: 1_000,
-  drawings: 1_000, comments: 10_000, merges: 10_000, namedRanges: 1_000, tables: 1_000, commentLength: 10_000, drawingTextLength: 100_000,
+  formatRanges: 100_000, drawings: 1_000, comments: 10_000, merges: 10_000, namedRanges: 1_000, tables: 1_000, commentLength: 10_000, drawingTextLength: 100_000,
   serializedCharacters: 64 * 1024 * 1024 });

@@ -85,6 +85,13 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
   const warn = (code: "omitted" | "adjusted" | "unsupported", message: string, count = 1) => context.warn({ code, message, sheetName: name, count });
   const cells: Record<string, SpreadsheetCell> = Object.create(null), rowHeights: Record<number, number> = {}, columnWidths: Record<number, number> = {};
   let rowCount: number = DEFAULT_SHEET_SIZE.rowCount, columnCount: number = DEFAULT_SHEET_SIZE.columnCount, cellCount = 0;
+  // In-bounds dimensions preserve an intentionally empty formatted canvas on
+  // export/import; Excel's inflated whole-grid used range is not materialized.
+  const dimension = child(node, "dimension")?.attributes.ref?.split(":");
+  const last = dimension && dimension.length <= 2 ? readExcelCellAddress(dimension.at(-1)!) : undefined;
+  if (last && last.row < SPREADSHEET_LIMITS.rows && last.column < SPREADSHEET_LIMITS.columns) {
+    rowCount = Math.max(rowCount, last.row + 1); columnCount = Math.max(columnCount, last.column + 1);
+  }
   const pending: { address: string; row: number; column: number; formula: XmlNode; cached: SpreadsheetCell }[] = [];
   const sharedFormulas = new Map<string, { formula: string; row: number; column: number; range?: SpreadsheetMergedRange }>();
   const sizes = (value: number) => Math.min(1000, Math.max(1, value));
@@ -107,7 +114,6 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
       else if (rowIndex < SPREADSHEET_LIMITS.rows) { rowHeights[rowIndex] = sizes(height); rowCount = Math.max(rowCount, rowIndex + 1); if (height !== rowHeights[rowIndex]) warn("adjusted", "行・列のサイズを対応範囲へ調整しました"); }
       else warn("omitted", "シート上限外の空行・空列の表示設定を省略しました");
     }
-    if (row.attributes.s !== undefined) warn("omitted", "行全体・列全体の書式設定を省略しました");
     let inferredColumn = 0;
     const seenCells = new Set<number>();
     for (const item of children(row, "c")) {
@@ -131,6 +137,7 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
       if (!value.value && !value.format && !formula) continue;
       const address = cellAddress(position.row, position.column);
       reserveText(value.value.length);
+      if (item.attributes.likexClearFormat === "1") value.format = { numberFormat: "general" };
       cells[address] = value;
       rowCount = Math.max(rowCount, position.row + 1); columnCount = Math.max(columnCount, position.column + 1);
       if (child(child(item, "is"), "r")) warn("adjusted", "セル内の文字ごとの書式を単一の書式へ変更しました");
@@ -158,7 +165,10 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
     }
     if (supported && supportedFormula(value)) {
       reserveText(value.length - cached.value.length);
-      const format = { ...cached.format }; if (format.numberFormat === "text") delete format.numberFormat;
+      const format = { ...cached.format };
+      // Formula syntax wins over an Excel text style. Keep a complete override
+      // so a text-formatted row/column range cannot be inherited again.
+      if (format.numberFormat === "text") format.numberFormat = "general";
       cells[address] = { value, ...(Object.keys(format).length ? { format } : {}) };
     } else {
       warn("unsupported", "未対応の数式を保存済みの計算結果へ置き換えました（結果のないセルは空欄）");
@@ -171,7 +181,6 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
     const min = Number(col.attributes.min), max = Number(col.attributes.max);
     if (!Number.isInteger(min) || !Number.isInteger(max) || min < 1 || max < min || max > 16_384) { warn("omitted", "範囲が不正な列の表示設定を省略しました"); continue; }
     if (["1", "true"].includes(col.attributes.hidden)) warn("adjusted", "非表示の行・列を表示状態で読み込みました");
-    if (col.attributes.style !== undefined) warn("omitted", "行全体・列全体の書式設定を省略しました");
     if (col.attributes.width !== undefined) {
       const storedWidth = Number(col.attributes.width);
       const width = xlsxColumnWidthToPixels(storedWidth, context.columnWidthMetrics);

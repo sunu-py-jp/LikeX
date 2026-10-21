@@ -183,7 +183,7 @@ export function WorkbookView({ savedJson, revision }: { savedJson: string; revis
 
 認証、権限、JSONを保存するDBやファイル、競合の検知は親アプリが担当します。`initialWorkbook` はマウント時だけ読み込むため、別の保存データを開く場合は `key` を変更します。変更前に未保存データの扱いを親で確認してください。
 
-このページの `SpreadsheetWorkbook` は編集用モデルです。`serializeWorkbook` はこれを、行オブジェクトの配列を持つ保存用 `SpreadsheetFile`（`format: "likex.spreadsheet"`、`schemaVersion: 1`）へ変換して、一定の順序・書式で出力します。`parseWorkbook` で編集用モデルへ戻せます。保存構造と固定ルールは [`.spon` 形式](./native-files.md)を参照してください。
+このページの `SpreadsheetWorkbook` は編集用モデルです。`serializeWorkbook` はこれを、行オブジェクトの配列を持つ保存用 `SpreadsheetFile`（`format: "likex.spreadsheet"`、`schemaVersion: 2`）へ変換して、一定の順序・書式で出力します。`parseWorkbook` で編集用モデルへ戻せます。保存構造と固定ルールは [`.spon` 形式](./native-files.md)を参照してください。
 
 ## APIと機能のOFF指定
 

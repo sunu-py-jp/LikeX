@@ -41,6 +41,22 @@ console.log(formula, calculated); // "=SUM(B2:B2)", 1200
 
 スキルCLIとPlayground AIの範囲取得は、この二次元配列を `selection.rows` に入れて返します。単一セルも `[[{ value: "..." }]]`、未格納なら `[[null]]` です。範囲取得の旧キー `selection.cells` は `rows` へ変更し、両方は出力しません。保存セル一覧の一次元 `selection.cells` と検索の `selection.matches` はそのままです。公開 `getRange` 自体は配列を直接返す契約を維持し、SPONの保存形式も変わりません。
 
+## 共通範囲とセルに適用される書式を取得する
+
+保存セルの取得と、共通範囲を含む通常書式の取得は分けています。`getCell` / `getRange` / `getSheetCells` は従来どおりセルに直接保存した情報を返し、範囲書式だけの空セルを生成しません。セルの通常書式を知りたい場合は `getResolvedCellFormat`、圧縮した定義を読みたい場合は `getSheetFormatRanges` を使います。
+
+```ts
+import { getResolvedCellFormat, getSheetFormatRanges } from "@likex/spreadsheet/model";
+
+const format = getResolvedCellFormat(workbook, sheetId, "I1");
+const ranges = getSheetFormatRanges(workbook, sheetId);
+// [{ range: { top: 0, left: 8, bottom: 99, right: 25 }, format: { ... } }]
+```
+
+通常書式は、セルの `format` があればその完全な書式、なければ該当する `formatRanges` の書式です。`format: {}` は正規化で省略され、範囲書式を継承します。`format: { numberFormat: "general" }` は完全な標準書式の上書きとなり、範囲の背景色や罫線は継承しません。条件付き書式や表示用テーマを合成した結果ではありません。範囲の `"end"` は定義のまま返し、取得のために全セルへ展開しません。
+
+表示中のHandleとセッションでは `getCellFormat(sheetId, "I1")` / `getFormatRanges(sheetId)`、`session.sheet(sheetId)` と `getSheetReader(workbook, sheetId)` では `getCellFormat("I1")` / `getFormatRanges()` を使えます。読み取りによって選択、履歴、未保存状態は変わりません。スキルCLIは `inspect --sheet-id ID --format-ranges --offset 0 --limit 100` で定義をページ取得します。
+
 ## 1シートの保存セルを取得する
 
 `getSheetCells(workbook, sheetId)` は、指定した1シートに格納されたセルだけを `readonly SpreadsheetStoredCell[]` として返します。番地順は物理的な行・列の順で、未格納セルの空欄を埋めません。値が空でも、書式や入力規則を持つ保存セルは含まれます。数式は計算せず `value` に元の入力文字列を残し、結合セルも保存位置をそのまま返します。
@@ -61,7 +77,7 @@ const cells: readonly SpreadsheetStoredCell[] = getSheetCells(workbook, sheetId)
 ]
 ```
 
-`SpreadsheetStoredCell` は深いreadonlyの `{ address: string, value: string, format?, validation? }` です。戻り値はコピーして凍結され、保存セルがなければ `[]`、不正なシートIDやセルでは例外になります。対象は保存セルの件数なので、`getRange` の10,000セルの矩形上限は適用しません。シート自体の定義・行高・列幅・結合・コメント・図形・画像データは含みません。必要に応じて `getSheet` / `getCellComment` / `getDrawings` / `getImageResource` を使います。行・列の共通書式や条件付き書式を合成した表示結果ではなく、セルが直接保持する書式です。
+`SpreadsheetStoredCell` は深いreadonlyの `{ address: string, value: string, format?, validation? }` です。戻り値はコピーして凍結され、保存セルがなければ `[]`、不正なシートIDやセルでは例外になります。対象は保存セルの件数なので、`getRange` の10,000セルの矩形上限は適用しません。シート自体の定義・行高・列幅・結合・コメント・図形・画像データは含みません。必要に応じて `getSheet` / `getCellComment` / `getDrawings` / `getImageResource` を使います。`formatRanges` の共通書式や条件付き書式を合成した表示結果ではなく、セルが直接保持する書式です。共通範囲内の全空セルをこの一覧に追加することはありません。
 
 表示中の `ref.current.getSheetCells(sheetId)`、`session.getSheetCells(sheetId)`、シートを固定した `session.sheet(sheetId).getCells()` / `getSheetReader(workbook, sheetId).getCells()` でも同じ取得ができます。読み取りだけなので、選択・履歴・保存状態は変えません。
 

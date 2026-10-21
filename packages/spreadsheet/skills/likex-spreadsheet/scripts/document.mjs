@@ -27,7 +27,7 @@ const adapters = {
   form: ['Form', 'executeFormCommands', null, 8],
 };
 const selectorsByKind = {
-  spreadsheet: ['overview', 'compact-summary', 'images', 'sheet-id', 'range', 'drawing-id', 'search', 'text', 'match-case', 'regex', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'images', 'slide-id', 'element-id', 'master-id', 'layout-id'], document: ['images', 'block-id', 'offset', 'limit'],
+  spreadsheet: ['overview', 'compact-summary', 'images', 'sheet-id', 'range', 'format-ranges', 'drawing-id', 'search', 'text', 'match-case', 'regex', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'images', 'slide-id', 'element-id', 'master-id', 'layout-id'], document: ['images', 'block-id', 'offset', 'limit'],
   board: ['column-id', 'card-id', 'offset', 'limit'], dataview: ['row-id', 'field-id', 'offset', 'limit'],
   diagram: ['node-id', 'edge-id', 'offset', 'limit'], whiteboard: ['element-id', 'offset', 'limit'],
   calendar: ['event-id', 'start', 'end', 'offset', 'limit'], chat: ['conversation-id', 'message-id', 'offset', 'limit'],
@@ -44,7 +44,7 @@ const identity = value => value && [value.dev, value.ino, value.size, value.mtim
 const sameFile = (a, b) => a && b && a.dev === b.dev && a.ino === b.ino;
 
 function usage(kind, version) {
-  const selectors = selectorsByKind[kind].map(key => ['overview', 'compact-summary', 'images', 'match-case', 'regex', 'exact'].includes(key) ? `--${key}` : `--${key} ${['offset', 'limit', 'preview-length'].includes(key) ? 'N' : ['start', 'end'].includes(key) ? 'YYYY-MM-DD' : key === 'range' ? 'A1:C5' : key === 'search' ? 'sheets|cells' : key === 'text' ? 'KEYWORD' : key === 'look-in' ? 'values|formulas' : 'ID'}`).join(' | ');
+  const selectors = selectorsByKind[kind].map(key => ['overview', 'compact-summary', 'images', 'format-ranges', 'match-case', 'regex', 'exact'].includes(key) ? `--${key}` : `--${key} ${['offset', 'limit', 'preview-length'].includes(key) ? 'N' : ['start', 'end'].includes(key) ? 'YYYY-MM-DD' : key === 'range' ? 'A1:C5' : key === 'search' ? 'sheets|cells' : key === 'text' ? 'KEYWORD' : key === 'look-in' ? 'values|formulas' : 'ID'}`).join(' | ');
   return {
     ok: true, kind, libraryVersion: version,
     usage: [
@@ -63,7 +63,8 @@ function usage(kind, version) {
         'Cell searches accept --look-in values|formulas (default values), optional --sheet-id, and --range with --sheet-id. Sheet-name searches cannot use these selectors.',
         'Cell search previews use --preview-length N (default 200, 1–10000). Truncated fields explicitly include original lengths and truncation flags; matching uses the full values.',
         '--sheet-id ID --include-data lists stored cells in selection.cells as a flat address-bearing array, in row/column order. It cannot be combined with a range, drawing selector, or search.',
-        'Search and sheet-content lists accept --offset and --limit (default 100, maximum 1000). Ordinary inspect summaries and range reads do not use pagination.'] : []),
+        'Search, sheet-content, and format-range lists accept --offset and --limit (default 100, maximum 1000). Ordinary inspect summaries and range reads do not use pagination.',
+        '--sheet-id ID --format-ranges lists shared formatting rectangles without expanding them into cells. Cell/range reads and stored-cell lists retain their stored-cell semantics.'] : []),
       ...(['chat', 'aichat'].includes(kind) ? ['--message-id requires --conversation-id. Select a conversation to list its messages.'] : []),
       ...(kind === 'calendar' ? ['--start and --end must be supplied together; end is exclusive and dates use calendar.timeZone.'] : []),
       ...(['spreadsheet', 'slide', 'document'].includes(kind) ? ['--images returns unique embedded-image metadata in selection.images and all uses in selection.placements, with SHA-256 IDs based on exact image bytes. Image bytes are omitted. Do not combine with item selectors or --include-data. --compact-summary is allowed for spreadsheet/slide; --include-animations is allowed for slide and selects original placements without animation definitions.'] : []),
@@ -82,7 +83,7 @@ function argumentsFor(argv, kind) {
   if (argv.length === 0 || (argv.length === 1 && argv[0] === '--help')) return { operation: 'help' };
   if (argv.length === 1 && argv[0] === '--version') return { operation: 'version' };
   if (!['create', 'inspect', 'apply', 'validate'].includes(args.operation)) fail('USAGE', 'Expected create, inspect, apply, or validate. Use --help.');
-  const flags = new Set(['dry-run', 'include-data', 'include-animations', 'overview', 'compact-summary', 'images', 'match-case', 'regex', 'exact', 'help']);
+  const flags = new Set(['dry-run', 'include-data', 'include-animations', 'overview', 'compact-summary', 'images', 'format-ranges', 'match-case', 'regex', 'exact', 'help']);
   const values = new Set(['input', 'output', 'commands', 'project', 'expected', 'expected-scope', ...Object.values(selectorsByKind).flat()]);
   for (let index = 1; index < argv.length; index++) {
     const raw = argv[index];
@@ -118,6 +119,8 @@ function argumentsFor(argv, kind) {
   const sheetData = kind === 'spreadsheet' && Boolean(args['sheet-id'] && args['include-data'] && !args['drawing-id']);
   const slideData = kind === 'slide' && Boolean((args['slide-id'] || args['master-id'] || args['layout-id']) && args['include-data']);
   if (kind === 'spreadsheet') {
+    if (args['format-ranges'] && (!args['sheet-id'] || args.range || args['drawing-id'] || args.search || args['include-data']))
+      fail('USAGE', '--format-ranges requires --sheet-id and cannot be combined with a cell range, drawing, search, or --include-data.');
     if (args.search) {
       if (!['sheets', 'cells'].includes(args.search)) fail('USAGE', '--search must be sheets or cells.');
       if (typeof args.text !== 'string' || !args.text.length || args.text.length > 100_000) fail('USAGE', '--search requires --text with 1 to 100000 characters.');
@@ -130,7 +133,7 @@ function argumentsFor(argv, kind) {
       }
     } else {
       if (['text', 'match-case', 'regex', 'exact', 'look-in', 'preview-length'].some(key => args[key] !== undefined)) fail('USAGE', 'Spreadsheet search options require --search.');
-      if (!sheetData && (args.offset !== undefined || args.limit !== undefined)) fail('USAGE', 'Spreadsheet pagination requires --search or --sheet-id with --include-data.');
+      if (!sheetData && !args['format-ranges'] && (args.offset !== undefined || args.limit !== undefined)) fail('USAGE', 'Spreadsheet pagination requires --search or --sheet-id with --include-data or --format-ranges.');
     }
     if (sheetData && args.range) fail('USAGE', 'Choose --sheet-id with --include-data or a cell range.');
   }
@@ -233,7 +236,7 @@ async function loadModel(kind, version, project, scriptUrl) {
 
 function sheetSummary(sheet) {
   return { id: sheet.id, name: sheet.name, rowCount: sheet.rowCount, columnCount: sheet.columnCount,
-    cellCount: Object.keys(sheet.cells).length, drawingCount: sheet.drawings?.length ?? 0,
+    cellCount: Object.keys(sheet.cells).length, ...(sheet.formatRanges?.length ? { formatRangeCount: sheet.formatRanges.length } : {}), drawingCount: sheet.drawings?.length ?? 0,
     commentCount: Object.keys(sheet.comments ?? {}).length, mergeCount: sheet.merges?.length ?? 0, tableCount: sheet.tables?.length ?? 0 };
 }
 
@@ -404,6 +407,10 @@ function selectionFor(kind, model, document, args) {
   if (kind === 'spreadsheet' && args['sheet-id']) {
     const sheet = document.sheets.find(item => item.id === args['sheet-id']);
     if (!sheet) fail('NOT_FOUND', 'The selected sheet was not found.');
+    if (args['format-ranges']) {
+      const { items, ...pagination } = page(model.getSheetFormatRanges(document, sheet.id));
+      return { sheetId: sheet.id, formatRanges: items, ...pagination };
+    }
     if (args.range) return { sheetId: sheet.id, range: args.range, rows: model.getRange(document, sheet.id, args.range) };
     if (args['drawing-id']) return { sheetId: sheet.id, drawing: selectedObject(model.getDrawing(document, sheet.id, args['drawing-id']), args['include-data']) };
     if (args['include-data']) {

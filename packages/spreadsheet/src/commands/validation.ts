@@ -21,7 +21,7 @@ export function commandKeys(value: Record<string, unknown>, allowed: readonly st
 }
 
 const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
-  "cells.set": ["values", "onConflict"], "cells.format": ["addresses", "format"], "cells.borders": ["ranges", "preset", "border"],
+  "cells.formatRange": ["range", "format"], "cells.set": ["values", "onConflict"], "cells.format": ["addresses", "format"], "cells.borders": ["ranges", "preset", "border"],
   "cells.replace": ["query", "replacement", "addresses", "onConflict"],
   "cells.fill": ["source", "target", "mode", "onConflict"],
   "cells.paste": ["target", "payload", "mode", "onConflict", "partialMerges"],

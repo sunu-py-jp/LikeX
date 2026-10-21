@@ -130,6 +130,7 @@ AIが別のセルを読んで集計結果などの固定値を書き込む場合
 | `namedRanges.add` / `update` / `clear` / `delete` | 定義の追加・変更・対象セルのクリア・定義削除。[名前付き範囲](./named-ranges.md) |
 | `tables.insert` / `cells.writeGrid` / `tables.delete` | 構造化テーブルとセル範囲へのデータ配置。[表の書き込み](./tables.md) |
 | `cells.format` | `addresses: ["A1:B1", "D1"]`, `format: { bold: true, ... }` |
+| `cells.formatRange` | `range: { top, left, bottom, right }`。末尾は `"end"` も可。`format` の指定属性を空セルへ全件展開せず適用。[範囲書式](./formatting.md#範囲に共通する書式) |
 | `cells.borders` | `ranges`, `preset: "all" / "outside" / "inside" / "top" / "bottom" / "left" / "right" / "none"`, `border?`。[範囲の罫線](./formatting.md)を設定／解除 |
 | `rows.insert` / `columns.insert` | `index`, `count?`, `values?`。行ごと／列ごとの値を同時に設定。[行列の挿入](#行列を値と一緒に挿入する) |
 | `rows.delete` / `columns.delete` | `index`, `count?`（既定1） |

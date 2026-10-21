@@ -13,7 +13,10 @@
     "createSpreadsheetTextMeasurer",
     "rows.resize",
     "conditionalFormats.set",
-    "SpreadsheetConditionalFormatRule"
+    "SpreadsheetConditionalFormatRule",
+    "formatRanges",
+    "formatCellRange",
+    "cells.formatRange"
   ],
   "screenshots": [
     {

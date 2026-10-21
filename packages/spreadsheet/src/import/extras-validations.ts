@@ -1,3 +1,4 @@
+import { getCellFormat } from "../model/format-ranges";
 import { cellAddress } from "../model/address";
 import { isFormulaCell } from "../model/cell-value";
 import { dataValidationError, normalizeDataValidation, type SpreadsheetDataValidation } from "../model/data-validation";
@@ -88,7 +89,7 @@ export function readWorksheetValidations(node: XmlNode, initial: SpreadsheetShee
           const previous = cells[address];
           // Formula results need the completed workbook; literals and empty cells can
           // be checked now, before rejected rules consume capacity needed by later sheets.
-          if (!isFormulaCell(previous) && dataValidationError(rule, previous?.value ?? "", undefined, previous?.format)) {
+          if (!isFormulaCell(previous) && dataValidationError(rule, previous?.value ?? "", undefined, getCellFormat(sheet, row, column))) {
             invalid++;
             if (previous?.validation) {
               if (previous.value === "" && !previous.format) { updates.set(address, undefined); removed++; }

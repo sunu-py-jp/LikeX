@@ -4,6 +4,20 @@
   "source": "packages/spreadsheet/src/docs/native-files.md",
   "order": 164,
   "section": "親アプリとの連携",
-  "keywords": ["spon", "json", "format", "parseWorkbook", "serializeWorkbook", "importNative", "exportNative", "SpreadsheetImportNativeOptions", "SpreadsheetNativeImportResult", "SpreadsheetNativeExportOptions"],
+  "keywords": [
+    "spon",
+    "json",
+    "format",
+    "parseWorkbook",
+    "serializeWorkbook",
+    "importNative",
+    "exportNative",
+    "SpreadsheetImportNativeOptions",
+    "SpreadsheetNativeImportResult",
+    "SpreadsheetNativeExportOptions",
+    "formatRanges",
+    "SPON v2",
+    "繰り返し書式"
+  ],
   "screenshots": []
 }

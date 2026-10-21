@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { fixture, zip, rel } from './helpers/xlsx-import-fixtures.mjs';
 
-const bundle = await build({ stdin: { contents: 'export * from "./src/import/import-xlsx"; export * from "./src/export/export-xlsx";',
+const bundle = await build({ stdin: { contents: 'export * from "./src/import/import-xlsx"; export * from "./src/export/export-xlsx"; export * from "./src/model/format-ranges";',
   resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
-const { importSpreadsheetXlsx, exportSpreadsheetXlsx } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
+const { importSpreadsheetXlsx, exportSpreadsheetXlsx, getCellFormat } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const styling = {
   links: [{ id: 'styles', type: 'styles', target: 'styles.xml' }],
   parts: { 'xl/styles.xml': '<styleSheet><fills><fill><patternFill patternType="solid"><fgColor rgb="FF00FF00"/></patternFill></fill></fills><cellXfs><xf/><xf fillId="0" applyFill="1"/></cellXfs></styleSheet>' },
@@ -16,7 +16,7 @@ test('preserve is the default; explicit omit removes only blank formats and keep
   const xml = '<cols><col min="1" max="1" width="12"/></cols><sheetData><row r="1" ht="30"><c s="1"/><c t="inlineStr"><is><t> </t></is></c><c s="1"><v>0</v></c><c s="1"><f>1</f></c></row><row r="2"><c s="1"/></row><row r="3"><c><v>3</v></c></row></sheetData><mergeCells><mergeCell ref="A2:B2"/></mergeCells>';
   const kept = await read(xml), omitted = await read(xml, { emptyCellFormatting: 'omit' });
   const original = kept.workbook.sheets[0], sheet = omitted.workbook.sheets[0];
-  assert.ok(original.cells.A1.format); assert.ok(original.cells.A2.format);
+  assert.ok(getCellFormat(original, 0, 0)); assert.ok(getCellFormat(original, 1, 0));
   assert.equal(sheet.cells.A1, undefined); assert.equal(sheet.cells.A2, undefined);
   assert.equal(sheet.cells.B1.value, ' '); assert.equal(sheet.cells.C1.value, '0'); assert.equal(sheet.cells.D1.value, '=1');
   assert.equal(sheet.cells.A3.value, '3'); assert.deepEqual(sheet.cells.C1.format, original.cells.C1.format);
@@ -65,12 +65,14 @@ test('discarded rows and cells preserve implicit coordinates and still validate 
   await assert.rejects(read('<sheetData/>', { emptyCellFormatting: 'unknown' }), /emptyCellFormatting/);
 });
 
-test('default mode prunes blank formatting before retaining a full source worksheet and prioritizes later data', async () => {
+test('default mode compresses blank formatting without losing cells beyond the old stored-cell budget', async () => {
   const rows = Array.from({ length: 102 }, (_, row) => `<row r="${row + 1}">${'<c s="1"/>'.repeat(1000)}</row>`).join('');
   const result = await read(`<sheetData>${rows}<row r="103"><c><v>7</v></c></row></sheetData>`);
   const cells = result.workbook.sheets[0].cells;
-  assert.equal(cells.A103.value, '7'); assert.equal(Object.keys(cells).length, 100_000);
-  assert.equal(result.warnings.find(warning => warning.message.includes('上限を超えた空セルの書式')).count, 2001);
+  assert.equal(cells.A103.value, '7'); assert.equal(Object.keys(cells).length, 1);
+  assert.equal(result.workbook.sheets[0].formatRanges.length, 1);
+  assert.deepEqual(result.workbook.sheets[0].formatRanges[0].range, { top: 0, left: 0, bottom: 101, right: 999 });
+  assert.equal(result.warnings.some(warning => warning.message.includes('上限を超えた空セルの書式')), false);
 });
 
 test('100MiB expanded package with over16MiB worksheet and over600k nodes imports without retaining blank cells', async () => {
@@ -93,7 +95,7 @@ test('100MiB expanded package with over16MiB worksheet and over600k nodes import
 test('expanded limits and unread-member CRC are still enforced; cancellation never publishes a partial result', async () => {
   const declared = zip(fixture());
   const central = declared.readUInt32LE(declared.length - 6);
-  declared.writeUInt32LE(100 * 1024 * 1024 + 1, 22); declared.writeUInt32LE(100 * 1024 * 1024 + 1, central + 24);
+  declared.writeUInt32LE(640 * 1024 * 1024 + 1, 22); declared.writeUInt32LE(640 * 1024 * 1024 + 1, central + 24);
   await assert.rejects(importSpreadsheetXlsx(declared), /展開サイズ/);
   const broken = zip(fixture({ parts: { 'unused.bin': 'data' } }), { method: 0 });
   const name = broken.indexOf(Buffer.from('unused.bin'));

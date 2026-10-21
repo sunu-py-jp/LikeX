@@ -44,7 +44,7 @@ test('SPON bytes and hashes ignore all object-key insertion order, including cel
   assert.equal(hash(reordered), hash(saved));
   assert.deepEqual(reversed, before, 'serialization must not reorder caller-owned data');
   const wire = JSON.parse(saved);
-  assert.equal(wire.schemaVersion, SPREADSHEET_FILE_VERSION); assert.equal(SPREADSHEET_FILE_VERSION, 1);
+  assert.equal(wire.schemaVersion, SPREADSHEET_FILE_VERSION); assert.equal(SPREADSHEET_FILE_VERSION, 2);
   assert.deepEqual(Object.keys(wire.sheets[0].rows[1].cells), ['A', 'B']);
   assert.match(saved, /"columnWidths": \{\n +"2": 80,\n +"10": 120\n +\}/);
   assert.deepEqual(Object.keys(wire.resources.images), ['a-image', 'z-image']);
@@ -80,7 +80,7 @@ test('native save-load-save remains byte-identical without changing text, images
   assert.equal(hash(serializeWorkbook(parsed)), hash(saved));
   assert.equal(saved.endsWith('\n'), false); assert.equal(saved.charCodeAt(0), 123);
   assert.equal(saved.includes('\r'), false, 'file indentation uses LF; content CRLF stays escaped');
-  assert.match(saved, /^\{\n  "format": "likex.spreadsheet",\n  "schemaVersion": 1,/);
+  assert.match(saved, /^\{\n  "format": "likex.spreadsheet",\n  "schemaVersion": 2,/);
   assert.deepEqual(parsed, workbook());
   assert.equal(parsed.sheets[0].cells.A1.value, content);
   assert.equal(parsed.resources.images['z-image'].dataUrl, dataUrl);
@@ -118,7 +118,7 @@ test('file rows follow display order, keep blank rows and heights, and omit trai
   assert.equal(serializeWorkbook(session.getWorkbook()), serializeWorkbook(input));
 });
 
-test('SPON v1 parser rejects flat sheet fields, invalid row and column containers, bounds and metadata', () => {
+test('SPON v2 parser rejects flat sheet fields, invalid row and column containers, bounds and metadata', () => {
   const valid = JSON.parse(serializeWorkbook(workbook()));
   const rejects = mutate => { const input = structuredClone(valid); mutate(input); assert.throws(() => parseWorkbook(JSON.stringify(input))); };
   rejects(input => { input.sheets[0].cells = {}; });
@@ -137,7 +137,7 @@ test('SPON v1 parser rejects flat sheet fields, invalid row and column container
   for (const format of ['likex.slide', null, 1]) rejects(input => { input.format = format; });
   rejects(input => { delete input.format; });
   rejects(input => { delete input.schemaVersion; });
-  for (const version of [0, 2, 999, '1', null]) rejects(input => { input.schemaVersion = version; });
+  for (const version of [0, 3, 999, '1', null]) rejects(input => { input.schemaVersion = version; });
   assert.equal(Object.prototype.bad, undefined);
 });
 

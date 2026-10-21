@@ -1,3 +1,6 @@
+import { normalizeFormatRanges } from "./format-ranges";
+import { withFormatRangeContext } from "./formatting/range-context";
+import { getCellFormat } from "./format-ranges";
 import { cellAddress, parseCellAddress } from "./address";
 import { copyQuerySnapshot, type QuerySnapshot } from "./query-snapshot";
 import { requireRange, requireSheet, requireWorkbook, validateId } from "./query-validation";
@@ -44,6 +47,20 @@ export function getCell(workbook: QueryWorkbook, sheetId: string, address: strin
   const sheet = requireSheet(workbook, sheetId), key = requireAddress(sheet, address);
   record(sheet.cells, "セル一覧");
   return copyQuerySnapshot(storedCell(sheet, key));
+}
+
+/** Read ordinary cell formatting after resolving sparse ranges; conditional formatting is evaluated separately. */
+export function getResolvedCellFormat(workbook: QueryWorkbook, sheetId: string, address: string) {
+  const sheet = requireSheet(workbook, sheetId), key = requireAddress(sheet, address), position = parseCellAddress(key)!;
+  record(sheet.cells, "セル一覧");
+  storedCell(sheet, key);
+  return copyQuerySnapshot(getCellFormat(withFormatRangeContext(sheet), position.row, position.column));
+}
+
+/** Read sparse format definitions without expanding them into individual cells. */
+export function getSheetFormatRanges(workbook: QueryWorkbook, sheetId: string) {
+  const sheet = requireSheet(workbook, sheetId);
+  return copyQuerySnapshot(normalizeFormatRanges(sheet.formatRanges, sheet) ?? []);
 }
 
 /** Enumerate only stored cells in physical row/column order, including empty values with stored metadata. */

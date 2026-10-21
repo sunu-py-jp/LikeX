@@ -72,6 +72,38 @@ test('Excel import formatting policy uses explicit options, host defaults, then 
   assert.equal(ui.ref.current.getWorkbook().sheets[0].cells.A1.value, 'before');
 });
 
+test('Excel byte limits use host defaults or explicit request limits and capture nested values before asynchronous work', async t => {
+  const limits = { inputBytes: 4096, expandedBytes: 16000 };
+  const ui = await mount(t, { excelImportOptions: { limits } });
+  const received = [];
+  globalThis[decoderKey] = async (_input, options) => { received.push(options.limits); return decoded(); };
+  await act(async () => {
+    const pending = ui.ref.current.importExcel(input(), { onReview: () => false });
+    limits.inputBytes = 8192;
+    await assert.rejects(pending, { name: 'AbortError' });
+  });
+  const requestLimits = { inputBytes: 5000 };
+  await act(async () => {
+    const pending = ui.ref.current.importExcel(input(), { limits: requestLimits, onReview: () => false });
+    requestLimits.inputBytes = 9000;
+    await assert.rejects(pending, { name: 'AbortError' });
+  });
+  assert.deepEqual(received, [{ inputBytes: 4096, expandedBytes: 16000 }, { inputBytes: 5000 }]);
+});
+
+test('File ribbon captures byte limits at selection before an unsaved-changes confirmation', async t => {
+  const limits = { inputBytes: 4096, expandedBytes: 16000 };
+  const ui = await mount(t, { excelImportOptions: { limits } });
+  await act(async () => ui.ref.current.execute(set('local')));
+  const received = [];
+  globalThis[decoderKey] = async (_input, options) => { received.push(options.limits); return decoded(); };
+  await act(async () => ui.root.findByProps({ 'aria-label': '取り込むExcelファイル' }).props.onChange({ currentTarget: { files: [input()], value: 'example.xlsx' } }));
+  limits.inputBytes = 8192;
+  await ui.update({ excelImportOptions: { limits: { inputBytes: 10000 } } });
+  await act(async () => { ui.root.findByProps({ className: 'lxs-dialog-confirm' }).props.onClick(); await tick(); });
+  assert.deepEqual(received, [{ inputBytes: 4096, expandedBytes: 16000 }]);
+});
+
 test('File ribbon exposes the empty-cell policy, follows host defaults and keeps it separate from Handle imports', async t => {
   const ui = await mount(t, { excelImportOptions: { emptyCellFormatting: 'omit' } });
   const option = () => ui.root.findByProps({ 'aria-label': '空セルの書式を省略' });

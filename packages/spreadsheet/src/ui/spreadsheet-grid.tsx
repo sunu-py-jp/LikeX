@@ -1,5 +1,7 @@
 "use client";
 
+import { getCellFormat } from "../model/format-ranges";
+
 import { useInsertionEffect, useMemo, useRef } from "react";
 import { SpreadsheetGridRow, createBorderRowLookup } from "./grid/spreadsheet-grid-row";
 import { GridRowLabels } from "./grid/grid-row-labels";
@@ -43,7 +45,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   const activeHeight = rowOffsets[(activeMerge?.bottom ?? c.selection.focus.row) + 1] - rowOffsets[activeMerge?.top ?? c.selection.focus.row];
   const activeAddress = cellAddress(c.selection.focus.row, c.selection.focus.column);
   const activeValue = c.calculated[c.activeSheet.id]?.[activeAddress];
-  const activeFormat = conditional(c.selection.focus.row, c.selection.focus.column, activeValue, effectiveCellFormat(c.activeSheet.cells[activeAddress])).format;
+  const activeFormat = conditional(c.selection.focus.row, c.selection.focus.column, activeValue, effectiveCellFormat(c.activeSheet.cells[activeAddress], getCellFormat(c.activeSheet, c.selection.focus.row, c.selection.focus.column))).format;
   useGridEditorSize(activeInput, JSON.stringify({ focus: c.selection.focus, sheet: c.activeSheet.id, value: activeValue, editing: c.editing?.value, format: activeFormat, width: columnOffsets[(activeMerge?.right ?? c.selection.focus.column) + 1] - columnOffsets[activeMerge?.left ?? c.selection.focus.column] }), activeHeight, !!c.editing);
   const selectionHandlers = useGridSelection(c, focus, { columnOffsets, rowOffsets });
   const { startSelection, extendSelection, selectHeaderWithKeyboard } = selectionHandlers;

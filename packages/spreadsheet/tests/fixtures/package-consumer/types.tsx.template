@@ -52,9 +52,9 @@ const nativeRow: SpreadsheetFileRow = { height: 32, cells: { A: { value: '商品
 const nativeFile: SpreadsheetFile = { format: SPREADSHEET_FORMAT, schemaVersion: SPREADSHEET_FILE_VERSION,
   sheets: [{ id: 'sheet-1', name: 'Sheet1', rowCount: 300, columnCount: 26, rows: [nativeRow] }] };
 const nativeProps: SpreadsheetProps = { initialWorkbook: parseWorkbook(JSON.stringify(nativeFile)) };
-const nativeVersion: 1 = SPREADSHEET_FILE_VERSION;
-// @ts-expect-error SPON file versions other than 1 are unsupported.
-const invalidNativeVersion: SpreadsheetFile = { ...nativeFile, schemaVersion: 2 };
+const nativeVersion: 2 = SPREADSHEET_FILE_VERSION;
+// @ts-expect-error Only the current SPON v2 file layout is written.
+const invalidNativeVersion: SpreadsheetFile = { ...nativeFile, schemaVersion: 3 };
 // @ts-expect-error Native files need decoding before they become initialWorkbook.
 const unsupportedNativeProps: SpreadsheetProps = { initialWorkbook: nativeFile };
 void [nativeProps, unsupportedNativeProps, nativeVersion, invalidNativeVersion];

@@ -2,8 +2,9 @@ import { EXCEL_DAY_MILLISECONDS as DAY, EXCEL_DATE_SERIAL_END, excelSerialFromUt
 import type { SpreadsheetCell, SpreadsheetCellFormat, SpreadsheetCalculatedValue } from "../types";
 
 /** Date validation supplies its natural display format unless the host selected another format. */
-export function effectiveCellFormat(cell?: SpreadsheetCell): SpreadsheetCellFormat | undefined {
-  return cell?.validation?.type === "date" && (!cell.format?.numberFormat || cell.format.numberFormat === "general") ? { ...cell.format, numberFormat: "date" } : cell?.format;
+export function effectiveCellFormat(cell?: SpreadsheetCell, inherited?: SpreadsheetCellFormat): SpreadsheetCellFormat | undefined {
+  const format = cell?.format ?? inherited;
+  return cell?.validation?.type === "date" && (!format?.numberFormat || format.numberFormat === "general") ? { ...format, numberFormat: "date" } : format;
 }
 type DateKind = "date" | "time" | "datetime";
 /** ISO civil dates/times only. No locale parsing or timezone-dependent interpretation. */

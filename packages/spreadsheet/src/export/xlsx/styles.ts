@@ -1,3 +1,5 @@
+import { getFormattedCell } from "../../model/format-ranges";
+import { parseCellAddress } from "../../model/address";
 import { effectiveCellFormat, cellNumberFormatCode } from "../../model/formatting";
 import type { SpreadsheetCell, SpreadsheetCellFormat, SpreadsheetWorkbook } from "../../model/types";
 import type { SpreadsheetCellBorder } from "../../model/formatting";
@@ -36,7 +38,11 @@ export function createXlsxStyles(workbook: SpreadsheetWorkbook): XlsxStyles {
   const dxfXml = (format: SpreadsheetCellFormat) => `<dxf>${["bold", "italic", "underline", "color", "fontFamily", "fontSize"].some(key => format[key as keyof SpreadsheetCellFormat] !== undefined) ? fontXml(format, true) : ""}${format.numberFormat ? `<numFmt numFmtId="${numberId(format)}" formatCode="${xml(cellNumberFormatCode(format) ?? "General")}"/>` : ""}${format.background ? fillXml(opaqueXlsxColor(format.background, "FFFFFF")) : ""}${format.align || format.verticalAlign || format.indent !== undefined || format.wrap !== undefined || format.shrinkToFit !== undefined ? alignmentXml(format, true) : ""}${format.borders ? borderXml(format) : ""}</dxf>`;
   add();
   for (const sheet of workbook.sheets) {
-    for (const cell of Object.values(sheet.cells)) add(xlsxCellFormat(cell));
+    for (const [address, cell] of Object.entries(sheet.cells)) {
+      const position = parseCellAddress(address)!;
+      add(xlsxCellFormat(getFormattedCell(sheet, position.row, position.column) ?? cell));
+    }
+    for (const range of sheet.formatRanges ?? []) add(range.format);
     for (const rule of sheet.conditionalFormats ?? []) if (rule.type === "comparison" || rule.type === "text") { const contents = dxfXml(rule.format); if (!dxfIds.has(contents)) { dxfIds.set(contents, dxfs.length); dxfs.push(contents); } }
   }
   if (styles.length > 65_490) throw new Error("Excelのセル書式の上限を超えています");

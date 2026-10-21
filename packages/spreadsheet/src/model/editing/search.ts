@@ -1,3 +1,5 @@
+import { withFormatRangeContext } from "../formatting/range-context";
+import { getCellFormat } from "../format-ranges";
 import { createTextSearchMatcher } from "../core-text-search";
 import { filterCellValueWrites, type SpreadsheetWriteConflictPolicy } from "../workbook/write-conflicts";
 import { expandCellAddresses } from "../cell-addresses";
@@ -68,13 +70,13 @@ export function collectSpreadsheetSearchCells(workbook: QuerySnapshot<Spreadshee
   options: SpreadsheetSearchOptions = {}, sheets: readonly QuerySnapshot<SpreadsheetSheet>[] = searchSheets(workbook, options)): SpreadsheetSearchMatch[] {
   const range = options.range === undefined ? undefined : requireRange(sheets[0], options.range);
   const calculated = lookIn === "formulas" ? undefined : options.calculated ?? calculateWorkbook(workbook);
-  return sheets.flatMap(sheet => {
+  return sheets.map(withFormatRangeContext).flatMap(sheet => {
     const display = lookIn === "formulas" ? undefined : createConditionalFormatter(sheet, calculated?.[sheet.id]);
     return Object.entries(sheet.cells).map(([address, cell]) => ({ address, cell, position: parseCellAddress(address)! }))
       .filter(({ position }) => !range || position.row >= range.top && position.row <= range.bottom && position.column >= range.left && position.column <= range.right)
       .sort((a, b) => a.position.row - b.position.row || a.position.column - b.position.column).flatMap(({ address, cell, position }) => {
       const calculatedValue = calculated?.[sheet.id]?.[address];
-      const format = display?.(position.row, position.column, calculatedValue, effectiveCellFormat(cell)).format;
+      const format = display?.(position.row, position.column, calculatedValue, effectiveCellFormat(cell, getCellFormat(sheet, position.row, position.column))).format;
       const matchedText = lookIn === "formulas" ? cell.value : formatCellValue(calculatedValue, format);
       return [{ sheetId: sheet.id, address, value: cell.value, matchedText }];
     });
@@ -109,7 +111,7 @@ export function validateSpreadsheetSearchMatches(workbook: QuerySnapshot<Spreads
   input: unknown, options: SpreadsheetSearchOptions = {}): readonly SpreadsheetSearchMatch[] {
   if (!Array.isArray(input) || input.length > 100_000) throw new Error("外部検索結果は100,000件以内のセル一覧で返してください");
   const calculated = query.lookIn === "formulas" ? undefined : options.calculated ?? calculateWorkbook(workbook);
-  const sheets = new Map(workbook.sheets.map(sheet => [sheet.id, sheet]));
+  const sheets = new Map(workbook.sheets.map(withFormatRangeContext).map(sheet => [sheet.id, sheet]));
   const displays = new Map(workbook.sheets.map(sheet => [sheet.id, query.lookIn === "formulas" ? undefined : createConditionalFormatter(sheet, calculated?.[sheet.id])]));
   const seen = new Map<string, Set<string>>(), result: SpreadsheetSearchMatch[] = [];
   for (const match of input) {
@@ -119,7 +121,7 @@ export function validateSpreadsheetSearchMatches(workbook: QuerySnapshot<Spreads
     if (!sheet || !position || !cell || options.sheetId !== undefined && options.sheetId !== sheet.id || cell.value !== match.value)
       throw new Error("外部検索結果が現在のブックまたは検索範囲と一致しません。再検索してください");
     const value = calculated?.[sheet.id]?.[match.address];
-    const format = displays.get(sheet.id)?.(position.row, position.column, value, effectiveCellFormat(cell)).format;
+    const format = displays.get(sheet.id)?.(position.row, position.column, value, effectiveCellFormat(cell, getCellFormat(sheet, position.row, position.column))).format;
     const displayed = query.lookIn === "formulas" ? cell.value : formatCellValue(value, format);
     if (match.matchedText !== displayed) throw new Error("外部検索結果の表示値が現在のセルと一致しません。再検索してください");
     const addresses = seen.get(sheet.id) ?? new Set<string>();

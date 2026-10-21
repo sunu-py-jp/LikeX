@@ -26,7 +26,7 @@ const workbook: SpreadsheetWorkbook = {
 
 `cells` はA1形式のアドレスをキーにした疎なオブジェクトです。空セルをすべて列挙する必要はありません。値は数値・数式も含めて文字列で指定します。シートには一意な `id` と名前が必要です。`columnWidths` / `rowHeights` は0始まりの位置をキーとするサイズ情報です。列幅・行高とも、画面上のグリップや外部コマンドで変更できます。内容に合わせた自動調整も使えます。[書式・行列サイズ](./formatting.md)に指定値と操作をまとめています。
 
-画像の実体は `resources.images`、配置と図形・テキストはシートの `drawings`、セルの注記は `comments` に保持します。上の例は操作APIに渡す編集用モデルです。`.spon` 保存用モデルは、行ごとの `rows` を持つ `SpreadsheetFile`（`schemaVersion: 1`）です。`serializeWorkbook` / `parseWorkbook` で相互に変換します。[挿入機能とJSON保存](./insertions-and-json.md)と[保存形式](./native-files.md)に構造・公開型・例をまとめています。
+画像の実体は `resources.images`、配置と図形・テキストはシートの `drawings`、セルの注記は `comments` に保持します。上の例は操作APIに渡す編集用モデルです。`.spon` 保存用モデルは、行ごとの `rows` を持つ `SpreadsheetFile`（`schemaVersion: 2`）です。`serializeWorkbook` / `parseWorkbook` で相互に変換します。[挿入機能とJSON保存](./insertions-and-json.md)と[保存形式](./native-files.md)に構造・公開型・例をまとめています。
 
 結合セルはシートの `merges` に保持します。[セルの結合・解除](./merged-cells.md) に `SpreadsheetMergedRange`、`mergeCells` / `unmergeCells` の例とデータ保持のルールをまとめています。
 
@@ -66,7 +66,7 @@ try {
 | `initialSheetId` / `initialSheetName` | `string` | マウント時に開くシートのID／名前。完全一致。両指定は同じシートが必要。不正な指定は先頭＋エラー通知。[対象シート](./selection.md#最初に開くシートを指定する) |
 | `initialZoom` | `number` | マウント時の表示倍率。既定100％、25〜200へ補正。有限でない数値は100。[表示倍率](./zoom.md) |
 | `renderingMode` | `SpreadsheetRenderingMode` | `"viewport"`（既定）は表示範囲中心の省メモリ描画。`"progressive"` は現在のシートを順次描画。表示中の変更にも追従。[描画モード](#シートの描画モード) |
-| `excelImportOptions` | `Pick<SpreadsheetExcelImportOptions, "emptyCellFormatting">` | Excel取り込みの既定値。`"preserve"`（標準）は保持予算内の空セル書式を保持、`"omit"` は空セルの通常書式を省略。Handleの明示指定が優先し、GUIは独立したチェックで変更可能。[空セルの書式](./excel-import.md#空セルの書式を省略する) |
+| `excelImportOptions` | `Pick<SpreadsheetExcelImportOptions, "emptyCellFormatting" \| "limits">` | Excel取り込みの既定値。`"preserve"`（標準）は同じ空セル書式を範囲として保持、`"omit"` は省略。`limits` は入力128 MiB・展開後その5倍が標準。Handleの明示指定が優先し、書式省略のGUIチェックは独立して変更可能。[空セルの書式](./excel-import.md#空セルの書式を省略する) |
 | `initialRibbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | マウント時のリボン表示。`expanded`（既定）・`tabs`・`autoHide`・`hidden`。[リボンの表示](./ribbon-display.md) |
 | `ribbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | 親が管理するリボン表示。初期値より優先し、表示中の変更にも追従します。 |
 | `onRibbonDisplayModeChange` | `(mode: SpreadsheetRibbonDisplayMode) => void` | UI／Handleからの表示変更要求。制御用prop使用時は親が値を反映します。初期表示とprop更新では通知しません。 |

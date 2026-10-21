@@ -80,6 +80,7 @@
 | `type` | 引数 |
 | --- | --- |
 | `cells.format` | `sheetId`, `addresses: string[]`（セル・範囲の混在可）, `format: SpreadsheetCellFormat` |
+| `cells.formatRange` | `sheetId`, `range: { top, left, bottom: number \| "end", right: number \| "end" }`, `format: Partial<SpreadsheetCellFormat>` |
 | `cells.borders` | `sheetId`, `ranges: SpreadsheetMergedRange[]`, `preset: "all" \| "outside" \| "inside" \| "top" \| "bottom" \| "left" \| "right" \| "none"`, `border?: SpreadsheetCellBorder` |
 | `cells.merge` | `sheetId`, `range: SpreadsheetMergedRange`, `discardContent?` |
 | `cells.unmerge` | `sheetId`, `range: SpreadsheetMergedRange` |
@@ -93,6 +94,12 @@
   { "type": "cells.validation", "sheetId": "sales", "addresses": ["B2"], "validation": { "type": "number", "min": 0, "allowBlank": true } },
   { "type": "conditionalFormats.set", "sheetId": "sales", "rules": [{ "id": "high-sales", "type": "comparison", "ranges": [{ "top": 1, "left": 1, "bottom": 9, "right": 1 }], "operator": "gte", "value": 2000, "format": { "background": "#dcfce7" } }] }
 ]
+```
+
+`cells.formatRange` は矩形の実効書式へ指定属性だけを適用し、共通書式を非重複の `formatRanges` として保存する。値・数式を保持し、範囲内の空セルを全件生成しない。座標は0始まりで両端を含み、`bottom` / `right` の `"end"` は現在のシート末尾と将来の拡張部分へ適用する。数値座標はシート内に収める。現在の末端まである有限の異なる書式範囲へ `"end"` のpatchを重ねると、見た目を保つ分割によりその部分が有限範囲になり、後から追加した末端セルへ追随しない場合がある。編集後の範囲定義で確認する。画面なしの関数は `formatCellRange(workbook, sheetId, range, format)`。個別セルに上書き書式がある場合も指定属性を適用し、他の属性は維持する。
+
+```json
+[{ "type": "cells.formatRange", "sheetId": "sales", "range": { "top": 0, "left": 8, "bottom": 99, "right": 25 }, "format": { "background": "#eeeeee" } }]
 ```
 
 セル書式・規則の全フィールドは [schema-guide.md](schema-guide.md) を参照。`cells.format` は指定書式を適用する。`cells.validation: null` は値・書式を保持して規則を外す。`conditionalFormats.set` はシートの既存ルール全体を置き換えるので、追加の依頼なら既存ルールも配列に残す。
@@ -210,7 +217,8 @@
 
 次は既存の注記をゼロ余白・折り返しなし・はみ出し表示へ変更する。`drawingId` は事前にinspectしたテキストボックスのIDへ置き換える。
 
-```json
+```jsonc
+// drawingIdはinspectで取得した既存IDに置き換えてから実行します。
 [
   {
     "type": "textBoxes.update", "sheetId": "sales", "drawingId": "inspected-textbox-id",

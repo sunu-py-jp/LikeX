@@ -1,5 +1,7 @@
 "use client";
 
+import { getCellFormat } from "../../model/format-ranges";
+
 import { memo, type RefObject } from "react";
 import { cellAddress } from "../../model";
 import { effectiveCellFormat } from "../../model/formatting";
@@ -45,12 +47,12 @@ export const SpreadsheetGridRow = memo(function SpreadsheetGridRow({ row, contro
     const anchorRow = merge?.top ?? row, anchorColumn = merge?.left ?? column;
     if (!visibleRows.has(anchorRow)) return undefined;
     const address = cellAddress(anchorRow, anchorColumn);
-    return conditional(anchorRow, anchorColumn, c.calculated[c.activeSheet.id]?.[address], effectiveCellFormat(c.activeSheet.cells[address])).format;
+    return conditional(anchorRow, anchorColumn, c.calculated[c.activeSheet.id]?.[address], effectiveCellFormat(c.activeSheet.cells[address], getCellFormat(c.activeSheet, anchorRow, anchorColumn))).format;
   };
 
   const appearances = widths.map((_, column) => {
     const address = cellAddress(row, column), cell = c.activeSheet.cells[address], value = c.calculated[c.activeSheet.id]?.[address];
-    const baseFormat = effectiveCellFormat(cell);
+    const baseFormat = effectiveCellFormat(cell, getCellFormat(c.activeSheet, row, column));
     return { cell, value, baseFormat, appearance: conditional(row, column, value, baseFormat) };
   });
   const textLimits = rowTextOverflowLimits(c.activeSheet, row, columnOffsets, renderedMerges,

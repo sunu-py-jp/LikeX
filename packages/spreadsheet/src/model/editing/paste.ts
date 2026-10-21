@@ -1,6 +1,7 @@
+import { clearSheetFormatRanges, getFormattedCell } from "../format-ranges";
 import { filterCellValueWrites, type SpreadsheetWriteConflictPolicy } from "../workbook/write-conflicts";
 import type { SpreadsheetPasteMode, SpreadsheetPastePayload, SpreadsheetPartialMergePolicy } from "../../api/editing-commands";
-import { cellAddress } from "../address";
+import { cellAddress, parseCellAddress } from "../address";
 import { translateFormula } from "../formula";
 import { cellTextValue, isFormulaCell, isFormulaValue } from "../cell-value";
 import { normalizeDataValidation } from "../data-validation";
@@ -122,7 +123,7 @@ function pasteCellMatrix(workbook: SpreadsheetWorkbook, sheetId: string, target:
     if (policy.skippedAddresses?.has(address)) continue;
     const merge = getMergedRange(sheet, position);
     if (merge && (merge.top !== position.row || merge.left !== position.column)) throw new Error("結合されたセルの一部には貼り付けできません");
-    const previous = cells[address];
+    const previous = getFormattedCell(sheet, position.row, position.column);
     let format: SpreadsheetCellFormat | undefined = previous?.format;
     if ((mode === "all" || mode === "formats") && policy.formatting && payload.formats) format = normalizeCellFormat(payload.formats[row]?.[column] ?? {});
     let value = previous?.value ?? "";
@@ -142,13 +143,25 @@ function pasteCellMatrix(workbook: SpreadsheetWorkbook, sheetId: string, target:
     const suppliedValidation = payload.validations?.[row]?.[column];
     const ruleTransferEnabled = policy.dataValidation !== false && !(policy.checkboxes === false && (suppliedValidation?.type === "checkbox" || previous?.validation?.type === "checkbox"));
     const validation = mode === "all" && ruleTransferEnabled && payload.validations ? normalizeDataValidation(suppliedValidation ?? undefined) : previous?.validation;
-    if (!value && !format && !validation) delete cells[address];
-    else cells[address] = Object.freeze({ value, ...(format ? { format } : {}), ...(validation ? { validation } : {}) }) as SpreadsheetCell;
+    const storedFormat = (mode === "all" || mode === "formats") && policy.formatting && payload.formats ? format : sheet.cells[address]?.format;
+    if (!value && !storedFormat && !validation) delete cells[address];
+    else cells[address] = Object.freeze({ value, ...(storedFormat ? { format: storedFormat } : {}), ...(validation ? { validation } : {}) }) as SpreadsheetCell;
   }
   const filtered = filterCellValueWrites(sheet, proposed, policy.onConflict);
+  let base = sheet;
+  if ((mode === "all" || mode === "formats") && policy.formatting && payload.formats)
+    base = clearSheetFormatRanges(base, { top: target.row, left: target.column, bottom: target.row + height - 1, right: target.column + width - 1 });
+  // Skipped cells keep their complete effective format even when the surrounding base is replaced.
+  for (const address of policy.skippedAddresses ?? []) {
+    const position = parseCellAddress(address)!;
+    if (position.row < target.row || position.row >= target.row + height || position.column < target.column || position.column >= target.column + width) continue;
+    const original = getFormattedCell(sheet, position.row, position.column);
+    if (original) cells[address] = original; else delete cells[address];
+  }
   for (const address of filtered.skippedAddresses) {
     policy.skippedAddresses?.add(address);
-    if (sheet.cells[address]) cells[address] = sheet.cells[address]; else delete cells[address];
+    const position = parseCellAddress(address)!, original = getFormattedCell(sheet, position.row, position.column);
+    if (original) cells[address] = original; else delete cells[address];
   }
-  return replaceWorkbookSheet(workbook, { ...sheet, cells: Object.freeze(cells) });
+  return replaceWorkbookSheet(workbook, { ...base, cells: Object.freeze(cells) });
 }

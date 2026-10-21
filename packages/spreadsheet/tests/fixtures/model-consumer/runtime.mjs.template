@@ -3,7 +3,8 @@ import { createRequire } from 'node:module';
 import { applySpreadsheetCommands, parseWorkbook, serializeWorkbook, createWorkbook, setCellBorders, setCellValues,
   getDrawingBounds, getDrawingPlacement, getCell, getRange, getImage, getImageResource,
   createSpreadsheetSession, copySpreadsheetCells, getSheets, getSheetReader, getNamedRange, getRangeByName,
-  importSpreadsheetXlsx, exportSpreadsheetXlsx, collectSpreadsheetImages, calculateSpreadsheetRange, searchSpreadsheet } from '__MODEL_IMPORT__';
+  importSpreadsheetXlsx, exportSpreadsheetXlsx, collectSpreadsheetImages, calculateSpreadsheetRange, searchSpreadsheet,
+  formatCellRange, getResolvedCellFormat, getSheetFormatRanges } from '__MODEL_IMPORT__';
 
 const require = createRequire(import.meta.url);
 assert.throws(() => require.resolve('react'), { code: 'MODULE_NOT_FOUND' });
@@ -13,6 +14,10 @@ assert.equal(typeof document, 'undefined');
 assert.equal(typeof importSpreadsheetXlsx, 'function');
 await assert.rejects(importSpreadsheetXlsx(new Uint8Array([1, 2, 3])), /xlsx|Excel/);
 const original = setCellValues(createWorkbook(), 'sheet-1', { A1: '既存', B2: '10', C1: '=B2*2' });
+const rangeFormatted = formatCellRange(original, 'sheet-1', { top: 0, left: 8, bottom: 'end', right: 25 }, { background: '#fef3c7' });
+assert.equal(Object.keys(rangeFormatted.sheets[0].cells).length, 3);
+assert.equal(getSheetFormatRanges(rangeFormatted, 'sheet-1').length, 1);
+assert.equal(getResolvedCellFormat(parseWorkbook(serializeWorkbook(rangeFormatted)), 'sheet-1', 'Z200').background, '#fef3c7');
 assert.deepEqual(searchSpreadsheet(original,{keywords:['既存','20']}).matches.map(hit=>hit.address),['A1','C1']);
 const calculatedRange = calculateSpreadsheetRange(original, 'sheet-1', 'B1:C1');
 assert.deepEqual(Object.keys(calculatedRange), ['B1', 'C1']);
@@ -26,11 +31,11 @@ assert.deepEqual(searchSpreadsheet(importedWorkbook,{keywords:['既存','20']}).
 const before = serializeWorkbook(original);
 const nativeFile = JSON.parse(before);
 assert.equal(nativeFile.format, 'likex.spreadsheet');
-assert.equal(nativeFile.schemaVersion, 1);
+assert.equal(nativeFile.schemaVersion, 2);
 assert.equal(nativeFile.sheets[0].rows[1].cells.B.value, '10');
 assert.equal('cells' in nativeFile.sheets[0], false);
 assert.throws(() => parseWorkbook(JSON.stringify(original)));
-assert.throws(() => parseWorkbook(JSON.stringify({ ...nativeFile, schemaVersion: 2 })));
+assert.throws(() => parseWorkbook(JSON.stringify({ ...nativeFile, schemaVersion: 3 })));
 assert.equal(serializeWorkbook(parseWorkbook(before)), before);
 const commands = JSON.parse('[{"type":"rows.insert","sheetId":"sheet-1","index":1,"count":2},{"type":"cells.set","sheetId":"sheet-1","values":{"A2":"商品A","B2":"100","A3":"商品B","B3":"200"}}]');
 const result = applySpreadsheetCommands(parseWorkbook(before), commands);

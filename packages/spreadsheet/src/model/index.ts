@@ -14,7 +14,7 @@ export { getDrawingBounds, getDrawingPlacement } from "./drawing-placement";
 export type { SpreadsheetDrawingBounds, SpreadsheetDrawingPlacement, SpreadsheetDrawingPlacementOptions } from "./drawing-placement";
 export { collectSpreadsheetImages } from "./image-collection";
 export type { SpreadsheetImageAsset, SpreadsheetImagePlacement, SpreadsheetImageCollection, SpreadsheetImageCollectionOptions } from "./image-collection";
-export { getCell, getRange, getSheet, getDrawing, getImage, getShape, getTextBox, getImageResource, getCellComment,
+export { getCell, getRange, getSheet, getResolvedCellFormat, getSheetFormatRanges, getDrawing, getImage, getShape, getTextBox, getImageResource, getCellComment,
   getNamedRange, getRangeByName, getTable, getTableByName,
   getSheets, getSheetCells, getNamedRanges, getDrawings, getImages, getShapes, getTextBoxes, getTables } from "./query";
 export type { SpreadsheetReadRangeInput, SpreadsheetReadRange, SpreadsheetStoredCell, SpreadsheetTableInfo } from "./query";
@@ -33,7 +33,7 @@ export { getMergedRange, mergedCellPosition, expandRangeForMerges, rangesInterse
 export { serializeWorkbook, parseWorkbook } from "./serialization";
 export { SPREADSHEET_FILE_VERSION } from "./native-file";
 export type { SpreadsheetFile, SpreadsheetFileSheet, SpreadsheetFileRow } from "./native-file";
-export { normalizeWorkbook, createWorkbook, setCellValue, setCellValues, formatCells, resizeColumn,
+export { normalizeWorkbook, createWorkbook, setCellValue, setCellValues, formatCells, formatCellRange, resizeColumn,
   insertRows, deleteRows, insertColumns, deleteColumns, insertCellRange, deleteCellRange, moveCells, addSheet, renameSheet, deleteSheet, moveSheet,
   addDrawing, updateDrawing, deleteDrawing, insertImage, setCellComment, setCellComments, mergeCells, unmergeCells } from "./workbook";
 export { setCellBorders } from "./workbook/borders";
@@ -48,3 +48,5 @@ export type { SpreadsheetFunctionName, SpreadsheetFunctionCategory } from "./fun
 export { createSpreadsheetAutoFitCommand } from "./sizing/create-auto-fit-command";
 export type { SpreadsheetAutoFitTarget, SpreadsheetAutoFitOptions, SpreadsheetAutoFitCommand } from "./sizing/create-auto-fit-command";
 export type { TextMeasurer as SpreadsheetTextMeasurer, CellMeasurementStyle as SpreadsheetCellMeasurementStyle } from "./sizing/text-measurer";
+
+export { getCellFormat, getFormattedCell, resolveFormatRange } from "./format-ranges";

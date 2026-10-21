@@ -1,3 +1,4 @@
+import { getFormattedCell } from "../format-ranges";
 import { isFormulaCell } from "../cell-value";
 import { parseCellAddress } from "../address";
 import { rangesIntersect } from "../merges";
@@ -27,10 +28,10 @@ export function moveSpreadsheetCells(workbook: SpreadsheetWorkbook, source: Spre
   const expanded = stageTransferCapacity(workbook, target.sheetId, destination);
   const next = moveCells(expanded, source, target); // Validate geometry and references before traversing caller ranges.
   const from = workbook.sheets.find(sheet => sheet.id === source.sheetId)!, to = workbook.sheets.find(sheet => sheet.id === target.sheetId)!;
-  if (!policy.formulas && Object.entries(from.cells).some(([address, cell]) => {
+  if (!policy.formulas && Object.keys(from.cells).some(address => {
     const position = parseCellAddress(address)!;
     return position.row >= source.top && position.row <= source.bottom && position.column >= source.left &&
-      position.column <= source.right && isFormulaCell(cell);
+      position.column <= source.right && isFormulaCell(getFormattedCell(from, position.row, position.column));
   })) throw new Error("数式の入力は無効です");
   if (!policy.mergeCells && ((from.merges ?? []).some(merge => rangesIntersect(source, merge)) ||
     (to.merges ?? []).some(merge => rangesIntersect(destination, merge)))) throw new Error("セルの結合の変更は無効です");

@@ -39,11 +39,11 @@ Spreadsheet・LikeSlide・LikeDocumentの標準保存ファイルは、次の拡
 
 | モジュール | 拡張子 | 出力の形式識別子 | スキーマのバージョン |
 | --- | --- | --- | --- |
-| Spreadsheet | `.spon` | `format: "likex.spreadsheet"` | `schemaVersion: 1` |
+| Spreadsheet | `.spon` | `format: "likex.spreadsheet"` | `schemaVersion: 2`（v1も読込可） |
 | LikeSlide | `.slon` | `format: "likex.slide"` | `version: 1` |
 | LikeDocument | `.dcon` | `format: "likex.document"` | `version: 1` |
 
-現在の保存構造をバージョン1とし、旧構造への互換読み込みは提供しません。形式識別子とバージョンは必須です。ファイル選択では `.json` も選べますが、内容は同じ保存形式が必要です。`parseWorkbook` / `serializeWorkbook`、`parseSlideDeck` / `serializeSlideDeck`、`parseDocument` / `serializeDocument` はJSON文字列と編集用モデルを相互に変換します。`onSave` と操作APIは編集用モデルを扱い、保存先とファイル名は親が決めます。ファイルへ出力するBlobのMIMEタイプは `application/json` です。
+Spreadsheetは範囲書式を保持するバージョン2で出力し、行単位のv1も検証して読み込みます。編集用ブックの `schemaVersion: 1` と保存形式のバージョンは別です。LikeSlide・LikeDocumentの現在の保存構造はバージョン1で、旧構造への互換読み込みは提供しません。形式識別子とバージョンは必須です。ファイル選択では `.json` も選べますが、内容は同じ保存形式が必要です。`parseWorkbook` / `serializeWorkbook`、`parseSlideDeck` / `serializeSlideDeck`、`parseDocument` / `serializeDocument` はJSON文字列と編集用モデルを相互に変換します。`onSave` と操作APIは編集用モデルを扱い、保存先とファイル名は親が決めます。ファイルへ出力するBlobのMIMEタイプは `application/json` です。
 
 保存時の並びは表示に合わせます。Spreadsheetはシートの表示順で、各シートの `rows` 配列に行を並べ、行の `cells` に `A, B, …, Z, AA, …` の列順でセルを置きます。LikeSlideはページの表示順で、ページ内の要素を上から下、同じ高さでは左から右に並べます。要素の重なり順は `stackOrder` に保持し、読み込み時に復元します。
 

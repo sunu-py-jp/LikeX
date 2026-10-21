@@ -4,7 +4,22 @@
   "source": "packages/spreadsheet/src/docs/excel-import.md",
   "order": 165,
   "section": "親アプリとの連携",
-  "keywords": ["importSpreadsheetXlsx", "importExcel", "SpreadsheetExcelImportResult", "SpreadsheetImportExcelOptions", "excelImportOptions", "emptyCellFormatting", "空セル", "100 MiB", "xlsx", "ファイル"],
+  "keywords": [
+    "importSpreadsheetXlsx",
+    "importExcel",
+    "SpreadsheetExcelImportResult",
+    "SpreadsheetImportExcelOptions",
+    "excelImportOptions",
+    "emptyCellFormatting",
+    "空セル",
+    "xlsx",
+    "ファイル",
+    "128 MiB",
+    "640 MiB",
+    "limits",
+    "SpreadsheetExcelImportLimits",
+    "formatRanges"
+  ],
   "screenshots": [
     {
       "src": "assets/screenshots/spreadsheet-excel-import.png",

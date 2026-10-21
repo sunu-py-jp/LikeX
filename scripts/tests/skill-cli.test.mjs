@@ -132,6 +132,36 @@ test('conditional CLI rejects stale spreadsheet/slide snapshots without changing
   }
 });
 
+test('spreadsheet inspect pages shared format ranges without expanding stored cells', async () => {
+  const { model } = fixtures.spreadsheet, files = await paths('spreadsheet');
+  const initial = model.createWorkbook(), sheetId = initial.sheets[0].id;
+  const formatRanges = [
+    { range: { top: 0, left: 8, bottom: 99, right: 24 }, format: { background: '#eeeeee' } },
+    { range: { top: 0, left: 25, bottom: 'end', right: 25 }, format: { background: '#eeeeee', borders: { right: { style: 'solid' } } } },
+  ];
+  const book = { ...initial, sheets: [{ ...initial.sheets[0], formatRanges }] };
+  const before = model.serializeWorkbook(book); await writeFile(files.input, before);
+  const result = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', sheetId, '--format-ranges', '--offset', '1', '--limit', '1']);
+  assert.equal(result.status, 0, JSON.stringify(result.json));
+  assert.equal(result.json.summary.sheets[0].cellCount, 0);
+  assert.equal(result.json.summary.sheets[0].formatRangeCount, 2);
+  assert.equal(result.json.selection.total, 2);
+  assert.equal(result.json.selection.hasMore, false);
+  assert.equal(result.json.selection.formatRanges.length, 1);
+  assert.equal(result.json.selection.formatRanges[0].range.bottom, 'end');
+  assert.equal(result.json.selection.formatRanges[0].range.left, 25);
+  const stored = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', sheetId, '--include-data']);
+  assert.deepEqual(stored.json.selection.cells, []);
+  const range = await run('spreadsheet', ['inspect', '--input', files.input, '--sheet-id', sheetId, '--range', 'I1']);
+  assert.deepEqual(range.json.selection.rows, [[null]]);
+  assert.equal(await readFile(files.input, 'utf8'), before);
+  for (const selectors of [['--format-ranges'], ['--sheet-id', sheetId, '--format-ranges', '--range', 'A1'],
+    ['--sheet-id', sheetId, '--format-ranges', '--include-data'], ['--sheet-id', sheetId, '--format-ranges', '--search', 'cells', '--text', 'x']]) {
+    const invalid = await run('spreadsheet', ['inspect', '--input', files.input, ...selectors]);
+    assert.equal(invalid.status, 1); assert.equal(invalid.json.error.code, 'USAGE');
+  }
+});
+
 test('committed standalone scripts match the one canonical source and current package versions', async () => {
   await buildSkillScripts({ check: true });
 });

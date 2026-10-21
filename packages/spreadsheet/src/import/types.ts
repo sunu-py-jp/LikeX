@@ -34,7 +34,14 @@ export type SpreadsheetExcelColumnWidthMetrics = Readonly<{
 }>;
 export type SpreadsheetExcelColumnWidthMeasurer = (font: SpreadsheetExcelColumnWidthFont) =>
   SpreadsheetExcelColumnWidthMetrics | undefined | Promise<SpreadsheetExcelColumnWidthMetrics | undefined>;
+export type SpreadsheetExcelImportLimits = Readonly<{
+  /** Maximum compressed input size. Default: 128 MiB. */
+  inputBytes?: number;
+  /** Maximum expanded ZIP total and worksheet size. Default: resolved inputBytes × 5. */
+  expandedBytes?: number;
+}>;
 export type SpreadsheetExcelImportOptions = {
+  limits?: SpreadsheetExcelImportLimits;
   signal?: SpreadsheetExcelImportSignal;
   /** Preserve blank-cell formatting by default; omit explicitly for data-oriented imports. */
   emptyCellFormatting?: "preserve" | "omit";
@@ -49,6 +56,7 @@ export type SpreadsheetExcelImportResult = Readonly<{
 }>;
 export type ImportContext = {
   archive: XlsxArchive;
+  limits?: ResolvedXlsxImportLimits;
   warnings: SpreadsheetExcelImportWarning[];
   signal?: SpreadsheetExcelImportSignal;
   resources: Record<string, SpreadsheetImageResource>;
@@ -62,6 +70,7 @@ export type ImportContext = {
   /** Nonempty source values admitted by the streaming reader; resolved formulas are checked after conversion. */
   sourceDataCells?: number;
   /** Retained optional features across the workbook; omitted items do not consume model capacity. */
+  formatRangeCount?: number;
   mergeCount?: number;
   drawingCount?: number;
   commentCount?: number;
@@ -72,13 +81,30 @@ export type ImportContext = {
   warn(warning: SpreadsheetExcelImportWarning): void;
 };
 
-/** Fixed, conservative limits apply before allocation and to actual inflated output. */
+/** Structural budgets stay bounded independently of configurable archive capacity. */
 export const XLSX_IMPORT_LIMITS = Object.freeze({
-  inputBytes: 32 * 1024 * 1024, entries: 4096,
-  entryBytes: 100 * 1024 * 1024, totalBytes: 100 * 1024 * 1024,
+  inputBytes: 128 * 1024 * 1024, entries: 4096,
+  entryBytes: 640 * 1024 * 1024, totalBytes: 640 * 1024 * 1024,
   xmlBytes: 16 * 1024 * 1024, xmlDepth: 64, xmlNodes: 600_000,
   xmlText: 16 * 1024 * 1024,
-  worksheetXmlBytes: 100 * 1024 * 1024, worksheetXmlNodes: 8_000_000,
-  worksheetXmlText: 100 * 1024 * 1024,
+  worksheetXmlBytes: 640 * 1024 * 1024, worksheetXmlNodes: 160_000_000,
+  worksheetXmlText: 640 * 1024 * 1024,
   cellTextCharacters: 32 * 1024 * 1024,
 });
+
+export type ResolvedXlsxImportLimits = { [K in keyof typeof XLSX_IMPORT_LIMITS]: number };
+export function resolveXlsxImportLimits(input?: SpreadsheetExcelImportLimits): ResolvedXlsxImportLimits {
+  if (input !== undefined && (!input || typeof input !== "object" || Array.isArray(input)))
+    throw new Error("Excel取り込みの limits はオブジェクトで指定してください");
+  if (input && Object.keys(input).some(key => key !== "inputBytes" && key !== "expandedBytes"))
+    throw new Error("Excel取り込みの limits には inputBytes と expandedBytes を指定してください");
+  const inputBytes = input?.inputBytes === undefined ? XLSX_IMPORT_LIMITS.inputBytes : input.inputBytes;
+  const expandedBytes = input?.expandedBytes === undefined ? inputBytes * 5 : input.expandedBytes;
+  for (const [name, value] of [["inputBytes", inputBytes], ["expandedBytes", expandedBytes]] as const)
+    if (!Number.isSafeInteger(value) || value < 1)
+      throw new Error(`Excel取り込みの ${name} は正の安全な整数（バイト数）で指定してください`);
+  return { ...XLSX_IMPORT_LIMITS, inputBytes, entryBytes: expandedBytes, totalBytes: expandedBytes,
+    worksheetXmlBytes: expandedBytes, worksheetXmlText: expandedBytes,
+    // Every XML element requires at least four bytes; the byte budget remains authoritative.
+    worksheetXmlNodes: Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(expandedBytes / 4)) };
+}

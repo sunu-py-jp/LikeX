@@ -68,9 +68,19 @@ node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input 
 
 範囲取得の応答キーは旧 `selection.cells` から `selection.rows` に変更した。呼び出し側は範囲取得だけ読み取りキーを変更する。旧キーを同時に返す互換出力はない。保存セル一覧の一次元 `selection.cells`、検索の `selection.matches`、公開モデルAPI `getRange` の二次元配列、SPON保存形式は変更しない。
 
+## 範囲に共通する書式を取得する
+
+`inspect --sheet-id ID --format-ranges` は、`getSheetFormatRanges` を使い、共有書式の矩形を `selection.formatRanges` に返す。既定100件、`--offset` / `--limit`（1〜1,000件）でページ取得できる。`selection` は `{ sheetId, formatRanges, offset, limit, total, hasMore }`。`"end"` はそのまま返し、空セルを全件展開しない。範囲があるシートの概要に `formatRangeCount` を追加する。従来の `cellCount` は保存セル数のまま。
+
+```bash
+node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input workbook.spon --sheet-id sales --format-ranges --limit 100
+```
+
+`--format-ranges` はセル範囲、検索、描画、`--include-data` と併用しない。セルの例外も確認する場合は、別の呼び出しで `--range` または `--include-data` を使う。保存セル取得は直接書式だけを返し、範囲書式を合成しない。通常書式を解決して読む公開APIは `getResolvedCellFormat(workbook, sheetId, address)`。セルに `format` があれば完全な上書き、なければ該当範囲の書式を返す。`format: {}` は正規化で省略され、範囲書式を継承する。`format: { numberFormat: "general" }` は標準書式への完全な上書きとなり、共通の背景や罫線を継承しない。条件付き書式を合成した表示結果ではない。
+
 ## 必要なシートの保存セルを取得する
 
-`--sheet-id ID --include-data` は、そのシートに保存されたセルを行番号・列番号順に返す。既定100件、`--offset N --limit N` でページを指定でき、limitは1〜1,000件。未保存の空セルは列挙しないが、書式・入力規則が保存された空文字セルは含む。他シートの本文、描画本文は含めない。
+`--sheet-id ID --include-data` は、そのシートに保存されたセルを行番号・列番号順に返す。既定100件、`--offset N --limit N` でページを指定でき、limitは1〜1,000件。未保存の空セルは列挙しないが、書式・入力規則が保存された空文字セルは含む。`formatRanges` だけで書式を持つ空セルは列挙しない。他シートの本文、描画本文は含めない。
 
 ```bash
 node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input workbook.spon --sheet-id sales --include-data --offset 0 --limit 100

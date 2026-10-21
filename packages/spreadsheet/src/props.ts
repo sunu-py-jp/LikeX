@@ -65,7 +65,7 @@ export type SpreadsheetProps = SearchPanelInitialState & {
    * May be changed while the component is mounted; not stored in the workbook. */
   renderingMode?: SpreadsheetRenderingMode;
   /** Defaults for Excel imports. Explicit Handle options override these defaults; the File ribbon can override its own import mode. */
-  excelImportOptions?: Pick<SpreadsheetExcelImportOptions, "emptyCellFormatting">;
+  excelImportOptions?: Pick<SpreadsheetExcelImportOptions, "emptyCellFormatting" | "limits">;
   /** Read once at mount, default expanded. Ignored while ribbonDisplayMode is supplied. */
   initialRibbonDisplayMode?: SpreadsheetRibbonDisplayMode;
   /** Host-controlled ribbon presentation. Without a change callback the mode is locked. */

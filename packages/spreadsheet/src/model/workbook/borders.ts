@@ -1,3 +1,5 @@
+import { clearSheetFormatRanges, getCellFormat } from "../format-ranges";
+import { parseCellAddress } from "../address";
 import { cellAddress } from "../address";
 import { normalizeCellFormat } from "../formatting";
 import type { SpreadsheetCellBorder, SpreadsheetCellBorders } from "../formatting";
@@ -73,9 +75,9 @@ export function setCellBorders(workbook: SpreadsheetWorkbook, sheetId: string, r
   }
   for (const [address, value] of displayPatches) patches.set(address, { ...patches.get(address), ...value });
   const cells = { ...sheet.cells };
-  let changed = false;
+  let changed = false, target = sheet;
   for (const [address, value] of patches) {
-    const previous = cells[address], borders = { ...previous?.format?.borders };
+    const previous = cells[address], position = parseCellAddress(address)!, effective = getCellFormat(sheet, position.row, position.column), borders = { ...effective?.borders };
     let different = false;
     for (const edge of edges) if (Object.hasOwn(value, edge)) {
       const next = value[edge];
@@ -84,11 +86,12 @@ export function setCellBorders(workbook: SpreadsheetWorkbook, sheetId: string, r
     }
     if (!different) continue;
     changed = true;
-    const source = { ...previous?.format };
+    const source = { ...effective };
     if (Object.keys(borders).length) source.borders = borders; else delete source.borders;
     const format = normalizeCellFormat(source);
+    if (!format) target = clearSheetFormatRanges(target, { top: position.row, bottom: position.row, left: position.column, right: position.column });
     if (!previous?.value && !format && !previous?.validation) delete cells[address];
     else cells[address] = freezeCell(previous?.value ?? "", format, previous?.validation);
   }
-  return changed ? replaceWorkbookSheet(workbook, { ...sheet, cells: Object.freeze(cells) }) : workbook;
+  return changed ? replaceWorkbookSheet(workbook, { ...target, cells: Object.freeze(cells) }) : workbook;
 }

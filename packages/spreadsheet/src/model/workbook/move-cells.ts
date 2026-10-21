@@ -1,3 +1,5 @@
+import { getFormattedCell } from "../format-ranges";
+import { clearSheetFormatRanges, compactFormatRanges, resolveFormatRange } from "../format-ranges";
 import { isFormulaCell } from "../cell-value";
 import { cellAddress, parseCellAddress } from "../address";
 import { moveFormulaReference, rewriteFormulaReferences, type FormulaReference } from "../formula";
@@ -38,6 +40,19 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
   const qualifier = (name: string) => `'${name.replaceAll("'", "''")}'!`;
   const staged = workbook.sheets.map(sheet => {
     if (sheet.id !== from.id && sheet.id !== to.id) return sheet;
+    let base = sheet;
+    if (sheet.id === from.id) base = clearSheetFormatRanges(base, { top: source.top, left: source.left, bottom: source.bottom, right: source.right });
+    if (sheet.id === to.id) {
+      base = clearSheetFormatRanges(base, destinationRange);
+      const moved = (from.formatRanges ?? []).flatMap(item => {
+        const area = resolveFormatRange(from, item.range), clipped = { top: Math.max(area.top, source.top), bottom: Math.min(area.bottom, source.bottom),
+          left: Math.max(area.left, source.left), right: Math.min(area.right, source.right) };
+        if (clipped.top > clipped.bottom || clipped.left > clipped.right) return [];
+        return [{ format: item.format, range: { top: clipped.top + destination.row - source.top, bottom: clipped.bottom + destination.row - source.top,
+          left: clipped.left + destination.column - source.left, right: clipped.right + destination.column - source.left } }];
+      });
+      base = { ...base, formatRanges: compactFormatRanges([...(base.formatRanges ?? []), ...moved], base) };
+    }
     const cells = { ...sheet.cells }, comments = { ...sheet.comments };
     if (sheet.id === from.id) for (const address of Object.keys(cells)) {
       const position = parseCellAddress(address)!;
@@ -67,7 +82,7 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
       top: merge.top + destination.row - source.top, bottom: merge.bottom + destination.row - source.top,
       left: merge.left + destination.column - source.left, right: merge.right + destination.column - source.left,
     })) : [];
-    return { ...sheet, cells, ...(sheet.tables || tablesBySheet.get(sheet.id) ? { tables: tablesBySheet.get(sheet.id) } : {}),
+    return { ...base, cells, ...(sheet.tables || tablesBySheet.get(sheet.id) ? { tables: tablesBySheet.get(sheet.id) } : {}),
       ...(sheet.merges || movedMerges.length ? { merges: normalizeMerges([...retainedMerges, ...movedMerges], sheet) } : {}),
       ...(sheet.comments || Object.keys(comments).length ? { comments: Object.freeze(comments) } : {}) };
   });
@@ -75,7 +90,7 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
     let changed = sheet.id === from.id || sheet.id === to.id;
     const cells = { ...sheet.cells };
     for (const [address, cell] of Object.entries(cells)) {
-      if (!isFormulaCell(cell)) continue;
+      if (!isFormulaCell(getFormattedCell(sheet, parseCellAddress(address)!.row, parseCellAddress(address)!.column))) continue;
       const position = parseCellAddress(address)!;
       const origin = sheet.id === to.id && inDestination(position.row, position.column) ? from.name : sheet.name;
       const resolve = (reference: FormulaReference, inherited = origin) => reference.sheet ?? inherited;

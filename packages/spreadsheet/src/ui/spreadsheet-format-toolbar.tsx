@@ -1,13 +1,15 @@
 "use client";
 
+import { getCellFormat } from "../model/format-ranges";
+
 import { useEffect, useState } from "react";
-import { cellAddress } from "../model/address";
 import type { SpreadsheetCellFormat, SpreadsheetMergedRange } from "../model/types";
 import type { SpreadsheetConditionalFormatRule } from "../model/conditional-formatting";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { rangeBounds, selectedAddresses, selectionRanges } from "../state/selection";
 import { autoFitCommand } from "../state/sizing/auto-fit-command";
 import type { SpreadsheetSelection } from "../props";
+import type { SpreadsheetCommand } from "../commands/types";
 import { SpreadsheetDialog } from "./spreadsheet-dialog";
 import { Command, Icon } from "./spreadsheet-controls";
 import { SpreadsheetMergeToolbar } from "./spreadsheet-merge-toolbar";
@@ -23,14 +25,27 @@ const VERTICAL_ALIGNMENT_OPTIONS = [["top", "上詰め"], ["middle", "中央揃�
 const NUMBER_FORMAT_OPTIONS = [["general", "標準"], ["text", "文字列"], ["number", "数値"], ["currency", "通貨"],
   ["percent", "パーセント"], ["date", "日付"], ["time", "時刻"], ["datetime", "日時"]] as const;
 
+function formatSelectionCommands(selection: SpreadsheetSelection, sheetId: string, format: SpreadsheetCellFormat): SpreadsheetCommand[] {
+  const ranges = selectionRanges(selection);
+  const large = ranges.some(item => {
+    const r = rangeBounds(item);
+    return item.kind || (r.bottom - r.top + 1) * (r.right - r.left + 1) >= 32;
+  });
+  if (!large) return [{ type: "cells.format", sheetId, addresses: selectedAddresses(selection), format }];
+  return ranges.map(item => ({ type: "cells.formatRange", sheetId,
+    range: { ...rangeBounds(item), ...(item.kind === "column" ? { bottom: "end" as const } : {}),
+      ...(item.kind === "row" ? { right: "end" as const } : {}) }, format }));
+}
+
 export function SpreadsheetFormatToolbar({ controller: c }: { controller: SpreadsheetController }) {
   const [dialog, setDialog] = useState<"format" | "alignment" | "border" | "conditional" | null>(null);
   const disabled = c.disabled || c.requesting || !!c.selectedDrawingId;
   const closeDialog = () => { c.cancelEditRequest(); setDialog(null); };
-  const format = c.activeSheet.cells[cellAddress(c.selection.focus.row, c.selection.focus.column)]?.format;
+  const format = getCellFormat(c.activeSheet, c.selection.focus.row, c.selection.focus.column);
   const patch = (format: SpreadsheetCellFormat) => {
     if (disabled) return;
-    try { const addresses = selectedAddresses(c.selection); c.afterCommit(() => c.afterCommand({ type: "cells.format", sheetId: c.activeSheet.id, addresses, format })); }
+    try { const commands = formatSelectionCommands(c.selection, c.activeSheet.id, format);
+      c.afterCommit(() => { void Promise.resolve(c.executeCommands(commands)).catch(c.reportError); }); }
     catch (cause) { c.reportError(cause); }
   };
   if (c.readOnly) return null;
@@ -114,7 +129,8 @@ export function CellFormatDialog({ controller: c, onClose, target, initialTab = 
   const stale = c.workbook !== snapshot.workbook;
   const { cancelEditRequest } = c;
   useEffect(() => cancelEditRequest, [cancelEditRequest]);
-  const initial = snapshot.workbook.sheets.find(sheet => sheet.id === snapshot.sheetId)?.cells[cellAddress(snapshot.selection.focus.row, snapshot.selection.focus.column)]?.format;
+  const initialSheet = snapshot.workbook.sheets.find(sheet => sheet.id === snapshot.sheetId);
+  const initial = initialSheet && getCellFormat(initialSheet, snapshot.selection.focus.row, snapshot.selection.focus.column);
   const [format, setFormat] = useState<SpreadsheetCellFormat>({ numberFormat: initial?.numberFormat ?? "number", decimalPlaces: initial?.decimalPlaces ?? 2, useGrouping: initial?.useGrouping ?? true, negativeFormat: initial?.negativeFormat ?? "minus" });
   const [tab, setTab] = useState(initialTab), [edges, setEdges] = useState<string[]>(["top", "right", "bottom", "left"]);
   const [textMode, setTextMode] = useState(initial?.wrap ? "wrap" : initial?.shrinkToFit ? "shrink" : "standard");
@@ -130,11 +146,11 @@ export function CellFormatDialog({ controller: c, onClose, target, initialTab = 
   const invalidAlignment = tab === "alignment" && supportsIndent && !validIndent;
   const apply = () => {
     if (disabled || invalidAlignment || c.getWorkbook() !== snapshot.workbook) return;
-    try { const addresses = selectedAddresses(snapshot.selection);
+    try {
       const patch: SpreadsheetCellFormat = tab === "border" ? { borders: Object.fromEntries(edges.map(edge => [edge, { color, width, style }])) }
         : tab === "alignment" ? alignmentPatch : format;
       if (Object.keys(patch).length === 0) { onClose(); return; }
-      void Promise.resolve(c.executeCommands([{ type: "cells.format", sheetId: snapshot.sheetId, addresses, format: patch }],
+      void Promise.resolve(c.executeCommands(formatSelectionCommands(snapshot.selection, snapshot.sheetId, patch),
         {isCurrent: () => c.getWorkbook() === snapshot.workbook})).then(result => { if (result.ok) onClose(); }, c.reportError);
     } catch (cause) { c.reportError(cause); }
   };

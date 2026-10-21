@@ -17,7 +17,7 @@
           "const": "likex.spreadsheet"
         },
         "schemaVersion": {
-          "const": 1
+          "const": 2
         },
         "sheets": {
           "$ref": "#/$defs/SpreadsheetFile_sheets"
@@ -157,6 +157,9 @@
         "name": {
           "type": "string"
         },
+        "formatRanges": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_formatRanges"
+        },
         "columnWidths": {
           "$ref": "#/$defs/SpreadsheetFileSheet_columnWidths"
         },
@@ -188,6 +191,222 @@
         "rows"
       ],
       "additionalProperties": false
+    },
+    "SpreadsheetFileSheet_formatRanges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SpreadsheetFileSheet_formatRanges_item"
+      }
+    },
+    "SpreadsheetFileSheet_formatRanges_item": {
+      "type": "object",
+      "properties": {
+        "range": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_formatRanges_item_range"
+        },
+        "format": {
+          "$ref": "#/$defs/SpreadsheetCellFormat"
+        }
+      },
+      "required": [
+        "range",
+        "format"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetFileSheet_formatRanges_item_range": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "number"
+        },
+        "left": {
+          "type": "number"
+        },
+        "bottom": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_formatRanges_item_range_bottom"
+        },
+        "right": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_formatRanges_item_range_bottom"
+        }
+      },
+      "required": [
+        "top",
+        "left",
+        "bottom",
+        "right"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetFileSheet_formatRanges_item_range_bottom": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "const": "end"
+        }
+      ]
+    },
+    "SpreadsheetCellFormat": {
+      "type": "object",
+      "properties": {
+        "bold": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
+        },
+        "italic": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
+        },
+        "underline": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
+        },
+        "align": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_align",
+          "description": "Omitted or general uses the value type. centerContinuous centers across adjacent blank cells with the same alignment."
+        },
+        "color": {
+          "type": "string"
+        },
+        "background": {
+          "type": "string"
+        },
+        "fontFamily": {
+          "type": "string"
+        },
+        "fontSize": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 200,
+          "description": "Font size in CSS pixels. XLSX converts pixels to points."
+        },
+        "wrap": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold",
+          "description": "Wrap within the cell. Takes display priority when shrinkToFit is also true."
+        },
+        "shrinkToFit": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold",
+          "description": "Reduce the displayed text size to fit the cell without changing fontSize. Omitted means false."
+        },
+        "verticalAlign": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_verticalAlign",
+          "description": "Omitted uses middle. XLSX calls middle \"center\"."
+        },
+        "indent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 250,
+          "description": "Integer indentation level, in units of three spaces. Used by left/right and both edges of distributed alignment."
+        },
+        "borders": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_borders"
+        },
+        "numberFormat": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_numberFormat"
+        },
+        "decimalPlaces": {
+          "type": "number"
+        },
+        "useGrouping": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
+        },
+        "negativeFormat": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_negativeFormat"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SpreadsheetCellFormat_bold": {
+      "type": "boolean"
+    },
+    "SpreadsheetCellFormat_align": {
+      "enum": [
+        "right",
+        "left",
+        "fill",
+        "general",
+        "center",
+        "justify",
+        "centerContinuous",
+        "distributed"
+      ]
+    },
+    "SpreadsheetCellFormat_verticalAlign": {
+      "enum": [
+        "top",
+        "bottom",
+        "justify",
+        "distributed",
+        "middle"
+      ]
+    },
+    "SpreadsheetCellFormat_borders": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top"
+        },
+        "right": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top"
+        },
+        "bottom": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top"
+        },
+        "left": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SpreadsheetCellFormat_borders_top": {
+      "type": "object",
+      "properties": {
+        "style": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top_style"
+        },
+        "width": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top_width"
+        },
+        "color": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SpreadsheetCellFormat_borders_top_style": {
+      "enum": [
+        "none",
+        "solid",
+        "dashed",
+        "dotted",
+        "double"
+      ]
+    },
+    "SpreadsheetCellFormat_borders_top_width": {
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "SpreadsheetCellFormat_numberFormat": {
+      "enum": [
+        "number",
+        "general",
+        "text",
+        "currency",
+        "percent",
+        "date",
+        "time",
+        "datetime"
+      ]
+    },
+    "SpreadsheetCellFormat_negativeFormat": {
+      "enum": [
+        "minus",
+        "parentheses",
+        "red",
+        "red-parentheses"
+      ]
     },
     "SpreadsheetFileSheet_columnWidths": {
       "type": "object",
@@ -234,11 +453,11 @@
           "type": "number"
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX",
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold",
           "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "rotation": {
           "type": "number",
@@ -289,9 +508,6 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetImageDrawing_flipX": {
-      "type": "boolean"
-    },
     "SpreadsheetShapeDrawing": {
       "type": "object",
       "properties": {
@@ -308,11 +524,11 @@
           "type": "number"
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX",
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold",
           "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "rotation": {
           "type": "number",
@@ -322,10 +538,10 @@
           "type": "string"
         },
         "italic": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "underline": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "textInsets": {
           "$ref": "#/$defs/SpreadsheetShapeDrawing_textInsets",
@@ -413,7 +629,7 @@
           "type": "string"
         },
         "bold": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         }
       },
       "required": [
@@ -622,11 +838,11 @@
           "type": "number"
         },
         "flipX": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX",
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold",
           "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
         },
         "flipY": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "rotation": {
           "type": "number",
@@ -636,10 +852,10 @@
           "type": "string"
         },
         "italic": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "underline": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "textInsets": {
           "$ref": "#/$defs/SpreadsheetShapeDrawing_textInsets",
@@ -694,7 +910,7 @@
           "type": "string"
         },
         "bold": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         }
       },
       "required": [
@@ -789,7 +1005,7 @@
           "$ref": "#/$defs/SpreadsheetCellFormat"
         },
         "stopIfTrue": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         }
       },
       "required": [
@@ -814,163 +1030,6 @@
         "notBetween"
       ]
     },
-    "SpreadsheetCellFormat": {
-      "type": "object",
-      "properties": {
-        "bold": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
-        },
-        "italic": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
-        },
-        "underline": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
-        },
-        "align": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_align",
-          "description": "Omitted or general uses the value type. centerContinuous centers across adjacent blank cells with the same alignment."
-        },
-        "color": {
-          "type": "string"
-        },
-        "background": {
-          "type": "string"
-        },
-        "fontFamily": {
-          "type": "string"
-        },
-        "fontSize": {
-          "type": "number",
-          "minimum": 1,
-          "maximum": 200,
-          "description": "Font size in CSS pixels. XLSX converts pixels to points."
-        },
-        "wrap": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX",
-          "description": "Wrap within the cell. Takes display priority when shrinkToFit is also true."
-        },
-        "shrinkToFit": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX",
-          "description": "Reduce the displayed text size to fit the cell without changing fontSize. Omitted means false."
-        },
-        "verticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_verticalAlign",
-          "description": "Omitted uses middle. XLSX calls middle \"center\"."
-        },
-        "indent": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 250,
-          "description": "Integer indentation level, in units of three spaces. Used by left/right and both edges of distributed alignment."
-        },
-        "borders": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_borders"
-        },
-        "numberFormat": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_numberFormat"
-        },
-        "decimalPlaces": {
-          "type": "number"
-        },
-        "useGrouping": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
-        },
-        "negativeFormat": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_negativeFormat"
-        }
-      },
-      "additionalProperties": false
-    },
-    "SpreadsheetCellFormat_align": {
-      "enum": [
-        "right",
-        "left",
-        "fill",
-        "general",
-        "center",
-        "justify",
-        "centerContinuous",
-        "distributed"
-      ]
-    },
-    "SpreadsheetCellFormat_verticalAlign": {
-      "enum": [
-        "top",
-        "bottom",
-        "justify",
-        "distributed",
-        "middle"
-      ]
-    },
-    "SpreadsheetCellFormat_borders": {
-      "type": "object",
-      "properties": {
-        "top": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top"
-        },
-        "right": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top"
-        },
-        "bottom": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top"
-        },
-        "left": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top"
-        }
-      },
-      "additionalProperties": false
-    },
-    "SpreadsheetCellFormat_borders_top": {
-      "type": "object",
-      "properties": {
-        "style": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top_style"
-        },
-        "width": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_borders_top_width"
-        },
-        "color": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false
-    },
-    "SpreadsheetCellFormat_borders_top_style": {
-      "enum": [
-        "none",
-        "solid",
-        "dashed",
-        "dotted",
-        "double"
-      ]
-    },
-    "SpreadsheetCellFormat_borders_top_width": {
-      "enum": [
-        1,
-        2,
-        3
-      ]
-    },
-    "SpreadsheetCellFormat_numberFormat": {
-      "enum": [
-        "number",
-        "general",
-        "text",
-        "currency",
-        "percent",
-        "date",
-        "time",
-        "datetime"
-      ]
-    },
-    "SpreadsheetCellFormat_negativeFormat": {
-      "enum": [
-        "minus",
-        "parentheses",
-        "red",
-        "red-parentheses"
-      ]
-    },
     "SpreadsheetConditionalFormatRule_2": {
       "type": "object",
       "properties": {
@@ -993,7 +1052,7 @@
           "$ref": "#/$defs/SpreadsheetCellFormat"
         },
         "stopIfTrue": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         }
       },
       "required": [
@@ -1233,7 +1292,7 @@
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "message": {
           "type": "string"
@@ -1261,7 +1320,7 @@
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "message": {
           "type": "string"
@@ -1270,7 +1329,7 @@
           "const": "number"
         },
         "integer": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "min": {
           "type": "number"
@@ -1288,7 +1347,7 @@
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "message": {
           "type": "string"
@@ -1312,7 +1371,7 @@
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "message": {
           "type": "string"
@@ -1336,7 +1395,7 @@
       "type": "object",
       "properties": {
         "allowBlank": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_flipX"
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
         "message": {
           "type": "string"

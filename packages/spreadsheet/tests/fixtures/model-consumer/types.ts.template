@@ -8,7 +8,8 @@ import {
   type SpreadsheetSheetSearchQuery, type SpreadsheetSheetSearchMatch, type SpreadsheetSearchOptions, type SpreadsheetSearchMatch,
   type SpreadsheetTable, type SpreadsheetTableColumn, type SpreadsheetSheetReadApi, type SpreadsheetCellGridWriteOptions,
   type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot, type SpreadsheetReadApi, type SpreadsheetReadRange, type SpreadsheetInsertValue,
-  type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult,
+  type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportLimits, type SpreadsheetExcelImportResult,
+  formatCellRange, getResolvedCellFormat, getSheetFormatRanges, type SpreadsheetFormatRangeBounds,
   type SpreadsheetXlsxExportOptions,
   SPREADSHEET_FILE_VERSION, type SpreadsheetFile, type SpreadsheetFileRow,
   type SpreadsheetSession, type SpreadsheetSessionOptions, type SpreadsheetHistoryState, type SpreadsheetPastePayload,
@@ -43,15 +44,16 @@ const fileRow: SpreadsheetFileRow = { cells: { A: { value: '行 1' } } };
 const nativeFile: SpreadsheetFile = { format: 'likex.spreadsheet', schemaVersion: SPREADSHEET_FILE_VERSION,
   sheets: [{ id: 'sheet-1', name: 'Sheet1', rowCount: 300, columnCount: 26, rows: [fileRow] }] };
 const decodedFile: SpreadsheetWorkbookSnapshot = parseWorkbook(JSON.stringify(nativeFile));
-const nativeVersion: 1 = SPREADSHEET_FILE_VERSION;
-// @ts-expect-error SPON file versions other than 1 are unsupported.
-const invalidNativeVersion: SpreadsheetFile = { ...nativeFile, schemaVersion: 2 };
+const nativeVersion: 2 = SPREADSHEET_FILE_VERSION;
+// @ts-expect-error Only the current SPON v2 file layout is written.
+const invalidNativeVersion: SpreadsheetFile = { ...nativeFile, schemaVersion: 3 };
 // @ts-expect-error Native file rows must be decoded before model commands.
 applySpreadsheetCommands(nativeFile, []);
 void [decodedFile, nativeVersion, invalidNativeVersion];
 
 async function readExcel(bytes: Uint8Array, signal?: SpreadsheetExcelImportOptions['signal']) {
-  const options: SpreadsheetExcelImportOptions = { signal };
+  const limits: SpreadsheetExcelImportLimits = { inputBytes: 128 * 1024 * 1024, expandedBytes: 640 * 1024 * 1024 };
+  const options: SpreadsheetExcelImportOptions = { signal, limits };
   const imported: SpreadsheetExcelImportResult = await importSpreadsheetXlsx(bytes, options);
   const warning: string | undefined = imported.warnings[0]?.message;
   // @ts-expect-error Warning collections are readonly.
@@ -59,6 +61,12 @@ async function readExcel(bytes: Uint8Array, signal?: SpreadsheetExcelImportOptio
   return [imported.workbook, warning];
 }
 void readExcel;
+
+const formatArea: SpreadsheetFormatRangeBounds = { top: 0, left: 8, bottom: 'end', right: 25 };
+const formattedBook = formatCellRange(createWorkbook(), 'sheet-1', formatArea, { background: '#fef3c7' });
+const cellFill: string | undefined = getResolvedCellFormat(formattedBook, 'sheet-1', 'I1')?.background;
+const formatRanges = getSheetFormatRanges(formattedBook, 'sheet-1');
+void [cellFill, formatRanges];
 
 async function writeExcel() {
   const options: SpreadsheetXlsxExportOptions = { rasterizeImage: async request => {

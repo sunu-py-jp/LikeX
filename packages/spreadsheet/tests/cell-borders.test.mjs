@@ -110,7 +110,7 @@ test('native JSON and XLSX round-trip the generated borders, including merged pe
   const styled = m.setCellBorders(original, 's', [range], 'outside', { style: 'dashed', width: 2, color: '#112233' });
   assert.equal(m.serializeWorkbook(m.parseWorkbook(m.serializeWorkbook(styled))), m.serializeWorkbook(styled));
   const imported = (await m.importSpreadsheetXlsx(await m.exportSpreadsheetXlsx(styled))).workbook;
-  for (const address of ['B2', 'B3', 'C2', 'C3']) assert.deepEqual(imported.sheets[0].cells[address]?.format?.borders, styled.sheets[0].cells[address]?.format?.borders);
+  for (const address of ['B2', 'B3', 'C2', 'C3']) { const position = m.parseCellAddress(address); assert.deepEqual(m.getCellFormat(imported.sheets[0], position.row, position.column)?.borders, m.getCellFormat(styled.sheets[0], position.row, position.column)?.borders); }
   assert.equal(imported.sheets[0].cells.B2.value, 'Merged');
   assert.equal(imported.sheets[0].cells.B2.format.bold, true);
 });

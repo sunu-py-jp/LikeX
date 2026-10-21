@@ -1,3 +1,5 @@
+import { getCellFormat } from "../format-ranges";
+import { parseCellAddress } from "../address";
 import type { SpreadsheetFeatures } from "../../api/features";
 import { resolveSpreadsheetFeatures } from "../../api/resolve-features";
 import { validateSpreadsheetFeatures } from "../../api/validate-features";
@@ -54,7 +56,7 @@ export function copySpreadsheetCells(input: SpreadsheetWorkbookSnapshot, sheetId
     values.push(addresses.map(address => sheet.cells[address]?.value ?? ""));
     displayedValues.push(addresses.map(address => String(calculated?.[address] ?? "")));
     valueTypes.push(addresses.map(address => typeof (calculated?.[address] ?? "") as "string" | "number" | "boolean"));
-    formats.push(addresses.map(address => sheet.cells[address]?.format ?? null));
+    formats.push(addresses.map(address => { const position = parseCellAddress(address); return position ? getCellFormat(sheet, position.row, position.column) ?? null : null; }));
     validations.push(addresses.map(address => sheet.cells[address]?.validation ?? null));
     if (features.comments) comments.push(addresses.map(address => {
       const comment = sheet.comments?.[address];

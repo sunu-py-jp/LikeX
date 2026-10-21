@@ -2,7 +2,34 @@
 
 [利用ガイドへ戻る](./README.md)
 
-書式はセルの `format`、行列サイズと条件付き書式はシートのデータに保存します。JSON保存、Undo/Redo、外部コマンド、XLSX出力に対応します。保存した入力値（raw）は書式変更では変わりません。
+書式はセルの `format` または同じ書式をまとめたシートの `formatRanges`、行列サイズと条件付き書式はシートのデータに保存します。JSON保存、Undo/Redo、外部コマンド、XLSX出力に対応します。保存した入力値（raw）は書式変更では変わりません。
+
+## 範囲に共通する書式
+
+`cells.formatRange` は有限の矩形やシートの末尾までの範囲へ、指定した書式属性をまとめて適用します。値・数式や空セルを全件複製せず、異なる書式の箇所を分けて `formatRanges` に保持します。GUIの編集と同じ検証・Undo/Redo・編集許可を使う公開コマンドです。
+
+```ts
+await spreadsheetRef.current!.executeAsync({
+  type: "cells.formatRange",
+  sheetId: "sales",
+  range: { top: 0, left: 8, bottom: 99, right: 25 }, // I1:Z100
+  format: { background: "#eeeeee", align: "center" },
+});
+
+// I列以降、シートの末尾まで。拡張した行・列にも追随します。
+await spreadsheetRef.current!.executeAsync({
+  type: "cells.formatRange",
+  sheetId: "sales",
+  range: { top: 0, left: 8, bottom: "end", right: "end" },
+  format: { background: "#eeeeee" },
+});
+```
+
+画面なしでは `formatCellRange(workbook, sheetId, range, format)` または `applySpreadsheetCommands` を使えます。座標は0始まりで両端を含み、数値はシート内に収まる必要があります。`format` は変更したい属性だけでよく、指定していない実効書式と値・数式を保持します。`borders` を指定すると辺のマップ全体を置き換える点は `cells.format` と同じです。
+
+通常の `"end"` 範囲はシートの拡張に追随します。ただし、現在の末端まである有限範囲と異なる書式を重ねて変更すると、見た目を維持する分割によって一部が有限範囲として保存され、その部分は後から追加した末端セルへ追随しない場合があります。変更後の `getSheetFormatRanges` / `getFormatRanges` で実際の終端を確認できます。
+
+保存モデルの範囲書式は非重複矩形と完全な書式で表します。個別セルに明示した `format` は共通書式全体を上書きしますが、このコマンドは個別セルの既存書式にも指定属性を適用します。保存構造と例外の扱いは [SPON形式](./native-files.md#同じ書式を範囲で保存する)、取得は [書式の読み取り](./data-access.md#共通範囲とセルに適用される書式を取得する)を参照してください。
 
 ## 画面の基本色
 

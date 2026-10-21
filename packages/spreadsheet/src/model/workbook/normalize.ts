@@ -1,3 +1,4 @@
+import { normalizeFormatRanges } from "../format-ranges";
 import { normalizeConditionalFormats } from "../conditional-formatting";
 import { normalizeComments, normalizeDrawings } from "../annotations";
 import { normalizeResources } from "../image-resources";
@@ -28,6 +29,7 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
     names.add(key);
     const rowCount = validateDimension(sheet.rowCount, SPREADSHEET_LIMITS.rows), columnCount = validateDimension(sheet.columnCount, SPREADSHEET_LIMITS.columns);
     if (!sheet.cells || typeof sheet.cells !== "object" || Array.isArray(sheet.cells)) return fail("セルの一覧が正しくありません");
+    const formatRanges = normalizeFormatRanges(sheet.formatRanges, { rowCount, columnCount });
     const cells: Record<string, SpreadsheetCell> = Object.create(null);
     for (const [address, cell] of Object.entries(sheet.cells)) {
       if (++cellCount > SPREADSHEET_LIMITS.cells) return fail("保存できるセル数の上限を超えています");
@@ -43,10 +45,10 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
     const comments = normalizeComments(sheet.comments, { rowCount, columnCount });
     const merges = normalizeMerges(sheet.merges, { rowCount, columnCount, name });
     const conditionalFormats = normalizeConditionalFormats(sheet.conditionalFormats, { rowCount, columnCount });
-    const tables = normalizeTables(sheet.tables, { rowCount, columnCount, cells, merges });
+    const tables = normalizeTables(sheet.tables, { rowCount, columnCount, cells, merges, formatRanges });
     validateMergedContents({ cells, comments, merges });
     return Object.freeze({ id: sheet.id, name, cells: Object.freeze(cells), rowCount, columnCount,
-      ...(columnWidths ? { columnWidths } : {}), ...(rowHeights ? { rowHeights } : {}),
+      ...(formatRanges ? { formatRanges } : {}), ...(columnWidths ? { columnWidths } : {}), ...(rowHeights ? { rowHeights } : {}),
       ...(drawings ? { drawings } : {}), ...(comments ? { comments } : {}), ...(merges ? { merges } : {}),
       ...(conditionalFormats ? { conditionalFormats } : {}), ...(tables ? { tables } : {}) });
   });

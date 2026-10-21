@@ -1,8 +1,10 @@
+import { getFormattedCell, resolveFormatRange } from "../../model/format-ranges";
+import type { OfficePackageSignal } from "../../ooxml";
 import { cellTextValue, isFormulaCell } from "../../model/cell-value";
 import { cellAddress, parseCellAddress } from "../../model/address";
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "../../model/sheet-dimensions";
 import { excelDateSerial } from "../../model/formatting";
-import type { SpreadsheetCalculatedValue, SpreadsheetCell, SpreadsheetSheet, SpreadsheetWorkbook } from "../../model/types";
+import type { SpreadsheetCalculatedValue, SpreadsheetCell, SpreadsheetCellFormat, SpreadsheetSheet, SpreadsheetWorkbook } from "../../model/types";
 import { EXCEL_ERRORS, xlsxFormula } from "./formula";
 import { xlsxCellFormat, type XlsxStyles } from "./styles";
 import { conditionalFormattingXml } from "./conditional-formatting";
@@ -58,24 +60,61 @@ function cellXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, address
   if (/^(true|false)$/i.test(value)) return `<c ${attributes} t="b"><v>${value.toLowerCase() === "true" ? 1 : 0}</v></c>`;
   return `<c ${attributes} t="inlineStr"><is><t xml:space="preserve">${xlsxText(value)}</t></is></c>`;
 }
-/** Worksheet schema ordering is centralized here; drawing relationships are supplied by the package assembler. */
-export function worksheetXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, styles: XlsxStyles, calculated: Calculated, links: Links = {}): string {
+/** Generate only one row of expanded finite formatting at a time. */
+function* worksheetChunks(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, styles: XlsxStyles, calculated: Calculated, links: Links): Generator<string> {
   const tableHeaders = new Map((sheet.tables ?? []).flatMap(table => table.columns.map((column, index) =>
     [cellAddress(table.range.top, table.range.left + index), column.name] as const)));
-  const rows = new Map<number, { address: string; column: number; cell: SpreadsheetCell }[]>();
+  const rows = new Map<number, Map<number, { address: string; cell: SpreadsheetCell }>>();
   for (const [address, cell] of Object.entries(sheet.cells)) {
     const position = parseCellAddress(address)!;
-    if (!rows.has(position.row)) rows.set(position.row, []);
-    rows.get(position.row)!.push({ address, column: position.column, cell });
+    if (!rows.has(position.row)) rows.set(position.row, new Map());
+    rows.get(position.row)!.set(position.column, { address, cell: getFormattedCell(sheet, position.row, position.column) ?? cell });
   }
-  for (const key of Object.keys(sheet.rowHeights ?? {})) if (!rows.has(Number(key))) rows.set(Number(key), []);
-  const rowXml = [...rows].sort(([left], [right]) => left - right).map(([row, cells]) => {
-    const height = sheet.rowHeights?.[row];
+  const columnFormats = new Map<number, SpreadsheetCellFormat>(), rowFormats = new Map<number, SpreadsheetCellFormat>();
+  const finite = [] as { top: number; bottom: number; left: number; right: number; format: SpreadsheetCellFormat }[];
+  for (const item of sheet.formatRanges ?? []) {
+    const range = resolveFormatRange(sheet, item.range);
+    if (item.range.top === 0 && item.range.bottom === "end")
+      for (let column = range.left; column <= range.right; column++) columnFormats.set(column, item.format);
+    else if (item.range.left === 0 && item.range.right === "end")
+      for (let row = range.top; row <= range.bottom; row++) rowFormats.set(row, item.format);
+    else finite.push({ ...range, format: item.format });
+  }
+  finite.sort((a, b) => a.top - b.top);
+  const columns: string[] = [];
+  for (let column = 0; column < sheet.columnCount; column++) {
+    const width = sheet.columnWidths?.[column], format = columnFormats.get(column);
+    if (width === undefined && format === undefined) continue;
+    columns.push(`<col min="${column + 1}" max="${column + 1}"${width === undefined ? "" : ` width="${xml(columnWidth(width))}" customWidth="1"`}${format === undefined ? "" : ` style="${styles.styleId(format)}"`}/>`);
+  }
+  yield `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:${cellAddress(sheet.rowCount - 1, sheet.columnCount - 1)}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultColWidth="${columnWidth(DEFAULT_COLUMN_WIDTH)}" defaultRowHeight="${DEFAULT_ROW_HEIGHT * 0.75}"/>${columns.length ? `<cols>${columns.join("")}</cols>` : ""}<sheetData>`;
+  let cursor = 0;
+  const active = new Set<(typeof finite)[number]>();
+  for (let row = 0; row < sheet.rowCount; row++) {
+    while (cursor < finite.length && finite[cursor].top === row) active.add(finite[cursor++]);
+    for (const range of active) if (range.bottom < row) active.delete(range);
+    const cells = new Map(rows.get(row) ?? []);
+    for (const range of active) for (let column = range.left; column <= range.right; column++)
+      if (!cells.has(column)) cells.set(column, { address: cellAddress(row, column), cell: { value: "", format: range.format } });
+    const height = sheet.rowHeights?.[row], rowFormat = rowFormats.get(row);
+    if (!cells.size && height === undefined && rowFormat === undefined) continue;
     if (height !== undefined && height * 0.75 > 409) throw new Error(`Excelの行の高さの上限を超えています（${sheet.name}!${row + 1}行）`);
-    return `<row r="${row + 1}"${height === undefined ? "" : ` ht="${xml(height * 0.75)}" customHeight="1"`}>${cells.sort((left, right) => left.column - right.column).map(item => cellXml(workbook, sheet, item.address, item.cell, styles, calculated, tableHeaders.get(item.address))).join("")}</row>`;
-  }).join("");
-  const columns = Object.entries(sheet.columnWidths ?? {}).sort(([left], [right]) => Number(left) - Number(right)).map(([column, width]) =>
-    `<col min="${Number(column) + 1}" max="${Number(column) + 1}" width="${xml(columnWidth(width))}" customWidth="1"/>`).join("");
+    yield `<row r="${row + 1}"${height === undefined ? "" : ` ht="${xml(height * 0.75)}" customHeight="1"`}${rowFormat === undefined ? "" : ` s="${styles.styleId(rowFormat)}" customFormat="1"`}>${[...cells].sort(([left], [right]) => left - right).map(([, item]) => cellXml(workbook, sheet, item.address, item.cell, styles, calculated, tableHeaders.get(item.address))).join("")}</row>`;
+  }
   const merges = (sheet.merges ?? []).map(range => `<mergeCell ref="${cellAddress(range.top, range.left)}:${cellAddress(range.bottom, range.right)}"/>`).join("");
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:${cellAddress(sheet.rowCount - 1, sheet.columnCount - 1)}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultColWidth="${columnWidth(DEFAULT_COLUMN_WIDTH)}" defaultRowHeight="${DEFAULT_ROW_HEIGHT * 0.75}"/>${columns ? `<cols>${columns}</cols>` : ""}<sheetData>${rowXml}</sheetData>${merges ? `<mergeCells count="${sheet.merges!.length}">${merges}</mergeCells>` : ""}${conditionalFormattingXml(sheet, styles)}${dataValidationsXml(sheet, { formulaForList: links.formulaForList })}${links.drawingId ? `<drawing r:id="${xml(links.drawingId)}"/>` : ""}${links.commentsDrawingId ? `<legacyDrawing r:id="${xml(links.commentsDrawingId)}"/>` : ""}${tablePartsXml(links.tableRelationshipIds)}</worksheet>`;
+  yield `</sheetData>${merges ? `<mergeCells count="${sheet.merges!.length}">${merges}</mergeCells>` : ""}${conditionalFormattingXml(sheet, styles)}${dataValidationsXml(sheet, { formulaForList: links.formulaForList })}${links.drawingId ? `<drawing r:id="${xml(links.drawingId)}"/>` : ""}${links.commentsDrawingId ? `<legacyDrawing r:id="${xml(links.commentsDrawingId)}"/>` : ""}${tablePartsXml(links.tableRelationshipIds)}</worksheet>`;
+}
+/** Synchronous helper for small in-memory consumers and tests. */
+export function worksheetXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, styles: XlsxStyles, calculated: Calculated, links: Links = {}): string {
+  return [...worksheetChunks(workbook, sheet, styles, calculated, links)].join("");
+}
+/** The file exporter keeps UTF-8 row blobs, not a second full expanded XML string. */
+export async function worksheetBlob(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, styles: XlsxStyles, calculated: Calculated,
+  links: Links = {}, signal?: OfficePackageSignal): Promise<Blob> {
+  const parts: Blob[] = []; let count = 0;
+  for (const chunk of worksheetChunks(workbook, sheet, styles, calculated, links)) {
+    signal?.throwIfAborted(); parts.push(new Blob([chunk]));
+    if (++count % 128 === 0) { await new Promise<void>(resolve => setTimeout(resolve, 0)); signal?.throwIfAborted(); }
+  }
+  return new Blob(parts, { type: "application/xml" });
 }

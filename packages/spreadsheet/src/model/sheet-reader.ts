@@ -1,4 +1,4 @@
-import { getCell, getCellComment, getDrawing, getDrawings, getImage, getImages, getNamedRanges, getRange,
+import { getResolvedCellFormat, getSheetFormatRanges, getCell, getCellComment, getDrawing, getDrawings, getImage, getImages, getNamedRanges, getRange,
   getShape, getShapes, getSheet, getSheetCells, getTables, getTextBox, getTextBoxes, type SpreadsheetReadRangeInput } from "./query";
 import { copyQuerySnapshot, type QuerySnapshot } from "./query-snapshot";
 import type { SpreadsheetWorkbook } from "./types";
@@ -9,6 +9,8 @@ import type { SpreadsheetSearchQuery } from "../api/editing-commands";
 export type SpreadsheetSheetReadApi = Readonly<{
   getInfo(): ReturnType<typeof getSheet>;
   getCell(address: string): ReturnType<typeof getCell>;
+  getCellFormat(address: string): ReturnType<typeof getResolvedCellFormat>;
+  getFormatRanges(): ReturnType<typeof getSheetFormatRanges>;
   getCells(): ReturnType<typeof getSheetCells>;
   getRange(range: SpreadsheetReadRangeInput): ReturnType<typeof getRange>;
   findCells(query: SpreadsheetSearchQuery, options?: Omit<SpreadsheetSearchOptions, "sheetId">): ReturnType<typeof findSpreadsheetCells>;
@@ -31,6 +33,8 @@ export function createSpreadsheetSheetReader(getWorkbook: () => QuerySnapshot<Sp
   return Object.freeze({
     getInfo: () => getSheet(getWorkbook(), sheetId),
     getCell: (address: string) => getCell(getWorkbook(), sheetId, address),
+    getCellFormat: (address: string) => getResolvedCellFormat(getWorkbook(), sheetId, address),
+    getFormatRanges: () => getSheetFormatRanges(getWorkbook(), sheetId),
     getCells: () => getSheetCells(getWorkbook(), sheetId),
     getRange: (range: SpreadsheetReadRangeInput) => getRange(getWorkbook(), sheetId, range),
     findCells: (query: SpreadsheetSearchQuery, options?: Omit<SpreadsheetSearchOptions, "sheetId">) => findSpreadsheetCells(getWorkbook(), query, { ...options, sheetId }),

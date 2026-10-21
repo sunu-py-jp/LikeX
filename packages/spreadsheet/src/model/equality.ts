@@ -1,6 +1,8 @@
+import { formatRangesEqual, getCellFormat } from "./format-ranges";
+import { parseCellAddress } from "./address";
 import { formatsEqual } from "./formatting";
 import { conditionalFormatsEqual } from "./conditional-formatting";
-import { SPREADSHEET_FORMAT, type SpreadsheetCell, type SpreadsheetWorkbook } from "./types";
+import { SPREADSHEET_FORMAT, type SpreadsheetCell, type SpreadsheetSheet, type SpreadsheetWorkbook } from "./types";
 import { commentsEqual, drawingsEqual } from "./annotations";
 import { dataValidationsEqual } from "./data-validation";
 import { mergesEqual } from "./merges";
@@ -12,8 +14,18 @@ const emptySizes: Readonly<Record<number, number>> = Object.freeze({});
 function cellsEqual(left: SpreadsheetCell | undefined, right: SpreadsheetCell | undefined): boolean {
   return left === right || ((left?.value ?? "") === (right?.value ?? "") && formatsEqual(left?.format, right?.format) && dataValidationsEqual(left?.validation, right?.validation));
 }
-function cellMapsEqual(left: Readonly<Record<string, SpreadsheetCell>>, right: Readonly<Record<string, SpreadsheetCell>>): boolean {
+function cellMapsEqual(leftSheet: SpreadsheetSheet, rightSheet: SpreadsheetSheet): boolean {
+  const left = leftSheet.cells, right = rightSheet.cells;
   if (left === right) return true;
+  if (leftSheet.formatRanges?.length || rightSheet.formatRanges?.length) {
+    const addresses = new Set([...Object.keys(left), ...Object.keys(right)]);
+    for (const address of addresses) {
+      const position = parseCellAddress(address)!, a = left[address], b = right[address];
+      if ((a?.value ?? "") !== (b?.value ?? "") || !dataValidationsEqual(a?.validation, b?.validation) ||
+        !formatsEqual(getCellFormat(leftSheet, position.row, position.column), getCellFormat(rightSheet, position.row, position.column))) return false;
+    }
+    return true;
+  }
   for (const address of Object.keys(left)) if (!cellsEqual(left[address], right[address])) return false;
   for (const address of Object.keys(right)) if (!Object.hasOwn(left, address) && !cellsEqual(undefined, right[address])) return false;
   return true;
@@ -57,7 +69,7 @@ export function workbooksEqual(left: SpreadsheetWorkbook, right: SpreadsheetWork
   return left.sheets.every((sheet, index) => {
     const other = right.sheets[index];
     return sheet === other || (sheet.id === other.id && sheet.name === other.name && sheet.rowCount === other.rowCount &&
-      sheet.columnCount === other.columnCount && cellMapsEqual(sheet.cells, other.cells) &&
+      sheet.columnCount === other.columnCount && formatRangesEqual(sheet.formatRanges, other.formatRanges) && cellMapsEqual(sheet, other) &&
       sizesEqual(sheet.columnWidths, other.columnWidths, DEFAULT_COLUMN_WIDTH) && sizesEqual(sheet.rowHeights, other.rowHeights, DEFAULT_ROW_HEIGHT) &&
       mergesEqual(sheet.merges, other.merges) && conditionalFormatsEqual(sheet.conditionalFormats, other.conditionalFormats) && annotationsEqual(sheet, other));
   });

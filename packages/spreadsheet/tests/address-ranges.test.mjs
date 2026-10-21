@@ -50,7 +50,10 @@ test('range expansion counts the bounded unique union and keeps explicit-only la
   }
   assert.deepEqual(m.expandCellAddresses(oversizedSheet, explicitAddresses), explicitAddresses);
   const workbook = book({}, oversizedSheet);
-  assert.equal(Object.keys(m.formatCells(workbook, 'main', explicitAddresses, { bold: true }).sheets[0].cells).length, 10_001);
+  const formatted = m.formatCells(workbook, 'main', explicitAddresses, { bold: true }).sheets[0];
+  assert.equal(Object.keys(formatted.cells).length, 0);
+  assert.ok(formatted.formatRanges.length <= 2);
+  for (const address of explicitAddresses) { const point = m.parseCellAddress(address); assert.equal(m.getCellFormat(formatted, point.row, point.column).bold, true); }
   assert.equal(m.replaceSpreadsheetCells(workbook, 'main', { text: 'unused' }, 'replacement', explicitAddresses), workbook);
   assert.throws(() => m.setCellDataValidation(workbook, 'main', Array(10_001).fill('A1'), null), /10,000/,
     'the existing input-validation list limit is retained');
