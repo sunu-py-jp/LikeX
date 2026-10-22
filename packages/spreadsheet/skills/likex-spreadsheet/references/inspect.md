@@ -14,7 +14,7 @@ UIで開く対象は通常Spreadsheetの `initialSheetId` / `initialSheetName`�
 
 公開APIの `collectSpreadsheetImages(workbook, options?)` は、配置された画像の元バイト列をSHA-256で識別する。`@likex/spreadsheet/model` からimportし、SPONなら `parseWorkbook`、Excelなら `importSpreadsheetXlsx` のブックを渡す。Excel取り込みの警告は収集結果と別に確認する。
 
-戻り値は `{ images, placements }`。`images` の各 `{ imageId, src, mimeType, byteLength }` を1回だけ解析し、その結果を `imageId` で配置へ戻す。`placements` は `{ imageId, sheetId, sheetName, sheetIndex, drawingId, resourceId, anchor, width, height, rotation, flipX, flipY, alt }` をシート順・描画順に返す。シート番号とアンカーの行列は0始まり。省略されている回転・反転は0とfalseで返る。
+戻り値は `{ images, placements }`。`images` の各 `{ imageId, src, mimeType, byteLength }` を1回だけ解析し、その結果を `imageId` で配置へ戻す。`placements` は `{ imageId, sheetId, sheetName, sheetIndex, drawingId, resourceId, anchor, width, height, rotation, flipX, flipY, alt }` と、元画像配置にあれば `fit` をシート順・描画順に返す。`fit` の省略／`"contain"` は元比率を維持し、`"fill"` は枠へ伸縮する。シート番号とアンカーの行列は0始まり。省略されている回転・反転は0とfalseで返る。
 
 別の画像リソースIDやファイル名でも同じ元バイト列なら共通IDになり、配置の違いは残る。未使用リソースは含めない。見た目が同じでも再圧縮などでバイト列が違えば別画像。ハッシュを保存用IDへ置き換えず、解析結果側の対応付けに使う。
 

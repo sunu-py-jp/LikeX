@@ -378,7 +378,7 @@ type WorkbookResult = ReturnType<SpreadsheetHandle["getWorkbook"]>;
 }
 ```
 
-共通フィールドに加え、`resourceId: string` と `alt: string` を必ず持ちます。`resourceId` を `getImageResource` に渡すとデータ本体を取得できます。`width` / `height` は配置の寸法で、元画像の寸法とは別です。
+共通フィールドに加え、`resourceId: string` と `alt: string` を必ず持ちます。`resourceId` を `getImageResource` に渡すとデータ本体を取得できます。`width` / `height` は配置の寸法で、元画像の寸法とは別です。任意の `fit: "contain" | "fill"` は画像内容を枠に収める方法です。省略は `"contain"` と同じで元の縦横比を維持し、`"fill"` は枠いっぱいに伸縮します。
 
 ### getShape
 

@@ -97,14 +97,16 @@ test('two-cell and absolute anchors respect row and column sizes and grow the ca
   assert.equal(imported.rowHeights[4], 20); assert.equal(imported.columnWidths[4], 64);
 });
 
-test('embedded raster resources are validated and shared, preserve image aspect ratio, and remain JSON serializable', async () => {
+test('embedded raster resources are validated and shared, preserve stretched image frames, and remain JSON serializable', async () => {
   const env = harness({ drawings: one(image()) + one(image(), 5, 5, 40, 40),
     files: { 'xl/media/pixel.png': png }, drawingRels: [relationship('image', 'image', '../media/pixel.png')] });
   const imported = await env.run();
   assert.equal(imported.drawings[0].resourceId, 'image-1'); assert.equal(imported.drawings[1].resourceId, 'image-1');
   assert.equal(imported.drawings[0].alt, '説明'); assert.equal(env.reads.filter(path => path.endsWith('.png')).length, 1);
   assert.equal(env.context.resources['image-1'].width, 1); assert.equal(env.context.resources['image-1'].height, 1);
-  assert.ok(env.warnings.some(item => item.message.includes('縦横比')));
+  assert.equal(imported.drawings[0].fit, 'fill'); assert.equal(imported.drawings[1].fit, 'fill');
+  assert.equal(imported.drawings[0].width, 120); assert.equal(imported.drawings[0].height, 60);
+  assert.ok(!env.warnings.some(item => item.message.includes('縦横比')));
   assert.doesNotThrow(() => normalizeWorkbook(JSON.parse(JSON.stringify({ sheets: [imported], resources: { images: env.context.resources } }))));
 });
 

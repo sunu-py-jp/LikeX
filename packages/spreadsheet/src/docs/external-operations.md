@@ -145,7 +145,7 @@ AIが別のセルを読んで集計結果などの固定値を書き込む場合
 | `columns.resize` | `column`, `width`（px） |
 | `cells.merge` | `range: { top, left, bottom, right }`, `discardContent?` |
 | `cells.unmerge` | `range: { top, left, bottom, right }` |
-| `images.insert` | `resource`, `anchor`, `width?`, `height?`, `alt?` |
+| `images.insert` | `resource`, `anchor`, `width?`, `height?`, `alt?`, `fit?` |
 | `shapes.insert` | `shape`, `anchor`, `width?`, `height?`, `fill?`, `stroke?`, `strokeWidth?`, `text?`, `fontSize?`, `color?`, `bold?` |
 | `textBoxes.insert` | `anchor`, `text?`, `width?`, `height?`, `fontSize?`, `color?`, `background?`, `bold?` |
 | `images.update` / `shapes.update` / `textBoxes.update` | `drawingId`, `patch`。対応する種類のプロパティだけを指定 |
@@ -307,7 +307,9 @@ if (!result.ok) console.error(result.message);
 | --- | --- |
 | `width` / `height` を両方省略 | 縦横比を保って最大320×240pxに収め、元画像より拡大しません。 |
 | どちらか一辺だけ指定 | 指定した辺に合わせて、もう一辺を同比率で計算します。 |
-| 両辺を指定 | 指定した表示枠を保持します。画像自体は `object-fit: contain` で比率を保って収め、比率が違う枠には余白ができます。 |
+| 両辺を指定 | 指定した表示枠を保持します。画像内容の収め方は `fit` で指定します。既定は比率を保つ `"contain"` です。 |
+
+`images.insert` の `fit: "fill"` は画像を表示枠いっぱいに縦横それぞれ伸縮します。省略または `"contain"` は元比率を保って中央に収め、比率が違う枠には余白を作ります。変更は `images.update` の `patch: { fit: "fill" }`、解除は `patch: { fit: "contain" }` で行います。`fit` だけの変更も保存とUndo／Redoの対象です。`features.resize: false` は既存画像の表示方法の変更を拒否しますが、同じ方法の再指定と新規挿入時の指定は許可します。
 
 画像の表示サイズには正の小数ピクセルも使えます。`images.update` の寸法patch、低レベルのモデル関数、読み込んだJSONには、この挿入時の自動計算を適用しません。例えば `images.update` に `patch: { width: 240 }` を渡した場合は、幅だけを変更して既存の高さを維持します。GUIの画像リサイズでは現在の表示枠の比率を保ちますが、外部APIは明示された寸法を尊重します。図形とテキストの省略値はGUIで挿入した場合と同じです。
 

@@ -24,6 +24,7 @@ const placement = (book, sheetIndex, drawingIndex) => {
   const page = book.sheets[sheetIndex], item = page.drawings[drawingIndex];
   return { imageId: id(book.resources.images[item.resourceId].dataUrl), sheetId: page.id, sheetName: page.name, sheetIndex,
     drawingId: item.id, resourceId: item.resourceId, anchor: { ...item.anchor }, width: item.width, height: item.height,
+    ...(item.fit !== undefined ? { fit: item.fit } : {}),
     rotation: item.rotation ?? 0, flipX: item.flipX ?? false, flipY: item.flipY ?? false, alt: item.alt };
 };
 

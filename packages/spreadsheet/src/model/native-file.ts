@@ -91,7 +91,7 @@ const rootOrder = ["format", "schemaVersion", "sheets", "resources", "namedRange
 const fieldOrder = ["id", "name", "type", "shape", "rowCount", "columnCount",
   "columnWidths", "formatRanges", "rows", "height", "cells", "merges", "tables", "comments", "drawings", "conditionalFormats",
   "value", "format", "validation", "anchor", "row", "column", "offsetX", "offsetY", "width", "rotation", "flipX", "flipY",
-  "resourceId", "alt", "text", "fontFamily", "fontSize", "bold", "italic", "underline", "align", "verticalAlign", "indent", "wrap", "shrinkToFit",
+  "resourceId", "alt", "fit", "text", "fontFamily", "fontSize", "bold", "italic", "underline", "align", "verticalAlign", "indent", "wrap", "shrinkToFit",
   "numberFormat", "decimalPlaces", "useGrouping", "negativeFormat", "color", "background", "fill", "stroke", "strokeWidth", "borders",
   "top", "left", "bottom", "right", "style", "author", "sheetId", "range", "mimeType", "dataUrl"];
 const fieldRank = new Map(fieldOrder.map((key, index) => [key, index]));

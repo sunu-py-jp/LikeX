@@ -193,7 +193,7 @@ export async function prepareWorksheetDrawings(sheet: SpreadsheetSheet, inputRes
         }
         if (!contentTypes.some(type => type.extension === image.extension)) contentTypes.push({ extension: image.extension, contentType: image.contentType });
       }
-      const contained = containXlsxImage(rectangle, record.image);
+      const contained = drawing.fit === "fill" ? rectangle : containXlsxImage(rectangle, record.image);
       if (!connected.has(drawing.id)) rectangle = contained;
       content = picture(drawing, index + 1, record.relationship, rectangle, connected.has(drawing.id), contained);
     } else if (drawing.type === "shape") {

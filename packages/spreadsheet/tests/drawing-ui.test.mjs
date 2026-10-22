@@ -274,6 +274,29 @@ function imageBook(width = 333, height = 200) {
 }
 const picture = ui => ui.c.activeSheet.drawings.find(item => item.id === 'picture');
 const sameRatio = (dimensions, expected) => assert.ok(Math.abs(dimensions.width / dimensions.height - expected) < 1e-9);
+
+test('read-only images preserve stretch inside their frame without shifting overlaid rectangles', async t => {
+  const workbook = imageBook(400, 200), sheet = workbook.sheets[0];
+  sheet.drawings = [
+    { ...sheet.drawings.find(item => item.id === 'picture'), fit: 'fill' },
+    { ...shape, id: 'upper-frame', anchor: { row: 0, column: 0, offsetX: 40, offsetY: 20 }, width: 80, height: 20 },
+    { ...shape, id: 'middle-frame', anchor: { row: 0, column: 0, offsetX: 200, offsetY: 90 }, width: 80, height: 20 },
+  ];
+  const ui = await mount(t, { initialWorkbook: workbook, readOnly: true });
+  const image = ui.drawing('picture');
+  assert.equal(image.findByType('img').props.style.objectFit, 'fill', 'image pixels must use the same frame as Excel, without centered letterboxing');
+  assert.deepEqual([image.props.style.width, image.props.style.height], [400, 200]);
+  for (const [id, x, y] of [['upper-frame', 40, 20], ['middle-frame', 200, 90]]) {
+    const frame = ui.drawing(id).props.style;
+    assert.deepEqual([frame.left - image.props.style.left, frame.top - image.props.style.top], [x, y]);
+  }
+});
+
+test('existing image frames still contain their original aspect ratio when fit is omitted', async t => {
+  const ui = await mount(t, { initialWorkbook: imageBook(), readOnly: true });
+  assert.equal(ui.drawing('picture').findByType('img').props.style.objectFit, 'contain');
+});
+
 function imagePointer() {
   const target = { ownerDocument: { activeElement: null }, closest: () => null, focus() {},
     setPointerCapture() {}, hasPointerCapture: () => false, releasePointerCapture() {} };

@@ -187,7 +187,7 @@
 
 | `type` | 引数 |
 | --- | --- |
-| `images.insert` | `sheetId`, `resource: SpreadsheetImageResource`, `anchor`, `width?`, `height?`, `alt?`, `flipX?`, `flipY?`, `rotation?` |
+| `images.insert` | `sheetId`, `resource: SpreadsheetImageResource`, `anchor`, `width?`, `height?`, `alt?`, `fit?`, `flipX?`, `flipY?`, `rotation?` |
 | `shapes.insert` | `sheetId`, `shape`, `anchor`, `width?`, `height?`, `flipX?`, `flipY?`, `rotation?`, `fill?`, `stroke?`, `strokeWidth?`, `cornerRadiusRatio?`, `text?`, `fontSize?`, `color?`, `bold?`、下記の共通文字レイアウト属性 |
 | `textBoxes.insert` | `sheetId`, `anchor`, `text?`, `width?`, `height?`, `fontSize?`, `color?`, `background?`, `bold?`, `flipX?`, `flipY?`, `rotation?`、下記の共通文字レイアウト属性 |
 | `images.update` / `shapes.update` / `textBoxes.update` | `sheetId`, `drawingId`, `patch`。対応する描画型のフィールドのみ |
@@ -208,6 +208,8 @@
 アンカーは `{ row, column, offsetX?, offsetY? }`。オフセットの既定は0px。画像resourceの形式、図形種別、色・寸法の契約は [schema-guide.md](schema-guide.md) を参照する。
 
 更新patchでは `id` / `type` を変えない。アンカーを指定する場合は `row` / `column` が必要で、オフセット省略は0になる。`images.update.patch.resourceId` はブック内の既存画像リソースを参照する。画像bytesを入れ替える `src` フィールドはない。
+
+画像の `fit?: "contain" | "fill"` は `images.insert` と `images.update.patch` で指定できる。省略／`"contain"` は比率を保って中央へ収め、`"fill"` は枠へ縦横それぞれ伸縮する。既存画像の異なる `fit` への変更は `features.resize` に従い、同値更新・初回指定は許可する。寸法は自動変更せず、コピー・SPON・Undo/Redo・XLSXでも表示方法を保持する。
 
 `drawings.paste` は描画1つを新しいIDで複製する。公開API `copySpreadsheetDrawing(workbook, sheetId, drawingId)` が検証済みpayloadを返す。画像ではresourceも必須。anchorを省略すると元の行列に置き、元のオフセットへ16pxずつ加える。画像は同じID・内容のリソースが貼り付け先にあれば共有し、なければ新しいresourceIdを生成する。
 

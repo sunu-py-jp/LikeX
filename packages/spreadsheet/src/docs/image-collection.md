@@ -47,7 +47,7 @@ export async function describeExcelImages(
 | 配列 | フィールド |
 | --- | --- |
 | `images: SpreadsheetImageAsset[]` | `imageId`, `src`（元のdata URL）, `mimeType`, `byteLength`（画像ファイルのバイト数） |
-| `placements: SpreadsheetImagePlacement[]` | `imageId`, `sheetId`, `sheetName`, `sheetIndex`, `drawingId`, `resourceId`, `anchor`, `width`, `height`, `rotation`, `flipX`, `flipY`, `alt` |
+| `placements: SpreadsheetImagePlacement[]` | `imageId`, `sheetId`, `sheetName`, `sheetIndex`, `drawingId`, `resourceId`, `anchor`, `width`, `height`, `rotation`, `flipX`, `flipY`, `alt` と任意の `fit`（省略は `"contain"`、`"fill"` は枠へ伸縮） |
 
 `sheetIndex` と `anchor.row` / `anchor.column` は0始まりです。`anchor.offsetX` / `offsetY` と幅・高さはCSSピクセル、回転は時計回りの度数です。省略された回転・反転は `rotation: 0`, `flipX: false`, `flipY: false` として返します。配置サイズはモデルに保存された枠のサイズで、画面上で縦横比を保って収めた画像の実寸を再計算しません。
 

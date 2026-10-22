@@ -59,7 +59,11 @@ type SpreadsheetDrawingBase = {
   /** Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted. */
   rotation?: number;
 };
-export type SpreadsheetImageDrawing = SpreadsheetDrawingBase & { type: "image"; resourceId: string; alt: string };
+export type SpreadsheetImageDrawing = SpreadsheetDrawingBase & {
+  type: "image"; resourceId: string; alt: string;
+  /** Omitted/contain preserves the source aspect ratio; fill stretches the image to its frame. */
+  fit?: "contain" | "fill";
+};
 /** Optional drawing text properties; omitted fields use the LikeX defaults. */
 export type SpreadsheetDrawingTextStyle = {
   fontFamily?: string; italic?: boolean; underline?: boolean;
@@ -117,7 +121,7 @@ export type SpreadsheetTextDrawing = SpreadsheetDrawingBase & SpreadsheetDrawing
 export type SpreadsheetDrawing = SpreadsheetImageDrawing | SpreadsheetShapeDrawing | SpreadsheetTextDrawing;
 /** Identity and drawing type are stable; an anchor update supplies all four coordinates. */
 export type SpreadsheetDrawingPatch = Partial<Omit<SpreadsheetDrawingBase, "id"> & SpreadsheetDrawingTextStyle & {
-  resourceId: string; alt: string; shape: SpreadsheetShapeDrawing["shape"]; fill: string; stroke: string;
+  resourceId: string; alt: string; fit: SpreadsheetImageDrawing["fit"]; shape: SpreadsheetShapeDrawing["shape"]; fill: string; stroke: string;
   /** @minimum 0
    * @maximum 100
    */

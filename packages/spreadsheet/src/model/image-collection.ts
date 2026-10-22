@@ -1,7 +1,7 @@
 import { collectEmbeddedImageAssets, type EmbeddedImageAsset } from "./core-image-assets";
 import type { OfficePackageSignal } from "../ooxml";
 import type { SpreadsheetWorkbookSnapshot } from "../commands/types";
-import type { SpreadsheetDrawingAnchor, SpreadsheetWorkbook } from "./types";
+import type { SpreadsheetDrawingAnchor, SpreadsheetImageDrawing, SpreadsheetWorkbook } from "./types";
 import { normalizeWorkbook } from "./workbook/normalize";
 
 /** One original embedded image, identified by SHA-256 of its file bytes. */
@@ -18,6 +18,8 @@ export type SpreadsheetImagePlacement = {
   anchor: SpreadsheetDrawingAnchor;
   width: number;
   height: number;
+  /** Omitted means contain, matching the original drawing. */
+  fit?: SpreadsheetImageDrawing["fit"];
   rotation: number;
   flipX: boolean;
   flipY: boolean;
@@ -47,7 +49,7 @@ export async function collectSpreadsheetImages(input: SpreadsheetWorkbookSnapsho
     if (drawing.type !== "image") continue;
     sources.push(workbook.resources!.images![drawing.resourceId].dataUrl);
     placements.push({ sheetId: sheet.id, sheetName: sheet.name, sheetIndex, drawingId: drawing.id, resourceId: drawing.resourceId,
-      anchor: { ...drawing.anchor }, width: drawing.width, height: drawing.height, rotation: drawing.rotation ?? 0,
+      anchor: { ...drawing.anchor }, width: drawing.width, height: drawing.height, ...(drawing.fit !== undefined ? { fit: drawing.fit } : {}), rotation: drawing.rotation ?? 0,
       flipX: drawing.flipX ?? false, flipY: drawing.flipY ?? false, alt: drawing.alt });
   }
   const { images, imageIds } = await collectEmbeddedImageAssets(sources, { signal });

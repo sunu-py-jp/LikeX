@@ -110,6 +110,11 @@ test('images, shapes and bound lines reuse validated local sources and model geo
   const html = renderToStaticMarkup(h(SpreadsheetThumbnail, { workbook }));
   assert.match(html, /data-lxs-thumbnail-drawing="logo"/); assert.ok(html.includes(src)); assert.match(html, /rotate\(30deg\)/); assert.match(html, /scale\(-1,1\)/);
   assert.match(html, /Shared shape/); assert.match(html, /<polyline/); assert.match(html, /marker-end=/);
+  assert.match(html, /<img[^>]+object-fit:contain/);
+  sheet.drawings[0].fit = 'fill';
+  const stretched = renderToStaticMarkup(h(SpreadsheetThumbnail, { workbook }));
+  assert.match(stretched, /<img[^>]+object-fit:fill/);
+  assert.match(stretched, /data-lxs-thumbnail-drawing="logo"[^>]+width:50px;height:40px/);
 });
 
 test('prop replacement refreshes contents and invalid complete input renders a safe placeholder with an isolated error callback', async t => {

@@ -164,10 +164,23 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
           if (!imageResource) { omitted(context, sheet, `${objectLabel}の未対応または不正な画像を省略しました（PNG・JPEG・GIF・WebPに対応）`); continue; }
           const resourceId = imageResource.id;
           const size = getImageDisplaySize(imageResource.resource);
-          if (customKind !== "image" && Math.abs(frame.width / frame.height / (size.width / size.height) - 1) > 0.01) adjusted(context, sheet, "引き伸ばされた画像を元の縦横比で枠内に収めました");
+          // Excel pictures stretch to their frame. Only legacy LikeX connector
+          // targets use contain; their fillRect encodes centered letterboxing.
+          // The imageFill tag has identical connection geometry and keeps fill.
+          const fit = customKind === "image" ? "contain" : "fill";
+          const fillRect = child(child(blipFill, "stretch"), "fillRect");
+          const scale = Math.min(frame.width / size.width, frame.height / size.height);
+          const expected = fit === "contain" ? {
+            l: (1 - size.width * scale / frame.width) * 50_000,
+            t: (1 - size.height * scale / frame.height) * 50_000,
+          } : { l: 0, t: 0 };
+          if ((["l", "t", "r", "b"] as const).some(side => {
+            const actual = fillRect?.attributes[side] === undefined ? 0 : finiteNumber(fillRect.attributes[side]);
+            return actual === undefined || Math.abs(actual - expected[side === "l" || side === "r" ? "l" : "t"]) > 1;
+          })) omitted(context, sheet, "画像の塗りつぶし範囲の調整を省略しました");
           if (child(blipFill, "srcRect") || child(blipFill, "tile")) omitted(context, sheet, "画像のトリミング・タイル表示を省略しました");
           const nonvisual = child(child(object, "nvPicPr"), "cNvPr");
-          drawing = { ...common, type: "image", resourceId, alt: nonvisual?.attributes.descr ?? nonvisual?.attributes.name ?? "" };
+          drawing = { ...common, type: "image", resourceId, fit, alt: nonvisual?.attributes.descr ?? nonvisual?.attributes.name ?? "" };
         } else {
           const nonvisual = child(child(object, "nvSpPr"), "cNvSpPr"), isTextBox = ["1", "true"].includes(nonvisual?.attributes.txBox ?? "");
           const preset = child(properties, "prstGeom"), presetName = preset?.attributes.prst;

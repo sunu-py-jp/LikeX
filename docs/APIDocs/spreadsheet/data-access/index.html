@@ -207,7 +207,7 @@ console.log(sheet.getCell(<span class="syntax-string">&quot;B2&quot;</span>)?.va
   <span class="syntax-string">&quot;width&quot;</span>: <span class="syntax-number">240</span>,
   <span class="syntax-string">&quot;height&quot;</span>: <span class="syntax-number">120</span>
 }</code></pre></div>
-<p>共通フィールドに加え、<code>resourceId: string</code> と <code>alt: string</code> を必ず持ちます。<code>resourceId</code> を <code>getImageResource</code> に渡すとデータ本体を取得できます。<code>width</code> / <code>height</code> は配置の寸法で、元画像の寸法とは別です。</p>
+<p>共通フィールドに加え、<code>resourceId: string</code> と <code>alt: string</code> を必ず持ちます。<code>resourceId</code> を <code>getImageResource</code> に渡すとデータ本体を取得できます。<code>width</code> / <code>height</code> は配置の寸法で、元画像の寸法とは別です。任意の <code>fit: &quot;contain&quot; | &quot;fill&quot;</code> は画像内容を枠に収める方法です。省略は <code>&quot;contain&quot;</code> と同じで元の縦横比を維持し、<code>&quot;fill&quot;</code> は枠いっぱいに伸縮します。</p>
 <h3 id="getshape">getShape<a class="heading-link" href="#getshape" aria-label="この見出しへのリンク">#</a></h3>
 <p><code>SpreadsheetShapeDrawing</code> の深いreadonly、または <code>undefined</code>。</p>
 <div class="code-example"><div class="code-toolbar"><span>json</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>{

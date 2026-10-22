@@ -22,6 +22,11 @@ function drawingAnchor(input: SpreadsheetCommandAnchor): SpreadsheetDrawingAncho
   return { row: input.row, column: input.column, offsetX: input.offsetX ?? 0, offsetY: input.offsetY ?? 0 };
 }
 
+function validateImageFit(value: unknown): void {
+  if (value !== undefined && value !== "contain" && value !== "fill")
+    rejectCommand("INVALID_COMMAND", "画像の表示方法はcontainまたはfillで指定してください");
+}
+
 /** Construct typed drawing operations without coupling their defaults or ID creation to a toolbar. */
 export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: DrawingCommand,
   features: SpreadsheetFeatureSettings, nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandBaseReceipt } {
@@ -47,6 +52,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
     }
     case "images.insert": {
       requireCommandFeature(features, "images");
+      validateImageFit(command.fit);
       commandRecord(command.resource, "画像リソース");
       const resource = normalizeImageResource(command.resource), size = getImageDisplaySize(resource);
       const anchor = drawingAnchor(command.anchor), resourceId = nextId(), drawingId = nextId();
@@ -55,7 +61,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       const width = command.width ?? size.width * scale;
       const height = command.height ?? size.height * scale;
       return receipt(insertImage(workbook, sheet.id, resourceId, resource,
-        { id: drawingId, type: "image", resourceId, anchor, width, height, alt: command.alt ?? resource.name,
+        { id: drawingId, type: "image", resourceId, anchor, width, height, alt: command.alt ?? resource.name, fit: command.fit,
           flipX: command.flipX, flipY: command.flipY, rotation: command.rotation }), drawingId, resourceId);
     }
     case "shapes.insert": {
@@ -90,9 +96,10 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       if ((command.type === "images.update" && drawing.type !== "image") || (command.type === "shapes.update" && drawing.type !== "shape") ||
         (command.type === "textBoxes.update" && drawing.type !== "text")) return rejectCommand("INVALID_TARGET", "描画オブジェクトの種類がコマンドと一致しません");
       const patch = commandRecord(command.patch, "更新内容");
-      const specific = drawing.type === "image" ? ["resourceId", "alt"] : drawing.type === "shape" ? ["shape", "fill", "stroke", "strokeWidth", "cornerRadiusRatio", "text", "fontSize", "color", "bold", "startArrow", "endArrow", "routing"]
+      const specific = drawing.type === "image" ? ["resourceId", "alt", "fit"] : drawing.type === "shape" ? ["shape", "fill", "stroke", "strokeWidth", "cornerRadiusRatio", "text", "fontSize", "color", "bold", "startArrow", "endArrow", "routing"]
         : ["text", "fontSize", "color", "background", "bold"];
       commandKeys(patch, ["anchor", "width", "height", "flipX", "flipY", "rotation", ...specific, ...(drawing.type === "image" ? [] : DRAWING_TEXT_STYLE_KEYS)], "更新内容");
+      if (drawing.type === "image") validateImageFit(patch.fit);
       if (drawing.type === "shape" && Object.hasOwn(patch, "shape") && !isSpreadsheetShapeKind(patch.shape))
         return rejectCommand("INVALID_COMMAND", "図形の種類が正しくありません");
       for (const key of ["flipX", "flipY"] as const)
@@ -100,6 +107,7 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
       if (patch.rotation !== undefined && (typeof patch.rotation !== "number" || !Number.isFinite(patch.rotation)))
         return rejectCommand("INVALID_COMMAND", "rotationは有限の数値で指定してください");
       if ((patch.width !== undefined && patch.width !== drawing.width) || (patch.height !== undefined && patch.height !== drawing.height) ||
+        (drawing.type === "image" && Object.hasOwn(patch, "fit") && (patch.fit ?? "contain") !== (drawing.fit ?? "contain")) ||
         (Object.hasOwn(patch, "rotation") && normalizeDrawingRotation(patch.rotation) !== normalizeDrawingRotation(drawing.rotation)) ||
         (["flipX", "flipY"] as const).some(key => Object.hasOwn(patch, key) && !!patch[key] !== !!drawing[key]))
         requireCommandFeature(features, "resize");

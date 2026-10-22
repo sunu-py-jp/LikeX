@@ -55,11 +55,13 @@ applySpreadsheetCommands(workbook, [{ type: "cells.unknown", sheetId: "sheet-1" 
 applySpreadsheetCommands(workbook, [], { readOnly: true });
 
 const reflectionUpdates = [
-  { type: "images.update", sheetId: "sheet-1", drawingId: "image", patch: { flipX: false, flipY: true } },
+  { type: "images.update", sheetId: "sheet-1", drawingId: "image", patch: { flipX: false, flipY: true, fit: "fill" } },
   { type: "shapes.update", sheetId: "sheet-1", drawingId: "shape", patch: { flipX: true } },
   { type: "textBoxes.update", sheetId: "sheet-1", drawingId: "text", patch: { flipY: false } },
 ] satisfies readonly SpreadsheetCommand[];
 void reflectionUpdates;
+// @ts-expect-error Image fitting supports only contain or fill.
+applySpreadsheetCommands(workbook, [{ type: "images.update", sheetId: "sheet-1", drawingId: "image", patch: { fit: "cover" } }]);
 // @ts-expect-error Reflection flags are boolean, not string-valued transforms.
 applySpreadsheetCommands(workbook, [{ type: "shapes.insert", sheetId: "sheet-1", shape: "arrow", anchor: { row: 0, column: 0 }, flipX: "true" }]);
 // @ts-expect-error Update patches use the same strict boolean reflection fields.

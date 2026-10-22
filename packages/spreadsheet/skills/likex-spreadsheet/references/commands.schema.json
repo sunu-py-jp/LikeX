@@ -2080,6 +2080,9 @@
         "alt": {
           "type": "string"
         },
+        "fit": {
+          "$ref": "#/$defs/SpreadsheetCommand_31_fit"
+        },
         "flipX": {
           "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
@@ -2155,6 +2158,12 @@
         "column"
       ],
       "additionalProperties": false
+    },
+    "SpreadsheetCommand_31_fit": {
+      "enum": [
+        "fill",
+        "contain"
+      ]
     },
     "SpreadsheetCommand_32": {
       "type": "object",
@@ -2547,6 +2556,10 @@
         },
         "flipY": {
           "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
+        },
+        "fit": {
+          "$ref": "#/$defs/SpreadsheetCommand_31_fit",
+          "description": "Omitted/contain preserves the source aspect ratio; fill stretches the image to its frame."
         },
         "resourceId": {
           "type": "string"
@@ -3142,6 +3155,10 @@
         },
         "flipY": {
           "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
+        },
+        "fit": {
+          "$ref": "#/$defs/SpreadsheetCommand_31_fit",
+          "description": "Omitted/contain preserves the source aspect ratio; fill stretches the image to its frame."
         },
         "resourceId": {
           "type": "string"

@@ -471,6 +471,10 @@
         },
         "alt": {
           "type": "string"
+        },
+        "fit": {
+          "$ref": "#/$defs/SpreadsheetImageDrawing_fit",
+          "description": "Omitted/contain preserves the source aspect ratio; fill stretches the image to its frame."
         }
       },
       "required": [
@@ -507,6 +511,12 @@
         "offsetY"
       ],
       "additionalProperties": false
+    },
+    "SpreadsheetImageDrawing_fit": {
+      "enum": [
+        "fill",
+        "contain"
+      ]
     },
     "SpreadsheetShapeDrawing": {
       "type": "object",

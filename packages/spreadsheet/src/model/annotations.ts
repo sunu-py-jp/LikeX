@@ -53,7 +53,9 @@ export function normalizeDrawing(input: SpreadsheetDrawing, sheet: Pick<Spreadsh
   if (input.type === "image") {
     const resourceId = validateObjectId(input.resourceId);
     if (!resources?.images || !Object.hasOwn(resources.images, resourceId)) return fail("画像のリソースが見つかりません");
-    return Object.freeze({ ...common, type: "image", resourceId, alt: text(input.alt, 10_000, "画像の説明") });
+    if (input.fit !== undefined && input.fit !== "contain" && input.fit !== "fill") return fail("画像の表示方法はcontainまたはfillで指定してください");
+    return Object.freeze({ ...common, type: "image", resourceId, alt: text(input.alt, 10_000, "画像の説明"),
+      ...(input.fit !== undefined ? { fit: input.fit } : {}) });
   }
   if (input.type === "shape") {
     if (!isSpreadsheetShapeKind(input.shape)) return fail("図形の種類が正しくありません");
@@ -128,7 +130,8 @@ export function drawingsEqual(left: SpreadsheetDrawing, right: SpreadsheetDrawin
     normalizeDrawingRotation(left.rotation) !== normalizeDrawingRotation(right.rotation) ||
     left.anchor.row !== right.anchor.row || left.anchor.column !== right.anchor.column ||
     left.anchor.offsetX !== right.anchor.offsetX || left.anchor.offsetY !== right.anchor.offsetY) return false;
-  if (left.type === "image" && right.type === "image") return left.resourceId === right.resourceId && left.alt === right.alt;
+  if (left.type === "image" && right.type === "image") return left.resourceId === right.resourceId && left.alt === right.alt &&
+    (left.fit ?? "contain") === (right.fit ?? "contain");
   if (left.type !== "image" && right.type !== "image" && !drawingTextStylesEqual(left, right)) return false;
   if (left.type === "shape" && right.type === "shape") return left.shape === right.shape && left.fill === right.fill && left.stroke === right.stroke &&
     left.startArrow === right.startArrow && left.endArrow === right.endArrow && JSON.stringify(left.line) === JSON.stringify(right.line) &&

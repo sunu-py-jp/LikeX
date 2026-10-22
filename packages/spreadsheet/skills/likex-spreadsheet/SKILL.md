@@ -33,6 +33,8 @@ Node.js **22.13以降**と、このskillに対応する版の `@likex/spreadshee
 
 画像を解析する場合は、公開APIの `collectSpreadsheetImages(workbook, { signal? })` で元画像と配置先を収集する。`images` を1件ずつ解析し、結果を `imageId` で `placements` に対応付ける。異なる `resourceId`・名前・位置・サイズでも元バイト列が同じなら1画像になり、全配置を保持する。未使用リソースは含めない。保存用のリソースIDや描画IDをハッシュへ置き換えない。[画像収集の契約](../../src/docs/image-collection.md)と[取得ガイド](references/inspect.md#画像を一度ずつ解析する)を参照する。
 
+画像の表示枠への収め方は `fit?: "contain" | "fill"` で指定する。省略／`"contain"` は元比率を保って中央に収め、`"fill"` は枠いっぱいに伸縮する。`images.insert` と `images.update.patch` から操作し、SPON・コピー・Undo/Redo・XLSXで保持する。Excelの引き伸ばし画像を取り込んだ `"fill"` を消すと、重ねた図形との位置関係が変わるため維持する。既存SPONの未指定は従来どおり扱う。画像のトリミング・タイル表示はまだ未対応で、取り込み警告を確認する。
+
 以下の `skill_dir` はこのSKILL.mdのあるフォルダ、`project_dir` は対応ランタイムを利用できるプロジェクトの**絶対パス**に置き換える。入力・出力・コマンドファイルの相対パスは、実行時の作業ディレクトリから解決される。`--project` はその基準を変えない。
 
 ```bash

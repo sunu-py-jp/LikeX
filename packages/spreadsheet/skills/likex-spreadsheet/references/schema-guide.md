@@ -134,7 +134,7 @@ XLSX取り込みの標準モードは同じ内容の空セル書式を横run・�
 
 | `type` | 固有フィールド |
 | --- | --- |
-| `image` | `resourceId`, `alt` |
+| `image` | `resourceId`, `alt`、任意の `fit: "contain" | "fill"` |
 | `shape` | `shape`, `fill`, `stroke`, `strokeWidth`、任意の `text`, `fontSize`, `color`, `bold` と下記の文字レイアウト属性 |
 | `text` | `text`, `fontSize`, `color`, `background`、任意の `bold` と下記の文字レイアウト属性 |
 
@@ -153,6 +153,8 @@ XLSX取り込みの標準モードは同じ内容の空セル書式を横run・�
 `mimeType` は `image/png` / `image/jpeg` / `image/webp` / `image/gif`。`dataUrl` はそのMIMEと一致する `data:image/…;base64,…`。外部URL、Blob URL、SVGを入れない。`width` / `height` はエンコードされた画像ヘッダーの実寸と一致させる。JPEGのEXIF回転後の表示寸法とは区別する。画像内容・ヘッダー・Base64もランタイムで検証する。
 
 コマンドの画像挿入は表示サイズを省略すると比率を保って最大320×240pxに収め、拡大しない。片辺だけ指定するともう片辺を比率から計算する。両辺を指定すると指定した枠を保持する。`images.update` は指定した辺だけを変更し、この自動計算を行わない。
+
+画像の `fit` は省略／`"contain"` で元比率を保って枠の中央へ収め、`"fill"` で枠いっぱいに縦横それぞれ伸縮する。Excelの引き伸ばし画像は `"fill"` として取り込む。既存SPONの未指定は従来の表示を維持する。SPON・コピー・Undo/Redo・XLSX出力で保持する。画像のトリミング・タイル表示は未対応で、XLSX取り込み時に警告して省略する。
 
 ### 描画の文字レイアウト
 

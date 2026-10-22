@@ -88,7 +88,7 @@ export function SpreadsheetThumbnail(props: SpreadsheetThumbnailProps) {
               }
               return <div key={drawing.id} data-lxs-thumbnail-drawing={drawing.id} className="lxs-drawing lxs-thumbnail-drawing" style={{ left: item.left, top: item.top,
                 width: drawing.width, height: drawing.height, transform: `rotate(${drawing.rotation ?? 0}deg)` }}>
-                {drawing.type === "image" ? <img src={item.src} alt="" draggable={false} decoding="async" style={{ transform: `scale(${drawing.flipX ? -1 : 1},${drawing.flipY ? -1 : 1})` }} /> : <>
+                {drawing.type === "image" ? <img src={item.src} alt="" draggable={false} decoding="async" style={{ objectFit: drawing.fit ?? "contain", transform: `scale(${drawing.flipX ? -1 : 1},${drawing.flipY ? -1 : 1})` }} /> : <>
                   {drawing.type === "shape" && <Shape drawing={drawing} />}<DrawingText drawing={drawing} placeholder={false} />
                 </>}
               </div>;

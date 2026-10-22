@@ -56,7 +56,7 @@ export type SpreadsheetCommand = DeepReadonly<
   | { type: "cells.merge"; sheetId: string; range: SpreadsheetMergedRange; discardContent?: boolean }
   | { type: "cells.unmerge"; sheetId: string; range: SpreadsheetMergedRange }
   | { type: "images.insert"; sheetId: string; resource: SpreadsheetImageResource; anchor: SpreadsheetCommandAnchor;
-      width?: number; height?: number; alt?: string; flipX?: boolean; flipY?: boolean; rotation?: number }
+      width?: number; height?: number; alt?: string; fit?: SpreadsheetImageDrawing["fit"]; flipX?: boolean; flipY?: boolean; rotation?: number }
   | (SpreadsheetDrawingTextStyle & { type: "shapes.insert"; sheetId: string; shape: SpreadsheetShapeDrawing["shape"]; anchor: SpreadsheetCommandAnchor;
       width?: number; height?: number; flipX?: boolean; flipY?: boolean; rotation?: number; fill?: string; stroke?: string; strokeWidth?: number;
       text?: string;
