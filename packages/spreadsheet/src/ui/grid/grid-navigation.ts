@@ -6,6 +6,14 @@ import type { SpreadsheetCellPosition, SpreadsheetSheet } from "../../model/type
 type PresenceIndex = { rows: Map<number, number[]>; columns: Map<number, number[]>; last: SpreadsheetCellPosition };
 const presenceIndexes = new WeakMap<SpreadsheetSheet, PresenceIndex>();
 
+/** Hidden rows have zero height; preserve original row coordinates while skipping them. */
+export function visibleRowPosition(rowOffsets: readonly number[], row: number, direction: number, fallback: number): number {
+  const last = rowOffsets.length - 2, step = direction < 0 ? -1 : 1;
+  let target = Math.max(0, Math.min(last, row));
+  while (target >= 0 && target <= last && rowOffsets[target + 1] === rowOffsets[target]) target += step;
+  return target < 0 || target > last ? fallback : target;
+}
+
 /** Index sparse values once per immutable sheet; large empty grids need no cell materialization. */
 function presenceIndex(sheet: SpreadsheetSheet): PresenceIndex {
   const cached = presenceIndexes.get(sheet);
@@ -69,5 +77,5 @@ export function pageRowPosition(rowOffsets: readonly number[], currentRow: numbe
   const offset = rowOffsets[currentRow] + Math.sign(direction) * Math.max(1, viewportHeight);
   let low = 0, high = last;
   while (low < high) { const middle = Math.ceil((low + high) / 2); if (rowOffsets[middle] <= offset) low = middle; else high = middle - 1; }
-  return Math.max(0, Math.min(last, direction > 0 ? Math.max(currentRow + 1, low) : Math.min(currentRow - 1, low)));
+  return visibleRowPosition(rowOffsets, direction > 0 ? Math.max(currentRow + 1, low) : Math.min(currentRow - 1, low), direction, currentRow);
 }

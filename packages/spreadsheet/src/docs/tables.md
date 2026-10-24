@@ -2,12 +2,12 @@
 
 [利用ガイドへ戻る](./README.md)
 
-ヘッダーと明細データをセル範囲へ配置できます。`tables.insert` は名前・列・範囲を持つテーブル、`cells.writeGrid` は通常のセルへデータ・格子罫線・ヘッダー色を書き込みます。独立した表オブジェクトは作りません。
+ヘッダーと明細データをセル範囲へ配置できます。`tables.insert` は名前・列・範囲を持つテーブル、`cells.writeGrid` は通常のセルへデータ・格子罫線・ヘッダー色を書き込みます。`cells.writeGrid` は上・左の階層見出しを自動結合でき、独立した表オブジェクトは作りません。
 
 | 用途 | コマンド | JSONに残るもの |
 | --- | --- | --- |
 | テーブルとして取得・管理したい | `tables.insert` | セルと、シートの `tables` にID・名前・列・範囲 |
-| 通常のセルへデータと格子罫線を配置する | `cells.writeGrid` | 通常のセルの値・書式。テーブル定義は作らない |
+| 通常の表・階層見出し・マトリクスを配置する | `cells.writeGrid` | 通常のセルの値・書式・結合。テーブル定義や見出しツリーは作らない |
 
 ## 通常のセルへデータ・格子罫線・ヘッダー色を配置する
 
@@ -59,20 +59,24 @@ console.log(table?.columns.map(column => column.name)); // ["No.", "商品", "�
 
 ## 書き込みに使う引数
 
-`cells.writeGrid` は `SpreadsheetCellGridWriteOptions` を使います。共通のデータ指定は `SpreadsheetTableWriteOptions`、構造化テーブルを作る `tables.insert` だけは追加で `name` が必要です。
+`cells.writeGrid` は `SpreadsheetCellGridWriteOptions` を使います。構造化テーブルを作る `tables.insert` は `SpreadsheetTableWriteOptions` に `name` を加えた指定で、従来どおり1行の `headers: readonly string[]` が必須です。階層見出し・左見出し・張り出し配置は `cells.writeGrid` 専用です。
 
 | 引数 | 型・既定値 |
 | --- | --- |
 | `sheetId` | 対象シートのID |
-| `target` | `{ row, column }`。表の左上を0始まりで指定 |
-| `headers` | `readonly string[]`。連番列を除くヘッダー |
+| `target` | `{ row, column }`。見出し・張り出しを含む全体の左上を0始まりで指定 |
+| `headers?` | 上見出し。文字列または `{ label, children?, style? }` の配列。`children` は同じ形式の配列 |
+| `rowHeaders?` | 左見出し。`headers` と同じ階層形式 |
 | `data` | `SpreadsheetTableData`。下記の明細データ |
 | `headerStyle?` | `{ background?: string, color?: string }`。省略すると既存の色を維持 |
+| `rowHeaderStyle?` | 左見出しの基本色。未指定の属性は `headerStyle` を引き継ぐ |
+| `headerLayout?` / `rowHeaderLayout?` | `"merged"`（既定）または `"protruding"`。上・左の配置を個別指定 |
+| `corner?` | `{ label?: string \| null, merge?: boolean, style?: { background?, color? }, border?: { style?, width?, color? } }`。上・左の見出しがある場合の交差領域。空ラベルは値なし・結合なし・罫線なしが既定。ラベルがあれば結合・`headerStyle`・共通の `border` を適用し、個別指定で上書き可能 |
 | `border?` | `cells.writeGrid` の格子罫線。`{ style?, width?, color? }`。既定は実線・1px・`#d1d5db` |
-| `rowNumbers?` | `false` または `{ header?: string, start?: number }`。指定時は左端に連番列を追加。見出しの既定は `No.`、開始値は1 |
+| `rowNumbers?` | `false` または `{ header?: string, start?: number }`。指定時は左端に連番列を追加。見出しの既定は `No.`、開始値は1。`headers` が必要で、`rowHeaders` と併用不可 |
 | `onConflict?` | `"error"` / `"overwrite"` / `"skip"`。既定は `overwrite` |
 
-既定では範囲全体に1pxのグレー（`#d1d5db`）の実線罫線を設定します。`cells.writeGrid` では `border` で変更できます。その他の既存書式・入力規則・コメントは保持します。明細の値・数値・数式は文字列です。連番は通常の整数値を入れるもので、後の行挿入で自動採番する機能ではありません。
+既定では本文・見出しに1pxのグレー（`#d1d5db`）の実線罫線を設定します。`cells.writeGrid` では `border` で変更できます。空ラベルのコーナーと張り出し配置の空き領域には、この既定罫線を設定しません。その他の既存書式・入力規則・コメントは保持します。明細の値・数値・数式は文字列です。連番は通常の整数値を入れるもので、後の行挿入で自動採番する機能ではありません。
 
 ```ts
 // 二次元配列
@@ -82,13 +86,235 @@ const csv = { type: "csv", text: '商品A,1200\n"商品B,セット",2400' } as c
 const tsv = { type: "tsv", text: "商品A\t1200\n商品B\t2400" } as const;
 ```
 
-CSV/TSVは引用符内の区切り文字・改行、二重の引用符に対応します。各行の列数は `headers.length` と一致させます。`data: { type: "rows", values: [] }` ならヘッダーだけの表になります。
+CSV/TSVは引用符内の区切り文字・改行、二重の引用符に対応します。各行の列数は同じにし、上見出しがある場合はその末端見出しの数と一致させます。左見出しがある場合はその末端数と明細の行数を一致させます。本文の順番は見出しツリーの末端を定義順に並べた順です。上見出しがあれば `data: { type: "rows", values: [] }` でヘッダーだけを配置できます。
+
+`headers` と `rowHeaders` は省略できますが、指定する配列と `children` は空にできません。両見出しを省略した場合は本文だけを配置します。見出しの `label` は重複可能で、`001` や `=項目` も文字列として表示します。本文の値は既存のセル入力規則に従い、`=` で始まる値は文字列書式などで指定しなければ数式になります。
+
+## 階層見出しとマトリクス
+
+次の共通準備と各例を組み合わせて実行できます。例ごとに新しいブックを作るため、複数の例を続けて実行しても書き込み先は競合しません。戻り値の `workbook` をSpreadsheetの初期ブックとして渡すと表示できます。
+
+```ts
+import {
+  createWorkbook,
+  createSpreadsheetSession,
+  type SpreadsheetCellGridWriteOptions,
+} from "@likex/spreadsheet/model";
+
+function makeGrid(options: Omit<SpreadsheetCellGridWriteOptions, "sheetId" | "target">) {
+  const session = createSpreadsheetSession(createWorkbook());
+  const sheetId = session.getWorkbook().sheets[0].id;
+  const result = session.execute({
+    type: "cells.writeGrid",
+    sheetId,
+    target: { row: 1, column: 1 }, // 見出しも含めB2から配置
+    headerStyle: { background: "#217346", color: "#ffffff" },
+    rowHeaderStyle: { background: "#e2f0d9", color: "#222222" },
+    border: { style: "solid", width: 1, color: "#999999" },
+    onConflict: "error",
+    ...options,
+  });
+  if (!result.ok) throw new Error(result.message);
+  const receipt = result.results[0];
+  if (receipt.type !== "cells.writeGrid") throw new Error("Unexpected receipt");
+  return { workbook: session.getWorkbook(), sheetId, layout: receipt.layout };
+}
+```
+
+### 1. 上見出しだけの通常の表
+
+```ts
+const topOnly = makeGrid({
+  headers: ["商品名", "数量"],
+  data: { type: "rows", values: [["商品A", "10"], ["商品B", "20"]] },
+});
+```
+
+### 2. 左見出しだけの表
+
+```ts
+const leftOnly = makeGrid({
+  rowHeaders: ["商品名", "価格", "在庫"],
+  data: { type: "rows", values: [["商品A"], ["1200"], ["50"]] },
+});
+```
+
+### 3. 上・左に見出しがあるマトリクス
+
+```ts
+const matrix = makeGrid({
+  headers: ["4月", "5月"],
+  rowHeaders: ["商品A", "商品B"],
+  corner: { label: "商品 / 月" },
+  data: { type: "rows", values: [["100", "120"], ["200", "250"]] },
+});
+```
+
+#### コーナーの空欄・罫線・色を指定する
+
+コーナーは上見出しと左見出しの交差領域です。`corner` の省略、`label` の省略・`null`・空文字・空白文字だけの文字列は、いずれも値なしとして扱います。この場合、セルは結合せず、コーナー側の罫線はなしになり、`headerStyle` の色は自動適用しません。必要な罫線や色だけを `corner.border` / `corner.style` で指定できます。罫線や色の指定だけで結合されることはありません。
+
+ラベルに文字があれば、複数セルの交差領域を結合し、`headerStyle` と共通の `border` を既定値として使います。`corner.style` / `corner.border` は指定した属性だけを上書きします。たとえば `corner.border: { color: "#217346" }` は、線種と太さを共通の `border` から補います。空ラベルでも `corner.border: {}` を明示すると共通の罫線を付けられます。
+
+`corner.merge` で結合の有無も上書きできます。空ラベルでも `merge: true` なら結合し、ラベルありでも `merge: false` なら結合しません。結合しない場合、ラベルの値は交差領域の左上セルだけに入れ、ほかのセルの値は空にします。`layout.cornerRange` は結合の有無によらず交差領域全体を返します。
+
+```ts
+// 既定：2行×2列のコーナーは空欄・結合なし。罫線と自動の見出し色を付けない
+const blankCorner = makeGrid({
+  headers: [{ label: "売上", children: ["4月", "5月"] }],
+  rowHeaders: [{ label: "商品", children: ["商品A", "商品B"] }],
+  data: { type: "rows", values: [["100", "120"], ["200", "250"]] },
+});
+
+// 空欄・結合なしのまま、罫線を明示する。labelを省略、""、空白だけにしても同じ
+const borderedBlankCorner = makeGrid({
+  headers: [{ label: "売上", children: ["4月", "5月"] }],
+  rowHeaders: [{ label: "商品", children: ["商品A", "商品B"] }],
+  corner: { label: null, border: { color: "#217346" } },
+  data: { type: "rows", values: [["100", "120"], ["200", "250"]] },
+});
+
+// ラベルあり：見出しの既定設定を使い、コーナーの色・線だけを上書きする
+const styledCorner = makeGrid({
+  headers: [{ label: "売上", children: ["4月", "5月"] }],
+  rowHeaders: [{ label: "商品", children: ["商品A", "商品B"] }],
+  corner: {
+    label: "商品 / 月",
+    style: { background: "#eeeeee", color: "#333333" },
+    border: { style: "dashed", color: "#64748b" },
+  },
+  data: { type: "rows", values: [["100", "120"], ["200", "250"]] },
+});
+
+// 空欄のコーナーを結合したい場合だけ明示する。罫線と見出し色は付けない
+const mergedBlankCorner = makeGrid({
+  headers: [{ label: "売上", children: ["4月", "5月"] }],
+  rowHeaders: [{ label: "商品", children: ["商品A", "商品B"] }],
+  corner: { merge: true },
+  data: { type: "rows", values: [["100", "120"], ["200", "250"]] },
+});
+
+// ラベルありでも結合しない。値は交差領域の左上セルだけに入る
+const unmergedLabelCorner = makeGrid({
+  headers: [{ label: "売上", children: ["4月", "5月"] }],
+  rowHeaders: [{ label: "商品", children: ["商品A", "商品B"] }],
+  corner: { label: "商品 / 月", merge: false },
+  data: { type: "rows", values: [["100", "120"], ["200", "250"]] },
+});
+```
+
+空欄のコーナーも書き込み対象で、既存の値のクリアには `onConflict` が適用されます。結合しない指定でも既存の結合を自動解除せず、書き込み先に不整合な結合があればエラーにします。罫線以外の未指定の既存書式は保持します。隣接する見出しが持つ罫線は消さないため、コーナーの右辺・下辺に隣接セル側の線が見える場合があります。張り出し配置による空き領域は、これと異なり値・書式・罫線を一切変更しません。
+
+### 4. グループがある見出しと単独の見出しを混在させる
+
+```ts
+const mixed = makeGrid({
+  headers: [
+    { label: "2025年", children: ["売上", "利益"] },
+    "備考",
+  ],
+  rowHeaders: [
+    { label: "東日本", children: ["東京支店", "横浜支店"] },
+    "大阪支店",
+  ],
+  corner: { label: "拠点別実績", style: { background: "#eeeeee", color: "#333333" } },
+  data: { type: "rows", values: [
+    ["1200", "240", "重点拠点"],
+    ["860", "150", ""],
+    ["1320", "270", ""],
+  ] },
+});
+```
+
+親の「2025年」は横結合、「東日本」は縦結合になります。既定の `"merged"` では、浅い「備考」は残りの見出し行を縦結合し、「大阪支店」は残りの見出し列を横結合します。この例の左上の交差領域はラベルがあるため、上見出しの深さ×左見出しの深さで結合します。
+
+### 5. 通常のテーブルの右にマトリクスをつなげる
+
+```ts
+const combined = makeGrid({
+  headers: [
+    "コード", "商品名", "区分",
+    { label: "売上", children: ["4月", "5月"] },
+  ],
+  data: { type: "rows", values: [
+    ["A001", "商品A", "食品", "100", "120"],
+    ["A002", "商品B", "雑貨", "200", "250"],
+  ] },
+});
+```
+
+コード・商品名・区分は通常の本文列として `data` に含めます。左見出しではないため、`rowHeaders` は指定しません。左右の本文を1つの配列にまとめ、5列の行として渡します。
+
+### 6. 親グループだけ上・左へ張り出させる
+
+```ts
+const protruding = makeGrid({
+  headers: ["商品名", { label: "売上", children: ["4月", "5月"] }],
+  rowHeaders: ["東京", { label: "西日本", children: ["大阪", "福岡"] }],
+  headerLayout: "protruding",
+  rowHeaderLayout: "protruding",
+  corner: { label: "拠点別実績" },
+  data: { type: "rows", values: [
+    ["商品A", "100", "120"],
+    ["商品B", "200", "250"],
+    ["商品C", "80", "90"],
+  ] },
+});
+```
+
+上の `"protruding"` は最上位の各見出しツリーを本文に近い下端へ、左側は右端へ寄せます。「商品名」の上と「東京」の左は空き領域になります。空き領域には値・書式・罫線を書き込まず、元の内容を保持します。各ツリーの内部は `"merged"` と同様に浅い末端を結合して長方形に整えます。`target` は空き領域も含む全体の左上で、指定位置より上や左には書き込みません。
+
+### 7. 上・左とも3階層にする
+
+```ts
+const threeLevels = makeGrid({
+  headers: [
+    { label: "2026年", children: [
+      { label: "第1四半期", children: ["売上", "利益"] },
+      { label: "第2四半期", children: ["売上", "利益"] },
+    ] },
+  ],
+  rowHeaders: [
+    { label: "東日本", children: [
+      { label: "東京支店", children: ["担当A", "担当B"] },
+      { label: "横浜支店", children: ["担当C"] },
+    ] },
+  ],
+  corner: { label: "担当別営業実績" },
+  data: { type: "rows", values: [
+    ["1000", "200", "1200", "240"],
+    ["800", "160", "900", "180"],
+    ["700", "140", "850", "170"],
+  ] },
+});
+```
+
+本文は末端見出しに対応する3行×4列です。この例の左上の交差領域はラベルがあるため、3行×3列で結合します。各見出しの `style` はその見出しだけに適用し、子見出しへは継承しません。各見出しで未指定の色は `headerStyle` または `rowHeaderStyle` から補います。
+
+見出しツリー自体は保存せず、セル・書式・結合に変換します。そのためSPONとXLSXでは表示された構造を保持しますが、再読込後に元の `children` を復元するAPIはありません。既存の階層を別の構造へ置き換える場合は、必要な結合解除や値のクリアもコマンドで明示してください。
 
 ## 既存の値と結果
 
-既存の非空の値を別の値へ変える場合を競合とします。同じ値や空セルは競合しません。`error` は全体を中止し、`skip` は競合セルの値・書式を残します。構造化テーブルのヘッダーをスキップすると列定義と一致しなくなるため、その場合は `WRITE_CONFLICT` で全体を中止します。詳しくは[書き込み時の競合](./cell-writing.md#既存の値を上書きするか)を参照してください。
+既存の非空の値を別の値へ変える場合を競合とします。同じ値や空セルは競合しません。`error` は全体を中止し、`skip` は競合セルの値・書式を残します。結合する見出し範囲内の競合を一部だけスキップすると配置が崩れるため、この場合は `skip` でも全体を中止します。構造化テーブルのヘッダーも同様に、列定義との不一致を防ぐため `WRITE_CONFLICT` で全体を中止します。詳しくは[書き込み時の競合](./cell-writing.md#既存の値を上書きするか)を参照してください。
+
+生成する結合範囲と完全一致する既存結合は再利用できます。部分的に重なるなど互換性のない結合は、`overwrite` でも自動解除しません。新しい結合によって隠れるセルにコメントがある場合も中止し、コメントを黙って削除しません。検証に失敗すると、値・書式・結合の一部だけが変更されることはありません。
 
 成功結果の `results[i]` に `range`、`placement`、`write` が入ります。`tables.insert` には生成した `tableId` も入ります。`write.changedCount` は値が変わったセル数で、罫線やテーブル定義だけの変更は数えません。ブック全体の変更判定は `result.changed` を使います。
+
+`cells.writeGrid` の結果には `layout` も入ります。範囲はすべてシート上の絶対座標 `{ top, left, bottom, right }`（0始まり、両端を含む）です。`range` は張り出しで空いた領域も含む外接矩形で、`headerRanges` / `rowHeaderRanges` は各見出しの矩形です。
+
+```ts
+if (result.ok) {
+  const receipt = result.results[0];
+  if (receipt.type === "cells.writeGrid") {
+    console.log(receipt.layout.dataRange);       // 本文。明細がない場合はundefined
+    console.log(receipt.layout.headerRanges);    // 上見出しの範囲配列
+    console.log(receipt.layout.rowHeaderRanges); // 左見出しの範囲配列
+    console.log(receipt.layout.cornerRange);     // 結合の有無によらず交差領域。片側だけならundefined
+    console.log(receipt.layout.merges);          // 今回の配置で使う結合範囲
+  }
+}
+```
 
 `getTable(workbook, tableId)` / `getTableByName(workbook, name)` は定義に `sheetId` とA1表記の `address` を添えた `SpreadsheetTableInfo` を返し、見つからなければ `undefined` です。`getTables(workbook, sheetId?)` は配列を返し、該当しなければ `[]` です。値は定義に複製せず、`getRange(workbook, table.sheetId, table.range)` で取得します。
 
@@ -108,11 +334,11 @@ if (table) {
 
 「挿入」の「テーブル」は選択範囲の先頭行をヘッダーにし、残りを明細として登録します。名前を指定するダイアログが開きます。通常セルの罫線は「ホーム」の「罫線」で設定します。空のヘッダーは「列1」などで補います。離れた複数範囲や結合セルには作成できません。
 
-`tables.insert` は `features.tables` と `features.formatting`、`cells.writeGrid` は `features.formatting` が必要です。既定はONで、読み取り専用では作成・削除できません。`features.tables: false` でも既存の定義とセルは保持します。
+`tables.insert` は `features.tables` と `features.formatting`、`cells.writeGrid` は `features.formatting` が必要です。`cells.writeGrid` が結合を生成する場合は `features.mergeCells` も必要です。`features.tables` は階層見出し・マトリクスの配置には不要です。既定はONで、読み取り専用では作成・削除できません。`features.tables: false` でも既存の定義とセルは保持します。表示中のHandleでは編集許可・変更通知・Undo/Redoを通り、1コマンド全体を1回でUndoできます。
 
-テーブル名はブック全体で一意で、名前付き範囲と重複できません。構造化テーブルの列名は空欄・改行なしの255文字以内で、大文字・小文字の違いだけでは重複できません。見出し・連番を含めて1操作10,000セルまでで、シートをはみ出す場合は行・列を先に追加します。既存のテーブルに重なる新しいテーブルは作れません。
+テーブル名はブック全体で一意で、名前付き範囲と重複できません。構造化テーブルの列名は空欄・改行なしの255文字以内で、大文字・小文字の違いだけでは重複できません。見出し・連番を含めて1操作10,000セルまでです。`cells.writeGrid` では張り出しの空き領域を含む外接矩形で数え、上・左それぞれの見出しツリーは合計10,000ノードまでです。シートをはみ出す場合は行・列を先に追加します。既存のテーブルに重なる新しいテーブルは作れません。
 
-範囲の手前への行・列挿入では位置を移動し、内部への行挿入では範囲を広げます。テーブル内部の列の挿入・一部列の削除は、先にテーブル定義を外してください。ヘッダー行だけの削除も拒否します。ヘッダーを空欄にする変更など、定義が不整合になる操作は拒否します。XLSX出力ではExcelのテーブルとして保持します。LikeX内のフィルター操作・集計行・構造化参照の数式（`=SUM(Sales[金額])`）は未対応です。
+範囲の手前への行・列挿入では位置を移動し、内部への行挿入では範囲を広げます。テーブル内部の列の挿入・一部列の削除は、先にテーブル定義を外してください。ヘッダー行だけの削除も拒否します。ヘッダーを空欄にする変更など、定義が不整合になる操作は拒否します。XLSX出力ではExcelのテーブルとして保持します。構造化テーブルごとのフィルター状態・集計行・構造化参照の数式（`=SUM(Sales[金額])`）は未対応です。シートの[範囲フィルター](./filters.md)はテーブルと重ならない範囲へ別途設定できます。
 
 ## 既存APIとの互換性
 

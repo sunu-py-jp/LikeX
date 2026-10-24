@@ -147,6 +147,34 @@ test('spreadsheet command arrays preserve nested readonly inputs and optional/nu
   valid(validate, []);
 });
 
+test('spreadsheet grouped grid schema accepts recursive axes and retains strict flat table contracts', async () => {
+  const validate = compile(await readSchema('spreadsheet', 'commands'));
+  const grid = { type: 'cells.writeGrid', sheetId: 's', target: { row: 0, column: 0 },
+    headers: ['商品名', { label: '2026年', children: [{ label: '上期', children: ['売上', '利益'] }, '備考'] }],
+    rowHeaders: [{ label: '東日本', children: ['東京', '横浜'] }, '大阪'],
+    corner: { label: '地域', style: { background: '#eeeeee' } },
+    headerLayout: 'protruding', rowHeaderLayout: 'merged', rowHeaderStyle: { color: '#17365d' },
+    data: { type: 'rows', values: [['A', '100', '20', ''], ['B', '200', '40', ''], ['C', '300', '60', '']] } };
+  valid(validate, [grid]);
+  for (const corner of [{}, { label: null }, { label: '' }, { merge: true }, { label: '地域', merge: false }, { border: { width: 2, color: '#123456' } },
+    { label: '実績', style: { background: '#eeeeee' }, border: { style: 'none' } }])
+    valid(validate, [{ ...grid, corner }]);
+  valid(validate, [{ type: 'cells.writeGrid', sheetId: 's', target: grid.target, data: grid.data }]);
+  for (const change of [
+    value => { value.headers[1].children[0].children[0] = { label: '売上', unexpected: true }; },
+    value => { value.rowHeaders[0].children[0] = { label: '東京', style: { bold: true } }; },
+    value => { value.headerLayout = 'auto'; },
+    value => { value.corner.extra = 'no'; },
+    value => { value.corner.label = 123; },
+    value => { value.corner.merge = 'false'; },
+    value => { value.corner.merge = null; },
+    value => { value.corner.border = { width: 9 }; },
+    value => { value.corner.border = { unknown: true }; },
+  ]) { const changed = structuredClone(grid); change(changed); invalid(validate, [changed]); }
+  invalid(validate, [{ type: 'tables.insert', sheetId: 's', name: 'Sales', target: grid.target,
+    headers: grid.headers, data: grid.data }]);
+});
+
 test('slide command schemas derive Partial/Omit/Pick inputs without allowing fields from other variants', async () => {
   const validate = compile(await readSchema('slide', 'commands'));
   valid(validate, [

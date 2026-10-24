@@ -36,17 +36,21 @@ export function parseTableDelimitedText(text: string, delimiter: "," | "\t"): st
   return rows;
 }
 
-export function tableDataRows(data: SpreadsheetTableData, width: number): readonly (readonly string[])[] {
+export function tableDataRows(data: SpreadsheetTableData, width?: number): readonly (readonly string[])[] {
   if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("表の明細データを指定してください");
   let rows: readonly (readonly string[])[];
   if (data.type === "rows") rows = data.values;
   else if (data.type === "csv" || data.type === "tsv") rows = parseTableDelimitedText(data.text, data.type === "csv" ? "," : "\t");
   else throw new Error("表のデータ形式はrows、csv、tsvで指定してください");
-  if (!Array.isArray(rows) || rows.length > SPREADSHEET_LIMITS.clipboardCells || rows.length * width > SPREADSHEET_LIMITS.clipboardCells)
+  if (!Array.isArray(rows) || rows.length > SPREADSHEET_LIMITS.clipboardCells)
+    throw new Error("表の明細は10,000セル以内の二次元配列で指定してください");
+  const columns = width ?? (Array.isArray(rows[0]) ? rows[0].length : 0);
+  if (rows.length * columns > SPREADSHEET_LIMITS.clipboardCells)
     throw new Error("表の明細は10,000セル以内の二次元配列で指定してください");
   let characters = 0;
   for (const row of rows) {
-    if (!Array.isArray(row) || row.length !== width) throw new Error("明細の各行の列数をヘッダの数と一致させてください");
+    if (!Array.isArray(row) || row.length !== columns || (width === undefined && !columns))
+      throw new Error("明細の各行の列数を揃え、見出しがある場合はその数と一致させてください");
     for (const value of row) { validateCellValue(value); characters += value.length; }
   }
   if (characters > SPREADSHEET_LIMITS.clipboardCharacters) throw new Error("表の明細は10 Mi文字以内で指定してください");

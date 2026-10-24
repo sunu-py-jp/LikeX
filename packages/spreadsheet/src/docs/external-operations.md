@@ -62,6 +62,8 @@ export default function Report() {
 | `undo()` / `redo()` | 編集許可を待って履歴を移動。`boolean` または `Promise<boolean>` を返す |
 | `getHistoryState()` | `canUndo` / `canRedo` / `undoCount` / `redoCount` |
 | `getZoom()` / `setZoom(percent)` | 現在の表示倍率を取得／変更。保存データ・履歴・未保存状態は変えません。[表示倍率](./zoom.md) |
+| `getFilterView(sheetId)` / `setFilterView(sheetId, filter)` / `resetFilterView(sheetId)` | 表示用のフィルターを取得／設定／保存済み設定へ復帰。読み取り専用でも利用でき、保存データは変えません。[フィルター](./filters.md) |
+| `getFilteredRows(sheetId)` | 表示用の条件で非表示になった元の0始まり行番号の配列。 |
 | `getRibbonDisplayMode()` / `setRibbonDisplayMode(mode)` | リボンの常時表示・タブのみ・自動非表示・完全非表示を取得／変更。制御用prop使用時は変更要求を親に通知します。[リボンの表示](./ribbon-display.md) |
 | `getSelection()` / `selectCell(...)` / `selectRanges(...)` など | セル・範囲・行列・シート・図形の表示上の選択。既定ではスクロールしません。[選択API](./selection.md#refから表示中の選択を変更する) |
 | `executeAsync(command)` / `batchAsync(commands)` | 外部の編集許可を待てる操作。結果をPromiseで返す |
@@ -128,7 +130,9 @@ AIが別のセルを読んで集計結果などの固定値を書き込む場合
 | `cells.insert` | `range`, `shift: "down" / "right"`。指定範囲に空白を挿入。[セルの挿入・削除](./cell-shifts.md) |
 | `cells.delete` | `range`, `shift?: "up" / "left"`。指定方向へ詰めて削除。`shift` 省略時は従来どおり位置を動かさずすべてクリア。[セルの挿入・削除](./cell-shifts.md) |
 | `namedRanges.add` / `update` / `clear` / `delete` | 定義の追加・変更・対象セルのクリア・定義削除。[名前付き範囲](./named-ranges.md) |
-| `tables.insert` / `cells.writeGrid` / `tables.delete` | 構造化テーブルとセル範囲へのデータ配置。[表の書き込み](./tables.md) |
+| `tables.insert` / `tables.delete` | 1行のヘッダーを持つ構造化テーブルの作成・削除。[表の書き込み](./tables.md) |
+| `cells.writeGrid` | 通常セルへ本文・格子罫線・色を配置。`headers` / `rowHeaders` の階層から上・左の見出しを自動結合し、通常列とマトリクス列も一括配置。[階層見出しとマトリクス](./tables.md#階層見出しとマトリクス) |
+| `filters.setRange` / `setValues` / `clear` / `remove` | フィルター範囲・値の条件を保存設定として変更。`setValues.column` は絶対列番号。[フィルター](./filters.md) |
 | `cells.format` | `addresses: ["A1:B1", "D1"]`, `format: { bold: true, ... }` |
 | `cells.formatRange` | `range: { top, left, bottom, right }`。末尾は `"end"` も可。`format` の指定属性を空セルへ全件展開せず適用。[範囲書式](./formatting.md#範囲に共通する書式) |
 | `cells.borders` | `ranges`, `preset: "all" / "outside" / "inside" / "top" / "bottom" / "left" / "right" / "none"`, `border?`。[範囲の罫線](./formatting.md)を設定／解除 |

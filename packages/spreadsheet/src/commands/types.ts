@@ -5,7 +5,8 @@ import type { SpreadsheetCellFormat, SpreadsheetImageDrawing, SpreadsheetImageRe
 import type { SpreadsheetFormattingCommand } from "../api/formatting-commands";
 import type { SpreadsheetEditingCommand } from "../api/editing-commands";
 import type { SpreadsheetDataValidationCommand } from "../api/data-validation-commands";
-import type { SpreadsheetTableCommand } from "../api/table-commands";
+import type { SpreadsheetGridLayout, SpreadsheetTableCommand } from "../api/table-commands";
+import type { SpreadsheetFilterCommand } from "../api/filter-commands";
 import type { SpreadsheetNamedRangeCommand } from "../api/named-range-commands";
 import type { SpreadsheetClearMode, SpreadsheetCellRangeInput } from "../model/workbook/clear";
 import type { SpreadsheetWriteConflictPolicy } from "../model/workbook/write-conflicts";
@@ -37,7 +38,7 @@ export type SpreadsheetInsertValue = string | number | boolean | null;
 
 /** Explicit targets make commands independent of the currently selected sheet or cells. */
 export type SpreadsheetCommand = DeepReadonly<
-  | SpreadsheetFormattingCommand | SpreadsheetEditingCommand | SpreadsheetDataValidationCommand | SpreadsheetTableCommand | SpreadsheetNamedRangeCommand
+  | SpreadsheetFormattingCommand | SpreadsheetEditingCommand | SpreadsheetDataValidationCommand | SpreadsheetTableCommand | SpreadsheetNamedRangeCommand | SpreadsheetFilterCommand
   | { type: "cells.set"; sheetId: string; values: Record<string, string>; onConflict?: SpreadsheetWriteConflictPolicy }
   | { type: "cells.clear"; sheetId: string; range: SpreadsheetCellRangeInput; mode?: SpreadsheetClearMode }
   /** Open a rectangular gap, shifting only cells in the selected columns or rows. */
@@ -126,6 +127,7 @@ export type SpreadsheetCommandReceipt = {
     & (Type extends SpreadsheetNamedRangeCommand["type"] ? { namedRangeId: string } : object)
     & (Type extends "tables.insert" | "tables.delete" ? { tableId: string } : object)
     & (Type extends "tables.insert" | "tables.delete" | "cells.writeGrid" ? { range: SpreadsheetMergedRange } : object)
+    & (Type extends "cells.writeGrid" ? { layout: SpreadsheetGridLayout } : object)
     & (Type extends "cells.insert" ? { range: SpreadsheetMergedRange } : object)
     & (Type extends "cells.set" | "cells.paste" | "cells.fill" | "cells.move" | "cells.replace" | "cells.clear" | "cells.insert" | "cells.delete" | "tables.insert" | "cells.writeGrid"
       ? { write: SpreadsheetWriteReport } : object)>;

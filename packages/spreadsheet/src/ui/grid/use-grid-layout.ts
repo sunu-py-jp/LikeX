@@ -8,7 +8,7 @@ import { useProgressiveGridRows } from "./use-progressive-grid-rows";
 import { createGridMergeCache } from "./grid-merge-cache";
 
 /** Owns viewport observation and spatial lookup; selection/editing remain outside this hook. */
-export function useGridLayout(sheet: SpreadsheetSheet, focusedRow: number, resizing: ColumnWidthPreview | null, rowResize?: { index: number; value: number } | null, zoom = 100, mode: SpreadsheetRenderingMode = "viewport") {
+export function useGridLayout(sheet: SpreadsheetSheet, focusedRow: number, resizing: ColumnWidthPreview | null, rowResize?: { index: number; value: number } | null, zoom = 100, mode: SpreadsheetRenderingMode = "viewport", hiddenRows?: ReadonlySet<number>) {
   const scroller = useRef<HTMLDivElement>(null);
   const { id, rowCount, columnCount, columnWidths, rowHeights, merges } = sheet;
   const [viewport, setViewport] = useState<GridViewport>({ top: 0, height: 480, left: 0, width: 800 });
@@ -16,10 +16,11 @@ export function useGridLayout(sheet: SpreadsheetSheet, focusedRow: number, resiz
   const columns = useMemo(() => columnGeometry({ columnCount, columnWidths }, columnResizeIndex !== undefined && columnResizeValue !== undefined ? { column: columnResizeIndex, value: columnResizeValue } : null),
     [columnCount, columnWidths, columnResizeIndex, columnResizeValue]);
   const rowResizeIndex = rowResize?.index, rowResizeValue = rowResize?.value;
-  const rowOffsets = useMemo(() => createRowOffsets({ rowCount, rowHeights: rowResizeIndex !== undefined && rowResizeValue !== undefined ? { ...rowHeights, [rowResizeIndex]: rowResizeValue } : rowHeights }), [rowCount, rowHeights, rowResizeIndex, rowResizeValue]);
+  const rowOffsets = useMemo(() => createRowOffsets({ rowCount, rowHeights: rowResizeIndex !== undefined && rowResizeValue !== undefined ? { ...rowHeights, [rowResizeIndex]: rowResizeValue } : rowHeights }, hiddenRows), [rowCount, rowHeights, rowResizeIndex, rowResizeValue, hiddenRows]);
   const { top, height } = viewport;
   const priorityRows = useMemo(() => visibleGridRows({ rowCount, merges }, rowOffsets, { top, height }, focusedRow), [rowCount, merges, rowOffsets, top, height, focusedRow]);
-  const virtualRows = useProgressiveGridRows(id, rowCount, columnCount, priorityRows, mode, scroller);
+  const preparedRows = useProgressiveGridRows(id, rowCount, columnCount, priorityRows, mode, scroller);
+  const virtualRows = useMemo(() => hiddenRows?.size ? preparedRows.filter(row => !hiddenRows.has(row)) : preparedRows, [preparedRows, hiddenRows]);
   const mergeSession = useMemo(() => ({ sheetId: id, rowCount, mode, cache: createGridMergeCache(merges, columnCount) }), [id, merges, rowCount, columnCount, mode]);
   const renderedMerges = useMemo(() => mergeSession.mode === "progressive" ? mergeSession.cache.include(virtualRows) : mergeSession.cache.visible(virtualRows), [mergeSession, virtualRows]);
   useEffect(() => {

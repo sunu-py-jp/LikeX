@@ -21,6 +21,8 @@ export function commandKeys(value: Record<string, unknown>, allowed: readonly st
 }
 
 const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
+  "filters.setRange": ["range", "inferRows"], "filters.setValues": ["column", "values"],
+  "filters.clear": [], "filters.remove": [],
   "cells.formatRange": ["range", "format"], "cells.set": ["values", "onConflict"], "cells.format": ["addresses", "format"], "cells.borders": ["ranges", "preset", "border"],
   "cells.replace": ["query", "replacement", "addresses", "onConflict"],
   "cells.fill": ["source", "target", "mode", "onConflict"],
@@ -32,7 +34,7 @@ const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
   "namedRanges.delete": ["namedRangeId", "clear"],
   "namedRanges.clear": ["namedRangeId", "mode"],
   "tables.insert": ["target", "headers", "data", "headerStyle", "rowNumbers", "onConflict", "name"],
-  "cells.writeGrid": ["target", "headers", "data", "headerStyle", "rowNumbers", "onConflict", "border"],
+  "cells.writeGrid": ["target", "headers", "rowHeaders", "headerLayout", "rowHeaderLayout", "data", "headerStyle", "rowHeaderStyle", "corner", "rowNumbers", "onConflict", "border"],
   "tables.delete": ["tableId", "clear"],
   "cells.validation": ["addresses", "validation"],
   "conditionalFormats.set": ["rules"],
@@ -65,7 +67,7 @@ export function validateCommand(value: unknown): SpreadsheetCommand {
     if (input[key] !== undefined && typeof input[key] !== "number") return rejectCommand("INVALID_COMMAND", `${key}は数値で指定してください`);
   for (const key of ["name", "text", "alt", "fill", "stroke", "color", "background"])
     if (input[key] !== undefined && typeof input[key] !== "string") return rejectCommand("INVALID_COMMAND", `${key}は文字列で指定してください`);
-  for (const key of ["bold", "discardContent", "flipX", "flipY"])
+  for (const key of ["bold", "discardContent", "flipX", "flipY", "inferRows"])
     if (input[key] !== undefined && typeof input[key] !== "boolean") return rejectCommand("INVALID_COMMAND", `${key}はtrueまたはfalseで指定してください`);
   if (input.rotation !== undefined && (typeof input.rotation !== "number" || !Number.isFinite(input.rotation)))
     return rejectCommand("INVALID_COMMAND", "rotationは有限の数値で指定してください");

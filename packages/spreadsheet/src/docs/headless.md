@@ -16,6 +16,8 @@ AIエージェントが生成した操作を適用する場合も、画面を準
 
 内容に合わせた行高・列幅の計算は [`dimensions.autoFit` と公開ヘルパー](./formatting.md#内容に合わせて自動調整するapi)、`/model` のXLSX入出力と画像変換の注入は[Excel出力](./excel-export.md)・[Excel取り込み](./excel-import.md)を参照してください。
 
+範囲の[フィルター](./filters.md)は `filters.*` コマンドで設定でき、`getSpreadsheetFilterValues` / `getSpreadsheetFilteredRows` で候補と非表示行を計算できます。フィルターはセルの削除・並べ替えではなく、元の行番号とデータを保持します。
+
 ## セルに値を入れる
 
 ```ts

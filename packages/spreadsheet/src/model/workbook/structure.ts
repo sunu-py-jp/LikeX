@@ -8,6 +8,7 @@ import { normalizeMerges } from "../merges";
 import { DEFAULT_COLUMN_WIDTH } from "../sheet-dimensions";
 import { shiftNamedRanges } from "../named-ranges";
 import { shiftSheetTables } from "./table-structure";
+import { shiftSheetAutoFilter } from "./filter-structure";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetComment, type SpreadsheetMergedRange, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
 import { finishWorkbook, freezeCell, getWorkbookSheet, replaceWorkbookSheet } from "./snapshot";
 import { fail, validateDimension } from "./validation";
@@ -129,6 +130,7 @@ function changeAxis(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" 
       ...(sheet.id === sheetId && sheet.conditionalFormats ? { conditionalFormats: shiftConditionalFormats(sheet.conditionalFormats, axis, index, count, remove) } : {}),
       ...(sheet.id === sheetId && sheet.merges ? { merges: shiftMerges(sheet, axis, index, count, remove, total) } : {}),
       ...(sheet.id === sheetId && sheet.tables ? { tables: shiftSheetTables(sheet.tables, axis, index, count, remove) } : {}),
+      ...(sheet.id === sheetId && sheet.autoFilter ? { autoFilter: shiftSheetAutoFilter(sheet.autoFilter, axis, index, count, remove) } : {}),
       ...(sheet.id === sheetId ? shiftAnnotations(sheet, axis, index, count, remove, total) : {}), ...(sheet.id === sheetId ? axis === "row"
       ? { rowCount: total, rowHeights: shiftSizes(sheet.rowHeights, index, count, remove) }
       : { columnCount: total, columnWidths: shiftSizes(sheet.columnWidths, index, count, remove) } : {}) });

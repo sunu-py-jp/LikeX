@@ -15,6 +15,7 @@ import { SpreadsheetFileControls } from "./spreadsheet-file-controls";
 import { SpreadsheetAutoFitControl, SpreadsheetFormatToolbar } from "./spreadsheet-format-toolbar";
 import { SpreadsheetEditToolbar, SpreadsheetPasteSpecialControl } from "./spreadsheet-edit-toolbar";
 import { SpreadsheetDataToolbar } from "./spreadsheet-data-toolbar";
+import { SpreadsheetFilterToolbar } from "./spreadsheet-filter-toolbar";
 import { SpreadsheetNamedRanges } from "./spreadsheet-named-ranges";
 import type { NamedRangeManager } from "./named-ranges/use-named-range-manager";
 import { SpreadsheetClearMenu } from "./spreadsheet-clear-menu";
@@ -29,7 +30,7 @@ export function SpreadsheetToolbar({ controller: c, clipboard, namedRangeManager
   const id = useId();
   const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
   const canInsert = !c.readOnly && (c.features.images || c.features.shapes || c.features.textBoxes || c.features.comments || c.features.tables && c.features.formatting);
-  const canData = c.features.namedRanges || (!c.readOnly && c.features.dataValidation);
+  const canData = c.features.filters || c.features.namedRanges || (!c.readOnly && c.features.dataValidation);
   const canFile = c.features.exportExcel || c.features.exportNative || (!c.readOnly && (c.features.importExcel || c.features.importNative));
   const tabs: { key: Tab; label: string }[] = [...(canFile ? [{ key: "file" as const, label: "ファイル" }] : []), { key: "home", label: "ホーム" },
     ...(canInsert ? [{ key: "insert" as const, label: "挿入" }] : []), ...(canData ? [{ key: "data" as const, label: "データ" }] : [])];
@@ -126,7 +127,7 @@ export function SpreadsheetToolbar({ controller: c, clipboard, namedRangeManager
       <SpreadsheetInsertToolbar controller={c} />
     </div>}
     {canData && <div role="tabpanel" id={`${id}-data-panel`} aria-labelledby={`${id}-data`} hidden={active !== "data"}>
-      <HorizontalScrollStrip className="lxs-ribbon" role="toolbar" aria-label="データの操作" itemSelector=".lxs-ribbon-group" previousLabel="前のリボングループを表示" nextLabel="次のリボングループを表示"><SpreadsheetNamedRanges controller={c} manager={namedRangeManager} /><SpreadsheetDataToolbar controller={c} /></HorizontalScrollStrip>
+      <HorizontalScrollStrip className="lxs-ribbon" role="toolbar" aria-label="データの操作" itemSelector=".lxs-ribbon-group" previousLabel="前のリボングループを表示" nextLabel="次のリボングループを表示"><SpreadsheetFilterToolbar controller={c} /><SpreadsheetNamedRanges controller={c} manager={namedRangeManager} /><SpreadsheetDataToolbar controller={c} /></HorizontalScrollStrip>
     </div>}
     </div>
     </div>

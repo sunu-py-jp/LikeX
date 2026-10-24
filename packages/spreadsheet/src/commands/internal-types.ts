@@ -1,4 +1,5 @@
 import type { SpreadsheetMergedRange } from "../model/types";
+import type { SpreadsheetGridLayout } from "../api/table-commands";
 import type { SpreadsheetCommand, SpreadsheetWriteReport } from "./types";
 
 /** Internal receipt before the staging engine adds command-specific placement. */
@@ -11,5 +12,6 @@ export type SpreadsheetCommandBaseReceipt = Readonly<{
   namedRangeId?: string;
   tableId?: string;
   range?: SpreadsheetMergedRange;
+  layout?: SpreadsheetGridLayout;
   write?: SpreadsheetWriteReport;
 }>;

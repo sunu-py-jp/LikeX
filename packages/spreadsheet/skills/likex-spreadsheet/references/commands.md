@@ -12,7 +12,7 @@
 
 ネイティブAPIの成功結果は `{ ok: true, workbook, changed, results }`。`results` は各コマンドと同じ順の `SpreadsheetCommandReceipt[]`。`changed` は最終的なブックの変化で、書式だけの変更も含む。失敗は `{ ok: false, code, message, commandIndex?, conflicts? }`。`commandIndex` は0始まり。CLIはreceipt配列を返さないため、CLIで生成したIDは適用後のファイルをinspectして取得する。
 
-各receiptに `type`, `sheetId`、操作に応じて `drawingId`, `resourceId`, `commentId`, `namedRangeId`, `tableId`, `range`, `write`, `placement` が入る。
+各receiptに `type`, `sheetId`、操作に応じて `drawingId`, `resourceId`, `commentId`, `namedRangeId`, `tableId`, `range`, `write`, `placement`, `layout` が入る。`layout` は `cells.writeGrid` の本文・見出し・結合の配置範囲を表す。
 
 - 新規シート・描画・表・名前付き範囲などの生成IDは、その実行のreceiptから取得する。同じ配列内からreceiptへ参照する特殊記法はないため、IDが必要な後続操作は次の呼び出しに分ける。
 - `write` は `{ changedCount, skippedCount, skippedAddresses }`。`changedCount` は保存値・数式の変更件数で、書式だけの変更は数えない。別シートへの移動では移動元・移動先を数える。`skippedAddresses` は移動先シートの番地。
@@ -48,6 +48,21 @@
 `cells.delete` の `shift` を省略すると、`cells.clear` の `mode: "all"` と同じで、周囲を動かさずセル情報を消す。`all` は値・書式・罫線・コメント・入力規則を削除し、完全に含まれる結合・テーブル定義を外し、条件付き書式の対象部分を除く。行高・列幅・描画・名前付き範囲の定義は残る。部分的な結合・テーブルに対する削除は拒否する。値のみクリアは既存の入力規則で検証される。
 
 `onConflict` は `overwrite`（既定）/ `error` / `skip`。既存の異なる非空の保存文字列を変更する場合が競合で、同じ値や空セルは競合しない。`error` は全体を `WRITE_CONFLICT` にし、`skip` は競合セルを保持する。対象は `cells.set`, `cells.paste`, `cells.fill`, `cells.replace`, `cells.move`, `cells.writeGrid`, `tables.insert`。`skip` は入力規則・結合などの検証を無視する指定ではない。
+
+## 範囲のフィルター
+
+`filters.setRange` は `{ sheetId, range: { top, left, bottom, right }, inferRows? }`。見出し1行だけなら省略時に選択列の最後の値・数式まで下方向を広げ、複数行なら指定範囲を使う。`inferRows: false` は常に指定どおり。書式だけの空セルを範囲末尾として扱わない。
+
+`filters.setValues` は `{ sheetId, column, values }`。`column` はシートの絶対0始まり列番号、`values` は表示を許可する文字列配列。`""` は空白、`[]` は全データ行を非表示、`null` はその列の条件を解除する。列内OR・列間ANDで、大文字小文字を区別しない表示文字列一致。`filters.clear` は条件だけ、`filters.remove` は範囲と条件を解除する。
+
+```json
+[
+  { "type": "filters.setRange", "sheetId": "sales", "range": { "top": 0, "left": 0, "bottom": 0, "right": 2 } },
+  { "type": "filters.setValues", "sheetId": "sales", "column": 1, "values": ["確定", "確認中"] }
+]
+```
+
+保存先は `sheet.autoFilter`。セルの削除や並べ替えではない。数式も非表示行を含む元のセルを参照する。候補は `getSpreadsheetFilterValues(sheet, column, calculated?)`、非表示行は `getSpreadsheetFilteredRows(sheet, calculated?)` で取得する。別シート参照の数式がある場合は `calculateWorkbook(workbook)[sheet.id]` を渡す。画面の一時的な絞り込みは保存コマンドではなくHandleの `setFilterView` を使う。[APIとExcel変換](../../../src/docs/filters.md)を参照する。
 
 ## 行・列・寸法
 
@@ -163,12 +178,12 @@
 | `namedRanges.clear` | `sheetId`, `namedRangeId`, `mode?: "values" \| "all"`（既定 `values`） |
 | `namedRanges.delete` | `sheetId`, `namedRangeId`, `clear?: "none" \| "values" \| "all"`（既定 `none`） |
 | `tables.insert` | 表の共通引数に `name` を追加 |
-| `cells.writeGrid` | 共通引数と任意の `border: { style?, width?, color? }`。通常セルにデータ・格子罫線・ヘッダー色を設定 |
+| `cells.writeGrid` | `sheetId`, `target`, `data` と任意の上・左の階層見出し、色、格子罫線。通常セルと結合を一括配置 |
 | `tables.delete` | `sheetId`, `tableId`, `clear?: "none" \| "values" \| "all"`（既定 `none`） |
 
-表の共通引数は `sheetId`, `target: { row, column }`, `headers: string[]`, `data` と、任意の `headerStyle: { background?, color? }`, `rowNumbers: false | { header?, start? }`, `onConflict`。
+`tables.insert` の引数は `sheetId`, `name`, `target: { row, column }`, `headers: string[]`, `data` と、任意の `headerStyle: { background?, color? }`, `rowNumbers: false | { header?, start? }`, `onConflict`。構造化テーブルの見出しは従来どおり1行で、階層は指定しない。
 
-`data` は `{ type: "rows", values: string[][] }` または `{ type: "csv" | "tsv", text }`。データは明細だけで、ヘッダーは `headers` に別指定する。各明細の列数をヘッダー数と一致させる。数値・数式も文字列。`rowNumbers` を指定すると左端に静的な整数列を追加し、既定の見出しは `No.`、開始値は1。後の行挿入で自動採番はしない。
+`data` は `{ type: "rows", values: string[][] }` または `{ type: "csv" | "tsv", text }`。データは明細だけで、数値・数式も文字列。`rowNumbers` を指定すると左端に静的な整数列を追加し、既定の見出しは `No.`、開始値は1。後の行挿入で自動採番はしない。
 
 ```json
 [
@@ -177,7 +192,69 @@
 ]
 ```
 
-`tables.insert` はセルに加えてID・名前・列・範囲を持つテーブル定義を作る。`cells.writeGrid` はデータ・格子罫線・ヘッダー色を通常セルへ書き込み、テーブル定義を作らない。`border` で格子線を指定できる。旧 `cells.writeTable` は削除済み。`cells.writeGrid` に移行する。表の書き込みは1pxのグレーの実線罫線を付け、その他の既存書式・入力規則・コメントを保持する。見出しと連番を含め1操作10,000セルまで。表がシートをはみ出す場合は先に行列を追加する。
+`tables.insert` はセルに加えてID・名前・列・範囲を持つテーブル定義を作る。`cells.writeGrid` は通常セル・書式・結合へ変換し、テーブル定義と見出しツリーは保存しない。SPONとXLSXでは変換後のセル・結合を保持する。旧 `cells.writeTable` は削除済みで、通常セルへの配置は `cells.writeGrid` に移行する。表の本文・見出しは既定で1pxのグレーの実線罫線を付け、その他の既存書式・入力規則・コメントを保持する。空ラベルのコーナーと張り出しの空き領域には既定罫線を付けない。見出しと連番を含め1操作10,000セルまで。表がシートをはみ出す場合は先に行列を追加する。
+
+### 上・左の階層見出しとマトリクス
+
+`cells.writeGrid` は次の引数を受け取る。既存の平坦な `headers: string[]` もそのまま使える。
+
+| 引数 | 指定 |
+| --- | --- |
+| `target` | 見出しと張り出しの空き領域を含む全体の左上。0始まり |
+| `headers?` | 上見出しの配列。各要素は文字列または `{ label, children?, style?: { background?, color? } }`。`children` は同形式の非空配列 |
+| `rowHeaders?` | 左見出しの配列。`headers` と同形式 |
+| `headerLayout?`, `rowHeaderLayout?` | 各軸の配置。`"merged"`（既定）または `"protruding"` |
+| `headerStyle?`, `rowHeaderStyle?` | `{ background?, color? }`。左見出しの未指定属性は `headerStyle` を引き継ぐ |
+| `corner?` | `{ label?: string \| null, merge?: boolean, style?: { background?, color? }, border?: { style?, width?, color? } }`。両軸がある場合だけ指定可能。空ラベルは値なし・結合なし・罫線なしが既定。ラベルがあれば結合・`headerStyle`・共通 `border` を適用し、個別指定で上書き可能 |
+| `border?` | `{ style?, width?, color? }`。本文・見出しの格子線。既定は実線・1px・`#d1d5db` |
+| `rowNumbers?` | 既存の連番指定。`headers` が必要で、`rowHeaders` との併用は不可 |
+| `onConflict?` | `"overwrite"`（既定）/ `"error"` / `"skip"` |
+
+```json
+[
+  {
+    "type": "cells.writeGrid",
+    "sheetId": "sales",
+    "target": { "row": 10, "column": 1 },
+    "headers": [
+      { "label": "2025年", "children": ["売上", "利益"] },
+      "備考"
+    ],
+    "rowHeaders": [
+      { "label": "東日本", "children": ["東京", "横浜"] },
+      "大阪"
+    ],
+    "corner": { "label": "拠点別実績" },
+    "data": { "type": "rows", "values": [
+      ["1200", "240", "重点拠点"],
+      ["860", "150", ""],
+      ["1320", "270", ""]
+    ] },
+    "headerStyle": { "background": "#217346", "color": "#ffffff" },
+    "rowHeaderStyle": { "background": "#e2f0d9", "color": "#222222" },
+    "border": { "style": "solid", "width": 1, "color": "#999999" },
+    "onConflict": "error"
+  }
+]
+```
+
+本文の各列・行は、それぞれの見出しツリーの末端を定義順に並べた順に対応させる。上見出しの末端数と本文の列数、左見出しの末端数と本文の行数が一致しなければ全体を拒否する。配列の行ごとの列数も揃える。`headers` と `rowHeaders` は省略できるが、明示した空配列は不可。上見出しがある場合は `values: []` で見出しだけを配置できる。両軸を省略すると本文だけになる。見出しの重複は可能で、`001` や `=項目` は文字列として扱う。上・左のツリーは各合計10,000ノードまで、見出し・張り出しの空き領域も含む外接矩形は10,000セルまで。
+
+`corner` の省略、`label` の省略・`null`・空文字・空白文字だけは値なしとして扱い、コーナーを結合せず、コーナー側の罫線をなくし、`headerStyle` は自動適用しない。空欄でも `corner: { border: {} }` と明示すれば共通の罫線を付けられる。`corner: { label: null, border: { color: "#217346" } }` は共通罫線の色だけを上書きし、`corner.style` は指定した色だけを適用する。ラベルがある場合は結合・`headerStyle`・共通 `border` を既定とし、`corner.style` / `corner.border` の指定属性を優先する。`style` は背景色・文字色だけ。
+
+`corner.merge` で結合を明示指定できる。`corner: { merge: true }` は空ラベルでも結合し、`corner: { label: "拠点", merge: false }` はラベルがあっても結合しない。罫線や色の指定だけでは結合しない。非結合時のラベルは交差領域の左上だけに入り、他のセルは空になる。`layout.cornerRange` は結合の有無によらず交差領域全体を返す。
+
+空コーナーも値の書き込み対象であり、既存値のクリアには `onConflict` が適用される。結合しない指定でも既存結合を自動解除せず、不整合な結合が書き込み先にあればエラーにする。罫線以外の未指定の既存書式は保持し、隣接見出し側の罫線も消さない。張り出しの空き領域のように書き込みを省略するものではない。[空欄・罫線・色の実行例](../../../src/docs/tables.md#コーナーの空欄罫線色を指定する)を参照する。
+
+`"merged"` は最大の深さに合わせ、上側の浅い末端を縦結合、左側の浅い末端を横結合する。上の親は子の列を横結合、左の親は子の行を縦結合する。交差領域は上見出しの深さ×左見出しの深さとなり、結合するかどうかは `corner` の指定で決まる。見出しノードの `style` はそのノードだけに適用し、子へ継承しない。
+
+`"protruding"` は最上位の各ツリーを下端／右端へ寄せ、親のない見出しの上／左を空ける。各ツリー内部は `"merged"` と同じ結合規則。空き領域の値・書式・罫線は変更しない。`target` はこの空き領域も含む左上であり、指定位置より上・左へ書き込まない。
+
+通常列の横にマトリクスをつなげる場合は、`headers: ["コード", "商品名", "区分", { label: "売上", children: ["4月", "5月"] }]` とし、本文を5列の行として渡す。コード・商品名・区分は通常の本文列なので `rowHeaders` に入れない。上だけ・左だけ・3階層・張り出しの実行例は[表とマトリクスのAPIガイド](../../../src/docs/tables.md#階層見出しとマトリクス)を参照する。
+
+`onConflict: "skip"` は通常セルの競合を保持するが、結合見出し内の競合を一部だけ残すことはできず、その場合は全体を拒否する。既存結合は生成する見出し結合と完全一致すれば再利用できるが、互換性のない交差は `overwrite` でも拒否する。新しい結合で隠れるセルのコメントも黙って削除せず拒否する。別の構造へ置き換える場合は、必要な結合解除・値のクリアを同じバッチに含める。
+
+公開APIの結果は既存の `range`, `placement`, `write` に加え、`layout: { dataRange?, headerRanges, rowHeaderRanges, cornerRange?, merges }` を返す。すべて0始まり・両端を含む絶対範囲で、本文がない場合は `dataRange` がない。`range` は空き領域も含む外接矩形。見出し範囲は各ノードごとの配列で、`merges` は配置で使う結合範囲。書き込み全体は1回のUndo単位。表示中コンポーネントでは `features.formatting` が必要で、結合を生成するときだけ `features.mergeCells` も必要。`features.tables` は不要。
 
 構造化テーブルのヘッダーに競合がある場合、`onConflict: "skip"` でも全体を拒否する。テーブル内部の列挿入・一部列削除や、ヘッダーだけの削除は拒否される。必要なら依頼された変更に合わせて先に定義を外す。
 

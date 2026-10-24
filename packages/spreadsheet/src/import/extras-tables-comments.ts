@@ -107,5 +107,12 @@ export async function readWorksheetTables(node: XmlNode, initial: SpreadsheetShe
     if (child(root, "tableStyleInfo")) omitted(context, sheet, "テーブルの自動スタイルを省略しました（明示したセル書式は保持）");
     if (child(child(root, "autoFilter"), "filterColumn") || child(root, "sortState")) omitted(context, sheet, "テーブルのフィルター・並べ替え状態を省略しました");
   }
-  return tables.length ? { ...sheet, tables } : sheet;
+  if (!tables.length) return sheet;
+  if (sheet.autoFilter && tables.some(table => rangesIntersect(table.range, sheet.autoFilter!.range))) {
+    omitted(context, sheet, "テーブルと重なるシートのフィルターを省略しました（テーブル定義とセルの値は保持）");
+    const remaining = { ...sheet };
+    delete remaining.autoFilter;
+    return { ...remaining, tables };
+  }
+  return { ...sheet, tables };
 }

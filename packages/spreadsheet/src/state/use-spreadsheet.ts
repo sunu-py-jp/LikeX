@@ -20,6 +20,7 @@ import { findHistoryTarget, type SpreadsheetHistoryTarget } from "./history-targ
 import { useSpreadsheetZoom } from "./use-spreadsheet-zoom";
 import { useSpreadsheetRibbon } from "./use-spreadsheet-ribbon";
 import { useSpreadsheetSearchPanel } from "./use-spreadsheet-search-panel";
+import { useSpreadsheetFilters } from "./use-spreadsheet-filters";
 
 export { MAX_SELECTION_CELLS, MAX_SELECTION_RANGES, selectedAddresses, selectionBounds, selectionRanges, rangeBounds,
   isCellSelected, isRangeSelected, isMultiRangeSelection, selectionCellCount } from "./selection";
@@ -48,6 +49,8 @@ export function useSpreadsheet(props: SpreadsheetProps) {
   const searchPanel = useSpreadsheetSearchPanel(props, features, draft.readOnly, { getWorkbook: () => draft.workbookRef.current,
     getReplacementRevision: () => draft.replacementRevisionRef.current, selectionApi: view.selectionApi });
   const calculated = useMemo(() => calculateWorkbook(draft.workbook), [draft.workbook]);
+  const filtering = useSpreadsheetFilters(draft, view, commands, calculated,
+    () => !!cellEdit.editingRef.current || pending.pendingObjectEditRef.current);
   const { resetViewRef } = draft;
   useLayoutEffect(() => { resetViewRef.current = view.resetForWorkbook; }, [resetViewRef, view.resetForWorkbook]);
 
@@ -117,7 +120,7 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     switchSheet, selectCellInSheet: view.selectCellInSheet,
     selectRangeInSheet: (sheetId: string, anchor: Position, focus: Position, activeFocus?: Position, kind?: "row" | "column") =>
       view.selectRangeInSheet(sheetId, anchor, focus, draft.workbookRef.current, activeFocus, kind),
-    calculated, editing: cellEdit.editing, beginEdit: cellEdit.beginEdit, cancelEdit: cellEdit.cancelEdit, commitEdit: cellEdit.commitEdit,
+    calculated, ...filtering, editing: cellEdit.editing, beginEdit: cellEdit.beginEdit, cancelEdit: cellEdit.cancelEdit, commitEdit: cellEdit.commitEdit,
     selectedDrawingId: view.selectedDrawingId, selectedDrawing: view.selectedDrawing, selectDrawing,
     commentOpen: view.commentOpen, setCommentOpen: view.setCommentOpen,
     pendingObjectEdit: pending.pendingObjectEdit, setPendingObjectEdit: pending.setPendingObjectEdit,

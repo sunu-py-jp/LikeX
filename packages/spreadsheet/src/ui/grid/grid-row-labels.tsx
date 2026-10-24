@@ -9,6 +9,6 @@ import { ROW_HEIGHT, ROW_HEADER_WIDTH } from "./grid-geometry";
  * movement reuse the entire strip. Only row geometry changes rebuild it. */
 export const GridRowLabels = memo(function GridRowLabels({ rowOffsets }: { rowOffsets: readonly number[] }) {
   return <div aria-hidden="true" className="lxs-row-labels" style={{ width: ROW_HEADER_WIDTH, height: rowOffsets[rowOffsets.length - 1] - ROW_HEIGHT }}>
-    {rowOffsets.slice(0, -1).map((top, row) => <span key={row} className="lxs-row-label" style={{ top: top - ROW_HEIGHT, height: rowOffsets[row + 1] - top }}>{row + 1}</span>)}
+    {rowOffsets.slice(0, -1).map((top, row) => rowOffsets[row + 1] > top && <span key={row} className="lxs-row-label" style={{ top: top - ROW_HEIGHT, height: rowOffsets[row + 1] - top }}>{row + 1}</span>)}
   </div>;
 });

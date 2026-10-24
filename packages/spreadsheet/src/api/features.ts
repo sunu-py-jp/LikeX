@@ -19,6 +19,8 @@ export type SpreadsheetFeatures = Readonly<{
   namedRanges?: boolean;
   /** Structured tables. cells.writeGrid uses formatting. */
   tables?: boolean;
+  /** Allows configuring AutoFilter ranges and values. Saved filter criteria still apply when disabled. */
+  filters?: boolean;
   /** Allows changing rules; existing conditional formatting still renders. */
   conditionalFormatting?: boolean;
   /** Allows configuring input rules. Existing rules remain enforced when disabled. */

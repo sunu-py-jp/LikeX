@@ -7,6 +7,7 @@ import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetWorkbookS
 import type { SpreadsheetReadApi } from "../model/query-reader";
 import type { SpreadsheetHistoryState } from "../history/workbook-history";
 import type { SpreadsheetSelectionApi } from "./selection";
+import type { SpreadsheetFilterViewApi } from "./filter-view";
 import type { SpreadsheetRibbonDisplayMode } from "../props";
 export type { SpreadsheetSelectionApi, SpreadsheetSelectionOptions, SpreadsheetSelectedDrawing, SpreadsheetSheetTarget } from "./selection";
 
@@ -15,7 +16,7 @@ export type * from "../commands/types";
 /** Cancels this UI command without canceling another pending edit request. */
 export type SpreadsheetAsyncCommandOptions = SpreadsheetCommandOptions & Readonly<{ signal?: AbortSignal }>;
 
-export type SpreadsheetHandle = SearchPanelHandle & SpreadsheetReadApi & SpreadsheetSelectionApi & Readonly<{
+export type SpreadsheetHandle = SearchPanelHandle & SpreadsheetReadApi & SpreadsheetSelectionApi & SpreadsheetFilterViewApi & Readonly<{
   execute(command: SpreadsheetCommand, options?: SpreadsheetCommandOptions): SpreadsheetCommandResult;
   batch(commands: readonly SpreadsheetCommand[], options?: SpreadsheetCommandOptions): SpreadsheetCommandResult;
   executeAsync(command: SpreadsheetCommand, options?: SpreadsheetAsyncCommandOptions): Promise<SpreadsheetCommandResult>;

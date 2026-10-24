@@ -12,6 +12,12 @@ export function workbookDefinedNamesXml(workbook: SpreadsheetWorkbook, helperEle
     const formula = `'${sheet.name.replaceAll("'", "''")}'!${first}${first === last ? "" : `:${last}`}`;
     return `<definedName name="${xlsxText(item.name)}">${xml(formula)}</definedName>`;
   }).join("");
-  const names = userElements + helperElements;
+  const filterElements = workbook.sheets.map((sheet, index) => {
+    const range = sheet.autoFilter?.range;
+    if (!range) return "";
+    const formula = `'${sheet.name.replaceAll("'", "''")}'!${absolute(range.top, range.left)}:${absolute(range.bottom, range.right)}`;
+    return `<definedName name="_xlnm._FilterDatabase" localSheetId="${index}" hidden="1">${xml(formula)}</definedName>`;
+  }).join("");
+  const names = userElements + helperElements + filterElements;
   return names ? `<definedNames>${names}</definedNames>` : "";
 }

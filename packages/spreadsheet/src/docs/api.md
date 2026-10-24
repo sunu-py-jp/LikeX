@@ -2,7 +2,7 @@
 
 [利用ガイドへ戻る](./README.md)
 
-`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetMergedRange`、`SpreadsheetSelection`、`SpreadsheetSelectionRange`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode`、`SpreadsheetRibbonDisplayMode`、`SpreadsheetRenderingMode` を公開しています。
+`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetMergedRange`、`SpreadsheetAutoFilter`、`SpreadsheetFilterColumn`、`SpreadsheetSelection`、`SpreadsheetSelectionRange`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode`、`SpreadsheetRibbonDisplayMode`、`SpreadsheetRenderingMode` を公開しています。
 
 ## ブックの形式
 
@@ -100,6 +100,8 @@ try {
 保存前後の処理、楽観・悲観ロック、Handleからの保存・更新・破棄、イベント一覧は[保存・編集許可・イベント](./lifecycle.md)を参照してください。
 
 セル・行列・画像・図形の操作を外側から呼ぶ場合は `SpreadsheetHandle` を使います。公開型とバッチ、エラー、画像の準備関数 `prepareSpreadsheetImage` は[外部操作API](./external-operations.md)にまとめています。
+
+範囲の絞り込みは `filters.*` コマンドで保存設定を変更し、`setFilterView` で閲覧だけの一時設定を変更できます。見出し1行から下方向の範囲を推定する動作、読み取り専用、XLSX入出力の対応範囲は[フィルター](./filters.md)を参照してください。
 
 ## シートの描画モード
 

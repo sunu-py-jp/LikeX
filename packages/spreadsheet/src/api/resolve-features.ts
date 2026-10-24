@@ -16,6 +16,7 @@ export function resolveSpreadsheetFeatures(features: SpreadsheetFeatures | undef
     formatting: features?.formatting !== false,
     namedRanges: features?.namedRanges !== false,
     tables: features?.tables !== false,
+    filters: features?.filters !== false,
     conditionalFormatting: features?.formatting !== false && features?.conditionalFormatting !== false,
     dataValidation: features?.dataValidation !== false,
     checkboxes: features?.checkboxes !== false,

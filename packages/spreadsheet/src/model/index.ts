@@ -1,4 +1,5 @@
 export * from "./types";
+export { resolveSpreadsheetFilterRange, getSpreadsheetFilterValues, getSpreadsheetFilteredRows } from "./filters";
 export { getSpreadsheetLinePoints, getSpreadsheetLineRoute, isSpreadsheetLine } from "./lines";
 export { updateLineEndpoints } from "./workbook/lines";
 export { SPREADSHEET_SHAPES } from "./shapes";

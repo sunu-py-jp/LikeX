@@ -11,6 +11,7 @@ import { resolveCellRange, type SpreadsheetCellRangeInput } from "./clear";
 import { rectangleAffected, rewriteShiftedFormula, shiftCellPosition, shiftCellRectangle, type CellShift } from "./shift-cells-transform";
 import { finishWorkbook, freezeCell, getWorkbookSheet } from "./snapshot";
 import { shiftSheetTables } from "./table-structure";
+import { shiftSheetAutoFilter } from "./filter-structure";
 import { fail, validateDimension } from "./validation";
 
 /** Shift only the selected lanes; sparse data and metadata determine any necessary insertion growth. */
@@ -79,6 +80,14 @@ function changeCellRange(workbook: SpreadsheetWorkbook, sheetId: string, input: 
     if (next) requirePosition({ row: next.range.bottom, column: next.range.right });
     return next ? [next] : [];
   });
+  let autoFilter = target.autoFilter;
+  if (autoFilter && rectangleAffected(autoFilter.range, shift)) {
+    const first = rows ? autoFilter.range.left : autoFilter.range.top, last = rows ? autoFilter.range.right : autoFilter.range.bottom;
+    if (first < shift.firstLane || last > shift.lastLane)
+      return fail("フィルター範囲の一部分だけは挿入・削除できません。範囲全体を含む行または列を選択してください");
+    autoFilter = shiftSheetAutoFilter(autoFilter, shift.axis, shift.index, shift.count, remove);
+    if (autoFilter) requirePosition({ row: autoFilter.range.bottom, column: autoFilter.range.right });
+  }
   const comments: Record<string, SpreadsheetComment> = Object.create(null);
   for (const [address, comment] of Object.entries(target.comments ?? {})) {
     const next = shiftCellPosition(parseCellAddress(address)!, shift);
@@ -120,7 +129,8 @@ function changeCellRange(workbook: SpreadsheetWorkbook, sheetId: string, input: 
       ...(drawings ? { drawings: Object.freeze(drawings) } : {}),
       ...(target.merges ? { merges: normalizeMerges(merges, dimensions) } : {}),
       ...(target.conditionalFormats ? { conditionalFormats: normalizeConditionalFormats(conditionalFormats, dimensions) } : {}),
-      ...(target.tables ? { tables: tables?.length ? Object.freeze(tables) : undefined } : {}) });
+      ...(target.tables ? { tables: tables?.length ? Object.freeze(tables) : undefined } : {}),
+      ...(target.autoFilter ? { autoFilter } : {}) });
     validateMergedContents(next);
     return next;
   });

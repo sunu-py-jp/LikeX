@@ -1,0 +1,8 @@
+{
+  "title": "範囲のフィルター",
+  "summary": "選択範囲と見出しから値を絞り込み、保存設定と閲覧用の一時設定を使い分けます。",
+  "source": "packages/spreadsheet/src/docs/filters.md",
+  "section": "セルとシート",
+  "order": 56,
+  "keywords": ["autoFilter", "filters", "フィルター", "絞り込み", "setFilterView"]
+}

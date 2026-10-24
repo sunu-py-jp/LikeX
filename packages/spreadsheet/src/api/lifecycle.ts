@@ -1,5 +1,5 @@
 import type { ContextMenuExecutionEvent, EditEndReason, EditMode, EditRequestHandler, EventHandler, MaybePromise, OperationContext, RequestHandler } from "../core";
-import type { SpreadsheetWorkbook } from "../model/types";
+import type { SpreadsheetWorkbook, SpreadsheetAutoFilter } from "../model/types";
 import type { SpreadsheetSelection } from "../props";
 import type { SpreadsheetCommand, SpreadsheetWorkbookSnapshot } from "./types";
 import type { SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult, SpreadsheetExcelImportWarning } from "../import/types";
@@ -46,6 +46,7 @@ export type SpreadsheetImportNativeOptions = SpreadsheetDiscardOptions & Readonl
   sheetName?: string;
 }>;
 export type SpreadsheetEvent =
+  | Readonly<{ type: "filter-view-change"; sheetId: string; autoFilter: SpreadsheetAutoFilter | null }>
   | Readonly<{ type: "zoom-change"; zoom: number; previousZoom: number }>
   | ContextMenuExecutionEvent
   | Readonly<{ type: "change"; source: SpreadsheetChangeSource; workbook: SpreadsheetWorkbookSnapshot; commands?: readonly SpreadsheetCommand["type"][] }>

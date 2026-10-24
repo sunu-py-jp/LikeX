@@ -138,6 +138,51 @@ test('invalid insertion values never request permission or publish a partial str
   assert.equal(requests, 0); assert.equal(changes, 0);
 });
 
+const groupedGrid = () => ({ type: 'cells.writeGrid', sheetId: 'one', target: { row: 2, column: 1 },
+  headers: ['商品', { label: '売上', children: ['4月', '5月'], style: { background: '#17365d' } }],
+  rowHeaders: [{ label: '東', children: ['東京', '横浜'] }], corner: { label: '支店' },
+  data: { type: 'rows', values: [['商品A', '100', '120'], ['商品B', '200', '240']] } });
+
+test('mounted grouped grid captures recursive input before permission and commits one undoable change', async t => {
+  for (const allowed of [true, false]) {
+    const permission = deferred(), changes = [];
+    const ui = await mount(t, { onEditRequest: () => permission.promise, onChange: workbook => changes.push(workbook) });
+    const before = ui.api.getWorkbook(), command = groupedGrid();
+    let pending, result;
+    await act(async () => { pending = ui.api.executeAsync(command); });
+    command.headers[1].children[0] = 'late'; command.headers[1].style.background = '#ff0000';
+    command.rowHeaders[0].children.push('追加'); command.corner.label = 'late'; command.data.values[0][1] = '999';
+    await act(async () => { permission.resolve(allowed); result = await pending; });
+    assert.equal(result.ok, allowed, result.message);
+    assert.equal(changes.length, allowed ? 1 : 0);
+    if (!allowed) { assert.equal(ui.api.getWorkbook(), before); assert.equal(ui.c.canUndo, false); continue; }
+    const after = ui.api.getWorkbook(), sheet = after.sheets[0];
+    assert.equal(sheet.cells.B3.value, '支店');
+    assert.equal(sheet.cells.E3.format.background, '#17365d');
+    assert.equal(sheet.cells.E4.value, '4月'); assert.equal(sheet.cells.E5.value, '100');
+    assert.deepEqual(result.results[0].layout.dataRange, { top: 4, left: 3, bottom: 5, right: 5 });
+    assert.ok(sheet.merges.length > 0);
+    await act(async () => ui.api.undo());
+    assert.deepEqual(ui.api.getWorkbook(), before); assert.equal(ui.c.canUndo, false);
+    await act(async () => ui.api.redo()); assert.deepEqual(ui.api.getWorkbook(), after);
+  }
+});
+
+test('mounted grouped grid respects readonly, merge feature and cancellation while permission is pending', async t => {
+  for (const [options, expected] of [[{ readOnly: true }, 'READ_ONLY'], [{ features: { mergeCells: false } }, 'FEATURE_DISABLED']]) {
+    const ui = await mount(t, options), before = ui.api.getWorkbook();
+    let result;
+    await act(async () => { result = ui.api.execute(groupedGrid()); });
+    assert.equal(result.code, expected); assert.equal(ui.api.getWorkbook(), before); assert.equal(ui.c.canUndo, false);
+  }
+  const permission = deferred(), abort = new AbortController(), changes = [];
+  const ui = await mount(t, { onEditRequest: () => permission.promise, onChange: workbook => changes.push(workbook) });
+  const before = ui.api.getWorkbook(); let pending, result;
+  await act(async () => { pending = ui.api.executeAsync(groupedGrid(), { signal: abort.signal }); });
+  await act(async () => { abort.abort(); permission.resolve(true); result = await pending; });
+  assert.equal(result.ok, false); assert.equal(ui.api.getWorkbook(), before); assert.equal(changes.length, 0);
+});
+
 test('a later invalid command rejects a complete batch and identifies the failing command', async t => {
   let notifications = 0;
   const ui = await mount(t, { onChange() { notifications++; } });

@@ -4,6 +4,7 @@ import { assertWorkbookDataValidation, type SpreadsheetDataValidation } from "..
 import { normalizeNamedRanges } from "../named-ranges";
 import { assertWorkbookTables, reconcileWorkbookTables } from "../tables/normalize";
 import { validateLineBindings } from "../lines";
+import { assertSpreadsheetFilterTableSeparation } from "../filters";
 
 export function freezeCell(value: string, format?: SpreadsheetCellFormat, validation?: SpreadsheetDataValidation): SpreadsheetCell {
   return Object.freeze({ value, ...(format ? { format } : {}), ...(validation ? { validation } : {}) });
@@ -30,6 +31,7 @@ export function finishWorkbook(sheets: readonly SpreadsheetSheet[], workbook?: S
   const result = Object.freeze({ format: SPREADSHEET_FORMAT, schemaVersion: 1 as const, sheets: Object.freeze([...reconcileWorkbookTables(sheets)]),
     ...(resources ? { resources } : {}), ...(names ? { namedRanges: names } : {}) });
   assertWorkbookTables(result);
+  for (const sheet of result.sheets) assertSpreadsheetFilterTableSeparation(sheet.autoFilter, sheet.tables);
   assertWorkbookDataValidation(result);
   return result;
 }

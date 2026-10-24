@@ -12,6 +12,8 @@ import { dataValidationsXml } from "./data-validation";
 import { xml, xlsxText } from "./xml";
 import { tablePartsXml } from "./tables";
 import { pixelsToXlsxColumnWidth as columnWidth } from "../../xlsx-column-width";
+import { getSpreadsheetFilteredRows } from "../../model/filters";
+import { autoFilterXml } from "./auto-filter";
 
 type Calculated = Record<string, Record<string, SpreadsheetCalculatedValue>>;
 type Links = { drawingId?: string; commentsDrawingId?: string; formulaForList?: (values: readonly string[]) => string;
@@ -62,6 +64,7 @@ function cellXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, address
 }
 /** Generate only one row of expanded finite formatting at a time. */
 function* worksheetChunks(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, styles: XlsxStyles, calculated: Calculated, links: Links): Generator<string> {
+  const filteredRows = getSpreadsheetFilteredRows(sheet, calculated[sheet.id]);
   const tableHeaders = new Map((sheet.tables ?? []).flatMap(table => table.columns.map((column, index) =>
     [cellAddress(table.range.top, table.range.left + index), column.name] as const)));
   const rows = new Map<number, Map<number, { address: string; cell: SpreadsheetCell }>>();
@@ -87,7 +90,7 @@ function* worksheetChunks(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet
     if (width === undefined && format === undefined) continue;
     columns.push(`<col min="${column + 1}" max="${column + 1}"${width === undefined ? "" : ` width="${xml(columnWidth(width))}" customWidth="1"`}${format === undefined ? "" : ` style="${styles.styleId(format)}"`}/>`);
   }
-  yield `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><dimension ref="A1:${cellAddress(sheet.rowCount - 1, sheet.columnCount - 1)}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultColWidth="${columnWidth(DEFAULT_COLUMN_WIDTH)}" defaultRowHeight="${DEFAULT_ROW_HEIGHT * 0.75}"/>${columns.length ? `<cols>${columns.join("")}</cols>` : ""}<sheetData>`;
+  yield `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${sheet.autoFilter?.columns?.length ? '<sheetPr filterMode="1"/>' : ""}<dimension ref="A1:${cellAddress(sheet.rowCount - 1, sheet.columnCount - 1)}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultColWidth="${columnWidth(DEFAULT_COLUMN_WIDTH)}" defaultRowHeight="${DEFAULT_ROW_HEIGHT * 0.75}"/>${columns.length ? `<cols>${columns.join("")}</cols>` : ""}<sheetData>`;
   let cursor = 0;
   const active = new Set<(typeof finite)[number]>();
   for (let row = 0; row < sheet.rowCount; row++) {
@@ -97,12 +100,12 @@ function* worksheetChunks(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet
     for (const range of active) for (let column = range.left; column <= range.right; column++)
       if (!cells.has(column)) cells.set(column, { address: cellAddress(row, column), cell: { value: "", format: range.format } });
     const height = sheet.rowHeights?.[row], rowFormat = rowFormats.get(row);
-    if (!cells.size && height === undefined && rowFormat === undefined) continue;
+    if (!cells.size && height === undefined && rowFormat === undefined && !filteredRows.has(row)) continue;
     if (height !== undefined && height * 0.75 > 409) throw new Error(`Excelの行の高さの上限を超えています（${sheet.name}!${row + 1}行）`);
-    yield `<row r="${row + 1}"${height === undefined ? "" : ` ht="${xml(height * 0.75)}" customHeight="1"`}${rowFormat === undefined ? "" : ` s="${styles.styleId(rowFormat)}" customFormat="1"`}>${[...cells].sort(([left], [right]) => left - right).map(([, item]) => cellXml(workbook, sheet, item.address, item.cell, styles, calculated, tableHeaders.get(item.address))).join("")}</row>`;
+    yield `<row r="${row + 1}"${filteredRows.has(row) ? ' hidden="1"' : ""}${height === undefined ? "" : ` ht="${xml(height * 0.75)}" customHeight="1"`}${rowFormat === undefined ? "" : ` s="${styles.styleId(rowFormat)}" customFormat="1"`}>${[...cells].sort(([left], [right]) => left - right).map(([, item]) => cellXml(workbook, sheet, item.address, item.cell, styles, calculated, tableHeaders.get(item.address))).join("")}</row>`;
   }
   const merges = (sheet.merges ?? []).map(range => `<mergeCell ref="${cellAddress(range.top, range.left)}:${cellAddress(range.bottom, range.right)}"/>`).join("");
-  yield `</sheetData>${merges ? `<mergeCells count="${sheet.merges!.length}">${merges}</mergeCells>` : ""}${conditionalFormattingXml(sheet, styles)}${dataValidationsXml(sheet, { formulaForList: links.formulaForList })}${links.drawingId ? `<drawing r:id="${xml(links.drawingId)}"/>` : ""}${links.commentsDrawingId ? `<legacyDrawing r:id="${xml(links.commentsDrawingId)}"/>` : ""}${tablePartsXml(links.tableRelationshipIds)}</worksheet>`;
+  yield `</sheetData>${autoFilterXml(sheet.autoFilter)}${merges ? `<mergeCells count="${sheet.merges!.length}">${merges}</mergeCells>` : ""}${conditionalFormattingXml(sheet, styles)}${dataValidationsXml(sheet, { formulaForList: links.formulaForList })}${links.drawingId ? `<drawing r:id="${xml(links.drawingId)}"/>` : ""}${links.commentsDrawingId ? `<legacyDrawing r:id="${xml(links.commentsDrawingId)}"/>` : ""}${tablePartsXml(links.tableRelationshipIds)}</worksheet>`;
 }
 /** Synchronous helper for small in-memory consumers and tests. */
 export function worksheetXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, styles: XlsxStyles, calculated: Calculated, links: Links = {}): string {

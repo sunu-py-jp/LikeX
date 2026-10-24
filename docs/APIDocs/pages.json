@@ -1742,6 +1742,45 @@
     ]
   },
   {
+    "id": "spreadsheet/filters",
+    "title": "範囲のフィルター",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/filters/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/filters.md"
+    ],
+    "keywords": [
+      "autoFilter",
+      "filters",
+      "フィルター",
+      "絞り込み",
+      "setFilterView"
+    ],
+    "headings": [
+      {
+        "id": "範囲と値の選び方",
+        "title": "範囲と値の選び方",
+        "depth": 2
+      },
+      {
+        "id": "保存する設定をapiから変更する",
+        "title": "保存する設定をAPIから変更する",
+        "depth": 2
+      },
+      {
+        "id": "閲覧だけの絞り込み",
+        "title": "閲覧だけの絞り込み",
+        "depth": 2
+      },
+      {
+        "id": "sponexcelとの往復と制約",
+        "title": "SPON・Excelとの往復と制約",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/merged-cells",
     "title": "セル結合",
     "component": "spreadsheet",
@@ -2123,6 +2162,51 @@
         "id": "書き込みに使う引数",
         "title": "書き込みに使う引数",
         "depth": 2
+      },
+      {
+        "id": "階層見出しとマトリクス",
+        "title": "階層見出しとマトリクス",
+        "depth": 2
+      },
+      {
+        "id": "1-上見出しだけの通常の表",
+        "title": "1. 上見出しだけの通常の表",
+        "depth": 3
+      },
+      {
+        "id": "2-左見出しだけの表",
+        "title": "2. 左見出しだけの表",
+        "depth": 3
+      },
+      {
+        "id": "3-上左に見出しがあるマトリクス",
+        "title": "3. 上・左に見出しがあるマトリクス",
+        "depth": 3
+      },
+      {
+        "id": "コーナーの空欄罫線色を指定する",
+        "title": "コーナーの空欄・罫線・色を指定する",
+        "depth": 4
+      },
+      {
+        "id": "4-グループがある見出しと単独の見出しを混在させる",
+        "title": "4. グループがある見出しと単独の見出しを混在させる",
+        "depth": 3
+      },
+      {
+        "id": "5-通常のテーブルの右にマトリクスをつなげる",
+        "title": "5. 通常のテーブルの右にマトリクスをつなげる",
+        "depth": 3
+      },
+      {
+        "id": "6-親グループだけ上左へ張り出させる",
+        "title": "6. 親グループだけ上・左へ張り出させる",
+        "depth": 3
+      },
+      {
+        "id": "7-上左とも3階層にする",
+        "title": "7. 上・左とも3階層にする",
+        "depth": 3
       },
       {
         "id": "既存の値と結果",

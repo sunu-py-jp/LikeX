@@ -78,6 +78,8 @@ export type ImportContext = {
   tableNames?: Set<string>;
   remainingExtraCells?: number;
   sheetNames?: ReadonlyMap<string, string>;
+  /** Hidden source rows are compared with retained filter criteria after workbook calculation. */
+  sourceHiddenRows?: Map<string, Set<number>>;
   warn(warning: SpreadsheetExcelImportWarning): void;
 };
 

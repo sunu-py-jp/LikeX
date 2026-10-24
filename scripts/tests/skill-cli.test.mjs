@@ -630,3 +630,50 @@ test('spreadsheet CLI writes ordinary grids and applies native range border pres
   assert.equal(sheet.cells.B2.format.borders.top, undefined);
   assert.equal(sheet.cells.B2.format.borders.bottom.width, 2);
 });
+
+test('spreadsheet CLI writes hierarchical hybrid grids from structured JSON', async () => {
+  const files = await paths('spreadsheet');
+  await writeFile(files.commands, JSON.stringify([
+    { type: 'cells.set', sheetId: 'sheet-1', values: { B2: 'keep above ungrouped header' } },
+    { type: 'cells.writeGrid', sheetId: 'sheet-1', target: { row: 1, column: 1 },
+      headers: ['商品', { label: '売上', children: ['4月', '5月'] }], headerLayout: 'protruding',
+      data: { type: 'rows', values: [['Sample', '1200', '=C4*2']] }, headerStyle: { background: '#17365d', color: '#ffffff' } },
+  ]));
+  const result = await run('spreadsheet', ['create', '--commands', files.commands, '--output', files.output]);
+  assert.equal(result.status, 0, JSON.stringify(result.json));
+  const sheet = fixtures.spreadsheet.model.parseWorkbook(await readFile(files.output, 'utf8')).sheets[0];
+  assert.equal(sheet.cells.B2.value, 'keep above ungrouped header'); assert.equal(sheet.cells.B3.value, '商品');
+  assert.equal(sheet.cells.C2.value, '売上'); assert.equal(sheet.cells.C3.value, '4月');
+  assert.equal(sheet.cells.D4.value, '=C4*2'); assert.equal(sheet.cells.C2.format.background, '#17365d');
+  assert.deepEqual(sheet.merges, [{ top: 1, left: 2, bottom: 1, right: 3 }]);
+  assert.equal(sheet.tables, undefined);
+});
+
+test('spreadsheet CLI keeps blank corners borderless and unmerged unless explicitly overridden', async () => {
+  const files = await paths('spreadsheet');
+  const grid = { type: 'cells.writeGrid', sheetId: 'sheet-1',
+    headers: [{ label: '実績', children: ['売上'] }], rowHeaders: [{ label: '東日本', children: ['東京'] }],
+    headerStyle: { background: '#17365d', color: '#ffffff' }, data: { type: 'rows', values: [['100']] } };
+  await writeFile(files.commands, JSON.stringify([
+    { ...grid, target: { row: 0, column: 0 }, corner: { label: null } },
+    { ...grid, target: { row: 4, column: 0 }, corner: { border: { width: 2, color: '#ff0000' } } },
+    { ...grid, target: { row: 8, column: 0 }, corner: { label: '実績' } },
+    { ...grid, target: { row: 12, column: 0 }, corner: { label: null, merge: true } },
+    { ...grid, target: { row: 16, column: 0 }, corner: { label: '実績', merge: false } },
+  ]));
+  const result = await run('spreadsheet', ['create', '--commands', files.commands, '--output', files.output]);
+  assert.equal(result.status, 0, JSON.stringify(result.json));
+  const sheet = fixtures.spreadsheet.model.parseWorkbook(await readFile(files.output, 'utf8')).sheets[0];
+  assert.equal(sheet.cells.A1?.value ?? '', ''); assert.equal(sheet.cells.A1?.format?.background, undefined);
+  assert.equal(Object.keys(sheet.cells.A1?.format?.borders ?? {}).length, 0);
+  assert.equal(sheet.cells.A5?.value ?? '', ''); assert.equal(sheet.cells.A5.format.borders.top.width, 2);
+  assert.equal(sheet.cells.A5.format.borders.top.color, '#ff0000');
+  assert.equal(sheet.cells.A9.value, '実績'); assert.equal(sheet.cells.A9.format.background, '#17365d');
+  assert.equal(sheet.cells.A9.format.borders.top.style, 'solid');
+  assert.deepEqual(sheet.merges, [
+    { top: 8, left: 0, bottom: 9, right: 1 },
+    { top: 12, left: 0, bottom: 13, right: 1 },
+  ]);
+  assert.equal(sheet.cells.A17.value, '実績');
+  assert.equal(sheet.cells.B17?.value ?? '', '');
+});

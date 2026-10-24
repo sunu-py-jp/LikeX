@@ -5,6 +5,7 @@ import { normalizeResources } from "../image-resources";
 import { normalizeDataValidation } from "../data-validation";
 import { normalizeMerges, validateMergedContents } from "../merges";
 import { normalizeTables } from "../tables/normalize";
+import { normalizeSpreadsheetAutoFilter } from "../filters";
 import { SPREADSHEET_FORMAT, SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetWorkbook } from "../types";
 import { DEFAULT_SHEET_SIZE } from "../sheet-dimensions";
 import { finishWorkbook, freezeCell } from "./snapshot";
@@ -46,11 +47,12 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
     const merges = normalizeMerges(sheet.merges, { rowCount, columnCount, name });
     const conditionalFormats = normalizeConditionalFormats(sheet.conditionalFormats, { rowCount, columnCount });
     const tables = normalizeTables(sheet.tables, { rowCount, columnCount, cells, merges, formatRanges });
+    const autoFilter = normalizeSpreadsheetAutoFilter(sheet.autoFilter, { rowCount, columnCount, tables });
     validateMergedContents({ cells, comments, merges });
     return Object.freeze({ id: sheet.id, name, cells: Object.freeze(cells), rowCount, columnCount,
       ...(formatRanges ? { formatRanges } : {}), ...(columnWidths ? { columnWidths } : {}), ...(rowHeights ? { rowHeights } : {}),
       ...(drawings ? { drawings } : {}), ...(comments ? { comments } : {}), ...(merges ? { merges } : {}),
-      ...(conditionalFormats ? { conditionalFormats } : {}), ...(tables ? { tables } : {}) });
+      ...(conditionalFormats ? { conditionalFormats } : {}), ...(tables ? { tables } : {}), ...(autoFilter ? { autoFilter } : {}) });
   });
   return finishWorkbook(sheets, undefined, resources, input.namedRanges);
 }

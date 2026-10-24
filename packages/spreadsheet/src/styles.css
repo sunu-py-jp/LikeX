@@ -4,6 +4,7 @@
 @import "./ui/grid/aligned-cell-text.css";
 @import "./ui/editing.css";
 @import "./ui/data-validation.css";
+@import "./ui/filters.css";
 @import "./ui/ribbon.css";
 @import "./ui/horizontal-scroll.css";
 @import "./ui/named-ranges.css";

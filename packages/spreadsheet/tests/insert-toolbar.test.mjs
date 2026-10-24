@@ -284,7 +284,7 @@ test('ribbon groups keep related actions together with visible labels on every t
     for (const control of controls) assert.ok(group.findAll(node => ['button', 'input', 'select'].includes(node.type) && node.props['aria-label'] === control).length, `${control} belongs to ${label}`);
   }
   assert.deepEqual(ribbonGroups(hook.root.findByProps({ 'aria-label': 'シートへの挿入' })).map(group => group.props['aria-label']), ['テーブル', '図', 'コメント']);
-  assert.deepEqual(ribbonGroups(hook.root.findByProps({ 'aria-label': 'データの操作' })).map(group => group.props['aria-label']), ['名前付き範囲', '入力規則']);
+  assert.deepEqual(ribbonGroups(hook.root.findByProps({ 'aria-label': 'データの操作' })).map(group => group.props['aria-label']), ['フィルター', '名前付き範囲', '入力規則']);
   assert.equal(home.findAllByProps({ 'aria-label': '元に戻す' }).length, 0, 'history stays in the quick access header');
 });
 

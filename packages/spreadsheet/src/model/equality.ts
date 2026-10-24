@@ -9,6 +9,7 @@ import { mergesEqual } from "./merges";
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "./sheet-dimensions";
 import { namedRangesEqual } from "./named-ranges";
 import { tablesEqual } from "./tables/normalize";
+import { spreadsheetAutoFiltersEqual } from "./filters";
 
 const emptySizes: Readonly<Record<number, number>> = Object.freeze({});
 function cellsEqual(left: SpreadsheetCell | undefined, right: SpreadsheetCell | undefined): boolean {
@@ -48,6 +49,7 @@ function resourcesEqual(left: SpreadsheetWorkbook["resources"], right: Spreadshe
   });
 }
 function annotationsEqual(left: SpreadsheetWorkbook["sheets"][number], right: SpreadsheetWorkbook["sheets"][number]): boolean {
+  if (!spreadsheetAutoFiltersEqual(left.autoFilter, right.autoFilter)) return false;
   if (!tablesEqual(left.tables, right.tables)) return false;
   if (left.drawings !== right.drawings) {
     const a = left.drawings ?? [], b = right.drawings ?? [];

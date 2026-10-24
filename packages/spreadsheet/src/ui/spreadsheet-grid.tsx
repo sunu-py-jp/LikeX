@@ -22,6 +22,7 @@ import { useGridResize } from "./grid/use-grid-resize";
 import { useGridAutofill } from "./grid/use-grid-autofill";
 import { SelectionOutline } from "./grid/selection-outline";
 import { createConditionalFormatter } from "../model/conditional-formatting";
+import { SpreadsheetFilterButtons } from "./grid/spreadsheet-filter-buttons";
 
 export { displayCell } from "./grid/cell-display";
 export { nextCellPosition } from "./grid/use-grid-focus";
@@ -31,7 +32,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   const resize = useColumnResize(c);
   const { resizing } = resize;
   const rowResize = useGridResize(c, "row");
-  const layout = useGridLayout(c.activeSheet, c.selection.focus.row, resizing, rowResize.resizing, c.zoom, c.renderingMode);
+  const layout = useGridLayout(c.activeSheet, c.selection.focus.row, resizing, rowResize.resizing, c.zoom, c.renderingMode, c.filters.hiddenRows);
   const { scroller, widths, columnOffsets, rowOffsets, gridWidth, virtualRows, renderedMerges } = layout;
   const drawingGeometry = useMemo(() => ({ columnOffsets, rowOffsets }), [columnOffsets, rowOffsets]);
   const drawingViewport = useMemo(() => ({ left: layout.viewport.left ?? 0, top: layout.viewport.top,
@@ -85,6 +86,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
       </div>
       <GridRowLabels rowOffsets={rowOffsets} />
       {rows}
+      <SpreadsheetFilterButtons controller={c} columnOffsets={columnOffsets} rowOffsets={rowOffsets} />
     </div>{!c.selectedDrawingId && <SelectionOutline selection={c.selection} columnOffsets={columnOffsets} rowOffsets={rowOffsets} />}<SpreadsheetDrawings controller={c} geometry={drawingGeometry} viewport={c.renderingMode === "viewport" ? drawingViewport : undefined} />{autofill.preview}{autofill.handle}</div>
   </div></div>;
 }

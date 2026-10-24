@@ -140,6 +140,10 @@ export type SpreadsheetDrawingPatch = Partial<Omit<SpreadsheetDrawingBase, "id">
 export type SpreadsheetComment = { id: string; text: string; author?: string };
 /** Inclusive, zero-based rectangle. The top-left cell stores the merged value and comment. */
 export type SpreadsheetMergedRange = Readonly<{ top: number; left: number; bottom: number; right: number }>;
+/** Absolute zero-based sheet column. Empty values select no rows; an empty string selects blank cells. */
+export type SpreadsheetFilterColumn = Readonly<{ column: number; values: readonly string[] }>;
+/** One AutoFilter per sheet, separate from table ranges. The first row is the header and is always visible. */
+export type SpreadsheetAutoFilter = Readonly<{ range: SpreadsheetMergedRange; columns?: readonly SpreadsheetFilterColumn[] }>;
 /** Workbook-scoped identity and name for a single, same-sheet rectangle. */
 export type SpreadsheetNamedRange = Readonly<{ id: string; name: string; sheetId: string; range: SpreadsheetMergedRange }>;
 /** Inclusive zero-based area. "end" follows the current sheet edge, including future growth. */
@@ -160,6 +164,7 @@ export type SpreadsheetSheet = {
   merges?: readonly SpreadsheetMergedRange[];
   conditionalFormats?: readonly SpreadsheetConditionalFormatRule[];
   tables?: readonly SpreadsheetTable[];
+  autoFilter?: SpreadsheetAutoFilter;
 };
 export const SPREADSHEET_FORMAT = "likex.spreadsheet" as const;
 export type SpreadsheetWorkbook = {

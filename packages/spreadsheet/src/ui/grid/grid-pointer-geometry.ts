@@ -5,6 +5,8 @@ export type GridPointerGeometry = { columnOffsets: readonly number[]; rowOffsets
 function cellAt(offsets: readonly number[], coordinate: number) {
   let low = 0, high = offsets.length - 2;
   while (low < high) { const middle = Math.ceil((low + high) / 2); if (offsets[middle] <= coordinate) low = middle; else high = middle - 1; }
+  // Below a short filtered sheet, the last model row may be hidden.
+  while (low > 0 && offsets[low] === offsets[low + 1]) low--;
   return low;
 }
 /** Sticky headers are not part of the scrollable cell target area. */

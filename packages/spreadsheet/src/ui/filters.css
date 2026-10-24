@@ -1,0 +1,26 @@
+.lxs-filter-buttons { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.lxs-root .lxs-filter-button { position: absolute; display: flex; align-items: center; justify-content: center; padding: 0; overflow: hidden; pointer-events: auto; border: 1px solid var(--lxs-border); border-radius: 2px; background: var(--lxs-panel); color: var(--lxs-muted); font-size: 11px; }
+.lxs-root .lxs-filter-button:hover:enabled, .lxs-root .lxs-filter-button[aria-expanded="true"] { background: var(--lxs-hover); color: var(--lxs-foreground); }
+.lxs-root .lxs-filter-button[data-filtered="true"] { color: var(--lxs-accent); border-color: var(--lxs-accent); }
+.lxs-filter-button svg { width: 13px; height: 13px; }
+.lxs-filter-popover { position: absolute; z-index: 70; display: flex; flex-direction: column; gap: 8px; padding: 10px; width: 300px; min-height: 0; overflow: auto; border: 1px solid var(--lxs-border); border-radius: 6px; background: var(--lxs-background); color: var(--lxs-foreground); box-shadow: 0 5px 20px #0003; user-select: none; }
+.lxs-filter-heading { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
+.lxs-filter-heading h2 { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.lxs-root .lxs-filter-heading button { flex-shrink: 0; width: 24px; height: 24px; border-radius: 3px; font-size: 19px; }
+.lxs-root .lxs-filter-heading button:hover { background: var(--lxs-hover); }
+.lxs-root .lxs-filter-search { flex: 0 0 auto; width: 100%; min-width: 0; padding: 5px 8px; border: 1px solid var(--lxs-border); border-radius: 4px; background: var(--lxs-background); }
+.lxs-filter-values { min-height: 40px; max-height: 224px; overflow: auto; border: 1px solid var(--lxs-border); border-radius: 3px; scrollbar-width: thin; overscroll-behavior: contain; }
+.lxs-filter-choice { display: flex; align-items: center; gap: 7px; min-height: 28px; padding: 4px 7px; cursor: pointer; }
+.lxs-filter-choice:hover { background: var(--lxs-hover); }
+.lxs-filter-choice input { flex: 0 0 auto; accent-color: var(--lxs-accent); }
+.lxs-filter-choice span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lxs-filter-select-all { flex: 0 0 auto; border-bottom: 1px solid var(--lxs-border); }
+.lxs-filter-summary, .lxs-filter-empty { color: var(--lxs-muted); font-size: 11px; }
+.lxs-filter-summary { flex: 0 0 auto; }
+.lxs-filter-empty { margin: 10px; }
+.lxs-root .lxs-filter-more { padding: 7px; width: 100%; color: var(--lxs-accent); text-decoration: underline; }
+.lxs-filter-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.lxs-root .lxs-filter-actions button { border: 1px solid var(--lxs-border); border-radius: 4px; padding: 5px 8px; font-size: 12px; white-space: nowrap; }
+.lxs-root .lxs-filter-actions button:hover:enabled { background: var(--lxs-hover); }
+.lxs-root .lxs-filter-actions .lxs-filter-apply { background: var(--lxs-primary, #217346); color: var(--lxs-on-primary, #fff); border-color: transparent; }
+.lxs-root .lxs-filter-actions .lxs-filter-apply:hover:enabled { background: var(--lxs-primary-hover, #195d38); }

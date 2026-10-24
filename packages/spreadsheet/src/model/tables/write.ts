@@ -1,5 +1,6 @@
 import { getCellFormat } from "../format-ranges";
-import type { SpreadsheetCellGridWriteOptions } from "../../api/table-commands";
+import type { SpreadsheetTableWriteOptions } from "../../api/table-commands";
+import type { SpreadsheetCellBorder } from "../formatting/types";
 import { cellAddress, parseCellAddress } from "../address";
 import { rangesIntersect } from "../merges";
 import { normalizeRangeName } from "../named-ranges";
@@ -20,9 +21,10 @@ export type SpreadsheetTableWritePlan = Readonly<{
   gridBorders: NonNullable<SpreadsheetCellFormat["borders"]>;
 }>;
 const gridBorder = Object.freeze({ style: "solid" as const, width: 1 as const, color: "#d1d5db" });
+type FlatTableWriteOptions = SpreadsheetTableWriteOptions & { border?: SpreadsheetCellBorder };
 
 /** Compute and validate the entire rectangle before applying values or table metadata. */
-export function prepareSpreadsheetTableWrite(sheet: SpreadsheetSheet, options: SpreadsheetCellGridWriteOptions,
+export function prepareSpreadsheetTableWrite(sheet: SpreadsheetSheet, options: FlatTableWriteOptions,
   structured: boolean): SpreadsheetTableWritePlan {
   if (!Array.isArray(options.headers) || options.headers.length < 1 || options.headers.length > SPREADSHEET_LIMITS.columns)
     throw new Error("表のヘッダは1列以上の文字列配列で指定してください");
@@ -50,6 +52,8 @@ export function prepareSpreadsheetTableWrite(sheet: SpreadsheetSheet, options: S
     throw new Error("ヘッダと連番を含む表全体は10,000セル以内で指定してください");
   if (sheet.merges?.some(merge => rangesIntersect(range, merge))) throw new Error("表の書き込み先には結合セルを含められません");
   if (structured && sheet.tables?.some(table => rangesIntersect(range, table.range))) throw new Error("既存のテーブルと重なる位置には挿入できません");
+  if (structured && sheet.autoFilter && rangesIntersect(range, sheet.autoFilter.range))
+    throw new Error("フィルター範囲と重なる位置にはテーブルを挿入できません。先にフィルターを解除してください");
   const values: Record<string, string> = Object.create(null);
   for (let column = 0; column < headers.length; column++) values[cellAddress(target.row, target.column + column)] = validateCellValue(tableHeaderCellValue(headers[column]));
   for (let row = 0; row < rows.length; row++) {
@@ -67,7 +71,7 @@ export function prepareSpreadsheetTableWrite(sheet: SpreadsheetSheet, options: S
   return Object.freeze({ range, headers: Object.freeze(headers), values: Object.freeze(values), gridBorders, ...(headerStyle ? { headerStyle } : {}) });
 }
 
-export function writeSpreadsheetTable(workbook: SpreadsheetWorkbook, options: SpreadsheetCellGridWriteOptions,
+export function writeSpreadsheetTable(workbook: SpreadsheetWorkbook, options: FlatTableWriteOptions,
   table?: Readonly<{ id: string; name: string }>) {
   const sheet = getWorkbookSheet(workbook, options.sheetId);
   const plan = prepareSpreadsheetTableWrite(sheet, options, !!table);

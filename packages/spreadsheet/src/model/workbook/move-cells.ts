@@ -9,6 +9,7 @@ import { finishWorkbook, freezeCell, getWorkbookSheet } from "./snapshot";
 import { fail } from "./validation";
 import { moveNamedRanges } from "../named-ranges";
 import { moveSheetTables } from "./table-structure";
+import { moveSheetAutoFilters } from "./filter-structure";
 
 /** Cut/paste preserves the referenced cells, rather than applying copy-style relative offsets.
  * A partially intersected range cannot be represented as one rectangle and is rejected atomically. */
@@ -34,6 +35,7 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
   if (source.sheetId === destination.sheetId && source.top === destination.row && source.left === destination.column) return workbook;
   const namedRanges = moveNamedRanges(workbook.namedRanges, source, destination);
   const tablesBySheet = moveSheetTables(workbook.sheets, source, destination);
+  const filtersBySheet = moveSheetAutoFilters(workbook.sheets, source, destination);
   const inSource = (row: number, column: number) => row >= source.top && row <= source.bottom && column >= source.left && column <= source.right;
   const inDestination = (row: number, column: number) => row >= destination.row && row < destination.row + height && column >= destination.column && column < destination.column + width;
   const equalName = (a: string, b: string) => a.toLocaleLowerCase("en-US") === b.toLocaleLowerCase("en-US");
@@ -83,6 +85,7 @@ export function moveCells(workbook: SpreadsheetWorkbook, source: SpreadsheetMove
       left: merge.left + destination.column - source.left, right: merge.right + destination.column - source.left,
     })) : [];
     return { ...base, cells, ...(sheet.tables || tablesBySheet.get(sheet.id) ? { tables: tablesBySheet.get(sheet.id) } : {}),
+      ...(filtersBySheet.has(sheet.id) ? { autoFilter: filtersBySheet.get(sheet.id) } : {}),
       ...(sheet.merges || movedMerges.length ? { merges: normalizeMerges([...retainedMerges, ...movedMerges], sheet) } : {}),
       ...(sheet.comments || Object.keys(comments).length ? { comments: Object.freeze(comments) } : {}) };
   });

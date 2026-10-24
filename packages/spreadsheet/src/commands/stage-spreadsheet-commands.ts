@@ -2,6 +2,7 @@ import { getCellFormat, getFormattedCell } from "../model/format-ranges";
 import { applyDrawingPasteCommand } from "./drawing-paste";
 import { stageNamedRangeCommand } from "./named-ranges";
 import { stageTableCommand } from "./tables";
+import { stageFilterCommand } from "./filters";
 import { clearCommandCells } from "./clear-cells";
 import { resolveCellRange } from "../model/workbook/clear";
 import { insertCellRange, deleteCellRange } from "../model/workbook/shift-cells";
@@ -41,6 +42,8 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
   const result = (next: SpreadsheetWorkbook, extra: Partial<SpreadsheetCommandBaseReceipt> = {}) =>
     ({ workbook: next, receipt: { type: command.type, sheetId: sheet.id, ...extra } });
   switch (command.type) {
+    case "filters.setRange": case "filters.setValues": case "filters.clear": case "filters.remove":
+      return stageFilterCommand(workbook, command, features);
     case "lines.insert": case "lines.update": return applyDrawingCommand(workbook, command, features, nextId);
     case "drawings.paste": return applyDrawingPasteCommand(workbook, command, features, nextId);
     case "namedRanges.add": case "namedRanges.update": case "namedRanges.delete": case "namedRanges.clear":

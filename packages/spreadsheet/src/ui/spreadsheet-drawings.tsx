@@ -50,7 +50,7 @@ export const SpreadsheetDrawings = memo(function SpreadsheetDrawings({ controlle
   // each scroll event would repeatedly scan the complete drawing collection.
   const bounds = useMemo(() => culling ? new Map((displayedSheet.drawings ?? []).map(drawing =>
     [drawing.id, drawingViewportBounds(drawing, displayedSheet, geometry, lineGrid)])) : null, [culling, displayedSheet, geometry, lineGrid]);
-  const currentDrawings = (c.activeSheet.drawings ?? []).filter(drawing => visibleDrawing(drawing, c) &&
+  const currentDrawings = (c.activeSheet.drawings ?? []).filter(drawing => !c.filters?.hiddenRows.has(drawing.anchor.row) && visibleDrawing(drawing, c) &&
     (!bounds || !viewport || drawing.id === c.selectedDrawingId || drawing.id === editingText || drawing.id === preview?.id ||
       drawingBoundsIntersectViewport(bounds.get(drawing.id)!, viewport)));
   return <div ref={layer} className="lxs-drawing-layer" role="group" aria-label="シート上のオブジェクト">

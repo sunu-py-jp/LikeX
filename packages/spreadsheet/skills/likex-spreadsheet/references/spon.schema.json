@@ -178,6 +178,9 @@
         "tables": {
           "$ref": "#/$defs/SpreadsheetFileSheet_tables"
         },
+        "autoFilter": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_autoFilter"
+        },
         "rows": {
           "$ref": "#/$defs/SpreadsheetFileSheet_rows",
           "description": "Empty rows inside the data are {}; trailing empty rows are omitted, with rowCount retaining sheet size."
@@ -1236,6 +1239,49 @@
       ],
       "additionalProperties": false
     },
+    "SpreadsheetFileSheet_autoFilter": {
+      "type": "object",
+      "properties": {
+        "range": {
+          "$ref": "#/$defs/SpreadsheetFile_namedRanges_item_range"
+        },
+        "columns": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_autoFilter_columns"
+        }
+      },
+      "required": [
+        "range"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetFileSheet_autoFilter_columns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SpreadsheetFileSheet_autoFilter_columns_item"
+      }
+    },
+    "SpreadsheetFileSheet_autoFilter_columns_item": {
+      "type": "object",
+      "properties": {
+        "column": {
+          "type": "number"
+        },
+        "values": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_autoFilter_columns_item_values"
+        }
+      },
+      "required": [
+        "column",
+        "values"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetFileSheet_autoFilter_columns_item_values": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "SpreadsheetFileSheet_rows": {
       "type": "array",
       "items": {
@@ -1311,7 +1357,7 @@
           "const": "list"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCell_validation_1_values"
+          "$ref": "#/$defs/SpreadsheetFileSheet_autoFilter_columns_item_values"
         }
       },
       "required": [
@@ -1319,12 +1365,6 @@
         "values"
       ],
       "additionalProperties": false
-    },
-    "SpreadsheetCell_validation_1_values": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
     },
     "SpreadsheetCell_validation_2": {
       "type": "object",

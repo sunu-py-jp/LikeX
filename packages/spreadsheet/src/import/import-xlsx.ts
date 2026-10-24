@@ -3,6 +3,7 @@ import { normalizeRangeName } from "../model/named-ranges";
 import { cellAddress } from "../model/address";
 import { cellTextValue, isFormulaCell } from "../model/cell-value";
 import { calculateWorkbook } from "../model/formula";
+import { getSpreadsheetFilteredRows } from "../model/filters";
 import { dataValidationError } from "../model/data-validation";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetNamedRange, type SpreadsheetSheet } from "../model/types";
 import { openXlsxStreamingArchive } from "./zip";
@@ -186,6 +187,16 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
     const originalTarget = match?.[1]?.replaceAll("''", "'") ?? match?.[2];
     const sheetName = originalTarget && (context.sheetNames?.get(originalTarget.toLocaleLowerCase("en-US")) ?? originalTarget);
     const sheetIndex = sheets.findIndex(sheet => sheet.name.toLocaleLowerCase("en-US") === sheetName?.toLocaleLowerCase("en-US"));
+    // Excel's hidden filter name duplicates the worksheet autoFilter range.
+    if (name === "_xlnm._FilterDatabase" && node.attributes.localSheetId !== undefined && match) {
+      const sourceIndex = Number(node.attributes.localSheetId), filterSheet = sheets[sheetIndex];
+      if (Number.isInteger(sourceIndex) && sourceIndex >= 0 && filterSheet?.id === `xlsx-sheet-${sourceIndex + 1}` && filterSheet.autoFilter) {
+        try {
+          const range = importRange(match[3]), current = filterSheet.autoFilter.range;
+          if (range.top === current.top && range.left === current.left && range.bottom === current.bottom && range.right === current.right) continue;
+        } catch { /* Invalid reserved names follow the normal omission warning below. */ }
+      }
+    }
     const key = name.toLocaleLowerCase("en-US");
     if (!valid || sheetIndex < 0 || names.has(key) || tableNames.has(key)) { context.warn({ code: "omitted", message: "シート固有・計算式・予約名など未対応の名前定義を省略しました" }); continue; }
     if (namedRanges.length >= SPREADSHEET_LIMITS.namedRanges) {
@@ -217,8 +228,15 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
   // Excel allows adding rules over existing invalid values; the model requires every value to satisfy its rule.
   // Keep those original values and omit only incompatible rules before the final invariant check.
   const validationCells = sheets.flatMap(sheet => Object.entries(sheet.cells).filter(([, cell]) => cell.validation).map(([address, cell]) => ({ sheet, address, cell })));
-  const calculated = validationCells.some(({ cell }) => isFormulaCell(cell)) ? calculateWorkbook({ sheets, namedRanges }) : undefined;
+  const calculated = validationCells.some(({ cell }) => isFormulaCell(cell)) || sheets.some(sheet => sheet.autoFilter && context.sourceHiddenRows?.has(sheet.id))
+    ? calculateWorkbook({ sheets, namedRanges }) : undefined;
   for (const [index, sheet] of sheets.entries()) {
+    const sourceHiddenRows = context.sourceHiddenRows?.get(sheet.id);
+    if (sourceHiddenRows?.size) {
+      const filteredRows = getSpreadsheetFilteredRows(sheet, calculated?.[sheet.id]);
+      const visible = [...sourceHiddenRows].filter(row => !filteredRows.has(row)).length;
+      if (visible) context.warn({ code: "adjusted", sheetName: sheet.name, message: "非表示の行・列を表示状態で読み込みました", count: visible });
+    }
     let updated: Record<string, SpreadsheetCell> | undefined;
     for (const [address, cell] of Object.entries(sheet.cells)) {
       if (!cell.validation) continue;

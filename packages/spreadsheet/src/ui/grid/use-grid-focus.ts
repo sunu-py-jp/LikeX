@@ -10,7 +10,7 @@ import type { SpreadsheetController } from "../../state/use-spreadsheet";
 import { drawingRectangle, type DrawingGeometry } from "../../state/drawing-geometry";
 import { selectionRanges } from "../../state/selection";
 import { ROW_HEIGHT, ROW_HEADER_WIDTH } from "./grid-geometry";
-import { lastUsedCellPosition, nextDataCellPosition, pageRowPosition } from "./grid-navigation";
+import { lastUsedCellPosition, nextDataCellPosition, pageRowPosition, visibleRowPosition } from "./grid-navigation";
 
 export type GridFocusRefs = {
   scrollerRef: RefObject<HTMLDivElement | null>;
@@ -44,6 +44,15 @@ export function gridDrawingFocusBounds(sheet: SpreadsheetSheet, drawingId: strin
 /** Coordinates the active input, scrolling and cell keyboard navigation. */
 export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRefs["scrollerRef"], geometry: DrawingGeometry) {
   const { columnOffsets, rowOffsets } = geometry;
+  const hiddenRows = c.filters?.hiddenRows;
+  useLayoutEffect(() => {
+    if (hiddenRows?.has(c.selection.focus.row) && !c.editing) {
+      // A selected row can disappear after changing a criterion or recalculating.
+      // Keep the active editor on a visible cell without changing the saved data.
+      c.select({ row: c.filters.autoFilter?.range.top ?? 0, column: c.selection.focus.column });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hiddenRows, c.selection.focus.row, c.editing]);
   const activeInput = useRef<HTMLTextAreaElement>(null);
   const replacedFocusedInput = useRef<HTMLTextAreaElement | null>(null);
   const bindActiveInput = useCallback((input: HTMLTextAreaElement | null) => {
@@ -146,6 +155,7 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
           const merge = getMergedRange(c.activeSheet, target);
           if (merge && merge.bottom < c.activeSheet.rowCount - 1) { row = merge.bottom + 1; column = 0; }
         }
+        row = visibleRowPosition(rowOffsets, row, event.shiftKey ? -1 : 1, c.selection.focus.row);
         c.select({ row, column });
       });
       return;
@@ -176,15 +186,21 @@ export function useGridFocus(c: SpreadsheetController, scrollerRef: GridFocusRef
         const delta = active.kind === "row" ? r : col;
         if (!delta) return;
         const position = { ...c.selection.focus, [active.kind]: active.focus[active.kind] };
-        const target = commandKey ? nextDataCellPosition(c.activeSheet, position, r, col)[active.kind] : active.focus[active.kind] + delta;
+        let target = commandKey ? nextDataCellPosition(c.activeSheet, position, r, col)[active.kind] : active.focus[active.kind] + delta;
+        if (active.kind === "row") target = visibleRowPosition(rowOffsets, target, r, active.focus.row);
         c.selectAxisRange(active.kind, active.anchor[active.kind], target, false, true);
         return;
       }
       const position = event.shiftKey ? selectionRanges(c.selection).at(-1)!.focus : c.selection.focus;
-      c.select(commandKey ? nextDataCellPosition(c.activeSheet, position, r, col) : nextCellPosition(c.activeSheet, position, r, col), event.shiftKey);
+      const next = commandKey ? nextDataCellPosition(c.activeSheet, position, r, col) : nextCellPosition(c.activeSheet, position, r, col);
+      c.select({ ...next, row: visibleRowPosition(rowOffsets, next.row, r || 1, position.row) }, event.shiftKey);
     } else if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); c.clearCells(); }
     else if (event.key === "Home") { event.preventDefault(); focusIntent.current = true; c.select({ row: commandKey ? 0 : c.selection.focus.row, column: 0 }, event.shiftKey); }
-    else if (event.key === "End") { event.preventDefault(); focusIntent.current = true; c.select(commandKey ? lastUsedCellPosition(c.activeSheet) : { row: c.selection.focus.row, column: c.activeSheet.columnCount - 1 }, event.shiftKey); }
+    else if (event.key === "End") {
+      event.preventDefault(); focusIntent.current = true;
+      const next = commandKey ? lastUsedCellPosition(c.activeSheet) : { row: c.selection.focus.row, column: c.activeSheet.columnCount - 1 };
+      c.select({ ...next, row: visibleRowPosition(rowOffsets, next.row, -1, c.selection.focus.row) }, event.shiftKey);
+    }
     else if ((event.key === "PageUp" || event.key === "PageDown") && !commandKey && !event.altKey) {
       event.preventDefault(); focusIntent.current = true;
       const position = event.shiftKey ? selectionRanges(c.selection).at(-1)!.focus : c.selection.focus;

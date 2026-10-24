@@ -14,9 +14,9 @@ export function columnGeometry(sheet: Pick<SpreadsheetSheet, "columnCount" | "co
   return { widths, columnOffsets, gridWidth: columnOffsets.at(-1)! };
 }
 
-export function createRowOffsets(sheet: Pick<SpreadsheetSheet, "rowCount" | "rowHeights">) {
+export function createRowOffsets(sheet: Pick<SpreadsheetSheet, "rowCount" | "rowHeights">, hiddenRows?: ReadonlySet<number>) {
   const offsets = [ROW_HEIGHT];
-  for (let row = 0; row < sheet.rowCount; row++) offsets.push(offsets[row] + (sheet.rowHeights?.[row] ?? ROW_HEIGHT));
+  for (let row = 0; row < sheet.rowCount; row++) offsets.push(offsets[row] + (hiddenRows?.has(row) ? 0 : sheet.rowHeights?.[row] ?? ROW_HEIGHT));
   return offsets;
 }
 
@@ -34,7 +34,7 @@ export function visibleGridRows(sheet: Pick<SpreadsheetSheet, "rowCount" | "merg
   for (const merge of sheet.merges ?? []) {
     if (merge.top < start && merge.bottom >= start && !rows.includes(merge.top)) rows.push(merge.top);
   }
-  return rows.sort((a, b) => a - b);
+  return rows.filter(row => rowOffsets[row + 1] > rowOffsets[row]).sort((a, b) => a - b);
 }
 
 export function visibleMergedCells(sheet: Pick<SpreadsheetSheet, "merges" | "columnCount">, rows: readonly number[]) {
