@@ -7,6 +7,8 @@ import {
   getSheets, getSheetCells, type SpreadsheetStoredCell, getSheetReader, getNamedRange, getRangeByName, findSpreadsheetSheets, findSpreadsheetCells,
   type SpreadsheetSheetSearchQuery, type SpreadsheetSheetSearchMatch, type SpreadsheetSearchOptions, type SpreadsheetSearchMatch,
   type SpreadsheetTable, type SpreadsheetTableColumn, type SpreadsheetSheetReadApi, type SpreadsheetCellGridWriteOptions,
+  type SpreadsheetGridInsertMode, type SpreadsheetGridRowGrouping,
+  type SpreadsheetLookupRange, type SpreadsheetLookupSelector, type SpreadsheetLookupCommand, type SpreadsheetLookupWriteReport,
   type SpreadsheetCommand, type SpreadsheetWorkbookSnapshot, type SpreadsheetReadApi, type SpreadsheetReadRange, type SpreadsheetInsertValue,
   type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportLimits, type SpreadsheetExcelImportResult,
   formatCellRange, getResolvedCellFormat, getSheetFormatRanges, type SpreadsheetFormatRangeBounds,
@@ -95,6 +97,59 @@ const gridOptions: SpreadsheetCellGridWriteOptions = {
 };
 const gridCommand: SpreadsheetCommand = { type: 'cells.writeGrid', ...gridOptions };
 applySpreadsheetCommands(createWorkbook(), [gridCommand], { features: { tables: false, formatting: true } });
+const insertModes: readonly SpreadsheetGridInsertMode[] = ['none', 'rows', 'columns', 'both'];
+const grouping: SpreadsheetGridRowGrouping = { byColumns: [0], keyDisplay: 'first',
+  separator: { style: 'solid', width: 1, color: '#d1d5db' }, headerSeparator: false,
+  verticalBorder: false, outerBorder: { color: '#334155' } };
+const groupedInsertion: SpreadsheetCommand = { type: 'cells.writeGrid', ...gridOptions,
+  border: false, rowGrouping: grouping, insert: insertModes[1] };
+const tableInsertion: SpreadsheetCommand = { type: 'tables.insert', sheetId: 'sheet-1', name: 'Tasks',
+  target: { row: 2, column: 1 }, headers: ['Task', 'Status'], data: { type: 'rows', values: [['Prepare', 'TODO']] }, insert: 'both' };
+applySpreadsheetCommands(createWorkbook(), [groupedInsertion, tableInsertion]);
+// @ts-expect-error Grouping source columns are immutable.
+grouping.byColumns.push(1);
+// @ts-expect-error Grouping must identify one or more source data columns at runtime.
+const missingGroupingKey: SpreadsheetGridRowGrouping = { keyDisplay: 'all' };
+// @ts-expect-error Whole axes use the closed insertion mode union.
+const invalidInsertMode: SpreadsheetGridInsertMode = 'down';
+void [missingGroupingKey, invalidInsertMode];
+const lookupRanges: readonly SpreadsheetLookupRange[] = ['B2:E5', { top: 1, left: 1, bottom: 4, right: 4 }, { namedRange: 'Monthly' }];
+const rowSelector: SpreadsheetLookupSelector = { column: 0, value: 'A002' };
+const lookupCommands: readonly SpreadsheetLookupCommand[] = [
+  { type: 'cells.setByLookup', sheetId: 'sheet-1', range: lookupRanges[0], lookup: rowSelector,
+    updates: [{ column: 2, value: '1200' }], lookIn: 'formulas', matchCase: true, onMultiple: 'all', onConflict: 'skip' },
+  { type: 'cells.setByLookup', sheetId: 'sheet-1', range: lookupRanges[1], lookup: { axis: 'columns', row: 0, value: 'Nov' },
+    updates: [{ row: 1, value: '1500' }], onNotFound: 'skip' },
+  { type: 'cells.setByLookup', sheetId: 'sheet-1', range: lookupRanges[2],
+    lookup: { axis: 'both', row: { column: 0, value: 'A003' }, column: { row: 0, value: 'Dec' } }, value: '1800' },
+];
+const lookupResult = applySpreadsheetCommands(createWorkbook(), lookupCommands);
+if (lookupResult.ok) for (const receipt of lookupResult.results) {
+  if (receipt.type !== 'cells.setByLookup') continue;
+  const report: SpreadsheetLookupWriteReport = receipt.lookup;
+  const changedCount: number = receipt.write.changedCount;
+  const selectedRow: number | undefined = report.matchedRows[0];
+  // @ts-expect-error Lookup receipts are immutable snapshots.
+  report.addresses.push('A1');
+  // @ts-expect-error Lookup targets do not expose a sequential placement cursor.
+  const placement: number = receipt.placement.nextRow;
+  void [changedCount, selectedRow, placement];
+}
+// @ts-expect-error Row lookup updates use relative columns, not rows.
+const wrongRowLookup: SpreadsheetLookupCommand = { type: 'cells.setByLookup', sheetId: 'sheet-1', range: 'A1:B3', lookup: { column: 0, value: 'A' }, updates: [{ row: 1, value: 'bad' }] };
+// @ts-expect-error Column lookup updates use relative rows, not columns.
+const wrongColumnLookup: SpreadsheetLookupCommand = { type: 'cells.setByLookup', sheetId: 'sheet-1', range: 'A1:B3', lookup: { axis: 'columns', row: 0, value: 'A' }, updates: [{ column: 1, value: 'bad' }] };
+// @ts-expect-error Matrix lookup needs a value, not an update list.
+const wrongMatrixLookup: SpreadsheetLookupCommand = { type: 'cells.setByLookup', sheetId: 'sheet-1', range: 'A1:B3', lookup: { axis: 'both', row: { column: 0, value: 'A' }, column: { row: 0, value: 'B' } }, updates: [{ row: 1, value: 'bad' }] };
+// @ts-expect-error A row lookup cannot also carry the matrix value option.
+const extraRowLookupValue: SpreadsheetLookupCommand = { type: 'cells.setByLookup', sheetId: 'sheet-1', range: 'A1:B3', lookup: { column: 0, value: 'A' }, updates: [{ column: 1, value: 'ok' }], value: 'bad' };
+// @ts-expect-error A matrix lookup cannot also carry row or column updates.
+const extraMatrixUpdates: SpreadsheetLookupCommand = { type: 'cells.setByLookup', sheetId: 'sheet-1', range: 'A1:B3', lookup: { axis: 'both', row: { column: 0, value: 'A' }, column: { row: 0, value: 'B' } }, value: 'ok', updates: [{ column: 1, value: 'bad' }] };
+// @ts-expect-error An update cannot mix relative row and column indices.
+const mixedLookupUpdate: SpreadsheetLookupCommand = { type: 'cells.setByLookup', sheetId: 'sheet-1', range: 'A1:B3', lookup: { column: 0, value: 'A' }, updates: [{ column: 1, row: 1, value: 'bad' }] };
+// @ts-expect-error A selector cannot mix row-search and column-search indices.
+const mixedLookupSelector: SpreadsheetLookupSelector = { column: 0, row: 1, value: 'A' };
+void [wrongRowLookup, wrongColumnLookup, wrongMatrixLookup, extraRowLookupValue, extraMatrixUpdates, mixedLookupUpdate, mixedLookupSelector];
 // @ts-expect-error Grid borders use supported line widths.
 const invalidGridOptions: SpreadsheetCellGridWriteOptions = { ...gridOptions, border: { width: 4 } };
 void invalidGridOptions;

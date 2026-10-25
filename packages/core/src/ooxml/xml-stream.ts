@@ -1,5 +1,6 @@
 import { OFFICE_PACKAGE_LIMITS, type OfficePackageSignal } from "./types";
 import type { XmlNode } from "./xml";
+import { decodeXmlEntities as entities } from "./xml-entities";
 
 export type XmlStreamOptions = {
   signal?: OfficePackageSignal;
@@ -24,16 +25,6 @@ export type XmlStreamOptions = {
 };
 
 const fail = (): never => { throw new Error("Office内のXMLが不正、または安全な読み込み上限を超えています"); };
-const namedEntities: Readonly<Record<string, string>> = Object.freeze({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" });
-function entities(value: string): string {
-  return value.replace(/&([^;]*);|&/g, (_match, entity: string | undefined) => {
-    if (entity && Object.hasOwn(namedEntities, entity)) return namedEntities[entity];
-    if (!entity || !/^#(?:[0-9]+|x[0-9a-f]+)$/i.test(entity)) return fail();
-    const code = entity[1]?.toLowerCase() === "x" ? parseInt(entity.slice(2), 16) : Number(entity.slice(1));
-    if (!Number.isInteger(code) || code > 0x10ffff || (code < 32 && ![9, 10, 13].includes(code)) || (code >= 0xd800 && code <= 0xdfff) || code === 0xfffe || code === 0xffff) return fail();
-    return String.fromCodePoint(code);
-  });
-}
 
 /** An abort must not wait for a stalled producer. Both promise outcomes remain observed. */
 function abortable<T>(operation: Promise<T>, signal: OfficePackageSignal | undefined): Promise<T> {

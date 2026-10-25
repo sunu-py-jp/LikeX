@@ -153,6 +153,15 @@
         },
         {
           "$ref": "#/$defs/SpreadsheetCommand_48"
+        },
+        {
+          "$ref": "#/$defs/SpreadsheetCommand_49"
+        },
+        {
+          "$ref": "#/$defs/SpreadsheetCommand_50"
+        },
+        {
+          "$ref": "#/$defs/SpreadsheetCommand_51"
         }
       ]
     },
@@ -1449,6 +1458,10 @@
           "$ref": "#/$defs/SpreadsheetCommand_7_onConflict",
           "description": "Defaults to overwrite. Skipped cells keep both their value and formatting."
         },
+        "insert": {
+          "$ref": "#/$defs/SpreadsheetCommand_13_insert",
+          "description": "Defaults to none. Includes headers/numbering in the inserted size; one atomic command."
+        },
         "type": {
           "const": "tables.insert"
         },
@@ -1548,6 +1561,14 @@
       },
       "additionalProperties": false
     },
+    "SpreadsheetCommand_13_insert": {
+      "enum": [
+        "none",
+        "rows",
+        "columns",
+        "both"
+      ]
+    },
     "SpreadsheetCommand_14": {
       "type": "object",
       "properties": {
@@ -1567,6 +1588,10 @@
         "onConflict": {
           "$ref": "#/$defs/SpreadsheetCommand_7_onConflict",
           "description": "Defaults to overwrite. Skipped cells keep both their value and formatting."
+        },
+        "insert": {
+          "$ref": "#/$defs/SpreadsheetCommand_13_insert",
+          "description": "Defaults to none. Includes headers/numbering in the inserted size; one atomic command."
         },
         "headers": {
           "$ref": "#/$defs/SpreadsheetCommand_14_headers",
@@ -1594,8 +1619,12 @@
           "description": "Available only with both header axes. Omitted, null or whitespace-only labels are blank,\nremain unmerged, have no default borders and do not inherit headerStyle. Explicit overrides still apply."
         },
         "border": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders_top",
-          "description": "Defaults to a 1px solid #d1d5db grid. Unspecified border properties retain these defaults."
+          "$ref": "#/$defs/SpreadsheetCommand_14_border",
+          "description": "Defaults to a 1px solid #d1d5db grid, or false when rowGrouping is present."
+        },
+        "rowGrouping": {
+          "$ref": "#/$defs/SpreadsheetCommand_14_rowGrouping",
+          "description": "Group adjacent rows and style group boundaries. Headers and detail cells remain ordinary cells."
         },
         "type": {
           "const": "cells.writeGrid"
@@ -1689,6 +1718,55 @@
         {
           "type": "string"
         }
+      ]
+    },
+    "SpreadsheetCommand_14_border": {
+      "anyOf": [
+        {
+          "const": false
+        },
+        {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_borders_top"
+        }
+      ]
+    },
+    "SpreadsheetCommand_14_rowGrouping": {
+      "type": "object",
+      "properties": {
+        "byColumns": {
+          "$ref": "#/$defs/SpreadsheetCommand_3_indices",
+          "description": "Zero-based source data columns, excluding generated numbering and left headers."
+        },
+        "keyDisplay": {
+          "$ref": "#/$defs/SpreadsheetCommand_14_rowGrouping_keyDisplay",
+          "description": "Defaults to first: write empty strings to repeated key cells. Does not merge cells."
+        },
+        "separator": {
+          "$ref": "#/$defs/SpreadsheetCommand_14_border",
+          "description": "Between consecutive groups only. Defaults to a 1px solid #d1d5db line."
+        },
+        "headerSeparator": {
+          "$ref": "#/$defs/SpreadsheetCommand_14_border",
+          "description": "Between the top headers and detail rows. Defaults to a 1px solid #d1d5db line."
+        },
+        "verticalBorder": {
+          "$ref": "#/$defs/SpreadsheetCommand_14_border",
+          "description": "Inner vertical borders. Omission preserves the base border; false clears these edges."
+        },
+        "outerBorder": {
+          "$ref": "#/$defs/SpreadsheetCommand_14_border",
+          "description": "Outline around the grid. Omission preserves the base border; false clears these edges."
+        }
+      },
+      "required": [
+        "byColumns"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_14_rowGrouping_keyDisplay": {
+      "enum": [
+        "first",
+        "all"
       ]
     },
     "SpreadsheetCommand_15": {
@@ -1928,13 +2006,357 @@
       "type": "object",
       "properties": {
         "type": {
+          "const": "cells.setByLookup"
+        },
+        "sheetId": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/SpreadsheetCommand_23_range"
+        },
+        "lookIn": {
+          "$ref": "#/$defs/SpreadsheetCommand_7_query_lookIn",
+          "description": "Defaults to values: formatted display strings. formulas compares saved input strings."
+        },
+        "matchCase": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
+          "description": "Exact full-string matching; defaults to case-insensitive. No trimming or regular expressions."
+        },
+        "onMultiple": {
+          "$ref": "#/$defs/SpreadsheetCommand_23_onMultiple",
+          "description": "Defaults to error. first selects the topmost/leftmost match; all selects every match."
+        },
+        "onNotFound": {
+          "$ref": "#/$defs/SpreadsheetCommand_23_onNotFound",
+          "description": "Defaults to error. skip returns an unchanged workbook when either searched axis has no match."
+        },
+        "onConflict": {
+          "$ref": "#/$defs/SpreadsheetCommand_7_onConflict"
+        },
+        "lookup": {
+          "$ref": "#/$defs/SpreadsheetCommand_23_lookup"
+        },
+        "updates": {
+          "$ref": "#/$defs/SpreadsheetCommand_23_updates"
+        },
+        "value": false
+      },
+      "required": [
+        "type",
+        "sheetId",
+        "range",
+        "lookup",
+        "updates"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_23_range": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/SpreadsheetCommand_23_range_2"
+        },
+        {
+          "$ref": "#/$defs/SpreadsheetCommand_23_range_3"
+        }
+      ]
+    },
+    "SpreadsheetCommand_23_range_2": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "number"
+        },
+        "left": {
+          "type": "number"
+        },
+        "bottom": {
+          "type": "number"
+        },
+        "right": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "top",
+        "left",
+        "bottom",
+        "right"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_23_range_3": {
+      "type": "object",
+      "properties": {
+        "namedRange": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "namedRange"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_23_onMultiple": {
+      "enum": [
+        "error",
+        "first",
+        "all"
+      ]
+    },
+    "SpreadsheetCommand_23_onNotFound": {
+      "enum": [
+        "error",
+        "skip"
+      ]
+    },
+    "SpreadsheetCommand_23_lookup": {
+      "type": "object",
+      "properties": {
+        "axis": {
+          "const": "rows"
+        },
+        "column": {
+          "type": "number"
+        },
+        "value": {
+          "type": "string"
+        },
+        "row": false
+      },
+      "required": [
+        "column",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_23_updates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SpreadsheetCommand_23_updates_item"
+      }
+    },
+    "SpreadsheetCommand_23_updates_item": {
+      "type": "object",
+      "properties": {
+        "column": {
+          "type": "number"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "column",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_24": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "cells.setByLookup"
+        },
+        "sheetId": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/SpreadsheetCommand_23_range"
+        },
+        "lookIn": {
+          "$ref": "#/$defs/SpreadsheetCommand_7_query_lookIn",
+          "description": "Defaults to values: formatted display strings. formulas compares saved input strings."
+        },
+        "matchCase": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
+          "description": "Exact full-string matching; defaults to case-insensitive. No trimming or regular expressions."
+        },
+        "onMultiple": {
+          "$ref": "#/$defs/SpreadsheetCommand_23_onMultiple",
+          "description": "Defaults to error. first selects the topmost/leftmost match; all selects every match."
+        },
+        "onNotFound": {
+          "$ref": "#/$defs/SpreadsheetCommand_23_onNotFound",
+          "description": "Defaults to error. skip returns an unchanged workbook when either searched axis has no match."
+        },
+        "onConflict": {
+          "$ref": "#/$defs/SpreadsheetCommand_7_onConflict"
+        },
+        "lookup": {
+          "$ref": "#/$defs/SpreadsheetCommand_24_lookup"
+        },
+        "updates": {
+          "$ref": "#/$defs/SpreadsheetCommand_24_updates"
+        },
+        "value": false
+      },
+      "required": [
+        "type",
+        "sheetId",
+        "range",
+        "lookup",
+        "updates"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_24_lookup": {
+      "type": "object",
+      "properties": {
+        "axis": {
+          "const": "columns"
+        },
+        "row": {
+          "type": "number"
+        },
+        "value": {
+          "type": "string"
+        },
+        "column": false
+      },
+      "required": [
+        "axis",
+        "row",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_24_updates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SpreadsheetCommand_24_updates_item"
+      }
+    },
+    "SpreadsheetCommand_24_updates_item": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "number"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_25": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "cells.setByLookup"
+        },
+        "sheetId": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/SpreadsheetCommand_23_range"
+        },
+        "lookIn": {
+          "$ref": "#/$defs/SpreadsheetCommand_7_query_lookIn",
+          "description": "Defaults to values: formatted display strings. formulas compares saved input strings."
+        },
+        "matchCase": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
+          "description": "Exact full-string matching; defaults to case-insensitive. No trimming or regular expressions."
+        },
+        "onMultiple": {
+          "$ref": "#/$defs/SpreadsheetCommand_23_onMultiple",
+          "description": "Defaults to error. first selects the topmost/leftmost match; all selects every match."
+        },
+        "onNotFound": {
+          "$ref": "#/$defs/SpreadsheetCommand_23_onNotFound",
+          "description": "Defaults to error. skip returns an unchanged workbook when either searched axis has no match."
+        },
+        "onConflict": {
+          "$ref": "#/$defs/SpreadsheetCommand_7_onConflict"
+        },
+        "lookup": {
+          "$ref": "#/$defs/SpreadsheetCommand_25_lookup"
+        },
+        "value": {
+          "type": "string"
+        },
+        "updates": false
+      },
+      "required": [
+        "type",
+        "sheetId",
+        "range",
+        "lookup",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_25_lookup": {
+      "type": "object",
+      "properties": {
+        "axis": {
+          "const": "both"
+        },
+        "row": {
+          "$ref": "#/$defs/SpreadsheetCommand_25_lookup_row"
+        },
+        "column": {
+          "$ref": "#/$defs/SpreadsheetCommand_25_lookup_column"
+        },
+        "value": false
+      },
+      "required": [
+        "axis",
+        "row",
+        "column"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_25_lookup_row": {
+      "type": "object",
+      "properties": {
+        "column": {
+          "type": "number"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "column",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_25_lookup_column": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "number"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "row",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_26": {
+      "type": "object",
+      "properties": {
+        "type": {
           "const": "cells.set"
         },
         "sheetId": {
           "type": "string"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_23_values"
+          "$ref": "#/$defs/SpreadsheetCommand_26_values"
         },
         "onConflict": {
           "$ref": "#/$defs/SpreadsheetCommand_7_onConflict"
@@ -1947,14 +2369,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_23_values": {
+    "SpreadsheetCommand_26_values": {
       "type": "object",
       "properties": {},
       "additionalProperties": {
         "type": "string"
       }
     },
-    "SpreadsheetCommand_24": {
+    "SpreadsheetCommand_27": {
       "type": "object",
       "properties": {
         "type": {
@@ -1967,7 +2389,7 @@
           "$ref": "#/$defs/SpreadsheetCommand_19_range"
         },
         "mode": {
-          "$ref": "#/$defs/SpreadsheetCommand_24_mode"
+          "$ref": "#/$defs/SpreadsheetCommand_27_mode"
         }
       },
       "required": [
@@ -1977,13 +2399,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_24_mode": {
+    "SpreadsheetCommand_27_mode": {
       "enum": [
         "values",
         "all"
       ]
     },
-    "SpreadsheetCommand_25": {
+    "SpreadsheetCommand_28": {
       "type": "object",
       "properties": {
         "type": {
@@ -1996,7 +2418,7 @@
           "$ref": "#/$defs/SpreadsheetCommand_19_range"
         },
         "shift": {
-          "$ref": "#/$defs/SpreadsheetCommand_25_shift"
+          "$ref": "#/$defs/SpreadsheetCommand_28_shift"
         }
       },
       "required": [
@@ -2007,13 +2429,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_25_shift": {
+    "SpreadsheetCommand_28_shift": {
       "enum": [
         "right",
         "down"
       ]
     },
-    "SpreadsheetCommand_26": {
+    "SpreadsheetCommand_29": {
       "type": "object",
       "properties": {
         "type": {
@@ -2026,7 +2448,7 @@
           "$ref": "#/$defs/SpreadsheetCommand_19_range"
         },
         "shift": {
-          "$ref": "#/$defs/SpreadsheetCommand_26_shift"
+          "$ref": "#/$defs/SpreadsheetCommand_29_shift"
         }
       },
       "required": [
@@ -2036,13 +2458,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_26_shift": {
+    "SpreadsheetCommand_29_shift": {
       "enum": [
         "left",
         "up"
       ]
     },
-    "SpreadsheetCommand_27": {
+    "SpreadsheetCommand_30": {
       "type": "object",
       "properties": {
         "type": {
@@ -2067,7 +2489,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_28": {
+    "SpreadsheetCommand_31": {
       "type": "object",
       "properties": {
         "type": {
@@ -2083,7 +2505,7 @@
           "type": "number"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_28_values"
+          "$ref": "#/$defs/SpreadsheetCommand_31_values"
         }
       },
       "required": [
@@ -2093,13 +2515,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_28_values": {
+    "SpreadsheetCommand_31_values": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/SpreadsheetCommand_28_values_item"
+        "$ref": "#/$defs/SpreadsheetCommand_31_values_item"
       }
     },
-    "SpreadsheetCommand_28_values_item": {
+    "SpreadsheetCommand_31_values_item": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/SpreadsheetInsertValue"
@@ -2124,7 +2546,7 @@
         }
       ]
     },
-    "SpreadsheetCommand_29": {
+    "SpreadsheetCommand_32": {
       "type": "object",
       "properties": {
         "type": {
@@ -2140,7 +2562,7 @@
           "type": "number"
         },
         "values": {
-          "$ref": "#/$defs/SpreadsheetCommand_28_values"
+          "$ref": "#/$defs/SpreadsheetCommand_31_values"
         }
       },
       "required": [
@@ -2150,11 +2572,11 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_30": {
+    "SpreadsheetCommand_33": {
       "type": "object",
       "properties": {
         "type": {
-          "$ref": "#/$defs/SpreadsheetCommand_30_type"
+          "$ref": "#/$defs/SpreadsheetCommand_33_type"
         },
         "sheetId": {
           "type": "string"
@@ -2173,13 +2595,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_30_type": {
+    "SpreadsheetCommand_33_type": {
       "enum": [
         "rows.delete",
         "columns.delete"
       ]
     },
-    "SpreadsheetCommand_31": {
+    "SpreadsheetCommand_34": {
       "type": "object",
       "properties": {
         "type": {
@@ -2203,7 +2625,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_32": {
+    "SpreadsheetCommand_35": {
       "type": "object",
       "properties": {
         "type": {
@@ -2226,7 +2648,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_33": {
+    "SpreadsheetCommand_36": {
       "type": "object",
       "properties": {
         "type": {
@@ -2246,7 +2668,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_34": {
+    "SpreadsheetCommand_37": {
       "type": "object",
       "properties": {
         "type": {
@@ -2256,10 +2678,10 @@
           "type": "string"
         },
         "resource": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_resource"
+          "$ref": "#/$defs/SpreadsheetCommand_37_resource"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_37_anchor"
         },
         "width": {
           "type": "number"
@@ -2271,7 +2693,7 @@
           "type": "string"
         },
         "fit": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_fit"
+          "$ref": "#/$defs/SpreadsheetCommand_37_fit"
         },
         "flipX": {
           "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
@@ -2291,14 +2713,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_34_resource": {
+    "SpreadsheetCommand_37_resource": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string"
         },
         "mimeType": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_resource_mimeType"
+          "$ref": "#/$defs/SpreadsheetCommand_37_resource_mimeType"
         },
         "dataUrl": {
           "type": "string"
@@ -2319,7 +2741,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_34_resource_mimeType": {
+    "SpreadsheetCommand_37_resource_mimeType": {
       "enum": [
         "image/png",
         "image/jpeg",
@@ -2327,7 +2749,7 @@
         "image/webp"
       ]
     },
-    "SpreadsheetCommand_34_anchor": {
+    "SpreadsheetCommand_37_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -2349,13 +2771,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_34_fit": {
+    "SpreadsheetCommand_37_fit": {
       "enum": [
         "fill",
         "contain"
       ]
     },
-    "SpreadsheetCommand_35": {
+    "SpreadsheetCommand_38": {
       "type": "object",
       "properties": {
         "fontFamily": {
@@ -2368,26 +2790,26 @@
           "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_38_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -2412,7 +2834,7 @@
           "$ref": "#/$defs/SpreadsheetShapeKind"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_37_anchor"
         },
         "width": {
           "type": "number"
@@ -2467,7 +2889,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_35_textInsets": {
+    "SpreadsheetCommand_38_textInsets": {
       "type": "object",
       "properties": {
         "left": {
@@ -2491,33 +2913,33 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_35_textWrap": {
+    "SpreadsheetCommand_38_textWrap": {
       "enum": [
         "none",
         "wrap"
       ]
     },
-    "SpreadsheetCommand_35_textOverflow": {
+    "SpreadsheetCommand_38_textOverflow": {
       "enum": [
         "clip",
         "overflow"
       ]
     },
-    "SpreadsheetCommand_35_textAlign": {
+    "SpreadsheetCommand_38_textAlign": {
       "enum": [
         "right",
         "left",
         "center"
       ]
     },
-    "SpreadsheetCommand_35_textVerticalAlign": {
+    "SpreadsheetCommand_38_textVerticalAlign": {
       "enum": [
         "top",
         "bottom",
         "middle"
       ]
     },
-    "SpreadsheetCommand_35_textAutoFit": {
+    "SpreadsheetCommand_38_textAutoFit": {
       "enum": [
         "none",
         "resize",
@@ -2569,7 +2991,7 @@
         "rightTriangle"
       ]
     },
-    "SpreadsheetCommand_36": {
+    "SpreadsheetCommand_39": {
       "type": "object",
       "properties": {
         "fontFamily": {
@@ -2582,26 +3004,26 @@
           "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_38_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -2623,7 +3045,7 @@
           "type": "string"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_37_anchor"
         },
         "text": {
           "type": "string"
@@ -2665,7 +3087,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37": {
+    "SpreadsheetCommand_40": {
       "type": "object",
       "properties": {
         "type": {
@@ -2675,10 +3097,10 @@
           "type": "string"
         },
         "payload": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_37_anchor"
         }
       },
       "required": [
@@ -2688,18 +3110,18 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload": {
+    "SpreadsheetCommand_40_payload": {
       "type": "object",
       "properties": {
         "drawing": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing"
         },
         "resource": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_resource",
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_resource",
           "description": "Required for images, so the copy survives deletion of the original resource."
         },
         "linePoints": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_linePoints",
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_linePoints",
           "description": "Free endpoints relative to the copied frame, so different sheet dimensions preserve its shape."
         }
       },
@@ -2708,20 +3130,20 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload_drawing": {
+    "SpreadsheetCommand_40_payload_drawing": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_1"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_1"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2"
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_3"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_3"
         }
       ]
     },
-    "SpreadsheetCommand_37_payload_drawing_1": {
+    "SpreadsheetCommand_40_payload_drawing_1": {
       "type": "object",
       "properties": {
         "width": {
@@ -2748,7 +3170,7 @@
           "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "fit": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_fit",
+          "$ref": "#/$defs/SpreadsheetCommand_37_fit",
           "description": "Omitted/contain preserves the source aspect ratio; fill stretches the image to its frame."
         },
         "resourceId": {
@@ -2758,7 +3180,7 @@
           "type": "string"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_1_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_1_anchor"
         }
       },
       "required": [
@@ -2772,7 +3194,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload_drawing_1_anchor": {
+    "SpreadsheetCommand_40_payload_drawing_1_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -2796,7 +3218,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload_drawing_2": {
+    "SpreadsheetCommand_40_payload_drawing_2": {
       "type": "object",
       "properties": {
         "bold": {
@@ -2836,7 +3258,7 @@
           "type": "string"
         },
         "line": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_line",
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_line",
           "description": "Only line/arrow shapes. Omitted on legacy rectangle-based lines."
         },
         "height": {
@@ -2857,7 +3279,7 @@
           "type": "string"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_routing",
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_routing",
           "description": "Two-endpoint routing. Omitted means straight; elbow is recalculated from current targets."
         },
         "cornerRadiusRatio": {
@@ -2872,26 +3294,26 @@
           "maximum": 100
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_38_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -2910,14 +3332,14 @@
           "$ref": "#/$defs/SpreadsheetShapeKind"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_startArrow",
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_startArrow",
           "description": "End markers. Legacy shape:arrow defaults its end to triangle; otherwise none."
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_startArrow"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_1_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_1_anchor"
         }
       },
       "required": [
@@ -2933,14 +3355,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload_drawing_2_line": {
+    "SpreadsheetCommand_40_payload_drawing_2_line": {
       "type": "object",
       "properties": {
         "start": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_line_start"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_line_start"
         },
         "end": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_line_start"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_line_start"
         }
       },
       "required": [
@@ -2949,14 +3371,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload_drawing_2_line_start": {
+    "SpreadsheetCommand_40_payload_drawing_2_line_start": {
       "type": "object",
       "properties": {
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_line_start_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_line_start_anchor"
         },
         "binding": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_line_start_binding"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_line_start_binding"
         }
       },
       "required": [
@@ -2964,7 +3386,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload_drawing_2_line_start_anchor": {
+    "SpreadsheetCommand_40_payload_drawing_2_line_start_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -2988,14 +3410,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload_drawing_2_line_start_binding": {
+    "SpreadsheetCommand_40_payload_drawing_2_line_start_binding": {
       "type": "object",
       "properties": {
         "targetId": {
           "type": "string"
         },
         "port": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_line_start_binding_port"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_line_start_binding_port"
         }
       },
       "required": [
@@ -3004,7 +3426,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload_drawing_2_line_start_binding_port": {
+    "SpreadsheetCommand_40_payload_drawing_2_line_start_binding_port": {
       "enum": [
         "top",
         "right",
@@ -3016,13 +3438,13 @@
         "topLeft"
       ]
     },
-    "SpreadsheetCommand_37_payload_drawing_2_routing": {
+    "SpreadsheetCommand_40_payload_drawing_2_routing": {
       "enum": [
         "straight",
         "elbow"
       ]
     },
-    "SpreadsheetCommand_37_payload_drawing_2_startArrow": {
+    "SpreadsheetCommand_40_payload_drawing_2_startArrow": {
       "enum": [
         "none",
         "triangle",
@@ -3032,7 +3454,7 @@
         "stealth"
       ]
     },
-    "SpreadsheetCommand_37_payload_drawing_3": {
+    "SpreadsheetCommand_40_payload_drawing_3": {
       "type": "object",
       "properties": {
         "bold": {
@@ -3085,26 +3507,26 @@
           "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_38_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -3120,7 +3542,7 @@
           "description": "Line height as a font-size multiple."
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_1_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_1_anchor"
         }
       },
       "required": [
@@ -3136,14 +3558,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload_resource": {
+    "SpreadsheetCommand_40_payload_resource": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string"
         },
         "mimeType": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_resource_mimeType"
+          "$ref": "#/$defs/SpreadsheetCommand_37_resource_mimeType"
         },
         "dataUrl": {
           "type": "string"
@@ -3164,14 +3586,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload_linePoints": {
+    "SpreadsheetCommand_40_payload_linePoints": {
       "type": "object",
       "properties": {
         "start": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_linePoints_start"
         },
         "end": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_linePoints_start"
         }
       },
       "required": [
@@ -3180,7 +3602,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_37_payload_linePoints_start": {
+    "SpreadsheetCommand_40_payload_linePoints_start": {
       "type": "object",
       "properties": {
         "x": {
@@ -3190,7 +3612,7 @@
           "type": "number"
         },
         "binding": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_line_start_binding"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_line_start_binding"
         }
       },
       "required": [
@@ -3199,7 +3621,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_38": {
+    "SpreadsheetCommand_41": {
       "type": "object",
       "properties": {
         "type": {
@@ -3219,7 +3641,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_39": {
+    "SpreadsheetCommand_42": {
       "type": "object",
       "properties": {
         "type": {
@@ -3229,16 +3651,16 @@
           "type": "string"
         },
         "start": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_linePoints_start"
         },
         "end": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_linePoints_start"
         },
         "shape": {
-          "$ref": "#/$defs/SpreadsheetCommand_39_shape"
+          "$ref": "#/$defs/SpreadsheetCommand_42_shape"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_routing"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_routing"
         },
         "stroke": {
           "type": "string"
@@ -3247,10 +3669,10 @@
           "type": "number"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_startArrow"
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_startArrow"
         }
       },
       "required": [
@@ -3261,13 +3683,13 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_39_shape": {
+    "SpreadsheetCommand_42_shape": {
       "enum": [
         "line",
         "arrow"
       ]
     },
-    "SpreadsheetCommand_40": {
+    "SpreadsheetCommand_43": {
       "type": "object",
       "properties": {
         "type": {
@@ -3280,19 +3702,19 @@
           "type": "string"
         },
         "start": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_linePoints_start"
         },
         "end": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_linePoints_start"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_linePoints_start"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_routing"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_routing"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_startArrow"
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_startArrow"
         }
       },
       "required": [
@@ -3302,7 +3724,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_41": {
+    "SpreadsheetCommand_44": {
       "type": "object",
       "properties": {
         "type": {
@@ -3315,7 +3737,7 @@
           "type": "string"
         },
         "patch": {
-          "$ref": "#/$defs/SpreadsheetCommand_41_patch"
+          "$ref": "#/$defs/SpreadsheetCommand_44_patch"
         }
       },
       "required": [
@@ -3326,7 +3748,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_41_patch": {
+    "SpreadsheetCommand_44_patch": {
       "type": "object",
       "properties": {
         "width": {
@@ -3347,7 +3769,7 @@
           "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "fit": {
-          "$ref": "#/$defs/SpreadsheetCommand_34_fit",
+          "$ref": "#/$defs/SpreadsheetCommand_37_fit",
           "description": "Omitted/contain preserves the source aspect ratio; fill stretches the image to its frame."
         },
         "resourceId": {
@@ -3357,12 +3779,12 @@
           "type": "string"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_41_patch_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_44_patch_anchor"
         }
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_41_patch_anchor": {
+    "SpreadsheetCommand_44_patch_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -3384,7 +3806,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_42": {
+    "SpreadsheetCommand_45": {
       "type": "object",
       "properties": {
         "type": {
@@ -3397,7 +3819,7 @@
           "type": "string"
         },
         "patch": {
-          "$ref": "#/$defs/SpreadsheetCommand_42_patch"
+          "$ref": "#/$defs/SpreadsheetCommand_45_patch"
         }
       },
       "required": [
@@ -3408,7 +3830,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_42_patch": {
+    "SpreadsheetCommand_45_patch": {
       "type": "object",
       "properties": {
         "bold": {
@@ -3442,7 +3864,7 @@
           "type": "number"
         },
         "line": {
-          "$ref": "#/$defs/SpreadsheetCommand_42_patch_line",
+          "$ref": "#/$defs/SpreadsheetCommand_45_patch_line",
           "description": "Only line/arrow shapes. Omitted on legacy rectangle-based lines."
         },
         "height": {
@@ -3463,7 +3885,7 @@
           "type": "string"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_routing",
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_routing",
           "description": "Two-endpoint routing. Omitted means straight; elbow is recalculated from current targets."
         },
         "cornerRadiusRatio": {
@@ -3478,26 +3900,26 @@
           "maximum": 100
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_42_patch_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_45_patch_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -3513,29 +3935,29 @@
           "description": "Line height as a font-size multiple."
         },
         "shape": {
-          "$ref": "#/$defs/SpreadsheetCommand_42_patch_shape"
+          "$ref": "#/$defs/SpreadsheetCommand_45_patch_shape"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_startArrow",
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_startArrow",
           "description": "End markers. Legacy shape:arrow defaults its end to triangle; otherwise none."
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_startArrow"
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_41_patch_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_44_patch_anchor"
         }
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_42_patch_line": {
+    "SpreadsheetCommand_45_patch_line": {
       "type": "object",
       "properties": {
         "start": {
-          "$ref": "#/$defs/SpreadsheetCommand_42_patch_line_start"
+          "$ref": "#/$defs/SpreadsheetCommand_45_patch_line_start"
         },
         "end": {
-          "$ref": "#/$defs/SpreadsheetCommand_42_patch_line_start"
+          "$ref": "#/$defs/SpreadsheetCommand_45_patch_line_start"
         }
       },
       "required": [
@@ -3544,14 +3966,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_42_patch_line_start": {
+    "SpreadsheetCommand_45_patch_line_start": {
       "type": "object",
       "properties": {
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_42_patch_line_start_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_45_patch_line_start_anchor"
         },
         "binding": {
-          "$ref": "#/$defs/SpreadsheetCommand_42_patch_line_start_binding"
+          "$ref": "#/$defs/SpreadsheetCommand_45_patch_line_start_binding"
         }
       },
       "required": [
@@ -3559,7 +3981,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_42_patch_line_start_anchor": {
+    "SpreadsheetCommand_45_patch_line_start_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -3583,14 +4005,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_42_patch_line_start_binding": {
+    "SpreadsheetCommand_45_patch_line_start_binding": {
       "type": "object",
       "properties": {
         "targetId": {
           "type": "string"
         },
         "port": {
-          "$ref": "#/$defs/SpreadsheetCommand_37_payload_drawing_2_line_start_binding_port"
+          "$ref": "#/$defs/SpreadsheetCommand_40_payload_drawing_2_line_start_binding_port"
         }
       },
       "required": [
@@ -3599,7 +4021,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_42_patch_textInsets": {
+    "SpreadsheetCommand_45_patch_textInsets": {
       "type": "object",
       "properties": {
         "left": {
@@ -3623,7 +4045,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_42_patch_shape": {
+    "SpreadsheetCommand_45_patch_shape": {
       "enum": [
         "triangle",
         "diamond",
@@ -3668,7 +4090,7 @@
         "rightTriangle"
       ]
     },
-    "SpreadsheetCommand_43": {
+    "SpreadsheetCommand_46": {
       "type": "object",
       "properties": {
         "type": {
@@ -3681,7 +4103,7 @@
           "type": "string"
         },
         "patch": {
-          "$ref": "#/$defs/SpreadsheetCommand_43_patch"
+          "$ref": "#/$defs/SpreadsheetCommand_46_patch"
         }
       },
       "required": [
@@ -3692,7 +4114,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_43_patch": {
+    "SpreadsheetCommand_46_patch": {
       "type": "object",
       "properties": {
         "bold": {
@@ -3739,26 +4161,26 @@
           "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
         "textInsets": {
-          "$ref": "#/$defs/SpreadsheetCommand_42_patch_textInsets",
+          "$ref": "#/$defs/SpreadsheetCommand_45_patch_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
         },
         "textWrap": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textWrap"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textWrap"
         },
         "textOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textVerticalOverflow": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textOverflow"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textOverflow"
         },
         "textAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAlign"
         },
         "textVerticalAlign": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textVerticalAlign"
+          "$ref": "#/$defs/SpreadsheetCommand_38_textVerticalAlign"
         },
         "textAutoFit": {
-          "$ref": "#/$defs/SpreadsheetCommand_35_textAutoFit",
+          "$ref": "#/$defs/SpreadsheetCommand_38_textAutoFit",
           "description": "shrink fits text to the frame; resize allows the text area to grow vertically."
         },
         "textFontScale": {
@@ -3774,12 +4196,12 @@
           "description": "Line height as a font-size multiple."
         },
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_41_patch_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_44_patch_anchor"
         }
       },
       "additionalProperties": false
     },
-    "SpreadsheetCommand_44": {
+    "SpreadsheetCommand_47": {
       "type": "object",
       "properties": {
         "type": {
@@ -3792,7 +4214,7 @@
           "type": "string"
         },
         "comment": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_comment"
+          "$ref": "#/$defs/SpreadsheetCommand_47_comment"
         }
       },
       "required": [
@@ -3803,17 +4225,17 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_44_comment": {
+    "SpreadsheetCommand_47_comment": {
       "anyOf": [
         {
           "const": null
         },
         {
-          "$ref": "#/$defs/SpreadsheetCommand_44_comment_2"
+          "$ref": "#/$defs/SpreadsheetCommand_47_comment_2"
         }
       ]
     },
-    "SpreadsheetCommand_44_comment_2": {
+    "SpreadsheetCommand_47_comment_2": {
       "type": "object",
       "properties": {
         "text": {
@@ -3828,7 +4250,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_45": {
+    "SpreadsheetCommand_48": {
       "type": "object",
       "properties": {
         "type": {
@@ -3843,7 +4265,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_46": {
+    "SpreadsheetCommand_49": {
       "type": "object",
       "properties": {
         "type": {
@@ -3863,7 +4285,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_47": {
+    "SpreadsheetCommand_50": {
       "type": "object",
       "properties": {
         "type": {
@@ -3879,7 +4301,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_48": {
+    "SpreadsheetCommand_51": {
       "type": "object",
       "properties": {
         "type": {

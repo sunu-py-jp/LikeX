@@ -29,7 +29,12 @@ export const TEXT_FUNCTIONS = {
     if (start < 1 || count < 0) return fail("#VALUE!");
     return value.slice(start - 1, start - 1 + count).join("");
   },
-  TRIM: c => { c.checkArity(1); return c.text(0).replace(/^ +| +$/g, "").replace(/ +/g, " "); },
+  TRIM: c => {
+    c.checkArity(1);
+    // Collapse runs before trimming their single remaining edge spaces. A trailing
+    // ` +$` search retries every start in a long interior run and bypasses tick().
+    return c.text(0).replace(/ +/g, " ").replace(/^ | $/g, "");
+  },
   UPPER: c => { c.checkArity(1); return boundedText(c.text(0).toUpperCase()); },
   LOWER: c => { c.checkArity(1); return boundedText(c.text(0).toLowerCase()); },
   SUBSTITUTE: c => {

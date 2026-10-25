@@ -10,14 +10,14 @@ export type PptxContext = {
   archive: OfficePackageArchive; signal?: OfficePackageSignal; warnings: Set<string>;
   diagnostics: SlidePptxDiagnostic[]; location: SlidePptxDiagnosticLocation;
   roots: Map<string, Node>; relations: Map<string, Relations>; images: Map<string, string>;
-  textCharacters: number; totalElements: number;
+  textCharacters: number; totalElements: number; totalAnimationNodes: number; totalAnimationWork: number;
   warn(message: string, details?: SlidePptxDiagnosticDetails): void;
   root(path: string): Promise<Node>;
   links(path: string): Promise<Relations>;
 };
 export function createContext(archive: OfficePackageArchive, signal?: OfficePackageSignal): PptxContext {
   const collector = createPptxDiagnosticCollector("import");
-  const context: PptxContext = { archive, signal, warnings: collector.warnings, diagnostics: collector.diagnostics, location: {}, roots: new Map(), relations: new Map(), images: new Map(), textCharacters: 0, totalElements: 0,
+  const context: PptxContext = { archive, signal, warnings: collector.warnings, diagnostics: collector.diagnostics, location: {}, roots: new Map(), relations: new Map(), images: new Map(), textCharacters: 0, totalElements: 0, totalAnimationNodes: 0, totalAnimationWork: 0,
     warn(message, details) { collector.warn(message, { ...this.location, ...details }); },
     async root(path) { signal?.throwIfAborted(); let root = this.roots.get(path); if (!root) { root = officeXml.parseXml(await archive.read(path)); this.roots.set(path, root); } return root; },
     async links(path) { let links = this.relations.get(path); if (!links) { links = await readOfficeRelationships(archive, path); this.relations.set(path, links); } return links; } };

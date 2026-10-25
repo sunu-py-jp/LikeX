@@ -55,8 +55,10 @@ export type { SpreadsheetWriteConflictPolicy, SpreadsheetWriteOptions } from "./
 export type { SpreadsheetClearMode, SpreadsheetCellRangeInput } from "./model/workbook/clear";
 export { clearCellRange } from "./model/workbook/clear";
 export type { SpreadsheetTableCommand, SpreadsheetTableData, SpreadsheetTableWriteOptions, SpreadsheetCellGridWriteOptions,
-  SpreadsheetGridHeader, SpreadsheetGridHeaderStyle, SpreadsheetGridHeaderLayout, SpreadsheetGridLayout } from "./api/table-commands";
+  SpreadsheetGridHeader, SpreadsheetGridHeaderStyle, SpreadsheetGridHeaderLayout, SpreadsheetGridLayout,
+  SpreadsheetGridRowGrouping, SpreadsheetGridInsertMode } from "./api/table-commands";
 export type { SpreadsheetNamedRangeCommand } from "./api/named-range-commands";
+export type { SpreadsheetLookupCommand, SpreadsheetLookupSelector, SpreadsheetLookupRange, SpreadsheetLookupWriteReport } from "./api/lookup-commands";
 export type { SpreadsheetFilterCommand } from "./api/filter-commands";
 export type { SpreadsheetFilterViewApi } from "./api/filter-view";
 export type { SpreadsheetWriteReport } from "./commands/types";

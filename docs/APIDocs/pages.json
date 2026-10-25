@@ -295,7 +295,13 @@
       "音声",
       "PDF",
       "PowerPoint",
-      "4時間"
+      "4時間",
+      "pdfInspectionLimits",
+      "ExplorerPdfInspectionLimits",
+      "EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS",
+      "inspectExplorerUploadFile",
+      "展開量",
+      "タイムアウト"
     ],
     "headings": [
       {
@@ -326,6 +332,11 @@
       {
         "id": "標準の情報取得と上限",
         "title": "標準の情報取得と上限",
+        "depth": 2
+      },
+      {
+        "id": "pdfの解析上限を設定する",
+        "title": "PDFの解析上限を設定する",
         "depth": 2
       },
       {
@@ -1669,7 +1680,8 @@
       "onConflict",
       "SpreadsheetWriteConflictPolicy",
       "SpreadsheetWriteReport",
-      "WRITE_CONFLICT"
+      "WRITE_CONFLICT",
+      "cells.setByLookup"
     ],
     "headings": [
       {
@@ -1685,6 +1697,62 @@
       {
         "id": "表示中の操作保存履歴",
         "title": "表示中の操作・保存・履歴",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "spreadsheet/lookup-writing",
+    "title": "キーでセルを書き込む",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/lookup-writing/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/lookup-writing.md"
+    ],
+    "keywords": [
+      "cells.setByLookup",
+      "SpreadsheetLookupRange",
+      "SpreadsheetLookupSelector",
+      "SpreadsheetLookupWriteReport",
+      "SpreadsheetLookupCommand",
+      "lookup",
+      "onMultiple",
+      "onNotFound",
+      "XLOOKUP",
+      "VLOOKUP",
+      "名前付き範囲",
+      "交点"
+    ],
+    "headings": [
+      {
+        "id": "範囲と座標",
+        "title": "範囲と座標",
+        "depth": 2
+      },
+      {
+        "id": "列を縦に探して同じ行へ書き込む",
+        "title": "列を縦に探して、同じ行へ書き込む",
+        "depth": 2
+      },
+      {
+        "id": "行を横に探して同じ列へ書き込む",
+        "title": "行を横に探して、同じ列へ書き込む",
+        "depth": 2
+      },
+      {
+        "id": "行キーと列キーの交点へ書き込む",
+        "title": "行キーと列キーの交点へ書き込む",
+        "depth": 2
+      },
+      {
+        "id": "一致条件と見つからない場合",
+        "title": "一致条件と見つからない場合",
+        "depth": 2
+      },
+      {
+        "id": "結果履歴保存",
+        "title": "結果・履歴・保存",
         "depth": 2
       }
     ]
@@ -2145,7 +2213,14 @@
       "getTableByName",
       "getTables",
       "SpreadsheetTable",
-      "SpreadsheetTableData"
+      "SpreadsheetTableData",
+      "rowGrouping",
+      "byColumns",
+      "keyDisplay",
+      "SpreadsheetGridRowGrouping",
+      "SpreadsheetGridInsertMode",
+      "グループ境界",
+      "行列挿入"
     ],
     "headings": [
       {
@@ -2161,6 +2236,16 @@
       {
         "id": "書き込みに使う引数",
         "title": "書き込みに使う引数",
+        "depth": 2
+      },
+      {
+        "id": "連続する行をグループ化する",
+        "title": "連続する行をグループ化する",
+        "depth": 2
+      },
+      {
+        "id": "行列を挿入してから配置する",
+        "title": "行・列を挿入してから配置する",
         "depth": 2
       },
       {
@@ -2466,7 +2551,8 @@
       "columns.insert",
       "SpreadsheetInsertValue",
       "値付きの行列挿入",
-      "行列の自動拡張"
+      "行列の自動拡張",
+      "cells.setByLookup"
     ],
     "headings": [
       {

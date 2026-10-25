@@ -34,6 +34,9 @@ export { readEntryFile } from "./file-content";
 export type { ExplorerFileReader } from "./file-content";
 export { createExplorerUploadSession, ExplorerUploadValidationError, ExplorerUploadConflictError, ExplorerUploadInspectionRequiredError } from "./upload";
 export { EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS } from "./upload-content";
+export { EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS } from "./pdf-inspection-limits";
+export type { ExplorerPdfInspectionLimits } from "./pdf-inspection-limits";
+export { inspectExplorerUploadFile } from "../inspection/index";
 export type {
   ExplorerUploadContentLimitsByExtension, ExplorerUploadContentMetadata, ExplorerUploadContentRejectionReason,
   ExplorerUploadContentExtension, ExplorerUploadContentKind, ExplorerUploadVideoExtension, ExplorerUploadAudioExtension,

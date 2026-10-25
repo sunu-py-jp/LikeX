@@ -13,6 +13,16 @@ function validateRange(range: SpreadsheetMergedRange, rows: number, columns: num
   if (!range || ![range.top, range.left, range.bottom, range.right].every(Number.isInteger) || range.top < 0 || range.left < 0 ||
     range.bottom < range.top || range.right < range.left || range.bottom >= rows || range.right >= columns) throw new Error("オートフィルの範囲が正しくありません");
 }
+/** Find a numeric suffix in one pass, without retrying a digit run for every prefix. */
+function numberedLabel(value: string): readonly [string, string] | null {
+  // Keep the existing single-line label semantics of the old dot-based parser.
+  if (/[\r\n\u2028\u2029]/.test(value)) return null;
+  let start = value.length;
+  while (start > 0 && value.charCodeAt(start - 1) >= 48 && value.charCodeAt(start - 1) <= 57) start--;
+  if (start === value.length) return null;
+  if (start > 0 && value[start - 1] === "-") start--;
+  return [value.slice(0, start), value.slice(start)];
+}
 function sequence(values: readonly string[], mode: "auto" | "copy" | "series"): ((index: number) => string) | null {
   if (mode === "copy") return null;
   if (values.every(isIsoCalendarDate)) {
@@ -37,13 +47,13 @@ function sequence(values: readonly string[], mode: "auto" | "copy" | "series"): 
       return value.startsWith("-") ? value : value.padStart(zeroWidth, "0");
     };
   }
-  const parts = values.map(value => /^(.*?)(-?\d+)$/.exec(value));
-  if (parts.every(Boolean) && parts[0]?.[1] && parts.every(part => part![1] === parts[0]![1])) {
-    const start = Number(parts[0]![2]), step = values.length > 1 ? Number(parts[1]![2]) - start : 1;
-    if (parts.every((part, i) => Number(part![2]) === start + step * i)) {
-      const width = parts[0]![2].startsWith("0") ? parts[0]![2].length : 0;
+  const parts = values.map(numberedLabel);
+  if (parts.every(Boolean) && parts[0]?.[0] && parts.every(part => part![0] === parts[0]![0])) {
+    const start = Number(parts[0]![1]), step = values.length > 1 ? Number(parts[1]![1]) - start : 1;
+    if (parts.every((part, i) => Number(part![1]) === start + step * i)) {
+      const width = parts[0]![1].startsWith("0") ? parts[0]![1].length : 0;
       return index => { const number = start + step * index;
-        return `${parts[0]![1]}${number < 0 ? String(number) : String(number).padStart(width, "0")}`; };
+        return `${parts[0]![0]}${number < 0 ? String(number) : String(number).padStart(width, "0")}`; };
     }
   }
   return null;

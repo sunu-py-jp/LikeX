@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
@@ -5,7 +7,7 @@ import { act, createElement as h, createRef } from 'react';
 import { create } from 'react-test-renderer';
 import { renderToStaticMarkup } from 'react-dom/server';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-const output = await build({ entryPoints: [new URL('../src/index.ts', import.meta.url).pathname], bundle: true, write: false, format: 'esm', platform: 'node', loader: { '.css': 'empty' }, plugins: [{name:'external-react',setup(builder){ builder.onResolve({filter:/^@likex\/core\/browser$/},()=>({path:'context-menu',namespace:'menu-test'})); builder.onLoad({filter:/.*/,namespace:'menu-test'},()=>({contents:'export function openContextMenu(options){globalThis.__likexTestMenu=options;return()=>{options.closed=true;};}',loader:'js'}));  builder.onResolve({filter:/^(react|react-dom|lucide-react)(\/.*)?$/},({path})=>({path:import.meta.resolve(path),external:true})); }}] });
+const output = await build({ entryPoints: [new URL('../src/index.ts', import.meta.url).pathname], bundle: true, write: false, format: 'esm', platform: 'node', loader: { '.css': 'empty' }, plugins: [{name:'external-react',setup(builder){ builder.onResolve({filter:/^\.{1,2}\/browser$/},({path,importer,resolveDir})=>importer && resolve(resolveDir,path)===fileURLToPath(new URL('../src/browser',import.meta.url)) ? {path:'context-menu',namespace:'menu-test'} : undefined); builder.onLoad({filter:/.*/,namespace:'menu-test'},()=>({contents:'export function openContextMenu(options){globalThis.__likexTestMenu=options;return()=>{options.closed=true;};}',loader:'js'}));  builder.onResolve({filter:/^(react|react-dom|lucide-react)(\/.*)?$/},({path})=>({path:import.meta.resolve(path),external:true})); }}] });
 const {LikeBoard,createBoard,serializeBoard} = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const original = () => createBoard({id:"board",columns:[{id:"todo",title:"To do",cards:[{id:"one",title:"Card content"}]}]});
 const change = callback => act(async () => { await callback(); });

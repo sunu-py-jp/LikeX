@@ -1,6 +1,6 @@
 {
   "title": "テーブル・セル範囲へのデータ配置",
-  "summary": "ヘッダーと明細から表を配置し、構造化テーブルと通常のセル書式を用途に合わせて選びます。",
+  "summary": "階層見出し・マトリクス・連続行グループを配置し、必要な行列の挿入とセルへの書き込みを一括実行します。",
   "source": "packages/spreadsheet/src/docs/tables.md",
   "order": 115,
   "section": "セルとシート",
@@ -12,7 +12,14 @@
     "getTableByName",
     "getTables",
     "SpreadsheetTable",
-    "SpreadsheetTableData"
+    "SpreadsheetTableData",
+    "rowGrouping",
+    "byColumns",
+    "keyDisplay",
+    "SpreadsheetGridRowGrouping",
+    "SpreadsheetGridInsertMode",
+    "グループ境界",
+    "行列挿入"
   ],
   "screenshots": [
     {

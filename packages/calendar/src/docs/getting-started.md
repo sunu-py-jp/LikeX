@@ -23,6 +23,6 @@ export default function Example() {
 
 ## ソースコピー
 
-`packages/calendar/src` と `packages/core/src` を、それぞれ `components/likex/calendar` と `components/likex/core` のような兄弟フォルダへコピーします。Calendarの `core.ts` の参照を `export * from "../core";` に変更します。`browser.ts` は `export * from "../core/browser";` へ変更し、React、React DOM、lucide-reactを利用先に導入します。モデルは `calendar/model-entry`、UIは `calendar`、スタイルは `calendar/styles.css` から読み込みます。LICENSEとTHIRD_PARTY_NOTICES.mdを保持してください。
+`packages/calendar/src` と `packages/core/src` を、それぞれ `components/likex/calendar` と `components/likex/core` のような兄弟フォルダへコピーします。Calendarの `core.ts` の1行だけを `export * from "../core";` に変更します。`browser.ts` は内部でこの入口を参照するため、そのまま使います。React、React DOM、lucide-react、Coreの実行時依存 `re2js@2.8.6` を利用先に導入します。モデルは `calendar/model-entry`、UIは `calendar`、スタイルは `calendar/styles.css` から読み込みます。LICENSEとTHIRD_PARTY_NOTICES.mdを保持してください。
 
 Next.jsのサーバーでJSONを準備する場合は `@likex/calendar/model` を使用し、保存コールバックはクライアント側で定義します。モデル入口はReact・DOMに依存しません。

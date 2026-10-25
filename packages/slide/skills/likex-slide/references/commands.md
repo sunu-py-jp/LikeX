@@ -228,7 +228,7 @@ PPTX書き出しは元の要素と標準PresentationMLのタイムラインを�
 
 `SlidePptxDiagnostic` は `{phase, severity:"warning", code, action, message, slideIndex?, slideId?, slideName?, elementId?, elementName?, animationId?, timelineId?, timingId?, property?, sourcePart?}`。slideIndexは0始まり。`action` は `approximation | omission | adjustment`。`code` は `unsupported-animation | animation-approximated | animation-limit | animation-conflict | unsupported-content | content-approximated | appearance-adjusted`。位置は判定できる項目だけ付く。表示文言で処理を分岐しない。GUIには変換結果の一覧、refには `getPptxDiagnostics()`、`onEvent` には `{type:"conversion",phase,warnings,diagnostics}` がある。
 
-タイミングID重複などの不正構造は警告して省略する。アニメーション専用の件数・深さ・時間の上限はないが、ファイル全体のXML検証は維持する。出力できたPPTXでも再読み込み時に動きが欠落し得る。PPTX出力は全体32MiB・1項目16MiB・4,096項目を超えると例外になる。不透明度を動かす要素と半透明のままRGB色を動かす要素は、元の不透明度を再生開始時に設定するため、PPTX編集画面では不透明に見える場合がある。
+タイミングID重複などの不正構造は警告して省略する。深さ・時間・コンパクトなtween反復の固定上限はないが、展開後ノードは資料全体100,000件まで。PPTXのグループ反復・キーフレーム・合成座標の展開が超過する場合は該当動作を `animation-limit` 診断付きで省略する。ファイル全体のXML検証も維持する。出力できたPPTXでも再読み込み時に動きが欠落し得る。PPTX出力は全体32MiB・1項目16MiB・4,096項目を超えると例外になる。不透明度を動かす要素と半透明のままRGB色を動かす要素は、元の不透明度を再生開始時に設定するため、PPTX編集画面では不透明に見える場合がある。
 
 出力には元データまたは `getDeck(deck,{includeAnimations:true})` を渡す。`exportSlidePptx(getDeck(deck))` では最終静止状態を出せる。元の定義は `serializeSlideDeck` によるSLON保存で保つ。
 
@@ -242,7 +242,7 @@ await writeFile("edited.pptx", new Uint8Array(await pptx.arrayBuffer()));
 
 表示中のrefにも同じget APIと `includeAnimations` オプションがある。保存・`onSave`・`exportNative`・イベントのdeck・session.getSnapshotは元値と定義の全量を維持する。PNGは既定final、`animationState: "initial"` で元値の画像になる。
 
-ノード数・深さ・再生時間・反復回数・クリック数の固定上限はない。有限の時間・正の安全な整数の反復・積算の有限性・循環のない構造を検証する。旧 `SLIDE_LIMITS.animation*` キーは互換性のためInfinityとなる。ロック対象に影響するステップの変更・削除には解除が必要。要素削除では対応tweenと空のグループを除き、クリック対象を削除したステップは全体を除く。複製では新IDへ参照を更新する。`features.animations` は表示中の編集可否を制御し、無効化自体では定義を削除しない。
+深さ・再生時間・反復回数・クリック数の固定上限はない。展開後ノード数は `SLIDE_LIMITS.animationExpandedNodes`（資料全体100,000件）で制限し、共有参照による増幅もコピー前に検証する。tweenのrepeatは展開しない。有限の時間・正の安全な整数の反復・積算の有限性・循環のない構造を検証する。旧上限キーは互換性のためInfinityのまま。ロック対象に影響するステップの変更・削除には解除が必要。要素削除では対応tweenと空のグループを除き、クリック対象を削除したステップは全体を除く。複製では新IDへ参照を更新する。`features.animations` は表示中の編集可否を制御し、無効化自体では定義を削除しない。
 
 `element.duplicate` は独立系列IDを複製内で一貫した新IDへ置き換える。`slide.duplicate` はページ内の系列IDを維持する。`element.duplicate` は要素のx/yに加え、複製するtweenのfrom/toに明示したx/yにも各20pxを加算する。`slide.duplicate` は要素とtweenの座標を維持する。複製で座標上限を超える場合もバッチ全体を拒否する。
 
@@ -260,3 +260,5 @@ await writeFile("edited.pptx", new Uint8Array(await pptx.arrayBuffer()));
 公開モデルは `getSlideMasters(deck)` / `getSlideLayouts(deck, masterId?)` / `getSlideLayout(deck, layoutId)` / `resolveSlideAppearance(deck, slide)` を提供する。最後の戻り値は `{ background, inheritedElements, localElements }`。既存 `getSlide` / `getElements` はローカル要素のみを返す。`slide.replaceContent` はローカル本文を置換し、レイアウト参照は保持する。明示的なページ背景変更は共通背景より優先する。通常のPPTX読み込み・出力でもカタログと参照を保持し、未対応のOffice表現は診断を確認する。
 
 プレースホルダーのIDはレイアウト内で一意。要素の `layoutPlaceholderId` で対応を保持する。適用では既存IDと内容を保持し、不要になった欄の内容は通常要素として残す。継承装飾を編集する場合は、明示的にレイアウトを解除してから、そのページの新しい要素IDを取得する。CLIのapplyは追加IDメタデータを返さないため、適用後のinspectを使う。
+
+PPTXのアニメーション変換は、資料全体の比較・サンプリング処理にも `SLIDE_LIMITS.animationImportWork`（10,000,000単位）の予算を設けます。中心位置とサイズを合成するサンプル数はページ内で累積し、100,000件を超える前に停止します。処理予算を超える動作は `animation-limit` 診断付きで省略します。

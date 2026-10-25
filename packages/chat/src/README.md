@@ -1,6 +1,6 @@
 # LikeChat ソース導入
 
-`packages/chat/src`と`packages/core/src`を一緒にコピーし、同梱の配布スクリプトで`core.ts` / `json.ts`の参照を解決してください。React UIは`index.ts`、画面なしの操作は`model-entry.ts`から公開します。CSSは`styles.css`を読み込みます。Tailwindやサーバーライブラリは不要です。
+`packages/chat/src` と `packages/core/src` を隣り合うフォルダにコピーし、Chatの `core.ts` の1行だけを `export * from "../core";` に変更してください。`json.ts`・`browser.ts` は内部でこの入口を参照するため、そのまま使います。React UIは `index.ts`、画面なしの操作は `model-entry.ts` から公開します。CSSは `styles.css` を読み込みます。Tailwindやサーバーライブラリは不要です。
 
 人同士のDM・グループ・スペース、スレッド、リアクション、添付メタデータ、既読位置をJSONで保存します。`currentUserId`で操作する参加者を指定し、編集には`onSave`を渡します。メッセージの配送には任意の`onSend`、ファイルのアップロードには`onAttachmentUpload`を渡します。
 

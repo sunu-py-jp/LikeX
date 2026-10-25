@@ -1,2 +1,2 @@
-// Copy installation: replace this line with export * from "../../core/text-search".
-export * from "@likex/core/text-search";
+export { createTextSearchMatcher, createKeywordSearchMatcher } from "../core";
+export type { TextSearchQuery, TextSearchMatcher, KeywordSearchQuery, KeywordTextMatch, KeywordSearchMatcher } from "../core";

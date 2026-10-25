@@ -8,11 +8,12 @@ import { deleteSpreadsheetTable, prepareSpreadsheetTableWrite, writeSpreadsheetT
 import { prepareSpreadsheetGridWrite, writeSpreadsheetGrid } from "../model/grid/write";
 import type { SpreadsheetCommandBaseReceipt } from "./internal-types";
 import { clearCommandCells } from "./clear-cells";
+import { insertGridCommandAxes } from "./insert-grid-axes";
 import { commandKeys, commandRecord, rejectCommand, requireCommandFeature, requireCommandSheet } from "./validation";
 
 export function stageTableCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetTableCommand,
   features: SpreadsheetFeatureSettings, nextId: () => string): { workbook: SpreadsheetWorkbook; receipt: SpreadsheetCommandBaseReceipt } {
-  const sheet = requireCommandSheet(workbook, command.sheetId);
+  let sheet = requireCommandSheet(workbook, command.sheetId);
   if (command.type !== "cells.writeGrid") requireCommandFeature(features, "tables");
   if (command.type === "tables.delete") {
     if (typeof command.tableId !== "string" || !command.tableId) return rejectCommand("INVALID_COMMAND", "tableIdを指定してください");
@@ -30,11 +31,13 @@ export function stageTableCommand(workbook: SpreadsheetWorkbook, command: Spread
   const data = commandRecord(command.data, "表の明細");
   commandKeys(data, data.type === "rows" ? ["type", "values"] : ["type", "text"], "表の明細");
   if (command.headerStyle !== undefined) commandKeys(commandRecord(command.headerStyle, "ヘッダの書式"), ["background", "color"], "ヘッダの書式");
-  if (command.type === "cells.writeGrid" && command.border !== undefined)
+  if (command.type === "cells.writeGrid" && command.border !== undefined && command.border !== false)
     commandKeys(commandRecord(command.border, "格子罫線"), ["style", "width", "color"], "格子罫線");
   if (command.rowNumbers !== undefined && command.rowNumbers !== false)
     commandKeys(commandRecord(command.rowNumbers, "連番列の設定"), ["header", "start"], "連番列の設定");
   if (command.type === "tables.insert" && typeof command.name !== "string") return rejectCommand("INVALID_COMMAND", "テーブル名を指定してください");
+  workbook = insertGridCommandAxes(workbook, command, features);
+  sheet = requireCommandSheet(workbook, command.sheetId);
   const plan = command.type === "cells.writeGrid" ? prepareSpreadsheetGridWrite(sheet, command)
     : prepareSpreadsheetTableWrite(sheet, command, true);
   if (command.type === "cells.writeGrid" && "layout" in plan && plan.layout.merges.length)

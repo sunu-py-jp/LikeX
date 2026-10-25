@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { PDFDocument } from 'pdf-lib';
 import {
   createDraftSnapshot, applyAction, addFilesWithResult, addFilesWithResultAsync, addFilesAsync, prepareFilesWithProgress,
   createExplorerUploadSession, ExplorerUploadConflictError, getSavePayload, hasChanges,
@@ -9,6 +8,7 @@ import {
   assertExplorerEntryPermissions, checksForExplorerAction, ExplorerOperationDeniedError,
   resolveExplorerSearchHits, resolveExplorerSearchIds,
   mergeExplorerFolderEntries, mergeExplorerSearchEntries,
+  inspectExplorerUploadFile, EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS,
 } from '__MODEL_IMPORT__';
 
 const require = createRequire(import.meta.url);
@@ -94,19 +94,40 @@ assert.equal(videoSnapshot.entries[0].source.file, video);
 await assert.rejects(() => addFilesWithResultAsync(baseline, [video], 'root', {
   inspectFile: () => ({ kind: 'video', durationSeconds: EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS + 1 }),
 }), error => error instanceof ExplorerUploadValidationError && error.rejections[0].reasons[0].code === 'duration-exceeded');
-const pdf = await PDFDocument.create();
-pdf.addPage();
-pdf.addPage();
-const pdfFile = new File([await pdf.save()], 'two-pages.pdf', { type: 'application/pdf' });
+// Independent, real cross-reference fixture; consumers need no PDF generator.
+let pdf = '%PDF-1.7\n';
+const offsets = [0];
+for (const [index, body] of [
+  '<< /Type /Catalog /Pages 2 0 R >>',
+  '<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>',
+  '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>',
+  '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>',
+].entries()) { offsets.push(pdf.length); pdf += `${index + 1} 0 obj\n${body}\nendobj\n`; }
+const xref = pdf.length;
+pdf += `xref\n0 5\n0000000000 65535 f \n${offsets.slice(1).map(offset => `${String(offset).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+const pdfFile = new File([pdf], 'two-pages.pdf', { type: 'application/pdf' });
+assert.equal(EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS.inputBytes, 100 * 1024 * 1024);
+assert.equal(EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS.timeoutMs, 30_000);
+assert.equal(Object.isFrozen(EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS), true);
+const pdfRequest = { file: pdfFile, kind: 'pdf', extension: '.pdf', signal: new AbortController().signal };
+await assert.rejects(inspectExplorerUploadFile({ ...pdfRequest, pdfInspectionLimits: { inputBytes: pdfFile.size - 1 } }), /PDF/);
+assert.deepEqual(await inspectExplorerUploadFile({ ...pdfRequest, pdfInspectionLimits: { inputBytes: pdfFile.size } }), { kind: 'pdf', pages: 2 });
+assert.deepEqual(await inspectExplorerUploadFile(pdfRequest), { kind: 'pdf', pages: 2 });
+await assert.rejects(() => addFilesWithResultAsync(baseline, [pdfFile], 'root', {
+  contentLimitsByExtension: { '.pdf': { maxPages: 2 } },
+  pdfInspectionLimits: { inputBytes: pdfFile.size - 1 },
+}), error => error instanceof ExplorerUploadValidationError && error.rejections[0].reasons[0].code === 'content-inspection-failed');
+assert.deepEqual(baseline.entries, []);
 await assert.rejects(() => addFilesWithResultAsync(baseline, [pdfFile], 'root', {
   contentLimitsByExtension: { '.pdf': { maxPages: 1 } },
 }), error => error instanceof ExplorerUploadValidationError && error.rejections[0].reasons[0].pages === 2);
 const pdfResult = await addFilesWithResultAsync(baseline, [pdfFile], 'root', {
   contentLimitsByExtension: { '.pdf': { maxPages: 2 } },
+  pdfInspectionLimits: { inputBytes: pdfFile.size },
 });
 assert.equal(pdfResult.result.addedCount, 1);
 assert.equal(pdfResult.snapshot.entries[0].source.file, pdfFile);
 assert.deepEqual(baseline.entries, []);
 assert.equal(typeof document, 'undefined');
 console.log(JSON.stringify({ model: 'explorer', entries: result.snapshot.entries.length, overwrite: result.result.overwrittenCount,
-  contentValidation: { videoDuration: EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS, pdfPages: 2 }, entryPermissions: true, reactFree: true }));
+  contentValidation: { videoDuration: EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS, pdfPages: 2, configurablePdfInspection: true }, entryPermissions: true, reactFree: true }));

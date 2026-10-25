@@ -63,7 +63,7 @@ packages/document/src/core.ts        export * from "@likex/core"
 2. UIの `src/` を隣接する `components/<module>/` へコピーする。
 3. UIフォルダの `core.ts` を `export * from "../core";` に変更する。
 
-Spreadsheet・LikeSlide・LikeDocumentで変更するCoreの参照は `core.ts` の1か所だけです。`ooxml.ts`・`json.ts`・`model/core-*.ts` と、LikeSlide・LikeDocumentの `browser.ts` は内部でこの入口を参照します。既存のコピーは利用するUIとCoreを同じバージョンから一緒に更新し、以前に書き換えたこれらのファイルもコピーし直してください。他のモジュールで変更する追加の入口は、[Explorerの導入ガイド](../packages/explorer/src/docs/README.md)など各モジュールの手順に従ってください。
+すべてのUIで変更するCoreの参照は `core.ts` の1か所だけです。各UIの `browser.ts`・`json.ts`・`ooxml.ts`・`model/core-*.ts`（存在するもの）は内部でこの入口を参照します。別のフォルダ配置にする場合も `core.ts` の相対パスを配置先に合わせます。既存のコピーは利用するUIとCoreを同じバージョンから一緒に更新し、以前に書き換えたこれらのファイルもコピーし直してください。
 
 coreは複数のUIで1つを共有できます。コピー後も元の `@likex/core` に依存させる選択は可能ですが、上記手順ではLikeXパッケージのインストールは不要です。Coreの実行時依存 `re2js@2.8.6`、React、LikeDocumentのProseMirrorなどの外部依存とUIのCSS読み込みは引き続き必要です。共通実装の自動複製・生成確認・特殊なパス解決は行いません。
 
@@ -73,8 +73,8 @@ coreは複数のUIで1つを共有できます。コピー後も元の `@likex/c
 
 ## 文字列検索
 
-`@likex/core` と `@likex/core/text-search` の両方から、`createTextSearchMatcher` と `TextSearchMatcher` / `TextSearchQuery` 型を利用できます。`createTextSearchMatcher({ text, matchCase?, wholeText?, useRegex? })` は、部分一致・全体一致・大文字小文字の区別・正規表現を共通化します。返り値の `test(text)` と `replace(text, replacement)` は繰り返し呼べ、置換後の文字列は `$1` 等もリテラルとして扱います。空の検索語は一致せず、置換も行いません。
+`@likex/core` と `@likex/core/text-search` の両方から、`createTextSearchMatcher` と `TextSearchMatcher` / `TextSearchQuery` 型を利用できます。`createTextSearchMatcher({ text, matchCase?, wholeText?, useRegex? })` は、部分一致・全体一致・大文字小文字の区別・正規表現を共通化します。返り値の `test(text)` と `replace(text, replacement, maxOutputLength?)` は繰り返し呼べ、置換後の文字列は `$1` 等もリテラルとして扱います。空の検索語は一致せず、置換も行いません。置換結果は既定で16,777,216 UTF-16文字までです。第3引数に0以上の安全な整数を指定すると、セル等の用途に合わせて上限を変更できます。大量の一致で置換後の文字列が膨らむ場合も、上限を超える部分を生成する前に `RangeError` にします。従来この上限を超える結果を扱っていた場合は、明示的な上限指定が必要です。
 
 通常文字列は100,000文字、正規表現は4,096文字までです。コンパイル前に繰り返しの展開コストを20,000命令相当までに制限し、短い式でも巨大なグループの繰り返しはエラーにします。独立した繰り返しや選択肢のコストは足し合わせ、入れ子やグループに付く回数だけを掛け合わせます。コンパイル後も命令数を検証します。正規表現は [RE2JS](https://github.com/le0pard/re2js) のRE2形式で、グループ・選択・量指定・文字クラス・アンカー・Unicode文字クラスに対応し、先読み・後読み・後方参照には対応しません。不正な構文・未対応構文・過大なパターンは例外になり、UI側でエラーとして表示します。バックトラッキングにより指数時間を要するJavaScriptの正規表現を、未検証の検索語から直接実行しません。標準の検索条件は表示状態で、OfficeやLikeXの保存ファイルには書き込みません。
 
-ソースコピー導入ではcoreの依存 `re2js@2.8.6` をインストールします。Explorerは `model/core-text-search.ts` を `export * from "../../core/text-search";` に変更します。Spreadsheetは `core.ts` を経由するため、このファイルの変更は不要です。
+ソースコピー導入ではcoreの依存 `re2js@2.8.6` をインストールします。Explorer・Spreadsheetのテキスト検索はそれぞれの `core.ts` を経由するため、上記の導入手順に加えて `model/core-text-search.ts` を変更する必要はありません。

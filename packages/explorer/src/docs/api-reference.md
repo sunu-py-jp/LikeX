@@ -50,7 +50,7 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `selectedFile` | 任意の `string`。初回に選択するファイルの `ExplorerEntry.id`。`initialPath` 未指定なら対象の親フォルダを開き、指定時はその直下にあるファイルだけを選択します。ファイル名や `source.id` ではありません。 |
 | `selectedFileMode` | `ExplorerSelectedFileMode`。`"select"`（既定）または `"preview"`。後者は初期選択に加え、内蔵プレビューまたは `onPreviewRequest` を一度起動します。 |
 | `features` | `ExplorerFeatures`。機能ごとに `false` を指定すると、関連UIとその実行経路を無効にします。 |
-| `upload` | `ExplorerUploadOptions`。許可拡張子・容量・件数・再生時間・PDFページ数・PPTXスライド数・違反時の扱いを指定します。動画は既定で4時間以下です。違反時は既定でその回の追加をすべて中止します。[内容制限](./upload-content-limits.md) |
+| `upload` | `ExplorerUploadOptions`。許可拡張子・容量・件数・再生時間・PDFページ数・PPTXスライド数・違反時の扱いを指定します。`pdfInspectionLimits` で内蔵PDF検査の展開量・処理時間等も調整できます。動画は既定で4時間以下です。違反時は既定でその回の追加をすべて中止します。[内容制限](./upload-content-limits.md) |
 | `selection` | `ExplorerSelectionOptions`。選択方式（`none` / `single` / `multiple`）、選択する種類（`kind: file` / `folder` / `both`、既定 `both`）、チェックボックス表示。対象外のフォルダも移動のために表示します。 |
 | `ui` | `ExplorerUIOptions`。サイドバー、右クリックメニュー、項目メニュー、サムネイルの表示。 |
 | `view` | `ExplorerViewOptions`。使える表示形式と初期表示。`defaultColumnWidths?: Partial<ExplorerDetailsColumnWidths>` で詳細表示の `name` / `location` / `updatedAt` / `extension` / `size` の初期幅（px）を指定します。`location` は検索中だけ表示する場所列です。初回マウント時だけ読みます。[幅変更の操作と設定](./configuration.md#details-column-widths) |

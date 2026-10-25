@@ -13,10 +13,36 @@ export type TextSearchQuery = Readonly<{
 /** Stateless operations; replacement text is literal, including $1 and $&. */
 export type TextSearchMatcher = Readonly<{
   test(text: string): boolean;
-  replace(text: string, replacement: string): string;
+  /** Maximum output UTF-16 length, checked before expansion. Default: 16,777,216. */
+  replace(text: string, replacement: string, maxOutputLength?: number): string;
 }>;
 
 const MAX_REGEX_PROGRAM_SIZE = 20_000;
+const DEFAULT_MAX_REPLACEMENT_LENGTH = 16 * 1024 * 1024;
+const replacementTooLarge = (): never => { throw new RangeError("置換後の文字列が上限を超えています"); };
+
+/** Consume match offsets without first allocating every match or expanded output. */
+function replaceMatches(text: string, replacement: string, maximum: number, next: () => { start: number; end: number } | null): string {
+  const chunks: string[] = [];
+  let previous = 0, length = 0, buffer = "";
+  const append = (part: string) => {
+    if (!part) return;
+    if (buffer.length + part.length > 16_384) { if (buffer) chunks.push(buffer); buffer = ""; }
+    if (part.length >= 16_384) chunks.push(part); else buffer += part;
+  };
+  for (let match = next(); match; match = next()) {
+    const addition = match.start - previous + replacement.length;
+    if (addition > maximum - length) return replacementTooLarge();
+    length += addition;
+    append(text.slice(previous, match.start));
+    append(replacement);
+    previous = match.end;
+  }
+  if (text.length - previous > maximum - length) return replacementTooLarge();
+  append(text.slice(previous));
+  if (buffer) chunks.push(buffer);
+  return chunks.join("");
+}
 
 type RegexCostFrame = { prefix: number; atom: number; hasAtom: boolean; repeated: boolean; alternatives: number; branches: number; capture: number };
 /** Bound repeat expansion before invoking the engine compiler. This is a cost
@@ -127,7 +153,7 @@ export function createTextSearchMatcher(query: TextSearchQuery): TextSearchMatch
   }
   const { text: source, matchCase = false, wholeText = false, useRegex = false } = query;
   let test: (text: string) => boolean;
-  let replace: (text: string, replacement: string) => string;
+  let replace: (text: string, replacement: string, maximum: number) => string;
   if (!source) {
     test = () => false;
     replace = text => text;
@@ -145,7 +171,10 @@ export function createTextSearchMatcher(query: TextSearchQuery): TextSearchMatch
     test = wholeText ? text => pattern.testExact(text) : text => pattern.test(text);
     replace = wholeText
       ? (text, replacement) => test(text) ? replacement : text
-      : (text, replacement) => pattern.matcher(text).replaceAll(() => replacement);
+      : (text, replacement, maximum) => {
+        const matcher = pattern.matcher(text);
+        return replaceMatches(text, replacement, maximum, () => matcher.find() ? { start: matcher.start(), end: matcher.end() } : null);
+      };
   } else {
     // Escaped literal matching preserves the existing Unicode case-folding behavior.
     const escaped = source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -157,17 +186,28 @@ export function createTextSearchMatcher(query: TextSearchQuery): TextSearchMatch
     };
     replace = wholeText
       ? (text, replacement) => test(text) ? replacement : text
-      : (text, replacement) => { pattern.lastIndex = 0; return text.replace(pattern, () => replacement); };
+      : (text, replacement, maximum) => {
+        pattern.lastIndex = 0;
+        return replaceMatches(text, replacement, maximum, () => {
+          const match = pattern.exec(text);
+          return match ? { start: match.index, end: match.index + match[0].length } : null;
+        });
+      };
   }
   return Object.freeze({
     test(text: string) {
       if (typeof text !== "string") throw new Error("検索対象は文字列で指定してください");
       return test(text);
     },
-    replace(text: string, replacement: string) {
+    replace(text: string, replacement: string, maxOutputLength = DEFAULT_MAX_REPLACEMENT_LENGTH) {
       if (typeof text !== "string" || typeof replacement !== "string" || replacement.length > 100_000)
         throw new Error("置換対象と置換後の文字列を正しく指定してください");
-      return replace(text, replacement);
+      if (!Number.isSafeInteger(maxOutputLength) || maxOutputLength < 0)
+        throw new RangeError("置換後の文字数上限は0以上の安全な整数で指定してください");
+      const result = replace(text, replacement, maxOutputLength);
+      // Empty-query and whole-text replacements do not allocate expanded strings.
+      if (result.length > maxOutputLength) return replacementTooLarge();
+      return result;
     },
   });
 }

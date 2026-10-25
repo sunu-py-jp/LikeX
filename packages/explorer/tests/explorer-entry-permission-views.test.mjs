@@ -105,6 +105,39 @@ test('retained main and popup preview callbacks use current policy and keep perm
   assert.equal(hook.current.dirty, false);
 });
 
+test('revoking an open preview hides its content in every window and does not reopen on a later grant', async t => {
+  const hook = await mount(t, {}, true);
+  await change(() => {
+    hook.current.openEntry(hook.current.entries.find(item => item.id === 'child'));
+    hook.popup.openEntry(hook.popup.entries.find(item => item.id === 'child'));
+  });
+  assert.equal(hook.current.preview?.id, 'child');
+  assert.equal(hook.popup.preview?.id, 'child');
+  await hook.update({ getEntryPermissions: target => target.id === 'folder' ? { preview: false } : {} });
+  assert.equal(hook.current.preview, undefined);
+  assert.equal(hook.popup.preview, undefined);
+  assert.equal(hook.current.previewId, null);
+  assert.equal(hook.popup.previewId, null);
+  await hook.update({ getEntryPermissions: () => ({ preview: true }) });
+  assert.equal(hook.current.preview, undefined);
+  assert.equal(hook.popup.preview, undefined);
+  assert.equal(hook.current.dirty, false);
+});
+
+test('an open preview rechecks a stable permission callback on host rerender and fails closed', async t => {
+  let allowed = true;
+  const hook = await mount(t, { getEntryPermissions: () => {
+    if (!allowed) throw new Error('permission lookup failed');
+    return { preview: true };
+  } });
+  await change(() => hook.current.openEntry(hook.current.entries.find(item => item.id === 'alpha')));
+  assert.equal(hook.current.preview?.id, 'alpha');
+  allowed = false;
+  await hook.update({ rootLabel: 'Updated' });
+  assert.equal(hook.current.preview, undefined);
+  assert.equal(hook.current.previewId, null);
+});
+
 test('denied multi-entry clipboard operations preserve internal and native clipboards without success events', async t => {
   const hook = await mount(t, {}, true);
   await change(() => assert.equal(hook.current.copyToClipboard('copy', ['alpha']), true));

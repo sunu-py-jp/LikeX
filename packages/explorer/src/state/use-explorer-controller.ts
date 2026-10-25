@@ -33,6 +33,7 @@ import { describeEntry, describeEntries } from "../model/item-info";
 import { resolveExplorerEntryTargets } from "../model/navigation";
 import type { ExplorerCommandHandle } from "../model/commands";
 import { createPreviewRequest } from "../model/preview";
+import { assertExplorerEntryPermissions } from "../model/entry-permissions";
 import { dispatchExplorerEvent, type ExplorerViewEvent, type ExplorerLocationInfo } from "../model/events";
 import { useExplorerWindowTabs, type TabViewState } from "./use-explorer-tabs";
 import { addEntryAndAncestors, getEntryIndex } from "../model/entry-index";
@@ -647,8 +648,19 @@ export function useExplorerViewController({
     if (!features.pathInput) return;
     navigate(resolveExplorerPath(navigationEntries, value, currentParent, rootLabel));
   }
-  const details = features.details ? entryIndex.byId.get(detailId ?? "") : undefined,
-    preview = features.preview ? entryIndex.byId.get(previewId ?? "") : undefined;
+  const details = features.details ? entryIndex.byId.get(detailId ?? "") : undefined;
+  let preview = features.preview ? entryIndex.byId.get(previewId ?? "") : undefined;
+  // Check the render's policy, not a ref updated after render. Revocation must
+  // unmount readers/custom content before their pending results can be shown.
+  if (preview) {
+    try { assertExplorerEntryPermissions(entries, [{ id: preview.id, operation: "preview" }], getEntryPermissions); }
+    catch { preview = undefined; }
+  }
+  useLayoutEffect(() => {
+    // Do not automatically reopen a revoked preview when permission is restored.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (previewId !== null && !preview) updatePreviewId(null);
+  }, [previewId, preview]);
   const { totalSize, fileCount } = entryIndex;
   const locationInfo = useMemo<ExplorerLocationInfo>(() => typeof location === "string"
     ? { kind: "folder", id: location, name: title, path: addressPath }

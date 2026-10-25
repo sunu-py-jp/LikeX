@@ -5,14 +5,14 @@ import { build } from 'esbuild';
 const output = await build({ stdin: { contents: 'export * from "./src/model-entry"; export {openOfficePackage,officeXml} from "./src/ooxml"; export {readSlideAnimations} from "./src/import/pptx-animations"; export {createZipArchive} from "./src/core";', resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
 const { createSlideDeck, createSlideElement, exportSlidePptx, importSlidePptx, evaluateSlideAnimations, openOfficePackage, officeXml, readSlideAnimations, createZipArchive } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const baseline = await exportSlidePptx(createSlideDeck({ width: 1000, height: 600, slides: [{ id: 'page', name: 'Independent timing', background: '#ffffff', notes: '', elements: ['one', 'two', 'three'].map(id => createSlideElement({ id, type: 'shape', shape: 'rect', x: 100, y: 80, width: 200, height: 100, fill: '#00ff00', opacity: .6 })) }] }));
-async function imported(timing) {
+async function imported(timing, options) {
   const archive = await openOfficePackage(baseline), entries = [];
   for (const path of archive.paths) {
     let content = await archive.read(path);
     if (path === 'ppt/slides/slide1.xml') content = new TextEncoder().encode(new TextDecoder().decode(content).replace('</p:sld>', `${timing}</p:sld>`));
     entries.push({ path, content: new Blob([content]) });
   }
-  return importSlidePptx(await createZipArchive(entries));
+  return importSlidePptx(await createZipArchive(entries), options);
 }
 const timing = lanes => `<p:timing><p:tnLst><p:par><p:cTn id="1" nodeType="tmRoot" dur="indefinite"><p:childTnLst>${lanes}</p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>`;
 const lane = (id, body, trigger, type = 'interactiveSeq') => `<p:seq><p:cTn id="${id}" nodeType="${type}" dur="indefinite">${trigger ? `<p:stCondLst><p:cond evt="onClick" delay="0"><p:tgtEl><p:spTgt spid="${trigger}"/></p:tgtEl></p:cond></p:stCondLst>` : ''}<p:childTnLst>${body}</p:childTnLst></p:cTn></p:seq>`;
@@ -197,4 +197,20 @@ test('animation conversion yields and aborts without publishing partially conver
   finally { clearTimeout(timer); }
   assert.equal(JSON.stringify(element), before);
   assert.deepEqual(warnings, []);
+});
+
+test('PPTX repeat expansion is checked before allocation and unrelated animation survives', { timeout: 5000 }, async () => {
+  const repeated = group(3, anim(10, 'r', 0, 90) + anim(11, 'r', 90, 180), 'seq', 'repeatCount="1000000000000"');
+  const { deck, diagnostics } = await imported(timing(lane(2, repeated + anim(12, 'style.opacity', .6, .2, 3), undefined, 'mainSeq')), { signal: AbortSignal.timeout(2000) });
+  assert.equal(deck.slides[0].elements.length, 3);
+  close(frame(deck.slides[0], 500).slide.elements[1].opacity, .4);
+  assert.ok(diagnostics.some(item => item.code === 'animation-limit' && item.timingId === '3' && item.action === 'omission'));
+});
+
+test('PPTX nonlinear keyframe repeat expansion is checked before allocation', { timeout: 5000 }, async () => {
+  const points = '<p:tav tm="0"><p:val><p:fltVal val="0"/></p:val></p:tav><p:tav tm="50000"><p:val><p:fltVal val="10"/></p:val></p:tav><p:tav tm="100000"><p:val><p:fltVal val="90"/></p:val></p:tav>';
+  const repeated = `<p:anim calcmode="lin" valueType="num">${common(10, 'r').replace('dur="1000"', 'dur="1000" repeatCount="1000000000000"')}<p:tavLst>${points}</p:tavLst></p:anim>`;
+  const { deck, diagnostics } = await imported(timing(lane(2, repeated + anim(12, 'style.opacity', .6, .2, 3), undefined, 'mainSeq')), { signal: AbortSignal.timeout(2000) });
+  assert.equal(deck.slides[0].elements.length, 3);
+  assert.ok(diagnostics.some(item => item.code === 'animation-limit' && item.timingId === '10'));
 });

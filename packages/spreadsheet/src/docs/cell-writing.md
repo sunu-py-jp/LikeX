@@ -4,6 +4,8 @@
 
 セルへ値を入れるときは `cells.set`、値だけを消すときは `cells.clear`、書式なども取り除くときは `cells.delete` を使います。`cells.delete` の `shift` を省略した場合、周囲のセルは移動しません。上・左に詰めて削除する場合は[セルの挿入・削除](./cell-shifts.md)を参照してください。
 
+セル番地の代わりに商品コードなどのキーで対象を選ぶ場合は [`cells.setByLookup`](./lookup-writing.md) を使います。列を縦に検索、行を横に検索、行・列キーの交点への書き込みに対応し、名前付き範囲も指定できます。
+
 ## 既存の値を上書きするか
 
 書き込み系コマンドの `onConflict` で、書き込み先に異なる非空の値がある場合の扱いを指定します。既定は `overwrite` です。
@@ -14,7 +16,7 @@
 | `error` | 競合が1つでもあれば操作全体を中止する |
 | `skip` | 競合セルを残し、それ以外を反映する |
 
-対象は `cells.set` / `cells.paste` / `cells.fill` / `cells.replace` / `cells.move` / `cells.writeGrid` / `tables.insert` です。空セルや、保存済みの入力値と同じ値は競合しません。比較するのは数式の計算結果ではなく、保存されている文字列です。書式・コメントだけがある空セルも、値の競合にはなりません。
+対象は `cells.set` / `cells.setByLookup` / `cells.paste` / `cells.fill` / `cells.replace` / `cells.move` / `cells.writeGrid` / `tables.insert` です。空セルや、保存済みの入力値と同じ値は競合しません。比較するのは数式の計算結果ではなく、保存されている文字列です。書式・コメントだけがある空セルも、値の競合にはなりません。
 
 ```ts
 import { createWorkbook, createSpreadsheetSession } from "@likex/spreadsheet/model";

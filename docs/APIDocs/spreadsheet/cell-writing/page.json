@@ -11,7 +11,8 @@
     "onConflict",
     "SpreadsheetWriteConflictPolicy",
     "SpreadsheetWriteReport",
-    "WRITE_CONFLICT"
+    "WRITE_CONFLICT",
+    "cells.setByLookup"
   ],
   "screenshots": []
 }

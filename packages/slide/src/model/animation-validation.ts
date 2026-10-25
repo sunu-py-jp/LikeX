@@ -1,5 +1,6 @@
 import type { SlideAnimationNode, SlideAnimationProperties, SlideAnimationStep, SlideAnimationTrigger, SlideElement } from "./types";
 import { SLIDE_LIMITS } from "./limits";
+import { expandedAnimationNodes } from "./animation-budget";
 import { boolean, choice, color, identifier, list, number, record, text } from "./validation";
 
 export type SlideTween = Extract<SlideAnimationNode, { type: "tween" }>;
@@ -104,7 +105,8 @@ function validateOverlaps(node: SlideAnimationNode): void {
 }
 export function normalizeSlideAnimations(value: unknown, elements: readonly SlideElement[]): SlideAnimationStep[] | undefined {
   if (value === undefined) return undefined;
-  const source = list(value, "アニメーション", SLIDE_LIMITS.animationNodesPerSlide);
+  const source = list(value, "アニメーション", SLIDE_LIMITS.animationExpandedNodes);
+  let remainingNodes = SLIDE_LIMITS.animationExpandedNodes;
   if (!source.length) return undefined;
   const targets = new Map(elements.map(element => [element.id, element]));
   const timelineDurations = new Map<string | undefined, number>();
@@ -164,6 +166,7 @@ export function normalizeSlideAnimations(value: unknown, elements: readonly Slid
         : { type, ...(spec.elementId === undefined ? {} : { elementId: target(spec.elementId).id }) };
       Object.freeze(trigger);
     }
+    remainingNodes -= expandedAnimationNodes(raw.animation, remainingNodes);
     const animation = normalizeNode(raw.animation);
     validateOverlaps(animation);
     // Independent click histories make cross-timeline ordering unknowable. Disjoint

@@ -1,5 +1,9 @@
 import { fileExtension } from "./text";
 import { EXPLORER_VIDEO_MIME_TYPES } from "./preview-formats";
+import {
+  EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS, resolvePdfInspectionLimits,
+  type ExplorerPdfInspectionLimits, type ResolvedExplorerPdfInspectionLimits,
+} from "./pdf-inspection-limits";
 
 export type ExplorerUploadVideoExtension = keyof typeof EXPLORER_VIDEO_MIME_TYPES;
 export type ExplorerUploadAudioExtension = ".mp3" | ".wav" | ".m4a" | ".aac" | ".ogg" | ".flac";
@@ -23,6 +27,8 @@ export type ExplorerUploadInspectFileRequest = Readonly<{
   extension: ExplorerUploadContentExtension;
   kind: ExplorerUploadContentKind;
   signal: AbortSignal;
+  /** PDF parsing budgets. Upload callbacks receive a detached, fully resolved snapshot for PDF files. */
+  pdfInspectionLimits?: ExplorerPdfInspectionLimits;
 }>;
 
 /** Return undefined to use the built-in reader. Video/audio callbacks may run concurrently (up to four combined); PDF/PPTX share a serial lane. Observe request.signal for cancellation. */
@@ -198,6 +204,7 @@ type InspectionRecord = Readonly<{
   kind: ExplorerUploadContentKind;
   inspectFile: ExplorerUploadInspectFile | undefined;
   builtinInspector: ExplorerUploadInspectFile | undefined;
+  pdfInspectionLimits?: ResolvedExplorerPdfInspectionLimits;
   outcome: ExplorerUploadContentInspectionOutcome;
 }>;
 const inspectionContexts = new WeakMap<object, WeakMap<File, InspectionRecord[]>>();
@@ -214,13 +221,21 @@ type InspectionLookup = Readonly<{
   rule: ExplorerUploadContentRule;
   inspectFile?: ExplorerUploadInspectFile;
   builtinInspector?: ExplorerUploadInspectFile;
+  pdfInspectionLimits?: ExplorerPdfInspectionLimits;
 }>;
 
-/** No caller-supplied metadata is accepted, and a changed inspector cannot reuse old evidence. */
+const pdfLimitKeys = Object.keys(EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS) as (keyof ResolvedExplorerPdfInspectionLimits)[];
+function samePdfLimits(left: ResolvedExplorerPdfInspectionLimits | undefined, right: ResolvedExplorerPdfInspectionLimits | undefined): boolean {
+  return left === right || !!left && !!right && pdfLimitKeys.every(key => left[key] === right[key]);
+}
+
+/** No caller-supplied metadata is accepted; PDF evidence includes the exact resource policy used. */
 export function readUploadContentInspection(options: InspectionLookup): ExplorerUploadContentInspectionOutcome | undefined {
+  const pdfInspectionLimits = options.rule.kind === "pdf" ? resolvePdfInspectionLimits(options.pdfInspectionLimits) : undefined;
   const records = inspectionContexts.get(options.context)?.get(options.file);
   return records?.find(record => record.extension === options.rule.extension && record.kind === options.rule.kind &&
-    record.inspectFile === options.inspectFile && record.builtinInspector === options.builtinInspector)?.outcome;
+    record.inspectFile === options.inspectFile && record.builtinInspector === options.builtinInspector &&
+    samePdfLimits(record.pdfInspectionLimits, pdfInspectionLimits))?.outcome;
 }
 
 function throwIfAborted(signal: AbortSignal): void {
@@ -256,13 +271,19 @@ export async function ensureUploadContentInspection(
   const cache = inspectionContexts.get(context);
   if (!cache) throw new Error("内容検査のコンテキストを createExplorerUploadInspectionContext で作成してください");
   throwIfAborted(signal);
-  const existing = readUploadContentInspection(options);
+  // Capture configuration before invoking host code. Mutating its original object
+  // while a callback is pending cannot relabel the cached evidence afterwards.
+  const pdfInspectionLimits = rule.kind === "pdf" ? resolvePdfInspectionLimits(options.pdfInspectionLimits) : undefined;
+  const existing = readUploadContentInspection({ ...options, pdfInspectionLimits });
   if (existing) return existing.status === "failed" ? existing.reason : compareUploadContentMetadata(rule, existing.metadata);
-  const request: ExplorerUploadInspectFileRequest = Object.freeze({ file, extension: rule.extension, kind: rule.kind, signal });
+  const request: ExplorerUploadInspectFileRequest = Object.freeze({ file, extension: rule.extension, kind: rule.kind, signal,
+    ...(pdfInspectionLimits ? { pdfInspectionLimits } : {}) });
   const recordOutcome = (outcome: ExplorerUploadContentInspectionOutcome) => {
     throwIfAborted(signal);
-    const records = cache.get(file) ?? [];
-    records.push(Object.freeze({ extension: rule.extension, kind: rule.kind, inspectFile, builtinInspector, outcome: Object.freeze(outcome) }));
+    const records = (cache.get(file) ?? []).filter(record => rule.kind !== "pdf" ||
+      record.extension !== rule.extension || record.kind !== rule.kind || record.inspectFile !== inspectFile || record.builtinInspector !== builtinInspector);
+    records.push(Object.freeze({ extension: rule.extension, kind: rule.kind, inspectFile, builtinInspector,
+      ...(pdfInspectionLimits ? { pdfInspectionLimits } : {}), outcome: Object.freeze(outcome) }));
     cache.set(file, records);
   };
   const failed = (cause?: unknown) => {

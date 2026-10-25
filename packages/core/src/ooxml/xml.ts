@@ -1,4 +1,5 @@
 import { OFFICE_PACKAGE_LIMITS as limits } from "./types";
+import { decodeXmlEntities as entities } from "./xml-entities";
 
 export type XmlNode = { name: string; attributes: Record<string, string>; children: XmlNode[]; text: string };
 export const localName = (name: string): string => name.slice(name.indexOf(":") + 1);
@@ -7,16 +8,6 @@ export const child = (node: XmlNode | undefined, name: string): XmlNode | undefi
 export const attribute = (node: XmlNode | undefined, name: string): string | undefined => node && Object.entries(node.attributes).find(([key]) => localName(key) === name)?.[1];
 export const textContent = (node: XmlNode | undefined): string => node ? node.text + node.children.map(textContent).join("") : "";
 const fail = (): never => { throw new Error("Office内のXMLが不正、または安全な読み込み上限を超えています"); };
-function entities(value: string): string {
-  return value.replace(/&([^;]*);|&/g, (match, entity: string | undefined) => {
-    const named: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
-    if (entity && Object.hasOwn(named, entity)) return named[entity];
-    if (!entity || !/^#(?:[0-9]+|x[0-9a-f]+)$/i.test(entity)) return fail();
-    const code = entity[1]?.toLowerCase() === "x" ? parseInt(entity.slice(2), 16) : Number(entity.slice(1));
-    if (!Number.isInteger(code) || code > 0x10ffff || (code < 32 && ![9, 10, 13].includes(code)) || (code >= 0xd800 && code <= 0xdfff) || code === 0xfffe || code === 0xffff) return fail();
-    return String.fromCodePoint(code);
-  });
-}
 /** No DTD, entity declarations, external resolution, DOM, or recursive parser. */
 export function parseXml(bytes: Uint8Array): XmlNode {
   if (bytes.byteLength > limits.xmlBytes) fail();

@@ -12,7 +12,7 @@
 
 ネイティブAPIの成功結果は `{ ok: true, workbook, changed, results }`。`results` は各コマンドと同じ順の `SpreadsheetCommandReceipt[]`。`changed` は最終的なブックの変化で、書式だけの変更も含む。失敗は `{ ok: false, code, message, commandIndex?, conflicts? }`。`commandIndex` は0始まり。CLIはreceipt配列を返さないため、CLIで生成したIDは適用後のファイルをinspectして取得する。
 
-各receiptに `type`, `sheetId`、操作に応じて `drawingId`, `resourceId`, `commentId`, `namedRangeId`, `tableId`, `range`, `write`, `placement`, `layout` が入る。`layout` は `cells.writeGrid` の本文・見出し・結合の配置範囲を表す。
+各receiptに `type`, `sheetId`、操作に応じて `drawingId`, `resourceId`, `commentId`, `namedRangeId`, `tableId`, `range`, `write`, `placement`, `layout`, `lookup` が入る。`layout` は `cells.writeGrid` の本文・見出し・結合の配置範囲、`lookup` は `cells.setByLookup` の検索で解決した範囲・対象を表す。
 
 - 新規シート・描画・表・名前付き範囲などの生成IDは、その実行のreceiptから取得する。同じ配列内からreceiptへ参照する特殊記法はないため、IDが必要な後続操作は次の呼び出しに分ける。
 - `write` は `{ changedCount, skippedCount, skippedAddresses }`。`changedCount` は保存値・数式の変更件数で、書式だけの変更は数えない。別シートへの移動では移動元・移動先を数える。`skippedAddresses` は移動先シートの番地。
@@ -31,6 +31,7 @@
 | `type` | 引数（共通の `sheetId` を除く） |
 | --- | --- |
 | `cells.set` | `values: { A1: "値", ... }`, `onConflict?` |
+| `cells.setByLookup` | `range`, `lookup`, `updates` または `value`。行・列キーで対象を検索。[指定方法](#行列のキーを探して書き込む) |
 | `cells.clear` | `range`, `mode?: "values" \| "all"`（既定 `values`） |
 | `cells.insert` | `range`, `shift: "down" \| "right"` |
 | `cells.delete` | `range`, `shift?: "up" \| "left"` |
@@ -47,7 +48,70 @@
 
 `cells.delete` の `shift` を省略すると、`cells.clear` の `mode: "all"` と同じで、周囲を動かさずセル情報を消す。`all` は値・書式・罫線・コメント・入力規則を削除し、完全に含まれる結合・テーブル定義を外し、条件付き書式の対象部分を除く。行高・列幅・描画・名前付き範囲の定義は残る。部分的な結合・テーブルに対する削除は拒否する。値のみクリアは既存の入力規則で検証される。
 
-`onConflict` は `overwrite`（既定）/ `error` / `skip`。既存の異なる非空の保存文字列を変更する場合が競合で、同じ値や空セルは競合しない。`error` は全体を `WRITE_CONFLICT` にし、`skip` は競合セルを保持する。対象は `cells.set`, `cells.paste`, `cells.fill`, `cells.replace`, `cells.move`, `cells.writeGrid`, `tables.insert`。`skip` は入力規則・結合などの検証を無視する指定ではない。
+`onConflict` は `overwrite`（既定）/ `error` / `skip`。既存の異なる非空の保存文字列を変更する場合が競合で、同じ値や空セルは競合しない。`error` は全体を `WRITE_CONFLICT` にし、`skip` は競合セルを保持する。対象は `cells.set`, `cells.setByLookup`, `cells.paste`, `cells.fill`, `cells.replace`, `cells.move`, `cells.writeGrid`, `tables.insert`。`skip` は入力規則・結合などの検証を無視する指定ではない。
+
+## 行・列のキーを探して書き込む
+
+`cells.setByLookup` は実行時にキーから対象を探し、通常のセル値へ書き込む。検索条件は保存せず、後のキー変更で再検索もしない。`sheetId` と `range` が必須。`range` はA1文字列・両端を含む矩形・`{ namedRange: "名前" }`。名前は大小文字を無視して解決し、未定義や別シートの名前は拒否する。
+
+| 探し方 | `lookup` | 書き込む値 |
+| --- | --- | --- |
+| 指定列を縦検索して行を選ぶ | `{ axis?: "rows", column, value }` | `updates: [{ column, value }, ...]` |
+| 指定行を横検索して列を選ぶ | `{ axis: "columns", row, value }` | `updates: [{ row, value }, ...]` |
+| 行・列の両方を検索して交点を選ぶ | `{ axis: "both", row: { column, value }, column: { row, value } }` | コマンド直下の `value`。`updates` は指定しない |
+
+行・列番号は**指定範囲の左上が0**で、見出しも範囲に含まれれば数える。見出しやフィルターによる非表示行を自動除外しない。入力はすべて文字列で、設定値には数式文字列も使える。`updates` の重複位置、範囲外の位置、不明なフィールドは拒否する。
+
+| オプション | 既定と動作 |
+| --- | --- |
+| `lookIn` | `"values"` は書式適用後の表示文字列（数式は計算結果）、`"formulas"` は保存された入力文字列 |
+| `matchCase` | 既定 `false`。`true` で大小文字を区別 |
+| `onMultiple` | `"error"` が既定。`"first"` は上／左から最初の一致、`"all"` は全一致 |
+| `onNotFound` | `"error"` が既定。`"skip"` は書き込みをせず成功 |
+| `onConflict` | 通常の書き込みと同じ `"overwrite"`（既定）/ `"error"` / `"skip"` |
+
+完全一致のみで、部分一致・正規表現・空白除去・数値への型変換はしない。未格納セルも `""` と比較する。`both` は行・列の各軸へ複数一致の方針を適用し、`all` ではすべての行×列の交点へ同じ値を設定する。どちらかが一致しなければ書き込み先はない。検索セルと書き込み先は未結合または結合の左上を指定し、結合の左上以外を含む検索軸・更新先は拒否する。
+
+```json
+[
+  {
+    "type": "cells.set", "sheetId": "sales",
+    "values": {
+      "E10": "商品", "F10": "10月", "G10": "11月", "H10": "状態",
+      "E11": "商品A", "F11": "100", "G11": "200", "H11": "確認中",
+      "E12": "商品B", "F12": "300", "G12": "400", "H12": "確認中",
+      "E13": "商品C", "F13": "500", "G13": "600", "H13": "確認中"
+    }
+  },
+  { "type": "namedRanges.add", "sheetId": "sales", "name": "月別更新範囲", "range": "E10:H13" },
+  {
+    "type": "cells.setByLookup", "sheetId": "sales",
+    "range": { "namedRange": "月別更新範囲" },
+    "lookup": { "axis": "rows", "column": 0, "value": "商品A" },
+    "updates": [{ "column": 3, "value": "出荷済み" }]
+  },
+  {
+    "type": "cells.setByLookup", "sheetId": "sales",
+    "range": "E10:H13",
+    "lookup": { "axis": "columns", "row": 0, "value": "11月" },
+    "updates": [{ "row": 2, "value": "1500" }]
+  },
+  {
+    "type": "cells.setByLookup", "sheetId": "sales",
+    "range": { "namedRange": "月別更新範囲" },
+    "lookup": {
+      "axis": "both",
+      "row": { "column": 0, "value": "商品C" },
+      "column": { "row": 0, "value": "11月" }
+    },
+    "value": "1800"
+  }
+]
+```
+
+この配列はH11へ `出荷済み`、G12へ `1500`、G13へ `1800` を書き込む。各コマンド内では書き込み前に全検索結果を確定し、検索キー自体を更新しても再検索しない。バッチ内の後続コマンドは、先行コマンドの変更後の状態を使う。書き込み先は1コマンド10,000セルまでで、途中の失敗は全バッチを取り消す。既存の書式を保持し、入力規則・数式・テーブル等の制約は通常のセル書き込みと共通。
+
+公開APIのreceiptには `lookup: { range, matchedRows, matchedColumns, addresses }` が入る。`range` は解決済みの矩形、行・列は方針適用後に選んだ**シート絶対0始まり番号**。検索しない軸は空配列、`addresses` は解決したA1書き込み先で競合スキップ分も含む。変更件数と競合でスキップした先は `write` を使う。CLIはreceiptを出力しないため、書き込み後に必要範囲をinspectする。SPON／XLSXは結果のセル値・数式を保持し、検索条件・receiptは保存しない。[モデル・UIの使用例](../../../src/docs/lookup-writing.md)も参照する。
 
 ## 範囲のフィルター
 
@@ -155,6 +219,8 @@
 
 置換は既定で通常の文字列検索。`query.useRegex: true` はRE2形式の正規表現（4,096文字まで、後方参照・先読み・後読みは未対応）。`matchCase`・`wholeCell` を併用でき、不正なパターンは一括操作全体を失敗にする。置換後文字列は常にリテラルで、`$1` / `$&` は展開しない。`addresses` を省略すると指定シートの全一致セルが対象になる。`lookIn: "values"` は数式の表示結果を置き換え、元の数式を通常の値へ変えるため、数式を保持する意図なら `formulas` を指定する。
 
+置換結果は組み立て中にも1セル100,000文字の上限を確認し、超過すると操作・バッチ全体を反映しない。入力テキストと置換文字列がそれぞれ上限内でも、繰り返し置換後の長さが上限を超える指定は受け付けない。
+
 `cells.fill.target` はsourceを含み、縦または横の片方だけに延長する。結合を含むフィルは拒否する。`auto` は等差数列・日付・末尾番号などを判定、`copy` はコピー、`series` は連番を指定する。
 
 `SpreadsheetPastePayload` は `values: string[][]` が必須で、次を任意で持つ。
@@ -181,7 +247,7 @@
 | `cells.writeGrid` | `sheetId`, `target`, `data` と任意の上・左の階層見出し、色、格子罫線。通常セルと結合を一括配置 |
 | `tables.delete` | `sheetId`, `tableId`, `clear?: "none" \| "values" \| "all"`（既定 `none`） |
 
-`tables.insert` の引数は `sheetId`, `name`, `target: { row, column }`, `headers: string[]`, `data` と、任意の `headerStyle: { background?, color? }`, `rowNumbers: false | { header?, start? }`, `onConflict`。構造化テーブルの見出しは従来どおり1行で、階層は指定しない。
+`tables.insert` の引数は `sheetId`, `name`, `target: { row, column }`, `headers: string[]`, `data` と、任意の `headerStyle: { background?, color? }`, `rowNumbers: false | { header?, start? }`, `onConflict`, `insert?: "none" | "rows" | "columns" | "both"`。構造化テーブルの見出しは従来どおり1行で、階層は指定しない。
 
 `data` は `{ type: "rows", values: string[][] }` または `{ type: "csv" | "tsv", text }`。データは明細だけで、数値・数式も文字列。`rowNumbers` を指定すると左端に静的な整数列を追加し、既定の見出しは `No.`、開始値は1。後の行挿入で自動採番はしない。
 
@@ -192,7 +258,36 @@
 ]
 ```
 
-`tables.insert` はセルに加えてID・名前・列・範囲を持つテーブル定義を作る。`cells.writeGrid` は通常セル・書式・結合へ変換し、テーブル定義と見出しツリーは保存しない。SPONとXLSXでは変換後のセル・結合を保持する。旧 `cells.writeTable` は削除済みで、通常セルへの配置は `cells.writeGrid` に移行する。表の本文・見出しは既定で1pxのグレーの実線罫線を付け、その他の既存書式・入力規則・コメントを保持する。空ラベルのコーナーと張り出しの空き領域には既定罫線を付けない。見出しと連番を含め1操作10,000セルまで。表がシートをはみ出す場合は先に行列を追加する。
+`tables.insert` はセルに加えてID・名前・列・範囲を持つテーブル定義を作る。`cells.writeGrid` は通常セル・書式・結合へ変換し、テーブル定義と見出しツリーは保存しない。SPONとXLSXでは変換後のセル・結合を保持する。旧 `cells.writeTable` は削除済みで、通常セルへの配置は `cells.writeGrid` に移行する。通常の表の本文・見出しは既定で1pxのグレーの実線罫線を付け（`rowGrouping` 指定時を除く）、その他の既存書式・入力規則・コメントを保持する。空ラベルのコーナーと張り出しの空き領域には既定罫線を付けない。見出しと連番を含め1操作10,000セルまで。`insert` で挿入しない軸がシートをはみ出す場合は先にその軸を追加する。
+
+### 連続行のグループ化と行列挿入
+
+`cells.writeGrid.rowGrouping` は `byColumns: number[]` を必須とし、元の `data` の0始まり列番号で判定する。自動生成する連番列・左見出しは数えない。複数列はすべて完全一致する連続行をまとめ、A→B→Aは3グループ。空欄を前行の値で補完せず、並べ替えもしない。
+
+- `keyDisplay?: "first" | "all"`: 既定 `first` は後続行のキーセルへ空文字を書き込む。検索・集計用に毎行のキーを残す場合は `all`。
+- `separator?` / `headerSeparator?`: グループ間／上見出しと本文の境界。独立に実線1px `#d1d5db` が既定。`false` または `{ style?, width?, color? }`。
+- `verticalBorder?` / `outerBorder?`: 内側縦線／外枠。同じ罫線指定を受け付ける。省略時は共通の `border` を維持し、通常は線なし。`false` の明示で対応する辺を消す。
+- `border?: false | { style?, width?, color? }`: 全セル格子罫線。グループ化時の既定は `false`、通常はグレーの格子。明示した格子の上からグループ設定の対象辺を上書きする。`corner.border` を個別指定した辺は優先する。
+
+本文は結合せず、判定列以外は毎行そのまま書き込む。キーセルの空欄は保存値であり表示だけの非表示ではない。保存するのは通常のセルと罫線で、書き込み後の編集によるグループ再計算はしない。左見出しの結合が有効な区切り線を横切る指定や、`onConflict: "skip"` で判定列に競合する指定は全体を拒否する。張り出し配置の空き領域は変更しない。
+
+`cells.writeGrid` / `tables.insert` の `insert?: "none" | "rows" | "columns" | "both"` は、表全体の高さ・幅分のシート行列を `target` の手前に挿入する。省略は `none`。高さ・幅は見出し、左見出し、連番、張り出しの空白も含める。対象範囲だけのシフトや不足分だけの末尾追加ではない。挿入後も同じ `target` から配置し、新規数式は挿入後の座標で指定する。既存の参照は構造操作で追従する。挿入する軸の末尾を指定できるが、挿入しない軸は現在のサイズ以内に収める。通常の行列挿入の制約・上限を守り、失敗時は挿入も書き込みも残さない。GUIには追加で `insertRows` / `insertColumns` の許可が必要。
+
+```json
+[
+  {
+    "type": "cells.writeGrid",
+    "sheetId": "sales",
+    "target": { "row": 3, "column": 0 },
+    "insert": "rows",
+    "headers": ["担当者", "内容", "区分"],
+    "data": { "type": "rows", "values": [["Aさん", "設計確定", "決定"], ["Aさん", "実装開始", "TODO"], ["Bさん", "テスト準備", "TODO"]] },
+    "rowGrouping": { "byColumns": [0] }
+  }
+]
+```
+
+この例は4行を挿入し、A4:C7へ書き込む。もとの4行目以降は8行目以降へ移動する。`range` / `layout` / `placement` は配置後の座標を返し、操作全体が1回のUndoになる。
 
 ### 上・左の階層見出しとマトリクス
 
@@ -206,7 +301,7 @@
 | `headerLayout?`, `rowHeaderLayout?` | 各軸の配置。`"merged"`（既定）または `"protruding"` |
 | `headerStyle?`, `rowHeaderStyle?` | `{ background?, color? }`。左見出しの未指定属性は `headerStyle` を引き継ぐ |
 | `corner?` | `{ label?: string \| null, merge?: boolean, style?: { background?, color? }, border?: { style?, width?, color? } }`。両軸がある場合だけ指定可能。空ラベルは値なし・結合なし・罫線なしが既定。ラベルがあれば結合・`headerStyle`・共通 `border` を適用し、個別指定で上書き可能 |
-| `border?` | `{ style?, width?, color? }`。本文・見出しの格子線。既定は実線・1px・`#d1d5db` |
+| `border?` | `false` または `{ style?, width?, color? }`。通常は実線・1px・`#d1d5db` の格子線。`rowGrouping` 指定時の既定は `false` |
 | `rowNumbers?` | 既存の連番指定。`headers` が必要で、`rowHeaders` との併用は不可 |
 | `onConflict?` | `"overwrite"`（既定）/ `"error"` / `"skip"` |
 

@@ -126,12 +126,13 @@ AIが別のセルを読んで集計結果などの固定値を書き込む場合
 | `type` | 主な引数 |
 | --- | --- |
 | `cells.set` | `values: { A1: "値", B1: "=A1*2" }`、`onConflict?`。数値・数式も文字列 |
+| `cells.setByLookup` | `range`, `lookup` と `updates` または `value`。行・列のキーで対象を検索して書き込み。名前付き範囲と交点指定に対応。[キーによる書き込み](./lookup-writing.md) |
 | `cells.clear` | `range`, `mode?`。位置を動かさずクリア。[書き込みとクリア](./cell-writing.md) |
 | `cells.insert` | `range`, `shift: "down" / "right"`。指定範囲に空白を挿入。[セルの挿入・削除](./cell-shifts.md) |
 | `cells.delete` | `range`, `shift?: "up" / "left"`。指定方向へ詰めて削除。`shift` 省略時は従来どおり位置を動かさずすべてクリア。[セルの挿入・削除](./cell-shifts.md) |
 | `namedRanges.add` / `update` / `clear` / `delete` | 定義の追加・変更・対象セルのクリア・定義削除。[名前付き範囲](./named-ranges.md) |
-| `tables.insert` / `tables.delete` | 1行のヘッダーを持つ構造化テーブルの作成・削除。[表の書き込み](./tables.md) |
-| `cells.writeGrid` | 通常セルへ本文・格子罫線・色を配置。`headers` / `rowHeaders` の階層から上・左の見出しを自動結合し、通常列とマトリクス列も一括配置。[階層見出しとマトリクス](./tables.md#階層見出しとマトリクス) |
+| `tables.insert` / `tables.delete` | 1行のヘッダーを持つ構造化テーブルの作成・削除。作成時の `insert` で行・列を挿入可能。[表の書き込み](./tables.md) |
+| `cells.writeGrid` | 通常セルへ本文・格子罫線・色を配置。`headers` / `rowHeaders` の階層から上・左の見出しを自動結合し、通常列とマトリクス列も一括配置。`rowGrouping` で連続行の境界を装飾し、`insert` で行・列を挿入可能。[階層見出しとマトリクス](./tables.md#階層見出しとマトリクス) |
 | `filters.setRange` / `setValues` / `clear` / `remove` | フィルター範囲・値の条件を保存設定として変更。`setValues.column` は絶対列番号。[フィルター](./filters.md) |
 | `cells.format` | `addresses: ["A1:B1", "D1"]`, `format: { bold: true, ... }` |
 | `cells.formatRange` | `range: { top, left, bottom, right }`。末尾は `"end"` も可。`format` の指定属性を空セルへ全件展開せず適用。[範囲書式](./formatting.md#範囲に共通する書式) |

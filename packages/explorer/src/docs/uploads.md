@@ -116,6 +116,7 @@ type ExplorerUploadOptions = Readonly<{
   maxFileSizeBytes?: number;
   maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
   contentLimitsByExtension?: ExplorerUploadContentLimitsByExtension;
+  pdfInspectionLimits?: ExplorerPdfInspectionLimits;
   inspectFile?: ExplorerUploadInspectFile;
   maxFilesPerUpload?: number;
   maxTotalFiles?: number;
@@ -134,6 +135,7 @@ type ExplorerUploadOptions = Readonly<{
 | `maxFileSizeBytesByExtension` | 拡張子ごとの上限を指定します。一致する指定があれば共通の `maxFileSizeBytes` を上書きし、小さくも大きくもできます。未一致なら共通上限を使い、共通上限もなければサイズは無制限です。値の単位・有効範囲は共通上限と同じです。 |
 | `contentLimitsByExtension` | 動画・音声の `maxDurationSeconds`、PDFの `maxPages`、PPTXの `maxSlides`。動画の既定値は14,400秒で、拡張子に `false` を指定するとその内容制限を解除します。[型と例](./upload-content-limits.md) |
 | `inspectFile` | 内容検査のためのメタデータ取得を差し替えます。秒数・ページ数・スライド数を返し、上限比較は共通処理が担当します。 |
+| `pdfInspectionLimits` | 内蔵PDF検査の元ファイル容量・展開量・参照件数・深さ・処理時間などの上限。省略項目は既定値を継承し、値の変更時は再検査します。指定だけではページ数検査を有効にしません。[設定例と全項目](./upload-content-limits.md#pdf-inspection-limits) |
 | `maxFilesPerUpload` | 1回の選択・ドロップ・貼り付け・API追加で取り込む、新規と上書きの合計件数。フォルダや除外・競合スキップしたファイルは数えません。 |
 | `maxTotalFiles` | 下書き全階層の `kind: "file"` の上限。保存済み・未保存を合算します。上書き・移動は増えず、削除すると空きができます。空ファイル作成や内部コピー・複製にも適用します。 |
 | `invalidFileBehavior: "reject-batch"` | 既定値。1件でも拡張子・サイズ・件数に違反すれば、その回の取り込みをすべて中止します。 |

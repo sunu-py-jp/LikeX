@@ -89,6 +89,6 @@ OFFにした操作は画面から消え、コンポーネントrefでも拒否�
 
 ## ソースコピー
 
-`packages/chat/src` を利用側の `components/chat` へ、`packages/core/src` を `components/core` へコピーします。Chatの `core.ts`、`json.ts`、`browser.ts` の参照先をコピーしたcoreの対応する入口へ変更し、React・React DOM・lucide-reactを用意してください。`browser.ts`はUI専用で、モデル入口はDOMに依存しません。`components/chat/styles.css` もimportします。Tailwindは不要です。
+`packages/chat/src` を利用側の `components/chat` へ、`packages/core/src` を `components/core` へコピーします。Chatの `core.ts` の1行だけを `export * from "../core";` に変更し、React・React DOM・lucide-reactとCoreの実行時依存 `re2js@2.8.6` を用意してください。`json.ts`・`browser.ts` は内部でこの入口を参照するため、そのまま使います。`browser.ts` はUI専用で、モデル入口はDOMに依存しません。`components/chat/styles.css` もimportします。Tailwindは不要です。
 
 AI用の `packages/aichat` は、新しいLikeChatの依存ではありません。

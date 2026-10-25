@@ -1,14 +1,16 @@
 import type { ExplorerUploadContentMetadata, ExplorerUploadInspectFileRequest } from "../model/upload-content";
+import { resolvePdfInspectionLimits } from "../model/pdf-inspection-limits";
 
 /** Built-in readers inspect metadata only; they never upload, render, or play a file. */
 export async function inspectExplorerUploadFile(request: ExplorerUploadInspectFileRequest): Promise<ExplorerUploadContentMetadata> {
   request.signal.throwIfAborted();
+  const pdfInspectionLimits = request.kind === "pdf" ? resolvePdfInspectionLimits(request.pdfInspectionLimits) : undefined;
   const controller = new AbortController();
   const abort = () => controller.abort(request.signal.reason);
   request.signal.addEventListener("abort", abort, { once: true });
-  const timeout = setTimeout(() => controller.abort(new Error("ファイル情報の確認がタイムアウトしました")), 30_000);
+  const timeout = setTimeout(() => controller.abort(new Error("ファイル情報の確認がタイムアウトしました")), pdfInspectionLimits?.timeoutMs ?? 30_000);
   try {
-    const scoped = { ...request, signal: controller.signal };
+    const scoped = { ...request, ...(pdfInspectionLimits ? { pdfInspectionLimits } : {}), signal: controller.signal };
     const operation = async (): Promise<ExplorerUploadContentMetadata> => {
       switch (scoped.kind) {
         case "video": case "audio": {
@@ -29,8 +31,8 @@ export async function inspectExplorerUploadFile(request: ExplorerUploadInspectFi
         default: throw new Error("ファイル情報の確認に対応していない形式です");
       }
     };
-    // File.arrayBuffer and third-party parsers cannot always stop in-flight work.
-    // Reject immediately on cancellation and never return their late result.
+    // File.arrayBuffer cannot always stop in-flight I/O. Reject immediately on
+    // cancellation; built-in parsers also check the signal inside their work.
     return await new Promise<ExplorerUploadContentMetadata>((resolve, reject) => {
       const cancel = () => reject(controller.signal.reason);
       controller.signal.addEventListener("abort", cancel, { once: true });

@@ -1,5 +1,6 @@
 import { fileExtension } from "./text";
 import type { ExplorerEntry } from "./draft";
+import { resolvePdfInspectionLimits, type ExplorerPdfInspectionLimits, type ResolvedExplorerPdfInspectionLimits } from "./pdf-inspection-limits";
 import {
   compareUploadContentMetadata, contentInspectionFailedRejection,
   createExplorerUploadInspectionContext, ensureUploadContentInspection,
@@ -18,6 +19,8 @@ export type ExplorerUploadOptions = Readonly<{
   maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
   /** Videos default to 14,400 seconds. False disables one suffix's content limit. */
   contentLimitsByExtension?: ExplorerUploadContentLimitsByExtension;
+  /** Resource budgets for built-in PDF metadata inspection; omitted fields use the documented defaults. */
+  pdfInspectionLimits?: ExplorerPdfInspectionLimits;
   /** Override metadata inspection; undefined delegates to the built-in reader. Media callbacks may run concurrently (up to four); PDF/PPTX share one serial lane. */
   inspectFile?: ExplorerUploadInspectFile;
   /** Files actually added or overwritten by one import, excluding rejected or skipped files. */
@@ -32,6 +35,7 @@ export type ResolvedExplorerUploadOptions = Readonly<{
   maxFileSizeBytes: number | undefined;
   maxFileSizeBytesByExtension?: Readonly<Record<`.${string}`, number>>;
   contentLimitsByExtension?: ExplorerUploadContentLimitsByExtension;
+  pdfInspectionLimits?: ResolvedExplorerPdfInspectionLimits;
   inspectFile?: ExplorerUploadInspectFile;
   maxFilesPerUpload?: number;
   maxTotalFiles?: number;
@@ -227,6 +231,8 @@ export function resolveUploadOptions(options?: ExplorerUploadOptions): ResolvedE
   const maxFileSizeBytesByExtension = extensionLimits === undefined ? undefined : normalizeExtensionSizeLimits(extensionLimits);
   const contentLimitsByExtension = options?.contentLimitsByExtension === undefined ? undefined
     : normalizeUploadContentLimits(options.contentLimitsByExtension);
+  const pdfInspectionLimits = options?.pdfInspectionLimits === undefined ? undefined
+    : resolvePdfInspectionLimits(options.pdfInspectionLimits);
   const inspectFile = options?.inspectFile;
   if (inspectFile !== undefined && typeof inspectFile !== "function") throw new Error("inspectFile は関数で指定してください");
   const maxFilesPerUpload = options?.maxFilesPerUpload;
@@ -241,6 +247,7 @@ export function resolveUploadOptions(options?: ExplorerUploadOptions): ResolvedE
     maxFileSizeBytes,
     ...(maxFileSizeBytesByExtension ? { maxFileSizeBytesByExtension } : {}),
     ...(contentLimitsByExtension ? { contentLimitsByExtension } : {}),
+    ...(pdfInspectionLimits ? { pdfInspectionLimits } : {}),
     ...(inspectFile ? { inspectFile } : {}),
     ...(maxFilesPerUpload === undefined ? {} : { maxFilesPerUpload }),
     ...(maxTotalFiles === undefined ? {} : { maxTotalFiles }),
@@ -326,7 +333,7 @@ export function validateUploadFiles<T extends Readonly<{ file: File; name: strin
         message: "空ファイルは内容を確認できません。実際のファイルをアップロードしてください" });
       else {
         const inspected = session && readUploadContentInspection({ context: inspectionContext(session), file, rule,
-          inspectFile: options.inspectFile, builtinInspector });
+          inspectFile: options.inspectFile, builtinInspector, pdfInspectionLimits: options.pdfInspectionLimits });
         if (!inspected) throw new ExplorerUploadInspectionRequiredError();
         const reason = inspected.status === "failed" ? inspected.reason : compareUploadContentMetadata(rule, inspected.metadata);
         if (reason) reasons.push(reason);
@@ -381,7 +388,7 @@ export async function* inspectUploadCandidates(files: readonly Readonly<{ file: 
         // Starting here (after taking a lane slot) also starts the built-in
         // reader's timeout here, rather than while this file is queued.
         operation = ensureUploadContentInspection({ context, ...job, inspectFile: options.inspectFile,
-          builtinInspector, signal: controller.signal });
+          builtinInspector, signal: controller.signal, pdfInspectionLimits: options.pdfInspectionLimits });
         entries.set(key, operation);
       }
       return operation;

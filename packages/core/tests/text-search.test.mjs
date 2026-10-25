@@ -57,6 +57,39 @@ test('replacement text is always literal, including regex captures and empty mat
   assert.equal(createTextSearchMatcher({ text: '', useRegex: true }).replace('abc', '-'), 'abc');
 });
 
+test('replacement expansion is bounded before constructing a large result', () => {
+  for (const useRegex of [false, true]) {
+    const matcher = createTextSearchMatcher({ text: 'a', useRegex });
+    // Without a construction budget this pair requests a 10-billion-unit string.
+    assert.throws(() => matcher.replace('a'.repeat(100_000), 'b'.repeat(100_000)), /置換後.*上限/);
+    assert.equal(matcher.replace('aa', 'XYZ', 6), 'XYZXYZ');
+    assert.throws(() => matcher.replace('aa', 'XYZ', 5), RangeError);
+    assert.throws(() => matcher.replace('aa-tail', 'b', 6), RangeError);
+    assert.equal(matcher.replace('aa', '', 0), '');
+    assert.throws(() => matcher.replace('unmatched', '', 0), RangeError);
+    for (const limit of [-1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, null, '5'])
+      assert.throws(() => matcher.replace('a', 'b', limit), RangeError);
+  }
+});
+
+test('replacement budgets include zero-width matches and UTF-16 units without changing matching semantics', () => {
+  const matcher = createTextSearchMatcher({ text: '(?:)', useRegex: true });
+  assert.equal(matcher.replace('😀', '-', 4), '-😀-');
+  assert.throws(() => matcher.replace('😀', '-', 3), RangeError);
+  for (const useRegex of [false, true]) {
+    const exact = createTextSearchMatcher({ text: 'A', useRegex, wholeText: true });
+    assert.equal(exact.replace('a', '😀', 2), '😀');
+    assert.throws(() => exact.replace('a', '😀', 1), RangeError);
+    assert.throws(() => exact.replace('other', 'x', 4), RangeError);
+    assert.throws(() => createTextSearchMatcher({ text: '', useRegex }).replace('abc', 'x', 2), RangeError);
+  }
+  const many = createTextSearchMatcher({ text: 'a' });
+  const input = 'a'.repeat(168), replacement = 'b'.repeat(100_000);
+  const longerThanDefault = input.length * replacement.length;
+  assert.throws(() => many.replace(input, replacement), RangeError);
+  assert.equal(many.replace(input, replacement, longerThanDefault).length, longerThanDefault);
+});
+
 test('nested quantifiers run without catastrophic backtracking', { timeout: 2000 }, () => {
   const matcher = createTextSearchMatcher({ text: '(a+)+$', useRegex: true });
   assert.equal(matcher.test('a'.repeat(50_000) + '!'), false);

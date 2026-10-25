@@ -1,1 +1,2 @@
-export * from "@likex/core/json";
+export { collectConditionalConflicts, serializeStableJson } from "./core";
+export type { ConditionalEditConflict, StableJsonOptions } from "./core";

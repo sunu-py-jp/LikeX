@@ -1,7 +1,9 @@
 import { parseTsv } from "../../model/tsv";
+import { SPREADSHEET_LIMITS } from "../../model/types";
 
 export const CLIPBOARD_MIME_TYPE = "application/x-likex-spreadsheet";
-export const clipboardTokenFromHtml = (html: string) => /data-likex-spreadsheet="([a-zA-Z0-9-]+)"/.exec(html)?.[1] ?? "";
+const TOKEN_HEADER_BYTES = 64 * 1024;
+export const clipboardTokenFromHtml = (html: string) => /data-likex-spreadsheet="([a-zA-Z0-9-]{1,200})"/.exec(html.slice(0, TOKEN_HEADER_BYTES))?.[1] ?? "";
 /** Browser clipboards can normalize CRLF to LF without changing the copied content. */
 export const clipboardTextMatches = (copied: string, pasted: string) => copied === pasted || copied.replaceAll("\r\n", "\n") === pasted.replaceAll("\r\n", "\n");
 type BrowserClipboardValue = { text: string; token: string; kind?: "cells" | "drawing" };
@@ -47,9 +49,18 @@ export async function readBrowserClipboard() {
   if (navigator.clipboard.read) {
     const items = await navigator.clipboard.read();
     for (const item of items) {
-      if (item.types.includes("text/plain")) { text = await (await item.getType("text/plain")).text(); hasText = true; }
-      if (item.types.includes("text/html")) token = clipboardTokenFromHtml(await (await item.getType("text/html")).text());
+      if (item.types.includes("text/plain")) {
+        const blob = await item.getType("text/plain");
+        // UTF-8 takes at most three bytes per UTF-16 code unit. Check before
+        // allocating the decoded string; the exact character budget follows.
+        if (blob.size > SPREADSHEET_LIMITS.clipboardCharacters * 3) throw new Error("貼り付けるテキストは10 Mi文字以内にしてください");
+        text = await blob.text(); hasText = true;
+        if (text.length > SPREADSHEET_LIMITS.clipboardCharacters) throw new Error("貼り付けるテキストは10 Mi文字以内にしてください");
+      }
+      // HTML is only a transport token. Never decode an unbounded HTML body.
+      if (item.types.includes("text/html")) token = clipboardTokenFromHtml(await (await item.getType("text/html")).slice(0, TOKEN_HEADER_BYTES).text());
     }
   } else { text = await navigator.clipboard.readText(); hasText = true; }
+  if (text.length > SPREADSHEET_LIMITS.clipboardCharacters) throw new Error("貼り付けるテキストは10 Mi文字以内にしてください");
   return { text, token, hasText };
 }

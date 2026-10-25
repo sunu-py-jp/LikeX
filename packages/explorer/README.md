@@ -41,7 +41,7 @@ CSSはアプリの入口で1回読み込みます。Next.js App Routerでは `ap
 
 ## 導入時の要点
 
-正規表現検索を追加したため、コピー導入では `re2js@2.8.6` もインストールし、`explorer/model/core-text-search.ts` を `export * from "../../core/text-search";` に変更します。パッケージ導入では自動解決します。
+正規表現検索のため、コピー導入では `re2js@2.8.6` もインストールします。テキスト検索も `explorer/core.ts` を経由するため、`model/core-text-search.ts` の個別変更は不要です。パッケージ導入では依存を自動解決します。
 
 - `onSave` 未指定なら読み取り専用です。`initialEntries` はマウント時だけ読み、最新一覧への更新には `onRefresh` を使います。
 - コピー導入はリポジトリの `packages/core/src/` と `packages/explorer/src/` をそれぞれ `components/core/` と `components/explorer/` へコピーし、`explorer/core.ts` の1行を `export * from "../core";` へ変更します。そのうえで実行時依存とCSSのimportを用意します。詳細な手順は [利用ガイド](./src/docs/README.md) にあります。

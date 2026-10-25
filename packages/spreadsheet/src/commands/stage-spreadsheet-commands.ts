@@ -7,6 +7,7 @@ import { clearCommandCells } from "./clear-cells";
 import { resolveCellRange } from "../model/workbook/clear";
 import { insertCellRange, deleteCellRange } from "../model/workbook/shift-cells";
 import { cellWriteReport } from "./cell-write-report";
+import { resolveSpreadsheetLookupWrite } from "../model/editing/lookup";
 import { insertCommandAxis } from "./insert-axis";
 import { filterCellValueWrites, WriteConflictError } from "../model/workbook/write-conflicts";
 import type { SpreadsheetCommand, SpreadsheetCommandFailure, SpreadsheetCommandReceipt, SpreadsheetCommandSuccess } from "./types";
@@ -82,6 +83,11 @@ function applyCommand(workbook: SpreadsheetWorkbook, command: SpreadsheetCommand
     case "cells.move":
     case "sheets.duplicate":
       return stageEditingCommand(workbook, command, features, nextId) ?? rejectCommand("INVALID_COMMAND", "編集コマンドを実行できませんでした");
+    case "cells.setByLookup": {
+      const { values, lookup } = resolveSpreadsheetLookupWrite(workbook, command);
+      const applied = applyCommand(workbook, { type: "cells.set", sheetId: sheet.id, values, onConflict: command.onConflict }, features, nextId);
+      return { workbook: applied.workbook, receipt: { ...applied.receipt, type: command.type, lookup } };
+    }
     case "cells.set": {
       const values = commandRecord(command.values, "セルの値");
       for (const [address, value] of Object.entries(values)) {

@@ -18,7 +18,7 @@ React 19.2以降、React DOM、lucide-reactとcoreを使用します。LikeXは�
 
 ## ソースコピー
 
-`packages/form/src` と `packages/core/src` を `components/likex/form` と `components/likex/core` にコピーします。form内の `core.ts` を `export * from "../core";` に、`json.ts` を `export * from "../core/json";`、`browser.ts` を `export * from "../core/browser";` に変更します。UIはformの入口、画面なしの操作は `form/model-entry`、CSSは `form/styles.css` から読み込みます。LICENSEとTHIRD_PARTY_NOTICES.mdも保持します。
+`packages/form/src` と `packages/core/src` を `components/likex/form` と `components/likex/core` にコピーします。form内の `core.ts` の1行だけを `export * from "../core";` に変更します。`json.ts`・`browser.ts` は内部でこの入口を参照するため、そのまま使います。Coreの実行時依存 `re2js@2.8.6` も利用先に導入します。UIはformの入口、画面なしの操作は `form/model-entry`、CSSは `form/styles.css` から読み込みます。LICENSEとTHIRD_PARTY_NOTICES.mdも保持します。
 
 ## Props
 

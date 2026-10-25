@@ -45,4 +45,4 @@ const initial = createWhiteboard({ title: "サンプル" });
 
 ## ソースコピー
 
-`packages/whiteboard/src`を`components/whiteboard`、`packages/core/src`を`components/core`にコピーします。`core.ts`のimportを`../core`へ、`json.ts`を`../core/json`へ変更してください。React 19と`lucide-react`が必要です。利用側にTailwindの導入は不要です。
+`packages/whiteboard/src` を `components/whiteboard`、`packages/core/src` を `components/core` にコピーします。`core.ts` の1行だけを `export * from "../core";` に変更してください。`json.ts`・`browser.ts` は内部でこの入口を参照するため、そのまま使います。React 19と `lucide-react`、Coreの実行時依存 `re2js@2.8.6` が必要です。利用側にTailwindの導入は不要です。

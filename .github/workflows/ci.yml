@@ -28,6 +28,9 @@ jobs:
       - run: npm run check:release -- --online
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high --json > artifacts/dependency-audit-production.json
+      - name: Audit development and build dependencies
+        if: success() || failure()
+        run: mkdir -p artifacts && npm audit --audit-level=high --json > artifacts/dependency-audit.json
       - name: Keep the package and verification reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -47,6 +50,7 @@ jobs:
             artifacts/copy-consumer-next.log
             artifacts/*-install-*.log
             artifacts/dependency-audit-production.json
+            artifacts/dependency-audit.json
             artifacts/*/*.tgz
             artifacts/*/library-build.json
             artifacts/*/library-pack.json

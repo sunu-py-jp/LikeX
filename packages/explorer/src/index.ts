@@ -80,6 +80,9 @@ export type {
 } from "./model/events";
 export { ExplorerUploadValidationError, ExplorerUploadConflictError, ExplorerUploadInspectionRequiredError, createExplorerUploadSession } from "./model/upload";
 export { EXPLORER_DEFAULT_MAX_VIDEO_DURATION_SECONDS } from "./model/upload-content";
+export { EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS } from "./model/pdf-inspection-limits";
+export type { ExplorerPdfInspectionLimits } from "./model/pdf-inspection-limits";
+export { inspectExplorerUploadFile } from "./inspection/index";
 export type {
   ExplorerUploadContentLimitsByExtension, ExplorerUploadContentMetadata, ExplorerUploadContentRejectionReason,
   ExplorerUploadContentExtension, ExplorerUploadContentKind, ExplorerUploadVideoExtension, ExplorerUploadAudioExtension,

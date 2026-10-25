@@ -39,7 +39,7 @@ import "@likex/explorer/styles.css";
 
 [パッケージの導入手順](packages/explorer/README.md) · [コピー導入・API・運用ガイド](packages/explorer/src/docs/README.md)
 
-React / React DOMと表示枠の高さは利用側で用意します。生成済みCSSを同梱しているため、利用先へのTailwind CSSの導入は不要です。コピー導入ではUIの `src/` と `packages/core/src/` を隣接フォルダへ置き、UI側の `core.ts`・`json.ts`・`ooxml.ts`（存在するもの）を相対importに変更します。詳細は各導入ガイドを参照してください。
+React / React DOMと表示枠の高さは利用側で用意します。生成済みCSSを同梱しているため、利用先へのTailwind CSSの導入は不要です。コピー導入ではUIの `src/` と `packages/core/src/` を隣接フォルダへ置き、UI側の `core.ts` の1行だけを `export * from "../core";` に変更します。各UIの `browser.ts`・`json.ts`・`ooxml.ts`・`model/core-*.ts`（存在するもの）は内部でこの入口を参照するため、個別の変更は不要です。詳細は各導入ガイドを参照してください。
 
 Explorerはファイル操作をクライアントの下書きに保持し、保存ボタンから `onSave` へ最終一覧と差分を渡します。`onSave` 未指定なら読み取り専用です。保存・認証・DB・Blob / S3への接続は親アプリが担当します。
 

@@ -3,12 +3,15 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { narrowDeclarationBridge } from '../lib/declaration-bridges.mjs';
-import { libraryModule } from '../lib/modules.mjs';
+import { libraryModule, moduleNames } from '../lib/modules.mjs';
 
-for (const moduleName of ['spreadsheet', 'slide', 'document']) test(`${moduleName} declaration bridges use pure Core subpaths, preserving their complete export lists`, async () => {
+for (const moduleName of moduleNames.filter(name => libraryModule(name).ui)) test(`${moduleName} declaration bridges use pure Core subpaths, preserving their complete export lists`, async () => {
   const { declarationBridgeTargets, sourceRoot } = libraryModule(moduleName);
-  assert.deepEqual(Object.keys(declarationBridgeTargets), ['json.d.ts', 'ooxml.d.ts', 'model/core-connectors.d.ts',
-    'model/core-office-shapes.d.ts', 'model/core-image-assets.d.ts', 'model/core-text-search.d.ts']);
+  assert.deepEqual(Object.keys(declarationBridgeTargets), moduleName === 'explorer' ? ['model/core-text-search.d.ts']
+    : ['spreadsheet', 'slide', 'document'].includes(moduleName)
+      ? ['json.d.ts', 'ooxml.d.ts', 'model/core-connectors.d.ts',
+        'model/core-office-shapes.d.ts', 'model/core-image-assets.d.ts', 'model/core-text-search.d.ts']
+      : moduleName === 'calendar' ? ['browser.d.ts'] : ['browser.d.ts', 'json.d.ts']);
   for (const [file, target] of Object.entries(declarationBridgeTargets)) {
     // These maintained bridges contain only the named re-exports emitted into their declarations.
     const contents = await readFile(path.join(sourceRoot, file.replace(/\.d\.ts$/, '.ts')), 'utf8');

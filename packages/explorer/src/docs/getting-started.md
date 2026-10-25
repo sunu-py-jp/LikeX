@@ -11,12 +11,12 @@
 React / React DOM 19を前提としています。ソースをコピーする場合は、次の実行時依存を追加します。パッケージ導入では自動的に導入されます。
 
 ```bash
-npm install radix-ui@1.6.7 lucide-react@1.31.0 tailwind-merge@3.6.0 pdf-lib@1.17.1 re2js@2.8.6
+npm install radix-ui@1.6.7 lucide-react@1.31.0 tailwind-merge@3.6.0 pako@3.0.2 re2js@2.8.6
 ```
 
 `packages/explorer/src/` の中身（この `docs/` の親フォルダ）を `components/explorer/`、`packages/core/src/` を `components/core/` へコピーします。`components/explorer/core.ts` の1行を `export * from "../core";` に変更し、`styles.css` をアプリの入口で1回読み込みます。Next.js App Routerでは `app/layout.tsx` に書けます。CSSをimportする親と、コールバックを渡すClient Componentは別ファイルでも構いません。
 
-`explorer/browser.ts`・`explorer/json.ts` はそれぞれ `../core/browser`・`../core/json` から再exportし、`explorer/model/core-text-search.ts` は `export * from "../../core/text-search";` に変更します。`re2js` は正規表現検索の共通処理が使う実行時依存です。
+Coreの参照先を変更するのは `explorer/core.ts` の1か所だけです。テキスト検索の `explorer/model/core-text-search.ts` もこの入口を経由するため、個別の書き換えは不要です。別のフォルダ配置にする場合は `core.ts` の相対パスだけ配置先に合わせてください。既存のコピーを更新するときは、ExplorerとCoreを同じバージョンから一緒にコピーし、以前に書き換えた `model/core-text-search.ts` も原本で置き換えてください。`re2js` は正規表現検索の共通処理が使う実行時依存です。
 
 ```tsx
 // ソースコピーの場合

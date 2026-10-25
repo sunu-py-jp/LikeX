@@ -76,9 +76,9 @@ components/
     ...
 ```
 
-Coreの実行時依存として `npm install re2js@2.8.6` を実行します。Spreadsheet・LikeSlide・LikeDocumentで変更するCoreの参照は `core.ts` の1か所だけです。`ooxml.ts`・`json.ts`・`model/core-*.ts` と、LikeSlide・LikeDocumentの `browser.ts` は内部でこの入口を参照するため、そのまま使います。既存のコピーを更新するときは利用するUIとCoreを同じバージョンから一緒に更新し、以前に参照先を書き換えたこれらのファイルもコピーし直してください。
+Coreの実行時依存として `npm install re2js@2.8.6` を実行します。すべてのUIで変更するCoreの参照は `core.ts` の1か所だけです。各UIの `browser.ts`・`json.ts`・`ooxml.ts`・`model/core-*.ts`（存在するもの）は内部でこの入口を参照するため、そのまま使います。別のフォルダ配置では `core.ts` の相対パスを配置先に合わせます。既存のコピーを更新するときは利用するUIとCoreを同じバージョンから一緒に更新し、以前に参照先を書き換えたこれらのファイルもコピーし直してください。
 
-Coreは複数のコンポーネントで共有できます。LikeDocumentのProseMirror依存、UIのReact依存とスタイルの読み込み、Explorerなどの追加の入口は各コンポーネントの導入手順に従ってください。
+Coreは複数のコンポーネントで共有できます。LikeDocumentのProseMirror依存、UIのReact依存とスタイルの読み込みは各コンポーネントの導入手順に従ってください。
 
 ブラウザーの共通メニューは `openContextMenu` と `ContextMenuAction` / `ContextMenuSurfaceOptions` 型を `@likex/core` または `@likex/core/browser` から読み込んで使います。両入口は同じ実装を共有し、import時はDOMへアクセスしません。メニューの表示にはDOMが必要です。
 

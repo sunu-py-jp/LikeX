@@ -53,6 +53,7 @@ Next.js App Routerでは `app/layout.tsx` にCSSのimportを置きます。コ�
 - [外部からセル・行列・画像・図形を操作する](./external-operations.md)
 - [画面なしでJSONを編集する](./headless.md)
 - [セルの書き込み・クリアと上書き方針](./cell-writing.md)
+- [行・列のキーを探して書き込む](./lookup-writing.md)
 - [名前付き範囲の追加・取得・削除](./named-ranges.md)
 - [テーブルとセル範囲へのデータ配置](./tables.md)
 - [範囲のフィルター・閲覧用の絞り込み](./filters.md)

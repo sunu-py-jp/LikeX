@@ -5,15 +5,16 @@ import { artifactRoot, projectRoot } from './run.mjs';
 // Distribution differences live here; build/pack/consumer checks are shared.
 const coreSourceCopyAdapters = {
   'core.ts': '../core',
-  'browser.ts': '../core/browser',
-  'ooxml.ts': '../core/ooxml',
-  'json.ts': '../core/json',
-  'model/core-connectors.ts': '../../core/connectors',
-  'model/core-office-shapes.ts': '../../core/office-shapes',
-  'model/core-text-search.ts': '../../core/text-search',
 };
 // Package model declarations retain narrow, DOM-free dependencies even though
 // maintained source uses the single core.ts adapter for copy installation.
+const browserDeclarationBridgeTargets = {
+  'browser.d.ts': { from: './core', to: '@likex/core/browser', expectedExports: 2 },
+};
+const dataDeclarationBridgeTargets = {
+  ...browserDeclarationBridgeTargets,
+  'json.d.ts': { from: './core', to: '@likex/core/json', expectedExports: 2 },
+};
 const officeDeclarationBridgeTargets = {
   'json.d.ts': { from: './core', to: '@likex/core/json', expectedExports: 2 },
   'ooxml.d.ts': { from: './core', to: '@likex/core/ooxml', expectedExports: 2 },
@@ -27,9 +28,13 @@ const modules = {
   explorer: {
     ui: true,
     headlessEntries: { model: 'model-entry.ts' },
-    headlessDependencies: ['@likex/core', '@likex/core/json', '@likex/core/text-search', 'pdf-lib'],
-    modelRuntimeDependencies: ['pdf-lib', 're2js'],
+    headlessDependencies: ['@likex/core', '@likex/core/json', '@likex/core/text-search', 'pako'],
+    modelRuntimeDependencies: ['pako', 're2js'],
     modelTypeLibraries: ['ES2022', 'DOM'],
+    sourceCopyAdapters: { 'core.ts': '../core' },
+    declarationBridgeTargets: {
+      'model/core-text-search.d.ts': { from: '../core', to: '@likex/core/text-search', expectedExports: 2 },
+    },
     moduleDependencies: ['core'],
     generatedStyles: true, bundledDependencies: ['tailwindcss'],
     marker: 'data-likex-explorer', classPrefix: '.lxe\\:', propertyPrefix: '--lxe-', keyframePrefix: 'lxe',
@@ -87,6 +92,7 @@ const modules = {
     background: '--lxd-background', foreground: '--lxd-foreground', serverText: 'LikeDocument consumer',
   },
   board: {
+    declarationBridgeTargets: dataDeclarationBridgeTargets,
     ui: true, skillName: 'likex-board', headlessEntries: { model: 'model-entry.ts' },
     headlessDependencies: ['@likex/core', '@likex/core/json'], modelTypeLibraries: ['ES2022', 'DOM'],
     moduleDependencies: ['core'], generatedStyles: false, bundledDependencies: [],
@@ -95,6 +101,7 @@ const modules = {
     background: '--lxb-background', foreground: '--lxb-foreground', serverText: 'Board consumer content',
   },
   dataview: {
+    declarationBridgeTargets: dataDeclarationBridgeTargets,
     ui: true, skillName: 'likex-dataview', headlessEntries: { model: 'model-entry.ts' },
     headlessDependencies: ['@likex/core', '@likex/core/json'], modelTypeLibraries: ['ES2022', 'DOM'],
     moduleDependencies: ['core'], generatedStyles: false, bundledDependencies: [],
@@ -103,6 +110,7 @@ const modules = {
     background: '--lxv-background', foreground: '--lxv-foreground', serverText: 'DataView consumer content',
   },
   diagram: {
+    declarationBridgeTargets: dataDeclarationBridgeTargets,
     ui: true, skillName: 'likex-diagram', headlessEntries: { model: 'model-entry.ts' },
     headlessDependencies: ['@likex/core', '@likex/core/json'], modelTypeLibraries: ['ES2022', 'DOM'],
     moduleDependencies: ['core'], generatedStyles: false, bundledDependencies: [],
@@ -111,6 +119,7 @@ const modules = {
     background: '--lxg-background', foreground: '--lxg-foreground', serverText: 'LikeDiagram consumer',
   },
   whiteboard: {
+    declarationBridgeTargets: dataDeclarationBridgeTargets,
     ui: true, skillName: 'likex-whiteboard', headlessEntries: { model: 'model-entry.ts' },
     headlessDependencies: ['@likex/core', '@likex/core/json'], modelTypeLibraries: ['ES2022', 'DOM'],
     moduleDependencies: ['core'], generatedStyles: false, bundledDependencies: [],
@@ -119,6 +128,7 @@ const modules = {
     background: '--lxw-background', foreground: '--lxw-foreground', serverText: 'LikeWhiteboard consumer',
   },
   calendar: {
+    declarationBridgeTargets: browserDeclarationBridgeTargets,
     ui: true, skillName: 'likex-calendar', headlessEntries: { model: 'model-entry.ts' },
     headlessDependencies: ['@likex/core', '@likex/core/json'], modelTypeLibraries: ['ES2022', 'DOM'],
     moduleDependencies: ['core'], generatedStyles: false, bundledDependencies: [],
@@ -127,6 +137,7 @@ const modules = {
     background: '--lxc-bg', foreground: '--lxc-text', serverText: 'LikeCalendar consumer',
   },
   aichat: {
+    declarationBridgeTargets: dataDeclarationBridgeTargets,
     ui: true, skillName: 'likex-aichat', headlessEntries: { model: 'model-entry.ts' },
     headlessDependencies: ['@likex/core', '@likex/core/json'], modelTypeLibraries: ['ES2022', 'DOM'],
     moduleDependencies: ['core'], generatedStyles: false, bundledDependencies: [],
@@ -135,6 +146,7 @@ const modules = {
     background: '--lxai-bg', foreground: '--lxai-fg', serverText: 'LikeAIChat consumer',
   },
   chat: {
+    declarationBridgeTargets: dataDeclarationBridgeTargets,
     ui: true, skillName: 'likex-chat', headlessEntries: { model: 'model-entry.ts' },
     headlessDependencies: ['@likex/core', '@likex/core/json'], modelTypeLibraries: ['ES2022', 'DOM'],
     moduleDependencies: ['core'], generatedStyles: false, bundledDependencies: [],
@@ -143,6 +155,7 @@ const modules = {
     background: '--lxh-bg', foreground: '--lxh-fg', serverText: 'LikeChat consumer',
   },
   form: {
+    declarationBridgeTargets: dataDeclarationBridgeTargets,
     ui: true, skillName: 'likex-form', headlessEntries: { model: 'model-entry.ts' },
     headlessDependencies: ['@likex/core', '@likex/core/json'], modelTypeLibraries: ['ES2022', 'DOM'],
     moduleDependencies: ['core'], generatedStyles: false, bundledDependencies: [],

@@ -1,0 +1,22 @@
+{
+  "title": "キーでセルを書き込む",
+  "summary": "行・列のキーから対象を探して書き込み、名前付き範囲とマトリクスの交点も指定できます。",
+  "source": "packages/spreadsheet/src/docs/lookup-writing.md",
+  "order": 53,
+  "section": "セルとシート",
+  "keywords": [
+    "cells.setByLookup",
+    "SpreadsheetLookupRange",
+    "SpreadsheetLookupSelector",
+    "SpreadsheetLookupWriteReport",
+    "SpreadsheetLookupCommand",
+    "lookup",
+    "onMultiple",
+    "onNotFound",
+    "XLOOKUP",
+    "VLOOKUP",
+    "名前付き範囲",
+    "交点"
+  ],
+  "screenshots": []
+}

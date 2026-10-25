@@ -14,7 +14,11 @@ export const SLIDE_LIMITS = Object.freeze({
   jsonLength: 80 * 1024 * 1024,
   commands: 1_000,
   history: 100,
-  /** @deprecated Animation node counts no longer have an application limit. */
+  /** Maximum materialized animation nodes per deck; compact tween repeats do not expand. */
+  animationExpandedNodes: 100_000,
+  /** Maximum cumulative comparison/sample work while converting PPTX timing. */
+  animationImportWork: 10_000_000,
+  /** @deprecated Legacy per-slide key; use the per-deck animationExpandedNodes budget. */
   animationNodesPerSlide: Infinity,
   /** @deprecated Animation nesting no longer has an application limit. */
   animationDepth: Infinity,

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
+import { Worker } from 'node:worker_threads';
 
 const bundle = await build({ stdin: { resolveDir: new URL('../src', import.meta.url).pathname, contents: `
   export { parseXmlStream } from './ooxml/xml-stream.ts';
@@ -13,6 +14,51 @@ async function* chunks(bytes, size = 7) {
 }
 const parse = (value, options, size) => parseXmlStream(chunks(utf8(value), size), options);
 const invalid = /XMLが不正|読み込み上限/;
+
+test('malformed ampersand runs cannot block either XML parser', async () => {
+  // Run the reproducer in an isolated worker so a synchronous regression can be
+  // terminated. A node:test timeout alone cannot interrupt a blocked event loop.
+  const worker = new Worker(`
+    const { parentPort, workerData } = require('node:worker_threads');
+    (async () => {
+      const { parseXml, parseXmlStream } = await import(workerData);
+      const ampersands = '&'.repeat(1_000_000);
+      let rejected = 0;
+      for (const xml of ['<r>' + ampersands + '</r>', '<r a="' + ampersands + '"/>']) {
+        const bytes = new TextEncoder().encode(xml);
+        try { parseXml(bytes); } catch (error) { if (/XMLが不正/.test(error.message)) rejected++; else throw error; }
+        async function* chunks() {
+          for (let offset = 0; offset < bytes.length; offset += 65_536) yield bytes.subarray(offset, offset + 65_536);
+        }
+        try { await parseXmlStream(chunks()); } catch (error) { if (/XMLが不正/.test(error.message)) rejected++; else throw error; }
+      }
+      parentPort.postMessage(rejected);
+    })().catch(error => { throw error; });
+  `, { eval: true, workerData: `data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}` });
+  let timer;
+  try {
+    const rejected = await new Promise((resolve, reject) => {
+      timer = setTimeout(() => reject(new Error('Malformed XML failed to terminate within 10 seconds.')), 10_000);
+      worker.once('message', resolve);
+      worker.once('error', reject);
+      worker.once('exit', code => { if (code !== 0) reject(new Error(`XML worker exited with code ${code}.`)); });
+    });
+    assert.equal(rejected, 4);
+  } finally { clearTimeout(timer); await worker.terminate(); }
+});
+
+test('entity decoding is shared, single-pass, and preserves valid numeric references', async () => {
+  const text = '&amp;lt; &lt;&gt;&quot;&apos; &#0000065; &#x0001f600; &#9;&#10;&#13;';
+  const expected = '&lt; <>"\' A 😀 \t\n\r';
+  const xml = `<root a="${text}">${text}</root>`;
+  assert.equal(parseXml(utf8(xml)).text, expected);
+  assert.equal(parseXml(utf8(xml)).attributes.a, expected);
+  assert.deepEqual(await parse(xml, undefined, 1), parseXml(utf8(xml)));
+  for (const entity of ['&', '&&amp;', '&amp', '&unknown;', '&__proto__;', '&constructor;', '&#;', '&#x;', '&#0;', '&#xD800;', '&#x110000;']) {
+    assert.throws(() => parseXml(utf8(`<r>${entity}</r>`)), invalid);
+    await assert.rejects(parse(`<r a="${entity}"/>`, undefined, 1), invalid);
+  }
+});
 
 test('streamed XML agrees with the existing parser across every UTF-8 token boundary', async () => {
   const xml = '<?xml version="1.0"?>\r\n<root xmlns:x="urn:test" label="日&amp;本&#x1f600;">\r\n' +

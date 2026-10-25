@@ -18,6 +18,8 @@ Explorer・Spreadsheetの正規表現検索は、MITライセンスの `re2js@2.
 
 LikeDocumentのProseMirror関連パッケージも実行時依存に含みます。モデル・状態・変換・コマンド・リスト・キーマップ・ビューと、その推移的依存のMIT通知は、Documentのパッケージ／ソースコピー通知とデモのライセンス一覧へ同じ収集処理で含めます。
 
+ExplorerのPDFメタデータ検査は `pako@3.0.2`（MIT AND Zlib）を実行時依存に含みます。展開量を制限するため低水準APIを利用します。以前使用した `pdf-lib` はExplorerのテスト用PDF生成に残し、Explorerの配布依存には含めません。Playgroundの固定サンプルPDF生成でも使うため、デモ側は `pdf-lib` を直接依存として宣言し、デモの配布通知に含めます。
+
 LikeAIChatとLikeChatも独立した配布単位です。どちらもReact / React DOM、core、lucide-reactの通知を各パッケージ・ソースコピー・デモで確認します。AIサービスやチャット配送サービスのSDKは同梱せず、親アプリで追加する接続先の依存と利用条件は親アプリ側で扱います。
 
 ## 許可するライセンスと確認

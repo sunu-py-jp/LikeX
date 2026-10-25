@@ -1,7 +1,9 @@
 import type { SlideAnimationEasing, SlideAnimationNode, SlideAnimationProperties, SlideAnimationStep, SlideAnimationTrigger, SlideElement } from "../model/types";
 import { normalizeSlideAnimations, animationNodeDuration, scheduleAnimation } from "../model/animation-validation";
+import { assertAnimationExpansion, expandedAnimationNodes, SlideAnimationExpansionError } from "../model/animation-budget";
 import { resolveSlideAnimations, sampleSlideAnimationTween, type SlideAnimationPlanTween } from "../model/animations";
 import { normalizeSlideElement } from "../model/normalize";
+import { SLIDE_LIMITS } from "../model/limits";
 import { createOfficeTaskCheckpoint, type OfficeTaskCheckpoint } from "../office/cooperative-task";
 import { child, children, localName, textContent, color, type Node, type PptxContext, type Theme } from "./pptx-reader";
 
@@ -55,27 +57,29 @@ function shifted(node: RawNode, amount: number): RawNode {
   if (node.type === "tween") return { ...node, delayMs: (node.delayMs ?? 0) + amount };
   return { ...node, children: node.children.map((item, index) => node.type === "parallel" || index === 0 ? shifted(item, amount) : item) };
 }
-function parallel(nodes: RawNode[]): RawNode {
+type AnimationWork = (amount?: number) => void;
+function parallel(nodes: RawNode[], work: AnimationWork): RawNode {
+  work(nodes.length);
   const flattened = nodes.flatMap(node => node.type === "parallel" ? node.children : [node]);
   const merged: RawNode[] = [];
   for (const node of flattened) {
     if (node.type === "sequence") {
-      const compatible = (left: RawNode, right: RawNode): boolean => left.type === "tween" && right.type === "tween"
+      const compatible = (left: RawNode, right: RawNode): boolean => { work(); return left.type === "tween" && right.type === "tween"
         ? !left.noOp && !right.noOp && !!left.visibility === !!right.visibility && left.elementId === right.elementId && left.durationMs === right.durationMs && (left.delayMs ?? 0) === (right.delayMs ?? 0) &&
           (left.repeat ?? 1) === (right.repeat ?? 1) && !!left.yoyo === !!right.yoyo && (left.easing ?? "linear") === (right.easing ?? "linear") &&
           !Object.keys({ ...left.from, ...left.to }).some(key => Object.hasOwn(right.from ?? {}, key) || Object.hasOwn(right.to, key))
-        : left.type === "sequence" && right.type === "sequence" && left.children.length === right.children.length && left.children.every((item, index) => compatible(item, right.children[index]));
+        : left.type === "sequence" && right.type === "sequence" && left.children.length === right.children.length && left.children.every((item, index) => compatible(item, right.children[index])); };
       const at = merged.findIndex(value => compatible(value, node));
       if (at !== -1) {
         const zip = (left: RawNode, right: RawNode): RawNode => left.type === "sequence" && right.type === "sequence"
-          ? { type: "sequence", children: left.children.map((item, index) => zip(item, right.children[index])) } : parallel([left, right]);
+          ? { type: "sequence", children: left.children.map((item, index) => zip(item, right.children[index])) } : parallel([left, right], work);
         merged[at] = zip(merged[at], node); continue;
       }
     }
-    const other = node.type === "tween" && !node.noOp ? merged.find((value): value is RawTween => value.type === "tween" && !value.noOp && !!value.visibility === !!node.visibility && value.elementId === node.elementId &&
+    const other = node.type === "tween" && !node.noOp ? merged.find((value): value is RawTween => { work(); return value.type === "tween" && !value.noOp && !!value.visibility === !!node.visibility && value.elementId === node.elementId &&
       value.durationMs === node.durationMs && (value.delayMs ?? 0) === (node.delayMs ?? 0) && (value.repeat ?? 1) === (node.repeat ?? 1) &&
       !!value.yoyo === !!node.yoyo && (value.easing ?? "linear") === (node.easing ?? "linear") &&
-      !Object.keys({ ...value.from, ...value.to }).some(key => Object.hasOwn(node.from ?? {}, key) || Object.hasOwn(node.to, key))) : undefined;
+      !Object.keys({ ...value.from, ...value.to }).some(key => Object.hasOwn(node.from ?? {}, key) || Object.hasOwn(node.to, key)); }) : undefined;
     if (other && node.type === "tween") {
       Object.assign(other.to, node.to);
       if (node.from) other.from = { ...other.from, ...node.from };
@@ -87,18 +91,22 @@ function parallel(nodes: RawNode[]): RawNode {
   }
   return merged.length === 1 ? merged[0] : { type: "parallel", children: merged };
 }
-async function repeated(node: RawNode, repeat: number, yoyo: boolean, checkpoint: OfficeTaskCheckpoint): Promise<RawNode> {
+async function repeated(node: RawNode, repeat: number, yoyo: boolean, checkpoint: OfficeTaskCheckpoint, work: AnimationWork): Promise<RawNode> {
   if (repeat === 1 && !yoyo) return node;
   if (node.type === "tween" && !(node.delayMs ?? 0) && (node.repeat ?? 1) === 1 && !node.yoyo)
     return { ...node, ...(repeat !== 1 ? { repeat } : {}), ...(yoyo ? { yoyo: true } : {}) };
+  const size = expandedAnimationNodes(node);
+  // Check multiplication before allocating repeats or traversing the shared tree again.
+  assertAnimationExpansion(1 + assertAnimationExpansion(size, repeat));
   const leaves = scheduleAnimation(node), span = animationNodeDuration(node);
   const reverse = (): RawNode => parallel(leaves.map(entry => {
     const leaf = entry.tween as RawTween;
     if (leaf.relative || Object.keys(leaf.to).some(key => !Object.hasOwn(leaf.from ?? {}, key))) return unsupported("開始値を特定できないグループの往復は未対応です");
     return { ...leaf, delayMs: span - entry.end, from: { ...leaf.to }, to: { ...leaf.from },
       easing: leaf.easing === "ease-in" ? "ease-out" : leaf.easing === "ease-out" ? "ease-in" : leaf.easing };
-  }));
+  }), work);
   const cycle = [node, ...(yoyo ? [reverse()] : [])];
+  assertAnimationExpansion(1 + assertAnimationExpansion(cycle.reduce((sum, item) => sum + expandedAnimationNodes(item), 0), repeat));
   const expanded: RawNode[] = [];
   for (let index = 0; index < repeat; index++) { await checkpoint(); expanded.push(...cycle); }
   return { type: "sequence", children: expanded };
@@ -109,6 +117,18 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
   if (!root) return;
   const { context, pageNumber } = options;
   const checkpoint = createOfficeTaskCheckpoint(context.signal);
+  // Bound repeated comparisons and samples as well as the output tree. This is
+  // shared by all pages so many individually small effects cannot reset it.
+  const work: AnimationWork = (amount = 1) => {
+    const total = (context.totalAnimationWork ?? 0) + amount;
+    if (!Number.isSafeInteger(total) || total > SLIDE_LIMITS.animationImportWork) {
+      context.totalAnimationWork = SLIDE_LIMITS.animationImportWork;
+      throw new SlideAnimationExpansionError("アニメーションの変換処理量が安全な上限を超えています");
+    }
+    context.totalAnimationWork = total;
+  };
+  const combine = (nodes: RawNode[]) => parallel(nodes, work);
+  let sampledNodes = 0;
   const targets = new Map(options.targets);
   const baselineOpacity = new Map([...targets.values()].map(element => [element.id, element.opacity]));
   const visibilityTargets = new Set<string>();
@@ -282,6 +302,7 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
             const segments: RawTween[] = points.slice(1).map((point, i) => ({ ...base, repeat: undefined, yoyo: undefined,
               durationMs: base.durationMs * (point.at - points[i].at) / 100000, from: { [spec.key]: points[i].value }, to: { [spec.key]: point.value } }));
             const cycle = [...segments, ...(mod.yoyo ? [...segments].reverse().map(item => ({ ...item, from: item.to, to: item.from! })) : [])];
+            assertAnimationExpansion(1 + assertAnimationExpansion(cycle.length, mod.repeat));
             const expanded: RawNode[] = [];
             for (let index = 0; index < mod.repeat; index++) for (const segment of cycle) { await checkpoint(); expanded.push(segment); }
             result = { type: "sequence", children: expanded };
@@ -346,7 +367,12 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
       if (mod.easing !== "linear") return unsupported("グループ全体の加減速は未対応です");
       const source = child(ctn, "childTnLst")?.children ?? [];
       const entries: Parsed[] = [];
-      for (const item of source) { const parsed = await parse(item); if (parsed) entries.push(parsed); }
+      let groupNodes = 1;
+      assertAnimationExpansion(source.length + 1);
+      for (const item of source) {
+        const parsed = await parse(item);
+        if (parsed) { groupNodes += expandedAnimationNodes(parsed.node, SLIDE_LIMITS.animationExpandedNodes - groupNodes); entries.push(parsed); }
+      }
       if (!entries.length) return undefined;
       let trigger = condition.trigger;
       const triggered = entries.filter(item => item.trigger);
@@ -354,23 +380,23 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
         if (entries.length !== 1 || trigger) return unsupported("グループ内部の独立したクリック開始は未対応です");
         trigger = triggered[0].trigger;
       }
-      let group = kind === "par" ? parallel(entries.map(item => item.node)) : entries.length === 1 ? entries[0].node : { type: "sequence" as const, children: entries.map(item => item.node) };
+      let group = kind === "par" ? combine(entries.map(item => item.node)) : entries.length === 1 ? entries[0].node : { type: "sequence" as const, children: entries.map(item => item.node) };
       if (group.type === "parallel" && group.children.some(item => item.type !== "tween" || !item.noOp)) {
         const useful = group.children.filter(item => item.type !== "tween" || !item.noOp);
         const waits = group.children.filter((item): item is RawTween => item.type === "tween" && !!item.noOp).sort((left, right) => animationNodeDuration(right) - animationNodeDuration(left));
-        group = parallel([...useful, ...(waits[0] && animationNodeDuration(waits[0]) > useful.reduce((span, item) => Math.max(span, animationNodeDuration(item)), 0) ? [waits[0]] : [])]);
+        group = combine([...useful, ...(waits[0] && animationNodeDuration(waits[0]) > useful.reduce((span, item) => Math.max(span, animationNodeDuration(item)), 0) ? [waits[0]] : [])]);
       } else if (group.type === "parallel") group = [...group.children].sort((left, right) => animationNodeDuration(right) - animationNodeDuration(left))[0];
       if (ctn?.attributes.dur && ctn.attributes.dur !== "indefinite") {
         const explicit = duration(ctn.attributes.dur, "グループ所要時間");
         if (group.type === "tween" && group.noOp && explicit >= (group.delayMs ?? 0) + 1) group = { ...group, durationMs: explicit - (group.delayMs ?? 0) };
         else if (explicit > animationNodeDuration(group)) {
           const wait = waiting({ ...node, children: node.children.map(item => item === ctn ? { ...item, attributes: { ...item.attributes, repeatCount: "1000", autoRev: "0" }, children: [] } : item) });
-          if (wait) group = parallel([group, wait.node]);
+          if (wait) group = combine([group, wait.node]);
         } else if (explicit < animationNodeDuration(group) - .01) warn(node, "グループ所要時間を読み込めた動きの長さへ変更しました", { code: "animation-approximated", action: "approximation" });
       }
-      const expanded = await repeated(group, mod.repeat, mod.yoyo, checkpoint);
+      const expanded = await repeated(group, mod.repeat, mod.yoyo, checkpoint, work);
       return { node: shifted(expanded, condition.delay), ...(trigger ? { trigger } : {}) };
-    } catch (error) { context.signal?.throwIfAborted(); warn(node, `${(error as Error).message}。この動作を省略しました`); return waiting(node); }
+    } catch (error) { context.signal?.throwIfAborted(); warn(node, `${(error as Error).message}。この動作を省略しました`, error instanceof SlideAnimationExpansionError ? { code: "animation-limit" } : {}); return waiting(node); }
   };
 
   const finalElements = (node: SlideAnimationNode, current: readonly SlideElement[]) => resolveSlideAnimations({ id: "pptx-animation-state", ...(options.layoutId ? { layoutId: options.layoutId } : {}), name: "", background: "#ffffff", notes: "", elements: [...current], animations: [{ id: "state", animation: node }] }).elements;
@@ -392,18 +418,24 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
       entry.tween = cleaned; rejectedDimension = true;
       warn(cleaned.source ?? root, "範囲外のサイズを省略し、対応する位置の動きを保持しました", { property: key, elementId: cleaned.elementId });
     }
-    if (rejectedDimension) node = parallel(entries.map(entry => ({ ...entry.tween, delayMs: entry.start })));
+    if (rejectedDimension) node = combine(entries.map(entry => ({ ...entry.tween, delayMs: entry.start })));
     const affected = new Map<string, Set<"x" | "y">>();
-    for (const entry of entries) for (const other of entries) if (entry.owner !== other.owner && entry.tween.elementId === other.tween.elementId && entry.start < other.end && other.start < entry.end) {
-      for (const [axis, size, marker] of [["x", "width", "centerX"], ["y", "height", "centerY"]] as const) {
-        if (!entry.tween[marker] || other.tween.to[size] === undefined && other.tween.from?.[size] === undefined) continue;
-        const axes = affected.get(entry.tween.elementId) ?? new Set<"x" | "y">(); axes.add(axis); affected.set(entry.tween.elementId, axes);
+    const centersForOverlap = entries.filter(entry => entry.tween.centerX || entry.tween.centerY);
+    const dimensionsForOverlap = centersForOverlap.length ? entries.filter(entry => ["width", "height"].some(key => Object.hasOwn(entry.tween.to, key) || Object.hasOwn(entry.tween.from ?? {}, key))) : [];
+    for (const entry of centersForOverlap) for (const other of dimensionsForOverlap) {
+      work();
+      if (entry.owner !== other.owner && entry.tween.elementId === other.tween.elementId && entry.start < other.end && other.start < entry.end) {
+        for (const [axis, size, marker] of [["x", "width", "centerX"], ["y", "height", "centerY"]] as const) {
+          if (!entry.tween[marker] || other.tween.to[size] === undefined && other.tween.from?.[size] === undefined) continue;
+          const axes = affected.get(entry.tween.elementId) ?? new Set<"x" | "y">(); axes.add(axis); affected.set(entry.tween.elementId, axes);
+        }
       }
     }
     if (!affected.size) return node;
     const replacements: RawNode[] = [];
     const span = animationNodeDuration(node);
     for (const [elementId, axes] of affected) for (const axis of axes) {
+      work(entries.length);
       const element = current.find(item => item.id === elementId)!, size = axis === "x" ? "width" : "height";
       const plans = (key: "x" | "y" | "width" | "height", initial: number): SlideAnimationPlanTween[] => {
         let value = initial;
@@ -417,18 +449,23 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
       };
       const centerBase = element[axis] + element[size] / 2, centers = plans(axis, centerBase), sizes = plans(size, element[size]);
       const sample = (items: SlideAnimationPlanTween[], at: number, initial: number): number => {
-        let value = initial;
-        for (const entry of items) { if (entry.start > at) break; value = Number(sampleSlideAnimationTween(entry, at).rotation); }
-        return value;
+        // Plans are ordered by start. Only the last started entry supplies the
+        // value, including when its interval has already ended.
+        let low = 0, high = items.length;
+        while (low < high) { work(); const middle = Math.floor((low + high) / 2); if (items[middle].start <= at) low = middle + 1; else high = middle; }
+        return low ? Number(sampleSlideAnimationTween(items[low - 1], at).rotation) : initial;
       };
       const coordinate = (at: number) => sample(centers, at, centerBase) - sample(sizes, at, element[size]) / 2;
       const times = new Set([0, span]);
       for (const entry of [...centers, ...sizes]) {
         times.add(entry.start); times.add(entry.end);
         const count = (entry.tween.repeat ?? 1) * (entry.tween.yoyo ? 2 : 1);
+        const samples = entry.tween.easing && entry.tween.easing !== "linear" ? 16 : 1;
+        const addedSamples = assertAnimationExpansion(samples + 1, count);
+        sampledNodes = assertAnimationExpansion(sampledNodes + addedSamples + 2);
+        work(addedSamples + 2);
         for (let cycle = 0; cycle < count; cycle++) {
           await checkpoint();
-          const samples = entry.tween.easing && entry.tween.easing !== "linear" ? 16 : 1;
           for (let index = 0; index <= samples; index++) times.add(entry.start + (cycle + index / samples) * entry.tween.durationMs);
         }
       }
@@ -463,7 +500,7 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
         relative: Object.keys(relative).length ? relative : undefined, delayMs: entry.start }];
     });
     warn(root, "中心位置とサイズの異なる時間設定を、左上座標の有限キーフレームへ近似しました", { code: "animation-approximated", action: "approximation" });
-    return parallel([...retained, ...replacements]);
+    return combine([...retained, ...replacements]);
   };
   const provenance = new WeakMap<SlideAnimationNode, Node>();
   const neutralNodes = new WeakSet<SlideAnimationNode>();
@@ -506,7 +543,7 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
           nodes.push(converted);
         } catch (error) {
           context.signal?.throwIfAborted();
-          warn(item.type === "tween" ? item.source ?? root : root, `${(error as Error).message}。この動作を省略しました`);
+          warn(item.type === "tween" ? item.source ?? root : root, `${(error as Error).message}。この動作を省略しました`, error instanceof SlideAnimationExpansionError ? { code: "animation-limit" } : {});
           omittedDuration = node.type === "sequence" ? omittedDuration + animationNodeDuration(item) : Math.max(omittedDuration, animationNodeDuration(item));
         }
       }
@@ -523,6 +560,7 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
         const from = { ...scheduled.tween.from }, to = { ...scheduled.tween.to };
         for (const key of Object.keys({ ...from, ...to }) as Key[]) {
           const target = `${scheduled.tween.elementId}:${key}`, prior = intervals.get(target) ?? [];
+          work(prior.length);
           if (prior.some(interval => scheduled.start < interval.end && interval.start < scheduled.end)) {
             delete from[key]; delete to[key]; conflicts = true;
             if (!neutralNodes.has(scheduled.tween)) warn(provenance.get(scheduled.tween) ?? root, "同じ要素を同時に変更するプロパティを省略しました", { code: "animation-conflict", elementId: scheduled.tween.elementId, property: key });
@@ -604,6 +642,7 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
     for (const item of child(ctn, "childTnLst")?.children ?? []) findSequence(item);
   };
   top.forEach(findSequence);
+  let parsedNodes = 0;
   const lanes: { id?: string; entries: { candidate: Node; node: RawNode; id: string; trigger?: SlideAnimationTrigger }[] }[] = [];
   for (const [index, sequence] of (sequences.length ? sequences : [undefined]).entries()) {
     await checkpoint();
@@ -622,6 +661,8 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
         warn(candidate, "系列とステップの複数開始条件を系列の開始条件へ近似しました", { code: "animation-approximated", action: "approximation" });
       }
       const node = index === 0 ? shifted(parsed.node, condition.delay) : parsed.node;
+      try { parsedNodes += expandedAnimationNodes(node, SLIDE_LIMITS.animationExpandedNodes - (context.totalAnimationNodes ?? 0) - parsedNodes); }
+      catch (error) { warn(candidate, `${(error as Error).message}。このステップを省略しました`, { code: "animation-limit" }); continue; }
       for (const { tween } of scheduleAnimation(node)) if (!(tween as RawTween).noOp) {
         const keys = allWrites.get(tween.elementId) ?? new Set<Key>();
         for (const key of Object.keys({ ...tween.from, ...tween.to }) as Key[]) keys.add(key);
@@ -641,7 +682,9 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
       context.signal?.throwIfAborted();
       activeAnimationId = entry.id;
       try {
-        const materialized = await materialize(entry.node, current), span = animationNodeDuration(materialized);
+        const materialized = await materialize(entry.node, current);
+        expandedAnimationNodes(materialized, SLIDE_LIMITS.animationExpandedNodes - (context.totalAnimationNodes ?? 0));
+        const span = animationNodeDuration(materialized);
         const kept: Tween[] = [], intervals = new Map<string, { start: number; end: number }[]>();
         for (const scheduled of scheduleAnimation(materialized)) {
           await checkpoint();
@@ -649,6 +692,7 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
           const from: Properties = {}, to: Properties = {};
           for (const key of Object.keys({ ...scheduled.tween.from, ...scheduled.tween.to }) as Key[]) {
             const target = `${scheduled.tween.elementId}:${key}`, owner = ownership.get(target), prior = intervals.get(target) ?? [];
+            work(prior.length);
             if (owner !== undefined && owner !== (lane.id ?? "main") || prior.some(interval => scheduled.start < interval.end && interval.start < scheduled.end)) {
               warn(source, "同じ要素を変更する他の動きと競合するプロパティを省略しました", { code: "animation-conflict", property: key, elementId: scheduled.tween.elementId });
               continue;
@@ -671,10 +715,12 @@ export async function readSlideAnimations(root: Node | undefined, options: Optio
         const step: SlideAnimationStep = { id: entry.id, ...(lane.id ? { timelineId: lane.id } : {}), ...(entry.trigger ? { trigger: entry.trigger } : {}), animation };
         const normalized = normalizeSlideAnimations([step], initialElements)!;
         const accepted = normalized.at(-1)!;
+        const count = expandedAnimationNodes(accepted.animation, SLIDE_LIMITS.animationExpandedNodes - (context.totalAnimationNodes ?? 0));
         for (const { tween } of scheduleAnimation(accepted.animation)) for (const key of Object.keys({ ...tween.from, ...tween.to })) ownership.set(`${tween.elementId}:${key}`, lane.id ?? "main");
         current = finalElements(accepted.animation, current);
+        context.totalAnimationNodes = (context.totalAnimationNodes ?? 0) + count;
         steps.push(accepted);
-      } catch (error) { context.signal?.throwIfAborted(); warn(entry.candidate, `${(error as Error).message}。このステップを省略しました`); }
+      } catch (error) { context.signal?.throwIfAborted(); warn(entry.candidate, `${(error as Error).message}。このステップを省略しました`, error instanceof SlideAnimationExpansionError ? { code: "animation-limit" } : {}); }
     }
   }
   return steps.length ? normalizeSlideAnimations(steps, initialElements) : undefined;

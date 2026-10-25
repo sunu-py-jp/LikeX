@@ -40,7 +40,7 @@
   "dependencies": {
     "@likex/core": "0.1.0",
     "lucide-react": "^1.31.0",
-    "pdf-lib": "^1.17.1",
+    "pako": "3.0.2",
     "radix-ui": "^1.6.7",
     "tailwind-merge": "^3.6.0"
   },
@@ -63,5 +63,8 @@
     "pretest:draft": "node ../../scripts/build-library.mjs --module core",
     "pretest:hook": "node ../../scripts/build-library.mjs --module core",
     "pretest:tabs": "node ../../scripts/build-library.mjs --module core"
+  },
+  "devDependencies": {
+    "pdf-lib": "1.17.1"
   }
 }

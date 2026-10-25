@@ -9,6 +9,8 @@ import Explorer, { ExplorerPopup, ExplorerPicker, ExplorerPickerDialog, Explorer
   type ExplorerSearchContext, type ExplorerSearchRenderer, type ExplorerSearchConditions, type ExplorerUploadOptions,
   type ExplorerSearchHit, type ExplorerSearchResult, type ExplorerSearchStream, type ExplorerSearchResultRenderer,
   type ExplorerSearchBatch, type ExplorerSearchResponse,
+  inspectExplorerUploadFile, EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS,
+  type ExplorerPdfInspectionLimits, type ExplorerUploadContentMetadata,
   type ExplorerFolderLoadHandler, type ExplorerFolderLoadOptions, type ExplorerFolderLoadingOptions,
   type ExplorerEntryPermissionsResolver, type ExplorerEntryPermissions,
   type ExplorerHandle, type ExplorerFileTarget, type ExplorerEntryTarget, type ExplorerNavigationResult,
@@ -152,10 +154,26 @@ const readFile: ExplorerFileReader = async () => new Blob(['example']);
 const detailed: ExplorerSearchConditions = { matchCase: false, wholeName: false, useRegex: true };
 const renderSearch: ExplorerSearchRenderer = context => <div><input {...context.inputProps} />{context.defaultOptions}<button onClick={() => context.setConditions(detailed)}>Regex</button></div>;
 const search = { params: { extension: "xlsx" }, trigger: "input", debounceMs: 300 } satisfies ExplorerSearchOptions;
+const pdfInspectionLimits: ExplorerPdfInspectionLimits = {
+  inputBytes: 128 * 1024 * 1024, streamBytes: 32 * 1024 * 1024, decodedBytes: 128 * 1024 * 1024,
+  xrefEntries: 200_000, objectStreamObjects: 100_000, treeNodes: 100_000, timeoutMs: 60_000,
+};
+const defaultPdfBytes: number = EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS.inputBytes;
+const pdfMetadata: Promise<ExplorerUploadContentMetadata> = inspectExplorerUploadFile({
+  file: new File([], "report.pdf"), kind: "pdf", extension: ".pdf", signal: new AbortController().signal, pdfInspectionLimits,
+});
 const upload = { maxFileSizeBytes: 10 * 1024 * 1024,
   maxFileSizeBytesByExtension: { ".csv": 2 * 1024 * 1024, ".xlsx": 30 * 1024 * 1024 },
   maxFilesPerUpload: 10, maxTotalFiles: 1000,
+  pdfInspectionLimits,
 } satisfies ExplorerUploadOptions;
+// @ts-expect-error Safety caps cannot be disabled with false.
+const disabledPdfLimits = { pdfInspectionLimits: false } satisfies ExplorerUploadOptions;
+// @ts-expect-error PDF resource limits are numbers, not size strings.
+const invalidPdfLimits: ExplorerPdfInspectionLimits = { inputBytes: "128 MiB" };
+// @ts-expect-error Default settings are readonly.
+EXPLORER_DEFAULT_PDF_INSPECTION_LIMITS.inputBytes = 0;
+void [defaultPdfBytes, pdfMetadata, disabledPdfLimits, invalidPdfLimits];
 // @ts-expect-error Published extension size rules require dot-prefixed extensions.
 const wrongSizeExtension = { maxFileSizeBytesByExtension: { csv: 1024 } } satisfies ExplorerUploadOptions;
 // @ts-expect-error Published extension size values are numbers in bytes.

@@ -371,3 +371,16 @@ test('copying an out-of-range animated position fails the entire command batch',
     assert.doesNotThrow(() => m.applySlideCommands(source, { type: 'slide.duplicate', slideId: 'page' }));
   }
 });
+
+test('compact shared animation graphs cannot multiply into an unbounded normalized tree', () => {
+  let animation = tween();
+  for (let index = 0; index < 16; index++) animation = { type: 'sequence', children: [animation, animation] };
+  const initial = deck();
+  assert.throws(() => m.applySlideCommands(initial, { type: 'animation.set', slideId: 'page', animations: [step('bomb', animation)] }), /展開後/);
+  assert.equal(initial.slides[0].animations, undefined);
+  // Repeating the same tween remains compact; large finite repeat values are not expanded.
+  const compact = deck([step('compact', tween('a', { x: 100 }, { repeat: 1_000_000_000 }))]);
+  assert.equal(compact.slides[0].animations[0].animation.repeat, 1_000_000_000);
+  const ordinary = tween();
+  assert.doesNotThrow(() => deck([step('shared', { type: 'sequence', children: [ordinary, ordinary] })]));
+});

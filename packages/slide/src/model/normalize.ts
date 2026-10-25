@@ -6,6 +6,7 @@ import { validateSlideImageSource } from "./image-source";
 import { boolean, choice, color, fontFamily, identifier, list, number, record, text } from "./validation";
 import { DECK_KEYS, ELEMENT_KEYS, SLIDE_KEYS } from "./schema";
 import { normalizeSlideAnimations } from "./animation-validation";
+import { expandedAnimationNodes } from "./animation-budget";
 import { getSlideLineEndpoints, normalizeSlideLine, resolveSlideLines, slideLineGeometry } from "./lines";
 import { slideTextLength, slideElementTextLength } from "./text-length";
 import { normalizeMasterCatalog } from "./master-normalization";
@@ -142,7 +143,12 @@ export function normalizeSlideDeck(input: unknown): SlideDeck {
   if (raw.format !== undefined && raw.format !== "likex.slide")
     throw new Error("LikeSlideのファイル形式ではありません");
   if (raw.version !== 1) throw new Error("対応していないプレゼンテーションのバージョンです");
-  const accepted = list(raw.slides, "スライド", SLIDE_LIMITS.slides, 1).map(normalizeSlide);
+  let remainingAnimationNodes = SLIDE_LIMITS.animationExpandedNodes;
+  const accepted = list(raw.slides, "スライド", SLIDE_LIMITS.slides, 1).map(value => {
+    const slide = normalizeSlide(value);
+    for (const step of slide.animations ?? []) remainingAnimationNodes -= expandedAnimationNodes(step.animation, remainingAnimationNodes);
+    return slide;
+  });
   const catalog = normalizeMasterCatalog(raw);
   const layouts = new Map(catalog.layouts?.map(layout => [layout.id, layout]));
   const masters = new Map(catalog.masters?.map(master => [master.id, master]));

@@ -10,4 +10,4 @@ const data = createDataView({ fields: [{ id: 'name', name: '名前', type: 'text
 
 保存・認証・DB通信は親の責務です。`onSave` 未指定時は読み取り専用。詳細は [導入](src/docs/getting-started.md)、[操作API](src/docs/commands.md)、[CSV](src/docs/csv.md) を参照してください。
 
-ソースコピー時は `src` と `packages/core/src` を隣接する `dataview` / `core` に置き、`dataview/core.ts` を `export * from '../core';`、`dataview/json.ts` を `export * from '../core/json';`、`dataview/browser.ts` を `export * from '../core/browser';` に変更します。React 19・React DOM・lucide-reactが必要です。Tailwindは不要です。
+ソースコピー時は `src` と `packages/core/src` を隣接する `dataview` / `core` に置き、`dataview/core.ts` の1行だけを `export * from '../core';` に変更します。`json.ts`・`browser.ts` は内部でこの入口を参照するため、そのまま使います。React 19・React DOM・lucide-reactとCoreの実行時依存 `re2js@2.8.6` が必要です。Tailwindは不要です。

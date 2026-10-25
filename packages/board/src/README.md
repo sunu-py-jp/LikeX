@@ -16,4 +16,4 @@ const board = createBoard({ title: '制作タスク' });
 - [導入・ホスト連携](docs/getting-started.md)
 - [操作API・保存形式](docs/commands.md)
 
-ソースをコピーする場合は、この `src` と `packages/core/src` を隣接する `board` / `core` にコピーし、`board/core.ts` を `export * from '../core';`、`board/json.ts` を `export * from '../core/json';`、`board/browser.ts` を `export * from '../core/browser';` に変更します。依存はReact 19・React DOM・lucide-react。Tailwindは不要です。
+ソースをコピーする場合は、この `src` と `packages/core/src` を隣接する `board` / `core` にコピーし、`board/core.ts` の1行だけを `export * from '../core';` に変更します。`json.ts`・`browser.ts` は内部でこの入口を参照するため、そのまま使います。依存はReact 19・React DOM・lucide-reactとCoreの `re2js@2.8.6`。Tailwindは不要です。

@@ -190,7 +190,9 @@ export function useExplorerUpload(options: UploadOptions) {
       fileIndex: conflict.fileIndex, existing: conflict.existing, action: batch.applyAll!,
     })));
   }
-  function process(batch: Batch): boolean | Promise<boolean> {
+  // Keep the global `process` name free: SSR compilers can inject environment
+  // guards around hooks in this scope before minifying the component.
+  function processBatch(batch: Batch): boolean | Promise<boolean> {
     if (!alive(batch)) { release(batch); return false; }
     const draft = current.current.draft;
     if (batch.observedEntries !== draft.getEntries()) {
@@ -296,7 +298,7 @@ export function useExplorerUpload(options: UploadOptions) {
         current.current.cancelEditRequest();
       batch.onCancel?.();
     }, { once: true });
-    return process(batch);
+    return processBatch(batch);
   }
   function startAsync(files: readonly File[], parent: string, directory: boolean, execution: {
     owner?: symbol; signal: AbortSignal; runEdit?: UploadOptions["runEdit"];
@@ -314,7 +316,7 @@ export function useExplorerUpload(options: UploadOptions) {
     batch.decisions = batch.decisions.filter(item => item.fileIndex !== conflict.fileIndex);
     batch.decisions.push({ fileIndex: conflict.fileIndex, existing: conflict.existing, action });
     batch.applyAll = applyToAll ? action : null;
-    return process(batch);
+    return processBatch(batch);
   }
   return { start, startAsync, prompt, applying, answer, cancel, isPending: () => pending.current !== null };
 }

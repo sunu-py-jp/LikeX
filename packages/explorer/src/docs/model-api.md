@@ -32,6 +32,7 @@ const payload = getSavePayload(baseline, changed);
 | `addFiles(snapshot, files, parent, uploadOptions?, decisions?, session?)` | 取込後のスナップショットを返します。ファイルのbytesをアップロードしません。 |
 | `addFilesWithResult(...)` | `{ snapshot, result: ExplorerUploadResult }` を返します。新規・上書き・スキップ・除外件数を確認できます。 |
 | `addFilesAsync(...)` / `addFilesWithResultAsync(...)` | 内容検査を含む非同期追加。動画の既定4時間やPDF/PPTX制限はこちらを使います。最後の引数に `{ signal? }` を指定できます。[引数と例](./upload-content-limits.md#画面なしの追加と互換性) |
+| `inspectExplorerUploadFile(request)` | ファイルの内容情報を単独で取得します。`file`・`extension`・`kind`・`signal` を指定し、PDFは `pdfInspectionLimits` も渡せます。PDF/PPTXはNode.jsでも利用可能、動画・音声の内蔵検査はブラウザが必要です。一覧変更やページ数上限との比較は行いません。[PDF解析上限](./upload-content-limits.md#pdf-inspection-limits) |
 | `prepareFilesWithProgress(...)` | 同じ取込処理を `Generator<ExplorerImportProgress, { snapshot, result }>` として進めます。途中の候補を公開せず、完了時にまとめて返します。 |
 | `prepareFilesWithProgressAsync(...)` | 内容の非同期検査を含む `AsyncGenerator`。`inspecting` フェーズの進捗も取得できます。 |
 | `getSavePayload(baseline, draft)` / `hasChanges(baseline, draft)` | 保存対象の最終一覧・差分、変更の有無を取得します。差分の項目も内部からコピーします。 |

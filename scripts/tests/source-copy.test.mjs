@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { rewriteSourceCopyAdapters } from '../lib/source-copy.mjs';
+import { libraryModule, moduleNames } from '../lib/modules.mjs';
+import { assertSourceBoundary } from '../lib/source-boundary.mjs';
+
+const uiModules = moduleNames.filter(name => libraryModule(name).ui);
 
 async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), 'likex-source-copy-adapters-'));
@@ -22,23 +26,29 @@ async function fixture(t) {
   return { directory, sources };
 }
 
-for (const moduleName of ['spreadsheet', 'slide', 'document']) test(`${moduleName} copy verification changes only core.ts and cannot repair stray Core subpath bridges`, async t => {
+for (const moduleName of uiModules) test(`${moduleName} copy verification changes only core.ts and cannot repair stray Core subpath bridges`, async t => {
   const { directory, sources } = await fixture(t);
   assert.deepEqual(await rewriteSourceCopyAdapters(directory, moduleName), { 'core.ts': '../core' });
   for (const [file, source] of Object.entries(sources))
     assert.equal(await readFile(path.join(directory, file), 'utf8'), file === 'core.ts' ? 'export * from "../core";\n' : source, file);
 });
 
-test('other UI modules retain their documented optional Core subpath adapters', async t => {
-  const { directory } = await fixture(t);
-  const expected = { 'core.ts': '../core', 'browser.ts': '../core/browser', 'ooxml.ts': '../core/ooxml',
-    'json.ts': '../core/json', 'model/core-connectors.ts': '../../core/connectors',
-    'model/core-office-shapes.ts': '../../core/office-shapes', 'model/core-text-search.ts': '../../core/text-search' };
-  assert.deepEqual(await rewriteSourceCopyAdapters(directory, 'explorer'), expected);
-  for (const [file, imported] of Object.entries(expected))
-    assert.equal(await readFile(path.join(directory, file), 'utf8'), `export * from "${imported}";\n`);
-  await rm(path.join(directory, 'browser.ts'));
-  delete expected['browser.ts'];
-  assert.deepEqual(await rewriteSourceCopyAdapters(directory, 'explorer'), expected);
+test('core source copies need no adapter rewrites', async t => {
+  const { directory, sources } = await fixture(t);
   assert.deepEqual(await rewriteSourceCopyAdapters(directory, 'core'), {});
+  for (const [file, source] of Object.entries(sources))
+    assert.equal(await readFile(path.join(directory, file), 'utf8'), source, file);
+});
+
+for (const moduleName of uiModules) test(`${moduleName} maintained source has no remaining LikeX package references after its single adapter rewrite`, async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'likex-source-copy-boundary-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const profile = libraryModule(moduleName), directory = path.join(root, moduleName);
+  await cp(profile.sourceRoot, directory, { recursive: true });
+  const manifest = JSON.parse(await readFile(path.join(profile.packageRoot, 'package.json'), 'utf8'));
+  // Copy consumers install third-party dependencies, never a hidden LikeX package.
+  for (const field of ['dependencies', 'peerDependencies'])
+    manifest[field] = Object.fromEntries(Object.entries(manifest[field] ?? {}).filter(([name]) => !name.startsWith('@likex/')));
+  assert.deepEqual(await rewriteSourceCopyAdapters(directory, moduleName), { 'core.ts': '../core' });
+  await assertSourceBoundary(directory, manifest, { allowedSourceRoots: [path.join(root, 'core')] });
 });

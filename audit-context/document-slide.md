@@ -1,0 +1,28 @@
+# Document / Slide context (2026-10-25)
+
+Scope: static context mapping, not vulnerability conclusions. References are repository-relative source locations.
+
+## Entry points and trust boundaries
+
+- `.dcon` strings enter `parseDocument` → UTF-8 byte limit → JSON.parse → `normalizeDocument` → recursive content validation → ProseMirror `doc.check` → immutable model (`packages/document/src/model/document.ts:197-200,70-191`). Host-created objects enter the same normalizer. Document models use plain own-data-property validation (`model/validation.ts:2-7`).
+- DOCX bytes enter `importDocumentDocx` → Core Office archive → bounded XML/relationships → supported content conversion → final normalizer (`packages/document/src/io/import-docx.ts:14-44,191-215`). No external image/data fetching: internal relationship checks and warnings (`59-77`); macros/templates rejected (`25,32,41`), altChunk omitted (`200`). Imported hyperlinks use a protocol allowlist (`116-119`) then model link validation (`model/document.ts:60-62`).
+- Clipboard/drop HTML parsing uses the ProseMirror schema; `DocumentSurface.dispatchTransaction` forwards steps to public `transaction.apply` before updating the EditorView (`packages/document/src/ui/document-surface.tsx:63-85`). That command validates step JSON, applies through ProseMirror, and normalizes the final document (`model/commands.ts:198-211`). Schema parsing itself is not the final trust boundary (`model/schema.ts:19-64`).
+- `.slon` strings enter `parseSlideDeck` → string-length budget → JSON.parse → file-format restoration → `normalizeSlideDeck` (`packages/slide/src/model/serialization.ts:8-10`). The model checks per-page and total elements/text/image budgets, master/layout references, duplicate IDs, geometry, and freezes results (`model/normalize.ts:108-187`).
+- PPTX/POTX enter `openPptxPresentation` → Core ZIP/XML/relationships → macro/encryption checks → master/layout/slides reader → final normalization (`packages/slide/src/import/pptx-package.ts:11-47`; `import-pptx.ts:22-106`). External relationships are not fetched (`pptx-package.ts:31-37`).
+- PDF bytes are host-provided (not an untrusted URL entry point); PDF.js module and supplementary asset URLs are injected by the host (`packages/slide/src/pdf/pdfjs-source.ts:46-84`). Adapter forces `isEvalSupported:false`, `enableXfa:false`, disables stream/autofetch, sets image/canvas budgets, and creates no actions/annotation/script manager (`pdfjs-loader.ts:23-26,66`). Custom loaders are a separate trusted implementation boundary with page/dimension checks in `use-pdf-document.ts:31-46`.
+
+## Cross-cutting invariants
+
+- Shared Core Office limits are compressed 32 MiB, per-entry 16 MiB, expanded total 64 MiB, 4,096 members, XML depth 64 / 600k nodes / 16 MiB (`packages/core/src/ooxml/types.ts:21-24`). Archive reading validates actual inflated output/CRC and paths (`zip-reader.ts:159-164,167-271`). Relationship resolution cannot escape the virtual package (`relationships.ts:10-20`); defaults reject missing targets (`22-40`).
+- XML parser is stack-based, rejects declarations other than comments/CDATA/PI, rejects custom named entities, limits nodes/depth/attributes/text, uses null-prototype attribute records (`packages/core/src/ooxml/xml.ts:10-58`).
+- Document images are canonical embedded PNG/JPEG only, with signature/dimension/byte limits (`packages/document/src/model/image-source.ts:4-39`). Slide images add GIF/WebP/static SVG under limits (`packages/slide/src/model/image-source.ts:65-87`). SVG uses tag/attribute allowlists and fragment-only paint/clip references (`model/svg-source.ts:30-72`). Rendering paths do not use innerHTML/dangerouslySetInnerHTML in the reviewed modules.
+- Document input limits: 40 MiB UTF-8 native JSON, 100k nodes, depth 64, 2M text characters, image 8 MiB / total24 MiB /16,384 dimension/64M pixels (`model/validation.ts:1`). Slide limits: native JSON80M JS code units,500slides/100masters/500layouts/1k elements per page/10k total/2M text/10MiB per image/50MiB total/40M pixels (`model/limits.ts:2-27`, serialization.ts:9).
+
+## Assumptions / open questions for audit phase
+
+- Slide animation counts/depth/duration/repeats deliberately use Infinity rather than application caps (`model/limits.ts:17-26`), with cycle and finite-time checks and iterative traversal (`animation-validation.ts:31-184`). A bound on total normalized animation work for shared subtree references: **nothing found** in reviewed normalization (`126-148`). Investigate whether behavior is supported API semantics and which other paths have equivalent scaling.
+- Slide `.slon` JSON budget is JS string length, unlike Document's explicit UTF-8 byte budget. Need confirm advertised API meaning and file read boundary, not assume they are identical (`serialization.ts:8-10`).
+- Document schema `parseDOM` link mark copies `href` directly, while all application transactions later invoke `normalizeDocument` before publication (`schema.ts:61`, surface.ts:73-82, commands.ts:210`). Public direct schema consumers: determine documented trust contract and any DOM publication before full normalization.
+- SVG numeric attributes are scanned for finite/range-bounded tokens; element/value grammar and fragment reference graph complexity need deeper review (`svg-source.ts:13-20,51-71`).
+- Main DOCX conversion limits block count to20k and yields/cancels every64 blocks (`import-docx.ts:191-203`). Paragraph recursive walk relies on Core XML64-depth and node/text budget; per-paragraph traversal work/cancellation awaits further audit (`97-145`).
+- PDF.js dependency security is owned jointly: host supplies module; repository pins demo dependency. Need advisory/version audit independently.

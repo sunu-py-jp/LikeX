@@ -3,6 +3,8 @@ import Spreadsheet, {
   serializeWorkbook, parseWorkbook, addDrawing, setCellComment, mergeCells, unmergeCells,
   type SpreadsheetWorkbook, type SpreadsheetSheet, type SpreadsheetCell,
   type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps, type SpreadsheetCellGridWriteOptions, type SpreadsheetRenderingMode,
+  type SpreadsheetGridInsertMode, type SpreadsheetGridRowGrouping,
+  type SpreadsheetLookupRange, type SpreadsheetLookupSelector, type SpreadsheetLookupCommand, type SpreadsheetLookupWriteReport,
   type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSelectionRange, type SpreadsheetSaveHandler,
   type SpreadsheetDrawing, type SpreadsheetDrawingTextStyle, type SpreadsheetMergedRange,
   type SpreadsheetImportNativeOptions, type SpreadsheetNativeExportOptions, type SpreadsheetNativeImportResult, SPREADSHEET_FORMAT,
@@ -137,6 +139,51 @@ const gridOptions: SpreadsheetCellGridWriteOptions = {
 };
 const gridCommand: SpreadsheetCommand = { type: "cells.writeGrid", ...gridOptions };
 apiRef.current?.execute(gridCommand);
+const insertModes: readonly SpreadsheetGridInsertMode[] = ["none", "rows", "columns", "both"];
+const grouping: SpreadsheetGridRowGrouping = { byColumns: [0], keyDisplay: "first",
+  separator: { style: "solid", width: 1, color: "#d1d5db" }, headerSeparator: false,
+  verticalBorder: false, outerBorder: { color: "#334155" } };
+const groupedInsertion: SpreadsheetCommand = { type: "cells.writeGrid", ...gridOptions,
+  border: false, rowGrouping: grouping, insert: insertModes[1] };
+const tableInsertion: SpreadsheetCommand = { type: "tables.insert", sheetId: sheet.id, name: "Tasks",
+  target: { row: 2, column: 1 }, headers: ["Task", "Status"], data: { type: "rows", values: [["Prepare", "TODO"]] }, insert: "both" };
+apiRef.current?.batchAsync([groupedInsertion, tableInsertion]);
+// @ts-expect-error Grouping source columns are immutable.
+grouping.byColumns.push(1);
+// @ts-expect-error Grouping requires explicit source columns.
+const missingGroupingKey: SpreadsheetGridRowGrouping = { keyDisplay: "all" };
+// @ts-expect-error Whole axes use the closed insertion mode union.
+const invalidInsertMode: SpreadsheetGridInsertMode = "down";
+void [missingGroupingKey, invalidInsertMode];
+const lookupRange: SpreadsheetLookupRange = { namedRange: "Monthly" };
+const lookupSelector: SpreadsheetLookupSelector = { axis: "columns", row: 0, value: "Nov" };
+const lookupCommands: readonly SpreadsheetLookupCommand[] = [
+  { type: "cells.setByLookup", sheetId: sheet.id, range: lookupRange, lookup: { column: 0, value: "A001" },
+    updates: [{ column: 2, value: "1200" }], onMultiple: "first" },
+  { type: "cells.setByLookup", sheetId: sheet.id, range: "B2:E5", lookup: lookupSelector,
+    updates: [{ row: 1, value: "1500" }], onNotFound: "skip" },
+  { type: "cells.setByLookup", sheetId: sheet.id, range: { top: 1, left: 1, bottom: 4, right: 4 },
+    lookup: { axis: "both", row: { column: 0, value: "A002" }, column: { row: 0, value: "Dec" } }, value: "1800" },
+];
+apiRef.current?.batchAsync(lookupCommands).then(result => {
+  if (!result.ok) return;
+  for (const receipt of result.results) if (receipt.type === "cells.setByLookup") {
+    const report: SpreadsheetLookupWriteReport = receipt.lookup;
+    const changed: number = receipt.write.changedCount;
+    // @ts-expect-error Resolved lookup targets are immutable.
+    report.matchedColumns.push(0);
+    // @ts-expect-error Lookup writes do not produce a sequential placement cursor.
+    const nextRow: number = receipt.placement.nextRow;
+    void [changed, nextRow];
+  }
+});
+// @ts-expect-error A column lookup cannot use column update offsets.
+const wrongLookupAxis: SpreadsheetLookupCommand = { type: "cells.setByLookup", sheetId: sheet.id, range: "A1:D5", lookup: { axis: "columns", row: 0, value: "Nov" }, updates: [{ column: 2, value: "bad" }] };
+// @ts-expect-error Lookup values use saved-input strings, including numeric text.
+const numericLookupValue: SpreadsheetLookupCommand = { type: "cells.setByLookup", sheetId: sheet.id, range: "A1:D5", lookup: { column: 0, value: 123 }, updates: [{ column: 1, value: "bad" }] };
+// @ts-expect-error A column lookup cannot also carry the matrix value option.
+const extraLookupValue: SpreadsheetLookupCommand = { type: "cells.setByLookup", sheetId: sheet.id, range: "A1:D5", lookup: { axis: "columns", row: 0, value: "Nov" }, updates: [{ row: 2, value: "ok" }], value: "bad" };
+void [wrongLookupAxis, numericLookupValue, extraLookupValue];
 // @ts-expect-error Grid borders use supported line widths.
 const invalidGridOptions: SpreadsheetCellGridWriteOptions = { ...gridOptions, border: { width: 4 } };
 void invalidGridOptions;

@@ -9,7 +9,7 @@ import { parseCellAddress } from "../address";
 import { calculateWorkbook } from "../formula";
 import { effectiveCellFormat, formatCellValue } from "../formatting";
 import { createConditionalFormatter } from "../conditional-formatting";
-import type { SpreadsheetCalculatedValue, SpreadsheetSheet, SpreadsheetWorkbook } from "../types";
+import { SPREADSHEET_LIMITS, type SpreadsheetCalculatedValue, type SpreadsheetSheet, type SpreadsheetWorkbook } from "../types";
 import { setCellValues } from "../workbook/cells";
 import type { SpreadsheetReadRangeInput } from "../query";
 import { copyQuerySnapshot, type QuerySnapshot } from "../query-snapshot";
@@ -85,7 +85,7 @@ export function collectSpreadsheetSearchCells(workbook: QuerySnapshot<Spreadshee
 export function replaceSpreadsheetText(value: string, query: SpreadsheetSearchQuery, replacement: string): string {
   if (typeof replacement !== "string" || replacement.length > 100_000) throw new Error("置換後の文字列を正しく指定してください");
   const matcher = createSpreadsheetSearchMatcher(query);
-  return matcher.replace(value, replacement);
+  return matcher.replace(value, replacement, SPREADSHEET_LIMITS.cellLength);
 }
 /** Optional addresses accept same-sheet A1 cells/ranges; omitted addresses search the entire sheet. */
 export function replaceSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: string, query: SpreadsheetSearchQuery,
@@ -97,7 +97,7 @@ export function replaceSpreadsheetCells(workbook: SpreadsheetWorkbook, sheetId: 
   const calculated = query.lookIn === "formulas" ? undefined : calculateWorkbook(workbook);
   for (const match of findSpreadsheetCells(workbook, query, { sheetId, calculated })) {
     if (!selected || selected.has(match.address)) {
-      const value = matcher.replace(match.matchedText, replacement);
+      const value = matcher.replace(match.matchedText, replacement, SPREADSHEET_LIMITS.cellLength);
       values[match.address] = query.lookIn !== "formulas" && value && (typeof calculated?.[sheetId]?.[match.address] === "string" || value.startsWith("=") || value.startsWith("'")) ? `'${value}` : value;
     }
   }

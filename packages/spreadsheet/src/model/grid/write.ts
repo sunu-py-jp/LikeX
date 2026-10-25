@@ -8,6 +8,7 @@ import { freezeCell, getWorkbookSheet, replaceWorkbookSheet } from "../workbook/
 import { normalizeCellFormat, validateCellValue } from "../workbook/validation";
 import { filterCellValueWrites, WriteConflictError } from "../workbook/write-conflicts";
 import { gridCorner, gridHeaderAxis, gridHeaderLayout, gridHeaderStyle, type GridHeaderAxis, type GridHeaderNode } from "./headers";
+import { applyGridGroupingBorders, defaultGridBorder, gridBorder, gridRowGrouping } from "./grouping";
 
 export type SpreadsheetGridWritePlan = Readonly<{
   range: SpreadsheetMergedRange;
@@ -15,19 +16,18 @@ export type SpreadsheetGridWritePlan = Readonly<{
   formats: Readonly<Record<string, SpreadsheetCellFormat>>;
   layout: SpreadsheetGridLayout;
 }>;
-const plans = new WeakMap<SpreadsheetGridWritePlan, { sheet: SpreadsheetSheet; options: SpreadsheetCellGridWriteOptions }>();
-const defaultBorder = Object.freeze({ style: "solid" as const, width: 1 as const, color: "#d1d5db" });
+const plans = new WeakMap<SpreadsheetGridWritePlan, { sheet: SpreadsheetSheet; options: SpreadsheetCellGridWriteOptions; groupingKeys: readonly string[] }>();
 const rangeKey = (range: SpreadsheetMergedRange) => `${range.top}:${range.left}:${range.bottom}:${range.right}`;
 const frozenRange = (top: number, left: number, bottom: number, right: number) => Object.freeze({ top, left, bottom, right });
 
-/** Resolve the complete cell layout without changing the workbook. Holes in protruding headers remain absent. */
-export function prepareSpreadsheetGridWrite(sheet: SpreadsheetSheet, options: SpreadsheetCellGridWriteOptions): SpreadsheetGridWritePlan {
+function resolveGridInput(options: SpreadsheetCellGridWriteOptions) {
   if (!options || typeof options !== "object") throw new Error("表の設定が正しくありません");
   let topAxis = gridHeaderAxis(options.headers);
   const leftAxis = gridHeaderAxis(options.rowHeaders);
   const topLayout = gridHeaderLayout(options.headerLayout), leftLayout = gridHeaderLayout(options.rowHeaderLayout);
   const headerStyle = gridHeaderStyle(options.headerStyle), rowStyle = gridHeaderStyle(options.rowHeaderStyle);
   const rows = tableDataRows(options.data, topAxis?.leaves);
+  const grouping = gridRowGrouping(options.rowGrouping, rows, topAxis?.leaves ?? rows[0]?.length ?? 0);
   let numberStart: number | undefined;
   if (options.rowNumbers !== undefined && options.rowNumbers !== false) {
     if (!topAxis || leftAxis) throw new Error("連番列には上見出しが必要です。左見出しとは併用できません");
@@ -47,14 +47,26 @@ export function prepareSpreadsheetGridWrite(sheet: SpreadsheetSheet, options: Sp
   const height = headerHeight + rows.length, width = headerWidth + bodyWidth;
   if (!height || !width) throw new Error("表には1セル以上の見出しまたは明細を指定してください");
   if (height * width > SPREADSHEET_LIMITS.clipboardCells) throw new Error("見出しと連番を含む表全体は10,000セル以内で指定してください");
+  return { topAxis, leftAxis, topLayout, leftLayout, headerStyle, rowStyle, rows, grouping, numberStart, corner, headerHeight, headerWidth, height, width };
+}
+
+/** Determine the insertion footprint without checking collisions in the sheet that will be shifted. */
+export function getSpreadsheetGridWriteDimensions(options: SpreadsheetCellGridWriteOptions): Readonly<{ height: number; width: number }> {
+  const { height, width } = resolveGridInput(options);
+  return Object.freeze({ height, width });
+}
+
+/** Resolve the complete cell layout without changing the workbook. Holes in protruding headers remain absent. */
+export function prepareSpreadsheetGridWrite(sheet: SpreadsheetSheet, options: SpreadsheetCellGridWriteOptions): SpreadsheetGridWritePlan {
+  const { topAxis, leftAxis, topLayout, leftLayout, headerStyle, rowStyle, rows, grouping, numberStart, corner,
+    headerHeight, headerWidth, height, width } = resolveGridInput(options);
   const { target } = options;
   if (!target || !Number.isInteger(target.row) || !Number.isInteger(target.column) || target.row < 0 || target.column < 0)
     throw new Error("表の開始位置は0始まりの行・列で指定してください");
   const range = frozenRange(target.row, target.column, target.row + height - 1, target.column + width - 1);
   if (range.bottom >= sheet.rowCount || range.right >= sheet.columnCount) throw new Error("表がシートの範囲を超えています。行・列が足りません");
-  if (options.border !== undefined) normalizeCellFormat({ borders: { top: options.border } });
-  const border = { ...defaultBorder, ...options.border };
-  const gridBorders = normalizeCellFormat({ borders: { top: border, bottom: border, left: border, right: border } })!.borders!;
+  const border = gridBorder(options.border, grouping ? false : defaultGridBorder);
+  const gridBorders = normalizeCellFormat({ borders: border === false ? {} : { top: border, bottom: border, left: border, right: border } })!.borders!;
   const values: Record<string, string> = Object.create(null), formats: Record<string, SpreadsheetCellFormat> = Object.create(null);
   const headerRanges: SpreadsheetMergedRange[] = [], rowHeaderRanges: SpreadsheetMergedRange[] = [], merges: SpreadsheetMergedRange[] = [];
   let characters = 0;
@@ -93,20 +105,29 @@ export function prepareSpreadsheetGridWrite(sheet: SpreadsheetSheet, options: Sp
   if (leftAxis) placeAxis(leftAxis, false);
   const cornerRange = topAxis && leftAxis ? frozenRange(target.row, target.column, target.row + headerHeight - 1, target.column + headerWidth - 1) : undefined;
   if (cornerRange) {
-    const cornerBorder = corner.border === undefined ? undefined : { ...border, ...corner.border };
+    const cornerBorder = corner.border === undefined ? undefined : { ...defaultGridBorder, ...(border === false ? undefined : border), ...corner.border };
     const cornerBorders = cornerBorder ? normalizeCellFormat({ borders: { top: cornerBorder, bottom: cornerBorder, left: cornerBorder, right: cornerBorder } })!.borders!
       : corner.value ? gridBorders : Object.freeze({});
     fill(cornerRange, corner.value, normalizeCellFormat({ ...(corner.value ? headerStyle : undefined), ...corner.style }), cornerBorders, corner.merge);
   }
   const dataRange = rows.length ? frozenRange(target.row + headerHeight, target.column + headerWidth, range.bottom, range.right) : undefined;
+  const groupingKeys: string[] = [];
   for (let row = 0; row < rows.length; row++) {
     const items = numberStart === undefined ? rows[row] : [String(numberStart + row), ...rows[row]];
     for (let column = 0; column < items.length; column++) {
       const r = target.row + headerHeight + row, c = target.column + headerWidth + column;
-      fill(frozenRange(r, c, r, c), validateCellValue(items[column]));
+      const raw = validateCellValue(items[column]), keyColumn = column - (numberStart === undefined ? 0 : 1);
+      const groupKey = grouping?.columns.has(keyColumn);
+      if (groupKey) groupingKeys.push(cellAddress(r, c));
+      const value = grouping && groupKey && grouping.firstOnly && !grouping.starts[row] ? "" : raw;
+      fill(frozenRange(r, c, r, c), value);
+      // Suppressing duplicate labels must not reduce the accepted input-character count.
+      characters += raw.length - value.length;
     }
   }
   if (characters > SPREADSHEET_LIMITS.clipboardCharacters) throw new Error("見出しと連番を含む表全体は10 Mi文字以内で指定してください");
+  if (grouping) applyGridGroupingBorders(formats, range, headerHeight, merges, grouping,
+    corner.border !== undefined || !corner.value ? cornerRange : undefined, corner.border !== undefined);
   const plannedMerges = new Set(merges.map(rangeKey));
   for (const existing of sheet.merges ?? []) {
     if (!rangesIntersect(existing, range) || plannedMerges.has(rangeKey(existing))) continue;
@@ -119,7 +140,7 @@ export function prepareSpreadsheetGridWrite(sheet: SpreadsheetSheet, options: Sp
   const layout: SpreadsheetGridLayout = Object.freeze({ ...(dataRange ? { dataRange } : {}), headerRanges: Object.freeze(headerRanges),
     rowHeaderRanges: Object.freeze(rowHeaderRanges), ...(cornerRange ? { cornerRange } : {}), merges: Object.freeze(merges) });
   const plan = Object.freeze({ range, values: Object.freeze(values), formats: Object.freeze(formats), layout });
-  plans.set(plan, { sheet, options });
+  plans.set(plan, { sheet, options, groupingKeys: Object.freeze(groupingKeys) });
   return plan;
 }
 
@@ -129,6 +150,8 @@ export function writeSpreadsheetGrid(workbook: SpreadsheetWorkbook, options: Spr
   const plan = prepared && cached?.sheet === sheet && cached.options === options ? prepared : prepareSpreadsheetGridWrite(sheet, options);
   const filtered = filterCellValueWrites(sheet, plan.values, options.onConflict);
   const skipped = new Set(filtered.skippedAddresses);
+  const skippedKeys = plans.get(plan)!.groupingKeys.filter(address => skipped.has(address));
+  if (skippedKeys.length) throw new WriteConflictError(skippedKeys);
   for (const merge of plan.layout.merges) {
     const conflicts: string[] = [];
     for (let row = merge.top; row <= merge.bottom; row++) for (let column = merge.left; column <= merge.right; column++) {

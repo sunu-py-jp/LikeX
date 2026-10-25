@@ -174,3 +174,46 @@ console.log(JSON.stringify({ operations: 'passed', atomicFailure: 'passed', feat
 const borderedNative = setCellBorders(original, "sheet-1", [{ top: 1, left: 1, bottom: 2, right: 2 }], "outside");
 assert.equal(borderedNative.sheets[0].cells.B2.format.borders.top.color, "#808080");
 assert.equal(applySpreadsheetCommands(original, [{type:"cells.borders",sheetId:"sheet-1",ranges:[{top:1,left:1,bottom:2,right:2}],preset:"outside"}]).ok,true);
+
+const groupedSession = createSpreadsheetSession({ sheets: [{ id: 'grouped', name: 'Grouped', rowCount: 10, columnCount: 8,
+  cells: { D5: { value: 'preserved' } } }] });
+const groupedBefore = groupedSession.getMutationSnapshot();
+const groupedResult = groupedSession.execute({ type: 'cells.writeGrid', sheetId: 'grouped', target: { row: 2, column: 1 },
+  headers: ['Owner', 'Item', 'Label'], data: { type: 'rows', values: [['A', 'Decide', 'Decision'], ['A', 'Prepare', 'TODO'], ['B', 'Review', 'TODO']] },
+  rowGrouping: { byColumns: [0] }, insert: 'both' });
+assert.equal(groupedResult.ok, true, groupedResult.message);
+assert.deepEqual(groupedResult.results[0].placement, { nextRow: 6, nextColumn: 4 });
+assert.equal(groupedSession.getCell('grouped', 'G9').value, 'preserved');
+assert.equal(groupedSession.getCell('grouped', 'B4').value, 'A');
+assert.equal(groupedSession.getCell('grouped', 'B5')?.value ?? '', '');
+assert.equal(groupedSession.getCell('grouped', 'B6').value, 'B');
+assert.ok(groupedSession.getMutationSnapshot().token.structureRevision > groupedBefore.token.structureRevision);
+assert.equal(groupedSession.getHistoryState().undoCount, 1);
+assert.equal(groupedSession.undo(), true); assert.deepEqual(groupedSession.getWorkbook(), groupedBefore.workbook);
+const shiftedTable = groupedSession.execute({ type: 'tables.insert', sheetId: 'grouped', name: 'Tasks', target: { row: 2, column: 1 },
+  headers: ['Task', 'Status'], data: { type: 'rows', values: [['Prepare', 'TODO']] }, insert: 'columns' });
+assert.equal(shiftedTable.ok, true, shiftedTable.message);
+assert.equal(groupedSession.getCell('grouped', 'F5').value, 'preserved');
+assert.equal(groupedSession.sheet('grouped').getTables().length, 1);
+
+const lookupBounds = { top: 1, left: 1, bottom: 3, right: 3 };
+const lookupSession = createSpreadsheetSession({ sheets: [{ id: 'lookup', name: 'Lookup', rowCount: 8, columnCount: 8, cells: {
+  B2: { value: 'Item' }, C2: { value: 'Nov' }, D2: { value: 'Dec' },
+  B3: { value: 'A001' }, C3: { value: '10' }, D3: { value: '20' },
+  B4: { value: 'A002' }, C4: { value: '30' }, D4: { value: '40' },
+} }], namedRanges: [{ id: 'monthly', name: 'Monthly', sheetId: 'lookup', range: lookupBounds }] },
+{ features: { search: false, replace: false, namedRanges: false } });
+const lookupBefore = lookupSession.getWorkbook();
+const lookupResult = lookupSession.batch([
+  { type: 'cells.setByLookup', sheetId: 'lookup', range: { namedRange: 'Monthly' }, lookup: { column: 0, value: 'A001' }, updates: [{ column: 1, value: '1200' }] },
+  { type: 'cells.setByLookup', sheetId: 'lookup', range: 'B2:D4', lookup: { axis: 'columns', row: 0, value: 'Dec' }, updates: [{ row: 1, value: '1500' }] },
+  { type: 'cells.setByLookup', sheetId: 'lookup', range: lookupBounds,
+    lookup: { axis: 'both', row: { column: 0, value: 'A002' }, column: { row: 0, value: 'Dec' } }, value: '1800' },
+]);
+assert.equal(lookupResult.ok, true, lookupResult.message);
+assert.deepEqual(lookupResult.results.map(receipt => receipt.lookup.addresses), [['C3'], ['D3'], ['D4']]);
+assert.equal(lookupSession.getCell('lookup', 'C3').value, '1200');
+assert.equal(lookupSession.getCell('lookup', 'D3').value, '1500');
+assert.equal(lookupSession.getCell('lookup', 'D4').value, '1800');
+assert.equal(lookupSession.getHistoryState().undoCount, 1);
+assert.equal(lookupSession.undo(), true); assert.deepEqual(lookupSession.getWorkbook(), lookupBefore);

@@ -6,6 +6,8 @@ import type { SpreadsheetWriteConflictPolicy } from "../model/workbook/write-con
 export type SpreadsheetTableData =
   | Readonly<{ type: "rows"; values: readonly (readonly string[])[] }>
   | Readonly<{ type: "csv" | "tsv"; text: string }>;
+/** Insert whole sheet axes at target before writing, using the complete output height/width. */
+export type SpreadsheetGridInsertMode = "none" | "rows" | "columns" | "both";
 export type SpreadsheetTableWriteOptions = Readonly<{
   sheetId: string;
   target: Readonly<SpreadsheetCellPosition>;
@@ -16,6 +18,8 @@ export type SpreadsheetTableWriteOptions = Readonly<{
   rowNumbers?: false | Readonly<{ header?: string; start?: number }>;
   /** Defaults to overwrite. Skipped cells keep both their value and formatting. */
   onConflict?: SpreadsheetWriteConflictPolicy;
+  /** Defaults to none. Includes headers/numbering in the inserted size; one atomic command. */
+  insert?: SpreadsheetGridInsertMode;
 }>;
 export type SpreadsheetGridHeaderStyle = Readonly<{ background?: string; color?: string }>;
 /** A leaf uses one body row/column; groups span their descendant leaves. */
@@ -26,6 +30,21 @@ export type SpreadsheetGridHeader = string | Readonly<{
 }>;
 /** merged aligns roots at the outer edge; protruding aligns each root subtree next to the body. */
 export type SpreadsheetGridHeaderLayout = "merged" | "protruding";
+/** Group adjacent detail rows by exact source values; no grouping metadata is stored. */
+export type SpreadsheetGridRowGrouping = Readonly<{
+  /** Zero-based source data columns, excluding generated numbering and left headers. */
+  byColumns: readonly number[];
+  /** Defaults to first: write empty strings to repeated key cells. Does not merge cells. */
+  keyDisplay?: "first" | "all";
+  /** Between consecutive groups only. Defaults to a 1px solid #d1d5db line. */
+  separator?: false | SpreadsheetCellBorder;
+  /** Between the top headers and detail rows. Defaults to a 1px solid #d1d5db line. */
+  headerSeparator?: false | SpreadsheetCellBorder;
+  /** Inner vertical borders. Omission preserves the base border; false clears these edges. */
+  verticalBorder?: false | SpreadsheetCellBorder;
+  /** Outline around the grid. Omission preserves the base border; false clears these edges. */
+  outerBorder?: false | SpreadsheetCellBorder;
+}>;
 /** Absolute sheet coordinates, including each visible header cell (which may be merged). */
 export type SpreadsheetGridLayout = Readonly<{
   dataRange?: SpreadsheetMergedRange;
@@ -55,8 +74,10 @@ export type SpreadsheetCellGridWriteOptions = Omit<SpreadsheetTableWriteOptions,
     /** Overrides the grid border, inheriting unspecified grid/default border properties. */
     border?: SpreadsheetCellBorder;
   }>;
-  /** Defaults to a 1px solid #d1d5db grid. Unspecified border properties retain these defaults. */
-  border?: SpreadsheetCellBorder;
+  /** Defaults to a 1px solid #d1d5db grid, or false when rowGrouping is present. */
+  border?: false | SpreadsheetCellBorder;
+  /** Group adjacent rows and style group boundaries. Headers and detail cells remain ordinary cells. */
+  rowGrouping?: SpreadsheetGridRowGrouping;
 }>;
 export type SpreadsheetTableCommand =
   | Readonly<SpreadsheetTableWriteOptions & { type: "tables.insert"; name: string }>

@@ -23,7 +23,8 @@
     "columns.insert",
     "SpreadsheetInsertValue",
     "値付きの行列挿入",
-    "行列の自動拡張"
+    "行列の自動拡張",
+    "cells.setByLookup"
   ],
   "screenshots": []
 }

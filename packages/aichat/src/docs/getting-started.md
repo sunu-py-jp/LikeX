@@ -8,7 +8,7 @@ LikeAIChatはReact / React DOM 19.2.6以降の19系を使用します。会話�
 
 右クリック操作も通常のボタンと同じセッション・編集許可・機能フラグ・履歴を共有します。OFFの機能はメニューに表示せず、読み取り専用・処理中の編集は無効になります。会話切替やモデル変更で古いメニューを閉じます。入力欄・編集可能領域・リンク上の右クリック、およびShift+右クリックはブラウザー標準メニューを保持します。
 
-メニュー表示はUI専用の`browser.ts`から`@likex/core/browser`を使います。ソースコピー導入では`browser.ts`もコピー先coreの`browser`入口へ変更してください。モデル入口はDOMに依存しません。
+メニュー表示はUI専用の `browser.ts` から `core.ts` を経由して共通処理を使います。ソースコピー導入で `browser.ts` を変更する必要はありません。モデル入口はDOMに依存しません。
 
 ## パッケージを導入する
 
@@ -32,16 +32,14 @@ const aichat = createAIChat({ title: "チームのチャット" });
 
 ## ソースをコピーする
 
-`packages/aichat/src/` を `components/aichat/`、`packages/core/src/` を `components/core/` に配置します。`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/` を残し、AIChat側の2つのアダプターを変更します。
+`packages/aichat/src/` を `components/aichat/`、`packages/core/src/` を `components/core/` に配置します。`LICENSE`、`THIRD_PARTY_NOTICES.md`、`docs/` を残し、AIChat側の `core.ts` の1行だけを変更します。`json.ts`・`browser.ts` は内部でこの入口を参照するため、そのまま使います。
 
 ```ts
 // components/aichat/core.ts
 export * from "../core";
-// components/aichat/json.ts
-export * from "../core/json";
 ```
 
-利用先にはReact / React DOMに加え、コピー元 `package.json` と同じ版のlucide-reactを導入します。コンポーネントは `components/aichat`、画面なしのAPIは `components/aichat/model-entry` からimportし、`components/aichat/styles.css` を1回読み込みます。共通Provider・独自パスエイリアス・Tailwind CSSは不要です。
+利用先にはReact / React DOMに加え、コピー元 `package.json` と同じ版のlucide-react、Coreの実行時依存 `re2js@2.8.6` を導入します。コンポーネントは `components/aichat`、画面なしのAPIは `components/aichat/model-entry` からimportし、`components/aichat/styles.css` を1回読み込みます。共通Provider・独自パスエイリアス・Tailwind CSSは不要です。
 
 ## 表示設定
 
