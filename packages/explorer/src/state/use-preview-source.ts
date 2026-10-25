@@ -6,6 +6,7 @@ import type { ExplorerFileReader } from "../model/file-content";
 import type { ExplorerPreviewMode, ExplorerPreviewOptions, ExplorerPreviewRequest, ExplorerPreviewSource, ExplorerPreviewSourceResolver } from "../model/preview";
 import { getPreviewFormat, inertPreviewMime, previewModeForMime, validatePreviewUrl } from "../model/preview-formats";
 import { fileExtension } from "../model/text";
+import { decodePreviewText } from "../model/text-encoding";
 import { useMediaCache, useMediaRevision } from "./media-context";
 import type { MediaLease } from "./media-cache";
 
@@ -107,15 +108,18 @@ export function usePreviewSource({ entry, request: suppliedRequest, readFile, re
         const blob = await lease.promise;
         if (cancelled) return;
         // MIME overrides alone are not evidence that HTML/SVG bytes are safe documents.
-        const header = await blob.slice(0, 512).text();
+        const headerBytes = new Uint8Array(await blob.slice(0, 512).arrayBuffer());
         if (cancelled) return;
+        const header = decodePreviewText(headerBytes);
         const inert = inertPreviewMime(blob.type) || /^\s*(?:\uFEFF)?\s*(?:<!doctype\s+html\b|<html\b|<svg\b|<\?xml[\s\S]*?<svg\b)/i.test(header);
         if (key.mode === "text" || inert) {
           if (blob.size > MAX_TEXT_BYTES) { setContent({ key, status: "tooLarge" }); lease.release(); return; }
-          const text = await blob.text();
+          const bytes = await blob.arrayBuffer();
+          if (cancelled) return;
+          const text = decodePreviewText(new Uint8Array(bytes));
           if (!cancelled) setContent({ key, status: "ready", mode: "text", text });
         } else {
-          if (key.mode === "pdf" && !header.startsWith("%PDF-")) throw new Error("このファイルは有効なPDFとして確認できませんでした。");
+          if (key.mode === "pdf" && !new TextDecoder().decode(headerBytes).startsWith("%PDF-")) throw new Error("このファイルは有効なPDFとして確認できませんでした。");
           setContent({ key, status: "ready", mode: key.mode, url: lease.objectUrl(key.mode === "pdf" ? "application/pdf" : key.mime) });
         }
       } catch (error) {

@@ -329,14 +329,15 @@ test('delimited previews preserve quoted fields and bound rows, columns, total c
 test('CSV rendering stays bounded and does not read unchanged content again on metadata changes', async t => {
   const cache = cacheFor(t);
   const text = Array.from({ length: 201 }, () => Array.from({ length: 51 }, () => 'value').join(',')).join('\n');
-  let reads = 0, textReads = 0;
-  const blob = new Blob([text]);
-  t.mock.method(blob, 'text', async () => { textReads++; return text; });
+  const bytes = new TextEncoder().encode(text);
+  let reads = 0, byteReads = 0;
+  const blob = new Blob([bytes]);
+  t.mock.method(blob, 'arrayBuffer', async () => { byteReads++; return bytes.buffer; });
   const reader = async () => { reads++; return blob; };
   const csv = { ...entry('table.csv'), size: blob.size };
   const view = await mount(t, h(FilePreview, { entry: csv, readFile: reader }), cache);
   assert.equal(view.root.findAllByType('tr').length, MAX_TABLE_ROWS);
   assert.equal(view.root.findAllByType('th').length + view.root.findAllByType('td').length, MAX_TABLE_CELLS);
   await view.update(h(FilePreview, { entry: { ...csv, parent: 'folder', source: { ...csv.source } }, readFile: reader }));
-  assert.equal(reads, 1); assert.equal(textReads, 1);
+  assert.equal(reads, 1); assert.equal(byteReads, 1);
 });

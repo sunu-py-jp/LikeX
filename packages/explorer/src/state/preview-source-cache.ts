@@ -64,7 +64,7 @@ export function createPreviewSourceCache({ concurrency = 4, maxEntries = 64, max
       if (signal.aborted) return;
       // Detached windows can supply a Blob from a different JavaScript realm.
       if (!blob || !["[object Blob]", "[object File]"].includes(Object.prototype.toString.call(blob)) ||
-        typeof blob.slice !== "function" || typeof blob.text !== "function" || typeof blob.size !== "number")
+        typeof blob.slice !== "function" || typeof blob.arrayBuffer !== "function" || typeof blob.size !== "number")
         throw new Error("プレビューのreadはBlobを返す必要があります");
       record.blob = blob; record.phase = "ready"; record.used = ++tick; record.resolve(blob); trim();
     } catch (error) {

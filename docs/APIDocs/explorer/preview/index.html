@@ -215,6 +215,8 @@
   }}
 /&gt;</code></pre></div>
 <p>標準ではテキスト（1 MiBまで）、CSV/TSV、PNG・JPEG・GIF・WebP・AVIF・BMP、PDFを表示します。動画はアップロードの検査対象と同じMP4・WebM・M4V・MOV・MKV・AVI・WMV・MPG・MPEG・OGV・3GPを動画要素へ渡し、再生可否はブラウザとコーデックに依存します。CSV/TSVは200行・50列・合計10,000セルまで、1セル2,000文字までです。SVGは安全側の扱いとしてソースをテキスト表示します。拡張子やMIMEの指定だけで入力が安全になったり、壊れた内容が表示可能になったりするものではありません。</p>
+<p>テキストとCSV/TSVの文字コードは、BOM付きUTF-8・UTF-16LE・UTF-16BEを優先し、BOMがなければUTF-8として厳密にデコードします。UTF-8で読めない場合はShift_JISとして表示します。ローカルファイル、<code>readFile</code>、<code>resolvePreviewSource</code> のBlobに共通で適用され、元ファイルやダウンロード内容は変更しません。1 MiBの上限はデコード前のバイト数です。</p>
+<p>これは文字コードの完全な自動判定ではありません。BOMなしUTF-16や他の文字コードを扱う場合、または文字コードが分かっている場合は、親側でデコードしてUTF-8のBlobを <code>resolvePreviewSource</code> から返せます。MIMEの <code>charset</code> 指定によるデコーダーの切り替えは行いません。</p>
 <p>PDFはiframeで表示し、既定の <code>pdfSandbox: &quot;&quot;</code> は空のsandbox属性を付けます。<code>pdfSandbox: &quot;allow-same-origin&quot;</code> 等の文字列を指定するとその値になり、<code>false</code> は属性を外します。ブラウザ内蔵PDFビューアーとsandboxの組み合わせによっては表示できない場合があるため、利用環境で確認してください。緩和する場合は、信頼できる配信元・PDF生成経路や隔離したオリジンを親が確保し、HTML等をPDFとして返すエンドポイントを許可しないでください。MIMEの書き換えは内容の検証の代わりにはなりません。</p>
 <p>外部URLについても、プロトコルや配信元、リダイレクト先、認可範囲を親が確認します。コンテンツのアクセス制御はサーバーで行います。ダウンロードの非表示はブラウザへ配信済みの内容の保存を防ぐ機能ではありません。</p>
 <h2 id="別タブで開く">別タブで開く<a class="heading-link" href="#%E5%88%A5%E3%82%BF%E3%83%96%E3%81%A7%E9%96%8B%E3%81%8F" aria-label="この見出しへのリンク">#</a></h2>

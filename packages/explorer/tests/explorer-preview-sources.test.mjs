@@ -55,6 +55,71 @@ async function mount(t, props, cache, strict = false) {
 }
 const identity = (cacheKey = 'small', extra = {}) => ({ entryId: 'file', source: source('original'), revision: 0, cacheKey, ...extra });
 const video = (cacheKey, read) => ({ kind: 'blob', cacheKey, mime: 'video/mp4', read });
+const utf16 = (text, bigEndian = false) => {
+  const bytes = Buffer.from(`\uFEFF${text}`, 'utf16le');
+  return bigEndian ? bytes.swap16() : bytes;
+};
+
+for (const [encoding, bytes, expected] of [
+  ['empty', new Uint8Array(), ''],
+  ['ASCII', Buffer.from('plain text\r\nsecond line'), 'plain text\r\nsecond line'],
+  ['UTF-8', Buffer.from('日本語と絵文字 😀'), '日本語と絵文字 😀'],
+  ['UTF-8 BOM', Buffer.from('\uFEFF日本語と絵文字 😀'), '日本語と絵文字 😀'],
+  ['Shift_JIS', Uint8Array.of(0x93, 0xfa, 0x96, 0x7b, 0x8c, 0xea), '日本語'],
+  ['UTF-16LE BOM', utf16('日本語と絵文字 😀'), '日本語と絵文字 😀'],
+  ['UTF-16BE BOM', utf16('日本語と絵文字 😀', true), '日本語と絵文字 😀'],
+]) {
+  test(`${encoding} text previews decode local Files, raw reads and resolver Blobs without mojibake`, async t => {
+    for (const path of ['local', 'readFile', 'resolver']) {
+      const cache = cacheFor(t), file = new File([bytes], 'document.txt', { type: 'text/plain' });
+      const props = path === 'local' ? { entry: { ...entry('document.txt'), size: file.size, source: { kind: 'local', file } } } :
+        path === 'readFile' ? { entry: entry('document.txt'), readFile: async () => file } :
+          { entry: entry('document.bin'), resolvePreviewSource: () => ({ kind: 'blob', cacheKey: 'text', mime: 'text/plain', read: async () => file }) };
+      const view = await mount(t, props, cache);
+      assert.equal(view.root.findByType('pre').props.children, expected, `${path} preview`);
+      assert.equal(view.root.findAllByProps({ role: 'alert' }).length, 0);
+      await view.unmount();
+    }
+  });
+}
+
+test('Shift_JIS CSV and TSV text is decoded before parsing table cells', async t => {
+  for (const [extension, separator] of [['csv', ','], ['tsv', '\t']]) {
+    const cache = cacheFor(t);
+    const bytes = Buffer.concat([Buffer.from(`label${separator}count\r\n`), Buffer.from([0x93, 0xfa, 0x96, 0x7b, 0x8c, 0xea]), Buffer.from(`${separator}2`)]);
+    const view = await mount(t, { entry: entry(`table.${extension}`), readFile: async () => new Blob([bytes]) }, cache);
+    assert.deepEqual(view.root.findAllByType('th').map(cell => cell.props.children), ['label', 'count']);
+    assert.deepEqual(view.root.findAllByType('td').map(cell => cell.props.children), ['日本語', '2']);
+    await view.unmount();
+  }
+});
+
+test('UTF-16 HTML and SVG bytes remain inert under PDF and image MIME overrides', async t => {
+  for (const [text, bigEndian, mode, mime] of [
+    ['<html><script>alert(1)</script></html>', false, 'pdf', 'application/pdf'],
+    ['<?xml version="1.0"?><svg onload="alert(1)"/>', true, 'image', 'image/png'],
+  ]) {
+    const cache = cacheFor(t), { made } = urlsFor(t);
+    const file = new Blob([utf16(text, bigEndian)], { type: mime });
+    const view = await mount(t, { entry: entry('document.bin'), resolvePreviewSource: () => ({ kind: 'blob', cacheKey: 'inert', mode, mime, read: async () => file }) }, cache);
+    assert.equal(view.root.findByType('pre').props.children, text);
+    assert.equal(view.root.findAllByType('iframe').length, 0);
+    assert.equal(view.root.findAllByType('img').length, 0);
+    assert.equal(made.length, 0);
+    await view.unmount();
+  }
+});
+
+test('decodable UTF-16 PDF-looking text is not accepted as a binary PDF signature', async t => {
+  for (const bigEndian of [false, true]) {
+    const cache = cacheFor(t), { made } = urlsFor(t);
+    const view = await mount(t, { entry: entry('fake.pdf'), readFile: async () => new Blob([utf16('%PDF-1.7\nnot a PDF', bigEndian)], { type: 'application/pdf' }) }, cache);
+    assert.equal(view.root.findAllByType('iframe').length, 0);
+    assert.match(view.root.findByType(ExplorerPreviewError).props.error, /有効なPDF/);
+    assert.equal(made.length, 0);
+    await view.unmount();
+  }
+});
 
 test('variant lookup precedes reads and isolates variants, entries, sources, revisions and workspaces from originals', async t => {
   const cache = cacheFor(t), other = cacheFor(t); let reads = 0;
@@ -203,8 +268,36 @@ test('default and configured text previews enforce both metadata and actual byte
   const cache = cacheFor(t); let reads = 0;
   const view = await mount(t, { entry: { ...entry('large.txt'), size: 2 ** 20 + 1 }, readFile: async () => { reads++; return new Blob(['small']); } }, cache);
   assert.equal(reads, 0); assert.match(JSON.stringify(view.json), /1 MB/);
-  await view.update({ entry: entry('small.bin'), resolvePreviewSource: () => ({ kind: 'blob', cacheKey: 'large-text', mode: 'text', mime: 'text/plain', read: async () => new Blob(['x'.repeat(2 ** 20 + 1)]) }) });
-  assert.match(JSON.stringify(view.json), /1 MB/); assert.equal(view.root.findAllByType('pre').length, 0);
+  const oversized = new Blob(['x'.repeat(2 ** 20 + 1)]); let fullReads = 0;
+  for (const method of ['arrayBuffer', 'text']) t.mock.method(oversized, method, async () => { fullReads++; throw Error('oversized text must not be read in full'); });
+  for (const props of [
+    { entry: entry('small.txt'), readFile: async () => oversized },
+    { entry: entry('small.bin'), resolvePreviewSource: () => ({ kind: 'blob', cacheKey: 'large-text', mode: 'text', mime: 'text/plain', read: async () => oversized }) },
+  ]) {
+    await view.update(props);
+    assert.match(JSON.stringify(view.json), /1 MB/); assert.equal(view.root.findAllByType('pre').length, 0);
+    assert.equal(fullReads, 0);
+  }
+});
+
+test('text bytes that finish decoding after a target change cannot replace the new preview', async t => {
+  const cache = cacheFor(t), pending = deferred(), old = new Blob(['old']); let reads = 0;
+  t.mock.method(old, 'arrayBuffer', () => { reads++; return pending.promise; });
+  const view = await mount(t, { entry: entry('old.txt', 'old'), readFile: async () => old }, cache);
+  assert.equal(reads, 1);
+  await view.update({ entry: entry('current.txt', 'current'), readFile: async () => new Blob(['現在の内容 😀']) });
+  assert.equal(view.root.findByType('pre').props.children, '現在の内容 😀');
+  await act(async () => { pending.resolve(Uint8Array.of(0x93, 0xfa, 0x96, 0x7b, 0x8c, 0xea).buffer); await flush(); });
+  assert.equal(view.root.findByType('pre').props.children, '現在の内容 😀');
+});
+
+test('text byte reads that reject after close are handled without an unhandled rejection', async t => {
+  const cache = cacheFor(t), pending = deferred(), blob = new Blob(['pending']); let reads = 0;
+  t.mock.method(blob, 'arrayBuffer', () => { reads++; return pending.promise; });
+  const view = await mount(t, { entry: entry('document.bin'), resolvePreviewSource: () => ({ kind: 'blob', cacheKey: 'text', mime: 'text/plain', read: async () => blob }) }, cache);
+  assert.equal(reads, 1);
+  await view.unmount();
+  await act(async () => { pending.reject(new Error('late byte read failure')); await flush(); });
 });
 
 test('all upload-video suffixes use the shared preview registry and extension overrides normalize or disable defaults', () => {
