@@ -1,0 +1,4 @@
+import LikeTextEditor from "__LIBRARY_IMPORT__";
+import { createTextEditorModel } from "__LIBRARY_MODEL__";
+import ClientEditor from "./client";
+export default function Page() { return <main><LikeTextEditor initialDocument={createTextEditorModel({ title: "LikeTextEditor consumer" })} style={{ height: 600 }} /><ClientEditor /></main>; }

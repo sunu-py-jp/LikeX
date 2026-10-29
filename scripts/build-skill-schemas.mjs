@@ -31,6 +31,8 @@ export const schemaTargets = [
   { package: 'chat', type: 'ChatCommand', source: 'src/model/types.ts', output: 'commands.schema.json', limit: { source: 'src/model/validation.ts', name: 'CHAT_LIMITS', property: 'commands' } },
   { package: 'form', type: 'FormModel', source: 'src/model/types.ts', output: 'form.schema.json' },
   { package: 'form', type: 'FormCommand', source: 'src/model/types.ts', output: 'commands.schema.json', limit: { source: 'src/model/validation.ts', name: 'FORM_LIMITS', property: 'commands' } },
+  { package: 'texteditor', type: 'TextEditorModel', source: 'src/model/types.ts', output: 'texteditor.schema.json' },
+  { package: 'texteditor', type: 'TextEditorCommand', source: 'src/model/types.ts', output: 'commands.schema.json', limit: { source: 'src/model/validation.ts', name: 'TEXT_EDITOR_LIMITS', property: 'commands' } },
 ];
 const packagePath = (target, file) => `packages/${target.package}/${file}`;
 const outputPath = target => packagePath(target, `skills/likex-${target.package}/references/${target.output}`);

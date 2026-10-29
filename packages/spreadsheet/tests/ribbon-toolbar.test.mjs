@@ -76,7 +76,7 @@ async function mount(t, overrides = {}) {
 
 test('ribbon defaults to expanded and offers the three interactive display modes', async t => {
   const ui = await mount(t);
-  assert.deepEqual(ui.visibleTabs(), ['ファイル', 'ホーム', '挿入', 'データ']);
+  assert.deepEqual(ui.visibleTabs(), ['ファイル', 'ホーム', '挿入', 'データ', 'ページ レイアウト']);
   assert.equal(ui.visiblePanels().length, 1);
   assert.equal(ui.visibleLabel('シートの編集').length, 1);
   const mode = ui.root.findByProps({ 'aria-label': 'リボンの表示' });
@@ -88,7 +88,7 @@ test('tabs mode opens the chosen panel temporarily and preserves the workbook', 
   const changes = [];
   const ui = await mount(t, { initialRibbonDisplayMode: 'tabs', onRibbonDisplayModeChange: value => changes.push(value) });
   const workbook = ui.c.workbook;
-  assert.equal(ui.visibleTabs().length, 4);
+  assert.equal(ui.visibleTabs().length, 5);
   assert.equal(ui.visiblePanels().length, 0);
   await ui.clickTab('挿入');
   assert.equal(ui.visibleLabel('シートへの挿入').length, 1);
@@ -110,7 +110,7 @@ test('auto-hide starts with a reveal control and returns to the hidden header af
   const reveal = ui.visibleLabel('リボンを表示');
   assert.equal(reveal.length, 1);
   await act(async () => reveal[0].props.onClick());
-  assert.equal(ui.visibleTabs().length, 4);
+  assert.equal(ui.visibleTabs().length, 5);
   assert.equal(ui.visiblePanels().length, 1);
   await ui.documentEvent('pointerdown', { target: { inside: true } });
   assert.equal(ui.visiblePanels().length, 1);
@@ -127,7 +127,7 @@ test('fully hidden mode omits tabs, commands and the reveal control from initial
   assert.equal(ui.visibleLabel('リボンを表示').length, 0);
   assert.equal(ui.visibleLabel('リボンの表示').length, 0);
   await ui.update({ ribbonDisplayMode: 'expanded' });
-  assert.equal(ui.visibleTabs().length, 4);
+  assert.equal(ui.visibleTabs().length, 5);
   assert.equal(ui.visiblePanels().length, 1);
 });
 
@@ -138,11 +138,11 @@ test('left/right and edge keys select and reveal tabs in collapsed modes', async
   assert.equal(ui.visibleLabel('シートへの挿入').length, 1);
   assert.equal(ui.focused, '挿入');
   await ui.key('End');
-  assert.equal(ui.tab('データ').props['aria-selected'], true);
+  assert.equal(ui.tab('ページ レイアウト').props['aria-selected'], true);
   await ui.key('ArrowRight');
   assert.equal(ui.tab('ファイル').props['aria-selected'], true);
   await ui.key('ArrowLeft');
-  assert.equal(ui.tab('データ').props['aria-selected'], true);
+  assert.equal(ui.tab('ページ レイアウト').props['aria-selected'], true);
   await ui.key('Home');
   assert.equal(ui.tab('ファイル').props['aria-selected'], true);
 });

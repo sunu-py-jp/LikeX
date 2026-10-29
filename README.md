@@ -19,6 +19,7 @@
 | `@likex/chat` | 人同士のDM・グループ・スペース・スレッド | [LikeChat](packages/chat/README.md) |
 | `@likex/dataview` | 型付きレコード・検索・集計表示 | [LikeDataView](packages/dataview/README.md) |
 | `@likex/form` | フォーム設計・回答・検証 | [LikeForm](packages/form/README.md) |
+| `@likex/texteditor` | テキスト・Markdown編集、複数カーソル | [LikeTextEditor](packages/texteditor/README.md) |
 
 標準保存ファイルはSpreadsheetが `.spon`、LikeSlideが `.slon`、LikeDocumentが `.dcon` で、内容は純粋なJSONです。現在の保存構造をバージョン1とし、読み込みにも同じ形式を使います。保存APIとExplorerでの扱いは [ネイティブ保存形式](docs/architecture.md#ネイティブ保存形式) を参照してください。
 
@@ -52,7 +53,7 @@ npm ci
 npm run dev
 ```
 
-デモは `http://127.0.0.1:5173/`（Explorer）、`/spreadsheet`、`/slide`、`/document`、`/board`、`/diagram`、`/calendar`、`/whiteboard`、`/aichat`（AIとの会話）、`/chat`（人同士の会話）、`/dataview`、`/form` で起動します。通常デモの保存先はタブ内メモリです。`/spreadsheet/ai` と `/slide/ai` は資料一覧・新規作成から始まり、保存済み資料をブラウザーのIndexedDBに保持します。Office形式の読み書きはExcel・PowerPoint・Wordの全機能との互換を保証するものではありません。
+デモは `http://127.0.0.1:5173/`（Explorer）、`/spreadsheet`、`/slide`、`/document`、`/board`、`/diagram`、`/calendar`、`/whiteboard`、`/aichat`（AIとの会話）、`/chat`（人同士の会話）、`/dataview`、`/form`、`/texteditor` で起動します。通常デモの保存先はタブ内メモリです。`/spreadsheet/ai` と `/slide/ai` は資料一覧・新規作成から始まり、保存済み資料をブラウザーのIndexedDBに保持します。Office形式の読み書きはExcel・PowerPoint・Wordの全機能との互換を保証するものではありません。
 
 ```text
 packages/explorer/  # 独立して配布・コピーできるExplorer

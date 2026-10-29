@@ -283,7 +283,7 @@ test('File ribbon contains import/export, preserves quick save/history, and conf
   const events = []; let reads = 0;
   const ui = await mount(t, { onEvent: event => events.push(event) });
   const tabs = ui.root.findByProps({ 'aria-label': 'リボンのタブ' }).findAllByProps({ role: 'tab' });
-  assert.deepEqual(tabs.map(tab => tab.children[0]), ['ファイル', 'ホーム', '挿入', 'データ']);
+  assert.deepEqual(tabs.map(tab => tab.children[0]), ['ファイル', 'ホーム', '挿入', 'データ', 'ページ レイアウト']);
   assert.equal(tabs.find(tab => tab.children[0] === 'ホーム').props['aria-selected'], true);
   await act(async () => tabs[0].props.onClick());
   const filePanel = ui.root.findAllByProps({ role: 'tabpanel' }).find(panel => panel.props['aria-labelledby'] === tabs[0].props.id);

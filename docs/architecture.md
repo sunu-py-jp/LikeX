@@ -1,6 +1,6 @@
 # LikeXのモジュール構成
 
-npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explorer`、`@likex/spreadsheet`、`@likex/slide`、`@likex/document`、`@likex/board`、`@likex/diagram`、`@likex/calendar`、`@likex/whiteboard`、`@likex/aichat`、`@likex/chat`、`@likex/dataview`、`@likex/form` に分けます。リポジトリの名前はLikeX、npmの名前は小文字のscope付きにします。scopeの取得・公開先の設定は公開時に確認します。
+npm workspacesで開発環境を共有し、UIの配布単位は `@likex/explorer`、`@likex/spreadsheet`、`@likex/slide`、`@likex/document`、`@likex/board`、`@likex/diagram`、`@likex/calendar`、`@likex/whiteboard`、`@likex/aichat`、`@likex/chat`、`@likex/dataview`、`@likex/form`、`@likex/texteditor` に分けます。リポジトリの名前はLikeX、npmの名前は小文字のscope付きにします。scopeの取得・公開先の設定は公開時に確認します。
 
 ## 責務
 
@@ -116,7 +116,9 @@ LikeDocumentはProseMirrorの文書スキーマとトランザクションをGUI
 
 ## 追加のJSONエディター
 
-Board・Diagram・Calendar・Whiteboard・AIChat・Chat・DataView・Formは、それぞれ独立した `@likex/<module>` と `/model` の入口を持ちます。保存形式は `.json`、`format: "likex.<module>"` と明示したバージョンを要求します。人同士のChatは `version: 2`、それ以外は `version: 1` です。配列の意味のある順序とIDを保ち、serialize時に日時を更新しません。
+Board・Diagram・Calendar・Whiteboard・AIChat・Chat・DataView・Form・TextEditorは、それぞれ独立した `@likex/<module>` と `/model` の入口を持ちます。保存形式は `.json`、`format: "likex.<module>"` と明示したバージョンを要求します。人同士のChatは `version: 2`、それ以外は `version: 1` です。配列の意味のある順序とIDを保ち、serialize時に日時を更新しません。
+
+TextEditorは元のテキスト／Markdownを `text` に保持し、本文だけを `.txt`／`.md` として受け渡すAPIも持ちます。ソース編集はCodeMirror、Markdownの文章編集はProseMirrorを使い、共通の本文変更コマンドで保存・履歴・編集許可へ接続します。Coreは安全な文字列検索とホスト連携を共有し、文書固有のブロック編集はTextEditor内で扱います。
 
 `core/editor` のReact非依存controllerが、未保存判定・Undo/Redo・保存・編集許可・機能設定・非同期処理のキャンセルを担当します。各モジュールのadapterは正規化・シリアライズ・コマンド実行・必要な機能の対応だけを定義します。UIはcontrollerを購読し、表示中refも同じ経路へ渡します。純粋なmodel APIはこのホスト制御を必要としません。
 

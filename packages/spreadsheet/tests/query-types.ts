@@ -3,6 +3,7 @@ import { getCell, getCellComment, getDrawing, getImage, getImageResource, getRan
 import { createSpreadsheetReader, type SpreadsheetReadApi } from "../src/model/query-reader";
 import { createWorkbook } from "../src/model/workbook";
 import type { SpreadsheetWorkbookSnapshot } from "../src/commands/types";
+import { getSheetPrintSettings, getSpreadsheetPrintLayout, type SpreadsheetPrintSettings } from "../src/model-entry";
 
 const workbook: SpreadsheetWorkbookSnapshot = createWorkbook();
 const reader: SpreadsheetReadApi = createSpreadsheetReader(() => workbook);
@@ -32,6 +33,18 @@ if (text) { const type: "text" = text.type; void type; }
 getImageResource(workbook, "resource-1");
 getCellComment(workbook, "sheet-1", "A1");
 const sheet = getSheet(workbook, "sheet-1");
+const printSettings: SpreadsheetPrintSettings | null = getSheetPrintSettings(workbook, "sheet-1");
+getSpreadsheetPrintLayout(sheet);
+reader.getPrintSettings("sheet-1");
+reader.sheet("sheet-1").getPrintSettings();
+if (printSettings?.area) {
+  // @ts-expect-error print settings snapshots cannot be modified
+  printSettings.area.left = 1;
+}
+if (printSettings?.rowBreaks) {
+  // @ts-expect-error nested break arrays are readonly
+  printSettings.rowBreaks.push(2);
+}
 // @ts-expect-error sheet cells are deeply readonly
 sheet.cells.A1.value = "changed";
 // @ts-expect-error ranges are deeply readonly

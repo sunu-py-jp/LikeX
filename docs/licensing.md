@@ -22,6 +22,8 @@ ExplorerのPDFメタデータ検査は `pako@3.0.2`（MIT AND Zlib）を実行�
 
 LikeAIChatとLikeChatも独立した配布単位です。どちらもReact / React DOM、core、lucide-reactの通知を各パッケージ・ソースコピー・デモで確認します。AIサービスやチャット配送サービスのSDKは同梱せず、親アプリで追加する接続先の依存と利用条件は親アプリ側で扱います。
 
+LikeTextEditorはCodeMirror・ProseMirror・Markdownパーサーを実行時依存として追加します。Markdownパーサーの推移的依存`argparse@2.0.1`は`Python-2.0`です。[OSIのライセンス本文](https://opensource.org/license/Python-2.0)の再配布・変更許諾と通知保持条件を確認し、寛容なライセンスとして許可リストに追加しました。argparseのコード自体は変更せず、同梱LICENSE全文をパッケージ・ソースコピー・デモの通知に保持します。未知のライセンスやGPL等を通す例外は追加していません。
+
 ## 許可するライセンスと確認
 
 配布ライブラリの実行時依存・peer依存・生成CSSの出典は、MIT、Apache-2.0、ISC、BSD系、0BSDなどの寛容なライセンスに限定します。許可リストは `scripts/lib/licenses.mjs` にあります。宣言が不明、未承認、または必要な通知本文がない場合は失敗させます。複合SPDX式も全ての構成ライセンスを確認し、許可していない選択肢がある場合は個別レビューが必要です。

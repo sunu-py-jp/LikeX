@@ -106,6 +106,10 @@ export function applyDrawingCommand(workbook: SpreadsheetWorkbook, command: Draw
         if (patch[key] !== undefined && typeof patch[key] !== "boolean") return rejectCommand("INVALID_COMMAND", `${key}はtrueまたはfalseで指定してください`);
       if (patch.rotation !== undefined && (typeof patch.rotation !== "number" || !Number.isFinite(patch.rotation)))
         return rejectCommand("INVALID_COMMAND", "rotationは有限の数値で指定してください");
+      if (patch.textRotation !== undefined && (typeof patch.textRotation !== "number" || !Number.isFinite(patch.textRotation)))
+        return rejectCommand("INVALID_COMMAND", "textRotationは有限の数値で指定してください");
+      if (patch.textUpright !== undefined && typeof patch.textUpright !== "boolean")
+        return rejectCommand("INVALID_COMMAND", "textUprightはtrueまたはfalseで指定してください");
       if ((patch.width !== undefined && patch.width !== drawing.width) || (patch.height !== undefined && patch.height !== drawing.height) ||
         (drawing.type === "image" && Object.hasOwn(patch, "fit") && (patch.fit ?? "contain") !== (drawing.fit ?? "contain")) ||
         (Object.hasOwn(patch, "rotation") && normalizeDrawingRotation(patch.rotation) !== normalizeDrawingRotation(drawing.rotation)) ||

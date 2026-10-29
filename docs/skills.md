@@ -15,6 +15,7 @@
 | [likex-chat](../packages/chat/skills/likex-chat/SKILL.md) | 人同士のDM・グループ・スペース・返信のJSON（`likex.chat` / version 2） |
 | [likex-dataview](../packages/dataview/skills/likex-dataview/SKILL.md) | 型付きレコード・検索・集計表示のJSON |
 | [likex-form](../packages/form/skills/likex-form/SKILL.md) | フォーム設計・回答・検証のJSON |
+| [likex-texteditor](../packages/texteditor/skills/likex-texteditor/SKILL.md) | テキスト・Markdownのソースと文書JSON |
 
 旧AI LikeChatの `likex.chat` / version 1ファイルは `likex-aichat` スキルとAIChatのパーサーを使って検証・移行します。人同士の会話には `likex-chat` スキルを選び、形式名だけで互換性を判断しないでください。
 
@@ -38,7 +39,7 @@ node /path/to/likex-spreadsheet/scripts/document.mjs apply \
 
 利用できる操作と引数は各スキルの `SKILL.md` と `references/commands.md`、CLIの `--help` にあります。既存のファイルを編集する場合は先に `inspect` でIDや文書位置を調べてください。CLIは外部ストレージとの同期、認証、ロック、PPTX／XLSX／DOCX変換を行いません。
 
-リポジトリ内で使う場合は、最初に `npm ci` と `npm run build:library -- --module spreadsheet`（または `slide`、`document`、`board`、`diagram`、`calendar`、`whiteboard`、`aichat`、`chat`、`dataview`、`form`）を実行します。その後、対象パッケージのスキル内にあるCLIを呼び出します。
+リポジトリ内で使う場合は、最初に `npm ci` と `npm run build:library -- --module spreadsheet`（または `slide`、`document`、`board`、`diagram`、`calendar`、`whiteboard`、`aichat`、`chat`、`dataview`、`form`、`texteditor`）を実行します。その後、対象パッケージのスキル内にあるCLIを呼び出します。
 
 ## 更新する
 

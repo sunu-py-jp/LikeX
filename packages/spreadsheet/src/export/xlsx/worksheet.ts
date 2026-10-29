@@ -13,6 +13,7 @@ import { xml, xlsxText } from "./xml";
 import { tablePartsXml } from "./tables";
 import { pixelsToXlsxColumnWidth as columnWidth } from "../../xlsx-column-width";
 import { getSpreadsheetFilteredRows } from "../../model/filters";
+import { printSettingsXml } from "./print-settings";
 import { autoFilterXml } from "./auto-filter";
 
 type Calculated = Record<string, Record<string, SpreadsheetCalculatedValue>>;
@@ -105,7 +106,7 @@ function* worksheetChunks(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet
     yield `<row r="${row + 1}"${filteredRows.has(row) ? ' hidden="1"' : ""}${height === undefined ? "" : ` ht="${xml(height * 0.75)}" customHeight="1"`}${rowFormat === undefined ? "" : ` s="${styles.styleId(rowFormat)}" customFormat="1"`}>${[...cells].sort(([left], [right]) => left - right).map(([, item]) => cellXml(workbook, sheet, item.address, item.cell, styles, calculated, tableHeaders.get(item.address))).join("")}</row>`;
   }
   const merges = (sheet.merges ?? []).map(range => `<mergeCell ref="${cellAddress(range.top, range.left)}:${cellAddress(range.bottom, range.right)}"/>`).join("");
-  yield `</sheetData>${autoFilterXml(sheet.autoFilter)}${merges ? `<mergeCells count="${sheet.merges!.length}">${merges}</mergeCells>` : ""}${conditionalFormattingXml(sheet, styles)}${dataValidationsXml(sheet, { formulaForList: links.formulaForList })}${links.drawingId ? `<drawing r:id="${xml(links.drawingId)}"/>` : ""}${links.commentsDrawingId ? `<legacyDrawing r:id="${xml(links.commentsDrawingId)}"/>` : ""}${tablePartsXml(links.tableRelationshipIds)}</worksheet>`;
+  yield `</sheetData>${autoFilterXml(sheet.autoFilter)}${merges ? `<mergeCells count="${sheet.merges!.length}">${merges}</mergeCells>` : ""}${conditionalFormattingXml(sheet, styles)}${dataValidationsXml(sheet, { formulaForList: links.formulaForList })}${printSettingsXml(sheet.printSettings)}${links.drawingId ? `<drawing r:id="${xml(links.drawingId)}"/>` : ""}${links.commentsDrawingId ? `<legacyDrawing r:id="${xml(links.commentsDrawingId)}"/>` : ""}${tablePartsXml(links.tableRelationshipIds)}</worksheet>`;
 }
 /** Synchronous helper for small in-memory consumers and tests. */
 export function worksheetXml(workbook: SpreadsheetWorkbook, sheet: SpreadsheetSheet, styles: XlsxStyles, calculated: Calculated, links: Links = {}): string {

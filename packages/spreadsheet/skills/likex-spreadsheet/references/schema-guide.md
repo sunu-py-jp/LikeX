@@ -50,13 +50,17 @@
 | 型・場所 | フィールド |
 | --- | --- |
 | `SpreadsheetFile` | `format`, `schemaVersion`, `sheets`。任意の `resources`, `namedRanges` |
-| `SpreadsheetFileSheet` | `id`, `name`, `rowCount`, `columnCount`, `rows`。任意の `columnWidths`, `formatRanges`, `drawings`, `comments`, `merges`, `conditionalFormats`, `tables` |
+| `SpreadsheetFileSheet` | `id`, `name`, `rowCount`, `columnCount`, `rows`。任意の `columnWidths`, `formatRanges`, `drawings`, `comments`, `merges`, `conditionalFormats`, `tables`, `autoFilter`, `printSettings` |
 | `SpreadsheetFileRow` | 任意の `height`, `cells`。それ以外の行フィールドはない |
 | `SpreadsheetCell` | `value: string`、任意の `format`, `validation` |
 
 数値も `"1200"`、真偽値も `"TRUE"` / `"FALSE"`、数式も `"=SUM(B2:B3)"` として保存する。通常、先頭 `=` は数式として解釈する。文字列として扱う値は先頭アポストロフィや `numberFormat: "text"` を意図に合わせて用い、利用者の文字列表記を勝手に数値へ変換しない。計算結果は保存値ではなく `calculateWorkbook(workbook)` から取得する。
 
 `sheet.id` はブック内で一意。シート名は1〜31文字で、大文字・小文字を無視して一意。`[ ] : * ? / \\`、制御文字、先頭・末尾のアポストロフィは使えない。表示名の変更でIDは変わらない。
+
+## 印刷設定
+
+シートの `printSettings` は任意の保存設定。`area: { top,left,bottom,right }`、`paperSize: "A4"|"A3"|"Letter"`、`orientation: "portrait"|"landscape"`、`scale`（10〜400整数）、`margins: {top,bottom,left,right}`（インチ）、`rowBreaks` / `columnBreaks`（次ページ先頭の0始まり番号）を保持する。未指定は範囲なし・A4縦・100%・余白各0.75インチ。既定値や空配列は正規化で省略する。設定のために空セルを生成しない。詳細は[印刷設定の契約](../../../src/docs/print-area.md)。
 
 ## 範囲に共通する書式
 
@@ -227,3 +231,7 @@ XLSXは、壊れた図形・コメント・テーブル・テーマ・書式の�
 `importSpreadsheetXlsx` が返す `warnings` は `code`（`unsupported` / `adjusted` / `omitted`）、`message` と任意の `sheetName`・`count` を持つ。同じ内容はまとめ、異なる詳細を1,000件保持した後は、追加分を `code`・`sheetName` ごとに集約する。警告を確認して結果を採用する。モデルが有効であることと、元Excelを完全に再現できたことを区別する。
 
 必須のブック・ワークシート・共有文字列の欠落や破損、不正な値・実セル座標・共有数式、値・数式を持つ保持セル100,000件超、ZIPの安全上限・整合性エラー・パッケージ外への参照パス、キャンセルは回復せず全体を失敗させる。XMLの読み取り上限は補助パートにも適用し、上限超過を検証せず読み込むことはしない。
+
+## 図形内の文字の回転
+
+図形とテキストボックスは `textRotation?: number` と `textUpright?: boolean` を保存する。文字の角度は図形に対して時計回りで、有限値を0以上360未満へ正規化する。既定0。`textUpright: true` は保存されている図形角度・文字角度を消さず、文字の表示を水平にする（既定false）。両属性は `SpreadsheetDrawingTextStyle` の一部で、作成・更新コマンド、SPON、XLSXで共有する。真の縦書きは含まない。

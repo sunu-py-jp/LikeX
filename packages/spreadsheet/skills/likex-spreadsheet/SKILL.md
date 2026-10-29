@@ -13,7 +13,7 @@ description: LikeX SpreadsheetのネイティブJSON（.spon）を作成・検�
 
 リボンの表示方法はホストUIの `initialRibbonDisplayMode` / `ribbonDisplayMode` とHandleで制御する。SPON／XLSXやCLIコマンドの対象ではないため、リボンを隠す目的でブックや機能設定を書き換えない。[リボンの表示ガイド](../../src/docs/ribbon-display.md)を参照する。
 
-通常ビューの描画範囲はホストの `renderingMode: "progressive" | "viewport"` で切り替える。既定の `"viewport"` は画面とその前後、入力・結合に必要な行だけを描画する省メモリモード。`"progressive"` を明示すると、表示範囲を先に描画し、現在のシートの残りの行も順次追加して保持する。大きいシートや低スペック端末では既定の `"viewport"` を使う。これは読み込み済みデータのUI描画の設定で、ファイル取得・数式計算・SPON／XLSX・モデルAPI・CLI・専用サムネイル・印刷プレビューは変更しない。[描画モード](../../src/docs/api.md#シートの描画モード)を参照する。
+通常ビューの描画範囲はホストの `renderingMode: "progressive" | "viewport"` で切り替える。既定の `"viewport"` は画面とその前後、入力・結合に必要な行だけを描画する省メモリモード。`"progressive"` を明示すると、表示範囲を先に描画し、現在のシートの残りの行も順次追加して保持する。大きいシートや低スペック端末では既定の `"viewport"` を使う。これは読み込み済みデータのUI描画の設定で、ファイル取得・数式計算・SPON／XLSX・モデルAPI・CLI・専用サムネイルは変更しない。印刷範囲表示でも画面外のセルを全件描画しない。[描画モード](../../src/docs/api.md#シートの描画モード)を参照する。
 
 検索UIは `initialSearchOpen` / `initialSearchQuery` で初期表示し、表示後はHandleの `openSearch(query?)` / `closeSearch()` で操作する。LikeSlide・LikeDocument・PDFビューアーと共通の契約で、リボン非表示・読み取り専用でも使える。`features.search: false` の場合は開けない。検索は同じdocumentのbodyへPortal表示するフローティングウィンドウで、ブラウザーの表示領域内なら親コンポーネントの外側へも移動・サイズ変更できる。親の配色を引き継ぎ、開いたまま背後のシートを操作でき、閉じるボタン・Escで閉じる。セル編集中のEscは入力取消を優先する。位置とサイズはマウント中の再表示でも維持する。検索の表示状態はSPON／XLSXやCLIの対象ではない。[検索UIの組み込み方](../../src/docs/editing-tools.md)を参照する。
 
@@ -22,6 +22,8 @@ description: LikeX SpreadsheetのネイティブJSON（.spon）を作成・検�
 一覧用の軽量表示は `@likex/spreadsheet/thumbnail` の `SpreadsheetThumbnail` を使う。タイトルと指定シートのA1:J20を最大200セル・100図形で表示し、編集・選択・ズーム用のHandleを持たない。`sheetId` / `sheetName` propsは完全一致で、両方指定した場合は同じシートを指す必要がある。省略時は先頭、不正な対象はエラー表示で、props変更ごとに更新する。全入力の検証後、必要な範囲と依存先だけ数式計算する。モデルで同じ範囲の計算値を得るには `calculateSpreadsheetRange(workbook, sheetId, range)` を使う。サムネイルはUI表示なので保存形式やCLIを変更しない。[表示の制約と範囲計算](../../src/docs/thumbnail.md)を参照する。
 
 通常のSpreadsheetはマウント時の `initialSheetId` / `initialSheetName`、表示後の `ref.selectSheet(id | { sheetId?, sheetName? })`、ファイル取り込み時の `importExcel` / `importNative` optionsの `sheetId` / `sheetName` で対象を指定する。同じ完全一致の規約を使い、両指定は同じ対象でなければ拒否する。初期対象不正は先頭＋通知、表示後の選択不正はfalse、取り込み対象不正は適用前にrejectして旧下書きを保持する。初期propsは後から変えても移動しない。いずれもUIの選択で、SPON・XLSXやCLIに選択状態を保存しない。[対象指定ガイド](../../src/docs/selection.md#最初に開くシートを指定する)
+
+印刷範囲はシートの `printSettings` に保存する。`print.setArea` / `print.clearArea` / `print.setLayout` / `print.setBreaks` を使い、範囲のために空セルや罫線を生成しない。範囲・改ページの番号は0始まり、用紙倍率と画面ズームは別。`inspect --sheet-id ID --print-settings` または `getSheetPrintSettings` で先に設定を読み、変更対象だけを更新する。GUIでは上下左右の青い境界線を直接ドラッグして範囲を調整できる。四隅・辺の中央のハンドルや移動アイコンは表示しない。範囲全体の位置変更はセル番地の入力または print.setArea で行う。手動改ページ線も直接ドラッグできる。表示ON/OFFは保存対象外。実際の印刷・PDF生成は行わない。[印刷範囲の操作](references/commands.md#印刷範囲用紙改ページ)と[対応範囲](../../src/docs/print-area.md)を確認する。
 
 ## 必要な環境
 
@@ -47,6 +49,8 @@ node "$skill_dir/scripts/document.mjs" inspect --project "$project_dir" --input 
 取得したIDを使って `commands.json` を用意してから実行する。`commands.json` のルートはコマンドの**配列**。`{ "commands": [...] }` ではない。
 
 処理フローなどの接続線は `lines.insert` / `lines.update` の始点・終点で編集する。先に図形を作ってIDを取得し、同シートの対象IDと8方向の `binding.port` で接続する。矩形の幅・高さ・回転で線を編集しない。両端矢印は `startArrow` / `endArrow` で個別設定する。フロー図を直角の線で結ぶ場合は `routing: "elbow"` を指定し、途中の曲がり角は自動計算に任せる。直線は `routing: "straight"` または新規作成時の省略。詳しくは[直線・接続線](references/commands.md#直線接続線)を参照する。
+
+図形の `rotation` と内部の文字の `textRotation` は独立して指定できる。通常は合成した角度で表示し、`textUpright: true` は両方の角度を保持して文字だけ水平にする。`shapes.insert` / `textBoxes.insert` へ直接、更新コマンドでは `patch` へ指定する。SPON・コピー・Undo/Redo・XLSXで保持する。文字を回すために図形の位置やサイズを書き換えない。真の日本語縦書きとは異なる。[図形内の文字回転](../../src/docs/insertions-and-json.md#図形と文字を別々に回転する)
 
 図形・テキストボックスの文字レイアウトは共通の `SpreadsheetDrawingTextStyle` を使い、`shapes.insert` / `textBoxes.insert` へ直接、更新コマンドの `patch` へ指定する。`fontFamily`・装飾・`textInsets`・折り返し・配置・はみ出し・行間・縮小指定はSPONとXLSXで保持する。狭い注記枠の全文を表示する場合は、必要に応じてゼロ余白と `textWrap: "none"`, `textOverflow: "overflow"` を指定し、文字列を短縮して再現しない。余白の省略時は表示・編集・XLSX出力とも各0pxとする。Excelから取り込んだ余白は保持し、既存SPONで以前の8px余白を維持する場合は `textInsets` に明示する。折り返し・切り取りの既定値は維持する。`textAutoFit: "resize"` は文字領域だけを拡張し、図形外形は保存サイズのまま。混在する文字書式は取り込み時に先頭へ統一され、再出力で元の混在書式は復元しない。[文字レイアウトのコマンド](references/commands.md#文字レイアウト)と[保存属性](references/schema-guide.md#描画の文字レイアウト)を確認する。
 

@@ -136,13 +136,13 @@ test('Excel serializes native rotation with original frame size and lets shape t
       const exported = await prepareWorksheetDrawings(book.sheets[0], book.resources, { sheetIndex: 1 });
       const xml = await exported.parts.find(part => part.path === 'xl/drawings/drawing1.xml').content.text();
       if (rotation) assert.match(xml, new RegExp(`<a:xfrm[^>]*rot="${rotation * 60000}"`));
-      else assert.doesNotMatch(xml, /rot="/);
+      else assert.doesNotMatch(xml, /<a:xfrm[^>]*rot="/);
       assert.match(xml, /flipH="1"/); assert.match(xml, /flipV="1"/);
       // Preserve the existing image containment and shape stroke inset, without exporting an AABB.
       assert.equal(xml.match(/<a:ext cx="\d+" cy="\d+"\/>/)[0], originalExtent);
       if (kind !== 'images') {
-        assert.match(xml, new RegExp(`upright="${rotation ? '0' : '1'}"`));
-        if (rotation) assert.match(xml, /<a:bodyPr[^>]*rot="10800000"/);
+        assert.match(xml, /upright="0"/);
+        assert.match(xml, /<a:bodyPr[^>]*rot="10800000"/);
       }
     }
   }

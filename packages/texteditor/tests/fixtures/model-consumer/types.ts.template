@@ -1,0 +1,32 @@
+import {
+  createTextEditorModel, executeTextEditorCommands, findTextEditorMatches, applyMarkdownCommand,
+  applyMarkdownTaskCommand, getTextEditorMarkdownBlocks,
+  type TextEditorModel, type TextEditorCommand, type MarkdownAction,
+  type TextEditorRangeEdit, type TextEditorMarkdownBlock,
+} from "__MODEL_IMPORT__";
+const command: TextEditorCommand = { type: "text.replaceRange", from: 0, to: 0, text: "Hello" };
+const document: TextEditorModel = executeTextEditorCommands(createTextEditorModel(), command);
+void findTextEditorMatches(document, { query: "hello", wholeWord: true });
+const format: MarkdownAction = "markdown.heading2";
+void applyMarkdownCommand(document.text, { from: 1, to: 1 }, format);
+const edits: readonly TextEditorRangeEdit[] = [{ from: 0, to: 1, text: "h" }];
+void executeTextEditorCommands(document, { type: "text.replaceRanges", edits });
+const markdown = createTextEditorModel({ mode: "markdown", text: "Heading\n\n- [ ] Pending" });
+const blocks: readonly TextEditorMarkdownBlock[] = getTextEditorMarkdownBlocks(markdown);
+const heading = blocks.find(block => block.type === "paragraph");
+if (heading) void executeTextEditorCommands(markdown, {
+  type: "markdown.format", selection: { from: heading.from, to: heading.to }, action: format,
+});
+const task = blocks.find(block => block.checked === false);
+if (task) {
+  void executeTextEditorCommands(markdown, { type: "markdown.toggleTask", position: task.position });
+  void applyMarkdownTaskCommand(markdown.text, task.position);
+}
+const link: TextEditorCommand = { type: "markdown.format", selection: { from: 1, to: 4 }, action: "markdown.link", options: { href: "https://example.com", title: "Example" } };
+void link;
+// @ts-expect-error unsupported mode
+const bad: TextEditorCommand = { type: "document.update", mode: "html" }; void bad;
+// @ts-expect-error rich formatting must use a supported operation
+const badFormat: TextEditorCommand = { type: "markdown.format", selection: { from: 1, to: 1 }, action: "markdown.unknown" }; void badFormat;
+// @ts-expect-error range edits require replacement text
+const badRange: TextEditorCommand = { type: "text.replaceRanges", edits: [{ from: 0, to: 1 }] }; void badRange;

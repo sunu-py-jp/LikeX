@@ -8,6 +8,7 @@ import { createPrimaryColorPalette } from "../core";
 import { normalizeSpreadsheetThumbnail, prepareNormalizedSpreadsheetThumbnail } from "./thumbnail/prepare-thumbnail";
 import { Shape } from "./drawings/shape";
 import { DrawingText } from "./drawings/drawing-text";
+import { getDrawingTextRotation } from "../model/drawing-text";
 import { LineMarker } from "./drawings/line-marker";
 import { ThumbnailCellText } from "./thumbnail/thumbnail-cell-text";
 
@@ -78,12 +79,13 @@ export function SpreadsheetThumbnail(props: SpreadsheetThumbnailProps) {
               const drawing = item.drawing;
               if (item.kind === "line") {
                 const line = item.drawing, start = line.startArrow ?? "none", end = line.endArrow ?? (line.shape === "arrow" ? "triangle" : "none");
+                const textRotation = getDrawingTextRotation(line);
                 const id = `${marker}-${index}`;
                 return <svg key={line.id} data-lxs-thumbnail-drawing={line.id} className="lxs-thumbnail-line" width={scene.width} height={scene.height}>
                   <defs><LineMarker id={`${id}-start`} kind={start} color={line.stroke} /><LineMarker id={`${id}-end`} kind={end} color={line.stroke} /></defs>
                   <polyline points={item.points} fill="none" stroke={line.stroke} strokeWidth={line.strokeWidth} strokeLinejoin="round" strokeLinecap="round"
                     markerStart={start !== "none" ? `url(#${id}-start)` : undefined} markerEnd={end !== "none" ? `url(#${id}-end)` : undefined} />
-                  {!!line.text && <text x={item.label.x} y={item.label.y} textAnchor="middle" fill={line.color ?? "#1f2937"} fontSize={line.fontSize ?? 16} fontWeight={line.bold ? "bold" : undefined} fontFamily={line.fontFamily} fontStyle={line.italic ? "italic" : undefined} textDecoration={line.underline ? "underline" : undefined}>{line.text}</text>}
+                  {!!line.text && <text x={item.label.x} y={item.label.y} transform={textRotation ? `rotate(${textRotation} ${item.label.x} ${item.label.y})` : undefined} textAnchor="middle" fill={line.color ?? "#1f2937"} fontSize={line.fontSize ?? 16} fontWeight={line.bold ? "bold" : undefined} fontFamily={line.fontFamily} fontStyle={line.italic ? "italic" : undefined} textDecoration={line.underline ? "underline" : undefined}>{line.text}</text>}
                 </svg>;
               }
               return <div key={drawing.id} data-lxs-thumbnail-drawing={drawing.id} className="lxs-drawing lxs-thumbnail-drawing" style={{ left: item.left, top: item.top,

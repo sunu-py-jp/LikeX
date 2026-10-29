@@ -1,0 +1,8 @@
+{
+  "title": "表示中のAPIと利用例",
+  "summary": "refから本文・検索・選択・表示設定・ファイル操作を実行する方法と、全メソッドをまとめます。",
+  "source": "packages/texteditor/src/docs/ref-api.md",
+  "order": 15,
+  "section": "連携",
+  "keywords": ["TextEditorHandle", "getState", "execute", "setSearch", "getSearch", "closeSearch", "replaceNext", "replaceAll", "setSelection", "setViewMode", "setWordWrap", "initialViewMode", "importFile", "exportFile", "download", "TextEditorViewState", "TextEditorSearchQuery"]
+}

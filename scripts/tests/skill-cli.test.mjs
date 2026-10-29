@@ -62,6 +62,7 @@ const renameCommand = (kind, summary, title) => ({
   diagram: () => ({ type: 'diagram.update', title }), whiteboard: () => ({ type: 'whiteboard.update', title }),
   calendar: () => ({ type: 'calendar.update', title }), chat: () => ({ type: 'chat.update', title }), aichat: () => ({ type: 'aichat.update', title }),
   form: () => ({ type: 'form.update', patch: { title } }),
+  texteditor: () => ({ type: 'document.update', title }),
 }[kind]());
 const modelFunctions = (kind, model) => {
   const [suffix, applyName, resultKey] = {
@@ -70,9 +71,60 @@ const modelFunctions = (kind, model) => {
     dataview: ['DataView', 'executeDataViewCommands', 'data'], diagram: ['Diagram', 'executeDiagramCommands'],
     whiteboard: ['Whiteboard', 'executeWhiteboardCommands'], calendar: ['Calendar', 'executeCalendarCommands', 'calendar'],
     chat: ['Chat', 'executeChatCommands', 'chat'], aichat: ['AIChat', 'executeAIChatCommands', 'aichat'], form: ['Form', 'executeFormCommands'],
+    texteditor: ['TextEditorModel', 'executeTextEditorCommands'],
   }[kind];
   return { parse: model[`parse${suffix}`], serialize: model[`serialize${suffix}`], apply: model[applyName], result: value => resultKey ? value[resultKey] : value };
 };
+
+test('TextEditor inspection returns bounded source positions and preserves full content on edits', async () => {
+  const { model } = fixtures.texteditor, files = await paths('texteditor');
+  const source = 'a'.repeat(1500) + '😀\nend';
+  await writeFile(files.input, model.serializeTextEditorModel(model.createTextEditorModel({ id: 'text', mode: 'markdown', text: source })));
+  const first = await run('texteditor', ['inspect', '--input', files.input]);
+  assert.equal(first.status, 0);
+  assert.equal(first.json.summary.characterCount, source.length);
+  assert.deepEqual(first.json.selection, { coordinateSpace: 'source', from: 0, to: 1000, text: 'a'.repeat(1000), total: source.length, hasMore: true });
+  const last = await run('texteditor', ['inspect', '--input', files.input, '--offset', '1500', '--limit', '6']);
+  assert.deepEqual(last.json.selection, { coordinateSpace: 'source', from: 1500, to: 1506, text: '😀\nend', total: source.length, hasMore: false });
+  await writeFile(files.commands, JSON.stringify([{ type: 'text.replaceRange', from: 1503, to: 1506, text: 'END' }]));
+  assert.equal((await run('texteditor', ['apply', '--input', files.input, '--commands', files.commands, '--output', files.output])).status, 0);
+  assert.equal(model.parseTextEditorModel(await readFile(files.output, 'utf8')).text, 'a'.repeat(1500) + '😀\nEND');
+  assert.equal((await run('texteditor', ['inspect', '--input', files.input, '--limit', '1001'])).json.error.code, 'USAGE');
+});
+
+test('TextEditor CLI applies structured Markdown and multi-range commands with atomic failures', async () => {
+  const { model } = fixtures.texteditor, files = await paths('texteditor');
+  const initial = model.createTextEditorModel({ id: 'rich-command-cli', mode: 'markdown', text: 'Alpha beta\n\n- [ ] Pending' });
+  const blocks = model.getTextEditorMarkdownBlocks(initial);
+  const paragraph = blocks.find(block => block.type === 'paragraph' && block.text === 'Alpha beta');
+  const task = blocks.find(block => block.checked === false);
+  const before = model.serializeTextEditorModel(initial);
+  await writeFile(files.input, before);
+  const commands = [
+    { type: 'markdown.format', selection: { from: paragraph.from, to: paragraph.from + 5 }, action: 'markdown.link', options: { href: 'https://example.com' } },
+    { type: 'markdown.toggleTask', position: task.position },
+    { type: 'text.replaceRanges', edits: [{ from: 0, to: 0, text: '# Notes\n\n' }] },
+  ];
+  await writeFile(files.commands, JSON.stringify(commands));
+  const dry = await run('texteditor', ['apply', '--input', files.input, '--commands', files.commands, '--dry-run']);
+  assert.equal(dry.status, 0); assert.equal(dry.json.written, false);
+  assert.equal(await readFile(files.input, 'utf8'), before);
+  const applied = await run('texteditor', ['apply', '--input', files.input, '--commands', files.commands, '--output', files.output]);
+  assert.equal(applied.status, 0);
+  const result = model.parseTextEditorModel(await readFile(files.output, 'utf8'));
+  assert.equal(result.text, '# Notes\n\n[Alpha](https://example.com) beta\n\n* [x] Pending');
+  const committed = await readFile(files.output, 'utf8');
+  for (const invalid of [
+    { type: 'markdown.format', selection: { from: 1, to: 6 }, action: 'markdown.link', options: { href: 'javascript:alert(1)' } },
+    { type: 'text.replaceRanges', edits: [{ from: 0, to: 6, text: 'a' }, { from: 3, to: 7, text: 'b' }] },
+    { type: 'markdown.toggleTask', position: 0 },
+  ]) {
+    await writeFile(files.commands, JSON.stringify([{ type: 'document.update', title: 'partial' }, invalid]));
+    const rejected = await run('texteditor', ['apply', '--input', files.output, '--commands', files.commands, '--output', files.output]);
+    assert.equal(rejected.status, 1);
+    assert.equal(await readFile(files.output, 'utf8'), committed);
+  }
+});
 
 test('image inspection shares byte IDs across Spreadsheet, Slide and Document without exposing image payloads', async () => {
   const src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j5ncAAAAASUVORK5CYII=';
@@ -160,6 +212,37 @@ test('spreadsheet inspect pages shared format ranges without expanding stored ce
     const invalid = await run('spreadsheet', ['inspect', '--input', files.input, ...selectors]);
     assert.equal(invalid.status, 1); assert.equal(invalid.json.error.code, 'USAGE');
   }
+});
+
+test('spreadsheet inspect reads print settings without cells and rejects ambiguous selectors', async () => {
+  const { model } = fixtures.spreadsheet, files = await paths('spreadsheet');
+  const initial = model.createWorkbook(), sheetId = initial.sheets[0].id;
+  await writeFile(files.input, model.serializeWorkbook(initial));
+  const inspect = ['inspect', '--input', files.input, '--sheet-id', sheetId, '--print-settings'];
+  const empty = await run('spreadsheet', inspect);
+  assert.equal(empty.status, 0, JSON.stringify(empty.json));
+  assert.deepEqual(empty.json.selection, { sheetId, printSettings: null });
+  const commands = [
+    { type: 'print.setArea', sheetId, range: { top: 1, left: 1, bottom: 29, right: 7 } },
+    { type: 'print.setLayout', sheetId, paperSize: 'A3', orientation: 'landscape', scale: 80 },
+    { type: 'print.setBreaks', sheetId, rows: [15], columns: [5] },
+  ];
+  await writeFile(files.commands, JSON.stringify(commands));
+  const applied = await run('spreadsheet', ['apply', '--input', files.input, '--commands', files.commands, '--output', files.output]);
+  assert.equal(applied.status, 0, JSON.stringify(applied.json));
+  const result = await run('spreadsheet', ['inspect', '--input', files.output, '--sheet-id', sheetId, '--print-settings', '--compact-summary']);
+  assert.equal(result.status, 0, JSON.stringify(result.json));
+  assert.deepEqual(result.json.selection.printSettings.area, commands[0].range);
+  assert.equal(result.json.selection.printSettings.paperSize, 'A3');
+  assert.equal(result.json.selection.printSettings.scale, 80);
+  assert.deepEqual(result.json.selection.printSettings.rowBreaks, [15]);
+  assert.equal(Object.hasOwn(result.json.selection, 'cells'), false);
+  for (const extra of [['--range', 'A1'], ['--include-data'], ['--format-ranges'], ['--offset', '0'], ['--search', 'cells', '--text', 'x']]) {
+    const invalid = await run('spreadsheet', [...inspect, ...extra]);
+    assert.equal(invalid.status, 1); assert.equal(invalid.json.error.code, 'USAGE');
+  }
+  const missingSheet = await run('spreadsheet', ['inspect', '--input', files.input, '--print-settings']);
+  assert.equal(missingSheet.json.error.code, 'USAGE');
 });
 
 test('committed standalone scripts match the one canonical source and current package versions', async () => {
@@ -288,7 +371,7 @@ for (const kind of skillKinds) {
     }
     const files = await paths(kind);
     const handle = await open(files.input, 'w');
-    await handle.truncate(({ spreadsheet: 192, slide: 240, document: 40, board: 48, dataview: 96, diagram: 24, whiteboard: 120, calendar: 5, chat: 32, aichat: 32, form: 8 }[kind]) * 1024 * 1024 + 1);
+    await handle.truncate(({ spreadsheet: 192, slide: 240, document: 40, board: 48, dataview: 96, diagram: 24, whiteboard: 120, calendar: 5, chat: 32, aichat: 32, form: 8, texteditor: 64 }[kind]) * 1024 * 1024 + 1);
     await handle.close();
     assert.equal((await run(kind, ['validate', '--input', files.input])).json.error.code, 'FILE_TOO_LARGE');
     await writeFile(files.input, 'not JSON');

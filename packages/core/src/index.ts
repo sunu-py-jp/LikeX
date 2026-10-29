@@ -42,7 +42,7 @@ export type { ConnectorPoint, ConnectorPort, ConnectorArrowhead, ConnectorBindin
 export { OFFICE_SHAPE_PRESETS, isOfficeShapePreset, getOfficeShapeGeometry, getOfficeShapeOutline } from "./office-shapes";
 export type { OfficeShapePreset, OfficeShapeCategory, OfficeShapeGeometry } from "./office-shapes";
 export { createTextSearchMatcher } from "./text-search";
-export type { TextSearchQuery, TextSearchMatcher } from "./text-search";
+export type { TextSearchQuery, TextSearchMatcher, TextSearchMatch } from "./text-search";
 export { createKeywordSearchMatcher } from "./keyword-search";
 export type { KeywordSearchQuery, KeywordTextMatch, KeywordSearchMatcher } from "./keyword-search";
 // Import-safe on the server; the host supplies a DOM anchor when opening a menu.

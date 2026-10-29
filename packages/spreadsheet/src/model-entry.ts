@@ -30,3 +30,5 @@ export { importSpreadsheetXlsx } from "./import/import-xlsx";
 export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportLimits, SpreadsheetExcelImportResult, SpreadsheetExcelImportWarning, SpreadsheetExcelColumnWidthFont, SpreadsheetExcelColumnWidthMetrics, SpreadsheetExcelColumnWidthMeasurer } from "./import/types";
 export { exportSpreadsheetXlsx } from "./export/model-export";
 export type { SpreadsheetXlsxExportOptions, SpreadsheetXlsxExportWarning, SpreadsheetImageRasterizeRequest, SpreadsheetImageRasterizer } from "./export/portable-types";
+
+export type { SpreadsheetPrintCommand } from "./api/print-commands";

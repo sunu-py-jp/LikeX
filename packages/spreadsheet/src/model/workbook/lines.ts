@@ -10,6 +10,7 @@ export function updateLineEndpoints(workbook: SpreadsheetWorkbook, sheetId: stri
   const previous = getSpreadsheetLinePoints(sheet, drawingId);
   const next = withLinePoints(sheet, drawing, { start: points.start === undefined ? previous.start : points.start, end: points.end === undefined ? previous.end : points.end });
   return updateDrawing(workbook, sheetId, drawingId, { line: next.line, anchor: next.anchor, width: next.width, height: next.height, rotation: 0, flipX: false, flipY: false,
+    textRotation: next.textRotation,
     ...(points.routing !== undefined ? { routing: points.routing } : {}),
     ...(points.startArrow !== undefined ? { startArrow: points.startArrow } : {}), ...(points.endArrow !== undefined ? { endArrow: points.endArrow } : {}) });
 }

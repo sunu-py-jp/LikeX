@@ -12,6 +12,7 @@ export const components = [
   { id: 'aichat', name: 'LikeAIChat', note: 'AIとの会話' },
   { id: 'chat', name: 'LikeChat', note: 'DMとスペース' },
   { id: 'form', name: 'LikeForm', note: 'フォームと回答' },
+  { id: 'texteditor', name: 'LikeTextEditor', note: 'テキストとMarkdown' },
   { id: 'core', name: 'Core', note: '共通の型とヘルパー' },
 ];
 

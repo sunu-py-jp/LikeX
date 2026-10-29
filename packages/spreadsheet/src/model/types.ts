@@ -67,6 +67,10 @@ export type SpreadsheetImageDrawing = SpreadsheetDrawingBase & {
 /** Optional drawing text properties; omitted fields use the LikeX defaults. */
 export type SpreadsheetDrawingTextStyle = {
   fontFamily?: string; italic?: boolean; underline?: boolean;
+  /** Clockwise text rotation relative to the drawing, normalized to [0, 360). Omitted means 0. */
+  textRotation?: number;
+  /** Keep text horizontal regardless of drawing and text rotation. Omitted means false. */
+  textUpright?: boolean;
   /** Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained. */
   textInsets?: Readonly<{ left: number; top: number; right: number; bottom: number }>;
   textWrap?: "wrap" | "none";
@@ -150,6 +154,21 @@ export type SpreadsheetNamedRange = Readonly<{ id: string; name: string; sheetId
 export type SpreadsheetFormatRangeBounds = Readonly<{ top: number; left: number; bottom: number | "end"; right: number | "end" }>;
 /** A complete shared base format; ranges do not overlap. Explicit cell formats override it completely. */
 export type SpreadsheetFormatRange = Readonly<{ range: SpreadsheetFormatRangeBounds; format: SpreadsheetCellFormat }>;
+/** One rectangular print area per sheet. Omitted layout uses A4 portrait, 100%, 0.75-inch margins.
+ * Manual breaks are zero-based starts of the following page. */
+export type SpreadsheetPrintSettings = Readonly<{
+  area?: SpreadsheetMergedRange;
+  paperSize?: "A4" | "A3" | "Letter";
+  orientation?: "portrait" | "landscape";
+  /** @minimum 10
+   * @maximum 400
+   */
+  scale?: number;
+  /** Inches. Every edge is required; the sums must leave positive printable width/height. */
+  margins?: Readonly<{ top: number; bottom: number; left: number; right: number }>;
+  rowBreaks?: readonly number[];
+  columnBreaks?: readonly number[];
+}>;
 export type SpreadsheetSheet = {
   id: string;
   name: string;
@@ -165,6 +184,7 @@ export type SpreadsheetSheet = {
   conditionalFormats?: readonly SpreadsheetConditionalFormatRule[];
   tables?: readonly SpreadsheetTable[];
   autoFilter?: SpreadsheetAutoFilter;
+  printSettings?: SpreadsheetPrintSettings;
 };
 export const SPREADSHEET_FORMAT = "likex.spreadsheet" as const;
 export type SpreadsheetWorkbook = {

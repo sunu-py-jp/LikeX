@@ -1849,6 +1849,51 @@
     ]
   },
   {
+    "id": "spreadsheet/print-area",
+    "title": "印刷範囲と改ページ",
+    "component": "spreadsheet",
+    "section": "セルとシート",
+    "output": "spreadsheet/print-area/index.html",
+    "sources": [
+      "packages/spreadsheet/src/docs/print-area.md"
+    ],
+    "keywords": [
+      "印刷",
+      "改ページ",
+      "printArea",
+      "printSettings",
+      "print.setArea",
+      "getSpreadsheetPrintLayout"
+    ],
+    "headings": [
+      {
+        "id": "画面で設定調整する",
+        "title": "画面で設定・調整する",
+        "depth": 2
+      },
+      {
+        "id": "表示を外から切り替える",
+        "title": "表示を外から切り替える",
+        "depth": 2
+      },
+      {
+        "id": "公開コマンド",
+        "title": "公開コマンド",
+        "depth": 2
+      },
+      {
+        "id": "設定とページ計算",
+        "title": "設定とページ計算",
+        "depth": 2
+      },
+      {
+        "id": "sponxlsxの対応範囲",
+        "title": "SPON・XLSXの対応範囲",
+        "depth": 2
+      }
+    ]
+  },
+  {
     "id": "spreadsheet/merged-cells",
     "title": "セル結合",
     "component": "spreadsheet",
@@ -2428,6 +2473,16 @@
         "depth": 2
       },
       {
+        "id": "図形と文字を別々に回転する",
+        "title": "図形と文字を別々に回転する",
+        "depth": 2
+      },
+      {
+        "id": "オブジェクトのコピー",
+        "title": "オブジェクトのコピー",
+        "depth": 2
+      },
+      {
         "id": "図形の種類",
         "title": "図形の種類",
         "depth": 2
@@ -2834,6 +2889,11 @@
       {
         "id": "共通範囲とセルに適用される書式を取得する",
         "title": "共通範囲とセルに適用される書式を取得する",
+        "depth": 2
+      },
+      {
+        "id": "印刷設定を取得する",
+        "title": "印刷設定を取得する",
         "depth": 2
       },
       {
@@ -5249,6 +5309,223 @@
       {
         "id": "保存構造",
         "title": "保存構造",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "texteditor/getting-started",
+    "title": "導入と設定",
+    "component": "texteditor",
+    "section": "はじめに",
+    "output": "texteditor/getting-started/index.html",
+    "sources": [
+      "packages/texteditor/src/docs/getting-started.md"
+    ],
+    "keywords": [
+      "LikeTextEditor",
+      "TextEditorProps",
+      "mode",
+      "initialText",
+      "initialDocument",
+      "colorMode"
+    ],
+    "headings": [
+      {
+        "id": "モードと初期値",
+        "title": "モードと初期値",
+        "depth": 2
+      },
+      {
+        "id": "ソースコピーとnextjs",
+        "title": "ソースコピーとNext.js",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "texteditor/commands",
+    "title": "コマンドとショートカット",
+    "component": "texteditor",
+    "section": "編集",
+    "output": "texteditor/commands/index.html",
+    "sources": [
+      "packages/texteditor/src/docs/commands.md"
+    ],
+    "keywords": [
+      "TextEditorCommand",
+      "TextEditorHandle",
+      "runCommand",
+      "selectAll",
+      "find",
+      "replace",
+      "text.replaceAll",
+      "text.replaceRanges",
+      "markdown.format",
+      "markdown.toggleTask",
+      "executeTextEditorCommands",
+      "findTextEditorMatches",
+      "TEXT_EDITOR_ACTIONS"
+    ],
+    "headings": [
+      {
+        "id": "モデルコマンド",
+        "title": "モデルコマンド",
+        "depth": 2
+      },
+      {
+        "id": "表示中の操作",
+        "title": "表示中の操作",
+        "depth": 2
+      },
+      {
+        "id": "公開モデルapi",
+        "title": "公開モデルAPI",
+        "depth": 2
+      },
+      {
+        "id": "サイズ",
+        "title": "サイズ",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "texteditor/ref-api",
+    "title": "表示中のAPIと利用例",
+    "component": "texteditor",
+    "section": "連携",
+    "output": "texteditor/ref-api/index.html",
+    "sources": [
+      "packages/texteditor/src/docs/ref-api.md"
+    ],
+    "keywords": [
+      "TextEditorHandle",
+      "getState",
+      "execute",
+      "setSearch",
+      "getSearch",
+      "closeSearch",
+      "replaceNext",
+      "replaceAll",
+      "setSelection",
+      "setViewMode",
+      "setWordWrap",
+      "initialViewMode",
+      "importFile",
+      "exportFile",
+      "download",
+      "TextEditorViewState",
+      "TextEditorSearchQuery"
+    ],
+    "headings": [
+      {
+        "id": "接続と状態の取得",
+        "title": "接続と状態の取得",
+        "depth": 2
+      },
+      {
+        "id": "本文の挿入置換書式",
+        "title": "本文の挿入・置換・書式",
+        "depth": 2
+      },
+      {
+        "id": "検索条件を指定して開く",
+        "title": "検索条件を指定して開く",
+        "depth": 2
+      },
+      {
+        "id": "カーソル複数選択行操作",
+        "title": "カーソル・複数選択・行操作",
+        "depth": 2
+      },
+      {
+        "id": "表示形式と折り返し",
+        "title": "表示形式と折り返し",
+        "depth": 2
+      },
+      {
+        "id": "ファイルの読み込み出力",
+        "title": "ファイルの読み込み・出力",
+        "depth": 2
+      },
+      {
+        "id": "メソッド一覧",
+        "title": "メソッド一覧",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "texteditor/markdown",
+    "title": "Markdownの編集",
+    "component": "texteditor",
+    "section": "編集",
+    "output": "texteditor/markdown/index.html",
+    "sources": [
+      "packages/texteditor/src/docs/markdown.md"
+    ],
+    "keywords": [
+      "Markdown",
+      "CommonMark",
+      "slash",
+      "markdown.taskList",
+      "markdown.format",
+      "markdown.toggleTask",
+      "applyMarkdownCommand",
+      "applyMarkdownTaskCommand",
+      "getTextEditorMarkdownBlocks",
+      "parseMarkdownDocument",
+      "getMarkdownCompatibilityWarnings"
+    ],
+    "headings": [
+      {
+        "id": "画面なしの書式変更",
+        "title": "画面なしの書式変更",
+        "depth": 2
+      },
+      {
+        "id": "ブロックの位置とチェック状態",
+        "title": "ブロックの位置とチェック状態",
+        "depth": 2
+      },
+      {
+        "id": "元の記法と対応範囲",
+        "title": "元の記法と対応範囲",
+        "depth": 2
+      }
+    ]
+  },
+  {
+    "id": "texteditor/lifecycle",
+    "title": "保存・編集許可・ファイル",
+    "component": "texteditor",
+    "section": "連携",
+    "output": "texteditor/lifecycle/index.html",
+    "sources": [
+      "packages/texteditor/src/docs/lifecycle.md"
+    ],
+    "keywords": [
+      "onSave",
+      "onEditRequest",
+      "readOnly",
+      "features",
+      "importTextEditorText",
+      "exportTextEditorText",
+      "decodeTextEditorBytes",
+      "Shift_JIS",
+      "parseTextEditorModel",
+      "serializeTextEditorModel"
+    ],
+    "headings": [
+      {
+        "id": "右上の操作領域",
+        "title": "右上の操作領域",
+        "depth": 2
+      },
+      {
+        "id": "本文とjson",
+        "title": "本文とJSON",
         "depth": 2
       }
     ]

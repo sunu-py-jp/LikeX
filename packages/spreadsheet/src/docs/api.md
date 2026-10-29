@@ -65,6 +65,7 @@ try {
 | `initialWorkbook` | `SpreadsheetWorkbook` | マウント時の初期ブック。省略時は空の300行×26列。再代入で下書きは置き換わりません。 |
 | `initialSheetId` / `initialSheetName` | `string` | マウント時に開くシートのID／名前。完全一致。両指定は同じシートが必要。不正な指定は先頭＋エラー通知。[対象シート](./selection.md#最初に開くシートを指定する) |
 | `initialZoom` | `number` | マウント時の表示倍率。既定100％、25〜200へ補正。有限でない数値は100。[表示倍率](./zoom.md) |
+| `initialPrintAreaView` / `onPrintAreaViewChange` | `boolean` / `(visible: boolean) => void` | 印刷範囲・改ページ境界の初期表示（既定false）と表示切替通知。表示後はHandleで切り替えます。[印刷範囲](./print-area.md) |
 | `renderingMode` | `SpreadsheetRenderingMode` | `"viewport"`（既定）は表示範囲中心の省メモリ描画。`"progressive"` は現在のシートを順次描画。表示中の変更にも追従。[描画モード](#シートの描画モード) |
 | `excelImportOptions` | `Pick<SpreadsheetExcelImportOptions, "emptyCellFormatting" \| "limits">` | Excel取り込みの既定値。`"preserve"`（標準）は同じ空セル書式を範囲として保持、`"omit"` は省略。`limits` は入力128 MiB・展開後その5倍が標準。Handleの明示指定が優先し、書式省略のGUIチェックは独立して変更可能。[空セルの書式](./excel-import.md#空セルの書式を省略する) |
 | `initialRibbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | マウント時のリボン表示。`expanded`（既定）・`tabs`・`autoHide`・`hidden`。[リボンの表示](./ribbon-display.md) |
@@ -137,7 +138,7 @@ function WorkbookView({ workbook }: { workbook: SpreadsheetWorkbook }) {
 
 順次描画は現在開いているシートだけを対象にします。シート切り替え、ブックの取り込み・再取得、モード変更、アンマウントでは古い対象への追加処理を止めます。別シートのセルDOMを先に作る設定ではありません。列はどちらのモードでも仮想化せず、対象行の全列を描画します。`"progressive"` では最終的に現在のシートの全行を保持するため、DOM数とメモリ使用量が増えます。
 
-これは読み込み済みのブックに対するUIの描画設定です。ファイルの取得、XLSXの取り込み、データ検証や数式計算を遅延させる設定ではありません。値・選択・編集許可・保存内容は変わらず、SPON／XLSXにも保存しません。専用の `SpreadsheetThumbnail` と印刷プレビューの描画範囲には影響しません。
+これは読み込み済みのブックに対するUIの描画設定です。ファイルの取得、XLSXの取り込み、データ検証や数式計算を遅延させる設定ではありません。値・選択・編集許可・保存内容は変わらず、SPON／XLSXにも保存しません。専用の `SpreadsheetThumbnail` には影響しません。[印刷範囲と改ページ](./print-area.md)はこのグリッドに重ねて表示し、印刷範囲のためだけに画面外のセルを描画しません。
 
 ## 保存
 

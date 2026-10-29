@@ -11,7 +11,7 @@ import { SPREADSHEET_LIMITS, type SpreadsheetDrawing, type SpreadsheetSheet } fr
 import { adjusted, growSheet, omitted, worksheetDefaultSizes } from "./worksheet-shared";
 import { anchorFromFrame, drawingAnchorTransform, drawingGrid, EMU_PER_PIXEL, finiteNumber, readDrawingFrame, readTransformFrame, transformDrawingFrame, worksheetDrawingGrid } from "./drawing-geometry";
 import { readDrawingImage, type PreparedDrawingImage } from "./drawing-media";
-import { drawingColor, drawingFill, drawingText } from "./drawing-style";
+import { drawingColor, drawingFill, drawingText, drawingTextRotation } from "./drawing-style";
 import { readImportRelationships, type XlsxRelationship } from "./relationships";
 import { importFailureMessage, rethrowImportFailure } from "./recovery";
 import type { ImportContext } from "./types";
@@ -131,6 +131,8 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
           if (elbow && !elbowEndpoints) adjusted(context, sheet, "折れ線の経由点を接続先に追従する自動経路へ変更しました");
           else if (!elbow && preset !== "line" && preset !== "straightConnector1") adjusted(context, sheet, "未対応の曲線の接続線を始点と終点を結ぶ直線へ変更しました");
           const content = drawingText(child(object, "txBody"), context, sheet, child(child(object, "style"), "fontRef"));
+          const textOrientation = drawingTextRotation(child(object, "txBody"), context, sheet, !!common.flipY);
+          Object.assign(content, textOrientation);
           const endpointFrame = anchoredLineFrame ?? nativeFrame ?? frame;
           const standardEndpoints = connectorPoints(endpointFrame, transform);
           const transformBox = { ...endpointFrame, rotation, flipX: !!common.flipX, flipY: !!common.flipY };
@@ -188,9 +190,7 @@ export async function readWorksheetDrawings(node: XmlNode, initial: SpreadsheetS
             omitted(context, sheet, "未対応の種類の図形を省略しました"); continue;
           }
           const content = drawingText(child(object, "txBody"), context, sheet, child(child(object, "style"), "fontRef"));
-          const body = child(child(object, "txBody"), "bodyPr"), textRotation = finiteNumber(body?.attributes.rot) ?? 0;
-          if (textRotation && !(rotation && common.flipY && textRotation === 10800000) || rotation && body?.attributes.upright === "1")
-            adjusted(context, sheet, "図形と異なる文字の回転角度を図形の角度へ揃えました");
+          Object.assign(content, drawingTextRotation(child(object, "txBody"), context, sheet, !!common.flipY));
           if (content.text.length > SPREADSHEET_LIMITS.drawingTextLength) throw new Error("Excelの図形の文字数が上限を超えています");
           const style = child(object, "style");
           const fill = drawingFill(properties, drawingColor(child(style, "fillRef"), context) ?? "transparent", context, sheet);

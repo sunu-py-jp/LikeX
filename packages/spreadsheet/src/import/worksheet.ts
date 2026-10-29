@@ -10,6 +10,7 @@ import { excelCellAddress, readExcelCellAddress } from "./worksheet-address";
 import { normalizeMerges, rangesIntersect } from "../model/merges";
 import { indexMerges, type SpreadsheetMergeIndex } from "../model/merge-index";
 import { xlsxColumnWidthToPixels } from "../xlsx-column-width";
+import { readWorksheetPrintSettings } from "./print-settings";
 import { readWorksheetAutoFilter } from "./auto-filter";
 
 const functions = new Set<string>(SUPPORTED_SPREADSHEET_FUNCTIONS.map(item => item.name));
@@ -232,14 +233,17 @@ export async function readWorksheet(node: XmlNode, id: string, name: string, sha
   const autoFilter = readWorksheetAutoFilter(node, name, context);
   if (autoFilter) { rowCount = Math.max(rowCount, autoFilter.range.bottom + 1); columnCount = Math.max(columnCount, autoFilter.range.right + 1); }
   if (child(node, "sortState")) warn("omitted", "シートの並べ替え状態を省略しました（現在のセル順序は保持）");
+  const printSettings = readWorksheetPrintSettings(node, name, context);
+  if (printSettings?.rowBreaks?.length) rowCount = Math.max(rowCount, printSettings.rowBreaks.at(-1)! + 1);
+  if (printSettings?.columnBreaks?.length) columnCount = Math.max(columnCount, printSettings.columnBreaks.at(-1)! + 1);
   const defaults = worksheetDefaultSizes(node, context.columnWidthMetrics);
   if (defaults.invalid) warn("adjusted", "不正な標準の行高・列幅を標準寸法へ変更しました");
   if (defaults.adjusted) warn("adjusted", "行・列のサイズを対応範囲へ調整しました");
   for (let row = 0; row < rowCount; row++) rowHeights[row] ??= defaults.row;
   for (let column = 0; column < columnCount; column++) columnWidths[column] ??= defaults.column;
-  const ignored = ["conditionalFormatting", "sheetProtection", "sheetViews", "hyperlinks", "oleObjects", "controls", "extLst", "pageSetup", "headerFooter", "rowBreaks", "colBreaks"];
+  const ignored = ["conditionalFormatting", "sheetProtection", "sheetViews", "hyperlinks", "oleObjects", "controls", "extLst", "headerFooter"];
   for (const key of ignored) if (child(node, key) && (key !== "sheetViews" || child(child(node, "sheetViews")?.children[0], "pane"))) warn("omitted", `${({ conditionalFormatting: "条件付き書式", sheetProtection: "シート保護", sheetViews: "ウィンドウ枠の固定", hyperlinks: "ハイパーリンク", oleObjects: "埋め込みオブジェクト", controls: "フォームコントロール", extLst: "拡張機能", pageSetup: "印刷設定", headerFooter: "ヘッダー・フッター", rowBreaks: "改ページ", colBreaks: "改ページ" } as Record<string, string>)[key]}を省略しました`);
-  return { id, name, cells, rowCount, columnCount, ...(Object.keys(rowHeights).length ? { rowHeights } : {}), ...(Object.keys(columnWidths).length ? { columnWidths } : {}), ...(merges.length ? { merges } : {}), ...(autoFilter ? { autoFilter } : {}) };
+  return { id, name, cells, rowCount, columnCount, ...(Object.keys(rowHeights).length ? { rowHeights } : {}), ...(Object.keys(columnWidths).length ? { columnWidths } : {}), ...(merges.length ? { merges } : {}), ...(autoFilter ? { autoFilter } : {}), ...(printSettings ? { printSettings } : {}) };
 }
 
 function indexedRangesOverlap(index: SpreadsheetMergeIndex | undefined, range: SpreadsheetMergedRange): boolean {

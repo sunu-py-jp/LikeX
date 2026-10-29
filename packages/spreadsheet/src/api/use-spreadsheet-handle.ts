@@ -40,6 +40,8 @@ export function useSpreadsheetHandle(ref: Ref<SpreadsheetHandle> | undefined, co
     setZoom: percent => latest.current.setZoom(percent),
     getRibbonDisplayMode: () => latest.current.getRibbonDisplayMode(),
     setRibbonDisplayMode: mode => latest.current.setRibbonDisplayMode(mode),
+    getPrintAreaView: () => latest.current.getPrintAreaView(),
+    setPrintAreaView: visible => latest.current.setPrintAreaView(visible),
     undo: () => latest.current.externalUndo(),
     redo: () => latest.current.externalRedo(),
     getHistoryState: () => latest.current.getHistoryState(),

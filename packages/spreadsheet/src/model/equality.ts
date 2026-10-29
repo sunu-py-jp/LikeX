@@ -49,6 +49,7 @@ function resourcesEqual(left: SpreadsheetWorkbook["resources"], right: Spreadshe
   });
 }
 function annotationsEqual(left: SpreadsheetWorkbook["sheets"][number], right: SpreadsheetWorkbook["sheets"][number]): boolean {
+  if (JSON.stringify(left.printSettings) !== JSON.stringify(right.printSettings)) return false;
   if (!spreadsheetAutoFiltersEqual(left.autoFilter, right.autoFilter)) return false;
   if (!tablesEqual(left.tables, right.tables)) return false;
   if (left.drawings !== right.drawings) {

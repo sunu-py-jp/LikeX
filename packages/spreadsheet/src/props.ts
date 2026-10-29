@@ -60,6 +60,10 @@ export type SpreadsheetProps = SearchPanelInitialState & {
   initialSheetName?: string;
   /** Initial view magnification in percent (25–200, default 100). Not saved in the workbook. */
   initialZoom?: number;
+  /** Show print-area boundaries, page divisions and page numbers at mount. Defaults to false; view-only. */
+  initialPrintAreaView?: boolean;
+  /** Observes UI/ref page-boundary view changes. Does not save or change print settings. */
+  onPrintAreaViewChange?: (visible: boolean) => void;
   /** Defaults to viewport: only nearby rows and drawings stay mounted to reduce memory use.
    * progressive renders visible rows first, then the rest of the active sheet in batches.
    * May be changed while the component is mounted; not stored in the workbook. */

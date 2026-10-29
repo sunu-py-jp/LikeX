@@ -10,7 +10,7 @@ import { useObjectEditPending } from "../../state/use-object-edit-pending";
 import { visibleDrawing } from "./drawing-helpers";
 import { updateDrawingFromUI } from "./drawing-commands";
 
-import { drawingTextStyle } from "./drawing-text-style";
+import { drawingTextStyle, drawingTextTransform } from "./drawing-text-style";
 
 export { Shape } from "./shape";
 export { DrawingText } from "./drawing-text";
@@ -25,6 +25,7 @@ export function DrawingTextEditor({ drawing, controller: c, onDone }: { drawing:
   const cancelled = useRef(false);
   const markPending = useObjectEditPending(c);
   const textStyle = drawingTextStyle(drawing);
+  const transform = drawingTextTransform(drawing);
   const insets = drawing.textInsets ?? DEFAULT_DRAWING_TEXT_INSETS;
   const frame = drawing.type === "shape" ? shapeTextFrame(drawing) : undefined;
   useLayoutEffect(() => {
@@ -45,7 +46,7 @@ export function DrawingTextEditor({ drawing, controller: c, onDone }: { drawing:
   };
   const editor = <textarea ref={textarea} aria-label={drawing.type === "shape" ? "図形の文字" : "テキストボックスの内容"}
     className={`lxs-drawing-text-editor${drawing.type === "shape" ? " lxs-shape-text-editor" : ""}`} maxLength={SPREADSHEET_LIMITS.drawingTextLength}
-    readOnly={c.disabled || c.requesting} value={text} style={{ ...textStyle, overflow: "auto", clipPath: "none", ...(drawing.type === "shape" ? { padding: 0 } : {}) }}
+    readOnly={c.disabled || c.requesting} value={text} style={{ ...textStyle, overflow: "auto", clipPath: "none", ...(drawing.type === "shape" ? { padding: 0 } : { ...transform, ...(transform.transform ? { background: "transparent" } : {}) }) }}
     wrap={drawing.textWrap === "none" ? "off" : "soft"}
     onChange={event => { setText(event.target.value); markPending(event.target.value !== originalText); }} onBlur={event => { if (!(event?.relatedTarget as HTMLElement | null)?.closest(".lxs-search-dialog")) commit(); }} onPointerDown={event => event.stopPropagation()}
     onKeyDown={event => {
@@ -53,5 +54,6 @@ export function DrawingTextEditor({ drawing, controller: c, onDone }: { drawing:
       if (event.key === "Escape") { event.preventDefault(); cancelled.current = true; c.cancelEditRequest(); markPending(false); onDone(); }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") { event.preventDefault(); void chainResult(commit(), accepted => { if (accepted) void c.save(); }); }
     }} />;
-  return drawing.type === "shape" ? <div className="lxs-shape-text-edit-frame" style={{ ...frame, right: "auto", bottom: "auto", padding: textStyle.padding, alignItems: ({ top: "flex-start", middle: "center", bottom: "flex-end" } as const)[drawing.textVerticalAlign ?? "middle"] }}>{editor}</div> : editor;
+  return drawing.type === "shape" ? <div className="lxs-shape-text-edit-frame" style={{ ...frame, ...transform, right: "auto", bottom: "auto", padding: textStyle.padding, alignItems: ({ top: "flex-start", middle: "center", bottom: "flex-end" } as const)[drawing.textVerticalAlign ?? "middle"] }}>{editor}</div>
+    : <>{transform.transform && <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: drawing.background, pointerEvents: "none" }} />}{editor}</>;
 }

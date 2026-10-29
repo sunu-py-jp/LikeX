@@ -10,9 +10,16 @@ export type TextSearchQuery = Readonly<{
   useRegex?: boolean;
 }>;
 
+/** Half-open UTF-16 offsets in the original input string. */
+export type TextSearchMatch = Readonly<{ from: number; to: number }>;
+
 /** Stateless operations; replacement text is literal, including $1 and $&. */
 export type TextSearchMatcher = Readonly<{
   test(text: string): boolean;
+  /** A fresh, lazy iterator; does not allocate an array for large documents. */
+  matches(text: string): Iterable<TextSearchMatch>;
+  /** Throws rather than silently truncating when more than maxMatches occur. */
+  find(text: string, maxMatches?: number): readonly TextSearchMatch[];
   /** Maximum output UTF-16 length, checked before expansion. Default: 16,777,216. */
   replace(text: string, replacement: string, maxOutputLength?: number): string;
 }>;
@@ -154,9 +161,11 @@ export function createTextSearchMatcher(query: TextSearchQuery): TextSearchMatch
   const { text: source, matchCase = false, wholeText = false, useRegex = false } = query;
   let test: (text: string) => boolean;
   let replace: (text: string, replacement: string, maximum: number) => string;
+  let matches: (text: string) => Iterable<TextSearchMatch>;
   if (!source) {
     test = () => false;
     replace = text => text;
+    matches = () => [];
   } else if (useRegex) {
     if (source.length > 4096) throw new Error("正規表現は4,096文字以内で指定してください");
     let pattern: RE2JS;
@@ -169,6 +178,14 @@ export function createTextSearchMatcher(query: TextSearchQuery): TextSearchMatch
       throw new Error(`正規表現が正しくないか、対応していない構文です（RE2形式）。${reason}`);
     }
     test = wholeText ? text => pattern.testExact(text) : text => pattern.test(text);
+    matches = function* (text) {
+      if (wholeText) {
+        if (test(text)) yield Object.freeze({ from: 0, to: text.length });
+        return;
+      }
+      const matcher = pattern.matcher(text);
+      while (matcher.find()) yield Object.freeze({ from: matcher.start(), to: matcher.end() });
+    };
     replace = wholeText
       ? (text, replacement) => test(text) ? replacement : text
       : (text, replacement, maximum) => {
@@ -184,6 +201,14 @@ export function createTextSearchMatcher(query: TextSearchQuery): TextSearchMatch
       const match = pattern.exec(text);
       return match !== null && (!wholeText || match[0].length === text.length);
     };
+    matches = function* (text) {
+      // Each iterator owns its cursor, including when callers interleave reads.
+      const iterator = new RegExp(pattern.source, pattern.flags);
+      for (let match = iterator.exec(text); match; match = iterator.exec(text)) {
+        if (!wholeText || match[0].length === text.length)
+          yield Object.freeze({ from: match.index, to: match.index + match[0].length });
+      }
+    };
     replace = wholeText
       ? (text, replacement) => test(text) ? replacement : text
       : (text, replacement, maximum) => {
@@ -198,6 +223,21 @@ export function createTextSearchMatcher(query: TextSearchQuery): TextSearchMatch
     test(text: string) {
       if (typeof text !== "string") throw new Error("検索対象は文字列で指定してください");
       return test(text);
+    },
+    matches(text: string) {
+      if (typeof text !== "string") throw new Error("検索対象は文字列で指定してください");
+      return matches(text);
+    },
+    find(text: string, maxMatches = 10_000) {
+      if (typeof text !== "string") throw new Error("検索対象は文字列で指定してください");
+      if (!Number.isSafeInteger(maxMatches) || maxMatches < 0)
+        throw new RangeError("一致件数の上限は0以上の安全な整数で指定してください");
+      const result: TextSearchMatch[] = [];
+      for (const match of matches(text)) {
+        if (result.length >= maxMatches) throw new RangeError(`一致件数が上限（${maxMatches}件）を超えています`);
+        result.push(match);
+      }
+      return Object.freeze(result);
     },
     replace(text: string, replacement: string, maxOutputLength = DEFAULT_MAX_REPLACEMENT_LENGTH) {
       if (typeof text !== "string" || typeof replacement !== "string" || replacement.length > 100_000)

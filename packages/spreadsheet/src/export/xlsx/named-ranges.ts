@@ -18,6 +18,12 @@ export function workbookDefinedNamesXml(workbook: SpreadsheetWorkbook, helperEle
     const formula = `'${sheet.name.replaceAll("'", "''")}'!${absolute(range.top, range.left)}:${absolute(range.bottom, range.right)}`;
     return `<definedName name="_xlnm._FilterDatabase" localSheetId="${index}" hidden="1">${xml(formula)}</definedName>`;
   }).join("");
-  const names = userElements + helperElements + filterElements;
+  const printElements = workbook.sheets.map((sheet, index) => {
+    const range = sheet.printSettings?.area;
+    if (!range) return "";
+    const formula = `'${sheet.name.replaceAll("'", "''")}'!${absolute(range.top, range.left)}:${absolute(range.bottom, range.right)}`;
+    return `<definedName name="_xlnm.Print_Area" localSheetId="${index}">${xml(formula)}</definedName>`;
+  }).join("");
+  const names = userElements + helperElements + filterElements + printElements;
   return names ? `<definedNames>${names}</definedNames>` : "";
 }

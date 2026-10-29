@@ -37,6 +37,7 @@ const features = {
 | `namedRanges` | 名前付き範囲の追加・変更・削除・クリア、名前ボックスでの範囲参照。既存の定義は保持します。 |
 | `tables` | テーブルの作成・削除。作成には `formatting` も必要です。通常セルの `cells.writeGrid` は `formatting` のみで利用できます。既存の定義とセルは保持します。 |
 | `filters` | 範囲のフィルターUI・`filters.*` コマンド・閲覧用のフィルター設定API。読み取り専用の画面では一時的に絞り込めます。保存済みの設定は保持します。[詳細](./filters.md) |
+| `printArea` | 印刷範囲・用紙設定・手動改ページのGUI編集と `print.*` コマンド。既存の設定と境界の表示切替は維持します。[詳細](./print-area.md) |
 | `formatting` | セルの書式変更。既存の書式は表示します。 |
 | `conditionalFormatting` | 条件付き書式の設定・解除。`formatting` も有効である必要があります。既存の規則は表示します。 |
 | `dataValidation` | 入力規則の設定・解除、セル内のプルダウン・チェックボックス操作。既存の規則は保存・検証し続けます。[詳細](./input-validation.md) |

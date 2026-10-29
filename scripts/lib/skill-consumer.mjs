@@ -32,6 +32,7 @@ export async function checkSkillConsumer({ module, installed, consumer }) {
       aichat: () => [{ type: 'message.add', conversationId: initial.conversations[0].id, message: { id: 'skill-message', role: 'user', content: 'Skill consumer', createdAt: '2026-09-22T00:00:00.000Z' } }],
       chat: () => [{ type: 'message.add', conversationId: initial.conversations[0].id, message: { id: 'skill-message', authorId: initial.participants[0].id, text: 'Skill consumer', createdAt: '2026-09-22T00:00:00.000Z' } }],
       form: () => [{ type: 'field.add', field: { id: 'skill-field', type: 'text', label: 'Skill consumer' } }],
+      texteditor: () => [{ type: 'document.update', mode: 'markdown' }, { type: 'text.set', text: 'Skill consumer' }],
     }[module]();
     const commandFile = path.join(directory, 'commands.json');
     await writeFile(commandFile, JSON.stringify(commands));
@@ -55,6 +56,7 @@ export async function checkSkillConsumer({ module, installed, consumer }) {
         diagram: () => saved.nodes[0].text, whiteboard: () => saved.elements[0].text,
         calendar: () => saved.events[0].title, chat: () => saved.conversations[0].messages[0].text, aichat: () => saved.conversations[0].messages[0].content,
         form: () => saved.fields[0].label,
+        texteditor: () => saved.text,
       }[module]();
       assert.equal(content, 'Skill consumer');
     }
@@ -67,6 +69,10 @@ export async function checkSkillConsumer({ module, installed, consumer }) {
     if (module === 'spreadsheet') {
       const range = await execute(copiedScript, ['inspect', '--input', file, '--project', consumer, '--sheet-id', initial.sheets[0].id, '--range', 'A1:C1']);
       assert.deepEqual(range.selection, { sheetId: initial.sheets[0].id, range: 'A1:C1', rows: [[{ value: 'Skill consumer' }, { value: '42' }, null]] });
+    }
+    if (module === 'texteditor') {
+      const slice = await execute(copiedScript, ['inspect', '--input', file, '--project', consumer, '--offset', '6', '--limit', '3']);
+      assert.deepEqual(slice.selection, { coordinateSpace: 'source', from: 6, to: 9, text: 'con', total: 14, hasMore: true });
     }
     const committed = await readFile(file, 'utf8');
     await writeFile(commandFile, JSON.stringify([{ type: 'not-a-command' }]));

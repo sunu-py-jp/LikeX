@@ -133,10 +133,12 @@ function drawingTextBody(text: string, style: SpreadsheetDrawingTextStyle & { fo
   const font = style.fontFamily ? `<a:latin typeface="${xml(style.fontFamily)}"/><a:ea typeface="${xml(style.fontFamily)}"/>` : '<a:latin typeface="Segoe UI"/><a:ea typeface="Noto Sans JP"/>';
   const paragraphs = text.split(/\r\n|\r|\n/).map(line => `<a:p><a:pPr algn="${align}"><a:lnSpc><a:spcPct val="${Math.round((style.textLineHeight ?? 1.4) * 100000)}"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft></a:pPr><a:r><a:rPr ${properties}>${fill(style.color ?? "currentColor", "000000")}${font}</a:rPr><a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr ${properties}/></a:p>`).join("");
   // Text follows rotated frames while a vertical reflection keeps letters readable.
-  const textRotation = style.rotation && style.flipY ? ' rot="10800000"' : "";
+  const upright = style.textUpright === true;
+  const angle = normalizeDrawingRotation((style.textRotation ?? 0) + (!upright && style.flipY ? 180 : 0));
+  const textRotation = angle ? ` rot="${Math.round(angle * 60_000)}"` : "";
   const anchor = ({ top: "t", middle: "ctr", bottom: "b" } as const)[style.textVerticalAlign ?? (centered ? "middle" : "top")];
   const autoFit = style.textAutoFit === "shrink" ? `<a:normAutofit${style.textFontScale === undefined ? "" : ` fontScale="${Math.round(style.textFontScale * 100000)}"`}/>` : style.textAutoFit === "resize" ? "<a:spAutoFit/>" : "<a:noAutofit/>";
-  return `<xdr:txBody><a:bodyPr wrap="${style.textWrap === "none" ? "none" : "square"}" lIns="${emu(insets.left)}" tIns="${emu(insets.top)}" rIns="${emu(insets.right)}" bIns="${emu(insets.bottom)}" anchor="${anchor}" upright="${style.rotation ? 0 : 1}"${textRotation} vertOverflow="${style.textVerticalOverflow ?? "clip"}" horzOverflow="${style.textOverflow ?? "clip"}">${autoFit}</a:bodyPr><a:lstStyle/>${paragraphs}</xdr:txBody>`;
+  return `<xdr:txBody><a:bodyPr wrap="${style.textWrap === "none" ? "none" : "square"}" lIns="${emu(insets.left)}" tIns="${emu(insets.top)}" rIns="${emu(insets.right)}" bIns="${emu(insets.bottom)}" anchor="${anchor}" upright="${upright ? 1 : 0}"${textRotation} vertOverflow="${style.textVerticalOverflow ?? "clip"}" horzOverflow="${style.textOverflow ?? "clip"}">${autoFit}</a:bodyPr><a:lstStyle/>${paragraphs}</xdr:txBody>`;
 }
 
 function textBox(drawing: Extract<SpreadsheetDrawing, { type: "text" }>, id: number, rectangle: Rectangle, connected = false) {

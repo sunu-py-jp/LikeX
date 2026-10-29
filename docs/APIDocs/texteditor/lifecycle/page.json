@@ -1,0 +1,8 @@
+{
+  "title": "保存・編集許可・ファイル",
+  "summary": "保存と認証を親へ接続し、txt・md・JSONの受け渡しを行います。",
+  "source": "packages/texteditor/src/docs/lifecycle.md",
+  "order": 30,
+  "section": "連携",
+  "keywords": ["onSave", "onEditRequest", "readOnly", "features", "importTextEditorText", "exportTextEditorText", "decodeTextEditorBytes", "Shift_JIS", "parseTextEditorModel", "serializeTextEditorModel"]
+}

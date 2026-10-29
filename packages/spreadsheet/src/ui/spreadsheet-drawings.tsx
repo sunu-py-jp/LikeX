@@ -81,7 +81,7 @@ export const SpreadsheetDrawings = memo(function SpreadsheetDrawings({ controlle
           : <>
             {displayedDrawing.type === "shape" && <Shape drawing={displayedDrawing} />}
             {editingText === drawing.id && selected && !c.disabled ? <DrawingTextEditor key={drawing.id} drawing={drawing} controller={c} onDone={() => setEditingText(null)} />
-              : displayedDrawing.type !== "image" && <DrawingText drawing={displayedDrawing} />}
+              : displayedDrawing.type !== "image" && <DrawingText drawing={displayedDrawing} parentRotation={displayedDrawing.textUpright ? rotation : undefined} />}
           </>}
         {selected && !c.disabled && c.features.resize && corners.map(({ corner, label }) => <button key={corner} type="button" className="lxs-drawing-resize" data-lxs-resize-corner={corner}
           aria-label={`${drawingLabel(drawing)}のサイズを変更（${label}）`} title={`${label}をドラッグまたは矢印キーでサイズを変更`}

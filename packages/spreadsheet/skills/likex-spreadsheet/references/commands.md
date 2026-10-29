@@ -4,6 +4,22 @@
 
 以下の例で `sales` は、[schema-guide.md](schema-guide.md)のネイティブファイルに明示したシートID。別ファイルではinspectで取得したIDへ置き換える。描画・表・名前付き範囲の既存IDもinspectで取得してから使う。`inspect --sheet-id ID` で描画・表・名前付き範囲の情報を読める。
 
+## 印刷範囲・用紙・改ページ
+
+印刷対象はシート内の単一矩形。セルを書き足さず `print.*` コマンドを使う。設定前に `inspect --sheet-id ID --print-settings` / `getSheetPrintSettings(workbook, sheetId)` で既存設定を確認する。
+
+```json
+[
+  { "type": "print.setArea", "sheetId": "sales", "range": { "top": 1, "left": 1, "bottom": 39, "right": 7 } },
+  { "type": "print.setLayout", "sheetId": "sales", "paperSize": "A4", "orientation": "landscape", "scale": 90 },
+  { "type": "print.setBreaks", "sheetId": "sales", "rows": [20], "columns": [] }
+]
+```
+
+座標は0始まり・範囲は両端を含む。`rows: [20]` は21行目の前の改ページ。`print.clearArea` は範囲だけを解除し、用紙と手動改ページ設定を保持する。`print.setLayout` は指定項目のみ更新。用紙はA4/A3/Letter、向きはportrait/landscape、scaleは10〜400の整数（既定100）、`margins` は4辺のインチ値（既定各0.75）をまとめて指定する。`print.setBreaks` は指定した軸を置き換え、空配列はその軸の解除。シート全体の行列挿入・削除に範囲と改ページは追従する。
+
+SPONとXLSXへ保持する。`getSpreadsheetPrintLayout(sheet, { hiddenRows? })` でページ数と行列の区間を算出できる。表示中の改ページモードは `initialPrintAreaView` / Handleの `setPrintAreaView` によるUI状態で、コマンドや保存形式に含めない。実際の印刷・PDF出力は行わない。[制約と例](../../../src/docs/print-area.md)
+
 ## 共通の指定と結果
 
 `sheets.add` 以外は `sheetId` が必須。数値座標・インデックスは0始まり。`{ top, left, bottom, right }` は両端を含む矩形。A1文字列を受け付けるのは `cells.clear` / `cells.insert` / `cells.delete` と名前付き範囲の `range` など、型に明記された引数だけ。`cells.merge` / `cells.fill` などの矩形を文字列に置き換えない。

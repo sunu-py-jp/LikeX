@@ -86,6 +86,9 @@ function DrawingInspectorSession({ controller: c, drawing }: { controller: Sprea
     </>}
     {drawing.type !== "image" && <>
       <PropertyField label="文字サイズ" type="number" value={drawing.fontSize ?? 16} controller={c} onCommit={value => update({ fontSize: Number(value) })} />
+      <PropertyField label="文字の角度（°）" type="number" value={drawing.textRotation ?? 0} controller={c} onCommit={value => update({ textRotation: Number(value) })} />
+      <label className="lxs-object-bold"><input type="checkbox" aria-label="文字を常に水平にする" checked={!!drawing.textUpright} disabled={c.disabled || c.requesting}
+        onChange={event => update({ textUpright: event.target.checked })} />文字を常に水平にする</label>
       <ColorPropertyField label="文字色" value={drawingTextColor(drawing)} controller={c}
         reset={{label: "自動", value: drawing.type === "shape" ? DEFAULT_SHAPE_TEXT_COLOR : "currentColor"}} onCommit={color => update({ color })} />
       {drawing.type === "text" && <ColorPropertyField label="背景色" value={drawing.background} controller={c} reset={{label: "なし", value: "transparent"}} onCommit={background => update({ background })} />}

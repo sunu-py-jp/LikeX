@@ -1,0 +1,542 @@
+#!/usr/bin/env node
+// Generated from scripts/skills/document-cli.mjs. Do not edit; run node scripts/build-skill-scripts.mjs.
+import { open, lstat, stat, rename, unlink } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { randomUUID } from 'node:crypto';
+
+const DOCUMENT_KIND = "texteditor";
+const LIBRARY_VERSION = "0.1.0";
+const MAX_COMMAND_BYTES = 32 * 1024 * 1024;
+const MAX_RESPONSE_BYTES = 1024 * 1024;
+const CLI_VERSION = 1;
+// Public entry points and result envelopes vary by module; model operations stay in the libraries.
+const adapters = {
+  spreadsheet: ['Workbook', 'applySpreadsheetCommands', 'workbook', 192],
+  slide: ['SlideDeck', 'applySlideCommands', 'deck', 240],
+  document: ['Document', 'executeDocumentCommands', 'document', 40],
+  board: ['Board', 'executeBoardCommands', 'board', 48],
+  dataview: ['DataView', 'executeDataViewCommands', 'data', 96],
+  diagram: ['Diagram', 'executeDiagramCommands', null, 24],
+  whiteboard: ['Whiteboard', 'executeWhiteboardCommands', null, 120],
+  calendar: ['Calendar', 'executeCalendarCommands', 'calendar', 5],
+  aichat: ['AIChat', 'executeAIChatCommands', 'aichat', 32],
+  chat: ['Chat', 'executeChatCommands', 'chat', 32],
+  form: ['Form', 'executeFormCommands', null, 8],
+  texteditor: ['TextEditorModel', 'executeTextEditorCommands', null, 64],
+};
+const selectorsByKind = {
+  spreadsheet: ['overview', 'compact-summary', 'images', 'sheet-id', 'range', 'format-ranges', 'print-settings', 'drawing-id', 'search', 'text', 'match-case', 'regex', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'images', 'slide-id', 'element-id', 'master-id', 'layout-id'], document: ['images', 'block-id', 'offset', 'limit'],
+  board: ['column-id', 'card-id', 'offset', 'limit'], dataview: ['row-id', 'field-id', 'offset', 'limit'],
+  diagram: ['node-id', 'edge-id', 'offset', 'limit'], whiteboard: ['element-id', 'offset', 'limit'],
+  calendar: ['event-id', 'start', 'end', 'offset', 'limit'], chat: ['conversation-id', 'message-id', 'offset', 'limit'],
+  aichat: ['conversation-id', 'message-id', 'offset', 'limit'],
+  form: ['field-id', 'offset', 'limit'],
+  texteditor: ['offset', 'limit'],
+};
+const dataSelectors = ['drawing-id', 'element-id', 'block-id', 'card-id', 'row-id', 'field-id', 'node-id', 'edge-id', 'event-id', 'message-id'];
+
+class CliError extends Error {
+  constructor(code, message, details = {}) { super(message); this.code = code; this.details = details; }
+}
+const fail = (code, message, details) => { throw new CliError(code, message, details); };
+const identity = value => value && [value.dev, value.ino, value.size, value.mtimeNs, value.ctimeNs].join(':');
+const sameFile = (a, b) => a && b && a.dev === b.dev && a.ino === b.ino;
+
+function usage(kind, version) {
+  const selectors = selectorsByKind[kind].map(key => ['overview', 'compact-summary', 'images', 'format-ranges', 'print-settings', 'match-case', 'regex', 'exact'].includes(key) ? `--${key}` : `--${key} ${['offset', 'limit', 'preview-length'].includes(key) ? 'N' : ['start', 'end'].includes(key) ? 'YYYY-MM-DD' : key === 'range' ? 'A1:C5' : key === 'search' ? 'sheets|cells' : key === 'text' ? 'KEYWORD' : key === 'look-in' ? 'values|formulas' : 'ID'}`).join(' | ');
+  return {
+    ok: true, kind, libraryVersion: version,
+    usage: [
+      'node document.mjs create --output FILE [--commands FILE] [--dry-run]',
+      `node document.mjs inspect --input FILE [${selectors}]`,
+      'node document.mjs apply --input FILE --commands FILE --output FILE [--dry-run]',
+      'node document.mjs validate --input FILE',
+      'All commands accept --project DIRECTORY. --help and --version need no installed library.',
+      '--commands must contain a JSON array. --dry-run permits omitting --output and never writes.',
+      '--range returns stored cells in selection.rows as a row-major matrix, with null for unstored cells. --include-data adds the selected item content; embedded image bytes are always omitted.',
+      ...(['spreadsheet', 'slide'].includes(kind) ? ['--overview returns only document-level counts and the slide title, without sheet/slide lists. It cannot be combined with other inspect selectors or flags.',
+        'apply accepts --expected FILE to compare a previously-read native snapshot. --expected-scope document (default) guards read dependencies; targets guards native operation dependencies. Conflicts reject the entire batch. File hosts must coordinate concurrent writers; UI session tokens are not persisted in files.',
+        '--compact-summary omits sheet/slide lists from summary before the response-size check while preserving selected results. Use with targeted inspect reads; cannot combine with --overview.'] : []),
+      ...(!['spreadsheet', 'texteditor'].includes(kind) && selectorsByKind[kind].includes('offset') ? ['Lists return 100 items by default; --offset and --limit (1–1000) control pagination. Item selectors cannot be combined with pagination.'] : []),
+      ...(kind === 'texteditor' ? ['inspect returns a source slice of at most 1000 UTF-16 code units by default. --offset is a zero-based source position; --limit (1–1000) bounds the slice. selection.hasMore indicates remaining source; JSON metadata stays in summary. CLI files use likex.texteditor JSON, not raw .txt or .md.'] : []),
+      ...(kind === 'spreadsheet' ? ['--search sheets|cells requires --text KEYWORD. Search is literal, case-insensitive and partial by default; --match-case and --exact narrow matches; --regex uses RE2 syntax (no lookaround or backreferences).',
+        'Cell searches accept --look-in values|formulas (default values), optional --sheet-id, and --range with --sheet-id. Sheet-name searches cannot use these selectors.',
+        'Cell search previews use --preview-length N (default 200, 1–10000). Truncated fields explicitly include original lengths and truncation flags; matching uses the full values.',
+        '--sheet-id ID --include-data lists stored cells in selection.cells as a flat address-bearing array, in row/column order. It cannot be combined with a range, drawing selector, or search.',
+        'Search, sheet-content, and format-range lists accept --offset and --limit (default 100, maximum 1000). Ordinary inspect summaries and range reads do not use pagination.',
+        '--sheet-id ID --format-ranges lists shared formatting rectangles without expanding them into cells. Cell/range reads and stored-cell lists retain their stored-cell semantics.',
+        '--sheet-id ID --print-settings returns saved print settings, or null when absent, without cell data. Only --compact-summary can be combined with this selector.'] : []),
+      ...(['chat', 'aichat'].includes(kind) ? ['--message-id requires --conversation-id. Select a conversation to list its messages.'] : []),
+      ...(kind === 'calendar' ? ['--start and --end must be supplied together; end is exclusive and dates use calendar.timeZone.'] : []),
+      ...(['spreadsheet', 'slide', 'document'].includes(kind) ? ['--images returns unique embedded-image metadata in selection.images and all uses in selection.placements, with SHA-256 IDs based on exact image bytes. Image bytes are omitted. Do not combine with item selectors or --include-data. --compact-summary is allowed for spreadsheet/slide; --include-animations is allowed for slide and selects original placements without animation definitions.'] : []),
+      ...(kind === 'slide' ? ['--slide-id ID --include-data returns all elements of that slide in selection.elements, including text/style details but excluding image bytes. Add --element-id to read one element.',
+        'Imported masters/layouts are listed in the summary. Use --master-id ID or --layout-id ID with optional --include-data to read their decorations and placeholder prototypes. A slide with a layout returns inheritedElements separately; these are not editable page elements.',
+        'inspect defaults to final static values. --include-animations returns original values and the animation definitions; it does not modify the file.'] : []),
+      ...(kind === 'document' ? ['Document inspect lists 100 blocks by default. --offset and --limit (1–1000) page through current block positions.'] : []),
+    ],
+    runtime: { package: `@likex/${kind}`, version, node: '>=22.13.0', resolution: '--project, or script package then current directory', autoInstall: false },
+    limits: { documentBytes: documentLimit(kind), commandBytes: MAX_COMMAND_BYTES, responseBytes: MAX_RESPONSE_BYTES },
+  };
+}
+
+function argumentsFor(argv, kind) {
+  const args = { operation: argv[0] };
+  if (argv.length === 0 || (argv.length === 1 && argv[0] === '--help')) return { operation: 'help' };
+  if (argv.length === 1 && argv[0] === '--version') return { operation: 'version' };
+  if (!['create', 'inspect', 'apply', 'validate'].includes(args.operation)) fail('USAGE', 'Expected create, inspect, apply, or validate. Use --help.');
+  const flags = new Set(['dry-run', 'include-data', 'include-animations', 'overview', 'compact-summary', 'images', 'format-ranges', 'print-settings', 'match-case', 'regex', 'exact', 'help']);
+  const values = new Set(['input', 'output', 'commands', 'project', 'expected', 'expected-scope', ...Object.values(selectorsByKind).flat()]);
+  for (let index = 1; index < argv.length; index++) {
+    const raw = argv[index];
+    const key = raw.startsWith('--') ? raw.slice(2) : '';
+    if (!flags.has(key) && !values.has(key)) fail('USAGE', `Unknown option: ${raw}`);
+    if (Object.hasOwn(args, key)) fail('USAGE', `Option --${key} was provided twice.`);
+    if (flags.has(key)) args[key] = true;
+    else {
+      const value = argv[++index];
+      if (!value || key !== 'text' && value.startsWith('--')) fail('USAGE', `Option --${key} requires a value.`);
+      args[key] = value;
+    }
+  }
+  if (args.help) return { operation: 'help' };
+  const write = ['create', 'apply'].includes(args.operation);
+  if (args.operation === 'create' && args.input) fail('USAGE', 'create does not accept --input; use apply for existing files.');
+  if (args.operation !== 'create' && !args.input) fail('USAGE', '--input is required.');
+  if (args.operation === 'apply' && !args.commands) fail('USAGE', '--commands is required for apply.');
+  if (write && !args.output && !args['dry-run']) fail('USAGE', '--output is required unless --dry-run is set.');
+  if (!write && (args.output || args.commands || args['dry-run'])) fail('USAGE', 'Only create and apply accept --output, --commands, and --dry-run.');
+  if ((args.expected || args['expected-scope']) && (args.operation !== 'apply' || !['spreadsheet', 'slide'].includes(kind)))
+    fail('USAGE', '--expected is supported only by spreadsheet/slide apply.');
+  if (args['expected-scope'] && (!args.expected || !['document', 'targets'].includes(args['expected-scope'])))
+    fail('USAGE', '--expected-scope requires --expected and must be document or targets.');
+  const queryKeys = [...new Set([...Object.values(selectorsByKind).flat(), 'include-data', 'include-animations'])];
+  if (args.operation !== 'inspect' && queryKeys.some(key => args[key])) fail('USAGE', 'Query selectors are only valid for inspect.');
+  const ownKeys = selectorsByKind[kind];
+  const wrongKeys = queryKeys.filter(key => !['include-data', 'include-animations'].includes(key) && !ownKeys.includes(key));
+  if (wrongKeys.some(key => args[key])) fail('USAGE', `Unsupported selector for ${kind}.`);
+  if (args.overview && queryKeys.some(key => key !== 'overview' && args[key] !== undefined)) fail('USAGE', '--overview cannot be combined with other inspection selectors or flags.');
+  if (args.images && queryKeys.some(key => !['images', 'compact-summary', 'include-animations'].includes(key) && args[key] !== undefined))
+    fail('USAGE', '--images accepts only --compact-summary and --include-animations among inspection selectors and flags.');
+  const sheetData = kind === 'spreadsheet' && Boolean(args['sheet-id'] && args['include-data'] && !args['drawing-id']);
+  const slideData = kind === 'slide' && Boolean((args['slide-id'] || args['master-id'] || args['layout-id']) && args['include-data']);
+  if (kind === 'spreadsheet') {
+    if (args['print-settings'] && (!args['sheet-id'] || queryKeys.some(key => !['sheet-id', 'print-settings', 'compact-summary'].includes(key) && args[key] !== undefined)))
+      fail('USAGE', '--print-settings requires --sheet-id and accepts only --compact-summary among other inspect selectors.');
+    if (args['format-ranges'] && (!args['sheet-id'] || args.range || args['drawing-id'] || args.search || args['include-data']))
+      fail('USAGE', '--format-ranges requires --sheet-id and cannot be combined with a cell range, drawing, search, or --include-data.');
+    if (args.search) {
+      if (!['sheets', 'cells'].includes(args.search)) fail('USAGE', '--search must be sheets or cells.');
+      if (typeof args.text !== 'string' || !args.text.length || args.text.length > 100_000) fail('USAGE', '--search requires --text with 1 to 100000 characters.');
+      if (args['drawing-id'] || args['include-data']) fail('USAGE', 'Search cannot be combined with --drawing-id or --include-data.');
+      if (args.search === 'sheets' && (args['sheet-id'] || args.range || args['look-in'] || args['preview-length'])) fail('USAGE', 'Sheet-name search cannot use --sheet-id, --range, --look-in, or --preview-length.');
+      if (args['look-in'] !== undefined && !['values', 'formulas'].includes(args['look-in'])) fail('USAGE', '--look-in must be values or formulas.');
+      if (args['preview-length'] !== undefined) {
+        if (!/^\d+$/.test(args['preview-length']) || !Number.isSafeInteger(Number(args['preview-length'])) || Number(args['preview-length']) < 1 || Number(args['preview-length']) > 10_000) fail('USAGE', '--preview-length must be an integer from 1 to 10000.');
+        args['preview-length'] = Number(args['preview-length']);
+      }
+    } else {
+      if (['text', 'match-case', 'regex', 'exact', 'look-in', 'preview-length'].some(key => args[key] !== undefined)) fail('USAGE', 'Spreadsheet search options require --search.');
+      if (!sheetData && !args['format-ranges'] && (args.offset !== undefined || args.limit !== undefined)) fail('USAGE', 'Spreadsheet pagination requires --search or --sheet-id with --include-data or --format-ranges.');
+    }
+    if (sheetData && args.range) fail('USAGE', 'Choose --sheet-id with --include-data or a cell range.');
+  }
+  if ((args.range || args['drawing-id']) && !args['sheet-id']) fail('USAGE', '--range and --drawing-id require --sheet-id.');
+  if (args.range && args['drawing-id']) fail('USAGE', 'Choose --range or --drawing-id.');
+  if (kind === 'slide' && args['element-id'] && !args['slide-id']) fail('USAGE', '--element-id requires --slide-id.');
+  if (kind === 'slide' && ['slide-id', 'master-id', 'layout-id'].filter(key => args[key]).length > 1) fail('USAGE', 'Choose --slide-id, --master-id, or --layout-id.');
+  if (args['include-animations'] && kind !== 'slide') fail('USAGE', '--include-animations is only supported for slide inspect.');
+  if (args['include-animations'] && (args['master-id'] || args['layout-id'])) fail('USAGE', 'Masters and layouts do not contain page animations; omit --include-animations.');
+  if (args['include-data'] && !sheetData && !slideData && !dataSelectors.some(key => args[key])) fail('USAGE', '--include-data requires an explicit item selector.');
+  if (dataSelectors.some(key => args[key]) && (args.offset !== undefined || args.limit !== undefined)) fail('USAGE', 'Choose an item selector or list pagination.');
+  for (const [first, second] of [['column-id', 'card-id'], ['row-id', 'field-id'], ['node-id', 'edge-id']]) if (args[first] && args[second]) fail('USAGE', `Choose --${first} or --${second}.`);
+  if (args['message-id'] && !args['conversation-id']) fail('USAGE', '--message-id requires --conversation-id.');
+  if (Boolean(args.start) !== Boolean(args.end)) fail('USAGE', '--start and --end are required together.');
+  if (args['event-id'] && args.start) fail('USAGE', 'Choose --event-id or a date range.');
+  for (const key of ['offset', 'limit']) if (args[key] !== undefined) {
+    if (!/^\d+$/.test(args[key]) || !Number.isSafeInteger(Number(args[key])) || Number(args[key]) < (key === 'limit' ? 1 : 0) || (key === 'limit' && Number(args[key]) > 1000))
+      fail('USAGE', '--offset must be a nonnegative integer; --limit must be an integer from 1 to 1000.');
+    args[key] = Number(args[key]);
+  }
+  return args;
+}
+
+function documentLimit(kind) { return adapters[kind][3] * 1024 * 1024; }
+
+/** Bound byte reads as well as preflight size, including a file growing during the read. */
+async function readBounded(file, limit) {
+  const handle = await open(file, 'r');
+  try {
+    const snapshot = await handle.stat({ bigint: true });
+    if (!snapshot.isFile()) fail('INVALID_FILE', `Expected a regular file: ${file}`);
+    if (snapshot.size > BigInt(limit)) fail('FILE_TOO_LARGE', `File exceeds the ${limit}-byte limit: ${file}`);
+    const chunks = [];
+    let total = 0;
+    for (;;) {
+      const buffer = Buffer.allocUnsafe(Math.min(64 * 1024, limit - total + 1));
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+      if (!bytesRead) break;
+      total += bytesRead;
+      if (total > limit) fail('FILE_TOO_LARGE', `File exceeds the ${limit}-byte limit: ${file}`);
+      chunks.push(buffer.subarray(0, bytesRead));
+    }
+    if (identity(snapshot) !== identity(await handle.stat({ bigint: true }))) fail('FILE_CHANGED', `File changed while being read: ${file}`);
+    let text;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, total)); }
+    catch { fail('INVALID_UTF8', `File must contain valid UTF-8: ${file}`); }
+    return { text, snapshot, file: path.resolve(file) };
+  } finally { await handle.close(); }
+}
+
+async function optionalStat(file) {
+  try { return await lstat(file, { bigint: true }); }
+  catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+}
+
+async function outputSnapshot(file) {
+  const value = await optionalStat(file);
+  if (value && (value.isSymbolicLink() || !value.isFile())) fail('INVALID_OUTPUT', 'Output must be a regular file or a new path; symbolic links are not accepted.');
+  return value;
+}
+
+async function writeAtomic(file, serialized, before, source) {
+  const temporary = path.join(path.dirname(file), `.${path.basename(file)}.${randomUUID()}.tmp`);
+  let handle;
+  try {
+    handle = await open(temporary, 'wx', before ? Number(before.mode & 0o777n) : 0o600);
+    await handle.writeFile(serialized, 'utf8');
+    await handle.sync();
+    await handle.close();
+    handle = null;
+    const current = await outputSnapshot(file);
+    if (identity(current) !== identity(before)) fail('FILE_CHANGED', 'Output changed before the write could be committed.');
+    if (source && (source.file === file || sameFile(before, source.snapshot))) {
+      if (identity(source.snapshot) !== identity(await stat(source.file, { bigint: true }))) fail('FILE_CHANGED', 'Input changed before the write could be committed.');
+    }
+    await rename(temporary, file);
+  } finally {
+    if (handle) await handle.close();
+    await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; });
+  }
+}
+
+async function loadModel(kind, version, project, scriptUrl) {
+  const name = `@likex/${kind}`;
+  const locations = project ? [pathToFileURL(path.join(path.resolve(project), '__likex_resolver__.cjs'))]
+    : [scriptUrl, pathToFileURL(path.join(process.cwd(), '__likex_resolver__.cjs'))];
+  let lastError;
+  for (const location of locations) {
+    const require = createRequire(location);
+    let modelPath, packagePath;
+    try { modelPath = require.resolve(`${name}/model`); packagePath = require.resolve(`${name}/package.json`); }
+    catch (error) { lastError = error; continue; }
+    const metadata = JSON.parse((await readBounded(packagePath, 1024 * 1024)).text);
+    if (metadata.version !== version) fail('VERSION_MISMATCH', `This skill requires ${name}@${version}; found ${metadata.version}. Use the matching skill and library release.`);
+    try { return await import(pathToFileURL(modelPath).href); }
+    catch (error) { fail('RUNTIME_UNAVAILABLE', `Could not load ${name}/model. Build or install ${name}@${version} in the project first. ${error.message}`); }
+  }
+  fail('RUNTIME_UNAVAILABLE', `Cannot resolve ${name}/model. Build or install ${name}@${version}, run from that project or pass --project DIRECTORY. No packages were installed. ${lastError?.code ?? ''}`);
+}
+
+function sheetSummary(sheet) {
+  return { id: sheet.id, name: sheet.name, rowCount: sheet.rowCount, columnCount: sheet.columnCount,
+    cellCount: Object.keys(sheet.cells).length, ...(sheet.formatRanges?.length ? { formatRangeCount: sheet.formatRanges.length } : {}), drawingCount: sheet.drawings?.length ?? 0,
+    commentCount: Object.keys(sheet.comments ?? {}).length, mergeCount: sheet.merges?.length ?? 0, tableCount: sheet.tables?.length ?? 0 };
+}
+
+function summaryFor(kind, document, model, overview = false, compactSummary = false) {
+  const catalogCounts = kind === 'slide' && (document.masters?.length || document.layouts?.length)
+    ? { masterCount: document.masters?.length ?? 0, layoutCount: document.layouts?.length ?? 0 } : {};
+  if (kind === 'spreadsheet') return { format: 'likex.spreadsheet', sheetCount: document.sheets.length,
+    imageCount: Object.keys(document.resources?.images ?? {}).length, namedRangeCount: document.namedRanges?.length ?? 0,
+    ...(!overview && !compactSummary ? { sheets: document.sheets.map(sheetSummary) } : {}) };
+  if (kind === 'slide' && overview) return { format: 'likex.slide', title: document.title,
+    slideCount: document.slides.length, elementCount: document.slides.reduce((sum, slide) => sum + slide.elements.length, 0), ...catalogCounts };
+  if (kind === 'document') return { format: 'likex.document', id: document.id, title: document.title, page: document.page,
+    blockCount: model.getBlocks(document).length, characterCount: model.getDocumentText(document).length, imageCount: model.getImages(document).length };
+  const common = { format: document.format, id: document.id, title: document.title };
+  if (kind === 'board') return { ...common, columnCount: document.columns.length,
+    cardCount: document.columns.reduce((count, column) => count + column.cards.length, 0), labelCount: document.labels.length, memberCount: document.members.length };
+  if (kind === 'dataview') return { ...common, fieldCount: document.fields.length, rowCount: document.rows.length };
+  if (kind === 'diagram') return { ...common, nodeCount: document.nodes.length, edgeCount: document.edges.length };
+  if (kind === 'whiteboard') return { ...common, elementCount: document.elements.length, imageCount: document.elements.filter(item => item.kind === 'image').length };
+  if (kind === 'calendar') return { ...common, timeZone: document.timeZone, eventCount: document.events.length, allDayCount: document.events.filter(item => item.allDay).length };
+  if (['chat', 'aichat'].includes(kind)) return { ...common, conversationCount: document.conversations.length,
+    messageCount: document.conversations.reduce((count, conversation) => count + conversation.messages.length, 0) };
+  if (kind === 'form') return { ...common, fieldCount: document.fields.length, requiredFieldCount: document.fields.filter(field => field.required).length };
+  if (kind === 'texteditor') return { ...common, mode: document.mode, characterCount: document.text.length };
+  return { format: 'likex.slide', id: document.id, title: document.title, width: document.width, height: document.height,
+    slideCount: document.slides.length, elementCount: document.slides.reduce((sum, slide) => sum + slide.elements.length, 0), ...catalogCounts,
+    ...(!compactSummary ? { slides: document.slides.map(slide => ({ id: slide.id, name: slide.name, elementCount: slide.elements.length, ...(slide.layoutId ? { layoutId: slide.layoutId } : {}) })),
+      ...(document.masters?.length ? { masters: model.getSlideMasters(document).map(master => ({ id: master.id, name: master.name, elementCount: master.elements.length })) } : {}),
+      ...(document.layouts?.length ? { layouts: model.getSlideLayouts(document).map(layoutSummary) } : {}) } : {}) };
+}
+
+function layoutSummary(layout) {
+  return { id: layout.id, masterId: layout.masterId, name: layout.name, elementCount: layout.elements.length,
+    placeholders: layout.placeholders.map(placeholder => ({ id: placeholder.id, kind: placeholder.kind })) };
+}
+
+function objectSummary(item) {
+  const keys = ['id', 'type', 'kind', 'name', 'shape', 'anchor', 'x', 'y', 'width', 'height', 'rotation', 'locked', 'resourceId', 'layoutPlaceholderId'];
+  return { ...Object.fromEntries(keys.filter(key => Object.hasOwn(item, key)).map(key => [key, item[key]])),
+    ...(typeof item.text === 'string' ? { textLength: item.text.length } : {}),
+    ...(typeof item.alt === 'string' ? { altLength: item.alt.length } : {}) };
+}
+
+function selectedObject(item, includeData) {
+  if (!item) fail('NOT_FOUND', 'The selected drawing or element was not found.');
+  if (!includeData) return objectSummary(item);
+  // Only known image payload fields are omitted; text remains available for explicit, bounded reads.
+  return Object.fromEntries(Object.entries(item).filter(([key]) => key !== 'src' && key !== 'dataUrl'));
+}
+
+function blockSummary(block) {
+  const { id, from, to, contentFrom, contentTo, node } = block;
+  const attrs = Object.fromEntries(Object.entries(node.attrs ?? {}).filter(([key]) => !['src', 'alt'].includes(key)));
+  return { id, type: node.type, from, to, contentFrom, contentTo, attrs, childCount: node.content?.length ?? 0 };
+}
+
+function withoutImageBytes(node) {
+  return { ...node, ...(node.attrs ? { attrs: Object.fromEntries(Object.entries(node.attrs).filter(([key]) => key !== 'src')) } : {}),
+    ...(node.content ? { content: node.content.map(withoutImageBytes) } : {}) };
+}
+
+function cellSearchPreview(match, limit) {
+  const result = { ...match };
+  for (const key of ['value', 'matchedText']) {
+    const text = match[key];
+    if (text.length <= limit) continue;
+    const last = text.charCodeAt(limit - 1), next = text.charCodeAt(limit);
+    const end = last >= 0xd800 && last <= 0xdbff && next >= 0xdc00 && next <= 0xdfff ? limit - 1 : limit;
+    result[key] = text.slice(0, end); result[`${key}Length`] = text.length; result[`${key}Truncated`] = true;
+  }
+  return result;
+}
+
+function selectionFor(kind, model, document, args) {
+  const page = (items, mapper = value => value) => {
+    const offset = args.offset ?? 0, limit = args.limit ?? 100;
+    return { items: items.slice(offset, offset + limit).map(mapper), offset, limit, total: items.length, hasMore: offset + limit < items.length };
+  };
+  const required = (item, name) => { if (!item) fail('NOT_FOUND', `The selected ${name} was not found.`); return item; };
+  const selected = (item, mapper) => args['include-data'] ? item : mapper(item);
+  if (kind === 'board') {
+    const cardSummary = card => ({ id: card.id, title: card.title, descriptionLength: card.description.length, labelIds: card.labelIds, assigneeIds: card.assigneeIds, dueDate: card.dueDate });
+    const columnSummary = column => ({ id: column.id, title: column.title, color: column.color, cardCount: column.cards.length });
+    if (args['card-id']) {
+      const location = required(model.getCard(document, args['card-id']), 'card');
+      return { columnId: location.columnId, index: location.index, card: selected(location.card, cardSummary) };
+    }
+    if (args['column-id']) {
+      const column = required(model.getColumn(document, args['column-id']), 'column');
+      return { column: columnSummary(column), cards: page(column.cards, cardSummary), labels: document.labels, members: document.members };
+    }
+    return { columns: page(document.columns, columnSummary), labels: document.labels, members: document.members };
+  }
+  if (kind === 'dataview') {
+    const fieldSummary = field => ({ id: field.id, name: field.name, type: field.type, optionCount: field.options.length });
+    const rowSummary = row => ({ id: row.id, valueCount: Object.keys(row.values).length });
+    if (args['field-id']) return { field: selected(required(document.fields.find(field => field.id === args['field-id']), 'field'), fieldSummary) };
+    if (args['row-id']) return { row: selected(required(document.rows.find(row => row.id === args['row-id']), 'row'), rowSummary) };
+    return { fields: document.fields.map(fieldSummary), rows: page(document.rows, rowSummary) };
+  }
+  if (kind === 'diagram') {
+    const edgeSummary = edge => ({ id: edge.id, sourceId: edge.sourceId, targetId: edge.targetId, color: edge.color, labelLength: edge.label.length });
+    if (args['node-id']) return { node: selected(required(document.nodes.find(node => node.id === args['node-id']), 'node'), objectSummary) };
+    if (args['edge-id']) return { edge: selected(required(document.edges.find(edge => edge.id === args['edge-id']), 'edge'), edgeSummary) };
+    return { nodes: page(document.nodes, objectSummary), edges: page(document.edges, edgeSummary) };
+  }
+  if (kind === 'whiteboard') {
+    if (args['element-id']) return { element: selectedObject(required(document.elements.find(element => element.id === args['element-id']), 'element'), args['include-data']) };
+    return { elements: page(document.elements, objectSummary) };
+  }
+  if (kind === 'calendar') {
+    const eventSummary = event => ({ id: event.id, title: event.title, allDay: event.allDay, start: event.start, end: event.end, color: event.color,
+      descriptionLength: event.description?.length ?? 0, locationLength: event.location?.length ?? 0 });
+    if (args['event-id']) return { event: selected(required(model.getCalendarEvent(document, args['event-id']), 'event'), eventSummary) };
+    const range = args.start ? { start: args.start, end: args.end } : undefined;
+    return { ...(range ? { range } : {}), events: page(model.getCalendarEvents(document, range), eventSummary) };
+  }
+  if (kind === 'aichat') {
+    const conversationSummary = conversation => ({ id: conversation.id, title: conversation.title, messageCount: conversation.messages.length });
+    const messageSummary = message => ({ id: message.id, role: message.role, status: message.status, createdAt: message.createdAt,
+      ...(message.replyTo ? { replyTo: message.replyTo } : {}), contentLength: message.content.length,
+      attachmentCount: message.attachments?.length ?? 0, referenceCount: message.references?.length ?? 0, toolCallCount: message.toolCalls?.length ?? 0,
+      partCount: message.parts?.length ?? 0 });
+    if (args['conversation-id']) {
+      const conversation = required(model.getAIChatConversation(document, args['conversation-id']), 'conversation');
+      if (args['message-id']) return { conversationId: conversation.id, message: selected(required(model.getAIChatMessage(document, conversation.id, args['message-id']), 'message'), messageSummary) };
+      return { conversation: conversationSummary(conversation), messages: page(model.getAIChatMessages(document, conversation.id), messageSummary) };
+    }
+    return { conversations: page(model.getAIChatConversations(document), conversationSummary) };
+  }
+  if (kind === 'chat') {
+    const conversationSummary = conversation => ({ id: conversation.id, title: conversation.title, messageCount: conversation.messages.length });
+    const messageSummary = message => ({ id: message.id, authorId: message.authorId, createdAt: message.createdAt,
+      ...(message.replyTo ? { replyTo: message.replyTo } : {}), contentLength: message.text.length,
+      attachmentCount: message.attachments?.length ?? 0, reactionCount: message.reactions?.length ?? 0 });
+    if (args['conversation-id']) {
+      const conversation = required(model.getConversation(document, args['conversation-id']), 'conversation');
+      if (args['message-id']) return { conversationId: conversation.id, message: selected(required(model.getMessage(document, conversation.id, args['message-id']), 'message'), messageSummary) };
+      return { conversation: conversationSummary(conversation), messages: page(model.getMessages(document, conversation.id), messageSummary) };
+    }
+    return { conversations: page(model.getConversations(document), conversationSummary) };
+  }
+  if (kind === 'form') {
+    const fieldSummary = field => ({ id: field.id, type: field.type, label: field.label, required: field.required, optionCount: field.options.length,
+      ...(field.visibleWhen ? { visibleWhen: field.visibleWhen } : {}) });
+    if (args['field-id']) return { field: selected(required(model.getFormField(document, args['field-id']), 'field'), fieldSummary) };
+    return { fields: page(document.fields, fieldSummary) };
+  }
+  if (kind === 'texteditor') {
+    const from = Math.min(args.offset ?? 0, document.text.length), limit = args.limit ?? 1000;
+    const to = Math.min(from + limit, document.text.length);
+    return { coordinateSpace: 'source', from, to, text: document.text.slice(from, to), total: document.text.length, hasMore: to < document.text.length };
+  }
+  if (kind === 'document') {
+    if (args['block-id']) {
+      const block = model.getBlock(document, args['block-id']);
+      if (!block) fail('NOT_FOUND', 'The selected document block was not found.');
+      return { block: { ...blockSummary(block), ...(args['include-data'] ? { node: withoutImageBytes(block.node) } : {}) } };
+    }
+    const blocks = model.getBlocks(document), offset = args.offset ?? 0, limit = args.limit ?? 100;
+    return { blocks: blocks.slice(offset, offset + limit).map(blockSummary), offset, limit,
+      total: blocks.length, hasMore: offset + limit < blocks.length };
+  }
+  if (kind === 'spreadsheet' && args.search) {
+    if (args['sheet-id']) required(document.sheets.find(sheet => sheet.id === args['sheet-id']), 'sheet');
+    const query = { text: args.text, matchCase: Boolean(args['match-case']), useRegex: Boolean(args.regex) };
+    const matches = args.search === 'sheets'
+      ? model.findSpreadsheetSheets(document, { ...query, wholeName: Boolean(args.exact) })
+      : model.findSpreadsheetCells(document, { ...query, wholeCell: Boolean(args.exact), lookIn: args['look-in'] ?? 'values' },
+        { ...(args['sheet-id'] ? { sheetId: args['sheet-id'] } : {}), ...(args.range ? { range: args.range } : {}) });
+    const { items, ...pagination } = page(matches, args.search === 'cells' ? match => cellSearchPreview(match, args['preview-length'] ?? 200) : undefined);
+    return { search: args.search, text: args.text, matches: items, ...pagination };
+  }
+  if (kind === 'spreadsheet' && args['sheet-id']) {
+    const sheet = document.sheets.find(item => item.id === args['sheet-id']);
+    if (!sheet) fail('NOT_FOUND', 'The selected sheet was not found.');
+    if (args['print-settings']) return { sheetId: sheet.id, printSettings: model.getSheetPrintSettings(document, sheet.id) };
+    if (args['format-ranges']) {
+      const { items, ...pagination } = page(model.getSheetFormatRanges(document, sheet.id));
+      return { sheetId: sheet.id, formatRanges: items, ...pagination };
+    }
+    if (args.range) return { sheetId: sheet.id, range: args.range, rows: model.getRange(document, sheet.id, args.range) };
+    if (args['drawing-id']) return { sheetId: sheet.id, drawing: selectedObject(model.getDrawing(document, sheet.id, args['drawing-id']), args['include-data']) };
+    if (args['include-data']) {
+      const { items, ...pagination } = page(model.getSheetCells(document, sheet.id));
+      return { sheet: sheetSummary(sheet), cells: items, ...pagination };
+    }
+    return { sheet: sheetSummary(sheet), drawings: (sheet.drawings ?? []).map(objectSummary),
+      namedRanges: model.getNamedRanges(document, sheet.id),
+      tables: model.getTables(document, sheet.id).map(table => ({ id: table.id, name: table.name, sheetId: table.sheetId,
+        range: table.range, address: table.address, columnCount: table.columns.length })) };
+  }
+  if (kind === 'slide' && args['master-id']) {
+    const master = model.getSlideMasters(document).find(item => item.id === args['master-id']);
+    if (!master) fail('NOT_FOUND', 'The selected master was not found.');
+    return { master: { id: master.id, name: master.name, background: master.background },
+      elements: master.elements.map(element => selectedObject(element, args['include-data'])), layouts: model.getSlideLayouts(document, master.id).map(layoutSummary) };
+  }
+  if (kind === 'slide' && args['layout-id']) {
+    const layout = model.getSlideLayout(document, args['layout-id']);
+    if (!layout) fail('NOT_FOUND', 'The selected layout was not found.');
+    return { layout: { ...layoutSummary(layout), background: layout.background, showMasterShapes: layout.showMasterShapes },
+      elements: layout.elements.map(element => selectedObject(element, args['include-data'])),
+      placeholders: layout.placeholders.map(placeholder => ({ id: placeholder.id, kind: placeholder.kind, element: selectedObject(placeholder.element, args['include-data']) })) };
+  }
+  if (kind === 'slide' && args['slide-id']) {
+    const options = { includeAnimations: Boolean(args['include-animations']) };
+    const slide = model.getSlide(document, args['slide-id'], options);
+    if (!slide) fail('NOT_FOUND', 'The selected slide was not found.');
+    if (args['element-id']) return { slideId: slide.id, element: selectedObject(model.getElement(document, slide.id, args['element-id'], options), args['include-data']),
+      ...(args['include-animations'] ? { animations: model.getAnimations(document, slide.id) } : {}) };
+    const appearance = slide.layoutId ? model.resolveSlideAppearance(document, slide) : undefined;
+    return { slide: { id: slide.id, name: slide.name, background: appearance?.background ?? slide.background, notesLength: slide.notes.length,
+      ...(slide.layoutId ? { layoutId: slide.layoutId, inheritBackground: slide.inheritBackground } : {}),
+      elementCount: slide.elements.length }, elements: slide.elements.map(element => selectedObject(element, args['include-data'])),
+      ...(appearance ? { inheritedElements: appearance.inheritedElements.map(element => selectedObject(element, args['include-data'])) } : {}),
+      ...(args['include-animations'] ? { animations: model.getAnimations(document, slide.id) } : {}) };
+  }
+  return undefined;
+}
+
+function encodedResponse(value) {
+  const json = JSON.stringify(value);
+  if (Buffer.byteLength(json) > MAX_RESPONSE_BYTES) fail('RESPONSE_TOO_LARGE', 'Result exceeds 1 MiB. Inspect a smaller range, lower --limit for paged reads, or omit --include-data.');
+  return json;
+}
+
+export async function runDocumentCli({ argv = process.argv.slice(2), kind = DOCUMENT_KIND, version = LIBRARY_VERSION,
+  scriptUrl = import.meta.url, stdout = process.stdout } = {}) {
+  let operation = argv[0] ?? 'help';
+  try {
+    if (!Object.hasOwn(adapters, kind)) fail('USAGE', 'Run a generated skill script, not scripts/skills/document-cli.mjs directly.');
+    const args = argumentsFor(argv, kind);
+    operation = args.operation;
+    const base = { ok: true, kind, operation, libraryVersion: version };
+    if (operation === 'help') { stdout.write(`${encodedResponse({ ...base, ...usage(kind, version) })}\n`); return 0; }
+    if (operation === 'version') { stdout.write(`${encodedResponse({ ...base, cliVersion: CLI_VERSION })}\n`); return 0; }
+    const model = await loadModel(kind, version, args.project, scriptUrl);
+    const spreadsheet = kind === 'spreadsheet';
+    const [suffix, executeName, resultKey] = adapters[kind];
+    const parse = model[`parse${suffix}`], serialize = model[`serialize${suffix}`];
+    let source, document;
+    if (args.input) { source = await readBounded(args.input, documentLimit(kind)); document = parse(source.text); }
+    else document = model[`create${suffix}`]();
+    const output = args.output ? path.resolve(args.output) : null;
+    const before = output ? await outputSnapshot(output) : null;
+    let commands = [], changed = operation === 'create', receipt;
+    if (args.commands) {
+      try { commands = JSON.parse((await readBounded(args.commands, MAX_COMMAND_BYTES)).text); }
+      catch (error) { if (error instanceof SyntaxError) fail('INVALID_COMMANDS', 'Commands file must be valid JSON.'); throw error; }
+      if (!Array.isArray(commands)) fail('INVALID_COMMANDS', 'Commands file must contain a JSON array, even for a single command.');
+      try {
+        const beforeCommands = serialize(document);
+        const expected = args.expected ? parse((await readBounded(args.expected, documentLimit(kind))).text) : undefined;
+        if (expected && kind === 'slide') {
+          receipt = model.applySlideConditionalEdit(document, { before: expected, commands, scope: args['expected-scope'] === 'targets' ? 'targets' : 'deck' });
+          if (!receipt.ok) fail('PRECONDITION_FAILED', 'The document changed after it was read. Inspect and reconsider before retrying.', { conflicts: receipt.conflicts });
+        } else receipt = model[executeName](document, commands, ...(expected ? [{ expected: { workbook: expected, scope: args['expected-scope'] === 'targets' ? 'targets' : 'workbook' } }] : []));
+        if (spreadsheet && !receipt.ok) fail(receipt.code, receipt.message, { ...(receipt.commandIndex !== undefined ? { commandIndex: receipt.commandIndex } : {}),
+          ...(receipt.editConflicts ? { conflicts: receipt.editConflicts } : {}) });
+        document = resultKey ? receipt[resultKey] : receipt;
+        changed = changed || beforeCommands !== serialize(document);
+      } catch (error) { if (error instanceof CliError) throw error; fail('COMMAND_FAILED', error.message); }
+    }
+    if (operation === 'inspect') {
+      const inspected = kind === 'slide' && !args.overview && !args.images ? model.getDeck(document, { includeAnimations: Boolean(args['include-animations']) }) : document;
+      let selection;
+      if (args.images) {
+        const collector = { slide: 'collectSlideImages', spreadsheet: 'collectSpreadsheetImages', document: 'collectDocumentImages' }[kind];
+        const collected = await model[collector](document, kind === 'slide' ? { animationState: args['include-animations'] ? 'initial' : 'final' } : {});
+        selection = { images: collected.images.map(({ imageId, mimeType, byteLength }) => ({ imageId, mimeType, byteLength })), placements: collected.placements };
+      } else selection = args.overview ? undefined : selectionFor(kind, model, inspected, args);
+      stdout.write(`${encodedResponse({ ...base, summary: summaryFor(kind, inspected, model, Boolean(args.overview), Boolean(args['compact-summary'])), ...(selection ? { selection } : {}),
+        ...(kind === 'slide' && args['include-animations'] && !args['slide-id'] && !args.images ? { animations: inspected.slides.map(slide => ({ slideId: slide.id, animations: model.getAnimations(inspected, slide.id) })) } : {}) })}\n`);
+      return 0;
+    }
+    // A complete native serialization and parse must succeed before any output is created.
+    const serialized = serialize(document);
+    parse(serialized);
+    if (operation === 'validate') {
+      stdout.write(`${encodedResponse({ ...base, valid: true, summary: summaryFor(kind, document, model) })}\n`);
+      return 0;
+    }
+    const result = encodedResponse({ ...base, dryRun: Boolean(args['dry-run']), written: !args['dry-run'], output,
+      commandCount: commands.length, changed, summary: summaryFor(kind, document, model) });
+    if (!args['dry-run']) await writeAtomic(output, serialized, before, source);
+    stdout.write(`${result}\n`);
+    return 0;
+  } catch (error) {
+    stdout.write(`${JSON.stringify({ ok: false, kind, operation, libraryVersion: version,
+      error: { code: error instanceof CliError ? error.code : error.code ?? 'VALIDATION_FAILED',
+        message: error.message ?? String(error), ...(error instanceof CliError ? error.details : {}) } })}\n`);
+    return 1;
+  }
+}
+
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) process.exitCode = await runDocumentCli();

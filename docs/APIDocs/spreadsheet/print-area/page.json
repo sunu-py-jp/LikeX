@@ -1,0 +1,8 @@
+{
+  "title": "印刷範囲と改ページ",
+  "summary": "印刷範囲の設定・ドラッグ調整、用紙と倍率、手動改ページ、SPONとXLSXの保持を扱います。",
+  "source": "packages/spreadsheet/src/docs/print-area.md",
+  "section": "セルとシート",
+  "order": 57,
+  "keywords": ["印刷", "改ページ", "printArea", "printSettings", "print.setArea", "getSpreadsheetPrintLayout"]
+}

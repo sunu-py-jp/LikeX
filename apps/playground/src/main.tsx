@@ -2,6 +2,7 @@ import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 const demos = {
+  texteditor: lazy(() => import("./texteditor-demo")),
   "external-search": lazy(() => import("./external-search-demo")),
   thumbnails: lazy(() => import("./thumbnails-demo")),
   explorer: lazy(() => import("./explorer-demo")),
@@ -13,6 +14,7 @@ const demos = {
   "spreadsheet/search": lazy(() => import("./spreadsheet-search-demo")),
   "spreadsheet/ribbon": lazy(() => import("./spreadsheet-ribbon-demo")),
   "spreadsheet/rendering": lazy(() => import("./spreadsheet-rendering-demo")),
+  "spreadsheet/print": lazy(() => import("./spreadsheet-print-demo")),
   "spreadsheet/ai": lazy(() => import("./spreadsheet-ai-demo")),
   slide: lazy(() => import("./slide-demo")),
   "slide/pdf": lazy(() => import("./slide-pdf-demo")),

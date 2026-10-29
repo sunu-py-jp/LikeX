@@ -57,6 +57,10 @@ const ranges = getSheetFormatRanges(workbook, sheetId);
 
 表示中のHandleとセッションでは `getCellFormat(sheetId, "I1")` / `getFormatRanges(sheetId)`、`session.sheet(sheetId)` と `getSheetReader(workbook, sheetId)` では `getCellFormat("I1")` / `getFormatRanges()` を使えます。読み取りによって選択、履歴、未保存状態は変わりません。スキルCLIは `inspect --sheet-id ID --format-ranges --offset 0 --limit 100` で定義をページ取得します。
 
+## 印刷設定を取得する
+
+印刷範囲・用紙・余白・手動改ページだけが必要な場合は `getSheetPrintSettings(workbook, sheetId)` を使います。Handle／セッションでは `getPrintSettings(sheetId)`、シートを固定したreaderでは `getPrintSettings()` です。未設定なら `null`、設定済みなら既定値を補完しないreadonlyの保存設定を返し、セル本文は取得しません。ページ分割を求める `getSpreadsheetPrintLayout` と合わせ、[印刷範囲と改ページ](./print-area.md#設定とページ計算)を参照してください。
+
 ## 1シートの保存セルを取得する
 
 `getSheetCells(workbook, sheetId)` は、指定した1シートに格納されたセルだけを `readonly SpreadsheetStoredCell[]` として返します。番地順は物理的な行・列の順で、未格納セルの空欄を埋めません。値が空でも、書式や入力規則を持つ保存セルは含まれます。数式は計算せず `value` に元の入力文字列を残し、結合セルも保存位置をそのまま返します。
@@ -221,12 +225,13 @@ console.log(sheet.getInfo().name); // シートJSONの取得
 console.log(sheet.getNamedRanges());
 console.log(sheet.getImages());
 console.log(sheet.getTables());
+console.log(sheet.getPrintSettings());
 
 session.execute({ type: "cells.set", sheetId, values: { B2: "1200" } });
 console.log(sheet.getCell("B2")?.value); // "1200"。呼ぶたびに現在のブックを読む
 ```
 
-`session.sheet(sheetId)` と表示中の `ref.current.sheet(sheetId)` は `SpreadsheetSheetReadApi` を返します。`getInfo`、`getCell`、`getCells`、`getRange`、`findCells`、`getDrawing`、`getImage`、`getShape`、`getTextBox`、`getCellComment`、`getNamedRanges`、`getDrawings`、`getImages`、`getShapes`、`getTextBoxes`、`getTables` を使えます。シートIDを毎回渡す必要はありません。
+`session.sheet(sheetId)` と表示中の `ref.current.sheet(sheetId)` は `SpreadsheetSheetReadApi` を返します。`getInfo`、`getCell`、`getCells`、`getRange`、`findCells`、`getDrawing`、`getImage`、`getShape`、`getTextBox`、`getCellComment`、`getNamedRanges`、`getDrawings`、`getImages`、`getShapes`、`getTextBoxes`、`getTables`、`getPrintSettings` を使えます。シートIDを毎回渡す必要はありません。
 
 取得用のオブジェクトを保持していても、各呼び出しは最新の下書き・セッションを読みます。過去に取得した配列やセルの値が後から書き換わることはありません。対象シートが削除された後は例外になります。
 
@@ -240,6 +245,7 @@ console.log(sheet.getCell("B2")?.value); // "1200"。呼ぶたびに現在のブ
 | `getSheetCells(workbook, sheetId)` | `readonly SpreadsheetStoredCell[]`。番地付きの保存セル | `[]` |
 | `getRange(workbook, sheetId, range)` | [`SpreadsheetReadRange`](#getrange)。セルまたは`null`の二次元配列 | 未格納セルは `null` |
 | `getSheet(workbook, sheetId)` | [`SpreadsheetSheet`](#getsheet) | 例外 |
+| `getSheetPrintSettings(workbook, sheetId)` | [`SpreadsheetPrintSettings`](./print-area.md#設定とページ計算) | 設定なしは `null`、不明なシートは例外 |
 | `findSpreadsheetSheets(workbook, query)` | `readonly SpreadsheetSheetSearchMatch[]`。名前・ID・タブ位置など | `[]` |
 | `findSpreadsheetCells(workbook, query, options?)` | `readonly SpreadsheetSearchMatch[]`。番地・入力値・一致した文字列 | `[]` |
 | `getDrawing(workbook, sheetId, drawingId)` | [`SpreadsheetDrawing`](#getdrawing)。3種類のunion | `undefined` |

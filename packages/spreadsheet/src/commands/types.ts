@@ -6,6 +6,7 @@ import type { SpreadsheetFormattingCommand } from "../api/formatting-commands";
 import type { SpreadsheetEditingCommand } from "../api/editing-commands";
 import type { SpreadsheetDataValidationCommand } from "../api/data-validation-commands";
 import type { SpreadsheetGridLayout, SpreadsheetTableCommand } from "../api/table-commands";
+import type { SpreadsheetPrintCommand } from "../api/print-commands";
 import type { SpreadsheetFilterCommand } from "../api/filter-commands";
 import type { SpreadsheetNamedRangeCommand } from "../api/named-range-commands";
 import type { SpreadsheetLookupCommand, SpreadsheetLookupWriteReport } from "../api/lookup-commands";
@@ -39,7 +40,7 @@ export type SpreadsheetInsertValue = string | number | boolean | null;
 
 /** Explicit targets make commands independent of the currently selected sheet or cells. */
 export type SpreadsheetCommand = DeepReadonly<
-  | SpreadsheetFormattingCommand | SpreadsheetEditingCommand | SpreadsheetDataValidationCommand | SpreadsheetTableCommand | SpreadsheetNamedRangeCommand | SpreadsheetFilterCommand | SpreadsheetLookupCommand
+  | SpreadsheetPrintCommand | SpreadsheetFormattingCommand | SpreadsheetEditingCommand | SpreadsheetDataValidationCommand | SpreadsheetTableCommand | SpreadsheetNamedRangeCommand | SpreadsheetFilterCommand | SpreadsheetLookupCommand
   | { type: "cells.set"; sheetId: string; values: Record<string, string>; onConflict?: SpreadsheetWriteConflictPolicy }
   | { type: "cells.clear"; sheetId: string; range: SpreadsheetCellRangeInput; mode?: SpreadsheetClearMode }
   /** Open a rectangular gap, shifting only cells in the selected columns or rows. */

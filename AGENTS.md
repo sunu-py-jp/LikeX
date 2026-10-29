@@ -22,6 +22,7 @@ packages/aichat/      AIとの会話・ストリーミング応答
 packages/chat/        人同士のDM・グループ・スペース・スレッド
 packages/dataview/    型付きレコードと表
 packages/form/        フォーム定義と回答
+packages/texteditor/  プレーンテキスト・Markdown編集、検索、複数選択
 apps/playground/      利用側の組み込み例とデモ
 scripts/              ビルド・生成・配布・検証
 docs/                 全体方針とAPIリファレンス

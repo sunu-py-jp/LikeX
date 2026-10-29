@@ -90,7 +90,7 @@ export function fileToWorkbook(input: unknown): SpreadsheetWorkbook {
 const rootOrder = ["format", "schemaVersion", "sheets", "resources", "namedRanges"];
 const fieldOrder = ["id", "name", "type", "shape", "rowCount", "columnCount",
   "columnWidths", "formatRanges", "rows", "height", "cells", "merges", "tables", "autoFilter", "comments", "drawings", "conditionalFormats",
-  "value", "format", "validation", "anchor", "row", "column", "offsetX", "offsetY", "width", "rotation", "flipX", "flipY",
+  "value", "format", "validation", "anchor", "row", "column", "offsetX", "offsetY", "width", "rotation", "textRotation", "textUpright", "flipX", "flipY",
   "resourceId", "alt", "fit", "text", "fontFamily", "fontSize", "bold", "italic", "underline", "align", "verticalAlign", "indent", "wrap", "shrinkToFit",
   "numberFormat", "decimalPlaces", "useGrouping", "negativeFormat", "color", "background", "fill", "stroke", "strokeWidth", "borders",
   "top", "left", "bottom", "right", "style", "author", "sheetId", "range", "mimeType", "dataUrl"];

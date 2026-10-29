@@ -1,3 +1,4 @@
+import { shiftSpreadsheetPrintSettings } from "../print-settings";
 import { getFormattedCell } from "../format-ranges";
 import { resolveFormatRange, normalizeFormatRanges } from "../format-ranges";
 import { isFormulaCell } from "../cell-value";
@@ -130,6 +131,8 @@ function changeAxis(workbook: SpreadsheetWorkbook, sheetId: string, axis: "row" 
       ...(sheet.id === sheetId && sheet.conditionalFormats ? { conditionalFormats: shiftConditionalFormats(sheet.conditionalFormats, axis, index, count, remove) } : {}),
       ...(sheet.id === sheetId && sheet.merges ? { merges: shiftMerges(sheet, axis, index, count, remove, total) } : {}),
       ...(sheet.id === sheetId && sheet.tables ? { tables: shiftSheetTables(sheet.tables, axis, index, count, remove) } : {}),
+      ...(sheet.id === sheetId && sheet.printSettings ? { printSettings: shiftSpreadsheetPrintSettings(sheet.printSettings, axis, index, count, remove,
+        { rowCount: axis === "row" ? total : sheet.rowCount, columnCount: axis === "column" ? total : sheet.columnCount }) } : {}),
       ...(sheet.id === sheetId && sheet.autoFilter ? { autoFilter: shiftSheetAutoFilter(sheet.autoFilter, axis, index, count, remove) } : {}),
       ...(sheet.id === sheetId ? shiftAnnotations(sheet, axis, index, count, remove, total) : {}), ...(sheet.id === sheetId ? axis === "row"
       ? { rowCount: total, rowHeights: shiftSizes(sheet.rowHeights, index, count, remove) }

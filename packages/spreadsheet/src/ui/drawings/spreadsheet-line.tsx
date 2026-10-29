@@ -2,6 +2,7 @@
 
 import { useId, useMemo, type RefObject } from "react";
 import { getSpreadsheetLineRoute, spreadsheetLineRouteMidpoint } from "../../model/lines";
+import { getDrawingTextRotation } from "../../model/drawing-text";
 import { getConnectorPortPoints, type ConnectorPoint } from "../../core";
 import type { SpreadsheetShapeDrawing, SpreadsheetSheet } from "../../model/types";
 import type { SpreadsheetController } from "../../state/use-spreadsheet";
@@ -22,6 +23,8 @@ export function SpreadsheetLineDrawing({ drawing, sheet, controller: c, geometry
   const start = display(points.start), end = display(points.end);
   const route = useMemo(() => getSpreadsheetLineRoute(sheet, drawing.id, grid, points), [sheet, drawing.id, grid, points]);
   const labelPoint = display(spreadsheetLineRouteMidpoint(route.points));
+  const textRotation = getDrawingTextRotation(drawing);
+  const editorDrawing = useMemo(() => ({ ...drawing, rotation: 0, textRotation }), [drawing, textRotation]);
   const vertices = (route.points.length === 1 ? [route.points[0], route.points[0]] : route.points).map(point => { const p = display(point); return `${p.x},${p.y}`; }).join(" ");
   const startArrow = drawing.startArrow ?? "none", endArrow = drawing.endArrow ?? (drawing.shape === "arrow" ? "triangle" : "none");
   return <div data-lxs-drawing={drawing.id} role="group" aria-label={drawingLabel(drawing)} aria-roledescription="線" tabIndex={0}
@@ -34,7 +37,7 @@ export function SpreadsheetLineDrawing({ drawing, sheet, controller: c, geometry
       <polyline points={vertices} fill="none" strokeLinejoin="round" stroke={drawing.stroke} strokeWidth={drawing.strokeWidth} strokeLinecap="round"
         markerStart={startArrow !== "none" ? `url(#${marker}-start)` : undefined} markerEnd={endArrow !== "none" ? `url(#${marker}-end)` : undefined} />
       <polyline data-lxs-line-hit="true" points={vertices} fill="none" strokeLinejoin="round" stroke="transparent" strokeLinecap="round" strokeWidth={Math.max(12 / (c.zoom / 100), drawing.strokeWidth)} style={{ pointerEvents: "stroke", cursor: c.disabled ? "default" : "move" }} />
-      {!!drawing.text && <text x={labelPoint.x} y={labelPoint.y} textAnchor="middle" fill={drawing.color ?? "#1f2937"} fontSize={drawing.fontSize ?? 16} fontWeight={drawing.bold ? "bold" : undefined} fontFamily={drawing.fontFamily} fontStyle={drawing.italic ? "italic" : undefined} textDecoration={drawing.underline ? "underline" : undefined}>{drawing.text}</text>}
+      {!!drawing.text && <text x={labelPoint.x} y={labelPoint.y} transform={textRotation ? `rotate(${textRotation} ${labelPoint.x} ${labelPoint.y})` : undefined} textAnchor="middle" fill={drawing.color ?? "#1f2937"} fontSize={drawing.fontSize ?? 16} fontWeight={drawing.bold ? "bold" : undefined} fontFamily={drawing.fontFamily} fontStyle={drawing.italic ? "italic" : undefined} textDecoration={drawing.underline ? "underline" : undefined}>{drawing.text}</text>}
       {drag && drag.kind !== "move" && targets.filter(target => target.id === drag.nearbyTarget).flatMap(target => getConnectorPortPoints(target.box, target.outline).map(({ port, point }) => {
         const p = display(point), attached = points[drag.kind as "start" | "end"].binding;
         return <circle key={`${target.id}:${port}`} data-lxs-connection-port={`${target.id}:${port}`} cx={p.x} cy={p.y} r={attached?.targetId === target.id && attached.port === port ? 5 : 3}
@@ -42,7 +45,7 @@ export function SpreadsheetLineDrawing({ drawing, sheet, controller: c, geometry
       }))}
     </svg>
     {editing && selected && !c.disabled && <div className="lxs-line-text-editor" style={{ left: Math.min(start.x, end.x), top: Math.min(start.y, end.y), width: Math.max(120, Math.abs(end.x - start.x)), height: Math.max(60, Math.abs(end.y - start.y)) }}>
-      <DrawingTextEditor drawing={drawing} controller={c} onDone={onDone} />
+      <DrawingTextEditor drawing={editorDrawing} controller={c} onDone={onDone} />
     </div>}
     {selected && !c.disabled && !c.requesting && c.features.resize && (["start", "end"] as const).map(endpoint => {
       const p = display(points[endpoint]);

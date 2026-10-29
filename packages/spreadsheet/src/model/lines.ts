@@ -2,6 +2,7 @@ import { CONNECTOR_PORTS, getConnectorRoute, connectorLocalToWorld, getConnector
 import { getOfficeShapeOutline } from "./core-office-shapes";
 import { DEFAULT_COLUMN_WIDTH, DEFAULT_ROW_HEIGHT } from "./sheet-dimensions";
 import { getShapeDefinition, roundedRectangleRadius, shapeBodyFrame } from "./shapes";
+import { normalizeDrawingRotation } from "./drawing-transform";
 import type { SpreadsheetDrawing, SpreadsheetDrawingAnchor, SpreadsheetLine, SpreadsheetLinePoints, SpreadsheetSheet, SpreadsheetShapeDrawing, SpreadsheetStoredLineEndpoint } from "./types";
 
 export const isSpreadsheetLine = (drawing: SpreadsheetDrawing): drawing is SpreadsheetShapeDrawing & { shape: "line" | "arrow" } => drawing.type === "shape" && (drawing.shape === "line" || drawing.shape === "arrow");
@@ -129,6 +130,9 @@ export function withLinePoints(sheet: SpreadsheetSheet, drawing: SpreadsheetShap
   const start = anchorPoint(line.start.anchor, grid), end = anchorPoint(line.end.anchor, grid);
   if (Math.abs(end.x - start.x) > 10_000 || Math.abs(end.y - start.y) > 10_000) throw new Error("線の幅・高さは10,000pxまでです");
   const rest = { ...drawing };
+  // Legacy frame-based lines lose their container rotation when converted to
+  // endpoint geometry. Carry that angle into the independent text rotation.
+  if (!drawing.line && drawing.rotation) rest.textRotation = normalizeDrawingRotation(drawing.rotation + (drawing.textRotation ?? 0));
   delete rest.rotation; delete rest.flipX; delete rest.flipY;
   return { ...rest, anchor: pointAnchor({ x: Math.max(0, Math.min(start.x, end.x)), y: Math.max(0, Math.min(start.y, end.y)) }, grid),
     width: Math.max(1, Math.abs(end.x - start.x)), height: Math.max(1, Math.abs(end.y - start.y)), line };

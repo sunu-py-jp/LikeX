@@ -1,0 +1,8 @@
+{
+  "title": "コマンドとショートカット",
+  "summary": "検索・置換・複数カーソル・行操作と、画面なしの編集APIを使います。",
+  "source": "packages/texteditor/src/docs/commands.md",
+  "order": 10,
+  "section": "編集",
+  "keywords": ["TextEditorCommand", "TextEditorHandle", "runCommand", "selectAll", "find", "replace", "text.replaceAll", "text.replaceRanges", "markdown.format", "markdown.toggleTask", "executeTextEditorCommands", "findTextEditorMatches", "TEXT_EDITOR_ACTIONS"]
+}

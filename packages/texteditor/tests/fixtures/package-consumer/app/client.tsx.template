@@ -1,0 +1,3 @@
+"use client";
+import LikeTextEditor, { createTextEditorModel } from "__LIBRARY_IMPORT__";
+export default function ClientEditor() { return <LikeTextEditor initialDocument={createTextEditorModel({ mode: "markdown", text: "# Hello" })} onSave={async document => document} style={{ height: 600 }} />; }

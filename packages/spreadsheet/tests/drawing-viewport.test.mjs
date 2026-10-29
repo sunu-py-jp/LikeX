@@ -43,6 +43,15 @@ test('unclipped text is retained only along axes where it can paint beyond its f
   assert.equal(visible({ ...quarterTurn, anchor: { ...quarterTurn.anchor, column: 12 } }), false);
 });
 
+test('independently rotated and upright text is not culled using only the shape angle', () => {
+  const label = shape('label', 30, 0, { text: 'long label', textRotation: 90, textOverflow: 'overflow' });
+  assert.equal(visible(label), true, 'text extends vertically into view while its shape is below');
+  assert.equal(visible({ ...label, textUpright: true }), false);
+  const upright = shape('upright', 0, 12, { text: 'long label', rotation: 90, textUpright: true, textOverflow: 'overflow' });
+  assert.equal(visible(upright), true, 'upright text extends horizontally despite the rotated frame');
+  assert.equal(visible({ ...upright, textUpright: false }), false);
+});
+
 test('a connector crossing the viewport is kept even when its stored frame and both endpoints are outside', () => {
   const line = shape('line', 50, 15, { shape: 'line', line: {
     start: { anchor: { row: 0, column: 0, offsetX: 0, offsetY: 0 } },
@@ -51,6 +60,33 @@ test('a connector crossing the viewport is kept even when its stored frame and b
   const middle = { left: 300, top: 0, width: 100, height: 100 };
   assert.equal(visible(line, undefined, middle), true);
   assert.equal(visible(line, undefined, { ...middle, top: 400 }), false);
+});
+
+test('line labels have finite rotated bounds that retain visible text but cull distant lines', () => {
+  const line = shape('label', 50, 15, { shape: 'line', text: '遠い線', textRotation: 45, line: {
+    start: { anchor: { row: 50, column: 15, offsetX: 0, offsetY: 0 } },
+    end: { anchor: { row: 50, column: 16, offsetX: 0, offsetY: 0 } },
+  } });
+  for (const textRotation of [0, 45, 90, 120, 270]) {
+    const drawing = { ...line, textRotation };
+    const bounds = m.drawingViewportBounds(drawing, sheet([drawing]), geometry, grid);
+    assert.ok(Object.values(bounds).every(Number.isFinite));
+    assert.equal(visible(drawing), false, `${textRotation} degree label stays outside the viewport`);
+  }
+  const vertical = { ...line, text: 'A'.repeat(60), textRotation: 90, line: {
+    start: { anchor: { row: 10, column: 1, offsetX: 0, offsetY: 0 } },
+    end: { anchor: { row: 10, column: 2, offsetX: 0, offsetY: 0 } },
+  } };
+  assert.equal(visible({ ...vertical, text: '' }), false, 'the route alone is below the viewport');
+  assert.equal(visible(vertical), true, 'rotated text extends upward into the viewport');
+  assert.equal(visible({ ...vertical, textUpright: true }), false, 'upright text does not extend upward');
+  assert.equal(visible({ ...vertical, textRotation: 60, rotation: 30 }), true, 'legacy shape rotation contributes to the label angle');
+  const horizontal = { ...vertical, textRotation: 0, line: {
+    start: { anchor: { row: 3, column: 6, offsetX: 0, offsetY: 0 } },
+    end: { anchor: { row: 3, column: 7, offsetX: 0, offsetY: 0 } },
+  } };
+  assert.equal(visible({ ...horizontal, text: '' }), false);
+  assert.equal(visible(horizontal), true, 'unclipped text extends left from an offscreen route');
 });
 
 test('automatic elbow routes resolve against offscreen targets and current target geometry', () => {
@@ -84,9 +120,9 @@ test('an automatic elbow detour remains visible outside the endpoint bounding re
   assert.equal(visible(line, current, { left: 500, top: detour + 28 - 1, width: 20, height: 2 }), true);
 });
 
-async function mount(t) {
+async function mount(t, drawings = [shape('near-back', 0), shape('far', 50), shape('near-front', 1)]) {
   let c, renderer, mode = 'viewport', box = viewport;
-  const initialWorkbook = { sheets: [sheet([shape('near-back', 0), shape('far', 50), shape('near-front', 1)])] };
+  const initialWorkbook = { sheets: [sheet(drawings)] };
   function Probe() {
     c = m.useSpreadsheet({ initialWorkbook, onSave() {} });
     return createElement(m.SpreadsheetDrawings, { controller: { ...c, renderingMode: mode }, geometry, viewport: box });
@@ -97,6 +133,21 @@ async function mount(t) {
     ids: () => renderer.root.findAll(node => !!node.props['data-lxs-drawing']).map(node => node.props['data-lxs-drawing']),
     async update(nextMode, nextBox = box) { mode = nextMode; box = nextBox; await act(async () => renderer.update(createElement(Probe))); } };
 }
+
+test('viewport mode does not mount a collection of distant rotated line labels', async t => {
+  const lines = Array.from({ length: 80 }, (_, index) => shape(`line-${index}`, 50, 15, {
+    shape: 'line', text: '遠い線', textRotation: 45, line: {
+      start: { anchor: { row: 50, column: 15, offsetX: 0, offsetY: 0 } },
+      end: { anchor: { row: 50, column: 16, offsetX: 0, offsetY: 0 } },
+    },
+  }));
+  const ui = await mount(t, [shape('near', 0), ...lines]);
+  assert.deepEqual(ui.ids(), ['near']);
+  await ui.update('viewport', { ...viewport, top: 1400, left: 1500 });
+  assert.deepEqual(ui.ids(), lines.map(line => line.id));
+  await ui.update('viewport', viewport);
+  assert.deepEqual(ui.ids(), ['near']);
+});
 
 test('viewport mode culls only rendered objects, preserves stacking order and restores them when scrolling', async t => {
   const ui = await mount(t), before = ui.c.workbook;

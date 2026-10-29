@@ -7,12 +7,14 @@ import type { SpreadsheetWorkbook } from "./types";
 import { createSpreadsheetSheetReader, type SpreadsheetSheetReadApi } from "./sheet-reader";
 import { findSpreadsheetSheets, findSpreadsheetCells, type SpreadsheetSheetSearchQuery, type SpreadsheetSearchOptions } from "./editing/search";
 import type { SpreadsheetSearchQuery } from "../api/editing-commands";
+import { getSheetPrintSettings } from "./print-settings";
 
 /** Queries shared by a mounted component and a headless session; all coordinates address stored data. */
 export type SpreadsheetReadApi = Readonly<{
   getCell(sheetId: string, address: string): ReturnType<typeof getCell>;
   getCellFormat(sheetId: string, address: string): ReturnType<typeof getResolvedCellFormat>;
   getFormatRanges(sheetId: string): ReturnType<typeof getSheetFormatRanges>;
+  getPrintSettings(sheetId: string): ReturnType<typeof getSheetPrintSettings>;
   getRange(sheetId: string, range: SpreadsheetReadRangeInput): ReturnType<typeof getRange>;
   getSheet(sheetId: string): ReturnType<typeof getSheet>;
   getSheetCells(sheetId: string): ReturnType<typeof getSheetCells>;
@@ -44,6 +46,7 @@ export function createSpreadsheetReader(getWorkbook: () => QuerySnapshot<Spreads
     getCell: (sheetId: string, address: string) => getCell(getWorkbook(), sheetId, address),
     getCellFormat: (sheetId: string, address: string) => getResolvedCellFormat(getWorkbook(), sheetId, address),
     getFormatRanges: (sheetId: string) => getSheetFormatRanges(getWorkbook(), sheetId),
+    getPrintSettings: (sheetId: string) => getSheetPrintSettings(getWorkbook(), sheetId),
     getRange: (sheetId: string, range: SpreadsheetReadRangeInput) => getRange(getWorkbook(), sheetId, range),
     getSheet: (sheetId: string) => getSheet(getWorkbook(), sheetId),
     getSheetCells: (sheetId: string) => getSheetCells(getWorkbook(), sheetId),

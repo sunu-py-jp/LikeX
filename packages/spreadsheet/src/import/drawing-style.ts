@@ -4,6 +4,17 @@ import { styleColor } from "./styles";
 import { adjusted, omitted } from "./worksheet-shared";
 import { child, children, localName, textContent, spreadsheetText, type XmlNode } from "./xml";
 import { finiteNumber } from "./drawing-geometry";
+import { normalizeDrawingRotation } from "../model/drawing-transform";
+
+/** Native text stays readable when its frame is reflected. Angles are relative to the shape. */
+export function drawingTextRotation(body: XmlNode | undefined, context: ImportContext, sheet: SpreadsheetSheet, flipY = false): SpreadsheetDrawingTextStyle {
+  const properties = child(body, "bodyPr"), textUpright = ["1", "true"].includes(properties?.attributes.upright ?? "");
+  const raw = finiteNumber(properties?.attributes.rot);
+  if (properties?.attributes.rot !== undefined && raw === undefined)
+    adjusted(context, sheet, "図形の不正な文字回転を0度として取り込みました");
+  const textRotation = normalizeDrawingRotation((raw ?? 0) / 60000 - (flipY && !textUpright ? 180 : 0));
+  return { ...(textRotation ? { textRotation } : {}), ...(textUpright ? { textUpright: true } : {}) };
+}
 
 const themes = ["lt1", "dk1", "lt2", "dk2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6", "hlink", "folHlink"];
 /** Only resolved color literals enter the model, never DrawingML URI paints. */

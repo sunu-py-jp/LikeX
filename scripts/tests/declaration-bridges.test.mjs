@@ -11,6 +11,7 @@ for (const moduleName of moduleNames.filter(name => libraryModule(name).ui)) tes
     : ['spreadsheet', 'slide', 'document'].includes(moduleName)
       ? ['json.d.ts', 'ooxml.d.ts', 'model/core-connectors.d.ts',
         'model/core-office-shapes.d.ts', 'model/core-image-assets.d.ts', 'model/core-text-search.d.ts']
+      : moduleName === 'texteditor' ? ['browser.d.ts', 'json.d.ts', 'text-search.d.ts']
       : moduleName === 'calendar' ? ['browser.d.ts'] : ['browser.d.ts', 'json.d.ts']);
   for (const [file, target] of Object.entries(declarationBridgeTargets)) {
     // These maintained bridges contain only the named re-exports emitted into their declarations.

@@ -1,9 +1,15 @@
 import type { CSSProperties } from "react";
 import type { SpreadsheetDrawing } from "../../model/types";
 import { DEFAULT_DRAWING_TEXT_INSETS } from "../../model/drawing-text";
+import { normalizeDrawingRotation } from "../../model/drawing-transform";
 import { drawingTextColor } from "./drawing-helpers";
 
 type TextDrawing = Exclude<SpreadsheetDrawing, { type: "image" }>;
+/** The parent already rotates the drawing; upright text cancels that rotation. */
+export function drawingTextTransform(drawing: TextDrawing, parentRotation = drawing.rotation ?? 0): CSSProperties {
+  const angle = normalizeDrawingRotation(drawing.textUpright ? -parentRotation : drawing.textRotation);
+  return angle ? { transform: `rotate(${angle}deg)`, transformOrigin: "center" } : {};
+}
 export function drawingTextStyle(drawing: TextDrawing): CSSProperties {
   const insets = drawing.textInsets ?? DEFAULT_DRAWING_TEXT_INSETS;
   const horizontal = drawing.textOverflow ?? "clip", vertical = drawing.textVerticalOverflow ?? "clip";

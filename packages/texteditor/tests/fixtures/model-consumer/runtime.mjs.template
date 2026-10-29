@@ -1,0 +1,35 @@
+import assert from "node:assert/strict";
+import { createTextEditorModel, executeTextEditorCommands, parseTextEditorModel, serializeTextEditorModel, findTextEditorMatches, applyMarkdownCommand, applyMarkdownTaskCommand, getTextEditorMarkdownBlocks, decodeTextEditorBytes } from "__MODEL_IMPORT__";
+const initial = createTextEditorModel({ id: "consumer", text: "hello hello" });
+const document = executeTextEditorCommands(initial, [{ type: "text.replaceAll", query: "hello", replacement: "world", wholeWord: true }]);
+assert.equal(typeof window, "undefined");
+assert.equal(document.text, "world world");
+assert.deepEqual(findTextEditorMatches(document, { query: "world" }), [{ from: 0, to: 5 }, { from: 6, to: 11 }]);
+assert.deepEqual(parseTextEditorModel(serializeTextEditorModel(document)), document);
+assert.equal(applyMarkdownCommand("hello", { from: 1, to: 6 }, "markdown.bold").text, "**hello**");
+assert.equal(decodeTextEditorBytes(new Uint8Array([0x93, 0xfa, 0x96, 0x7b])), "日本");
+const multi = executeTextEditorCommands(initial, { type: "text.replaceRanges", edits: [
+  { from: 6, to: 11, text: "second" }, { from: 0, to: 5, text: "first" },
+] });
+assert.equal(multi.text, "first second");
+assert.equal(initial.text, "hello hello");
+const markdown = createTextEditorModel({ id: "markdown-consumer", mode: "markdown", text: "Hello\n\n- [ ] Pending" });
+const blocks = getTextEditorMarkdownBlocks(markdown);
+const paragraph = blocks.find(block => block.type === "paragraph" && block.text === "Hello");
+const task = blocks.find(block => block.checked === false);
+assert.ok(task && paragraph);
+const rich = executeTextEditorCommands(markdown, [
+  { type: "markdown.format", action: "markdown.bold", selection: { from: paragraph.from, to: paragraph.to } },
+  { type: "markdown.toggleTask", position: task.position },
+]);
+assert.equal(rich.text, "**Hello**\n\n* [x] Pending");
+assert.equal(getTextEditorMarkdownBlocks(rich).find(block => block.checked !== undefined).checked, true);
+assert.equal(getTextEditorMarkdownBlocks(applyMarkdownTaskCommand(rich.text, task.position).text).find(block => block.checked !== undefined).checked, false);
+assert.throws(() => executeTextEditorCommands(markdown, { type: "markdown.toggleTask", position: paragraph.position }), /チェックリスト/);
+assert.equal(markdown.text, "Hello\n\n- [ ] Pending");
+const textMode = executeTextEditorCommands({ ...markdown, mode: "text" }, {
+  type: "markdown.format", action: "markdown.heading2", selection: { from: paragraph.from, to: paragraph.to },
+});
+assert.equal(textMode.mode, "text");
+assert.equal(getTextEditorMarkdownBlocks(textMode)[0].level, 2);
+console.log(JSON.stringify({ headless: "passed", characters: document.text.length }));

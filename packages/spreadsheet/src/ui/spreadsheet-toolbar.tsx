@@ -21,11 +21,12 @@ import type { NamedRangeManager } from "./named-ranges/use-named-range-manager";
 import { SpreadsheetClearMenu } from "./spreadsheet-clear-menu";
 import { RibbonGroup } from "./spreadsheet-ribbon-group";
 import { HorizontalScrollStrip } from "./horizontal-scroll-strip";
+import { SpreadsheetPrintToolbar } from "./spreadsheet-print-toolbar";
 
 type ToolbarProps = { controller: SpreadsheetController; clipboard: ReturnType<typeof useSpreadsheetClipboard> };
 
 export function SpreadsheetToolbar({ controller: c, clipboard, namedRangeManager }: ToolbarProps & { namedRangeManager: NamedRangeManager }) {
-  type Tab = "file" | "home" | "insert" | "data";
+  type Tab = "file" | "home" | "insert" | "data" | "pageLayout";
   const [tab, setTab] = useState<Tab>("home");
   const id = useId();
   const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
@@ -33,7 +34,8 @@ export function SpreadsheetToolbar({ controller: c, clipboard, namedRangeManager
   const canData = c.features.filters || c.features.namedRanges || (!c.readOnly && c.features.dataValidation);
   const canFile = c.features.exportExcel || c.features.exportNative || (!c.readOnly && (c.features.importExcel || c.features.importNative));
   const tabs: { key: Tab; label: string }[] = [...(canFile ? [{ key: "file" as const, label: "ファイル" }] : []), { key: "home", label: "ホーム" },
-    ...(canInsert ? [{ key: "insert" as const, label: "挿入" }] : []), ...(canData ? [{ key: "data" as const, label: "データ" }] : [])];
+    ...(canInsert ? [{ key: "insert" as const, label: "挿入" }] : []), ...(canData ? [{ key: "data" as const, label: "データ" }] : []),
+    { key: "pageLayout", label: "ページ レイアウト" }];
   const active = tabs.some(item => item.key === tab) ? tab : "home";
   const container = useRef<HTMLDivElement>(null), reveal = useRef<HTMLButtonElement>(null);
   const focusAfterRender = useRef<"tab" | "reveal" | null>(null);
@@ -129,6 +131,9 @@ export function SpreadsheetToolbar({ controller: c, clipboard, namedRangeManager
     {canData && <div role="tabpanel" id={`${id}-data-panel`} aria-labelledby={`${id}-data`} hidden={active !== "data"}>
       <HorizontalScrollStrip className="lxs-ribbon" role="toolbar" aria-label="データの操作" itemSelector=".lxs-ribbon-group" previousLabel="前のリボングループを表示" nextLabel="次のリボングループを表示"><SpreadsheetFilterToolbar controller={c} /><SpreadsheetNamedRanges controller={c} manager={namedRangeManager} /><SpreadsheetDataToolbar controller={c} /></HorizontalScrollStrip>
     </div>}
+    <div role="tabpanel" id={`${id}-pageLayout-panel`} aria-labelledby={`${id}-pageLayout`} hidden={active !== "pageLayout"}>
+      <SpreadsheetPrintToolbar controller={c} />
+    </div>
     </div>
     </div>
   </div>;

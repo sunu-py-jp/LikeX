@@ -63,7 +63,8 @@ for (const { kind, label } of SPREADSHEET_SHAPES) {
     assert.ok(xml.includes(`<a:prstGeom prst="${presets[kind]}">`));
     assert.match(xml, /flipH="1" flipV="1"/);
     assert.match(xml, /確認済み &lt; &amp; &gt;/);
-    assert.match(xml, /upright="1"/);
+    assert.match(xml, /upright="0"/);
+    assert.match(xml, /<a:bodyPr[^>]*rot="10800000"/);
     assert.match(xml, /123456/);
     if (kind !== 'line' && kind !== 'arrow') assert.match(xml, /FFEECC/);
   });

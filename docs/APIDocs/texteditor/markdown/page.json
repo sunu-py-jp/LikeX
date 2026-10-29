@@ -1,0 +1,8 @@
+{
+  "title": "Markdownの編集",
+  "summary": "文章表示とソース表示、ブロック操作、チェックリスト、変換の対応範囲を説明します。",
+  "source": "packages/texteditor/src/docs/markdown.md",
+  "order": 20,
+  "section": "編集",
+  "keywords": ["Markdown", "CommonMark", "slash", "markdown.taskList", "markdown.format", "markdown.toggleTask", "applyMarkdownCommand", "applyMarkdownTaskCommand", "getTextEditorMarkdownBlocks", "parseMarkdownDocument", "getMarkdownCompatibilityWarnings"]
+}

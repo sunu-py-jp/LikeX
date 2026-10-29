@@ -1,4 +1,6 @@
 export * from "./types";
+export { getSheetPrintSettings, getSpreadsheetPrintLayout, SPREADSHEET_PRINT_DEFAULTS } from "./print-settings";
+export type { SpreadsheetPrintLayout, SpreadsheetPrintSegment } from "./print-settings";
 export { resolveSpreadsheetFilterRange, getSpreadsheetFilterValues, getSpreadsheetFilteredRows } from "./filters";
 export { getSpreadsheetLinePoints, getSpreadsheetLineRoute, isSpreadsheetLine } from "./lines";
 export { updateLineEndpoints } from "./workbook/lines";

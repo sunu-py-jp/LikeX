@@ -25,14 +25,16 @@ const adapters = {
   aichat: ['AIChat', 'executeAIChatCommands', 'aichat', 32],
   chat: ['Chat', 'executeChatCommands', 'chat', 32],
   form: ['Form', 'executeFormCommands', null, 8],
+  texteditor: ['TextEditorModel', 'executeTextEditorCommands', null, 64],
 };
 const selectorsByKind = {
-  spreadsheet: ['overview', 'compact-summary', 'images', 'sheet-id', 'range', 'format-ranges', 'drawing-id', 'search', 'text', 'match-case', 'regex', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'images', 'slide-id', 'element-id', 'master-id', 'layout-id'], document: ['images', 'block-id', 'offset', 'limit'],
+  spreadsheet: ['overview', 'compact-summary', 'images', 'sheet-id', 'range', 'format-ranges', 'print-settings', 'drawing-id', 'search', 'text', 'match-case', 'regex', 'exact', 'look-in', 'preview-length', 'offset', 'limit'], slide: ['overview', 'compact-summary', 'images', 'slide-id', 'element-id', 'master-id', 'layout-id'], document: ['images', 'block-id', 'offset', 'limit'],
   board: ['column-id', 'card-id', 'offset', 'limit'], dataview: ['row-id', 'field-id', 'offset', 'limit'],
   diagram: ['node-id', 'edge-id', 'offset', 'limit'], whiteboard: ['element-id', 'offset', 'limit'],
   calendar: ['event-id', 'start', 'end', 'offset', 'limit'], chat: ['conversation-id', 'message-id', 'offset', 'limit'],
   aichat: ['conversation-id', 'message-id', 'offset', 'limit'],
   form: ['field-id', 'offset', 'limit'],
+  texteditor: ['offset', 'limit'],
 };
 const dataSelectors = ['drawing-id', 'element-id', 'block-id', 'card-id', 'row-id', 'field-id', 'node-id', 'edge-id', 'event-id', 'message-id'];
 
@@ -44,7 +46,7 @@ const identity = value => value && [value.dev, value.ino, value.size, value.mtim
 const sameFile = (a, b) => a && b && a.dev === b.dev && a.ino === b.ino;
 
 function usage(kind, version) {
-  const selectors = selectorsByKind[kind].map(key => ['overview', 'compact-summary', 'images', 'format-ranges', 'match-case', 'regex', 'exact'].includes(key) ? `--${key}` : `--${key} ${['offset', 'limit', 'preview-length'].includes(key) ? 'N' : ['start', 'end'].includes(key) ? 'YYYY-MM-DD' : key === 'range' ? 'A1:C5' : key === 'search' ? 'sheets|cells' : key === 'text' ? 'KEYWORD' : key === 'look-in' ? 'values|formulas' : 'ID'}`).join(' | ');
+  const selectors = selectorsByKind[kind].map(key => ['overview', 'compact-summary', 'images', 'format-ranges', 'print-settings', 'match-case', 'regex', 'exact'].includes(key) ? `--${key}` : `--${key} ${['offset', 'limit', 'preview-length'].includes(key) ? 'N' : ['start', 'end'].includes(key) ? 'YYYY-MM-DD' : key === 'range' ? 'A1:C5' : key === 'search' ? 'sheets|cells' : key === 'text' ? 'KEYWORD' : key === 'look-in' ? 'values|formulas' : 'ID'}`).join(' | ');
   return {
     ok: true, kind, libraryVersion: version,
     usage: [
@@ -58,13 +60,15 @@ function usage(kind, version) {
       ...(['spreadsheet', 'slide'].includes(kind) ? ['--overview returns only document-level counts and the slide title, without sheet/slide lists. It cannot be combined with other inspect selectors or flags.',
         'apply accepts --expected FILE to compare a previously-read native snapshot. --expected-scope document (default) guards read dependencies; targets guards native operation dependencies. Conflicts reject the entire batch. File hosts must coordinate concurrent writers; UI session tokens are not persisted in files.',
         '--compact-summary omits sheet/slide lists from summary before the response-size check while preserving selected results. Use with targeted inspect reads; cannot combine with --overview.'] : []),
-      ...(kind !== 'spreadsheet' && selectorsByKind[kind].includes('offset') ? ['Lists return 100 items by default; --offset and --limit (1–1000) control pagination. Item selectors cannot be combined with pagination.'] : []),
+      ...(!['spreadsheet', 'texteditor'].includes(kind) && selectorsByKind[kind].includes('offset') ? ['Lists return 100 items by default; --offset and --limit (1–1000) control pagination. Item selectors cannot be combined with pagination.'] : []),
+      ...(kind === 'texteditor' ? ['inspect returns a source slice of at most 1000 UTF-16 code units by default. --offset is a zero-based source position; --limit (1–1000) bounds the slice. selection.hasMore indicates remaining source; JSON metadata stays in summary. CLI files use likex.texteditor JSON, not raw .txt or .md.'] : []),
       ...(kind === 'spreadsheet' ? ['--search sheets|cells requires --text KEYWORD. Search is literal, case-insensitive and partial by default; --match-case and --exact narrow matches; --regex uses RE2 syntax (no lookaround or backreferences).',
         'Cell searches accept --look-in values|formulas (default values), optional --sheet-id, and --range with --sheet-id. Sheet-name searches cannot use these selectors.',
         'Cell search previews use --preview-length N (default 200, 1–10000). Truncated fields explicitly include original lengths and truncation flags; matching uses the full values.',
         '--sheet-id ID --include-data lists stored cells in selection.cells as a flat address-bearing array, in row/column order. It cannot be combined with a range, drawing selector, or search.',
         'Search, sheet-content, and format-range lists accept --offset and --limit (default 100, maximum 1000). Ordinary inspect summaries and range reads do not use pagination.',
-        '--sheet-id ID --format-ranges lists shared formatting rectangles without expanding them into cells. Cell/range reads and stored-cell lists retain their stored-cell semantics.'] : []),
+        '--sheet-id ID --format-ranges lists shared formatting rectangles without expanding them into cells. Cell/range reads and stored-cell lists retain their stored-cell semantics.',
+        '--sheet-id ID --print-settings returns saved print settings, or null when absent, without cell data. Only --compact-summary can be combined with this selector.'] : []),
       ...(['chat', 'aichat'].includes(kind) ? ['--message-id requires --conversation-id. Select a conversation to list its messages.'] : []),
       ...(kind === 'calendar' ? ['--start and --end must be supplied together; end is exclusive and dates use calendar.timeZone.'] : []),
       ...(['spreadsheet', 'slide', 'document'].includes(kind) ? ['--images returns unique embedded-image metadata in selection.images and all uses in selection.placements, with SHA-256 IDs based on exact image bytes. Image bytes are omitted. Do not combine with item selectors or --include-data. --compact-summary is allowed for spreadsheet/slide; --include-animations is allowed for slide and selects original placements without animation definitions.'] : []),
@@ -83,7 +87,7 @@ function argumentsFor(argv, kind) {
   if (argv.length === 0 || (argv.length === 1 && argv[0] === '--help')) return { operation: 'help' };
   if (argv.length === 1 && argv[0] === '--version') return { operation: 'version' };
   if (!['create', 'inspect', 'apply', 'validate'].includes(args.operation)) fail('USAGE', 'Expected create, inspect, apply, or validate. Use --help.');
-  const flags = new Set(['dry-run', 'include-data', 'include-animations', 'overview', 'compact-summary', 'images', 'format-ranges', 'match-case', 'regex', 'exact', 'help']);
+  const flags = new Set(['dry-run', 'include-data', 'include-animations', 'overview', 'compact-summary', 'images', 'format-ranges', 'print-settings', 'match-case', 'regex', 'exact', 'help']);
   const values = new Set(['input', 'output', 'commands', 'project', 'expected', 'expected-scope', ...Object.values(selectorsByKind).flat()]);
   for (let index = 1; index < argv.length; index++) {
     const raw = argv[index];
@@ -119,6 +123,8 @@ function argumentsFor(argv, kind) {
   const sheetData = kind === 'spreadsheet' && Boolean(args['sheet-id'] && args['include-data'] && !args['drawing-id']);
   const slideData = kind === 'slide' && Boolean((args['slide-id'] || args['master-id'] || args['layout-id']) && args['include-data']);
   if (kind === 'spreadsheet') {
+    if (args['print-settings'] && (!args['sheet-id'] || queryKeys.some(key => !['sheet-id', 'print-settings', 'compact-summary'].includes(key) && args[key] !== undefined)))
+      fail('USAGE', '--print-settings requires --sheet-id and accepts only --compact-summary among other inspect selectors.');
     if (args['format-ranges'] && (!args['sheet-id'] || args.range || args['drawing-id'] || args.search || args['include-data']))
       fail('USAGE', '--format-ranges requires --sheet-id and cannot be combined with a cell range, drawing, search, or --include-data.');
     if (args.search) {
@@ -260,6 +266,7 @@ function summaryFor(kind, document, model, overview = false, compactSummary = fa
   if (['chat', 'aichat'].includes(kind)) return { ...common, conversationCount: document.conversations.length,
     messageCount: document.conversations.reduce((count, conversation) => count + conversation.messages.length, 0) };
   if (kind === 'form') return { ...common, fieldCount: document.fields.length, requiredFieldCount: document.fields.filter(field => field.required).length };
+  if (kind === 'texteditor') return { ...common, mode: document.mode, characterCount: document.text.length };
   return { format: 'likex.slide', id: document.id, title: document.title, width: document.width, height: document.height,
     slideCount: document.slides.length, elementCount: document.slides.reduce((sum, slide) => sum + slide.elements.length, 0), ...catalogCounts,
     ...(!compactSummary ? { slides: document.slides.map(slide => ({ id: slide.id, name: slide.name, elementCount: slide.elements.length, ...(slide.layoutId ? { layoutId: slide.layoutId } : {}) })),
@@ -384,6 +391,11 @@ function selectionFor(kind, model, document, args) {
     if (args['field-id']) return { field: selected(required(model.getFormField(document, args['field-id']), 'field'), fieldSummary) };
     return { fields: page(document.fields, fieldSummary) };
   }
+  if (kind === 'texteditor') {
+    const from = Math.min(args.offset ?? 0, document.text.length), limit = args.limit ?? 1000;
+    const to = Math.min(from + limit, document.text.length);
+    return { coordinateSpace: 'source', from, to, text: document.text.slice(from, to), total: document.text.length, hasMore: to < document.text.length };
+  }
   if (kind === 'document') {
     if (args['block-id']) {
       const block = model.getBlock(document, args['block-id']);
@@ -407,6 +419,7 @@ function selectionFor(kind, model, document, args) {
   if (kind === 'spreadsheet' && args['sheet-id']) {
     const sheet = document.sheets.find(item => item.id === args['sheet-id']);
     if (!sheet) fail('NOT_FOUND', 'The selected sheet was not found.');
+    if (args['print-settings']) return { sheetId: sheet.id, printSettings: model.getSheetPrintSettings(document, sheet.id) };
     if (args['format-ranges']) {
       const { items, ...pagination } = page(model.getSheetFormatRanges(document, sheet.id));
       return { sheetId: sheet.id, formatRanges: items, ...pagination };

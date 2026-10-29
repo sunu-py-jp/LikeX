@@ -124,7 +124,8 @@ test('reflected shapes and text boxes retain native flip flags while their text 
     const drawing = drawings[index], inset = drawing.type === 'shape' ? 1 : 0;
     assert.deepEqual(drawingTransform(shapes[index]), { flipX: !!drawing.flipX, flipY: !!drawing.flipY,
       x: emu(10 + inset), y: emu(20 + inset), width: emu(120 - inset * 2), height: emu(80 - inset * 2) });
-    assert.match(shapes[index], /<a:bodyPr[^>]*upright="1"/);
+    assert.match(shapes[index], /<a:bodyPr[^>]*upright="0"/);
+    if (drawing.flipY) assert.match(shapes[index], /<a:bodyPr[^>]*rot="10800000"/);
     assert.match(shapes[index], /<a:t xml:space="preserve">Readable &lt; &amp; 日本語<\/a:t>/);
     assert.match(shapes[index], drawing.type === 'text' ? /<a:pPr algn="l">/ : /<a:pPr algn="ctr">/);
   }
@@ -162,7 +163,7 @@ test('line and arrow endpoints reflect within the full frame, including reversed
     assert.equal(emu(150 + (Number(marker[1]) - 1) * 100) + Number(marker[2]), transform.x);
     assert.equal(emu(40 + (Number(marker[3]) - 1) * 28) + Number(marker[4]), transform.y);
     assert.match(element, new RegExp(`<xdr:ext cx="${transform.width}" cy="${transform.height}"/>`));
-    assert.match(element, /<a:bodyPr[^>]*upright="1"/);
+    assert.match(element, /<a:bodyPr[^>]*upright="0"/);
     if (drawing.shape === 'arrow' && drawing.strokeWidth > 0) assert.match(element, /<a:tailEnd type="triangle"/);
   }
 });
@@ -224,7 +225,7 @@ test('shape labels stay inside each native shape with centered multiline styled 
   assert.doesNotMatch(drawing, /txBox="1"/, 'labels are not separate text boxes');
   for (const shape of shapes) {
     assert.equal((shape.match(/<xdr:txBody>/g) ?? []).length, 1);
-    assert.match(shape, /<a:bodyPr[^>]*anchor="ctr" upright="1"/);
+    assert.match(shape, /<a:bodyPr[^>]*anchor="ctr" upright="0"/);
     assert.equal((shape.match(/<a:pPr algn="ctr">/g) ?? []).length, 3);
     assert.match(shape, /sz="1800" b="1"/);
     assert.match(shape, /<a:srgbClr val="445566"><a:alpha val="50196"\/>/);

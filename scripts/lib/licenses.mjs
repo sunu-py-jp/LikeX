@@ -7,6 +7,8 @@ const fallbackRoot = fileURLToPath(new URL('../license-notices/', import.meta.ur
 const permissiveLicenses = new Set([
   'MIT', 'Apache-2.0', 'ISC', '0BSD', 'BSD-2-Clause', 'BSD-3-Clause',
   'BSD-3-Clause-Clear', 'BlueOak-1.0.0', 'CC0-1.0', 'Unlicense', 'Zlib', 'BSL-1.0',
+  // Reviewed for markdown-it's argparse dependency; retain its complete PSF notices.
+  'Python-2.0',
 ]);
 
 const metadata = directory => JSON.parse(readFileSync(path.join(directory, 'package.json'), 'utf8'));

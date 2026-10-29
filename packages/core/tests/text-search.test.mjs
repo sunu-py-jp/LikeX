@@ -6,6 +6,33 @@ const built = await build({ entryPoints: [new URL('../src/text-search.ts', impor
 });
 const { createTextSearchMatcher } = await import(`data:text/javascript;base64,${Buffer.from(built.outputFiles[0].text).toString('base64')}`);
 
+test('find and lazy matches preserve UTF-16 positions with independent iteration', () => {
+  for (const useRegex of [false, true]) {
+    const matcher = createTextSearchMatcher({ text: 'a', useRegex });
+    assert.deepEqual(matcher.find('😀 A a'), [{ from: 3, to: 4 }, { from: 5, to: 6 }]);
+    const first = matcher.matches('aa')[Symbol.iterator](), second = matcher.matches('a')[Symbol.iterator]();
+    assert.deepEqual(first.next().value, { from: 0, to: 1 });
+    assert.deepEqual(second.next().value, { from: 0, to: 1 });
+    assert.equal(matcher.test('a'), true);
+    assert.deepEqual(first.next().value, { from: 1, to: 2 });
+    assert.equal(second.next().done, true);
+    assert.throws(() => matcher.find('aa', 1), /一致件数/);
+    assert.throws(() => matcher.find('a', -1), /上限/);
+    assert.throws(() => matcher.matches(null), /文字列/);
+  }
+});
+
+test('match iteration honors wholeText, empty queries and zero-width RE2 matches', () => {
+  assert.deepEqual(createTextSearchMatcher({ text: '^|$', useRegex: true }).find('😀'), [{ from: 0, to: 0 }, { from: 2, to: 2 }]);
+  for (const useRegex of [false, true]) {
+    assert.deepEqual(createTextSearchMatcher({ text: '', useRegex }).find('abc', 0), []);
+    const matcher = createTextSearchMatcher({ text: 'a', wholeText: true, useRegex });
+    assert.deepEqual(matcher.find('A'), [{ from: 0, to: 1 }]);
+    assert.deepEqual(matcher.find('aa'), []);
+    assert.deepEqual(matcher.find('a\n'), []);
+  }
+});
+
 test('literal search preserves metacharacters, case options and reusable matching', () => {
   const matcher = createTextSearchMatcher({ text: 'A+B[1].' });
   assert.equal(matcher.test('prefix a+b[1]. suffix'), true);

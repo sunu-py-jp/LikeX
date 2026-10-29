@@ -1,3 +1,4 @@
+import { normalizeSpreadsheetPrintSettings } from "../model/print-settings";
 import { normalizeWorkbook } from "../model/workbook/normalize";
 import { normalizeRangeName } from "../model/named-ranges";
 import { cellAddress } from "../model/address";
@@ -182,6 +183,27 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
   for (const node of definitions) {
     const name = spreadsheetText(node.attributes.name ?? ""), value = textContent(node);
     const match = /^(?:'((?:[^']|'')+)'|([^'!]+))!(\$?[A-Z]+\$?[1-9]\d*(?::\$?[A-Z]+\$?[1-9]\d*)?)$/i.exec(value);
+    if (name === "_xlnm.Print_Area") {
+      const sourceIndex = Number(node.attributes.localSheetId);
+      const targetIndex = sheets.findIndex(sheet => sheet.id === `xlsx-sheet-${sourceIndex + 1}`), sheet = sheets[targetIndex];
+      const referencedName = match?.[1]?.replaceAll("''", "'") ?? match?.[2];
+      const mappedName = referencedName && (context.sheetNames?.get(referencedName.toLocaleLowerCase("en-US")) ?? referencedName);
+      try {
+        if (!/^\d+$/.test(node.attributes.localSheetId ?? "") || !Number.isSafeInteger(sourceIndex) || sourceIndex < 0 || !sheet || !match ||
+          sheet.name.toLocaleLowerCase("en-US") !== mappedName?.toLocaleLowerCase("en-US") || sheet.printSettings?.area)
+          throw new Error("印刷範囲は同じシートの1つの矩形で指定してください");
+        const area = importRange(match[3]);
+        const rowCount = Math.max(sheet.rowCount, area.bottom + 1), columnCount = Math.max(sheet.columnCount, area.right + 1);
+        const root = worksheetParts[targetIndex].root, defaults = worksheetDefaultSizes(root, context.columnWidthMetrics);
+        const rowHeights = { ...sheet.rowHeights }, columnWidths = { ...sheet.columnWidths };
+        for (let row = sheet.rowCount; row < rowCount; row++) rowHeights[row] = defaults.row;
+        for (let column = sheet.columnCount; column < columnCount; column++) columnWidths[column] = defaults.column;
+        const printSettings = normalizeSpreadsheetPrintSettings({ ...(!child(root, "pageSetup") ? { paperSize: "Letter" } : {}), ...sheet.printSettings, area }, { rowCount, columnCount });
+        sheets[targetIndex] = { ...sheet, rowCount, columnCount, rowHeights, columnWidths, printSettings };
+      } catch (error) { context.warn({ code: "omitted", sheetName: sheet?.name,
+        message: `未対応または不正な印刷範囲を省略しました（複数範囲・シート上限外など: ${importFailureMessage(error)}）` }); }
+      continue;
+    }
     let valid = node.attributes.localSheetId === undefined && !!match;
     try { normalizeRangeName(name); } catch { valid = false; }
     const originalTarget = match?.[1]?.replaceAll("''", "'") ?? match?.[2];

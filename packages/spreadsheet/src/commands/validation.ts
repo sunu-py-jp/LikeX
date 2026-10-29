@@ -21,6 +21,8 @@ export function commandKeys(value: Record<string, unknown>, allowed: readonly st
 }
 
 const commandFields: Record<SpreadsheetCommand["type"], readonly string[]> = {
+  "print.setArea": ["range"], "print.clearArea": [],
+  "print.setLayout": ["paperSize", "orientation", "scale", "margins"], "print.setBreaks": ["rows", "columns"],
   "filters.setRange": ["range", "inferRows"], "filters.setValues": ["column", "values"],
   "filters.clear": [], "filters.remove": [],
   "cells.formatRange": ["range", "format"], "cells.set": ["values", "onConflict"], "cells.format": ["addresses", "format"], "cells.borders": ["ranges", "preset", "border"],
@@ -68,10 +70,12 @@ export function validateCommand(value: unknown): SpreadsheetCommand {
     if (input[key] !== undefined && typeof input[key] !== "number") return rejectCommand("INVALID_COMMAND", `${key}は数値で指定してください`);
   for (const key of ["name", "text", "alt", "fill", "stroke", "color", "background"])
     if (input[key] !== undefined && typeof input[key] !== "string") return rejectCommand("INVALID_COMMAND", `${key}は文字列で指定してください`);
-  for (const key of ["bold", "discardContent", "flipX", "flipY", "inferRows"])
+  for (const key of ["bold", "discardContent", "flipX", "flipY", "inferRows", "textUpright"])
     if (input[key] !== undefined && typeof input[key] !== "boolean") return rejectCommand("INVALID_COMMAND", `${key}はtrueまたはfalseで指定してください`);
   if (input.rotation !== undefined && (typeof input.rotation !== "number" || !Number.isFinite(input.rotation)))
     return rejectCommand("INVALID_COMMAND", "rotationは有限の数値で指定してください");
+  if (input.textRotation !== undefined && (typeof input.textRotation !== "number" || !Number.isFinite(input.textRotation)))
+    return rejectCommand("INVALID_COMMAND", "textRotationは有限の数値で指定してください");
   if (input.onConflict !== undefined && !["error", "overwrite", "skip"].includes(input.onConflict as string))
     return rejectCommand("INVALID_COMMAND", "onConflictはerror、overwrite、skipのいずれかで指定してください");
   if (type === "cells.insert" && input.shift !== "down" && input.shift !== "right")

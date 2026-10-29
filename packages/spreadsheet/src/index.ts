@@ -70,3 +70,5 @@ export type { SpreadsheetImportExcelOptions, SpreadsheetImportNativeOptions } fr
 
 export type { SpreadsheetSearchScope, SpreadsheetSearchSettings, SpreadsheetSearchRequest, SpreadsheetSearchHandler, SpreadsheetSearchRenderContext,
   SpreadsheetExternalSearchTarget, SpreadsheetExternalSearchResult, SpreadsheetExternalSearchOptions } from "./api/search";
+
+export type { SpreadsheetPrintCommand } from "./api/print-commands";

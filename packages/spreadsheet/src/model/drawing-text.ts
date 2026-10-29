@@ -1,11 +1,17 @@
 import type { SpreadsheetDrawingTextStyle } from "./types";
+import { normalizeDrawingRotation } from "./drawing-transform";
+
+/** World-space text angle for labels rendered outside a rotated drawing container. */
+export function getDrawingTextRotation(drawing: SpreadsheetDrawingTextStyle & { rotation?: number }): number {
+  return drawing.textUpright ? 0 : normalizeDrawingRotation((drawing.rotation ?? 0) + (drawing.textRotation ?? 0));
+}
 
 /** Native LikeX drawings add no padding unless an explicit layout supplies it. */
 export const DEFAULT_DRAWING_TEXT_INSETS: NonNullable<SpreadsheetDrawingTextStyle["textInsets"]> = Object.freeze({ left: 0, top: 0, right: 0, bottom: 0 });
 
 /** Shared by command validation, snapshots and normalization. */
 export const DRAWING_TEXT_STYLE_KEYS = ["fontFamily", "italic", "underline", "textInsets", "textWrap", "textOverflow", "textVerticalOverflow",
-  "textAlign", "textVerticalAlign", "textAutoFit", "textFontScale", "textLineHeight"] as const;
+  "textAlign", "textVerticalAlign", "textAutoFit", "textFontScale", "textLineHeight", "textRotation", "textUpright"] as const;
 export function pickDrawingTextStyle(input: SpreadsheetDrawingTextStyle): SpreadsheetDrawingTextStyle {
   return Object.fromEntries(DRAWING_TEXT_STYLE_KEYS.filter(key => input[key] !== undefined).map(key => [key, input[key]]));
 }
@@ -13,7 +19,10 @@ export function normalizeDrawingTextStyle(input: SpreadsheetDrawingTextStyle): S
   const result = pickDrawingTextStyle(input);
   const fail = (): never => { throw new Error("描画オブジェクトの文字レイアウトが正しくありません"); };
   if (input.fontFamily !== undefined && (typeof input.fontFamily !== "string" || !input.fontFamily.trim() || input.fontFamily.length > 100 || /[;{}<>\u0000-\u001f]/.test(input.fontFamily))) fail();
-  for (const key of ["italic", "underline"] as const) if (input[key] !== undefined && typeof input[key] !== "boolean") fail();
+  for (const key of ["italic", "underline", "textUpright"] as const) if (input[key] !== undefined && typeof input[key] !== "boolean") fail();
+  const rotation = normalizeDrawingRotation(input.textRotation);
+  if (rotation) result.textRotation = rotation; else delete result.textRotation;
+  if (!input.textUpright) delete result.textUpright;
   const choices = { textWrap: ["wrap", "none"], textOverflow: ["clip", "overflow"], textVerticalOverflow: ["clip", "overflow"],
     textAlign: ["left", "center", "right"], textVerticalAlign: ["top", "middle", "bottom"], textAutoFit: ["none", "shrink", "resize"] };
   for (const key of Object.keys(choices) as (keyof typeof choices)[]) if (input[key] !== undefined && !choices[key].includes(input[key]!)) fail();

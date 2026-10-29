@@ -181,6 +181,9 @@
         "autoFilter": {
           "$ref": "#/$defs/SpreadsheetFileSheet_autoFilter"
         },
+        "printSettings": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_printSettings"
+        },
         "rows": {
           "$ref": "#/$defs/SpreadsheetFileSheet_rows",
           "description": "Empty rows inside the data are {}; trailing empty rows are omitted, with rowCount retaining sheet size."
@@ -556,6 +559,14 @@
         "underline": {
           "$ref": "#/$defs/SpreadsheetCellFormat_bold"
         },
+        "textRotation": {
+          "type": "number",
+          "description": "Clockwise text rotation relative to the drawing, normalized to [0, 360). Omitted means 0."
+        },
+        "textUpright": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold",
+          "description": "Keep text horizontal regardless of drawing and text rotation. Omitted means false."
+        },
         "textInsets": {
           "$ref": "#/$defs/SpreadsheetShapeDrawing_textInsets",
           "description": "Insets in CSS pixels. Defaults to 0px on each side for native LikeX objects. Imported Office insets are retained."
@@ -869,6 +880,14 @@
         },
         "underline": {
           "$ref": "#/$defs/SpreadsheetCellFormat_bold"
+        },
+        "textRotation": {
+          "type": "number",
+          "description": "Clockwise text rotation relative to the drawing, normalized to [0, 360). Omitted means 0."
+        },
+        "textUpright": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold",
+          "description": "Keep text horizontal regardless of drawing and text rotation. Omitted means false."
         },
         "textInsets": {
           "$ref": "#/$defs/SpreadsheetShapeDrawing_textInsets",
@@ -1280,6 +1299,79 @@
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "SpreadsheetFileSheet_printSettings": {
+      "type": "object",
+      "properties": {
+        "area": {
+          "$ref": "#/$defs/SpreadsheetFile_namedRanges_item_range"
+        },
+        "paperSize": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_printSettings_paperSize"
+        },
+        "orientation": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_printSettings_orientation"
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 10,
+          "maximum": 400
+        },
+        "margins": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_printSettings_margins",
+          "description": "Inches. Every edge is required; the sums must leave positive printable width/height."
+        },
+        "rowBreaks": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_printSettings_rowBreaks"
+        },
+        "columnBreaks": {
+          "$ref": "#/$defs/SpreadsheetFileSheet_printSettings_rowBreaks"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SpreadsheetFileSheet_printSettings_paperSize": {
+      "enum": [
+        "A4",
+        "A3",
+        "Letter"
+      ]
+    },
+    "SpreadsheetFileSheet_printSettings_orientation": {
+      "enum": [
+        "portrait",
+        "landscape"
+      ]
+    },
+    "SpreadsheetFileSheet_printSettings_margins": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "number"
+        },
+        "bottom": {
+          "type": "number"
+        },
+        "left": {
+          "type": "number"
+        },
+        "right": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "top",
+        "bottom",
+        "left",
+        "right"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetFileSheet_printSettings_rowBreaks": {
+      "type": "array",
+      "items": {
+        "type": "number"
       }
     },
     "SpreadsheetFileSheet_rows": {

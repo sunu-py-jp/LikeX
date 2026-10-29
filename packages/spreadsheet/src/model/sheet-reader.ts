@@ -4,6 +4,7 @@ import { copyQuerySnapshot, type QuerySnapshot } from "./query-snapshot";
 import type { SpreadsheetWorkbook } from "./types";
 import { findSpreadsheetCells, type SpreadsheetSearchOptions } from "./editing/search";
 import type { SpreadsheetSearchQuery } from "../api/editing-commands";
+import { getSheetPrintSettings } from "./print-settings";
 
 /** A sheet-scoped read facade. It has methods, while getInfo() always returns plain immutable sheet JSON. */
 export type SpreadsheetSheetReadApi = Readonly<{
@@ -11,6 +12,7 @@ export type SpreadsheetSheetReadApi = Readonly<{
   getCell(address: string): ReturnType<typeof getCell>;
   getCellFormat(address: string): ReturnType<typeof getResolvedCellFormat>;
   getFormatRanges(): ReturnType<typeof getSheetFormatRanges>;
+  getPrintSettings(): ReturnType<typeof getSheetPrintSettings>;
   getCells(): ReturnType<typeof getSheetCells>;
   getRange(range: SpreadsheetReadRangeInput): ReturnType<typeof getRange>;
   findCells(query: SpreadsheetSearchQuery, options?: Omit<SpreadsheetSearchOptions, "sheetId">): ReturnType<typeof findSpreadsheetCells>;
@@ -35,6 +37,7 @@ export function createSpreadsheetSheetReader(getWorkbook: () => QuerySnapshot<Sp
     getCell: (address: string) => getCell(getWorkbook(), sheetId, address),
     getCellFormat: (address: string) => getResolvedCellFormat(getWorkbook(), sheetId, address),
     getFormatRanges: () => getSheetFormatRanges(getWorkbook(), sheetId),
+    getPrintSettings: () => getSheetPrintSettings(getWorkbook(), sheetId),
     getCells: () => getSheetCells(getWorkbook(), sheetId),
     getRange: (range: SpreadsheetReadRangeInput) => getRange(getWorkbook(), sheetId, range),
     findCells: (query: SpreadsheetSearchQuery, options?: Omit<SpreadsheetSearchOptions, "sheetId">) => findSpreadsheetCells(getWorkbook(), query, { ...options, sheetId }),

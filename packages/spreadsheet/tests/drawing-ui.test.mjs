@@ -647,6 +647,40 @@ test('editing imported text preserves its layout through commit, Undo, Redo and 
   await act(async () => ui.c.save()); check(ui.saves[0].sheets[0].drawings[1]);
 });
 
+test('independent text angle and upright controls preserve shape angle, Undo, read-only and editor display', async t => {
+  const initial = book(); initial.sheets[0].drawings[1] = { ...textBox, rotation: 30 };
+  const ui = await mount(t, { initialWorkbook: initial });
+  await act(async () => ui.c.selectDrawing('text'));
+  await act(async () => ui.property('文字の角度（°）').props.onChange(event({ target: { value: '-90' } })));
+  await act(async () => ui.property('文字の角度（°）').props.onKeyDown(event({ key: 'Enter' })));
+  assert.equal(ui.c.activeSheet.drawings[1].rotation, 30); assert.equal(ui.c.activeSheet.drawings[1].textRotation, 270);
+  await act(async () => ui.drawing('text').props.onKeyDown(event({ key: 'Enter' })));
+  assert.equal(ui.textarea().props.style.transform, 'rotate(270deg)');
+  await act(async () => ui.textarea().props.onKeyDown(event({ key: 'Escape' })));
+  await act(async () => ui.property('文字を常に水平にする').props.onChange(event({ target: { checked: true } })));
+  assert.equal(ui.c.activeSheet.drawings[1].textUpright, true);
+  await act(async () => ui.c.undo()); assert.equal(ui.c.activeSheet.drawings[1].textUpright, undefined);
+  await act(async () => ui.c.undo()); assert.equal(ui.c.activeSheet.drawings[1].textRotation, undefined);
+  await act(async () => ui.c.redo()); assert.equal(ui.c.activeSheet.drawings[1].textRotation, 270);
+  await ui.update({ readOnly: true });
+  assert.equal(ui.property('文字の角度（°）').props.disabled, true); assert.equal(ui.property('文字を常に水平にする').props.disabled, true);
+});
+
+test('legacy line labels use the same combined angle when displayed and edited', async t => {
+  const initial = book(); initial.sheets[0].drawings[0] = { ...shape, shape: 'line', text: '回転ラベル', rotation: 30, textRotation: 90 };
+  const ui = await mount(t, { initialWorkbook: initial });
+  await act(async () => ui.c.selectDrawing('shape'));
+  assert.match(ui.drawing('shape').findByType('text').props.transform, /^rotate\(120 /);
+  await act(async () => ui.drawing('shape').props.onDoubleClick());
+  assert.equal(ui.drawing('shape').findAllByType('div').find(div => div.props.className === 'lxs-shape-text-edit-frame').props.style.transform, 'rotate(120deg)');
+  await act(async () => ui.textarea().props.onChange(event({ target: { value: '編集したラベル' } })));
+  await act(async () => ui.textarea().props.onBlur());
+  assert.equal(ui.c.activeSheet.drawings[0].text, '編集したラベル');
+  assert.equal(ui.c.activeSheet.drawings[0].rotation, 30); assert.equal(ui.c.activeSheet.drawings[0].textRotation, 90);
+  await act(async () => ui.property('文字を常に水平にする').props.onChange(event({ target: { checked: true } })));
+  assert.equal(ui.drawing('shape').findByType('text').props.transform, undefined);
+});
+
 test('rounded-corner inspector edits radius through history and rejects out-of-range drafts', async t => {
   const initial = book(); initial.sheets[0].drawings[0] = { ...shape, shape: 'roundedRectangle' };
   const ui = await mount(t, { initialWorkbook: initial });

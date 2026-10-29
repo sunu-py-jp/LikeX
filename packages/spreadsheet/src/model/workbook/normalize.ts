@@ -1,3 +1,4 @@
+import { normalizeSpreadsheetPrintSettings } from "../print-settings";
 import { normalizeFormatRanges } from "../format-ranges";
 import { normalizeConditionalFormats } from "../conditional-formatting";
 import { normalizeComments, normalizeDrawings } from "../annotations";
@@ -48,11 +49,12 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
     const conditionalFormats = normalizeConditionalFormats(sheet.conditionalFormats, { rowCount, columnCount });
     const tables = normalizeTables(sheet.tables, { rowCount, columnCount, cells, merges, formatRanges });
     const autoFilter = normalizeSpreadsheetAutoFilter(sheet.autoFilter, { rowCount, columnCount, tables });
+    const printSettings = normalizeSpreadsheetPrintSettings(sheet.printSettings, { rowCount, columnCount });
     validateMergedContents({ cells, comments, merges });
     return Object.freeze({ id: sheet.id, name, cells: Object.freeze(cells), rowCount, columnCount,
       ...(formatRanges ? { formatRanges } : {}), ...(columnWidths ? { columnWidths } : {}), ...(rowHeights ? { rowHeights } : {}),
       ...(drawings ? { drawings } : {}), ...(comments ? { comments } : {}), ...(merges ? { merges } : {}),
-      ...(conditionalFormats ? { conditionalFormats } : {}), ...(tables ? { tables } : {}), ...(autoFilter ? { autoFilter } : {}) });
+      ...(conditionalFormats ? { conditionalFormats } : {}), ...(tables ? { tables } : {}), ...(autoFilter ? { autoFilter } : {}), ...(printSettings ? { printSettings } : {}) });
   });
   return finishWorkbook(sheets, undefined, resources, input.namedRanges);
 }

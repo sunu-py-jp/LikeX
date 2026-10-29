@@ -1,0 +1,23 @@
+import { createRef } from "react";
+import LikeTextEditor, { createTextEditorModel, type TextEditorHandle, type TextEditorProps, type TextEditorHeaderActionsContext } from "__LIBRARY_IMPORT__";
+const ref = createRef<TextEditorHandle>();
+const renderHeaderActions = (context: TextEditorHeaderActionsContext) => <>{context.defaultActions}<button disabled={context.busy} onClick={() => void context.runCommand("find")}>検索</button><button disabled={!context.canSave} onClick={() => void context.save()}>保存</button></>;
+const props: TextEditorProps = { initialDocument: createTextEditorModel(), onSave: document => document, mode: "markdown", features: { editing: true }, showToolbar: false, renderHeaderActions, headerStyle: { backgroundColor: "#1f4d3a", color: "#ffffff" }, onSelectionChange: selection => { void selection.coordinateSpace; } };
+const view = <LikeTextEditor ref={ref} {...props} />; void view;
+void ref.current?.runCommand("selectAll");
+void ref.current?.execute({ type: "text.insert", offset: 0, text: "Title" });
+void ref.current?.setSelection({ coordinateSpace: "source", ranges: [{ anchor: 0, head: 3 }], mainIndex: 0 });
+void ref.current?.setViewMode("source");
+void ref.current?.setSearch({ query: "Title", replacement: "Memo", wholeWord: true }, { replace: true });
+void ref.current?.getSearch()?.open;
+void ref.current?.closeSearch();
+void ref.current?.setWordWrap(false);
+void ref.current?.getState().canUndo;
+void ref.current?.importFile(new Blob(["text"]), { title: "note", mode: "markdown" });
+void ref.current?.exportFile()?.fileName;
+void ref.current?.download();
+void ref.current?.runCommand("replaceNext");
+// @ts-expect-error unsupported view mode
+void ref.current?.setViewMode("preview");
+// @ts-expect-error unknown feature
+const bad: TextEditorProps = { features: { unknown: false } }; void bad;

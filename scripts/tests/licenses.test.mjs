@@ -98,7 +98,7 @@ test('unreviewed, malformed, unlicensed and copyleft expressions fail conservati
   const entry = { name: 'example', version: '1', notices: [license] };
   for (const value of ['UNKNOWN', 'UNLICENSED', 'MIT OR GPL-3.0-only', 'MIT Apache-2.0', '(MIT', 'MIT WITH exception'])
     assert.throws(() => assertPermissiveLicense({ ...entry, license: value }), /License policy rejects/);
-  for (const value of ['MIT', 'Apache-2.0', '(MIT OR Apache-2.0)', 'BSD-3-Clause AND ISC'])
+  for (const value of ['MIT', 'Apache-2.0', '(MIT OR Apache-2.0)', 'BSD-3-Clause AND ISC', 'Python-2.0'])
     assert.doesNotThrow(() => assertPermissiveLicense({ ...entry, license: value }));
 });
 

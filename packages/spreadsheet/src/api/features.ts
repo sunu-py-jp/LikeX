@@ -21,6 +21,8 @@ export type SpreadsheetFeatures = Readonly<{
   tables?: boolean;
   /** Allows configuring AutoFilter ranges and values. Saved filter criteria still apply when disabled. */
   filters?: boolean;
+  /** Set and adjust saved print areas, page layout and manual page breaks. */
+  printArea?: boolean;
   /** Allows changing rules; existing conditional formatting still renders. */
   conditionalFormatting?: boolean;
   /** Allows configuring input rules. Existing rules remain enforced when disabled. */

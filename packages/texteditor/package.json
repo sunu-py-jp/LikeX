@@ -1,0 +1,73 @@
+{
+  "name": "@likex/texteditor",
+  "version": "0.1.0",
+  "description": "A text and Markdown editor with multiple cursors, block editing, and headless commands.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./model": {
+      "types": "./dist/types/model-entry.d.ts",
+      "import": "./dist/model.js",
+      "default": "./dist/model.js"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "src/README.md",
+    "src/docs/*.md",
+    "skills",
+    "THIRD_PARTY_NOTICES.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "peerDependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/search": "^6.7.2",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.15",
+    "@likex/core": "0.1.0",
+    "lucide-react": "^1.31.0",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-inputrules": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-markdown": "^1.13.9",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-transform": "^1.12.1",
+    "prosemirror-view": "^1.42.5"
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-library.mjs --module texteditor",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "node ../../scripts/build-library.mjs --module core",
+    "pretypecheck": "node ../../scripts/build-library.mjs --module core"
+  },
+  "keywords": [
+    "react",
+    "text-editor",
+    "markdown",
+    "typescript"
+  ]
+}

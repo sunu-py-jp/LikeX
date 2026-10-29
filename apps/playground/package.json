@@ -33,7 +33,8 @@
     "pdf-lib": "1.17.1",
     "pdfjs-dist": "6.4.299",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "@likex/texteditor": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "22.19.19",

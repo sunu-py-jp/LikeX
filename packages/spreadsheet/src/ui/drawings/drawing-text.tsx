@@ -3,10 +3,10 @@
 import { memo, useLayoutEffect, useRef, useState } from "react";
 import type { SpreadsheetDrawing } from "../../model/types";
 import { shapeTextFrame } from "../../model/shapes";
-import { drawingTextStyle } from "./drawing-text-style";
+import { drawingTextStyle, drawingTextTransform } from "./drawing-text-style";
 
 /** Shared text layout for the editor and compact previews, including imported DrawingML boxes. */
-export const DrawingText = memo(function DrawingText({ drawing, placeholder = true }: { drawing: Exclude<SpreadsheetDrawing, { type: "image" }>; placeholder?: boolean }) {
+export const DrawingText = memo(function DrawingText({ drawing, placeholder = true, parentRotation }: { drawing: Exclude<SpreadsheetDrawing, { type: "image" }>; placeholder?: boolean; parentRotation?: number }) {
   const box = useRef<HTMLDivElement>(null), content = useRef<HTMLSpanElement>(null);
   const [scale, setScale] = useState<number>();
   const style = drawingTextStyle(drawing), baseSize = drawing.fontSize ?? 16;
@@ -48,9 +48,12 @@ export const DrawingText = memo(function DrawingText({ drawing, placeholder = tr
   }, [drawing, baseSize]);
   const frame = drawing.type === "shape" ? shapeTextFrame(drawing) : undefined;
   const resizing = drawing.textAutoFit === "resize";
-  return <div ref={box} className={drawing.type === "shape" ? "lxs-shape-text" : "lxs-text-box"}
-    style={{ ...style, ...(frame ? { ...frame, right: "auto", bottom: "auto" } : {}),
+  const transform = drawingTextTransform(drawing, parentRotation);
+  return <>
+    {drawing.type === "text" && transform.transform && <div aria-hidden="true" style={{ position: "absolute", inset: 0, background: drawing.background, pointerEvents: "none" }} />}
+    <div ref={box} className={drawing.type === "shape" ? "lxs-shape-text" : "lxs-text-box"}
+    style={{ ...style, ...transform, ...(drawing.type === "text" && transform.transform ? { background: "transparent" } : {}), ...(frame ? { ...frame, right: "auto", bottom: "auto" } : {}),
       ...(resizing ? { minHeight: frame?.height ?? "100%", height: "auto" } : {}) }}>
     <span ref={content} style={{ ...(scale === undefined ? {} : { fontSize: baseSize * scale }) }}>{drawing.text || (placeholder && drawing.type === "text" ? "テキストを入力" : "")}</span>
-  </div>;
+  </div></>;
 });

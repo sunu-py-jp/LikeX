@@ -163,6 +163,21 @@ const modules = {
     requiredClasses: ['.lxf-root'],
     background: '--lxf-background', foreground: '--lxf-foreground', serverText: 'LikeForm consumer',
   },
+  texteditor: {
+    declarationBridgeTargets: {
+      ...dataDeclarationBridgeTargets,
+      'text-search.d.ts': { from: './core', to: '@likex/core/text-search', expectedExports: 2 },
+    },
+    ui: true, skillName: 'likex-texteditor', headlessEntries: { model: 'model-entry.ts' },
+    headlessDependencies: ['@likex/core', '@likex/core/json', '@likex/core/text-search', 'prosemirror-model',
+      'prosemirror-state', 'prosemirror-transform', 'prosemirror-commands', 'prosemirror-schema-list', 'prosemirror-markdown'],
+    modelRuntimeDependencies: ['prosemirror-model', 'prosemirror-state', 'prosemirror-transform', 'prosemirror-commands', 'prosemirror-schema-list', 'prosemirror-markdown'],
+    modelTypeLibraries: ['ES2022', 'DOM'],
+    moduleDependencies: ['core'], generatedStyles: false, bundledDependencies: [],
+    marker: 'data-likex-texteditor', classPrefix: '.lxte-', propertyPrefix: '--lxte-', keyframePrefix: 'lxte',
+    requiredClasses: ['.lxte-root'],
+    background: '--lxte-background', foreground: '--lxte-foreground', serverText: 'LikeTextEditor consumer',
+  },
 };
 export const moduleNames = Object.freeze(Object.keys(modules));
 

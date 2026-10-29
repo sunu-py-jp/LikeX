@@ -26,6 +26,9 @@ export type SpreadsheetHandle = SearchPanelHandle & SpreadsheetReadApi & Spreads
   getMutationSnapshot(): SpreadsheetMutationSnapshot;
   /** View magnification in percent, independent of workbook data and history. */
   getZoom(): number;
+  /** View-only print-area/page-boundary overlay; independent of saved settings and history. */
+  getPrintAreaView(): boolean;
+  setPrintAreaView(visible: boolean): boolean;
   /** Clamps to 25–200%. Returns false when disabled or the number is not finite. */
   setZoom(percent: number): boolean;
   /** Current ribbon presentation, independent of workbook data and history. */

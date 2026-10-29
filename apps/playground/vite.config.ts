@@ -18,6 +18,7 @@ export default defineConfig({
   resolve: {
     // Develop the library directly without a separate dist build or watcher.
     alias: [
+      { find: /^@likex\/texteditor$/, replacement: fileURLToPath(new URL("../../packages/texteditor/src/index.ts", import.meta.url)) },
       { find: /^@likex\/board$/, replacement: fileURLToPath(new URL("../../packages/board/src/index.ts", import.meta.url)) },
       { find: /^@likex\/dataview$/, replacement: fileURLToPath(new URL("../../packages/dataview/src/index.ts", import.meta.url)) },
       { find: /^@likex\/diagram$/, replacement: fileURLToPath(new URL("../../packages/diagram/src/index.ts", import.meta.url)) },
