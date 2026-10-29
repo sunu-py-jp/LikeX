@@ -1,6 +1,6 @@
 # コマンドとショートカット
 
-保存対象の変更はモデルコマンド、画面の選択・検索パネル・カーソル操作はrefの `runCommand` で扱います。読み取り専用の画面でも検索と選択は利用できます。
+保存対象の変更はモデルコマンド、画面の選択・検索パネル・カーソル操作はrefの `runCommand` で扱います。読み取り専用の画面でも、機能フラグで許可された検索と選択は利用できます。
 
 ## モデルコマンド
 
@@ -46,7 +46,7 @@ const updated = executeTextEditorCommands(
 // 東京都、大阪府、名古屋
 ```
 
-`markdown.*` の位置はソースの文字位置とは異なります。[Markdownの編集](markdown.md)で文章表示の位置取得と書式変更を説明しています。これらのコマンドも `executeTextEditorCommands`、表示中の `ref.execute`、CLIの `apply` で共通に使えます。
+`markdown.*` の位置はソースの文字位置とは異なります。[Markdownの編集](markdown.md)で文章表示の位置取得と書式変更を説明しています。これらのコマンドも `executeTextEditorCommands`、表示中の `ref.execute`、CLIの `apply` で共通に使えます。表示中のAPIでは `markdown.*` にformatting、`text.replaceAll` にsearchとreplace、`document.replace` にimportの機能フラグを確認し、どの変更にもeditingが必要です。UIなしのモデルAPI・CLIは呼び出し側が権限を管理します。
 
 `findTextEditorMatches(documentOrText, options, maxMatches = 10000)` は `{ from, to }[]` を返します。上限を超えると切り捨てず例外にします。一括置換は一致一覧を全件メモリに置かず処理します。`wholeWord`はUnicodeの文字・結合文字・数字・アンダースコアを単語として判定します。
 
@@ -54,7 +54,7 @@ const updated = executeTextEditorCommands(
 
 ## 表示中の操作
 
-検索は編集領域の右上に重なる小さなパネルで表示します。通常は検索1行で、左の矢印または「置換」コマンドから置換欄を展開します。入力欄内の大文字小文字（Aa）・単語単位・正規表現（.*）はオン／オフを表示するボタンです。Enterで次、Shift+Enterで前、Alt+Enterで検索結果をすべて選択、Escapeで閉じて本文へ戻れます。読み取り専用では置換欄を使えません。
+検索は編集領域の右上に重なる小さなパネルで表示します。通常は検索1行で、左の矢印または「置換」コマンドから置換欄を展開します。入力欄内の大文字小文字（Aa）・単語単位・正規表現（.*）はオン／オフを表示するボタンです。Enterで次、Shift+Enterで前、Alt+Enterで検索結果をすべて選択、Escapeで閉じて本文へ戻れます。読み取り専用、または `features.replace: false` では置換欄を使えません。`features.search: false` では検索自体が無効です。
 
 一致件数と現在位置を表示し、件数集計は10,000件を超える場合に上限超過を示します。この集計上限は検索移動や置換対象を途中で切り捨てる制限ではありません。正規表現が不正な場合は入力欄の近くに表示します。
 
@@ -65,7 +65,7 @@ await editor.current?.goToLine(20, 1); // 行・列は1始まり
 await editor.current?.execute({ type: "text.insert", offset: 0, text: "見出し\n" });
 ```
 
-検索語・表示形式・折り返しを外から設定したり、ファイルを渡したりする場合は、[表示中のAPIと利用例](ref-api.md)を参照してください。
+共通の `openSearch`、外部結果の `openExternalSearch`、パネル状態の `getOpenPanels` / `closePanel` / `closePanels` も利用できます。検索語・表示形式・折り返しを外から設定したり、ファイルを渡したりする場合は、[表示中のAPIと利用例](ref-api.md)を参照してください。
 
 | 操作 | `runCommand` | 主なショートカット |
 | --- | --- | --- |

@@ -1,13 +1,16 @@
-import type { MaybePromise, OperationContext, SaveHandler } from "../contracts";
+import type { MaybePromise, OperationContext } from "../contracts";
 
 export type ModelEditorNotice = Readonly<{ kind: "error" | "success" | "info"; text: string }>;
 export type ModelEditorEvent<M> =
-  | { type: "change"; source: "command" | "import" | "undo" | "redo" | "save" | "discard"; model: M }
+  | { type: "change"; source: "command" | "import" | "undo" | "redo" | "save" | "discard" | "refresh"; model: M }
   | { type: "save"; phase: "start" | "success" | "cancelled" | "error"; error?: string }
+  | { type: "refresh"; phase: "start" | "success" | "cancelled" | "error"; error?: string }
   | { type: "edit-mode"; mode: "view" | "requesting" | "edit" };
 export type ModelEditorOptions<M, F extends string = string> = {
-  onSave?: SaveHandler<M>;
-  onBeforeSave?: (model: M) => MaybePromise<boolean | void>;
+  onSave?: (model: M, context: OperationContext) => MaybePromise<void | M>;
+  onBeforeSave?: (model: M, context: OperationContext) => MaybePromise<boolean | void>;
+  /** Replaces the current document and its saved baseline after successful validation. */
+  onRefresh?: (context: OperationContext) => MaybePromise<M>;
   onEditRequest?: (request: { model: M }, context: OperationContext) => MaybePromise<boolean>;
   onChange?: (model: M) => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -26,7 +29,7 @@ export type ModelEditorAdapter<M, C, F extends string = string> = {
 export type ModelEditorSnapshot<M, F extends string = string> = Readonly<{
   model: M; dirty: boolean; canUndo: boolean; canRedo: boolean;
   readOnly: boolean; editable: boolean; features: Readonly<Record<F, boolean>>;
-  busy: "permission" | "save" | "prepare" | "task" | null;
+  busy: "permission" | "save" | "refresh" | "prepare" | "task" | null;
   editMode: "view" | "requesting" | "edit"; notice: ModelEditorNotice | null;
 }>;
 export type ModelEditorExecuteOptions = { historyGroup?: string; source?: "command" | "import" };

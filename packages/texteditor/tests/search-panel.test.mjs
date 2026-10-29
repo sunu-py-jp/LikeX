@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { build } from 'esbuild';
 
-const output = await build({ stdin: { contents: `export {CompactSearchPanel, openCompactReplacePanel, summarizeSearchMatches, searchMatchOrdinal, setCodeEditorSearch, getCodeEditorSearch} from './src/ui/search-panel';
+const output = await build({ stdin: { contents: `export {CompactSearchPanel, openCompactReplacePanel, summarizeSearchMatches, searchMatchOrdinal, setCodeEditorSearch, getCodeEditorSearch, textEditorSearchPolicy} from './src/ui/search-panel';
   export {runCodeEditorAction} from './src/ui/code-editor';
   export {EditorState, EditorSelection, Compartment} from '@codemirror/state';
   export {SearchQuery, getSearchQuery, setSearchQuery, search, openSearchPanel, closeSearchPanel} from '@codemirror/search';`, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
-const { CompactSearchPanel, openCompactReplacePanel, summarizeSearchMatches, searchMatchOrdinal, setCodeEditorSearch, getCodeEditorSearch, runCodeEditorAction, EditorState, EditorSelection, Compartment, SearchQuery, getSearchQuery, setSearchQuery, search, openSearchPanel, closeSearchPanel } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { CompactSearchPanel, openCompactReplacePanel, summarizeSearchMatches, searchMatchOrdinal, setCodeEditorSearch, getCodeEditorSearch, textEditorSearchPolicy, runCodeEditorAction, EditorState, EditorSelection, Compartment, SearchQuery, getSearchQuery, setSearchQuery, search, openSearchPanel, closeSearchPanel } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 
 class Element {
   constructor(document, name) { this.ownerDocument = document; this.tagName = name; this.children = []; this.attributes = new Map(); this.listeners = new Map(); this.dataset = {}; this.hidden = false; this.disabled = false; this.value = ''; this.textContent = ''; }
@@ -23,15 +23,16 @@ class Element {
 function all(node) { return [node, ...node.children.flatMap(all)]; }
 function editor(text = 'alpha ALPHA alphabet\nalpha', readOnly = false) {
   const document = { activeElement: null, createElement(name) { return new Element(this, name); }, createElementNS(_ns, name) { return new Element(this, name); } };
-  const permission = new Compartment();
+  const permission = new Compartment(), policy = new Compartment();
   const view = { dom: document.createElement('div'), root: document, focused: false, plugin() { return null; }, focus() { this.focused = true; document.activeElement = this.dom; },
-    state: EditorState.create({ doc: text, extensions: [search(), EditorState.allowMultipleSelections.of(true), permission.of(EditorState.readOnly.of(readOnly))] }),
+    state: EditorState.create({ doc: text, extensions: [search(), EditorState.allowMultipleSelections.of(true), permission.of(EditorState.readOnly.of(readOnly)), policy.of(textEditorSearchPolicy.of({}))] }),
     dispatch(spec) { const startState = view.state, transaction = startState.update(spec); view.state = transaction.state; ui.panel?.update({ startState, state: view.state, docChanged: transaction.docChanged, selectionSet: !!transaction.selection, transactions: [transaction] }); },
   };
   const ui = { view, document, panel: null, node(label) { const node = all(this.panel.dom).find(node => node.getAttribute('aria-label') === label); assert.ok(node, label); return node; },
     input(value, name = '検索', options = {}) { const input = this.node(name); input.value = value; input.emit('input', options); },
     key(key, options = {}, target = this.node('検索')) { return this.panel.dom.emit('keydown', { key, target, ...options }); },
     readonly(value) { view.dispatch({ effects: permission.reconfigure(EditorState.readOnly.of(value)) }); },
+    policy(value) { view.dispatch({ effects: policy.reconfigure(textEditorSearchPolicy.of(value)) }); },
     count() { return all(this.panel.dom).find(node => node.className === 'lxte-search-count').textContent; },
     row() { return all(this.panel.dom).find(node => node.className === 'lxte-replace-row'); },
   };
@@ -131,7 +132,7 @@ test('external search query drives the same panel, navigation, replacement and m
   assert.equal(setCodeEditorSearch(ui.view,{query:'alpha',replacement:'X',caseSensitive:true,wholeWord:true},{replace:true}),true);
   assert.equal(ui.node('検索').value,'alpha'); assert.equal(ui.node('置換').value,'X'); assert.equal(ui.row().hidden,false);
   assert.equal(ui.count(),'2件');
-  assert.deepEqual(getCodeEditorSearch(ui.view),{query:'alpha',replacement:'X',caseSensitive:true,wholeWord:true,regex:false,open:true,valid:true});
+  assert.deepEqual(getCodeEditorSearch(ui.view),{query:'alpha',replacement:'X',caseSensitive:true,wholeWord:true,regex:false,open:true,replace:true,valid:true});
   const callbacks={onUndo(){},onRedo(){}};
   assert.equal(runCodeEditorAction(ui.view,'findNext',callbacks),true);
   assert.equal(runCodeEditorAction(ui.view,'replaceNext',callbacks),true);
@@ -141,6 +142,36 @@ test('external search query drives the same panel, navigation, replacement and m
   assert.equal(setCodeEditorSearch(ui.view,{query:'X'},{open:false}),true); assert.equal(getCodeEditorSearch(ui.view).open,false);
   assert.equal(runCodeEditorAction(ui.view,'selectSearchMatches',callbacks),true); assert.equal(ui.view.state.selection.ranges.length,2);
   assert.equal(getCodeEditorSearch(ui.view).replacement,''); assert.equal(getCodeEditorSearch(ui.view).caseSensitive,false);
+});
+
+test('feature policy hides replacement and blocks panel actions and shared commands', () => {
+  const ui = editor('alpha alpha');
+  setCodeEditorSearch(ui.view, { query: 'alpha', replacement: 'X' }, { replace: true });
+  ui.policy({ replace: false });
+  assert.equal(ui.node('置換を表示').hidden, true);
+  assert.equal(ui.row().hidden, true);
+  assert.equal(getCodeEditorSearch(ui.view).replace, false);
+  assert.equal(openCompactReplacePanel(ui.view), false);
+  for (const action of ['replace', 'replaceNext', 'replaceAll']) assert.equal(runCodeEditorAction(ui.view, action, { onUndo() {}, onRedo() {} }), false);
+  ui.node('すべて置換').emit('click');
+  assert.equal(ui.view.state.sliceDoc(), 'alpha alpha');
+  assert.equal(runCodeEditorAction(ui.view, 'findNext', { onUndo() {}, onRedo() {} }), true, 'read-only search remains usable');
+  const before = getCodeEditorSearch(ui.view);
+  ui.policy({ search: false });
+  assert.equal(setCodeEditorSearch(ui.view, { query: 'changed' }), false);
+  for (const action of ['find', 'findNext', 'findPrevious', 'selectSearchMatches']) assert.equal(runCodeEditorAction(ui.view, action, { onUndo() {}, onRedo() {} }), false);
+  assert.equal(getCodeEditorSearch(ui.view).query, before.query);
+});
+
+test('replacement expansion notifies the host and can be explicitly collapsed', () => {
+  const states = [], ui = editor('a a');
+  ui.policy({ onChange(state) { states.push(state); } });
+  setCodeEditorSearch(ui.view, { query: 'a', replacement: 'b' }, { replace: true });
+  assert.equal(states.at(-1).replace, true);
+  setCodeEditorSearch(ui.view, { query: 'a', replacement: 'c' }, { replace: false });
+  assert.equal(states.at(-1).replace, false);
+  assert.equal(ui.row().hidden, true);
+  assert.equal(getCodeEditorSearch(ui.view).replacement, 'c');
 });
 
 test('invalid queries and read-only replace requests leave the previous query intact', () => {

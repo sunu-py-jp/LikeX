@@ -48,23 +48,49 @@ export function createModelEditorController<M, C, F extends string>(adapter: Mod
   function reserve(kind: NonNullable<typeof busy>): Operation { busy = kind; const operation = { token: ++token, epoch, requestId: crypto.randomUUID(), signal: abort.signal }; publish(); return operation; }
   function current(operation: Operation) { return alive && token === operation.token && epoch === operation.epoch && !operation.signal.aborted; }
   function release(operation: Operation) { if (token === operation.token) { busy = null; if (alive) publish(); } }
-  function endEdit() { editMode = "view"; emit({ type: "edit-mode", mode: "view" }); }
-  function cancelPending() { epoch++; token++; abort.abort(); abort = new AbortController(); busy = null; lastGroup = undefined; if (editMode === "requesting") endEdit(); if (alive) publish(); }
+  function finishEdit() { editMode = "view"; emit({ type: "edit-mode", mode: "view" }); }
+  function cancelPending() {
+    const cancelled = busy;
+    epoch++; token++; abort.abort(); abort = new AbortController(); busy = null; lastGroup = undefined;
+    if (editMode === "requesting") finishEdit();
+    if (alive) {
+      publish();
+      if (cancelled === "save" || cancelled === "refresh") emit({ type: cancelled, phase: "cancelled" });
+    }
+  }
   function permitted<T>(apply: () => T, fallback: T): Promise<T> {
     if (!writable() || busy) return Promise.resolve(fallback);
     const starting = editMode !== "edit";
     if (!starting || !options.onEditRequest) {
       if (starting) { editMode = "edit"; emit({ type: "edit-mode", mode: "edit" }); }
-      try { return Promise.resolve(apply()); } catch (cause) { if (starting) endEdit(); report(cause); return Promise.resolve(fallback); }
+      try { return Promise.resolve(apply()); } catch (cause) { if (starting) finishEdit(); report(cause); return Promise.resolve(fallback); }
     }
     const handler = options.onEditRequest, request = { model };
     editMode = "requesting"; emit({ type: "edit-mode", mode: "requesting" });
     const operation = reserve("permission");
-    return Promise.resolve().then(() => current(operation) && writable() ? handler(request, operation) : false).then(allowed => {
-      if (!current(operation) || !writable()) return fallback;
-      if (allowed !== true) throw new Error("他のユーザーが編集中のため変更できません。");
-      editMode = "edit"; emit({ type: "edit-mode", mode: "edit" }); return apply();
-    }).catch(cause => { if (current(operation)) { endEdit(); report(cause); } return fallback; }).finally(() => release(operation));
+    // Cancellation must settle input callers even when a host ignores the signal.
+    // Keep a rejection handler attached to the host promise after cancellation.
+    return new Promise<T>(resolve => {
+      const finish = (value: T) => { operation.signal.removeEventListener("abort", cancelled); release(operation); resolve(value); };
+      const cancelled = () => finish(fallback);
+      operation.signal.addEventListener("abort", cancelled, { once: true });
+      if (operation.signal.aborted) { cancelled(); return; }
+      void Promise.resolve().then(() => current(operation) && writable() ? handler(request, operation) : false).then(allowed => {
+        if (!current(operation) || !writable()) { finish(fallback); return; }
+        if (allowed !== true) throw new Error("他のユーザーが編集中のため変更できません。");
+        editMode = "edit"; emit({ type: "edit-mode", mode: "edit" }); finish(current(operation) ? apply() : fallback);
+      }).catch(cause => { if (current(operation)) { finishEdit(); report(cause); } finish(fallback); });
+    });
+  }
+  function requestEdit(): Promise<boolean> {
+    if (!writable() || busy || !enabled("editing")) return Promise.resolve(false);
+    return permitted(() => { if (!writable() || !enabled("editing")) return false; notice = null; publish(); return true; }, false);
+  }
+  function cancelEditRequest() { if (busy === "permission" && editMode === "requesting") cancelPending(); }
+  function endEdit(): boolean {
+    if (!alive || busy || snapshot.dirty) return false;
+    if (editMode !== "view") { finishEdit(); publish(); }
+    return true;
   }
   function execute(command: C | readonly C[], settings: ModelEditorExecuteOptions = {}): Promise<M | null> {
     if (!writable() || busy) return Promise.resolve(null);
@@ -123,32 +149,64 @@ export function createModelEditorController<M, C, F extends string>(adapter: Mod
     }, false);
   }
   async function save() {
-    if (!writable() || busy || !snapshot.dirty) return false;
+    if (!writable() || busy || !snapshot.dirty || !enabled("save")) return false;
     const operation = reserve("save"), saved = model, handler = options.onSave!;
     emit({ type: "save", phase: "start" });
     try {
-      const allowed = await options.onBeforeSave?.(saved);
-      if (!current(operation) || !writable()) return false;
+      if (!current(operation) || !writable() || !enabled("save")) return false;
+      const allowed = await options.onBeforeSave?.(saved, operation);
+      if (!current(operation) || !writable() || !enabled("save")) return false;
       if (allowed === false) { emit({ type: "save", phase: "cancelled" }); return false; }
-      const result = await handler(saved);
-      if (!current(operation) || !writable()) return false;
+      const result = await handler(saved, operation);
+      if (!current(operation) || !writable() || !enabled("save")) return false;
       if (result !== undefined) change(freeze(result), "save");
-      baseline = modelJson; baselineModel = model; lastGroup = undefined; endEdit();
+      baseline = modelJson; baselineModel = model; lastGroup = undefined; finishEdit();
       notice = { kind: "success", text: "保存しました。" }; publish(); emit({ type: "save", phase: "success" }); return true;
     } catch (cause) { if (current(operation)) { report(cause); emit({ type: "save", phase: "error", error: cause instanceof Error ? cause.message : "保存に失敗しました。" }); } return false; }
     finally { release(operation); }
   }
+  async function refresh(settings: { discardChanges?: boolean } = {}): Promise<boolean> {
+    if (!alive || busy || !enabled("refresh") || !options.onRefresh) return false;
+    if (snapshot.dirty && settings.discardChanges !== true) {
+      setNotice({ kind: "info", text: "未保存の変更があります。保存するか、変更を破棄して再読み込みしてください。" }); return false;
+    }
+    const handler = options.onRefresh, before = model, operation = reserve("refresh");
+    emit({ type: "refresh", phase: "start" });
+    try {
+      if (!current(operation) || !enabled("refresh") || options.onRefresh !== handler) return false;
+      const result = await handler(operation);
+      if (!current(operation) || model !== before || !enabled("refresh") || options.onRefresh !== handler) return false;
+      const next = freeze(result), nextJson = adapter.serialize(next), changed = nextJson !== modelJson;
+      model = next; modelJson = nextJson; baseline = nextJson; baselineModel = next;
+      past.length = 0; future.length = 0; lastGroup = undefined; finishEdit(); notice = null; publish();
+      if (changed) { safely(() => options.onChange?.(model)); emit({ type: "change", source: "refresh", model }); }
+      emit({ type: "refresh", phase: "success" }); return true;
+    } catch (cause) {
+      if (current(operation)) { report(cause); emit({ type: "refresh", phase: "error", error: cause instanceof Error ? cause.message : "再読み込みに失敗しました。" }); }
+      return false;
+    } finally { release(operation); }
+  }
+  function discard(): boolean {
+    if (!writable() || busy && busy !== "permission") return false;
+    cancelPending(); const changed = model !== baselineModel;
+    model = baselineModel; modelJson = baseline; past.length = 0; future.length = 0;
+    finishEdit(); notice = null; publish();
+    if (changed) { safely(() => options.onChange?.(model)); emit({ type: "change", source: "discard", model }); }
+    return true;
+  }
   return Object.freeze({
-    getSnapshot: () => snapshot, getModel: () => model,
+    getSnapshot: () => snapshot, getModel: () => model, getEditState: () => snapshot.editMode,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     configure(next: ModelEditorOptions<M, F>) {
       const oldOptions = options, previousFlags = JSON.stringify(flags), wasReadonly = readonly;
       options = next; flags = resolve(); readonly = isReadOnly();
-      if (readonly !== wasReadonly || previousFlags !== JSON.stringify(flags)) { cancelPending(); endEdit(); publish(); }
+      const replacedHandler = busy === "refresh" && oldOptions.onRefresh !== options.onRefresh;
+      if (readonly !== wasReadonly || previousFlags !== JSON.stringify(flags)) { cancelPending(); finishEdit(); publish(); }
+      else if (replacedHandler) cancelPending();
       if (oldOptions.onDirtyChange !== options.onDirtyChange) safely(() => options.onDirtyChange?.(snapshot.dirty));
     },
-    execute, replace, prepare, runTask, save, undo: () => history("undo"), redo: () => history("redo"), cancelPending, setNotice,
-    discard() { if (!writable() || busy && busy !== "permission") return; cancelPending(); const changed = model !== baselineModel; model = baselineModel; modelJson = baseline; past.length = 0; future.length = 0; endEdit(); notice = null; publish(); if (changed) { safely(() => options.onChange?.(model)); emit({ type: "change", source: "discard", model }); } },
+    execute, replace, prepare, runTask, save, refresh, requestEdit, cancelEditRequest, endEdit, discard,
+    undo: () => history("undo"), redo: () => history("redo"), cancelPending, setNotice,
     activate() { alive = true; abort = new AbortController(); publish(); safely(() => options.onDirtyChange?.(snapshot.dirty)); },
     dispose() { alive = false; cancelPending(); editMode = "view"; },
   });

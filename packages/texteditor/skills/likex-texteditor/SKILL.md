@@ -23,3 +23,5 @@ Node.js 22.13以降と対応版の `@likex/texteditor` が必要。skill単体�
 Markdownの書式操作は `markdown.format`、チェック状態の反転は `markdown.toggleTask` コマンドを使う。位置の確認には `/model` のブロック取得APIや `parseMarkdownDocument` を使う。これらは `mode` にかかわらず本文をMarkdownとして解釈し、モデルの `mode` は変更しない。文字列だけを処理する場合は `applyMarkdownCommand` も使える。文章として編集すると記法や空白が標準化される場合がある。GFMテーブル・取り消し線・任意HTMLを含む文書はソース編集を使い、意味を変える再生成を避ける。チェックリストは `- [ ]` / `- [x]` に対応する。
 
 画面のテキスト／Markdownソース表示では、開始位置をクリック後にAlt+Shift+終点クリックで矩形選択できる。同じ論理列なら行ごとにカーソルを置く。短い行は行末までとし、空白を補わない。閲覧専用でも選択・コピーは可能。外部操作ではrefの `setSelection({ coordinateSpace: "source", ranges, mainIndex })` に各行のUTF-16範囲を渡す。選択自体は保存データや本文の履歴を変更しない。
+
+表示中のコンポーネントへ組み込む場合は[画面の制御](references/view-controls.md)を参照する。機能のON／OFF、編集開始・破棄・再読み込み、未確定入力の保護、外部検索結果、パネルの開閉はrefとpropsで扱う。未保存文書の `replace` / `importFile` / `document.replace` / `refresh` は既定で拒否する。`discardChanges: true` は利用側が変更の破棄を決めた場合だけ指定する。これらの表示状態を保存JSONやCLIコマンドに追加しない。

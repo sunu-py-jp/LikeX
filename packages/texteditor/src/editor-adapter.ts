@@ -4,9 +4,10 @@ import type { TextEditorSearchOptions } from "./model/types";
 /** Search panel options use JavaScript regular expressions, like the on-screen search. */
 export type TextEditorSearchQuery = TextEditorSearchOptions & { replacement?: string };
 export type TextEditorSearchDisplay = { open?: boolean; replace?: boolean };
+export type TextEditorPanel = "search" | "goToLine" | "commandPalette" | "link" | "blocks";
 export type TextEditorSearchState = Readonly<{
   query: string; replacement: string; caseSensitive: boolean; wholeWord: boolean; regex: boolean;
-  open: boolean; valid: boolean;
+  open: boolean; replace: boolean; valid: boolean;
 }>;
 
 /** Source positions are UTF-16 offsets; rich positions are ProseMirror document positions. */
@@ -34,12 +35,20 @@ export type EditorAdapterHandle = {
   goToLine(line: number, column?: number): boolean;
   setSearch?(query: TextEditorSearchQuery, display?: TextEditorSearchDisplay): boolean;
   getSearch?(): TextEditorSearchState;
+  getOpenPanels?(): readonly TextEditorPanel[];
+  closePanel?(panel: TextEditorPanel): boolean;
 };
 export type EditorAdapterProps = {
   value: string;
   editable: boolean;
+  searchEnabled?: boolean;
+  replaceEnabled?: boolean;
+  formattingEnabled?: boolean;
   onChange(value: string): Promise<boolean>;
   onSelectionChange?(selection: TextEditorSelection): void;
+  onSearchChange?(search: TextEditorSearchState): void;
+  onPanelsChange?(panels: readonly TextEditorPanel[]): void;
+  onPendingChange?(pending: boolean): void;
   onUndo(): void;
   onRedo(): void;
   onCommandPalette?(): void;

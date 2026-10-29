@@ -1,8 +1,19 @@
-import type { EditorState } from "@codemirror/state";
+import { Facet, type EditorState } from "@codemirror/state";
 import { runScopeHandlers, type EditorView, type Panel, type ViewUpdate } from "@codemirror/view";
 import { SearchQuery, closeSearchPanel, findNext, findPrevious, getSearchQuery, openSearchPanel, replaceAll, replaceNext, selectMatches, setSearchQuery, searchPanelOpen } from "@codemirror/search";
 import type { TextEditorSearchQuery, TextEditorSearchDisplay, TextEditorSearchState } from "../editor-adapter";
 import { checkedText, record } from "../model/validation";
+
+/** Shared by the panel, keyboard dispatcher, and imperative adapter. */
+export const textEditorSearchPolicy = Facet.define<{
+  search?: boolean; replace?: boolean; onChange?(state: TextEditorSearchState): void;
+}, { search?: boolean; replace?: boolean; onChange?(state: TextEditorSearchState): void }>({ combine: values => Object.assign({}, ...values) });
+
+export function searchAllowed(state: EditorState) { return state.facet(textEditorSearchPolicy).search !== false; }
+export function replaceAllowed(state: EditorState) { return searchAllowed(state) && state.facet(textEditorSearchPolicy).replace !== false && !state.readOnly; }
+function notifySearch(view: EditorView) {
+  try { view.state.facet(textEditorSearchPolicy).onChange?.(getCodeEditorSearch(view)); } catch { /* Observers cannot cancel a panel action. */ }
+}
 
 export function createTextEditorSearchQuery(input: TextEditorSearchQuery, display: TextEditorSearchDisplay = {}): SearchQuery {
   const value = record(input, ["query", "replacement", "caseSensitive", "wholeWord", "regex"], "検索条件");
@@ -18,11 +29,11 @@ export function createTextEditorSearchQuery(input: TextEditorSearchQuery, displa
 export function setCodeEditorSearch(view: EditorView, input: TextEditorSearchQuery, display: TextEditorSearchDisplay = {}): boolean {
   try {
     const query = createTextEditorSearchQuery(input, display);
-    if (input.query && !query.valid || display.replace && view.state.readOnly) return false;
+    if (!searchAllowed(view.state) || input.query && !query.valid || display.replace && !replaceAllowed(view.state)) return false;
     view.dispatch({ effects: setSearchQuery.of(query) });
-    if (display.open === false) closeSearchPanel(view);
+    if (display.open === false) { panels.get(view)?.showReplace(false, false); closeSearchPanel(view); }
     else if (display.replace) openCompactReplacePanel(view);
-    else { openSearchPanel(view); panels.get(view)?.showReplace(false); }
+    else { openSearchPanel(view); if (display.replace === false) panels.get(view)?.showReplace(false); }
     return true;
   } catch { return false; }
 }
@@ -30,7 +41,7 @@ export function setCodeEditorSearch(view: EditorView, input: TextEditorSearchQue
 export function getCodeEditorSearch(view: EditorView): TextEditorSearchState {
   const query = getSearchQuery(view.state);
   return Object.freeze({ query: query.search, replacement: query.replace, caseSensitive: query.caseSensitive,
-    wholeWord: query.wholeWord, regex: query.regexp, open: searchPanelOpen(view.state), valid: query.valid });
+    wholeWord: query.wholeWord, regex: query.regexp, open: searchPanelOpen(view.state), replace: panels.get(view)?.isReplaceOpen() ?? false, valid: query.valid });
 }
 
 type Match = { from: number; to: number };
@@ -147,16 +158,19 @@ export class CompactSearchPanel implements Panel {
   }
 
   private replace(all: boolean) {
-    if (this.view.state.readOnly) return;
+    if (!replaceAllowed(this.view.state)) return;
     this.commit();
     if (!this.query.valid || !this.summary.matches.length) return;
     (all ? replaceAll : replaceNext)(this.view);
   }
 
-  showReplace(expanded = true) {
-    if (expanded && this.view.state.readOnly) return false;
+  isReplaceOpen() { return this.expanded; }
+
+  showReplace(expanded = true, focus = true) {
+    if (expanded && !replaceAllowed(this.view.state)) return false;
     this.expanded = expanded; this.renderStatus();
-    if (expanded) this.replaceField.focus(); else this.searchField.focus();
+    if (focus) { if (expanded) this.replaceField.focus(); else this.searchField.focus(); }
+    notifySearch(this.view);
     return true;
   }
 
@@ -191,7 +205,10 @@ export class CompactSearchPanel implements Panel {
     this.searchField.setAttribute("aria-invalid", String(invalid));
     this.dom.dataset.empty = String(!!this.query.search && !invalid && !hasMatches);
     this.previous.disabled = this.next.disabled = !this.query.valid || !hasMatches;
-    const readOnly = this.view.state.readOnly;
+    const readOnly = !replaceAllowed(this.view.state);
+    const hidden = this.view.state.facet(textEditorSearchPolicy).replace === false;
+    if (hidden) this.expanded = false;
+    this.toggle.hidden = hidden;
     this.toggle.disabled = readOnly && !this.expanded; this.toggle.setAttribute("aria-expanded", String(this.expanded));
     this.toggle.title = this.expanded ? "置換を閉じる" : "置換を表示"; this.toggle.setAttribute("aria-label", this.toggle.title);
     this.replaceRow.hidden = !this.expanded;
@@ -213,7 +230,7 @@ export class CompactSearchPanel implements Panel {
 export const createCompactSearchPanel = (view: EditorView): Panel => new CompactSearchPanel(view);
 
 export function openCompactReplacePanel(view: EditorView): boolean {
-  if (view.state.readOnly) return false;
+  if (!replaceAllowed(view.state)) return false;
   openSearchPanel(view);
   return panels.get(view)?.showReplace(true) ?? false;
 }

@@ -31,7 +31,19 @@
 .texteditor-demo .te-demo-options { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-width: 0; }
 .texteditor-demo .te-demo-readonly { display: flex; align-items: center; gap: 5px; white-space: nowrap; color: var(--te-muted); font-size: 10px; }
 .texteditor-demo .te-demo-readonly input { accent-color: #3e7455; }
-.texteditor-demo .te-demo-editor { height: calc(100dvh - 248px); min-height: 500px; box-shadow: 0 7px 28px #203d2a06; border-radius: 12px; }
+.texteditor-demo .te-demo-controls { padding: 10px 12px; margin: -8px 0 14px; border: 1px solid var(--te-line); border-radius: 8px; background: var(--te-panel); }
+.texteditor-demo .te-demo-controls-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.texteditor-demo .te-demo-controls-label { font-size: 11px; font-weight: 600; margin-right: 4px; }
+.texteditor-demo .te-demo-controls button { border: 1px solid var(--te-line); background: transparent; color: var(--te-text); padding: 5px 8px; font-size: 11px; border-radius: 5px; }
+.texteditor-demo .te-demo-controls button:hover:not(:disabled) { background: var(--te-tint); }
+.texteditor-demo .te-demo-controls button:disabled { opacity: .45; cursor: default; }
+.texteditor-demo .te-demo-edit-state { margin-left: auto; font-size: 10px; color: var(--te-muted); }
+.texteditor-demo .te-demo-controls summary { margin-top: 7px; font-size: 10px; color: var(--te-muted); cursor: pointer; }
+.texteditor-demo .te-demo-controls details > .te-demo-controls-row { margin-top: 9px; }
+.texteditor-demo .te-demo-controls label { display: flex; align-items: center; gap: 4px; margin-right: 8px; font-size: 11px; }
+.texteditor-demo .te-demo-controls input { accent-color: #3e7455; }
+.texteditor-demo .te-demo-controls-note { margin: 9px 0 0; font-size: 10px; color: var(--te-muted); }
+.texteditor-demo .te-demo-editor { height: calc(100dvh - 330px); min-height: 420px; box-shadow: 0 7px 28px #203d2a06; border-radius: 12px; }
 .texteditor-demo .te-demo-footer { display: flex; justify-content: space-between; color: var(--te-muted); font-size: 10px; padding: 13px 3px 0; }
 .texteditor-demo .te-demo-footer span { display: flex; align-items: center; gap: 6px; }
 @media(max-width: 900px) { .texteditor-demo .te-demo-sidebar { width: 190px; } .texteditor-demo .te-demo-main { padding: 24px 20px 16px; } .texteditor-demo .te-demo-heading h1 { font-size: 20px; } }

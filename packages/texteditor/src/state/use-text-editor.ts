@@ -9,8 +9,13 @@ export const textEditorAdapter: ModelEditorAdapter<TextEditorModel, TextEditorCo
   normalize: normalizeTextEditorModel,
   serialize: serializeTextEditorModel,
   execute: executeTextEditorCommands,
-  features: ["editing", "history", "import", "export"],
-  getCommandFeatures: command => command.type === "document.replace" ? ["import", "editing"] : ["editing"],
+  features: ["editing", "history", "import", "export", "search", "replace", "formatting", "save", "refresh"],
+  getCommandFeatures: command => {
+    if (command.type === "document.replace") return ["import", "editing"];
+    if (command.type.startsWith("markdown.")) return ["formatting", "editing"];
+    if (command.type === "text.replaceAll") return ["search", "replace", "editing"];
+    return ["editing"];
+  },
 };
 export function useTextEditor(props: TextEditorProps) {
   const [controller] = useState(() => createModelEditorController(textEditorAdapter,

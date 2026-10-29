@@ -87,6 +87,56 @@ test('mount and view-only selection preserve exact Markdown without notifying a 
   assert.equal(editor.view.state.doc.firstChild.type.name, 'heading');
 });
 
+test('link and block panels expose live state and close through the adapter', async t => {
+  const panels = [], editor = await mount(t, { onPanelsChange: value => panels.push(value) });
+  assert.deepEqual(editor.ref.current.getOpenPanels(), []);
+  await act(() => select(editor.ref, 1, 6));
+  await act(() => editor.ref.current.runCommand('markdown.link'));
+  assert.deepEqual(editor.ref.current.getOpenPanels(), ['link']);
+  assert.deepEqual(panels.at(-1), ['link']);
+  await act(() => assert.equal(editor.ref.current.closePanel('link'), true));
+  assert.deepEqual(editor.ref.current.getOpenPanels(), []);
+  assert.equal(editor.ref.current.closePanel('link'), false);
+  await editor.update({ value: '/' });
+  await act(() => select(editor.ref, 2));
+  assert.deepEqual(editor.ref.current.getOpenPanels(), ['blocks']);
+  await act(() => assert.equal(editor.ref.current.closePanel('blocks'), true));
+  assert.deepEqual(editor.ref.current.getOpenPanels(), []);
+  assert.deepEqual(editor.changes, [], 'panel visibility never modifies the document');
+});
+
+test('formatting feature closes open controls and blocks formatting, list indentation, and task toggles', async t => {
+  const editor = await mount(t);
+  await act(() => select(editor.ref, 1, 6));
+  await act(() => editor.ref.current.runCommand('markdown.link'));
+  await editor.update({ formattingEnabled: false });
+  assert.deepEqual(editor.ref.current.getOpenPanels(), []);
+  assert.equal(editor.renderer.root.findAllByProps({ 'aria-label': 'Markdownの書式' }).length, 0);
+  assert.equal(editor.ref.current.runCommand('markdown.bold'), false);
+  assert.equal(editor.ref.current.runCommand('indent'), false);
+  await editor.update({ value: '- [ ] todo' });
+  const checkbox = { closest(selector) { return selector === 'li' ? {} : this; } };
+  await act(() => editor.view.props.handleClick(editor.view, 0, { target: checkbox }));
+  assert.deepEqual(editor.changes, []);
+  await act(() => editor.view.props.handleTextInput(editor.view, 3, 3, 'x'));
+  assert.equal(editor.changes.length, 1, 'ordinary text editing remains available');
+});
+
+test('pending input notifications cover async edits and clear after rejection and unmount', async t => {
+  const states = [], pending = [];
+  const editor = await mount(t, { onPendingChange: value => states.push(value), onChange: () => new Promise(resolve => pending.push(resolve)) });
+  await act(() => editor.view.dispatch(editor.view.state.tr.insertText('X', 1)));
+  assert.deepEqual(states, [true]);
+  await act(() => pending.shift()(false));
+  assert.deepEqual(states, [true, false]);
+  assert.equal(editor.view.state.doc.textContent, 'Alpha beta');
+  await act(() => editor.view.dispatch(editor.view.state.tr.insertText('Y', 1)));
+  await act(() => editor.renderer.unmount());
+  assert.deepEqual(states, [true, false, true, false]);
+  await act(() => pending.shift()(true));
+  assert.deepEqual(states, [true, false, true, false], 'a stale acknowledgement cannot reopen pending state');
+});
+
 test('toolbar and public adapter apply the same rich formatting; undo goes to the host', async t => {
   let undone = 0;
   const editor = await mount(t, { onUndo: () => undone++ });

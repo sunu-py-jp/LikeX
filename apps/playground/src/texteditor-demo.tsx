@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { FileText, NotebookPen, Code2, ArrowUpRight, Moon, Sun, Check, Command } from "lucide-react";
-import { LikeTextEditor, createTextEditorModel, type TextEditorModel, type TextEditorHandle } from "@likex/texteditor";
+import { LikeTextEditor, createTextEditorModel, type TextEditorModel, type TextEditorHandle, type TextEditorProps, type TextEditorSearchResult } from "@likex/texteditor";
 import "../../../packages/texteditor/src/styles.css";
 import "./texteditor-demo.css";
 const markdown = createTextEditorModel({ id: "writing-notes", title: "新しいアイデア.md", mode: "markdown", text: "# 考えを、自由に書き留める。\n\n思いついたアイデアも、チームに届ける文章も。\nここは、言葉に集中するための小さなワークスペースです。\n\n## 今週、試してみたいこと\n\n- 書き始める前に、伝えたいことを一つ決める\n- **大事な言葉**には、そっと強弱をつける\n- 小さな気づきを、次のアクションにつなげる\n\n> 完璧な文章よりも、まずは最初の一行から。\n\n## 自分らしい書き方で\n\n段落の先頭で `/` を入力すると、見出しやリストを追加できます。Markdownの記法で書いても、そのまま見た目に反映されます。\n\n---\n\n1. アイデアを集める\n2. アウトラインを整える\n3. チームに共有する\n" });
@@ -8,13 +8,61 @@ const text = createTextEditorModel({ id: "project-notes", title: "プロジェ�
 export default function TextEditorDemo() {
   const [kind, setKind] = useState<"markdown" | "text">("markdown"), [dark, setDark] = useState(false), [readOnly, setReadOnly] = useState(false);
   const [documents, setDocuments] = useState({ markdown, text });
+  const savedDocuments = useRef({ markdown, text });
   const [saved, setSaved] = useState(false);
   const [coloredHeader, setColoredHeader] = useState(false);
+  const [features, setFeatures] = useState({ search: true, replace: true, formatting: true, save: true });
+  const [status, setStatus] = useState({ editMode: "view", pendingInput: false, dirty: false });
+  const [feedback, setFeedback] = useState("");
   const editor = useRef<TextEditorHandle>(null);
-  function change(model: TextEditorModel) { setDocuments(current => ({ ...current, [kind]: model })); setSaved(false); }
+  const change = useCallback((model: TextEditorModel) => { setDocuments(current => ({ ...current, [kind]: model })); setSaved(false); }, [kind]);
+  const save = useCallback((document: TextEditorModel) => {
+    savedDocuments.current = { ...savedDocuments.current, [kind]: document };
+    setDocuments(current => ({ ...current, [kind]: document })); setSaved(true);
+  }, [kind]);
+  const refresh = useCallback(() => savedDocuments.current[kind], [kind]);
+  const captureState = useCallback((editMode?: string) => {
+    const state = editor.current?.getState();
+    if (state) setStatus({ editMode: editMode ?? state.editMode, pendingInput: state.pendingInput, dirty: state.hasUnsavedChanges });
+  }, []);
+  const onEvent = useCallback<NonNullable<TextEditorProps["onEvent"]>>(event => captureState(event.type === "edit-mode" ? event.mode : undefined), [captureState]);
+  const onUnsavedChangesChange = useCallback(() => captureState(), [captureState]);
+  const externalSearch = useMemo(() => {
+    const results: TextEditorSearchResult[] = [];
+    let offset = 0;
+    for (const [index, line] of documents[kind].text.split("\n").entries()) {
+      if (line.trim() && !/^[-─]+$/.test(line.trim())) results.push({
+        id: `line-${index}`, title: line.replace(/^\s*(?:#{1,6}\s+|[-*>]\s+|\d+\.\s+)?/, "").slice(0, 28),
+        snippet: line, locationLabel: `${index + 1} 行`, target: { from: offset, to: offset + line.length },
+      });
+      offset += line.length + 1;
+    }
+    return { title: "デモの外部検索結果", results };
+  }, [documents, kind]);
+  async function run(label: string, operation: () => boolean | Promise<boolean> | undefined) {
+    const accepted = await operation();
+    captureState();
+    setFeedback(accepted ? `${label}しました` : `「${label}」は現在の状態では実行できません`);
+  }
+  function switchKind(next: "markdown" | "text") { setKind(next); setSaved(false); setFeedback(""); setStatus({ editMode: "view", pendingInput: false, dirty: false }); }
   return <div className={`texteditor-demo ${dark ? "texteditor-demo-dark" : ""}`}>
     <header className="te-demo-top"><a href="/texteditor" className="te-demo-brand"><span><NotebookPen size={20} /></span>LikeTextEditor</a><div className="te-demo-top-right"><span className="te-demo-component">COMPONENT PREVIEW</span><a href="/explorer">Explorer <ArrowUpRight size={13} /></a><button type="button" aria-label="テーマを切り替え" onClick={() => setDark(value => !value)}>{dark ? <Sun size={17} /> : <Moon size={17} />}</button></div></header>
-    <div className="te-demo-layout"><aside className="te-demo-sidebar"><div className="te-demo-space"><span className="te-demo-space-icon">W</span><div><strong>My workspace</strong><small>書くことを、もっと自由に。</small></div></div><p className="te-demo-nav-title">エディター</p><button type="button" aria-pressed={kind === "markdown"} onClick={() => { setKind("markdown"); setSaved(false); }}><NotebookPen size={17} /><span>Markdown<small>見たまま、書き進める</small></span></button><button type="button" aria-pressed={kind === "text"} onClick={() => { setKind("text"); setSaved(false); }}><Code2 size={17} /><span>テキスト<small>速く、正確に編集する</small></span></button><div className="te-demo-side-bottom"><Command size={18} /><strong>使いたい操作を、すぐに。</strong><p>検索、置換、全選択、行の移動。<br />コマンド一覧から探せます。</p><button type="button" onClick={() => void editor.current?.runCommand("commandPalette")}>コマンドを開く <span>↗</span></button></div></aside>
-    <main className="te-demo-main"><div className="te-demo-heading"><div><p className="te-demo-eyebrow">WRITE YOUR WAY</p><h1>{kind === "markdown" ? "アイデアに、心地よい余白を。" : "テキスト編集を、思いのままに。"}</h1><p>{kind === "markdown" ? "見出しも、リストも、引用も。考える速さで書き進める。" : "複数カーソルとショートカットで、繰り返しの作業をすばやく。"}</p></div><div className="te-demo-options"><label className="te-demo-readonly"><input type="checkbox" checked={coloredHeader} onChange={event => setColoredHeader(event.target.checked)} />カラーヘッダー</label><label className="te-demo-readonly"><input type="checkbox" checked={readOnly} onChange={event => setReadOnly(event.target.checked)} />閲覧専用</label></div></div><div className="te-demo-editor"><LikeTextEditor key={kind} ref={editor} initialDocument={documents[kind]} readOnly={readOnly} headerStyle={coloredHeader ? { backgroundColor: "#1f4d3a", color: "#ffffff" } : undefined} colorMode={dark ? "dark" : "light"} onChange={change} onSave={document => { setDocuments(current => ({ ...current, [kind]: document })); setSaved(true); }} /></div><footer className="te-demo-footer"><span><FileText size={13} />{kind === "markdown" ? "Markdown とソースを自由に切り替え" : "Alt + クリックで複数カーソルを追加"}</span><span>{saved ? <><Check size={13} />このデモ内に保存しました</> : "LikeX · Text Editor"}</span></footer></main></div>
+    <div className="te-demo-layout"><aside className="te-demo-sidebar"><div className="te-demo-space"><span className="te-demo-space-icon">W</span><div><strong>My workspace</strong><small>書くことを、もっと自由に。</small></div></div><p className="te-demo-nav-title">エディター</p><button type="button" aria-pressed={kind === "markdown"} onClick={() => switchKind("markdown")}><NotebookPen size={17} /><span>Markdown<small>見たまま、書き進める</small></span></button><button type="button" aria-pressed={kind === "text"} onClick={() => switchKind("text")}><Code2 size={17} /><span>テキスト<small>速く、正確に編集する</small></span></button><div className="te-demo-side-bottom"><Command size={18} /><strong>使いたい操作を、すぐに。</strong><p>検索、置換、全選択、行の移動。<br />コマンド一覧から探せます。</p><button type="button" onClick={() => void editor.current?.runCommand("commandPalette")}>コマンドを開く <span>↗</span></button></div></aside>
+    <main className="te-demo-main"><div className="te-demo-heading"><div><p className="te-demo-eyebrow">WRITE YOUR WAY</p><h1>{kind === "markdown" ? "アイデアに、心地よい余白を。" : "テキスト編集を、思いのままに。"}</h1><p>{kind === "markdown" ? "見出しも、リストも、引用も。考える速さで書き進める。" : "複数カーソルとショートカットで、繰り返しの作業をすばやく。"}</p></div><div className="te-demo-options"><label className="te-demo-readonly"><input type="checkbox" checked={coloredHeader} onChange={event => setColoredHeader(event.target.checked)} />カラーヘッダー</label><label className="te-demo-readonly"><input type="checkbox" checked={readOnly} onChange={event => setReadOnly(event.target.checked)} />閲覧専用</label></div></div>
+      <section className="te-demo-controls" aria-label="利用側のAPI操作">
+        <div className="te-demo-controls-row"><span className="te-demo-controls-label">外からの操作</span>
+          <button type="button" disabled={!features.search} onClick={() => editor.current?.openExternalSearch()}>外部検索結果</button>
+          <button type="button" disabled={!features.search} onClick={() => editor.current?.openSearch(kind === "markdown" ? "アイデア" : "TODO")}>検索を開く</button>
+          <button type="button" onClick={() => editor.current?.closePanels()}>パネルを閉じる</button>
+          <span className="te-demo-edit-state" aria-live="polite">{status.editMode === "edit" ? "編集中" : status.editMode === "requesting" ? "許可待ち" : "閲覧中"}{status.pendingInput ? " · 入力待ち" : status.dirty ? " · 未保存" : ""}</span>
+        </div>
+        <details><summary>機能設定と編集制御</summary>
+          <div className="te-demo-controls-row" role="group" aria-label="有効にする機能">{([["search", "検索"], ["replace", "置換"], ["formatting", "書式"], ["save", "保存"]] as const).map(([feature, label]) => <label key={feature}><input type="checkbox" checked={features[feature]} onChange={event => setFeatures(current => ({ ...current, [feature]: event.target.checked }))} />{label}</label>)}</div>
+          <div className="te-demo-controls-row"><button type="button" disabled={readOnly} onClick={() => void run("編集を開始", () => editor.current?.requestEdit())}>編集を開始</button><button type="button" disabled={readOnly} onClick={() => void run("編集を終了", () => editor.current?.endEdit())}>編集を終了</button><button type="button" disabled={readOnly} onClick={() => void run("変更を破棄", () => editor.current?.discard())}>変更を破棄</button><button type="button" onClick={() => void run("保存済みを再読込", () => editor.current?.refresh())}>保存済みを再読込</button></div>
+          <p className="te-demo-controls-note">再読込は未保存の変更があると止まります。破棄する場合は「変更を破棄」を選んでください。</p>
+          {feedback && <p className="te-demo-controls-note" role="status">{feedback}</p>}
+        </details>
+      </section>
+      <div className="te-demo-editor"><LikeTextEditor key={kind} ref={editor} initialDocument={documents[kind]} readOnly={readOnly} features={features} externalSearch={externalSearch} headerStyle={coloredHeader ? { backgroundColor: "#1f4d3a", color: "#ffffff" } : undefined} colorMode={dark ? "dark" : "light"} onChange={change} onSave={save} onRefresh={refresh} onEvent={onEvent} onUnsavedChangesChange={onUnsavedChangesChange} /></div><footer className="te-demo-footer"><span><FileText size={13} />{kind === "markdown" ? "Markdown とソースを自由に切り替え" : "Alt + クリックで複数カーソルを追加"}</span><span>{saved ? <><Check size={13} />このデモ内に保存しました</> : "LikeX · Text Editor"}</span></footer></main></div>
   </div>;
 }

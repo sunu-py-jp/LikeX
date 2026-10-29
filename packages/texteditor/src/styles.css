@@ -1,5 +1,6 @@
 @import "./ui/code-editor.css";
 @import "./ui/markdown-editor.css";
+@import "./ui/external-search-panel.css";
 
 [data-likex-texteditor] {
   --lxte-background: #fff;

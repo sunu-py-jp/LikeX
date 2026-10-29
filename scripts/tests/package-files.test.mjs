@@ -38,3 +38,8 @@ test('Document distributes its explicit image analysis reference only', () => {
   for (const moduleName of ['spreadsheet', 'slide', 'document'])
     assert.equal(allowedPackageFile(`skills/likex-${moduleName}/references/image-analysis.md`, moduleName), moduleName === 'document');
 });
+
+test('TextEditor distributes its mounted-view controls reference only', () => {
+  for (const moduleName of ['texteditor', 'spreadsheet', 'slide', 'document'])
+    assert.equal(allowedPackageFile(`skills/likex-${moduleName}/references/view-controls.md`, moduleName), moduleName === 'texteditor');
+});

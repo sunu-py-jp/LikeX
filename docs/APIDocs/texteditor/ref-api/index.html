@@ -33,8 +33,9 @@
 <span class="syntax-comment">// state.mode: &quot;text&quot; | &quot;markdown&quot;</span>
 <span class="syntax-comment">// state.viewMode: &quot;source&quot; | &quot;rich&quot;</span>
 <span class="syntax-comment">// state.wordWrap / readOnly / editable / busy / dirty</span>
+<span class="syntax-comment">// state.editMode / hasUnsavedChanges / pendingInput</span>
 <span class="syntax-comment">// state.canSave / canUndo / canRedo / features</span></code></pre></div>
-<p><code>getState()</code> は呼び出した時点の状態です。<code>canSave</code> などは独自UIの表示に使えますが、操作の実行時にも最新の状態で可否を確認します。変更通知には <code>onChange</code>・<code>onDirtyChange</code>・<code>onEvent</code>、表示の通知には <code>onSelectionChange</code>・<code>onWordWrapChange</code>・<code>onViewModeChange</code> を使います。</p>
+<p><code>getState()</code> は呼び出した時点の状態です。<code>canSave</code> などは独自UIの表示に使えますが、操作の実行時にも最新の状態で可否を確認します。変更通知には <code>onChange</code>・<code>onDirtyChange</code>・<code>onUnsavedChangesChange</code>・<code>onEvent</code>、表示の通知には <code>onSelectionChange</code>・<code>onWordWrapChange</code>・<code>onViewModeChange</code>・<code>onPanelsChange</code> を使います。<code>dirty</code> は保存済みモデルとの差分、<code>hasUnsavedChanges</code> は未確定の入力も含む状態、<code>pendingInput</code> はその入力がある状態です。機能設定とライフサイクルの詳細は<a href="../lifecycle/index.html">保存・編集許可</a>を参照してください。</p>
 <h2 id="本文の挿入置換書式">本文の挿入・置換・書式<a class="heading-link" href="#%E6%9C%AC%E6%96%87%E3%81%AE%E6%8C%BF%E5%85%A5%E7%BD%AE%E6%8F%9B%E6%9B%B8%E5%BC%8F" aria-label="この見出しへのリンク">#</a></h2>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">await</span> editor.current?.execute([
   { <span class="syntax-keyword">type</span>: <span class="syntax-string">&quot;text.insert&quot;</span>, offset: <span class="syntax-number">0</span>, text: <span class="syntax-string">&quot;作業メモ\n&quot;</span> },
@@ -69,15 +70,98 @@ editor.current?.setSelection({
 <span class="syntax-keyword">await</span> editor.current?.runCommand(<span class="syntax-string">&quot;replaceAll&quot;</span>);
 
 <span class="syntax-keyword">const</span> search = editor.current?.getSearch();
-<span class="syntax-comment">// query / replacement / caseSensitive / wholeWord / regex / open / valid</span>
+<span class="syntax-comment">// query / replacement / caseSensitive / wholeWord / regex / open / replace / valid</span>
 editor.current?.closeSearch();</code></pre></div>
 <p>検索はソース上で行います。Markdownの文章表示から <code>setSearch</code> を呼ぶとソース表示へ切り替えます。表示設定を省略すると検索パネルを開き、置換欄は折りたたみます。<code>{ open: false }</code> ならパネルを開かずに条件を設定できます。指定を省略した <code>replacement</code> は空文字、各検索オプションは <code>false</code> に戻します。以前の検索条件への部分更新ではありません。</p>
-<p><code>setSearch</code> に不正な入力や正規表現を渡すと <code>false</code> を返し、前の検索条件を保持します。<code>getSearch()</code> は文章表示では <code>null</code> を返し、文章表示からソース表示を作り直すと検索状態は初期化されます。利用者が検索欄に入力した無効な正規表現は <code>valid: false</code> で確認できます。</p>
+<p><code>setSearch</code> に不正な入力や正規表現を渡すと <code>false</code> を返し、前の検索条件を保持します。<code>getSearch()</code> はソース検索の直近の条件を返し、Markdownの文章表示へ切り替えても条件は保持します。ソースへ戻ると条件を復元します。まだ検索状態を設定・取得していない段階では <code>null</code> の場合があります。外部結果パネルの状態は <code>getSearchPanelState()</code> または <code>renderSearch</code> のcontextで取得します。利用者が検索欄に入力した無効な正規表現は <code>valid: false</code> で確認できます。</p>
 <p><code>selectSearchMatches</code> は現在の検索条件に一致する箇所をすべて選択し、<code>selectAllOccurrences</code> は現在選択している文字列と同じ箇所をすべて選択します。どちらもソース表示で利用できます。閲覧専用でも検索・選択は使えますが、置換は実行しません。</p>
 <p>画面を操作せず一致範囲だけ取得する場合は <code>find</code> です。</p>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">const</span> matches = editor.current?.find({ query: <span class="syntax-string">&quot;確認&quot;</span>, caseSensitive: <span class="syntax-keyword">false</span> });
 <span class="syntax-comment">// [{ from: 0, to: 2 }, ...]。画面の検索欄や選択は変えない。</span></code></pre></div>
 <p><code>find</code> とモデルの <code>text.replaceAll</code> はRE2形式の正規表現です。画面の検索パネルと <code>setSearch</code> はJavaScript形式です。モデル側の置換文字列は <code>$1</code> などを展開せず、そのまま挿入します。検索パネル経由の置換は画面と同じ解釈を使うため、両者を使い分けてください。</p>
+<h2 id="初期検索と共通の検索api">初期検索と共通の検索API<a class="heading-link" href="#%E5%88%9D%E6%9C%9F%E6%A4%9C%E7%B4%A2%E3%81%A8%E5%85%B1%E9%80%9A%E3%81%AE%E6%A4%9C%E7%B4%A2api" aria-label="この見出しへのリンク">#</a></h2>
+<div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>&lt;LikeTextEditor
+  initialText=<span class="syntax-string">&quot;確認事項をここに記載&quot;</span>
+  initialSearchOpen
+  initialSearchQuery=<span class="syntax-string">&quot;確認&quot;</span>
+  initialSearchMode=<span class="syntax-string">&quot;local&quot;</span>
+/&gt;</code></pre></div>
+<div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>editor.current?.openSearch(<span class="syntax-string">&quot;確認&quot;</span>);
+editor.current?.openSearch(); <span class="syntax-comment">// 前の検索語を保持</span>
+editor.current?.openSearch(<span class="syntax-string">&quot;&quot;</span>); <span class="syntax-comment">// 空にして開く</span>
+editor.current?.closeSearch();</code></pre></div>
+<p><code>openSearch</code> はSpreadsheetなどと同じ名前で検索を開きます。キーワードは最大4,096 UTF-16単位で、不正な値・無効な検索機能では <code>false</code> を返します。戻り値は受付可否であり、非同期検索の完了ではありません。<code>initialSearch*</code> は初回だけ読みます。標準の検索は右上に重なる小さなパネルで、本文操作を妨げません。</p>
+<h2 id="外部検索結果と検索の差し替え">外部検索結果と検索の差し替え<a class="heading-link" href="#%E5%A4%96%E9%83%A8%E6%A4%9C%E7%B4%A2%E7%B5%90%E6%9E%9C%E3%81%A8%E6%A4%9C%E7%B4%A2%E3%81%AE%E5%B7%AE%E3%81%97%E6%9B%BF%E3%81%88" aria-label="この見出しへのリンク">#</a></h2>
+<p><code>externalSearch</code> へ、ベクトル検索などで得た順位付きの結果を渡せます。<code>target</code> は元本文の <code>{ from, to }</code>（UTF-16・0始まり・終端を含まない）です。Markdownの文章表示の位置ではありません。</p>
+<div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> <span class="syntax-keyword">type</span> { TextEditorExternalSearchOptions } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/texteditor&quot;</span>;
+
+<span class="syntax-keyword">const</span> externalSearch: TextEditorExternalSearchOptions = {
+  title: <span class="syntax-string">&quot;関連する記述&quot;</span>,
+  results: [
+    { id: <span class="syntax-string">&quot;topic-a&quot;</span>, title: <span class="syntax-string">&quot;確認事項&quot;</span>, snippet: <span class="syntax-string">&quot;確認すること&quot;</span>, target: { <span class="syntax-keyword">from</span>: <span class="syntax-number">6</span>, to: <span class="syntax-number">12</span> } },
+    { id: <span class="syntax-string">&quot;topic-b&quot;</span>, title: <span class="syntax-string">&quot;対応内容&quot;</span>, target: { <span class="syntax-keyword">from</span>: <span class="syntax-number">14</span>, to: <span class="syntax-number">20</span> } },
+  ],
+  initialResultId: <span class="syntax-string">&quot;topic-a&quot;</span>,
+  onResultSelect: result =&gt; console.log(result.id),
+};
+
+&lt;LikeTextEditor
+  ref={editor}
+  mode=<span class="syntax-string">&quot;markdown&quot;</span>
+  initialText={<span class="syntax-string">&quot;# メモ\n\n確認すること\n\n対応すること&quot;</span>}
+  externalSearch={externalSearch}
+  initialSearchOpen
+  initialSearchMode=<span class="syntax-string">&quot;external&quot;</span>
+/&gt;;
+
+editor.current?.openExternalSearch(<span class="syntax-string">&quot;topic-b&quot;</span>);</code></pre></div>
+<p>結果は利用側の順番で表示し、選択するとソースの位置へ移動します。結果の <code>id</code> は一覧内で一意にします。本文の範囲外など不正な結果は表示対象から除きます。閉じても結果は保持し、<code>openSearch</code> で通常検索へ戻れます。外部結果のタイトルは検索語ではなく、キーワード欄へ注入しません。初期モードを省略した場合、外部結果があり初期キーワードが空ならexternal、それ以外はlocalです。</p>
+<p>外部結果の取得・順位付け・編集後の位置更新は利用側の責務です。本文を書き換えた後は現在の本文に対応した結果へ更新してください。位置が本文内に収まっていても、元の意味と一致することまではライブラリ側で判定しません。</p>
+<p>入力されたキーワードの検索処理だけを差し替える場合は <code>onSearchRequest</code> を使います。</p>
+<div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>&lt;LikeTextEditor
+  initialDocument={document}
+  searchParams={{ collection: <span class="syntax-string">&quot;notes&quot;</span> }}
+  onSearchRequest={<span class="syntax-keyword">async</span> ({ document, query, params }, { signal, requestId }) =&gt; {
+    <span class="syntax-keyword">return</span> searchDocument({
+      text: document.text,
+      query: query.query,
+      caseSensitive: query.caseSensitive,
+      wholeWord: query.wholeWord,
+      regex: query.regex,
+      params,
+      signal,
+      requestId,
+    }); <span class="syntax-comment">// TextEditorSearchResult[]</span>
+  }}
+/&gt;</code></pre></div>
+<p>検索語・本文・追加条件が変わると再検索します。古い検索は中止し、遅れた結果を反映しません。追加条件は新しい <code>searchParams</code> オブジェクトとして渡してください。空の検索語ではホストを呼ばず結果を空にします。ホストへ渡す検索条件の型は <code>TextEditorSearchOptions</code>、返す結果は外部結果と同じ <code>TextEditorSearchResult[]</code> です。通信・認証はホストで実装し、渡されたsignalを通信にも使用してください。</p>
+<p>外部結果と <code>onSearchRequest</code> の結果は移動専用です。それらを文字列置換の対象にはしません。「置換」を呼ぶと標準のソース検索・置換パネルへ切り替えます。</p>
+<h2 id="検索パネルの見た目を差し替える">検索パネルの見た目を差し替える<a class="heading-link" href="#%E6%A4%9C%E7%B4%A2%E3%83%91%E3%83%8D%E3%83%AB%E3%81%AE%E8%A6%8B%E3%81%9F%E7%9B%AE%E3%82%92%E5%B7%AE%E3%81%97%E6%9B%BF%E3%81%88%E3%82%8B" aria-label="この見出しへのリンク">#</a></h2>
+<div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>&lt;LikeTextEditor
+  initialDocument={document}
+  renderSearch={context =&gt; !context.open ? <span class="syntax-keyword">null</span> : (
+    &lt;aside aria-label={context.title}&gt;
+      &lt;input
+        aria-label=<span class="syntax-string">&quot;検索語&quot;</span>
+        value={context.query.query}
+        onChange={event =&gt; context.setQuery({ ...context.query, query: event.target.value })}
+      /&gt;
+      &lt;button <span class="syntax-keyword">type</span>=<span class="syntax-string">&quot;button&quot;</span> onClick={() =&gt; context.close()}&gt;閉じる&lt;/button&gt;
+      {context.busy &amp;&amp; &lt;span&gt;検索中…&lt;/span&gt;}
+      {context.error &amp;&amp; &lt;p role=<span class="syntax-string">&quot;alert&quot;</span>&gt;{context.error}&lt;/p&gt;}
+      &lt;ul&gt;{context.results.map(result =&gt; (
+        &lt;li key={result.id}&gt;
+          &lt;button <span class="syntax-keyword">type</span>=<span class="syntax-string">&quot;button&quot;</span> onClick={() =&gt; <span class="syntax-keyword">void</span> context.selectResult(result.id)}&gt;
+            {result.title ?? result.snippet ?? result.id}
+          &lt;/button&gt;
+        &lt;/li&gt;
+      ))}&lt;/ul&gt;
+    &lt;/aside&gt;
+  )}
+/&gt;</code></pre></div>
+<p><code>TextEditorSearchRenderContext</code> は <code>open</code>・<code>mode</code>・<code>query</code>・<code>title</code>・<code>results</code>・<code>activeResultId</code>・<code>busy</code>・<code>error</code>・<code>externalAvailable</code>・<code>focusVersion</code> と、<code>setQuery</code>・<code>openSearch</code>・<code>openExternalSearch</code>・<code>selectResult</code>・<code>next</code>・<code>previous</code>・<code>close</code> を持ちます。<code>focusVersion</code> は外からの「開く」の要求ごとに変わるため、独自入力欄のフォーカスに使えます。<code>renderSearch</code> からnullを返すとパネルを隠します。</p>
+<p><code>getSearchPanelState()</code> は同じcontextを呼び出した時点の状態で返します。<code>results</code> は外部検索・ホスト検索・<code>renderSearch</code> を使う検索の一覧です。標準ソースパネルの一致一覧はここへ複製せず、<code>results</code> は空配列になります。標準パネルの検索条件は <code>getSearch()</code>、本文中の一致範囲だけ必要な場合は <code>find()</code> を使ってください。</p>
+<p><code>renderSearch</code> だけを指定した通常検索はモデル検索と同じRE2形式で範囲を作ります。<code>onSearchRequest</code> も指定した場合はホストの検索結果を渡します。標準ソースパネルのJavaScript形式の検索条件・置換とは別経路です。検索パネルのカスタム表示は保存データに含めません。</p>
 <h2 id="カーソル複数選択行操作">カーソル・複数選択・行操作<a class="heading-link" href="#%E3%82%AB%E3%83%BC%E3%82%BD%E3%83%AB%E8%A4%87%E6%95%B0%E9%81%B8%E6%8A%9E%E8%A1%8C%E6%93%8D%E4%BD%9C" aria-label="この見出しへのリンク">#</a></h2>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">await</span> editor.current?.setViewMode(<span class="syntax-string">&quot;source&quot;</span>);
 <span class="syntax-keyword">await</span> editor.current?.goToLine(<span class="syntax-number">20</span>, <span class="syntax-number">1</span>); <span class="syntax-comment">// 行・列は1始まり</span>
@@ -96,11 +180,18 @@ editor.current?.focus();
 <span class="syntax-keyword">await</span> editor.current?.runCommand(<span class="syntax-string">&quot;indent&quot;</span>);
 <span class="syntax-keyword">await</span> editor.current?.runCommand(<span class="syntax-string">&quot;simplifySelection&quot;</span>);</code></pre></div>
 <p>公開アクションの一覧は <code>TEXT_EDITOR_ACTIONS</code>、IDの型は <code>TextEditorAction</code> です。<a href="../commands/index.html#%E8%A1%A8%E7%A4%BA%E4%B8%AD%E3%81%AE%E6%93%8D%E4%BD%9C">コマンド一覧</a>にショートカットとの対応を掲載しています。OSのクリップボードを外部APIが自動で読み書きする機能はありません。必要な場合は親アプリで取得した文字列を <code>execute</code> へ渡します。</p>
+<h2 id="パネルの開閉">パネルの開閉<a class="heading-link" href="#%E3%83%91%E3%83%8D%E3%83%AB%E3%81%AE%E9%96%8B%E9%96%89" aria-label="この見出しへのリンク">#</a></h2>
+<div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">await</span> editor.current?.runCommand(<span class="syntax-string">&quot;commandPalette&quot;</span>);
+<span class="syntax-keyword">const</span> panels = editor.current?.getOpenPanels();
+<span class="syntax-comment">// [&quot;commandPalette&quot;] など</span>
+editor.current?.closePanel(<span class="syntax-string">&quot;commandPalette&quot;</span>);
+editor.current?.closePanels();</code></pre></div>
+<div class="table-scroll" tabindex="0" role="region" aria-label="APIの一覧表"><table><thead><tr><th scope="col"><code>TextEditorPanel</code></th><th scope="col">開く操作</th></tr></thead><tbody><tr><td><code>search</code></td><td><code>openSearch</code>、<code>openExternalSearch</code>、<code>setSearch</code>、find／replaceコマンド。</td></tr><tr><td><code>goToLine</code></td><td><code>runCommand(&quot;goToLine&quot;)</code>。引数付きの <code>goToLine(line, column)</code> は直接移動するAPI。</td></tr><tr><td><code>commandPalette</code></td><td><code>runCommand(&quot;commandPalette&quot;)</code>。</td></tr><tr><td><code>link</code></td><td>Markdown文章表示で文字を選択して <code>runCommand(&quot;markdown.link&quot;)</code>。</td></tr><tr><td><code>blocks</code></td><td>Markdown文章表示の段落で <code>/</code> を入力。</td></tr></tbody></table></div><p><code>closePanel</code> は対象パネルが開いていて閉じた場合に <code>true</code> を返します。<code>closePanels</code> はすべて閉じます。画面からの開閉は <code>onPanelsChange(panels)</code> へ通知します。パネルの開閉やフォームのキャンセルは、本文を確定する操作ではありません。ビュー全体を独立ウィンドウやダイアログとして包む場合は親アプリで表示を管理し、閉じる前に <code>getState().hasUnsavedChanges</code> などを確認してください。</p>
 <h2 id="表示形式と折り返し">表示形式と折り返し<a class="heading-link" href="#%E8%A1%A8%E7%A4%BA%E5%BD%A2%E5%BC%8F%E3%81%A8%E6%8A%98%E3%82%8A%E8%BF%94%E3%81%97" aria-label="この見出しへのリンク">#</a></h2>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">await</span> editor.current?.setViewMode(<span class="syntax-string">&quot;source&quot;</span>);
 editor.current?.setWordWrap(<span class="syntax-keyword">false</span>);
 <span class="syntax-keyword">await</span> editor.current?.setViewMode(<span class="syntax-string">&quot;rich&quot;</span>); <span class="syntax-comment">// Markdownモードのみ</span></code></pre></div>
-<p><code>setViewMode</code> は本文のテキスト／Markdownモードを変えず、Markdownの文章表示とソース表示を切り替えます。切り替え先のエディターが準備できた後に結果を返します。テキストモードで <code>rich</code> を指定すると <code>false</code> です。<code>setWordWrap</code> はソース表示の折り返し設定を変更し、文章表示の段落レイアウトには影響しません。</p>
+<p><code>setViewMode</code> は本文のテキスト／Markdownモードを変えず、Markdownの文章表示とソース表示を切り替えます。切り替え先のエディターが準備できた後に結果を返します。テキストモードで <code>rich</code> を指定すると <code>false</code> です。入力の許可・反映待ちの間は、アダプターを破棄する表示切り替えも <code>false</code> を返します。<code>mode</code> propの変更は入力が確定または取り消されるまで画面への適用を保留します。<code>setWordWrap</code> はソース表示の折り返し設定を変更し、文章表示の段落レイアウトには影響しません。</p>
 <p>初期表示は <code>initialViewMode</code>、折り返しの初期値は <code>initialWordWrap</code> で指定できます。表示切り替えは <code>onViewModeChange</code>、折り返しは <code>onWordWrapChange</code> へ通知します。本文のテキスト／Markdownモードは <code>mode</code> prop、または <code>mode</code> prop未指定時の <code>document.update</code> で管理します。</p>
 <h2 id="ファイルの読み込み出力">ファイルの読み込み・出力<a class="heading-link" href="#%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%81%AE%E8%AA%AD%E3%81%BF%E8%BE%BC%E3%81%BF%E5%87%BA%E5%8A%9B" aria-label="この見出しへのリンク">#</a></h2>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-comment">// fileは利用側で取得したFileまたはBlob。取得元は任意。</span>
@@ -114,9 +205,10 @@ editor.current?.setWordWrap(<span class="syntax-keyword">false</span>);
 
 <span class="syntax-comment">// ブラウザーのダウンロードを開始する場合。</span>
 editor.current?.download();</code></pre></div>
-<p>読み込みは画面の「ファイルを開く」と同じ検証・文字コード判定・編集許可を通り、1回のUndoで戻せます。<code>title</code> 未指定時は <code>File.name</code> があれば使い、それもなければ現在のタイトルを保ちます。<code>mode</code> 未指定時は現在のモデルのモードを保ちます。<code>mode</code> propが指定されている場合は、画面のモードにはpropを優先します。</p>
+<p>読み込みは画面の「ファイルを開く」と同じ検証・文字コード判定・編集許可を通り、1回のUndoで戻せます。未保存変更がある場合は既定で拒否します。保存または破棄を決めてから <code>importFile(file, { discardChanges: true })</code> を使います。<code>replace</code> と <code>document.replace</code> を含む <code>execute</code> も同じ保護を行います。<code>title</code> 未指定時は <code>File.name</code> があれば使い、それもなければ現在のタイトルを保ちます。<code>mode</code> 未指定時は現在のモデルのモードを保ちます。<code>mode</code> propが指定されている場合は、画面のモードにはpropを優先します。</p>
 <p>文字コードはUTF-8、BOM付きUTF-16LE/BE、BOMなしのUTF-8からShift_JISへのフォールバックに対応します。キャンセルやアンマウント後の結果は反映しません。取得処理そのものは利用側が担当します。</p>
 <p><code>exportFile()</code> はUTF-8の本文Blobとファイル名を返し、ダウンロードや保存は開始しません。閲覧専用でも出力でき、<code>features.export: false</code> の場合は <code>null</code> です。メタデータ込みの保存には <code>getDocument()</code> と <code>serializeTextEditorModel</code>、復元には <code>parseTextEditorModel</code> と <code>replace</code> を使います。</p>
 <h2 id="メソッド一覧">メソッド一覧<a class="heading-link" href="#%E3%83%A1%E3%82%BD%E3%83%83%E3%83%89%E4%B8%80%E8%A6%A7" aria-label="この見出しへのリンク">#</a></h2>
-<div class="table-scroll" tabindex="0" role="region" aria-label="APIの一覧表"><table><thead><tr><th scope="col">メソッド</th><th scope="col">戻り値</th><th scope="col">用途</th></tr></thead><tbody><tr><td><code>getDocument()</code> / <code>getText()</code></td><td>モデル / 文字列</td><td>現在の下書きを取得。</td></tr><tr><td><code>getState()</code></td><td><code>TextEditorViewState</code></td><td>編集・保存・表示の状態を取得。</td></tr><tr><td><code>execute(commands)</code></td><td><code>Promise&lt;TextEditorModel | null&gt;</code></td><td>モデルコマンドを共通の履歴へ適用。</td></tr><tr><td><code>replace(document)</code></td><td><code>Promise&lt;TextEditorModel | null&gt;</code></td><td>文書を読み込みとして置き換える。</td></tr><tr><td><code>find(options)</code></td><td>範囲配列</td><td>ソースの一致箇所だけ取得。</td></tr><tr><td><code>runCommand(action)</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>画面の選択・検索・書式・行操作を実行。</td></tr><tr><td><code>focus()</code></td><td><code>void</code></td><td>現在の本文にフォーカス。</td></tr><tr><td><code>getSelection()</code> / <code>setSelection(selection)</code></td><td>選択またはnull / boolean</td><td>現在の座標系で選択を取得・設定。</td></tr><tr><td><code>goToLine(line, column?)</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>ソースの指定行・列へ移動。</td></tr><tr><td><code>setViewMode(mode)</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>source/richを切り替え。</td></tr><tr><td><code>setWordWrap(enabled)</code></td><td><code>boolean</code></td><td>ソースの折り返しを設定。</td></tr><tr><td><code>setSearch(query, display?)</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>ソースの検索条件・パネルを設定。</td></tr><tr><td><code>getSearch()</code> / <code>closeSearch()</code></td><td>検索状態またはnull / boolean</td><td>条件を取得・パネルを閉じる。</td></tr><tr><td><code>importFile(file, options?)</code></td><td><code>Promise&lt;TextEditorModel | null&gt;</code></td><td>Blob/Fileを読み込み。</td></tr><tr><td><code>exportFile()</code> / <code>download()</code></td><td><code>{ blob, fileName } | null</code> / boolean</td><td>本文ファイルを作成・ダウンロード。</td></tr><tr><td><code>save()</code> / <code>undo()</code> / <code>redo()</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>保存・履歴操作。</td></tr><tr><td><code>cancelPending()</code></td><td><code>void</code></td><td>処理中の古い結果の適用を中止。</td></tr></tbody></table></div><p>型はすべてUIの公開入口 <code>@likex/texteditor</code> からimportできます。本文編集の拒否や中止は戻り値で確認し、通知は <code>onEvent</code> や画面の通知欄へつなぎます。モデルAPIは不正入力を例外として返すため、画面なしの利用では呼び出し側で扱ってください。</p>
-<nav class="page-navigation" aria-label="前後のページ"><a href="../commands/index.html"><span>前のページ</span>コマンドとショートカット</a><a href="../markdown/index.html"><span>次のページ</span>Markdownの編集</a></nav><footer class="article-footer">編集元: <a href="https://github.com/sunu-py-jp/LikeX/blob/main/packages/texteditor/src/docs/ref-api.md">ref-api.md</a><br>本文は公開APIと利用ガイドから生成しています。</footer></article><aside class="page-toc" aria-label="このページの見出し"><p>このページ</p><ol><li><a href="#%E6%8E%A5%E7%B6%9A%E3%81%A8%E7%8A%B6%E6%85%8B%E3%81%AE%E5%8F%96%E5%BE%97">接続と状態の取得</a></li><li><a href="#%E6%9C%AC%E6%96%87%E3%81%AE%E6%8C%BF%E5%85%A5%E7%BD%AE%E6%8F%9B%E6%9B%B8%E5%BC%8F">本文の挿入・置換・書式</a></li><li><a href="#%E6%A4%9C%E7%B4%A2%E6%9D%A1%E4%BB%B6%E3%82%92%E6%8C%87%E5%AE%9A%E3%81%97%E3%81%A6%E9%96%8B%E3%81%8F">検索条件を指定して開く</a></li><li><a href="#%E3%82%AB%E3%83%BC%E3%82%BD%E3%83%AB%E8%A4%87%E6%95%B0%E9%81%B8%E6%8A%9E%E8%A1%8C%E6%93%8D%E4%BD%9C">カーソル・複数選択・行操作</a></li><li><a href="#%E8%A1%A8%E7%A4%BA%E5%BD%A2%E5%BC%8F%E3%81%A8%E6%8A%98%E3%82%8A%E8%BF%94%E3%81%97">表示形式と折り返し</a></li><li><a href="#%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%81%AE%E8%AA%AD%E3%81%BF%E8%BE%BC%E3%81%BF%E5%87%BA%E5%8A%9B">ファイルの読み込み・出力</a></li><li><a href="#%E3%83%A1%E3%82%BD%E3%83%83%E3%83%89%E4%B8%80%E8%A6%A7">メソッド一覧</a></li></ol></aside></div></main></div><p class="copy-status" role="status" aria-live="polite"></p></body></html>
+<div class="table-scroll" tabindex="0" role="region" aria-label="APIの一覧表"><table><thead><tr><th scope="col">メソッド</th><th scope="col">戻り値</th><th scope="col">用途</th></tr></thead><tbody><tr><td><code>getDocument()</code> / <code>getText()</code></td><td>モデル / 文字列</td><td>現在の下書きを取得。</td></tr><tr><td><code>getState()</code></td><td><code>TextEditorViewState</code></td><td>編集・保存・表示の状態を取得。</td></tr><tr><td><code>execute(commands, options?)</code></td><td><code>Promise&lt;TextEditorModel | null&gt;</code></td><td>モデルコマンドを共通の履歴へ適用。</td></tr><tr><td><code>replace(document, options?)</code></td><td><code>Promise&lt;TextEditorModel | null&gt;</code></td><td>文書を読み込みとして置き換える。</td></tr><tr><td><code>find(options)</code></td><td>範囲配列</td><td>ソースの一致箇所だけ取得。</td></tr><tr><td><code>runCommand(action)</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>画面の選択・検索・書式・行操作を実行。</td></tr><tr><td><code>focus()</code></td><td><code>void</code></td><td>現在の本文にフォーカス。</td></tr><tr><td><code>getSelection()</code> / <code>setSelection(selection)</code></td><td>選択またはnull / boolean</td><td>現在の座標系で選択を取得・設定。</td></tr><tr><td><code>goToLine(line, column?)</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>ソースの指定行・列へ移動。</td></tr><tr><td><code>setViewMode(mode)</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>source/richを切り替え。</td></tr><tr><td><code>setWordWrap(enabled)</code></td><td><code>boolean</code></td><td>ソースの折り返しを設定。</td></tr><tr><td><code>setSearch(query, display?)</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>ソースの検索条件・パネルを設定。</td></tr><tr><td><code>getSearch()</code> / <code>closeSearch()</code></td><td>検索状態またはnull / boolean</td><td>標準ソース検索の条件を取得・検索パネルを閉じる。</td></tr><tr><td><code>getSearchPanelState()</code></td><td><code>TextEditorSearchRenderContext</code></td><td>検索モード・外部／カスタム検索結果・処理状態と操作を取得。標準ソース検索の一致一覧は含まない。</td></tr><tr><td><code>openSearch(query?)</code> / <code>openExternalSearch(resultId?)</code></td><td><code>boolean</code></td><td>通常検索／外部検索結果を開く。</td></tr><tr><td><code>getOpenPanels()</code></td><td><code>readonly TextEditorPanel[]</code></td><td>開いているパネルの種類。</td></tr><tr><td><code>closePanel(panel)</code> / <code>closePanels()</code></td><td>boolean / void</td><td>指定パネル／すべてのパネルを閉じる。</td></tr><tr><td><code>importFile(file, options?)</code></td><td><code>Promise&lt;TextEditorModel | null&gt;</code></td><td>Blob/Fileを読み込み。</td></tr><tr><td><code>exportFile()</code> / <code>download()</code></td><td><code>{ blob, fileName } | null</code> / boolean</td><td>本文ファイルを作成・ダウンロード。</td></tr><tr><td><code>save()</code> / <code>undo()</code> / <code>redo()</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>保存・履歴操作。</td></tr><tr><td><code>requestEdit()</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>編集許可を確認して編集を開始。</td></tr><tr><td><code>getEditState()</code></td><td><code>TextEditorEditState</code></td><td>view／requesting／editを取得。</td></tr><tr><td><code>cancelEditRequest()</code></td><td><code>void</code></td><td>編集許可待ちのみ中止。</td></tr><tr><td><code>endEdit()</code></td><td><code>boolean</code></td><td>未保存変更がないときに編集を終了。</td></tr><tr><td><code>discard()</code></td><td><code>boolean</code></td><td>保存済みの文書へ戻し、履歴と未確定入力を破棄。</td></tr><tr><td><code>refresh(options?)</code></td><td><code>Promise&lt;boolean&gt;</code></td><td>onRefreshから最新文書を取得し保存済みの基準を更新。</td></tr><tr><td><code>cancelPending()</code></td><td><code>void</code></td><td>処理中の古い結果の適用を中止。</td></tr></tbody></table></div><p><code>options</code> の型は <code>TextEditorReplaceOptions</code>（<code>{ discardChanges?: boolean }</code>）です。<code>importFile</code> はこれに <code>title?</code> / <code>mode?</code> を加えた <code>TextEditorImportOptions</code> を使います。<code>discardChanges</code> は未保存文書の差し替えへの明示指定で、編集許可や処理中の制限は解除しません。</p>
+<p>型はすべてUIの公開入口 <code>@likex/texteditor</code> からimportできます。本文編集の拒否や中止は戻り値で確認し、通知は <code>onEvent</code> や画面の通知欄へつなぎます。モデルAPIは不正入力を例外として返すため、画面なしの利用では呼び出し側で扱ってください。</p>
+<nav class="page-navigation" aria-label="前後のページ"><a href="../commands/index.html"><span>前のページ</span>コマンドとショートカット</a><a href="../markdown/index.html"><span>次のページ</span>Markdownの編集</a></nav><footer class="article-footer">編集元: <a href="https://github.com/sunu-py-jp/LikeX/blob/main/packages/texteditor/src/docs/ref-api.md">ref-api.md</a><br>本文は公開APIと利用ガイドから生成しています。</footer></article><aside class="page-toc" aria-label="このページの見出し"><p>このページ</p><ol><li><a href="#%E6%8E%A5%E7%B6%9A%E3%81%A8%E7%8A%B6%E6%85%8B%E3%81%AE%E5%8F%96%E5%BE%97">接続と状態の取得</a></li><li><a href="#%E6%9C%AC%E6%96%87%E3%81%AE%E6%8C%BF%E5%85%A5%E7%BD%AE%E6%8F%9B%E6%9B%B8%E5%BC%8F">本文の挿入・置換・書式</a></li><li><a href="#%E6%A4%9C%E7%B4%A2%E6%9D%A1%E4%BB%B6%E3%82%92%E6%8C%87%E5%AE%9A%E3%81%97%E3%81%A6%E9%96%8B%E3%81%8F">検索条件を指定して開く</a></li><li><a href="#%E5%88%9D%E6%9C%9F%E6%A4%9C%E7%B4%A2%E3%81%A8%E5%85%B1%E9%80%9A%E3%81%AE%E6%A4%9C%E7%B4%A2api">初期検索と共通の検索API</a></li><li><a href="#%E5%A4%96%E9%83%A8%E6%A4%9C%E7%B4%A2%E7%B5%90%E6%9E%9C%E3%81%A8%E6%A4%9C%E7%B4%A2%E3%81%AE%E5%B7%AE%E3%81%97%E6%9B%BF%E3%81%88">外部検索結果と検索の差し替え</a></li><li><a href="#%E6%A4%9C%E7%B4%A2%E3%83%91%E3%83%8D%E3%83%AB%E3%81%AE%E8%A6%8B%E3%81%9F%E7%9B%AE%E3%82%92%E5%B7%AE%E3%81%97%E6%9B%BF%E3%81%88%E3%82%8B">検索パネルの見た目を差し替える</a></li><li><a href="#%E3%82%AB%E3%83%BC%E3%82%BD%E3%83%AB%E8%A4%87%E6%95%B0%E9%81%B8%E6%8A%9E%E8%A1%8C%E6%93%8D%E4%BD%9C">カーソル・複数選択・行操作</a></li><li><a href="#%E3%83%91%E3%83%8D%E3%83%AB%E3%81%AE%E9%96%8B%E9%96%89">パネルの開閉</a></li><li><a href="#%E8%A1%A8%E7%A4%BA%E5%BD%A2%E5%BC%8F%E3%81%A8%E6%8A%98%E3%82%8A%E8%BF%94%E3%81%97">表示形式と折り返し</a></li><li><a href="#%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%81%AE%E8%AA%AD%E3%81%BF%E8%BE%BC%E3%81%BF%E5%87%BA%E5%8A%9B">ファイルの読み込み・出力</a></li><li><a href="#%E3%83%A1%E3%82%BD%E3%83%83%E3%83%89%E4%B8%80%E8%A6%A7">メソッド一覧</a></li></ol></aside></div></main></div><p class="copy-status" role="status" aria-live="polite"></p></body></html>

@@ -1,19 +1,25 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
 import type { ModelEditorOptions } from "./core";
 import type { TextEditorCommand, TextEditorModel, TextEditorMode, TextEditorSearchOptions, TextEditorRange } from "./model/types";
-import type { TextEditorAction, TextEditorSelection, TextEditorSearchQuery, TextEditorSearchDisplay, TextEditorSearchState } from "./editor-adapter";
+import type { TextEditorAction, TextEditorSelection, TextEditorSearchQuery, TextEditorSearchDisplay, TextEditorSearchState, TextEditorPanel } from "./editor-adapter";
 
+import type { TextEditorSearchProps, TextEditorSearchRenderContext } from "./search-types";
+
+export type TextEditorEditState = "view" | "requesting" | "edit";
+/** Explicitly consent to replacing unsaved content. Does not bypass permissions. */
+export type TextEditorReplaceOptions = { discardChanges?: boolean };
 export type TextEditorViewMode = "source" | "rich";
 export type TextEditorViewState = Readonly<{
   mode: TextEditorMode; viewMode: TextEditorViewMode; wordWrap: boolean;
   readOnly: boolean; editable: boolean; busy: boolean; dirty: boolean;
+  editMode: TextEditorEditState; hasUnsavedChanges: boolean; pendingInput: boolean;
   canSave: boolean; canUndo: boolean; canRedo: boolean;
   features: Readonly<Record<TextEditorFeature, boolean>>;
 }>;
-export type TextEditorImportOptions = { title?: string; mode?: TextEditorMode };
+export type TextEditorImportOptions = TextEditorReplaceOptions & { title?: string; mode?: TextEditorMode };
 export type TextEditorExport = { blob: Blob; fileName: string };
 
-export type TextEditorFeature = "editing" | "history" | "import" | "export";
+export type TextEditorFeature = "editing" | "history" | "import" | "export" | "search" | "replace" | "formatting" | "save" | "refresh";
 /** View-only header customization. Operations use the mounted editor's permission and history paths. */
 export type TextEditorHeaderActionsContext = Readonly<{
   /** Include this node to keep the standard Undo/Redo, read-only indicator and Save controls. */
@@ -33,8 +39,8 @@ export type TextEditorHandle = {
   getDocument(): TextEditorModel;
   getText(): string;
   getState(): TextEditorViewState;
-  execute(commands: TextEditorCommand | readonly TextEditorCommand[]): Promise<TextEditorModel | null>;
-  replace(document: TextEditorModel): Promise<TextEditorModel | null>;
+  execute(commands: TextEditorCommand | readonly TextEditorCommand[], options?: TextEditorReplaceOptions): Promise<TextEditorModel | null>;
+  replace(document: TextEditorModel, options?: TextEditorReplaceOptions): Promise<TextEditorModel | null>;
   find(options: TextEditorSearchOptions): readonly TextEditorRange[];
   runCommand(command: TextEditorAction): Promise<boolean>;
   focus(): void;
@@ -45,18 +51,31 @@ export type TextEditorHandle = {
   setViewMode(mode: TextEditorViewMode): Promise<boolean>;
   setWordWrap(enabled: boolean): boolean;
   setSearch(query: TextEditorSearchQuery, display?: TextEditorSearchDisplay): Promise<boolean>;
-  /** null in rich view. Source search state is reset when switching back from rich view. */
+  /** Native source-search state is retained across source/rich switches; null until configured. */
   getSearch(): TextEditorSearchState | null;
+  getSearchPanelState(): TextEditorSearchRenderContext;
+  openSearch(query?: string): boolean;
+  openExternalSearch(resultId?: string): boolean;
   closeSearch(): boolean;
+  getOpenPanels(): readonly TextEditorPanel[];
+  closePanel(panel: TextEditorPanel): boolean;
+  closePanels(): void;
   importFile(file: Blob, options?: TextEditorImportOptions): Promise<TextEditorModel | null>;
   exportFile(): TextEditorExport | null;
   download(): boolean;
   save(): Promise<boolean>;
   undo(): Promise<boolean>;
   redo(): Promise<boolean>;
+  requestEdit(): Promise<boolean>;
+  cancelEditRequest(): void;
+  getEditState(): TextEditorEditState;
+  /** Refuses to end an edit with unsaved changes. Save or discard first. */
+  endEdit(): boolean;
+  discard(): boolean;
+  refresh(options?: TextEditorReplaceOptions): Promise<boolean>;
   cancelPending(): void;
 };
-export type TextEditorProps = ModelEditorOptions<TextEditorModel, TextEditorFeature> & {
+export type TextEditorProps = ModelEditorOptions<TextEditorModel, TextEditorFeature> & TextEditorSearchProps & {
   /** Initial values are read once. Use ref.replace or a React key for another document. */
   initialDocument?: TextEditorModel;
   initialText?: string;
@@ -71,6 +90,11 @@ export type TextEditorProps = ModelEditorOptions<TextEditorModel, TextEditorFeat
   headerStyle?: CSSProperties;
   initialWordWrap?: boolean;
   initialViewMode?: TextEditorViewMode;
+  /** Includes text still waiting for edit permission, unlike onDirtyChange. */
+  onUnsavedChangesChange?(hasUnsavedChanges: boolean): void;
+  /** Browser leave-page warning. Defaults to true. */
+  warnOnUnsavedChanges?: boolean;
+  onPanelsChange?(panels: readonly TextEditorPanel[]): void;
   onSelectionChange?(selection: TextEditorSelection): void;
   onWordWrapChange?(enabled: boolean): void;
   onViewModeChange?(mode: TextEditorViewMode): void;

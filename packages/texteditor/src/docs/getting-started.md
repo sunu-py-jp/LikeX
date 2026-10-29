@@ -44,10 +44,18 @@ export function Notes() {
 | `onSelectionChange` | 現在の選択範囲を受け取る。sourceとrichの座標を区別する。 |
 | `onWordWrapChange` | 折り返し設定の変更通知。 |
 | `onViewModeChange` | 文章表示／ソース表示の変更通知。 |
+| `features` | editing・history・import・export・search・replace・formatting・save・refreshを個別にON／OFF。 |
+| `initialSearchOpen` / `initialSearchQuery` / `initialSearchMode` | 初期検索の開閉・キーワード・local/externalモード。 |
+| `externalSearch` | 利用側で取得した検索結果を注入。ソースのUTF-16範囲を指定する。 |
+| `onSearchRequest` / `searchParams` | キーワード検索を利用側で実行するコールバックと追加条件。 |
+| `renderSearch` | 検索パネルの表示を差し替える。 |
+| `onRefresh` | 最新文書を取得する。refのrefreshから実行する。 |
+| `onUnsavedChangesChange` / `warnOnUnsavedChanges` | 未確定の入力を含む変更の通知／ブラウザー離脱警告。警告の既定はtrue。 |
+| `onPanelsChange` | 検索・行移動・コマンド・リンク・ブロックメニューの開閉通知。 |
 
-初期値はマウント時に一度だけ読みます。別の文書を開く場合は `ref.replace(document)`、またはReactの `key` を変更します。モードの切り替えだけで本文は変換しません。Markdownモードではヘッダーの目のアイコン（文章表示）と `</>`（ソース表示）のトグルで表示を切り替えられます。選択中の表示が強調され、ホバー時の説明と読み上げ用のラベルでも区別できます。文章表示でも、編集が許可されていれば見たまま編集できます。
+初期値はマウント時に一度だけ読みます。別の文書を開く場合は `ref.replace(document)` を使います。未保存変更があれば保存するか、破棄を決めて `{ discardChanges: true }` を指定します。Reactの `key` を変更して作り直す場合は親側で未保存変更を確認してください。モードの切り替えだけで本文は変換しません。Markdownモードではヘッダーの目のアイコン（文章表示）と `</>`（ソース表示）のトグルで表示を切り替えられます。選択中の表示が強調され、ホバー時の説明と読み上げ用のラベルでも区別できます。文章表示でも、編集が許可されていれば見たまま編集できます。
 
-外からの操作は[表示中のAPIと利用例](ref-api.md)にまとめています。`ref.execute` で本文、`setSearch` で検索条件、`setSelection` でカーソルや範囲、`setViewMode`・`setWordWrap` で表示を指定できます。表示設定は文書の保存データへ含めません。
+外からの操作は[表示中のAPIと利用例](ref-api.md)にまとめています。`ref.execute` で本文、`setSearch` で検索条件、`setSelection` でカーソルや範囲、`setViewMode`・`setWordWrap` で表示を指定できます。編集開始・破棄・再読み込み、機能フラグ、未保存変更の保護は[保存・編集許可・ファイル](lifecycle.md)にまとめています。表示設定は文書の保存データへ含めません。
 
 親に高さを設定してください。内部のスクロールはエディターが持ちます。スタイルは `data-likex-texteditor` 配下と `lxte-` 接頭辞へ限定し、Tailwindの導入は不要です。
 

@@ -7,7 +7,7 @@ import { keymap } from "prosemirror-keymap";
 import { splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list";
 import { InputRule, inputRules, textblockTypeInputRule, wrappingInputRule } from "prosemirror-inputrules";
 import { Bold, Italic, Code, Link2, Heading1, Heading2, Heading3, List, ListOrdered, Quote, CodeSquare, Minus, Pilcrow, FileCode2, ListChecks } from "lucide-react";
-import type { EditorAdapterProps, TextEditorAction, TextEditorSelection } from "../editor-adapter";
+import type { EditorAdapterProps, TextEditorAction, TextEditorPanel, TextEditorSelection } from "../editor-adapter";
 import { getMarkdownCompatibilityWarnings, isSafeMarkdownUrl, markdownCommand, markdownSchema, markdownSelectionAfterReplace, markdownTaskCommand, parseMarkdownDocument, richSelectionCommand, serializeMarkdownDocument } from "../markdown";
 import type { MarkdownAction } from "../markdown";
 
@@ -33,15 +33,30 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
   const latest = useRef(props), currentText = useRef(props.value), observedValue = useRef(props.value), submitted = useRef(new Set<string>()), generation = useRef(0), alive = useRef(false);
   const flow = useRef({ pending: false, queued: null as string | null });
   const [ready, setReady] = useState(false), [menu, updateMenu] = useState<SlashMenu | null>(null), menuRef = useRef<SlashMenu | null>(null);
-  const [link, setLink] = useState<string | null>(null), [error, setError] = useState("");
+  const [link, updateLink] = useState<string | null>(null), linkRef = useRef<string | null>(null), [error, setError] = useState("");
+  const observed = useRef({ panels: "", pending: false });
   const warnings = useMemo(() => getMarkdownCompatibilityWarnings(value), [value]), canEdit = editable && warnings.length === 0;
   const policy = useRef(canEdit);
   const focused = useRef(false);
-  function setMenu(value: SlashMenu | null) { menuRef.current = value; updateMenu(value); }
+  function formattingAllowed() { return latest.current.formatting !== false && latest.current.formattingEnabled !== false; }
+  function openPanels(): readonly TextEditorPanel[] { return [...(linkRef.current !== null ? ["link" as const] : []), ...(menuRef.current ? ["blocks" as const] : [])]; }
+  function notifyPanels() {
+    const panels = openPanels(), key = panels.join(",");
+    if (observed.current.panels === key) return;
+    observed.current.panels = key;
+    try { latest.current.onPanelsChange?.(panels); } catch { /* Panel observers do not cancel the interaction. */ }
+  }
+  function setMenu(value: SlashMenu | null) { menuRef.current = value; updateMenu(value); notifyPanels(); }
+  function setLink(value: string | null) { linkRef.current = value; updateLink(value); notifyPanels(); }
+  function notifyPending(value: boolean) {
+    if (observed.current.pending === value) return;
+    observed.current.pending = value;
+    try { latest.current.onPendingChange?.(value); } catch { /* Pending observers do not cancel changes. */ }
+  }
   const filteredBlocks = (query: string) => blocks.filter(item => `${item.title} ${item.keywords}`.toLowerCase().includes(query.toLowerCase()));
 
   function refreshMenu(view: EditorView) {
-    if (!policy.current || latest.current.formatting === false || !view.state.selection.empty) { setMenu(null); return; }
+    if (!policy.current || !formattingAllowed() || !view.state.selection.empty) { setMenu(null); return; }
     const { $from } = view.state.selection, match = /^\/([^\n/]*)$/.exec($from.parent.textContent);
     if ($from.parent.type.name !== "paragraph" || !match || $from.parentOffset !== $from.parent.content.size) { setMenu(null); return; }
     const rect = wrapper.current?.getBoundingClientRect(), point = view.coordsAtPos($from.pos);
@@ -67,8 +82,8 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     if (action === "commandPalette") { latest.current.onCommandPalette?.(); return true; }
     if (action === "selectAll" || action === "selectLine") { const result = richSelectionCommand(action)(view.state, view.dispatch); view.focus(); return result; }
     if (!policy.current) return false;
-    if (action === "indent" || action === "outdent") return richSelectionCommand(action)(view.state, view.dispatch);
-    if (!action.startsWith("markdown.") || latest.current.formatting === false) return false;
+    if (action === "indent" || action === "outdent") return formattingAllowed() && richSelectionCommand(action)(view.state, view.dispatch);
+    if (!action.startsWith("markdown.") || !formattingAllowed()) return false;
     if (action === "markdown.link") {
       if (view.state.selection.empty) { setError("リンクにする文字を選択してください。"); return false; }
       const mark = view.state.selection.$from.marks().find(item => item.type === markdownSchema.marks.link);
@@ -79,7 +94,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
 
   function chooseBlock(action: MarkdownAction) {
     const view = viewRef.current, current = menuRef.current;
-    if (!view || !current || !policy.current || latest.current.formatting === false) return;
+    if (!view || !current || !policy.current || !formattingAllowed()) return;
     const transaction = view.state.tr.delete(current.from, current.to), staged = view.state.apply(transaction);
     markdownCommand(action)(staged, result => { for (const step of result.steps) transaction.step(step); transaction.setSelection(Selection.fromJSON(transaction.doc, result.selection.toJSON())); });
     setMenu(null); view.dispatch(transaction.scrollIntoView()); view.focus();
@@ -114,6 +129,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     const view = viewRef.current;
     if (!view) return;
     view.setProps({ editable: () => policy.current });
+    if (!canEdit || !formattingAllowed()) { if (menuRef.current) setMenu(null); if (linkRef.current !== null) setLink(null); }
     if (editingChanged && canEdit) refreshMenu(view);
     if (props.value === observedValue.current) return;
     observedValue.current = props.value;
@@ -121,6 +137,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     if (submitted.current.has(props.value)) { submitted.current.delete(props.value); return; }
     if (props.value !== currentText.current) {
       generation.current++; flow.current.pending = false; flow.current.queued = null; currentText.current = props.value; submitted.current.clear();
+      notifyPending(false);
       view.updateState(view.state.apply(markdownSelectionAfterReplace(view.state, parseMarkdownDocument(props.value))));
       setMenu(null);
     }
@@ -139,14 +156,15 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     function flush() {
       if (pending.pending || pending.queued === null || !alive.current) return;
       const text = pending.queued, revision = generation.current; pending.queued = null; pending.pending = true; submitted.current.add(text);
-      void Promise.resolve().then(() => latest.current.onChange(text)).then(accepted => {
+      void Promise.resolve().then(() => alive.current && revision === generation.current ? latest.current.onChange(text) : false).then(accepted => {
         if (alive.current && revision === generation.current && !accepted) restore();
       }).catch(() => {
         if (!alive.current || revision !== generation.current) return;
         restore(); setError("変更を反映できませんでした。");
       }).finally(() => {
         if (!alive.current || revision !== generation.current) return;
-        pending.pending = false; flush();
+        pending.pending = false;
+        if (pending.queued !== null) flush(); else notifyPending(false);
       });
     }
     const inline = (action: MarkdownAction) => () => run(action);
@@ -160,7 +178,8 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
           "Shift-Mod-7": inline("markdown.orderedList"), "Shift-Mod-8": inline("markdown.bulletList"),
           "Mod-Enter": exitCode,
           Enter: chainCommands(splitListItem(markdownSchema.nodes.list_item), baseKeymap.Enter),
-          Tab: sinkListItem(markdownSchema.nodes.list_item), "Shift-Tab": liftListItem(markdownSchema.nodes.list_item),
+          Tab: (state, dispatch) => !formattingAllowed() || sinkListItem(markdownSchema.nodes.list_item)(state, dispatch),
+          "Shift-Tab": (state, dispatch) => !formattingAllowed() || liftListItem(markdownSchema.nodes.list_item)(state, dispatch),
         }),
         inputRules({ rules: [
           textblockTypeInputRule(/^(#{1,6})\s$/, markdownSchema.nodes.heading, match => ({ level: match[1].length })),
@@ -181,7 +200,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
       attributes: { class: "lxte-rich-document", "aria-label": "Markdownの本文", role: "textbox", "aria-multiline": "true", tabindex: "0" },
       decorations(state) {
         const { selection } = state;
-        if (!focused.current || !policy.current || latest.current.formatting === false || !(selection instanceof TextSelection) || !selection.empty)
+        if (!focused.current || !policy.current || !formattingAllowed() || !(selection instanceof TextSelection) || !selection.empty)
           return DecorationSet.empty;
         const { $from } = selection;
         if ($from.parent.type.name !== "paragraph" || $from.parent.content.size !== 0) return DecorationSet.empty;
@@ -194,12 +213,12 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
         blur(current) { focused.current = false; current.setProps({}); return false; },
       },
       handleTextInput(current, from, to, text) {
-        if (latest.current.formatting !== false) return false;
+        if (formattingAllowed()) return false;
         if (policy.current) current.dispatch(current.state.tr.insertText(text, from, to));
         return true;
       },
       handlePaste(current, event) {
-        if (latest.current.formatting !== false) return false;
+        if (formattingAllowed()) return false;
         const text = event.clipboardData?.getData("text/plain");
         if (text === undefined) return false;
         if (policy.current) current.dispatch(current.state.tr.insertText(text));
@@ -211,7 +230,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
       handleClick(current, _position, event) {
         const checkbox = (event.target as HTMLElement).closest?.(".lxte-task-checkbox");
         if (checkbox) {
-          if (!policy.current) return true;
+          if (!policy.current || !formattingAllowed()) return true;
           const position = current.posAtDOM(checkbox.closest("li")!, 0), resolved = current.state.doc.resolve(position);
           for (let depth = resolved.depth; depth > 0; depth--) if (resolved.node(depth).type === markdownSchema.nodes.list_item) {
             markdownTaskCommand(resolved.before(depth))(current.state, current.dispatch); break;
@@ -230,11 +249,11 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
         refreshMenu(current);
         if (!transaction.docChanged) return;
         const text = serializeMarkdownDocument(state.doc);
-        currentText.current = text; pending.queued = text; flush();
+        currentText.current = text; pending.queued = text; notifyPending(true); flush();
       },
     });
     viewRef.current = view; currentText.current = latest.current.value; setReady(true);
-    return () => { alive.current = false; focused.current = false; view.destroy(); viewRef.current = null; };
+    return () => { alive.current = false; focused.current = false; pending.pending = false; pending.queued = null; notifyPending(false); view.destroy(); viewRef.current = null; };
     // The view is created once; callbacks read current options through latest/policy refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -250,6 +269,12 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
       view.dispatch(view.state.tr.setSelection(TextSelection.between(view.state.doc.resolve(range.anchor), view.state.doc.resolve(range.head))).scrollIntoView());
     },
     goToLine: () => false,
+    getOpenPanels: openPanels,
+    closePanel(panel) {
+      if (panel === "link" && linkRef.current !== null) { setLink(null); return true; }
+      if (panel === "blocks" && menuRef.current) { setMenu(null); return true; }
+      return false;
+    },
   }));
 
   const menuItems = menu ? filteredBlocks(menu.query) : [];
@@ -259,7 +284,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     if ((event.target as HTMLElement).closest?.(".lxte-rich-document, .lxte-slash-menu") && handleMenuKey(event.nativeEvent)) { event.preventDefault(); event.stopPropagation(); }
   }}>
     {warnings.length > 0 && <div className="lxte-rich-compatibility" role="status"><span>{warnings.join("・")}を含む文書です。内容を保つためソースで編集できます。</span>{onSourceMode && <button type="button" onClick={onSourceMode}><FileCode2 size={15} />ソースで編集</button>}</div>}
-    {formatting !== false && <div className="lxte-format-toolbar" role="toolbar" aria-label="Markdownの書式">
+    {formatting !== false && props.formattingEnabled !== false && <div className="lxte-format-toolbar" role="toolbar" aria-label="Markdownの書式">
       <span className="lxte-block-picker"><select aria-label="ブロックの種類" disabled={!canEdit} value="" onChange={event => { run(event.target.value as MarkdownAction); }}><option value="">ブロック</option>{blocks.map(item => <option key={item.action} value={item.action}>{item.title}</option>)}</select></span>
       {([
         ["markdown.bold", "太字", Bold], ["markdown.italic", "斜体", Italic], ["markdown.code", "インラインコード", Code], ["markdown.link", "リンク", Link2],
@@ -268,7 +293,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     </div>}
     {link !== null && <form className="lxte-link-form" onSubmit={event => {
       event.preventDefault(); const view = viewRef.current;
-      if (!view || !policy.current) return;
+      if (!view || !policy.current || !formattingAllowed()) return;
       if (link && !isSafeMarkdownUrl(link)) { setError("有効なリンク先を入力してください。"); return; }
       markdownCommand("markdown.link", { href: link })(view.state, view.dispatch); setLink(null); setError(""); view.focus();
     }}><label>リンク先<input autoFocus type="text" value={link} onChange={event => setLink(event.target.value)} placeholder="https://example.com" onKeyDown={event => { if (event.key === "Escape") setLink(null); }} /></label><button type="submit" disabled={!canEdit}>適用</button><button type="button" onClick={() => setLink(null)}>閉じる</button></form>}

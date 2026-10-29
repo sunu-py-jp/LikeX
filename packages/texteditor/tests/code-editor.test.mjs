@@ -88,3 +88,14 @@ test('history actions call the shared lifecycle rather than a second undo stack'
   assert.deepEqual(invoked, ['undo', 'redo']);
   assert.equal(view.state.doc.toString(), 'hello');
 });
+
+test('disabled search and replacement cannot be invoked through the command dispatcher', () => {
+  const view = editor('alpha alpha', [{ anchor: 0, head: 5 }]);
+  const before = view.state;
+  for (const action of ['find', 'findNext', 'findPrevious', 'selectSearchMatches', 'replace', 'replaceNext', 'replaceAll'])
+    assert.equal(runCodeEditorAction(view, action, { ...callbacks, searchEnabled: false }), false, action);
+  for (const action of ['replace', 'replaceNext', 'replaceAll'])
+    assert.equal(runCodeEditorAction(view, action, { ...callbacks, replaceEnabled: false }), false, action);
+  assert.equal(view.state, before);
+  assert.equal(runCodeEditorAction(view, 'selectNextOccurrence', { ...callbacks, searchEnabled: false }), true, 'multi-selection remains independent from the search panel');
+});

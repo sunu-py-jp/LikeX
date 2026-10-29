@@ -24,7 +24,7 @@ const result = await build({
         function Adapter(props) {
           const ready=useRef(false); useEffect(()=>{ready.current=true;return()=>{ready.current=false;}},[]);
           const selection = useRef({ coordinateSpace: kind, ranges: [{anchor:0,head:0}], mainIndex:0 });
-          const search = useRef({query:'',replacement:'',caseSensitive:false,wholeWord:false,regex:false,open:false,valid:false});
+          const search = useRef({query:'',replacement:'',caseSensitive:false,wholeWord:false,regex:false,open:false,replace:false,valid:false});
           useImperativeHandle(props.ref, () => ({
             isReady() { return ready.current; },
             focus() { globalThis.__lxteTestAdapterCalls.push({type:'focus',kind}); },
@@ -33,14 +33,14 @@ const result = await build({
               if(action === 'selectAll') { selection.current = {coordinateSpace:kind,ranges:[{anchor:0,head:props.value.length}],mainIndex:0}; props.onSelectionChange?.(selection.current); }
               if(action === 'undo') props.onUndo(); if(action === 'redo') props.onRedo(); return true; },
             getSelection() { return selection.current; }, setSelection(value) { selection.current = value; props.onSelectionChange?.(value); },
-            setSearch(query,display={}) { if(!ready.current)return false; search.current={query:query.query,replacement:query.replacement??'',caseSensitive:query.caseSensitive??false,wholeWord:query.wholeWord??false,regex:query.regex??false,open:display.open!==false,valid:!!query.query}; return true; },
+            setSearch(query,display={}) { if(!ready.current || Object.keys(query).some(key=>!['query','replacement','caseSensitive','wholeWord','regex'].includes(key)))return false; search.current={query:query.query,replacement:query.replacement??'',caseSensitive:query.caseSensitive??false,wholeWord:query.wholeWord??false,regex:query.regex??false,open:display.open!==false,replace:display.replace===true,valid:!!query.query}; return true; },
             getSearch() { return search.current; },
             goToLine(line,column=1) { globalThis.__lxteTestAdapterCalls.push({type:'line',kind,line,column}); return line > 0; }
           }));
           return createElement('textarea',{ 'data-test-adapter':kind, value:props.value, readOnly:!props.editable,
             onChange:event=>{ selection.current = {coordinateSpace:kind,ranges:[{anchor:event.target.value.length,head:event.target.value.length}],mainIndex:0};
               props.onSelectionChange?.(selection.current); return props.onChange(event.target.value); },
-            onUndo:props.onUndo,onRedo:props.onRedo,onCommandPalette:props.onCommandPalette });
+            onPendingChange:props.onPendingChange,onUndo:props.onUndo,onRedo:props.onRedo,onCommandPalette:props.onCommandPalette });
         }
         export { Adapter as CodeEditor, Adapter as MarkdownEditor };`, loader: 'js' }));
     } },
@@ -57,7 +57,7 @@ function textOf(node) { return typeof node === 'string' ? node : node.children?.
 async function mount(t, options = {}) {
   const ref = createRef(), changes = [], saves = [], dirty = [];
   let props = { initialText: 'first\nsecond', onSave: value => { saves.push(value); }, onChange: value => changes.push(value), onDirtyChange: value => dirty.push(value), ...options }, renderer;
-  const node = { focus() {}, blur() {}, contains() { return true; } };
+  const node = { focus() {}, blur() {}, contains() { return true; }, querySelector() { return null; } };
   await act(async () => { renderer = create(createElement(TextEditorView, { ...props, ref }), { createNodeMock: () => node }); });
   let mounted = true;
   t.after(async () => { if (mounted) await act(async () => renderer.unmount()); });
@@ -80,7 +80,7 @@ test('missing onSave is read-only while search and select-all remain available',
   await act(async () => assert.equal(await ui.ref.current.runCommand('selectAll'), true));
   assert.equal(ui.ref.current.getSelection().ranges[0].head, 12);
   await act(async () => { void ui.ref.current.runCommand('find'); });
-  assert.ok(calls.some(call => call.type === 'command' && call.action === 'find'));
+  assert.equal(ui.ref.current.getSearch().open, true);
   assert.equal(ui.ref.current.getText(), 'first\nsecond');
 });
 
@@ -204,7 +204,7 @@ test('the action row is opt-in while commands and Markdown view switching remain
   assert.equal(ui.renderer.root.findAllByType('nav').length, 1);
   for (const label of ['検索', '置換', 'コマンド', 'ファイルを開く', 'ファイルをダウンロード']) assert.ok(ui.button(label), label);
   await ui.click('検索');
-  assert.ok(calls.some(call => call.type === 'command' && call.action === 'find'));
+  assert.equal(ui.ref.current.getSearch().open, true);
   await ui.update({ showToolbar: false });
   assert.equal(ui.renderer.root.findAllByType('nav').length, 0);
   assert.equal(ui.ref.current.getText(), 'first\nsecond');
@@ -318,11 +318,11 @@ test('retained API switches views and controls search/wrap without changing sour
   assert.equal(await pending, true); assert.equal(api.getState().viewMode, 'source');
   await act(async () => assert.equal(await api.setSearch({query:'text',replacement:'next',caseSensitive:true}), true));
   assert.equal(api.getSearch().query, 'text'); assert.equal(api.getSearch().open, true);
-  assert.equal(api.closeSearch(), true); assert.equal(api.getSearch().open, false);
+  await act(async () => assert.equal(api.closeSearch(), true)); assert.equal(api.getSearch().open, false);
   await act(async () => { assert.equal(api.setWordWrap(false), true); assert.equal(api.setWordWrap(false), true); });
   assert.equal(api.getState().wordWrap, false); assert.deepEqual(wraps, [false]);
   await act(async () => { pending=api.setViewMode('rich'); }); assert.equal(await pending, true);
-  assert.equal(api.getState().viewMode, 'rich'); assert.equal(api.getSearch(), null);
+  assert.equal(api.getState().viewMode, 'rich'); assert.equal(api.getSearch().query, 'text');
   await act(async () => { pending=api.setSearch({query:'Heading'}); }); assert.equal(await pending, true);
   assert.equal(api.getState().viewMode, 'source'); assert.equal(api.getSearch().query, 'Heading');
   assert.deepEqual(views, ['source','rich','source']);
@@ -360,12 +360,12 @@ test('import/export uses shared validation, permission, source preservation and 
   await ui.update({features:{import:false}}); assert.equal(api.getState().canUndo,false);
   assert.equal(await api.importFile(new Blob(['blocked'])),null);
   await ui.update({features:{import:true}});
-  await act(async () => assert.ok(await api.importFile(new Blob(['# note\r\n']),{title:'note',mode:'markdown'})));
+  await act(async () => assert.ok(await api.importFile(new Blob(['# note\r\n']),{title:'note',mode:'markdown',discardChanges:true})));
   assert.equal(api.getDocument().mode,'markdown'); assert.equal(api.exportFile().fileName,'note.md');
   assert.equal(await api.exportFile().blob.text(),'# note\r\n');
   const before=api.getDocument();
-  await act(async () => assert.equal(await api.importFile(new Blob(['\0'])),null)); assert.equal(api.getDocument(),before);
-  await act(async () => assert.equal(await api.importFile(new Blob(['x']),{mode:'bad'}),null)); assert.equal(api.getDocument(),before);
+  await act(async () => assert.equal(await api.importFile(new Blob(['\0']), {discardChanges:true}),null)); assert.equal(api.getDocument(),before);
+  await act(async () => assert.equal(await api.importFile(new Blob(['x']),{mode:'bad',discardChanges:true}),null)); assert.equal(api.getDocument(),before);
 });
 
 test('cancelled or stale imports never apply after reading finishes', async t => {
@@ -407,4 +407,119 @@ test('initial parent layout calls wait for source adapter creation', async () =>
     assert.equal(earlySelection,false,'sync selection reports unready instead of fake success');
     assert.equal(await pending,true); assert.equal(ref.current.getSearch().query,'initial');
   } finally {await act(async()=>renderer.unmount());}
+});
+
+test('feature flags gate mounted model commands, search controls and history requirements', async t => {
+  const ui=await mount(t,{mode:'markdown',showToolbar:true,features:{search:false,replace:false,formatting:false,save:false}}), api=ui.ref.current;
+  assert.equal(api.openSearch('first'),false); assert.equal(api.openExternalSearch(),false);
+  assert.equal(await api.setSearch({query:'first'}),false); assert.deepEqual(api.find({query:'first'}),[]);
+  for(const command of ['find','replace','findNext','markdown.bold','indent']) assert.equal(await api.runCommand(command),false);
+  for(const label of ['検索','置換','保存']) assert.equal(ui.button(label),undefined);
+  await act(async()=>assert.equal(await api.execute({type:'text.replaceAll',query:'first',replacement:'next'}),null));
+  await act(async()=>assert.equal(await api.execute({type:'markdown.format',selection:{from:1,to:3},action:'bold'}),null));
+  assert.equal(await ui.type('plain typing still works'),true); assert.equal(api.getState().canSave,false);
+  assert.equal(await api.save(),false);
+  await ui.update({features:{search:true,replace:true,formatting:true,save:true}});
+  await act(async()=>assert.ok(await api.execute({type:'text.replaceAll',query:'plain',replacement:'new'})));
+  await ui.update({features:{replace:false}}); assert.equal(api.getState().canUndo,false); assert.equal(await api.undo(),false);
+});
+
+test('explicit edit lifecycle exposes permission, cancellation, discard and refresh with save context', async t => {
+  let decide, permissionContext, saveContext;
+  const ui=await mount(t,{onEditRequest:(_request,context)=>{permissionContext=context;return new Promise(resolve=>{decide=resolve;});},onSave:(_model,context)=>{saveContext=context;}}), api=ui.ref.current;
+  assert.equal(api.getEditState(),'view'); let editing;
+  await act(async()=>{editing=api.requestEdit();});
+  assert.equal(api.getEditState(),'requesting'); assert.equal(api.getState().busy,true);
+  await act(async()=>{api.cancelEditRequest();decide(true);assert.equal(await editing,false);});
+  assert.equal(permissionContext.signal.aborted,true); assert.equal(api.getEditState(),'view');
+  await ui.update({onEditRequest:()=>true});
+  await act(async()=>assert.equal(await api.requestEdit(),true)); assert.equal(api.getEditState(),'edit');
+  await act(async()=>assert.equal(api.endEdit(),true)); assert.equal(api.getEditState(),'view');
+  await ui.type('changed'); assert.equal(api.endEdit(),false);
+  await act(async()=>assert.equal(await api.save(),true)); assert.ok(saveContext.signal); assert.ok(saveContext.requestId);
+  await ui.type('discard me'); await act(async()=>assert.equal(api.discard(),true)); assert.equal(api.getText(),'changed');
+  assert.equal(api.getState().canUndo,false); assert.equal(api.getEditState(),'view');
+  await ui.update({onRefresh:context=>{assert.ok(context.signal);return {...api.getDocument(),text:'fresh from host'};}});
+  await ui.type('unsaved'); await act(async()=>assert.equal(await api.refresh(),false)); assert.equal(api.getText(),'unsaved');
+  await act(async()=>assert.equal(await api.refresh({discardChanges:true}),true));
+  assert.equal(api.getText(),'fresh from host'); assert.equal(api.getState().dirty,false); assert.equal(api.getState().canUndo,false);
+  await ui.update({readOnly:true,onRefresh:()=>({...api.getDocument(),text:'readonly refresh'})});
+  await act(async()=>assert.equal(await api.refresh(),true)); assert.equal(api.getText(),'readonly refresh');
+});
+
+test('dirty replacement guards import, replace and batched document replacement atomically', async t => {
+  const notifications=[]; const ui=await mount(t,{onUnsavedChangesChange:value=>notifications.push(value)}), api=ui.ref.current;
+  await ui.type('keep unsaved'); const before=api.getDocument();
+  await act(async()=>{
+    assert.equal(await api.replace({...before,text:'no'}),null);
+    assert.equal(await api.importFile(new Blob(['no'])),null);
+    assert.equal(await api.execute([{type:'text.insert',offset:0,text:'must not apply'},{type:'document.replace',document:{...before,text:'no'}}]),null);
+  });
+  assert.equal(api.getDocument(),before); assert.equal(api.getState().hasUnsavedChanges,true);
+  await act(async()=>assert.ok(await api.replace({...before,text:'explicit'},{discardChanges:true})));
+  assert.equal(api.getText(),'explicit'); await act(async()=>assert.equal(await api.undo(),true)); assert.equal(api.getText(),'keep unsaved');
+  await act(async()=>assert.equal(api.discard(),true)); assert.equal(api.getText(),'first\nsecond');
+  assert.deepEqual(notifications,[false,true,false]);
+});
+
+test('unsaved notifications and browser warning include pending input and can be disabled', async t => {
+  const previousWindow=globalThis.window, listeners=new Map(), observed=[];
+  globalThis.window={addEventListener(type,fn){listeners.set(type,fn);},removeEventListener(type,fn){if(listeners.get(type)===fn)listeners.delete(type);}};
+  try {
+    const ui=await mount(t,{onUnsavedChangesChange:value=>observed.push(value)}), api=ui.ref.current;
+    assert.equal(listeners.has('beforeunload'),false);
+    await act(async()=>ui.editor.props.onPendingChange(true));
+    assert.equal(api.getState().dirty,false); assert.equal(api.getState().hasUnsavedChanges,true); assert.equal(api.getState().pendingInput,true);
+    const event={preventDefault(){this.prevented=true;},returnValue:null}; listeners.get('beforeunload')(event);
+    assert.equal(event.prevented,true); assert.equal(event.returnValue,'');
+    assert.equal(await api.save(),false); assert.equal(api.endEdit(),false);
+    await ui.update({warnOnUnsavedChanges:false}); assert.equal(listeners.has('beforeunload'),false);
+    await act(async()=>ui.editor.props.onPendingChange(false)); assert.deepEqual(observed,[false,true,false]);
+    await ui.unmount();
+  } finally {globalThis.window=previousWindow;}
+});
+
+test('initial search, retained query and common panel controls work across source and rich views', async t => {
+  const observed=[];
+  const ui=await mount(t,{mode:'markdown',initialSearchOpen:true,initialSearchQuery:'first',onPanelsChange:panels=>observed.push(panels)}), api=ui.ref.current;
+  assert.equal(api.getState().viewMode,'source'); assert.equal(api.getSearch().query,'first'); assert.equal(api.getSearch().open,true);
+  assert.ok(api.getOpenPanels().includes('search'));
+  await act(async()=>assert.equal(api.closePanel('search'),true)); assert.equal(api.getSearch().open,false);
+  let pending; await act(async()=>{pending=api.setViewMode('rich');}); assert.equal(await pending,true);
+  assert.equal(api.getSearch().query,'first'); assert.equal(api.getSearch().open,false);
+  await act(async()=>{pending=api.setViewMode('source');}); assert.equal(await pending,true); assert.equal(api.getSearch().query,'first');
+  await act(async()=>assert.equal(api.openSearch(),true)); assert.equal(api.getSearch().query,'first');
+  await act(async()=>assert.equal(await api.runCommand('commandPalette'),true));
+  assert.deepEqual(api.getOpenPanels().sort(),['commandPalette','search']);
+  await act(async()=>api.closePanels()); assert.deepEqual(api.getOpenPanels(),[]);
+  assert.ok(observed.some(panels=>panels.includes('commandPalette')));
+});
+
+test('external results navigate source and the keyword tab uses native search', async t => {
+  const selected=[];
+  const ui=await mount(t,{mode:'markdown',externalSearch:{title:'意味検索',results:[{id:'r',title:'second',target:{from:6,to:12}}],onResultSelect:result=>selected.push(result.id)},initialSearchOpen:true}), api=ui.ref.current;
+  assert.equal(api.getState().viewMode,'source'); assert.deepEqual(api.getSelection().ranges,[{anchor:6,head:12}]); assert.deepEqual(selected,['r']);
+  assert.equal(api.getSearchPanelState().mode,'external'); assert.equal(api.getSearchPanelState().results.length,1);
+  const context=api.getSearchPanelState(); await act(async()=>assert.equal(context.openSearch('first'),true));
+  assert.equal(api.getSearch().query,'first'); assert.equal(api.getSearch().open,true); assert.equal(api.getSearchPanelState().mode,'local');
+  await act(async()=>assert.equal(api.openExternalSearch('r'),true)); assert.equal(api.getSearchPanelState().mode,'external');
+  assert.equal(api.openExternalSearch('missing'),false);
+  await act(async()=>api.closePanel('search')); assert.equal(api.getSearchPanelState().open,false);
+});
+
+test('host search is used by keyboard and API and stale results cannot survive a document change', async t => {
+  const requests=[]; let renderContext;
+  const ui=await mount(t,{onSearchRequest:(request,context)=>new Promise(resolve=>requests.push({request,context,resolve})),renderSearch:context=>{renderContext=context;return null;}}), api=ui.ref.current;
+  await act(async()=>assert.equal(api.openSearch('first'),true)); assert.equal(requests.length,1); assert.equal(requests[0].request.query.query,'first');
+  assert.equal(api.getSearchPanelState().busy,true);
+  await act(async()=>assert.ok(await api.execute({type:'text.set',text:'another text'})));
+  assert.equal(requests[0].context.signal.aborted,true); assert.equal(requests.length,2);
+  await act(async()=>requests[0].resolve([{id:'stale',target:{from:0,to:5}}])); assert.equal(api.getSearchPanelState().results.length,0);
+  await act(async()=>requests[1].resolve([{id:'fresh',target:{from:0,to:7}}])); assert.equal(api.getSearchPanelState().results[0].id,'fresh');
+  await act(async()=>assert.equal(await renderContext.selectResult('fresh'),true)); assert.deepEqual(api.getSelection().ranges,[{anchor:0,head:7}]);
+  const root=ui.renderer.root.findByType('section');
+  await act(async()=>root.props.onKeyDownCapture({isDefaultPrevented:()=>false,nativeEvent:{isComposing:false},ctrlKey:true,key:'f',target:{closest:()=>true},preventDefault(){},stopPropagation(){}}));
+  assert.equal(api.getSearchPanelState().open,true);
+  await act(async()=>assert.equal(await api.runCommand('replace'),true));
+  assert.equal(api.getSearchPanelState().open,false); assert.equal(api.getSearch().replace,true);
 });

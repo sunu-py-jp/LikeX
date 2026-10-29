@@ -6,23 +6,96 @@ Undo／Redoは上部右側の保存ボタンの左にまとめて表示します
 
 検索・置換・コマンド一覧・折り返し・ファイルを開く・ダウンロードが並ぶ操作行は、標準では表示しません。`showToolbar={true}` で表示できます。非表示でもキーボードショートカットとref APIは利用でき、Markdownの目のアイコン（文章表示）と `</>`（ソース表示）のトグルはヘッダーに残ります。
 
-Markdownの書式ツールバーは、閲覧専用（`readOnly`、または `onSave` 未指定）と `features.editing: false` の場合に非表示にします。保存中・編集許可の確認中は、表示したまま無効にします。
+Markdownの書式ツールバーは、閲覧専用（`readOnly`、または `onSave` 未指定）、`features.editing: false`、`features.formatting: false` の場合に非表示にします。保存中・編集許可の確認中は、表示したまま無効にします。
 
 | 設定 | 挙動 |
 | --- | --- |
-| `onSave(document)` | 保存を実行する。戻り値は保存後のモデル、またはvoid。省略時は閲覧専用。 |
-| `onBeforeSave(document)` | 保存前の確認。falseで中止。 |
+| `onSave(document, context)` | 保存を実行する。戻り値は保存後のモデル、またはvoid。省略時は閲覧専用。 |
+| `onBeforeSave(document, context)` | 保存前の確認。falseで中止。 |
+| `onRefresh(context)` | 最新のモデルを取得する。成功時に保存済みの基準も更新する。閲覧専用でも利用可能。 |
 | `onEditRequest({ model }, context)` | 編集許可を問い合わせる。指定時は許可を得てから編集。 |
-| `readOnly` | GUIとref経由の変更を禁止。検索・選択・エクスポートは利用可能。 |
-| `onChange` / `onDirtyChange` | 下書きの変更／未保存状態の通知。 |
-| `onEvent` | 変更・保存・編集モードの通知。 |
-| `features` | `editing`・`history`・`import`・`export` の機能を個別に制御。 |
+| `readOnly` | GUIとref経由の変更を禁止。許可された検索・選択・エクスポート・再読み込みは利用可能。 |
+| `onChange` / `onDirtyChange` | 確定した下書きの変更／保存済みモデルとの差分の通知。 |
+| `onUnsavedChangesChange` | 保存済みモデルとの差分に、編集許可待ちなどで未確定の入力も含めた通知。 |
+| `warnOnUnsavedChanges` | 未保存変更があるときのブラウザー離脱警告。既定は `true`。 |
+| `onEvent` | 変更・保存・再読み込み・編集モードの通知。 |
+| `features` | 下記の機能を個別に制御。未指定の機能は有効。 |
 
-`execute`、`replace`、`save`、`undo`、`redo` は画面操作と同じ許可・処理中の確認を通ります。`onEditRequest` は `context.signal` を受け取り、`cancelPending()` やアンマウントによる中止を通信へ伝えられます。
+`execute`、`replace`、`save`、`undo`、`redo` は画面操作と同じ許可・処理中の確認を通ります。`context` は `requestId` と `signal` を持ち、`onEditRequest`、`onBeforeSave`、`onSave`、`onRefresh` に渡します。保存前の確認と保存には同じcontextを渡します。ホストの通信へ `signal` を渡すと、`cancelPending()` やアンマウントによる中止を伝えられます。中止を無視するホストから遅れて返った結果も画面へ反映しません。通信先で完了した処理を取り消す機能ではありません。
 
-`onSave`には文書だけを渡します。保存中に `cancelPending()` を呼ぶと、遅れて返った結果を画面へ適用しませんが、ホストが始めた通信そのものは停止しません。保存通信の中止が必要なら親アプリで管理します。保存がvoidを返した場合は、渡した文書を保存済みとして扱います。
+`onSave` がvoidを返した場合は渡した文書を保存済みとして扱い、モデルを返した場合は検証して反映します。既存の1引数の保存コールバックもそのまま利用できます。
 
-純粋なモデルAPIはUIの編集許可やログイン状態を参照しません。サーバーで使う場合の認証・排他・保存先の検証は呼び出し側の責務です。
+## 機能のON／OFF
+
+| `features` のキー | 制御する機能 |
+| --- | --- |
+| `editing` | 本文・メタデータの変更、編集開始、履歴での変更。 |
+| `history` | Undo／Redo。 |
+| `import` | `importFile`、`replace`、`document.replace`。 |
+| `export` | `exportFile`、ダウンロード。 |
+| `search` | 検索パネル、検索移動、`find`、検索に基づく置換。 |
+| `replace` | 置換欄、次を置換、すべて置換、`text.replaceAll`。 |
+| `formatting` | Markdownの書式・ブロック操作・チェック状態の変更、`markdown.*` コマンド。 |
+| `save` | 保存ボタン、保存ショートカット、`save()`。 |
+| `refresh` | `refresh()` による再読み込み。 |
+
+たとえば `features={{ replace: false, formatting: false }}` で検索と通常の入力を残して置換・書式操作を無効にできます。`showToolbar` は表示だけの設定で、機能を禁止しません。機能フラグは標準UI、ショートカット、表示中のref API、履歴の再適用で確認します。`replace: false` は文字列検索による置換の制御で、明示した範囲への通常入力や `text.replaceRange` を禁止する設定ではありません。
+
+純粋なモデルAPIはUIの機能フラグや編集許可を参照しません。サーバーで使う場合の認証・排他・保存先の検証は呼び出し側の責務です。
+
+## 編集の開始・終了と再読み込み
+
+```ts
+const api = editor.current;
+if (!api) return;
+
+const allowed = await api.requestEdit(); // onEditRequestを通して編集を開始
+const mode = api.getEditState(); // "view" | "requesting" | "edit"
+api.cancelEditRequest(); // 許可待ちだけを中止。保存処理は中止しない
+
+if (allowed && !api.getState().hasUnsavedChanges) api.endEdit();
+// 変更を残す場合はsave、消す場合はdiscardを明示する。
+await api.save();
+```
+
+通常の入力でも必要なタイミングで編集許可を要求するため、`requestEdit()` の事前呼び出しは必須ではありません。`endEdit()` は未保存変更・未確定の入力・処理中の状態があれば `false` を返します。`discard()` は最後の保存または再読み込みの状態へ戻し、Undo／Redo履歴と未確定の入力を消して編集を終了します。編集中の表示状態は `onEvent` の `edit-mode` からも取得できます。
+
+```tsx
+<LikeTextEditor
+  initialDocument={document}
+  onSave={async (draft, { signal }) => saveDocument(draft, { signal })}
+  onRefresh={async ({ signal }) => loadDocument({ signal })}
+/>
+```
+
+```ts
+await editor.current?.refresh(); // 未保存変更があればfalse。本文は維持
+// 利用側が変更の破棄を決めた場合だけ:
+await editor.current?.refresh({ discardChanges: true });
+```
+
+再読み込みは成功して検証できたモデルだけを適用し、保存済みの基準と履歴をリセットします。失敗時は下書き・保存済みの基準・履歴を保持します。`onRefresh` の変更や中止後の古い結果は適用しません。ホスト側の `onRefresh` が同じ処理の間に変わらないよう、必要に応じて `useCallback` で参照を保ってください。
+
+`onEvent` の `save` / `refresh` は `start`・`success`・`cancelled`・`error` のphaseを通知します。`change` のsourceは `command`・`import`・`undo`・`redo`・`save`・`discard`・`refresh` です。閲覧専用は書き込みを許可しませんが、`onRefresh` を指定した最新文書の取得は利用できます。
+
+## 未保存変更の保護
+
+`getState().dirty` と `onDirtyChange` は保存済みモデルとの比較です。`hasUnsavedChanges` / `onUnsavedChangesChange` は、モデルへ反映する前の入力も含みます。たとえば非同期の編集許可を待つ間は `pendingInput: true`、モデルがまだ変わっていなくても `hasUnsavedChanges: true` になります。保存は未確定の入力が解決するまで開始しません。
+
+未保存変更がある場合、`replace`・`importFile`・`document.replace` を含む `execute`・`refresh` は既定で拒否します。保存するか、利用側で破棄を決めてから `discardChanges: true` を渡します。編集許可や機能フラグを迂回する指定ではありません。
+
+```ts
+await editor.current?.replace(nextDocument, { discardChanges: true });
+await editor.current?.importFile(file, { mode: "markdown", discardChanges: true });
+await editor.current?.execute(
+  { type: "document.replace", document: nextDocument },
+  { discardChanges: true },
+);
+```
+
+これは従来の差し替えより保護を強める変更です。未保存の文書へ無条件に読み込んでいた利用側は、保存・破棄の選択後に上記オプションを指定してください。通常の本文編集コマンドを毎回確認する仕様ではありません。`replace` / `importFile` は従来どおりUndo対象で、保存済みの基準を更新する操作は保存または再読み込みです。
+
+ブラウザーを閉じる際の警告は既定で有効です。`warnOnUnsavedChanges={false}` で無効にできます。警告文はブラウザー側が決めます。SPA内の画面移動や、このビューを包む独自ウィンドウの閉じる処理は `onUnsavedChangesChange` を使って親アプリで確認してください。Reactの `key` で文書ごと作り直す場合も、親で未保存変更を確認します。
 
 ## 右上の操作領域
 
