@@ -5326,6 +5326,13 @@
       "LikeTextEditor",
       "TextEditorProps",
       "mode",
+      "auto",
+      "JSON",
+      "XML",
+      "YAML",
+      "fileName",
+      "mimeType",
+      "resolveTextEditorMode",
       "initialText",
       "initialDocument",
       "colorMode"
@@ -5334,6 +5341,11 @@
       {
         "id": "モードと初期値",
         "title": "モードと初期値",
+        "depth": 2
+      },
+      {
+        "id": "自動判別と構文ハイライト",
+        "title": "自動判別と構文ハイライト",
         "depth": 2
       },
       {
@@ -5387,6 +5399,11 @@
         "id": "サイズ",
         "title": "サイズ",
         "depth": 2
+      },
+      {
+        "id": "jsonxmlyamlのモデル作成",
+        "title": "JSON・XML・YAMLのモデル作成",
+        "depth": 3
       }
     ]
   },

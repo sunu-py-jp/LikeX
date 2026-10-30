@@ -1,6 +1,7 @@
 import { serializeStableJson } from "../core";
 import type { TextEditorInput, TextEditorModel } from "./types";
 import { checkedId, checkedText, record, TEXT_EDITOR_LIMITS } from "./validation";
+import { isTextEditorMode, resolveTextEditorMode } from "./language";
 
 const knownModels = new WeakSet<object>();
 
@@ -8,15 +9,17 @@ export function normalizeTextEditorModel(input: unknown): TextEditorModel {
   if (input && typeof input === "object" && knownModels.has(input)) return input as TextEditorModel;
   const raw = record(input, ["format", "version", "id", "title", "mode", "text"], "テキスト文書");
   if (raw.format !== "likex.texteditor" || raw.version !== 1) throw new Error("LikeTextEditor version 1のJSONを指定してください。");
-  if (raw.mode !== "text" && raw.mode !== "markdown") throw new Error("モードはtextまたはmarkdownで指定してください。");
+  if (!isTextEditorMode(raw.mode)) throw new Error("モードはtext、markdown、json、xml、yamlで指定してください。");
   const model: TextEditorModel = Object.freeze({ format: "likex.texteditor", version: 1, id: checkedId(raw.id), title: checkedText(raw.title, "タイトル", TEXT_EDITOR_LIMITS.titleLength), mode: raw.mode, text: checkedText(raw.text) });
   knownModels.add(model);
   return model;
 }
 
 export function createTextEditorModel(input: TextEditorInput = {}): TextEditorModel {
-  const raw = record(input, ["id", "title", "mode", "text"], "初期文書");
-  return normalizeTextEditorModel({ format: "likex.texteditor", version: 1, id: raw.id === undefined ? crypto.randomUUID() : raw.id, title: raw.title === undefined ? "無題の文書" : raw.title, mode: raw.mode === undefined ? "text" : raw.mode, text: raw.text === undefined ? "" : raw.text });
+  const raw = record(input, ["id", "title", "mode", "text", "fileName", "mimeType"], "初期文書");
+  const title = raw.title === undefined ? "無題の文書" : checkedText(raw.title, "タイトル", TEXT_EDITOR_LIMITS.titleLength);
+  const mode = resolveTextEditorMode({ mode: raw.mode as TextEditorInput["mode"], fileName: (raw.fileName === undefined ? title : raw.fileName) as string, mimeType: raw.mimeType as string | undefined });
+  return normalizeTextEditorModel({ format: "likex.texteditor", version: 1, id: raw.id === undefined ? crypto.randomUUID() : raw.id, title, mode, text: raw.text === undefined ? "" : raw.text });
 }
 
 export function parseTextEditorModel(json: string): TextEditorModel {
@@ -31,9 +34,9 @@ export function serializeTextEditorModel(input: TextEditorModel): string {
   return json;
 }
 
-/** Import decoded .txt/.md content. Encoding/file access remains with the host. */
+/** Import decoded source using its mode or file metadata. Encoding/file access remains with the host. */
 export function importTextEditorText(text: string, options: Omit<TextEditorInput, "text"> = {}): TextEditorModel {
-  const raw = record(options, ["id", "title", "mode"], "読み込み設定");
+  const raw = record(options, ["id", "title", "mode", "fileName", "mimeType"], "読み込み設定");
   return createTextEditorModel({ ...raw, text });
 }
 

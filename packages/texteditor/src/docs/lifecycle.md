@@ -99,7 +99,7 @@ await editor.current?.execute(
 
 ## 右上の操作領域
 
-`headerStyle` はテキスト・Markdown共通のヘッダーに適用します。たとえば `headerStyle={{ backgroundColor: "#1f4d3a", color: "#ffffff" }}` で背景色と文字色を指定でき、`borderBottomColor` などのCSSプロパティも指定できます。本文のスタイルは変わりません。ヘッダーの形式ラベル（`Markdown`／`Plain text`）は表示せず、文書のタイトルとモードはそのまま保持します。配色は利用側が指定する表示設定で、保存データには含めません。
+`headerStyle` は全モード共通のヘッダーに適用します。たとえば `headerStyle={{ backgroundColor: "#1f4d3a", color: "#ffffff" }}` で背景色と文字色を指定でき、`borderBottomColor` などのCSSプロパティも指定できます。本文のスタイルは変わりません。ヘッダーの形式ラベル（`Markdown`／`Plain text`）は表示せず、文書のタイトルとモードはそのまま保持します。配色は利用側が指定する表示設定で、保存データには含めません。
 
 `renderHeaderActions` で、右上のUndo／Redo・閲覧専用表示・保存ボタンの領域を差し替えられます。未指定なら標準表示、`null` を返すとこの領域を非表示にします。ファイル名とMarkdownの文章表示／ソース表示トグルは差し替えの対象に含まれません。
 
@@ -159,8 +159,10 @@ const snapshot = serializeTextEditorModel(document); // メタデータ込みの
 const restored = parseTextEditorModel(snapshot);
 ```
 
-`.txt`／`.md`は本文だけ、JSONはモード・ID・タイトルも含みます。`importTextEditorText` はデコード済みの文字列を受け取ります。バイト列から読む場合は `decodeTextEditorBytes(Uint8Array | ArrayBuffer)` を使います。UTF-8・UTF-16LE/BEのBOMを優先し、BOMがない場合は厳密なUTF-8、失敗時はShift_JISとして読みます。BOMは本文に含めず、不正な文字列を黙って置換文字に変換しません。BOM付きの壊れたデータは別の文字コードで読み直さずエラーにします。
+`.txt`／`.md`／`.json`／`.xml`／`.yaml`の本文ファイルと、LikeTextEditorの保存JSONは別です。本文ファイルは元文字列だけを含み、保存JSONは `format: "likex.texteditor"`・モード・ID・タイトルも含みます。JSONモードの本文を、そのままLikeTextEditor保存JSONとしてparseしないでください。`importTextEditorText` はデコード済みの文字列を受け取ります。バイト列から読む場合は `decodeTextEditorBytes(Uint8Array | ArrayBuffer)` を使います。UTF-8・UTF-16LE/BEのBOMを優先し、BOMがない場合は厳密なUTF-8、失敗時はShift_JISとして読みます。BOMは本文に含めず、不正な文字列を黙って置換文字に変換しません。BOM付きの壊れたデータは別の文字コードで読み直さずエラーにします。
 
 入力ファイルは `TEXT_EDITOR_LIMITS.fileBytes`（40,000,000バイト）、デコード結果は本文10,000,000 UTF-16単位の上限を確認します。ファイル取得やネットワーク通信は呼び出し側が行います。`exportTextEditorText` はソースをそのまま返し、改行や空白を勝手に変更しません。画面での入力やMarkdownの文章編集ではエディター側の改行・記法へ正規化される場合があります。
 
 コマンドの一括置換や外部更新もUndo／Redoの対象です。`getDocument()` / `getText()` で現在の下書きを取得でき、外部検索は `find()` で元本文の位置を取得できます。保存用JSONは専用のparse/serialize APIを使い、形式名だけを書き換えた別データを渡さないでください。
+
+保存モデルのmodeは `text` / `markdown` / `json` / `xml` / `yaml` です。旧text／markdown文書はそのまま読み込めます。新しいmodeを含む文書を扱う利用側は対応版へ更新してください。version 1の形式識別子は維持し、JSON/XML/YAML本文の構文検証や実行は保存時に行いません。`auto` は入力・表示時の指定で、保存JSONへは判別後のmodeを記録します。

@@ -24,7 +24,7 @@
         },
         "text": {
           "type": "string",
-          "description": "The authoritative plain-text or Markdown source."
+          "description": "The authoritative source, including its exact whitespace and line endings."
         }
       },
       "required": [
@@ -40,7 +40,10 @@
     "TextEditorMode": {
       "enum": [
         "text",
-        "markdown"
+        "markdown",
+        "json",
+        "xml",
+        "yaml"
       ]
     }
   }

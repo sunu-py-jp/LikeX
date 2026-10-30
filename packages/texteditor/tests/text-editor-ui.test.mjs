@@ -84,6 +84,78 @@ test('missing onSave is read-only while search and select-all remain available',
   assert.equal(ui.ref.current.getText(), 'first\nsecond');
 });
 
+test('auto detects structured languages from metadata without making a read-only document dirty', async t => {
+  const source = '{\r\n  "name": "example",\r\n  "unfinished":\r\n}';
+  const ui = await mount(t, { initialText: source, fileName: 'settings.JSON', onSave: undefined });
+  assert.equal(ui.ref.current.getState().mode, 'json');
+  assert.equal(ui.ref.current.getDocument().mode, 'json');
+  assert.equal(ui.ref.current.getState().viewMode, 'source');
+  assert.equal(ui.editor.props.readOnly, true);
+  assert.equal(await ui.ref.current.setViewMode('rich'), false);
+  await ui.update({ mimeType: 'application/xml; charset=utf-8' });
+  assert.equal(ui.ref.current.getState().mode, 'xml');
+  await ui.update({ mode: 'yaml' });
+  assert.equal(ui.ref.current.getState().mode, 'yaml');
+  await ui.update({ mode: 'auto', mimeType: 'text/plain', fileName: 'README.md' });
+  assert.equal(ui.ref.current.getState().mode, 'markdown');
+  assert.equal(ui.ref.current.getState().viewMode, 'rich');
+  assert.equal(ui.ref.current.getText(), source);
+  assert.equal(ui.ref.current.getState().dirty, false);
+});
+
+test('auto uses stored mode as a fallback and model mode commands retain undo history', async t => {
+  const initialDocument = { format: 'likex.texteditor', version: 1, id: 'modes', title: 'Untitled', text: 'value: 12', mode: 'yaml' };
+  const ui = await mount(t, { initialDocument });
+  assert.equal(ui.ref.current.getState().mode, 'yaml');
+  await act(async () => { await ui.ref.current.execute({ type: 'document.update', mode: 'xml' }); });
+  assert.equal(ui.ref.current.getState().mode, 'xml');
+  assert.equal(ui.ref.current.getText(), initialDocument.text);
+  await act(async () => { await ui.ref.current.undo(); });
+  assert.equal(ui.ref.current.getState().mode, 'yaml');
+  await ui.update({ mode: 'text' });
+  assert.equal(ui.ref.current.getState().mode, 'text');
+  assert.equal(ui.ref.current.getDocument().mode, 'yaml');
+});
+
+test('file import resolves each new filename and MIME independently of the previous language', async t => {
+  const ui = await mount(t, { initialText: '' });
+  const load = async (file, options = {}) => {
+    let result;
+    await act(async () => { result = await ui.ref.current.importFile(file, { discardChanges: true, ...options }); });
+    assert.equal(ui.ref.current.getState().mode, result.mode);
+    return result;
+  };
+  assert.equal((await load(new File(['{"ok":true}'], 'settings.txt', { type: 'application/problem+json' }))).mode, 'json');
+  assert.equal((await load(new File(['ok: true\n'], 'settings.YML', { type: 'text/plain' }))).mode, 'yaml');
+  assert.equal((await load(new Blob(['untyped text']))).mode, 'text', 'an unnamed blob must not inherit a previous filename hint');
+  assert.equal(ui.ref.current.getDocument().title, 'settings.YML', 'keeping the display title must not carry over the language');
+  const titled = await load(new File(['{}'], 'settings.json', { type: 'text/plain' }), { title: '設定' });
+  assert.equal(titled.mode, 'json', 'a display title must not hide the actual filename');
+  assert.equal(titled.title, '設定');
+  assert.equal((await load(new Blob(['ok: true']), { title: 'settings.yaml' })).mode, 'yaml');
+  assert.equal((await load(new Blob(['<root/>'], { type: 'text/xml' }))).mode, 'xml');
+  assert.equal((await load(new File(['plain'], 'notes.txt'))).mode, 'text');
+  assert.equal((await load(new File(['{}'], 'config.json'), { mode: 'text' })).mode, 'text');
+  assert.equal((await load(new Blob(['key: value']), { fileName: 'config', mimeType: 'application/yaml' })).mode, 'yaml');
+  assert.equal(ui.ref.current.getDocument().title, 'config');
+});
+
+test('structured source exports use the detected extension and MIME without formatting content', async t => {
+  for (const [mode, extension, mime] of [['json', 'json', 'application/json'], ['xml', 'xml', 'application/xml'], ['yaml', 'yaml', 'application/yaml']]) {
+    const source = '  exact\r\nsource\t\n';
+    const ui = await mount(t, { initialText: source, mode, title: 'data', onSave: undefined });
+    const result = ui.ref.current.exportFile();
+    assert.equal(result.fileName, `data.${extension}`);
+    assert.equal(result.blob.type, `${mime};charset=utf-8`);
+    assert.equal(await result.blob.text(), source);
+    assert.equal(ui.ref.current.getState().dirty, false);
+  }
+  for (const name of ['settings.yml', 'notes.markdown', 'diagram.svg']) {
+    const ui = await mount(t, { fileName: name, onSave: undefined });
+    assert.equal(ui.ref.current.exportFile().fileName, name);
+  }
+});
+
 test('source and rich views preserve source and use a shared undo/redo history', async t => {
   const original = '# Heading\n\n- first\n- second\n';
   const ui = await mount(t, { initialText: original, mode: 'markdown' });

@@ -3,9 +3,15 @@ import {
   applyMarkdownTaskCommand, getTextEditorMarkdownBlocks,
   type TextEditorModel, type TextEditorCommand, type MarkdownAction,
   type TextEditorRangeEdit, type TextEditorMarkdownBlock,
+  resolveTextEditorMode, type TextEditorModeSetting, type TextEditorModeOptions,
 } from "__MODEL_IMPORT__";
 const command: TextEditorCommand = { type: "text.replaceRange", from: 0, to: 0, text: "Hello" };
 const document: TextEditorModel = executeTextEditorCommands(createTextEditorModel(), command);
+const autoMode: TextEditorModeSetting = "auto";
+const languageHints: TextEditorModeOptions = { mode: autoMode, fileName: "settings.json", mimeType: "application/json", fallbackMode: "text" };
+void resolveTextEditorMode(languageHints);
+void createTextEditorModel({ mode: autoMode, fileName: "config.yaml", mimeType: "text/plain", text: "enabled: true" });
+for (const mode of ["json", "xml", "yaml"] as const) void executeTextEditorCommands(document, { type: "document.update", mode });
 void findTextEditorMatches(document, { query: "hello", wholeWord: true });
 const format: MarkdownAction = "markdown.heading2";
 void applyMarkdownCommand(document.text, { from: 1, to: 1 }, format);

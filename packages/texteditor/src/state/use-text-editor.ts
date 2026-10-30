@@ -19,7 +19,8 @@ export const textEditorAdapter: ModelEditorAdapter<TextEditorModel, TextEditorCo
 };
 export function useTextEditor(props: TextEditorProps) {
   const [controller] = useState(() => createModelEditorController(textEditorAdapter,
-    props.initialDocument ?? createTextEditorModel({ text: props.initialText ?? "", mode: props.mode ?? "text", title: props.title ?? "Untitled" }), props));
+    props.initialDocument ?? createTextEditorModel({ text: props.initialText ?? "", mode: props.mode,
+      fileName: props.fileName, mimeType: props.mimeType, title: props.title ?? props.fileName ?? "Untitled" }), props));
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   useLayoutEffect(() => controller.configure(props));
   useEffect(() => { controller.activate(); return () => controller.dispose(); }, [controller]);

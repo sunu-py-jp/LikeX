@@ -4,17 +4,31 @@ import type { MarkdownAction, MarkdownCommandOptions, MarkdownSelection } from "
 export type TextEditorRange = Readonly<{ from: number; to: number }>;
 /** All edits in text.replaceRanges refer to the same pre-command source. */
 export type TextEditorRangeEdit = Readonly<{ from: number; to: number; text: string }>;
-export type TextEditorMode = "text" | "markdown";
+/** Concrete source language, retained in the saved document. */
+export type TextEditorMode = "text" | "markdown" | "json" | "xml" | "yaml";
+/** Auto is an input/view preference; saved documents always contain a concrete mode. */
+export type TextEditorModeSetting = TextEditorMode | "auto";
+export type TextEditorModeOptions = Readonly<{
+  mode?: TextEditorModeSetting;
+  fileName?: string;
+  mimeType?: string;
+  fallbackMode?: TextEditorMode;
+}>;
 export type TextEditorModel = {
   format: "likex.texteditor";
   version: 1;
   id: string;
   title: string;
   mode: TextEditorMode;
-  /** The authoritative plain-text or Markdown source. */
+  /** The authoritative source, including its exact whitespace and line endings. */
   text: string;
 };
-export type TextEditorInput = Partial<Pick<TextEditorModel, "id" | "title" | "mode" | "text">>;
+export type TextEditorInput = Partial<Pick<TextEditorModel, "id" | "title" | "text">> & {
+  mode?: TextEditorModeSetting;
+  /** Detection hints are consumed during creation and are not persisted. */
+  fileName?: string;
+  mimeType?: string;
+};
 export type TextEditorSearchOptions = {
   query: string;
   caseSensitive?: boolean;

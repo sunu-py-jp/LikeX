@@ -22,6 +22,53 @@
 [data-likex-texteditor] .lxte-code-editor .cm-button:focus-visible,
 [data-likex-texteditor] .lxte-code-editor .cm-panel input:focus-visible { outline: 2px solid var(--lxte-accent, #42745c); outline-offset: 1px; }
 
+/* Syntax roles follow familiar Light+/Dark+ colors without affecting surrounding UI. */
+[data-likex-texteditor] {
+  --lxte-syntax-comment: #008000;
+  --lxte-syntax-property: #0451a5;
+  --lxte-syntax-attribute: #b5200d;
+  --lxte-syntax-tag: #800000;
+  --lxte-syntax-string: #a31515;
+  --lxte-syntax-number: #098658;
+  --lxte-syntax-atom: #0000ff;
+  --lxte-syntax-keyword: #0000ff;
+  --lxte-syntax-meta: #795e26;
+  --lxte-syntax-heading: #0451a5;
+  --lxte-syntax-link: #0451a5;
+  --lxte-syntax-invalid: #cd3131;
+}
+[data-likex-texteditor][data-theme="dark"] {
+  --lxte-syntax-comment: #6a9955;
+  --lxte-syntax-property: #9cdcfe;
+  --lxte-syntax-attribute: #9cdcfe;
+  --lxte-syntax-tag: #569cd6;
+  --lxte-syntax-string: #ce9178;
+  --lxte-syntax-number: #b5cea8;
+  --lxte-syntax-atom: #569cd6;
+  --lxte-syntax-keyword: #c586c0;
+  --lxte-syntax-meta: #d7ba7d;
+  --lxte-syntax-heading: #569cd6;
+  --lxte-syntax-link: #9cdcfe;
+  --lxte-syntax-invalid: #f48771;
+}
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-comment { color: var(--lxte-syntax-comment); }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-property { color: var(--lxte-syntax-property); }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-attribute { color: var(--lxte-syntax-attribute); }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-tag { color: var(--lxte-syntax-tag); }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-string,
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-code { color: var(--lxte-syntax-string); }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-number { color: var(--lxte-syntax-number); }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-atom { color: var(--lxte-syntax-atom); }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-keyword { color: var(--lxte-syntax-keyword); }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-meta { color: var(--lxte-syntax-meta); }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-punctuation { color: var(--lxte-foreground); }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-heading { color: var(--lxte-syntax-heading); font-weight: 600; }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-strong { font-weight: 700; }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-emphasis { font-style: italic; }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-strikethrough { text-decoration: line-through; }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-link { color: var(--lxte-syntax-link); text-decoration: underline; }
+[data-likex-texteditor] .lxte-code-editor .lxte-syntax-invalid { text-decoration: underline wavy var(--lxte-syntax-invalid); text-underline-offset: 3px; }
+
 /* A small find widget overlays the editor; opening it never moves the text. */
 [data-likex-texteditor] .lxte-code-editor .cm-panels-top:has(.lxte-search-panel) { position: absolute; inset: 6px 12px auto auto; z-index: 20; width: min(460px, calc(100% - 24px)); border: 0; background: transparent; }
 [data-likex-texteditor] .lxte-code-editor .cm-search.lxte-search-panel { position: relative; padding: 6px; color: var(--lxte-foreground); background: var(--lxte-panel); border: 1px solid var(--lxte-border); border-radius: 4px; box-shadow: 0 3px 12px #0002; font: 12px/1.4 var(--lxte-font); }

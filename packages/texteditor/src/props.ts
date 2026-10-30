@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
 import type { ModelEditorOptions } from "./core";
-import type { TextEditorCommand, TextEditorModel, TextEditorMode, TextEditorSearchOptions, TextEditorRange } from "./model/types";
+import type { TextEditorCommand, TextEditorModel, TextEditorMode, TextEditorModeSetting, TextEditorSearchOptions, TextEditorRange } from "./model/types";
 import type { TextEditorAction, TextEditorSelection, TextEditorSearchQuery, TextEditorSearchDisplay, TextEditorSearchState, TextEditorPanel } from "./editor-adapter";
 
 import type { TextEditorSearchProps, TextEditorSearchRenderContext } from "./search-types";
@@ -16,7 +16,7 @@ export type TextEditorViewState = Readonly<{
   canSave: boolean; canUndo: boolean; canRedo: boolean;
   features: Readonly<Record<TextEditorFeature, boolean>>;
 }>;
-export type TextEditorImportOptions = TextEditorReplaceOptions & { title?: string; mode?: TextEditorMode };
+export type TextEditorImportOptions = TextEditorReplaceOptions & { title?: string; mode?: TextEditorModeSetting; fileName?: string; mimeType?: string };
 export type TextEditorExport = { blob: Blob; fileName: string };
 
 export type TextEditorFeature = "editing" | "history" | "import" | "export" | "search" | "replace" | "formatting" | "save" | "refresh";
@@ -79,8 +79,12 @@ export type TextEditorProps = ModelEditorOptions<TextEditorModel, TextEditorFeat
   /** Initial values are read once. Use ref.replace or a React key for another document. */
   initialDocument?: TextEditorModel;
   initialText?: string;
-  /** Editing experience. Defaults to initialDocument.mode, or text. Changing it preserves source. */
-  mode?: TextEditorMode;
+  /** Defaults to auto: specific MIME, filename extension, saved mode, then text. Changing it preserves source. */
+  mode?: TextEditorModeSetting;
+  /** File identity used for automatic language detection and download naming. Falls back to title. */
+  fileName?: string;
+  /** Optional content type, e.g. application/json. Generic text/plain does not override the filename. */
+  mimeType?: string;
   title?: string;
   /** Show the optional Search/Replace/Commands/import/export toolbar. Defaults to false; shortcuts still work. */
   showToolbar?: boolean;

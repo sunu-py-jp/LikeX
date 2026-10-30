@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createTextEditorModel, executeTextEditorCommands, parseTextEditorModel, serializeTextEditorModel, findTextEditorMatches, applyMarkdownCommand, applyMarkdownTaskCommand, getTextEditorMarkdownBlocks, decodeTextEditorBytes } from "__MODEL_IMPORT__";
+import { createTextEditorModel, executeTextEditorCommands, parseTextEditorModel, serializeTextEditorModel, findTextEditorMatches, applyMarkdownCommand, applyMarkdownTaskCommand, getTextEditorMarkdownBlocks, decodeTextEditorBytes, resolveTextEditorMode, importTextEditorText } from "__MODEL_IMPORT__";
 const initial = createTextEditorModel({ id: "consumer", text: "hello hello" });
 const document = executeTextEditorCommands(initial, [{ type: "text.replaceAll", query: "hello", replacement: "world", wholeWord: true }]);
 assert.equal(typeof window, "undefined");
@@ -32,4 +32,13 @@ const textMode = executeTextEditorCommands({ ...markdown, mode: "text" }, {
 });
 assert.equal(textMode.mode, "text");
 assert.equal(getTextEditorMarkdownBlocks(textMode)[0].level, 2);
+assert.equal(resolveTextEditorMode({ fileName: "settings.JSON", mimeType: "text/plain" }), "json");
+assert.equal(resolveTextEditorMode({ mimeType: "application/ld+json" }), "json");
+assert.equal(resolveTextEditorMode({ mode: "text", fileName: "settings.json" }), "text");
+const yaml = importTextEditorText("enabled: true\r\n", { fileName: "settings.yml", mode: "auto" });
+assert.equal(yaml.mode, "yaml"); assert.equal(yaml.text, "enabled: true\r\n");
+for (const mode of ["json", "xml", "yaml"]) {
+  const model = createTextEditorModel({ id: "syntax-consumer", text: "  unchanged\r\n", mode });
+  assert.deepEqual(parseTextEditorModel(serializeTextEditorModel(model)), model);
+}
 console.log(JSON.stringify({ headless: "passed", characters: document.text.length }));

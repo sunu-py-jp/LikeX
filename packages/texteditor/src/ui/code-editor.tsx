@@ -5,14 +5,17 @@ import { Annotation, Compartment, EditorSelection, EditorState, Prec, Text, Tran
 import { EditorView, crosshairCursor, drawSelection, dropCursor, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, showDialog } from "@codemirror/view";
 import { addCursorAbove, addCursorBelow, copyLineDown, copyLineUp, cursorMatchingBracket, defaultKeymap, deleteLine, indentLess, indentMore, indentWithTab, moveLineDown, moveLineUp, selectAll, selectLine, selectParentSyntax, simplifySelection } from "@codemirror/commands";
 import { closeSearchPanel, findNext, findPrevious, highlightSelectionMatches, openSearchPanel, search, searchPanelOpen, selectNextOccurrence, selectSelectionMatches, replaceNext, replaceAll, selectMatches } from "@codemirror/search";
-import { bracketMatching, defaultHighlightStyle, indentOnInput, indentUnit, syntaxHighlighting } from "@codemirror/language";
-import { markdown } from "@codemirror/lang-markdown";
+import { bracketMatching, indentOnInput, indentUnit, syntaxHighlighting } from "@codemirror/language";
+import type { TextEditorMode } from "../model/types";
 import type { EditorAdapterHandle, EditorAdapterProps, TextEditorAction, TextEditorPanel, TextEditorSelection } from "../editor-adapter";
 import { anchoredRectangularSelection } from "./rectangular-selection";
 import { createCompactSearchPanel, openCompactReplacePanel, getCodeEditorSearch, setCodeEditorSearch, textEditorSearchPolicy, searchAllowed, replaceAllowed } from "./search-panel";
+import { textEditorLanguageSupport, textEditorHighlightStyle } from "./code-language";
 
 export type CodeEditorProps = EditorAdapterProps & {
   wordWrap: boolean;
+  mode?: TextEditorMode;
+  /** Compatibility for existing internal integrations; mode takes precedence. */
   markdown?: boolean;
   onToggleWordWrap?(): void;
 };
@@ -183,14 +186,14 @@ export function CodeEditor({ ref, ...props }: CodeEditorProps) {
         config.separator.of(EditorState.lineSeparator.of(separator(latest.current.value))),
         config.editable.of([EditorState.readOnly.of(!latest.current.editable), EditorView.editable.of(latest.current.editable)]),
         config.wrap.of(latest.current.wordWrap ? EditorView.lineWrapping : []),
-        config.language.of(latest.current.markdown ? markdown() : []),
+        config.language.of(textEditorLanguageSupport(latest.current.mode ?? (latest.current.markdown ? "markdown" : "text"))),
         config.searchPolicy.of(searchPolicy()),
         EditorState.allowMultipleSelections.of(true),
         EditorView.clickAddsSelectionRange.of(event => event.altKey && !event.shiftKey),
         anchoredRectangularSelection,
         crosshairCursor({ key: "Alt" }), drawSelection(), dropCursor(),
         lineNumbers(), highlightActiveLine(), highlightActiveLineGutter(),
-        indentUnit.of("  "), indentOnInput(), bracketMatching(), syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        indentUnit.of("  "), indentOnInput(), bracketMatching(), syntaxHighlighting(textEditorHighlightStyle),
         search({ top: true, createPanel: createCompactSearchPanel }), highlightSelectionMatches(),
         EditorState.phrases.of({ "Find": "検索", "Replace": "置換", "next": "次へ", "previous": "前へ", "all": "すべて選択", "match case": "大文字小文字", "by word": "単語単位", "regexp": "正規表現", "replace": "置換", "replace all": "すべて置換", "close": "閉じる", "Go to line": "行へ移動", "go": "移動", "No matches": "該当なし" }),
         Prec.highest(keymap.of(bindings)), keymap.of([...defaultKeymap, indentWithTab]),
@@ -241,14 +244,14 @@ export function CodeEditor({ ref, ...props }: CodeEditorProps) {
     view.dispatch({ effects: [
       config.editable.reconfigure([EditorState.readOnly.of(!props.editable), EditorView.editable.of(props.editable)]),
       config.wrap.reconfigure(props.wordWrap ? EditorView.lineWrapping : []),
-      config.language.reconfigure(props.markdown ? markdown() : []),
+      config.language.reconfigure(textEditorLanguageSupport(props.mode ?? (props.markdown ? "markdown" : "text"))),
       config.searchPolicy.reconfigure(searchPolicy()),
     ] });
     if (props.searchEnabled === false) closeSearchPanel(view);
     notifySearch(view);
     // The configuration callbacks read current props through refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.editable, props.wordWrap, props.markdown, props.searchEnabled, props.replaceEnabled]);
+  }, [props.editable, props.wordWrap, props.mode, props.markdown, props.searchEnabled, props.replaceEnabled]);
 
   useLayoutEffect(() => {
     const view = viewRef.current, pending = flow.current;

@@ -1,6 +1,6 @@
 # TextEditorの保存構造
 
-CLIで扱う文書JSONの例。`text`がテキスト／Markdownの元文字列で、`mode`は編集時の表示方法を示す。IDと意図のある改行・空白を保持する。
+CLIで扱う文書JSONの例。`text`がテキスト／Markdown／JSON／XML／YAMLの元文字列で、`mode`は編集時の表示方法を示す。IDと意図のある改行・空白を保持する。
 
 ```json
 {
@@ -17,8 +17,10 @@ CLIで扱う文書JSONの例。`text`がテキスト／Markdownの元文字列�
 
 本文は最大10,000,000 UTF-16単位で、NUL文字は拒否する。タイトルは1,000文字、JSONはUTF-8で64 MiBまで。`text.*` の `from` / `to` / `offset` は本文上の0始まりのUTF-16位置で、`to`は含まない。上の例の `作業メモ` は `[4, 8)`。
 
-生の `.txt` / `.md` はこのJSONとは別で、本文だけを含む。`importTextEditorText`でモデル化し、`exportTextEditorText`で元の本文を取り出す。バイト入力は `decodeTextEditorBytes`（元ファイル40,000,000バイトまで）。CLIは生の本文ファイルへJSONのparseを適用しない。
+生の `.txt` / `.md` / `.json` / `.xml` / `.yaml` はこの保存JSONとは別で、本文だけを含む。特にJSONモードの本文は `format: "likex.texteditor"` を持つ保存JSONではない。`importTextEditorText`でモデル化し、`exportTextEditorText`で元の本文を取り出す。バイト入力は `decodeTextEditorBytes`（元ファイル40,000,000バイトまで）。CLIは生の本文ファイルへJSONのparseを適用しない。
 
 カーソルや検索語、折り返し、スクロールは保存モデルに含めない。Markdownの文章表示の位置はProseMirror座標であり、本文上のUTF-16位置へ直接流用しない。
 
 `markdown.format`・`markdown.toggleTask` の結果も `text` にMarkdown文字列として保存する。これらは `mode` にかかわらず本文をMarkdownとして解釈し、`mode` 自体は変更しない。独立した書式オブジェクトやチェック状態の配列は保存しない。`getTextEditorMarkdownBlocks` の `position`・`from`・`to` はその時点の解析結果であり、永続IDではない。本文の変更後は解析し直す。
+
+`mode` は `text` / `markdown` / `json` / `xml` / `yaml` の具体的な値を保存する。作成・本文読み込みAPIの `mode: "auto"` や省略時は、fileName／mimeType／titleで判別してからモデル化する。auto・判別用fileName・mimeTypeは保存JSONへ追加しない。本文の空白・改行・JSONのキー順序を維持し、XML外部参照やYAMLタグを実行しない。version 1の既存text／markdown文書は継続して読める。新モードの文書を読む利用側は対応版のライブラリを使う。

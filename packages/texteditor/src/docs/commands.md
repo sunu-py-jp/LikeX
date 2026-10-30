@@ -28,7 +28,7 @@ const json = serializeTextEditorModel(updated);
 | `text.replaceAll` | `query`, `replacement`, `caseSensitive?`, `wholeWord?`, `regex?` | 一致したすべての箇所を置換。 |
 | `markdown.format` | `selection`, `action`, `options?` | 指定した文章表示の範囲へ見出し・リスト・太字・リンクなどを適用。 |
 | `markdown.toggleTask` | `position` | 指定したチェックリスト項目の完了状態を反転。 |
-| `document.update` | `title?`, `mode?` | メタデータを変更。modeだけの変更では本文を変換しない。 |
+| `document.update` | `title?`, `mode?` | メタデータを変更。modeはtext／markdown／json／xml／yaml。modeだけの変更では本文を変換しない。 |
 | `document.replace` | `document` | 別の検証済みモデルに置き換える。 |
 
 位置は0始まりのUTF-16単位、`to`は範囲に含めません。`"A😀B"` の絵文字は `[1, 3)` です。一括コマンドは前のコマンド適用後の本文を順番に参照し、失敗時は入力モデルを変更しません。成功結果も入力とは別の凍結モデルです。
@@ -89,7 +89,7 @@ await editor.current?.execute({ type: "text.insert", offset: 0, text: "見出し
 
 ModはWindows/LinuxではCtrl、macOSではCommandです。標準のコピー・切り取り・貼り付け、単語単位の移動や選択にも対応します。`selectParentSyntax` / `cursorMatchingBracket` もソース側のコマンドとして公開しています。利用可能なコマンド一覧は `TEXT_EDITOR_ACTIONS` から取得できます。
 
-テキストモードとMarkdownのソース表示では、開始位置をクリックしてからAlt+Shiftを押しながら終点をクリックすると、その間の各行を矩形選択します。同じ列を指定すると各行にカーソルが並び、一度の入力がすべての選択箇所に反映されます。続けてAlt+Shift+クリックすると元の開始位置を保って範囲を調整できます。通常の選択操作や本文の変更で開始位置はリセットされます。
+テキスト・JSON・XML・YAMLとMarkdownのソース表示では、開始位置をクリックしてからAlt+Shiftを押しながら終点をクリックすると、その間の各行を矩形選択します。同じ列を指定すると各行にカーソルが並び、一度の入力がすべての選択箇所に反映されます。続けてAlt+Shift+クリックすると元の開始位置を保って範囲を調整できます。通常の選択操作や本文の変更で開始位置はリセットされます。
 
 Alt+Shift+ドラッグはドラッグ開始位置から矩形選択します。列はタブ幅と文字のまとまりを考慮した論理列で、折り返し後の表示行ではなく元のテキスト行が対象です。短い行や空行では行末にカーソルを置き、空白を自動挿入しません。閲覧専用でも矩形選択とコピーは使えますが、入力・置換はできません。
 
@@ -106,7 +106,8 @@ Markdown文章表示でソース専用の操作を実行すると、ソース表
 | `createTextEditorModel(input?)` | ID・タイトル・モード・本文から検証済みモデルを作成。 |
 | `normalizeTextEditorModel(input)` | オブジェクトを検証し、読み取り専用のモデルを取得。 |
 | `parseTextEditorModel(json)` / `serializeTextEditorModel(model)` | メタデータ込みのJSONを読み書き。 |
-| `importTextEditorText(text, options?)` / `exportTextEditorText(model)` | 生のテキスト／Markdownとモデルの受け渡し。 |
+| `importTextEditorText(text, options?)` / `exportTextEditorText(model)` | 生の本文とモデルの受け渡し。読み込み時はmode／fileName／mimeTypeで形式を指定・判定。 |
+| `resolveTextEditorMode(options?)` | mode／fileName／mimeType／fallbackModeから具体的な5種類のモードを決定。DOM不要。 |
 | `decodeTextEditorBytes(bytes)` | ファイルのバイト列を文字コード判定してデコード。 |
 | `executeTextEditorCommands(model, commands)` | 保存対象の変更を、入力を変えずに一括適用。 |
 | `findTextEditorMatches(modelOrText, options, maxMatches?)` | UTF-16の検索範囲を取得。 |
@@ -123,3 +124,21 @@ Markdown文章表示でソース専用の操作を実行すると、ソース表
 ## サイズ
 
 `TEXT_EDITOR_LIMITS` は本文10,000,000 UTF-16単位、元ファイル40,000,000バイト、1バッチ1,000コマンド、検索結果既定10,000件、タイトル1,000文字、JSON64 MiBです。変更結果の本文も同じ上限で検証し、NUL文字を含む本文は拒否します。画面の快適さは文書構造と端末性能にも依存するため、この値は保証サイズではありません。
+
+### JSON・XML・YAMLのモデル作成
+
+```ts
+import { createTextEditorModel, resolveTextEditorMode } from "@likex/texteditor/model";
+
+const mode = resolveTextEditorMode({ fileName: "settings.yml" }); // "yaml"
+const document = createTextEditorModel({
+  title: "settings.json",
+  text: '{"enabled":true}',
+}); // document.mode === "json"
+
+const yaml = createTextEditorModel({
+  title: "設定", mimeType: "application/yaml", text: "enabled: true\n",
+});
+```
+
+作成・本文読み込みのmodeは `"auto"` または省略で自動判別します。保存モデルと `document.update` は具体的なmodeだけを扱います。`resolveTextEditorMode` の結果をcommandへ渡すと、判別結果を保存できます。本文の空白・改行・キーの順序は維持し、JSON/XML/YAMLのオブジェクトへ変換しません。

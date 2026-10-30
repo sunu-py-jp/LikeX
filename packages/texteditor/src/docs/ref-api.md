@@ -39,7 +39,7 @@ if (!api) return;
 const source = api.getText();
 const document = api.getDocument();
 const state = api.getState();
-// state.mode: "text" | "markdown"
+// state.mode: "text" | "markdown" | "json" | "xml" | "yaml"（判別後）
 // state.viewMode: "source" | "rich"
 // state.wordWrap / readOnly / editable / busy / dirty
 // state.editMode / hasUnsavedChanges / pendingInput
@@ -279,9 +279,9 @@ editor.current?.setWordWrap(false);
 await editor.current?.setViewMode("rich"); // Markdownモードのみ
 ```
 
-`setViewMode` は本文のテキスト／Markdownモードを変えず、Markdownの文章表示とソース表示を切り替えます。切り替え先のエディターが準備できた後に結果を返します。テキストモードで `rich` を指定すると `false` です。入力の許可・反映待ちの間は、アダプターを破棄する表示切り替えも `false` を返します。`mode` propの変更は入力が確定または取り消されるまで画面への適用を保留します。`setWordWrap` はソース表示の折り返し設定を変更し、文章表示の段落レイアウトには影響しません。
+`setViewMode` は本文の形式を変えず、Markdownの文章表示とソース表示を切り替えます。切り替え先のエディターが準備できた後に結果を返します。Markdown以外で `rich` を指定すると `false` です。入力の許可・反映待ちの間は、アダプターを破棄する表示切り替えも `false` を返します。`mode` propの変更は入力が確定または取り消されるまで画面への適用を保留します。`setWordWrap` はソース表示の折り返し設定を変更し、文章表示の段落レイアウトには影響しません。
 
-初期表示は `initialViewMode`、折り返しの初期値は `initialWordWrap` で指定できます。表示切り替えは `onViewModeChange`、折り返しは `onWordWrapChange` へ通知します。本文のテキスト／Markdownモードは `mode` prop、または `mode` prop未指定時の `document.update` で管理します。
+初期表示は `initialViewMode`、折り返しの初期値は `initialWordWrap` で指定できます。表示切り替えは `onViewModeChange`、折り返しは `onWordWrapChange` へ通知します。表示形式は `mode` propとファイル名・MIMEで選び、判別できない場合はモデルのmodeを使います。`mode`省略はautoです。モデルへ保存する形式は `document.update` で変更します。明示したmodeや判別用メタデータがある場合は表示側を優先します。詳しくは[自動判別](getting-started.md#自動判別と構文ハイライト)を参照してください。
 
 ## ファイルの読み込み・出力
 
@@ -299,11 +299,13 @@ if (exported) {
 editor.current?.download();
 ```
 
-読み込みは画面の「ファイルを開く」と同じ検証・文字コード判定・編集許可を通り、1回のUndoで戻せます。未保存変更がある場合は既定で拒否します。保存または破棄を決めてから `importFile(file, { discardChanges: true })` を使います。`replace` と `document.replace` を含む `execute` も同じ保護を行います。`title` 未指定時は `File.name` があれば使い、それもなければ現在のタイトルを保ちます。`mode` 未指定時は現在のモデルのモードを保ちます。`mode` propが指定されている場合は、画面のモードにはpropを優先します。
+読み込みは画面の「ファイルを開く」と同じ検証・文字コード判定・編集許可を通り、1回のUndoで戻せます。未保存変更がある場合は既定で拒否します。保存または破棄を決めてから `importFile(file, { discardChanges: true })` を使います。`replace` と `document.replace` を含む `execute` も同じ保護を行います。`title` 未指定時は `File.name` があれば使い、それもなければ現在のタイトルを保ちます。`mode` 未指定／autoの場合はファイル名・MIMEから判別し、判別できなければtextになります。前に開いていた文書のモードは引き継ぎません。`File.name`・`Blob.type`を使い、optionsの `fileName`・`mimeType` で上書きできます。auto以外の `mode` propが指定されている場合は、画面のモードにはpropを優先します。
+
+ファイル名による判別には `options.fileName`、実ファイルの `File.name`、`options.title` の順で使います。表示用のtitleだけを変更しても実ファイルの拡張子は失われません。名前もMIMEもないBlobでは、以前の文書のタイトルを判別に使いません。
 
 文字コードはUTF-8、BOM付きUTF-16LE/BE、BOMなしのUTF-8からShift_JISへのフォールバックに対応します。キャンセルやアンマウント後の結果は反映しません。取得処理そのものは利用側が担当します。
 
-`exportFile()` はUTF-8の本文Blobとファイル名を返し、ダウンロードや保存は開始しません。閲覧専用でも出力でき、`features.export: false` の場合は `null` です。メタデータ込みの保存には `getDocument()` と `serializeTextEditorModel`、復元には `parseTextEditorModel` と `replace` を使います。
+`exportFile()` は表示中の形式に合う拡張子・MIMEタイプを持つUTF-8の本文Blobとファイル名を返し、ダウンロードや保存は開始しません。表示形式に合う既存の拡張子（`.yml`・`.markdown`・`.svg`など）は保持し、拡張子がなければ標準の拡張子を補います。別の対応形式の拡張子は表示形式に合わせて置き換えます。閲覧専用でも出力でき、`features.export: false` の場合は `null` です。メタデータ込みの保存には `getDocument()` と `serializeTextEditorModel`、復元には `parseTextEditorModel` と `replace` を使います。
 
 ## メソッド一覧
 
@@ -337,6 +339,6 @@ editor.current?.download();
 | `refresh(options?)` | `Promise<boolean>` | onRefreshから最新文書を取得し保存済みの基準を更新。 |
 | `cancelPending()` | `void` | 処理中の古い結果の適用を中止。 |
 
-`options` の型は `TextEditorReplaceOptions`（`{ discardChanges?: boolean }`）です。`importFile` はこれに `title?` / `mode?` を加えた `TextEditorImportOptions` を使います。`discardChanges` は未保存文書の差し替えへの明示指定で、編集許可や処理中の制限は解除しません。
+`options` の型は `TextEditorReplaceOptions`（`{ discardChanges?: boolean }`）です。`importFile` はこれに `title?` / `mode?` / `fileName?` / `mimeType?` を加えた `TextEditorImportOptions` を使います。`discardChanges` は未保存文書の差し替えへの明示指定で、編集許可や処理中の制限は解除しません。
 
 型はすべてUIの公開入口 `@likex/texteditor` からimportできます。本文編集の拒否や中止は戻り値で確認し、通知は `onEvent` や画面の通知欄へつなぎます。モデルAPIは不正入力を例外として返すため、画面なしの利用では呼び出し側で扱ってください。

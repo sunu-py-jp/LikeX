@@ -1,8 +1,8 @@
 {
   "title": "導入と設定",
-  "summary": "テキストとMarkdownの初期表示、依存関係、コピー導入を設定します。",
+  "summary": "テキスト・Markdown・JSON・XML・YAMLの表示、自動判別、依存関係とコピー導入を設定します。",
   "source": "packages/texteditor/src/docs/getting-started.md",
   "order": 0,
   "section": "はじめに",
-  "keywords": ["LikeTextEditor", "TextEditorProps", "mode", "initialText", "initialDocument", "colorMode"]
+  "keywords": ["LikeTextEditor", "TextEditorProps", "mode", "auto", "JSON", "XML", "YAML", "fileName", "mimeType", "resolveTextEditorMode", "initialText", "initialDocument", "colorMode"]
 }

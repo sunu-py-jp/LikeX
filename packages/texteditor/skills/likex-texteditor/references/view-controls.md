@@ -4,7 +4,7 @@
 
 ## モードと操作の選択
 
-`mode` propは `text` / `markdown`。Markdownの見た目は `initialViewMode` とrefの `setViewMode("rich" | "source")`、ソースの折り返しは `initialWordWrap` と `setWordWrap(boolean)` で指定する。これらは表示設定で、本文を変換しない。モデルのmodeを保存する操作は `document.update`。
+`mode` propは `auto` / `text` / `markdown` / `json` / `xml` / `yaml`。省略時はauto。明示したmode、対応する具体的な `mimeType`、`fileName`（未指定時はtitle prop）の拡張子、モデルmode、textの順で表示形式を選ぶ。`text/plain`・`application/octet-stream`などは拡張子の判定を妨げない。JSON/XML/YAMLは常にソース表示で、閲覧専用でも色分けする。本文からの推測や自動整形はしない。既存モデルだけを渡す場合は、そのmodeを尊重し、モデルtitleから表示形式を再判別しない。Markdownの見た目は `initialViewMode` とrefの `setViewMode("rich" | "source")`、ソースの折り返しは `initialWordWrap` と `setWordWrap(boolean)` で指定する。これらは表示設定で、本文を変換しない。モデルのmodeを保存する操作は `document.update`。
 
 refの `execute(commands)` はモデルへ反映した結果を待ち、モデルまたはnullを返す。`runCommand(action)` は現在のカーソルを使った操作の受付可否を返すため、非同期の編集許可や保存の完了を示す値と混同しない。自動的なデータ編集には `execute` を使う。
 
@@ -54,3 +54,5 @@ await editor.current?.refresh({ discardChanges: true });
 `getOpenPanels()` は `search` / `goToLine` / `commandPalette` / `link` / `blocks` の開いている種類を返す。`closePanel(name)` と `closePanels()` で閉じ、`onPanelsChange` で画面操作も含む開閉を受け取る。
 
 検索は `openSearch` / `openExternalSearch`、コマンド一覧と行移動は `runCommand("commandPalette" | "goToLine")`、リンク入力はrich表示で文字を選択して `runCommand("markdown.link")`、ブロックメニューは段落で `/`。引数付きの `goToLine(line, column?)` は直接移動する操作で、入力パネルを開く操作ではない。ビュー全体をダイアログとして表示する責務は親アプリにある。
+
+`getState().mode` は判別後の具体的なモード。表示propsの変更はモデルmodeを自動更新しない。保存するmodeを変更する場合は `document.update` を使う。`importFile` は `File.name`・`Blob.type`、またはoptionsの `fileName`・`mimeType` を使って判別し、判別不可ならtextを使う（前の文書のmodeを引き継がない）。出力本文は現在の形式の拡張子とMIMEを持ち、元文字列の空白・改行を維持する。

@@ -15,12 +15,13 @@ export class EditorView {
   plugin(){return null} focus(){this.focused=true} destroy(){this.destroyed=true}
 }
 for(const key of Reflect.ownKeys(real.EditorView))if(!['name','length','prototype'].includes(key))Object.defineProperty(EditorView,key,Object.getOwnPropertyDescriptor(real.EditorView,key));`;
-const output = await build({ stdin: { contents: `export {CodeEditor} from './src/ui/code-editor'; export {EditorView as TestView, keymap} from '@codemirror/view';`, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false, plugins: [{ name: 'ui', setup(builder) {
+const output = await build({ stdin: { contents: `export {CodeEditor} from './src/ui/code-editor'; export {EditorView as TestView, keymap} from '@codemirror/view';
+  export { ensureSyntaxTree } from '@codemirror/language';`, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false, plugins: [{ name: 'ui', setup(builder) {
   builder.onResolve({ filter: /^(react|react-dom)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
   builder.onResolve({ filter: /^@codemirror\/view$/ }, () => ({ path: 'view', namespace: 'mock' }));
   builder.onLoad({ filter: /.*/, namespace: 'mock' }, () => ({ contents: mockView, loader: 'js', resolveDir: new URL('../', import.meta.url).pathname }));
 } }] });
-const { CodeEditor, TestView, keymap } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text + '\n//# sourceURL=likex-code-editor-ui.test.js').toString('base64')}`);
+const { CodeEditor, TestView, keymap, ensureSyntaxTree } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text + '\n//# sourceURL=likex-code-editor-ui.test.js').toString('base64')}`);
 async function mount(t, options = {}) {
   const ref = createRef(), changes = [], props = { value: 'alpha alpha', editable: true, wordWrap: false, onChange: async text => { changes.push(text); return true; }, onUndo() {}, onRedo() {}, ...options, ref };
   let renderer;
@@ -73,4 +74,26 @@ test('pending source input remains visible to the host until accepted or replace
   assert.deepEqual(states, [true, false, true, false]);
   await act(() => pending.shift()(true));
   assert.deepEqual(states, [true, false, true, false]);
+});
+
+test('changing syntax mode preserves the mounted view, exact source, multiple selections and search', async t => {
+  const source = '{\r\n  "name": "日本", "count": 42\r\n}\r\n';
+  const editor = await mount(t, { value: source, mode: 'json', editable: false });
+  const view = editor.view, count = TestView.instances.length;
+  assert.match(ensureSyntaxTree(view.state, view.state.doc.length, 1000).toString(), /PropertyName/);
+  const selection = { coordinateSpace: 'source', ranges: [{ anchor: 7, head: 11 }, { anchor: 20, head: 20 }], mainIndex: 1 };
+  await act(() => editor.ref.current.setSelection(selection));
+  await act(() => editor.ref.current.setSearch({ query: 'name', caseSensitive: true }));
+  const originalSearch = editor.ref.current.getSearch();
+  for (const mode of ['xml', 'yaml', 'markdown', 'text', 'json']) {
+    await editor.update({ mode });
+    assert.equal(TestView.instances.length, count, 'language changes must not create a new editor');
+    assert.equal(TestView.instances.at(-1), view);
+    assert.equal(view.state.sliceDoc(), source);
+    assert.deepEqual(editor.ref.current.getSelection(), selection);
+    assert.deepEqual(editor.ref.current.getSearch(), originalSearch);
+  }
+  await act(() => view.dispatch({ changes: { from: 0, insert: 'blocked' } }));
+  assert.equal(view.state.sliceDoc(), source, 'read-only remains enforced after language reconfiguration');
+  assert.deepEqual(editor.changes, [], 'syntax changes must not create text edits or dirty the document');
 });

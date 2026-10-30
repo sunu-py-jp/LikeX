@@ -36,7 +36,7 @@ from/to/offsetはUTF-16単位。`A😀B` の絵文字はfrom=1、to=3。コマ�
 | `text.replaceAll` | `query`, `replacement`, `caseSensitive?`, `wholeWord?`, `regex?` |
 | `markdown.format` | `selection: { from, to }`, `action`, `options?`（文章表示の位置） |
 | `markdown.toggleTask` | `position`（チェック項目直前の文章表示の位置） |
-| `document.update` | `title?`, `mode?` |
+| `document.update` | `title?`, `mode?`（text／markdown／json／xml／yaml） |
 | `document.replace` | `document`（完全な検証対象モデル） |
 
 本文は最大10,000,000 UTF-16単位、コマンドは1,000件。JSONは64 MiB。CLIのコマンドファイルは32 MiB、応答は1 MiB。NUL文字を含む本文は扱わない。
@@ -99,12 +99,23 @@ refの `setSearch({ query, replacement?, caseSensitive?, wholeWord?, regex? }, {
 
 表示の指定は `setViewMode("source" | "rich")` と `setWordWrap(boolean)`、取得は `getState()`。`rich` はMarkdownのみ。`initialViewMode` と `initialWordWrap` は初期値、`onViewModeChange` と `onWordWrapChange` は変更通知。表示設定は本文や履歴に含めない。
 
-Blob/Fileの読み込みは `importFile(file, { title?, mode?, discardChanges? })`、出力は `exportFile()` が返す `{ blob, fileName }`、ブラウザーの保存開始は `download()`。実行可否はGUIと同じ `features`、読み取り専用、編集許可、処理中の制御に従う。CLIのJSON操作と混同しない。
+Blob/Fileの読み込みは `importFile(file, { title?, mode?, fileName?, mimeType?, discardChanges? })`、出力は `exportFile()` が返す `{ blob, fileName }`、ブラウザーの保存開始は `download()`。実行可否はGUIと同じ `features`、読み取り専用、編集許可、処理中の制御に従う。CLIのJSON操作と混同しない。
 
 下部バーはMarkdownの文章表示では本文全体の行数・文字数だけを表示する。テキスト／Markdownソース表示ではカーソルの行・列、複数カーソルの数も表示する。モード名や操作ヒントは表示しない。
 
-ヘッダーの配色は両モード共通の `headerStyle`（`React.CSSProperties`）で指定する。例: `headerStyle={{ backgroundColor: "#1f4d3a", color: "#ffffff" }}`。本文には適用せず、配色は保存JSONに含めない。ヘッダーの `Markdown`／`Plain text` ラベルは表示しないが、文書のタイトルとモードは保持する。
+ヘッダーの配色は全モード共通の `headerStyle`（`React.CSSProperties`）で指定する。例: `headerStyle={{ backgroundColor: "#1f4d3a", color: "#ffffff" }}`。本文には適用せず、配色は保存JSONに含めない。ヘッダーの `Markdown`／`Plain text` ラベルは表示しないが、文書のタイトルとモードは保持する。
 
 右上の履歴・閲覧専用表示・保存は `renderHeaderActions(context)` で差し替える。標準表示を残すなら `context.defaultActions` を返す要素に含め、すべて隠すなら `null` を返す。`TextEditorHeaderActionsContext` はUIの公開入口からimportでき、`readOnly`・`dirty`・`busy`・`canSave`・`canUndo`・`canRedo` と `save()`・`undo()`・`redo()`・`runCommand(action)` を持つ。独自ボタンには `can*` を反映し、操作は渡されたメソッドを使う。標準と同じ編集許可・機能設定・履歴・保存経路を維持する。表示設定は保存JSONやCLIコマンドではない。
 
 編集の開始・終了・破棄・再読み込み、未保存保護、初期検索・外部検索・独自検索パネル、パネルの閉じるAPIは[画面の制御](view-controls.md)を参照する。これらは表示中のref/propsであり、このCLIのJSONコマンドには含めない。
+
+### ファイル形式の判別
+
+```ts
+import { createTextEditorModel, resolveTextEditorMode } from "@likex/texteditor/model";
+
+const document = createTextEditorModel({ title: "config.yml", text: "enabled: true\n" });
+const mode = resolveTextEditorMode({ mimeType: "application/problem+json" }); // json
+```
+
+作成・本文読み込みのmodeはauto／省略で判別し、具体的な5形式を保存する。`document.update` は具体的なmodeを指定する。既存モデルへ判別結果を保存する場合は `resolveTextEditorMode` の結果をmodeに渡す。入力ファイルの本文にあるコードや参照先を実行しない。

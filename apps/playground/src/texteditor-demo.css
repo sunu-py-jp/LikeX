@@ -48,3 +48,7 @@
 .texteditor-demo .te-demo-footer span { display: flex; align-items: center; gap: 6px; }
 @media(max-width: 900px) { .texteditor-demo .te-demo-sidebar { width: 190px; } .texteditor-demo .te-demo-main { padding: 24px 20px 16px; } .texteditor-demo .te-demo-heading h1 { font-size: 20px; } }
 @media(max-width: 700px) { .texteditor-demo .te-demo-sidebar { display: none; } .texteditor-demo .te-demo-top { padding: 0 18px; } .texteditor-demo .te-demo-component { display: none; } .texteditor-demo .te-demo-main { padding: 20px 12px; } }
+
+.texteditor-demo .te-demo-mode-select { display: flex; align-items: center; gap: 6px; color: var(--te-muted); font-size: 10px; }
+.texteditor-demo .te-demo-mode-select select { max-width: 130px; border: 1px solid var(--te-line); border-radius: 5px; background: var(--te-panel); color: var(--te-text); padding: 4px 6px; font: inherit; }
+.texteditor-demo .te-demo-mode-select select:focus-visible { outline: 2px solid #558465; outline-offset: 2px; }

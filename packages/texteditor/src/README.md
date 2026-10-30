@@ -1,6 +1,6 @@
 # LikeTextEditor
 
-`index.ts` がReact UI、`model-entry.ts` が画面なしの公開入口です。テキスト／Markdownの元文字列を共通モデルで保持します。
+`index.ts` がReact UI、`model-entry.ts` が画面なしの公開入口です。テキスト／Markdown／JSON／XML／YAMLの元文字列を共通モデルで保持します。モード未指定時はファイル名やMIMEタイプから自動判別します。
 
 - [導入とソースコピー](docs/getting-started.md)
 - [モデル・refコマンド](docs/commands.md)

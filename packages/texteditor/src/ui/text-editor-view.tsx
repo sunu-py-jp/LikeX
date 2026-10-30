@@ -3,7 +3,7 @@ import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useSt
 import type { CSSProperties } from "react";
 import { Search, Replace, Undo2, Redo2, Save, Download, Upload, Command, WrapText, FileText, Code2, Eye, X, LockKeyhole } from "lucide-react";
 import { createPrimaryColorPalette, isSearchPanelQuery } from "../core";
-import { findTextEditorMatches, decodeTextEditorBytes, TEXT_EDITOR_LIMITS } from "../model/index";
+import { findTextEditorMatches, decodeTextEditorBytes, resolveTextEditorMode, TEXT_EDITOR_LIMITS } from "../model/index";
 import { TEXT_EDITOR_ACTIONS } from "../actions";
 import type { EditorAdapterHandle, TextEditorAction, TextEditorSelection, TextEditorSearchQuery, TextEditorSearchDisplay, TextEditorSearchState, TextEditorPanel } from "../editor-adapter";
 import type { TextEditorHeaderActionsContext, TextEditorProps, TextEditorImportOptions, TextEditorExport, TextEditorViewMode, TextEditorReplaceOptions } from "../props";
@@ -35,7 +35,8 @@ function commandAllowed(command: TextEditorAction, features: ReturnType<typeof u
 
 export function TextEditorView({ ref, ...props }: TextEditorProps) {
   const { controller, snapshot } = useTextEditor(props), { model, features } = snapshot;
-  const requestedMode = props.mode ?? model.mode;
+  const requestedMode = resolveTextEditorMode({ mode: props.mode, fileName: props.fileName ?? props.title,
+    mimeType: props.mimeType, fallbackMode: model.mode });
   const [sourceMode, setSourceMode] = useState(props.initialViewMode === "source"), [wordWrap, setWordWrap] = useState(props.initialWordWrap ?? true);
   const wrapRef = useRef(wordWrap);
   const [selection, setSelection] = useState<TextEditorSelection | null>(null);
@@ -52,7 +53,7 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
   const nativeSearch = useRef<TextEditorSearchState | null>(null), searchTouched = useRef(false);
   const pending = useRef<{ target: TextEditorViewMode; documentId: string; run(editor: EditorAdapterHandle): boolean; resolve(value: boolean): void } | null>(null);
   const [systemDark, setSystemDark] = useState(false);
-  const showingSource = mode === "text" || sourceMode;
+  const showingSource = mode !== "markdown" || sourceMode;
   const live = useRef({ props, mode, showingSource });
   useLayoutEffect(() => { live.current = { props, mode, showingSource }; });
   const canEdit = snapshot.editable && features.editing;
@@ -283,15 +284,17 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   async function importFile(file: Blob, options: TextEditorImportOptions = {}) {
-    try { record(options, ["title", "mode", "discardChanges"], "読み込み設定"); } catch { return null; }
+    try { record(options, ["title", "mode", "fileName", "mimeType", "discardChanges"], "読み込み設定"); } catch { return null; }
     if (!canReplace({ discardChanges: options.discardChanges })) return null;
     const result = await controller.prepare(async before => {
       const { title, mode: importedMode } = options;
       if (!(file instanceof Blob)) throw new Error("読み込むファイルをBlobで指定してください。");
       if (file.size > TEXT_EDITOR_LIMITS.fileBytes) throw new Error("ファイルのサイズが上限を超えています。");
       const text = decodeTextEditorBytes(await file.arrayBuffer());
-      const name = "name" in file && typeof file.name === "string" ? file.name : before.title;
-      return { type: "document.replace" as const, document: { ...before, text, title: title ?? name, mode: importedMode ?? before.mode } };
+      const name = "name" in file && typeof file.name === "string" ? file.name : undefined;
+      const mode = resolveTextEditorMode({ mode: importedMode, fileName: options.fileName ?? name ?? title,
+        mimeType: options.mimeType ?? file.type });
+      return { type: "document.replace" as const, document: { ...before, text, title: title ?? options.fileName ?? name ?? before.title, mode } };
     }, { feature: "import" });
     if (result) resetInput();
     return result;
@@ -299,9 +302,13 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
   function exportFile(): TextEditorExport | null {
     if (!mounted.current || !controller.getSnapshot().features.export) return null;
     const document = controller.getModel(), effectiveMode = live.current.mode;
+    const name = (live.current.props.fileName ?? live.current.props.title ?? document.title).replace(/[\\/:*?"<>|]/g, "_") || "Untitled";
+    const extension = { text: "txt", markdown: "md", json: "json", xml: "xml", yaml: "yaml" }[effectiveMode];
+    const fileName = /\.[^./]+$/.test(name) && resolveTextEditorMode({ fileName: name }) === effectiveMode ? name
+      : `${name.replace(/\.(md|markdown|mdown|mkd|mkdn|txt|text|log|json|xml|xsd|xsl|xslt|svg|xhtml|yaml|yml)$/i, "")}.${extension}`;
     return {
-      blob: new Blob([document.text], { type: effectiveMode === "markdown" ? "text/markdown;charset=utf-8" : "text/plain;charset=utf-8" }),
-      fileName: `${(live.current.props.title ?? document.title).replace(/[\\/:*?"<>|]/g, "_").replace(/\.(md|txt)$/i, "") || "Untitled"}.${effectiveMode === "markdown" ? "md" : "txt"}`,
+      blob: new Blob([document.text], { type: { text: "text/plain", markdown: "text/markdown", json: "application/json", xml: "application/xml", yaml: "application/yaml" }[effectiveMode] + ";charset=utf-8" }),
+      fileName,
     };
   }
   function download(): boolean {
@@ -389,12 +396,12 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
       {showingSource && <button type="button" aria-label="行の折り返し" aria-pressed={wordWrap} title="行の折り返し (Alt Z)" onClick={toggleWrap}><WrapText size={16} /></button>}
       {features.import && <button type="button" aria-label="ファイルを開く" title="ファイルを開く" disabled={!canEdit} onClick={() => input.current?.click()}><Upload size={16} /></button>}
       {features.export && <button type="button" aria-label="ファイルをダウンロード" title="ファイルをダウンロード" onClick={download}><Download size={16} /></button>}
-      <input ref={input} hidden type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" aria-label="テキストファイル" onChange={event => {
+      <input ref={input} hidden type="file" accept=".txt,.md,.markdown,.json,.xml,.yaml,.yml,text/plain,text/markdown,application/json,application/xml,text/xml,application/yaml,text/yaml" aria-label="テキストファイル" onChange={event => {
         const file = event.target.files?.[0]; event.target.value = "";
         if (file) void importFile(file);
       }} />
     </nav>}
-    <div className="lxte-workspace">{showingSource ? <CodeEditor key={`source-${editorEpoch}`} {...editorProps} wordWrap={wordWrap} markdown={mode === "markdown"} onToggleWordWrap={toggleWrap} /> : <MarkdownEditor key={`rich-${editorEpoch}`} {...editorProps} formatting={!snapshot.readOnly && features.editing && features.formatting} onSourceMode={() => void withView("source", () => true)} />}
+    <div className="lxte-workspace">{showingSource ? <CodeEditor key={`source-${editorEpoch}`} {...editorProps} wordWrap={wordWrap} mode={mode} onToggleWordWrap={toggleWrap} /> : <MarkdownEditor key={`rich-${editorEpoch}`} {...editorProps} formatting={!snapshot.readOnly && features.editing && features.formatting} onSourceMode={() => void withView("source", () => true)} />}
       {customSearch && <SearchPanelContent render={props.renderSearch} context={{ ...search.context, openSearch, openExternalSearch, close: closeSearch }} />}
     </div>
     <footer className="lxte-status">{showingSource && <span>{caretLine} 行、{caretColumn} 列{selection && selection.ranges.length > 1 && ` · ${selection.ranges.length} カーソル`}</span>}<span>{textStats.lines.toLocaleString()} 行 · {textStats.characters.toLocaleString()} 文字</span></footer>
