@@ -52,7 +52,7 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `features` | `ExplorerFeatures`。機能ごとに `false` を指定すると、関連UIとその実行経路を無効にします。 |
 | `upload` | `ExplorerUploadOptions`。許可拡張子・容量・件数・再生時間・PDFページ数・PPTXスライド数・違反時の扱いを指定します。`pdfInspectionLimits` で内蔵PDF検査の展開量・処理時間等も調整できます。動画は既定で4時間以下です。違反時は既定でその回の追加をすべて中止します。[内容制限](./upload-content-limits.md) |
 | `selection` | `ExplorerSelectionOptions`。選択方式（`none` / `single` / `multiple`）、選択する種類（`kind: file` / `folder` / `both`、既定 `both`）、チェックボックス表示。対象外のフォルダも移動のために表示します。 |
-| `ui` | `ExplorerUIOptions`。サイドバー、右クリックメニュー、項目メニュー、サムネイルの表示。 |
+| `ui` | `ExplorerUIOptions`。サイドバー、右クリックメニュー、項目メニュー、サムネイルの表示。`loadFolderAction: false` は遅延読み込み時の「配下を読み込む」だけを非表示にします。既定は `true`。自動読み込みと公開 `loadFolder()` は維持します。[表示設定](./configuration.md) |
 | `view` | `ExplorerViewOptions`。使える表示形式と初期表示。`defaultColumnWidths?: Partial<ExplorerDetailsColumnWidths>` で詳細表示の `name` / `location` / `updatedAt` / `extension` / `size` の初期幅（px）を指定します。`location` は検索中だけ表示する場所列です。初回マウント時だけ読みます。[幅変更の操作と設定](./configuration.md#details-column-widths) |
 | `onDirtyChange` | 未保存の変更の有無を通知する任意の `(dirty: boolean) => void`。親画面の保存状態表示や、SPA遷移・ワークスペース切替前の確認に利用できます。 |
 | `warnOnUnsavedChanges` | 任意の `boolean`。既定は `true`。未保存の変更がある間、親画面とExplorerの別ウィンドウでブラウザ標準の離脱確認を有効にします。`false` で無効化でき、マウント後の変更にも反映します。 |

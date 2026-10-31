@@ -3,7 +3,7 @@ export { TextEditorView, TextEditorView as LikeTextEditor, TextEditorView as def
 export * from "./model/index";
 export { TEXT_EDITOR_ACTIONS } from "./actions";
 export type { TextEditorActionInfo } from "./actions";
-export type { TextEditorProps, TextEditorHandle, TextEditorFeature, TextEditorHeaderActionsContext, TextEditorViewMode, TextEditorViewState, TextEditorImportOptions, TextEditorExport, TextEditorEditState, TextEditorReplaceOptions } from "./props";
+export type { TextEditorProps, TextEditorHandle, TextEditorFeature, TextEditorHeaderActionsContext, TextEditorViewMode, TextEditorViewState, TextEditorImportOptions, TextEditorExport, TextEditorEditState, TextEditorReplaceOptions, TextEditorFormattingOptions } from "./props";
 export type { TextEditorAction, TextEditorSelection, TextEditorSearchQuery, TextEditorSearchDisplay, TextEditorSearchState, TextEditorPanel } from "./editor-adapter";
 export * from "./markdown/index";
 export type * from "./search-types";

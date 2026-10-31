@@ -36,6 +36,9 @@
         },
         {
           "$ref": "#/$defs/TextEditorCommand_9"
+        },
+        {
+          "$ref": "#/$defs/TextEditorCommand_10"
         }
       ]
     },
@@ -179,6 +182,35 @@
       "type": "object",
       "properties": {
         "type": {
+          "const": "text.format"
+        },
+        "mode": {
+          "$ref": "#/$defs/TextEditorCommand_6_mode"
+        },
+        "indent": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 8
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "TextEditorCommand_6_mode": {
+      "enum": [
+        "text",
+        "markdown",
+        "json",
+        "xml",
+        "yaml"
+      ]
+    },
+    "TextEditorCommand_7": {
+      "type": "object",
+      "properties": {
+        "type": {
           "const": "markdown.format"
         },
         "selection": {
@@ -244,7 +276,7 @@
       },
       "additionalProperties": false
     },
-    "TextEditorCommand_7": {
+    "TextEditorCommand_8": {
       "type": "object",
       "properties": {
         "type": {
@@ -260,7 +292,7 @@
       ],
       "additionalProperties": false
     },
-    "TextEditorCommand_8": {
+    "TextEditorCommand_9": {
       "type": "object",
       "properties": {
         "type": {
@@ -270,7 +302,7 @@
           "type": "string"
         },
         "mode": {
-          "$ref": "#/$defs/TextEditorCommand_8_mode"
+          "$ref": "#/$defs/TextEditorCommand_6_mode"
         }
       },
       "required": [
@@ -278,16 +310,7 @@
       ],
       "additionalProperties": false
     },
-    "TextEditorCommand_8_mode": {
-      "enum": [
-        "text",
-        "markdown",
-        "json",
-        "xml",
-        "yaml"
-      ]
-    },
-    "TextEditorCommand_9": {
+    "TextEditorCommand_10": {
       "type": "object",
       "properties": {
         "type": {

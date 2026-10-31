@@ -35,13 +35,18 @@ Markdownの書式ツールバーは、閲覧専用（`readOnly`、または `onS
 | `export` | `exportFile`、ダウンロード。 |
 | `search` | 検索パネル、検索移動、`find`、検索に基づく置換。 |
 | `replace` | 置換欄、次を置換、すべて置換、`text.replaceAll`。 |
-| `formatting` | Markdownの書式・ブロック操作・チェック状態の変更、`markdown.*` コマンド。 |
+| `formatting` | Markdownの書式・ブロック操作・チェック状態の変更、`markdown.*`、JSON/XML/YAMLの整形表示と `text.format`。 |
+| `validation` | JSON・XML・YAMLの構文診断とエラー表示。整形表示の有効／無効とは独立。 |
 | `save` | 保存ボタン、保存ショートカット、`save()`。 |
 | `refresh` | `refresh()` による再読み込み。 |
 
 たとえば `features={{ replace: false, formatting: false }}` で検索と通常の入力を残して置換・書式操作を無効にできます。`showToolbar` は表示だけの設定で、機能を禁止しません。機能フラグは標準UI、ショートカット、表示中のref API、履歴の再適用で確認します。`replace: false` は文字列検索による置換の制御で、明示した範囲への通常入力や `text.replaceRange` を禁止する設定ではありません。
 
 純粋なモデルAPIはUIの機能フラグや編集許可を参照しません。サーバーで使う場合の認証・排他・保存先の検証は呼び出し側の責務です。
+
+JSON・XML・YAMLの `formatting` propは整形表示を提供する設定で、表示を開くだけでは編集許可を要求せずモデルも変えません。整形側で文字を編集した時点で、整形済みの表示文字列へ編集を加えた本文を通常の編集許可経路で反映します。最初の編集は整形分も含めて1回のUndo対象です。保存・エクスポートはモデルの本文を使うため、表示を切り替えただけでは整形済み文字列を保存しません。
+
+構文診断は入力途中の誤りを表示する機能で、エラーのある本文の保存を自動で禁止しません。保存前に構文が正しいことを必須にする場合は、利用側の `onBeforeSave` で `validateTextEditorSource` などを呼んで確認します。`text.format` コマンドは不正な構文を変更せず失敗します。
 
 ## 編集の開始・終了と再読み込み
 
@@ -101,7 +106,7 @@ await editor.current?.execute(
 
 `headerStyle` は全モード共通のヘッダーに適用します。たとえば `headerStyle={{ backgroundColor: "#1f4d3a", color: "#ffffff" }}` で背景色と文字色を指定でき、`borderBottomColor` などのCSSプロパティも指定できます。本文のスタイルは変わりません。ヘッダーの形式ラベル（`Markdown`／`Plain text`）は表示せず、文書のタイトルとモードはそのまま保持します。配色は利用側が指定する表示設定で、保存データには含めません。
 
-`renderHeaderActions` で、右上のUndo／Redo・閲覧専用表示・保存ボタンの領域を差し替えられます。未指定なら標準表示、`null` を返すとこの領域を非表示にします。ファイル名とMarkdownの文章表示／ソース表示トグルは差し替えの対象に含まれません。
+`renderHeaderActions` で、右上のUndo／Redo・閲覧専用表示・保存ボタンの領域を差し替えられます。未指定なら標準表示、`null` を返すとこの領域を非表示にします。ファイル名と文章表示／整形表示／ソース表示のトグルは差し替えの対象に含まれません。
 
 標準の操作にボタンを追加する場合は `defaultActions` を一緒に返します。
 

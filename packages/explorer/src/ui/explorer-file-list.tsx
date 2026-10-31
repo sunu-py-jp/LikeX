@@ -119,9 +119,10 @@ function EntryMenuItems({
     externalDownload,
     busy,
     canEditFavorites,
+    uiOptions,
     folderLoadingEnabled,
     loadFolderTree,
-  } = useExplorerFields("selected", "disabled", "features", "query", "openEntry", "openContainingFolder", "showModal", "setDetailId", "copyToClipboard", "act", "download", "externalDownload", "busy", "canEditFavorites", "folderLoadingEnabled", "loadFolderTree");
+  } = useExplorerFields("selected", "disabled", "features", "query", "openEntry", "openContainingFolder", "showModal", "setDetailId", "copyToClipboard", "act", "download", "externalDownload", "busy", "canEditFavorites", "uiOptions", "folderLoadingEnabled", "loadFolderTree");
   const ids = context && !singleTarget && selected.includes(entry.id) ? selected : [entry.id];
   const Item = context ? ContextMenu.Item : DropdownMenu.Item;
   const Separator = context ? ContextMenu.Separator : DropdownMenu.Separator;
@@ -144,7 +145,7 @@ function EntryMenuItems({
           <FolderInput />フォルダを開く
         </Item>
       ),
-      folderLoadingEnabled && entry.kind === "folder" && (
+      folderLoadingEnabled && uiOptions.loadFolderAction && entry.kind === "folder" && (
         <Item key="load-subtree" className={menuItemClass} disabled={busy} onSelect={() => { void loadFolderTree(entry.id); }}>
           <FolderOpen />配下を読み込む
         </Item>

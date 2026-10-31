@@ -80,7 +80,7 @@ const explorerOptions = {
 | --- | --- |
 | `features: ExplorerFeatures` | 下表の機能をbooleanで指定。`false` は関連UIをすべて非表示にし、ショートカットやドラッグなどの実行経路も止めます。 |
 | `selection: ExplorerSelectionOptions` | `mode` は `"none"` / `"single"` / `"multiple"`（既定）。`kind` は `"file"` / `"folder"` / `"both"`（既定）。`checkboxes` は選択チェックボックスの表示（既定 `true`）。 |
-| `ui: ExplorerUIOptions` | `sidebar`、`contextMenu`、`rowActions`、`thumbnails` の表示を指定。既定はすべて `true`。機能自体の可否とは別です。 |
+| `ui: ExplorerUIOptions` | `sidebar`、`contextMenu`、`rowActions`、`thumbnails`、`loadFolderAction` の表示を指定。既定はすべて `true`。機能自体の可否とは別です。 |
 | `view: ExplorerViewOptions` | `allowedModes` で使える表示形式、`defaultMode` で新しいタブの初期表示、`defaultColumnWidths` で詳細列の初期幅を指定します。 |
 
 | `features` の項目 | 対象 |
@@ -110,6 +110,8 @@ const explorerOptions = {
 中・大・特大アイコンでは、編集欄も長い名前を折り返し、内容に合わせて高さを調整します。編集欄は元の名前の位置に重ねるため、後続の段は移動しません。折り返しは表示上のもので、名前に改行は追加しません。Enterまたは入力欄の外へフォーカスを移すと確定し、Escで取消します。不正な名前や同名の項目がある場合は編集欄にエラーを表示します。確定後も保存するまではクライアント内の下書きです。`features.rename: false` でGUIとrefの開始経路を無効にできます。`useExplorerDraft().apply({ action: "rename", name: ... })` やモデルAPIには従来どおりファイル名全体を渡しますが、拡張子の変更・追加・除去も共通モデルで拒否します。[互換性と責務](./model-api.md#uiとの責務と互換性)を参照してください。
 
 `ui` は表示設定です。右クリックメニューを隠しても、ツールバー等に別の入口がある操作は使えます。空ファイル作成のメニューを利用するには `ui.contextMenu` を有効にします。`thumbnails: false` は画像のサムネイルをアイコンに替える設定で、プレビューダイアログの可否は `features.preview` で指定します。
+
+`ui.loadFolderAction: false` は、遅延読み込み時の「配下を読み込む」だけを一覧・ツリーの右クリック、行の「…」、一覧の空白のメニューから隠します。ほかの項目や、表示・展開時の自動読み込み、公開 `loadFolder()` は利用できます。マウント後の変更にも追従します。[指定例と未取得範囲の扱い](./folder-loading.md#load-folder-action)を参照してください。
 
 表示形式の型 `ExplorerViewMode` は `"extra-large"`、`"large"`、`"medium"`、`"small"`、`"list"`、`"details"`、`"tiles"`、`"content"` のいずれかです。`view.allowedModes` は1種類以上の非空tupleで、`defaultMode` はその中から選びます。不正な組み合わせはエラーになります。`defaultMode` を省略すると、許可されていれば `"details"`、なければ配列の先頭を使います。1種類だけなら表示形式の切替UIを隠します。
 

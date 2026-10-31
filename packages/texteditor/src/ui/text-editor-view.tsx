@@ -3,7 +3,7 @@ import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useSt
 import type { CSSProperties } from "react";
 import { Search, Replace, Undo2, Redo2, Save, Download, Upload, Command, WrapText, FileText, Code2, Eye, X, LockKeyhole } from "lucide-react";
 import { createPrimaryColorPalette, isSearchPanelQuery } from "../core";
-import { findTextEditorMatches, decodeTextEditorBytes, resolveTextEditorMode, TEXT_EDITOR_LIMITS } from "../model/index";
+import { findTextEditorMatches, decodeTextEditorBytes, resolveTextEditorMode, validateTextEditorSource, TEXT_EDITOR_LIMITS } from "../model/index";
 import { TEXT_EDITOR_ACTIONS } from "../actions";
 import type { EditorAdapterHandle, TextEditorAction, TextEditorSelection, TextEditorSearchQuery, TextEditorSearchDisplay, TextEditorSearchState, TextEditorPanel } from "../editor-adapter";
 import type { TextEditorHeaderActionsContext, TextEditorProps, TextEditorImportOptions, TextEditorExport, TextEditorViewMode, TextEditorReplaceOptions } from "../props";
@@ -12,6 +12,7 @@ import { record } from "../model/validation";
 import { createTextEditorSearchQuery } from "./search-panel";
 import { useTextEditor } from "../state/use-text-editor";
 import { CodeEditor } from "./code-editor";
+import { useStructuredView } from "./use-structured-view";
 import { MarkdownEditor } from "./markdown-editor";
 import { useTextEditorSearch } from "../state/use-text-editor-search";
 import { ExternalSearchPanel } from "./external-search-panel";
@@ -49,13 +50,26 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
   const [mode, setDisplayedMode] = useState(requestedMode);
   if (!pendingInput && mode !== requestedMode) setDisplayedMode(requestedMode);
   const [editorEpoch, setEditorEpoch] = useState(0), epochRef = useRef(0);
+  const historySession = useRef(0);
   const [adapterPanels, setAdapterPanels] = useState<readonly TextEditorPanel[]>([]);
   const nativeSearch = useRef<TextEditorSearchState | null>(null), searchTouched = useRef(false);
   const pending = useRef<{ target: TextEditorViewMode; documentId: string; run(editor: EditorAdapterHandle): boolean; resolve(value: boolean): void } | null>(null);
   const [systemDark, setSystemDark] = useState(false);
+  const structured = useStructuredView({ text: model.text, documentId: model.id, mode,
+    formatting: props.formatting, enabled: features.formatting, pendingInput, epoch: editorEpoch, initialViewMode: props.initialViewMode });
   const showingSource = mode !== "markdown" || sourceMode;
-  const live = useRef({ props, mode, showingSource });
-  useLayoutEffect(() => { live.current = { props, mode, showingSource }; });
+  const viewMode: TextEditorViewMode = !showingSource ? "rich" : structured.showingFormatted ? "formatted" : "source";
+  const displayedText = structured.text;
+  const codeIdentity = JSON.stringify([model.id, mode, viewMode, editorEpoch]);
+  const [visibleCode, setVisibleCode] = useState<{ key: string; text: string } | null>(null);
+  const visibleText = visibleCode?.key === codeIdentity ? visibleCode.text : displayedText;
+  const diagnostics = useMemo(() => {
+    if (!features.validation) return [];
+    try { return validateTextEditorSource(visibleText, { mode }); }
+    catch { return []; } // Oversized drafts are rejected by the normal edit path, not during rendering.
+  }, [visibleText, mode, features.validation]);
+  const live = useRef({ props, mode, showingSource, viewMode, structured, diagnostics });
+  useLayoutEffect(() => { live.current = { props, mode, showingSource, viewMode, structured, diagnostics }; });
   const canEdit = snapshot.editable && features.editing;
   const hasUnsavedChanges = snapshot.dirty || pendingInput;
   const search = useTextEditorSearch({ ...props, document: model, enabled: features.search, onNavigate: (result, context) => withSource(editor => {
@@ -93,22 +107,22 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
     adapter.current?.setSearch?.({ query: state.query, replacement: state.replacement, caseSensitive: state.caseSensitive, wholeWord: state.wholeWord, regex: state.regex }, { open, replace: state.replace && features.replace && canEdit });
     // Restore once per adapter, preserving query and toggles between rich/source views.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showingSource, editorEpoch]);
+  }, [viewMode, editorEpoch]);
   useEffect(() => {
     const task = pending.current;
-    if (task && adapter.current && (task.documentId !== controller.getModel().id || task.target === (showingSource ? "source" : "rich"))) {
+    if (task && adapter.current && (task.documentId !== controller.getModel().id || task.target === viewMode)) {
       pending.current = null;
-      task.resolve(task.documentId === controller.getModel().id && task.target === (showingSource ? "source" : "rich") && task.run(adapter.current));
+      task.resolve(task.documentId === controller.getModel().id && task.target === viewMode && task.run(adapter.current));
     }
-  }, [showingSource, model.id, controller, editorEpoch]);
+  }, [viewMode, model.id, controller, editorEpoch]);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; pending.current?.resolve(false); pending.current = null; }; }, []);
   useEffect(() => { if (palette) paletteInput.current?.focus(); }, [palette]);
   function commandEnabled(command: TextEditorAction) { return commandAllowed(command, controller.getSnapshot().features, live.current.showingSource); }
   const actions = TEXT_EDITOR_ACTIONS.filter(item => (!item.markdown || mode === "markdown" && !showingSource) && (!item.edits || canEdit) && commandAllowed(item.id, features, showingSource)).filter(item => `${item.label} ${item.id}`.toLowerCase().includes(query.toLowerCase()));
-  const lineStarts = useMemo(() => { const starts = [0]; for (const match of model.text.matchAll(/\r\n|\r|\n/g)) starts.push(match.index + match[0].length); return starts; }, [model.text]);
-  const textStats = { lines: lineStarts.length, characters: model.text.length };
+  const lineStarts = useMemo(() => { const starts = [0]; for (const match of visibleText.matchAll(/\r\n|\r|\n/g)) starts.push(match.index + match[0].length); return starts; }, [visibleText]);
+  const textStats = { lines: lineStarts.length, characters: visibleText.length };
   const currentRange = selection?.ranges[selection.mainIndex];
-  const caretOffset = selection?.coordinateSpace === "source" && currentRange ? Math.min(model.text.length, currentRange.head) : 0;
+  const caretOffset = selection?.coordinateSpace === viewMode && currentRange ? Math.min(visibleText.length, currentRange.head) : 0;
   let low = 0, high = lineStarts.length - 1;
   while (low < high) { const middle = Math.ceil((low + high) / 2); if (lineStarts[middle] <= caretOffset) low = middle; else high = middle - 1; }
   const caretLine = low + 1, caretColumn = caretOffset - lineStarts[low] + 1;
@@ -159,28 +173,30 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
   function changeViewMode(next: TextEditorViewMode) {
     if (live.current.showingSource) nativeSearch.current = adapter.current?.getSearch?.() ?? nativeSearch.current;
     if (next === "rich" && nativeSearch.current && !live.current.props.onSearchRequest && !live.current.props.renderSearch) searchRef.current.syncSearch({ query: nativeSearch.current, open: false });
-    if (next !== (live.current.showingSource ? "source" : "rich")) setAdapterPanels([]);
-    setSourceMode(next === "source");
+    if (next !== live.current.viewMode) { historySession.current++; setAdapterPanels([]); }
+    if (next === "source" || next === "formatted") live.current.structured.change(next);
+    setSourceMode(next !== "rich");
   }
-  const observedViewMode = useRef<TextEditorViewMode>(showingSource ? "source" : "rich");
+  const observedViewMode = useRef<TextEditorViewMode>(viewMode);
   useEffect(() => {
-    const next = showingSource ? "source" : "rich";
+    const next = viewMode;
     if (observedViewMode.current === next) return;
     observedViewMode.current = next;
     try { live.current.props.onViewModeChange?.(next); } catch { /* Observer only. */ }
-  }, [showingSource]);
+  }, [viewMode]);
   function withView(target: TextEditorViewMode, run: (editor: EditorAdapterHandle) => boolean): Promise<boolean> {
     if (!mounted.current) return Promise.resolve(false);
-    if (!["source", "rich"].includes(target) || target === "rich" && live.current.mode !== "markdown") return Promise.resolve(false);
-    if (inputPending.current && target !== (live.current.showingSource ? "source" : "rich")) return Promise.resolve(false);
+    if (!["source", "rich", "formatted"].includes(target) || target === "rich" && live.current.mode !== "markdown" || target === "formatted" && !live.current.structured.available) return Promise.resolve(false);
+    if (inputPending.current && target !== live.current.viewMode) return Promise.resolve(false);
     pending.current?.resolve(false);
     pending.current = null;
-    if (target === (live.current.showingSource ? "source" : "rich") && adapter.current && adapter.current.isReady?.() !== false) {
+    if (target === live.current.viewMode && adapter.current && adapter.current.isReady?.() !== false) {
       changeViewMode(target); return Promise.resolve(run(adapter.current));
     }
     return new Promise(resolve => { pending.current = { target, documentId: controller.getModel().id, run, resolve }; changeViewMode(target); });
   }
   function withSource(run: (editor: EditorAdapterHandle) => boolean) { return withView("source", run); }
+  function withCode(run: (editor: EditorAdapterHandle) => boolean) { return withView(live.current.viewMode === "formatted" ? "formatted" : "source", run); }
   async function runCommand(command: TextEditorAction): Promise<boolean> {
     if (!mounted.current) return false;
     const current = controller.getSnapshot();
@@ -201,7 +217,7 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
     }
     if (command.startsWith("markdown.")) return live.current.mode === "markdown" && !live.current.showingSource && !!adapter.current?.runCommand(command);
     if (!live.current.showingSource && ["selectAll", "selectLine", "indent", "outdent"].includes(command)) return !!adapter.current?.runCommand(command);
-    return withSource(editor => {
+    return withCode(editor => {
       const state = controller.getSnapshot();
       if (!commandEnabled(command) || info?.edits && (!state.editable || !state.features.editing)) return false;
       editor.focus(); return editor.runCommand(command);
@@ -258,7 +274,7 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
     }
     if (display.replace) searchRef.current.closeSearch();
     else searchRef.current.openSearch(query.query);
-    return withSource(editor => {
+    return withCode(editor => {
       const current = controller.getSnapshot();
       if (!current.features.search || display.replace && (!current.editable || !current.features.editing || !current.features.replace)) return false;
       const accepted = editor.setSearch?.(query, display) ?? false;
@@ -323,17 +339,21 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
     getDocument: controller.getModel, getText: () => controller.getModel().text,
     getState: () => {
       const current = controller.getSnapshot(), editable = current.editable && current.features.editing;
-      return Object.freeze({ mode: live.current.mode, viewMode: live.current.showingSource ? "source" as const : "rich" as const, wordWrap: wrapRef.current,
+      return Object.freeze({ mode: live.current.mode, viewMode: live.current.viewMode, wordWrap: wrapRef.current,
         readOnly: current.readOnly, editable, busy: current.busy !== null, dirty: current.dirty,
         editMode: current.editMode, hasUnsavedChanges: current.dirty || inputPending.current, pendingInput: inputPending.current,
         canSave: current.editable && current.features.save && current.dirty && !inputPending.current, canUndo: editable && current.features.history && current.canUndo,
         canRedo: editable && current.features.history && current.canRedo, features: current.features });
     },
+    getDiagnostics: () => live.current.diagnostics,
     execute, replace,
     find: options => controller.getSnapshot().features.search ? findTextEditorMatches(controller.getModel(), options) : [],
-    runCommand, focus: () => adapter.current?.focus(), getSelection: () => adapter.current?.isReady?.() === false ? null : adapter.current?.getSelection() ?? null,
-    setSelection: next => { if (!mounted.current || !adapter.current || adapter.current.isReady?.() === false || !next || !Array.isArray(next.ranges) || !next.ranges.length || next.ranges.length > 10000 || !Number.isInteger(next.mainIndex) || next.mainIndex < 0 || next.mainIndex >= next.ranges.length || next.ranges.some(range => !range || !Number.isInteger(range.anchor) || !Number.isInteger(range.head) || range.anchor < 0 || range.head < 0) || next.coordinateSpace !== (live.current.showingSource ? "source" : "rich")) return false; try { adapter.current.setSelection(next); return true; } catch { return false; } },
-    goToLine: (line, column) => withSource(editor => editor.goToLine(line, column)),
+    runCommand, focus: () => adapter.current?.focus(), getSelection: () => {
+      const value = adapter.current?.isReady?.() === false ? null : adapter.current?.getSelection() ?? null;
+      return value && live.current.viewMode === "formatted" ? { ...value, coordinateSpace: "formatted" as const } : value;
+    },
+    setSelection: next => { if (!mounted.current || !adapter.current || adapter.current.isReady?.() === false || !next || !Array.isArray(next.ranges) || !next.ranges.length || next.ranges.length > 10000 || !Number.isInteger(next.mainIndex) || next.mainIndex < 0 || next.mainIndex >= next.ranges.length || next.ranges.some(range => !range || !Number.isInteger(range.anchor) || !Number.isInteger(range.head) || range.anchor < 0 || range.head < 0) || next.coordinateSpace !== live.current.viewMode) return false; try { adapter.current.setSelection(next.coordinateSpace === "formatted" ? { ...next, coordinateSpace: "source" } : next); return true; } catch { return false; } },
+    goToLine: (line, column) => withCode(editor => editor.goToLine(line, column)),
     setViewMode: next => withView(next, () => true), setWordWrap: changeWordWrap,
     setSearch, getSearch: () => live.current.showingSource ? adapter.current?.getSearch?.() ?? nativeSearch.current : nativeSearch.current ? { ...nativeSearch.current, open: false } : null,
     getSearchPanelState,
@@ -346,9 +366,13 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
     cancelPending: () => { controller.cancelPending(); searchRef.current.cancelPending(); resetInput(); },
   }));
   const editorProps = {
-    value: model.text, editable: canEdit, ref: adapter,
+    value: displayedText, editable: canEdit, ref: adapter,
     searchEnabled: features.search, replaceEnabled: features.replace, formattingEnabled: features.formatting,
     onPendingChange: (value: boolean) => { if (!mounted.current || epochRef.current !== editorEpoch) return; inputPending.current = value; setPendingInput(value); },
+    onDisplayTextChange: (text: string) => {
+      if (!mounted.current || epochRef.current !== editorEpoch) return;
+      setVisibleCode(current => current?.key === codeIdentity && current.text === text ? current : { key: codeIdentity, text });
+    },
     onPanelsChange: (panels: readonly TextEditorPanel[]) => { if (mounted.current && epochRef.current === editorEpoch) setAdapterPanels(panels); },
     onSearchChange: (state: TextEditorSearchState) => {
       if (!mounted.current || epochRef.current !== editorEpoch) return;
@@ -356,10 +380,25 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
       if (!live.current.props.onSearchRequest && !live.current.props.renderSearch) searchRef.current.syncSearch({ query: state, open: state.open });
     },
     onChange: async (text: string) => {
-      if (text === controller.getModel().text) return true;
-      return !!await controller.execute({ type: "text.set", text }, { historyGroup: "typing" });
+      if (!mounted.current || epochRef.current !== editorEpoch || controller.getModel().id !== model.id || live.current.viewMode !== viewMode || live.current.structured.key !== structured.key) return false;
+      structured.beginInput(text);
+      if (text === controller.getModel().text) { structured.finishInput(text, true); return true; }
+      const historyGroup = `typing:${structured.key}:${viewMode}:${historySession.current}`;
+      let accepted = false;
+      if (viewMode === "formatted") {
+        await controller.runTask("formatting", async context => {
+          if (!mounted.current || epochRef.current !== editorEpoch || live.current.structured.key !== structured.key || controller.getModel().id !== model.id) return;
+          accepted = !!context.apply({ type: "text.set", text }, { historyGroup });
+        });
+      } else accepted = !!await controller.execute({ type: "text.set", text }, { historyGroup });
+      if (mounted.current && epochRef.current === editorEpoch) structured.finishInput(text, accepted);
+      return accepted;
     },
-    onSelectionChange: (next: TextEditorSelection) => { setSelection(next); try { props.onSelectionChange?.(next); } catch { /* Selection observers do not reject edits. */ } },
+    onSelectionChange: (next: TextEditorSelection) => {
+      if (!mounted.current || epochRef.current !== editorEpoch) return;
+      const value = viewMode === "formatted" ? { ...next, coordinateSpace: "formatted" as const } : next;
+      setSelection(value); try { props.onSelectionChange?.(value); } catch { /* Selection observers do not reject edits. */ }
+    },
     onUndo: () => { void controller.undo(); }, onRedo: () => { void controller.redo(); }, onCommandPalette: openPalette,
   };
   const canSave = snapshot.editable && features.save && snapshot.dirty && !pendingInput;
@@ -374,7 +413,7 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
     defaultActions, readOnly: snapshot.readOnly, busy: snapshot.busy !== null, dirty: snapshot.dirty,
     canSave, canUndo, canRedo, save, undo: controller.undo, redo: controller.redo, runCommand,
   };
-  return <section ref={root} data-likex-texteditor="" data-theme={theme} data-mode={mode} className={`lxte-root ${props.className ?? ""}`} style={{ "--lxte-primary": colors.primary, "--lxte-on-primary": colors.onPrimary, "--lxte-accent": colors.accent, "--lxte-selection": colors.selection, ...props.style } as CSSProperties} onKeyDownCapture={event => {
+  return <section ref={root} data-likex-texteditor="" data-theme={theme} data-mode={mode} data-view-mode={viewMode} className={`lxte-root ${props.className ?? ""}`} style={{ "--lxte-primary": colors.primary, "--lxte-on-primary": colors.onPrimary, "--lxte-accent": colors.accent, "--lxte-selection": colors.selection, ...props.style } as CSSProperties} onKeyDownCapture={event => {
     if (event.isDefaultPrevented() || event.nativeEvent.isComposing) return;
     const target = event.target as HTMLElement;
     const mod = event.ctrlKey || event.metaKey;
@@ -386,6 +425,7 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
   }}>
     <header className="lxte-header" style={props.headerStyle} data-custom-color={props.headerStyle?.color ? "" : undefined}><div className="lxte-file"><FileText size={18} /><strong>{props.title ?? model.title}</strong>{hasUnsavedChanges && <span className="lxte-dirty" title="未保存" aria-label="未保存" />}</div><div className="lxte-header-end">
       {mode === "markdown" && <div className="lxte-view-switch" role="group" aria-label="Markdownの表示"><button type="button" aria-label="文章表示" title="文章表示" disabled={pendingInput} aria-pressed={!sourceMode} onClick={() => void withView("rich", () => true)}><Eye size={16} aria-hidden="true" /></button><button type="button" aria-label="ソース表示" title="ソース表示" disabled={pendingInput} aria-pressed={sourceMode} onClick={() => void withView("source", () => true)}><Code2 size={16} aria-hidden="true" /></button></div>}
+      {mode !== "markdown" && structured.available && <div className="lxte-view-switch" role="group" aria-label="構造化テキストの表示"><button type="button" aria-label="整形表示" title="整形表示" disabled={pendingInput} aria-pressed={viewMode === "formatted"} onClick={() => void withView("formatted", () => true)}><Eye size={16} aria-hidden="true" /></button><button type="button" aria-label="ソース表示" title="ソース表示" disabled={pendingInput} aria-pressed={viewMode === "source"} onClick={() => void withView("source", () => true)}><Code2 size={16} aria-hidden="true" /></button></div>}
       <HeaderActions render={props.renderHeaderActions} context={headerContext} />
     </div></header>
     {props.showToolbar && <nav className="lxte-toolbar" aria-label="テキスト編集の操作">
@@ -401,10 +441,10 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
         if (file) void importFile(file);
       }} />
     </nav>}
-    <div className="lxte-workspace">{showingSource ? <CodeEditor key={`source-${editorEpoch}`} {...editorProps} wordWrap={wordWrap} mode={mode} onToggleWordWrap={toggleWrap} /> : <MarkdownEditor key={`rich-${editorEpoch}`} {...editorProps} formatting={!snapshot.readOnly && features.editing && features.formatting} onSourceMode={() => void withView("source", () => true)} />}
+    <div className="lxte-workspace">{showingSource ? <CodeEditor key={`${viewMode}-${editorEpoch}`} {...editorProps} wordWrap={wordWrap} mode={mode} onToggleWordWrap={toggleWrap} /> : <MarkdownEditor key={`rich-${editorEpoch}`} {...editorProps} formatting={!snapshot.readOnly && features.editing && features.formatting} onSourceMode={() => void withView("source", () => true)} />}
       {customSearch && <SearchPanelContent render={props.renderSearch} context={{ ...search.context, openSearch, openExternalSearch, close: closeSearch }} />}
     </div>
-    <footer className="lxte-status">{showingSource && <span>{caretLine} 行、{caretColumn} 列{selection && selection.ranges.length > 1 && ` · ${selection.ranges.length} カーソル`}</span>}<span>{textStats.lines.toLocaleString()} 行 · {textStats.characters.toLocaleString()} 文字</span></footer>
+    <footer className="lxte-status">{showingSource && <span>{caretLine} 行、{caretColumn} 列{selection && selection.ranges.length > 1 && ` · ${selection.ranges.length} カーソル`}</span>}<span>{textStats.lines.toLocaleString()} 行 · {textStats.characters.toLocaleString()} 文字</span>{diagnostics[0] && <span className="lxte-diagnostic" role="status" title={diagnostics[0].message.slice(0, 1000)}>{diagnostics[0].line} 行、{diagnostics[0].column} 列: {diagnostics[0].message.slice(0, 1000)}</span>}</footer>
     {snapshot.notice && <div role="status" className={`lxte-notice lxte-notice-${snapshot.notice.kind}`}><span>{snapshot.notice.text}</span><button type="button" aria-label="通知を閉じる" onClick={() => controller.setNotice(null)}><X size={14} /></button></div>}
     {palette && <div className="lxte-palette-layer" onPointerDown={event => { if (event.target === event.currentTarget) closePalette(); }}><div className="lxte-palette" role="dialog" aria-label="コマンド一覧" onKeyDown={event => {
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); closePalette(); }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { build } from 'esbuild';
+import { build } from './helpers/build.mjs';
 
 const output = await build({ stdin: { contents: `export {CompactSearchPanel, openCompactReplacePanel, summarizeSearchMatches, searchMatchOrdinal, setCodeEditorSearch, getCodeEditorSearch, textEditorSearchPolicy} from './src/ui/search-panel';
   export {runCodeEditorAction} from './src/ui/code-editor';

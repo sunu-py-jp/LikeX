@@ -3,6 +3,8 @@ import { normalizeTextEditorModel } from "./document";
 import { replaceTextEditorMatches } from "./search";
 import { checkedArray, checkedOffset, checkedText, record, TEXT_EDITOR_LIMITS } from "./validation";
 import { applyMarkdownCommand, applyMarkdownTaskCommand } from "../markdown/index";
+import { formatTextEditorSource, validateTextEditorSource } from "./source-format";
+import { isTextEditorMode } from "./language";
 
 const keys: Record<TextEditorCommand["type"], readonly string[]> = {
   "text.set": ["type", "text"],
@@ -10,6 +12,7 @@ const keys: Record<TextEditorCommand["type"], readonly string[]> = {
   "text.replaceRange": ["type", "from", "to", "text"],
   "text.replaceRanges": ["type", "edits"],
   "text.replaceAll": ["type", "query", "replacement", "caseSensitive", "wholeWord", "regex"],
+  "text.format": ["type", "mode", "indent"],
   "markdown.format": ["type", "selection", "action", "options"],
   "markdown.toggleTask": ["type", "position"],
   "document.update": ["type", "title", "mode"],
@@ -63,6 +66,15 @@ export function executeTextEditorCommands(input: TextEditorModel, commands: Text
         const typed = raw as unknown as Extract<TextEditorCommand, { type: "text.replaceAll" }>;
         const { query, caseSensitive, wholeWord, regex } = typed;
         model = normalizeTextEditorModel({ ...model, text: replaceTextEditorMatches(model.text, { query, caseSensitive, wholeWord, regex }, checkedText(raw.replacement, "置換文字列")) }); break;
+      }
+      case "text.format": {
+        const mode = raw.mode === undefined ? model.mode : raw.mode;
+        if (!isTextEditorMode(mode)) throw new Error("整形モードはtext、markdown、json、xml、yamlで指定してください。");
+        const diagnostic = validateTextEditorSource(model.text, { mode })[0];
+        if (diagnostic) throw new Error(`${diagnostic.message} (${diagnostic.line}行 ${diagnostic.column}列)`);
+        const result = formatTextEditorSource(model.text, { mode, indent: raw.indent as number | undefined });
+        if (result.changed) model = normalizeTextEditorModel({ ...model, text: result.text });
+        break;
       }
       case "document.update": model = normalizeTextEditorModel({ ...model, ...(raw.title === undefined ? {} : { title: raw.title }), ...(raw.mode === undefined ? {} : { mode: raw.mode }) }); break;
       case "document.replace": model = normalizeTextEditorModel(raw.document); break;

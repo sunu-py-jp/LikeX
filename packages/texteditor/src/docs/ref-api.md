@@ -40,7 +40,7 @@ const source = api.getText();
 const document = api.getDocument();
 const state = api.getState();
 // state.mode: "text" | "markdown" | "json" | "xml" | "yaml"（判別後）
-// state.viewMode: "source" | "rich"
+// state.viewMode: "source" | "rich" | "formatted"
 // state.wordWrap / readOnly / editable / busy / dirty
 // state.editMode / hasUnsavedChanges / pendingInput
 // state.canSave / canUndo / canRedo / features
@@ -98,11 +98,11 @@ const search = editor.current?.getSearch();
 editor.current?.closeSearch();
 ```
 
-検索はソース上で行います。Markdownの文章表示から `setSearch` を呼ぶとソース表示へ切り替えます。表示設定を省略すると検索パネルを開き、置換欄は折りたたみます。`{ open: false }` ならパネルを開かずに条件を設定できます。指定を省略した `replacement` は空文字、各検索オプションは `false` に戻します。以前の検索条件への部分更新ではありません。
+標準の検索は表示中の文字列上で行います。整形表示中はその文字列を対象にし、Markdownの文章表示から `setSearch` を呼ぶとソース表示へ切り替えます。表示設定を省略すると検索パネルを開き、置換欄は折りたたみます。`{ open: false }` ならパネルを開かずに条件を設定できます。指定を省略した `replacement` は空文字、各検索オプションは `false` に戻します。以前の検索条件への部分更新ではありません。
 
 `setSearch` に不正な入力や正規表現を渡すと `false` を返し、前の検索条件を保持します。`getSearch()` はソース検索の直近の条件を返し、Markdownの文章表示へ切り替えても条件は保持します。ソースへ戻ると条件を復元します。まだ検索状態を設定・取得していない段階では `null` の場合があります。外部結果パネルの状態は `getSearchPanelState()` または `renderSearch` のcontextで取得します。利用者が検索欄に入力した無効な正規表現は `valid: false` で確認できます。
 
-`selectSearchMatches` は現在の検索条件に一致する箇所をすべて選択し、`selectAllOccurrences` は現在選択している文字列と同じ箇所をすべて選択します。どちらもソース表示で利用できます。閲覧専用でも検索・選択は使えますが、置換は実行しません。
+`selectSearchMatches` は現在の検索条件に一致する箇所をすべて選択し、`selectAllOccurrences` は現在選択している文字列と同じ箇所をすべて選択します。どちらもソース表示と整形表示で利用できます。閲覧専用でも検索・選択は使えますが、置換は実行しません。
 
 画面を操作せず一致範囲だけ取得する場合は `find` です。
 
@@ -135,7 +135,7 @@ editor.current?.closeSearch();
 
 ## 外部検索結果と検索の差し替え
 
-`externalSearch` へ、ベクトル検索などで得た順位付きの結果を渡せます。`target` は元本文の `{ from, to }`（UTF-16・0始まり・終端を含まない）です。Markdownの文章表示の位置ではありません。
+`externalSearch` へ、ベクトル検索などで得た順位付きの結果を渡せます。`target` は元本文の `{ from, to }`（UTF-16・0始まり・終端を含まない）です。Markdownの文章表示や整形表示の位置ではありません。
 
 ```tsx
 import type { TextEditorExternalSearchOptions } from "@likex/texteditor";
@@ -220,9 +220,9 @@ editor.current?.openExternalSearch("topic-b");
 
 `TextEditorSearchRenderContext` は `open`・`mode`・`query`・`title`・`results`・`activeResultId`・`busy`・`error`・`externalAvailable`・`focusVersion` と、`setQuery`・`openSearch`・`openExternalSearch`・`selectResult`・`next`・`previous`・`close` を持ちます。`focusVersion` は外からの「開く」の要求ごとに変わるため、独自入力欄のフォーカスに使えます。`renderSearch` からnullを返すとパネルを隠します。
 
-`getSearchPanelState()` は同じcontextを呼び出した時点の状態で返します。`results` は外部検索・ホスト検索・`renderSearch` を使う検索の一覧です。標準ソースパネルの一致一覧はここへ複製せず、`results` は空配列になります。標準パネルの検索条件は `getSearch()`、本文中の一致範囲だけ必要な場合は `find()` を使ってください。
+`getSearchPanelState()` は同じcontextを呼び出した時点の状態で返します。`results` は外部検索・ホスト検索・`renderSearch` を使う検索の一覧です。標準検索パネルの一致一覧はここへ複製せず、`results` は空配列になります。標準パネルの検索条件は `getSearch()`、本文中の一致範囲だけ必要な場合は `find()` を使ってください。
 
-`renderSearch` だけを指定した通常検索はモデル検索と同じRE2形式で範囲を作ります。`onSearchRequest` も指定した場合はホストの検索結果を渡します。標準ソースパネルのJavaScript形式の検索条件・置換とは別経路です。検索パネルのカスタム表示は保存データに含めません。
+`renderSearch` だけを指定した通常検索はモデル検索と同じRE2形式で範囲を作ります。`onSearchRequest` も指定した場合はホストの検索結果を渡します。標準検索パネルのJavaScript形式の検索条件・置換とは別経路です。検索パネルのカスタム表示は保存データに含めません。
 
 ## カーソル・複数選択・行操作
 
@@ -238,7 +238,7 @@ editor.current?.focus();
 const selection = editor.current?.getSelection();
 ```
 
-`source` は本文上の位置、`rich` は解析後のProseMirror位置です。現在と異なる座標系の選択は受け付けません。`rich` では1つの範囲、`source` では複数範囲を指定できます。`anchor` と `head` が同じならカーソル、逆順なら後方への選択です。選択・移動・フォーカスは本文のUndo履歴へ入りません。
+`source` はモデル本文上のUTF-16位置、`formatted` は整形表示中の文字列上のUTF-16位置、`rich` は解析後のProseMirror位置です。整形で文字位置が変わるためsourceとformattedの範囲は互換ではありません。現在と異なる座標系の選択は受け付けません。`rich` では1つの範囲、`source` と `formatted` では複数範囲を指定できます。`anchor` と `head` が同じならカーソル、逆順なら後方への選択です。選択・移動・フォーカスは本文のUndo履歴へ入りません。
 
 ```ts
 await editor.current?.runCommand("selectAll");
@@ -277,11 +277,47 @@ editor.current?.closePanels();
 await editor.current?.setViewMode("source");
 editor.current?.setWordWrap(false);
 await editor.current?.setViewMode("rich"); // Markdownモードのみ
+await editor.current?.setViewMode("formatted"); // 整形表示が有効なJSON・XML・YAML
 ```
 
-`setViewMode` は本文の形式を変えず、Markdownの文章表示とソース表示を切り替えます。切り替え先のエディターが準備できた後に結果を返します。Markdown以外で `rich` を指定すると `false` です。入力の許可・反映待ちの間は、アダプターを破棄する表示切り替えも `false` を返します。`mode` propの変更は入力が確定または取り消されるまで画面への適用を保留します。`setWordWrap` はソース表示の折り返し設定を変更し、文章表示の段落レイアウトには影響しません。
+`setViewMode` は本文の形式を変えず、ソース・Markdownの文章表示・JSON/XML/YAMLの整形表示を切り替えます。切り替え先のエディターが準備できた後に結果を返します。Markdown以外で `rich` を指定すると `false` です。`formatted` は `formatting` が有効で、原文と整形結果に差分のあるJSON・XML・YAMLで使用できます。利用できない表示は `false` を返します。入力の許可・反映待ちの間は、アダプターを破棄する表示切り替えも `false` を返します。`mode` propの変更は入力が確定または取り消されるまで画面への適用を保留します。`setWordWrap` はソース表示の折り返し設定を変更し、文章表示の段落レイアウトには影響しません。
 
 初期表示は `initialViewMode`、折り返しの初期値は `initialWordWrap` で指定できます。表示切り替えは `onViewModeChange`、折り返しは `onWordWrapChange` へ通知します。表示形式は `mode` propとファイル名・MIMEで選び、判別できない場合はモデルのmodeを使います。`mode`省略はautoです。モデルへ保存する形式は `document.update` で変更します。明示したmodeや判別用メタデータがある場合は表示側を優先します。詳しくは[自動判別](getting-started.md#自動判別と構文ハイライト)を参照してください。
+
+## 整形表示と診断の取得
+
+```tsx
+<LikeTextEditor
+  ref={editor}
+  fileName="config.json"
+  initialText={'{"enabled":true,"retries":3}'}
+  formatting={{ indent: 2 }}
+  onSave={document => document}
+/>
+```
+
+```ts
+await editor.current?.setViewMode("formatted");
+const selection = editor.current?.getSelection();
+// coordinateSpace: "formatted"。整形表示の文字位置。
+const diagnostics = editor.current?.getDiagnostics();
+// [{ from, to, line, column, message }, ...]
+await editor.current?.setViewMode("source");
+
+// 表示だけでなく、本文の整形も確定する場合。
+const api = editor.current;
+if (api) await api.execute({ type: "text.format", mode: api.getState().mode, indent: 2 });
+```
+
+`text.format` のmode省略時は `getDocument().mode` を使います。たとえば保存モデルがtextのまま、fileNameやMIMEからJSONを表示している場合、省略すると整形しません。上の例は `getState().mode` を渡し、現在の表示形式で整形します。GUIの `formatting` propは自動判別後の表示modeに対応しています。
+
+`formatting` は省略／falseで無効、trueまたは `{ indent }` で有効です。indentは1〜8の整数、既定2。差分がある場合の初期表示はformatted、原文を最初に見せる場合は `initialViewMode="source"` を指定します。表示開始時に差分がない場合はトグルを表示しません。
+
+表示切り替えだけでは `getText()` / `getDocument()` の本文、保存対象、未保存判定、Undo履歴を変えません。整形表示で編集すると、その表示文字列へ編集を加えた本文を通常の編集許可・履歴経路で確定します。その後は入力のたびに再整形しません。最初の編集をUndoすれば整形前の本文へ戻せます。編集拒否・キャンセル時は原文を変更しません。
+
+`getDiagnostics()` はJSON・XML・YAMLの構文診断を返します。from/toは表示中の文字列の0始まりのUTF-16位置、toは終端を含みません。line/columnは1始まりで、columnもUTF-16単位です。整形表示では整形後の文字列、ソース表示では原文の座標です。`getState().viewMode` で表示を確認してください。原文の診断が必要な場合は `validateTextEditorSource(ref.getText(), { mode: ref.getState().mode })` を使います。`features.validation: false` で診断を無効にできます。整形表示の有効／無効とは独立しています。
+
+`externalSearch` やホスト検索が返した元本文の位置へ移動するときはソース表示へ切り替えます。標準の検索・置換・`goToLine` は整形表示中の文字列を対象にし、その表示を保ちます。整形表示の選択をそのまま `text.replaceRange` などの元本文を操作するコマンドへ渡さないでください。画面なしで表示用の整形文字列を得るには `formatTextEditorSource`、構文診断だけなら `validateTextEditorSource` を使います。
 
 ## ファイルの読み込み・出力
 
@@ -313,18 +349,19 @@ editor.current?.download();
 | --- | --- | --- |
 | `getDocument()` / `getText()` | モデル / 文字列 | 現在の下書きを取得。 |
 | `getState()` | `TextEditorViewState` | 編集・保存・表示の状態を取得。 |
+| `getDiagnostics()` | 診断配列 | JSON・XML・YAMLの構文診断を取得。 |
 | `execute(commands, options?)` | `Promise<TextEditorModel \| null>` | モデルコマンドを共通の履歴へ適用。 |
 | `replace(document, options?)` | `Promise<TextEditorModel \| null>` | 文書を読み込みとして置き換える。 |
 | `find(options)` | 範囲配列 | ソースの一致箇所だけ取得。 |
 | `runCommand(action)` | `Promise<boolean>` | 画面の選択・検索・書式・行操作を実行。 |
 | `focus()` | `void` | 現在の本文にフォーカス。 |
 | `getSelection()` / `setSelection(selection)` | 選択またはnull / boolean | 現在の座標系で選択を取得・設定。 |
-| `goToLine(line, column?)` | `Promise<boolean>` | ソースの指定行・列へ移動。 |
-| `setViewMode(mode)` | `Promise<boolean>` | source/richを切り替え。 |
+| `goToLine(line, column?)` | `Promise<boolean>` | ソースまたは整形表示の指定行・列へ移動。 |
+| `setViewMode(mode)` | `Promise<boolean>` | source/rich/formattedを切り替え。 |
 | `setWordWrap(enabled)` | `boolean` | ソースの折り返しを設定。 |
-| `setSearch(query, display?)` | `Promise<boolean>` | ソースの検索条件・パネルを設定。 |
-| `getSearch()` / `closeSearch()` | 検索状態またはnull / boolean | 標準ソース検索の条件を取得・検索パネルを閉じる。 |
-| `getSearchPanelState()` | `TextEditorSearchRenderContext` | 検索モード・外部／カスタム検索結果・処理状態と操作を取得。標準ソース検索の一致一覧は含まない。 |
+| `setSearch(query, display?)` | `Promise<boolean>` | ソースまたは整形表示の検索条件・パネルを設定。 |
+| `getSearch()` / `closeSearch()` | 検索状態またはnull / boolean | 標準検索の条件を取得・検索パネルを閉じる。 |
+| `getSearchPanelState()` | `TextEditorSearchRenderContext` | 検索モード・外部／カスタム検索結果・処理状態と操作を取得。標準検索の一致一覧は含まない。 |
 | `openSearch(query?)` / `openExternalSearch(resultId?)` | `boolean` | 通常検索／外部検索結果を開く。 |
 | `getOpenPanels()` | `readonly TextEditorPanel[]` | 開いているパネルの種類。 |
 | `closePanel(panel)` / `closePanels()` | boolean / void | 指定パネル／すべてのパネルを閉じる。 |

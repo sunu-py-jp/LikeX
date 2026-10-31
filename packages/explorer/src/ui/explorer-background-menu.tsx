@@ -25,7 +25,7 @@ export function ExplorerBackgroundMenu({ children }: { children: ReactElement })
   const allowBuiltins = !special && !query.trim();
   const hasCreate = allowBuiltins && (features.createFile || features.createFolder);
   const hasUpload = allowBuiltins && (features.uploadFiles || features.uploadFolders);
-  const hasLoad = allowBuiltins && folderLoadingEnabled;
+  const hasLoad = allowBuiltins && folderLoadingEnabled && uiOptions.loadFolderAction;
   const hasPaste = allowBuiltins && (features.copy || features.move);
   if (provisionalLocation || !uiOptions.contextMenu || (!hasCreate && !hasUpload && !hasPaste && !hasLoad && !hasCustomContextMenu)) return children;
 

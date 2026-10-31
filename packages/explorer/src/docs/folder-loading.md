@@ -87,6 +87,25 @@ if (api && await api.loadFolder("folder-sales", { recursive: true })) {
 
 低レベルの `useExplorerDraft` にも `loadFolder` を用意しています。フォルダごとの状態は `getFolderLoadState(folderId)` で `{ status: "unloaded" | "loading" | "loaded" | "error", error: string | null }` を取得し、状態変化の購読には返された `folderLoadRevision` を使います。低レベルフックを使う画面では、対象の表示・展開に合わせた呼び出しと、エラーや再試行の表示を利用側で組み立てます。
 
+<a id="load-folder-action"></a>
+
+## 「配下を読み込む」メニューを隠す
+
+`ui.loadFolderAction` の既定値は `true` です。`false` にすると、フォルダの右クリック・行の「…」・ツリー・一覧の空白のメニューから「配下を読み込む」だけを非表示にします。
+
+```tsx
+<Explorer
+  ref={explorerRef}
+  initialEntries={[]}
+  onLoadFolder={loadFolder}
+  ui={{ loadFolderAction: false }}
+/>
+```
+
+初回表示・フォルダ移動・ツリー展開の自動読み込み、読み込みエラー時の再試行、公開 `loadFolder()` は引き続き利用できます。読み取り専用でも同じ表示設定を使え、マウント後の切り替えにも追従します。この設定は表示だけを変更するため、進行中の読み込みを取り消したり、キャッシュを破棄したりしません。
+
+未取得の子孫があるフォルダのコピー・移動・削除・改名・ZIP作成には、引き続き必要な範囲の取得が必要です。メニューを隠してこれらの操作を提供する場合は、利用側の操作から `await explorerRef.current?.loadFolder(folderId, { recursive: true })` を呼び、成功を確認してから実行してください。前述の取得範囲や編集許可の条件は変わりません。
+
 ## 初期パス・移動・検索の範囲
 
 `initialPath`、`selectedFile`、同期の `ref.navigate()` は、キャッシュにある項目と祖先から解決します。まだ取得していない任意のパスを、APIが自動でサーバー全体から探索することはありません。必要な祖先を `initialEntries` に含めるか、祖先を順に `loadFolder` してから移動してください。`navigate()` の成功は表示先の受け付けを意味し、フォルダ取得の完了通知ではありません。

@@ -201,6 +201,7 @@ export function CodeEditor({ ref, ...props }: CodeEditorProps) {
         EditorState.transactionFilter.of(transaction => transaction.docChanged && transaction.startState.readOnly && !transaction.annotation(externalChange) ? [] : transaction),
         EditorView.updateListener.of(update => {
           notifySearch(update.view);
+          if (update.docChanged) latest.current.onDisplayTextChange?.(update.state.sliceDoc());
           if (update.selectionSet || update.docChanged) latest.current.onSelectionChange?.(codeSelectionToSource(update.state));
           if (update.docChanged && !update.transactions.some(transaction => transaction.annotation(externalChange))) {
             pending.queued = update.state.sliceDoc();
@@ -232,6 +233,7 @@ export function CodeEditor({ ref, ...props }: CodeEditorProps) {
       });
     }
     latest.current.onSelectionChange?.(codeSelectionToSource(view.state));
+    latest.current.onDisplayTextChange?.(view.state.sliceDoc());
     return () => { pending.mounted = false; pending.generation++; pending.pending = false; pending.queued = null; pending.submitted.clear(); lineDialogs.delete(view); notifyPending(false); viewRef.current = null; view.destroy(); };
     // The mounted view reads current props through refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps

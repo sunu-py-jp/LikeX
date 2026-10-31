@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { build } from 'esbuild';
+import { build } from './helpers/build.mjs';
 const output = await build({ entryPoints: [new URL('../src/markdown/index.ts', import.meta.url).pathname], bundle: true, platform: 'node', format: 'esm', write: false });
 const api = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const { parseMarkdownDocument: parse, serializeMarkdownDocument: serialize, applyMarkdownCommand: apply, getMarkdownCompatibilityWarnings: warnings, markdownSchema: schema, isSafeMarkdownUrl } = api;

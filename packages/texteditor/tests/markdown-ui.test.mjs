@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { build } from 'esbuild';
+import { build } from './helpers/build.mjs';
 import { act, createElement as h, createRef } from 'react';
 import { create } from 'react-test-renderer';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;

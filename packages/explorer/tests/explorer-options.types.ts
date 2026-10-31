@@ -31,7 +31,7 @@ import { createExplorerUploadSession } from "../src";
 export const features = { copy: false, move: true, preview: true, download: false, mouseNavigation: false } satisfies ExplorerFeatures;
 export const selectionMode = "single" satisfies ExplorerSelectionMode;
 export const selection = { mode: selectionMode, checkboxes: false } satisfies ExplorerSelectionOptions;
-export const ui = { sidebar: false, contextMenu: true, rowActions: false, thumbnails: true } satisfies ExplorerUIOptions;
+export const ui = { sidebar: false, contextMenu: true, rowActions: false, thumbnails: true, loadFolderAction: false } satisfies ExplorerUIOptions;
 export const viewMode = "details" satisfies ExplorerViewMode;
 export const view = { allowedModes: [viewMode, "large"], defaultMode: viewMode } satisfies ExplorerViewOptions;
 export const options = { features, selection, ui, view } satisfies ExplorerOptions;

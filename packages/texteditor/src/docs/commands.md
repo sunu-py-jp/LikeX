@@ -26,6 +26,7 @@ const json = serializeTextEditorModel(updated);
 | `text.replaceRange` | `from`, `to`, `text` | 範囲を置換。空文字なら削除。 |
 | `text.replaceRanges` | `edits: { from, to, text }[]` | 同じ本文を基準に、重ならない複数範囲をまとめて置換。 |
 | `text.replaceAll` | `query`, `replacement`, `caseSensitive?`, `wholeWord?`, `regex?` | 一致したすべての箇所を置換。 |
+| `text.format` | `mode?`, `indent?` | JSON・XML・YAMLの本文を整形。mode省略時はモデルのmode、indentは1〜8の整数、既定2。 |
 | `markdown.format` | `selection`, `action`, `options?` | 指定した文章表示の範囲へ見出し・リスト・太字・リンクなどを適用。 |
 | `markdown.toggleTask` | `position` | 指定したチェックリスト項目の完了状態を反転。 |
 | `document.update` | `title?`, `mode?` | メタデータを変更。modeはtext／markdown／json／xml／yaml。modeだけの変更では本文を変換しない。 |
@@ -46,7 +47,7 @@ const updated = executeTextEditorCommands(
 // 東京都、大阪府、名古屋
 ```
 
-`markdown.*` の位置はソースの文字位置とは異なります。[Markdownの編集](markdown.md)で文章表示の位置取得と書式変更を説明しています。これらのコマンドも `executeTextEditorCommands`、表示中の `ref.execute`、CLIの `apply` で共通に使えます。表示中のAPIでは `markdown.*` にformatting、`text.replaceAll` にsearchとreplace、`document.replace` にimportの機能フラグを確認し、どの変更にもeditingが必要です。UIなしのモデルAPI・CLIは呼び出し側が権限を管理します。
+`markdown.*` の位置はソースの文字位置とは異なります。[Markdownの編集](markdown.md)で文章表示の位置取得と書式変更を説明しています。これらのコマンドも `executeTextEditorCommands`、表示中の `ref.execute`、CLIの `apply` で共通に使えます。表示中のAPIでは `markdown.*` と `text.format` にformatting、`text.replaceAll` にsearchとreplace、`document.replace` にimportの機能フラグを確認し、どの変更にもeditingが必要です。UIなしのモデルAPI・CLIは呼び出し側が権限を管理します。
 
 `findTextEditorMatches(documentOrText, options, maxMatches = 10000)` は `{ from, to }[]` を返します。上限を超えると切り捨てず例外にします。一括置換は一致一覧を全件メモリに置かず処理します。`wholeWord`はUnicodeの文字・結合文字・数字・アンダースコアを単語として判定します。
 
@@ -95,7 +96,7 @@ Alt+Shift+ドラッグはドラッグ開始位置から矩形選択します。�
 
 Markdown文章表示でソース専用の操作を実行すると、ソース表示へ切り替えて実行します。全選択やMarkdown書式操作は文章表示のまま実行できます。
 
-`getSelection()` / `setSelection()` の `coordinateSpace` は `source` または `rich` です。sourceはUTF-16の文字位置、richはProseMirror文書位置で、互換の座標ではありません。現在と異なる座標系の選択を渡すと適用されません。複数範囲は `ranges`、主選択は `mainIndex` で指定します。フォーカスや選択の変更は本文の履歴を増やしません。
+`getSelection()` / `setSelection()` の `coordinateSpace` は `source`・`rich`・`formatted` です。sourceは元本文のUTF-16位置、formattedは整形表示中の文字列のUTF-16位置、richはProseMirror文書位置で、互換の座標ではありません。現在と異なる座標系の選択を渡すと適用されません。複数範囲は `ranges`、主選択は `mainIndex` で指定します。フォーカスや選択の変更は本文の履歴を増やしません。
 
 ## 公開モデルAPI
 
@@ -108,6 +109,8 @@ Markdown文章表示でソース専用の操作を実行すると、ソース表
 | `parseTextEditorModel(json)` / `serializeTextEditorModel(model)` | メタデータ込みのJSONを読み書き。 |
 | `importTextEditorText(text, options?)` / `exportTextEditorText(model)` | 生の本文とモデルの受け渡し。読み込み時はmode／fileName／mimeTypeで形式を指定・判定。 |
 | `resolveTextEditorMode(options?)` | mode／fileName／mimeType／fallbackModeから具体的な5種類のモードを決定。DOM不要。 |
+| `formatTextEditorSource(text, options?)` | JSON・XML・YAMLの整形結果 `{ text, mode, changed }` を返す。元のモデルを変更しない。 |
+| `validateTextEditorSource(text, options?)` | 構文診断 `{ from, to, line, column, message }[]` を返す。 |
 | `decodeTextEditorBytes(bytes)` | ファイルのバイト列を文字コード判定してデコード。 |
 | `executeTextEditorCommands(model, commands)` | 保存対象の変更を、入力を変えずに一括適用。 |
 | `findTextEditorMatches(modelOrText, options, maxMatches?)` | UTF-16の検索範囲を取得。 |
@@ -142,3 +145,30 @@ const yaml = createTextEditorModel({
 ```
 
 作成・本文読み込みのmodeは `"auto"` または省略で自動判別します。保存モデルと `document.update` は具体的なmodeだけを扱います。`resolveTextEditorMode` の結果をcommandへ渡すと、判別結果を保存できます。本文の空白・改行・キーの順序は維持し、JSON/XML/YAMLのオブジェクトへ変換しません。
+
+## JSON・XML・YAMLの整形と構文診断
+
+```ts
+import {
+  createTextEditorModel, executeTextEditorCommands,
+  formatTextEditorSource, validateTextEditorSource,
+} from "@likex/texteditor/model";
+
+const source = '{"enabled":true,"retries":3}';
+const formatted = formatTextEditorSource(source, { fileName: "settings.json", indent: 2 });
+// { text: '{\n  "enabled": true,\n  "retries": 3\n}', mode: "json", changed: true }
+
+const diagnostics = validateTextEditorSource('{"enabled":}', { mode: "json" });
+// [{ from, to, line, column, message }, ...]
+
+const document = createTextEditorModel({ title: "settings.json", text: source });
+const updated = executeTextEditorCommands(document, { type: "text.format", indent: 4 });
+```
+
+両APIのoptionsは `mode`・`fileName`・`mimeType`・`fallbackMode` で形式を判定します。`formatTextEditorSource` はさらに `indent`（1〜8の整数、既定2）を受け取ります。診断のfrom/toは0始まりのUTF-16範囲でtoを含まず、line/columnは1始まりで、columnもUTF-16単位です。text・markdownはこの構文診断・整形の対象ではありません。
+
+構文が不正な場合、`formatTextEditorSource` は原文と `changed: false` を返します。モデルへ明示的に適用する `text.format` は構文エラーを例外として返し、一括操作全体を適用しません。コマンドのmodeは具体的な5形式を指定でき、省略時はモデルのmodeを使います。判別用メタデータを使う場合は先に `resolveTextEditorMode` で確定してください。mode指定はそのコマンドで解釈する形式で、保存モデルのmode自体は変更しません。表示中の `ref.execute` でもmode省略時は保存モデルのmodeを使います。auto判別などで表示modeと保存modeが異なる場合は、`mode: editor.current.getState().mode` を明示してください。
+
+JSONの整形ではキー順序、数値の表記、文字列のエスケープを保持します。XMLの混在テキストや `xml:space`、YAMLのコメント・アンカー・タグなど、意味のある内容は再生成しません。構文を確認するだけなら `validateTextEditorSource` を使い、データの実行やXML外部参照の取得は行いません。JSON Schemaなどの意味検証は対象外です。
+
+`text.format` はCLIの `apply` と表示中の `ref.execute` でも使えます。表示中は通常の編集許可と `features.editing` / `features.formatting` を確認し、成功した変更はUndoできます。画面の整形表示を切り替えるだけの操作と、本文そのものを整形するコマンドを区別してください。

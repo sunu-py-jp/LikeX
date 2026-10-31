@@ -186,7 +186,7 @@ test('omitted options preserve every feature, multiple selection and the eight e
     readOnly: false,
     features: allFeatures(true),
     selection: { mode: 'multiple', kind: 'both', checkboxes: true },
-    ui: { sidebar: true, contextMenu: true, rowActions: true, thumbnails: true },
+    ui: { sidebar: true, contextMenu: true, rowActions: true, thumbnails: true, loadFolderAction: true },
     view: {
       allowedModes: ['extra-large', 'large', 'medium', 'small', 'list', 'details', 'tiles', 'content'],
       defaultMode: 'details',
@@ -196,7 +196,7 @@ test('omitted options preserve every feature, multiple selection and the eight e
     features: { copy: false }, selection: { mode: 'none' }, ui: { sidebar: false },
   });
   assert.deepEqual(first.features, { ...allFeatures(true), copy: false });
-  assert.deepEqual(first.ui, { sidebar: false, contextMenu: true, rowActions: true, thumbnails: true });
+  assert.deepEqual(first.ui, { sidebar: false, contextMenu: true, rowActions: true, thumbnails: true, loadFolderAction: true });
   assert.deepEqual(first.selection, { mode: 'none', kind: 'both', checkboxes: false });
   assert.equal(resolveExplorerOptions().features.copy, true, 'one instance cannot alter defaults');
 });
@@ -794,7 +794,7 @@ test('UI visibility settings do not disable commands, and save/discard remain av
   const saves = [];
   const hook = await mountController(t, {
     onSave: payload => { saves.push(payload); },
-    ui: { sidebar: false, contextMenu: false, rowActions: false, thumbnails: false },
+    ui: { sidebar: false, contextMenu: false, rowActions: false, thumbnails: false, loadFolderAction: false },
   });
   assert.ok(Object.values(hook.current.uiOptions).every(value => value === false));
   await act(async () => { assert.equal(hook.current.act('rename', ['alpha'], { name: 'Saved.txt' }), true); });

@@ -42,6 +42,8 @@ export type ExplorerUIOptions = {
   sidebar?: boolean;
   contextMenu?: boolean;
   rowActions?: boolean;
+  /** Show the recursive folder-loading menu action. Does not disable automatic loading or loadFolder(). Defaults to true. */
+  loadFolderAction?: boolean;
   thumbnails?: boolean;
 };
 
@@ -129,6 +131,7 @@ export function resolveExplorerOptions(options: ExplorerOptions = {}): ResolvedE
       sidebar: options.ui?.sidebar ?? true,
       contextMenu: options.ui?.contextMenu ?? true,
       rowActions: options.ui?.rowActions ?? true,
+      loadFolderAction: options.ui?.loadFolderAction ?? true,
       thumbnails: options.ui?.thumbnails ?? true,
     },
     view: { allowedModes, defaultMode, ...(options.view?.defaultColumnWidths === undefined ? {} : { defaultColumnWidths: options.view.defaultColumnWidths }) },

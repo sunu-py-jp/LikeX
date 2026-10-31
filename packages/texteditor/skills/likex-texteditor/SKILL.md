@@ -26,4 +26,6 @@ Markdownの書式操作は `markdown.format`、チェック状態の反転は `m
 
 表示中のコンポーネントへ組み込む場合は[画面の制御](references/view-controls.md)を参照する。機能のON／OFF、編集開始・破棄・再読み込み、未確定入力の保護、外部検索結果、パネルの開閉はrefとpropsで扱う。未保存文書の `replace` / `importFile` / `document.replace` / `refresh` は既定で拒否する。`discardChanges: true` は利用側が変更の破棄を決めた場合だけ指定する。これらの表示状態を保存JSONやCLIコマンドに追加しない。
 
-JSON・XML・YAMLは元文字列を保持するソース編集と構文ハイライトで扱う。ハイライトは構文検証やデータの実行ではなく、XMLの外部参照も取得しない。`createTextEditorModel` / `importTextEditorText` のmode省略・autoはfileName（省略時title）やmimeTypeから自動判別し、判別後の具体的なmodeを保存する。明示mode→対応する具体的MIME→拡張子→fallbackMode→textの順で、汎用MIMEは拡張子を隠さない。`resolveTextEditorMode` を単独でも使える。保存モデルと `document.update` にautoは指定しない。元のJSON本文とLikeTextEditor保存JSONを混同しない。
+JSON・XML・YAMLは元文字列を保持するソース編集と構文ハイライトで扱う。構文診断には `validateTextEditorSource`、整形結果の取得には `formatTextEditorSource` を使う。本文の整形を確定する場合は `text.format` コマンドを使い、構文が不正なら一括操作全体を適用しない。表示だけの整形はモデルの本文を変えず、そこで実際に編集した時点で反映する。データを実行せず、XMLの外部参照も取得しない。`createTextEditorModel` / `importTextEditorText` のmode省略・autoはfileName（省略時title）やmimeTypeから自動判別し、判別後の具体的なmodeを保存する。明示mode→対応する具体的MIME→拡張子→fallbackMode→textの順で、汎用MIMEは拡張子を隠さない。`resolveTextEditorMode` を単独でも使える。保存モデルと `document.update` にautoは指定しない。元のJSON本文とLikeTextEditor保存JSONを混同しない。
+
+JSON/XML/YAMLの単なる表示指定では本文を保存し直さず、原文の空白を保持する。本文そのものの整形が求められた場合に `text.format` を使う。`formatTextEditorSource` は不正構文なら原文とchanged:falseを返す。診断のfrom/toは0始まりUTF-16、line/columnは1始まり。pure診断は渡した文字列、refの `getDiagnostics()` は表示中の文字列の座標を返す。画面の `coordinateSpace: "formatted"` の位置を元本文のコマンドへ流用しない。整形の対応範囲とコード例は[コマンド例](references/commands.md)を参照する。

@@ -262,6 +262,7 @@ const onLoadFolder: ExplorerFolderLoadHandler = async ({ folderId, path }, { sig
   return entries.filter(entry => entry.parent === folderId);
 };
 const partialSearchView = <Explorer initialEntries={entries} onLoadFolder={onLoadFolder} folderLoading={folderLoading}
+  ui={{ loadFolderAction: false }}
   onSearchRequest={remoteSearch}
   onSave={payload => {
     if (payload.scope?.kind === "partial") {

@@ -6,11 +6,16 @@ const props: TextEditorProps = { initialDocument: createTextEditorModel(), onSav
 const view = <LikeTextEditor ref={ref} {...props} />; void view;
 const autoView = <LikeTextEditor initialText={'{"enabled":true}'} fileName="settings.json" mimeType="application/json" />;
 const yamlView = <LikeTextEditor mode="yaml" initialText="enabled: true" readOnly />;
-void autoView; void yamlView;
+const formattedView = <LikeTextEditor fileName="settings.json" initialText={'{"enabled":true}'} formatting={{ indent: 4 }} initialViewMode="formatted" features={{ validation: true }} onSave={document => document} />;
+void autoView; void yamlView; void formattedView;
 void ref.current?.runCommand("selectAll");
 void ref.current?.execute({ type: "text.insert", offset: 0, text: "Title" });
 void ref.current?.setSelection({ coordinateSpace: "source", ranges: [{ anchor: 0, head: 3 }], mainIndex: 0 });
 void ref.current?.setViewMode("source");
+void ref.current?.setViewMode("formatted");
+void ref.current?.setSelection({ coordinateSpace: "formatted", ranges: [{ anchor: 0, head: 3 }], mainIndex: 0 });
+void ref.current?.getDiagnostics()[0]?.message;
+void ref.current?.execute({ type: "text.format", mode: "json", indent: 4 });
 void ref.current?.setSearch({ query: "Title", replacement: "Memo", wholeWord: true }, { replace: true });
 void ref.current?.getSearch()?.open;
 void ref.current?.closeSearch();

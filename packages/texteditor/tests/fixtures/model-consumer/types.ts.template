@@ -4,12 +4,18 @@ import {
   type TextEditorModel, type TextEditorCommand, type MarkdownAction,
   type TextEditorRangeEdit, type TextEditorMarkdownBlock,
   resolveTextEditorMode, type TextEditorModeSetting, type TextEditorModeOptions,
+  formatTextEditorSource, validateTextEditorSource, type TextEditorFormatOptions, type TextEditorDiagnostic,
 } from "__MODEL_IMPORT__";
 const command: TextEditorCommand = { type: "text.replaceRange", from: 0, to: 0, text: "Hello" };
 const document: TextEditorModel = executeTextEditorCommands(createTextEditorModel(), command);
 const autoMode: TextEditorModeSetting = "auto";
 const languageHints: TextEditorModeOptions = { mode: autoMode, fileName: "settings.json", mimeType: "application/json", fallbackMode: "text" };
 void resolveTextEditorMode(languageHints);
+const formatting: TextEditorFormatOptions = { ...languageHints, indent: 4 };
+void formatTextEditorSource('{"enabled":true}', formatting);
+const diagnostics: readonly TextEditorDiagnostic[] = validateTextEditorSource('{"enabled":}', languageHints);
+void diagnostics;
+void executeTextEditorCommands(document, { type: "text.format", mode: "json", indent: 2 });
 void createTextEditorModel({ mode: autoMode, fileName: "config.yaml", mimeType: "text/plain", text: "enabled: true" });
 for (const mode of ["json", "xml", "yaml"] as const) void executeTextEditorCommands(document, { type: "document.update", mode });
 void findTextEditorMatches(document, { query: "hello", wholeWord: true });

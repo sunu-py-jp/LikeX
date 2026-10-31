@@ -31,6 +31,11 @@ test.before(async () => {
     await writeFile(script, await generatedSkillScript(kind));
     await build({ entryPoints: [path.join(repo, `packages/${kind}/src/model-entry.ts`)], outfile: path.join(installed, 'model.mjs'),
       bundle: true, format: 'esm', platform: 'node', target: 'es2022',
+      // Match the published model's external parser imports. CommonJS parser
+      // entry points cannot be inlined into a Node ESM bundle without require.
+      plugins: [{ name: 'source-parser-runtime', setup(builder) {
+        builder.onResolve({ filter: /^(?:jsonc-parser|yaml)$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
+      } }],
       alias: { '@likex/core/text-search': path.join(repo, 'packages/core/src/text-search.ts'), '@likex/core/office-shapes': path.join(repo, 'packages/core/src/office-shapes.ts'), '@likex/core/connectors': path.join(repo, 'packages/core/src/connectors.ts'), '@likex/core/json': path.join(repo, 'packages/core/src/json.ts'),
         '@likex/core/ooxml': path.join(repo, 'packages/core/src/ooxml.ts'), '@likex/core': path.join(repo, 'packages/core/src/index.ts') } });
     fixtures[kind] = { installed, script, version: metadata.version, model: await import(pathToFileURL(path.join(installed, 'model.mjs')).href) };
@@ -90,6 +95,21 @@ test('TextEditor inspection returns bounded source positions and preserves full 
   assert.equal((await run('texteditor', ['apply', '--input', files.input, '--commands', files.commands, '--output', files.output])).status, 0);
   assert.equal(model.parseTextEditorModel(await readFile(files.output, 'utf8')).text, 'a'.repeat(1500) + '😀\nEND');
   assert.equal((await run('texteditor', ['inspect', '--input', files.input, '--limit', '1001'])).json.error.code, 'USAGE');
+});
+
+test('TextEditor CLI formats structured source and preserves the output on invalid syntax', async () => {
+  const { model } = fixtures.texteditor, files = await paths('texteditor');
+  const source = '{"id":9007199254740993,"label":"日本"}';
+  const initial = model.createTextEditorModel({ id: 'format-cli', mode: 'json', text: source });
+  await writeFile(files.input, model.serializeTextEditorModel(initial));
+  await writeFile(files.commands, JSON.stringify([{ type: 'text.format', indent: 4 }]));
+  assert.equal((await run('texteditor', ['apply', '--input', files.input, '--commands', files.commands, '--output', files.output])).status, 0);
+  const saved = await readFile(files.output, 'utf8');
+  assert.equal(model.parseTextEditorModel(saved).text, '{\n    "id": 9007199254740993,\n    "label": "日本"\n}');
+  await writeFile(files.commands, JSON.stringify([{ type: 'text.set', text: '{"id":}' }, { type: 'text.format' }]));
+  const result = await run('texteditor', ['apply', '--input', files.output, '--commands', files.commands, '--output', files.output]);
+  assert.equal(result.status, 1);
+  assert.equal(await readFile(files.output, 'utf8'), saved);
 });
 
 test('TextEditor CLI applies structured Markdown and multi-range commands with atomic failures', async () => {

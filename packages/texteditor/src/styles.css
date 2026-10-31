@@ -62,6 +62,9 @@
 [data-likex-texteditor] .lxte-view-switch button { width: 28px; height: 28px; padding: 5px; border-radius: 3px; }
 [data-likex-texteditor] .lxte-workspace { flex: 1; min-height: 0; min-width: 0; position: relative; display: flex; flex-direction: column; }
 [data-likex-texteditor] .lxte-status { display: flex; align-items: center; gap: 18px; padding: 8px 16px; min-height: 33px; border-top: 1px solid var(--lxte-border); background: var(--lxte-panel); color: var(--lxte-muted); font-size: 11px; flex-shrink: 0; }
+[data-likex-texteditor] .lxte-status > span { flex-shrink: 0; }
+[data-likex-texteditor] .lxte-status .lxte-diagnostic { min-width: 0; flex-shrink: 1; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--lxte-error, #b42318); }
+[data-likex-texteditor][data-theme="dark"] .lxte-status .lxte-diagnostic { color: var(--lxte-error, #ff8d8d); }
 [data-likex-texteditor] .lxte-notice { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; padding: 8px 12px; max-width: min(90%, 600px); border: 1px solid var(--lxte-border); box-shadow: 0 6px 24px #0002; background: var(--lxte-background); border-radius: 8px; z-index: 12; }
 [data-likex-texteditor] .lxte-notice-error { color: #c34444; }
 [data-likex-texteditor] .lxte-palette-layer { position: absolute; inset: 0; z-index: 30; background: #17231c20; display: flex; align-items: flex-start; justify-content: center; padding: 68px 20px 20px; }

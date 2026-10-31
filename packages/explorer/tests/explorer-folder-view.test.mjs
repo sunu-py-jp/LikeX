@@ -124,9 +124,9 @@ test('folder failures remain errors until explicit retry, and tree expansion als
   assert.equal(calls, 2); assert.equal(hook.current.folderError, null); assert.deepEqual(ids(hook.current), ['nested']);
 });
 
-test('recursive public preparation enables subtree edits and missing descendants block downloads', async t => {
+test('hidden load actions preserve recursive API preparation and missing-descendant guards', async t => {
   let downloads = 0;
-  const hook = await mount(t, { initialEntries: [entry('folder', 'Folder', 'root', 'folder')], folderLoading: { initialLoadedFolderIds: ['root'] },
+  const hook = await mount(t, { initialEntries: [entry('folder', 'Folder', 'root', 'folder')], folderLoading: { initialLoadedFolderIds: ['root'] }, ui: { loadFolderAction: false },
     onLoadFolder: ({ folderId }) => folderId === 'folder' ? [entry('child', 'Child', 'folder', 'folder')] : [entry('nested', 'Nested.txt', 'child')],
     onDownloadRequest: () => { downloads++; return { status: 'handed-off' }; } }, true);
   await change(async () => { assert.equal(await hook.workspace.commands.handle.download({ id: 'folder' }), false); }); assert.equal(downloads, 0);

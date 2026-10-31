@@ -34,6 +34,7 @@ from/to/offsetはUTF-16単位。`A😀B` の絵文字はfrom=1、to=3。コマ�
 | `text.replaceRange` | `from`, `to`, `text`（空文字は削除） |
 | `text.replaceRanges` | `edits: { from, to, text }[]`（同じ実行前の本文を基準にする） |
 | `text.replaceAll` | `query`, `replacement`, `caseSensitive?`, `wholeWord?`, `regex?` |
+| `text.format` | `mode?`（具体的な5形式）, `indent?`（1〜8の整数、既定2） |
 | `markdown.format` | `selection: { from, to }`, `action`, `options?`（文章表示の位置） |
 | `markdown.toggleTask` | `position`（チェック項目直前の文章表示の位置） |
 | `document.update` | `title?`, `mode?`（text／markdown／json／xml／yaml） |
@@ -53,6 +54,31 @@ from/to/offsetはUTF-16単位。`A😀B` の絵文字はfrom=1、to=3。コマ�
 ```
 
 元本文 `東京、大阪、名古屋` は `東京都、大阪府、名古屋` になる。別々の `text.replaceRange` コマンドで同じ数値を渡すと、2つ目は変更後の本文を参照するため同じ意味にならない。
+
+## JSON・XML・YAMLの整形
+
+次はサンプル本文を作ってから整形する自己完結の例。既存文書の整形だけが目的なら `text.set` は使わず、既存本文に対して `text.format` を実行する。
+
+```json
+[
+  { "type": "text.set", "text": "{\"enabled\":true,\"retries\":3}" },
+  { "type": "text.format", "mode": "json", "indent": 2 }
+]
+```
+
+modeを省略すると保存モデルのmodeで解釈する。表示中の `ref.execute` でも同じで、autoで判定された表示modeを暗黙に使うわけではない。表示中の形式で整形する場合は `mode: editor.current.getState().mode` を指定する。明示modeは今回の整形だけに使い、保存モデルのmode自体は変更しない。判別用メタデータがある場合は `resolveTextEditorMode` で具体的なmodeを取得してから指定する。構文が不正なら例外を返し、コマンド配列全体の変更を適用しない。成功結果は通常の本文変更で、表示中のrefではeditingとformattingの許可、履歴、未保存判定を通る。
+
+```ts
+import { formatTextEditorSource, validateTextEditorSource } from "@likex/texteditor/model";
+const result = formatTextEditorSource(source, { fileName: "settings.json", indent: 2 });
+// { text, mode, changed }
+const diagnostics = validateTextEditorSource(source, { mimeType: "application/json" });
+// [{ from, to, line, column, message }, ...]
+```
+
+両APIは `mode`・`fileName`・`mimeType`・`fallbackMode` を受け取る。純粋な整形APIは不正な構文なら原文とchanged:falseを返す。from/toは原文のUTF-16・0始まり・終端を含まない範囲、line/columnは1始まり。text/markdownは整形・診断の対象ではない。CLIのvalidateは保存モデルの検証で、本文の構文診断とは別。
+
+JSONは数値・文字列の記法とキー順、XMLは混在テキストやxml:space、YAMLはコメント・アンカー・タグを保持する。データや外部参照を実行しない。JSON Schema等の意味検証は対象外。単なる整形表示ではモデルを変更せず、本文の整形が必要な場合にこのコマンドを使う。
 
 ## Markdownの書式とチェックリスト
 
@@ -97,11 +123,11 @@ Markdownの書式ツールバーは閲覧専用（`readOnly` または `onSave` 
 
 refの `setSearch({ query, replacement?, caseSensitive?, wholeWord?, regex? }, { open?, replace? })` は検索条件を設定し、必要ならソース表示へ切り替える。表示設定の既定は検索パネルを開く・置換欄は折りたたむ。省略した条件は空文字／falseへ戻す。パネルの条件で `runCommand("replaceNext")` / `runCommand("replaceAll")` / `runCommand("selectSearchMatches")` を実行でき、`getSearch()` と `closeSearch()` で状態取得・終了する。画面検索はJavaScript正規表現で、モデル検索のRE2とは異なる。
 
-表示の指定は `setViewMode("source" | "rich")` と `setWordWrap(boolean)`、取得は `getState()`。`rich` はMarkdownのみ。`initialViewMode` と `initialWordWrap` は初期値、`onViewModeChange` と `onWordWrapChange` は変更通知。表示設定は本文や履歴に含めない。
+表示の指定は `setViewMode("source" | "rich" | "formatted")` と `setWordWrap(boolean)`、取得は `getState()`。`rich` はMarkdownのみ、`formatted` は整形表示が有効で原文との差分があるJSON/XML/YAMLのみ。`initialViewMode` と `initialWordWrap` は初期値、`onViewModeChange` と `onWordWrapChange` は変更通知。表示設定は本文や履歴に含めない。
 
 Blob/Fileの読み込みは `importFile(file, { title?, mode?, fileName?, mimeType?, discardChanges? })`、出力は `exportFile()` が返す `{ blob, fileName }`、ブラウザーの保存開始は `download()`。実行可否はGUIと同じ `features`、読み取り専用、編集許可、処理中の制御に従う。CLIのJSON操作と混同しない。
 
-下部バーはMarkdownの文章表示では本文全体の行数・文字数だけを表示する。テキスト／Markdownソース表示ではカーソルの行・列、複数カーソルの数も表示する。モード名や操作ヒントは表示しない。
+下部バーはMarkdownの文章表示では本文全体の行数・文字数だけを表示する。すべてのソース表示と整形表示ではカーソルの行・列、複数カーソルの数も表示する。JSON/XML/YAMLの構文エラーは説明と行・列を赤字で表示する。モード名や操作ヒントは表示しない。
 
 ヘッダーの配色は全モード共通の `headerStyle`（`React.CSSProperties`）で指定する。例: `headerStyle={{ backgroundColor: "#1f4d3a", color: "#ffffff" }}`。本文には適用せず、配色は保存JSONに含めない。ヘッダーの `Markdown`／`Plain text` ラベルは表示しないが、文書のタイトルとモードは保持する。
 

@@ -15,6 +15,12 @@
 [data-likex-texteditor] .lxte-rich-document h2{font-size:1.5em}
 [data-likex-texteditor] .lxte-rich-document h3{font-size:1.2em}
 [data-likex-texteditor] .lxte-rich-document ul,[data-likex-texteditor] .lxte-rich-document ol{padding-left:1.55em;margin:.4em 0 .9em}
+/* Own the markers instead of relying on browser defaults removed by host resets. */
+[data-likex-texteditor] .lxte-rich-document ul{list-style:disc outside}
+[data-likex-texteditor] .lxte-rich-document ol{list-style:decimal outside}
+[data-likex-texteditor] .lxte-rich-document :is(ul,ol) ul{list-style-type:circle}
+[data-likex-texteditor] .lxte-rich-document :is(ul,ol) :is(ul,ol) ul{list-style-type:square}
+[data-likex-texteditor] .lxte-rich-document li{display:list-item;list-style:inherit}
 [data-likex-texteditor] .lxte-rich-document li>p{margin:.1em 0}
 [data-likex-texteditor] .lxte-rich-document li.lxte-task-item{list-style:none;position:relative}
 [data-likex-texteditor] .lxte-rich-document li.lxte-task-item>div>p{margin:.1em 0}

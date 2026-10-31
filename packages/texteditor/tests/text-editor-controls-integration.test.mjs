@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { build } from 'esbuild';
+import { build } from './helpers/build.mjs';
 import { act, createElement as h, createRef } from 'react';
 import { create } from 'react-test-renderer';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -129,4 +129,104 @@ test('host mode changes wait for pending rich input and then retain the accepted
   assert.equal(editor.ref.current.getText(), 'Xalpha alpha');
   assert.equal(editor.code.state.sliceDoc(), 'Xalpha alpha');
   assert.equal(editor.ref.current.getState().hasUnsavedChanges, true, 'the accepted unsaved draft remains protected');
+});
+
+test('actual formatted CodeMirror keeps cursor and incomplete input without reformatting each keystroke', async t => {
+  const source = '{"value":1}', editor = await mount(t, { mode: 'json', initialText: source, initialViewMode: undefined, formatting: true });
+  const view = editor.code, shown = view.state.sliceDoc();
+  assert.equal(editor.ref.current.getState().viewMode, 'formatted');
+  assert.equal(editor.ref.current.getText(), source);
+  const at = shown.indexOf('1');
+  await act(async () => { view.dispatch({ changes: { from: at, to: at + 1, insert: '22' }, selection: { anchor: at + 2 } }); });
+  assert.equal(editor.code, view);
+  assert.equal(view.state.sliceDoc(), shown.replace('1', '22'));
+  assert.equal(editor.ref.current.getSelection().coordinateSpace, 'formatted');
+  assert.equal(editor.ref.current.getSelection().ranges[0].head, at + 2);
+  await act(async () => { view.dispatch({ changes: { from: at, to: at + 2, insert: '' }, selection: { anchor: at } }); });
+  assert.equal(editor.code, view);
+  assert.equal(editor.ref.current.getText(), shown.replace('1', ''));
+  assert.equal(view.state.selection.main.head, at);
+  assert.ok(editor.ref.current.getDiagnostics().length);
+  await editor.call('undo');
+  assert.equal(editor.ref.current.getText(), source);
+  assert.equal(view.state.sliceDoc(), source);
+  await editor.call('redo');
+  assert.equal(view.state.sliceDoc(), shown.replace('1', ''));
+});
+
+test('formatted draft diagnostics use currently displayed coordinates while permission is pending', async t => {
+  let decide;
+  const source = '{"value":1}', editor = await mount(t, { mode: 'json', initialText: source, initialViewMode: undefined, formatting: true,
+    onEditRequest: () => new Promise(resolve => { decide = resolve; }) });
+  const view = editor.code, at = view.state.sliceDoc().indexOf('1');
+  await act(async () => { view.dispatch({ changes: { from: at, to: at + 1, insert: '' } }); });
+  assert.equal(editor.ref.current.getState().pendingInput, true);
+  assert.equal(editor.ref.current.getText(), source);
+  assert.ok(editor.ref.current.getDiagnostics().length);
+  assert.equal(editor.ref.current.getDiagnostics()[0].line, 3);
+  assert.equal(await editor.call('setViewMode', 'source'), false);
+  await act(async () => { decide(false); });
+  assert.equal(editor.ref.current.getText(), source);
+  assert.equal(view.state.sliceDoc(), '{\n  "value": 1\n}');
+  assert.deepEqual(editor.ref.current.getDiagnostics(), []);
+});
+
+test('indentation changes wait for a formatted pending edit then derive from its accepted text', async t => {
+  let decide;
+  const editor = await mount(t, { mode: 'json', initialText: '{"value":1}', initialViewMode: undefined, formatting: true,
+    onEditRequest: () => new Promise(resolve => { decide = resolve; }) });
+  const view = editor.code, at = view.state.sliceDoc().indexOf('1');
+  await act(async () => { view.dispatch({ changes: { from: at, to: at + 1, insert: '2' } }); });
+  await editor.update({ formatting: { indent: 4 } });
+  assert.equal(editor.code, view);
+  assert.equal(view.state.sliceDoc(), '{\n  "value": 2\n}');
+  await act(async () => { decide(true); });
+  assert.equal(editor.ref.current.getText(), '{\n  "value": 2\n}');
+  assert.equal(view.state.sliceDoc(), '{\n    "value": 2\n}');
+  assert.equal(editor.ref.current.getState().pendingInput, false);
+  await editor.call('setViewMode', 'source');
+  assert.equal(editor.code.state.sliceDoc(), '{\n  "value": 2\n}');
+});
+
+test('formatted cancellation, readonly and feature changes cannot apply a late draft', async t => {
+  for (const options of [{ readOnly: true }, { features: { editing: false } }, { features: { formatting: false } }, null]) {
+    let decide;
+    const source = '{"value":1}', editor = await mount(t, { mode: 'json', initialText: source, initialViewMode: undefined, formatting: true,
+      onEditRequest: () => new Promise(resolve => { decide = resolve; }) });
+    const at = editor.code.state.sliceDoc().indexOf('1');
+    await act(async () => { editor.code.dispatch({ changes: { from: at, to: at + 1, insert: '2' } }); });
+    if (options) await editor.update(options);
+    else await editor.call('cancelPending');
+    await act(async () => { decide(true); });
+    assert.equal(editor.ref.current.getText(), source);
+    assert.equal(editor.ref.current.getState().pendingInput, false);
+    assert.equal(editor.ref.current.getState().dirty, false);
+    assert.ok(!editor.code.state.sliceDoc().includes('2'));
+  }
+});
+
+test('new document replacement cannot reuse a formatted projection or a retained input callback', async t => {
+  const editor = await mount(t, { mode: 'json', initialText: '{"first":1}', initialViewMode: undefined, formatting: true });
+  const before = editor.code;
+  await editor.call('replace', { ...editor.ref.current.getDocument(), id: 'next-document', text: '{"second":2}' });
+  assert.equal(before.destroyed, true);
+  assert.equal(editor.code.state.sliceDoc(), '{\n  "second": 2\n}');
+  assert.equal(editor.ref.current.getText(), '{"second":2}');
+  assert.deepEqual(editor.ref.current.getDiagnostics(), []);
+});
+
+test('source and formatted typing use separate undo groups even when edits occur immediately after switching', async t => {
+  const original = '{"value":1}', rawEdited = '{"value":2}';
+  const editor = await mount(t, { mode: 'json', initialText: original, initialViewMode: 'source', formatting: true });
+  const raw = editor.code, at = original.indexOf('1');
+  await act(async () => { raw.dispatch({ changes: { from: at, to: at + 1, insert: '2' } }); });
+  assert.equal(editor.ref.current.getText(), rawEdited);
+  await editor.call('setViewMode', 'formatted');
+  const formatted = editor.code, formattedAt = formatted.state.sliceDoc().indexOf('2');
+  await act(async () => { formatted.dispatch({ changes: { from: formattedAt, to: formattedAt + 1, insert: '3' } }); });
+  assert.equal(editor.ref.current.getText(), '{\n  "value": 3\n}');
+  await editor.call('undo');
+  assert.equal(editor.ref.current.getText(), rawEdited, 'the first undo retains the source edit preceding the view switch');
+  await editor.call('undo');
+  assert.equal(editor.ref.current.getText(), original);
 });

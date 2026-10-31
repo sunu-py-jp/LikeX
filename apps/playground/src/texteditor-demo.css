@@ -52,3 +52,6 @@
 .texteditor-demo .te-demo-mode-select { display: flex; align-items: center; gap: 6px; color: var(--te-muted); font-size: 10px; }
 .texteditor-demo .te-demo-mode-select select { max-width: 130px; border: 1px solid var(--te-line); border-radius: 5px; background: var(--te-panel); color: var(--te-text); padding: 4px 6px; font: inherit; }
 .texteditor-demo .te-demo-mode-select select:focus-visible { outline: 2px solid #558465; outline-offset: 2px; }
+
+.texteditor-demo .te-demo-formatting-controls { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--te-line); }
+.texteditor-demo .te-demo-mode-select select:disabled { opacity: .5; }

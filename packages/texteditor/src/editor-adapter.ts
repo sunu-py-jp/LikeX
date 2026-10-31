@@ -10,9 +10,9 @@ export type TextEditorSearchState = Readonly<{
   open: boolean; replace: boolean; valid: boolean;
 }>;
 
-/** Source positions are UTF-16 offsets; rich positions are ProseMirror document positions. */
+/** Source/formatted positions are UTF-16 offsets into the corresponding displayed text; rich positions are ProseMirror document positions. */
 export type TextEditorSelection = {
-  coordinateSpace: "source" | "rich";
+  coordinateSpace: "source" | "rich" | "formatted";
   ranges: readonly { anchor: number; head: number }[];
   mainIndex: number;
 };
@@ -45,6 +45,8 @@ export type EditorAdapterProps = {
   replaceEnabled?: boolean;
   formattingEnabled?: boolean;
   onChange(value: string): Promise<boolean>;
+  /** Current visible draft, including edits awaiting host permission. Never commits the model. */
+  onDisplayTextChange?(value: string): void;
   onSelectionChange?(selection: TextEditorSelection): void;
   onSearchChange?(search: TextEditorSearchState): void;
   onPanelsChange?(panels: readonly TextEditorPanel[]): void;

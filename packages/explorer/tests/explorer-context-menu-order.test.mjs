@@ -238,3 +238,34 @@ test('search file menus open the clicked containing folder and Back restores the
   assert.deepEqual(current.selected, ['alpha', 'nested']);
   assert.deepEqual(current.visible.map(entry => entry.id).sort(), ['alpha', 'nested']);
 });
+
+test('loadFolderAction hides only subtree loading across tree, list, background and row menus', async t => {
+  const folder = { ...file, id: 'folder', name: '資料', kind: 'folder', mime: '', size: 0, source: null };
+  const requests = [];
+  let current, renderer, props = { initialEntries: [folder], onSave() {},
+    folderLoading: { initialLoadedFolderIds: ['root'] },
+    onLoadFolder: ({ folderId }) => { requests.push(folderId); return [{ ...file, parent: folderId }]; } };
+  function Probe() {
+    current = useExplorerController(props);
+    return h(ExplorerProvider, { value: current }, h(ExplorerSidebar), h(ExplorerFileList));
+  }
+  await act(async () => { renderer = create(h(Probe)); });
+  t.after(() => act(() => renderer.unmount()));
+  const labels = type => renderer.root.findAllByType(type).map(node =>
+    node.children.filter(child => typeof child === 'string').join(''));
+  const beforeContext = labels('mock-context-item'), beforeRows = labels('mock-dropdown-item');
+  assert.equal(beforeContext.filter(label => label === '配下を読み込む').length, 3,
+    'tree, list entry and current folder background all offer subtree loading by default');
+  assert.equal(beforeRows.filter(label => label === '配下を読み込む').length, 1);
+  for (const shown of [false, true, false]) {
+    props = { ...props, ui: { loadFolderAction: shown } };
+    await act(async () => renderer.update(h(Probe)));
+    assert.deepEqual(labels('mock-context-item'), beforeContext.filter(label => shown || label !== '配下を読み込む'));
+    assert.deepEqual(labels('mock-dropdown-item'), beforeRows.filter(label => shown || label !== '配下を読み込む'));
+  }
+  assert.deepEqual(requests, [], 'a display toggle does not trigger any load');
+  await act(async () => current.navigate('folder'));
+  assert.deepEqual(requests, ['folder'], 'ordinary navigation still loads the hidden-action folder');
+  assert.deepEqual(current.visible.map(entry => entry.id), ['alpha']);
+  assert.equal(current.dirty, false);
+});

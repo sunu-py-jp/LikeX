@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { build } from 'esbuild';
+import { build } from './helpers/build.mjs';
 import { act, createElement, useImperativeHandle, createRef, StrictMode } from 'react';
 import { create } from 'react-test-renderer';
 

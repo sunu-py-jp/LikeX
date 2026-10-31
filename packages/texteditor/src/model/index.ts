@@ -5,5 +5,6 @@ export { executeTextEditorCommands } from "./commands";
 export { findTextEditorMatches } from "./search";
 export { decodeTextEditorBytes } from "./text-encoding";
 export { resolveTextEditorMode } from "./language";
+export { formatTextEditorSource, validateTextEditorSource } from "./source-format";
 export { getTextEditorMarkdownBlocks } from "./markdown";
 export type { TextEditorMarkdownBlock } from "./markdown";

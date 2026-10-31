@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { build } from 'esbuild';
+import { build } from './helpers/build.mjs';
 
 const bundle = await build({ stdin: { contents: `
   import { EditorState } from '@codemirror/state';

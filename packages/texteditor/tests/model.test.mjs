@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { build } from 'esbuild';
+import { build } from './helpers/build.mjs';
 import { fileURLToPath } from 'node:url';
 const built = await build({ entryPoints: [fileURLToPath(new URL('../src/model-entry.ts', import.meta.url))], bundle: true, platform: 'node', format: 'esm', write: false,
   plugins: [{ name: 'core-source', setup(build) { build.onResolve({ filter: /^@likex\/core(?:\/.*)?$/ }, ({ path }) => ({ path: fileURLToPath(new URL(`../../core/src/${path === '@likex/core' ? 'index' : path.slice('@likex/core/'.length)}.ts`, import.meta.url)) })); } }],

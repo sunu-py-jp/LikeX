@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { build } from 'esbuild';
+import { build } from './helpers/build.mjs';
 import { act, createElement, createRef, useLayoutEffect } from 'react';
 import { create } from 'react-test-renderer';
 
@@ -594,4 +594,121 @@ test('host search is used by keyboard and API and stale results cannot survive a
   assert.equal(api.getSearchPanelState().open,true);
   await act(async()=>assert.equal(await api.runCommand('replace'),true));
   assert.equal(api.getSearchPanelState().open,false); assert.equal(api.getSearch().replace,true);
+});
+
+test('structured formatting is opt-in and its display toggle leaves original bytes and history untouched', async t => {
+  const source = '{"name":"設定","items":[1,2]}', formatted = JSON.stringify(JSON.parse(source), null, 2);
+  const plain = await mount(t, { initialText: source, fileName: 'settings.json' });
+  assert.equal(plain.editor.props.value, source);
+  assert.equal(plain.button('整形表示'), undefined);
+  assert.equal(await plain.ref.current.setViewMode('formatted'), false);
+  const ui = await mount(t, { initialText: source, fileName: 'settings.json', formatting: true });
+  assert.equal(ui.ref.current.getState().mode, 'json');
+  assert.equal(ui.ref.current.getState().viewMode, 'formatted');
+  assert.equal(ui.editor.props.value, formatted);
+  assert.equal(ui.editor.props.readOnly, false);
+  assert.equal(ui.ref.current.getText(), source);
+  assert.equal(ui.ref.current.getState().dirty, false);
+  assert.equal(ui.ref.current.getState().canUndo, false);
+  await ui.click('ソース表示');
+  assert.equal(ui.editor.props.value, source);
+  await ui.click('整形表示');
+  assert.equal(ui.editor.props.value, formatted);
+  assert.equal(ui.ref.current.getText(), source);
+  assert.equal(await ui.ref.current.exportFile().blob.text(), source);
+  assert.equal(ui.changes.length, 0);
+  assert.equal(ui.ref.current.getState().dirty, false);
+});
+
+test('formatted edits adopt exact entered text, preserve incomplete syntax and share model undo/redo', async t => {
+  const source = '{"a":1}', ui = await mount(t, { initialText: source, mode: 'json', formatting: { indent: 4 } });
+  const edited = '{\n    "a": 2,\n    "unfinished":\n}';
+  assert.equal(await ui.type(edited), true);
+  assert.equal(ui.editor.props.value, edited, 'do not reformat or reject incomplete syntax');
+  assert.equal(ui.ref.current.getText(), edited);
+  assert.equal(ui.ref.current.getState().viewMode, 'formatted');
+  assert.equal(ui.ref.current.getState().dirty, true);
+  assert.ok(ui.ref.current.getDiagnostics().length);
+  assert.match(textOf(ui.renderer.root.findByType('footer')), /\d+ 行、\d+ 列:/);
+  await act(async () => { assert.equal(await ui.ref.current.undo(), true); });
+  assert.equal(ui.ref.current.getText(), source);
+  assert.equal(ui.editor.props.value, source, 'undo is not silently reformatted during this editing session');
+  assert.equal(ui.ref.current.getState().dirty, false);
+  await act(async () => { assert.equal(await ui.ref.current.redo(), true); });
+  assert.equal(ui.editor.props.value, edited);
+  await act(async () => { assert.equal(await ui.ref.current.save(), true); });
+  assert.equal(ui.saves.at(-1).text, edited);
+});
+
+test('formatted selection coordinates and native search target the displayed text', async t => {
+  const ui = await mount(t, { initialText: '{"name":"hello"}', mode: 'json', formatting: true });
+  await act(async () => { assert.equal(await ui.ref.current.runCommand('selectAll'), true); });
+  assert.equal(ui.ref.current.getState().viewMode, 'formatted');
+  assert.deepEqual(ui.ref.current.getSelection(), { coordinateSpace: 'formatted', ranges: [{ anchor: 0, head: ui.editor.props.value.length }], mainIndex: 0 });
+  assert.equal(ui.ref.current.setSelection({ coordinateSpace: 'source', ranges: [{ anchor: 0, head: 1 }], mainIndex: 0 }), false);
+  await act(async () => { assert.equal(ui.ref.current.setSelection({ coordinateSpace: 'formatted', ranges: [{ anchor: 3, head: 5 }], mainIndex: 0 }), true); });
+  await act(async () => { assert.equal(await ui.ref.current.setSearch({ query: 'name' }), true); });
+  assert.equal(ui.ref.current.getState().viewMode, 'formatted');
+  assert.equal(ui.ref.current.getSearch().query, 'name');
+  await act(async () => { assert.equal(await ui.ref.current.goToLine(2, 3), true); });
+  assert.equal(ui.ref.current.getState().viewMode, 'formatted');
+});
+
+test('raw external search navigation leaves formatted coordinates before selecting the match', async t => {
+  const source = '{"name":"hello"}';
+  const ui = await mount(t, { initialText: source, mode: 'json', formatting: true,
+    externalSearch: { results: [{ id: 'hello', title: 'hello', target: { from: 9, to: 14 } }] }, initialSearchOpen: true });
+  await act(async () => { await Promise.resolve(); });
+  const context = ui.ref.current.getSearchPanelState();
+  let result;
+  await act(async () => { result = context.selectResult('hello'); });
+  await result;
+  assert.equal(ui.ref.current.getState().viewMode, 'source');
+  assert.equal(ui.ref.current.getSelection().coordinateSpace, 'source');
+  assert.deepEqual(ui.ref.current.getSelection().ranges, [{ anchor: 9, head: 14 }]);
+  assert.equal(ui.editor.props.value, source);
+});
+
+test('formatting configuration and diagnostics honor features, readonly, invalid input and indentation changes', async t => {
+  const source = '{"a":{"b":2}}';
+  const ui = await mount(t, { initialText: source, mode: 'json', formatting: true, initialViewMode: 'source', onSave: undefined });
+  assert.equal(ui.editor.props.value, source);
+  await ui.click('整形表示');
+  assert.equal(ui.editor.props.value, JSON.stringify(JSON.parse(source), null, 2));
+  assert.equal(await ui.type('invalid'), false);
+  assert.equal(ui.ref.current.getText(), source);
+  await ui.update({ formatting: { indent: 4 }, initialViewMode: undefined });
+  assert.equal(ui.editor.props.value, JSON.stringify(JSON.parse(source), null, 4));
+  await ui.update({ features: { formatting: false } });
+  assert.equal(ui.ref.current.getState().viewMode, 'source');
+  assert.equal(ui.editor.props.value, source);
+  assert.equal(await ui.ref.current.setViewMode('formatted'), false);
+  const invalid = await mount(t, { initialText: '{"a":}', mode: 'json', formatting: true });
+  assert.equal(invalid.ref.current.getState().viewMode, 'source');
+  assert.equal(invalid.button('整形表示'), undefined);
+  assert.ok(invalid.ref.current.getDiagnostics().length);
+  await invalid.update({ formatting: false });
+  assert.ok(invalid.ref.current.getDiagnostics().length, 'validation is independent of formatting');
+  await invalid.update({ features: { validation: false } });
+  assert.deepEqual(invalid.ref.current.getDiagnostics(), []);
+  assert.equal(invalid.renderer.root.findAllByProps({ className: 'lxte-diagnostic' }).length, 0);
+  await invalid.update({ formatting: { indent: NaN } });
+  assert.equal(invalid.ref.current.getState().viewMode, 'source');
+});
+
+test('structured formatting supports XML and YAML projections and mounted text.format feature gates', async t => {
+  for (const [mode, source] of [['xml', '<root><child>text</child></root>'], ['yaml', 'root:\n child: value\n']]) {
+    const ui = await mount(t, { initialText: source, mode, formatting: true });
+    assert.equal(ui.ref.current.getState().viewMode, 'formatted', mode);
+    assert.notEqual(ui.editor.props.value, source, mode);
+    assert.equal(ui.ref.current.getText(), source);
+    assert.deepEqual(ui.ref.current.getDiagnostics(), []);
+    await ui.click('ソース表示');
+    assert.equal(ui.editor.props.value, source);
+  }
+  const ui = await mount(t, { initialText: '{"a":1}', mode: 'json', features: { formatting: false } });
+  await act(async () => { assert.equal(await ui.ref.current.execute({ type: 'text.format' }), null); });
+  await ui.update({ features: { formatting: true } });
+  await act(async () => { assert.ok(await ui.ref.current.execute({ type: 'text.format', indent: 4 })); });
+  assert.equal(ui.ref.current.getText(), '{\n    "a": 1\n}');
 });

@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
 import type { ModelEditorOptions } from "./core";
-import type { TextEditorCommand, TextEditorModel, TextEditorMode, TextEditorModeSetting, TextEditorSearchOptions, TextEditorRange } from "./model/types";
+import type { TextEditorCommand, TextEditorModel, TextEditorMode, TextEditorModeSetting, TextEditorSearchOptions, TextEditorRange, TextEditorDiagnostic } from "./model/types";
 import type { TextEditorAction, TextEditorSelection, TextEditorSearchQuery, TextEditorSearchDisplay, TextEditorSearchState, TextEditorPanel } from "./editor-adapter";
 
 import type { TextEditorSearchProps, TextEditorSearchRenderContext } from "./search-types";
@@ -8,7 +8,9 @@ import type { TextEditorSearchProps, TextEditorSearchRenderContext } from "./sea
 export type TextEditorEditState = "view" | "requesting" | "edit";
 /** Explicitly consent to replacing unsaved content. Does not bypass permissions. */
 export type TextEditorReplaceOptions = { discardChanges?: boolean };
-export type TextEditorViewMode = "source" | "rich";
+export type TextEditorViewMode = "source" | "rich" | "formatted";
+/** Display-only structured formatting. Editing the formatted view adopts its text into the document. */
+export type TextEditorFormattingOptions = { indent?: number };
 export type TextEditorViewState = Readonly<{
   mode: TextEditorMode; viewMode: TextEditorViewMode; wordWrap: boolean;
   readOnly: boolean; editable: boolean; busy: boolean; dirty: boolean;
@@ -19,7 +21,7 @@ export type TextEditorViewState = Readonly<{
 export type TextEditorImportOptions = TextEditorReplaceOptions & { title?: string; mode?: TextEditorModeSetting; fileName?: string; mimeType?: string };
 export type TextEditorExport = { blob: Blob; fileName: string };
 
-export type TextEditorFeature = "editing" | "history" | "import" | "export" | "search" | "replace" | "formatting" | "save" | "refresh";
+export type TextEditorFeature = "editing" | "history" | "import" | "export" | "search" | "replace" | "formatting" | "validation" | "save" | "refresh";
 /** View-only header customization. Operations use the mounted editor's permission and history paths. */
 export type TextEditorHeaderActionsContext = Readonly<{
   /** Include this node to keep the standard Undo/Redo, read-only indicator and Save controls. */
@@ -39,6 +41,8 @@ export type TextEditorHandle = {
   getDocument(): TextEditorModel;
   getText(): string;
   getState(): TextEditorViewState;
+  /** Diagnostics refer to the displayed text (source or formatted), with 1-based line/column. */
+  getDiagnostics(): readonly TextEditorDiagnostic[];
   execute(commands: TextEditorCommand | readonly TextEditorCommand[], options?: TextEditorReplaceOptions): Promise<TextEditorModel | null>;
   replace(document: TextEditorModel, options?: TextEditorReplaceOptions): Promise<TextEditorModel | null>;
   find(options: TextEditorSearchOptions): readonly TextEditorRange[];
@@ -47,7 +51,7 @@ export type TextEditorHandle = {
   getSelection(): TextEditorSelection | null;
   setSelection(selection: TextEditorSelection): boolean;
   goToLine(line: number, column?: number): Promise<boolean>;
-  /** Switches only the view. rich requires Markdown mode. Resolves after the adapter is ready. */
+  /** Switches only the view. rich requires Markdown; formatted requires enabled structured formatting. Resolves after the adapter is ready. */
   setViewMode(mode: TextEditorViewMode): Promise<boolean>;
   setWordWrap(enabled: boolean): boolean;
   setSearch(query: TextEditorSearchQuery, display?: TextEditorSearchDisplay): Promise<boolean>;
@@ -81,6 +85,8 @@ export type TextEditorProps = ModelEditorOptions<TextEditorModel, TextEditorFeat
   initialText?: string;
   /** Defaults to auto: specific MIME, filename extension, saved mode, then text. Changing it preserves source. */
   mode?: TextEditorModeSetting;
+  /** JSON/XML/YAML formatting display. Omitted/false: off. true: 2 spaces. indent: integer 1–8. */
+  formatting?: boolean | TextEditorFormattingOptions;
   /** File identity used for automatic language detection and download naming. Falls back to title. */
   fileName?: string;
   /** Optional content type, e.g. application/json. Generic text/plain does not override the filename. */
