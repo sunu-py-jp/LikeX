@@ -6,8 +6,9 @@ import { mergeExplorerClasses } from "./explorer-classnames";
 import { useExplorerFields } from "../state/explorer-context";
 import { formatSize } from "../model/entries";
 import { iconButtonClass, viewModes } from "./explorer-controls";
+import type { ExplorerProps } from "../props";
 
-export const ExplorerStatusBar = memo(function ExplorerStatusBar() {
+export const ExplorerStatusBar = memo(function ExplorerStatusBar({ footerMessage }: Pick<ExplorerProps, "footerMessage">) {
   const {
     visible,
     pendingImportEntries,
@@ -125,6 +126,14 @@ export const ExplorerStatusBar = memo(function ExplorerStatusBar() {
         >
           {refreshError || saveError}
         </span>
+      )}
+      {footerMessage != null && typeof footerMessage !== "boolean" && footerMessage !== "" && (
+        <div
+          data-explorer-footer-message
+          className="lxe:basis-full lxe:min-w-0 lxe:whitespace-pre-wrap lxe:break-words lxe:py-1 lxe:leading-relaxed"
+        >
+          {footerMessage}
+        </div>
       )}
     </footer>
   );

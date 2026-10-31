@@ -265,3 +265,113 @@ test('unknown IDs, folder IDs and invalid paths do not emit preview requests', a
     });
   }
 });
+
+test('initialSelectedIds applies the complete deduplicated file/folder selection on the first render without side effects', async t => {
+  const requests = [], edits = [];
+  const hook = await mount(t, {
+    initialEntries: [...initialEntries(), entry('drafts', 'Drafts', 'docs', 'folder')],
+    initialSelectedIds: ['drafts', 'note', 'drafts'], defaultPath: '/Archive',
+    selectedFile: 'archived', selectedFileMode: 'preview', readOnly: true,
+    onPreviewRequest: request => { requests.push(request); },
+    onEditRequest: request => { edits.push(request); return false; },
+  });
+  assert.ok(hook.renders.every(render => render.location === 'docs' && render.selected.join() === 'drafts,note'));
+  assert.deepEqual(hook.current.history, ['docs']);
+  assert.deepEqual(hook.current.expanded, ['root', 'projects', 'docs']);
+  assert.equal(hook.current.anchor, 'drafts');
+  assert.equal(hook.current.notification, null);
+  assert.equal(hook.current.preview, undefined);
+  assert.equal(hook.current.dirty, false);
+  assert.deepEqual(hook.events, []);
+  assert.deepEqual(requests, []);
+  assert.deepEqual(edits, []);
+  assert.deepEqual(hook.reads, []);
+  assert.deepEqual(hook.saves, []);
+});
+
+test('initialSelectedIds including an empty array overrides legacy selection and preview', async t => {
+  for (const options of [
+    { initialSelectedIds: [], defaultPath: '/Archive', location: 'archive', selected: [] },
+    { initialSelectedIds: [], initialPath: '/', defaultPath: '/Archive', location: 'root', selected: [] },
+    { initialSelectedIds: ['archive'], selection: { kind: 'folder' }, location: 'root', selected: ['archive'] },
+    { initialSelectedIds: ['note', 'note'], selection: { mode: 'single' }, location: 'docs', selected: ['note'] },
+  ]) {
+    await t.test(JSON.stringify(options), async t => {
+      const requests = [];
+      const { location, selected, ...props } = options;
+      const hook = await mount(t, { selectedFile: 'root-file', selectedFileMode: 'preview', ...props,
+        onPreviewRequest: request => { requests.push(request); } });
+      assert.equal(hook.current.location, location);
+      assert.deepEqual(hook.current.selected, selected);
+      assert.equal(hook.current.notification, null);
+      assert.equal(hook.current.preview, undefined);
+      assert.deepEqual(requests, []);
+      assert.deepEqual(previewEvents(hook), []);
+    });
+  }
+});
+
+test('invalid initialSelectedIds show the existing initial error and never partially select or preview', async t => {
+  for (const options of [
+    { initialSelectedIds: ['note', 'missing'] },
+    { initialSelectedIds: ['note', 'archived'] },
+    { initialSelectedIds: ['root'] },
+    { initialSelectedIds: ['note', ''] },
+    { initialSelectedIds: ['note'], selection: { mode: 'none' } },
+    { initialSelectedIds: ['projects', 'archive'], selection: { mode: 'single' } },
+    { initialSelectedIds: ['projects', 'root-file'], selection: { kind: 'file' } },
+    { initialSelectedIds: ['projects', 'root-file'], selection: { kind: 'folder' } },
+    { initialSelectedIds: ['note'], initialPath: '/Archive' },
+  ]) {
+    await t.test(JSON.stringify(options), async t => {
+      const requests = [];
+      const hook = await mount(t, { defaultPath: '/Archive', selectedFile: 'archived', selectedFileMode: 'preview', ...options,
+        onPreviewRequest: request => { requests.push(request); } });
+      assert.ok(hook.renders.every(render => render.location === 'archive' && render.selected.length === 0));
+      assert.equal(hook.current.anchor, null);
+      assert.equal(hook.current.notification?.kind, 'error');
+      assert.ok(hook.current.notification?.description ?? hook.current.notification?.message);
+      assert.deepEqual(requests, []);
+      assert.deepEqual(previewEvents(hook), []);
+      await hook.update({ initialSelectedIds: ['archived'], selection: { mode: 'multiple', kind: 'both' } });
+      assert.deepEqual(hook.current.selected, [], 'changing initial props or removing a restriction does not retry selection');
+    });
+  }
+});
+
+test('initialSelectedIds is read once per workspace and leaves new tabs at defaultPath without selection', async t => {
+  const hook = await mount(t, { initialSelectedIds: ['note'], defaultPath: '/Archive' });
+  const first = hook.current.activeTabId;
+  await hook.update({ initialSelectedIds: ['root-file'], initialPath: '/', defaultPath: '/' });
+  await hook.remountPanes();
+  assert.equal(hook.current.location, 'docs');
+  assert.deepEqual(hook.current.selected, ['note']);
+  await change(() => hook.current.addTab());
+  assert.equal(hook.current.location, 'archive');
+  assert.deepEqual(hook.current.selected, []);
+  assert.equal(hook.current.anchor, null);
+  await change(() => hook.current.selectTab(first));
+  assert.deepEqual(hook.current.selected, ['note']);
+  await hook.detach(first);
+  assert.deepEqual(hook.panes.get('popup').selected, ['note']);
+  await hook.update({ initialSelectedIds: ['root-file'], initialPath: '/' }, 'second');
+  assert.equal(hook.current.location, 'root');
+  assert.deepEqual(hook.current.selected, ['root-file']);
+});
+
+test('an initially uncached ID is not selected later when automatic folder loading discovers it', async t => {
+  const loads = [], requests = [];
+  const hook = await mount(t, {
+    initialSelectedIds: ['late'], defaultPath: '/Archive', selectedFile: 'archived', selectedFileMode: 'preview',
+    folderLoading: { initialLoadedFolderIds: ['root', 'projects', 'docs'] },
+    onLoadFolder: request => { loads.push(request.folderId); return [entry('archived', 'Notes.TXT', 'archive'), entry('late', 'Late.txt', 'archive')]; },
+    onPreviewRequest: request => { requests.push(request); },
+  });
+  assert.deepEqual(loads, ['archive']);
+  assert.ok(hook.current.entries.some(entry => entry.id === 'late'));
+  assert.ok(hook.renders.every(render => render.selected.length === 0));
+  assert.equal(hook.current.notification?.kind, 'error');
+  assert.deepEqual(requests, []);
+  await hook.remountPanes();
+  assert.deepEqual(hook.current.selected, []);
+});

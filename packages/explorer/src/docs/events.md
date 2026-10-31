@@ -2,7 +2,46 @@
 
 [ドキュメント一覧](./README.md)
 
-onEventで操作・状態を観測するための型と利用例です。保存前後の処理は[保存ガイド](./saving.md#save-lifecycle)、親から画面にメッセージを出す場合は[通知の表示](./notifications.md)を参照してください。
+onSelectionChangeで選択を、onEventで操作・状態を観測するための型と利用例です。保存前後の処理は[保存ガイド](./saving.md#save-lifecycle)、親から画面にメッセージを出す場合は[通知の表示](./notifications.md)を参照してください。
+
+<a id="selection-change"></a>
+
+## 初期選択と選択の変化を親画面で受け取る
+
+`Explorer` と `ExplorerPopup` の `onSelectionChange?: (items: readonly ExplorerItemInfo[]) => void` は、メイン領域のアクティブなタブの選択を通知します。初期表示でも現在の選択を渡し、無選択なら `[]` です。その後は選択IDや選択中の項目情報が変わったときに通知し、選択解除も `[]` で受け取れます。名前・パスなどが変わった場合も最新の項目情報を使えます。
+
+```tsx
+"use client";
+
+import { useState } from "react";
+import Explorer, {
+  type ExplorerItemInfo,
+  type ExplorerProps,
+} from "@likex/explorer";
+
+type Props = Pick<ExplorerProps, "initialEntries" | "onSave" | "readFile">;
+
+export function ExplorerWithSelection(props: Props) {
+  const [selected, setSelected] = useState<readonly ExplorerItemInfo[]>([]);
+  return (
+    <Explorer
+      {...props}
+      initialSelectedIds={["file-report", "file-budget"]}
+      selection={{ mode: "multiple", kind: "file" }}
+      onSelectionChange={setSelected}
+      footerMessage={`${selected.length}件を選択しています。`}
+    />
+  );
+}
+```
+
+この例の2つのIDは同じフォルダ内の取得済みファイルに置き換えてください。[初期選択の指定](./getting-started.md#initial-selection)も参照してください。初期選択と通知は読み取り専用でも使え、保存対象を変更しません。
+
+後からコールバックを設定した場合も、その時点の選択を一度渡します。親の再描画で関数の参照だけが変わっても、選択内容が同じなら繰り返し通知しません。
+
+項目は選択IDの順序で返します。選択した項目が同じまま一覧の並べ替えだけを行っても、再通知しません。
+
+`ExplorerPopup` ではメインポップアップの表示が対象です。切り離した子・孫ウィンドウの選択は `onEvent` の `selection` を使い、`windowId` で識別してください。`onEvent` の `selection` は従来どおり初期表示では発行しません。`ExplorerPicker`・`ExplorerPickerDialog` の同名コールバックは仮想ルートを含む `readonly ExplorerPickerItem[]` を返します。[Pickerの選択契約](./picker.md)を参照してください。
 
 ## 操作や状態変化を親画面で受け取る
 
@@ -37,7 +76,7 @@ type ExplorerEventHandler = (event: ExplorerEvent) => void | Promise<void>;
 | `context-menu` | 追加メニューの `status: "start" \| "confirmation-required" \| "success" \| "cancelled" \| "error"`。実行を識別する `requestId`、項目の `itemId`・`label`、必要に応じて `message` を持ちます。[メニューの実行と反映](./context-menu.md)を参照してください。 |
 | `window` | `action: "detach"` / `"reattach"` / `"close"` / `"blocked"` と `windowId`・`tabIds`。起動確認後の切り離し・明示的な復帰・子のタブ終了・ポップアップのブロックや起動失敗を通知します。`detach` / `blocked` には `sourceWindowId` も含み、説明用の `message` を含む場合があります。 |
 
-`navigate`・`selection`・`tabs`・`view`・`details` は初回マウント時には通知せず、その後の状態変化を通知します。操作に伴って複数のイベントが届く場合があります。イベント内の項目情報は `ExplorerItemInfo` で、要求時点の表示パスと本体参照を含みます。フォルダの `extension` は空文字です。`save` の `start.payload` は通常の `ExplorerSavePayload` です。
+`onEvent` の `navigate`・`selection`・`tabs`・`view`・`details` は初回マウント時には通知せず、その後の状態変化を通知します。初期選択も受け取る場合は上記の `onSelectionChange` を使います。操作に伴って複数のイベントが届く場合があります。イベント内の項目情報は `ExplorerItemInfo` で、要求時点の表示パスと本体参照を含みます。フォルダの `extension` は空文字です。`save` の `start.payload` は通常の `ExplorerSavePayload` です。
 
 子ウィンドウで発生した `navigate`・`selection`・`tabs`・`view`・`details`・`clipboard`・`preview`・`download`・`download-progress`・`download-cancelled` には、その子の `windowId` を追加します。親のこれらの通知では省略します。`window` イベントには常に対象の `windowId` があります。`change`・`discard`・`save`・`refresh`・`folder-load`・`search-hydrate`・`upload`・`edit-mode` はワークスペース全体の通知で、ウィンドウごとに二重発行しません。
 

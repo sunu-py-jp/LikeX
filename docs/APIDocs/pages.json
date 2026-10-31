@@ -55,6 +55,7 @@
       "ExplorerPopup",
       "initialEntries",
       "initialPath",
+      "initialSelectedIds",
       "defaultPath",
       "selectedFile",
       "selectedFileMode",
@@ -92,9 +93,14 @@
         "depth": 3
       },
       {
-        "id": "最初に開くパスとファイルを指定する",
-        "title": "最初に開くパスとファイルを指定する",
+        "id": "最初に開くパスと項目を指定する",
+        "title": "最初に開くパスと項目を指定する",
         "depth": 3
+      },
+      {
+        "id": "ファイルフォルダを複数選択して開く",
+        "title": "ファイル・フォルダを複数選択して開く",
+        "depth": 4
       },
       {
         "id": "表示後に移動選択する",
@@ -846,6 +852,7 @@
       "colorMode",
       "theme",
       "renderIcon",
+      "footerMessage",
       "拡張子",
       "動画",
       "音声",
@@ -882,6 +889,16 @@
         "id": "親の処理中状態をアイコンに表示する",
         "title": "親の処理中状態をアイコンに表示する",
         "depth": 2
+      },
+      {
+        "id": "フッターに補足メッセージを表示する",
+        "title": "フッターに補足メッセージを表示する",
+        "depth": 2
+      },
+      {
+        "id": "移動先に合わせてメッセージを更新する",
+        "title": "移動先に合わせてメッセージを更新する",
+        "depth": 3
       },
       {
         "id": "サイズとスタイルの前提",
@@ -1102,11 +1119,18 @@
       "ExplorerChangeInfo",
       "ExplorerLocationInfo",
       "onEvent",
+      "onSelectionChange",
+      "ExplorerItemInfo",
       "change",
       "save",
       "context-menu"
     ],
     "headings": [
+      {
+        "id": "初期選択と選択の変化を親画面で受け取る",
+        "title": "初期選択と選択の変化を親画面で受け取る",
+        "depth": 2
+      },
       {
         "id": "操作や状態変化を親画面で受け取る",
         "title": "操作や状態変化を親画面で受け取る",

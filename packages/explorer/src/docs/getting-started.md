@@ -93,7 +93,7 @@ export default function FileManager() {
 
 ### 最初に開くフォルダを指定する
 
-`defaultPath?: string` は、「＋」で追加するタブで開くフォルダを指定します。後述する `initialPath`・`selectedFile` による初期位置の指定がなければ、最初のタブにも使います。省略または空白のみなら `/`（ルート）です。例えば、親から渡す `savedEntries` に `/記事/画像` が存在する場合は、次のように設定します。`save` は親の保存関数です。
+`defaultPath?: string` は、「＋」で追加するタブで開くフォルダを指定します。後述する `initialPath`・`initialSelectedIds`・`selectedFile` による初期位置の指定がなければ、最初のタブにも使います。省略または空白のみなら `/`（ルート）です。例えば、親から渡す `savedEntries` に `/記事/画像` が存在する場合は、次のように設定します。`save` は親の保存関数です。
 
 ```tsx
 <Explorer
@@ -111,7 +111,7 @@ export default function FileManager() {
 
 <a id="initial-file"></a>
 
-### 最初に開くパスとファイルを指定する
+### 最初に開くパスと項目を指定する
 
 `initialPath` は最初のタブだけの開始フォルダ、`selectedFile` は初期選択するファイルの `ExplorerEntry.id` です。次の例は `/記事/画像` を開き、その直下にあるID `file-cover` のファイルを選択します。「＋」の新規タブは `defaultPath` の `/記事` から開きます。
 
@@ -125,6 +125,8 @@ export default function FileManager() {
   selectedFileMode="select"
 />
 ```
+
+`initialSelectedIds` を省略した場合は、次の規則で初期位置と選択を決めます。
 
 | 初期指定 | 最初に開く場所と動作 |
 | --- | --- |
@@ -148,7 +150,37 @@ export default function FileManager() {
 
 初期選択・プレビューは読み取り専用でも使え、保存対象の変更にはなりません。`features.preview: false` ならプレビューせず選択だけ行います。`selection.mode: "none"` なら選択を行いませんが、プレビューを有効にしていれば開けます。
 
-これらのpropsは初回マウント時だけ読みます。後からのprop変更、再取得、「＋」の新規タブで初期選択・プレビューを繰り返しません。表示後に別の場所やファイルを開く場合は、次の `ref` APIを使います。`key` による再マウントは不要で、未保存の変更も保持します。
+<a id="initial-selection"></a>
+
+#### ファイル・フォルダを複数選択して開く
+
+`initialSelectedIds?: readonly string[]` は、`Explorer` と `ExplorerPopup` の最初のタブで選択する項目IDを指定します。ファイルとフォルダの両方を指定でき、全項目が同じ親フォルダ内にある必要があります。次の例では、`/資料` の直下にあるファイルとフォルダを選択します。
+
+```tsx
+<Explorer
+  initialEntries={savedEntries}
+  onSave={save}
+  initialPath="/資料"
+  initialSelectedIds={["file-report", "folder-images"]}
+  selection={{ mode: "multiple", kind: "both" }}
+  onSelectionChange={items => setSelectedItems(items)}
+/>
+```
+
+`setSelectedItems` は、親が用意した `readonly ExplorerItemInfo[]` のstateを更新する関数です。選択がない場合は空配列を受け取ります。[選択通知の完全な例](./events.md#selection-change)を参照してください。
+
+| 指定 | 初期位置と選択 |
+| --- | --- |
+| `initialSelectedIds` のみ | 対象の共通の親フォルダを開いて選択します。`defaultPath` より優先します。 |
+| `initialPath` と併用 | 指定フォルダを開きます。全対象がその直下にある場合だけ選択します。 |
+| `initialSelectedIds={[]}` | 無選択にし、`initialPath`、なければ `defaultPath`、どちらもなければルートを開きます。 |
+| `selectedFile` / `selectedFileMode` と併用 | `initialSelectedIds` を優先し、`selectedFile` の選択と初期プレビューは行いません。空配列も明示的な指定です。 |
+
+IDは `ExplorerEntry.id` です。仮想ルートの `"root"`、ファイル名、パス、本体参照の `source.id` は指定しません。重複IDは最初の順序を保って1件にまとめます。対象と祖先は `initialEntries` に含め、遅延取得や検索で後から届く項目の選択を予約する用途には使いません。
+
+`selection.kind` で許可された種類だけを指定します。`mode: "single"` では重複を除いて1件まで、`mode: "none"` では無選択です。不明なID、異なる親の項目、選択無効・種類・件数の制限違反、`initialPath` と対象の親の不一致がある場合は一部だけを選択せず、通知で理由を知らせます。無効な指定では `initialPath`、なければ `defaultPath` の初期位置を使い、パスも不正ならルートを開きます。空配列は `mode: "none"` でも有効です。
+
+`initialPath`・`initialSelectedIds`・`selectedFile`・`selectedFileMode` は初回マウント時だけ読みます。後からのprop変更、再取得、「＋」の新規タブで初期選択・プレビューを繰り返しません。表示後に別の場所やファイルを開く場合は、次の `ref` APIを使います。`key` による再マウントは不要で、未保存の変更も保持します。
 
 <a id="dynamic-navigation"></a>
 

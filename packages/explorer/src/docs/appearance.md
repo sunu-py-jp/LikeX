@@ -2,7 +2,7 @@
 
 [ドキュメント一覧](./README.md)
 
-アイコンの差し替え、サイズ調整、テーマと動的なダークモードの具体例です。空フォルダ等の案内の差し替えは [`renderEmptyState`](./empty-state.md) を参照してください。
+アイコンの差し替え、フッターメッセージ、サイズ調整、テーマと動的なダークモードの具体例です。空フォルダ等の案内の差し替えは [`renderEmptyState`](./empty-state.md) を参照してください。
 
 ## ファイルとフォルダのアイコンを差し替える
 
@@ -220,6 +220,73 @@ async function startProcessing(fileId: string) {
 これは表示専用の状態です。保存データ・未保存判定・操作イベントには含めず、ファイルの編集やフォルダ移動も禁止しません。処理の開始・終了・失敗の管理は親が担当します。同じファイルで複数のジョブを同時に走らせる場合は、全ジョブが完了してからそのIDを取り除いてください。別ページや独立したExplorer間で共有する場合も、親側で状態を共有します。
 
 成功・失敗・進捗率などのメッセージは、[外部からの通知](./notifications.md)と組み合わせられます。
+
+<a id="footer-message"></a>
+
+## フッターに補足メッセージを表示する
+
+`Explorer` と `ExplorerPopup` の `footerMessage?: ReactNode` に、注意事項やヘルプを渡せます。メッセージはフッターの件数・選択状況・処理中表示・エラー等の下に、全幅の独立した行として表示されます。長い文章は折り返します。
+
+文字列のほか、赤字・太字・リンクなどを含むJSXも渡せます。文字列をHTMLとして解釈することはありません。
+
+```tsx
+<Explorer
+  initialEntries={entries}
+  footerMessage={
+    <span>
+      <strong style={{ color: "#dc2626" }}>社外秘の資料を含みます。</strong>{" "}
+      共有前に <a href="/help/sharing">共有ルール</a> を確認してください。
+    </span>
+  }
+/>
+```
+
+省略した場合と `null`・`undefined`・`false`・空文字の場合はメッセージ行を表示しません。読み取り専用でも利用でき、親がpropを更新すると再マウントせず反映します。表示専用のため、保存データ・未保存判定・操作履歴には影響しません。
+
+`ExplorerPicker` と `ExplorerPickerDialog` も同じpropを受け取ります。Pickerでは既存の選択状況・操作ボタンの下に一度だけ表示します。[選択画面の例](./picker.md#フッターに補足メッセージを表示する)も参照してください。
+
+### 移動先に合わせてメッセージを更新する
+
+親のstateを `onEvent` の `navigate` で更新すると、表示中の場所に応じて文面を切り替えられます。次の例はルートから開始し、`/社外共有` とその配下へ移動したときだけ注意を表示します。`initialEntries` には利用先のフォルダ一覧を渡してください。
+
+```tsx
+"use client";
+
+import { useState } from "react";
+import Explorer, {
+  type ExplorerEventHandler,
+  type ExplorerProps,
+} from "@/components/explorer";
+
+type Props = Pick<ExplorerProps, "initialEntries" | "onSave" | "readFile">;
+
+export default function ExplorerWithFolderMessage(props: Props) {
+  const [path, setPath] = useState<string | null>("/");
+  const observe: ExplorerEventHandler = event => {
+    if (event.type === "navigate" && event.windowId === undefined) {
+      setPath(event.location.path);
+    }
+  };
+  const isExternal = path === "/社外共有" || path?.startsWith("/社外共有/");
+
+  return (
+    <Explorer
+      {...props}
+      initialPath="/"
+      onEvent={observe}
+      footerMessage={isExternal ? (
+        <strong style={{ color: "#dc2626" }}>
+          社外共有する資料に個人情報が含まれていないか確認してください。
+        </strong>
+      ) : null}
+    />
+  );
+}
+```
+
+`navigate` は初回表示では通知しません。初期メッセージは、親が指定した初期位置に合わせてstate等で用意します。上の例では `initialPath` とstateの初期値をともに `/` にしています。お気に入り・最近の一覧では `event.location.path` は `null` です。
+
+同じExplorerから切り離した子・孫ウィンドウにも、同じ `footerMessage` を共有します。子の `navigate` は `windowId` で識別でき、上の例ではメイン画面の移動だけを文面に反映します。`ExplorerPopup` の最初の表示もメイン扱いで、`windowId` は省略されます。[イベントの契約](./events.md)を参照してください。
 
 ## サイズとスタイルの前提
 

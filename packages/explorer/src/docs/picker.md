@@ -52,6 +52,8 @@ export function AttachmentPicker({ entries }: { entries: readonly ExplorerEntry[
 
 ダイアログではさらに `open: boolean` と `onOpenChange: (open: boolean) => void` が必須で、`dialogTitle`・`dialogDescription` を指定できます。
 
+通常の `Explorer`・`ExplorerPopup` にも `initialSelectedIds` と `onSelectionChange` があります。通常のExplorerは `selection.kind` / `selection.mode` と `ExplorerItemInfo[]`、Pickerは `kind` / `multiple` と仮想ルートを含む `ExplorerPickerItem[]` を使います。Pickerの `onConfirm`・`onCancel`・「現在のフォルダを選択」は選択専用画面の契約です。[通常のExplorerの初期選択](./getting-started.md#initial-selection)と[選択の通知](./events.md#selection-change)を参照してください。
+
 ファイルのダブルクリックや Enter はそのファイルを確定します。フォルダのダブルクリックや Enter はその中へ移動します。フォルダ自体を選ぶ場合は選択して確定するか、`kind="folder"` / `"both"` の「現在のフォルダを選択」で現在地1件を直接確定します。現在フォルダは通常のフォルダとルートだけが対象で、検索中・お気に入り・最近の一覧では利用できません。読み込み中や取得エラーがある間も確定できません。
 
 通常の項目はパス付きの `ExplorerItemInfo`、仮想ルートは次の専用型です。ルートは `folder` / `both` で選べます。フォルダの選択に配下すべての読み込みやファイル本体の取得は必要ありません。
@@ -78,7 +80,7 @@ type ExplorerPickerItem = ExplorerItemInfo | ExplorerPickerRootItem;
 />
 ```
 
-文字列は通常のReactのテキストとして表示され、HTMLとして解釈しません。リンク・アイコン・ボタンなどを含める場合は、描画関数ではなくJSXを渡します。利用側でpropsを更新すると、メッセージも更新されます。省略した場合と `null`・`undefined`・`false` の場合はメッセージ領域を表示しません。
+文字列は通常のReactのテキストとして表示され、HTMLとして解釈しません。リンク・アイコン・ボタンなどを含める場合は、描画関数ではなくJSXを渡します。利用側でpropsを更新すると、メッセージも更新されます。省略した場合と `null`・`undefined`・`false`・空文字の場合はメッセージ領域を表示しません。通常の `Explorer`・`ExplorerPopup` でも同じpropを利用できます。[装飾と移動先に応じた更新](./appearance.md#footer-message)を参照してください。
 
 ```tsx
 <ExplorerPickerDialog

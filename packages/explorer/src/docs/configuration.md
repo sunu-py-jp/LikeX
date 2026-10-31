@@ -105,6 +105,8 @@ const explorerOptions = {
 
 `selection.kind: "file"` / `"folder"` は選択できる種類を制限します。対象外のフォルダも表示して移動でき、ファイルのプレビューも選択とは独立です。範囲選択・全選択・初期選択・公開APIにも同じ制限を適用し、`selectFiles` / `selectEntries` などに対象外を含めると `selection-kind` で全体を拒否します。型は `ExplorerSelectionKind` です。確定・キャンセルを伴う選択専用画面には [ExplorerPicker](./picker.md) を使います。通常のExplorerは `both`、Pickerは `file` が既定です。
 
+通常の `Explorer`・`ExplorerPopup` でも、`initialSelectedIds` でファイル・フォルダの初期選択を指定し、`onSelectionChange` で初期状態と選択の変化を受け取れます。初期指定も `selection.kind` / `mode` に従い、複数指定する場合は `mode: "multiple"` にします。これらは `ExplorerProps` の表示連携用propsです。[初期選択の指定](./getting-started.md#initial-selection)と[選択の通知](./events.md#selection-change)を参照してください。
+
 名前変更は一覧内で行います。既定では1項目を選択してからもう一度クリックするか、右クリックの「名前を変更」、ツールバー、F2で編集を開始します。`previewTrigger="click"` のファイル名クリックではプレビューを優先するため、名前変更にはF2やメニューを使えます。ファイルは拡張子を除いた本体だけを編集し、元の拡張子は変更できない文字として表示します。1行表示では入力欄の隣、複数行表示では入力欄の下に添えます。例えば `Report.PDF` は `Report` を編集し、確定時に元の `.PDF` をそのまま結合します。拡張子は最後のピリオドから末尾までを扱い、`.env` のように先頭のピリオドしかない名前は拡張子なしです。拡張子のないファイルに `README.pdf` のような拡張子を追加しようとするとエラーになります。フォルダは名前全体を編集できます。
 
 中・大・特大アイコンでは、編集欄も長い名前を折り返し、内容に合わせて高さを調整します。編集欄は元の名前の位置に重ねるため、後続の段は移動しません。折り返しは表示上のもので、名前に改行は追加しません。Enterまたは入力欄の外へフォーカスを移すと確定し、Escで取消します。不正な名前や同名の項目がある場合は編集欄にエラーを表示します。確定後も保存するまではクライアント内の下書きです。`features.rename: false` でGUIとrefの開始経路を無効にできます。`useExplorerDraft().apply({ action: "rename", name: ... })` やモデルAPIには従来どおりファイル名全体を渡しますが、拡張子の変更・追加・除去も共通モデルで拒否します。[互換性と責務](./model-api.md#uiとの責務と互換性)を参照してください。

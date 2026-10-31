@@ -168,7 +168,7 @@ const ExplorerPane = memo(function ExplorerPane({ props, workspace, windowId, ow
                 {uiOptions.sidebar && <ExplorerSidebar />}
                 <div className="lxe:flex lxe:min-h-0 lxe:min-w-0 lxe:flex-1 lxe:flex-col">
                   <ExplorerFileList />
-                  <ExplorerStatusBar />
+                  <ExplorerStatusBar footerMessage={props.footerMessage} />
                 </div>
               </div>
               {footer}

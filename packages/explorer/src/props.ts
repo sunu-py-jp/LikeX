@@ -128,6 +128,9 @@ export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave
   previewTrigger?: ExplorerPreviewTrigger;
   /** Observe local operations and lifecycle notifications; does not persist or veto them. */
   onEvent?: ExplorerEventHandler;
+  /** Observe the main pane's effective selection, including its initial state and metadata updates.
+   * Clearing returns []; child-window selections remain available through onEvent. */
+  onSelectionChange?: (items: readonly ExplorerItemInfo[]) => void;
   /** Restrictions checked before staging local files. Videos default to a four-hour limit. */
   upload?: ExplorerUploadOptions;
   /** Search on input (default) or submit. Optional debounce applies to external input searches. */
@@ -153,12 +156,18 @@ export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave
   getProcessingLabel?: (entry: ExplorerItemInfo) => string | undefined;
   /** Optional label at the right of the tab bar. Omitted or blank values are hidden. */
   title?: string;
+  /** Optional content below the status bar. Strings are plain text; nodes may include interactive UI.
+   * Updates while mounted. Pickers display it below their selection controls. */
+  footerMessage?: ReactNode;
   /** Display name of the virtual root. Defaults to "ファイル". */
   rootLabel?: string;
   /** Folder path resolved on mount for the first and new tabs. Defaults to "/". */
   defaultPath?: string;
   /** First tab's folder path. Takes precedence over defaultPath; read on mount only. */
   initialPath?: string;
+  /** Initial cached file/folder IDs, read once. All must share a folder and obey selection options.
+   * Takes precedence over selectedFile (including []); never requests an initial preview. */
+  initialSelectedIds?: readonly string[];
   /** File entry ID to select on mount. Without initialPath, opens the file's parent folder. */
   selectedFile?: string;
   /** Select only (default), or also request the built-in/host preview on first display. */

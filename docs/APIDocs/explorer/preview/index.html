@@ -40,7 +40,7 @@
   onPreviewRequest={showPreview}
 /&gt;</code></pre></div>
 <p>この <code>showPreview</code> は親が実装した <code>ExplorerPreviewHandler</code> です。通常のファイル操作と同じリクエストを受け取り、初期起動でもID・パス・名前・拡張子・本体参照を使えます。未指定なら内蔵プレビューを使い、既存ファイルの本体取得には <code>readFile</code> を渡します。</p>
-<p>起動はクライアントで表示されたときに一度だけ行い、SSR中には呼びません。<code>ExplorerPopup</code> では最初の <code>open()</code> で表示されたときが対象です。<code>previewTrigger</code> の設定にかかわらず起動し、<code>features.preview: false</code> なら要求しません。読み取り専用でも利用できます。<code>initialPath</code> との組み合わせ、無効なIDの扱い、初期設定を変える方法は<a href="../getting-started/index.html#initial-file">導入ガイド</a>を参照してください。</p>
+<p>起動はクライアントで表示されたときに一度だけ行い、SSR中には呼びません。<code>ExplorerPopup</code> では最初の <code>open()</code> で表示されたときが対象です。<code>previewTrigger</code> の設定にかかわらず起動し、<code>features.preview: false</code> なら要求しません。<code>initialSelectedIds</code> を指定した場合は空配列も含めてそちらを優先し、<code>selectedFileMode=&quot;preview&quot;</code> による初期プレビューは要求しません。読み取り専用でも利用できます。<code>initialPath</code> との組み合わせ、無効なIDの扱い、初期設定を変える方法は<a href="../getting-started/index.html#initial-file">導入ガイド</a>を参照してください。</p>
 <h3 id="親stateで受け取り横にカードを表示する">親stateで受け取り、横にカードを表示する<a class="heading-link" href="#%E8%A6%AAstate%E3%81%A7%E5%8F%97%E3%81%91%E5%8F%96%E3%82%8A%E6%A8%AA%E3%81%AB%E3%82%AB%E3%83%BC%E3%83%89%E3%82%92%E8%A1%A8%E7%A4%BA%E3%81%99%E3%82%8B" aria-label="この見出しへのリンク">#</a></h3>
 <p>次の例は、要求を受け取るたびにファイル情報のカードを更新します。保存・読込関数は親から渡すため、既存ファイルと未保存のローカルファイルのどちらにも使えます。</p>
 <div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-string">&quot;use client&quot;</span>;

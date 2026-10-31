@@ -2,12 +2,13 @@ import { packageRoot } from './test-paths.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { act, createElement as h, StrictMode } from 'react';
+import { act, createElement as h, StrictMode, useState } from 'react';
 import { create } from 'react-test-renderer';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
   export { ExplorerPicker, ExplorerPickerDialog } from './src/explorer-picker.tsx';
+  export { default as Explorer } from './src/explorer.tsx';
 `, resolveDir: packageRoot, sourcefile: 'explorer-picker-ui.tsx' }, bundle: true, platform: 'node', format: 'esm', write: false,
 plugins: [{ name: 'shared-react-and-transparent-overlays', setup(builder) {
   builder.onResolve({ filter: /^(react|lucide-react)(\/.*)?$/ }, ({ path }) => ({ path: import.meta.resolve(path), external: true }));
@@ -31,7 +32,7 @@ plugins: [{ name: 'shared-react-and-transparent-overlays', setup(builder) {
         Dialog = family('dialog'), AlertDialog = family('alert');`,
   }));
 } }] });
-const { ExplorerPicker, ExplorerPickerDialog } = await import(
+const { Explorer, ExplorerPicker, ExplorerPickerDialog } = await import(
   `data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text + '\n//# sourceURL=explorer-picker-ui.mjs').toString('base64')}`);
 const change = async callback => { await act(async () => { await callback(); }); };
 const deferred = () => { let resolve, reject; const promise = new Promise((done, fail) => { resolve = done; reject = fail; }); return { promise, resolve, reject }; };
@@ -84,6 +85,7 @@ test('host footer messages update without resetting selection or triggering pick
   for (const dialog of [false, true]) await t.test(dialog ? 'dialog' : 'embedded', async t => {
     const ui = await mount(t, { footerMessage: '<b>共有する資料を選択してください</b>' }, dialog);
     const message = () => ui.root.findByProps({ 'data-explorer-picker-message': true });
+    assert.equal(ui.root.findAllByProps({ 'data-explorer-footer-message': true }).length, 0, 'picker does not duplicate its message in the status bar');
     assert.deepEqual(message().children, ['<b>共有する資料を選択してください</b>'], 'strings remain literal text');
     await change(() => row(ui, 'alpha').props.onClick(mouse()));
     let helpOpened = 0;
@@ -100,6 +102,52 @@ test('host footer messages update without resetting selection or triggering pick
     assert.equal(ui.root.findAllByProps({ 'data-explorer-picker-message': true }).length, 0);
     await change(() => button(ui).props.onClick());
     assert.deepEqual(ui.confirmed.at(-1).items.map(item => item.id), ['alpha']);
+  });
+});
+
+test('ordinary Explorer footer updates with navigation and preserves selection and status in readonly and editable modes', async t => {
+  for (const readOnly of [true, false]) await t.test(readOnly ? 'readonly' : 'editable', async t => {
+    let renderer, updateMessage;
+    const ref = { current: null }, events = [], dirty = [];
+    function App() {
+      const [message, setMessage] = useState('<b>最初の案内</b>');
+      updateMessage = setMessage;
+      return h(Explorer, { ref, initialEntries: initialEntries(), readOnly, onSave() {},
+        onDirtyChange: value => dirty.push(value), footerMessage: message,
+        onEvent(event) {
+          events.push(event);
+          if (event.type === 'navigate') setMessage(`現在地: ${event.location.path ?? event.location.name}`);
+        } });
+    }
+    await change(() => { renderer = create(h(StrictMode, null, h(App))); });
+    t.after(() => change(() => renderer.unmount()));
+    const message = () => renderer.root.findByProps({ 'data-explorer-footer-message': true });
+    assert.deepEqual(message().children, ['<b>最初の案内</b>'], 'text is not interpreted as HTML');
+    assert.equal(events.some(event => event.type === 'navigate'), false);
+    await change(() => ref.current.selectFiles([{ id: 'alpha' }]));
+    let clicks = 0;
+    await change(() => updateMessage(h('strong', { style: { color: 'red' } }, '注意 ',
+      h('a', { href: '/help', onClick: () => { clicks++; } }, 'ヘルプ'))));
+    assert.equal(message().findByType('strong').props.style.color, 'red');
+    assert.equal(message().findByType('a').props.href, '/help');
+    await change(() => message().findByType('a').props.onClick());
+    assert.equal(clicks, 1);
+    const footer = renderer.root.findByType('footer');
+    assert.ok(textOf(footer).includes('3 個の項目'));
+    assert.ok(textOf(footer).includes('1 個の項目を選択'));
+    if (readOnly) assert.ok(textOf(footer).includes('読み取り専用'));
+    assert.equal(events.some(event => event.type === 'change' || event.type === 'save'), false);
+    assert.equal(dirty.includes(true), false);
+    await change(() => assert.equal(ref.current.navigate('/Folder').ok, true));
+    assert.equal(textOf(message()), '現在地: /Folder');
+    assert.ok(row(renderer, 'nested'));
+    for (const hidden of [null, undefined, false, true, '']) {
+      await change(() => updateMessage(hidden));
+      assert.equal(renderer.root.findAllByProps({ 'data-explorer-footer-message': true }).length, 0);
+      assert.ok(row(renderer, 'nested'), 'prop updates do not reset navigation');
+    }
+    await change(() => updateMessage(0));
+    assert.equal(textOf(message()), '0');
   });
 });
 

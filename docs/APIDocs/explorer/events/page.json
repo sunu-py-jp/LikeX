@@ -1,6 +1,6 @@
 {
   "title": "操作・状態イベント",
-  "summary": "onEventで選択や変更、保存などを受け取ります。通知から操作の許可・拒否はできません。",
+  "summary": "onSelectionChangeで初期選択と変化を、onEventで操作や変更、保存などを受け取ります。",
   "source": "packages/explorer/src/docs/events.md",
   "order": 130,
   "keywords": [
@@ -10,6 +10,8 @@
     "ExplorerChangeInfo",
     "ExplorerLocationInfo",
     "onEvent",
+    "onSelectionChange",
+    "ExplorerItemInfo",
     "change",
     "save",
     "context-menu"

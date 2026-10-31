@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ExplorerProps } from "../props";
 import { resolveExplorerOptions } from "../model/config";
-import { resolveInitialExplorerLocation } from "../model/initial-location";
+import { resolveInitialExplorerLocation, resolveInitialExplorerSelection } from "../model/initial-location";
 import { dispatchExplorerEvent } from "../model/events";
 import { useExplorerDraft } from "./use-explorer-draft";
 import { useExplorerTabs } from "./use-explorer-tabs";
@@ -81,6 +81,12 @@ export function useExplorerWorkspace(props: ExplorerProps) {
   }, [downloads, options.features.download]);
   const [starts] = useState(() => {
     const common = { initialEntries: draft.entries, defaultPath: props.defaultPath, rootLabel: props.rootLabel };
+    if (props.initialSelectedIds !== undefined) return {
+      defaultStart: resolveInitialExplorerLocation(common),
+      initialStart: resolveInitialExplorerSelection({ ...common, initialPath: props.initialPath,
+        initialSelectedIds: props.initialSelectedIds, selection: options.selection }),
+      previewFileId: null,
+    };
     const initial = resolveInitialExplorerLocation({ ...common, initialPath: props.initialPath, selectedFile: props.selectedFile });
     return {
       defaultStart: resolveInitialExplorerLocation(common),

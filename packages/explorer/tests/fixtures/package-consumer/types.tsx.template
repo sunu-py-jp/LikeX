@@ -1,7 +1,7 @@
 import { createRef } from "react";
 import Explorer, { ExplorerPopup, ExplorerPicker, ExplorerPickerDialog, ExplorerPreviewError, useExplorerDraft, createExplorerUploadSession,
   type ExplorerPreviewErrorProps,
-  type ExplorerProps, type ExplorerEntry, type ExplorerEvent,
+  type ExplorerProps, type ExplorerEntry, type ExplorerEvent, type ExplorerItemInfo,
   type ExplorerPreviewHandler, type ExplorerPreviewRenderer, type ExplorerPreviewSourceResolver,
   type ExplorerPreviewOptions, type ExplorerPreviewSource,
   type ExplorerFileReader, type ExplorerSaveHandler, type ExplorerRefreshHandler,
@@ -53,6 +53,24 @@ const invalidPreviewHandler: ExplorerPreviewHandler = () => "new-tab";
 void [previewConfig, previewSource, previewHandler, legacyPreviewHandler, previewRenderer, unsafePreviewSource, asyncPreviewRenderer, invalidPreviewHandler];
 
 const entries: readonly ExplorerEntry[] = [];
+const footerMessage: ExplorerProps["footerMessage"] = <span><strong style={{ color: "#dc2626" }}>注意</strong> <a href="/help/sharing">共有ルール</a></span>;
+const hiddenFooterMessages: readonly ExplorerProps["footerMessage"][] = [false, null, undefined, ""];
+// @ts-expect-error Footer content is a ReactNode, not a render callback.
+const invalidFooterMessage: ExplorerProps["footerMessage"] = () => <span>注意</span>;
+void [hiddenFooterMessages, invalidFooterMessage];
+const initialSelectedIds: readonly string[] = ["file-a", "folder-b"];
+const onSelectionChange: NonNullable<ExplorerProps["onSelectionChange"]> = items => {
+  const selected: readonly ExplorerItemInfo[] = items;
+  const paths: string[] = selected.map(item => item.path);
+  // @ts-expect-error Selection callbacks expose a readonly collection.
+  items.push(selected[0]);
+  void paths;
+};
+// @ts-expect-error Initial selection contains entry IDs, not entry objects.
+const invalidInitialSelection = { initialEntries: entries, initialSelectedIds: [{ id: "file-a" }] } satisfies ExplorerProps;
+// @ts-expect-error Selection observers receive item metadata, not bare IDs.
+const invalidSelectionObserver: ExplorerProps["onSelectionChange"] = (ids: readonly string[]) => { void ids; };
+void [invalidInitialSelection, invalidSelectionObserver];
 const pickerRef = createRef<ExplorerPickerHandle>();
 const pickerKind: ExplorerPickerKind = "both";
 const pickerOptions: ExplorerPickerOptions = { kind: pickerKind, multiple: true, rootLabel: "共有資料" };
@@ -249,8 +267,8 @@ const valid: ExplorerProps = { preview: previewConfig, resolvePreviewSource: pre
     }
   },
 };
-const readOnly = <Explorer ref={explorerRef} initialEntries={entries} />;
-const popup = <ExplorerPopup {...valid} renderTrigger={({ close }) => <button onClick={close}>Close</button>} />;
+const readOnly = <Explorer ref={explorerRef} initialEntries={entries} initialSelectedIds={initialSelectedIds} onSelectionChange={onSelectionChange} footerMessage="閲覧用の資料です。" />;
+const popup = <ExplorerPopup {...valid} initialSelectedIds={[]} onSelectionChange={onSelectionChange} footerMessage={footerMessage} renderTrigger={({ close }) => <button onClick={close}>Close</button>} />;
 const submitSearch = <Explorer initialEntries={entries} search={{ trigger: "submit" }} onSearchRequest={synchronousSearch} />;
 const richSearchView = <Explorer initialEntries={entries} search={{ trigger: "submit", resultDetailsHeight: 112 }} onSearchRequest={richSearch} renderSearchResult={renderSearchResult} />;
 const streamingSearchView = <Explorer initialEntries={entries} onSearchRequest={streamingSearch} renderSearchResult={renderSearchResult} />;

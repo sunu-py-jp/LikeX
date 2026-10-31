@@ -35,6 +35,7 @@ import type { ExplorerCommandHandle } from "../model/commands";
 import { createPreviewRequest } from "../model/preview";
 import { assertExplorerEntryPermissions } from "../model/entry-permissions";
 import { dispatchExplorerEvent, type ExplorerViewEvent, type ExplorerLocationInfo } from "../model/events";
+import { notifyHost } from "../core";
 import { useExplorerWindowTabs, type TabViewState } from "./use-explorer-tabs";
 import { addEntryAndAncestors, getEntryIndex } from "../model/entry-index";
 import { useExplorerUpload } from "./use-explorer-upload";
@@ -73,6 +74,7 @@ export function useExplorerController(props: ExplorerProps) {
 }
 
 export function useExplorerViewController({
+  onSelectionChange,
   readFile,
   onDownloadRequest,
   onPreviewRequest,
@@ -681,6 +683,24 @@ export function useExplorerViewController({
     entries, location, query, conditions: committedSearchConditions, sort, selectedIds, selectionMode: selectionOptions.mode, selectionKind: selectionOptions.kind,
     searchResultIds: resultIds,
   });
+  // Observe only the main pane; detached panes have their own window-tagged events.
+  // Cache serialized metadata so parent callback identity changes cannot create loops.
+  const observeSelection = windowId === "main" && Boolean(onSelectionChange);
+  const selectionSnapshot = useMemo(() => {
+    if (!observeSelection) return null;
+    const items = describeEntries(entries, selected.map(id => entryIndex.byId.get(id)!));
+    return { items, key: JSON.stringify(items),
+      files: items.map(item => item.source?.kind === "local" ? item.source.file : null) };
+  }, [observeSelection, entries, entryIndex, selected]);
+  const reportedSelection = useRef<{ key: string; files: readonly (File | null)[] } | null>(null);
+  useEffect(() => {
+    if (!selectionSnapshot || !onSelectionChange) { reportedSelection.current = null; return; }
+    const { key, files, items } = selectionSnapshot;
+    const previous = reportedSelection.current;
+    if (previous?.key === key && files.every((file, index) => file === previous.files[index])) return;
+    reportedSelection.current = { key, files };
+    notifyHost(onSelectionChange, items);
+  }, [selectionSnapshot, onSelectionChange]);
   const renamingEntryId = features.rename && !readOnly && !saving && !refreshing &&
     renameSession?.revision === editRevision &&
     renameSession?.tabId === tabState.activeTabId &&

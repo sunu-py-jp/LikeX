@@ -84,7 +84,7 @@ Explorerはコールバックを呼ぶ前に `readFile` で本体を読み込み
 
 この `showPreview` は親が実装した `ExplorerPreviewHandler` です。通常のファイル操作と同じリクエストを受け取り、初期起動でもID・パス・名前・拡張子・本体参照を使えます。未指定なら内蔵プレビューを使い、既存ファイルの本体取得には `readFile` を渡します。
 
-起動はクライアントで表示されたときに一度だけ行い、SSR中には呼びません。`ExplorerPopup` では最初の `open()` で表示されたときが対象です。`previewTrigger` の設定にかかわらず起動し、`features.preview: false` なら要求しません。読み取り専用でも利用できます。`initialPath` との組み合わせ、無効なIDの扱い、初期設定を変える方法は[導入ガイド](./getting-started.md#initial-file)を参照してください。
+起動はクライアントで表示されたときに一度だけ行い、SSR中には呼びません。`ExplorerPopup` では最初の `open()` で表示されたときが対象です。`previewTrigger` の設定にかかわらず起動し、`features.preview: false` なら要求しません。`initialSelectedIds` を指定した場合は空配列も含めてそちらを優先し、`selectedFileMode="preview"` による初期プレビューは要求しません。読み取り専用でも利用できます。`initialPath` との組み合わせ、無効なIDの扱い、初期設定を変える方法は[導入ガイド](./getting-started.md#initial-file)を参照してください。
 
 ### 親stateで受け取り、横にカードを表示する
 

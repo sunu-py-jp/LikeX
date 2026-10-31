@@ -8,6 +8,7 @@
     "ExplorerPopup",
     "initialEntries",
     "initialPath",
+    "initialSelectedIds",
     "defaultPath",
     "selectedFile",
     "selectedFileMode",

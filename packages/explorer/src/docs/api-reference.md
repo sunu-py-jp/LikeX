@@ -4,7 +4,7 @@
 
 ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体例は各機能のガイドを参照してください。
 
-選択専用の `ExplorerPicker`・`ExplorerPickerDialog` は、表示・取得propsを共有し、`kind`・`multiple`・`initialSelectedIds`・`onSelectionChange`・`onConfirm`・`onCancel` を追加します。`ExplorerPickerProps`・`ExplorerPickerDialogProps`・`ExplorerPickerHandle` と結果型、読み取り専用の契約は[選択画面のAPI](./picker.md)を参照してください。
+選択専用の `ExplorerPicker`・`ExplorerPickerDialog` は、表示・取得propsを共有し、`kind`・`multiple`・`onConfirm`・`onCancel` を追加します。`initialSelectedIds` と `onSelectionChange` は通常のExplorerでも利用でき、Pickerでは仮想ルートを含む専用の選択契約を使います。`ExplorerPickerProps`・`ExplorerPickerDialogProps`・`ExplorerPickerHandle` と結果型、読み取り専用の契約は[選択画面のAPI](./picker.md)を参照してください。
 
 `ExplorerPreviewError` は `error: unknown`、`message?: string`、`className?: string` を受け取り、案内文とエラー詳細のアイコンを表示します。公開型は `ExplorerPreviewErrorProps` です。Explorerの外でも利用できます。[エラー表示の使い方](./previews.md#読み込みエラーの詳細を表示する)を参照してください。
 
@@ -41,14 +41,17 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `search` | `ExplorerSearchOptions`。`trigger` は `"input"`（既定）または `"submit"`。`debounceMs` は外部の入力検索だけに適用する待機時間で、既定は `0`。`params` はJSON互換の外部条件で、input時は内容変更で再検索、submit時はEnterで確定します。`pageSize` を指定すると外部検索へcursor / limitを渡し、末尾付近で続きを取得します。正の整数を最大1,000件に収め、不正値は100件、省略は従来方式です。`resultDetailsMaxLines` は補足領域の最大行数（既定1、有限値を整数化して1〜30行）。超えた内容は省略記号で表示し、枠内の縦スクロールはありません。`resultDetailsHeight` に有限の数値を指定すると行数指定より優先し、24〜480pxの固定高さと枠内スクロールを使います。全表示モードで仮想スクロールを維持します。 |
 | `previewTrigger` | `ExplorerPreviewTrigger`。`"doubleClick"`（既定）または `"click"`。後者はファイル名の単クリックでプレビューします。 |
 | `onEvent` | `ExplorerEventHandler`。ローカル操作・選択・移動・表示状態・保存等を親へ通知します。通知の戻り値や例外は操作の成否を変えません。 |
+| `onSelectionChange` | 任意の `(items: readonly ExplorerItemInfo[]) => void`。メイン領域の初期選択と、その後の選択ID・項目情報の変化を通知します。無選択・選択解除は `[]`。子・孫ウィンドウの選択は `onEvent` で観測します。[選択の通知](./events.md#selection-change) |
 | `renderIcon` | `ExplorerIconRenderer`。項目情報・描画箇所・選択状態等から独自アイコンを返します。`null` / `undefined` は既定表示、`false` は枠だけを残します。 |
 | `processingEntryIds` | 任意の `readonly string[]`。親の処理中項目と祖先フォルダにインジケーターを表示します。マウント後の変更に追従し、保存・未保存判定や操作の可否には影響しません。[使い方](./appearance.md#processing-entries) |
 | `title` | 任意の `string`。`title="資料管理"` のようにタブバー右上の表示名を指定します。前後の空白を除去し、省略・空文字・空白のみなら非表示です。 |
+| `footerMessage` | 任意の `ReactNode`。件数・選択状況・エラー等の下に、全幅の独立した行で補足メッセージを表示します。文字列とJSXを渡せ、propの更新に追従します。省略・`null`・`undefined`・`false`・空文字では非表示です。読み取り専用でも利用できます。[装飾と動的な更新](./appearance.md#footer-message) |
 | `rootLabel` | ルートの表示名。省略時・空白のみの場合は「ファイル」。タブ、パンくず、サイドバー、保存場所表示へ適用します。 |
 | `defaultPath` | 「＋」の新規タブで開く仮想フォルダのパス。初期位置の指定がなければ最初のタブにも使います。省略・空白のみなら `/`。初回に解決したフォルダIDを保持します。 |
 | `initialPath` | 任意の `string`。最初のタブだけで開く仮想フォルダのパス。明示した場合は `defaultPath` より優先し、空白のみなら `/`。新規タブには再適用しません。 |
-| `selectedFile` | 任意の `string`。初回に選択するファイルの `ExplorerEntry.id`。`initialPath` 未指定なら対象の親フォルダを開き、指定時はその直下にあるファイルだけを選択します。ファイル名や `source.id` ではありません。 |
-| `selectedFileMode` | `ExplorerSelectedFileMode`。`"select"`（既定）または `"preview"`。後者は初期選択に加え、内蔵プレビューまたは `onPreviewRequest` を一度起動します。 |
+| `initialSelectedIds` | 任意の `readonly string[]`。初回だけ選択するファイル・フォルダのID。同じ親の取得済み項目を指定し、`selection.kind` / `mode` に従います。重複は先頭順に除き、不正な指定は全件を選択せず通知します。`[]` を含め、指定時は `selectedFile` と初期プレビューより優先します。[初期位置との関係](./getting-started.md#initial-selection) |
+| `selectedFile` | 任意の `string`。初回に選択するファイルの `ExplorerEntry.id`。`initialPath` 未指定なら対象の親フォルダを開き、指定時はその直下にあるファイルだけを選択します。ファイル名や `source.id` ではありません。`initialSelectedIds` 指定時は使いません。 |
+| `selectedFileMode` | `ExplorerSelectedFileMode`。`"select"`（既定）または `"preview"`。後者は `selectedFile` の初期選択に加え、内蔵プレビューまたは `onPreviewRequest` を一度起動します。`initialSelectedIds` 指定時は初期プレビューを行いません。 |
 | `features` | `ExplorerFeatures`。機能ごとに `false` を指定すると、関連UIとその実行経路を無効にします。 |
 | `upload` | `ExplorerUploadOptions`。許可拡張子・容量・件数・再生時間・PDFページ数・PPTXスライド数・違反時の扱いを指定します。`pdfInspectionLimits` で内蔵PDF検査の展開量・処理時間等も調整できます。動画は既定で4時間以下です。違反時は既定でその回の追加をすべて中止します。[内容制限](./upload-content-limits.md) |
 | `selection` | `ExplorerSelectionOptions`。選択方式（`none` / `single` / `multiple`）、選択する種類（`kind: file` / `folder` / `both`、既定 `both`）、チェックボックス表示。対象外のフォルダも移動のために表示します。 |
@@ -63,7 +66,7 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 
 `title` はマウント後の変更にも追従し、子・孫ウィンドウにも同じ表示名を使います。現在地のタブ名、`rootLabel`、ブラウザの `document.title`、`aria-label` とは独立しています。タブバーを非表示にした場合や表示幅が狭い場合は表示しません。[指定例](./getting-started.md#右上のタイトルを指定する) を参照してください。
 
-`initialPath`・`selectedFile`・`selectedFileMode` は初回マウント時のみ評価します。表示後の移動・選択には `ref` のAPIを使い、`key` による再マウントは不要です。初期指定で無効なパスはルート表示と通知、無効なファイルID・フォルダID・指定先にないファイルIDは無選択と通知になります。`features.preview: false` なら初期プレビューを行わず、`selection.mode: "none"` なら初期選択を行いません。選択を無効にしていてもプレビューは有効にできます。[優先順位と指定例](./getting-started.md#initial-file)
+`initialPath`・`initialSelectedIds`・`selectedFile`・`selectedFileMode` は初回マウント時のみ評価します。表示後の移動・選択には `ref` のAPIを使い、`key` による再マウントは不要です。初期指定で無効なパスはルート表示と通知になります。`selectedFile` に無効なID・フォルダID・指定先にないファイルIDを渡した場合は無選択と通知です。`features.preview: false` なら初期プレビューを行わず、`selection.mode: "none"` なら初期選択を行いません。`initialSelectedIds` 未指定で `selectedFileMode: "preview"` の場合は、選択を無効にしていてもプレビューを有効にできます。[優先順位と指定例](./getting-started.md#initial-file)
 
 保存成功時は、返された一覧を次の編集の基準にします。戻り値を省略した場合は、送信した一覧を基準にします。新しく保存したファイルは `source` を既存ファイル参照に正規化した一覧を返すと、次の保存でローカルファイルとして再送する必要がなくなります。保存コールバックが例外を投げる・Promiseをrejectする場合、下書きと選択したローカルファイルを保持して再試行できます。
 

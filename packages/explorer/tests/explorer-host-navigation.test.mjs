@@ -91,6 +91,62 @@ async function mount(t, supplied = {}) {
 const previewEvents = hook => hook.events.filter(event => event.type === 'preview');
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 
+test('selection callback reports initial state, API selection and metadata changes without replaying on parent renders', async t => {
+  const selections = [];
+  const hook = await mount(t, { selectedFile: 'note', onSelectionChange: items => selections.push(items) });
+  assert.deepEqual(selections.map(items => items.map(item => item.id)), [['note']]);
+  assert.equal(selections[0][0].path, '/Projects/資料/Notes.TXT');
+  assert.equal(hook.events.some(event => event.type === 'selection'), false, 'legacy events remain change-only');
+  selections[0][0].name = 'Host mutation';
+  selections[0][0].source.id = 'host-content';
+  assert.equal(hook.ref.current.getEntries().find(item => item.id === 'note').name, 'Notes.TXT');
+  assert.equal(hook.ref.current.getEntries().find(item => item.id === 'note').source.id, 'content-note');
+  await hook.update({ footerMessage: '更新', onSelectionChange: items => selections.push(items) });
+  assert.equal(selections.length, 1, 'new inline callback does not cause a notification loop');
+  await change(() => hook.ref.current.selectEntries([{ id: 'second' }, { id: 'note' }]));
+  assert.deepEqual(selections.at(-1).map(item => item.id), ['second', 'note'], 'notification preserves selection order');
+  const count = selections.length;
+  await change(() => hook.current.sortBy('name'));
+  assert.equal(selections.length, count, 'sorting the view does not change the selected items');
+  await change(() => hook.workspace.draft.apply({ action: 'rename', ids: ['root-file'], name: 'Other.md' }));
+  assert.equal(selections.length, count, 'unselected metadata changes do not notify');
+  await change(() => hook.workspace.draft.apply({ action: 'rename', ids: ['note'], name: 'New.txt' }));
+  assert.equal(selections.at(-1).find(item => item.id === 'note').path, '/Projects/資料/New.txt');
+  await hook.update({ selection: { mode: 'none' } });
+  assert.deepEqual(selections.at(-1), []);
+});
+
+test('selection callback can attach later and observer failures do not disrupt navigation in readonly mode', async t => {
+  const hook = await mount(t, { readOnly: true, selectedFile: 'note' });
+  const selections = [];
+  await hook.update({ onSelectionChange: items => selections.push(items) });
+  assert.deepEqual(selections.map(items => items.map(item => item.id)), [['note']]);
+  await hook.update({ onSelectionChange: undefined });
+  await change(() => hook.ref.current.navigate('/'));
+  await hook.update({ onSelectionChange: items => { selections.push(items); throw new Error('host observer'); } });
+  assert.deepEqual(selections.at(-1), []);
+  await change(() => assert.equal(hook.ref.current.selectFiles([{ id: 'root-file' }]).ok, true));
+  assert.deepEqual(hook.current.selected, ['root-file']);
+  await hook.update({ onSelectionChange: () => Promise.reject(new Error('async observer')) });
+  await change(() => assert.equal(hook.ref.current.navigate('/Archive').ok, true));
+  assert.equal(hook.current.location, 'archive');
+  assert.equal(hook.current.dirty, false);
+});
+
+test('selection callback observes the main pane while detached selections keep window-tagged events', async t => {
+  const selections = [];
+  const hook = await mount(t, { selectedFile: 'note', onSelectionChange: items => selections.push(items) });
+  const firstTab = hook.current.activeTabId;
+  await change(() => hook.current.addTab());
+  await hook.detach(firstTab);
+  const count = selections.length;
+  await change(() => hook.panes.get('popup').setSelected(['note', 'second']));
+  assert.equal(selections.length, count);
+  assert.ok(hook.events.some(event => event.type === 'selection' && event.windowId === 'popup' && event.ids.length === 2));
+  await change(() => hook.ref.current.selectFiles([{ id: 'root-file' }]));
+  assert.deepEqual(selections.at(-1).map(item => item.id), ['root-file']);
+});
+
 test('ref reads isolated live metadata and edits explicit targets through the shared GUI draft', async t => {
   const hook = await mount(t);
   const api = hook.ref.current;

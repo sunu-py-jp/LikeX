@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from "react";
+import type { Ref } from "react";
 import type { ExplorerProps } from "./props";
 import type { ExplorerNavigationHandle } from "./model/navigation";
 import type { ExplorerPickerItem, ExplorerPickerKind } from "./model/picker";
@@ -15,7 +15,7 @@ export type ExplorerPickerHandle = Pick<ExplorerNavigationHandle,
 export type ExplorerPickerProps = Omit<ExplorerProps,
   "ref" | "onSave" | "onEditRequest" | "readOnly" | "selection" |
   "selectedFileMode" | "warnOnUnsavedChanges" | "getContextMenuItems" |
-  "contextMenuExecutionMode" | "onDownloadRequest" | "onPreviewRequest"> & {
+  "contextMenuExecutionMode" | "onDownloadRequest" | "onPreviewRequest" | "onSelectionChange"> & {
   ref?: Ref<ExplorerPickerHandle>;
   kind?: ExplorerPickerKind;
   multiple?: boolean;
@@ -28,8 +28,6 @@ export type ExplorerPickerProps = Omit<ExplorerProps,
   onCancel?: () => void;
   confirmLabel?: string;
   cancelLabel?: string;
-  /** Optional content below the selection controls. Strings are plain text; nodes may include interactive UI. */
-  footerMessage?: ReactNode;
 };
 
 export type ExplorerPickerDialogProps = ExplorerPickerProps & {

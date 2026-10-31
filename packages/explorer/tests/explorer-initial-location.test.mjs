@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { importTypeScript } from './import-typescript.mjs';
 
-const { resolveInitialExplorerLocation } = await importTypeScript('../src/model/initial-location.ts');
+const { resolveInitialExplorerLocation, resolveInitialExplorerSelection } = await importTypeScript('../src/model/initial-location.ts');
 const folder = (id, parent, name) => ({ id, parent, name, kind: 'folder' });
 const file = (id, parent, name) => ({ id, parent, name, kind: 'file' });
 const initialEntries = [
@@ -108,4 +108,92 @@ test('initial resolution does not mutate entries or its options', () => {
   const before = structuredClone(options);
   assert.equal(resolveInitialExplorerLocation(options).selectedFileId, 'design-file');
   assert.deepEqual(options, before);
+});
+
+const selectionEntries = [...initialEntries,
+  file('second-file', 'design', 'second.txt'),
+  folder('design-child', 'design', '下書き'),
+];
+const resolveSelection = options => resolveInitialExplorerSelection({ initialEntries: selectionEntries, ...options });
+
+test('initial item IDs select cached files and folders in their parent with stable deduplication', () => {
+  for (const defaultPath of [undefined, '/画像', '/missing']) {
+    assert.deepEqual(resolveSelection({ initialSelectedIds: ['design-child', 'design-file', 'design-child'], defaultPath }), {
+      location: 'design', expanded: ['root', 'projects', 'design'], error: null,
+      selectedIds: ['design-child', 'design-file'],
+    });
+  }
+  assert.deepEqual(resolveSelection({ initialSelectedIds: ['design-file', 'design-file'], selection: { mode: 'single' } }).selectedIds, ['design-file']);
+  assert.deepEqual(resolveSelection({ initialSelectedIds: ['design-child'], selection: { kind: 'folder' } }).selectedIds, ['design-child']);
+  assert.deepEqual(resolveSelection({ initialSelectedIds: ['design-file', 'second-file'], selection: { kind: 'file' } }).selectedIds, ['design-file', 'second-file']);
+});
+
+test('empty initial item arrays keep the configured folder even when selection is disabled', () => {
+  assert.deepEqual(resolveSelection({ initialSelectedIds: [], defaultPath: '/画像', selection: { mode: 'none' } }), {
+    location: 'photos', expanded: ['root', 'photos'], error: null, selectedIds: [],
+  });
+  assert.equal(resolveSelection({ initialSelectedIds: [], initialPath: '', defaultPath: '/画像' }).location, 'root');
+  assert.equal(resolveSelection({ initialSelectedIds: [], initialPath: '/Projects', defaultPath: '/画像' }).location, 'projects');
+  assert.ok(resolveSelection({ initialSelectedIds: [], defaultPath: '/missing' }).error);
+});
+
+test('an explicit initial path must contain the entire initial selection', () => {
+  assert.deepEqual(resolveSelection({ initialSelectedIds: ['design-file', 'design-child'], initialPath: '/Projects/設計 資料' }), {
+    location: 'design', expanded: ['root', 'projects', 'design'], error: null, selectedIds: ['design-file', 'design-child'],
+  });
+  const mismatch = resolveSelection({ initialSelectedIds: ['design-file', 'second-file'], initialPath: '/画像' });
+  assert.equal(mismatch.location, 'photos');
+  assert.deepEqual(mismatch.selectedIds, []);
+  assert.match(mismatch.error, /初期フォルダにありません/);
+  const invalid = resolveSelection({ initialSelectedIds: ['design-file'], initialPath: '/missing' });
+  assert.equal(invalid.location, 'root');
+  assert.deepEqual(invalid.selectedIds, []);
+  assert.ok(invalid.error);
+});
+
+test('invalid initial selection batches and selection restrictions fail without selecting any valid member', () => {
+  const cases = [
+    { initialSelectedIds: ['design-file', 'missing'] },
+    { initialSelectedIds: ['design-file', 'other-file'] },
+    { initialSelectedIds: ['root'] },
+    { initialSelectedIds: ['design-file'], selection: { mode: 'none' } },
+    { initialSelectedIds: ['design-file', 'second-file'], selection: { mode: 'single' } },
+    { initialSelectedIds: ['design-file', 'design-child'], selection: { kind: 'file' } },
+    { initialSelectedIds: ['design-child', 'design-file'], selection: { kind: 'folder' } },
+    ...[null, 'design-file', [''], ['design-file', 5], ['design-file', undefined], Array(1)].map(initialSelectedIds => ({ initialSelectedIds })),
+  ];
+  for (const options of cases) {
+    const result = resolveSelection({ defaultPath: '/画像', ...options });
+    assert.equal(result.location, 'photos', JSON.stringify(options));
+    assert.deepEqual(result.selectedIds, []);
+    assert.ok(result.error);
+  }
+});
+
+test('initial array selection rejects broken ancestry and duplicate entry IDs', () => {
+  for (const extra of [
+    [file('broken', 'missing', 'broken.txt')],
+    [folder('cycle', 'cycle', 'Cycle'), file('broken', 'cycle', 'broken.txt')],
+    [file('broken', 'root-file', 'broken.txt')],
+    [file('broken', 'root', 'one.txt'), file('broken', 'root', 'two.txt')],
+  ]) {
+    const result = resolveInitialExplorerSelection({ initialEntries: [...initialEntries, ...extra], initialSelectedIds: ['root-file', 'broken'] });
+    assert.equal(result.location, 'root');
+    assert.deepEqual(result.selectedIds, []);
+    assert.ok(result.error);
+  }
+});
+
+test('initial array selection does not mutate inputs or evaluate array accessors', () => {
+  const options = Object.freeze({ initialEntries: Object.freeze(selectionEntries.map(entry => Object.freeze({ ...entry }))),
+    initialSelectedIds: Object.freeze(['design-file', 'design-child', 'design-file']) });
+  const before = structuredClone(options);
+  assert.deepEqual(resolveInitialExplorerSelection(options).selectedIds, ['design-file', 'design-child']);
+  assert.deepEqual(options, before);
+  let reads = 0;
+  const initialSelectedIds = Object.defineProperty([], 0, { get() { reads++; return 'design-file'; } });
+  const result = resolveSelection({ initialSelectedIds });
+  assert.ok(result.error);
+  assert.deepEqual(result.selectedIds, []);
+  assert.equal(reads, 0);
 });
