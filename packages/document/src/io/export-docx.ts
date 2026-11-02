@@ -30,6 +30,10 @@ export async function exportDocumentDocx(input: DocumentModel, options: Document
 
   function run(node: Node): string {
     if (node.type === "hard_break") return "<w:r><w:br/></w:r>";
+    if (node.type === "rendered_page_break") {
+      warnings.add("保存時点のページ境界を保持して出力しました。編集後のページ位置は再計算していません");
+      return "<w:r><w:lastRenderedPageBreak/></w:r>";
+    }
     let properties = "", link: Mark | undefined;
     for (const mark of node.marks ?? []) {
       if (mark.type === "strong") properties += "<w:b/>";

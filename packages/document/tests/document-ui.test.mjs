@@ -44,6 +44,26 @@ async function mount(t, props, nodes = false) {
   return { renderer, ref, root, listeners, viewport, view: TestEditorView.instances.at(-1) };
 }
 
+test('read-only page navigation and repeated search results work across saved boundaries inside a paragraph', async t => {
+  const errors = []; t.mock.method(console, 'error', (...args) => errors.push(args.map(String).join(' ')));
+  const document = createDocument({ content: { type: 'doc', content: [{ type: 'paragraph', content: [
+    { type: 'text', text: 'Alpha' }, { type: 'rendered_page_break' }, { type: 'text', text: 'Alpha' },
+  ] }] } });
+  const events = [], before = serializeDocument(document);
+  const { renderer, ref, view } = await mount(t, { initialDocument: document, initialPageNumber: 2, onEvent: event => events.push(event) }, true);
+  assert.deepEqual(ref.current.getSelection(), { from: 7, to: 7 });
+  assert.equal(view.props.editable(), false);
+  await change(() => assert.equal(ref.current.goToPage(1), true));
+  await change(() => ref.current.openSearch('Alpha'));
+  assert.deepEqual(ref.current.getSelection(), { from: 1, to: 6 });
+  await change(() => button(renderer, '次の検索結果').props.onClick());
+  assert.deepEqual(ref.current.getSelection(), { from: 7, to: 12 });
+  assert.deepEqual(view.props.decorations(view.state).find().map(value => [value.from, value.to]), [[7, 12]]);
+  assert.equal(errors.some(value => /same key|unique.*key/.test(value)), false, 'the same block and fragment offset on different pages must have distinct result keys');
+  assert.equal(serializeDocument(ref.current.getDocument()), before);
+  assert.deepEqual(events, []);
+});
+
 test('server rendering includes home ribbon groups, native extension, text and isolated primary color', () => {
   const html = renderToStaticMarkup(h(LikeDocument, { initialDocument: body('Document consumer text'), primaryColor: '#2563eb' }));
   for (const text of ['data-likex-document', 'Document consumer text', 'クリップボード', 'フォント', '段落', '.dcon', '--lxd-primary:#2563eb']) assert.ok(html.includes(text), text);

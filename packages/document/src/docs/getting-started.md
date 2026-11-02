@@ -51,7 +51,7 @@ TypeScriptではReact / React DOMの型定義を導入し、`lib: ["ES2022", "DO
 | props | 使い方 |
 | --- | --- |
 | `initialDocument` | 初期の `DocumentModel`。省略時は空の文書 |
-| `initialPageNumber` | 初期表示する明示改ページ区切りのページ（1始まり）。省略時は先頭 |
+| `initialPageNumber` | 初期表示する保存済みページ境界のページ（1始まり）。省略時は先頭 |
 | `externalSearch` / `initialSearchMode` | 利用側の検索結果と説明を表示。`local`／`external`の初期モードを選択（[外部検索](search.md#外部検索の結果を表示する)） |
 | `initialSearchOpen` / `initialSearchQuery` | 検索欄を最初から表示・検索語を設定。初回のみ。省略時は閉じた状態・空文字（[検索](search.md)） |
 | `title` | UIのタイトル表示 |
@@ -64,4 +64,4 @@ TypeScriptではReact / React DOMの型定義を導入し、`lib: ["ES2022", "DO
 
 用紙の寸法・余白は文書の `page` に保存されます。UIの配色と文書内の文字色は別の設定です。Next.js App RouterではCSSを `app/layout.tsx` で読み込み、コールバックを渡す親コンポーネントに `"use client"` を付けてください。
 
-`initialPageNumber={2}` は初回マウント時に2ページ目へ移動します。後から移動するときは `ref.current?.goToPage(2)` を使います。いずれも読み取り専用で使え、編集許可・未保存判定・履歴を変更しません。不正な番号や存在しないページは通知し、文書を維持します。ページは `page_break` で明示的に区切った範囲で、Wordの自動改ページではありません。[ページ取得とref操作](headless.md)も参照してください。
+`initialPageNumber={2}` は初回マウント時に2ページ目へ移動します。後から移動するときは `ref.current?.goToPage(2)` を使います。いずれも読み取り専用で使え、編集許可・未保存判定・履歴を変更しません。不正な番号や存在しないページは通知し、文書を維持します。ページは明示的な `page_break` とDOCXの保存済み自動改ページ位置の `rendered_page_break` で区切った範囲です。編集後のWordの自動改ページを再計算するものではなく、通常画面は連続した本文です。[ページ取得とref操作](headless.md)も参照してください。

@@ -18,7 +18,7 @@ function assertRawSteps(before: DocumentModel, commands: readonly DocumentComman
   let document = before;
   const protectedTypes = new Set<string>([
     ...(!features.images ? ["image"] : []), ...(!features.shapes ? ["shape", "drawing_canvas"] : []), ...(!features.tables ? ["table", "table_row", "table_cell", "table_header"] : []),
-    ...(!features.lists ? ["bullet_list", "ordered_list", "list_item"] : []), ...(!features.pageLayout ? ["page_break"] : []),
+    ...(!features.lists ? ["bullet_list", "ordered_list", "list_item"] : []), ...(!features.pageLayout ? ["page_break", "rendered_page_break"] : []),
   ]);
   if (protectedTypes.size === 0 && features.formatting) return;
   for (const command of commands) {
@@ -122,7 +122,7 @@ export function assertDocumentFeatures(before: DocumentModel, after: DocumentMod
     });
     return JSON.stringify(result);
   }
-  const groups: [keyof ResolvedDocumentFeatures, string[]][] = [["images", ["image"]], ["shapes", ["shape", "drawing_canvas"]], ["tables", ["table", "table_row", "table_cell", "table_header"]], ["lists", ["bullet_list", "ordered_list", "list_item"]], ["pageLayout", ["page_break"]]];
+  const groups: [keyof ResolvedDocumentFeatures, string[]][] = [["images", ["image"]], ["shapes", ["shape", "drawing_canvas"]], ["tables", ["table", "table_row", "table_cell", "table_header"]], ["lists", ["bullet_list", "ordered_list", "list_item"]], ["pageLayout", ["page_break", "rendered_page_break"]]];
   for (const [feature, kinds] of groups) if (!features[feature] && projection(a, kinds) !== projection(b, kinds)) throw new Error("この編集機能は無効です。");
   if (!features.formatting && projection(a, ["heading", "paragraph"], true) !== projection(b, ["heading", "paragraph"], true)) throw new Error("書式の変更は無効です。");
 }

@@ -29,7 +29,7 @@
 
 ## 表・画像・改ページ
 
-`table.insert` は `at`、`rows`、`columns` と `header` で作る。セルの本文は作成後のブロック位置から編集する。画像の `image.insert` は `at` とPNG／JPEGの `src`、必要なら `alt`・`width`・`height` を指定する。作成した画像のIDをinspectで取得し、`image.update` に `id` と変更属性を渡す。`pageBreak.insert` は指定位置に明示的な改ページを挿入する。
+`table.insert` は `at`、`rows`、`columns` と `header` で作る。セルの本文は作成後のブロック位置から編集する。画像の `image.insert` は `at` とPNG／JPEGの `src`、必要なら `alt`・`width`・`height` を指定する。作成した画像のIDをinspectで取得し、`image.update` に `id` と変更属性を渡す。`pageBreak.insert` は指定位置に明示的な `page_break` を挿入する。DOCXの保存済み自動改ページ位置の `rendered_page_break` をこのコマンドで置き換えない。
 
 画像を複製する場合は `getImage(document, id)` の `to` を挿入位置とし、画像の `src`・`alt`・`width`・`height` を `image.insert` に渡す。新しいIDは実行後に取得する。`image.update` に幅だけ渡すと現在の縦横比を維持するため、GUIの縮小・拡大と同様に現在の幅へ0.8または1.25を掛けられる。表全体・画像の削除は `block.delete` を使う。表の行列変更・複製の専用コマンドはない。
 
@@ -95,8 +95,8 @@ DOCXではWord 2010の編集可能なDrawingMLプリセットへ変換する。�
 
 図形・線はそれぞれ最大500個。直交経路は接続先の輪郭に合わせるが、第三の図形を避けることは保証しない。`getDocumentCanvasConnectorRoute` は現在の描画頂点を返す。DOCXでは編集可能なWordグループ図形・ネイティブ接続参照として出力し、外部Wordの未対応接続点などは解除を警告する。
 
-## 明示改ページの取得と表示
+## ページ境界の取得と表示
 
-`getDocumentPage(document, pageNumber = 1)` は明示的な `page_break` で区切る `{ pageNumber, from, to }` を返す。表・リスト内も文書順に数え、連続／末尾の改ページによる空白ページを含む。`from` / `to` は改ページノードを除くProseMirror位置。存在しないページは `undefined`、1以上の安全な整数でない番号は例外。Wordの自動改ページや印刷ページ数を推測しない。
+`getDocumentPage(document, pageNumber = 1)` は明示的な `page_break` と保存済み自動改ページの `rendered_page_break` で区切る `{ pageNumber, from, to }` を返す。表・リスト内も文書順に数え、連続／末尾の手動改ページによる空白ページを含む。`from` / `to` は境界ノードを除くProseMirror位置で、同じ段落の途中で区切られる場合もある。存在しないページは `undefined`、1以上の安全な整数でない番号は例外。保存済み境界を編集後に再計算せず、記録のないWordの自動改ページや印刷ページ数を推測しない。
 
 ページ移動は文書編集コマンドではない。通常UIは `initialPageNumber` / `ref.goToPage(number)`、サムネイルはcontrolledな `pageNumber` を使い、保存JSONや履歴を変更しない。refの `importNative` / `importDocx` は第2引数 `{ pageNumber }` を適用前に検証し、失敗時に旧draftを保持する。画面なしの `importDocumentDocx` は文書を変換するだけで、表示ページは返されたモデルを使うUI側で指定する。

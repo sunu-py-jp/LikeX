@@ -5,9 +5,9 @@ import type { DocumentModel, DocumentNode, DocumentPageInfo } from "./types";
 type Range = Readonly<{ from: number; to: number }>;
 type Index = { pages: readonly DocumentPageInfo[]; ranges: WeakMap<DocumentNode, Range> };
 const indexes = new WeakMap<DocumentModel, Index>();
-const leaves = new Set(["hard_break", "image", "shape", "drawing_canvas", "page_break"]);
+const leaves = new Set(["hard_break", "rendered_page_break", "image", "shape", "drawing_canvas", "page_break"]);
 
-/** Explicit breaks follow document order, including breaks inside lists and tables. */
+/** Explicit and saved rendered breaks follow document order, including lists and tables. */
 function pageIndex(input: DocumentModel): Index {
   const document = normalizeDocument(input), cached = indexes.get(document);
   if (cached) return cached;
@@ -23,7 +23,7 @@ function pageIndex(input: DocumentModel): Index {
       if (node.type !== "doc") to++;
     }
     ranges.set(node, Object.freeze({ from, to }));
-    if (node.type === "page_break") {
+    if (node.type === "page_break" || node.type === "rendered_page_break") {
       pages.push(Object.freeze({ pageNumber: pages.length + 1, from: start, to: from }));
       start = to;
     }
@@ -34,7 +34,7 @@ function pageIndex(input: DocumentModel): Index {
   const result = { pages: Object.freeze(pages), ranges }; indexes.set(document, result); return result;
 }
 
-/** 1-based explicit-break page; positions exclude the break itself. No automatic pagination. */
+/** 1-based page using explicit and saved rendered boundaries; excludes the boundary itself. No automatic pagination. */
 export function getDocumentPage(document: DocumentModel, pageNumber = 1): DocumentPageInfo | undefined {
   number(pageNumber, "Page number", 1, Number.MAX_SAFE_INTEGER, true);
   return pageIndex(document).pages[pageNumber - 1];

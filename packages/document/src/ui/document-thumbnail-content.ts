@@ -15,7 +15,7 @@ const clip = (text: string, length: number) => {
 export function documentThumbnailContent(document: DocumentModel, pageNumber = 1): DocumentRootNode {
   document = normalizeDocument(document);
   const page = getDocumentPage(document, pageNumber);
-  if (!page) throw new Error(`明示的な改ページで区切られた${pageNumber}ページ目がありません。`);
+  if (!page) throw new Error(`保存されたページ境界で区切られた${pageNumber}ページ目がありません。`);
   const { from, to } = page;
   let nodes = 0, characters = 0, rows = 0, stopped = false;
   const takeText = (value: string) => {
@@ -27,7 +27,7 @@ export function documentThumbnailContent(document: DocumentModel, pageNumber = 1
   function visit(node: DocumentNode): DocumentNode | undefined {
     if (stopped || nodes >= limits.nodes) return undefined;
     const range = documentNodeRange(document, node);
-    if (node.type === "page_break" || range.to <= from || range.from >= to) return undefined;
+    if (node.type === "page_break" || node.type === "rendered_page_break" || range.to <= from || range.from >= to) return undefined;
     if (node.type === "table_row" && ++rows > limits.rows) { stopped = true; return undefined; }
     nodes++;
     if (node.type === "text") { const text = takeText(node.text); return text ? { ...node, text } : undefined; }

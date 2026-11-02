@@ -4,6 +4,7 @@ import { normalizeDocument } from "../model/document";
 import { openOfficePackage, officeXml, readOfficeRelationships, resolveOfficePart, type OfficePackageInput } from "../ooxml";
 import { millimetres } from "./docx-xml";
 import { createDocxTableReader } from "./docx-tables";
+import { createDocxPageBreakReader, readDocxSections } from "./docx-page-breaks";
 import { child, children, attr, localName, textContent, descendants, relation, readStyles, readNumbering, runStyle, paragraphStyle, styleMarks, groupLists, type Node, type XmlNode, type Mark, type ListedBlock } from "./docx-reader";
 import type { DocumentDocxImportResult, DocumentDocxOptions } from "./types";
 
@@ -34,6 +35,7 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
   if (!main || types.get(main.target) !== mainType) return fail(".docx形式の文書ではありません");
   const document = await root(main.target), links = await readOfficeRelationships(archive, main.target), body = child(document, "body");
   if (localName(document.name) !== "document" || !body) return fail("本文の構造が不正です");
+  const pageBreaks = createDocxPageBreakReader(warn), { after: sectionBreaks, sections } = readDocxSections(body);
   for (const path of archive.paths.filter(path => path.endsWith(".rels"))) {
     const match = /^(?:(.*)\/)?_rels\/([^/]*)\.rels$/.exec(path); if (!match) return fail("参照情報の場所が不正です");
     const source = `${match[1] ? `${match[1]}/` : ""}${match[2]}`;
@@ -79,7 +81,7 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
 
   async function paragraph(source: XmlNode): Promise<ListedBlock[]> {
     const properties = child(source, "pPr"), id = attr(child(properties, "pStyle"), "val");
-    const style = { ...styles.defaults, ...styles.resolve(id), ...paragraphStyle(properties) };
+    const style = { ...styles.paragraph(id), ...paragraphStyle(properties) };
     const heading = /^(?:heading|見出し)\s*([1-6])$/i.exec(id ?? "");
     if (heading) style.level = Number(heading[1]);
     let inline: Node[] = [];
@@ -93,7 +95,7 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
       numbered = true;
       inline = [];
     };
-    if (onProperty(properties, "pageBreakBefore")) result.push({ node: { type: "page_break" } });
+    if (style.pageBreakBefore) result.push({ node: pageBreaks.pageBreak(true) });
     async function visit(node: XmlNode, extraMarks: Mark[] = []) {
       const name = localName(node.name);
       if (name === "pPr") return;
@@ -126,8 +128,10 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
           if (tag === "t") { if (item.text) inline.push({ type: "text", text: item.text, ...(marks.length ? { marks } : {}) }); }
           else if (tag === "tab") inline.push({ type: "text", text: "\t", ...(marks.length ? { marks } : {}) });
           else if (tag === "br" || tag === "cr") {
-            if (attr(item, "type") === "page") { flush(); result.push({ node: { type: "page_break" } }); }
+            if (attr(item, "type") === "page") { flush(); result.push({ node: pageBreaks.pageBreak() }); }
             else inline.push({ type: "hard_break" });
+          } else if (tag === "lastRenderedPageBreak") {
+            inline.push(pageBreaks.renderedBreak());
           } else if (tag === "drawing" || tag === "AlternateContent") await visit(item, extraMarks);
           else if (["pict", "object"].includes(tag)) warn("旧形式の図形・埋め込みオブジェクトを省略しました");
           else if (["instrText", "fldChar"].includes(tag)) warn("フィールドは計算せず、保存されている表示文字列を読み込みました");
@@ -141,7 +145,7 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
       for (const item of node.children) await visit(item, extraMarks);
     }
     for (const item of source.children) await visit(item);
-    flush(result.length === 0);
+    flush(result.length === 0 || !!style.pageBreakBefore && result.length === 1 && result[0].node.type === "page_break");
     return result;
   }
 
@@ -194,7 +198,11 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
       if (++elements > 20000) return fail("文書の要素数が読み込み上限を超えています");
       if (elements % 64 === 0) { await new Promise<void>(resolve => setTimeout(resolve, 0)); signal?.throwIfAborted(); }
       const tag = localName(item.name);
-      if (tag === "p") result.push(...await paragraph(item));
+      if (tag === "p") {
+        result.push(...await paragraph(item));
+        const boundary = pageBreaks.sectionBreak(sectionBreaks.get(item));
+        if (boundary) result.push({ node: boundary });
+      }
       else if (tag === "tbl") result.push({ node: await table(item) });
       else if (tag === "sdt") { const content = child(item, "sdtContent"); if (content) result.push(...(await blocks(content)).map(node => ({ node }))); warn("コンテンツコントロールは通常の本文として読み込みました"); }
       else if (tag === "altChunk") warn("外部形式の埋め込み本文を省略しました");
@@ -203,7 +211,7 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
     return groupLists(result, numbering);
   }
 
-  const content = await blocks(body), sections = descendants(body, "sectPr"), section = sections.at(-1);
+  const content = pageBreaks.finish(await blocks(body)), section = sections.at(-1);
   if (sections.length > 1) warn("複数セクションの用紙設定は最後のセクションに統一しました");
   if (sections.some(item => children(item, "headerReference").length || children(item, "footerReference").length)) warn("ヘッダー・フッターを省略しました");
   if (sections.some(item => Number(attr(child(item, "cols"), "num") ?? 1) > 1)) warn("段組みは1段に変換しました");

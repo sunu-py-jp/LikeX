@@ -15,7 +15,7 @@ const color = (value: string | undefined): string | undefined => value && /^[a-f
 
 export type Style = { strong?: boolean; em?: boolean; underline?: boolean; strike?: boolean;
   fontFamily?: string; fontSize?: number; color?: string; backgroundColor?: string;
-  align?: string; level?: number; numId?: string; listLevel?: number };
+  align?: string; level?: number; numId?: string; listLevel?: number; pageBreakBefore?: boolean };
 export function runStyle(properties: XmlNode | undefined): Style {
   const result: Style = {};
   for (const [tag, mark] of [["b", "strong"], ["i", "em"], ["u", "underline"], ["strike", "strike"]] as const) {
@@ -33,6 +33,8 @@ export function runStyle(properties: XmlNode | undefined): Style {
 }
 export function paragraphStyle(properties: XmlNode | undefined): Style {
   const result: Style = {}, align = attr(child(properties, "jc"), "val"), outline = Number(attr(child(properties, "outlineLvl"), "val"));
+  const pageBreakBefore = on(child(properties, "pageBreakBefore"));
+  if (pageBreakBefore !== undefined) result.pageBreakBefore = pageBreakBefore;
   if (align && ["left", "right", "center", "both", "start", "end"].includes(align)) result.align = align === "both" ? "justify" : align === "start" ? "left" : align === "end" ? "right" : align;
   if (Number.isInteger(outline) && outline >= 0 && outline <= 5) result.level = outline + 1;
   const numbering = child(properties, "numPr"), id = attr(child(numbering, "numId"), "val"), level = attr(child(numbering, "ilvl"), "val");
@@ -65,7 +67,9 @@ export function readStyles(root: XmlNode | undefined, warn: (message: string) =>
     if (heading) output.level = Number(heading[1]);
     cache.set(id, output); return output;
   }
-  return { defaults: { ...defaults, ...resolve(attr(defaultParagraph, "styleId")) }, resolve };
+  const paragraph = (id: string | undefined): Style => ({ ...defaults,
+    ...resolve(id && styles.has(id) ? id : attr(defaultParagraph, "styleId")) });
+  return { paragraph, resolve };
 }
 
 export type NumberingLevel = { type: "ordered_list" | "bullet_list"; order: number };

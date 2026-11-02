@@ -41,3 +41,25 @@
 
 
 描画キャンバスは `{ "type": "drawing_canvas", "attrs": { "id": "canvas-1", "width": 600, "height": 360, "shapes": [], "connectors": [] } }`。本文中のatomブロックで `content` は持たない。`shapes` は通常図形の属性にキャンバス内の `id` / `x` / `y` を加えた配列。`connectors` は `id`、`start` / `end` の `{x,y,binding?}`、`routing`、線色・幅・矢印を保存する。`binding` は同じキャンバス内の図形IDと接続点を参照する。折れ線の頂点自体は保存せず、現在の図形の位置から共通ルーターで再計算する。既存のインライン `shape` は従来通り使える。version 1への追加であり、キャンバス非対応の旧版には利用側の更新が必要。
+
+## 保存済みの自動改ページ位置
+
+DOCXの `w:lastRenderedPageBreak` は `{ "type": "rendered_page_break" }` として保持する。段落内のatomノードで `attrs`・子の `content`・ブロックIDを持たない。文字書式の `marks` は許可するが、DOCXの改ページ記録には書式を出力しない。次は同じ段落内に保存された境界の例。
+
+```json
+{
+  "type": "paragraph",
+  "attrs": { "id": "body-1" },
+  "content": [
+    { "type": "text", "text": "前のページ" },
+    { "type": "rendered_page_break" },
+    { "type": "text", "text": "次のページ" }
+  ]
+}
+```
+
+ページ取得・検索・移動・サムネイルはこのノードも境界として数える。モデルの段落やリストは分割せず、`getDocumentText` は追加の文字・改行を生成しない。DOCX出力は `w:lastRenderedPageBreak` に戻し、手動 `page_break` へ変換しない。保存時点の位置を保持するだけで、編集後の自動改ページは再計算せず、記録のない境界も補完しない。通常UIは連続本文のまま。
+
+このノードもversion 1の追加拡張で、従来DCONの形式名・バージョンは変更しない。新ノードを含まない既存文書は従来どおり読み込めるが、新ノード入りDCONは非対応の旧ライブラリでは読めない。受け渡し先を対応版へ更新する。
+
+DOCXの手動 `w:br`、段落スタイルの継承・既定値を含む `pageBreakBefore`、次セクションの開始種別から作る `page_break` と、自動改ページ記録は別物として扱う。同じ位置の境界を二重に検知せず、連続した手動改ページは保持する。`oddPage` / `evenPage` は1境界に近似、`nextColumn` は省略し警告する。用紙・余白は最後のセクションに統一する。変換警告を確認し、Wordの `keepNext` / `widowControl` 等のレイアウト再計算や完全なページ一致を約束しない。詳細は [DOCX入出力](../../../src/docs/docx.md#改ページの読み込みとページ番号) を確認する。

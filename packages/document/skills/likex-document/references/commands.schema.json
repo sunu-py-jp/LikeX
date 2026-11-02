@@ -1359,7 +1359,10 @@
           "$ref": "#/$defs/DocumentTextNode"
         },
         {
-          "$ref": "#/$defs/DocumentInlineNode_2"
+          "$ref": "#/$defs/DocumentRenderedPageBreakNode"
+        },
+        {
+          "$ref": "#/$defs/DocumentInlineNode_3"
         }
       ]
     },
@@ -1467,7 +1470,22 @@
       ],
       "additionalProperties": false
     },
-    "DocumentInlineNode_2": {
+    "DocumentRenderedPageBreakNode": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "rendered_page_break"
+        },
+        "marks": {
+          "$ref": "#/$defs/DocumentTextNode_marks"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentInlineNode_3": {
       "type": "object",
       "properties": {
         "type": {

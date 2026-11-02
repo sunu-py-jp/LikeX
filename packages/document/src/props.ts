@@ -5,7 +5,7 @@ import type { DocumentCommand, DocumentCommandResult, DocumentModel, DocumentSel
 export type { DocumentSelection } from "./model/types";
 /** View-only ribbon presentation, shared with the other Office editors. */
 export type DocumentRibbonDisplayMode = RibbonDisplayMode;
-export type DocumentImportOptions = { /** 1-based page delimited by explicit page_break nodes. */ pageNumber?: number };
+export type DocumentImportOptions = { /** 1-based page delimited by explicit breaks and saved rendered boundaries. */ pageNumber?: number };
 export type DocumentFeatures = Partial<Record<"text" | "formatting" | "lists" | "tables" | "images" | "shapes" | "pageLayout" | "import" | "export" | "history" | "search", boolean>>;
 export type DocumentEvent =
   | { type: "change"; source: "command" | "import" | "undo" | "redo" | "save"; document: DocumentModel }
@@ -16,7 +16,7 @@ export type DocumentEvent =
 export type DocumentExternalSearchTarget = {
   blockId: string;
   canvasShapeId?: string;
-  /** UTF-16 offsets in the block's plain text (hard breaks count as one character). */
+  /** UTF-16 offsets in the block's plain text (hard breaks count as one character; rendered page markers add none). */
   textFrom?: number;
   textTo?: number;
   /** Full block/shape text at search time; rejects outdated remote results. */
@@ -47,7 +47,7 @@ export type DocumentProps = SearchPanelInitialState & {
   externalSearch?: ExternalSearchOptions<DocumentExternalSearchTarget>;
   /** Initial local document. Later changes should use ref.execute(document.replace). */
   initialDocument?: DocumentModel;
-  /** Read once at mount. Uses explicit page breaks, not Word's automatic pagination. */
+  /** Read once at mount. Uses explicit breaks and saved rendered boundaries; does not recompute pagination. */
   initialPageNumber?: number;
   /** Omission makes the view read-only. Return a document to reconcile server changes. */
   onSave?: SaveHandler<DocumentModel>;
@@ -74,10 +74,10 @@ export type DocumentProps = SearchPanelInitialState & {
   "aria-label"?: string;
 };
 
-/** Controlled, static preview of an explicit-break page. No editing handle is exposed. */
+/** Controlled, static preview of a page from stored boundaries. No editing handle is exposed. */
 export type DocumentThumbnailProps = Pick<DocumentProps, "title" | "colorMode" | "primaryColor" | "className" | "style" | "aria-label"> & {
   document: DocumentModel;
-  /** 1-based explicit-break page. Defaults to 1. */
+  /** 1-based page from explicit breaks and saved rendered boundaries. Defaults to 1. */
   pageNumber?: number;
   onError?: (error: Error) => void;
 };

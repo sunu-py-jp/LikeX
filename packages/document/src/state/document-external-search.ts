@@ -12,7 +12,7 @@ export function resolveDocumentExternalTarget(document: DocumentModel, target: D
   const node = block.node;
   const inline = node.type === "paragraph" || node.type === "heading";
   let text: string, kind: DocumentSearchLocation["kind"];
-  if (inline) { text = (node.content ?? []).map(child => child.type === "text" ? child.text : "\n").join(""); kind = node.type; }
+  if (inline) { text = (node.content ?? []).map(child => child.type === "text" ? child.text : child.type === "hard_break" ? "\n" : "").join(""); kind = node.type; }
   else if (node.type === "shape") { text = node.attrs.text ?? ""; kind = "shape"; }
   else if (node.type === "drawing_canvas") {
     const shape = node.attrs.shapes?.find(shape => shape.id === target.canvasShapeId);
@@ -25,8 +25,17 @@ export function resolveDocumentExternalTarget(document: DocumentModel, target: D
     throw new Error("検索結果の文字位置が現在の本文と一致しません。検索結果を更新してください。");
   if (target.expectedText !== undefined && target.expectedText !== text) throw new Error("検索後に本文が変更されています。検索結果を更新してください。");
   const from = inline ? block.contentFrom : block.from, to = inline ? block.contentTo : block.to;
-  const match = { keyword: text.slice(textFrom, textTo), textFrom, textTo, from: inline ? from + textFrom : from, to: inline ? from + textTo : to };
+  const positionAt = (offset: number, afterBoundary: boolean) => {
+    let position = from + offset, textOffset = 0;
+    if (inline) for (const child of node.content ?? []) {
+      if (child.type === "rendered_page_break") {
+        if (textOffset < offset || textOffset === offset && afterBoundary) position++;
+      } else textOffset += child.type === "text" ? child.text.length : 1;
+    }
+    return position;
+  };
+  const match = { keyword: text.slice(textFrom, textTo), textFrom, textTo, from: inline ? positionAt(textFrom, true) : from, to: inline ? positionAt(textTo, textFrom === textTo) : to };
   let pageNumber = 1;
-  while ((getDocumentPage(document, pageNumber + 1)?.from ?? Infinity) <= block.from) pageNumber++;
+  while ((getDocumentPage(document, pageNumber + 1)?.from ?? Infinity) <= match.from) pageNumber++;
   return { blockId: block.id, canvasShapeId: target.canvasShapeId, pageNumber, kind, from, to, text, matches: [match], match };
 }

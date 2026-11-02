@@ -13,7 +13,7 @@
 <h2 id="表画像改ページ">表・画像・改ページ<a class="heading-link" href="#%E8%A1%A8%E7%94%BB%E5%83%8F%E6%94%B9%E3%83%9A%E3%83%BC%E3%82%B8" aria-label="この見出しへのリンク">#</a></h2>
 <p>表は行・列数と見出し行の有無を指定して追加し、セル内で文章を編集します。モデルはセルの列結合・行結合・幅・背景色を保持します。Wordからの変換時の扱いは <a href="../docx/index.html">DOCX入出力</a> にあります。</p>
 <p>画像は埋め込んだPNG／JPEGを保存します。画像の寸法はピクセル、フォントサイズはポイント、用紙・余白はミリメートルです。画像説明は <code>alt</code> で保持します。外部URLから画像を自動取得する処理はありません。</p>
-<p><code>pageBreak.insert</code> は明示的な改ページを追加します。用紙サイズ・余白とブラウザーのフォント描画は、Wordと完全に同じページ分割になるとは限りません。</p>
+<p><code>pageBreak.insert</code> は明示的な <code>page_break</code> を追加します。DOCXから取り込む保存済み自動改ページ位置の <code>rendered_page_break</code> とは別です。後者は段落内に保持し、編集後の自動改ページを再計算せず、DOCX出力時も手動改ページへ変換しません。用紙サイズ・余白とブラウザーのフォント描画は、Wordと完全に同じページ分割になるとは限りません。<a href="../docx/index.html#%E6%94%B9%E3%83%9A%E3%83%BC%E3%82%B8%E3%81%AE%E8%AA%AD%E3%81%BF%E8%BE%BC%E3%81%BF%E3%81%A8%E3%83%9A%E3%83%BC%E3%82%B8%E7%95%AA%E5%8F%B7">DOCXの改ページ変換</a>を参照してください。</p>
 <h2 id="図形">図形<a class="heading-link" href="#%E5%9B%B3%E5%BD%A2" aria-label="この見出しへのリンク">#</a></h2>
 <p>挿入タブの「図形を挿入」から、四角形・円・カギ矢印・Uターン矢印・方向矢印・フローチャートなど39種類のOfficeプリセットを追加できます。選択するとリボンの「図形の書式」でテキスト・幅と高さ・回転・反転・塗りつぶし・線・文字色とサイズを変更できます。図形は本文の流れに置く編集可能なブロックで、画像には変換しません。</p>
 <p>図形の移動は本文中でのドラッグ、削除は選択後のDeleteまたは右クリック、複製は右クリックから行います。<code>shape.insert</code> / <code>shape.update</code> / <code>block.delete</code> と同じ編集許可・履歴の経路を使います。<code>features.text: false</code> は図形内の文字編集や文字入り図形の新規追加も無効にします。<code>features.formatting: false</code> は図形の寸法・色・回転などの変更と独自書式付きの追加を無効にします（既定の書式での追加は可能）。<code>features.shapes: false</code> では図形の追加・変更・削除・移動を無効にし、文書全体の明示的なインポートは既存の <code>import</code> 契約に従います。</p>

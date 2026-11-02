@@ -7,7 +7,7 @@ export type DocumentPage = {
   height: number;
   margins: { top: number; right: number; bottom: number; left: number };
 };
-/** A section delimited by explicit page_break nodes, in ProseMirror positions. */
+/** A range delimited by explicit breaks or saved rendered-page boundaries, in ProseMirror positions. */
 export type DocumentPageInfo = Readonly<{ pageNumber: number; from: number; to: number }>;
 export type DocumentTextStyle = {
   fontFamily?: string | null;
@@ -21,7 +21,9 @@ export type DocumentMark =
   | { type: "text_style"; attrs?: DocumentTextStyle }
   | { type: "link"; attrs: { href: string; title?: string | null } };
 export type DocumentTextNode = { type: "text"; text: string; marks?: DocumentMark[] };
-export type DocumentInlineNode = DocumentTextNode | { type: "hard_break"; marks?: DocumentMark[] };
+/** Saved DOCX pagination metadata. It occupies one position without adding text or a line break. */
+export type DocumentRenderedPageBreakNode = { type: "rendered_page_break"; marks?: DocumentMark[] };
+export type DocumentInlineNode = DocumentTextNode | { type: "hard_break"; marks?: DocumentMark[] } | DocumentRenderedPageBreakNode;
 export type DocumentParagraphNode = {
   type: "paragraph";
   attrs?: { id?: string | null; align?: DocumentAlignment };

@@ -6,7 +6,7 @@ import type { DocumentModel, DocumentNode } from "./types";
 
 export type { KeywordSearchQuery } from "./core-text-search";
 export type DocumentSearchOptions = {
-  /** AND/OR applies across an explicit-break page by default, or within each text block. */
+  /** AND/OR applies across a stored page by default, or within each text-block fragment on that page. */
   matchBy?: "page" | "block";
   /** Maximum returned locations, 1–10,000; defaults to 1,000. */
   limit?: number;
@@ -21,13 +21,13 @@ export type DocumentSearchTextMatch = {
   to: number;
 };
 export type DocumentSearchMatch = {
-  /** One-based explicit-break page; not Word's automatic pagination. */
+  /** One-based page from explicit breaks and saved rendered boundaries; no pagination is recomputed. */
   pageNumber: number;
   blockId: string;
   kind: "paragraph" | "heading" | "shape" | "canvas-shape";
   /** A canvas shape shares its parent block's ProseMirror node range. */
   canvasShapeId?: string;
-  /** ProseMirror content range for paragraphs/headings; node range for shapes/canvases. */
+  /** ProseMirror content range on this page for paragraphs/headings; node range for shapes/canvases. */
   from: number;
   to: number;
   text: string;
@@ -70,9 +70,20 @@ export function searchDocument(document: DocumentModel, query: KeywordSearchQuer
     if (node.type === "page_break") { flush(); pageNumber++; return; }
     if (node.type === "paragraph" || node.type === "heading") {
       const range = documentNodeRange(source, node);
-      // Mark boundaries add no text; hard_break occupies one UTF-16 character and one PM position.
-      const text = (node.content ?? []).map(child => child.type === "text" ? child.text : "\n").join("");
-      fragments.push({ pageNumber, blockId: node.attrs!.id!, kind: node.type, from: range.from + 1, to: range.to - 1, text });
+      let from = range.from + 1, position = from, text = "";
+      const append = () => {
+        if (text) fragments.push({ pageNumber, blockId: node.attrs!.id!, kind: node.type, from, to: position, text });
+      };
+      for (const child of node.content ?? []) {
+        if (child.type === "rendered_page_break") {
+          append(); flush(); pageNumber++; position++; from = position; text = "";
+        } else {
+          // Marks add no text; hard_break occupies one UTF-16 character and one PM position.
+          const value = child.type === "text" ? child.text : "\n";
+          text += value; position += value.length;
+        }
+      }
+      append();
       return;
     }
     if (node.type === "shape" || node.type === "drawing_canvas") {

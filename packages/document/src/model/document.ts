@@ -65,7 +65,7 @@ export function normalizeDocumentMark(input: unknown): DocumentMark {
   return { type };
 }
 const attrKeys: Record<string, string[]> = {
-  paragraph: ["id", "align"], heading: ["id", "align", "level"], bullet_list: ["id"], ordered_list: ["id", "order"], list_item: ["id"], table: ["id", "width", "layout", "cellMargins"], table_row: ["id"], table_cell: ["id", "colspan", "rowspan", "colwidth", "backgroundColor", "preferredWidth", "margins", "noWrap", "fitText"], table_header: ["id", "colspan", "rowspan", "colwidth", "backgroundColor", "preferredWidth", "margins", "noWrap", "fitText"], image: ["id", "src", "alt", "width", "height"], shape: shapeAttributeKeys, drawing_canvas: canvasAttributeKeys, page_break: ["id"], hard_break: [], text: [], doc: [],
+  paragraph: ["id", "align"], heading: ["id", "align", "level"], bullet_list: ["id"], ordered_list: ["id", "order"], list_item: ["id"], table: ["id", "width", "layout", "cellMargins"], table_row: ["id"], table_cell: ["id", "colspan", "rowspan", "colwidth", "backgroundColor", "preferredWidth", "margins", "noWrap", "fitText"], table_header: ["id", "colspan", "rowspan", "colwidth", "backgroundColor", "preferredWidth", "margins", "noWrap", "fitText"], image: ["id", "src", "alt", "width", "height"], shape: shapeAttributeKeys, drawing_canvas: canvasAttributeKeys, page_break: ["id"], hard_break: [], rendered_page_break: [], text: [], doc: [],
 };
 function normalizeContent(input: unknown): DocumentRootNode {
   const ids = new Set<string>();
@@ -132,13 +132,13 @@ function normalizeContent(input: unknown): DocumentRootNode {
       if (textLength > DOCUMENT_LIMITS.textLength) throw new Error("Document text exceeds the size limit.");
     } else if (value.text !== undefined) throw new Error("Only text nodes may contain text.");
     if (value.marks !== undefined) {
-      if (!Array.isArray(value.marks) || value.marks.length > 6 || !["text", "hard_break"].includes(type)) throw new Error("Text marks are invalid.");
+      if (!Array.isArray(value.marks) || value.marks.length > 6 || !["text", "hard_break", "rendered_page_break"].includes(type)) throw new Error("Text marks are invalid.");
       const marks = value.marks.map(normalizeDocumentMark);
       if (new Set(marks.map(mark => mark.type)).size !== marks.length) throw new Error("Duplicate text mark types are not allowed.");
       if (marks.length) result.marks = marks;
     }
     if (value.content !== undefined) {
-      if (!Array.isArray(value.content) || ["text", "hard_break", "image", "shape", "drawing_canvas", "page_break"].includes(type) || value.content.length > DOCUMENT_LIMITS.nodes) throw new Error("Document node content is invalid.");
+      if (!Array.isArray(value.content) || ["text", "hard_break", "rendered_page_break", "image", "shape", "drawing_canvas", "page_break"].includes(type) || value.content.length > DOCUMENT_LIMITS.nodes) throw new Error("Document node content is invalid.");
       result.content = value.content.map(child => walk(child, depth + 1));
     }
     return result as DocumentNode;

@@ -16,7 +16,7 @@ type BusyKind = "save" | "import" | "export" | "permission";
 type Operation = { id: number; epoch: number; signal: AbortSignal };
 const pagePosition = (document: DocumentModel, pageNumber: number) => {
   const page = getDocumentPage(document, pageNumber);
-  if (!page) throw new Error(`明示的な改ページで区切られた${pageNumber}ページ目がありません。`);
+  if (!page) throw new Error(`保存されたページ境界で区切られた${pageNumber}ページ目がありません。`);
   return page.from;
 };
 export function useDocumentEditor(props: DocumentProps) {

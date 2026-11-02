@@ -33,3 +33,7 @@ DCONの上限はUTF-8で40 MiBです。画像は1枚8 MiB、合計24 MiBまで�
 `onSave` は `DocumentModel` を受け取り、保存先とファイル名は親アプリが決めます。JSONとして保存する場合は上の専用シリアライザーを使います。Wordとの受け渡しには [DOCX](docx.md) を使ってください。
 
 `shape` は `attrs.preset` にOfficeの標準名（例 `bentArrow`）、`text`・`width`・`height`・`fill`・`stroke`・`strokeWidth`・`rotation`・`flipH`・`flipV`・`color`・`fontSize` を保存します。本文中の図形ブロックで、子の `content` は持ちません。version 1への追加ノードとして扱い、既存の図形を含まないDCONは変更せず読み込めます。図形対応前のライブラリは `shape` を拒否するため、図形入りファイルの利用側は対応版へ更新してください。
+
+`rendered_page_break` はDOCXの保存済み自動改ページ位置を保持するインラインatomノードです。基本の保存形は `{ "type": "rendered_page_break" }` で、`attrs` と子の `content` を持たず、段落やリストを分割しません。既存の文字書式の `marks` は許可しますが、DOCXの改ページ記録自体には出力しません。手動改ページの `page_break` と区別し、DOCX出力では `w:lastRenderedPageBreak` に戻します。ページ取得・検索・ページ移動・サムネイルでは両ノードを境界として数えますが、編集後の自動改ページは再計算しません。
+
+この追加も既存の図形ノード等と同じversion 1の拡張です。従来DCONの形式識別子・バージョンや既存ノードは変更しません。`rendered_page_break` 非対応の旧ライブラリは新ノードを読み込めないため、このノードを含むファイルを渡す前に利用側を更新してください。バージョンだけを書き換える互換処理は行いません。

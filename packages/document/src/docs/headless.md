@@ -43,7 +43,7 @@ const json = serializeDocument(result.document);
 
 `getDocumentText(document)` は本文の文字列、`getBlocks(document)` はブロック一覧、`getBlock(document, id)` は指定ブロック、`getImages(document)` は画像ブロック、`getShapes(document)` / `getShape(document, id)` は図形ブロックを返します。図形内のテキストも `getDocumentText` に含みます。ブロック情報には `id`、`node`、`from`、`to`、`contentFrom`、`contentTo` があります。
 
-`getDocumentPage(document, pageNumber = 1)` は `DocumentPageInfo`（`{ pageNumber, from, to }`）を返します。明示的な `page_break` を表・リスト内も含めて文書順に数え、`from` / `to` は改ページノード自体を除くProseMirror位置です。連続・末尾の改ページによる空白ページも含みます。存在しないページは `undefined`、1以上の安全な整数でない番号は例外です。フォント計測による自動改ページやWordの印刷ページ数は計算しません。
+`getDocumentPage(document, pageNumber = 1)` は `DocumentPageInfo`（`{ pageNumber, from, to }`）を返します。明示的な `page_break` とDOCXの保存済み自動改ページ位置を持つ `rendered_page_break` を、表・リスト内も含めて文書順に数えます。`from` / `to` は境界ノード自体を除くProseMirror位置で、1つの段落の途中がページ境界になる場合もあります。連続・末尾の手動改ページによる空白ページも含みます。存在しないページは `undefined`、1以上の安全な整数でない番号は例外です。保存済みの位置は編集後に再計算せず、記録のない自動改ページやWordの印刷ページ数は推測しません。[DOCXの改ページ変換](docx.md#改ページの読み込みとページ番号)も参照してください。
 
 位置は現在の文書に対するProseMirrorの位置です。最初の段落の先頭は `1` で、ブロックの開閉境界も数えます。編集後に続けて操作する場合は、新しい位置を取得するか、直前の編集を反映した値を使います。
 
@@ -69,24 +69,26 @@ console.log(result.truncated);
 
 `KeywordSearchQuery` の `keywords` は複数の文字列、`operator` は `and`（既定）/ `or`、`matchCase` は大文字小文字の区別（既定false）です。正規表現ではなく文字列をそのまま検索します。空配列は一致なし、空文字キーワードはエラーです。キーワードは64個以内、各4,096文字以内、合計16,384文字以内です。
 
-既定の `matchBy: "page"` は、明示改ページで区切る同じページ内に全キーワードがあればAND成立とします。別々の段落や図形に分かれていても一致し、そのページ内でキーワードを含む場所を返します。`matchBy: "block"` は段落・見出し・個々の図形内で判定します。どちらも単独のキーワードを段落・図形の境界でつなげず、改ページをまたいだ一致も作りません。表・リスト内の本文を含み、段落内は書式の境界をつなぎ、改行は `\n` として検索します。
+既定の `matchBy: "page"` は、`page_break` と `rendered_page_break` で区切る同じページ内に全キーワードがあればAND成立とします。別々の段落や図形に分かれていても一致し、そのページ内でキーワードを含む場所を返します。`matchBy: "block"` は段落・見出し・個々の図形内で判定し、段落内に保存済みのページ境界がある場合はページ内の断片ごとに判定します。どちらも単独のキーワードを段落・図形の境界でつなげず、改ページをまたいだ語句やAND一致も作りません。表・リスト内の本文を含み、段落内は書式の境界をつなぎ、改行は `\n` として検索します。
 
 `DocumentSearchResult` は `{ matches, truncated }` です。各 `DocumentSearchMatch` は次の情報を持ちます。
 
 | フィールド | 内容 |
 | --- | --- |
-| `pageNumber` / `blockId` | 1始まりの明示改ページ番号と保存済みブロックID |
+| `pageNumber` / `blockId` | 保存されたページ境界で数える1始まりの番号と保存済みブロックID |
 | `kind` | `paragraph` / `heading` / `shape` / `canvas-shape` |
 | `canvasShapeId` | 描画キャンバス内の図形ID。該当する場合のみ |
-| `from` / `to` | 段落・見出しの本文範囲、または図形・キャンバスのノード選択範囲。ProseMirror位置 |
-| `text` | その場所の検索対象文字列 |
+| `from` / `to` | ページ内の段落・見出しの本文範囲、または図形・キャンバスのノード選択範囲。ProseMirror位置 |
+| `text` | その場所の検索対象文字列。段落内のページ境界がある場合は該当ページの断片 |
 | `matches` | `{ keyword, textFrom, textTo, from, to }` の一致位置一覧 |
 
 内側の `matches` にある `textFrom` / `textTo` は `text.slice(textFrom, textTo)` に使うUTF-16位置です。`from` / `to` は段落・見出しでは一致文字そのもののProseMirror位置、図形・キャンバスでは親ノード全体の選択範囲です。キャンバス内図形は `blockId` と `canvasShapeId` で区別します。文字列の位置をProseMirror位置として流用しないでください。範囲の終端はいずれも含みません。
 
+段落内の `rendered_page_break` で検索結果が複数ページに分かれても、`blockId` は元の段落IDを保ち、モデルの段落やリストを分割しません。`getDocumentText` はこのノードを文字や改行へ変換せず、段落の文字列を連続して返します。検索結果の断片内の `textFrom` / `textTo` を段落全文の文字位置として使わないでください。
+
 `limit` は返す場所の数で、既定1,000・最大10,000です。AND／ORの合否はページ全体を調べてから判定し、場所数が上限を超えた場合は `truncated: true` で知らせます。1つの文字列の一致位置が10,000件、返す一致位置の総数が100,000件を超えると例外になります。無効なモデル・検索条件・オプションも例外になり、入力モデルは変更しません。
 
-文書タイトル・画像の代替テキスト・画像内の文字は検索対象に含めず、OCRは行いません。図形とキャンバス内図形の保存済みテキストは含めます。ページ番号はWordのフォント計測による自動改ページとは異なります。
+文書タイトル・画像の代替テキスト・画像内の文字は検索対象に含めず、OCRは行いません。図形とキャンバス内図形の保存済みテキストは含めます。ページ番号は保存された境界に基づき、Wordのフォント計測による現在の自動改ページを再現するものではありません。
 
 ## ローカルの履歴
 
@@ -107,7 +109,7 @@ const { document, dirty, canUndo } = session.getSnapshot();
 
 `DocumentHandle` の `getDocument` / `getSelection` で状態を取得し、`select` / `execute` / `undo` / `redo` で操作します。`execute` は非同期で、表示中の編集許可・機能設定・履歴を通ります。適用できない場合は `null` を返すことがあります。
 
-`initialPageNumber` はマウント時だけ読み取り、`goToPage(pageNumber)` は表示中の明示改ページ区切りのページへ移動します。移動は選択位置とスクロールを更新し、フォーカスを奪わず、読み取り専用でも使えます。文書・履歴・未保存状態・編集許可は変更しません。無効な番号や存在しないページは通知して `false`、移動を受け付けた場合は `true` を返します。通常表示は連続した本文で、厳密なWordの印刷ページへの移動ではありません。
+`initialPageNumber` はマウント時だけ読み取り、`goToPage(pageNumber)` は `getDocumentPage` と同じ境界で区切るページへ移動します。移動は選択位置とスクロールを更新し、フォーカスを奪わず、読み取り専用でも使えます。文書・履歴・未保存状態・編集許可は変更しません。無効な番号や存在しないページは通知して `false`、移動を受け付けた場合は `true` を返します。通常表示は連続した本文で、厳密なWordの印刷ページへの移動ではありません。
 
 `save` / `discard` は保存状態を操作します。`importNative` / `exportNative` はDCON、`importDocx` / `exportDocx` はDOCX入出力です。純粋なDOCX APIとrefの戻り値は異なるため、[DOCX入出力](docx.md)も確認してください。
 
