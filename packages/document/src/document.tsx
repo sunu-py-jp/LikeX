@@ -116,7 +116,7 @@ export default function LikeDocument(props: DocumentProps) {
       </div>
       <div className="lxd-document-viewport" tabIndex={0} aria-label="文書の表示領域" {...contextMenu}><div className="lxd-page-frame" style={{ zoom: zoom / 100, "--lxd-page-width": `${page.width}mm`, "--lxd-page-height": `${page.height}mm`, "--lxd-margin-top": `${page.margins.top}mm`, "--lxd-margin-right": `${page.margins.right}mm`, "--lxd-margin-bottom": `${page.margins.bottom}mm`, "--lxd-margin-left": `${page.margins.left}mm` } as CSSProperties}>
         <div className="lxd-ruler" aria-hidden="true"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span><span>12</span><span>14</span><span>16</span></div>
-        <DocumentSurface editor={editor} surfaceRef={surface} onViewChange={viewChanged} />
+        <DocumentSurface editor={editor} surfaceRef={surface} onViewChange={viewChanged} zoom={zoom} />
       </div></div>
     </div>
     <footer className="lxd-statusbar"><span>{textLength.toLocaleString()} 文字</span>{editor.readOnly && <span>読み取り専用</span>}

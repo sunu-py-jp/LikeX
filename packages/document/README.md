@@ -21,6 +21,8 @@ export default function DocumentEditor() {
 
 `onSave` を省略すると読み取り専用です。React / React DOM 19.2.6以降の19系と、表示枠の高さを利用側で用意します。CSSを同梱しているためTailwind CSSは不要です。認証・DB・Blob/S3への保存や共同編集の競合解決は親アプリが担当します。
 
+本文は手動改ページとDOCXの保存済み改ページ位置に合わせて用紙ごとに表示します。編集・読み取り専用で共通の表示を使い、ページ間の余白は保存内容に含めません。本文が用紙高を超えた区間は縦に伸ばし、表セル内の境界は目印を残します。[本文のページ表示と制限](src/docs/editing.md#本文のページ表示)を参照してください。
+
 配布用tarballは、リポジトリで `npm ci` の後に `npm run pack:library -- --module document` で作ります。利用先ではCoreとDocumentのtarballをインストールします。npmレジストリへの公開は未実施です。
 
 ```bash
@@ -31,7 +33,7 @@ npm install ./likex-core-0.1.0.tgz ./likex-document-0.1.0.tgz
 
 - [導入・ソースコピー](src/docs/getting-started.md)
 - [文章・書式・表・画像の編集](src/docs/editing.md)
-- [先頭の用紙1枚分を表示する軽量サムネイル](src/docs/thumbnail.md)
+- [指定ページの用紙1枚分を表示する軽量サムネイル](src/docs/thumbnail.md)
 - [画面なしのモデルAPI・コマンド・履歴](src/docs/headless.md)
 - [DCONファイルの保存構造](src/docs/native-files.md)
 - [DOCXの読み込み・出力と対応範囲](src/docs/docx.md)

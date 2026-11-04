@@ -17,6 +17,8 @@ const result = searchDocument(document,
 
 `pageNumber` は明示 `page_break` とDOCXの保存済み自動改ページ位置の `rendered_page_break` で区切る1始まりの番号。保存時点の境界を使い、編集後のWordの自動改ページは再計算しない。外側の `from` / `to` はページ内の段落本文の範囲、図形ではノードの範囲。内側の `matches` は `{ keyword, textFrom, textTo, from, to }`。`textFrom` / `textTo` は `text` 内のUTF-16位置、`from` / `to` は段落では一致文字のProseMirror位置、図形・キャンバスでは親ノード全体の選択範囲。文字列offsetを文書位置として使わない。範囲の終端は含まない。
 
+通常UIが用紙を分けず目印だけを残す表セル内の境界も、検索のページ番号は数える。結果の `pageNumber` を画面上の用紙枚数やWordの印刷ページ番号と同一視しない。
+
 段落内の `rendered_page_break` は検索結果をページ内の断片に分ける。`blockId` は元の段落IDのまま、`text` はその断片の文字列になる。モデルの段落やリストは分割せず、`getDocumentText` はこのノードを文字や改行へ変換しない。結果の断片内offsetを段落全文のoffsetとして外部検索targetへ渡さない。
 
 キーワードは64個以内、各1〜4,096文字、合計16,384文字以内。空配列は一致なし。`limit` は場所数の上限（1〜10,000、既定1,000）で、超過を `truncated: true` で知らせる。ページ全体のAND判定をlimitで省略しない。1文字列10,000一致位置・出力合計100,000一致位置を超える場合は例外。不正入力も例外にし、モデルや履歴を変更しない。

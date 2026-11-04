@@ -8,11 +8,24 @@ import { keymap } from "prosemirror-keymap";
 import { splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list";
 import { documentSchema, getDocumentText } from "../model/index";
 import { createDocumentDragFeedback } from "./document-drag-feedback";
+import { createDocumentPagination, createPageBreakNodeView } from "./document-pagination";
 import type { DocumentEditor } from "../state/use-document-editor";
 
 export type DocumentSurfaceHandle = { getState(): EditorState | undefined; dispatch(transaction: Transaction): void; focus(): void };
-export function DocumentSurface({ editor, surfaceRef, onViewChange }: { editor: DocumentEditor; surfaceRef: Ref<DocumentSurfaceHandle>; onViewChange(): void }) {
+function revealDocumentSelection(current: EditorView | null, nearest = false) {
+  const viewport = current?.dom.closest<HTMLElement>(".lxd-document-viewport");
+  if (!current || !viewport) return;
+  const bounds = viewport.getBoundingClientRect(), target = current.coordsAtPos(nearest ? current.state.selection.head : current.state.selection.from, 1);
+  const top = bounds.top + viewport.clientTop + 12;
+  if (!nearest || target.top < top) viewport.scrollTop += target.top - top;
+  else if (target.bottom > bounds.bottom - 12) viewport.scrollTop += target.bottom - bounds.bottom + 12;
+  if (target.left < bounds.left || target.right > bounds.right) viewport.scrollLeft += target.left - bounds.left - viewport.clientLeft - 12;
+}
+export function DocumentSurface({ editor, surfaceRef, onViewChange, zoom = 100 }: { editor: DocumentEditor; surfaceRef: Ref<DocumentSurfaceHandle>; onViewChange(): void; zoom?: number }) {
   const container = useRef<HTMLDivElement>(null), view = useRef<EditorView | null>(null), latest = useRef(editor), changed = useRef(onViewChange);
+  const papers = useRef<HTMLDivElement>(null), pagination = useRef<ReturnType<typeof createDocumentPagination> | null>(null);
+  const layoutDocument = useRef<EditorState["doc"] | null>(null), layoutPage = useRef(editor.document.page);
+  const revealAfterLayout = useRef(false);
   useLayoutEffect(() => { latest.current = editor; changed.current = onViewChange; });
   const dragFeedback = useRef<ReturnType<typeof createDocumentDragFeedback> | null>(null);
   const lastPageReveal = useRef<DocumentEditor["pageReveal"]>(null);
@@ -36,15 +49,20 @@ export function DocumentSurface({ editor, surfaceRef, onViewChange }: { editor: 
     if (shouldReveal) transaction.scrollIntoView();
     const changedState = transaction.docChanged || transaction.selectionSet || shouldReveal;
     current.updateState(changedState ? current.state.apply(transaction) : current.state);
+    if (layoutDocument.current !== current.state.doc || layoutPage.current !== snapshot.document.page) {
+      // Native editing/Undo may scroll before page spacers move. Reveal only an
+      // active editor's caret after reflow, without stealing focus from hosts.
+      if (!shouldReveal && current.hasFocus?.()) revealAfterLayout.current = true;
+      layoutDocument.current = current.state.doc; layoutPage.current = snapshot.document.page;
+      pagination.current?.schedule();
+    }
     if (shouldReveal) {
+      // Measure first: the target may have moved to another paper sheet.
+      revealAfterLayout.current = false;
+      pagination.current?.update();
       // ProseMirror skips scrollToSelection when the DOM selection is outside the editor.
       // An external/read-only navigation must reveal its position without taking focus.
-      const viewport = current.dom.closest<HTMLElement>(".lxd-document-viewport");
-      if (viewport) {
-        const bounds = viewport.getBoundingClientRect(), target = current.coordsAtPos(current.state.selection.from, 1);
-        viewport.scrollTop += target.top - bounds.top - viewport.clientTop - 12;
-        if (target.left < bounds.left || target.right > bounds.right) viewport.scrollLeft += target.left - bounds.left - viewport.clientLeft - 12;
-      }
+      revealDocumentSelection(current);
       lastPageReveal.current = reveal;
     }
     if (changedState) changed.current();
@@ -64,6 +82,7 @@ export function DocumentSurface({ editor, surfaceRef, onViewChange }: { editor: 
       state: EditorState.create({ schema: documentSchema, doc: documentSchema.nodeFromJSON(latest.current.document.content), plugins }),
       editable: () => latest.current.editable && latest.current.features.text,
       attributes: { class: "lxd-editor", role: "textbox", "aria-label": "文書本文", "aria-multiline": "true", spellcheck: "true" },
+      nodeViews: { page_break: createPageBreakNodeView, rendered_page_break: createPageBreakNodeView },
       dispatchTransaction(transaction) {
         if (!transaction.docChanged) {
           pm.updateState(pm.state.apply(transaction));
@@ -85,9 +104,14 @@ export function DocumentSurface({ editor, surfaceRef, onViewChange }: { editor: 
       handleClick(_view, _pos, event) { if ((event.target as Element).closest("a")) { event.preventDefault(); return true; } return false; },
     });
     view.current = pm; dragFeedback.current = createDocumentDragFeedback(pm, () => latest.current);
+    if (papers.current) pagination.current = createDocumentPagination(pm, papers.current, () => latest.current.document.page, () => {
+      const reveal = revealAfterLayout.current; revealAfterLayout.current = false;
+      if (reveal && view.current === pm && pm.hasFocus()) revealDocumentSelection(pm, true);
+    });
     syncView();
-    return () => { dragFeedback.current?.destroy(); dragFeedback.current = null; view.current = null; lastPageReveal.current = null; pm.destroy(); };
+    return () => { pagination.current?.destroy(); pagination.current = null; layoutDocument.current = null; revealAfterLayout.current = false; dragFeedback.current?.destroy(); dragFeedback.current = null; view.current = null; lastPageReveal.current = null; pm.destroy(); };
   }, []);
   useLayoutEffect(syncView, [editor.document, editor.selection, editor.editable, editor.features.text, editor.features.images, editor.features.shapes, editor.pageReveal, editor.search.active, editor.search.open]);
-  return <div className="lxd-surface"><div ref={container} /><div className="lxd-ssr-content" aria-hidden="true">{getDocumentText(editor.document)}</div></div>;
+  useLayoutEffect(() => { pagination.current?.schedule(); }, [zoom]);
+  return <div className="lxd-surface"><div ref={papers} className="lxd-page-papers" aria-hidden="true" /><div ref={container} /><div className="lxd-ssr-content" aria-hidden="true">{getDocumentText(editor.document)}</div></div>;
 }

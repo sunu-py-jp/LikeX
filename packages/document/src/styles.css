@@ -121,7 +121,10 @@
 .lxd-ruler { display:flex; align-items:flex-end; justify-content:space-between; padding:0 var(--lxd-margin-right) 4px var(--lxd-margin-left); height:31px; color:var(--lxd-muted); font-size:9px; user-select:none; }
 .lxd-ruler span { position:relative; }
 .lxd-ruler span::after { content:""; height:3px; border-left:1px solid var(--lxd-muted); position:absolute; bottom:-4px; left:3px; }
-.lxd-surface { background:#fff; color:#222; min-height:var(--lxd-page-height); box-shadow:0 1px 5px #0003; color-scheme:light; }
+.lxd-surface { position:relative; isolation:isolate; color:#222; min-height:var(--lxd-page-height); color-scheme:light; }
+.lxd-page-papers { position:absolute; inset:0; z-index:-1; pointer-events:none; user-select:none; }
+.lxd-page-papers:empty { background:#fff; box-shadow:0 1px 5px #0003; }
+.lxd-page-paper { position:absolute; left:0; right:0; background:#fff; box-shadow:0 1px 5px #0003; }
 .lxd-editor { min-height:var(--lxd-page-height); padding:var(--lxd-margin-top) var(--lxd-margin-right) var(--lxd-margin-bottom) var(--lxd-margin-left); outline:none; white-space:pre-wrap; overflow-wrap:break-word; position:relative; font:11pt/1.65 Arial,"Yu Gothic",sans-serif; tab-size:4; }
 .lxd-editor>*:first-child { margin-top:0; }
 .lxd-editor p { margin:0 0 9pt; min-height:1.65em; }
@@ -139,6 +142,11 @@
 .lxd-editor a { color:#245ca0; text-decoration:underline; cursor:text; }
 .lxd-editor [data-page-break] { border-top:1px dashed #a8a8a8; height:30px; margin:22px 0; position:relative; break-after:page; }
 .lxd-editor [data-page-break]::after { content:"改ページ"; position:absolute; top:-10px; left:calc(50% - 30px); background:#fff; padding:0 8px; color:#808080; font-size:10px; }
+/* These node views only add screen spacing; DOCX and clipboard serialization use the schema. */
+.lxd-editor .lxd-page-boundary { display:block; height:0; margin:0; padding:0; border:0; line-height:0; white-space:normal; user-select:none; overflow:hidden; }
+.lxd-editor .lxd-page-boundary::after { content:none; }
+.lxd-editor .lxd-page-boundary[data-lxd-page-boundary-in-table=true] { height:20px; margin:4px 0; border-top:1px dashed #a8a8a8; position:relative; overflow:visible; }
+.lxd-editor .lxd-page-boundary[data-lxd-page-boundary-in-table=true]::after { content:"ページ境界"; position:absolute; left:0; top:2px; padding:0 3px; font:10px/1.4 sans-serif; color:#666; background:#fff; }
 .lxd-editor .ProseMirror-selectednode { outline:2px solid #2b579a; outline-offset:2px; }
 .lxd-editor .ProseMirror-gapcursor { display:none; pointer-events:none; position:absolute; margin:0; }
 .lxd-editor.ProseMirror-hideselection ::selection { background:transparent; }

@@ -45,6 +45,8 @@ const json = serializeDocument(result.document);
 
 `getDocumentPage(document, pageNumber = 1)` は `DocumentPageInfo`（`{ pageNumber, from, to }`）を返します。明示的な `page_break` とDOCXの保存済み自動改ページ位置を持つ `rendered_page_break` を、表・リスト内も含めて文書順に数えます。`from` / `to` は境界ノード自体を除くProseMirror位置で、1つの段落の途中がページ境界になる場合もあります。連続・末尾の手動改ページによる空白ページも含みます。存在しないページは `undefined`、1以上の安全な整数でない番号は例外です。保存済みの位置は編集後に再計算せず、記録のない自動改ページやWordの印刷ページ数は推測しません。[DOCXの改ページ変換](docx.md#改ページの読み込みとページ番号)も参照してください。
 
+このAPIは画面の用紙を数える処理ではありません。通常UIは表セル内の境界では用紙を分けず目印だけを残しますが、APIはその境界も数えます。表示領域を本文量に合わせて伸ばしても、新しいページ番号は増えません。[本文のページ表示](editing.md#本文のページ表示)を参照してください。
+
 位置は現在の文書に対するProseMirrorの位置です。最初の段落の先頭は `1` で、ブロックの開閉境界も数えます。編集後に続けて操作する場合は、新しい位置を取得するか、直前の編集を反映した値を使います。
 
 `await collectDocumentImages(document, { signal? })` は、同一バイト列の画像をSHA-256でまとめた `images` と、本文・表・リスト内の全画像ブロックの `placements` を返します。画像の表示サイズが違っても本体が同じなら共通の `imageId` になります。ブロックID・ProseMirror位置は保持し、描画に依存するページ番号は生成しません。[画像の収集と重複判定](image-analysis.md)にホスト解析とキャッシュの例があります。
@@ -109,7 +111,7 @@ const { document, dirty, canUndo } = session.getSnapshot();
 
 `DocumentHandle` の `getDocument` / `getSelection` で状態を取得し、`select` / `execute` / `undo` / `redo` で操作します。`execute` は非同期で、表示中の編集許可・機能設定・履歴を通ります。適用できない場合は `null` を返すことがあります。
 
-`initialPageNumber` はマウント時だけ読み取り、`goToPage(pageNumber)` は `getDocumentPage` と同じ境界で区切るページへ移動します。移動は選択位置とスクロールを更新し、フォーカスを奪わず、読み取り専用でも使えます。文書・履歴・未保存状態・編集許可は変更しません。無効な番号や存在しないページは通知して `false`、移動を受け付けた場合は `true` を返します。通常表示は連続した本文で、厳密なWordの印刷ページへの移動ではありません。
+`initialPageNumber` はマウント時だけ読み取り、`goToPage(pageNumber)` は `getDocumentPage` と同じ境界で区切るページへ移動します。移動は選択位置とスクロールを更新し、フォーカスを奪わず、読み取り専用でも使えます。文書・履歴・未保存状態・編集許可は変更しません。無効な番号や存在しないページは通知して `false`、移動を受け付けた場合は `true` を返します。通常表示は保存された境界に用紙間の余白を置きますが、表内の境界も数えるこのページ番号は画面の用紙枚数やWordの印刷ページを表すものではありません。
 
 `save` / `discard` は保存状態を操作します。`importNative` / `exportNative` はDCON、`importDocx` / `exportDocx` はDOCX入出力です。純粋なDOCX APIとrefの戻り値は異なるため、[DOCX入出力](docx.md)も確認してください。
 
