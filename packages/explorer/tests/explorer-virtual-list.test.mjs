@@ -9,6 +9,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
   export * from './src/model/virtual-list.ts';
   export * from './src/state/explorer-context.tsx';
+  export { ExplorerDomContext } from './src/ui/explorer-dom-context.tsx';
   export { ExplorerFileList } from './src/ui/explorer-file-list.tsx';
   export { useExplorerController } from './src/state/use-explorer-controller.ts';
 `, resolveDir: packageRoot, sourcefile: 'test-virtual-explorer.tsx' }, bundle: true, platform: 'node', format: 'esm', write: false,
@@ -17,7 +18,7 @@ const output = await build({ absWorkingDir: packageRoot, stdin: { contents: `
   } }],
 });
 const { explorerListLayout, explorerListRange, explorerListCell, explorerListScrollTarget,
-  ExplorerProvider, useExplorerSelector, createExplorerStore, ExplorerFileList, useExplorerController } = await import(
+  ExplorerDomContext, ExplorerProvider, useExplorerSelector, createExplorerStore, ExplorerFileList, useExplorerController } = await import(
   `data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const viewport = { width: 1000, height: 600, top: 0, left: 0, lineHeight: 21 };
 const modes = ['details', 'extra-large', 'large', 'medium', 'small', 'list', 'tiles', 'content'];
@@ -102,7 +103,7 @@ async function mountList(t, mode, count = 10000, renderIcon, overrides = {}) {
     querySelectorAll() { return Array.from({ length: count }, (_, index) => ({ dataset: { explorerEntryId: `file-${index}` }, focus: () => focused.push(`file-${index}`) })); } };
   const props = { initialEntries: entries(count), onSave: async () => {}, view: { defaultMode: mode },
     ui: { thumbnails: false, contextMenu: false, rowActions: false }, features: { favorites: false }, renderIcon, ...overrides };
-  function App() { controller = useExplorerController(props); return h(ExplorerProvider, { value: controller }, h(ExplorerFileList)); }
+  function App() { controller = useExplorerController(props); return h(ExplorerDomContext.Provider, { value: { document: null, layout: overrides.layout ?? "desktop" } }, h(ExplorerProvider, { value: controller }, h(ExplorerFileList))); }
   await change(() => { renderer = create(h(StrictMode, null, h(App)), { createNodeMock(element) {
     if (element.props['data-explorer-virtualized']) return scroll;
     if (element.props['data-explorer-rename-input']) {
@@ -277,4 +278,55 @@ for (const mode of modes) for (const [label, search, height] of [
   assert(list.rows().length < 170);
   await change(() => list.controller.focusEntryRef.current('file-0'));
   assert.equal(list.focused.at(-1), 'file-0');
+});
+
+
+test('mobile geometry keeps touch rows and virtual scrolling aligned for every view', () => {
+  const narrow = { ...viewport, width: 390, height: 480 };
+  for (const mode of modes) {
+    const layout = explorerListLayout(10000, mode, true, false, true, narrow, 0, true);
+    assert(layout.rowHeight >= 44, mode);
+    if (mode === 'details') assert.equal(layout.header, 44);
+    const target = explorerListScrollTarget(layout, narrow, 9999);
+    assert(explorerListRange(layout, { ...narrow, top: target.top, left: target.left }).includes(9999), mode);
+  }
+  assert.equal(explorerListLayout(3, 'details', true, false, false, narrow, 0, true).rowHeight, 44);
+  assert.equal(explorerListLayout(3, 'medium', false, false, true, narrow, 0, true).rowHeight,
+    explorerListLayout(3, 'medium', false, false, true, narrow).rowHeight + 32);
+});
+
+test('mobile details fit the container and retain read-only selection, previews and large-list virtualization', async t => {
+  const previews = [];
+  const list = await mountList(t, 'details', 10000, undefined, {
+    layout: 'mobile', readOnly: true, onPreviewRequest: entry => { previews.push(entry.id); },
+  });
+  const table = list.root.findByType('table');
+  assert.equal(table.props.style.minWidth, 0);
+  assert.deepEqual(list.root.findAll(node => node.type === 'th' && node.props['data-explorer-column']).map(node => node.props['data-explorer-column']), ['name']);
+  assert.equal(list.rows()[0].props.style.height, 44);
+  assert(list.rows().length < 100);
+  const click = onName => ({ target: { closest: () => onName ? { getAttribute: () => 'file-0' } : null },
+    defaultPrevented: false, button: 0, detail: 1, ctrlKey: false, metaKey: false, shiftKey: false });
+  await change(() => list.rows()[0].props.onClick(click(false)));
+  assert.deepEqual(list.controller.selected, ['file-0']);
+  assert.deepEqual(previews, [], 'tapping the row selects without opening');
+  await change(() => list.rows()[0].props.onClick(click(true)));
+  assert.deepEqual(previews, ['file-0'], 'tapping the name opens a read-only preview');
+  await change(() => list.rows()[0].props.onDoubleClick(click(true)));
+  assert.deepEqual(previews, ['file-0'], 'a trailing double click does not duplicate activation');
+  await list.scrollTo(10000000);
+  assert(list.rows().some(row => row.props['data-explorer-entry-id'] === 'file-9999'));
+});
+
+test('mobile respects a disabled preview feature and desktop retains its metadata columns', async t => {
+  const previews = [];
+  const mobile = await mountList(t, 'details', 3, undefined, { layout: 'mobile', features: { preview: false },
+    onPreviewRequest: entry => { previews.push(entry.id); } });
+  const event = { target: { closest: () => ({ getAttribute: () => 'file-0' }) },
+    defaultPrevented: false, button: 0, detail: 1, ctrlKey: false, metaKey: false, shiftKey: false };
+  await change(() => mobile.rows()[0].props.onClick(event));
+  assert.deepEqual(previews, []);
+  const desktop = await mountList(t, 'details', 3, undefined, { layout: 'desktop' });
+  assert.deepEqual(desktop.root.findAll(node => node.type === 'th' && node.props['data-explorer-column']).map(node => node.props['data-explorer-column']),
+    ['name', 'updatedAt', 'extension', 'size']);
 });

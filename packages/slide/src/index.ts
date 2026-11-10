@@ -2,6 +2,7 @@
 
 export { default, default as LikeSlide } from "./slide";
 export type { SlideProps, SlideRibbonDisplayMode, SlideHandle, SlideFeatures, SlideSelection, SlideEvent, SlideConditionalEditOptions, SlidePageTarget, SlideExternalSearchTarget } from "./props";
+export type { ResponsiveLayout } from "./props";
 export * from "./model";
 export { createSlideSession } from "./session/create-slide-session";
 export type { SlideSession, SlideSessionSnapshot } from "./session/create-slide-session";

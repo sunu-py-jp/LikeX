@@ -1,0 +1,15 @@
+.mobile-demo { min-height:100dvh; padding:24px; color:#243242; background:#f4f6f8; font:14px/1.5 system-ui,sans-serif; }
+.mobile-demo-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
+.mobile-demo-header p { margin:0; color:#5d6c7d; font-size:12px; }
+.mobile-demo-header h1 { margin:3px 0 0; font-size:24px; }
+.mobile-demo-header a { color:#245ca0; }
+.mobile-demo-settings { display:flex; align-items:flex-end; flex-wrap:wrap; gap:12px 18px; }
+.mobile-demo-settings label { display:flex; flex-direction:column; gap:4px; font-weight:600; }
+.mobile-demo-settings select { min-height:40px; max-width:100%; padding:6px 10px; border:1px solid #ccd4de; border-radius:6px; background:#fff; color:#243242; font:inherit; }
+.mobile-demo-settings .mobile-demo-check { flex-direction:row; align-items:center; min-height:40px; }
+.mobile-demo-check input { width:18px; height:18px; accent-color:#245ca0; }
+.mobile-demo-description { max-width:900px; color:#5d6c7d; margin:14px 0 6px; }
+.mobile-demo-save { min-height:21px; margin:6px 0 12px; font-size:12px; color:#455b72; }
+.mobile-demo-stage { width:100%; overflow:auto; padding:0 0 16px; }
+.mobile-demo-frame { height:650px; flex:none; box-shadow:0 5px 22px #17283d1a; background:#fff; }
+@media (max-width:600px) { .mobile-demo { padding:12px; }.mobile-demo-settings { gap:10px; }.mobile-demo-settings select { font-size:16px; } }

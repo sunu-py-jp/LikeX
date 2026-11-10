@@ -5,6 +5,8 @@ export { isPromiseLike, chainResult } from "./async";
 export { resolveFeatureFlags } from "./features";
 export { isRibbonDisplayMode, normalizeRibbonDisplayMode } from "./ribbon";
 export type { RibbonDisplayMode } from "./ribbon";
+export { MOBILE_LAYOUT_BREAKPOINT, resolveResponsiveLayout } from "./responsive-layout";
+export type { ResponsiveLayout, ResolvedResponsiveLayout } from "./responsive-layout";
 export { createSearchPanelState, isSearchPanelQuery, getInitialSearchMode, normalizeExternalSearchResults } from "./search-panel";
 export type { SearchPanelInitialState, SearchPanelHandle, SearchPanelMode, ExternalSearchResult, ExternalSearchOptions } from "./search-panel";
 export type { FeatureFlags } from "./features";
@@ -46,5 +48,5 @@ export type { TextSearchQuery, TextSearchMatcher, TextSearchMatch } from "./text
 export { createKeywordSearchMatcher } from "./keyword-search";
 export type { KeywordSearchQuery, KeywordTextMatch, KeywordSearchMatcher } from "./keyword-search";
 // Import-safe on the server; the host supplies a DOM anchor when opening a menu.
-export { openContextMenu } from "./browser";
+export { openContextMenu, observeResponsiveLayout } from "./browser";
 export type { ContextMenuAction, ContextMenuSurfaceOptions } from "./browser";

@@ -317,3 +317,12 @@ function useConsumerDraft() {
   return { result, busy, session: createExplorerUploadSession() };
 }
 void [readOnly, popup, submitSearch, richSearchView, streamingSearchView, partialSearchView, promisedStream, invalidStream, asyncSearchResultRenderer, missingSearchEntry, wrongSearchTrigger, wrongSearchResult, incompleteSearchBatch, wrongSizeExtension, wrongExtensionSize, rejected, wrongFeature, legacyProps, rejectSearchMutation, useConsumerDraft, navigateFromHost, asyncPermissions, invalidPermissions];
+
+// Responsive presentation is available from the public UI entry in package and copy consumers.
+import type { ResponsiveLayout as ConsumerLayout, ExplorerProps as MobileViewProps } from "__LIBRARY_IMPORT__";
+const responsiveLayout: ConsumerLayout = "auto";
+const mobileProps: Pick<MobileViewProps, "layout"> = { layout: responsiveLayout };
+const forcedMobileProps: Pick<MobileViewProps, "layout"> = { layout: "mobile" };
+// @ts-expect-error Layout accepts only the shared explicit modes.
+const invalidMobileProps: Pick<MobileViewProps, "layout"> = { layout: "phone" };
+void [mobileProps, forcedMobileProps, invalidMobileProps];

@@ -25,6 +25,8 @@
 | `onPreviewRequest?: ExplorerPreviewHandler` | 開くファイルの情報を受け取ります。戻り値は `void` / `"handled"` / `"default"` またはそれを返すPromise。同期例外・PromiseのrejectはExplorerがエラー通知します。 |
 | `previewTrigger?: ExplorerPreviewTrigger` | `"doubleClick"`（既定）または `"click"`。`"click"` はファイル名の単クリックでプレビューします。 |
 
+モバイル表示（`layout="mobile"` または `auto` の幅720px未満）では、名前を1回タップして開く操作を優先します。名前以外の行部分やチェックボックスは選択に使えます。
+
 `"click"` ではファイル名クリックのプレビューを名前の再クリックによる改名より優先します。名前変更はF2、右クリックの「名前を変更」、ツールバーから開始できます。Ctrl/Cmd・Shift付きクリックによる選択や、名前以外の部分のダブルクリックは維持します。フォルダを開くときは通常どおりフォルダへ移動します。`features.preview: false` は内蔵プレビューと外部コールバックの両方を無効にします。
 
 次の型を `@/components/explorer` からimportできます。リクエストは `ExplorerEntry` の全フィールドを持ち、ファイルに限定した `kind`、正規化済みの `extension` と現在の `path` を含みます。`ExplorerItemInfo` は、[操作・状態イベント](./events.md)でも使うファイル・フォルダ共通の情報です。

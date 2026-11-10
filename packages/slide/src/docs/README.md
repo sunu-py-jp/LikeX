@@ -53,6 +53,7 @@ Coreへの参照は `slide/core.ts` に集約されています。`browser.ts`�
 | `initialSearchOpen` / `initialSearchQuery` | `boolean` / `string` | 検索欄は閉じた状態・空文字。初回のみ適用（[検索](search.md)） |
 | `onSave` | `(deck) => void または Promise<void / SlideDeck>` | 読み取り専用 |
 | `readOnly` | `boolean` | `onSave` の有無に従う |
+| `layout` | `"auto" / "desktop" / "mobile"` | `auto`。コンポーネントの幅が720px未満ならモバイル表示 |
 | `colorMode` | `"light" / "dark" / "system"` | ライト |
 | `primaryColor` | `string`（`#RGB` / `#RRGGBB`） | オレンジ |
 | `initialRibbonDisplayMode` | `SlideRibbonDisplayMode` | 初回は `expanded` |
@@ -72,6 +73,19 @@ Coreへの参照は `slide/core.ts` に集約されています。`browser.ts`�
 ```
 
 `initialDeck` は初回のみ読み込みます。別の資料に切り替えるときは `<LikeSlide key={documentId} ... />` とします。認証・保存先・共同編集の競合解決は親アプリの責務です。
+
+## スマートフォン・狭い領域での表示
+
+`layout` を省略すると、ブラウザー全体ではなく配置先の幅を監視し、720 CSS px未満でモバイル表示に切り替えます。スマートフォン以外でも、狭いダイアログや分割ペイン内では同じ表示になります。`layout="desktop"` / `"mobile"` で固定でき、propsの変更にも追従します。型 `ResponsiveLayout` は公開入口からimportできます。
+
+```tsx
+<LikeSlide initialDeck={deck} readOnly layout="auto"
+  style={{ width: "100%", height: "80dvh", minHeight: 420 }} />
+```
+
+モバイルでは本文を優先し、スライド一覧・検索をボタンから開くパネルにします。一覧からページを選ぶとパネルを閉じ、前後のページボタンでも移動できます。ノートは初期状態で閉じ、ノートボタンで表示します。書式パネルは表示領域内に重ね、リボンのタブとコマンドは横スクロールできます。編集可否・機能フラグ・リボン表示モードは引き続き同じ設定が適用されます。
+
+タッチでは一覧やキャンバスをスワイプしてスクロールします。キャンバスの要素はタップで選択し、選択済みの編集可能な要素をドラッグすると移動します。選択ハンドルはタッチしやすい大きさになり、スライドの並べ替えは各カードの「…」から前後へ移動できます。読み取り専用でもページ移動・検索・ズームを利用でき、要素に触れても編集ドラッグは開始しません。表示切り替えで資料寸法、`.slon`、PPTX、Undo履歴を変更しません。
 
 ## プライマリカラー
 

@@ -134,3 +134,12 @@ const searchQuery: KeywordSearchQuery = { keywords: ['顧客', '会議'], operat
 const searchResults: SlideSearchResult = searchSlides(createSlideDeck(), searchQuery, { matchBy: 'page' });
 const resultPage: number | undefined = searchResults.matches[0]?.pageNumber;
 void resultPage;
+
+// Responsive presentation is available from the public UI entry in package and copy consumers.
+import type { ResponsiveLayout as ConsumerLayout, SlideProps as MobileViewProps } from "__LIBRARY_IMPORT__";
+const responsiveLayout: ConsumerLayout = "auto";
+const mobileProps: Pick<MobileViewProps, "layout"> = { layout: responsiveLayout };
+const forcedMobileProps: Pick<MobileViewProps, "layout"> = { layout: "mobile" };
+// @ts-expect-error Layout accepts only the shared explicit modes.
+const invalidMobileProps: Pick<MobileViewProps, "layout"> = { layout: "phone" };
+void [mobileProps, forcedMobileProps, invalidMobileProps];

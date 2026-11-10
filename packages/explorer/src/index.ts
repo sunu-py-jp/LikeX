@@ -44,7 +44,7 @@ export type { ExplorerEntryTarget, ExplorerFileTarget, ExplorerShowFileOptions, 
   ExplorerNavigationResult, ExplorerNavigationErrorCode } from "./model/navigation";
 export { resolveExplorerContainingFolder } from "./model/navigation";
 export type { ExplorerContextMenuContext, ExplorerContextMenuChange, ExplorerContextMenuItem, ExplorerContextMenuProvider } from "./model/context-menu";
-export type { ContextMenuExecutionMode } from "./core";
+export type { ContextMenuExecutionMode, ResponsiveLayout, ResolvedResponsiveLayout } from "./core";
 export type {
   ExplorerSearchConditions,
   ExplorerSearchHit,

@@ -25,7 +25,7 @@ async function mount(t, overrides = {}) {
   const view = { innerWidth: 1400, innerHeight: 900, addEventListener() {}, removeEventListener() {}, getComputedStyle() { return computed; },
     MutationObserver: class { observe() {} disconnect() {} } };
   const ownerDocument = { activeElement: previous, defaultView: view, body: {}, documentElement: { clientWidth: 1400, clientHeight: 900 } };
-  const region = { ownerDocument, clientWidth: 960, clientHeight: 700, getAttribute() { return 'light'; },
+  const region = { ownerDocument, clientWidth: 960, clientHeight: 700, closest() { return null; }, getAttribute() { return 'light'; },
     getBoundingClientRect() { return { left: 40, top: 50, right: 1000, bottom: 750, width: 960, height: 700 }; } };
   const panel = { ownerDocument, contains(node) { return node === input; }, querySelector() { return input; }, querySelectorAll() { return [input]; }, focus() {} };
   function Probe() {

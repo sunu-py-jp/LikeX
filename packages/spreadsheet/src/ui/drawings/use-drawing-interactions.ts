@@ -47,6 +47,7 @@ export function useDrawingInteractions(c: SpreadsheetController, geometry: Drawi
   const cancelGesture = () => stopGesture(true);
   const start = (event: PointerEvent<HTMLElement>, drawing: SpreadsheetDrawing, kind: Gesture["kind"], corner: DrawingResizeCorner = "se") => {
     if (event.button !== 0 || (event.target as HTMLElement).closest("textarea,input,select")) return;
+    if (event.pointerType === "touch" && kind === "move" && (c.disabled || c.selectedDrawingId !== drawing.id)) return;
     if (kind === "cornerRadius" && (drawing.type !== "shape" || drawing.shape !== "roundedRectangle")) return;
     blurObjectEditor(event.currentTarget);
     event.stopPropagation(); event.preventDefault();

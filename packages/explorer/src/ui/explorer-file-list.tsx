@@ -456,6 +456,8 @@ const visualClasses: Record<GridViewMode, string> = {
   content: "lxe:col-start-1 lxe:row-span-2 lxe:row-start-1 lxe:size-14 lxe:[&>*]:size-[52px]",
 };
 
+const mobileDetailColumns = ["name"] as const;
+
 export const ExplorerFileList = memo(function ExplorerFileList() {
   const {
     rootLabel,
@@ -522,6 +524,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     fileActivationEnabled,
     canEditFavorites,
   } = useExplorerFields("rootLabel", "entries", "navigationEntries", "visible", "pendingImportEntries", "openPendingImportFolder", "selectedSet", "activeTabId", "focusEntryRef", "revealRequest", "clipboard", "disabled", "busy", "view", "defaultColumnWidths", "compact", "query", "searchPending", "searchHasMore", "searchLoadingMore", "searchLoadMoreError", "loadMoreSearchResults", "folderPending", "folderError", "retryFolder", "searchResultHits", "searchResultDetailsHeight", "searchResultDetailsMaxLines", "renderSearchResult", "renderEmptyState", "emptyStateActions", "locationInfo", "searchError", "retrySearch", "canSort", "location", "special", "provisionalLocation", "currentParent", "dragOver", "externalDrag", "readFile", "displayedSort", "setSelected", "setDragOver", "setExternalDrag", "allowDrop", "drop", "rowKey", "startDrag", "selectEntry", "openEntry", "toggleSelect", "entryId", "act", "features", "selectionOptions", "uiOptions", "canDrag", "renamingEntryId", "previewTrigger", "fileActivationEnabled", "canEditFavorites");
+  const mobile = useExplorerDom().layout === "mobile";
   const { scheduleRename, cancelPendingRename } = useEntryRenameDelay();
   const suppressNamePreview = useRef(false);
   const horizontal = view === "small" || view === "list";
@@ -529,21 +532,21 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
   const canSelect = selectionOptions.mode !== "none";
   const showCheckboxes = canSelect && selectionOptions.checkboxes;
   const searching = features.search && Boolean(query);
-  const detailColumns = searching ? EXPLORER_DETAILS_COLUMNS : EXPLORER_STANDARD_DETAILS_COLUMNS;
-  const { setTableElement, ...columnResize } = useExplorerColumnResize(features.resizeColumns, defaultColumnWidths, detailColumns);
+  const detailColumns = mobile ? mobileDetailColumns : searching ? EXPLORER_DETAILS_COLUMNS : EXPLORER_STANDARD_DETAILS_COLUMNS;
+  const { setTableElement, ...columnResize } = useExplorerColumnResize(features.resizeColumns && !mobile, defaultColumnWidths, detailColumns);
   const listPending = searchPending || folderPending, listError = searchError || folderError;
   const retryList = searchError ? retrySearch : retryFolder;
   const favoritesLocation = features.favorites && location === FAVORITES;
   const recentLocation = features.recent && location === RECENT;
   const showLocation = !recentLocation && (searching || favoritesLocation);
-  const showInlineLocation = showLocation && !(searching && view === "details");
+  const showInlineLocation = showLocation && (mobile || !(searching && view === "details"));
   const showRowMenu = useMemo(() =>
     uiOptions.rowActions &&
     visible.some((entry) => hasEntryMenu(entry, features, canEditFavorites, Boolean(query))), [uiOptions.rowActions, visible, features, canEditFavorites, query]);
   const showActions = canEditFavorites || showRowMenu;
   const columnCount = detailColumns.length + Number(showCheckboxes) + Number(showActions);
-  const actionWidth = canEditFavorites && showRowMenu ? 68 : 36;
-  const auxiliaryColumnWidth = (showCheckboxes ? 36 : 0) + (showActions ? actionWidth : 0);
+  const actionWidth = mobile ? (canEditFavorites && showRowMenu ? 98 : 52) : canEditFavorites && showRowMenu ? 68 : 36;
+  const auxiliaryColumnWidth = (showCheckboxes ? mobile ? 44 : 36 : 0) + (showActions ? actionWidth : 0);
   const minimumTableWidth = detailColumns.reduce((total, column) =>
     total + (columnResize.widths[column] ?? DEFAULT_DETAILS_COLUMN_WIDTHS[column]), auxiliaryColumnWidth);
   const showCardControls = showCheckboxes || canEditFavorites;
@@ -572,7 +575,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     ? [...pendingImportEntries.map(preview => preview.entry), ...visible] : visible, [pendingImportEntries, visible]);
   const { enabled: virtualEnabled, scrollRef: scrollContainerRef, items: virtualItems, layout: virtualLayout,
     pin: pinVirtualEntry, contentStyle: virtualContentStyle } = useExplorerVirtualList(displayedEntries, view, compact, showInlineLocation, showCardControls,
-    JSON.stringify([activeTabId, String(location), query, displayedSort, view]), renamingEntryId, focusEntryRef, revealRequest, resultDetailsHeight);
+    JSON.stringify([activeTabId, String(location), query, displayedSort, view]), renamingEntryId, focusEntryRef, revealRequest, resultDetailsHeight, mobile);
   useExplorerSearchDemand(scrollContainerRef, {
     enabled: searching && searchHasMore && !listPending,
     horizontal: view === "list", count: visible.length,
@@ -592,6 +595,9 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     (event.target as Element)
       .closest("[data-explorer-entry-name]")
       ?.getAttribute("data-explorer-entry-name") === entry.id;
+  const isMobileNameClick = (entry: Entry, event: MouseEvent<HTMLElement>) =>
+    mobile && (entry.kind === "folder" || features.preview || fileActivationEnabled) &&
+    (event.target as Element).closest("[data-explorer-entry-name]")?.getAttribute("data-explorer-entry-name") === entry.id;
   const entryEvents = (entry: Entry) => ({
     id: entryId(entry.id),
     "data-explorer-entry": true,
@@ -608,12 +614,13 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
       rowKey(event, entry);
     },
     onClick: (event: MouseEvent<HTMLElement>) => {
-      const previewName = isNamePreviewClick(entry, event);
+      const previewName = isNamePreviewClick(entry, event) || isMobileNameClick(entry, event);
       if (previewName) cancelPendingRename();
       else scheduleRename(entry, event);
       selectEntry(entry, event);
       if (
         previewName &&
+        !disabled &&
         !busy &&
         !renamingEntryId &&
         !suppressNamePreview.current &&
@@ -629,7 +636,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
     onDoubleClick: (event: MouseEvent<HTMLElement>) => {
       cancelPendingRename();
       // The first click on the name already opened this file.
-      if (isNamePreviewClick(entry, event)) return;
+      if (isNamePreviewClick(entry, event) || isMobileNameClick(entry, event)) return;
       if (entry.kind === "folder" || features.preview || fileActivationEnabled) openEntry(entry);
     },
     onContextMenu:
@@ -674,13 +681,14 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
         ? "lxe:opacity-45"
         : "",
     ].join(" ");
-  const rowHeightClass = compact ? "lxe:h-7" : "lxe:h-9";
+  const rowHeightClass = mobile ? "lxe:h-11" : compact ? "lxe:h-7" : "lxe:h-9";
   const cellClass = `${rowHeightClass} lxe:truncate lxe:px-3 lxe:text-xs lxe:text-[var(--explorer-muted)]`;
-  const cardClassName = `lxe:group lxe:relative lxe:min-w-0 lxe:cursor-default lxe:overflow-hidden lxe:rounded-sm lxe:border lxe:border-transparent ${horizontal ? `lxe:flex lxe:shrink-0 lxe:items-center lxe:gap-2 lxe:px-1.5 lxe:py-0.5 ${rowHeightClass} ${view === "list" ? "lxe:w-[230px]" : ""}` : descriptive ? `lxe:grid lxe:items-center lxe:gap-x-3 lxe:px-2.5 ${compact ? "lxe:py-1" : "lxe:py-2"} ${view === "content" ? "lxe:min-h-16 lxe:grid-cols-[56px_minmax(100px,1fr)_110px] lxe:grid-rows-2 lxe:rounded-none lxe:border-b-[var(--explorer-border)]" : "lxe:min-h-[72px] lxe:grid-cols-[56px_minmax(0,1fr)] lxe:grid-rows-2"}` : `lxe:flex lxe:flex-col lxe:items-center lxe:px-2 lxe:pb-2 ${showCardControls ? "lxe:pt-4" : "lxe:pt-2"}`}`;
+  const cardClassName = `lxe:group lxe:relative lxe:min-w-0 lxe:cursor-default lxe:overflow-hidden lxe:rounded-sm lxe:border lxe:border-transparent ${horizontal ? `lxe:flex lxe:shrink-0 lxe:items-center lxe:gap-2 lxe:px-1.5 lxe:py-0.5 ${rowHeightClass} ${view === "list" ? "lxe:w-[230px]" : ""}` : descriptive ? `lxe:grid lxe:items-center lxe:gap-x-3 lxe:px-2.5 ${compact ? "lxe:py-1" : "lxe:py-2"} ${view === "content" ? `lxe:min-h-16 ${mobile ? "lxe:grid-cols-[56px_minmax(0,1fr)_80px]" : "lxe:grid-cols-[56px_minmax(100px,1fr)_110px]"} lxe:grid-rows-2 lxe:rounded-none lxe:border-b-[var(--explorer-border)]` : "lxe:min-h-[72px] lxe:grid-cols-[56px_minmax(0,1fr)] lxe:grid-rows-2"}` : `lxe:flex lxe:flex-col lxe:items-center lxe:px-2 lxe:pb-2 ${showCardControls ? mobile ? "lxe:pt-12" : "lxe:pt-4" : "lxe:pt-2"}`}`;
 
   return (
     <section
       className="lxe:flex lxe:min-h-0 lxe:min-w-0 lxe:flex-1 lxe:flex-col lxe:bg-[var(--explorer-background)]"
+      data-explorer-file-list=""
       aria-label="ファイル一覧"
       aria-busy={listPending || provisionalLocation || pendingImportEntries.length > 0}
       onFocusCapture={(event) => pinVirtualEntry("focus", (event.target as Element).closest<HTMLElement>("[data-explorer-entry-id]")?.dataset.explorerEntryId ?? null)}
@@ -763,13 +771,13 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
             aria-rowcount={virtualEnabled ? displayedEntries.length + 1 : undefined}
             className="lxe:w-full lxe:table-fixed lxe:border-separate lxe:border-spacing-0 lxe:text-sm"
             style={{
-              minWidth: minimumTableWidth,
-              width: columnResize.totalWidth === undefined ? undefined : columnResize.totalWidth + auxiliaryColumnWidth,
+              minWidth: mobile ? 0 : minimumTableWidth,
+              width: mobile || columnResize.totalWidth === undefined ? undefined : columnResize.totalWidth + auxiliaryColumnWidth,
             }}
           >
             <colgroup>
-              {showCheckboxes && <col style={{ width: 36 }} />}
-              {detailColumns.map(column => <col key={column} style={{ width: columnResize.widths[column] }} />)}
+              {showCheckboxes && <col style={{ width: mobile ? 44 : 36 }} />}
+              {detailColumns.map(column => <col key={column} style={{ width: mobile ? undefined : columnResize.widths[column] }} />)}
               {showActions && <col style={{ width: actionWidth }} />}
             </colgroup>
             <thead className="lxe:sticky lxe:top-0 lxe:z-10 lxe:bg-[var(--explorer-background)]">
@@ -810,8 +818,9 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                   }
                 >
                   <SortHeader field="name" label="名前" />
-                  <ExplorerColumnResizer resize={columnResize} column="name" label="名前" />
+                  {!mobile && <ExplorerColumnResizer resize={columnResize} column="name" label="名前" />}
                 </th>
+                {!mobile && <>
                 {searching && <th className={headerCellClass} data-explorer-column="location">
                   <span className="lxe:block lxe:truncate">場所</span>
                   <ExplorerColumnResizer resize={columnResize} column="location" label="場所" />
@@ -862,6 +871,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                   <SortHeader field="size" label="サイズ" />
                   <ExplorerColumnResizer resize={columnResize} column="size" label="サイズ" />
                 </th>
+                </>}
                 {showActions && (
                   <th className={`${headerCellClass} lxe:px-1`}>
                     <span className="lxe:sr-only">操作</span>
@@ -879,7 +889,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                   <ExplorerPendingImportRow preview={pendingById.get(entry.id)!} rowIndex={index + 2}
                     style={virtualEnabled ? { height: virtualLayout.rowHeight } : undefined}
                     location={searching ? parentPath(entry) : undefined}
-                    compact={compact} showCheckboxes={showCheckboxes} showActions={showActions} onOpenFolder={openPendingImportFolder} />
+                    compact={compact} mobile={mobile} showCheckboxes={showCheckboxes} showActions={showActions} onOpenFolder={openPendingImportFolder} />
                 ) : <EntryContext entry={entry} onOpenChange={open => pinVirtualEntry("menu", open ? entry.id : null)}>
                   <tr
                     {...entryEvents(entry)}
@@ -931,12 +941,14 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                         )}
                       </div>
                     </td>
+                    {!mobile && <>
                     {searching && <td className={cellClass} title={parentPath(entry)}>{parentPath(entry)}</td>}
                     <td className={cellClass} title={formatEntryDate(entry.updatedAt)}>{formatEntryDate(entry.updatedAt)}</td>
                     <td className={`${cellClass} lxe:truncate`} title={entryExtension(entry)}>{entryExtension(entry)}</td>
                     <td className={`${cellClass} lxe:tabular-nums`}>
                       {entry.kind === "folder" ? "" : formatSize(entry.size)}
                     </td>
+                    </>}
                     {showActions && (
                       <td
                         className={`${rowHeightClass} lxe:px-1`}
@@ -966,7 +978,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                   {...entryEvents(entry)}
                   style={resultDetailsHeight ? { ...style,
                     paddingBottom: resultDetailsHeight + (horizontal ? 2 : descriptive ? (compact ? 4 : 8) : 8),
-                    ...(!virtualEnabled && horizontal ? { height: (compact ? 28 : 36) + resultDetailsHeight } : {}),
+                    ...(!virtualEnabled && horizontal ? { height: (mobile ? 44 : compact ? 28 : 36) + resultDetailsHeight } : {}),
                     ...(!virtualEnabled && descriptive ? { minHeight: (view === "content" ? 64 : 72) + resultDetailsHeight } : {}),
                   } : style}
                   role="button"
@@ -983,7 +995,7 @@ export const ExplorerFileList = memo(function ExplorerFileList() {
                 >
                   {!horizontal && !descriptive && showCardControls && (
                     <div
-                      className={`lxe:absolute lxe:inset-x-1 lxe:top-1 lxe:z-1 lxe:flex lxe:justify-between ${checked(entry) ? "lxe:opacity-100" : "lxe:opacity-0 lxe:group-hover:opacity-100 lxe:group-focus-within:opacity-100"}`}
+                      className={`lxe:absolute lxe:inset-x-1 lxe:top-1 lxe:z-1 lxe:flex lxe:justify-between ${mobile || checked(entry) ? "lxe:opacity-100" : "lxe:opacity-0 lxe:group-hover:opacity-100 lxe:group-focus-within:opacity-100"}`}
                     >
                       {showCheckboxes && (
                         <span

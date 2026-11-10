@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
-import { Check, CircleAlert, FileText, Loader2, Minus, Plus, Redo2, Save, Undo2, X } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { Check, CircleAlert, FileText, Loader2, Maximize2, Minus, PanelLeft, Plus, Redo2, Save, Search, Undo2, X } from "lucide-react";
 import { toggleMark } from "prosemirror-commands";
 import type { DocumentProps } from "./props";
 import { getBlocks, getDocumentText, inspectDocumentImage, DOCUMENT_LIMITS } from "./model/index";
@@ -12,25 +12,39 @@ import { DocumentSearchPanel } from "./ui/document-search-panel";
 import { DocumentRibbon } from "./ui/document-ribbon";
 import { DocumentDialog } from "./ui/document-dialog";
 import { useDocumentContextMenu } from "./ui/use-document-context-menu";
+import { useDocumentLayout } from "./ui/use-document-layout";
 
 /** Word-like document editing using the same commands as the headless model. */
 export default function LikeDocument(props: DocumentProps) {
   const editor = useDocumentEditor(props), surface = useRef<DocumentSurfaceHandle>(null), root = useRef<HTMLDivElement | null>(null), navigation = useRef<HTMLElement>(null);
   const contextMenu = useDocumentContextMenu(editor, surface);
+  const viewport = useRef<HTMLDivElement>(null);
   const [ownerDocument, setOwnerDocument] = useState<Document | null>(null);
   const attach = useCallback((node: HTMLDivElement | null) => { root.current = node; setOwnerDocument(node?.ownerDocument ?? null); }, []);
   const theme = useDocumentTheme(props.colorMode ?? "light", ownerDocument, props.primaryColor);
   const [, setViewRevision] = useState(0);
   const viewChanged = useCallback(() => setViewRevision(value => value + 1), []);
-  const [zoom, setZoom] = useState(100), [outline, setOutline] = useState(true), [dialog, setDialog] = useState<"table" | "link" | null>(null);
+  const [zoom, setZoom] = useState(100), [mobileZoom, setMobileZoom] = useState(100), [outline, setOutline] = useState(true), [mobileOutline, setMobileOutline] = useState(false), [fitWidth, setFitWidth] = useState(true), [dialog, setDialog] = useState<"table" | "link" | null>(null);
+  const responsive = useDocumentLayout(root, viewport, ownerDocument, props.layout ?? "auto", editor.document.page.width);
+  const visibleOutline = responsive.mobile ? mobileOutline : outline;
+  const displayZoom = responsive.mobile ? fitWidth ? responsive.fitZoom : mobileZoom : zoom;
+  const minimumZoom = responsive.mobile ? Math.min(10, responsive.fitZoom) : 50;
+  const zoomState = useRef({ current: displayZoom, minimum: minimumZoom, mobile: responsive.mobile });
+  useLayoutEffect(() => { zoomState.current = { current: displayZoom, minimum: minimumZoom, mobile: responsive.mobile }; }, [displayZoom, minimumZoom, responsive.mobile]);
+  const changeZoom = useCallback((value: number) => {
+    const next = Math.max(zoomState.current.minimum, Math.min(200, value));
+    if (zoomState.current.mobile) { setFitWidth(false); setMobileZoom(next); } else setZoom(next);
+  }, []);
+  function toggleOutline() { if (responsive.mobile) setMobileOutline(value => !value); else setOutline(value => !value); }
   const nativeInput = useRef<HTMLInputElement>(null), docxInput = useRef<HTMLInputElement>(null), imageInput = useRef<HTMLInputElement>(null);
   const headings = useMemo(() => getBlocks(editor.document).filter(block => block.node.type === "heading"), [editor.document]);
   const activeHeading = headings.reduce((last, block, index) => block.contentFrom <= editor.selection.from ? index : last, -1);
-  function revealHeading(index: number) {
+  function revealHeading(index: number, closeNavigation = false) {
     const block = headings[index];
     if (!block) return;
     editor.select({ from: block.contentFrom, to: block.contentFrom });
     root.current?.querySelector<HTMLElement>(`[data-document-id="${CSS.escape(block.id)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (responsive.mobile && closeNavigation) setMobileOutline(false);
   }
   function navigateHeadings(event: KeyboardEvent<HTMLElement>) {
     if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
@@ -54,9 +68,9 @@ export default function LikeDocument(props: DocumentProps) {
   }, [editor.dirty, props.warnOnUnsavedChanges, ownerDocument]);
   useEffect(() => {
     const node = root.current; if (!node) return;
-    const wheel = (event: WheelEvent) => { if (event.ctrlKey && (event.target as Element).closest(".lxd-document-viewport")) { event.preventDefault(); setZoom(value => Math.max(50, Math.min(200, value + (event.deltaY < 0 ? 5 : -5)))); } };
+    const wheel = (event: WheelEvent) => { if (event.ctrlKey && (event.target as Element).closest(".lxd-document-viewport")) { event.preventDefault(); changeZoom(zoomState.current.current + (event.deltaY < 0 ? 5 : -5)); } };
     node.addEventListener("wheel", wheel, { passive: false }); return () => node.removeEventListener("wheel", wheel);
-  }, []);
+  }, [changeZoom]);
   function openFile(format: "docx" | "dcon") {
     if (editor.dirty && !ownerDocument?.defaultView?.confirm("現在の文書を読み込むファイルで置き換えますか？元に戻す操作で復元できます。")) return;
     (format === "docx" ? docxInput : nativeInput).current?.click();
@@ -80,7 +94,7 @@ export default function LikeDocument(props: DocumentProps) {
       await editor.execute({ type: "image.insert", at: selection.to, src, alt: file.name, width, height: dimensions.height * width / dimensions.width });
     } catch (cause) { editor.error(cause); }
   }
-  return <div ref={attach} data-likex-document="" className={`lxd-root ${props.className ?? ""}`} style={{ ...theme, ...props.style }} role="region" aria-label={props["aria-label"] ?? "文書エディター"} onKeyDownCapture={event => {
+  return <div ref={attach} data-likex-document="" data-layout={responsive.layout} className={`lxd-root ${props.className ?? ""}`} style={{ ...theme, ...props.style }} role="region" aria-label={props["aria-label"] ?? "文書エディター"} onKeyDownCapture={event => {
     const target = event.target as HTMLElement;
     if (event.nativeEvent.isComposing || event.keyCode === 229 || target.closest(".lxd-dialog")) return;
     const mod = event.ctrlKey || event.metaKey, key = event.key.toLowerCase();
@@ -105,23 +119,28 @@ export default function LikeDocument(props: DocumentProps) {
       {!editor.readOnly && editor.features.history && <div className="lxd-quick-actions"><button type="button" title="元に戻す (Ctrl/Cmd+Z)" aria-label="元に戻す" disabled={!editor.canUndo || !editor.editable} onClick={() => void editor.history("undo")}><Undo2 size={17} /></button><button type="button" title="やり直す (Ctrl/Cmd+Shift+Z)" aria-label="やり直す" disabled={!editor.canRedo || !editor.editable} onClick={() => void editor.history("redo")}><Redo2 size={17} /></button></div>}
       <div className="lxd-titlebar-end">{!editor.readOnly && <button type="button" className="lxd-save" disabled={!editor.dirty || !!editor.busy} onClick={() => void editor.save()}>{editor.busy === "save" ? <Loader2 className="lxd-spin" size={15} /> : <Save size={15} />}保存</button>}<span>LikeX</span></div>
     </header>
-    <DocumentRibbon editor={editor} surface={surface} onImport={openFile} onExport={format => void download(format)} onImage={() => imageInput.current?.click()} onTable={() => setDialog("table")} onLink={() => setDialog("link")} outline={outline} onOutline={() => setOutline(value => !value)} />
+    <DocumentRibbon editor={editor} surface={surface} onImport={openFile} onExport={format => void download(format)} onImage={() => imageInput.current?.click()} onTable={() => setDialog("table")} onLink={() => setDialog("link")} outline={visibleOutline} onOutline={toggleOutline} />
+    {responsive.mobile && <div className="lxd-mobile-tools" role="group" aria-label="文書の表示操作">
+      <button type="button" aria-label="見出しを表示" aria-expanded={mobileOutline && !editor.search.open} onClick={() => { editor.search.closeSearch(); setMobileOutline(value => !value); }}><PanelLeft size={18} />見出し</button>
+      {editor.features.search && <button type="button" aria-label="文書を検索" aria-expanded={editor.search.open} onClick={() => { if (editor.search.open) editor.search.closeSearch(); else editor.search.openSearch(); }}><Search size={18} />検索</button>}
+      <button type="button" aria-label="幅に合わせる" aria-pressed={fitWidth} onClick={() => setFitWidth(true)}><Maximize2 size={17} />幅に合わせる</button>
+    </div>}
     <div className="lxd-workspace">
-      <div className="lxd-left-pane" hidden={!editor.search.open && !outline}>
+      <div className="lxd-left-pane" hidden={!editor.search.open && !visibleOutline}>
       {(editor.search.open || props.externalSearch) && <div className={`lxd-search-sidebar${editor.search.pane === "headings" ? " is-headings" : ""}`} hidden={!editor.search.open}>
         {props.externalSearch && <div className="lxd-search-tabs" role="group" aria-label="左ペインの表示"><button type="button" aria-pressed={editor.search.pane === "results"} onClick={() => editor.search.setPane("results")}>検索結果</button><button type="button" aria-pressed={editor.search.pane === "headings"} onClick={() => editor.search.setPane("headings")}>見出し</button></div>}
         <DocumentSearchPanel hidden={!editor.search.open || editor.search.pane !== "results"} editor={editor} onClose={() => { editor.search.closeSearch(); surface.current?.focus(); }} />
       </div>}
-      {(outline || props.externalSearch) && <aside hidden={editor.search.open ? editor.search.pane !== "headings" : !outline} ref={navigation} className="lxd-navigation" aria-label="見出しナビゲーション" onKeyDown={navigateHeadings}><h2>ナビゲーション</h2><div className="lxd-navigation-label">見出し</div>{headings.length ? headings.map((block, index) => <button type="button" key={block.id} data-document-heading-index={index} aria-current={activeHeading === index ? "true" : undefined} style={{ paddingLeft: 14 + ((block.node.type === "heading" ? block.node.attrs?.level ?? 1 : 1) - 1) * 12 }} onClick={() => revealHeading(index)}>{block.node.type === "heading" ? block.node.content?.map(node => node.type === "text" ? node.text : "").join("") : ""}</button>) : <p>見出しを設定すると、ここに表示されます。</p>}</aside>}
+      {(visibleOutline || props.externalSearch) && <aside hidden={editor.search.open ? editor.search.pane !== "headings" : !visibleOutline} ref={navigation} className="lxd-navigation" aria-label="見出しナビゲーション" onKeyDown={navigateHeadings}><h2>ナビゲーション</h2><div className="lxd-navigation-label">見出し</div>{headings.length ? headings.map((block, index) => <button type="button" key={block.id} data-document-heading-index={index} aria-current={activeHeading === index ? "true" : undefined} style={{ paddingLeft: 14 + ((block.node.type === "heading" ? block.node.attrs?.level ?? 1 : 1) - 1) * 12 }} onClick={() => revealHeading(index, true)}>{block.node.type === "heading" ? block.node.content?.map(node => node.type === "text" ? node.text : "").join("") : ""}</button>) : <p>見出しを設定すると、ここに表示されます。</p>}</aside>}
       </div>
-      <div className="lxd-document-viewport" tabIndex={0} aria-label="文書の表示領域" {...contextMenu}><div className="lxd-page-frame" style={{ zoom: zoom / 100, "--lxd-page-width": `${page.width}mm`, "--lxd-page-height": `${page.height}mm`, "--lxd-margin-top": `${page.margins.top}mm`, "--lxd-margin-right": `${page.margins.right}mm`, "--lxd-margin-bottom": `${page.margins.bottom}mm`, "--lxd-margin-left": `${page.margins.left}mm` } as CSSProperties}>
+      <div ref={viewport} className="lxd-document-viewport" tabIndex={0} aria-label="文書の表示領域" {...contextMenu}><div className="lxd-page-frame" style={{ zoom: displayZoom / 100, "--lxd-page-width": `${page.width}mm`, "--lxd-page-height": `${page.height}mm`, "--lxd-margin-top": `${page.margins.top}mm`, "--lxd-margin-right": `${page.margins.right}mm`, "--lxd-margin-bottom": `${page.margins.bottom}mm`, "--lxd-margin-left": `${page.margins.left}mm` } as CSSProperties}>
         <div className="lxd-ruler" aria-hidden="true"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span><span>12</span><span>14</span><span>16</span></div>
-        <DocumentSurface editor={editor} surfaceRef={surface} onViewChange={viewChanged} zoom={zoom} />
+        <DocumentSurface editor={editor} surfaceRef={surface} onViewChange={viewChanged} zoom={displayZoom} />
       </div></div>
     </div>
     <footer className="lxd-statusbar"><span>{textLength.toLocaleString()} 文字</span>{editor.readOnly && <span>読み取り専用</span>}
       <div className="lxd-status-message" role="status" aria-live="polite">{editor.busy ? <><Loader2 size={14} className="lxd-spin" /><span>{({ save: "保存しています…", import: "読み込んでいます…", export: "書き出しています…", permission: "編集の許可を確認しています…" })[editor.busy]}</span></> : editor.notice && <>{editor.notice.kind === "error" ? <CircleAlert size={14} /> : editor.notice.kind === "success" ? <Check size={14} /> : null}<span title={editor.notice.text}>{editor.notice.text}</span><button type="button" aria-label="メッセージを閉じる" onClick={() => editor.setNotice(null)}><X size={13} /></button></>}</div>
-      <div className="lxd-zoom"><button type="button" aria-label="縮小" onClick={() => setZoom(value => Math.max(50,value - 10))}><Minus size={14} /></button><input aria-label="ズーム" type="range" min={50} max={200} step={5} value={zoom} onChange={event => setZoom(Number(event.target.value))} /><button type="button" aria-label="拡大" onClick={() => setZoom(value => Math.min(200,value + 10))}><Plus size={14} /></button><button type="button" aria-label="100%に戻す" onClick={() => setZoom(100)}>{zoom}%</button></div>
+      <div className="lxd-zoom"><button type="button" aria-label="縮小" onClick={() => changeZoom(displayZoom - 10)}><Minus size={14} /></button><input aria-label="ズーム" type="range" min={minimumZoom} max={200} step={responsive.mobile ? 1 : 5} value={displayZoom} onChange={event => changeZoom(Number(event.target.value))} /><button type="button" aria-label="拡大" onClick={() => changeZoom(displayZoom + 10)}><Plus size={14} /></button><button type="button" aria-label="100%に戻す" onClick={() => changeZoom(100)}>{displayZoom}%</button></div>
     </footer>
     <input ref={nativeInput} hidden type="file" accept=".dcon,application/json" aria-label="DCONファイルを選択" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void editor.importFile(file, "dcon"); }} />
     <input ref={docxInput} hidden type="file" accept=".docx" aria-label="Wordファイルを選択" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void editor.importFile(file, "docx"); }} />

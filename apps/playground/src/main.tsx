@@ -2,6 +2,7 @@ import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 const demos = {
+  mobile: lazy(() => import("./mobile-demo")),
   texteditor: lazy(() => import("./texteditor-demo")),
   "external-search": lazy(() => import("./external-search-demo")),
   thumbnails: lazy(() => import("./thumbnails-demo")),

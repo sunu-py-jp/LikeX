@@ -27,7 +27,7 @@ async function mount(t, options = {}) {
   const target = node();
   function Probe() {
     c = useSpreadsheet({ initialWorkbook: { sheets: [{ id: 'one', name: 'Sheet1', rowCount: 8, columnCount: 8, cells: { B2: { value: 'kept' } } }] }, onSave() {}, ...options });
-    return createElement(SpreadsheetGrid, { controller: c });
+    return createElement(SpreadsheetGrid, { controller: c, touchRangeSelection: options.touchRangeSelection });
   }
   await act(async () => { renderer = create(createElement(Probe), { createNodeMock: node }); });
   t.after(async () => { await act(async () => renderer.unmount()); });
@@ -39,7 +39,9 @@ async function mount(t, options = {}) {
     selected: () => renderer.root.findAllByProps({ role: 'gridcell' }).filter(item => item.props['aria-selected']).map(item => item.props['aria-label'].split(' ')[0]),
     async down(element, modifiers = {}) { await act(async () => element.props.onPointerDown(pointer(modifiers))); },
     async enter(element, modifiers = {}) { await act(async () => element.props.onPointerEnter(pointer(modifiers))); },
-    async up() { await act(async () => documentListeners.get('pointerup')?.(pointer({ buttons: 0 }))); },
+    async up(modifiers = {}) { await act(async () => documentListeners.get('pointerup')?.(pointer({ buttons: 0, ...modifiers }))); },
+    async move(modifiers = {}) { await act(async () => documentListeners.get('pointermove')?.(pointer(modifiers))); },
+    get focusedElement() { return document.activeElement; },
     async cancel() { await act(async () => documentListeners.get('pointercancel')?.(pointer({ buttons: 0 }))); },
     async blur() { await act(async () => windowListeners.get('blur')?.()); },
     async click(address, modifiers = {}) { await this.down(cell(address), modifiers); await this.up(); },
@@ -375,4 +377,61 @@ test('a fully covered header selection never edits an unselected merged anchor t
   await act(async () => ui.c.beginEdit(undefined, 'must not edit A1'));
   assert.equal(ui.c.editing, null);
   assert.equal(ui.c.activeSheet.cells.A1.value, 'unchanged');
+});
+
+
+test('touch tap selects on release in readonly without opening the cell editor or moving focus', async t => {
+  const ui = await mount(t, { readOnly: true });
+  const model = ui.c.getWorkbook();
+  await ui.down(ui.cell('C3'), { pointerType: 'touch', clientX: 100, clientY: 100 });
+  assert.deepEqual(ui.selected(), ['A1']);
+  await ui.up({ pointerType: 'touch', clientX: 103, clientY: 102 });
+  assert.deepEqual(ui.selected(), ['C3']);
+  assert.equal(ui.focusedElement, null);
+  assert.equal(ui.c.editing, null);
+  assert.equal(ui.c.getWorkbook(), model);
+  assert.equal(ui.c.canUndo, false);
+});
+
+test('touch scrolling or cancellation does not select a range or prevent the browser pan', async t => {
+  const ui = await mount(t);
+  let prevented = false;
+  await ui.down(ui.cell('C3'), { pointerType: 'touch', clientX: 100, clientY: 100, preventDefault() { prevented = true; } });
+  await ui.move({ pointerType: 'touch', clientX: 170, clientY: 150, preventDefault() { prevented = true; } });
+  await ui.enter(ui.cell('F6'), { pointerType: 'touch' });
+  await ui.up({ pointerType: 'touch', clientX: 170, clientY: 150 });
+  assert.deepEqual(ui.selected(), ['A1']);
+  assert.equal(prevented, false);
+  await ui.down(ui.cell('C3'), { pointerType: 'touch', clientX: 100, clientY: 100 });
+  await ui.cancel();
+  await ui.up({ pointerType: 'touch', clientX: 100, clientY: 100 });
+  assert.deepEqual(ui.selected(), ['A1']);
+});
+
+test('explicit touch range mode drags selections without opening the keyboard; header taps select axes', async t => {
+  const ui = await mount(t, { touchRangeSelection: true });
+  await ui.down(ui.cell('B2'), { pointerType: 'touch' });
+  await ui.enter(ui.cell('D4'), { pointerType: 'touch' });
+  await ui.up({ pointerType: 'touch' });
+  assert.deepEqual(ui.selected(), ['B2', 'C2', 'D2', 'B3', 'C3', 'D3', 'B4', 'C4', 'D4']);
+  assert.equal(ui.focusedElement, null);
+  assert.equal(ui.c.editing, null);
+  const normal = await mount(t, { readOnly: true });
+  await normal.down(normal.header('column', 'C'), { pointerType: 'touch', clientX: 100, clientY: 5 });
+  await normal.up({ pointerType: 'touch', clientX: 100, clientY: 5 });
+  assert.equal(normal.selected().length, 8);
+  assert.equal(normal.selected().every(address => address.startsWith('C')), true);
+  assert.equal(normal.focusedElement, null);
+});
+
+test('a stale touch release cannot select cells after switching sheets', async t => {
+  const ui = await mount(t, { initialWorkbook: { sheets: [
+    { id: 'one', name: 'One', rowCount: 8, columnCount: 8, cells: {} },
+    { id: 'two', name: 'Two', rowCount: 8, columnCount: 8, cells: {} },
+  ] } });
+  await ui.down(ui.cell('C3'), { pointerType: 'touch', clientX: 100, clientY: 100 });
+  await act(async () => ui.c.selectionApi.selectSheet('two'));
+  await ui.up({ pointerType: 'touch', clientX: 100, clientY: 100 });
+  assert.equal(ui.c.activeSheet.id, 'two');
+  assert.deepEqual(ui.selected(), ['A1']);
 });

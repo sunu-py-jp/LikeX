@@ -50,7 +50,7 @@ function resized(element: SlideElement, dx: number, dy: number, corner: Corner, 
     y: element.y + element.height / 2 + shiftX * sin + shiftY * cos - height / 2, width, height, rotation: element.rotation };
 }
 
-export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }: { deck: SlideDeck; slide: Slide | undefined; editor: SlideEditor; zoom: number; onImage?(target: { deck: SlideDeck; slideId: string }): void; onProperties?(): void }) {
+export function SlideCanvas({ deck, slide, editor, zoom, mobile = false, onImage, onProperties }: { deck: SlideDeck; slide: Slide | undefined; editor: SlideEditor; zoom: number; mobile?: boolean; onImage?(target: { deck: SlideDeck; slideId: string }): void; onProperties?(): void }) {
   const viewport = useRef<HTMLDivElement>(null), surface = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 900, height: 600 });
   const [preview, setPreview] = useState<Map<string, Geometry>>(new Map());
@@ -59,7 +59,8 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
   const gesture = useRef<Gesture | null>(null);
   const marquee = useRef<Marquee | null>(null);
   const [marqueePreview, setMarqueePreview] = useState<{ box: MarqueeBox; elementIds: string[] } | null>(null);
-  const scale = Math.max(.05, Math.min((size.width - 80) / deck.width, (size.height - 64) / deck.height)) * zoom / 100;
+  const gutterX = mobile ? 16 : 80, gutterY = mobile ? 16 : 64;
+  const scale = Math.max(.05, Math.min((size.width - gutterX) / deck.width, (size.height - gutterY) / deck.height)) * zoom / 100;
   const latest = useRef({ deck, slideId: slide?.id, editable: editor.editable, formatting: editor.features.formatting, scale });
   useLayoutEffect(() => { latest.current = { deck, slideId: slide?.id, editable: editor.editable, formatting: editor.features.formatting, scale }; });
   useLayoutEffect(() => () => { latest.current = { ...latest.current, slideId: undefined }; }, []);
@@ -108,7 +109,7 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
     const next = { box, elementIds }; setMarqueePreview(next); return next;
   }
   function beginMarquee(event: PointerEvent<HTMLDivElement>) {
-    if (event.button !== 0 || !slide || editing || gesture.current || marquee.current
+    if (event.button !== 0 || event.pointerType === "touch" || !slide || editing || gesture.current || marquee.current
       || (event.target as HTMLElement).closest?.("[data-slide-element],button,input,textarea,select,[contenteditable=true]")) return;
     const target = viewport.current, rect = surface.current?.getBoundingClientRect(), win = target?.ownerDocument.defaultView;
     if (!target || !rect || !win) return;
@@ -149,6 +150,13 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
 
   const begin = (event: PointerEvent<HTMLElement>, element: SlideElement, kind: Gesture["kind"], corner?: Corner) => {
     if (event.button !== 0 || !slide || editing || marquee.current) return;
+    // A first touch selects without capturing the pointer, so swiping can pan the canvas.
+    // Only an already selected, editable object takes a second touch as a move gesture.
+    if (event.pointerType === "touch" && kind === "move" && (!selected.has(element.id) || !editor.editable || !editor.features.formatting || element.locked)) {
+      event.stopPropagation();
+      editor.select({ slideId: slide.id, elementIds: [element.id] });
+      return;
+    }
     event.stopPropagation(); event.preventDefault();
     if (kind === "corner") event.currentTarget.focus?.({ preventScroll: true });
     else viewport.current?.focus();
@@ -315,7 +323,7 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
     onContextMenu={canvasMenu}
     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) cancelMarquee(); }}
     onPointerDown={beginMarquee}>
-    {slide ? <div className="lxp-canvas-center" style={{ minWidth: deck.width * scale + 80, minHeight: deck.height * scale + 64 }}>
+    {slide ? <div className="lxp-canvas-center" style={{ minWidth: deck.width * scale + gutterX, minHeight: deck.height * scale + gutterY }}>
       <div className="lxp-canvas-frame" style={{ width: deck.width * scale, height: deck.height * scale }}>
         <div ref={surface} className="lxp-canvas-surface" style={{ width: deck.width, height: deck.height, background: appearance?.background, transform: `scale(${scale})` }}
           onPointerDown={beginMarquee}
@@ -324,7 +332,7 @@ export function SlideCanvas({ deck, slide, editor, zoom, onImage, onProperties }
           {renderedElements.map(element => <SlideCanvasElement key={element.id} element={element} elements={renderedElements}
             original={slide.elements.find(item => item.id === element.id)!} selected={selected.has(element.id)}
             editable={editor.editable} formatting={editor.features.formatting} textEnabled={editor.features.text}
-            moving={moving && preview.has(element.id)} scale={scale} onBegin={begin} onMenu={elementMenu} onEdit={setEditing} onCornerChange={changeCorner} />)}
+            moving={moving && preview.has(element.id)} scale={scale} mobile={mobile} onBegin={begin} onMenu={elementMenu} onEdit={setEditing} onCornerChange={changeCorner} />)}
           {searchElementId && [...appearance?.inheritedElements ?? [], ...renderedElements].filter(element => element.id === searchElementId).map(element =>
             <div key={`search:${element.id}`} className="lxp-search-highlight" data-slide-search-highlight={element.id} aria-hidden="true"
               style={{ ...elementStyle(element), opacity: 1, borderWidth: 3 / scale }} />)}

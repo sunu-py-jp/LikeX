@@ -1,9 +1,11 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import type { ResolvedResponsiveLayout } from "../core";
 
 export type ExplorerDomContextValue = {
   document: Document | null;
+  layout?: ResolvedResponsiveLayout;
   portalContainer?: HTMLElement;
   /** Dialogs are positioned within this Explorer, while menus may escape it. */
   dialogContainer?: HTMLElement;

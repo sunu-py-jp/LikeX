@@ -1,7 +1,8 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
 import type { SpreadsheetCellPosition, SpreadsheetWorkbook } from "./model/types";
 import type { SpreadsheetHandle } from "./api/types";
-import type { ContextMenuExecutionMode, RibbonDisplayMode, SearchPanelInitialState } from "./core";
+import type { ContextMenuExecutionMode, ResponsiveLayout, RibbonDisplayMode, SearchPanelInitialState } from "./core";
+export type { ResponsiveLayout } from "./core";
 import type { SpreadsheetContextMenuProvider } from "./api/context-menu";
 import type { SpreadsheetFeatures } from "./api/features";
 import type { SpreadsheetBeforeSaveHandler, SpreadsheetEditHandler, SpreadsheetEventHandler, SpreadsheetRefreshHandler, SpreadsheetSaveHandler } from "./api/lifecycle";
@@ -42,6 +43,8 @@ export type SpreadsheetSelection = Readonly<{
 import type { SpreadsheetExternalSearchOptions, SpreadsheetSearchHandler, SpreadsheetSearchRenderContext, SpreadsheetSearchSettings } from "./api/search";
 
 export type SpreadsheetProps = SearchPanelInitialState & {
+  /** auto (default): mobile below 720 CSS px of the component. Presentation only. */
+  layout?: ResponsiveLayout;
   /** Host-provided destinations, retained separately from local search. Supply a fresh results array after replacing the workbook. */
   externalSearch?: SpreadsheetExternalSearchOptions;
   /** Search timing and host-owned detailed conditions. */

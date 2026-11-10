@@ -3,11 +3,15 @@
 .lxs-paste-special { max-width: 175px; min-height: 29px; border: 1px solid var(--lxs-border); border-radius: 4px; background: var(--lxs-background); color: var(--lxs-foreground); }
 .lxs-search-dialog { width: min(560px, calc(100% - 24px)); }
 .lxs-floating-layer { position: fixed; inset: 0; z-index: 1000; pointer-events: none; }
-.lxs-floating-window { position: absolute; pointer-events: auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; max-width: 100%; max-height: 100%; padding: 0; overflow: visible; border: 1px solid var(--lxs-border); border-radius: 9px; background: var(--lxs-background); color: var(--lxs-foreground); box-shadow: 0 8px 30px #0004; white-space: normal; }
-.lxs-floating-window-heading { flex: 0 0 auto; min-width: 0; padding: 10px 14px; border-bottom: 1px solid var(--lxs-border); cursor: move; touch-action: none; user-select: none; }
+.lxs-floating-layer[popover] { margin: 0; padding: 0; border: 0; width: auto; height: auto; max-width: none; max-height: none; overflow: visible; background: transparent; }
+.lxs-floating-layer[popover]::backdrop { background: transparent; pointer-events: none; }
+.lxs-floating-layer[data-contained] { position: absolute; }
+/* Keep modal-host resets from overriding the floating window's borders and spacing. */
+.lxs-root .lxs-floating-window { position: absolute; pointer-events: auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; max-width: 100%; max-height: 100%; padding: 0; overflow: visible; border: 1px solid var(--lxs-border); border-radius: 9px; background: var(--lxs-background); color: var(--lxs-foreground); box-shadow: 0 8px 30px #0004; white-space: normal; }
+.lxs-root .lxs-floating-window-heading { flex: 0 0 auto; min-width: 0; padding: 10px 14px; border-bottom: 1px solid var(--lxs-border); cursor: move; touch-action: none; user-select: none; }
 .lxs-floating-window-heading h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
 .lxs-floating-window-heading button { cursor: pointer; }
-.lxs-floating-window-content { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: auto; padding: 8px 18px 12px; }
+.lxs-root .lxs-floating-window-content { flex: 1 1 auto; min-height: 0; min-width: 0; overflow: auto; padding: 8px 18px 12px; }
 .lxs-floating-window-content p { margin: 8px 0; line-height: 1.7; }
 .lxs-search-dialog > .lxs-floating-window-content { display: flex; flex-direction: column; }
 .lxs-search-dialog > .lxs-floating-window-content > :not(.lxs-search-results) { flex: 0 0 auto; }
@@ -27,7 +31,7 @@
 .lxs-search-options { display: flex; gap: 16px; flex-wrap: wrap; }
 .lxs-search-options label { display: flex; align-items: center; gap: 8px; margin: 0; }
 .lxs-search-fields > .lxs-search-checkbox { display: flex; gap: 8px; }
-.lxs-search-results { max-height: 200px; overflow: auto; border: 1px solid var(--lxs-border); border-radius: 4px; }
+.lxs-root .lxs-search-results { max-height: 200px; overflow: auto; border: 1px solid var(--lxs-border); border-radius: 4px; }
 .lxs-search-dialog .lxs-search-results { flex: 1 0 100px; min-height: 100px; max-height: none; }
 .lxs-search-results > button { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px; width: 100%; padding: 7px 8px; text-align: left; }
 .lxs-search-results > button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

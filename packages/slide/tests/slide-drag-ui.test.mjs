@@ -19,3 +19,41 @@ test('filmstrip cancels on Escape, readonly, external model replacement and unmo
 test('canvas auto-scroll keeps full geometry, commits once and cancels stale gestures',async t=>{const env=environment(t);const deck=createSlideDeck({width:800,height:600,slides:[{id:'slide',name:'one',background:'#fff',notes:'',elements:[createSlideElement({type:'shape',id:'shape',x:50,y:60,width:180,height:100})]}]});const {editor,commands}=editorFor(deck),viewport=env.node(),surface=env.node();let renderer;const render=()=>h(SlideCanvas,{deck:editor.deck,slide:editor.deck.slides[0],editor,zoom:200});await change(()=>{renderer=create(render(),{createNodeMock:element=>element.props.className==='lxp-canvas-viewport'?viewport:element.props.className==='lxp-canvas-surface'?surface:null});});t.after(()=>change(()=>renderer.unmount()));const shape=()=>renderer.root.findByProps({'data-slide-element':'shape'}),canvas=()=>renderer.root.findByProps({className:'lxp-canvas-surface'}),capture=env.node();await change(()=>shape().props.onPointerDown(pointer(100,100,{currentTarget:capture})));await change(()=>canvas().props.onPointerMove(pointer(1000,650)));assert.equal(shape().props.style.opacity,.62);assert.equal(shape().props.style.width,180);assert.equal(commands.length,0);await change(()=>env.tick());assert.ok(viewport.scrollLeft>0&&viewport.scrollTop>0);const previewX=shape().props.style.left;await change(()=>env.emit('pointerup',{pointerId:1,clientX:1040,clientY:690}));assert.equal(commands.length,1);assert.ok(editor.deck.slides[0].elements[0].x>previewX,'release updates coordinates after the last pointermove');assert.equal(editor.deck.slides[0].elements[0].width,180);assert.equal(env.frames.size,0);await change(()=>renderer.update(render()));await change(()=>shape().props.onPointerDown(pointer(100,100,{currentTarget:capture})));await change(()=>canvas().props.onPointerMove(pointer(300,200)));await change(()=>env.emit('keydown',{key:'Escape'}));await change(()=>env.emit('pointerup',{pointerId:1}));assert.equal(commands.length,1);await change(()=>shape().props.onPointerDown(pointer(100,100,{currentTarget:capture})));editor.deck=createSlideDeck({...editor.deck,title:'Updated elsewhere'});await change(()=>renderer.update(render()));await change(()=>env.emit('pointerup',{pointerId:1}));assert.equal(commands.length,1);assert.equal(env.frames.size,0);});
 
 for(const [label,x,y] of [['canvas',300,250],['heading',90,10],['below list',90,430],['outside browser',-10,250]])test(`filmstrip releasing over ${label} cancels instead of committing the nearest insertion`,async t=>{const f=await filmstrip(t);await f.start('one',90);await change(()=>f.emit('pointermove',pointer(x,y)));await change(()=>f.tick());if(y>380)assert.ok(f.list.scrollTop>0,'scrolling outside the list is allowed during the drag');await change(()=>f.emit('pointerup',pointer(x,y)));assert.equal(f.commands.length,0);assert.deepEqual(f.editor.deck.slides.map(slide=>slide.id),['one','two','three','four']);assert.equal(f.frames.size,0);assert.equal(f.renderer.root.findAllByProps({className:'lxp-slide-drag-preview'}).length,0);});
+
+test('touching the filmstrip leaves native vertical scrolling free and selects on click', async t => {
+  const f = await filmstrip(t);
+  let prevented = false;
+  await change(() => f.renderer.root.findByProps({ 'data-filmstrip-id': 'two' }).props.onPointerDown(pointer(80, 180, {
+    pointerType: 'touch', preventDefault() { prevented = true; },
+  })));
+  assert.equal(prevented, false); assert.equal(f.editor.selection.slideId, 'one'); assert.equal(f.frames.size, 0);
+  await change(() => f.renderer.root.findByProps({ 'aria-label': 'スライド 2: two' }).props.onClick({}));
+  assert.equal(f.editor.selection.slideId, 'two'); assert.deepEqual(f.commands, []);
+});
+
+test('touch canvas pans on first contact and in read-only mode, while selected editable objects can move', async t => {
+  const env = environment(t);
+  const deck = createSlideDeck({ slides: [{ id: 's', name: 's', background: '#fff', notes: '', elements: [createSlideElement({ type: 'shape', id: 'shape', x: 50, y: 60, width: 180, height: 100 })] }] });
+  const { editor, commands } = editorFor(deck), viewport = env.node(), surface = env.node(), capture = env.node();
+  let renderer, prevented = false;
+  const render = () => h(SlideCanvas, { deck: editor.deck, slide: editor.deck.slides[0], editor, zoom: 100, mobile: true });
+  await change(() => { renderer = create(render(), { createNodeMock: element => element.props.className === 'lxp-canvas-viewport' ? viewport : element.props.className === 'lxp-canvas-surface' ? surface : null }); });
+  t.after(() => change(() => renderer.unmount()));
+  const shape = () => renderer.root.findByProps({ 'data-slide-element': 'shape' });
+  const touch = () => pointer(100, 100, { pointerType: 'touch', currentTarget: capture, preventDefault() { prevented = true; } });
+  await change(() => shape().props.onPointerDown(touch()));
+  assert.equal(prevented, false); assert.deepEqual(editor.selection.elementIds, ['shape']); assert.equal(env.frames.size, 0);
+  await change(() => renderer.update(render()));
+  assert.equal(shape().props['data-touch-draggable'], true);
+  await change(() => shape().props.onPointerDown(touch()));
+  assert.equal(prevented, true);
+  await change(() => renderer.root.findByProps({ className: 'lxp-canvas-surface' }).props.onPointerMove(pointer(180, 160, { pointerType: 'touch' })));
+  await change(() => env.emit('pointerup', { pointerId: 1, clientX: 180, clientY: 160 }));
+  assert.equal(commands.length, 1);
+  editor.editable = false; editor.readOnly = true; prevented = false;
+  await change(() => renderer.update(render()));
+  assert.equal(shape().props['data-touch-draggable'], undefined);
+  await change(() => shape().props.onPointerDown(touch()));
+  await change(() => renderer.root.findByProps({ className: 'lxp-canvas-viewport' }).props.onPointerDown(touch()));
+  assert.equal(prevented, false); assert.equal(commands.length, 1); assert.equal(env.frames.size, 0);
+});

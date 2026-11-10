@@ -29,7 +29,7 @@ export { displayCell } from "./grid/cell-display";
 export { nextCellPosition } from "./grid/use-grid-focus";
 
 /** Composes grid markup; viewport, focus and pointer state live in dedicated hooks. */
-export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetController }) {
+export function SpreadsheetGrid({ controller: c, touchRangeSelection = false }: { controller: SpreadsheetController; touchRangeSelection?: boolean }) {
   const resize = useColumnResize(c);
   const { resizing } = resize;
   const rowResize = useGridResize(c, "row");
@@ -49,7 +49,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   const activeValue = c.calculated[c.activeSheet.id]?.[activeAddress];
   const activeFormat = conditional(c.selection.focus.row, c.selection.focus.column, activeValue, effectiveCellFormat(c.activeSheet.cells[activeAddress], getCellFormat(c.activeSheet, c.selection.focus.row, c.selection.focus.column))).format;
   useGridEditorSize(activeInput, JSON.stringify({ focus: c.selection.focus, sheet: c.activeSheet.id, value: activeValue, editing: c.editing?.value, format: activeFormat, width: columnOffsets[(activeMerge?.right ?? c.selection.focus.column) + 1] - columnOffsets[activeMerge?.left ?? c.selection.focus.column] }), activeHeight, !!c.editing);
-  const selectionHandlers = useGridSelection(c, focus, { columnOffsets, rowOffsets });
+  const selectionHandlers = useGridSelection(c, focus, { columnOffsets, rowOffsets }, touchRangeSelection);
   const { startSelection, extendSelection, selectHeaderWithKeyboard } = selectionHandlers;
   const borderRows = useMemo(() => createBorderRowLookup(c.activeSheet.merges), [c.activeSheet.merges]);
   const selectedBounds = useMemo(() => selectionRanges(c.selection).map(rangeBounds), [c.selection]);
@@ -77,7 +77,7 @@ export function SpreadsheetGrid({ controller: c }: { controller: SpreadsheetCont
   [virtualRows, c, widths, columnOffsets, rowOffsets, gridWidth, renderedMerges, visibleRows, borderRows, selectedBounds, conditional, bindActiveInput, dataControlRows]);
   return <div className="lxs-grid-surface"><SpreadsheetDrawingInspector controller={c} />
     {c.printAreaView && !c.activeSheet.printSettings?.area && <div className="lxs-print-area-hint" role="status">このシートには印刷範囲が設定されていません。</div>}
-    <div ref={scroller} tabIndex={-1} className="lxs-grid-scroll" style={{ zoom: (c.zoom ?? 100) / 100 }} onBlurCapture={focus.onBlurCapture} onScroll={layout.onScroll}>
+    <div ref={scroller} tabIndex={-1} className="lxs-grid-scroll" data-touch-range-selection={touchRangeSelection || undefined} style={{ zoom: (c.zoom ?? 100) / 100 }} onBlurCapture={focus.onBlurCapture} onScroll={layout.onScroll}>
     <div className="lxs-grid-canvas" style={{ width: gridWidth, height: rowOffsets.at(-1) }}><div role="grid" aria-label={c.activeSheet.name} aria-readonly={c.disabled || c.requesting} aria-rowcount={c.activeSheet.rowCount + 1} aria-colcount={c.activeSheet.columnCount + 1} aria-multiselectable="true" className="lxs-grid" style={{ width: gridWidth, height: rowOffsets.at(-1) }}>
       <div role="row" aria-rowindex={1} className="lxs-column-headers" style={{ width: gridWidth, height: ROW_HEIGHT }}>
         <div role="columnheader" className="lxs-corner" style={{ width: ROW_HEADER_WIDTH }} aria-label="行と列"><button type="button" className="lxs-header-button" aria-label="すべてのセルを選択" onClick={focus.selectAll}>◢</button></div>

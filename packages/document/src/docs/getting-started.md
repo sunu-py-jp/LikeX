@@ -55,6 +55,7 @@ TypeScriptではReact / React DOMの型定義を導入し、`lib: ["ES2022", "DO
 | `externalSearch` / `initialSearchMode` | 利用側の検索結果と説明を表示。`local`／`external`の初期モードを選択（[外部検索](search.md#外部検索の結果を表示する)） |
 | `initialSearchOpen` / `initialSearchQuery` | 検索欄を最初から表示・検索語を設定。初回のみ。省略時は閉じた状態・空文字（[検索](search.md)） |
 | `title` | UIのタイトル表示 |
+| `layout` | `auto`（既定） / `desktop` / `mobile`。`auto` はコンポーネント幅720px未満でスマホ向け表示に切り替える |
 | `colorMode` | `light` / `dark` / `system` |
 | `primaryColor` | リボンなどの強調色 |
 | `className` / `style` | 表示枠のクラス・サイズ |
@@ -63,5 +64,17 @@ TypeScriptではReact / React DOMの型定義を導入し、`lib: ["ES2022", "DO
 | `features` | [編集機能](editing.md)を個別に無効にする |
 
 用紙の寸法・余白は文書の `page` に保存されます。UIの配色と文書内の文字色は別の設定です。Next.js App RouterではCSSを `app/layout.tsx` で読み込み、コールバックを渡す親コンポーネントに `"use client"` を付けてください。
+
+## スマホ・狭い領域への表示
+
+`layout` を省略すると、画面全体ではなくコンポーネントの幅を監視します。幅720px未満では、見出し一覧を初期状態で閉じ、見出し・検索・幅合わせのボタンを表示します。見出しや検索結果は本文上部の開閉ペインに表示し、本文を横から押し縮めません。リボンは横にスクロールでき、ダイアログの内容も枠内でスクロールできます。`layout` はマウント後に変更でき、スマホでPC表示を維持する場合は `desktop`、広い領域でもスマホ向け表示を使う場合は `mobile` を指定します。
+
+```tsx
+<LikeDocument initialDocument={document} layout="auto" style={{ height: "100dvh" }} />
+```
+
+スマホ向け表示では用紙全体の幅を表示領域に合わせます。文字を大きく読む場合は下部のズームで拡大し、横・縦にスクロールしてください。手動ズーム後は領域の幅が変わっても倍率を保持し、「幅に合わせる」で自動調整に戻ります。PC表示とスマホ向け表示のズームは別々に保持します。
+
+用紙サイズ・余白・改ページ位置・本文の構造は変えません。表示レイアウト・倍率・見出しペインの状態は `.dcon` / DOCX・変更履歴・未保存判定に含めません。読み取り専用でも見出しへの移動と検索が使え、`features.search: false` で検索を無効にできます。既存の `ribbonDisplayMode` / `initialRibbonDisplayMode` はそのまま適用されます。
 
 `initialPageNumber={2}` は初回マウント時に2ページ目へ移動します。後から移動するときは `ref.current?.goToPage(2)` を使います。いずれも読み取り専用で使え、編集許可・未保存判定・履歴を変更しません。不正な番号や存在しないページは通知し、文書を維持します。ページは明示的な `page_break` とDOCXの保存済み自動改ページ位置の `rendered_page_break` で区切った範囲です。通常画面も保存された境界に合わせて用紙を分けて表示しますが、編集後のWordの自動改ページは再計算しません。表セル内の境界は用紙を分けず目印を残すため、ページ番号は画面上の用紙枚数と一致しない場合があります。[本文のページ表示](editing.md#本文のページ表示)と[ページ取得とref操作](headless.md)を参照してください。

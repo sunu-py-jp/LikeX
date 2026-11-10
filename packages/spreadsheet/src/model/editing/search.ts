@@ -1,6 +1,6 @@
 import { withFormatRangeContext } from "../formatting/range-context";
 import { getCellFormat } from "../format-ranges";
-import { createTextSearchMatcher } from "../core-text-search";
+import { createTextSearchMatcher, type TextSearchMatcher } from "../core-text-search";
 import { filterCellValueWrites, type SpreadsheetWriteConflictPolicy } from "../workbook/write-conflicts";
 import { expandCellAddresses } from "../cell-addresses";
 import { getWorkbookSheet } from "../workbook/snapshot";
@@ -42,7 +42,7 @@ export function findSpreadsheetSheets(workbook: QuerySnapshot<SpreadsheetWorkboo
   return copyQuerySnapshot(matches);
 }
 
-export function createSpreadsheetSearchMatcher(query: SpreadsheetSearchQuery) {
+export function createSpreadsheetSearchMatcher(query: SpreadsheetSearchQuery): TextSearchMatcher {
   if (!query || typeof query.text !== "string" || query.text.length > 100_000) throw new Error("検索する文字列を正しく指定してください");
   if (query.lookIn !== undefined && !["values", "formulas"].includes(query.lookIn)) throw new Error("検索の設定が正しくありません");
   return createTextSearchMatcher({ text: query.text, matchCase: query.matchCase, wholeText: query.wholeCell, useRegex: query.useRegex });

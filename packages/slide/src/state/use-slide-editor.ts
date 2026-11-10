@@ -702,7 +702,7 @@ export function useSlideEditor(props: SlideProps) {
     getSelection: () => copy(selectionRef.current), select, deleteSelection, importNative, exportNative, importPptx, importPptxMasters, cancelMasterImport, exportPptx, exportImage, exportImages,
   }), [getRibbonDisplayMode, setRibbonDisplayMode, openSearch, openExternalSearch, closeSearch, goToPage, discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
 
-  return { ...snapshot, ...ribbon, dirty, selection, select, search, searchMatch, externalSearch, openSearch, openExternalSearch, closeSearch, setSearchPageTab, setSearchQuery, selectSearchMatch, highlightSearchMatch, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
+  return { ...snapshot, ...ribbon, dirty, selection, select, goToPage, search, searchMatch, externalSearch, openSearch, openExternalSearch, closeSearch, setSearchPageTab, setSearchQuery, selectSearchMatch, highlightSearchMatch, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
     copyElements, pasteElements, canPasteElements, prepareCommands, registerInputFlush, refreshPendingInput, notice, setNotice, conversionReport, reportError, features, readOnly, busy, requesting,
     editable: !readOnly && !busy && !requesting };
 }

@@ -1,0 +1,44 @@
+/* Layout follows the component width, not the browser viewport. */
+.lxs-root[data-layout="mobile"] .lxs-title-bar { height: 40px; padding-inline: 10px; }
+.lxs-root[data-layout="mobile"] .lxs-title-context { display: none; }
+.lxs-root[data-layout="mobile"] .lxs-ribbon-header { gap: 4px; padding-inline: 4px; }
+.lxs-root[data-layout="mobile"] .lxs-ribbon-tabs { flex: 1 1 100%; min-height: 44px; }
+.lxs-root[data-layout="mobile"] .lxs-ribbon-tab { padding-inline: 12px; min-height: 44px; }
+.lxs-root[data-layout="mobile"] .lxs-ribbon-quick-access { margin-right: auto; }
+.lxs-root[data-layout="mobile"] .lxs-ribbon-header .lxs-operation-status { max-width: 100px; }
+.lxs-root[data-layout="mobile"] .lxs-command,
+.lxs-root[data-layout="mobile"] .lxs-select,
+.lxs-root[data-layout="mobile"] .lxs-ribbon-display { min-width: 36px; min-height: 36px; }
+.lxs-root[data-layout="mobile"] .lxs-ribbon-display { flex-basis: 44px; }
+.lxs-root[data-layout="mobile"] .lxs-formula-bar { height: 44px; padding: 4px; gap: 4px; }
+.lxs-root[data-layout="mobile"] .lxs-name-box { width: 70px; flex: 0 0 70px; }
+.lxs-root[data-layout="mobile"] .lxs-formula-input { min-width: 0; }
+.lxs-root[data-layout="mobile"] :is(.lxs-name-box, .lxs-formula-input) { height: 36px; font-size: 16px; }
+.lxs-root .lxs-mobile-actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; padding-inline: 4px; border-bottom: 1px solid var(--lxs-border); overflow-x: auto; }
+.lxs-root .lxs-mobile-actions button { min-height: 44px; padding-inline: 10px; white-space: nowrap; flex: 0 0 auto; }
+.lxs-root .lxs-mobile-actions button[aria-pressed="true"] { background: var(--lxs-selection); color: var(--lxs-accent); box-shadow: inset 0 -2px var(--lxs-accent); }
+.lxs-mobile-gesture-hint { color: var(--lxs-muted); font-size: 11px; white-space: nowrap; margin-left: auto; }
+.lxs-root[data-layout="mobile"] .lxs-sheet-workspace { position: relative; }
+.lxs-root[data-layout="mobile"] :is(.lxs-comments, .lxs-named-range-panel) { position: absolute; inset: 0 0 0 auto; z-index: 9; width: min(310px, 90%); max-width: 100%; box-shadow: -4px 0 12px #0002; }
+.lxs-root[data-layout="mobile"] .lxs-drawing-inspector { top: 4px; right: 4px; max-height: calc(100% - 8px); }
+.lxs-root[data-layout="mobile"] .lxs-footer { gap: 4px; padding-inline: 4px; min-height: 44px; }
+.lxs-root[data-layout="mobile"] .lxs-sheet-tab { min-height: 44px; }
+.lxs-root[data-layout="mobile"] .lxs-status-bar { gap: 6px; min-height: 40px; padding-inline: 6px; }
+.lxs-root[data-layout="mobile"] .lxs-selection-stats { display: none; }
+.lxs-root[data-layout="mobile"] .lxs-zoom-controls { margin-left: auto; }
+.lxs-root[data-layout="mobile"] .lxs-zoom-slider { width: 80px; }
+.lxs-root[data-layout="mobile"] .lxs-dialog-backdrop { padding: 8px; }
+.lxs-root[data-layout="mobile"] .lxs-dialog { padding: 14px; }
+.lxs-root[data-layout="mobile"] .lxs-dialog-actions { flex-wrap: wrap; }
+.lxs-root[data-layout="mobile"] .lxs-dialog-actions button { min-height: 44px; }
+.lxs-root[data-layout="mobile"] :is(.lxs-search-fields > label, .lxs-form-grid) { grid-template-columns: minmax(0, 1fr); }
+.lxs-root[data-layout="mobile"] .lxs-search-results > button { min-height: 44px; grid-template-columns: minmax(0, 1fr); }
+.lxs-root[data-layout="mobile"] :is(.lxs-dialog, .lxs-form-dialog, .lxs-comments, .lxs-named-range-panel) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="color"]), textarea, select) { font-size: 16px; min-height: 36px; max-width: 100%; }
+/* Mouse/pen drags still select. Finger drags normally scroll both axes. */
+.lxs-root .lxs-cell { touch-action: pan-x pan-y; }
+.lxs-root .lxs-drawing:not(.lxs-drawing-selected), .lxs-root .lxs-drawing-readonly,
+.lxs-root .lxs-line-drawing:not(.lxs-line-selected) [data-lxs-line-hit],
+.lxs-root .lxs-line-drawing.lxs-drawing-readonly [data-lxs-line-hit] { touch-action: pan-x pan-y; }
+.lxs-root .lxs-grid-scroll[data-touch-range-selection] :is(.lxs-cell, .lxs-header-button) { touch-action: none; }
+.lxs-root[data-layout="mobile"] .lxs-cell-input[data-passive] { pointer-events: none; }
+@media (pointer: coarse) { .lxs-root .lxs-cell-input[data-passive] { pointer-events: none; } }

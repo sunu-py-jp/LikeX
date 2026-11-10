@@ -44,6 +44,7 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 - DOCXの `lastRenderedPageBreak` はインラインの `rendered_page_break` に保持し、手動改ページへ置き換えない。段落・リストを分割せず、編集後の自動改ページは再計算しない。DCON version 1への追加ノードで、非対応の旧ライブラリへ渡す前に利用側を更新する。[保存構造とDOCX改ページ](references/schema-guide.md#保存済みの自動改ページ位置)を確認する。
 
 - リボンの `expanded` / `tabs` / `autoHide` / `hidden` はホストUIの表示状態。`.dcon`・DOCXには保存せず、CLI編集コマンドの対象にしない。UI利用側は `initialRibbonDisplayMode` / `ribbonDisplayMode` とrefの `getRibbonDisplayMode()` / `setRibbonDisplayMode()` を使う。
+- `LikeDocument` の `layout?: "auto" | "desktop" | "mobile"` は表示専用。既定の `auto` はコンポーネント幅720px未満でスマホ向け表示になり、見出し・検索を本文上の開閉ペインに表示し、用紙を幅に合わせる。手動ズームと「幅に合わせる」で切り替えられる。用紙のmm寸法・余白・ページ境界・本文は維持し、`.dcon` / DOCX・履歴・CLIコマンドに表示設定を保存しない。読み取り専用や機能フラグも引き続き適用される。利用例は `src/docs/getting-started.md` のスマホ表示を参照。
 
 - 位置はProseMirrorの位置で、最初の段落の先頭文字が `1`。ブロック境界も数えるため、本文の文字数だけから推測しない。後続コマンドは前の変更後の位置を使う。
 - ブロックのIDは `attrs.id`。文字は `text`、書式は `marks`。用紙と余白はmm、文字サイズはpt、画像寸法はpx。

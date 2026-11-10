@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Tooltip } from "radix-ui";
 import { mergeExplorerRootClasses } from "./ui/explorer-classnames";
@@ -17,6 +17,7 @@ import { ExplorerFileList } from "./ui/explorer-file-list";
 import { ExplorerDialogs } from "./ui/explorer-dialogs";
 import { ExplorerNotifications } from "./ui/explorer-notifications";
 import { installExplorerDragAutoScroll } from "./ui/explorer-drag-feedback";
+import { observeResponsiveLayout, type ResolvedResponsiveLayout } from "./core";
 import type { ExplorerProps } from "./props";
 
 export type { ExplorerProps } from "./props";
@@ -57,8 +58,12 @@ const ExplorerPane = memo(function ExplorerPane({ props, workspace, windowId, ow
 }) {
   const controller = useExplorerViewController(props, workspace, windowId, ownerDocument, interaction);
   const [dialogContainer, setDialogContainer] = useState<HTMLDivElement | null>(null);
+  const [resolvedLayout, setResolvedLayout] = useState<ResolvedResponsiveLayout>(props.layout === "mobile" ? "mobile" : "desktop");
+  useLayoutEffect(() => {
+    if (dialogContainer) return observeResponsiveLayout(dialogContainer, props.layout ?? "auto", setResolvedLayout);
+  }, [dialogContainer, props.layout]);
   const environment = useMemo(() => ({ document: ownerDocument, portalContainer: ownerDocument?.body,
-    dialogContainer: dialogContainer ?? undefined }), [ownerDocument, dialogContainer]);
+    dialogContainer: dialogContainer ?? undefined, layout: resolvedLayout }), [ownerDocument, dialogContainer, resolvedLayout]);
   useEffect(() => {
     // Update the owned browser document, not a React data object.
     // eslint-disable-next-line react-hooks/immutability
@@ -121,6 +126,7 @@ const ExplorerPane = memo(function ExplorerPane({ props, workspace, windowId, ow
             <div
               ref={attachWorkspace}
               data-explorer-root={instanceId}
+              data-layout={resolvedLayout}
               data-likex-explorer=""
               role="region"
               aria-label={props["aria-label"] ?? "エクスプローラー"}

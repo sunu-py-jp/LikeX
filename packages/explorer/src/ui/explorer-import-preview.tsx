@@ -47,10 +47,10 @@ type PreviewProps = {
 };
 
 export const ExplorerPendingImportRow = memo(function ExplorerPendingImportRow({
-  preview, style, compact, rowIndex, showCheckboxes, showActions, location, onOpenFolder,
-}: PreviewProps & { rowIndex: number; showCheckboxes: boolean; showActions: boolean; location?: string }) {
+  preview, style, compact, mobile = false, rowIndex, showCheckboxes, showActions, location, onOpenFolder,
+}: PreviewProps & { mobile?: boolean; rowIndex: number; showCheckboxes: boolean; showActions: boolean; location?: string }) {
   const { entry, relativePath } = preview;
-  const cellClass = `${compact ? "lxe:h-7" : "lxe:h-9"} lxe:px-3 lxe:text-xs lxe:text-[var(--explorer-muted)]`;
+  const cellClass = `${mobile ? "lxe:h-11" : compact ? "lxe:h-7" : "lxe:h-9"} lxe:px-3 lxe:text-xs lxe:text-[var(--explorer-muted)]`;
   return <tr {...pendingEvents(preview, onOpenFolder)} data-explorer-pending-import={entry.id} aria-busy="true"
     aria-rowindex={rowIndex} style={style} className="lxe:select-none lxe:cursor-default lxe:outline-offset-[-2px] lxe:focus-visible:outline-2 lxe:focus-visible:outline-[var(--explorer-accent)]">
     {showCheckboxes && <td />}
@@ -60,10 +60,12 @@ export const ExplorerPendingImportRow = memo(function ExplorerPendingImportRow({
         <span className="lxe:min-w-0 lxe:truncate lxe:text-sm lxe:text-[var(--explorer-foreground)]" title={relativePath}>{entry.name}</span>
       </div>
     </td>
+    {!mobile && <>
     {location !== undefined && <td className={`${cellClass} lxe:truncate`} title={location}>{location}</td>}
     <td className={cellClass} />
     <td className={`${cellClass} lxe:truncate`} title={entryExtension(entry)}>{entryExtension(entry)}</td>
     <td className={`${cellClass} lxe:truncate lxe:tabular-nums`}>{entry.kind === "file" ? formatSize(entry.size) : ""}</td>
+    </>}
     {showActions && <td />}
   </tr>;
 });

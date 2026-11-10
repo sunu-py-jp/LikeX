@@ -12,15 +12,16 @@ export type ExplorerListLayout = {
 
 /** Fixed row/cell geometry keeps scrolling independent of off-screen DOM. */
 export function explorerListLayout(count: number, view: ExplorerViewMode, compact: boolean,
-  showLocation: boolean, showCardControls: boolean, viewport: ExplorerListViewport, resultDetailsHeight = 0): ExplorerListLayout {
+  showLocation: boolean, showCardControls: boolean, viewport: ExplorerListViewport, resultDetailsHeight = 0, mobile = false): ExplorerListLayout {
   const width = Math.max(1, viewport.width - 16);
   const line = viewport.lineHeight || 21;
   const smallLine = line * 12 / 14;
-  const row = (compact ? 28 : 36) + resultDetailsHeight;
+  const row = (mobile ? 44 : compact ? 28 : 36) + resultDetailsHeight;
   if (view === "details") {
-    const rowHeight = Math.max(compact ? 28 : 36, line + (showLocation ? smallLine : 0) + 8) + resultDetailsHeight;
+    const rowHeight = Math.max(mobile ? 44 : compact ? 28 : 36, line + (showLocation ? smallLine : 0) + 8) + resultDetailsHeight;
+    const header = mobile ? 44 : 32;
     return { axis: "vertical", columns: 1, rows: count, count, cellWidth: width, rowHeight,
-      gapX: 0, gapY: 0, padding: 0, header: 32, width, height: count * rowHeight + 32 };
+      gapX: 0, gapY: 0, padding: 0, header, width, height: count * rowHeight + header };
   }
   if (view === "list") {
     const rows = Math.max(1, Math.floor((viewport.height - 20) / row));
@@ -30,9 +31,9 @@ export function explorerListLayout(count: number, view: ExplorerViewMode, compac
       width: Math.max(width, columns * 246), height: Math.max(row + 8, viewport.height - 12) };
   }
   const dimensions = {
-    "extra-large": { min: 220, gapX: 12, gapY: 12, height: 160 + 8 + line * 2 + (showCardControls ? 16 : 8) + 10 },
-    large: { min: 145, gapX: 8, gapY: 8, height: 86 + 8 + line * 2 + (showCardControls ? 16 : 8) + 10 },
-    medium: { min: 105, gapX: 4, gapY: 4, height: 48 + 4 + line * 2 + (showCardControls ? 16 : 8) + 10 },
+    "extra-large": { min: 220, gapX: 12, gapY: 12, height: 160 + 8 + line * 2 + (showCardControls ? mobile ? 48 : 16 : 8) + 10 },
+    large: { min: 145, gapX: 8, gapY: 8, height: 86 + 8 + line * 2 + (showCardControls ? mobile ? 48 : 16 : 8) + 10 },
+    medium: { min: 105, gapX: 4, gapY: 4, height: 48 + 4 + line * 2 + (showCardControls ? mobile ? 48 : 16 : 8) + 10 },
     small: { min: 215, gapX: 12, gapY: 0, height: row },
     tiles: { min: 270, gapX: 10, gapY: 4, height: Math.max(72, Math.max(56, line + smallLine) + (compact ? 8 : 16) + 2) },
     content: { min: width, gapX: 0, gapY: 0, height: Math.max(64, Math.max(56, line + smallLine) + (compact ? 8 : 16) + 2) },

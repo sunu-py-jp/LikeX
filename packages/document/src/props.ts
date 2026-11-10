@@ -1,5 +1,5 @@
 import type { CSSProperties, Ref } from "react";
-import type { MaybePromise, OperationContext, RibbonDisplayMode, SaveHandler, SearchPanelHandle, SearchPanelInitialState, ExternalSearchOptions } from "./core";
+import type { MaybePromise, OperationContext, ResponsiveLayout, RibbonDisplayMode, SaveHandler, SearchPanelHandle, SearchPanelInitialState, ExternalSearchOptions } from "./core";
 import type { DocumentCommand, DocumentCommandResult, DocumentModel, DocumentSelection } from "./model/types";
 
 export type { DocumentSelection } from "./model/types";
@@ -43,6 +43,8 @@ export type DocumentHandle = SearchPanelHandle & {
   exportDocx(): Promise<Blob>;
 };
 export type DocumentProps = SearchPanelInitialState & {
+  /** Auto adapts to the component's width (mobile below 720px). View-only; can be changed after mount. */
+  layout?: ResponsiveLayout;
   ref?: Ref<DocumentHandle>;
   externalSearch?: ExternalSearchOptions<DocumentExternalSearchTarget>;
   /** Initial local document. Later changes should use ref.execute(document.replace). */

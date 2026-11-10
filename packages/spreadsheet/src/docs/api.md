@@ -66,6 +66,7 @@ try {
 | `initialSheetId` / `initialSheetName` | `string` | マウント時に開くシートのID／名前。完全一致。両指定は同じシートが必要。不正な指定は先頭＋エラー通知。[対象シート](./selection.md#最初に開くシートを指定する) |
 | `initialZoom` | `number` | マウント時の表示倍率。既定100％、25〜200へ補正。有限でない数値は100。[表示倍率](./zoom.md) |
 | `initialPrintAreaView` / `onPrintAreaViewChange` | `boolean` / `(visible: boolean) => void` | 印刷範囲・改ページ境界の初期表示（既定false）と表示切替通知。表示後はHandleで切り替えます。[印刷範囲](./print-area.md) |
+| `layout` | `ResponsiveLayout` | `"auto"`（既定）はコンポーネント幅720px未満でスマホ表示。`"mobile"` / `"desktop"` で固定。マウント後も変更可能。[スマホ表示](#スマホ表示) |
 | `renderingMode` | `SpreadsheetRenderingMode` | `"viewport"`（既定）は表示範囲中心の省メモリ描画。`"progressive"` は現在のシートを順次描画。表示中の変更にも追従。[描画モード](#シートの描画モード) |
 | `excelImportOptions` | `Pick<SpreadsheetExcelImportOptions, "emptyCellFormatting" \| "limits">` | Excel取り込みの既定値。`"preserve"`（標準）は同じ空セル書式を範囲として保持、`"omit"` は省略。`limits` は入力128 MiB・展開後その5倍が標準。Handleの明示指定が優先し、書式省略のGUIチェックは独立して変更可能。[空セルの書式](./excel-import.md#空セルの書式を省略する) |
 | `initialRibbonDisplayMode` | `SpreadsheetRibbonDisplayMode` | マウント時のリボン表示。`expanded`（既定）・`tabs`・`autoHide`・`hidden`。[リボンの表示](./ribbon-display.md) |
@@ -178,3 +179,22 @@ import { serializeWorkbook } from "@likex/spreadsheet";
 コピー・切り取り・貼り付け、行列の挿入・削除、シートの追加・改名・削除を独立に指定できます。書式・数式・結合・画像・図形・コメント・保存・更新も制御できます。親設定 `clipboard` / `rowColumnOperations` / `sheets` の一括OFFも従来どおり利用できます。
 
 全設定と組み合わせ、既存データの表示、読み取り専用との違いは[機能のON/OFF](./features.md)を参照してください。
+
+
+## スマホ表示
+
+`layout` を省略すると、ブラウザー全体ではなくコンポーネントの幅で自動切り替えます。720 CSS px未満が `mobile`、720px以上が `desktop` です。`layout="mobile"` または `layout="desktop"` で固定できます。`ResponsiveLayout` 型はSpreadsheetとCoreの公開入口からimportできます。
+
+```tsx
+<Spreadsheet initialWorkbook={workbook} layout="auto"
+  renderingMode="viewport" style={{ width: "100%", height: "100dvh" }} />
+```
+
+- セルを指でドラッグすると縦横にスクロールし、タップを離すとセルを選択します。選択だけではソフトウェアキーボードを開きません。
+- 「範囲選択」をONにすると指のドラッグが範囲選択になります。OFFに戻すと再びスクロールできます。行列見出しのタップでも行・列を選択できます。マウス・ペンのドラッグ選択は従来どおりです。
+- 値の入力は「編集」または数式欄を使います。閲覧専用では編集ボタンを表示せず、セル選択・範囲選択・検索は可能です。機能フラグはそのまま適用されます。
+- リボンのタブとコマンドは横にスクロールできます。`initialRibbonDisplayMode="tabs"` を併用すると本文を広く表示できます。既存のリボン表示モード指定とAPIは維持されます。
+- コメント・名前付き範囲の補助パネルは本文上に重ねて表示します。検索・ダイアログは狭幅へ収めてスクロールできます。
+- 未選択の画像・図形の上でも指でスクロールできます。タップして選択した図形は次のドラッグで移動します。閲覧専用では図形の上も常にスクロールできます。
+
+セル幅・行高・図形サイズ・表示倍率・SPON/XLSXのデータはスマホ表示で変えません。狭いセルはズーム操作で拡大できます。親は表示領域の高さを確保し、flex/grid内では必要に応じて `min-width: 0; min-height: 0` を指定します。ページのviewport metaは `width=device-width, initial-scale=1` とし、ユーザーの拡大を禁止しないでください。実機のソフトウェアキーボードやブラウザー固有のジェスチャーは利用側の画面でも確認してください。

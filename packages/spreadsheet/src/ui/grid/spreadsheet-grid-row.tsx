@@ -99,7 +99,7 @@ export const SpreadsheetGridRow = memo(function SpreadsheetGridRow({ row, contro
           const singleCell = currentBounds.length === 1 && currentBounds[0].top === (merge?.top ?? row) &&
             currentBounds[0].bottom === (merge?.bottom ?? row) && currentBounds[0].left === (merge?.left ?? column) &&
             currentBounds[0].right === (merge?.right ?? column);
-          if (focused && singleCell && !current.disabled && !current.requesting && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey &&
+          if (event.pointerType !== "touch" && focused && singleCell && !current.disabled && !current.requesting && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey &&
             input && event.target === input && input.ownerDocument.activeElement === input) {
             current.beginEdit({ row, column });
             return;

@@ -90,3 +90,10 @@ const zip = await createZipArchive([
 通常文字列は100,000文字、正規表現は4,096文字までです。コンパイル前に繰り返しの展開コストを20,000命令相当までに制限し、短い式でも巨大なグループの繰り返しはエラーにします。独立した繰り返しや選択肢のコストは足し合わせ、入れ子やグループに付く回数だけを掛け合わせます。コンパイル後も命令数を検証します。正規表現は [RE2JS](https://github.com/le0pard/re2js) のRE2形式で、グループ・選択・量指定・文字クラス・アンカー・Unicode文字クラスに対応し、先読み・後読み・後方参照には対応しません。不正な構文・未対応構文・過大なパターンは例外になり、UI側でエラーとして表示します。バックトラッキングにより指数時間を要するJavaScriptの正規表現を、未検証の検索語から直接実行しません。標準の検索条件は表示状態で、OfficeやLikeXの保存ファイルには書き込みません。
 
 ソースコピー導入ではcoreの依存 `re2js@2.8.6` をインストールします。Explorer・Spreadsheetのテキスト検索はそれぞれの `core.ts` を経由するため、上記の導入手順に加えて `model/core-text-search.ts` を変更する必要はありません。
+
+
+## コンポーネント幅によるレイアウト
+
+`ResponsiveLayout` は `"auto" | "desktop" | "mobile"`、解決後の `ResolvedResponsiveLayout` は `"desktop" | "mobile"` です。Explorer・Spreadsheet・LikeSlide・LikeDocumentの公開prop `layout` で共通利用します。`resolveResponsiveLayout(layout, width)` は純粋関数で、`auto` または未指定では正の幅が720 CSS px未満ならmobile、それ以外はdesktopを返します。明示モードは幅より優先し、未計測/非有限/0以下の幅はdesktopです。境界値は `MOBILE_LAYOUT_BREAKPOINT` で公開します。保存モデルや履歴へ書き込みません。
+
+UI向けの `observeResponsiveLayout(element, layout, listener)` は初回とモード切り替え時にlistenerを呼び、監視解除関数を返します。`element.clientWidth` と `ResizeObserver` を使い、ウィンドウ内の狭い埋め込み領域にも追従します。ResizeObserver非対応時はwindowのresize通知へフォールバックします。明示モードでは監視を作りません。React依存やimport時のDOM参照はなく、通常入口と `@likex/core/browser` から利用できます。純粋モデルからDOM監視を呼び出さないでください。

@@ -276,6 +276,60 @@ SOFTWARE.
     color: var(--explorer-accent, #2563eb);
     font-size: 11px;
   }
+  [data-likex-explorer][data-layout="mobile"] .lxe\:icon-control:where([data-likex-explorer], [data-likex-explorer] *) {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+  }
+  [data-likex-explorer][data-layout="mobile"] .lxe\:button-control:where([data-likex-explorer], [data-likex-explorer] *), [data-likex-explorer][data-layout="mobile"] [role="menuitem"]:where([data-likex-explorer], [data-likex-explorer] *), [data-likex-explorer][data-layout="mobile"] [role="menuitemcheckbox"]:where([data-likex-explorer], [data-likex-explorer] *), [data-likex-explorer][data-layout="mobile"] [role="menuitemradio"]:where([data-likex-explorer], [data-likex-explorer] *) {
+    min-height: 44px;
+  }
+  [data-likex-explorer][data-layout="mobile"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):where([data-likex-explorer], [data-likex-explorer] *), [data-likex-explorer][data-layout="mobile"] textarea:where([data-likex-explorer], [data-likex-explorer] *), [data-likex-explorer][data-layout="mobile"] select:where([data-likex-explorer], [data-likex-explorer] *) {
+    font-size: 16px;
+  }
+  [data-likex-explorer][data-layout="mobile"] [data-explorer-header]>header:where([data-likex-explorer], [data-likex-explorer] *) {
+    min-height: 56px;
+  }
+  [data-likex-explorer][data-layout="mobile"] [data-explorer-header]>div:where([data-likex-explorer], [data-likex-explorer] *) {
+    flex-wrap: wrap;
+  }
+  [data-likex-explorer][data-layout="mobile"] [data-explorer-header] [role="search"]:where([data-likex-explorer], [data-likex-explorer] *) {
+    flex-basis: 100%;
+  }
+  [data-likex-explorer][data-layout="mobile"] [data-explorer-address]:where([data-likex-explorer], [data-likex-explorer] *) {
+    flex-basis: 100%;
+  }
+  [data-likex-explorer][data-layout="mobile"] [data-explorer-address]>div:where([data-likex-explorer], [data-likex-explorer] *), [data-likex-explorer][data-layout="mobile"] [data-explorer-address]>input:where([data-likex-explorer], [data-likex-explorer] *), [data-likex-explorer][data-layout="mobile"] [data-explorer-search-input]:where([data-likex-explorer], [data-likex-explorer] *) {
+    min-height: 44px;
+  }
+  [data-likex-explorer][data-layout="mobile"] [data-explorer-address] button:where([data-likex-explorer], [data-likex-explorer] *) {
+    min-height: 42px;
+  }
+  [data-likex-explorer][data-layout="mobile"] [data-explorer-sidebar] nav button:where([data-likex-explorer], [data-likex-explorer] *), [data-likex-explorer][data-layout="mobile"] [data-explorer-tree-root]:where([data-likex-explorer], [data-likex-explorer] *), [data-likex-explorer][data-layout="mobile"] [data-explorer-tree-entry]:where([data-likex-explorer], [data-likex-explorer] *) {
+    min-height: 44px;
+  }
+  [data-likex-explorer][data-layout="mobile"] [data-explorer-file-list] thead th:where([data-likex-explorer], [data-likex-explorer] *) {
+    height: 44px;
+  }
+  [data-likex-explorer][data-layout="mobile"] [data-explorer-file-list] input[type="checkbox"]:where([data-likex-explorer], [data-likex-explorer] *) {
+    width: 24px;
+    height: 24px;
+  }
+  [data-likex-explorer][data-layout="mobile"] [data-explorer-entry-name]:where([data-likex-explorer], [data-likex-explorer] *) {
+    touch-action: manipulation;
+  }
+  [data-likex-explorer][data-layout="mobile"] [data-explorer-statusbar]:where([data-likex-explorer], [data-likex-explorer] *) {
+    min-height: 44px;
+  }
+  [data-likex-explorer][data-layout="mobile"][role="menu"]:where([data-likex-explorer], [data-likex-explorer] *) {
+    max-width: calc(100vw - 16px);
+    overflow-wrap: anywhere;
+  }
+  [data-likex-explorer][data-layout="mobile"][role="dialog"]:where([data-likex-explorer], [data-likex-explorer] *), [data-likex-explorer][data-layout="mobile"][role="alertdialog"]:where([data-likex-explorer], [data-likex-explorer] *) {
+    max-width: 100%;
+    max-height: 100%;
+  }
   .lxe\:\@container\/explorer:where([data-likex-explorer], [data-likex-explorer] *) {
     container-type: inline-size;
     container-name: explorer;
@@ -572,6 +626,9 @@ SOFTWARE.
   .lxe\:h-10:where([data-likex-explorer], [data-likex-explorer] *) {
     height: calc(var(--lxe-spacing) * 10);
   }
+  .lxe\:h-11:where([data-likex-explorer], [data-likex-explorer] *) {
+    height: calc(var(--lxe-spacing) * 11);
+  }
   .lxe\:h-12:where([data-likex-explorer], [data-likex-explorer] *) {
     height: calc(var(--lxe-spacing) * 12);
   }
@@ -701,9 +758,6 @@ SOFTWARE.
   .lxe\:w-9:where([data-likex-explorer], [data-likex-explorer] *) {
     width: calc(var(--lxe-spacing) * 9);
   }
-  .lxe\:w-52:where([data-likex-explorer], [data-likex-explorer] *) {
-    width: calc(var(--lxe-spacing) * 52);
-  }
   .lxe\:w-90:where([data-likex-explorer], [data-likex-explorer] *) {
     width: calc(var(--lxe-spacing) * 90);
   }
@@ -722,11 +776,17 @@ SOFTWARE.
   .lxe\:w-\[calc\(100\%-2rem\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     width: calc(100% - 2rem);
   }
+  .lxe\:w-\[min\(320px\,85\%\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    width: min(320px, 85%);
+  }
   .lxe\:w-\[min\(390px\,90\%\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     width: min(390px, 90%);
   }
   .lxe\:w-\[min\(1100px\,96vw\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     width: min(1100px, 96vw);
+  }
+  .lxe\:w-\[var\(--explorer-sidebar-width\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    width: var(--explorer-sidebar-width);
   }
   .lxe\:w-full:where([data-likex-explorer], [data-likex-explorer] *) {
     width: 100%;
@@ -757,6 +817,12 @@ SOFTWARE.
   }
   .lxe\:max-w-\[calc\(100\%-2\.5rem\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     max-width: calc(100% - 2.5rem);
+  }
+  .lxe\:max-w-\[calc\(100cqw-160px\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    max-width: calc(100cqw - 160px);
+  }
+  .lxe\:max-w-\[calc\(100vw-16px\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    max-width: calc(100vw - 16px);
   }
   .lxe\:max-w-\[min\(20rem\,calc\(100vw-1\.5rem\)\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     max-width: min(20rem, calc(100vw - 1.5rem));
@@ -857,6 +923,9 @@ SOFTWARE.
   }
   .lxe\:grid-cols-\[56px_minmax\(0\,1fr\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
     grid-template-columns: 56px minmax(0,1fr);
+  }
+  .lxe\:grid-cols-\[56px_minmax\(0\,1fr\)_80px\]:where([data-likex-explorer], [data-likex-explorer] *) {
+    grid-template-columns: 56px minmax(0,1fr) 80px;
   }
   .lxe\:grid-cols-\[56px_minmax\(100px\,1fr\)_110px\]:where([data-likex-explorer], [data-likex-explorer] *) {
     grid-template-columns: 56px minmax(100px,1fr) 110px;
@@ -1273,6 +1342,9 @@ SOFTWARE.
   }
   .lxe\:pt-4:where([data-likex-explorer], [data-likex-explorer] *) {
     padding-top: calc(var(--lxe-spacing) * 4);
+  }
+  .lxe\:pt-12:where([data-likex-explorer], [data-likex-explorer] *) {
+    padding-top: calc(var(--lxe-spacing) * 12);
   }
   .lxe\:pr-2:where([data-likex-explorer], [data-likex-explorer] *) {
     padding-right: calc(var(--lxe-spacing) * 2);
@@ -1697,30 +1769,6 @@ SOFTWARE.
   @container explorer (width >= 600px) {
     .lxe\:\@\[600px\]\/explorer\:inline:where([data-likex-explorer], [data-likex-explorer] *) {
       display: inline;
-    }
-  }
-  @container explorer (width >= 720px) {
-    .lxe\:\@\[720px\]\/explorer\:static:where([data-likex-explorer], [data-likex-explorer] *) {
-      position: static;
-    }
-    .lxe\:\@\[720px\]\/explorer\:z-auto:where([data-likex-explorer], [data-likex-explorer] *) {
-      z-index: auto;
-    }
-    .lxe\:\@\[720px\]\/explorer\:flex:where([data-likex-explorer], [data-likex-explorer] *) {
-      display: flex;
-    }
-    .lxe\:\@\[720px\]\/explorer\:hidden:where([data-likex-explorer], [data-likex-explorer] *) {
-      display: none;
-    }
-    .lxe\:\@\[720px\]\/explorer\:w-\[var\(--explorer-sidebar-width\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
-      width: var(--explorer-sidebar-width);
-    }
-    .lxe\:\@\[720px\]\/explorer\:max-w-\[calc\(100cqw-326px\)\]:where([data-likex-explorer], [data-likex-explorer] *) {
-      max-width: calc(100cqw - 326px);
-    }
-    .lxe\:\@\[720px\]\/explorer\:shadow-none:where([data-likex-explorer], [data-likex-explorer] *) {
-      --lxe-tw-shadow: 0 0 #0000;
-      box-shadow: var(--lxe-tw-inset-shadow), var(--lxe-tw-inset-ring-shadow), var(--lxe-tw-ring-offset-shadow), var(--lxe-tw-ring-shadow), var(--lxe-tw-shadow);
     }
   }
   @container explorer (width >= 850px) {

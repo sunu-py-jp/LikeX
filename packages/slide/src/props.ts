@@ -1,5 +1,6 @@
 import type { CSSProperties, Ref } from "react";
-import type { MaybePromise, OperationContext, SaveHandler, RibbonDisplayMode, SearchPanelHandle, SearchPanelInitialState, ExternalSearchOptions } from "./core";
+import type { MaybePromise, OperationContext, SaveHandler, RibbonDisplayMode, SearchPanelHandle, SearchPanelInitialState, ExternalSearchOptions, ResponsiveLayout } from "./core";
+export type { ResponsiveLayout } from "./core";
 import type { Slide, SlideElement, SlideCommand, SlideCommandResult, SlideDeck, SlideMaster, SlideLayout } from "./model/types";
 import type { SlideAnimationStep, SlideQueryOptions } from "./model";
 import type { SlideConditionalEdit, SlideConditionalEditResult, SlideMutationSnapshot, SlideMutationToken } from "./model";
@@ -99,6 +100,8 @@ export type SlideProps = SearchPanelInitialState & {
   onSelectionChange?: (selection: SlideSelection) => void;
   onEvent?: (event: SlideEvent) => MaybePromise<void>;
   readOnly?: boolean;
+  /** Defaults to auto: use mobile controls below 720px of component width. View-only. */
+  layout?: ResponsiveLayout;
   /** Initial presentation, read once. Default: expanded. */
   initialRibbonDisplayMode?: SlideRibbonDisplayMode;
   /** Controlled presentation. Without a callback, UI/API changes are locked. */

@@ -560,8 +560,8 @@
     "DocumentTableNode_attrs_layout": {
       "enum": [
         null,
-        "fixed",
-        "auto"
+        "auto",
+        "fixed"
       ]
     },
     "DocumentTableNode_attrs_cellMargins": {

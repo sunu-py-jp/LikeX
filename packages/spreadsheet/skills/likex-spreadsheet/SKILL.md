@@ -13,9 +13,11 @@ description: LikeX SpreadsheetのネイティブJSON（.spon）を作成・検�
 
 リボンの表示方法はホストUIの `initialRibbonDisplayMode` / `ribbonDisplayMode` とHandleで制御する。SPON／XLSXやCLIコマンドの対象ではないため、リボンを隠す目的でブックや機能設定を書き換えない。[リボンの表示ガイド](../../src/docs/ribbon-display.md)を参照する。
 
+スマホ表示は `layout?: "auto" | "desktop" | "mobile"`。既定はコンポーネント幅720 CSS px未満でmobileへ切り替える。モバイルの指ドラッグはスクロール、タップはキーボードを開かず選択、「範囲選択」ON時だけドラッグ範囲選択。編集は「編集」か数式欄。未選択図形上もスクロール、選択後の図形はドラッグ移動。readonly/機能制限を維持し、保存モデル・SPON/XLSX・CLIは変更しない。詳細は [スマホ表示](../../src/docs/api.md#スマホ表示)。
+
 通常ビューの描画範囲はホストの `renderingMode: "progressive" | "viewport"` で切り替える。既定の `"viewport"` は画面とその前後、入力・結合に必要な行だけを描画する省メモリモード。`"progressive"` を明示すると、表示範囲を先に描画し、現在のシートの残りの行も順次追加して保持する。大きいシートや低スペック端末では既定の `"viewport"` を使う。これは読み込み済みデータのUI描画の設定で、ファイル取得・数式計算・SPON／XLSX・モデルAPI・CLI・専用サムネイルは変更しない。印刷範囲表示でも画面外のセルを全件描画しない。[描画モード](../../src/docs/api.md#シートの描画モード)を参照する。
 
-検索UIは `initialSearchOpen` / `initialSearchQuery` で初期表示し、表示後はHandleの `openSearch(query?)` / `closeSearch()` で操作する。LikeSlide・LikeDocument・PDFビューアーと共通の契約で、リボン非表示・読み取り専用でも使える。`features.search: false` の場合は開けない。検索は同じdocumentのbodyへPortal表示するフローティングウィンドウで、ブラウザーの表示領域内なら親コンポーネントの外側へも移動・サイズ変更できる。親の配色を引き継ぎ、開いたまま背後のシートを操作でき、閉じるボタン・Escで閉じる。セル編集中のEscは入力取消を優先する。位置とサイズはマウント中の再表示でも維持する。検索の表示状態はSPON／XLSXやCLIの対象ではない。[検索UIの組み込み方](../../src/docs/editing-tools.md)を参照する。
+検索UIは `initialSearchOpen` / `initialSearchQuery` で初期表示し、表示後はHandleの `openSearch(query?)` / `closeSearch()` で操作する。LikeSlide・LikeDocument・PDFビューアーと共通の契約で、リボン非表示・読み取り専用でも使える。`features.search: false` の場合は開けない。検索は通常、同じdocumentのbodyへPortal表示するフローティングウィンドウで、ブラウザーの表示領域内なら親コンポーネントの外側へも移動・サイズ変更できる。親のダイアログ（`dialog`・`role="dialog"`・`role="alertdialog"`）は自動認識し、検索窓をその内側に置いて入力フォーカスを保つ。利用側の追加指定は不要。Popover APIを使えない環境ではシート内表示・移動に切り替える。親の配色を引き継ぎ、開いたまま背後のシートを操作でき、閉じるボタン・Escで閉じる。検索窓内のEscは親ダイアログを閉じず、Tabは親のフォーカス移動に従う。セル編集中のEscは入力取消を優先する。位置とサイズはマウント中の再表示でも維持する。検索の表示状態はSPON／XLSXやCLIの対象ではない。[検索UIの組み込み方](../../src/docs/editing-tools.md)を参照する。
 
 サーバー等で取得した結果をUIに案内する場合は `externalSearch: { results: [{ id, title?, snippet?, locationLabel?, target: { sheetId, range } }], initialResultId?, onResultSelect? }` を渡す。`range` はA1表記で、`openExternalSearch(resultId?)` で結果を表示・移動できる。`initialSearchMode: "local" | "external"` は初期モードを指定する。外部結果の再表示・props更新では閲覧中セルを動かさず、明示的な結果選択で範囲の左上へ戻る。既存の `onSearchRequest` は文書内キーワード検索処理の差し替えとして別に使う。結果・表示状態はCLIやSPON/XLSXの対象外。
 

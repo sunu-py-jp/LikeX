@@ -1,5 +1,6 @@
 "use client";
 
+import { useExplorerDom } from "./explorer-dom-context";
 import { matchesExplorerShortcut } from "../model/keyboard";
 import { EntryContext } from "./explorer-file-list";
 import { ExplorerEntryName } from "./explorer-entry-name";
@@ -55,15 +56,17 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
   } = useExplorerFields("entries", "navigationEntries", "processingEntryIds", "openPendingImportFolder", "expanded", "setExpanded", "location", "rootLabel", "dragOver", "allowDrop", "setDragOver", "drop", "navigate", "mobileOpen", "setOpenMobile", "instanceId", "workspaceRef", "features", "renamingEntryId", "renameSource", "folderLoadingEnabled", "folderLoadRevision", "getFolderLoadState", "loadFolder");
   const rootPendingUpload = useOptionalExplorerSelector(context => context?.pendingUploadEntryIds?.has("root") ?? false);
 
+  const mobile = useExplorerDom().layout === "mobile";
   const asideRef = useRef<HTMLElement>(null);
   const sidebarResize = useExplorerSidebarResize(
     features.resizeSidebar,
     workspaceRef,
+    mobile,
   );
   useEffect(() => {
-    if (mobileOpen)
+    if (mobile && mobileOpen)
       asideRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
-  }, [mobileOpen]);
+  }, [mobile, mobileOpen]);
 
   function closeNavigation() {
     setOpenMobile(false);
@@ -165,10 +168,10 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
 
   return (
     <>
-      {mobileOpen && (
+      {mobile && mobileOpen && (
         <button
           type="button"
-          className="lxe:absolute lxe:inset-0 lxe:z-20 lxe:cursor-default lxe:bg-black/20 lxe:@[720px]/explorer:hidden"
+          className="lxe:absolute lxe:inset-0 lxe:z-20 lxe:cursor-default lxe:bg-black/20"
           aria-label="フォルダのナビゲーションを閉じる"
           onClick={closeNavigation}
         />
@@ -178,7 +181,8 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
         id={`${instanceId}-navigation`}
         aria-label="エクスプローラーのナビゲーション"
         style={{ "--explorer-sidebar-width": `${sidebarResize.width}px` } as CSSProperties}
-        className={`lxe:absolute lxe:inset-y-0 lxe:left-0 lxe:z-30 lxe:w-52 lxe:max-w-full lxe:shrink-0 lxe:flex-col lxe:border-r lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-panel)] lxe:text-[var(--explorer-foreground)] lxe:shadow-lg lxe:@[720px]/explorer:static lxe:@[720px]/explorer:z-auto lxe:@[720px]/explorer:flex lxe:@[720px]/explorer:w-[var(--explorer-sidebar-width)] lxe:@[720px]/explorer:max-w-[calc(100cqw-326px)] lxe:@[720px]/explorer:shadow-none ${mobileOpen ? "lxe:flex" : "lxe:hidden"}`}
+        data-explorer-sidebar=""
+        className={`lxe:shrink-0 lxe:flex-col lxe:border-r lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-panel)] lxe:text-[var(--explorer-foreground)] ${mobile ? `lxe:absolute lxe:inset-y-0 lxe:left-0 lxe:z-30 lxe:w-[min(320px,85%)] lxe:max-w-full lxe:shadow-lg ${mobileOpen ? "lxe:flex" : "lxe:hidden"}` : "lxe:relative lxe:flex lxe:w-[var(--explorer-sidebar-width)] lxe:max-w-[calc(100cqw-160px)]"}`}
         onKeyDown={(event) => {
           if (!event.defaultPrevented && matchesExplorerShortcut(event, "clear") && mobileOpen) {
             event.stopPropagation();
@@ -186,7 +190,7 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
           }
         }}
       >
-        <div className="lxe:flex lxe:h-10 lxe:shrink-0 lxe:items-center lxe:gap-2 lxe:border-b lxe:border-[var(--explorer-border)] lxe:px-4 lxe:text-[13px] lxe:text-[var(--explorer-muted)] lxe:@[720px]/explorer:hidden">
+        {mobile && <div className="lxe:flex lxe:h-11 lxe:shrink-0 lxe:items-center lxe:gap-2 lxe:border-b lxe:border-[var(--explorer-border)] lxe:px-4 lxe:text-[13px] lxe:text-[var(--explorer-muted)]">
           <FolderOpen
             size={17}
             className="lxe:shrink-0 lxe:text-[var(--explorer-folder)]"
@@ -196,14 +200,14 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
             type="button"
             className={mergeExplorerClasses(
               iconButtonClass,
-              "lxe:ml-auto lxe:size-7 lxe:@[720px]/explorer:hidden",
+              "lxe:ml-auto lxe:size-7",
             )}
             aria-label="ナビゲーションを閉じる"
             onClick={closeNavigation}
           >
             <X size={16} />
           </button>
-        </div>
+        </div>}
         <nav
           data-explorer-drag-scroll="y"
           className="lxe:min-h-0 lxe:flex-1 lxe:overflow-y-auto lxe:py-2 lxe:[scrollbar-width:thin]"
@@ -263,7 +267,7 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
           </div>
           <ul className="lxe:pb-4" aria-label="フォルダ一覧">
             <li>
-              <div
+              <div data-explorer-tree-root=""
                 className={`lxe:flex lxe:h-8 lxe:min-w-0 lxe:items-center lxe:gap-0.5 lxe:pr-2 lxe:hover:bg-[var(--explorer-hover)] ${location === "root" ? "lxe:bg-[var(--explorer-selection)]" : ""} ${dragOver === "root" ? "lxe:bg-[var(--explorer-selection)] lxe:outline-1 lxe:-outline-offset-1 lxe:outline-[var(--explorer-accent)]" : ""}`}
                 style={{ paddingLeft: 10 }}
                 aria-busy={rootLoad?.status === "loading" || undefined}
@@ -311,10 +315,10 @@ export const ExplorerSidebar = memo(function ExplorerSidebar() {
           </ul>
         </nav>
       </aside>
-      <ExplorerSidebarResizer
+      {!mobile && <ExplorerSidebarResizer
         resize={sidebarResize}
         controlsId={`${instanceId}-navigation`}
-      />
+      />}
     </>
   );
 });

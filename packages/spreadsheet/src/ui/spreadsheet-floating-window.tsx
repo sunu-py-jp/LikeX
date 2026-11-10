@@ -2,6 +2,7 @@
 
 import { useCallback, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEventHandler, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { getSpreadsheetFloatingHost, showSpreadsheetFloatingLayer } from "./spreadsheet-floating-host";
 
 export type SpreadsheetFloatingWindowFrame = { x: number; y: number; width: number; height: number };
 type Size = { width: number; height: number };
@@ -54,11 +55,17 @@ export function SpreadsheetFloatingWindow({ title, children, onClose, onKeyDown,
   const anchor = useCallback((node: HTMLSpanElement | null) => {
     if (node) setRegion(node.closest<HTMLElement>("[data-likex-spreadsheet]"));
   }, []);
+  const [contained, setContained] = useState(false);
+  const host = region && getSpreadsheetFloatingHost(region, contained);
+  const container = host?.container, usePopover = host?.popover ?? false, isContained = host?.contained ?? false;
+  const layer = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null), latestFrame = useRef<SpreadsheetFloatingWindowFrame | null>(null);
   const [frame, setFrame] = useState<SpreadsheetFloatingWindowFrame | null>(null);
-  const [theme, setTheme] = useState<{ colorMode: string; style: CSSProperties }>({ colorMode: "light", style: {} });
+  const [theme, setTheme] = useState<{ colorMode: string; layout?: string; style: CSSProperties }>({ colorMode: "light", style: {} });
   const stopInteraction = useRef<(() => void) | null>(null);
   const id = useId();
+  const close = useRef(onClose);
+  useLayoutEffect(() => { close.current = onClose; });
   const updateFrame = useCallback((next: SpreadsheetFloatingWindowFrame) => {
     latestFrame.current = next;
     if (frameRef) frameRef.current = next;
@@ -66,24 +73,36 @@ export function SpreadsheetFloatingWindow({ title, children, onClose, onKeyDown,
   }, [frameRef]);
 
   useLayoutEffect(() => {
+    if (!region || !layer.current || !usePopover) return;
+    try { return showSpreadsheetFloatingLayer(layer.current, region); }
+    catch {
+      // The DOM API can be present but reject this host. Reposition before paint to avoid a hidden search.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setContained(true);
+    }
+  }, [region, container, usePopover]);
+
+  useLayoutEffect(() => {
     if (!region) return;
     const doc = region.ownerDocument, view = doc.defaultView;
     let previousSize: Size | null = null;
     const resize = () => {
-      const size = viewportSize(doc);
+      const size = isContained ? { width: region.clientWidth, height: region.clientHeight } : viewportSize(doc);
       if (size.width <= 0 || size.height <= 0) return;
       if (previousSize?.width === size.width && previousSize.height === size.height) return;
       previousSize = size;
       stopInteraction.current?.();
-      const bounds = region.getBoundingClientRect();
+      const bounds = isContained ? { left: 0, top: 0, width: size.width, height: size.height } : region.getBoundingClientRect();
       updateFrame(fitSpreadsheetFloatingWindow(latestFrame.current ?? frameRef?.current ?? {
         x: bounds.left + (bounds.width - 560) / 2, y: bounds.top + Math.min(96, (bounds.height - 520) / 2), width: 560, height: 520,
       }, size));
     };
     resize();
     view?.addEventListener("resize", resize);
-    return () => { view?.removeEventListener("resize", resize); stopInteraction.current?.(); };
-  }, [region, updateFrame, frameRef]);
+    const observer = isContained && view && new view.ResizeObserver(resize);
+    if (observer) observer.observe(region);
+    return () => { view?.removeEventListener("resize", resize); if (observer) observer.disconnect(); stopInteraction.current?.(); };
+  }, [region, updateFrame, frameRef, isContained]);
 
   useLayoutEffect(() => {
     if (!region) return;
@@ -91,9 +110,9 @@ export function SpreadsheetFloatingWindow({ title, children, onClose, onKeyDown,
     if (!view) return;
     const syncTheme = () => {
       const computed = view.getComputedStyle(region), variables: Record<string, string> = {};
-      // Preserve resolved instance colors and typography across the body portal boundary.
+      // Preserve resolved instance colors and typography across the portal boundary.
       for (const variable of themeVariables) variables[`--lxs-${variable}`] = computed.getPropertyValue(`--lxs-${variable}`).trim();
-      const next = { colorMode: region.getAttribute("data-color-mode") ?? "light", style: {
+      const next = { colorMode: region.getAttribute("data-color-mode") ?? "light", layout: region.getAttribute("data-layout") ?? "desktop", style: {
         ...variables, font: computed.font, color: computed.color, colorScheme: computed.colorScheme,
         direction: computed.direction, letterSpacing: computed.letterSpacing,
       } as CSSProperties };
@@ -103,7 +122,7 @@ export function SpreadsheetFloatingWindow({ title, children, onClose, onKeyDown,
     const observer = new view.MutationObserver(syncTheme);
     // A host can set theme variables on the spreadsheet itself or an ancestor.
     for (let element: HTMLElement | null = region; element; element = element.parentElement) {
-      observer.observe(element, { attributes: true, attributeFilter: ["style", "class", "data-color-mode"] });
+      observer.observe(element, { attributes: true, attributeFilter: ["style", "class", "data-color-mode", "data-layout"] });
     }
     view.addEventListener("resize", syncTheme);
     return () => { observer.disconnect(); view.removeEventListener("resize", syncTheme); };
@@ -119,7 +138,22 @@ export function SpreadsheetFloatingWindow({ title, children, onClose, onKeyDown,
       // Closing through an external handle must not steal focus from a cell or the host app.
       if (element.contains(doc.activeElement) && previous?.isConnected) previous.focus({ preventScroll: true });
     };
-  }, [region, initialFocusRef, ready]);
+  }, [region, container, initialFocusRef, ready]);
+
+  useLayoutEffect(() => {
+    const element = panel.current, view = region?.ownerDocument.defaultView;
+    if (!element || !view) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || !element.contains(event.target as Node)) return;
+      // Parent dialogs commonly dismiss from document capture, before React's bubble handler.
+      // Let IME consume Escape but never pass it through to the enclosing dialog.
+      event.stopPropagation();
+      if (event.isComposing || event.keyCode === 229) return;
+      event.preventDefault(); stopInteraction.current?.(); close.current();
+    };
+    view.addEventListener("keydown", escape, true);
+    return () => view.removeEventListener("keydown", escape, true);
+  }, [region, container]);
 
   const beginInteraction = (event: ReactPointerEvent<HTMLElement>, edge?: ResizeEdge) => {
     if (event.button !== 0 || !region || !latestFrame.current) return;
@@ -132,7 +166,10 @@ export function SpreadsheetFloatingWindow({ title, children, onClose, onKeyDown,
     const move = (next: PointerEvent) => {
       if (next.pointerId !== pointerId) return;
       next.preventDefault();
-      const size = viewportSize(doc), dx = next.clientX - x, dy = next.clientY - y;
+      const bounds = region.getBoundingClientRect();
+      const size = isContained ? { width: region.clientWidth, height: region.clientHeight } : viewportSize(doc);
+      const dx = (next.clientX - x) / (isContained ? bounds.width / region.clientWidth || 1 : 1);
+      const dy = (next.clientY - y) / (isContained ? bounds.height / region.clientHeight || 1 : 1);
       updateFrame(edge ? resizeSpreadsheetFloatingWindow(start, edge, dx, dy, size) : fitSpreadsheetFloatingWindow({ ...start, x: start.x + dx, y: start.y + dy }, size));
     };
     const stop = () => {
@@ -151,14 +188,15 @@ export function SpreadsheetFloatingWindow({ title, children, onClose, onKeyDown,
     try { element.setPointerCapture?.(pointerId); } catch { /* The pointer may already have been cancelled. */ }
   };
 
-  return <><span hidden ref={anchor} />{region && createPortal(
-    <div className="lxs-root lxs-floating-layer" data-color-mode={theme.colorMode} style={theme.style}>
+  return <><span hidden ref={anchor} />{container && createPortal(
+    <div ref={layer} className="lxs-root lxs-floating-layer" data-color-mode={theme.colorMode} data-layout={theme.layout} data-contained={isContained || undefined}
+      popover={usePopover ? "manual" : undefined} style={theme.style}>
     <div ref={panel} className={`lxs-floating-window lxs-form-dialog ${className}`} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} tabIndex={-1}
       style={frame ? { left: frame.x, top: frame.y, width: frame.width, height: frame.height } : { visibility: "hidden" }}
       onCopy={event => event.stopPropagation()} onCut={event => event.stopPropagation()} onPaste={event => event.stopPropagation()}
       onContextMenu={event => event.stopPropagation()} onPointerDown={event => event.stopPropagation()}
       onKeyDown={event => {
-        event.stopPropagation();
+        if (event.key !== "Tab") event.stopPropagation();
         if (event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229) return;
         onKeyDown?.(event);
         if (event.defaultPrevented) return;
@@ -171,6 +209,6 @@ export function SpreadsheetFloatingWindow({ title, children, onClose, onKeyDown,
       <div className="lxs-floating-window-content">{children}</div>
       {actions && <div className="lxs-dialog-actions">{actions}</div>}
       {resizeEdges.map(edge => <div key={edge} className={`lxs-floating-window-resize lxs-floating-window-resize-${edge}`} aria-hidden="true" onPointerDown={event => beginInteraction(event, edge)} />)}
-    </div></div>, region.ownerDocument.body,
+    </div></div>, container,
   )}</>;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { createPrimaryColorPalette } from "./core";
+import { createPrimaryColorPalette, observeResponsiveLayout, type ResolvedResponsiveLayout } from "./core";
 import type { SpreadsheetProps } from "./props";
 import { useSpreadsheet } from "./state/use-spreadsheet";
 import { useSpreadsheetClipboard } from "./state/use-spreadsheet-clipboard";
@@ -25,6 +25,9 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
   const namedRangeTarget = namedRangeManager.dialogTarget;
   useSpreadsheetHandle(handleRef, c);
   const root = useRef<HTMLElement>(null);
+  const [layout, setLayout] = useState<ResolvedResponsiveLayout>(props.layout === "mobile" ? "mobile" : "desktop");
+  const [touchRangeSelection, setTouchRangeSelection] = useState(false);
+  useLayoutEffect(() => root.current ? observeResponsiveLayout(root.current, props.layout, setLayout) : undefined, [props.layout]);
   const searchWindowFrame = useRef<SpreadsheetFloatingWindowFrame | null>(null);
   const gridHadFocus = useRef(false);
   const focusedViewRevision = useRef(c.viewRevision);
@@ -61,7 +64,7 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
     "--lxs-selection": palette.selection,
     ...props.style,
   } as CSSProperties : props.style;
-  return <section ref={root} data-likex-spreadsheet data-color-mode={dark ? "dark" : "light"} className={`lxs-root ${props.className ?? ""}`} style={style} role="region" aria-label={props["aria-label"] ?? "スプレッドシート"} aria-busy={c.exporting || c.saving || c.refreshing || c.requesting || contextMenu.state.phase !== "idle"}
+  return <section ref={root} data-likex-spreadsheet data-layout={layout} data-color-mode={dark ? "dark" : "light"} className={`lxs-root ${props.className ?? ""}`} style={style} role="region" aria-label={props["aria-label"] ?? "スプレッドシート"} aria-busy={c.exporting || c.saving || c.refreshing || c.requesting || contextMenu.state.phase !== "idle"}
     onContextMenu={contextMenu.onContextMenu} onPointerDownCapture={contextMenu.onPointerDownCapture} onKeyDownCapture={contextMenu.onKeyDownCapture}
     onFocusCapture={event => { gridHadFocus.current = !!(event.target as HTMLElement).closest(".lxs-grid-scroll"); }}
     onBlurCapture={event => {
@@ -98,8 +101,17 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
     <header className="lxs-title-bar"><span className="lxs-app-mark" aria-hidden="true">▦</span><span className="lxs-title">{props.title?.trim() || "スプレッドシート"}</span><span className="lxs-title-context">LikeX</span></header>
     <SpreadsheetToolbar controller={c} clipboard={clipboard} namedRangeManager={namedRangeManager} />
     <SpreadsheetFormulaBar controller={c} />
+    {layout === "mobile" && <div className="lxs-mobile-actions" role="toolbar" aria-label="セルの操作">
+      <button type="button" aria-pressed={touchRangeSelection} onClick={() => setTouchRangeSelection(value => !value)}>範囲選択</button>
+      {!c.readOnly && <button type="button" disabled={c.disabled || c.requesting || !!c.selectedDrawingId} onClick={() => {
+        c.beginEdit(c.selection.focus);
+        root.current?.querySelector<HTMLTextAreaElement>(".lxs-cell-input")?.focus({ preventScroll: true });
+      }}>編集</button>}
+      {c.features.search && <button type="button" onClick={() => c.openSearch()}>検索</button>}
+      <span className="lxs-mobile-gesture-hint">{touchRangeSelection ? "ドラッグで選択" : "ドラッグでスクロール"}</span>
+    </div>}
     <div className="lxs-sheet-workspace">
-      <SpreadsheetGrid key={`grid-${c.viewRevision}`} controller={c} />
+      <SpreadsheetGrid key={`grid-${c.viewRevision}`} controller={c} touchRangeSelection={layout === "mobile" && touchRangeSelection} />
       <SpreadsheetComments key={`comments-${c.viewRevision}`} controller={c} />
       <SpreadsheetNamedRangePanel controller={c} manager={namedRangeManager} />
     </div>

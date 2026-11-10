@@ -965,8 +965,8 @@
     },
     "SpreadsheetCommand_8_mode": {
       "enum": [
-        "copy",
         "auto",
+        "copy",
         "series"
       ]
     },

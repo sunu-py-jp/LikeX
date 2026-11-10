@@ -10,7 +10,7 @@ import type { ExplorerEventHandler, ExplorerLocationInfo } from "./model/events"
 import type { ExplorerUploadOptions } from "./model/upload";
 import type { ExplorerDownloadHandler } from "./model/download";
 import type { ExplorerSearchConditions, ExplorerSearchHit, ExplorerSearchHandler, ExplorerSearchOptions } from "./model/search";
-import type { ContextMenuExecutionMode } from "./core";
+import type { ContextMenuExecutionMode, ResponsiveLayout } from "./core";
 import type { ExplorerContextMenuProvider } from "./model/context-menu";
 import type { ExplorerHandle } from "./model/notifications";
 
@@ -176,6 +176,8 @@ export type ExplorerProps = ExplorerOptions & Pick<ExplorerDraftOptions, "onSave
   /** Warn before document unload or explicit popup close while dirty. Defaults to true.
    * SPA navigation and unmount must be guarded by the host using onDirtyChange. */
   warnOnUnsavedChanges?: boolean;
+  /** Auto adapts to this Explorer’s width; mobile uses a drawer and touch-sized controls. */
+  layout?: ResponsiveLayout;
   className?: string;
   style?: CSSProperties;
   /** Defaults to light (or legacy theme.colorScheme); system follows OS changes. */

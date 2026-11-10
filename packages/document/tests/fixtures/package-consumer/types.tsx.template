@@ -46,3 +46,12 @@ void [ribbonProps, currentRibbonMode, ribbonAccepted];
 
 const searchResult = searchDocument(document, { keywords: ["consumer"] });
 void searchResult.matches[0]?.pageNumber;
+
+// Responsive presentation is available from the public UI entry in package and copy consumers.
+import type { ResponsiveLayout as ConsumerLayout, DocumentProps as MobileViewProps } from "__LIBRARY_IMPORT__";
+const responsiveLayout: ConsumerLayout = "auto";
+const mobileProps: Pick<MobileViewProps, "layout"> = { layout: responsiveLayout };
+const forcedMobileProps: Pick<MobileViewProps, "layout"> = { layout: "mobile" };
+// @ts-expect-error Layout accepts only the shared explicit modes.
+const invalidMobileProps: Pick<MobileViewProps, "layout"> = { layout: "phone" };
+void [mobileProps, forcedMobileProps, invalidMobileProps];

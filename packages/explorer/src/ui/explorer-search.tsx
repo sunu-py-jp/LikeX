@@ -33,7 +33,7 @@ export const ExplorerSearch = memo(function ExplorerSearch() {
     "aria-invalid": !!searchError,
     className: "lxe:h-full lxe:w-full lxe:min-w-0 lxe:border-0 lxe:bg-transparent lxe:text-[13px] lxe:text-[var(--explorer-foreground)] lxe:outline-none lxe:placeholder:text-[var(--explorer-muted)]",
   };
-  const defaultInput = <div className="lxe:flex lxe:h-8 lxe:min-w-0 lxe:flex-1 lxe:items-center lxe:gap-2 lxe:rounded lxe:border lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-background)] lxe:px-2.5 lxe:focus-within:border-[var(--explorer-accent)]">
+  const defaultInput = <div data-explorer-search-input="" className="lxe:flex lxe:h-8 lxe:min-w-0 lxe:flex-1 lxe:items-center lxe:gap-2 lxe:rounded lxe:border lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-background)] lxe:px-2.5 lxe:focus-within:border-[var(--explorer-accent)]">
     <input {...inputProps} />
     {(searchText || query) && <button type="button" className={mergeExplorerClasses(iconButtonClass, "lxe:size-6")} aria-label="検索をクリア" onClick={clearSearch}><X size={16} aria-hidden="true" /></button>}
     {searchPending && <span role="status" aria-label="検索中" className="lxe:inline-flex lxe:shrink-0 lxe:text-[var(--explorer-muted)]"><Loader2 size={16} aria-hidden="true" className="lxe:animate-spin lxe:motion-reduce:animate-none" /></span>}

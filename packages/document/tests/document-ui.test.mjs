@@ -32,16 +32,23 @@ const tab = (renderer, name) => renderer.root.findAllByType('button').find(node 
 const notice = renderer => renderer.root.findAllByType('span').map(node => typeof node.props.children === 'string' ? node.props.children : '').join(' ');
 async function mount(t, props, nodes = false) {
   const ref = createRef(), listeners = new Map(), ownerDocument = { activeElement: null, defaultView: { addEventListener(name, fn) { listeners.set(name, fn); }, removeEventListener(name) { listeners.delete(name); }, confirm: () => true } };
-  const viewport = {scrollTop: 0, scrollLeft: 0, clientTop: 0, clientLeft: 0, getBoundingClientRect: () => ({top: 0, left: 0, right: 800})};
-  const root = { ownerDocument, isConnected: true, addEventListener() {}, removeEventListener() {}, querySelector() { return null; } };
+  const observers = [];
+  if (typeof nodes === 'object') ownerDocument.defaultView.ResizeObserver = class {
+    constructor(callback) { this.callback = callback; observers.push(this); }
+    observe(target) { this.target = target; }
+    disconnect() { this.disconnected = true; }
+  };
+  const viewport = {ownerDocument, clientWidth: nodes.width ?? 800, scrollTop: 0, scrollLeft: 0, clientTop: 0, clientLeft: 0, getBoundingClientRect: () => ({top: 0, left: 0, right: 800})};
+  const root = { ownerDocument, clientWidth: nodes.width ?? 800, isConnected: true, addEventListener() {}, removeEventListener() {}, querySelector() { return null; } };
   let renderer;
   await change(() => { renderer = create(h(LikeDocument, { ref, ...props }), nodes ? { createNodeMock: element => {
     if (element.props['data-likex-document'] === '') return root;
+    if (element.props.className === 'lxd-document-viewport') return viewport;
     if (element.type === 'div' && Object.keys(element.props).every(key => key === 'ref')) return { ownerDocument, closest: () => viewport };
     return null;
   } } : undefined); });
   t.after(() => change(() => renderer.unmount()));
-  return { renderer, ref, root, listeners, viewport, view: TestEditorView.instances.at(-1) };
+  return { renderer, ref, root, listeners, viewport, observers, resize: async width => change(() => { root.clientWidth = viewport.clientWidth = width; for (const observer of observers.filter(value => !value.disconnected)) observer.callback([]); }), view: TestEditorView.instances.at(-1) };
 }
 
 test('read-only page navigation and repeated search results work across saved boundaries inside a paragraph', async t => {
@@ -398,7 +405,7 @@ test('heading navigation arrows move the selection and view while retaining list
   globalThis.CSS = { escape: value => value }; t.after(() => { if (beforeCss === undefined) delete globalThis.CSS; else globalThis.CSS = beforeCss; });
   let renderer, focused;
   const buttons = headings.map((block, index) => ({ focus() { focused = index; }, scrollIntoView() { calls.push(`list:${block.id}`); } }));
-  const root = { addEventListener() {}, removeEventListener() {}, querySelector(selector) { return { scrollIntoView() { calls.push(selector); } }; } };
+  const root = { ownerDocument: { defaultView: null }, clientWidth: 800, addEventListener() {}, removeEventListener() {}, querySelector(selector) { return { scrollIntoView() { calls.push(selector); } }; } };
   await change(() => { renderer = create(h(LikeDocument, { ref, initialDocument, readOnly: true }), { createNodeMock(element) {
     if (element.props['data-likex-document'] === '') return root;
     if (element.props['aria-label'] === '見出しナビゲーション') return { querySelectorAll() { return buttons; } };
@@ -470,4 +477,68 @@ test('external search renders host descriptions, scrolls the actual document and
   assert.deepEqual(ref.current.getSelection(), { from: 1, to: 1 }); assert.equal(viewport.scrollTop, 0);
   await change(() => renderer.root.findAllByType('button').find(button => button.props.children === '選択した結果に戻る').props.onClick());
   assert.ok(viewport.scrollTop > 0); assert.equal(view.props.decorations(view.state).find().length, 1);
+});
+
+
+test('mobile layout fits paper without changing model and keeps search usable with hidden ribbon/read-only', async t => {
+  const initialDocument = body('Alpha Beta Alpha'), before = serializeDocument(initialDocument), changes = [];
+  const props = { initialDocument, initialRibbonDisplayMode: 'hidden', readOnly: true, onChange: value => changes.push(value) };
+  const { renderer, ref, resize, viewport, observers } = await mount(t, props, { width: 390 });
+  const layout = () => renderer.root.findByProps({ 'data-likex-document': '' }).props['data-layout'];
+  const frame = () => renderer.root.findByProps({ className: 'lxd-page-frame' });
+  const zoom = () => button(renderer, 'ズーム').props.value;
+  assert.equal(layout(), 'mobile');
+  assert.equal(renderer.root.findByProps({ className: 'lxd-left-pane' }).props.hidden, true);
+  assert.equal(renderer.root.findByProps({ className: 'lxd-ribbon' }).props.hidden, true);
+  assert.equal(zoom(), Math.floor((390 - 16) / (initialDocument.page.width * 96 / 25.4) * 100));
+  assert.equal(frame().props.style.zoom, zoom() / 100);
+  assert.equal(frame().props.style['--lxd-page-width'], `${initialDocument.page.width}mm`);
+  await change(() => button(renderer, '文書を検索').props.onClick());
+  assert.equal(renderer.root.findByProps({ className: 'lxd-left-pane' }).props.hidden, false);
+  const input = button(renderer, '検索する文字列');
+  assert.notEqual(input.props.disabled, true);
+  assert.notEqual(input.props.readOnly, true);
+  await change(() => input.props.onChange({ currentTarget: { value: 'Alpha' } }));
+  assert.deepEqual(ref.current.getSelection(), { from: 1, to: 6 });
+  await change(() => button(renderer, '次の検索結果').props.onClick());
+  assert.deepEqual(ref.current.getSelection(), { from: 12, to: 17 });
+  await change(() => button(renderer, '検索を閉じる').props.onClick());
+  assert.equal(renderer.root.findByProps({ className: 'lxd-left-pane' }).props.hidden, true);
+  await change(() => button(renderer, '拡大').props.onClick());
+  const manualZoom = zoom();
+  assert.equal(button(renderer, '幅に合わせる').props['aria-pressed'], false);
+  await resize(600);
+  assert.equal(zoom(), manualZoom, 'resizing does not override manual zoom');
+  await change(() => button(renderer, '幅に合わせる').props.onClick());
+  assert.equal(zoom(), Math.floor((600 - 16) / (initialDocument.page.width * 96 / 25.4) * 100));
+  await resize(720);
+  assert.equal(layout(), 'desktop');
+  assert.equal(zoom(), 100, 'desktop zoom is independent from mobile zoom');
+  assert.equal(renderer.root.findByProps({ className: 'lxd-left-pane' }).props.hidden, false);
+  await resize(390);
+  assert.equal(layout(), 'mobile');
+  assert.equal(renderer.root.findByProps({ className: 'lxd-left-pane' }).props.hidden, true);
+  assert.ok(observers.some(value => value.target === viewport));
+  assert.equal(serializeDocument(ref.current.getDocument()), before);
+  assert.deepEqual(changes, []);
+  await change(() => renderer.unmount());
+  assert.ok(observers.every(value => value.disconnected));
+});
+
+test('forced document layouts update after mount and mobile navigation respects feature flags', async t => {
+  const initialDocument = createDocument({ content: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Section' }] }, { type: 'paragraph' }] } });
+  const props = { initialDocument, layout: 'desktop', initialRibbonDisplayMode: 'hidden', features: { search: false } };
+  const { renderer, ref } = await mount(t, props, { width: 390 });
+  assert.equal(renderer.root.findByProps({ 'data-likex-document': '' }).props['data-layout'], 'desktop');
+  assert.equal(renderer.root.findAllByProps({ 'aria-label': '文書の表示操作' }).length, 0);
+  await change(() => renderer.update(h(LikeDocument, { ref, ...props, layout: 'mobile' })));
+  assert.equal(renderer.root.findByProps({ 'data-likex-document': '' }).props['data-layout'], 'mobile');
+  assert.equal(renderer.root.findAllByProps({ 'aria-label': '文書を検索' }).length, 0);
+  await change(() => button(renderer, '見出しを表示').props.onClick());
+  assert.equal(button(renderer, '見出しを表示').props['aria-expanded'], true);
+  assert.equal(renderer.root.findByProps({ className: 'lxd-left-pane' }).props.hidden, false);
+  // Existing selection commands and history remain unchanged by presentation state.
+  assert.equal(getDocumentText(ref.current.getDocument()), 'Section\n');
+  await change(() => renderer.update(h(LikeDocument, { ref, ...props, layout: 'desktop' })));
+  assert.equal(renderer.root.findByProps({ 'data-likex-document': '' }).props['data-layout'], 'desktop');
 });

@@ -192,9 +192,3 @@
 .lxs-root .lxs-border-menu select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .lxs-root .lxs-border-menu select:disabled { cursor: default; }
 .lxs-ribbon-hint { align-self: center; padding: 0 8px; color: var(--lxs-muted); font-size: 11px; white-space: nowrap; }
-@media (max-width: 540px) {
-  .lxs-ribbon-header { gap: 4px; padding-inline: 5px; }
-  .lxs-ribbon-quick-access { padding-right: 4px; }
-  .lxs-root .lxs-ribbon-tab { padding-inline: 8px; }
-  .lxs-ribbon-header .lxs-operation-status { max-width: 90px; }
-}

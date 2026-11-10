@@ -10,9 +10,9 @@ type Corner = "nw" | "ne" | "sw" | "se";
 type GestureKind = "move" | "resize" | "rotate" | "start" | "end" | "corner";
 
 /** Pure artwork and controls; gesture refs stay in the canvas event handlers. */
-export function SlideCanvasElement({ element, elements = [], original, selected, editable, formatting, textEnabled, moving, scale, onBegin, onMenu, onEdit, onCornerChange }: {
+export function SlideCanvasElement({ element, elements = [], original, selected, editable, formatting, textEnabled, moving, scale, mobile = false, onBegin, onMenu, onEdit, onCornerChange }: {
   element: SlideElement; elements?: readonly SlideElement[]; original: SlideElement; selected: boolean; editable: boolean; formatting: boolean;
-  textEnabled: boolean; moving: boolean; scale: number;
+  textEnabled: boolean; moving: boolean; scale: number; mobile?: boolean;
   onBegin(event: PointerEvent<HTMLElement>, element: SlideElement, kind: GestureKind, corner?: Corner): void;
   onMenu(event: MouseEvent<HTMLElement>, element: SlideElement): void;
   onEdit(editing: { id: string; text: string }): void;
@@ -21,7 +21,7 @@ export function SlideCanvasElement({ element, elements = [], original, selected,
   const line = isSlideLine(element);
   const geometry = line ? getSlideShapeGeometry(element, elements) : null;
   return <div className={`lxp-element lxp-canvas-element${line ? " lxp-line-element" : ""}${selected ? " lxp-element-selected" : ""}`}
-    data-slide-element={element.id} role="button" tabIndex={-1} aria-label={element.name || `${element.type} オブジェクト`} aria-pressed={selected}
+    data-slide-element={element.id} data-touch-draggable={selected && editable && formatting && !element.locked || undefined} role="button" tabIndex={-1} aria-label={element.name || `${element.type} オブジェクト`} aria-pressed={selected}
     style={{ ...elementStyle(element), ...(moving ? { opacity: element.opacity * .62 } : {}) }} onPointerDown={event => onBegin(event, original, "move")}
     onContextMenu={event => onMenu(event, original)}
     onDoubleClick={() => { if (editable && textEnabled && element.type !== "image" && !element.locked) onEdit({ id: element.id, text: element.text }); }}>
@@ -36,15 +36,15 @@ export function SlideCanvasElement({ element, elements = [], original, selected,
     {selected && editable && formatting && !element.locked && <>
       {line ? (["start", "end"] as const).map(end => {
         const point = connectorWorldToLocal(getSlideLineEndpoints(element)[end], element);
-        return <button key={end} type="button" className="lxp-line-handle" aria-label={`${element.name}の${end === "start" ? "始点" : "終点"}`} style={{ left: point.x, top: point.y, width: 10 / scale, height: 10 / scale }} onPointerDown={event => onBegin(event, original, end)} />;
+        return <button key={end} type="button" className="lxp-line-handle" aria-label={`${element.name}の${end === "start" ? "始点" : "終点"}`} style={{ left: point.x, top: point.y, width: (mobile ? 24 : 10) / scale, height: (mobile ? 24 : 10) / scale }} onPointerDown={event => onBegin(event, original, end)} />;
       }) : <>{(["nw", "ne", "sw", "se"] as const).map(corner => <button key={corner} type="button" className={`lxp-resize-handle lxp-resize-${corner}`}
         aria-label={`${element.name}の${{ nw: "左上", ne: "右上", sw: "左下", se: "右下" }[corner]}を変形`}
-        style={{ width: 8 / scale, height: 8 / scale }} onPointerDown={event => onBegin(event, original, "resize", corner)} />)}
+        style={{ width: (mobile ? 24 : 8) / scale, height: (mobile ? 24 : 8) / scale }} onPointerDown={event => onBegin(event, original, "resize", corner)} />)}
       {element.type === "shape" && element.shape === "roundRect" && <button type="button" role="slider" className="lxp-corner-handle"
         aria-label={`${element.name || "角丸長方形"}の角の丸み`} aria-valuemin={0} aria-valuemax={100}
         aria-valuenow={Math.round((element.cornerRadiusRatio ?? .12) * 200)} aria-valuetext={`${Math.round((element.cornerRadiusRatio ?? .12) * 200)}%`}
         aria-orientation="horizontal" title="角の丸みを調整"
-        style={{ left: Math.min(element.width, element.height) * (element.cornerRadiusRatio ?? .12), top: 0, width: 12 / scale, height: 12 / scale }}
+        style={{ left: Math.min(element.width, element.height) * (element.cornerRadiusRatio ?? .12), top: 0, width: (mobile ? 24 : 12) / scale, height: (mobile ? 24 : 12) / scale }}
         onPointerDown={event => onBegin(event, original, "corner")}
         onDoubleClick={event => event.stopPropagation()}
         onKeyDown={event => {
@@ -56,7 +56,7 @@ export function SlideCanvasElement({ element, elements = [], original, selected,
           onCornerChange(original, Math.max(0, Math.min(.5, ratio)));
         }} />}
       <button type="button" className="lxp-rotate-handle" aria-label={`${element.name}を回転`}
-        style={{ width: 20 / scale, height: 20 / scale, top: -30 / scale }} onPointerDown={event => onBegin(event, original, "rotate")}><RotateCw style={{ width: 13 / scale, height: 13 / scale }} /></button></>}
+        style={{ width: (mobile ? 32 : 20) / scale, height: (mobile ? 32 : 20) / scale, top: -(mobile ? 40 : 30) / scale }} onPointerDown={event => onBegin(event, original, "rotate")}><RotateCw style={{ width: 13 / scale, height: 13 / scale }} /></button></>}
     </>}
   </div>;
 }

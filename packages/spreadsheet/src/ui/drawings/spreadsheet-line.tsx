@@ -28,9 +28,10 @@ export function SpreadsheetLineDrawing({ drawing, sheet, controller: c, geometry
   const vertices = (route.points.length === 1 ? [route.points[0], route.points[0]] : route.points).map(point => { const p = display(point); return `${p.x},${p.y}`; }).join(" ");
   const startArrow = drawing.startArrow ?? "none", endArrow = drawing.endArrow ?? (drawing.shape === "arrow" ? "triangle" : "none");
   return <div data-lxs-drawing={drawing.id} role="group" aria-label={drawingLabel(drawing)} aria-roledescription="線" tabIndex={0}
-    className={`lxs-line-drawing ${selected ? "lxs-line-selected" : ""}`} onFocus={() => c.selectDrawing(drawing.id)}
+    className={`lxs-line-drawing ${selected ? "lxs-line-selected" : ""} ${c.disabled ? "lxs-drawing-readonly" : ""}`} onFocus={() => c.selectionApi.selectDrawing(c.activeSheet.id, drawing.id)}
+    onClick={() => c.selectionApi.selectDrawing(c.activeSheet.id, drawing.id)}
     onDoubleClick={() => { if (!c.disabled && !c.requesting) onEditText(); }}
-    onPointerDown={event => begin(event, "move")} onPointerMove={moved} onPointerUp={finish} onPointerCancel={() => stop()}
+    onPointerDown={event => { if (event.pointerType !== "touch" || selected && !c.disabled) begin(event, "move"); }} onPointerMove={moved} onPointerUp={finish} onPointerCancel={() => stop()}
     onLostPointerCapture={lostCapture} onKeyDown={event => key(event)}>
     <svg width={geometry.columnOffsets.at(-1)} height={geometry.rowOffsets.at(-1)} overflow="visible" aria-hidden="true">
       <defs><LineMarker id={`${marker}-start`} kind={startArrow} color={drawing.stroke} /><LineMarker id={`${marker}-end`} kind={endArrow} color={drawing.stroke} /></defs>

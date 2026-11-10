@@ -60,13 +60,13 @@ async function mount(t, initialWidth = 1000) {
     hasPointerCapture(id) { return captures.has(id); },
     releasePointerCapture(id) { captures.delete(id); },
   };
-  let enabled = true;
+  let enabled = true, mobile = false;
   let resize;
   let renderer;
   let closed = false;
   function Probe() {
-    resize = useExplorerSidebarResize(enabled, containerRef);
-    return h(ExplorerSidebarResizer, { resize, controlsId: 'navigation' });
+    resize = useExplorerSidebarResize(enabled, containerRef, mobile);
+    return mobile ? null : h(ExplorerSidebarResizer, { resize, controlsId: 'navigation' });
   }
   const element = () => h(StrictMode, null, h(Probe));
   const unmount = async () => {
@@ -84,6 +84,7 @@ async function mount(t, initialWidth = 1000) {
     get grip() { return renderer.root.findByProps({ role: 'separator' }); },
     hasGrip() { return renderer.root.findAllByProps({ role: 'separator' }).length > 0; },
     unmount,
+    async mobile(value) { mobile = value; await change(() => renderer.update(element())); },
     async enable(value) { enabled = value; await change(() => renderer.update(element())); },
     async resizeContainer(width) {
       container.clientWidth = width;
@@ -123,7 +124,7 @@ test('sidebar bounds preserve the file list and keyboard controls expose accessi
   assert.equal(view.grip.props['aria-orientation'], 'vertical');
   assert.equal(view.grip.props['aria-controls'], 'navigation');
   assert.equal(view.grip.props['aria-valuenow'], 208);
-  assert.match(view.grip.props.className, /lxe:hidden.*lxe:@\[720px\]\/explorer:flex/);
+
   for (const extra of [{ altKey: true }, { ctrlKey: true }, { metaKey: true }, { isComposing: true }, { keyCode: 229 }, { defaultPrevented: true }]) {
     assert.equal((await view.key('ArrowRight', false, extra)).prevented, false);
     assert.equal(view.value.width, 208, 'composition and navigation shortcuts do not resize the sidebar');
@@ -208,4 +209,22 @@ test('each instance observes its own window and mobile or unmount ends resizing'
   assert.equal(second.captures.size, 0);
   assert.equal(second.observers.size, 0);
   assert.equal(second.listeners.size, 0);
+});
+
+
+test('forced mobile releases an active sidebar drag, hides the grip, and preserves desktop width', async t => {
+  const view = await mount(t);
+  await view.key('ArrowRight', true);
+  assert.equal(view.value.width, 258);
+  await view.pointer('onPointerDown');
+  assert(view.captures.has(1));
+  await view.mobile(true);
+  assert(!view.hasGrip());
+  assert(!view.captures.has(1));
+  assert.equal((await view.key('ArrowRight')).prevented, false);
+  await view.pointer('onPointerDown');
+  assert(!view.captures.has(1));
+  await view.mobile(false);
+  assert(view.hasGrip());
+  assert.equal(view.value.width, 258);
 });

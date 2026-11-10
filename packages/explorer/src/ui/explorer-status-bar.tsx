@@ -33,7 +33,7 @@ export const ExplorerStatusBar = memo(function ExplorerStatusBar({ footerMessage
     cancelCustomContextMenu,
   } = useExplorerFields("visible", "pendingImportEntries", "selected", "selectedEntries", "saveError", "refreshError", "view", "changeView", "allowedViewModes", "selectionOptions", "readOnly", "editMode", "saving", "refreshing", "searchPending", "searchError", "folderPending", "folderError", "customContextMenuState", "customContextMenuBusy", "cancelCustomContextMenu");
   return (
-    <footer
+    <footer data-explorer-statusbar=""
       className="lxe:flex lxe:min-h-8 lxe:shrink-0 lxe:flex-wrap lxe:items-center lxe:gap-x-3 lxe:gap-y-1 lxe:border-t lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-panel)] lxe:px-3 lxe:py-0.5 lxe:text-xs lxe:text-[var(--explorer-muted)]"
       aria-live="polite"
     >

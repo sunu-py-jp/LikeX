@@ -104,7 +104,6 @@
 .lxs-zoom-slider { display: flex; align-items: center; position: relative; width: 120px; height: 28px; }
 .lxs-zoom-slider::before { content: ""; position: absolute; left: 50%; height: 10px; width: 1px; background: var(--lxs-muted); pointer-events: none; }
 .lxs-zoom-slider input { width: 100%; height: 20px; margin: 0; accent-color: var(--lxs-accent); cursor: pointer; }
-@media (max-width: 600px) { .lxs-selection-stats { display: none; } .lxs-title-context { display: none; } }
 
 /* Drawing and comment surfaces. All rules remain inside Spreadsheet. */
 .lxs-sheet-workspace { display: flex; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }

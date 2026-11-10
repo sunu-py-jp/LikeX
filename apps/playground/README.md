@@ -5,6 +5,7 @@ LikeXの操作・見た目を確認するVite + Reactのデモです。通常の
 | パス | デモ |
 | --- | --- |
 | `/` | Explorer |
+| `/mobile` | Explorer・Spreadsheet・LikeSlide・LikeDocumentを切り替え、幅320/390/600/900pxと `layout` のauto/mobile/desktop、読み取り専用を確認できます。高さ650pxの枠内に単体表示します。`?view=document&width=390&layout=auto&readOnly=true` などで初期設定を指定できます。保存先は画面内メモリです。 |
 | `/external-search?view=spreadsheet` | 外部検索結果からセル範囲へ移動するデモ。`view=slide` / `document` / `pdf` で各資料に切り替えられます。 |
 | `/thumbnails` | Spreadsheet・Word・スライド・PDFの専用サムネイルを一覧表示。シート名／IDとページ番号で表示を切り替え、同じ位置から通常画面を開けます。ライト／ダークも確認できます。 |
 | `/explorer/search` | 利用側の検索フォーム・処理・結果表示を渡すExplorerデモ。ファイル名の文字列／正規表現検索と、顧客・会議日・本文による議事録検索を切り替えられます。議事録は一括／逐次表示も試せます。 |

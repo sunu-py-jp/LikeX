@@ -26,4 +26,37 @@
 }
 .lxe\:drag-preview > span { overflow: hidden; text-overflow: ellipsis; }
 .lxe\:drag-preview > strong { flex-shrink: 0; color: var(--explorer-accent, #2563eb); font-size: 11px; }
+
+/* Width is resolved per Explorer (also for portals and forced layouts). */
+[data-likex-explorer][data-layout="mobile"] .lxe\:icon-control {
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
+}
+[data-likex-explorer][data-layout="mobile"] .lxe\:button-control,
+[data-likex-explorer][data-layout="mobile"] [role="menuitem"],
+[data-likex-explorer][data-layout="mobile"] [role="menuitemcheckbox"],
+[data-likex-explorer][data-layout="mobile"] [role="menuitemradio"] { min-height: 44px; }
+[data-likex-explorer][data-layout="mobile"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+[data-likex-explorer][data-layout="mobile"] textarea,
+[data-likex-explorer][data-layout="mobile"] select { font-size: 16px; }
+[data-likex-explorer][data-layout="mobile"] [data-explorer-header] > header { min-height: 56px; }
+[data-likex-explorer][data-layout="mobile"] [data-explorer-header] > div { flex-wrap: wrap; }
+[data-likex-explorer][data-layout="mobile"] [data-explorer-header] [role="search"] { flex-basis: 100%; }
+[data-likex-explorer][data-layout="mobile"] [data-explorer-address] { flex-basis: 100%; }
+[data-likex-explorer][data-layout="mobile"] [data-explorer-address] > div,
+[data-likex-explorer][data-layout="mobile"] [data-explorer-address] > input,
+[data-likex-explorer][data-layout="mobile"] [data-explorer-search-input] { min-height: 44px; }
+[data-likex-explorer][data-layout="mobile"] [data-explorer-address] button { min-height: 42px; }
+[data-likex-explorer][data-layout="mobile"] [data-explorer-sidebar] nav button,
+[data-likex-explorer][data-layout="mobile"] [data-explorer-tree-root],
+[data-likex-explorer][data-layout="mobile"] [data-explorer-tree-entry] { min-height: 44px; }
+[data-likex-explorer][data-layout="mobile"] [data-explorer-file-list] thead th { height: 44px; }
+[data-likex-explorer][data-layout="mobile"] [data-explorer-file-list] input[type="checkbox"] { width: 24px; height: 24px; }
+[data-likex-explorer][data-layout="mobile"] [data-explorer-entry-name] { touch-action: manipulation; }
+[data-likex-explorer][data-layout="mobile"] [data-explorer-statusbar] { min-height: 44px; }
+[data-likex-explorer][data-layout="mobile"][role="menu"] { max-width: calc(100vw - 16px); overflow-wrap: anywhere; }
+[data-likex-explorer][data-layout="mobile"][role="dialog"],
+[data-likex-explorer][data-layout="mobile"][role="alertdialog"] { max-width: 100%; max-height: 100%; }
 }

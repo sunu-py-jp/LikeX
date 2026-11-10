@@ -68,7 +68,7 @@ const AddressBarSession = memo(function AddressBarSession() {
   }
 
   return (
-    <div className="lxe:min-w-0 lxe:flex-1">
+    <div data-explorer-address="" className="lxe:min-w-0 lxe:flex-1">
       {editing && features.pathInput ? (
         <input
           ref={addressInput}

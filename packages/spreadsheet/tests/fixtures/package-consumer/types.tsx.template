@@ -247,3 +247,12 @@ const keywordResult: SpreadsheetKeywordSearchResult = searchSpreadsheet(createKe
 // @ts-expect-error Search result limits are integers, not strings.
 searchSpreadsheet(createKeywordWorkbook(), { keywords: ['顧客'] }, { limit:'10' });
 void keywordResult;
+
+// Responsive presentation is available from the public UI entry in package and copy consumers.
+import type { ResponsiveLayout as ConsumerLayout, SpreadsheetProps as MobileViewProps } from "__LIBRARY_IMPORT__";
+const responsiveLayout: ConsumerLayout = "auto";
+const mobileProps: Pick<MobileViewProps, "layout"> = { layout: responsiveLayout };
+const forcedMobileProps: Pick<MobileViewProps, "layout"> = { layout: "mobile" };
+// @ts-expect-error Layout accepts only the shared explicit modes.
+const invalidMobileProps: Pick<MobileViewProps, "layout"> = { layout: "phone" };
+void [mobileProps, forcedMobileProps, invalidMobileProps];

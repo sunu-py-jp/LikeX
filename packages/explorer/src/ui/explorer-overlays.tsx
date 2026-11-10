@@ -260,26 +260,30 @@ function useLayerContent(props: FocusProps) {
 }
 
 function DropdownContent(props: ComponentProps<typeof RadixDropdown.Content>) {
+  const { layout } = useExplorerDom();
   const { foreign, ...focus } = useLayerContent(props);
   // The underlying Menu content forwards this FocusScope callback.
-  return <RadixDropdown.Content {...props} {...focus} data-likex-explorer="" data-explorer-foreign-layer={foreign || undefined} />;
+  return <RadixDropdown.Content {...props} {...focus} data-likex-explorer="" data-layout={layout} data-explorer-foreign-layer={foreign || undefined} />;
 }
 
 function ContextContent(props: ComponentProps<typeof RadixContext.Content>) {
+  const { layout } = useExplorerDom();
   const { foreign, ...focus } = useLayerContent(props);
-  return <RadixContext.Content {...props} {...focus} data-likex-explorer="" data-explorer-foreign-layer={foreign || undefined} />;
+  return <RadixContext.Content {...props} {...focus} data-likex-explorer="" data-layout={layout} data-explorer-foreign-layer={foreign || undefined} />;
 }
 
 function DialogContent(props: ComponentProps<typeof RadixDialog.Content>) {
+  const { layout } = useExplorerDom();
   const { foreign, ...focus } = useLayerContent(props);
-  return <RadixDialog.Content {...props} {...focus} data-likex-explorer="" aria-modal={foreign ? true : props["aria-modal"]} onInteractOutside={foreign ? (event) => event.preventDefault() : props.onInteractOutside} />;
+  return <RadixDialog.Content {...props} {...focus} data-likex-explorer="" data-layout={layout} aria-modal={foreign ? true : props["aria-modal"]} onInteractOutside={foreign ? (event) => event.preventDefault() : props.onInteractOutside} />;
 }
 
 function AlertContent(props: ComponentProps<typeof RadixAlert.Content>) {
+  const { layout } = useExplorerDom();
   const { foreign, ...focus } = useLayerContent(props);
   return foreign
-    ? <RadixDialog.Content {...props} {...focus} data-likex-explorer="" role="alertdialog" aria-modal onInteractOutside={(event) => event.preventDefault()} />
-    : <RadixAlert.Content {...props} {...focus} data-likex-explorer="" />;
+    ? <RadixDialog.Content {...props} {...focus} data-likex-explorer="" data-layout={layout} role="alertdialog" aria-modal onInteractOutside={(event) => event.preventDefault()} />
+    : <RadixAlert.Content {...props} {...focus} data-likex-explorer="" data-layout={layout} />;
 }
 
 function DialogOverlay(props: ComponentProps<typeof RadixDialog.Overlay>) {

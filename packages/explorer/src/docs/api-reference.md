@@ -39,7 +39,7 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `renderSearchResult` | `ExplorerSearchResultRenderer`。外部検索結果の名前の下の補足領域を差し替えます。確定検索語・項目・hit・選択状態・表示モード・標準補足を受け取り、null/undefinedは標準、falseは内容を非表示にします。[結果の表示](./search.md) |
 | `renderEmptyState` | `ExplorerEmptyStateRenderer`。空フォルダ・検索結果0件・お気に入り／最近0件の案内を差し替えます。場所・理由・標準操作・標準表示を受け取り、null/undefinedは標準、falseは案内を非表示にします。読み込み中とエラー時は呼びません。[例とcontext](./empty-state.md) |
 | `search` | `ExplorerSearchOptions`。`trigger` は `"input"`（既定）または `"submit"`。`debounceMs` は外部の入力検索だけに適用する待機時間で、既定は `0`。`params` はJSON互換の外部条件で、input時は内容変更で再検索、submit時はEnterで確定します。`pageSize` を指定すると外部検索へcursor / limitを渡し、末尾付近で続きを取得します。正の整数を最大1,000件に収め、不正値は100件、省略は従来方式です。`resultDetailsMaxLines` は補足領域の最大行数（既定1、有限値を整数化して1〜30行）。超えた内容は省略記号で表示し、枠内の縦スクロールはありません。`resultDetailsHeight` に有限の数値を指定すると行数指定より優先し、24〜480pxの固定高さと枠内スクロールを使います。全表示モードで仮想スクロールを維持します。 |
-| `previewTrigger` | `ExplorerPreviewTrigger`。`"doubleClick"`（既定）または `"click"`。後者はファイル名の単クリックでプレビューします。 |
+| `previewTrigger` | `ExplorerPreviewTrigger`。`"doubleClick"`（既定）または `"click"`。後者はファイル名の単クリックでプレビューします。モバイル表示は名前1タップで開きます。 |
 | `onEvent` | `ExplorerEventHandler`。ローカル操作・選択・移動・表示状態・保存等を親へ通知します。通知の戻り値や例外は操作の成否を変えません。 |
 | `onSelectionChange` | 任意の `(items: readonly ExplorerItemInfo[]) => void`。メイン領域の初期選択と、その後の選択ID・項目情報の変化を通知します。無選択・選択解除は `[]`。子・孫ウィンドウの選択は `onEvent` で観測します。[選択の通知](./events.md#selection-change) |
 | `renderIcon` | `ExplorerIconRenderer`。項目情報・描画箇所・選択状態等から独自アイコンを返します。`null` / `undefined` は既定表示、`false` は枠だけを残します。 |
@@ -59,6 +59,7 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `view` | `ExplorerViewOptions`。使える表示形式と初期表示。`defaultColumnWidths?: Partial<ExplorerDetailsColumnWidths>` で詳細表示の `name` / `location` / `updatedAt` / `extension` / `size` の初期幅（px）を指定します。`location` は検索中だけ表示する場所列です。初回マウント時だけ読みます。[幅変更の操作と設定](./configuration.md#details-column-widths) |
 | `onDirtyChange` | 未保存の変更の有無を通知する任意の `(dirty: boolean) => void`。親画面の保存状態表示や、SPA遷移・ワークスペース切替前の確認に利用できます。 |
 | `warnOnUnsavedChanges` | 任意の `boolean`。既定は `true`。未保存の変更がある間、親画面とExplorerの別ウィンドウでブラウザ標準の離脱確認を有効にします。`false` で無効化でき、マウント後の変更にも反映します。 |
+| `layout` | `ResponsiveLayout`。`"auto"`（既定）/ `"desktop"` / `"mobile"`。自身の幅720px未満で自動切替。[モバイル表示](./appearance.md#スマートフォン狭い領域で表示する) |
 | `className` / `style` | 外枠のサイズや配置を調整します。 |
 | `colorMode` | `ExplorerColorMode`。`"light"` / `"dark"` / `"system"`。未指定はライト（既存の `theme.colorScheme` 指定は維持）。 |
 | `theme` | `ExplorerThemeOptions`。ベースカラー、共通・モード別の配色、フォントを上書きします。従来の `Partial<ExplorerTheme>` も渡せます。 |

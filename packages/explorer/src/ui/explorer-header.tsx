@@ -184,6 +184,7 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
     cancelEditPermission,
   } = useExplorerFields("canSort", "travel", "historyIndex", "history", "navigate", "folder", "location", "special", "provisionalLocation", "setSelected", "disabled", "showModal", "startRename", "chooseFiles", "copyToClipboard", "selected", "paste", "displayedSort", "setSort", "view", "changeView", "compact", "changeCompact", "visible", "act", "selectedEntries", "download", "externalDownload", "busy", "saving", "importing", "refreshing", "canRefresh", "refreshEntries", "dirty", "saveChanges", "setDetailId", "mobileOpen", "setOpenMobile", "instanceId", "features", "selectionOptions", "uiOptions", "allowedViewModes", "canPaste", "readOnly", "canEditFavorites", "editMode", "cancelEditPermission");
   const renameMenuFocus = useRenameMenuFocus();
+  const mobile = useExplorerDom().layout === "mobile";
 
   const hasUpload = !provisionalLocation && (features.uploadFiles || features.uploadFolders);
   const hasEdit =
@@ -192,12 +193,11 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
   const hasSelectionMenu = selectionOptions.mode !== "none";
   const hasOperationMenu =
     hasEdit || canEditFavorites || features.download || features.details;
-  const mobileTrigger = uiOptions.sidebar ? (
+  const mobileTrigger = uiOptions.sidebar && mobile ? (
     <button
       type="button"
       className={mergeExplorerClasses(
         iconButtonClass,
-        "lxe:@[720px]/explorer:hidden",
         features.tabs && "lxe:mb-0.5",
       )}
       aria-label="フォルダのナビゲーションを開く"
@@ -211,7 +211,7 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
   ) : null;
 
   return (
-    <div className="lxe:shrink-0 lxe:bg-[var(--explorer-panel)]">
+    <div data-explorer-header="" className="lxe:shrink-0 lxe:bg-[var(--explorer-panel)]">
       {features.tabs && (
         <header className="lxe:flex lxe:h-10 lxe:min-w-0 lxe:items-end lxe:gap-2 lxe:border-b lxe:border-[var(--explorer-border)] lxe:bg-[var(--explorer-hover)] lxe:px-2 lxe:pt-1.5">
           {mobileTrigger}

@@ -165,7 +165,6 @@
 .lxd-dialog-actions { display:flex; justify-content:flex-end; gap:9px; }.lxd-dialog-actions button { border:1px solid var(--lxd-border); padding:6px 14px; border-radius:3px; }
 .lxd-dialog-actions .lxd-primary-button { background:var(--lxd-primary); color:var(--lxd-on-primary); border-color:var(--lxd-primary); }
 .lxd-spin { animation:lxd-spin 1s linear infinite; }@keyframes lxd-spin { to { transform:rotate(360deg); } }
-@container likex-document (max-width:700px) { .lxd-navigation { width:170px; min-width:140px; }.lxd-document-viewport { padding-left:16px; padding-right:16px; }.lxd-titlebar { padding:0 10px; }.lxd-statusbar { gap:8px; } }
 @media(prefers-reduced-motion:reduce) { .lxd-spin { animation-duration:2.5s; }.lxd-document-viewport { scroll-behavior:auto; } }
 
 .lxd-editor.lxd-is-dragging img.ProseMirror-selectednode { opacity:.55; }
@@ -223,3 +222,57 @@
 .lxd-search-external .lxd-search-controls .lxd-search-return { font-size:10px; padding:4px 2px; }
 .lxd-search-external>.lxd-search-results { flex:1; overflow:auto; }
 .lxd-search-external>.lxd-search-controls>span { font-size:11px; }
+
+/* Narrow host containers use the same editing model and paper geometry. */
+.lxd-root[data-layout="mobile"] { min-height:260px; }
+.lxd-root[data-layout="mobile"] .lxd-titlebar { height:44px; gap:6px; padding:0 8px; }
+.lxd-root[data-layout="mobile"] .lxd-document-mark { display:none; }
+.lxd-root[data-layout="mobile"] .lxd-titlebar-end { gap:4px; }
+.lxd-root[data-layout="mobile"] .lxd-titlebar-end>span { display:none; }
+.lxd-root[data-layout="mobile"] .lxd-quick-actions { margin-left:0; padding-left:4px; }
+.lxd-root[data-layout="mobile"] .lxd-quick-actions button,
+.lxd-root[data-layout="mobile"] .lxd-titlebar-end button { min-width:36px; min-height:36px; }
+.lxd-root[data-layout="mobile"] .lxd-ribbon-tabs { height:40px; padding:0 4px; gap:0; }
+.lxd-root[data-layout="mobile"] .lxd-ribbon-tabs button { padding:0 13px; }
+.lxd-root[data-layout="mobile"] .lxd-ribbon-display { width:40px; height:36px; }
+.lxd-root[data-layout="mobile"] .lxd-ribbon-strip { height:112px; }
+.lxd-root[data-layout="mobile"] .lxd-ribbon-action { min-height:36px; }
+.lxd-root[data-layout="mobile"] .lxd-ribbon-action.is-big { min-width:44px; height:72px; }
+.lxd-root[data-layout="mobile"] :is(.lxd-icon-button,.lxd-ribbon-icon) { width:36px; height:36px; }
+.lxd-root[data-layout="mobile"] .lxd-ribbon-scroll { touch-action:pan-x pan-y; scrollbar-width:thin; }
+.lxd-root[data-layout="mobile"] .lxd-scroll-arrow { width:32px; }
+.lxd-root[data-layout="mobile"] :is(.lxd-row select,.lxd-ribbon-controls>select) { height:34px; }
+.lxd-root[data-layout="mobile"] .lxd-mobile-tools { flex:none; display:flex; gap:4px; align-items:center; padding:3px 6px; border-bottom:1px solid var(--lxd-border); background:var(--lxd-panel); }
+.lxd-root[data-layout="mobile"] .lxd-mobile-tools button { display:flex; gap:5px; align-items:center; justify-content:center; min-height:36px; padding:5px 8px; border-radius:4px; white-space:nowrap; }
+.lxd-root[data-layout="mobile"] .lxd-mobile-tools button[aria-expanded="true"],
+.lxd-root[data-layout="mobile"] .lxd-mobile-tools button[aria-pressed="true"] { background:var(--lxd-selection); color:var(--lxd-accent); }
+.lxd-root[data-layout="mobile"] .lxd-mobile-tools button:last-child { margin-left:auto; }
+.lxd-root[data-layout="mobile"] .lxd-workspace { flex-direction:column; }
+.lxd-root[data-layout="mobile"] .lxd-left-pane { width:100%; max-width:100%; max-height:min(45%,300px); overflow:hidden; border-bottom:1px solid var(--lxd-border); }
+.lxd-root[data-layout="mobile"] .lxd-left-pane :is(.lxd-navigation,.lxd-search-panel) { width:100%; min-width:0; max-width:100%; border-right:0; }
+.lxd-root[data-layout="mobile"] .lxd-navigation { padding:8px 0; }
+.lxd-root[data-layout="mobile"] .lxd-navigation h2 { display:none; }
+.lxd-root[data-layout="mobile"] .lxd-navigation-label { margin-bottom:4px; }
+.lxd-root[data-layout="mobile"] .lxd-navigation button { min-height:40px; }
+.lxd-root[data-layout="mobile"] .lxd-search-local { flex:1; overflow:auto; }
+.lxd-root[data-layout="mobile"] .lxd-search-local>form,
+.lxd-root[data-layout="mobile"] .lxd-search-controls { flex:none; }
+.lxd-root[data-layout="mobile"] .lxd-search-local>.lxd-search-results { overflow:visible; }
+.lxd-root[data-layout="mobile"] .lxd-search-panel button { min-height:36px; min-width:36px; }
+.lxd-root[data-layout="mobile"] .lxd-search-panel input { font-size:16px; }
+.lxd-root[data-layout="mobile"] .lxd-document-viewport { padding:0 8px 16px; touch-action:pan-x pan-y pinch-zoom; }
+.lxd-root[data-layout="mobile"] .lxd-ruler { display:none; }
+.lxd-root[data-layout="mobile"] .lxd-statusbar { height:auto; min-height:40px; gap:4px 8px; padding:2px 8px; flex-wrap:wrap; }
+.lxd-root[data-layout="mobile"] .lxd-status-message { order:3; flex-basis:100%; }
+.lxd-root[data-layout="mobile"] .lxd-status-message:empty { display:none; }
+.lxd-root[data-layout="mobile"] .lxd-zoom { margin-left:auto; gap:3px; }
+.lxd-root[data-layout="mobile"] .lxd-zoom input { width:64px; }
+.lxd-root[data-layout="mobile"] .lxd-zoom button { min-width:32px; min-height:36px; }
+.lxd-root[data-layout="mobile"] .lxd-dialog-backdrop { padding:8px; }
+.lxd-root[data-layout="mobile"] .lxd-dialog { max-height:100%; overflow:auto; padding:14px; overscroll-behavior:contain; }
+.lxd-root[data-layout="mobile"] .lxd-dialog :is(button,input,select,textarea) { min-height:36px; }
+.lxd-root[data-layout="mobile"] .lxd-dialog :is(input,select,textarea) { font-size:16px; }
+.lxd-root[data-layout="mobile"] .lxd-dialog-content label { flex-wrap:wrap; }
+.lxd-root[data-layout="mobile"] .lxd-dialog-content input:not([type=checkbox]) { min-width:0; max-width:100%; }
+.lxd-root[data-layout="mobile"] .lxd-dialog-actions { flex-wrap:wrap; }
+.lxd-root[data-layout="mobile"] .lxd-shape-options { width:calc(100% - 16px); max-width:calc(100vw - 16px); grid-template-columns:repeat(2,minmax(0,1fr)); }

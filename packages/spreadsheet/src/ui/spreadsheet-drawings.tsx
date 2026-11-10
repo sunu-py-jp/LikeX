@@ -75,7 +75,7 @@ export const SpreadsheetDrawings = memo(function SpreadsheetDrawings({ controlle
         className={`lxs-drawing ${selected ? "lxs-drawing-selected" : ""} ${c.disabled ? "lxs-drawing-readonly" : ""}`}
         style={{ left: rectangle.left, top: rectangle.top, width: rectangle.width, height: rectangle.height,
           ...(rotation ? { transform: `rotate(${rotation}deg)`, transformOrigin: "center" } : {}) }}
-        onFocus={() => c.selectDrawing(drawing.id)} onPointerDown={event => start(event, drawing, "move")} onPointerMove={move} onPointerUp={finish} onPointerCancel={cancelGesture} onLostPointerCapture={() => lostPointerCapture(drawing.id)} onKeyDown={event => keyDown(event, drawing)}
+        onFocus={() => c.selectionApi.selectDrawing(c.activeSheet.id, drawing.id)} onClick={() => c.selectionApi.selectDrawing(c.activeSheet.id, drawing.id)} onPointerDown={event => start(event, drawing, "move")} onPointerMove={move} onPointerUp={finish} onPointerCancel={cancelGesture} onLostPointerCapture={() => lostPointerCapture(drawing.id)} onKeyDown={event => keyDown(event, drawing)}
         onDoubleClick={() => { if (drawing.type !== "image" && !c.disabled) setEditingText(drawing.id); }}>
         {drawing.type === "image" ? resource ? <img src={resource.dataUrl} alt={drawing.alt} draggable={false} decoding="async" style={{ objectFit: drawing.fit ?? "contain", transform: `scale(${flipX ? -1 : 1}, ${flipY ? -1 : 1})` }} /> : <span className="lxs-image-missing">画像を表示できません</span>
           : <>

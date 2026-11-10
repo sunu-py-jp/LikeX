@@ -36,6 +36,7 @@ function releaseDrag(dragRef: RefObject<Drag | null>) {
 export function useExplorerSidebarResize(
   enabled: boolean,
   containerRef: RefObject<HTMLElement | null>,
+  mobile = false,
 ) {
   const [requestedWidth, setRequestedWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
@@ -68,9 +69,9 @@ export function useExplorerSidebarResize(
   }, [containerRef]);
 
   useEffect(() => {
-    if (!enabled) releaseDrag(dragRef);
+    if (!enabled || mobile) releaseDrag(dragRef);
     return () => releaseDrag(dragRef);
-  }, [enabled]);
+  }, [enabled, mobile]);
 
   const { min, max } = sidebarLimits(containerWidth);
   const width = clampSidebarWidth(
@@ -80,7 +81,7 @@ export function useExplorerSidebarResize(
   const currentContainerWidth = () =>
     containerRef.current?.clientWidth ?? containerWidth;
   const canResize = () =>
-    enabled && (currentContainerWidth() ?? 0) >= SIDEBAR_DESKTOP_BREAKPOINT;
+    enabled && !mobile && (currentContainerWidth() ?? 0) >= SIDEBAR_DESKTOP_BREAKPOINT;
 
   function setWidth(value: number) {
     if (canResize())
@@ -161,7 +162,7 @@ export function ExplorerSidebarResizer({
       aria-valuetext={`${resize.width}ピクセル`}
       title="ドラッグまたは左右キーで幅を変更、ダブルクリックで元に戻す"
       tabIndex={0}
-      className="lxe:group lxe:relative lxe:z-10 lxe:hidden lxe:w-1.5 lxe:shrink-0 lxe:cursor-col-resize lxe:touch-none lxe:items-center lxe:justify-center lxe:bg-[var(--explorer-panel)] lxe:outline-none lxe:select-none lxe:hover:bg-[var(--explorer-selection)] lxe:focus-visible:bg-[var(--explorer-selection)] lxe:data-[resizing=true]:bg-[var(--explorer-selection)] lxe:@[720px]/explorer:flex"
+      className="lxe:group lxe:relative lxe:z-10 lxe:flex lxe:w-1.5 lxe:shrink-0 lxe:cursor-col-resize lxe:touch-none lxe:items-center lxe:justify-center lxe:bg-[var(--explorer-panel)] lxe:outline-none lxe:select-none lxe:hover:bg-[var(--explorer-selection)] lxe:focus-visible:bg-[var(--explorer-selection)] lxe:data-[resizing=true]:bg-[var(--explorer-selection)]"
       onPointerDown={resize.onPointerDown}
       onPointerMove={resize.onPointerMove}
       onPointerUp={resize.onPointerUp}
