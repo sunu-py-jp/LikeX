@@ -92,6 +92,8 @@ XLSX取り込みの標準モードは同じ内容の空セル書式を横run・�
 
 セル文字サイズはCSSピクセル（1〜200）。列幅・行高はともに1〜1,000px。色には `#RRGGBB` を使うと意図が明確になる。Spreadsheetの描画色・セル色の検証契約はSlideの16進色限定契約と同じではない。
 
+UIの `sheetColorMode` はSPONのフィールドではない。既定の `"light"` は元の書式色で表示し、`"dark"` は暗いシート向けにセルの表示色だけを補正する。`"inherit"` はUIの明暗に従う。いずれも保存する `color` / `background` / `borders`、XLSXの色、モデルAPI・CLIの取得結果は同じ。暗い表示を再現するために書式色や画像・図形の色を書き換えない。[表示設定](../../../src/docs/formatting.md#uiとシートの明暗)を参照する。
+
 標準セルの余白は左右各2px、行間は文字サイズの1.2倍。これらは表示・自動調整の基準で、SPONのセル書式フィールドではない。折り返しやXLSX取り込みで保存行高を自動的に広げず、必要な対象へ `dimensions.autoFit` を実行する。XLSXの行高はptとCSS pxを0.75倍で相互変換する。列幅は、ブラウザー入口とGUI／Handleではブックの標準（Normal）フォントを計測し、端末ピクセルで丸めてからCSS pxへ戻す。`/model` は `columnWidthMeasurement` の注入を受け付け、未指定・未計測ならCalibri 11pt・96dpi相当の最大数字幅7px、倍率1へ近似する。列幅に小数を保持でき、元の標準フォント・端末倍率はSPONに保存しない。XLSX出力はCalibri 11pt基準へ換算し、小数の列幅には量子化誤差が残る。重複する列幅指定はセル・図形とも先の有効な指定を採用する。代替フォントなどによる表示差は残るため、[Excel取り込みの制約](../../../src/docs/excel-import.md#読み込む内容と制約)も確認する。
 
 `SpreadsheetDataValidation` は共通で `allowBlank?`（既定true）と `message?`（255文字以内）を持つ。

@@ -75,4 +75,6 @@ Next.js App Routerでは `app/layout.tsx` にCSSのimportを置きます。コ�
 - [Excelへのエクスポート](./excel-export.md)
 - [内部構成と拡張の方針](./architecture.md)
 
-スタイルは `.lxs-*`、`--lxs-*`、`data-likex-spreadsheet` の名前空間を使います。`colorMode="light" | "dark" | "system"` と `className` / `style` で表示を調整できます。必要ならコンポーネントのルートに `--lxs-background`、`--lxs-foreground`、`--lxs-panel`、`--lxs-border`、`--lxs-muted`、`--lxs-accent` を上書きします。
+スタイルは `.lxs-*`、`--lxs-*`、`data-likex-spreadsheet` の名前空間を使います。`colorMode="light" | "dark" | "system"` でUI、`sheetColorMode="light" | "dark" | "inherit"` でシートの明暗を指定します。シートは既定で `"light"` なので、`colorMode="dark"` でも白いシートと元の書式色を保てます。シートも暗くする場合は `sheetColorMode="dark"`、UIに追従させる場合は `"inherit"` を指定します。詳しくは[UIとシートの明暗](./formatting.md#uiとシートの明暗)を参照してください。
+
+`className` / `style` でも表示を調整できます。必要ならコンポーネントのルートに `--lxs-background`、`--lxs-foreground`、`--lxs-panel`、`--lxs-border`、`--lxs-muted`、`--lxs-accent` を上書きします。

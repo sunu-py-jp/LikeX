@@ -326,3 +326,8 @@ const forcedMobileProps: Pick<MobileViewProps, "layout"> = { layout: "mobile" };
 // @ts-expect-error Layout accepts only the shared explicit modes.
 const invalidMobileProps: Pick<MobileViewProps, "layout"> = { layout: "phone" };
 void [mobileProps, forcedMobileProps, invalidMobileProps];
+
+const independentRename: ExplorerProps = { initialEntries: entries, features: { rename: true, renameFiles: true, renameFolders: false } };
+// @ts-expect-error Folder rename is a boolean switch.
+const invalidRenameKind: ExplorerProps = { initialEntries: entries, features: { renameFolders: "disabled" } };
+void [independentRename, invalidRenameKind];

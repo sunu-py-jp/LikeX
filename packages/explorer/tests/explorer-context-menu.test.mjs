@@ -263,6 +263,42 @@ test('custom rename permits the same extension and rejects extension changes', a
   });
 });
 
+test('custom rename actions use the target kind flags in every shared view', async t => {
+  for (const [id, flag, name] of [['alpha', 'renameFiles', 'Renamed.txt'], ['folder', 'renameFolders', 'Renamed folder']]) {
+    for (const allowed of [false, true]) await t.test(`${flag}: ${allowed}`, async t => {
+      const hook = await mount(t, { features: { [flag]: allowed },
+        getContextMenuItems: context => context.target.kind === 'entry' ? [{ id: 'rename-kind', label: '名前変更',
+          onSelect: () => ({ change: { type: 'action', action: { action: 'rename', ids: [context.target.entry.id], name } } }),
+        }] : [],
+      }, 'views');
+      const original = hook.current.entries.find(item => item.id === id).name;
+      const menu = menuFor(hook.child, id);
+      assert.equal(menu.context.features[flag], allowed);
+      await change(() => hook.child.runCustomContextMenu(menu, menu.items[0]));
+      assert.equal(hook.current.entries.find(item => item.id === id).name, allowed ? name : original);
+      assert.equal(hook.current.dirty, allowed);
+      assert.equal(hook.events.filter(event => event.type === 'context-menu').at(-1).status, allowed ? 'success' : 'error');
+      assert.equal(hook.current.mutationBlocked, false);
+    });
+  }
+});
+
+test('custom rename rechecks the kind flag after asynchronous edit permission', async t => {
+  const permit = deferred();
+  const hook = await mount(t, { getContextMenuItems: provider(() => ({ change: { type: 'action', action: renameAction } })),
+    onEditRequest: () => permit.promise,
+  }, 'views');
+  const original = hook.current.entries;
+  let running; const menu = menuFor(hook.main);
+  await change(() => { running = hook.main.runCustomContextMenu(menu, menu.items[0]); });
+  await hook.update({ features: { renameFiles: false, renameFolders: true } });
+  await change(async () => { permit.resolve(true); await running; });
+  assert.deepEqual(hook.current.entries, original);
+  assert.equal(hook.current.dirty, false);
+  assert.equal(hook.current.mutationBlocked, false);
+  assert.equal(hook.events.filter(event => event.type === 'context-menu').at(-1).status, 'error');
+});
+
 test('a revoked feature during permission never commits the prepared upload', async t => {
   const permit = deferred();
   const hook = await mount(t, { getContextMenuItems: provider(() => uploadResult()), onEditRequest: () => permit.promise }, 'views');

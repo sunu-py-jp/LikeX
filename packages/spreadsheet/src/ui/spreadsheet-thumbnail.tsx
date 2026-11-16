@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { SpreadsheetWorkbookSnapshot } from "../commands/types";
-import type { SpreadsheetColorMode } from "../props";
+import type { SpreadsheetColorMode, SpreadsheetSheetColorMode } from "../props";
 import { createPrimaryColorPalette } from "../core";
 import { normalizeSpreadsheetThumbnail, prepareNormalizedSpreadsheetThumbnail } from "./thumbnail/prepare-thumbnail";
 import { Shape } from "./drawings/shape";
@@ -11,6 +11,8 @@ import { DrawingText } from "./drawings/drawing-text";
 import { getDrawingTextRotation } from "../model/drawing-text";
 import { LineMarker } from "./drawings/line-marker";
 import { ThumbnailCellText } from "./thumbnail/thumbnail-cell-text";
+import { resolveSheetColorMode } from "./grid/sheet-color-mode";
+import { adaptCellColors, adaptDataBarColor } from "./grid/cell-colors";
 
 export type SpreadsheetThumbnailProps = {
   /** Replacing this immutable input updates the preview. Only the selected sheet's A1:J20 is displayed. */
@@ -21,6 +23,8 @@ export type SpreadsheetThumbnailProps = {
   sheetName?: string;
   title?: string;
   colorMode?: SpreadsheetColorMode;
+  /** Sheet appearance only; defaults to light and never modifies the supplied workbook. */
+  sheetColorMode?: SpreadsheetSheetColorMode;
   primaryColor?: string;
   className?: string;
   /** Default height is 280px. No minimum height is imposed. */
@@ -57,12 +61,13 @@ export function SpreadsheetThumbnail(props: SpreadsheetThumbnailProps) {
     return () => media.removeEventListener("change", update);
   }, [props.colorMode]);
   const dark = props.colorMode === "dark" || (props.colorMode === "system" && systemDark);
+  const sheetColorMode = resolveSheetColorMode(props.sheetColorMode, dark);
   const palette = useMemo(() => createPrimaryColorPalette(props.primaryColor, dark ? "dark" : "light"), [props.primaryColor, dark]);
   const marker = useId().replace(/:/g, ""), scene = prepared.scene;
   const title = props.title?.trim() || "スプレッドシート";
   const style = { height: 280, minHeight: 0, ...(palette ? { "--lxs-primary": palette.primary, "--lxs-on-primary": palette.onPrimary,
     "--lxs-primary-hover": palette.primaryHover, "--lxs-accent": palette.accent } : {}), ...props.style } as CSSProperties;
-  return <section data-likex-spreadsheet data-likex-spreadsheet-thumbnail data-color-mode={dark ? "dark" : "light"}
+  return <section data-likex-spreadsheet data-likex-spreadsheet-thumbnail data-color-mode={dark ? "dark" : "light"} data-sheet-color-mode={sheetColorMode}
     className={`lxs-root lxs-thumbnail ${props.className ?? ""}`} style={style} role="img"
     aria-label={props["aria-label"] ?? `${title} — ${scene ? `${scene.sheetName}の先頭範囲` : "サムネイルを表示できません"}`}>
     <header className="lxs-title-bar"><span className="lxs-app-mark" aria-hidden="true">▦</span><span className="lxs-title">{title}</span><span className="lxs-title-context">LikeX</span></header>
@@ -71,10 +76,14 @@ export function SpreadsheetThumbnail(props: SpreadsheetThumbnailProps) {
         preserveAspectRatio="xMidYMid meet" style={{ maxWidth: scene.width, maxHeight: scene.height }}>
         <foreignObject width={scene.width} height={scene.height}>
           <div className="lxs-thumbnail-content" style={{ width: scene.width, height: scene.height }}>
-            {scene.cells.map(cell => <div key={cell.address} data-lxs-thumbnail-cell={cell.address} className="lxs-cell lxs-thumbnail-cell" style={cell.style}>
-              {cell.dataBar && <span className="lxs-cell-data-bar" style={{ left: `${cell.dataBar.start}%`, width: `${cell.dataBar.width}%`, backgroundColor: cell.dataBar.color }} />}
-              <ThumbnailCellText text={cell.text} format={cell.format} width={Number(cell.style.width)} height={Number(cell.style.height)} after={cell.after} />
-            </div>)}
+            {scene.cells.map(cell => {
+              const dataBarColor = cell.dataBar ? adaptDataBarColor(cell.dataBar.color, sheetColorMode) : undefined;
+              return <div key={cell.address} data-lxs-thumbnail-cell={cell.address} className="lxs-cell lxs-thumbnail-cell"
+                style={adaptCellColors(cell.style, sheetColorMode, { error: cell.error, dataBarColor })}>
+                {cell.dataBar && <span className="lxs-cell-data-bar" style={{ left: `${cell.dataBar.start}%`, width: `${cell.dataBar.width}%`, backgroundColor: dataBarColor }} />}
+                <ThumbnailCellText text={cell.text} format={cell.format} width={Number(cell.style.width)} height={Number(cell.style.height)} after={cell.after} />
+              </div>;
+            })}
             {scene.drawings.map((item, index) => {
               const drawing = item.drawing;
               if (item.kind === "line") {

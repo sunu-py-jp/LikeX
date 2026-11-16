@@ -2,7 +2,7 @@ import Spreadsheet, {
   createWorkbook, setCellBorders, type SpreadsheetBorderPreset, setCellValue, calculateWorkbook, parseTsv, stringifyTsv, expandCellAddresses, CellAddressExpansionError,
   serializeWorkbook, parseWorkbook, addDrawing, setCellComment, mergeCells, unmergeCells,
   type SpreadsheetWorkbook, type SpreadsheetSheet, type SpreadsheetCell,
-  type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps, type SpreadsheetCellGridWriteOptions, type SpreadsheetRenderingMode,
+  type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps, type SpreadsheetCellGridWriteOptions, type SpreadsheetRenderingMode, type SpreadsheetSheetColorMode,
   type SpreadsheetGridInsertMode, type SpreadsheetGridRowGrouping,
   type SpreadsheetLookupRange, type SpreadsheetLookupSelector, type SpreadsheetLookupCommand, type SpreadsheetLookupWriteReport,
   type SpreadsheetFeatures, type SpreadsheetSelection, type SpreadsheetSelectionRange, type SpreadsheetSaveHandler,
@@ -17,11 +17,19 @@ import { createRef } from "react";
 import { SpreadsheetThumbnail, type SpreadsheetThumbnailProps } from "__LIBRARY_IMPORT__/thumbnail";
 
 const workbook: SpreadsheetWorkbook = createWorkbook();
-const thumbnailProps: SpreadsheetThumbnailProps = { workbook, sheetId: workbook.sheets[0].id, sheetName: workbook.sheets[0].name, title: "Preview", colorMode: "light", style: { height: 200 }, onError: error => { const message: string = error.message; void message; } };
+const thumbnailProps: SpreadsheetThumbnailProps = { workbook, sheetId: workbook.sheets[0].id, sheetName: workbook.sheets[0].name, title: "Preview", colorMode: "light", sheetColorMode: "inherit", style: { height: 200 }, onError: error => { const message: string = error.message; void message; } };
 const thumbnail = <SpreadsheetThumbnail {...thumbnailProps} />;
 // @ts-expect-error A static thumbnail does not expose the editor handle.
 const editableThumbnail = <SpreadsheetThumbnail workbook={workbook} ref={createRef<SpreadsheetHandle>()} />;
 void [thumbnail, editableThumbnail];
+const sheetColorModes: readonly SpreadsheetSheetColorMode[] = ["light", "dark", "inherit"];
+const independentSheet = <Spreadsheet colorMode="dark" sheetColorMode="light" readOnly />;
+const inheritedSheet = <Spreadsheet colorMode="system" sheetColorMode={sheetColorModes[2]} />;
+// @ts-expect-error The sheet inherits system resolution through the outer colorMode.
+const invalidSheetColorMode: SpreadsheetProps = { sheetColorMode: "system" };
+// @ts-expect-error Thumbnail sheet modes use the same closed union.
+const invalidThumbnailMode: SpreadsheetThumbnailProps = { workbook, sheetColorMode: "auto" };
+void [independentSheet, inheritedSheet, invalidSheetColorMode, invalidThumbnailMode];
 const target: SpreadsheetSheetTarget = { sheetName: workbook.sheets[0].name };
 const openingProps: SpreadsheetProps = { initialWorkbook: workbook, initialSheetId: workbook.sheets[0].id, initialSheetName: workbook.sheets[0].name };
 const renderingModes: readonly SpreadsheetRenderingMode[] = ["progressive", "viewport"];

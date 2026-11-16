@@ -2,7 +2,7 @@
 
 import { getCellFormat } from "../../model/format-ranges";
 
-import { memo, type RefObject } from "react";
+import { memo, useContext, type RefObject } from "react";
 import { cellAddress } from "../../model";
 import { effectiveCellFormat } from "../../model/formatting";
 import { getMergedRange } from "../../model/merges";
@@ -22,6 +22,8 @@ import { fitCellBoxStyle } from "./cell-box-style";
 import { CellText } from "./cell-text";
 import { cellTextOverflow, rowTextOverflowLimits } from "./cell-text-layout";
 import { useOverflowCellBorders } from "./use-overflow-cell-borders";
+import { adaptCellColors, adaptDataBarColor } from "./cell-colors";
+import { SheetColorModeContext } from "./sheet-color-mode";
 
 type RowInteractions = {
   controller: SpreadsheetController; focus: ReturnType<typeof useGridFocus>;
@@ -40,6 +42,7 @@ type RowProps = {
  * Handlers read committed interactions rather than retaining an old controller. */
 export const SpreadsheetGridRow = memo(function SpreadsheetGridRow({ row, controller: c, widths, columnOffsets, rowOffsets, gridWidth,
   renderedMerges, visibleRows, selectedBounds, conditional, bindActiveInput, interactions }: RowProps) {
+  const sheetColorMode = useContext(SheetColorModeContext);
   const rowHeight = rowOffsets[row + 1] - rowOffsets[row];
   const currentResize = () => interactions.current.rowResize.handlers(row, rowHeight);
   const neighbourFormat = (row: number, column: number) => {
@@ -86,10 +89,13 @@ export const SpreadsheetGridRow = memo(function SpreadsheetGridRow({ row, contro
       const focused = row === c.selection.focus.row && column === c.selection.focus.column;
       const editing = focused && !!c.editing;
       const overflow = cellTextOverflow(column, value, format, columnOffsets, textLimits, !!merge || !!checkbox || error || editing);
+      const dataBarColor = appearance.dataBar ? adaptDataBarColor(appearance.dataBar.color, sheetColorMode) : undefined;
+      const style = adaptCellColors(collapseSharedCellBorders(cellFormatStyle(format, value),
+        merge ?? { top: row, bottom: row, left: column, right: column }, neighbourFormat), sheetColorMode, { error, dataBarColor, selected });
       const rendered = <div key={column} role="gridcell" data-lxs-row={row} data-lxs-column={column} data-editing={editing || undefined} aria-colindex={column + 2} aria-colspan={merge ? merge.right - merge.left + 1 : undefined} aria-rowspan={merge ? merge.bottom - merge.top + 1 : undefined} aria-selected={selected} aria-label={`${address}${text ? ` ${text}` : ""}${comment ? ", コメントあり" : ""}`} title={error ? value : undefined}
         className={`lxs-cell ${merge ? "lxs-cell-merged" : ""} ${overflow.before || overflow.after ? "lxs-cell-overflow" : ""} ${format?.background ? "lxs-cell-filled" : ""} ${format?.wrap ? "lxs-cell-wrap" : ""} ${checkbox ? "lxs-cell-has-checkbox" : ""} ${selected ? "lxs-cell-selected" : ""} ${focused ? "lxs-cell-active" : ""} ${error ? "lxs-cell-error" : ""}`}
         style={{ width: cellWidth, height: merge ? cellHeight : undefined,
-          ...fitCellBoxStyle(collapseSharedCellBorders(cellFormatStyle(format, value), merge ?? { top: row, bottom: row, left: column, right: column }, neighbourFormat), cellWidth, cellHeight) }}
+          ...fitCellBoxStyle(style, cellWidth, cellHeight) }}
         onPointerDown={event => {
           const { controller: current, focus: currentFocus, selection: currentSelection } = interactions.current;
           if (event.button !== 0 || (focused && current.editing)) return;
@@ -108,7 +114,7 @@ export const SpreadsheetGridRow = memo(function SpreadsheetGridRow({ row, contro
         }}
         onPointerEnter={event => interactions.current.selection.extendSelection(event, { row, column })}
         onDoubleClick={() => { const current = interactions.current.controller; if (!current.editing) current.beginEdit({ row, column }); }}>
-        {appearance.dataBar && <span aria-hidden="true" className="lxs-cell-data-bar" style={{ left: `${appearance.dataBar.start}%`, width: `${appearance.dataBar.width}%`, backgroundColor: appearance.dataBar.color }} />}
+        {appearance.dataBar && <span aria-hidden="true" className="lxs-cell-data-bar" style={{ left: `${appearance.dataBar.start}%`, width: `${appearance.dataBar.width}%`, backgroundColor: dataBarColor }} />}
         {!editing && <CellText text={text} overflow={overflow} align={format?.align} resolvedAlign={resolvedCellTextAlign(format, value)}
           verticalAlign={format?.verticalAlign} indent={format?.indent} wrap={format?.wrap} shrink={!!format?.shrinkToFit && !format.wrap}
           revision={JSON.stringify({ format, width: cellWidth })} hidden={focused} />}

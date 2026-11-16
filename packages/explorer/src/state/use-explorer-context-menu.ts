@@ -9,7 +9,8 @@ import { readEntryFile } from "../model/file-content";
 import type { ExplorerFileReader } from "../model/file-content";
 import type { ExplorerEntry } from "../model/draft";
 import type { ExplorerLocationInfo, ExplorerViewEvent } from "../model/events";
-import type { ResolvedExplorerOptions } from "../model/config";
+import { isExplorerRenameEnabled, type ResolvedExplorerOptions } from "../model/config";
+import { getEntryIndex } from "../model/entry-index";
 import type { ExplorerWorkspace } from "./use-explorer-workspace";
 import type { useExplorerUpload } from "./use-explorer-upload";
 import type { ExplorerEditIntent } from "../model/edit-session";
@@ -74,6 +75,13 @@ export function useExplorerContextMenu(options: Options) {
         const feature = change.type === "upload" ? null : change.action.action === "create" ? "createFolder"
             : change.action.action === "favorite" ? "favorites" : change.action.action;
         if (feature && !latest.options.features[feature]) throw new Error("この操作は無効になっています");
+        if (change.type === "action" && change.action.action === "rename") {
+          const ids = change.action.ids;
+          const target = Array.isArray(ids) && ids.length === 1
+            ? getEntryIndex(latest.workspace.draft.getEntries()).byId.get(ids[0]) : undefined;
+          if (!target || !isExplorerRenameEnabled(latest.options.features, target.kind))
+            throw new Error("この項目の名前の変更は無効になっています");
+        }
         validateExplorerContextMenuTarget(context, change, latest.workspace.draft.getEntries());
         return latest;
       };

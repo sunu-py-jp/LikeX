@@ -90,7 +90,9 @@ const explorerOptions = {
 | `createFolder` | 手動での空フォルダ作成 |
 | `uploadFiles` / `uploadFolders` | ローカルファイルの追加 / フォルダの階層付き追加。OSからの貼り付けも、それぞれ対象の機能に従います。保存先への送信は引き続き親の `onSave` が担当します。 |
 | `copy` / `move` | コピー / 移動。メニュー、クリップボード、ドラッグの各経路に適用します。 |
-| `rename` / `delete` | 名前変更 / 削除 |
+| `rename` | ファイル・フォルダの名前変更の全体設定。既定 `true`。`false` は種類別の設定より優先します。 |
+| `renameFiles` / `renameFolders` | ファイル / フォルダの名前変更。既定は両方 `true`。`rename` も有効な場合に使えます。 |
+| `delete` | 削除 |
 | `preview` / `download` / `details` | ファイルプレビュー / ファイル・フォルダZIPのダウンロード / 詳細情報 |
 | `search` / `sort` | 内蔵・外部検索 / 並べ替え。外部検索中は返却順を保つため並べ替えUIを隠します。 |
 | `tabs` / `pathInput` | 複数タブ / パスの文字入力。パス入力を隠してもパンくずによる移動は使えます。 |
@@ -110,6 +112,24 @@ const explorerOptions = {
 名前変更は一覧内で行います。既定では1項目を選択してからもう一度クリックするか、右クリックの「名前を変更」、ツールバー、F2で編集を開始します。モバイル表示や `previewTrigger="click"` のファイル名クリックではプレビューを優先するため、名前変更にはF2やメニューを使えます。ファイルは拡張子を除いた本体だけを編集し、元の拡張子は変更できない文字として表示します。1行表示では入力欄の隣、複数行表示では入力欄の下に添えます。例えば `Report.PDF` は `Report` を編集し、確定時に元の `.PDF` をそのまま結合します。拡張子は最後のピリオドから末尾までを扱い、`.env` のように先頭のピリオドしかない名前は拡張子なしです。拡張子のないファイルに `README.pdf` のような拡張子を追加しようとするとエラーになります。フォルダは名前全体を編集できます。
 
 中・大・特大アイコンでは、編集欄も長い名前を折り返し、内容に合わせて高さを調整します。編集欄は元の名前の位置に重ねるため、後続の段は移動しません。折り返しは表示上のもので、名前に改行は追加しません。Enterまたは入力欄の外へフォーカスを移すと確定し、Escで取消します。不正な名前や同名の項目がある場合は編集欄にエラーを表示します。確定後も保存するまではクライアント内の下書きです。`features.rename: false` でGUIとrefの開始経路を無効にできます。`useExplorerDraft().apply({ action: "rename", name: ... })` やモデルAPIには従来どおりファイル名全体を渡しますが、拡張子の変更・追加・除去も共通モデルで拒否します。[互換性と責務](./model-api.md#uiとの責務と互換性)を参照してください。
+
+<a id="rename-by-kind"></a>
+
+ファイルとフォルダで名前変更の可否を分ける場合は、`renameFiles` / `renameFolders` を指定します。
+
+```tsx
+// ファイル名だけ変更できます。フォルダ内のファイルも対象です。
+<Explorer initialEntries={entries} onSave={save}
+  features={{ renameFiles: true, renameFolders: false }} />;
+
+// フォルダ名だけ変更できます。ファイルを含むフォルダも対象です。
+<Explorer initialEntries={entries} onSave={save}
+  features={{ renameFiles: false, renameFolders: true }} />;
+```
+
+種類別設定は、直接名前を変える項目にだけ適用します。`renameFolders: false` は配下のファイルの名前変更を禁止せず、`renameFiles: false` もファイルを含むフォルダの名前変更を妨げません。親や配下も含めた権限制御には、別途 [`getEntryPermissions`](./entry-permissions.md) が適用されます。
+
+無効にした種類では、一覧・ツリーの名前変更メニュー、ツールバー、クリック・F2、表示中のExplorerの `ref.execute()`、カスタムメニューが返す名前変更を制限します。設定を後から変更した場合も反映し、禁止した種類の編集中の名前や編集許可の待機結果を適用しません。`rename: false` なら両方禁止し、`readOnly: true` または `onSave` 未指定の場合も両方禁止します。純粋なモデルAPIと `useExplorerDraft` は `features` を受け取らないため、画面なしの処理では呼び出し側で必要な条件を確認してください。
 
 `ui` は表示設定です。右クリックメニューを隠しても、ツールバー等に別の入口がある操作は使えます。空ファイル作成のメニューを利用するには `ui.contextMenu` を有効にします。`thumbnails: false` は画像のサムネイルをアイコンに替える設定で、プレビューダイアログの可否は `features.preview` で指定します。
 
@@ -196,7 +216,7 @@ Explorer内にフォーカスがあるときに使えます。ツールバーの
 | すべて選択 | Ctrl / ⌘ + A | `selection.mode: "multiple"` |
 | コピー / 切り取り | Ctrl / ⌘ + C / X | 項目を選択し、`features.copy` / `features.move` が有効 |
 | 貼り付け | Ctrl / ⌘ + V | 内部操作は `copy` / `move`、OSからの追加は `uploadFiles` / `uploadFolders` に従います。 |
-| 名前を変更 | F2 | 1項目を選択し、`features.rename` が有効 |
+| 名前を変更 | F2 | 1項目を選択し、`features.rename` と対象の `renameFiles` / `renameFolders` が有効 |
 | 削除の確認を開く | Delete / ⌘ + Backspace | 項目を選択し、`features.delete` が有効 |
 | ファイル・フォルダを開く | Enter / Space | 項目にフォーカス、または一覧の1項目を選択。ファイルは `features.preview` が必要 |
 | 選択と内部クリップボードを解除 | Esc | 一覧の操作中 |

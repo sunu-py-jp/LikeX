@@ -18,6 +18,7 @@ import { useExplorerFields, useExplorerSelector } from "../state/explorer-contex
 import { inputClass } from "./explorer-controls";
 import { useExplorerDom } from "./explorer-dom-context";
 import { isComposingKeyEvent } from "../model/keyboard";
+import { isExplorerRenameEnabled } from "../model/config";
 
 type RenameControl = HTMLInputElement | HTMLTextAreaElement;
 
@@ -103,6 +104,8 @@ export function useEntryRenameDelay() {
     details,
     renamingEntryId,
     features.rename,
+    features.renameFiles,
+    features.renameFolders,
     busy,
     cancelPendingRename,
   ]);
@@ -113,7 +116,7 @@ export function useEntryRenameDelay() {
   ) {
     cancelPendingRename();
     if (
-      !features.rename ||
+      !isExplorerRenameEnabled(features, entry.kind) ||
       busy ||
       renamingEntryId ||
       modal ||

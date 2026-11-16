@@ -41,5 +41,5 @@
 .lxs-external-search-results > button > .lxs-external-search-snippet { white-space: pre-wrap; overflow-wrap: anywhere; }
 .lxs-external-search-results > button > strong { overflow-wrap: anywhere; }
 .lxs-external-search-location { color: var(--lxs-muted); font-size: .9em; }
-.lxs-fill-handle { position: absolute; z-index: 17; width: 8px; height: 8px; background: var(--lxs-accent) !important; border: 1px solid var(--lxs-background) !important; cursor: crosshair !important; touch-action: none; }
-.lxs-fill-preview { position: absolute; z-index: 16; border: 2px dashed var(--lxs-accent); pointer-events: none; }
+.lxs-fill-handle { position: absolute; z-index: 17; width: 8px; height: 8px; background: var(--lxs-sheet-accent) !important; border: 1px solid var(--lxs-sheet-background) !important; cursor: crosshair !important; touch-action: none; }
+.lxs-fill-preview { position: absolute; z-index: 16; border: 2px dashed var(--lxs-sheet-accent); pointer-events: none; }

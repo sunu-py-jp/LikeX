@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import Spreadsheet, { parseWorkbook, serializeWorkbook, type SpreadsheetWorkbook, type SpreadsheetContextMenuProvider } from "@likex/spreadsheet";
+import Spreadsheet, { parseWorkbook, serializeWorkbook, type SpreadsheetWorkbook, type SpreadsheetContextMenuProvider, type SpreadsheetSheetColorMode } from "@likex/spreadsheet";
 import "../../../packages/spreadsheet/src/styles.css";
 import { createDemoWorkbook } from "./demo/spreadsheet-workbook";
 import { createSelectionSum } from "./demo/selection-sum";
@@ -28,6 +28,10 @@ export default function SpreadsheetDemo() {
     initialSheetId: query.get("sheetId") ?? undefined, initialSheetName: query.get("sheetName") ?? undefined,
   }; });
   const [theme] = useState(() => getDemoComponentTheme("light"));
+  const [sheetColorMode] = useState<SpreadsheetSheetColorMode>(() => {
+    const mode = new URLSearchParams(window.location.search).get("sheetColorMode");
+    return mode === "dark" || mode === "inherit" ? mode : "light";
+  });
   const [contextMenuMode] = useState(getDemoContextMenuMode);
   const savedJson = useRef<string | null>(null);
   const save = useCallback((workbook: SpreadsheetWorkbook) => {
@@ -36,6 +40,7 @@ export default function SpreadsheetDemo() {
   }, []);
   return <Spreadsheet
     {...theme}
+    sheetColorMode={sheetColorMode}
     title="LikeX サンプルブック"
     exportFileName="LikeX_Excel出力サンプル.xlsx"
     initialWorkbook={initialWorkbook}

@@ -25,7 +25,7 @@ import type { ExplorerEmptyStateRenderContext, ExplorerProps } from "../props";
 import { getEntryPath, normalizeEntryName, selectionRoots, validateDestination } from "../model/entries";
 import { createExplorerDragPreview } from "../ui/explorer-drag-feedback";
 import { isSameFolderMove, type ExplorerAction, type ExplorerEntry as Entry } from "../model/draft";
-import { matchesExplorerSelectionKind, resolveExplorerOptions, type ExplorerViewMode } from "../model/config";
+import { isExplorerRenameEnabled, matchesExplorerSelectionKind, resolveExplorerOptions, type ExplorerViewMode } from "../model/config";
 import { useExplorerWorkspace, type ExplorerWorkspace, type WindowPosition } from "./use-explorer-workspace";
 import { useExplorerDownload } from "./use-explorer-download";
 import type { ExplorerEditIntent } from "../model/edit-session";
@@ -336,12 +336,18 @@ export function useExplorerViewController({
   function setSort(action: SetStateAction<TabViewState["sort"]>) {
     if (canSort) updateSort(action);
   }
-  function canAct(action: ExplorerAction["action"], current: typeof options) {
+  function isActionEnabled(action: ExplorerAction["action"], current: typeof options) {
     return !current.readOnly && current.features[action === "create" ? "createFolder" : action === "favorite" ? "favorites" : action];
+  }
+  function canAct(action: ExplorerAction["action"], current: typeof options, ids?: readonly string[]) {
+    if (!isActionEnabled(action, current)) return false;
+    if (action !== "rename" || ids === undefined) return true;
+    const entry = ids.length === 1 ? getEntryIndex(currentDraft.current.getEntries()).byId.get(ids[0]) : undefined;
+    return !!entry && isExplorerRenameEnabled(current.features, entry.kind);
   }
   function canShowModal(type: ExplorerDialogState["type"], current: typeof options, refreshAvailable: boolean) {
     if (type === "refresh") return refreshAvailable;
-    return type === "help" || (type === "discard" ? !current.readOnly : canAct(type, current));
+    return type === "help" || (type === "discard" ? !current.readOnly : isActionEnabled(type, current));
   }
   const [storedModal, updateModal] = useState<ExplorerDialogState | null>(null),
     [name, setName] = useState(""),
@@ -400,6 +406,16 @@ export function useExplorerViewController({
     cancelEditRequest(windowId);
   }, [cancelEditRequest, windowId]);
   const pendingRename = useRef<RenameSession | null>(null);
+  const renameTarget = renameSession ? entryIndex.byId.get(renameSession.id) : undefined;
+  const renameEnabled = !!renameTarget && isExplorerRenameEnabled(features, renameTarget.kind);
+  // A revoked editor must not reappear when the host enables its kind again.
+  if (renameSession && !renameEnabled) setRenameSession(null);
+  useLayoutEffect(() => {
+    const session = renameSessionRef.current;
+    if (!session) return;
+    const target = entryIndex.byId.get(session.id);
+    if (!target || !isExplorerRenameEnabled(features, target.kind)) cancelRename(session.id);
+  }, [entryIndex, features, cancelRename]);
   const [dragOver, setDragOver] = useState<string | null>(null),
     [externalDrag, setExternalDrag] = useState(false);
   const removeDragPreview = useRef<(() => void) | null>(null);
@@ -474,7 +490,7 @@ export function useExplorerViewController({
   function runEdit(intent: ExplorerEditIntent, operation: () => boolean, onError?: (error: unknown) => void): boolean | Promise<boolean> {
     const draft = currentDraft.current;
     if (!mounted.current || draft.isBusy() || currentOptions.current.readOnly) return false;
-    if (intent.action !== "upload" && intent.action !== "save" && !canAct(intent.action, currentOptions.current)) return false;
+    if (intent.action !== "upload" && intent.action !== "save" && !canAct(intent.action, currentOptions.current, intent.ids)) return false;
     const origin = workspace.tabs.forWindow(windowId);
     const tabId = origin.activeTabId;
     const requestedLocation = origin.activeTab.requestedLocation;
@@ -498,7 +514,7 @@ export function useExplorerViewController({
       const viewChanged = currentTab.activeTabId !== tabId || currentTab.activeTab.requestedLocation !== requestedLocation;
       if (session.mode !== "edit" || session.requestId !== requestId ||
         (intent.action !== "upload" && viewChanged) ||
-        currentDraft.current.isBusy() || (intent.action !== "upload" && intent.action !== "save" && !canAct(intent.action, currentOptions.current))) return false;
+        currentDraft.current.isBusy() || (intent.action !== "upload" && intent.action !== "save" && !canAct(intent.action, currentOptions.current, intent.ids))) return false;
       try {
         const latest = getEntryIndex(draft.getEntries());
         if (intent.ids?.some(id => !latest.byId.has(id) || latest.byId.get(id)?.kind !== targetKinds.get(id)))
@@ -701,7 +717,7 @@ export function useExplorerViewController({
     reportedSelection.current = { key, files };
     notifyHost(onSelectionChange, items);
   }, [selectionSnapshot, onSelectionChange]);
-  const renamingEntryId = features.rename && !readOnly && !saving && !refreshing &&
+  const renamingEntryId = renameEnabled && !readOnly && !saving && !refreshing &&
     renameSession?.revision === editRevision &&
     renameSession?.tabId === tabState.activeTabId &&
     (renameSession.source === "tree" ? entryIndex.byId.get(renameSession.id)?.kind === "folder" : visiblePositions.has(renameSession.id))
@@ -745,7 +761,7 @@ export function useExplorerViewController({
   });
 
   function startRename(ids = selected, source: RenameSession["source"] = "list") {
-    if (busy || !canAct("rename", currentOptions.current) || ids.length !== 1) return;
+    if (busy || !canAct("rename", currentOptions.current, ids)) return;
     const entry = source === "tree" ? entryIndex.byId.get(ids[0]) : visible.find((item) => item.id === ids[0]);
     if (!entry || (source === "tree" && entry.kind !== "folder")) return;
     try { currentDraft.current.assertEntryPermissions([{ id: entry.id, operation: "rename", recursive: true }]); }
@@ -780,7 +796,7 @@ export function useExplorerViewController({
   function commitRename(id?: string): boolean | Promise<boolean> {
     const session = renameSessionRef.current;
     if (!session || (id && session.id !== id) || pendingRename.current === session) return false;
-    if (!canAct("rename", currentOptions.current) || session.id !== renamingEntryId ||
+    if (!canAct("rename", currentOptions.current, [session.id]) || session.id !== renamingEntryId ||
       session.revision !== currentDraft.current.getEditRevision()) {
       cancelRename(session.id);
       return false;
@@ -892,7 +908,7 @@ export function useExplorerViewController({
     extra: { name?: string; parent?: string } = {},
     message = "変更しました",
   ) {
-    if (currentDraft.current.isBusy() || !canAct(action, currentOptions.current)) return false;
+    if (currentDraft.current.isBusy() || !canAct(action, currentOptions.current, ids)) return false;
     try {
       const command = { action, ids: [...ids], ...extra };
       const commit = currentDraft.current.prepareAction(command);
@@ -1590,7 +1606,7 @@ export function useExplorerViewController({
       } else if (canRefresh && matchesExplorerShortcut(event, "refresh")) {
         event.preventDefault();
         if (!busy && !event.repeat) void refreshEntries();
-      } else if (features.rename && matchesExplorerShortcut(event, "rename") && selected.length === 1) {
+      } else if (canAct("rename", currentOptions.current, selected) && matchesExplorerShortcut(event, "rename")) {
         event.preventDefault();
         if (!busy && !event.repeat) startRename();
       } else if (features.delete && matchesExplorerShortcut(event, "delete") && selected.length) {

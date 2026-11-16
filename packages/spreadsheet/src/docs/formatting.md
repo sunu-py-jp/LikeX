@@ -47,6 +47,33 @@ await spreadsheetRef.current!.executeAsync({
 
 表示中の変更・削除にも対応し、複数のスプレッドシートに別々の色を指定できます。セル・条件付き書式・図形などに保存された色、JSONやExcelの出力内容、未保存状態・Undo履歴は変わりません。`style` で指定したCSSは最後に適用するため、既存の個別カスタマイズも優先されます。
 
+## UIとシートの明暗
+
+`colorMode` はリボンやダイアログなどのUI、`sheetColorMode` はセルを表示するシートの明暗を指定します。どちらも表示中にpropsを変更できます。
+
+| `sheetColorMode` | 表示 |
+| --- | --- |
+| `"light"`（既定） | 白いシートを使い、セルの文字・背景・罫線は元の書式色で表示します。 |
+| `"dark"` | 暗いシートを使い、セルの文字・背景・罫線は読みやすさのために表示色を補正します。 |
+| `"inherit"` | `colorMode` が解決した明暗に従います。`colorMode="system"` ならOSのテーマ変更にも追従します。 |
+
+```tsx
+// UIは暗く、シートは既定の白い表示。
+<Spreadsheet initialWorkbook={workbook} colorMode="dark" />;
+
+// UIとシートを両方暗く表示。
+<Spreadsheet initialWorkbook={workbook} colorMode="dark" sheetColorMode="dark" />;
+
+// UIとシートをともにOSのテーマへ追従させる。
+<Spreadsheet initialWorkbook={workbook} colorMode="system" sheetColorMode="inherit" />;
+```
+
+公開型は `SpreadsheetSheetColorMode = "light" | "dark" | "inherit"` です。`SpreadsheetThumbnail` でも同じpropと既定値を使います。シートの明暗を切り替える標準UIはなく、親コンポーネントからpropで制御します。
+
+暗いシートの色補正は表示だけに適用します。画像・図形は元の色を保ちます。保存書式、SPON／XLSXの入出力、印刷用の色、モデルAPIやCLIから取得する色は変わりません。切り替えによって `onChange`、未保存状態、Undo/Redo履歴も変わりません。
+
+以前は `colorMode="dark"` だけでシートも暗く表示していました。従来どおりUIとシートの明暗を連動させる場合は `sheetColorMode="inherit"` を追加してください。暗いシートでは新しい表示色の補正が適用されます。
+
 ## 画面からの操作
 
 - ホームの「フォント」: フォントとサイズ、太字・斜体・下線、罫線、文字色・背景色。下線の隣にある罫線アイコンから「格子」「外枠」「内側」「上罫線」「下罫線」「左罫線」「右罫線」「罫線なし」を選ぶと、その場で選択範囲へ反映します。「罫線の詳細設定…」は色・太さ・線種を設定する画面を直接開きます。

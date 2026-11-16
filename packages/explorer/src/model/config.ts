@@ -11,6 +11,8 @@ export type ExplorerFeature =
   | "copy"
   | "move"
   | "rename"
+  | "renameFiles"
+  | "renameFolders"
   | "delete"
   | "preview"
   | "download"
@@ -26,6 +28,10 @@ export type ExplorerFeature =
 
 /** Omitted features remain enabled; false removes their UI and operations. */
 export type ExplorerFeatures = FeatureFlags<ExplorerFeature>;
+/** Kind-specific rename flags affect the target itself, not its ancestors or contents. */
+export function isExplorerRenameEnabled(features: ExplorerFeatures, kind: "file" | "folder"): boolean {
+  return features.rename !== false && features[kind === "file" ? "renameFiles" : "renameFolders"] !== false;
+}
 export type ExplorerSelectionMode = "none" | "single" | "multiple";
 export type ExplorerSelectionKind = "file" | "folder" | "both";
 export type ExplorerSelectionOptions = {
@@ -87,6 +93,8 @@ const featureDefaults: Required<ExplorerFeatures> = {
   copy: true,
   move: true,
   rename: true,
+  renameFiles: true,
+  renameFolders: true,
   delete: true,
   preview: true,
   download: true,
@@ -109,6 +117,9 @@ export function resolveExplorerOptions(options: ExplorerOptions = {}): ResolvedE
     for (const feature of ["createFolder", "createFile", "uploadFiles", "uploadFolders", "copy", "move", "rename", "delete"] as const)
       features[feature] = false;
   }
+  features.renameFiles = isExplorerRenameEnabled(features, "file");
+  features.renameFolders = isExplorerRenameEnabled(features, "folder");
+  features.rename = features.renameFiles || features.renameFolders;
   const mode = options.selection?.mode ?? "multiple";
   const allowedModes = [...new Set(options.view?.allowedModes ?? EXPLORER_VIEW_MODES)];
   if (!allowedModes.length || allowedModes.some(mode => !EXPLORER_VIEW_MODES.includes(mode))) {

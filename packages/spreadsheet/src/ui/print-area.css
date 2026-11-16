@@ -1,9 +1,9 @@
 .lxs-print-area-layer { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; --lxs-print-blue: #2874e8; }
 .lxs-print-area-hint { position: absolute; top: 40px; left: 60px; z-index: 5; max-width: calc(100% - 75px); padding: 7px 10px; border: 1px solid var(--lxs-border); border-radius: 4px; background: var(--lxs-background); color: var(--lxs-muted); pointer-events: none; font-size: 12px; }
-.lxs-root[data-color-mode="dark"] .lxs-print-area-layer { --lxs-print-blue: #75a7ff; }
-.lxs-print-outside { position: absolute; background: color-mix(in srgb, var(--lxs-foreground) 20%, transparent); }
+.lxs-root[data-sheet-color-mode="dark"] .lxs-print-area-layer { --lxs-print-blue: #75a7ff; }
+.lxs-print-outside { position: absolute; background: color-mix(in srgb, var(--lxs-sheet-foreground) 20%, transparent); }
 .lxs-print-area-frame { position: absolute; border: 2px solid var(--lxs-print-blue); }
-.lxs-print-page-number { position: absolute; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: clamp(28px, 5vw, 64px); font-weight: 500; color: color-mix(in srgb, var(--lxs-foreground) 22%, transparent); white-space: nowrap; }
+.lxs-print-page-number { position: absolute; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: clamp(28px, 5vw, 64px); font-weight: 500; color: color-mix(in srgb, var(--lxs-sheet-foreground) 22%, transparent); white-space: nowrap; }
 .lxs-print-page-break { position: absolute; border-color: var(--lxs-print-blue); border-style: dashed; border-width: 0; }
 .lxs-print-page-break-row { border-top-width: 1px; }
 .lxs-print-page-break-column { border-left-width: 1px; }

@@ -58,7 +58,8 @@ export function prepareNormalizedSpreadsheetThumbnail(workbook: SpreadsheetWorkb
       const width = grid.columns[bounds.right + 1] - grid.columns[column], height = grid.rows[bounds.bottom + 1] - grid.rows[row];
       const after = format?.align === "centerContinuous" || format?.align === "fill"
         ? cellTextOverflow(column, value, format, grid.columns, limits, !!merge || sheet.cells[address]?.validation?.type === "checkbox").after : 0;
-      cells.push({ address, text: text.slice(0, MAX_TEXT), format, after, dataBar, style: {
+      const error = format?.numberFormat !== "text" && typeof value === "string" && value.startsWith("#");
+      cells.push({ address, text: text.slice(0, MAX_TEXT), format, after, dataBar, error, style: {
         left: grid.columns[column], top: grid.rows[row], width, height,
         ...fitCellBoxStyle(collapseSharedCellBorders(cellFormatStyle(format, value), bounds, (r, c) => appearance(r, c).format), width, height),
         ...(after > 0 ? { overflow: "visible" as const } : {}),

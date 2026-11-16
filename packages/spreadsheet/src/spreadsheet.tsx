@@ -18,6 +18,7 @@ import { NamedRangeDialog, SpreadsheetNamedRangePanel } from "./ui/spreadsheet-n
 import { SpreadsheetSearchDialog } from "./ui/spreadsheet-search-dialog";
 import { SpreadsheetExternalSearchDialog } from "./ui/spreadsheet-external-search-dialog";
 import type { SpreadsheetFloatingWindowFrame } from "./ui/spreadsheet-floating-window";
+import { resolveSheetColorMode, SheetColorModeContext } from "./ui/grid/sheet-color-mode";
 
 export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetProps) {
   const c = useSpreadsheet(props);
@@ -55,16 +56,20 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
     return () => media.removeEventListener("change", update);
   }, [props.colorMode]);
   const dark = props.colorMode === "dark" || (props.colorMode === "system" && systemDark);
+  const sheetColorMode = resolveSheetColorMode(props.sheetColorMode, dark);
   const palette = useMemo(() => createPrimaryColorPalette(props.primaryColor, dark ? "dark" : "light"), [props.primaryColor, dark]);
+  const sheetPalette = useMemo(() => createPrimaryColorPalette(props.primaryColor, sheetColorMode), [props.primaryColor, sheetColorMode]);
   const style: CSSProperties | undefined = palette ? {
     "--lxs-primary": palette.primary,
     "--lxs-on-primary": palette.onPrimary,
     "--lxs-primary-hover": palette.primaryHover,
     "--lxs-accent": palette.accent,
     "--lxs-selection": palette.selection,
+    "--lxs-sheet-accent": sheetPalette?.accent,
+    "--lxs-sheet-selection": sheetPalette?.selection,
     ...props.style,
   } as CSSProperties : props.style;
-  return <section ref={root} data-likex-spreadsheet data-layout={layout} data-color-mode={dark ? "dark" : "light"} className={`lxs-root ${props.className ?? ""}`} style={style} role="region" aria-label={props["aria-label"] ?? "スプレッドシート"} aria-busy={c.exporting || c.saving || c.refreshing || c.requesting || contextMenu.state.phase !== "idle"}
+  return <section ref={root} data-likex-spreadsheet data-layout={layout} data-color-mode={dark ? "dark" : "light"} data-sheet-color-mode={sheetColorMode} className={`lxs-root ${props.className ?? ""}`} style={style} role="region" aria-label={props["aria-label"] ?? "スプレッドシート"} aria-busy={c.exporting || c.saving || c.refreshing || c.requesting || contextMenu.state.phase !== "idle"}
     onContextMenu={contextMenu.onContextMenu} onPointerDownCapture={contextMenu.onPointerDownCapture} onKeyDownCapture={contextMenu.onKeyDownCapture}
     onFocusCapture={event => { gridHadFocus.current = !!(event.target as HTMLElement).closest(".lxs-grid-scroll"); }}
     onBlurCapture={event => {
@@ -111,7 +116,9 @@ export default function Spreadsheet({ ref: handleRef, ...props }: SpreadsheetPro
       <span className="lxs-mobile-gesture-hint">{touchRangeSelection ? "ドラッグで選択" : "ドラッグでスクロール"}</span>
     </div>}
     <div className="lxs-sheet-workspace">
-      <SpreadsheetGrid key={`grid-${c.viewRevision}`} controller={c} touchRangeSelection={layout === "mobile" && touchRangeSelection} />
+      <SheetColorModeContext.Provider value={sheetColorMode}>
+        <SpreadsheetGrid key={`grid-${c.viewRevision}`} controller={c} touchRangeSelection={layout === "mobile" && touchRangeSelection} />
+      </SheetColorModeContext.Provider>
       <SpreadsheetComments key={`comments-${c.viewRevision}`} controller={c} />
       <SpreadsheetNamedRangePanel controller={c} manager={namedRangeManager} />
     </div>

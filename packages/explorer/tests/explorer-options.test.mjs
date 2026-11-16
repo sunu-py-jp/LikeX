@@ -2,7 +2,7 @@ import { packageRoot } from './test-paths.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
-import { act, createElement } from 'react';
+import { act, createElement, createRef } from 'react';
 import { create } from 'react-test-renderer';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -37,7 +37,7 @@ const { resolveExplorerOptions, useExplorerController, FAVORITES, RECENT } = awa
 
 const featureNames = [
   'favorites', 'recent', 'createFolder', 'createFile', 'uploadFiles', 'uploadFolders', 'copy', 'move',
-  'rename', 'delete', 'preview', 'download', 'details', 'search', 'sort', 'tabs', 'pathInput', 'detachTabs', 'resizeSidebar', 'resizeColumns', 'mouseNavigation',
+  'rename', 'renameFiles', 'renameFolders', 'delete', 'preview', 'download', 'details', 'search', 'sort', 'tabs', 'pathInput', 'detachTabs', 'resizeSidebar', 'resizeColumns', 'mouseNavigation',
 ];
 const allFeatures = enabled => Object.fromEntries(featureNames.map(name => [name, enabled]));
 const entry = (id, name, size = 4, kind = 'file', mime = 'text/plain') => ({
@@ -199,6 +199,20 @@ test('omitted options preserve every feature, multiple selection and the eight e
   assert.deepEqual(first.ui, { sidebar: false, contextMenu: true, rowActions: true, thumbnails: true, loadFolderAction: true });
   assert.deepEqual(first.selection, { mode: 'none', kind: 'both', checkboxes: false });
   assert.equal(resolveExplorerOptions().features.copy, true, 'one instance cannot alter defaults');
+});
+
+test('rename kind defaults preserve compatibility and the master flag and read-only mode take precedence', () => {
+  for (const [options, expected] of [
+    [{}, [true, true, true]],
+    [{ features: { renameFolders: false } }, [true, true, false]],
+    [{ features: { renameFiles: false } }, [true, false, true]],
+    [{ features: { renameFiles: false, renameFolders: false } }, [false, false, false]],
+    [{ features: { rename: false, renameFiles: true, renameFolders: true } }, [false, false, false]],
+    [{ readOnly: true, features: { rename: true, renameFiles: true, renameFolders: true } }, [false, false, false]],
+  ]) {
+    const { features } = resolveExplorerOptions(options);
+    assert.deepEqual([features.rename, features.renameFiles, features.renameFolders], expected);
+  }
 });
 
 test('restricted views require a nonempty valid list and a default within that list', () => {
@@ -584,6 +598,113 @@ test('disabling rename prevents both starting an editor and committing one alrea
   assert.equal(hook.current.renamingEntryId, null);
   assert.equal(byId(hook, 'alpha').name, 'Alpha.txt');
   assert.equal(byId(hook, 'beta').name, 'Beta.txt');
+  assert.equal(hook.current.dirty, false);
+});
+
+test('file and folder rename switches independently guard F2, list and tree entry points', async t => {
+  for (const [features, blocked, allowed] of [
+    [{ renameFolders: false }, 'target', 'alpha'],
+    [{ renameFiles: false }, 'alpha', 'target'],
+  ]) await t.test(JSON.stringify(features), async t => {
+    const hook = await mountController(t, { features });
+    const original = hook.current.entries;
+    await act(async () => { hook.current.setSelected([blocked]); });
+    await hook.key('F2');
+    assert.equal(hook.current.renamingEntryId, null);
+    await act(async () => { hook.current.startRename([blocked]); });
+    assert.equal(hook.current.renamingEntryId, null);
+    if (blocked === 'target') {
+      await act(async () => { hook.current.startRename(['target'], 'tree'); });
+      assert.equal(hook.current.renamingEntryId, null);
+    }
+    assert.deepEqual(hook.current.entries, original);
+    assert.equal(hook.current.dirty, false);
+    await act(async () => { hook.current.setSelected([allowed]); });
+    await hook.key('F2');
+    assert.equal(hook.current.renamingEntryId, allowed);
+    await act(async () => { hook.current.setRenameValue('Renamed'); });
+    await act(async () => { assert.equal(hook.current.commitRename(), true); });
+    assert.equal(byId(hook, allowed).name, allowed === 'alpha' ? 'Renamed.txt' : 'Renamed');
+    if (allowed === 'target') {
+      await act(async () => { hook.current.startRename(['target'], 'tree'); });
+      assert.equal(hook.current.renamingEntryId, 'target');
+    }
+  });
+});
+
+test('rename kind switches apply only to directly named entries without restricting descendants or ancestors', async t => {
+  const ref = createRef();
+  const hook = await mountController(t, { ref,
+    initialEntries: [...initialEntries(), { ...entry('child', 'Child.txt'), parent: 'target' }],
+    features: { renameFolders: false },
+  });
+  await act(async () => { assert.equal(await ref.current.execute({ action: 'rename', ids: ['target'], name: 'Blocked' }), false); });
+  await act(async () => { hook.current.navigate('target'); });
+  await act(async () => { assert.equal(await ref.current.execute({ action: 'rename', ids: ['child'], name: 'Allowed.txt' }), true); });
+  assert.equal(byId(hook, 'child').name, 'Allowed.txt');
+  await hook.update({ features: { renameFiles: false } });
+  await act(async () => { assert.equal(await ref.current.execute({ action: 'rename', ids: ['target'], name: 'Allowed folder' }), true); });
+  assert.equal(byId(hook, 'target').name, 'Allowed folder');
+  assert.equal(byId(hook, 'child').name, 'Allowed.txt');
+  assert.equal(byId(hook, 'child').parent, 'target');
+});
+
+test('revoking a kind cancels an open inline editor and restoring it does not restore stale text', async t => {
+  for (const [id, feature] of [['alpha', 'renameFiles'], ['target', 'renameFolders']]) await t.test(feature, async t => {
+    const hook = await mountController(t);
+    await act(async () => { hook.current.startRename([id]); });
+    await act(async () => { hook.current.setRenameValue('Abandoned'); });
+    const heldCommit = hook.current.commitRename;
+    await hook.update({ features: { [feature]: false } });
+    assert.equal(hook.current.renamingEntryId, null);
+    await hook.update({ features: { [feature]: true } });
+    assert.equal(hook.current.renamingEntryId, null, 'reenabling does not resurrect the revoked session');
+    await act(async () => { assert.equal(heldCommit(), false); });
+    assert.equal(hook.current.dirty, false);
+    assert.equal(byId(hook, id).name, id === 'alpha' ? 'Alpha.txt' : 'Target');
+  });
+});
+
+test('retained public rename commands observe current kind flags and never change disallowed entries', async t => {
+  const ref = createRef();
+  const hook = await mountController(t, { ref });
+  const execute = ref.current.execute;
+  await hook.update({ features: { renameFiles: false } });
+  const original = hook.current.entries;
+  await act(async () => { assert.equal(await execute({ action: 'rename', ids: ['alpha'], name: 'Denied.txt' }), false); });
+  await act(async () => { assert.equal(hook.current.act('rename', ['alpha'], { name: 'Also denied.txt' }), false); });
+  await act(async () => { assert.equal(await execute({ action: 'rename', ids: ['target', 'alpha'], name: 'Mixed' }), false); });
+  assert.deepEqual(hook.current.entries, original);
+  assert.equal(hook.current.dirty, false);
+  await act(async () => { assert.equal(await execute({ action: 'rename', ids: ['target'], name: 'Allowed' }), true); });
+  assert.equal(byId(hook, 'target').name, 'Allowed');
+});
+
+test('permission completion rechecks rename kind flags before applying a public command', async t => {
+  for (const [id, feature, name] of [['alpha', 'renameFiles', 'Denied.txt'], ['target', 'renameFolders', 'Denied']]) await t.test(feature, async t => {
+    const ref = createRef(); let permit, running, requests = 0;
+    const permission = new Promise(resolve => { permit = resolve; });
+    const hook = await mountController(t, { ref, onEditRequest: () => { requests++; return permission; } });
+    const original = hook.current.entries;
+    await act(async () => { running = ref.current.execute({ action: 'rename', ids: [id], name }); });
+    assert.equal(requests, 1);
+    await hook.update({ features: { [feature]: false } });
+    await act(async () => { permit(true); assert.equal(await running, false); });
+    assert.deepEqual(hook.current.entries, original);
+    assert.equal(hook.current.dirty, false);
+  });
+});
+
+test('kind flags do not override explicit inherited entry-permission denials', async t => {
+  const ref = createRef();
+  const hook = await mountController(t, { ref,
+    initialEntries: [...initialEntries(), { ...entry('child', 'Child.txt'), parent: 'target' }],
+    features: { renameFiles: true, renameFolders: true },
+    getEntryPermissions: item => item.id === 'target' ? { rename: false } : undefined,
+  });
+  await act(async () => { assert.equal(await ref.current.execute({ action: 'rename', ids: ['child'], name: 'Denied.txt' }), false); });
+  await hook.update({ getEntryPermissions: item => item.id === 'child' ? { rename: false } : undefined });
+  await act(async () => { assert.equal(await ref.current.execute({ action: 'rename', ids: ['target'], name: 'Denied' }), false); });
   assert.equal(hook.current.dirty, false);
 });
 

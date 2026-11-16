@@ -12,6 +12,9 @@ export type { SpreadsheetSaveHandler } from "./api/lifecycle";
 
 export type SpreadsheetColorMode = "light" | "dark" | "system";
 
+/** Sheet display only. Defaults to light; inherit follows the surrounding UI. */
+export type SpreadsheetSheetColorMode = "light" | "dark" | "inherit";
+
 /** View-only rendering policy. It never changes workbook data or calculation. */
 export type SpreadsheetRenderingMode = "progressive" | "viewport";
 
@@ -105,6 +108,8 @@ export type SpreadsheetProps = SearchPanelInitialState & {
   contextMenuExecutionMode?: ContextMenuExecutionMode;
   onSelectionChange?: (selection: SpreadsheetSelection) => void;
   colorMode?: SpreadsheetColorMode;
+  /** Defaults to light. Dark sheet colors are adapted for display without changing saved formatting. */
+  sheetColorMode?: SpreadsheetSheetColorMode;
   /** UI accent color in #RGB or #RRGGBB. Omitted or invalid values use the default green theme. */
   primaryColor?: string;
   title?: string;

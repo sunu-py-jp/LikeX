@@ -28,7 +28,7 @@ import type {
 } from "../src";
 import { createExplorerUploadSession } from "../src";
 
-export const features = { copy: false, move: true, preview: true, download: false, mouseNavigation: false } satisfies ExplorerFeatures;
+export const features = { copy: false, move: true, preview: true, download: false, mouseNavigation: false, renameFiles: true, renameFolders: false } satisfies ExplorerFeatures;
 export const selectionMode = "single" satisfies ExplorerSelectionMode;
 export const selection = { mode: selectionMode, checkboxes: false } satisfies ExplorerSelectionOptions;
 export const ui = { sidebar: false, contextMenu: true, rowActions: false, thumbnails: true, loadFolderAction: false } satisfies ExplorerUIOptions;
@@ -241,3 +241,6 @@ export const invalidColumnWidth = { defaultColumnWidths: { name: "420px" } } sat
 export const unknownColumnWidth = { defaultColumnWidths: { checkbox: 40 } } satisfies ExplorerViewOptions;
 export const publicColumn: import("../src").ExplorerDetailsColumn = "updatedAt";
 export const publicWidths: import("../src/model-entry").ExplorerDetailsColumnWidths = { name: 420, location: 240, updatedAt: 160, extension: 80, size: 96 };
+
+// @ts-expect-error Per-kind rename switches are booleans.
+export const invalidRenameKind = { renameFiles: "enabled" } satisfies ExplorerFeatures;

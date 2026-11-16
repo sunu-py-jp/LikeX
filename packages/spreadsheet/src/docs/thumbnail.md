@@ -21,7 +21,9 @@ import "@likex/spreadsheet/styles.css";
 
 `sheetId?: string` または `sheetName?: string` で表示対象を指定します。ID・名前とも完全一致で、名前の大文字小文字や前後の空白を補正しません。両方を渡す場合は同じシートを指す必要があります。どちらも省略すると先頭シートです。ブックが同じでもこれらのpropsを変更すると対象が切り替わります。空文字、未知のID・名前、曖昧な名前、IDと名前の不一致はエラー表示と `onError` の対象で、先頭シートへ黙って切り替えません。名前指定したシートを改名した場合はpropsも更新してください。改名に追随させる用途にはIDが適しています。
 
-ほかの任意propsは `title`、`colorMode`、`primaryColor`、`className`、`style`、`aria-label`、`onError(error: Error)` です。既定の高さは280px、最小高さは0で、内容は残りの領域に縦横比を保って収まります。原寸より拡大しません。`title` の既定値は「スプレッドシート」です。`ref` や編集・選択のコールバックはありません。外側は代替説明を持つ `role="img"` で、URL文字列もクリック可能なリンクに変換しません。
+ほかの任意propsは `title`、`colorMode`、`sheetColorMode`、`primaryColor`、`className`、`style`、`aria-label`、`onError(error: Error)` です。既定の高さは280px、最小高さは0で、内容は残りの領域に縦横比を保って収まります。原寸より拡大しません。`title` の既定値は「スプレッドシート」です。`ref` や編集・選択のコールバックはありません。外側は代替説明を持つ `role="img"` で、URL文字列もクリック可能なリンクに変換しません。
+
+`colorMode` はUIの明暗、`sheetColorMode?: SpreadsheetSheetColorMode` はシートの明暗を指定します。シートは既定で `"light"` なので、`colorMode="dark"` だけならシートは白く、元の書式色で表示します。`sheetColorMode="dark"` はセルの文字・背景・罫線の表示色を補正し、`"inherit"` は解決後のUIの明暗（`"system"` のOSテーマを含む）に追従します。propsの変更は表示中にも反映します。画像・図形と保存データの色は変えません。[通常表示と共通の明暗設定](./formatting.md#uiとシートの明暗)を参照してください。
 
 通常の `Spreadsheet` を特定シートから開く場合は、マウント時だけ読む `initialSheetId` / `initialSheetName` を使います。表示後の移動は `ref.current.selectSheet({ sheetId, sheetName })`、取り込みと同時の指定は `importExcel(file, { sheetId, sheetName })` / `importNative(file, { sheetId, sheetName })` です。サムネイルの制御propsと通常表示の初期propsは更新規約が異なります。[通常表示の対象シート指定](./selection.md#最初に開くシートを指定する)を参照してください。
 

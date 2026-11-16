@@ -94,6 +94,8 @@ type ExplorerEntryPermissionsResolver = (
 
 `true` を返しても、`features` の無効化やExplorer全体の `readOnly` を解除することはできません。個別制限は実行時にメッセージで伝える方式で、メニューを非表示にする機能設定とは別です。
 
+ファイル名とフォルダ名の変更可否を種類だけで分ける場合は、[`features.renameFiles` / `features.renameFolders`](./configuration.md#rename-by-kind) を使います。この設定は直接名前を変える項目だけを判定します。例えば `renameFolders: false` でも配下のファイル名は変更できます。一方、`getEntryPermissions` がフォルダに返す `rename: false` は配下にも継承され、フォルダの名前変更では子孫の許可も確認します。種類別設定を追加しても、この権限の継承規則は変わりません。
+
 ## 操作と確認対象
 
 | 操作 | 主な確認対象 |

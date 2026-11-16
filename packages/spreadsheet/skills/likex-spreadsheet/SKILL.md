@@ -13,6 +13,8 @@ description: LikeX SpreadsheetのネイティブJSON（.spon）を作成・検�
 
 リボンの表示方法はホストUIの `initialRibbonDisplayMode` / `ribbonDisplayMode` とHandleで制御する。SPON／XLSXやCLIコマンドの対象ではないため、リボンを隠す目的でブックや機能設定を書き換えない。[リボンの表示ガイド](../../src/docs/ribbon-display.md)を参照する。
 
+UIの明暗は `colorMode: "light" | "dark" | "system"`、シートの明暗は `sheetColorMode: "light" | "dark" | "inherit"` で制御する。シートは既定で `"light"` となり元の書式色を表示する。`"dark"` はセルの文字・背景・罫線の表示色だけを補正し、`"inherit"` は解決後のUIの明暗に追従する。通常表示・サムネイルで同じpropsを使い、表示中も変更できる。画像・図形は元の色を保つ。SPON／XLSX・印刷用の色・モデルAPI・CLIは変更せず、暗く表示する目的で保存書式を書き換えない。以前の `colorMode="dark"` と同様にシートも暗くする場合は `sheetColorMode="inherit"` を明示する。[UIとシートの明暗](../../src/docs/formatting.md#uiとシートの明暗)を参照する。
+
 スマホ表示は `layout?: "auto" | "desktop" | "mobile"`。既定はコンポーネント幅720 CSS px未満でmobileへ切り替える。モバイルの指ドラッグはスクロール、タップはキーボードを開かず選択、「範囲選択」ON時だけドラッグ範囲選択。編集は「編集」か数式欄。未選択図形上もスクロール、選択後の図形はドラッグ移動。readonly/機能制限を維持し、保存モデル・SPON/XLSX・CLIは変更しない。詳細は [スマホ表示](../../src/docs/api.md#スマホ表示)。
 
 通常ビューの描画範囲はホストの `renderingMode: "progressive" | "viewport"` で切り替える。既定の `"viewport"` は画面とその前後、入力・結合に必要な行だけを描画する省メモリモード。`"progressive"` を明示すると、表示範囲を先に描画し、現在のシートの残りの行も順次追加して保持する。大きいシートや低スペック端末では既定の `"viewport"` を使う。これは読み込み済みデータのUI描画の設定で、ファイル取得・数式計算・SPON／XLSX・モデルAPI・CLI・専用サムネイルは変更しない。印刷範囲表示でも画面外のセルを全件描画しない。[描画モード](../../src/docs/api.md#シートの描画モード)を参照する。

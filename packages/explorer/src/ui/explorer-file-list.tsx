@@ -59,7 +59,7 @@ import {
   formatEntryDate,
 } from "../model/entries";
 import type { ExplorerEntry as Entry } from "../model/draft";
-import { matchesExplorerSelectionKind, type ExplorerViewMode } from "../model/config";
+import { isExplorerRenameEnabled, matchesExplorerSelectionKind, type ExplorerViewMode } from "../model/config";
 import { FAVORITES, RECENT } from "../state/view-state";
 import {
   buttonClass,
@@ -84,7 +84,7 @@ function hasEntryMenu(entry: Entry, features: Features, canEditFavorites: boolea
     features.details ||
     features.copy ||
     features.move ||
-    features.rename ||
+    isExplorerRenameEnabled(features, entry.kind) ||
     canEditFavorites ||
     features.delete ||
     features.download
@@ -208,7 +208,7 @@ function EntryMenuItems({
           コピー先を選択
         </Item>
       ),
-      features.rename && (
+      isExplorerRenameEnabled(features, entry.kind) && (
         <Item
           key="rename"
           aria-keyshortcuts={shortcutAriaKeys("rename")}

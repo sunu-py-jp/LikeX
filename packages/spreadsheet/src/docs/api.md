@@ -2,7 +2,7 @@
 
 [利用ガイドへ戻る](./README.md)
 
-`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetMergedRange`、`SpreadsheetAutoFilter`、`SpreadsheetFilterColumn`、`SpreadsheetSelection`、`SpreadsheetSelectionRange`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode`、`SpreadsheetRibbonDisplayMode`、`SpreadsheetRenderingMode` を公開しています。
+`Spreadsheet` はdefault / named exportの両方で利用できます。`SpreadsheetProps`、`SpreadsheetWorkbook`、`SpreadsheetSheet`、`SpreadsheetCell`、`SpreadsheetCellFormat`、`SpreadsheetCellPosition`、`SpreadsheetMergedRange`、`SpreadsheetAutoFilter`、`SpreadsheetFilterColumn`、`SpreadsheetSelection`、`SpreadsheetSelectionRange`、`SpreadsheetFeatures`、`SpreadsheetSaveHandler`、`SpreadsheetColorMode`、`SpreadsheetSheetColorMode`、`SpreadsheetRibbonDisplayMode`、`SpreadsheetRenderingMode` を公開しています。
 
 ## ブックの形式
 
@@ -89,7 +89,8 @@ try {
 | `getContextMenuItems` | `SpreadsheetContextMenuProvider` | セル・行列・シート・描画の対象・選択・下書きに応じた追加メニュー。[右クリックメニュー](./context-menu.md) |
 | `contextMenuExecutionMode` | `ContextMenuExecutionMode` | `block`（既定）・`confirm`・`reject-if-changed`。メニュー処理中の変更と反映を制御。 |
 | `onSelectionChange` | `(selection: SpreadsheetSelection) => void` | `{ sheetId, anchor, focus, ranges }` の通知。行・列は0始まり。各範囲の任意の `kind` は行番号／列名から始めた選択を表す。`focus` はアクティブセル（通常のセル選択では結合の左上）。[複数選択](./selection.md) |
-| `colorMode` | `SpreadsheetColorMode` | `"light"`（既定）・`"dark"`・`"system"`。 |
+| `colorMode` | `SpreadsheetColorMode` | UIの明暗。`"light"`（既定）・`"dark"`・`"system"`。シートは `sheetColorMode` で別に指定。 |
+| `sheetColorMode` | `SpreadsheetSheetColorMode` | `"light"`（既定）は元の書式色、`"dark"` は暗いシート向けの表示色補正、`"inherit"` は解決後のUIの明暗に追従。表示中の変更可。[UIとシートの明暗](./formatting.md#uiとシートの明暗) |
 | `primaryColor` | `string` | UIの基本色。`#RGB` / `#RRGGBB`。未指定・不正な値は既定の緑。動的変更可。[見た目の基本色](./formatting.md#画面の基本色) |
 | `title` | `string` | 表示タイトル。省略時は「スプレッドシート」。 |
 | `exportFileName` | `string` | Excel出力のファイル名。省略時は `title`、未指定なら `spreadsheet.xlsx`。[Excel出力](./excel-export.md) |

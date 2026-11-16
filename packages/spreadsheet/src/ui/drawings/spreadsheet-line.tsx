@@ -42,7 +42,7 @@ export function SpreadsheetLineDrawing({ drawing, sheet, controller: c, geometry
       {drag && drag.kind !== "move" && targets.filter(target => target.id === drag.nearbyTarget).flatMap(target => getConnectorPortPoints(target.box, target.outline).map(({ port, point }) => {
         const p = display(point), attached = points[drag.kind as "start" | "end"].binding;
         return <circle key={`${target.id}:${port}`} data-lxs-connection-port={`${target.id}:${port}`} cx={p.x} cy={p.y} r={attached?.targetId === target.id && attached.port === port ? 5 : 3}
-          fill={attached?.targetId === target.id && attached.port === port ? "var(--lxs-accent)" : "var(--lxs-background)"} stroke="var(--lxs-accent)" />;
+          fill={attached?.targetId === target.id && attached.port === port ? "var(--lxs-sheet-accent)" : "var(--lxs-sheet-background)"} stroke="var(--lxs-sheet-accent)" />;
       }))}
     </svg>
     {editing && selected && !c.disabled && <div className="lxs-line-text-editor" style={{ left: Math.min(start.x, end.x), top: Math.min(start.y, end.y), width: Math.max(120, Math.abs(end.x - start.x)), height: Math.max(60, Math.abs(end.y - start.y)) }}>

@@ -52,7 +52,7 @@ ExplorerとExplorerPopupに共通するpropsと公開型の契約です。具体
 | `initialSelectedIds` | 任意の `readonly string[]`。初回だけ選択するファイル・フォルダのID。同じ親の取得済み項目を指定し、`selection.kind` / `mode` に従います。重複は先頭順に除き、不正な指定は全件を選択せず通知します。`[]` を含め、指定時は `selectedFile` と初期プレビューより優先します。[初期位置との関係](./getting-started.md#initial-selection) |
 | `selectedFile` | 任意の `string`。初回に選択するファイルの `ExplorerEntry.id`。`initialPath` 未指定なら対象の親フォルダを開き、指定時はその直下にあるファイルだけを選択します。ファイル名や `source.id` ではありません。`initialSelectedIds` 指定時は使いません。 |
 | `selectedFileMode` | `ExplorerSelectedFileMode`。`"select"`（既定）または `"preview"`。後者は `selectedFile` の初期選択に加え、内蔵プレビューまたは `onPreviewRequest` を一度起動します。`initialSelectedIds` 指定時は初期プレビューを行いません。 |
-| `features` | `ExplorerFeatures`。機能ごとに `false` を指定すると、関連UIとその実行経路を無効にします。 |
+| `features` | `ExplorerFeatures`。機能ごとに `false` を指定すると、関連UIとその実行経路を無効にします。名前変更は `rename` が全体設定、`renameFiles` / `renameFolders` が種類別設定です（既定はすべて `true`）。[指定例と優先順位](./configuration.md#rename-by-kind) |
 | `upload` | `ExplorerUploadOptions`。許可拡張子・容量・件数・再生時間・PDFページ数・PPTXスライド数・違反時の扱いを指定します。`pdfInspectionLimits` で内蔵PDF検査の展開量・処理時間等も調整できます。動画は既定で4時間以下です。違反時は既定でその回の追加をすべて中止します。[内容制限](./upload-content-limits.md) |
 | `selection` | `ExplorerSelectionOptions`。選択方式（`none` / `single` / `multiple`）、選択する種類（`kind: file` / `folder` / `both`、既定 `both`）、チェックボックス表示。対象外のフォルダも移動のために表示します。 |
 | `ui` | `ExplorerUIOptions`。サイドバー、右クリックメニュー、項目メニュー、サムネイルの表示。`loadFolderAction: false` は遅延読み込み時の「配下を読み込む」だけを非表示にします。既定は `true`。自動読み込みと公開 `loadFolder()` は維持します。[表示設定](./configuration.md) |
@@ -187,7 +187,7 @@ if (result && !result.ok) {
 | `getEntries(): readonly ExplorerItemInfo[] \| null` | 現在の全項目を、パスを含む独立したメタデータとして取得します。遅延読み込み時は取得済みキャッシュの範囲です。配列・項目・`source` の変更は内部へ反映しません。`File` 本体は共有します。 |
 | `loadFolder(folderId: string, options?: ExplorerFolderLoadOptions): Promise<boolean>` | 直下を取得します。`recursive: true` は配下全体、`signal` は利用側からの取消し。取得済みは再通信せず、取消しや取得失敗はfalse。表示の移動や未保存化はしません。[必要な配下を先に取得する](./folder-loading.md) |
 | `loadMoreSearchResults(): boolean` | メイン領域のアクティブな検索で次のページを要求します。失敗後は同じカーソルを再試行し、既存結果・選択を保ちます。`true` は受付、検索外・続きなし・処理中・未マウント等はfalse。取得の完了を待つPromiseではありません。[検索のページ取得](./search.md#search-paging) |
-| `execute(action: ExplorerAction): Promise<boolean>` | `create` / `createFile` / `rename` / `move` / `copy` / `delete` / `favorite` を実行します。対象の `ids` と作成・移動先の `parent` を指定します。`ids` を省略してもGUIの現在選択は使いません。作成先の省略はモデルと同じ `root` です。 |
+| `execute(action: ExplorerAction): Promise<boolean>` | `create` / `createFile` / `rename` / `move` / `copy` / `delete` / `favorite` を実行します。対象の `ids` と作成・移動先の `parent` を指定します。`ids` を省略してもGUIの現在選択は使いません。作成先の省略はモデルと同じ `root` です。`rename` には `features.rename` と対象の `renameFiles` / `renameFolders` も適用し、無効なら変更せず `false` を返します。 |
 | `upload(files: readonly File[], parentId: string): Promise<boolean>` | 指定フォルダへ取り込みます。`webkitRelativePath` のある `File` はフォルダ取込です。サイズ・拡張子・件数制限、同名競合の確認、処理中表示、取消しはGUIと共通です。 |
 | `save(): Promise<boolean>` | 変更を `onSave` へ渡します。同じワークスペースで取り込み中なら `false` を返し、取り込み・編集セッションを維持します。取り込みがなく変更なしの場合は保存先を呼ばず編集セッションを終了します。 |
 | `discard(): Promise<boolean>` | 未保存の変更をすべて破棄し、選択・クリップボード・プレビュー等を解除します。この明示コマンド自体は追加の確認を表示しないため、ホストが確認を必要とする場合は呼ぶ前に行います。Undo/Redoではありません。 |

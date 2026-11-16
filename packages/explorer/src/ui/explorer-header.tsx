@@ -1,6 +1,7 @@
 "use client";
 
 import { shortcutAriaKeys } from "../model/keyboard";
+import { isExplorerRenameEnabled } from "../model/config";
 
 import { memo, type ComponentProps, type ReactNode } from "react";
 import { DropdownMenu } from "./explorer-overlays";
@@ -187,8 +188,12 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
   const mobile = useExplorerDom().layout === "mobile";
 
   const hasUpload = !provisionalLocation && (features.uploadFiles || features.uploadFolders);
+  const showRename = features.rename && (selectedEntries.length === 0 ||
+    selectedEntries.some(entry => isExplorerRenameEnabled(features, entry.kind)));
+  const canRenameSelection = selectedEntries.length === 1 &&
+    isExplorerRenameEnabled(features, selectedEntries[0].kind);
   const hasEdit =
-    features.move || features.copy || features.rename || features.delete;
+    features.move || features.copy || showRename || features.delete;
   const hasView = canSort || allowedViewModes.length > 1;
   const hasSelectionMenu = selectionOptions.mode !== "none";
   const hasOperationMenu =
@@ -330,12 +335,12 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
                 <ClipboardPaste size={17} />
               </ExplorerIconButton>
             )}
-            {features.rename && (
+            {showRename && (
               <ExplorerIconButton
                 label="名前の変更"
                 shortcut="rename"
                 onClick={() => startRename()}
-                disabled={disabled || selected.length !== 1}
+                disabled={disabled || !canRenameSelection}
               >
                 <Pencil size={17} />
               </ExplorerIconButton>
@@ -505,10 +510,10 @@ export const ExplorerHeader = memo(function ExplorerHeader({ title }: Pick<Explo
                 貼り付け
               </MenuItem>
             )}
-            {features.rename && (
+            {showRename && (
               <MenuItem
                 onSelect={() => renameMenuFocus.startRename()}
-                disabled={disabled || selected.length !== 1}
+                disabled={disabled || !canRenameSelection}
               >
                 <Pencil size={16} />
                 名前の変更
