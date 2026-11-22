@@ -1,6 +1,6 @@
 import type { SpreadsheetWorkbookSnapshot } from "../../commands/types";
 import type { SpreadsheetFormattingCommand } from "../../api/formatting-commands";
-import { calculateWorkbook } from "../formula";
+import { calculateWorkbookSheet } from "../formula";
 import { normalizeWorkbook } from "../workbook/normalize";
 import type { SpreadsheetWorkbook } from "../types";
 import { autoFitDimensions } from "./auto-fit";
@@ -45,7 +45,7 @@ export function autoFitCommandForWorkbook(workbook: SpreadsheetWorkbook, target:
     measure.cellStyle = { ...style };
   }
   const sizes = Object.freeze(Object.fromEntries(autoFitDimensions(sheet, target.axis, new Set(target.indices),
-    calculateWorkbook(workbook)[sheet.id] ?? {}, measure)));
+    calculateWorkbookSheet(workbook, sheet.id) ?? {}, measure)));
   return Object.freeze({ type: "dimensions.resize", sheetId: sheet.id,
     ...(target.axis === "row" ? { rowHeights: sizes } : { columnWidths: sizes }) });
 }

@@ -214,7 +214,27 @@ const values = calculateWorkbook(restored);
 values.budget.A3; // 1500
 ```
 
-`calculateWorkbook` は `sheetId` → A1アドレス → 計算結果のオブジェクトを返します。式の文字列を持つ元のブックは変更しません。保存コールバックへの接続例は [公開API](./api.md#保存)、画像等も含む形式は [JSON保存](./insertions-and-json.md) を参照してください。
+`calculateWorkbook` は `sheetId` → A1アドレス → 計算結果のオブジェクトを返します。式の文字列を持つ元のブックは変更しません。
+
+### 編集のたびに再計算する場合
+
+同じブックを編集しながら何度も計算結果を読む場合は、`createSpreadsheetCalculationCache()` を使うと、変わっていない部分の計算を繰り返しません。画面のSpreadsheetも同じ仕組みで計算しています。
+
+```ts
+import { createSpreadsheetCalculationCache, setCellValues } from "@likex/spreadsheet/model";
+
+const calculation = createSpreadsheetCalculationCache();
+let values = calculation.calculate(workbook);
+values.budget.A3; // このシートを最初に読んだ時点で計算します
+
+workbook = setCellValues(workbook, "budget", { A1: "2000" });
+values = calculation.calculate(workbook); // budgetと、budgetを参照するシートだけを計算し直します
+```
+
+- `calculate(workbook)` の戻り値は `calculateWorkbook(workbook)` と同じ形で、同じ値になります。各シートの値は、そのシートを最初に読んだときに計算します。読まないシートは、他のシートの数式から参照されたセルだけを計算します。
+- 次の版では、シートのオブジェクトが前回と同一で、そのシートの数式が読む他のシートも変わっていなければ、前回の結果をそのまま返します。`setCellValues` などのモデル関数、編集セッション、画面の操作は、変更しなかったシートのオブジェクトを保ちます。`normalizeWorkbook` や `applySpreadsheetCommands` は入力をコピーするため、その結果を渡すと全シートを計算し直します。
+- シートの追加・削除・名前変更があると、シート名を含む参照の解決先が変わり得るため、全シートを計算し直します。
+- 入力は検証済みのブックを渡してください。計算量の上限を超えたシートでは、どの数式が `#LIMIT!` になるかが計算した順序で変わるため、`calculateWorkbook` と一致しない場合があります。保存コールバックへの接続例は [公開API](./api.md#保存)、画像等も含む形式は [JSON保存](./insertions-and-json.md) を参照してください。
 
 ## 機能設定と対応範囲
 

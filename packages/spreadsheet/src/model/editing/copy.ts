@@ -6,7 +6,7 @@ import { validateSpreadsheetFeatures } from "../../api/validate-features";
 import type { SpreadsheetPastePayload, SpreadsheetPartialMergePolicy } from "../../api/editing-commands";
 import type { SpreadsheetWorkbookSnapshot } from "../../commands/types";
 import { cellAddress } from "../address";
-import { calculateWorkbook } from "../formula";
+import { calculateWorkbookSheet } from "../formula";
 import { rangeContains, rangesIntersect } from "../merges";
 import { normalizeWorkbook } from "../workbook/normalize";
 import { SPREADSHEET_LIMITS, type SpreadsheetMergedRange, type SpreadsheetWorkbook } from "../types";
@@ -45,7 +45,7 @@ export function copySpreadsheetCells(input: SpreadsheetWorkbookSnapshot, sheetId
   const merges = intersected.filter(merge => rangeContains(range, merge));
   const excluded = mergedCellAddresses(range, partial);
   if (options.kind === "cut" && merges.length && !features.mergeCells) throw new Error("セルの結合の変更は無効です");
-  const calculated = calculateWorkbook(workbook)[sheetId];
+  const calculated = calculateWorkbookSheet(workbook, sheetId)!;
   const values: string[][] = [], displayedValues: string[][] = [], valueTypes: ("string" | "number" | "boolean")[][] = [];
   const formats: NonNullable<SpreadsheetPastePayload["formats"]>[number][] = [];
   const validations: NonNullable<SpreadsheetPastePayload["validations"]>[number][] = [];

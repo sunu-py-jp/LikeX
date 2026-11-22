@@ -433,95 +433,14 @@
     "SpreadsheetDrawing": {
       "anyOf": [
         {
-          "$ref": "#/$defs/SpreadsheetImageDrawing"
+          "$ref": "#/$defs/SpreadsheetShapeDrawing"
         },
         {
-          "$ref": "#/$defs/SpreadsheetShapeDrawing"
+          "$ref": "#/$defs/SpreadsheetImageDrawing"
         },
         {
           "$ref": "#/$defs/SpreadsheetTextDrawing"
         }
-      ]
-    },
-    "SpreadsheetImageDrawing": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "anchor": {
-          "$ref": "#/$defs/SpreadsheetDrawingAnchor"
-        },
-        "width": {
-          "type": "number"
-        },
-        "height": {
-          "type": "number"
-        },
-        "flipX": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_bold",
-          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
-        },
-        "flipY": {
-          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
-        },
-        "rotation": {
-          "type": "number",
-          "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
-        },
-        "type": {
-          "const": "image"
-        },
-        "resourceId": {
-          "type": "string"
-        },
-        "alt": {
-          "type": "string"
-        },
-        "fit": {
-          "$ref": "#/$defs/SpreadsheetImageDrawing_fit",
-          "description": "Omitted/contain preserves the source aspect ratio; fill stretches the image to its frame."
-        }
-      },
-      "required": [
-        "id",
-        "anchor",
-        "width",
-        "height",
-        "type",
-        "resourceId",
-        "alt"
-      ],
-      "additionalProperties": false
-    },
-    "SpreadsheetDrawingAnchor": {
-      "type": "object",
-      "properties": {
-        "row": {
-          "type": "number"
-        },
-        "column": {
-          "type": "number"
-        },
-        "offsetX": {
-          "type": "number"
-        },
-        "offsetY": {
-          "type": "number"
-        }
-      },
-      "required": [
-        "row",
-        "column",
-        "offsetX",
-        "offsetY"
-      ],
-      "additionalProperties": false
-    },
-    "SpreadsheetImageDrawing_fit": {
-      "enum": [
-        "fill",
-        "contain"
       ]
     },
     "SpreadsheetShapeDrawing": {
@@ -666,6 +585,30 @@
         "fill",
         "stroke",
         "strokeWidth"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetDrawingAnchor": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "number"
+        },
+        "column": {
+          "type": "number"
+        },
+        "offsetX": {
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "row",
+        "column",
+        "offsetX",
+        "offsetY"
       ],
       "additionalProperties": false
     },
@@ -844,6 +787,63 @@
         "diamond",
         "oval",
         "stealth"
+      ]
+    },
+    "SpreadsheetImageDrawing": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/$defs/SpreadsheetDrawingAnchor"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "flipX": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold",
+          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
+        },
+        "flipY": {
+          "$ref": "#/$defs/SpreadsheetCellFormat_bold"
+        },
+        "rotation": {
+          "type": "number",
+          "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
+        },
+        "type": {
+          "const": "image"
+        },
+        "resourceId": {
+          "type": "string"
+        },
+        "alt": {
+          "type": "string"
+        },
+        "fit": {
+          "$ref": "#/$defs/SpreadsheetImageDrawing_fit",
+          "description": "Omitted/contain preserves the source aspect ratio; fill stretches the image to its frame."
+        }
+      },
+      "required": [
+        "id",
+        "anchor",
+        "width",
+        "height",
+        "type",
+        "resourceId",
+        "alt"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetImageDrawing_fit": {
+      "enum": [
+        "fill",
+        "contain"
       ]
     },
     "SpreadsheetTextDrawing": {

@@ -1,5 +1,5 @@
 import Spreadsheet, {
-  createWorkbook, setCellBorders, type SpreadsheetBorderPreset, setCellValue, calculateWorkbook, parseTsv, stringifyTsv, expandCellAddresses, CellAddressExpansionError,
+  createWorkbook, setCellBorders, type SpreadsheetBorderPreset, setCellValue, calculateWorkbook, createSpreadsheetCalculationCache, type SpreadsheetCalculationCache, parseTsv, stringifyTsv, expandCellAddresses, CellAddressExpansionError,
   serializeWorkbook, parseWorkbook, addDrawing, setCellComment, mergeCells, unmergeCells,
   type SpreadsheetWorkbook, type SpreadsheetSheet, type SpreadsheetCell,
   type SpreadsheetCellFormat, type SpreadsheetCellPosition, type SpreadsheetProps, type SpreadsheetCellGridWriteOptions, type SpreadsheetRenderingMode, type SpreadsheetSheetColorMode,
@@ -74,6 +74,9 @@ const format: SpreadsheetCellFormat = { align: "right", color: "#123456" };
 const position: SpreadsheetCellPosition = { row: 0, column: 1 };
 const populated = setCellValue(workbook, sheet.id, "A1", "42");
 const calculated = calculateWorkbook(populated);
+const calculationCache: SpreadsheetCalculationCache = createSpreadsheetCalculationCache();
+const cachedValue: string | number | boolean | undefined = calculationCache.calculate(populated)[populated.sheets[0].id]?.A1;
+void cachedValue;
 const save: SpreadsheetSaveHandler = next => next;
 const asyncSave: SpreadsheetSaveHandler = async next => next;
 const notifySave: SpreadsheetSaveHandler = () => {};

@@ -5,7 +5,7 @@ import { cellAddress, parseCellAddress } from "./address";
 import { FUNCTION_HANDLERS } from "./formula-functions";
 import { FormulaError, fail, errorPattern, finite, checked, number, literal, text, countable,
   type FunctionContext, type FormulaRange } from "./formula-functions/runtime";
-import { SPREADSHEET_LIMITS, type SpreadsheetCalculatedValue as Value, type SpreadsheetWorkbook } from "./types";
+import { SPREADSHEET_LIMITS, type SpreadsheetCalculatedValue as Value, type SpreadsheetSheet, type SpreadsheetWorkbook } from "./types";
 
 export type FormulaReference = { sheet?: string; address: string; prefix: string };
 export type FormulaToken = { kind: "number" | "string" | "reference" | "name" | "operator" | "error" | "end";
@@ -114,23 +114,61 @@ export function parseFormula(formula: string): Node {
   return node;
 }
 
+/** Evaluation state of one sheet. A finished state is never changed again, so later calculators may share it. */
+type SheetCalculation = {
+  /** The stored sheet these values were calculated from; identity decides whether they can be reused. */
+  source: SpreadsheetSheet;
+  context: SpreadsheetSheet;
+  values: Record<string, Value>;
+  steps: number;
+  /** Other sheets read by the formulas evaluated so far. */
+  dependencies: Set<string>;
+  finished: boolean;
+};
+type WorkbookCalculation = { structure: string; sheets: Map<string, SheetCalculation> };
+
+/** Reuse the previous calculation of every sheet that is unchanged and reads only unchanged sheets. */
+function reusableCalculations(workbook: SpreadsheetWorkbook, structure: string, previous?: WorkbookCalculation) {
+  const reusable = new Map<string, SheetCalculation>();
+  // Added, removed or renamed sheets can change what any sheet-qualified reference resolves to.
+  if (!previous || previous.structure !== structure) return reusable;
+  const changed = new Set<string>();
+  for (const sheet of workbook.sheets) if (previous.sheets.get(sheet.id)?.source !== sheet) changed.add(sheet.id);
+  for (let spread = changed.size > 0; spread;) {
+    spread = false;
+    for (const [id, state] of previous.sheets) {
+      if (changed.has(id)) continue;
+      for (const dependency of state.dependencies) if (changed.has(dependency)) { changed.add(id); spread = true; break; }
+    }
+  }
+  for (const [id, state] of previous.sheets) {
+    if (changed.has(id)) continue;
+    // A partial state keeps growing in the calculator that owns it, so each calculator gets its own copy.
+    reusable.set(id, state.finished ? state : { ...state, values: Object.assign(Object.create(null), state.values),
+      dependencies: new Set(state.dependencies) });
+  }
+  return reusable;
+}
+
 /** Internal evaluator shared by full calculation and bounded reads. Inputs are already validated. */
-export function createWorkbookCalculator(workbook: SpreadsheetWorkbook) {
+export function createWorkbookCalculator(workbook: SpreadsheetWorkbook, previous?: WorkbookCalculation) {
   const result: Record<string, Record<string, Value>> = Object.create(null);
-  const modelSheets = workbook.sheets.map(withFormatRangeContext);
+  const structure = workbook.sheets.map(sheet => `${sheet.id}\0${sheet.name}`).join("\n");
+  const reusable = reusableCalculations(workbook, structure, previous);
+  const states = new Map(workbook.sheets.map(sheet => [sheet.id, reusable.get(sheet.id) ?? { source: sheet,
+    context: withFormatRangeContext(sheet), values: Object.create(null) as Record<string, Value>, steps: 0,
+    dependencies: new Set<string>(), finished: false }]));
+  const modelSheets = [...states.values()].map(state => state.context);
   const sheets = new Map(modelSheets.map(sheet => [sheet.name.toLocaleLowerCase("en-US"), sheet]));
   const byId = new Map(modelSheets.map(sheet => [sheet.id, sheet]));
   const active = new Set<string>(), parsed = new Map<string, Node>();
   // Each sheet has its own evaluation budget. Work is charged to the sheet that owns the formula
   // being evaluated, so a referenced formula spends its own sheet's budget whichever cell asks first.
-  const steps = new Map<string, number>();
-  let owner = "";
+  let owner: SheetCalculation | undefined;
   const tick = (cost = 1) => {
-    const used = (steps.get(owner) ?? 0) + cost;
-    steps.set(owner, used);
-    if (used > SPREADSHEET_LIMITS.evaluationSteps) fail("#LIMIT!");
+    if (owner && (owner.steps += cost) > SPREADSHEET_LIMITS.evaluationSteps) fail("#LIMIT!");
   };
-  for (const sheet of workbook.sheets) result[sheet.id] = Object.create(null);
+  for (const [id, state] of states) result[id] = state.values;
   function get(sheetId: string, address: string, depth: number): Value | null {
     if (depth > SPREADSHEET_LIMITS.referenceDepth) return fail("#LIMIT!");
     const sheet = byId.get(sheetId), position = parseCellAddress(address);
@@ -145,7 +183,7 @@ export function createWorkbookCalculator(workbook: SpreadsheetWorkbook) {
     if (active.has(key)) return fail("#CYCLE!");
     active.add(key);
     const caller = owner;
-    owner = sheetId;
+    owner = states.get(sheetId);
     try {
       let node = parsed.get(cell.value);
       if (!node) { node = parseFormula(cell.value); parsed.set(cell.value, node); }
@@ -155,7 +193,11 @@ export function createWorkbookCalculator(workbook: SpreadsheetWorkbook) {
     return countable(cache[canonical]);
   }
   function target(reference: FormulaReference, current: string) {
-    return reference.sheet === undefined ? byId.get(current) : sheets.get(reference.sheet.toLocaleLowerCase("en-US"));
+    if (reference.sheet === undefined) return byId.get(current);
+    const sheet = sheets.get(reference.sheet.toLocaleLowerCase("en-US"));
+    // Recorded before any bounds check: a #REF! caused by the other sheet's size also depends on it.
+    if (sheet && owner && sheet.id !== owner.source.id) owner.dependencies.add(sheet.id);
+    return sheet;
   }
   type Position = { row: number; column: number };
   function scalar(node: Node, sheet: string, depth: number, position: Position): Value {
@@ -263,18 +305,59 @@ export function createWorkbookCalculator(workbook: SpreadsheetWorkbook) {
       }
     }
   }
-  return { result, getCell(sheetId: string, address: string): Value {
+  function getCell(sheetId: string, address: string): Value {
     try { return get(sheetId, address, 0) ?? ""; }
     catch (error) { return error instanceof FormulaError ? error.code : "#ERROR!"; }
-  } };
+  }
+  /** Calculate every stored cell of one sheet, and of other sheets only what its formulas read. */
+  function sheetValues(sheetId: string): Record<string, Value> | undefined {
+    const state = states.get(sheetId);
+    if (!state) return undefined;
+    if (!state.finished) {
+      for (const address of Object.keys(state.source.cells)) state.values[address] = getCell(sheetId, address);
+      state.finished = true;
+    }
+    return state.values;
+  }
+  return { result, getCell, sheetValues, state: { structure, sheets: states } as WorkbookCalculation };
 }
 
 /** Calculate populated cells only; reference matrices retain blanks and their exact shape. */
 export function calculateWorkbook(workbook: SpreadsheetWorkbook): Record<string, Record<string, Value>> {
   const calculator = createWorkbookCalculator(workbook);
-  for (const sheet of workbook.sheets) for (const address of Object.keys(sheet.cells))
-    calculator.result[sheet.id][address] = calculator.getCell(sheet.id, address);
+  for (const sheet of workbook.sheets) calculator.sheetValues(sheet.id);
   return calculator.result;
+}
+
+/** Internal: values of one sheet, calculating other sheets only where its formulas read them. */
+export function calculateWorkbookSheet(workbook: SpreadsheetWorkbook, sheetId: string): Record<string, Value> | undefined {
+  return createWorkbookCalculator(workbook).sheetValues(sheetId);
+}
+
+/** Calculated values by sheet ID. Each sheet is calculated when it is first read. */
+export type SpreadsheetCalculatedWorkbook = Readonly<Record<string, Readonly<Record<string, Value>>>>;
+export type SpreadsheetCalculationCache = Readonly<{
+  /** Values equal to `calculateWorkbook(workbook)`, calculated per sheet on first access. */
+  calculate(workbook: SpreadsheetWorkbook): SpreadsheetCalculatedWorkbook;
+}>;
+
+/**
+ * Calculate successive versions of one workbook without repeating unchanged work.
+ * A sheet is calculated when its values are first read, and a later version reuses the result when the
+ * sheet object is the same and every sheet its formulas read is unchanged. Inputs are already validated.
+ */
+export function createSpreadsheetCalculationCache(): SpreadsheetCalculationCache {
+  let previous: WorkbookCalculation | undefined;
+  return Object.freeze({
+    calculate(workbook: SpreadsheetWorkbook): SpreadsheetCalculatedWorkbook {
+      const calculator = createWorkbookCalculator(workbook, previous);
+      previous = calculator.state;
+      const result: Record<string, Readonly<Record<string, Value>>> = Object.create(null);
+      for (const sheet of workbook.sheets)
+        Object.defineProperty(result, sheet.id, { enumerable: true, get: () => calculator.sheetValues(sheet.id) });
+      return result;
+    },
+  });
 }
 
 function shiftedReference(reference: FormulaReference, row: number, column: number): string {

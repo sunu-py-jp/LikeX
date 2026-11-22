@@ -3298,81 +3298,6 @@
     "SpreadsheetCommand_44_payload_drawing_1": {
       "type": "object",
       "properties": {
-        "width": {
-          "type": "number"
-        },
-        "type": {
-          "const": "image"
-        },
-        "id": {
-          "type": "string"
-        },
-        "height": {
-          "type": "number"
-        },
-        "rotation": {
-          "type": "number",
-          "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
-        },
-        "flipX": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
-          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
-        },
-        "flipY": {
-          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
-        },
-        "fit": {
-          "$ref": "#/$defs/SpreadsheetCommand_41_fit",
-          "description": "Omitted/contain preserves the source aspect ratio; fill stretches the image to its frame."
-        },
-        "resourceId": {
-          "type": "string"
-        },
-        "alt": {
-          "type": "string"
-        },
-        "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_anchor"
-        }
-      },
-      "required": [
-        "width",
-        "type",
-        "id",
-        "height",
-        "resourceId",
-        "alt",
-        "anchor"
-      ],
-      "additionalProperties": false
-    },
-    "SpreadsheetCommand_44_payload_drawing_1_anchor": {
-      "type": "object",
-      "properties": {
-        "row": {
-          "type": "number"
-        },
-        "column": {
-          "type": "number"
-        },
-        "offsetX": {
-          "type": "number"
-        },
-        "offsetY": {
-          "type": "number"
-        }
-      },
-      "required": [
-        "row",
-        "column",
-        "offsetX",
-        "offsetY"
-      ],
-      "additionalProperties": false
-    },
-    "SpreadsheetCommand_44_payload_drawing_2": {
-      "type": "object",
-      "properties": {
         "bold": {
           "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
         },
@@ -3410,7 +3335,7 @@
           "type": "string"
         },
         "line": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_line",
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_line",
           "description": "Only line/arrow shapes. Omitted on legacy rectangle-based lines."
         },
         "height": {
@@ -3431,7 +3356,7 @@
           "type": "string"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_routing",
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_routing",
           "description": "Two-endpoint routing. Omitted means straight; elbow is recalculated from current targets."
         },
         "cornerRadiusRatio": {
@@ -3492,11 +3417,11 @@
           "$ref": "#/$defs/SpreadsheetShapeKind"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_startArrow",
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_startArrow",
           "description": "End markers. Legacy shape:arrow defaults its end to triangle; otherwise none."
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_startArrow"
         },
         "anchor": {
           "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_anchor"
@@ -3515,14 +3440,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_44_payload_drawing_2_line": {
+    "SpreadsheetCommand_44_payload_drawing_1_line": {
       "type": "object",
       "properties": {
         "start": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_line_start"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_line_start"
         },
         "end": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_line_start"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_line_start"
         }
       },
       "required": [
@@ -3531,14 +3456,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_44_payload_drawing_2_line_start": {
+    "SpreadsheetCommand_44_payload_drawing_1_line_start": {
       "type": "object",
       "properties": {
         "anchor": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_line_start_anchor"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_line_start_anchor"
         },
         "binding": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_line_start_binding"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_line_start_binding"
         }
       },
       "required": [
@@ -3546,7 +3471,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_44_payload_drawing_2_line_start_anchor": {
+    "SpreadsheetCommand_44_payload_drawing_1_line_start_anchor": {
       "type": "object",
       "properties": {
         "row": {
@@ -3570,14 +3495,14 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_44_payload_drawing_2_line_start_binding": {
+    "SpreadsheetCommand_44_payload_drawing_1_line_start_binding": {
       "type": "object",
       "properties": {
         "targetId": {
           "type": "string"
         },
         "port": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_line_start_binding_port"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_line_start_binding_port"
         }
       },
       "required": [
@@ -3586,7 +3511,7 @@
       ],
       "additionalProperties": false
     },
-    "SpreadsheetCommand_44_payload_drawing_2_line_start_binding_port": {
+    "SpreadsheetCommand_44_payload_drawing_1_line_start_binding_port": {
       "enum": [
         "top",
         "right",
@@ -3598,13 +3523,13 @@
         "topLeft"
       ]
     },
-    "SpreadsheetCommand_44_payload_drawing_2_routing": {
+    "SpreadsheetCommand_44_payload_drawing_1_routing": {
       "enum": [
         "straight",
         "elbow"
       ]
     },
-    "SpreadsheetCommand_44_payload_drawing_2_startArrow": {
+    "SpreadsheetCommand_44_payload_drawing_1_startArrow": {
       "enum": [
         "none",
         "triangle",
@@ -3613,6 +3538,81 @@
         "oval",
         "stealth"
       ]
+    },
+    "SpreadsheetCommand_44_payload_drawing_1_anchor": {
+      "type": "object",
+      "properties": {
+        "row": {
+          "type": "number"
+        },
+        "column": {
+          "type": "number"
+        },
+        "offsetX": {
+          "type": "number"
+        },
+        "offsetY": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "row",
+        "column",
+        "offsetX",
+        "offsetY"
+      ],
+      "additionalProperties": false
+    },
+    "SpreadsheetCommand_44_payload_drawing_2": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number"
+        },
+        "type": {
+          "const": "image"
+        },
+        "id": {
+          "type": "string"
+        },
+        "height": {
+          "type": "number"
+        },
+        "rotation": {
+          "type": "number",
+          "description": "Clockwise degrees about the frame center. Finite values normalize to [0, 360); zero is omitted."
+        },
+        "flipX": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold",
+          "description": "Reflection within the positive-sized frame. Omitted flags mean false; text stays readable."
+        },
+        "flipY": {
+          "$ref": "#/$defs/SpreadsheetCommand_1_format_bold"
+        },
+        "fit": {
+          "$ref": "#/$defs/SpreadsheetCommand_41_fit",
+          "description": "Omitted/contain preserves the source aspect ratio; fill stretches the image to its frame."
+        },
+        "resourceId": {
+          "type": "string"
+        },
+        "alt": {
+          "type": "string"
+        },
+        "anchor": {
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_anchor"
+        }
+      },
+      "required": [
+        "width",
+        "type",
+        "id",
+        "height",
+        "resourceId",
+        "alt",
+        "anchor"
+      ],
+      "additionalProperties": false
     },
     "SpreadsheetCommand_44_payload_drawing_3": {
       "type": "object",
@@ -3780,7 +3780,7 @@
           "type": "number"
         },
         "binding": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_line_start_binding"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_line_start_binding"
         }
       },
       "required": [
@@ -3828,7 +3828,7 @@
           "$ref": "#/$defs/SpreadsheetCommand_46_shape"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_routing"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_routing"
         },
         "stroke": {
           "type": "string"
@@ -3837,10 +3837,10 @@
           "type": "number"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_startArrow"
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_startArrow"
         }
       },
       "required": [
@@ -3876,13 +3876,13 @@
           "$ref": "#/$defs/SpreadsheetCommand_44_payload_linePoints_start"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_routing"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_routing"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_startArrow"
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_startArrow"
         }
       },
       "required": [
@@ -4053,7 +4053,7 @@
           "type": "string"
         },
         "routing": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_routing",
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_routing",
           "description": "Two-endpoint routing. Omitted means straight; elbow is recalculated from current targets."
         },
         "cornerRadiusRatio": {
@@ -4114,11 +4114,11 @@
           "$ref": "#/$defs/SpreadsheetCommand_49_patch_shape"
         },
         "startArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_startArrow",
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_startArrow",
           "description": "End markers. Legacy shape:arrow defaults its end to triangle; otherwise none."
         },
         "endArrow": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_startArrow"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_startArrow"
         },
         "anchor": {
           "$ref": "#/$defs/SpreadsheetCommand_48_patch_anchor"
@@ -4188,7 +4188,7 @@
           "type": "string"
         },
         "port": {
-          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_2_line_start_binding_port"
+          "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_line_start_binding_port"
         }
       },
       "required": [

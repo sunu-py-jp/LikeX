@@ -89,7 +89,23 @@
 restored.sheets[<span class="syntax-number">0</span>].cells.A3.value; <span class="syntax-comment">// &quot;=SUM(A1:A2)&quot;</span>
 <span class="syntax-keyword">const</span> values = calculateWorkbook(restored);
 values.budget.A3; <span class="syntax-comment">// 1500</span></code></pre></div>
-<p><code>calculateWorkbook</code> は <code>sheetId</code> → A1アドレス → 計算結果のオブジェクトを返します。式の文字列を持つ元のブックは変更しません。保存コールバックへの接続例は <a href="../props/index.html#%E4%BF%9D%E5%AD%98">公開API</a>、画像等も含む形式は <a href="../insertions/index.html">JSON保存</a> を参照してください。</p>
+<p><code>calculateWorkbook</code> は <code>sheetId</code> → A1アドレス → 計算結果のオブジェクトを返します。式の文字列を持つ元のブックは変更しません。</p>
+<h3 id="編集のたびに再計算する場合">編集のたびに再計算する場合<a class="heading-link" href="#%E7%B7%A8%E9%9B%86%E3%81%AE%E3%81%9F%E3%81%B3%E3%81%AB%E5%86%8D%E8%A8%88%E7%AE%97%E3%81%99%E3%82%8B%E5%A0%B4%E5%90%88" aria-label="この見出しへのリンク">#</a></h3>
+<p>同じブックを編集しながら何度も計算結果を読む場合は、<code>createSpreadsheetCalculationCache()</code> を使うと、変わっていない部分の計算を繰り返しません。画面のSpreadsheetも同じ仕組みで計算しています。</p>
+<div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> { createSpreadsheetCalculationCache, setCellValues } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/spreadsheet/model&quot;</span>;
+
+<span class="syntax-keyword">const</span> calculation = createSpreadsheetCalculationCache();
+<span class="syntax-keyword">let</span> values = calculation.calculate(workbook);
+values.budget.A3; <span class="syntax-comment">// このシートを最初に読んだ時点で計算します</span>
+
+workbook = setCellValues(workbook, <span class="syntax-string">&quot;budget&quot;</span>, { A1: <span class="syntax-string">&quot;2000&quot;</span> });
+values = calculation.calculate(workbook); <span class="syntax-comment">// budgetと、budgetを参照するシートだけを計算し直します</span></code></pre></div>
+<ul>
+<li><code>calculate(workbook)</code> の戻り値は <code>calculateWorkbook(workbook)</code> と同じ形で、同じ値になります。各シートの値は、そのシートを最初に読んだときに計算します。読まないシートは、他のシートの数式から参照されたセルだけを計算します。</li>
+<li>次の版では、シートのオブジェクトが前回と同一で、そのシートの数式が読む他のシートも変わっていなければ、前回の結果をそのまま返します。<code>setCellValues</code> などのモデル関数、編集セッション、画面の操作は、変更しなかったシートのオブジェクトを保ちます。<code>normalizeWorkbook</code> や <code>applySpreadsheetCommands</code> は入力をコピーするため、その結果を渡すと全シートを計算し直します。</li>
+<li>シートの追加・削除・名前変更があると、シート名を含む参照の解決先が変わり得るため、全シートを計算し直します。</li>
+<li>入力は検証済みのブックを渡してください。計算量の上限を超えたシートでは、どの数式が <code>#LIMIT!</code> になるかが計算した順序で変わるため、<code>calculateWorkbook</code> と一致しない場合があります。保存コールバックへの接続例は <a href="../props/index.html#%E4%BF%9D%E5%AD%98">公開API</a>、画像等も含む形式は <a href="../insertions/index.html">JSON保存</a> を参照してください。</li>
+</ul>
 <h2 id="機能設定と対応範囲">機能設定と対応範囲<a class="heading-link" href="#%E6%A9%9F%E8%83%BD%E8%A8%AD%E5%AE%9A%E3%81%A8%E5%AF%BE%E5%BF%9C%E7%AF%84%E5%9B%B2" aria-label="この見出しへのリンク">#</a></h2>
 <p><code>features={{ formulas: false }}</code> で数式入力と関数の入力補助を無効化できます。初期ブックに含まれる数式の計算結果は引き続き表示します。<code>readOnly</code> または <code>onSave</code> の省略でも編集できなくなります。</p>
 <p>Excelの関数・型変換・表示規則の完全互換ではありません。動的配列、外部ブック参照、利用側による独自関数の登録は提供していません。検索の返却範囲や日付方式など、上記の対応範囲で使用してください。数値はJavaScriptの浮動小数点数で計算するため、小数の演算には丸め誤差が生じることがあります。</p>

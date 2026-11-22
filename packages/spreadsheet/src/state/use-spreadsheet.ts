@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo } from "react";
-import { calculateWorkbook, cellAddress } from "../model";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { cellAddress, createSpreadsheetCalculationCache } from "../model";
 import { notifyHost, type MaybePromise } from "../core";
 import type { SpreadsheetCommand, SpreadsheetCommandResult, SpreadsheetCommandSuccess } from "../api/types";
 import type { SpreadsheetDiscardOptions } from "../api/lifecycle";
@@ -50,7 +50,9 @@ export function useSpreadsheet(props: SpreadsheetProps) {
     editingRef: cellEdit.editingRef, pendingObjectEditRef: pending.pendingObjectEditRef });
   const searchPanel = useSpreadsheetSearchPanel(props, features, draft.readOnly, { getWorkbook: () => draft.workbookRef.current,
     getReplacementRevision: () => draft.replacementRevisionRef.current, selectionApi: view.selectionApi });
-  const calculated = useMemo(() => calculateWorkbook(draft.workbook), [draft.workbook]);
+  // Each sheet is calculated when first shown or read; edits recalculate only the sheets they can affect.
+  const [calculation] = useState(createSpreadsheetCalculationCache);
+  const calculated = useMemo(() => calculation.calculate(draft.workbook), [calculation, draft.workbook]);
   const filtering = useSpreadsheetFilters(draft, view, commands, calculated,
     () => !!cellEdit.editingRef.current || pending.pendingObjectEditRef.current);
   const { resetViewRef } = draft;

@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { SpreadsheetAutoFilter, SpreadsheetSheet } from "../model/types";
 import type { SpreadsheetCommand } from "../commands/types";
 import type { SpreadsheetFilterViewApi } from "../api/filter-view";
-import { calculateWorkbook } from "../model/formula";
+import { calculateWorkbookSheet, type SpreadsheetCalculatedWorkbook } from "../model/formula";
 import { getSpreadsheetFilteredRows, getSpreadsheetFilterValues, normalizeSpreadsheetAutoFilter } from "../model/filters";
 import { stageSpreadsheetCommands } from "../commands/stage-spreadsheet-commands";
 import { resolveSpreadsheetFeatures } from "../api/resolve-features";
@@ -17,7 +17,7 @@ type Override = { revision: number; replacement: number; filter: SpreadsheetAuto
 
 /** Persist editable GUI changes; keep viewer filtering in a separate, disposable view overlay. */
 export function useSpreadsheetFilters(draft: ReturnType<typeof useWorkbookDraft>, view: ReturnType<typeof useSpreadsheetSelection>,
-  commands: ReturnType<typeof useSpreadsheetCommands>, calculated: ReturnType<typeof calculateWorkbook>, hasPendingInput: () => boolean) {
+  commands: ReturnType<typeof useSpreadsheetCommands>, calculated: SpreadsheetCalculatedWorkbook, hasPendingInput: () => boolean) {
   const overrides = useRef(new Map<string, Override>());
   const [overlays, setOverlays] = useState(new Map<string, Override>());
   const mounted = useRef(false);
@@ -33,7 +33,7 @@ export function useSpreadsheetFilters(draft: ReturnType<typeof useWorkbookDraft>
     return sheet && overlay ? { ...sheet, autoFilter: overlay.filter } : sheet;
   };
   const available = () => mounted.current && draft.propsRef.current.features?.filters !== false && !draft.isOperationPending() && !hasPendingInput();
-  const valuesFor = (sheetId: string) => (draft.workbook === draft.workbookRef.current ? calculated : calculateWorkbook(draft.workbookRef.current))[sheetId];
+  const valuesFor = (sheetId: string) => draft.workbook === draft.workbookRef.current ? calculated[sheetId] : calculateWorkbookSheet(draft.workbookRef.current, sheetId);
   const publish = (sheetId: string, filter: SpreadsheetAutoFilter | undefined) => {
     const previous = sheetFor(sheetId)?.autoFilter;
     if (JSON.stringify(previous) === JSON.stringify(filter)) return false;

@@ -5,7 +5,7 @@ import { getCellFormat } from "../model/format-ranges";
 import { useState } from "react";
 import type { SpreadsheetTableWriteOptions } from "../api/table-commands";
 import { cellAddress } from "../model/address";
-import { calculateWorkbook } from "../model/formula";
+import { calculateWorkbookSheet } from "../model/formula";
 import { effectiveCellFormat, formatCellValue } from "../model/formatting/display";
 import { getRange } from "../model/query";
 import { namedRangeAddress } from "../model/named-ranges";
@@ -21,7 +21,7 @@ type TableTarget = { options: SpreadsheetTableWriteOptions; address: string; rev
 function captureTable(controller: SpreadsheetController): TableTarget {
   const workbook = controller.getWorkbook(), sheetId = controller.activeSheet.id;
   const range = selectionBounds(controller.selection), rows = getRange(workbook, sheetId, range);
-  const calculated = calculateWorkbook(workbook)[sheetId];
+  const calculated = calculateWorkbookSheet(workbook, sheetId)!;
   const headers = rows[0].map((cell, column) => formatCellValue(calculated[cellAddress(range.top, range.left + column)],
     effectiveCellFormat(cell ?? undefined, getCellFormat(controller.activeSheet, range.top, range.left + column))) || `列${column + 1}`);
   const names = new Set([...(workbook.namedRanges ?? []).map(item => item.name.toLocaleLowerCase("en-US")),
