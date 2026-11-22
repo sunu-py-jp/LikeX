@@ -67,8 +67,6 @@ export type ImportContext = {
   date1904?: boolean;
   resolveListValues?: (reference: string, sheetName: string) => readonly string[] | undefined;
   cellTextCharacters?: number;
-  /** Nonempty source values admitted by the streaming reader; resolved formulas are checked after conversion. */
-  sourceDataCells?: number;
   /** Retained optional features across the workbook; omitted items do not consume model capacity. */
   formatRangeCount?: number;
   mergeCount?: number;
@@ -76,7 +74,6 @@ export type ImportContext = {
   commentCount?: number;
   tableCount?: number;
   tableNames?: Set<string>;
-  remainingExtraCells?: number;
   sheetNames?: ReadonlyMap<string, string>;
   /** Hidden source rows are compared with retained filter criteria after workbook calculation. */
   sourceHiddenRows?: Map<string, Set<number>>;

@@ -17,6 +17,9 @@ const comment = (ref, text) => `<comment ref="${ref}"><text><t>${text}</t></text
 const comments = text => `<comments><commentList>${text}</commentList></comments>`;
 const table = (name = 'Sales', ref = 'A1:A2', column = 'Header') => `<table displayName="${name}" ref="${ref}"><tableColumns><tableColumn name="${column}"/></tableColumns></table>`;
 const relation = (id, type, target) => ({ id, type: `${rel}${type}`, target, external: false });
+/** Leave only `free` unused stored-cell slots in the sheet; filler cells sit outside the tested area. */
+const filled = (free, cells = {}) => ({ ...Object.fromEntries(Array.from({ length: 100_000 - free - Object.keys(cells).length }, (_, index) => [`ZZ${index + 1}`, { value: 'x' }])), ...cells });
+const used = cells => Object.fromEntries(Object.entries(cells).filter(([address]) => !address.startsWith('ZZ')));
 function harness({ cells = {}, files = {}, context: extra = {} } = {}) {
   const warnings = [], reads = [];
   const sheet = { id: 'source', name: '任意機能', rowCount: 3, columnCount: 4, cells };
@@ -45,22 +48,22 @@ test('a huge validation is omitted atomically, preserving values and permitting 
   assert.equal(env.warnings[0].sheetName, '任意機能'); assert.match(env.warnings[0].message, /A1:K10000.*110000.*100000/);
 });
 
-test('validation reserves global cells before applying, counts overlapping references once, and does not spend rejected reservations', () => {
-  const env = harness({ cells: { A1: { value: '2' } }, context: { remainingExtraCells: 1 } });
+test('validation reserves sheet cells before applying, counts overlapping references once, and does not spend rejected reservations', () => {
+  const env = harness({ cells: filled(1, { A1: { value: '2' } }) });
   const result = readWorksheetValidations(worksheet(`<dataValidations>${rule('A1:C1', 1, 2)}${rule('D1')}${rule('A1', 0, 10)}</dataValidations>`), env.sheet, env.context);
   assert.equal(result.cells.A1.validation.max, 10); assert.equal(result.cells.B1, undefined); assert.equal(result.cells.C1, undefined);
-  assert.equal(result.cells.D1.validation.max, 5); assert.equal(env.context.remainingExtraCells, 0);
-  assert.deepEqual(env.sheet.cells, { A1: { value: '2' } }); assert.match(env.warnings[0].message, /A1:C1.*追加セル数 2.*残り保存可能セル数 1/);
-  const overlap = harness({ context: { remainingExtraCells: 3 } });
+  assert.equal(result.cells.D1.validation.max, 5); assert.equal(Object.keys(result.cells).length, 100_000);
+  assert.deepEqual(used(env.sheet.cells), { A1: { value: '2' } }); assert.match(env.warnings[0].message, /A1:C1.*追加セル数 2.*残り保存可能セル数 1/);
+  const overlap = harness({ cells: filled(3) });
   const expanded = readWorksheetValidations(worksheet(`<dataValidations>${rule('A1:A2 A2:A3')}</dataValidations>`), overlap.sheet, overlap.context);
-  assert.equal(Object.keys(expanded.cells).length, 3); assert.equal(overlap.context.remainingExtraCells, 0); assert.equal(overlap.warnings.length, 0);
+  assert.equal(Object.keys(expanded.cells).length, 100_000); assert.equal(overlap.warnings.length, 0);
 });
 
 test('validation processing remains bounded even when many rules target existing cells', () => {
-  const env = harness({ context: { remainingExtraCells: 100000 } });
+  const env = harness();
   const result = readWorksheetValidations(worksheet(`<dataValidations>${rule('A1:J10000')}${rule('A1:J10000', 1, 2)}</dataValidations>`), env.sheet, env.context);
   assert.equal(Object.keys(result.cells).length, 100000); assert.equal(result.cells.A1.validation.min, 0);
-  assert.equal(env.context.remainingExtraCells, 0); assert.equal(env.warnings.length, 1); assert.match(env.warnings[0].message, /累計処理上限 100000/);
+  assert.equal(env.warnings.length, 1); assert.match(env.warnings[0].message, /累計処理上限 100000/);
 });
 
 test('invalid optional comment parts and comments cannot discard neighboring valid comments', async () => {
@@ -161,27 +164,27 @@ test('incompatible blank rules do not exhaust capacity before valid rules on a l
 });
 
 test('an incompatible replacement removes the old rule and returns validation-only cell capacity', () => {
-  const env = harness({ context: { remainingExtraCells: 1 } });
+  const env = harness({ cells: filled(1) });
   const result = readWorksheetValidations(worksheet(`<dataValidations>${rule('A1')}${rule('A1').replace('allowBlank="1"', 'allowBlank="0"')}${rule('B1')}</dataValidations>`), env.sheet, env.context);
   assert.equal(result.cells.A1, undefined); assert.equal(result.cells.B1.validation.max, 5);
-  assert.equal(env.context.remainingExtraCells, 0); assert.equal(env.warnings.length, 1);
+  assert.equal(Object.keys(result.cells).length, 100_000); assert.equal(env.warnings.length, 1);
   assert.match(env.warnings[0].message, /A1.*既存のセル値に適合しない/);
 });
 
 test('an incompatible replacement preserves literal values and formatting while removing earlier validation', () => {
   const validation = { type: 'number', allowBlank: true, min: 0, max: 5 };
-  const env = harness({ cells: { A1: { value: '', format: { bold: true }, validation }, B1: { value: '', validation }, C1: { value: '2', validation } }, context: { remainingExtraCells: 0 } });
+  const env = harness({ cells: filled(0, { A1: { value: '', format: { bold: true }, validation }, B1: { value: '', validation }, C1: { value: '2', validation } }) });
   const result = readWorksheetValidations(worksheet(`<dataValidations>${rule('A1:C1', 10, 20).replace('allowBlank="1"', 'allowBlank="0"')}${rule('D1')}</dataValidations>`), env.sheet, env.context);
   assert.deepEqual(result.cells.A1, { value: '', format: { bold: true } }); assert.equal(result.cells.B1, undefined);
   assert.deepEqual(result.cells.C1, { value: '2' }); assert.equal(result.cells.D1.validation.max, 5);
-  assert.equal(env.context.remainingExtraCells, 0); assert.equal(env.warnings[0].count, 3);
+  assert.equal(Object.keys(result.cells).length, 100_000); assert.equal(env.warnings[0].count, 3);
   assert.equal(env.sheet.cells.B1.validation, validation);
 });
 
 test('a rule rejected for capacity does not partially remove incompatible existing validation', () => {
   const validation = { type: 'number', allowBlank: true, min: 0, max: 5 };
-  const env = harness({ cells: { A1: { value: '2', validation } }, context: { remainingExtraCells: 0 } });
+  const env = harness({ cells: filled(0, { A1: { value: '2', validation } }) });
   const result = readWorksheetValidations(worksheet(`<dataValidations>${rule('A1:C1', 10, 20)}</dataValidations>`), env.sheet, env.context);
   assert.equal(result.cells.A1.validation, validation); assert.equal(result.cells.B1, undefined); assert.equal(result.cells.C1, undefined);
-  assert.equal(env.context.remainingExtraCells, 0); assert.equal(env.warnings.length, 1); assert.match(env.warnings[0].message, /残り保存可能セル数/);
+  assert.equal(env.warnings.length, 1); assert.match(env.warnings[0].message, /残り保存可能セル数/);
 });

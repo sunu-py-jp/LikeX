@@ -63,9 +63,14 @@ test('repeated blank formatting does not consume data capacity in later sheets a
   assert.ok(result.warnings.some(item => item.message.includes('入力規則')));
 });
 
-test('actual cell data above the model budget still rejects instead of silently losing values', async () => {
-  const rows = Array.from({ length: 100 }, (_, row) => `<row r="${row + 1}">${'<c><v>1</v></c>'.repeat(1000)}</row>`).join('');
-  await assert.rejects(read(zip(fixture({ sheets: [{ name: 'Full', xml: `<sheetData>${rows}</sheetData>` }, { name: 'More', xml: content }] }))), /値・数式を持つセル数/);
+test('actual cell data above one sheet\'s budget rejects instead of silently losing values, while full sheets do not limit other sheets', async () => {
+  const rows = count => Array.from({ length: count }, (_, row) => `<row r="${row + 1}">${'<c><v>1</v></c>'.repeat(1000)}</row>`).join('');
+  const full = `<sheetData>${rows(100)}</sheetData>`;
+  const result = await read(zip(fixture({ sheets: [{ name: 'Full', xml: full }, { name: 'Also full', xml: full }, { name: 'More', xml: content }] })));
+  assert.deepEqual(result.workbook.sheets.slice(0, 2).map(sheet => Object.keys(sheet.cells).length), [100_000, 100_000]);
+  assert.equal(result.workbook.sheets[2].cells.B1.value, '=A1+1');
+  await assert.rejects(read(zip(fixture({ sheets: [{ name: 'More', xml: content }, { name: 'Over', xml: `<sheetData>${rows(100)}<row r="101"><c><v>1</v></c></row></sheetData>` }] }))),
+    /シート「Over」の値・数式を持つセル数が100,000件を超えています/);
 });
 
 test('invalid/excess names and namespace conflicts skip definitions while retaining table and cell data', async () => {

@@ -21,8 +21,8 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
   if (input.schemaVersion !== undefined && input.schemaVersion !== 1) return fail("未対応のブック形式です");
   const resources = normalizeResources(input.resources);
   const ids = new Set<string>(), names = new Set<string>();
-  let cellCount = 0;
   const sheets = input.sheets.map(sheet => {
+    let cellCount = 0;
     if (!sheet || typeof sheet.id !== "string" || !sheet.id || sheet.id.length > 200 || /\0/.test(sheet.id) || ids.has(sheet.id))
       return fail("シートの ID が空、重複、または不正です");
     ids.add(sheet.id);
@@ -34,7 +34,7 @@ export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkb
     const formatRanges = normalizeFormatRanges(sheet.formatRanges, { rowCount, columnCount });
     const cells: Record<string, SpreadsheetCell> = Object.create(null);
     for (const [address, cell] of Object.entries(sheet.cells)) {
-      if (++cellCount > SPREADSHEET_LIMITS.cells) return fail("保存できるセル数の上限を超えています");
+      if (++cellCount > SPREADSHEET_LIMITS.cells) return fail("1シートに保存できるセル数の上限を超えています");
       const canonical = canonicalCellAddress(sheet, address);
       if (Object.hasOwn(cells, canonical)) return fail("同じ位置のセルが重複しています");
       if (!cell || typeof cell !== "object") return fail("セルの値が正しくありません");

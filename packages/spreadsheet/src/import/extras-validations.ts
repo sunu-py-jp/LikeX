@@ -103,7 +103,7 @@ export function readWorksheetValidations(node: XmlNode, initial: SpreadsheetShee
         }
       }
     }
-    const remaining = Math.min(SPREADSHEET_LIMITS.cells - count, context.remainingExtraCells ?? SPREADSHEET_LIMITS.cells);
+    const remaining = SPREADSHEET_LIMITS.cells - count;
     if (added > remaining + removed) { skip(`追加セル数 ${added}、残り保存可能セル数 ${remaining}、解除で解放するセル数 ${removed}`); continue; }
     if (updates.size) sheet = growSheet(sheet, bottom, right);
     for (const [address, cell] of updates) {
@@ -111,7 +111,6 @@ export function readWorksheetValidations(node: XmlNode, initial: SpreadsheetShee
       else delete cells[address];
     }
     count += added - removed;
-    if (context.remainingExtraCells !== undefined) context.remainingExtraCells += removed - added;
     if (invalid) omitted(context, sheet, `入力規則「${reference}」のうち既存のセル値に適合しない入力規則を省略しました（セルの値は保持）`, invalid);
   }
   return { ...sheet, cells };

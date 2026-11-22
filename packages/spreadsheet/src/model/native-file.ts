@@ -53,8 +53,8 @@ export function fileToWorkbook(input: unknown): SpreadsheetWorkbook {
   if (file.format !== SPREADSHEET_FORMAT) throw new Error("スプレッドシートのファイル形式ではありません");
   if (file.schemaVersion !== 1 && file.schemaVersion !== SPREADSHEET_FILE_VERSION) throw new Error("未対応のブック形式です");
   if (!Array.isArray(file.sheets) || file.sheets.length < 1 || file.sheets.length > SPREADSHEET_LIMITS.sheets) return invalidFile();
-  let cellCount = 0;
   const sheets = file.sheets.map(inputSheet => {
+    let cellCount = 0;
     const sheet = object(inputSheet);
     if (file.schemaVersion === 1 && Object.hasOwn(sheet, "formatRanges")) throw new Error("SPON v1は範囲書式を保存できません");
     if (Object.hasOwn(sheet, "cells") || Object.hasOwn(sheet, "rowHeights")) return invalidFile();
@@ -73,7 +73,7 @@ export function fileToWorkbook(input: unknown): SpreadsheetWorkbook {
       }
       if (!Object.hasOwn(row, "cells")) continue;
       for (const [column, cell] of Object.entries(object(row.cells))) {
-        if (++cellCount > SPREADSHEET_LIMITS.cells) throw new Error("保存できるセル数の上限を超えています");
+        if (++cellCount > SPREADSHEET_LIMITS.cells) throw new Error("1シートに保存できるセル数の上限を超えています");
         if (!/^[A-Z]{1,3}$/.test(column)) return invalidFile();
         const address = `${column}${index + 1}`, position = parseCellAddress(address);
         if (!position || position.column >= columnCount) return invalidFile();

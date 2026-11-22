@@ -22,7 +22,7 @@ export async function readWorksheetXml(archive: OfficePackageStreamingArchive, p
   let inferredRow = 0, rowNode: XmlNode | undefined;
   let currentRow = 0, inferredColumn = 0;
   const seenColumns = new Uint8Array(16_384 / 8);
-  let outside = 0, omitted = 0, invalidStyles = 0;
+  let outside = 0, omitted = 0, invalidStyles = 0, dataCells = 0;
   const limits = context.limits ?? XLSX_IMPORT_LIMITS;
   const formatRanges = createImportFormatRanges(context, name);
   const blankFormats = new Map<number, SpreadsheetCellFormat>();
@@ -100,9 +100,8 @@ export async function readWorksheetXml(archive: OfficePackageStreamingArchive, p
           // A formula without a cached value may recover to an empty cell when
           // unsupported. Count those after resolution, as the existing importer does.
           if (value.value !== "") {
-            context.sourceDataCells = (context.sourceDataCells ?? 0) + 1;
-            if (context.sourceDataCells > SPREADSHEET_LIMITS.cells)
-              return fail("値・数式を持つセル数が100,000件を超えています");
+            if (++dataCells > SPREADSHEET_LIMITS.cells)
+              return fail(`シート「${name}」の値・数式を持つセル数が100,000件を超えています`);
           }
         } else {
           if (!validStyle) invalidStyles++;

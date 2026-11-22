@@ -147,9 +147,8 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
       sheetData.text = "";
     }
     worksheetParts.push({ root, path: relation.target });
-    sheets.push(sheet);
-    // Trim optional empty formatting between sheets instead of accumulating all source metadata.
-    retainCellData(sheets, context);
+    // Trim optional empty formatting per sheet instead of accumulating all source metadata.
+    sheets.push(retainCellData(sheet, context));
     await new Promise<void>(resolve => setTimeout(resolve, 0));
   }
   if (!sheets.length) return fail("取り込めるワークシートがありません");

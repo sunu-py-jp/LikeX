@@ -9,14 +9,14 @@ import { assertSpreadsheetFilterTableSeparation } from "../filters";
 export function freezeCell(value: string, format?: SpreadsheetCellFormat, validation?: SpreadsheetDataValidation): SpreadsheetCell {
   return Object.freeze({ value, ...(format ? { format } : {}), ...(validation ? { validation } : {}) });
 }
-/** Finish an immutable transaction and enforce workbook-wide resource limits. */
+/** Finish an immutable transaction and enforce per-sheet cell and workbook-wide resource limits. */
 export function finishWorkbook(sheets: readonly SpreadsheetSheet[], workbook?: SpreadsheetWorkbook,
   resources?: SpreadsheetWorkbook["resources"], namedRanges?: readonly SpreadsheetNamedRange[]): SpreadsheetWorkbook {
   // Omission preserves existing metadata; explicit undefined means its last item was removed.
   if (arguments.length < 3) resources = workbook?.resources;
   if (arguments.length < 4) namedRanges = workbook?.namedRanges;
-  if (sheets.reduce((count, sheet) => count + Object.keys(sheet.cells).length, 0) > SPREADSHEET_LIMITS.cells)
-    fail("保存できるセル数の上限を超えています");
+  if (sheets.some(sheet => Object.keys(sheet.cells).length > SPREADSHEET_LIMITS.cells))
+    fail("1シートに保存できるセル数の上限を超えています");
   if (sheets.reduce((count, sheet) => count + (sheet.drawings?.length ?? 0), 0) > SPREADSHEET_LIMITS.drawings)
     fail("描画オブジェクトの数が上限を超えています");
   if (sheets.reduce((count, sheet) => count + Object.keys(sheet.comments ?? {}).length, 0) > SPREADSHEET_LIMITS.comments)

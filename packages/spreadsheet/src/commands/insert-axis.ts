@@ -51,7 +51,7 @@ export function insertCommandAxis(workbook: SpreadsheetWorkbook, command: Insert
       const value = insertCellValue(lane[inner]);
       // Inserted cells start empty. Omitted trailing values and explicit empty values need no allocation.
       if (value === "") continue;
-      if (++populated > SPREADSHEET_LIMITS.cells) return rejectCommand("VALIDATION_FAILED", "保存できるセル数の上限を超えています");
+      if (++populated > SPREADSHEET_LIMITS.cells) return rejectCommand("VALIDATION_FAILED", "1シートに保存できるセル数の上限を超えています");
       values[cellAddress(rows ? command.index + outer : inner, rows ? inner : command.index + outer)] = value;
     }
   }
