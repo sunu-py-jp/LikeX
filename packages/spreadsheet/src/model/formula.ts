@@ -121,8 +121,15 @@ export function createWorkbookCalculator(workbook: SpreadsheetWorkbook) {
   const sheets = new Map(modelSheets.map(sheet => [sheet.name.toLocaleLowerCase("en-US"), sheet]));
   const byId = new Map(modelSheets.map(sheet => [sheet.id, sheet]));
   const active = new Set<string>(), parsed = new Map<string, Node>();
-  let steps = 0;
-  const tick = (cost = 1) => { if ((steps += cost) > SPREADSHEET_LIMITS.evaluationSteps) fail("#LIMIT!"); };
+  // Each sheet has its own evaluation budget. Work is charged to the sheet that owns the formula
+  // being evaluated, so a referenced formula spends its own sheet's budget whichever cell asks first.
+  const steps = new Map<string, number>();
+  let owner = "";
+  const tick = (cost = 1) => {
+    const used = (steps.get(owner) ?? 0) + cost;
+    steps.set(owner, used);
+    if (used > SPREADSHEET_LIMITS.evaluationSteps) fail("#LIMIT!");
+  };
   for (const sheet of workbook.sheets) result[sheet.id] = Object.create(null);
   function get(sheetId: string, address: string, depth: number): Value | null {
     if (depth > SPREADSHEET_LIMITS.referenceDepth) return fail("#LIMIT!");
@@ -137,12 +144,14 @@ export function createWorkbookCalculator(workbook: SpreadsheetWorkbook) {
     const key = `${sheetId}\0${canonical}`;
     if (active.has(key)) return fail("#CYCLE!");
     active.add(key);
+    const caller = owner;
+    owner = sheetId;
     try {
       let node = parsed.get(cell.value);
       if (!node) { node = parseFormula(cell.value); parsed.set(cell.value, node); }
       cache[canonical] = scalar(node, sheetId, depth + 1, position);
     } catch (error) { cache[canonical] = error instanceof FormulaError ? error.code : "#ERROR!"; }
-    finally { active.delete(key); }
+    finally { active.delete(key); owner = caller; }
     return countable(cache[canonical]);
   }
   function target(reference: FormulaReference, current: string) {

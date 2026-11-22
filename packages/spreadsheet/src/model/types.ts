@@ -202,7 +202,7 @@ export type SpreadsheetCalculatedValue = string | number | boolean;
 export type SpreadsheetMoveSource = { sheetId: string; top: number; left: number; bottom: number; right: number };
 export type SpreadsheetMoveTarget = { sheetId: string; row: number; column: number };
 
-/** `cells` is the stored-cell limit of one sheet; the other counts without a per-item note apply to the whole workbook. */
+/** `cells` and `evaluationSteps` are limits of one sheet; the other counts without a per-item note apply to the whole workbook. */
 export const SPREADSHEET_LIMITS = Object.freeze({ rows: 10_000, columns: 1_000, cells: 100_000,
   sheets: 100, cellLength: 100_000, formulaLength: 4_096, formulaTokens: 2_048,
   rangeCells: 10_000, evaluationSteps: 200_000, referenceDepth: 128,
