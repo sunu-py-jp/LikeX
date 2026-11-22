@@ -7,20 +7,85 @@
 <button class="mobile-backdrop" aria-label="メニューを閉じる" hidden></button>
 <main id="main" tabindex="-1"><div class="page-topline"><a href="../../index.html">ドキュメント</a><span aria-hidden="true">/</span><span>LikeSlide</span></div><div class="reading-layout"><article><header class="article-header"><p class="package-name">@likex/slide</p><h1>スライドマスター</h1><p class="page-summary">PPTX・POTXのマスターとレイアウトを取り込み、ページへ適用・再利用する。</p></header><p>PowerPointの <code>.pptx</code> / <code>.potx</code> からマスターとレイアウトを取り込み、現在の資料で再利用できます。スライドのないPOTXも取り込めます。取り込みはカタログを追加する操作で、現在のページや本文を置き換えません。</p>
 <h2 id="画面で使う">画面で使う<a class="heading-link" href="#%E7%94%BB%E9%9D%A2%E3%81%A7%E4%BD%BF%E3%81%86" aria-label="この見出しへのリンク">#</a></h2>
-<p>「デザイン」のマスター読み込みからファイルを選びます。取り込んだレイアウトを選んで現在のページへ適用するか、そのレイアウトで新しいページを追加します。左の一覧で複数ページを選んだ場合はまとめて適用できます。取り込み・適用・解除はUndoできます。適用解除では、共通装飾をページ自身の要素に変換して見た目を保ちます。</p>
+<ol>
+<li>「デザイン」→「マスターを読み込む」で <code>.pptx</code> / <code>.potx</code> を選びます。元のページを追加・置換せず、マスターと配下のレイアウトだけを取り込みます。</li>
+<li>左の一覧で適用先のページを選び、「ホーム」→「レイアウト」を開きます。マスター名ごとにレイアウトのサムネイルが並び、選択した全ページに共通して適用されているレイアウトを強調表示します。</li>
+<li>サムネイルで共通装飾とプレースホルダーの配置を確認し、使うレイアウトをクリックすると選択ページへ適用します。別の適用ボタンはありません。複数ページを選んでいれば、まとめて適用し、1回のUndoで戻せます。</li>
+<li>別のレイアウトでページを追加する場合は、「新しいスライド」の横の▼（「新しいスライドのレイアウト」）を開き、サムネイルを選びます。「新しいスライド」本体を押すと、現在のページのレイアウトを引き継いで追加します。</li>
+</ol>
+<p>「デザイン」からも同じレイアウト一覧を開けます。一覧を開く・閉じる、サムネイルにマウスを重ねる操作では、本文・未保存状態・Undo履歴を変更しません。サムネイル内の文字はレイアウト原型の見本で、新しいテキスト欄にその本文を挿入するものではありません。一覧ではレイアウトのないマスターも見出しを表示しますが、適用・追加できる候補はありません。資料内にレイアウトが1つもない場合は、一覧ボタンを無効にして「デザイン」に読み込み案内を表示します。</p>
+<p>取り込み・適用・解除はUndoできます。「継承を解除」では、共通装飾をページ自身の要素に変換して見た目を保ちます。</p>
 <p>ロゴや背景図形はマスター／レイアウトの共有要素として背面に表示し、ページ上の選択・移動・削除の対象にはしません。タイトルや本文のプレースホルダーはページ自身の要素になるため、通常のテキストと同じように編集できます。空欄の入力案内はエディターだけに表示し、保存内容・画像・スライドショー・PPTXには含めません。</p>
-<p><code>features.masters</code> で機能を制御します。読み取り専用、インポートや書式設定の可否、編集許可コールバックも通常の編集と同じ経路で確認します。<code>SlideHandle.importPptxMasters(input, { signal?, onDiagnostic? })</code> からも表示中の資料へ取り込めます。読み込みの途中で資料や編集可否が変わった場合、古い結果を適用しません。画面のキャンセルか <code>cancelMasterImport()</code> でも中止できます。handleにも <code>getSlideMasters()</code> / <code>getSlideLayouts(masterId?)</code> / <code>getSlideLayout(layoutId)</code> があり、表示中の下書きから取得します。</p>
+<p><code>features.masters</code> で機能全体を制御します。<code>features.import</code> は読み込み、<code>features.formatting</code> は適用・解除、<code>features.addSlides</code> は新規ページ作成に使います。読み取り専用や処理中は編集操作を無効にし、編集許可コールバックも通常の編集と同じ経路で確認します。<code>SlideHandle.importPptxMasters(input, { signal?, onDiagnostic? })</code> からも表示中の資料へ取り込めます。読み込みの途中で資料や編集可否が変わった場合、古い結果を適用しません。画面のキャンセルか <code>cancelMasterImport()</code> でも中止できます。handleにも <code>getSlideMasters()</code> / <code>getSlideLayouts(masterId?)</code> / <code>getSlideLayout(layoutId)</code> があり、表示中の下書きから取得します。</p>
+<h2 id="初期表示から全ページに適用する">初期表示から全ページに適用する<a class="heading-link" href="#%E5%88%9D%E6%9C%9F%E8%A1%A8%E7%A4%BA%E3%81%8B%E3%82%89%E5%85%A8%E3%83%9A%E3%83%BC%E3%82%B8%E3%81%AB%E9%81%A9%E7%94%A8%E3%81%99%E3%82%8B" aria-label="この見出しへのリンク">#</a></h2>
+<p><code>initialMaster</code> に <code>SlideMasterApplication</code> を指定すると、初回表示の時点で全ページにマスター配下のレイアウトを適用します。資料内に取り込み済みのレイアウトなら、そのIDだけで指定できます。</p>
+<div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>&lt;LikeSlide initialDeck={deck}
+  initialMaster={{ layoutId: selectedLayoutId }} readOnly /&gt;;</code></pre></div>
+<p>別のPPTX／POTXを使う場合は、利用側でファイルの読み込みを完了してから <code>library</code> を渡します。<code>initialMaster</code> はBlobやURLを直接受け取りません。</p>
+<div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> LikeSlide, { importSlidePptxMasters } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/slide&quot;</span>;
+
+<span class="syntax-keyword">const</span> { library, diagnostics } = <span class="syntax-keyword">await</span> importSlidePptxMasters(templateFile);
+<span class="syntax-comment">// libraryの候補から利用者が選んだレイアウトIDを指定します。</span>
+<span class="syntax-comment">// coverSlideId / appendixSlideId は初期資料に存在するページのIDです。</span>
+<span class="syntax-keyword">const</span> view = &lt;LikeSlide initialDeck={deck} initialMaster={{
+  library,
+  layoutId: bodyLayoutId,
+  layoutsBySlideId: {
+    [coverSlideId]: titleLayoutId,
+    [appendixSlideId]: <span class="syntax-keyword">null</span>,
+  },
+}} onSave={saveDeck} /&gt;;</code></pre></div>
+<div class="table-scroll" tabindex="0" role="region" aria-label="APIの一覧表"><table><thead><tr><th scope="col">指定</th><th scope="col">内容</th></tr></thead><tbody><tr><td><code>layoutId</code></td><td>必須。例外指定のない全ページに適用するレイアウト</td></tr><tr><td><code>library</code></td><td>任意。読み込み済みの <code>SlideMasterLibrary</code> を現在の資料に追加し、サイズ・IDを調整して適用</td></tr><tr><td><code>layoutsBySlideId</code></td><td>任意。ページIDをキーに別のレイアウトIDを指定。<code>null</code> はそのページを既存のレイアウト・本文のまま残す</td></tr></tbody></table></div><p><code>library</code> を渡した場合、<code>layoutId</code> と例外のレイアウトIDは<strong>取り込み元のlibrary内のID</strong>です。適用先の新IDへの変換は内部で行います。省略時は <code>initialDeck</code> 内のレイアウトIDを使います。ページ番号やマスターIDだけでは指定せず、既存ページIDと利用するレイアウトIDを明示してください。</p>
+<p>この指定は表示上の重ね合わせではなく、適用後の資料を初期状態にする処理です。<code>getDeck()</code>、保存、SLON／PPTX出力にも適用結果が含まれます。呼び出し側の <code>initialDeck</code> / <code>library</code> は変更しません。初期適用による未保存状態・Undo履歴・<code>onChange</code> 通知・編集許可要求は発生せず、後から加えた変更を破棄すると、適用後の初期状態に戻ります。<code>readOnly</code> や機能OFFでも初期データには反映し、機能設定は表示後の操作を制御します。</p>
+<p>不正なID、ロックされた欄の変更、容量・構造の制限などで失敗した場合は、カタログ追加も含めて適用せず、元の資料とエラー通知を表示します。初期表示後のprops変更では再適用しません。別の初期設定で開く場合はコンポーネントの <code>key</code> を変えて再マウントし、表示中の資料を変更する場合は次のコマンドを使います。</p>
+<div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">await</span> handle.execute({
+  <span class="syntax-keyword">type</span>: <span class="syntax-string">&quot;deck.applyMaster&quot;</span>,
+  layoutId: selectedLayoutId,
+  layoutsBySlideId: { [coverSlideId]: titleLayoutId },
+});</code></pre></div>
+<p><code>deck.applyMaster</code> も同じ <code>SlideMasterApplication</code> の引数を使います。表示中の操作では <code>features.masters</code> / <code>features.formatting</code>、<code>library</code> 付きなら <code>features.import</code>、読み取り専用・編集許可を確認し、全体を1回のUndoで戻せる変更として扱います。今回の指定で新しいページを追加し続ける規則を設定するわけではなく、実行時点のページが対象です。</p>
+<h2 id="表示中の資料をapiから操作する">表示中の資料をAPIから操作する<a class="heading-link" href="#%E8%A1%A8%E7%A4%BA%E4%B8%AD%E3%81%AE%E8%B3%87%E6%96%99%E3%82%92api%E3%81%8B%E3%82%89%E6%93%8D%E4%BD%9C%E3%81%99%E3%82%8B" aria-label="この見出しへのリンク">#</a></h2>
+<p>コンポーネントの <code>ref</code> が返す <code>SlideHandle</code> でも、マスターの取り込み・一覧取得・適用を操作できます。利用側の選択UIにはマスターごとのレイアウト一覧を渡し、選ばれたIDで適用します。</p>
+<div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> <span class="syntax-keyword">type</span> { SlideHandle } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/slide&quot;</span>;
+
+<span class="syntax-keyword">async</span> <span class="syntax-keyword">function</span> loadMasterChoices(handle: SlideHandle, file: Blob) {
+  <span class="syntax-keyword">await</span> handle.importPptxMasters(file);
+  <span class="syntax-keyword">return</span> handle.getSlideMasters().map(master =&gt; ({
+    id: master.id,
+    name: master.name,
+    layouts: handle.getSlideLayouts(master.id),
+  }));
+}
+
+<span class="syntax-keyword">async</span> <span class="syntax-keyword">function</span> applyChosenLayout(
+  handle: SlideHandle, masterId: <span class="syntax-keyword">string</span>, layoutId: <span class="syntax-keyword">string</span>,
+) {
+  <span class="syntax-keyword">const</span> layout = handle.getSlideLayouts(masterId).find(item =&gt; item.id === layoutId);
+  <span class="syntax-keyword">if</span> (!layout) <span class="syntax-keyword">throw</span> <span class="syntax-keyword">new</span> Error(<span class="syntax-string">&quot;選択したマスターのレイアウトが見つかりません&quot;</span>);
+  <span class="syntax-keyword">const</span> selection = handle.getSelection();
+  <span class="syntax-keyword">const</span> slideIds = selection.slideIds ?? [selection.slideId];
+  <span class="syntax-keyword">return</span> handle.execute(slideIds.map(slideId =&gt; ({
+    <span class="syntax-keyword">type</span>: <span class="syntax-string">&quot;slide.applyLayout&quot;</span> <span class="syntax-keyword">as</span> <span class="syntax-keyword">const</span>, slideId, layoutId: layout.id,
+  })));
+}</code></pre></div>
+<p>一覧取得は資料を変更しません。<code>execute</code> は表示中の読み取り専用・機能設定・編集許可を確認し、複数ページへの適用を1回のUndoで戻せる操作として実行します。マスターIDだけでページに適用するのではなく、その配下のレイアウトIDを指定します。</p>
 <h2 id="公開モデルapi">公開モデルAPI<a class="heading-link" href="#%E5%85%AC%E9%96%8B%E3%83%A2%E3%83%87%E3%83%ABapi" aria-label="この見出しへのリンク">#</a></h2>
 <div class="code-example"><div class="code-toolbar"><span>ts</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code><span class="syntax-keyword">import</span> {
   importSlidePptxMasters, applySlideCommands,
-  getSlideMasters, getSlideLayout, resolveSlideAppearance,
+  getSlideMasters, getSlideLayouts, resolveSlideAppearance,
 } <span class="syntax-keyword">from</span> <span class="syntax-string">&quot;@likex/slide/model&quot;</span>;
 
 <span class="syntax-keyword">const</span> { library, warnings, diagnostics } = <span class="syntax-keyword">await</span> importSlidePptxMasters(file);
 <span class="syntax-keyword">const</span> imported = applySlideCommands(deck, { <span class="syntax-keyword">type</span>: <span class="syntax-string">&quot;masters.import&quot;</span>, library });
-<span class="syntax-keyword">const</span> importedLayoutId = imported.layoutIds?.[<span class="syntax-number">0</span>];
-<span class="syntax-keyword">const</span> layout = importedLayoutId ? getSlideLayout(imported.deck, importedLayoutId) : <span class="syntax-keyword">undefined</span>;
-<span class="syntax-keyword">if</span> (layout) {
+<span class="syntax-keyword">const</span> choices = getSlideMasters(imported.deck)
+  .filter(master =&gt; imported.masterIds?.includes(master.id))
+  .map(master =&gt; ({ ...master, layouts: getSlideLayouts(imported.deck, master.id) }));
+
+<span class="syntax-comment">// choicesから利用者が選んだマスターとレイアウトのIDを渡します。</span>
+<span class="syntax-keyword">function</span> applyImportedLayout(masterId: <span class="syntax-keyword">string</span>, layoutId: <span class="syntax-keyword">string</span>) {
+  <span class="syntax-keyword">const</span> layout = choices.find(master =&gt; master.id === masterId)
+    ?.layouts.find(item =&gt; item.id === layoutId);
+  <span class="syntax-keyword">if</span> (!layout) <span class="syntax-keyword">throw</span> <span class="syntax-keyword">new</span> Error(<span class="syntax-string">&quot;取り込んだレイアウトが見つかりません&quot;</span>);
   <span class="syntax-keyword">const</span> applied = applySlideCommands(imported.deck, {
     <span class="syntax-keyword">type</span>: <span class="syntax-string">&quot;slide.applyLayout&quot;</span>, slideId: imported.deck.slides[<span class="syntax-number">0</span>].id, layoutId: layout.id,
   });
@@ -29,12 +94,14 @@
   });
   <span class="syntax-keyword">const</span> appearance = resolveSlideAppearance(added.deck, added.deck.slides[<span class="syntax-number">0</span>]);
   <span class="syntax-comment">// background + inheritedElements + localElements の順で表示します。</span>
+  <span class="syntax-keyword">return</span> { deck: added.deck, appearance };
 }</code></pre></div>
 <p><code>importSlidePptxMasters</code> は <code>{ library, warnings, diagnostics }</code> を返し、資料を変更しません。入力とキャンセル・診断コールバックは <code>importSlidePptx</code> と同じです。<code>masters.import</code> がサイズの違いを現在の資料へ合わせ、追加するIDを新しく割り当てて追加します。既存資料のIDは変更しません。取り込み元のIDをそのまま適用先へ渡さず、戻り値か取得APIで追加後のIDを確認してください。結果の <code>masterIds</code> / <code>layoutIds</code> は追加後のIDです。純粋なモデルAPIは編集許可や保存を行わないため、利用側で管理します。</p>
-<div class="table-scroll" tabindex="0" role="region" aria-label="APIの一覧表"><table><thead><tr><th scope="col">API／コマンド</th><th scope="col">内容</th></tr></thead><tbody><tr><td><code>getSlideMasters(deck)</code></td><td>取り込んだマスター一覧</td></tr><tr><td><code>getSlideLayouts(deck, masterId?)</code></td><td>レイアウト一覧。マスターで絞り込み可</td></tr><tr><td><code>getSlideLayout(deck, layoutId)</code></td><td>特定のレイアウトとプレースホルダー</td></tr><tr><td><code>resolveSlideAppearance(deck, slide)</code></td><td>解決後の背景、共有装飾、ページ自身の要素</td></tr><tr><td><code>masters.import { library }</code></td><td>カタログ追加。入力を直接変更しない</td></tr><tr><td><code>slide.add { layoutId, slide? }</code></td><td>レイアウトを使って1ページ作成</td></tr><tr><td><code>slide.applyLayout { slideId, layoutId }</code></td><td>既存ページへ適用</td></tr><tr><td><code>slide.detachLayout { slideId }</code></td><td>共有装飾を通常の要素へ変換して解除</td></tr></tbody></table></div><p>適用時は既存のプレースホルダーをID、続いて種別と順序で対応づけ、内容と既存要素IDを維持して位置・書式を更新します。新しいテキスト欄の本文は空で追加し、画像の欄は原型の画像を引き継ぎます。対応する欄がなくなった本文は通常の要素として残します。通常の図形やテキストを勝手に削除しません。変更が必要なロック要素を含む操作は失敗し、途中まで変更しません。</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="APIの一覧表"><table><thead><tr><th scope="col">API／コマンド</th><th scope="col">内容</th></tr></thead><tbody><tr><td><code>getSlideMasters(deck)</code></td><td>取り込んだマスター一覧</td></tr><tr><td><code>getSlideLayouts(deck, masterId?)</code></td><td>レイアウト一覧。マスターで絞り込み可</td></tr><tr><td><code>getSlideLayout(deck, layoutId)</code></td><td>特定のレイアウトとプレースホルダー</td></tr><tr><td><code>resolveSlideAppearance(deck, slide)</code></td><td>解決後の背景、共有装飾、ページ自身の要素</td></tr><tr><td><code>masters.import { library }</code></td><td>カタログ追加。入力を直接変更しない</td></tr><tr><td><code>applySlideMaster(deck, application)</code></td><td>画面なしで全ページへ適用。<code>{ deck, masterIds?, layoutIds? }</code> を返す</td></tr><tr><td><code>deck.applyMaster { layoutId, library?, layoutsBySlideId? }</code></td><td>カタログ追加と全ページへの適用をまとめて実行。例外指定可</td></tr><tr><td><code>slide.add { layoutId, slide? }</code></td><td>レイアウトを使って1ページ作成</td></tr><tr><td><code>slide.applyLayout { slideId, layoutId }</code></td><td>既存ページへ適用</td></tr><tr><td><code>slide.detachLayout { slideId }</code></td><td>共有装飾を通常の要素へ変換して解除</td></tr></tbody></table></div><p>適用時は既存のプレースホルダーをID、続いて種別と順序で対応づけ、内容と既存要素IDを維持して位置・書式を更新します。新しいテキスト欄の本文は空で追加し、画像の欄は原型の画像を引き継ぎます。対応する欄がなくなった本文は通常の要素として残します。通常の図形やテキストを勝手に削除しません。変更が必要なロック要素を含む操作は失敗し、途中まで変更しません。</p>
+<p><code>applySlideMaster</code> と型 <code>SlideMasterApplication</code> はUI入口と <code>@likex/slide/model</code> から公開します。純粋な関数は不正な指定で例外を投げ、入力を変更しません。GUIの初期適用と同じデータ処理を使いますが、編集許可・履歴・通知は呼び出し側が管理します。</p>
 <p><code>getSlide</code> / <code>getElements</code> はページ自身の要素だけを返します。共有装飾を含む見た目の取得には <code>resolveSlideAppearance</code> を使ってください。ページの背景を明示的に変更すると、そのページの背景色を優先します。</p>
 <p>ページ自身の文字・図形・SVG素材は、要素コマンドで自由に配置できます。全面置換には <code>slide.replaceContent</code> を使い、共通装飾やプレースホルダーの領域を取得して配置を設計してください。レイアウト参照は保持されますが、新要素がタイトル等の欄を引き継ぐ場合は <code>layoutPlaceholderId</code> を明示します。背景を省略すれば既存の背景設定を保ちます。詳しくは <a href="../freeform-design/index.html">自由な資料設計とSVG</a> を参照してください。</p>
 <h2 id="保存とpowerpoint変換">保存とPowerPoint変換<a class="heading-link" href="#%E4%BF%9D%E5%AD%98%E3%81%A8powerpoint%E5%A4%89%E6%8F%9B" aria-label="この見出しへのリンク">#</a></h2>
 <p><code>.slon</code> はマスター・レイアウトのカタログとページの <code>layoutId</code> を保存します。既存のカタログを持たないファイルも引き続き読めます。通常のPPTX読み込みでもマスターを保持し、PPTX出力ではマスター・レイアウトと各ページの参照を再構成します。</p>
 <p>対応する背景、基本図形、画像、プレースホルダーの配置と基本書式、解決済みのテーマ色・フォントを取り込みます。PowerPointのマスター編集画面や、元のテーマ／XMLをそのまま保存する機能ではありません。グループ、表、グラフ、SmartArtなど未対応の内容は診断で通知します。共有カタログも資料全体の画像容量・文字数・要素数の上限に含めます。各ページの要素数と全ページの表示要素数は、継承装飾を含めて検証します。<a href="../powerpoint/index.html">PowerPoint変換の対応範囲</a>を確認してください。</p>
-<nav class="page-navigation" aria-label="前後のページ"><a href="../lifecycle/index.html"><span>前のページ</span>保存・編集許可・イベント</a><a href="../freeform-design/index.html"><span>次のページ</span>自由な資料設計とSVG</a></nav><footer class="article-footer">編集元: <a href="https://github.com/sunu-py-jp/LikeX/blob/main/packages/slide/src/docs/masters.md">masters.md</a><br>本文は公開APIと利用ガイドから生成しています。</footer></article><aside class="page-toc" aria-label="このページの見出し"><p>このページ</p><ol><li><a href="#%E7%94%BB%E9%9D%A2%E3%81%A7%E4%BD%BF%E3%81%86">画面で使う</a></li><li><a href="#%E5%85%AC%E9%96%8B%E3%83%A2%E3%83%87%E3%83%ABapi">公開モデルAPI</a></li><li><a href="#%E4%BF%9D%E5%AD%98%E3%81%A8powerpoint%E5%A4%89%E6%8F%9B">保存とPowerPoint変換</a></li></ol></aside></div></main></div><p class="copy-status" role="status" aria-live="polite"></p></body></html>
+<nav class="page-navigation" aria-label="前後のページ"><a href="../lifecycle/index.html"><span>前のページ</span>保存・編集許可・イベント</a><a href="../freeform-design/index.html"><span>次のページ</span>自由な資料設計とSVG</a></nav><footer class="article-footer">編集元: <a href="https://github.com/sunu-py-jp/LikeX/blob/main/packages/slide/src/docs/masters.md">masters.md</a><br>本文は公開APIと利用ガイドから生成しています。</footer></article><aside class="page-toc" aria-label="このページの見出し"><p>このページ</p><ol><li><a href="#%E7%94%BB%E9%9D%A2%E3%81%A7%E4%BD%BF%E3%81%86">画面で使う</a></li><li><a href="#%E5%88%9D%E6%9C%9F%E8%A1%A8%E7%A4%BA%E3%81%8B%E3%82%89%E5%85%A8%E3%83%9A%E3%83%BC%E3%82%B8%E3%81%AB%E9%81%A9%E7%94%A8%E3%81%99%E3%82%8B">初期表示から全ページに適用する</a></li><li><a href="#%E8%A1%A8%E7%A4%BA%E4%B8%AD%E3%81%AE%E8%B3%87%E6%96%99%E3%82%92api%E3%81%8B%E3%82%89%E6%93%8D%E4%BD%9C%E3%81%99%E3%82%8B">表示中の資料をAPIから操作する</a></li><li><a href="#%E5%85%AC%E9%96%8B%E3%83%A2%E3%83%87%E3%83%ABapi">公開モデルAPI</a></li><li><a href="#%E4%BF%9D%E5%AD%98%E3%81%A8powerpoint%E5%A4%89%E6%8F%9B">保存とPowerPoint変換</a></li></ol></aside></div></main></div><p class="copy-status" role="status" aria-live="polite"></p></body></html>

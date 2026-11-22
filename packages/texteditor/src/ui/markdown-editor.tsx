@@ -1,15 +1,18 @@
 "use client";
 import { useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { EditorState, Selection, TextSelection } from "prosemirror-state";
-import { Decoration, DecorationSet, EditorView } from "prosemirror-view";
+import { EditorState, Selection, TextSelection, type Command } from "prosemirror-state";
+import { Decoration, EditorView } from "prosemirror-view";
 import { baseKeymap, chainCommands, exitCode } from "prosemirror-commands";
 import { keymap } from "prosemirror-keymap";
 import { splitListItem, liftListItem, sinkListItem } from "prosemirror-schema-list";
 import { InputRule, inputRules, textblockTypeInputRule, wrappingInputRule } from "prosemirror-inputrules";
 import { Bold, Italic, Code, Link2, Heading1, Heading2, Heading3, List, ListOrdered, Quote, CodeSquare, Minus, Pilcrow, FileCode2, ListChecks } from "lucide-react";
 import type { EditorAdapterProps, TextEditorAction, TextEditorPanel, TextEditorSelection } from "../editor-adapter";
-import { getMarkdownCompatibilityWarnings, isSafeMarkdownUrl, markdownCommand, markdownSchema, markdownSelectionAfterReplace, markdownTaskCommand, parseMarkdownDocument, richSelectionCommand, serializeMarkdownDocument } from "../markdown";
+import { getMarkdownCompatibilityWarnings, isSafeMarkdownUrl, markdownCommand, markdownSchema, markdownSelectionAfterReplace, markdownTaskCommand, parseMarkdownDocument, richSelectionCommand } from "../markdown";
 import type { MarkdownAction } from "../markdown";
+import { serializeMarkdownBlocks } from "../markdown/serializer";
+import { checkedText } from "../model/validation";
+import { createMarkdownViewport, type MarkdownViewport } from "./markdown-viewport";
 
 export type MarkdownEditorProps = EditorAdapterProps & { onSourceMode?(): void; formatting?: boolean };
 const blocks = [
@@ -25,17 +28,36 @@ const blocks = [
   { action: "markdown.divider", title: "区切り線", description: "セクションを区切る", keywords: "divider rule", Icon: Minus },
 ] as const;
 type SlashMenu = { from: number; to: number; query: string; index: number; top: number; left: number; maxHeight: number };
+/** The source shown until the editor has mounted. A long document only needs its first screens there. */
+const FALLBACK_LENGTH = 20_000;
+const mac = typeof navigator !== "undefined" && /Mac|iP(hone|[oa]d)/.test(navigator.platform);
+/**
+ * Moves to the start or end of the document through the model. The browser's own shortcut stops
+ * at the last rendered block when the rest of a large document is not on the page.
+ */
+const documentEdge = (end: boolean, extend: boolean): Command => (state, dispatch) => {
+  const target = end ? Selection.atEnd(state.doc) : Selection.atStart(state.doc);
+  dispatch?.(state.tr.setSelection(extend ? TextSelection.between(state.selection.$anchor, target.$head) : target).scrollIntoView());
+  return true;
+};
+const edgeKeys = Object.fromEntries((mac ? [["Mod-ArrowUp", false], ["Mod-ArrowDown", true]] as const : [["Mod-Home", false], ["Mod-End", true]] as const)
+  .flatMap(([key, end]) => [[key, documentEdge(end, false)], [`Shift-${key}`, documentEdge(end, true)]]));
+/** Keys that let the browser move the caret: arrows, paging, line ends and the macOS Ctrl+letter movements. */
+const movesCaret = (event: KeyboardEvent) => /^(Arrow|Page|Home$|End$)/.test(event.key) || mac && event.ctrlKey && "npfbae".includes(event.key.toLowerCase());
 const richSelection = (view: EditorView): TextEditorSelection => ({ coordinateSpace: "rich", ranges: [{ anchor: view.state.selection.anchor, head: view.state.selection.head }], mainIndex: 0 });
 
 export function MarkdownEditor(props: MarkdownEditorProps) {
   const { value, editable, formatting, onSourceMode, ref: editorRef } = props;
   const mount = useRef<HTMLDivElement>(null), wrapper = useRef<HTMLDivElement>(null), menuElement = useRef<HTMLDivElement>(null), viewRef = useRef<EditorView | null>(null);
-  const latest = useRef(props), currentText = useRef(props.value), observedValue = useRef(props.value), submitted = useRef(new Set<string>()), generation = useRef(0), alive = useRef(false);
-  const flow = useRef({ pending: false, queued: null as string | null });
+  const latest = useRef(props), currentText = useRef(props.value), observedValue = useRef(props.value), generation = useRef(0), alive = useRef(false);
+  // Markdown this editor wrote and has not seen come back yet, with the warnings found while writing it.
+  const [submitted] = useState(() => new Map<string, readonly string[]>()), viewport = useRef<MarkdownViewport | null>(null);
+  const flow = useRef({ pending: false, queued: null as { text: string; warnings: readonly string[] } | null });
   const [ready, setReady] = useState(false), [menu, updateMenu] = useState<SlashMenu | null>(null), menuRef = useRef<SlashMenu | null>(null);
   const [link, updateLink] = useState<string | null>(null), linkRef = useRef<string | null>(null), [error, setError] = useState("");
   const observed = useRef({ panels: "", pending: false });
-  const warnings = useMemo(() => getMarkdownCompatibilityWarnings(value), [value]), canEdit = editable && warnings.length === 0;
+  // A value this editor wrote was checked block by block when it was serialized; anything else is checked in full.
+  const warnings = useMemo(() => submitted.get(value) ?? getMarkdownCompatibilityWarnings(value), [value, submitted]), canEdit = editable && warnings.length === 0;
   const policy = useRef(canEdit);
   const focused = useRef(false);
   function formattingAllowed() { return latest.current.formatting !== false && latest.current.formattingEnabled !== false; }
@@ -133,12 +155,12 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     if (editingChanged && canEdit) refreshMenu(view);
     if (props.value === observedValue.current) return;
     observedValue.current = props.value;
-    if (props.value === currentText.current) { submitted.current.clear(); return; }
-    if (submitted.current.has(props.value)) { submitted.current.delete(props.value); return; }
+    if (props.value === currentText.current) { submitted.clear(); return; }
+    if (submitted.has(props.value)) { submitted.delete(props.value); return; }
     if (props.value !== currentText.current) {
-      generation.current++; flow.current.pending = false; flow.current.queued = null; currentText.current = props.value; submitted.current.clear();
+      generation.current++; flow.current.pending = false; flow.current.queued = null; currentText.current = props.value; submitted.clear();
       notifyPending(false);
-      view.updateState(view.state.apply(markdownSelectionAfterReplace(view.state, parseMarkdownDocument(props.value))));
+      viewport.current?.updateState(view.state.apply(markdownSelectionAfterReplace(view.state, parseMarkdownDocument(props.value))));
       setMenu(null);
     }
   });
@@ -149,13 +171,13 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     generation.current++;
     const pending = flow.current;
     function restore() {
-      const target = viewRef.current; currentText.current = latest.current.value; submitted.current.clear(); pending.queued = null;
-      if (target) target.updateState(target.state.apply(markdownSelectionAfterReplace(target.state, parseMarkdownDocument(latest.current.value))));
+      const target = viewRef.current; currentText.current = latest.current.value; submitted.clear(); pending.queued = null;
+      if (target) windowing.updateState(target.state.apply(markdownSelectionAfterReplace(target.state, parseMarkdownDocument(latest.current.value))));
       setMenu(null);
     }
     function flush() {
       if (pending.pending || pending.queued === null || !alive.current) return;
-      const text = pending.queued, revision = generation.current; pending.queued = null; pending.pending = true; submitted.current.add(text);
+      const text = pending.queued.text, revision = generation.current; submitted.set(text, pending.queued.warnings); pending.queued = null; pending.pending = true;
       void Promise.resolve().then(() => alive.current && revision === generation.current ? latest.current.onChange(text) : false).then(accepted => {
         if (alive.current && revision === generation.current && !accepted) restore();
       }).catch(() => {
@@ -168,15 +190,17 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
       });
     }
     const inline = (action: MarkdownAction) => () => run(action);
+    const windowing = createMarkdownViewport(() => wrapper.current), initial = parseMarkdownDocument(latest.current.value);
     const view = new EditorView(mount.current, {
-      state: EditorState.create({ doc: parseMarkdownDocument(latest.current.value), plugins: [
+      nodeViews: windowing.nodeViews(initial),
+      state: EditorState.create({ doc: initial, plugins: [
         keymap({
           "Mod-z": () => { latest.current.onUndo(); return true; }, "Shift-Mod-z": () => { latest.current.onRedo(); return true; },
           "Mod-y": () => { latest.current.onRedo(); return true; }, "Mod-a": state => richSelectionCommand("selectAll")(state, viewRef.current?.dispatch),
           "Mod-b": inline("markdown.bold"), "Mod-i": inline("markdown.italic"), "Mod-e": inline("markdown.code"), "Mod-k": inline("markdown.link"),
           "Mod-Alt-1": inline("markdown.heading1"), "Mod-Alt-2": inline("markdown.heading2"), "Mod-Alt-3": inline("markdown.heading3"),
           "Shift-Mod-7": inline("markdown.orderedList"), "Shift-Mod-8": inline("markdown.bulletList"),
-          "Mod-Enter": exitCode,
+          "Mod-Enter": exitCode, ...edgeKeys,
           Enter: chainCommands(splitListItem(markdownSchema.nodes.list_item), baseKeymap.Enter),
           Tab: (state, dispatch) => !formattingAllowed() || sinkListItem(markdownSchema.nodes.list_item)(state, dispatch),
           "Shift-Tab": (state, dispatch) => !formattingAllowed() || liftListItem(markdownSchema.nodes.list_item)(state, dispatch),
@@ -201,10 +225,10 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
       decorations(state) {
         const { selection } = state;
         if (!focused.current || !policy.current || !formattingAllowed() || !(selection instanceof TextSelection) || !selection.empty)
-          return DecorationSet.empty;
+          return windowing.decorations(state, []);
         const { $from } = selection;
-        if ($from.parent.type.name !== "paragraph" || $from.parent.content.size !== 0) return DecorationSet.empty;
-        return DecorationSet.create(state.doc, [Decoration.node($from.before(), $from.after(), {
+        if ($from.parent.type.name !== "paragraph" || $from.parent.content.size !== 0) return windowing.decorations(state, []);
+        return windowing.decorations(state, [Decoration.node($from.before(), $from.after(), {
           class: "lxte-empty-paragraph", "data-placeholder": "/ でブロックを追加",
         })]);
       },
@@ -225,7 +249,10 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
         return true;
       },
       handleKeyDown(_view, event) {
-        return handleMenuKey(event);
+        if (handleMenuKey(event)) return true;
+        // Page keys move the caret on Windows and Linux; on macOS they only scroll.
+        if (movesCaret(event)) windowing.prepareNavigation(!mac && event.key.startsWith("Page"));
+        return false;
       },
       handleClick(current, _position, event) {
         const checkbox = (event.target as HTMLElement).closest?.(".lxte-task-checkbox");
@@ -244,16 +271,17 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
       dispatchTransaction(transaction) {
         const current = viewRef.current;
         if (!current || transaction.docChanged && !policy.current) return;
-        const state = current.state.apply(transaction); current.updateState(state);
+        const state = current.state.apply(transaction); windowing.updateState(state);
         try { latest.current.onSelectionChange?.(richSelection(current)); } catch { /* Selection observers cannot cancel edits. */ }
         refreshMenu(current);
         if (!transaction.docChanged) return;
-        const text = serializeMarkdownDocument(state.doc);
-        currentText.current = text; pending.queued = text; notifyPending(true); flush();
+        // The document comes from editor transactions, so it is valid; only the size limit is checked here.
+        const written = serializeMarkdownBlocks(state.doc, true);
+        currentText.current = checkedText(written.text, "Markdown"); pending.queued = written; notifyPending(true); flush();
       },
     });
-    viewRef.current = view; currentText.current = latest.current.value; setReady(true);
-    return () => { alive.current = false; focused.current = false; pending.pending = false; pending.queued = null; notifyPending(false); view.destroy(); viewRef.current = null; };
+    viewRef.current = view; viewport.current = windowing; windowing.attach(view); currentText.current = latest.current.value; setReady(true);
+    return () => { alive.current = false; focused.current = false; pending.pending = false; pending.queued = null; notifyPending(false); windowing.destroy(); viewport.current = null; view.destroy(); viewRef.current = null; };
     // The view is created once; callbacks read current options through latest/policy refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -299,7 +327,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     }}><label>リンク先<input autoFocus type="text" value={link} onChange={event => setLink(event.target.value)} placeholder="https://example.com" onKeyDown={event => { if (event.key === "Escape") setLink(null); }} /></label><button type="submit" disabled={!canEdit}>適用</button><button type="button" onClick={() => setLink(null)}>閉じる</button></form>}
     {error && <div className="lxte-rich-error" role="alert">{error}<button type="button" onClick={() => setError("")}>閉じる</button></div>}
     <div className="lxte-rich-scroll" ref={wrapper}>
-      <div className="lxte-rich-page"><div ref={mount} />{!ready && <pre className="lxte-rich-fallback">{value}</pre>}</div>
+      <div className="lxte-rich-page"><div ref={mount} />{!ready && <pre className="lxte-rich-fallback">{value.length > FALLBACK_LENGTH ? value.slice(0, FALLBACK_LENGTH) : value}</pre>}</div>
       {menu && <div ref={menuElement} className="lxte-slash-menu" role="listbox" aria-label="ブロックを追加" style={{ top: menu.top, left: menu.left, maxHeight: menu.maxHeight }}>
         <div className="lxte-slash-title">ブロックを追加</div>
         {menuItems.length === 0 ? <p>一致するブロックがありません。</p> : menuItems.map((item, index) => <button key={item.action} type="button" role="option" aria-selected={index === menu.index} onMouseDown={event => event.preventDefault()} onClick={() => chooseBlock(item.action)}><item.Icon size={20} /><span><strong>{item.title}</strong><small>{item.description}</small></span></button>)}

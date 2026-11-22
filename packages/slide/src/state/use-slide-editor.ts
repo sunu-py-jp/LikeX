@@ -10,7 +10,7 @@ import type { SlideCommand, SlideCommandResult, SlideDeck, SlideElement } from "
 import { prepareSlideConditionalEdit, applySlideConditionalEdit } from "../model/conditional-edit";
 import type { SlideConditionalEdit, SlideConditionalEditResult } from "../model/conditional-edit";
 import type { SlideEvent, SlideProps, SlideSelection, SlideConditionalEditOptions, SlideExternalSearchTarget } from "../props";
-import { applySlideCommands, normalizeSlideDeck, parseSlideDeck, serializeSlideDeck, getSlideMasters, getSlideLayouts, getSlideLayout, SLIDE_LIMITS } from "../model/index";
+import { applySlideCommands, applySlideMaster, createSlideDeck, normalizeSlideDeck, parseSlideDeck, serializeSlideDeck, getSlideMasters, getSlideLayouts, getSlideLayout, SLIDE_LIMITS } from "../model/index";
 import { getDeck, getSlides, getSlide, getElements, getElement, getAnimations } from "../model/query";
 import type { SlidePptxImportOptions } from "../import/import-pptx";
 import type { SlidePptxExportOptions } from "../export/types";
@@ -31,6 +31,7 @@ export type SlideConversionReport = { phase: "import" | "export"; warnings: read
 const copy = <T,>(value: T): T => structuredClone(value);
 
 function permitted(command: SlideCommand, features: SlideFeatureState, deck: SlideDeck): boolean {
+  if (command.type === "deck.applyMaster") return features.masters && features.formatting && (command.library === undefined || features.import);
   if (command.type === "masters.import") return features.masters && features.import;
   if (command.type === "slide.applyLayout" || command.type === "slide.detachLayout") return features.masters && features.formatting;
   if (command.type === "slide.add" && (command.layoutId || command.slide?.layoutId) && !features.masters) return false;
@@ -65,7 +66,16 @@ function permitted(command: SlideCommand, features: SlideFeatureState, deck: Sli
 export function useSlideEditor(props: SlideProps) {
   const ribbon = useSlideRibbon(props);
   const { getRibbonDisplayMode, setRibbonDisplayMode } = ribbon;
-  const [session] = useState(() => createSlideSession(props.initialDeck));
+  const [initial] = useState(() => {
+    const source = props.initialDeck === undefined ? createSlideDeck() : normalizeSlideDeck(props.initialDeck);
+    let deck = source, error: string | undefined;
+    if (props.initialMaster !== undefined) {
+      try { deck = applySlideMaster(source, props.initialMaster).deck; }
+      catch (cause) { error = `マスターを初期適用できませんでした。${cause instanceof Error ? cause.message : "設定を確認してください。"}`; }
+    }
+    return { session: createSlideSession(deck), error };
+  });
+  const session = initial.session;
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot);
   const propsRef = useRef(props);
   useLayoutEffect(() => { propsRef.current = props; });
@@ -95,7 +105,10 @@ export function useSlideEditor(props: SlideProps) {
   const selectionRef = useRef(selection);
   const slideSelectionVersion = useRef(0);
   useLayoutEffect(() => { selectionRef.current = selection; }, [selection]);
-  const [notice, setNotice] = useState<SlideNotice>(() => initialTarget.error ? { kind: "error", text: initialTarget.error } : null);
+  const [notice, setNotice] = useState<SlideNotice>(() => {
+    const error = [initial.error, initialTarget.error].filter(Boolean).join("\n");
+    return error ? { kind: "error", text: error } : null;
+  });
   const [conversionReport, setConversionReport] = useState<SlideConversionReport | null>(null);
   const conversionReportRef = useRef<SlideConversionReport | null>(null);
   const [busy, setBusy] = useState<"save" | "import" | "export" | null>(null);
@@ -301,7 +314,7 @@ export function useSlideEditor(props: SlideProps) {
       const target = result.deck.slides.find(item => item.id === targetSlideId);
       const oldIds = new Set(before.slides.find(item => item.id === targetSlideId)?.elements.map(item => item.id));
       const addedIds = target?.elements.filter(item => !oldIds.has(item.id)).map(item => item.id) ?? [];
-      const preservesSelection = commands.every(item => ["element.update", "line.update", "element.order", "slide.update", "slide.move", "deck.rename", "deck.resize", "masters.import", "slide.applyLayout", "slide.detachLayout"].includes(item.type));
+      const preservesSelection = commands.every(item => ["element.update", "line.update", "element.order", "slide.update", "slide.move", "deck.rename", "deck.resize", "deck.applyMaster", "masters.import", "slide.applyLayout", "slide.detachLayout"].includes(item.type));
       if (commands.every(item => item.type === "slide.delete")) {
         const remaining = result.deck.slides.filter(item => (previous.slideIds ?? [previous.slideId]).includes(item.id));
         const activeIndex = before.slides.findIndex(item => item.id === previous.slideId);

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { SLIDE_SHAPES, resolveSlideAppearance } from "../model/index";
 import { SlideMasterControls } from "./slide-master-controls";
+import { SlideLayoutGallery } from "./slide-layout-gallery";
 import type { SlideCommand, SlideElementPatch, SlideShapeKind } from "../model/types";
 import type { SlideRibbonDisplayMode } from "../props";
 import type { SlideEditor } from "../state/use-slide-editor";
@@ -163,8 +164,14 @@ export function SlideRibbon({ editor, onImage, onImport, onImportMasters, onPres
           <div className="lxp-ribbon-stack"><Action label="コピー" icon={<Copy size={15} />} disabled={!hasSelection} onClick={editor.copyElements} />
             {!editor.readOnly && <Action label="切り取り" icon={<Scissors size={15} />} disabled={disabled || !hasSelection} onClick={() => { editor.copyElements(); remove(); }} />}</div>
         </Group>
-        {editor.features.addSlides && !editor.readOnly && <Group name="スライド"><Action label="新しいスライド" icon={<Plus size={25} />} big disabled={disabled} onClick={() => void editor.execute({ type: "slide.add", afterId: slide?.id, ...(editor.features.masters && slide?.layoutId ? { layoutId: slide.layoutId } : {}) })} />
-          <Action label="複製" icon={<Copy size={18} />} disabled={disabled || !slide} onClick={() => { if (slide) void editor.execute({ type: "slide.duplicate", slideId: slide.id }); }} /></Group>}
+        {!editor.readOnly && (editor.features.addSlides || (editor.features.masters && editor.features.formatting)) && <Group name="スライド">
+          {editor.features.addSlides && <div className="lxp-new-slide-split"><Action label="新しいスライド" icon={<Plus size={25} />} big disabled={disabled} onClick={() => void editor.execute({ type: "slide.add", afterId: slide?.id, ...(editor.features.masters && slide?.layoutId ? { layoutId: slide.layoutId } : {}) })} />
+            {editor.features.masters && <SlideLayoutGallery editor={editor} mode="add" compact visible={panelVisible && headerVisible} />}</div>}
+          <div className="lxp-ribbon-stack">
+            {editor.features.masters && editor.features.formatting && <SlideLayoutGallery editor={editor} mode="apply" visible={panelVisible && headerVisible} />}
+            {editor.features.addSlides && <Action label="複製" icon={<Copy size={18} />} disabled={disabled || !slide} onClick={() => { if (slide) void editor.execute({ type: "slide.duplicate", slideId: slide.id }); }} />}
+          </div>
+        </Group>}
         {editor.features.formatting && <>
           <Group name="フォント"><div className="lxp-ribbon-stack">
             <div className="lxp-ribbon-row"><select aria-label="フォント" value={text?.fontFamily ?? "Arial"} disabled={disabled || !text} onChange={event => update({ fontFamily: event.target.value }, true)}>
@@ -198,7 +205,7 @@ export function SlideRibbon({ editor, onImage, onImport, onImportMasters, onPres
         {editor.features.shapes && !editor.readOnly && <Group name="図形"><ShapeGallery disabled={disabled || !slide} onInsert={addShape} /></Group>}
         {lineMenu}
       </>}
-      {activeTab === "design" && editor.features.masters && <Group name="マスターとレイアウト"><SlideMasterControls editor={editor} onImport={() => onImportMasters?.()} /></Group>}
+      {activeTab === "design" && editor.features.masters && <Group name="マスターとレイアウト"><SlideMasterControls editor={editor} onImport={() => onImportMasters?.()} visible={panelVisible && headerVisible} /></Group>}
       {activeTab === "design" && editor.features.formatting && <>
         <Group name="背景"><div className="lxp-background-gallery">{["#ffffff", "#fff6ef", "#f0f5fa", "#142c45", "#263528", "#ca542f"].map(color => <button type="button" key={color} disabled={disabled || !slide}
           style={{ background: color }} aria-label={`背景色 ${color}`} title={`背景色 ${color}`} aria-pressed={background === color}

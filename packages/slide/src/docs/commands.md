@@ -337,7 +337,7 @@ PowerPoint変換の詳細は `ref.current.getPptxDiagnostics(): readonly SlidePp
 
 ## マスターとレイアウトのAPI
 
-`masters.import`、`slide.applyLayout`、`slide.detachLayout`、`slide.add.layoutId` を使います。取得は `getSlideMasters` / `getSlideLayouts` / `getSlideLayout`、背景と共有装飾の解決は `resolveSlideAppearance` です。保存用のカタログ要素にも `stackOrder` を使うため、専用のparse/serializeを通してください。[型・コマンド・Office変換](masters.md)を参照してください。
+`masters.import`、`deck.applyMaster`、`slide.applyLayout`、`slide.detachLayout`、`slide.add.layoutId` を使います。`deck.applyMaster` は全ページへの適用とページ別の例外指定をまとめて処理します。同じ処理は公開 `applySlideMaster(deck, application)`、初期表示の `initialMaster: SlideMasterApplication` からも使えます。取得は `getSlideMasters` / `getSlideLayouts` / `getSlideLayout`、背景と共有装飾の解決は `resolveSlideAppearance` です。保存用のカタログ要素にも `stackOrder` を使うため、専用のparse/serializeを通してください。[型・コマンド・初期表示・Office変換](masters.md)を参照してください。
 
 固定構図の `slide.compose` と関連する構図・プリセットAPIは削除しました。通常の要素コマンドか `slide.replaceContent` へ移行してください。既に生成済みの通常要素を持つSLONはそのまま読み込めます。[移行の説明](freeform-design.md#固定構図apiからの移行)
 

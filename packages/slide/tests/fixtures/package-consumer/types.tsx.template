@@ -143,3 +143,17 @@ const forcedMobileProps: Pick<MobileViewProps, "layout"> = { layout: "mobile" };
 // @ts-expect-error Layout accepts only the shared explicit modes.
 const invalidMobileProps: Pick<MobileViewProps, "layout"> = { layout: "phone" };
 void [mobileProps, forcedMobileProps, invalidMobileProps];
+
+import { applySlideMaster, type SlideMasterApplication } from "__LIBRARY_IMPORT__";
+import { applySlideMaster as applyMasterWithoutUI, type SlideMasterApplication as HeadlessMasterApplication } from "__LIBRARY_MODEL__";
+const masterApplication: SlideMasterApplication = { layoutId: 'body', layoutsBySlideId: { cover: 'title', appendix: null } };
+const headlessMasterApplication: HeadlessMasterApplication = masterApplication;
+const initializedMasterProps: SlideProps = { initialDeck: deck, initialMaster: masterApplication, readOnly: true };
+const masterCommand: SlideCommand = { type: 'deck.applyMaster', ...masterApplication };
+const preparedMasterDeck = applySlideMaster(deck, masterApplication).deck;
+const headlessMasterDeck = applyMasterWithoutUI(deck, headlessMasterApplication).deck;
+// @ts-expect-error Initial application requires a default layout ID.
+const missingMasterLayout: SlideProps = { initialMaster: {} };
+// @ts-expect-error Per-page layout overrides accept only layout IDs or null.
+const invalidMasterOverride: SlideMasterApplication = { layoutId: 'body', layoutsBySlideId: { cover: false } };
+void [initializedMasterProps, masterCommand, preparedMasterDeck, headlessMasterDeck, missingMasterLayout, invalidMasterOverride];

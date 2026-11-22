@@ -31,8 +31,8 @@ export function withoutLayoutPlaceholder(element: SlideElement): SlideElement {
 }
 
 /** Same-type slots adopt layout styling; changed content types keep their content and common geometry. */
-function placedPlaceholder(prototype: SlideElement, current: SlideElement | undefined, slotId: string): SlideElement {
-  if (!current) return normalizeSlideElement({ ...prototype, id: crypto.randomUUID(), locked: false, layoutPlaceholderId: slotId,
+function placedPlaceholder(prototype: SlideElement, current: SlideElement | undefined, slotId: string, createId: () => string): SlideElement {
+  if (!current) return normalizeSlideElement({ ...prototype, id: createId(), locked: false, layoutPlaceholderId: slotId,
     ...(prototype.type === "image" ? {} : { text: "" }) });
   const geometry = { x: prototype.x, y: prototype.y, width: prototype.width, height: prototype.height, rotation: prototype.rotation };
   const next = current.type === prototype.type ? { ...prototype, id: current.id, locked: current.locked,
@@ -40,7 +40,7 @@ function placedPlaceholder(prototype: SlideElement, current: SlideElement | unde
   return normalizeSlideElement({ ...next, layoutPlaceholderId: slotId });
 }
 
-export function applySlideLayout(deck: SlideDeck, slide: Slide, layoutId: string): Slide {
+export function applySlideLayout(deck: SlideDeck, slide: Slide, layoutId: string, createId: () => string = () => crypto.randomUUID()): Slide {
   const layout = getSlideLayout(deck, layoutId);
   if (!layout) throw new Error("適用するレイアウトが見つかりません");
   const previous = slide.layoutId ? getSlideLayout(deck, slide.layoutId) : undefined;
@@ -50,7 +50,7 @@ export function applySlideLayout(deck: SlideDeck, slide: Slide, layoutId: string
     const sameSlot = linked.find(element => !used.has(element.id) && element.layoutPlaceholderId === slot.id);
     const sameRole = linked.find(element => !used.has(element.id) && previous?.placeholders.find(old => old.id === element.layoutPlaceholderId)?.kind === slot.kind);
     const current = sameSlot ?? sameRole;
-    const next = placedPlaceholder(slot.element, current, slot.id);
+    const next = placedPlaceholder(slot.element, current, slot.id, createId);
     if (current) { used.add(current.id); replacements.set(current.id, next); } else added.push(next);
   }
   const elements = slide.elements.map(element => {
@@ -76,12 +76,12 @@ export function detachSlideLayout(deck: SlideDeck, slide: Slide): Slide {
 }
 
 /** Imports definitions once, remapping every identity and scaling to the destination canvas. */
-export function importSlideMasterLibrary(deck: SlideDeck, input: SlideMasterLibrary): { deck: SlideDeck; masterIds: string[]; layoutIds: string[] } {
+export function importSlideMasterLibrary(deck: SlideDeck, input: SlideMasterLibrary, createId: () => string = () => crypto.randomUUID()): { deck: SlideDeck; masterIds: string[]; layoutIds: string[] } {
   const library = normalizeSlideMasterLibrary(input), sx = deck.width / library.width, sy = deck.height / library.height, styleScale = Math.min(sx, sy);
-  const masterIds = new Map(library.masters.map(master => [master.id, crypto.randomUUID()]));
-  const layoutIds = new Map(library.layouts.map(layout => [layout.id, crypto.randomUUID()]));
+  const masterIds = new Map(library.masters.map(master => [master.id, createId()]));
+  const layoutIds = new Map(library.layouts.map(layout => [layout.id, createId()]));
   const allElements = [...library.masters.flatMap(master => master.elements), ...library.layouts.flatMap(layout => [...layout.elements, ...layout.placeholders.map(slot => slot.element)])];
-  const elementIds = new Map(allElements.map(element => [element.id, crypto.randomUUID()]));
+  const elementIds = new Map(allElements.map(element => [element.id, createId()]));
   const scale = (element: SlideElement): SlideElement => {
     let result = { ...element, id: elementIds.get(element.id)!, x: element.x * sx, y: element.y * sy, width: element.width * sx, height: element.height * sy,
       ...(element.type !== "image" ? { fontSize: element.fontSize * styleScale } : {}),
@@ -97,7 +97,7 @@ export function importSlideMasterLibrary(deck: SlideDeck, input: SlideMasterLibr
   };
   const masters = library.masters.map(master => ({ ...master, id: masterIds.get(master.id)!, elements: master.elements.map(scale) }));
   const layouts = library.layouts.map(layout => ({ ...layout, id: layoutIds.get(layout.id)!, masterId: masterIds.get(layout.masterId)!, elements: layout.elements.map(scale),
-    placeholders: layout.placeholders.map(slot => ({ ...slot, id: crypto.randomUUID(), element: scale(slot.element) })) }));
+    placeholders: layout.placeholders.map(slot => ({ ...slot, id: createId(), element: scale(slot.element) })) }));
   return { deck: normalizeSlideDeck({ ...deck, masters: [...(deck.masters ?? []), ...masters], layouts: [...(deck.layouts ?? []), ...layouts] }),
     masterIds: masters.map(master => master.id), layoutIds: layouts.map(layout => layout.id) };
 }

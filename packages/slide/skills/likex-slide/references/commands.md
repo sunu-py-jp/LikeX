@@ -253,11 +253,35 @@ await writeFile("edited.pptx", new Uint8Array(await pptx.arrayBuffer()));
 | コマンド | 引数・作用 |
 | --- | --- |
 | `masters.import` | `library: SlideMasterLibrary`。戻り値に新しい `masterIds` / `layoutIds` |
+| `deck.applyMaster` | 必須 `layoutId`、任意 `library` / `layoutsBySlideId`。全ページへ適用し、ページID別に別レイアウトまたは `null`（変更なし）を指定可 |
 | `slide.applyLayout` | `slideId`, `layoutId`。既存本文と通常の要素を残し、プレースホルダーの配置・書式を適用 |
 | `slide.detachLayout` | `slideId`。背景・装飾をローカル化して共有参照を解除 |
 | `slide.add` | 任意の `layoutId` を追加指定し、そのレイアウトで新規ページ作成 |
 
-公開モデルは `getSlideMasters(deck)` / `getSlideLayouts(deck, masterId?)` / `getSlideLayout(deck, layoutId)` / `resolveSlideAppearance(deck, slide)` を提供する。最後の戻り値は `{ background, inheritedElements, localElements }`。既存 `getSlide` / `getElements` はローカル要素のみを返す。`slide.replaceContent` はローカル本文を置換し、レイアウト参照は保持する。明示的なページ背景変更は共通背景より優先する。通常のPPTX読み込み・出力でもカタログと参照を保持し、未対応のOffice表現は診断を確認する。
+公開モデルは `getSlideMasters(deck)` / `getSlideLayouts(deck, masterId?)` / `getSlideLayout(deck, layoutId)` / `resolveSlideAppearance(deck, slide)` を提供する。マスターを決めて `getSlideLayouts(deck, masterId)` で候補を絞り、選んだレイアウトIDを `slide.applyLayout` / `slide.add` に渡す。マスターのIDだけでは適用しない。GUIの「レイアウト」はマスター名ごとのサムネイル一覧で、クリックすると選択ページへ適用する。複数ページなら各 `slide.applyLayout` をまとめて実行し、1回のUndoで戻す。「新しいスライド」横の▼からの選択は `slide.add` を使う。一覧の開閉・ホバーは表示上の操作でデータや履歴を変更しない。最後の戻り値は `{ background, inheritedElements, localElements }`。既存 `getSlide` / `getElements` はローカル要素のみを返す。`slide.replaceContent` はローカル本文を置換し、レイアウト参照は保持する。明示的なページ背景変更は共通背景より優先する。通常のPPTX読み込み・出力でもカタログと参照を保持し、未対応のOffice表現は診断を確認する。
+
+`deck.applyMaster` は `SlideMasterApplication = { library?: SlideMasterLibrary, layoutId: string, layoutsBySlideId?: Record<string, string | null> }` と同じ引数を使う。`library` 付きではレイアウトIDはすべて取り込み元のlibrary内、省略時は資料内のID。ページIDは適用先の既存IDを指定する。既定レイアウトも例外も検証し、失敗すると取り込みを含めて変更しない。通常の本文と既存要素IDを残し、プレースホルダー配置・書式は `slide.applyLayout` と同じ規則で適用する。
+
+次は `schema-guide.md` の資料へカタログを取り込み、表紙だけ別のレイアウトにする例。既存の `appendix` ページを変更しない場合は、`layoutsBySlideId` に `"appendix": null` を追加する。
+
+```json
+{
+  "type": "deck.applyMaster",
+  "library": {
+    "width": 1280,
+    "height": 720,
+    "masters": [{ "id": "brand", "name": "共通", "background": "#ffffff", "elements": [] }],
+    "layouts": [
+      { "id": "body-layout", "masterId": "brand", "name": "本文", "elements": [], "placeholders": [] },
+      { "id": "title-layout", "masterId": "brand", "name": "表紙", "background": "#e8efff", "elements": [], "placeholders": [] }
+    ]
+  },
+  "layoutId": "body-layout",
+  "layoutsBySlideId": { "cover": "title-layout" }
+}
+```
+
+公開 `applySlideMaster(deck, application)` は `{ deck, masterIds?, layoutIds? }` を返す純粋なモデルAPI。Reactの `initialMaster` は同じ処理をマウント時に一度だけ使い、結果を保存対象の初期状態とする。初期適用では編集許可・未保存・Undo・変更通知を発生させず、表示中の `execute({ type: "deck.applyMaster", ... })` は通常の編集として処理する。CLIでは `apply` に上のJSONコマンドを渡し、`initialMaster` を保存ファイルへ追加しない。
 
 プレースホルダーのIDはレイアウト内で一意。要素の `layoutPlaceholderId` で対応を保持する。適用では既存IDと内容を保持し、不要になった欄の内容は通常要素として残す。継承装飾を編集する場合は、明示的にレイアウトを解除してから、そのページの新しい要素IDを取得する。CLIのapplyは追加IDメタデータを返さないため、適用後のinspectを使う。
 

@@ -7,8 +7,10 @@ import { animationTargetIds, filterAnimationNode, normalizeSlideAnimations, same
 
 import { copySlideLine, getSlideLineEndpoints, isSlideLine, normalizeSlideLine, resolveSlideLines, slideLineGeometry, transformSlideLine } from "./lines";
 import { applySlideLayout, detachSlideLayout, importSlideMasterLibrary, withoutLayoutPlaceholder } from "./layouts";
+import { applySlideMaster } from "./master-application";
 
 const COMMAND_KEYS: Record<SlideCommand["type"], readonly string[]> = {
+  "deck.applyMaster": ["type", "library", "layoutId", "layoutsBySlideId"],
   "masters.import": ["type", "library"], "slide.applyLayout": ["type", "slideId", "layoutId"], "slide.detachLayout": ["type", "slideId"],
   "line.add": ["type", "slideId", "start", "end", "id", "name", "stroke", "strokeWidth", "startArrow", "endArrow", "routing"],
   "line.update": ["type", "slideId", "elementId", "start", "end", "startArrow", "endArrow", "routing"],
@@ -77,6 +79,11 @@ function applyOne(deck: SlideDeck, input: unknown): Omit<SlideCommandResult, "ch
   const type = choice(raw.type, Object.keys(COMMAND_KEYS) as SlideCommand["type"][], "操作");
   record(raw, "操作", COMMAND_KEYS[type]);
   const unchanged = { deck, elementIds: [] as string[] };
+  if (type === "deck.applyMaster") return { ...unchanged, ...applySlideMaster(deck, {
+    library: raw.library as Extract<SlideCommand, { type: "deck.applyMaster" }>["library"],
+    layoutId: raw.layoutId as string,
+    layoutsBySlideId: raw.layoutsBySlideId as Extract<SlideCommand, { type: "deck.applyMaster" }>["layoutsBySlideId"],
+  }) };
   if (type === "masters.import") return { ...unchanged, ...importSlideMasterLibrary(deck, raw.library as Extract<SlideCommand, { type: "masters.import" }>["library"]) };
   if (type === "deck.rename") return { ...unchanged, deck: normalizeSlideDeck({ ...deck, title: raw.title }) };
   if (type === "deck.resize") return { ...unchanged, deck: normalizeSlideDeck({ ...deck, width: raw.width, height: raw.height }) };

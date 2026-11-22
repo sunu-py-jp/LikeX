@@ -92,6 +92,10 @@ PDFは専用の `@likex/slide/pdf` にある `searchPdf` / `createPdfTextLoader`
 
 ## マスターを再利用する
 
+適用前に使うマスターを決め、その `masterId` に属するレイアウトを取得して選ぶ。先頭レイアウトを無条件に適用しない。GUIでは「ホーム」または「デザイン」の「レイアウト」を開き、マスター名ごとのサムネイルをクリックして選択ページへ適用する。別の適用ボタンはなく、複数ページへの適用も1回のUndoで戻せる。「新しいスライド」横の▼では、サムネイルを選んでページを追加する。一覧の開閉やホバーだけでは資料を変更しない。
+
+資料全体には `deck.applyMaster` を使う。既定の `layoutId` と、必要なら `layoutsBySlideId` でページIDごとの別レイアウトを指定する。`null` のページは既存のまま残す。`library` 付きではレイアウトIDは取り込み元のIDで、内部で新IDへ変換する。Reactの `initialMaster` は同じ指定を初期データへ一度適用し、保存・PPTX出力にも含める。表示専用の色替えや、保存形式の新しいフィールドではない。
+
 通常の `inspect` は取り込み済み `masters` / `layouts` のID・名前・プレースホルダー種別も概要に返す。レイアウトを確認するときは `--layout-id ID --include-data` を使う。`slide.add` の `layoutId` または `slide.applyLayout` で再利用でき、本文はページ自身のプレースホルダー要素へ入力する。ページ取得の `selection.elements` は編集可能なページ要素、`selection.inheritedElements` は読み取り専用の共通装飾。共通ロゴ・背景を重複作成せず、共有要素IDを `element.update` へ渡さない。`slide.detachLayout` は共通装飾をページ要素に変換する明示的な解除操作。PPTX／POTXのマスター取り込みは公開 `importSlidePptxMasters` → `masters.import` を使い、CLIがOfficeファイルを直接読むわけではない。[コマンド](references/commands.md#マスターとレイアウト)を参照する。
 
 ## 編集時の契約

@@ -69,6 +69,9 @@
         },
         {
           "$ref": "#/$defs/SlideCommand_20"
+        },
+        {
+          "$ref": "#/$defs/SlideCommand_21"
         }
       ]
     },
@@ -76,51 +79,22 @@
       "type": "object",
       "properties": {
         "type": {
-          "const": "deck.rename"
-        },
-        "title": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "type",
-        "title"
-      ],
-      "additionalProperties": false
-    },
-    "SlideCommand_2": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "const": "deck.resize"
-        },
-        "width": {
-          "type": "number"
-        },
-        "height": {
-          "type": "number"
-        }
-      },
-      "required": [
-        "type",
-        "width",
-        "height"
-      ],
-      "additionalProperties": false
-    },
-    "SlideCommand_3": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "const": "masters.import"
+          "const": "deck.applyMaster"
         },
         "library": {
           "$ref": "#/$defs/SlideMasterLibrary"
+        },
+        "layoutId": {
+          "type": "string"
+        },
+        "layoutsBySlideId": {
+          "$ref": "#/$defs/SlideCommand_1_layoutsBySlideId",
+          "description": "Page IDs belong to the destination deck. null leaves that page unchanged."
         }
       },
       "required": [
         "type",
-        "library"
+        "layoutId"
       ],
       "additionalProperties": false
     },
@@ -665,7 +639,76 @@
     "SlideLayout_showMasterShapes": {
       "type": "boolean"
     },
+    "SlideCommand_1_layoutsBySlideId": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": {
+        "$ref": "#/$defs/SlideCommand_1_layoutsBySlideId_value"
+      }
+    },
+    "SlideCommand_1_layoutsBySlideId_value": {
+      "anyOf": [
+        {
+          "const": null
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "SlideCommand_2": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "deck.rename"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "title"
+      ],
+      "additionalProperties": false
+    },
+    "SlideCommand_3": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "deck.resize"
+        },
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "type",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false
+    },
     "SlideCommand_4": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "masters.import"
+        },
+        "library": {
+          "$ref": "#/$defs/SlideMasterLibrary"
+        }
+      },
+      "required": [
+        "type",
+        "library"
+      ],
+      "additionalProperties": false
+    },
+    "SlideCommand_5": {
       "type": "object",
       "properties": {
         "type": {
@@ -675,7 +718,7 @@
           "type": "string"
         },
         "slide": {
-          "$ref": "#/$defs/SlideCommand_4_slide"
+          "$ref": "#/$defs/SlideCommand_5_slide"
         },
         "layoutId": {
           "type": "string"
@@ -686,7 +729,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_4_slide": {
+    "SlideCommand_5_slide": {
       "type": "object",
       "properties": {
         "id": {
@@ -705,7 +748,7 @@
           "$ref": "#/$defs/SlideMaster_elements"
         },
         "animations": {
-          "$ref": "#/$defs/SlideCommand_4_slide_animations"
+          "$ref": "#/$defs/SlideCommand_5_slide_animations"
         },
         "layoutId": {
           "type": "string"
@@ -719,7 +762,7 @@
       },
       "additionalProperties": false
     },
-    "SlideCommand_4_slide_animations": {
+    "SlideCommand_5_slide_animations": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/SlideAnimationStep"
@@ -937,7 +980,7 @@
       },
       "additionalProperties": false
     },
-    "SlideCommand_5": {
+    "SlideCommand_6": {
       "type": "object",
       "properties": {
         "type": {
@@ -957,7 +1000,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_6": {
+    "SlideCommand_7": {
       "type": "object",
       "properties": {
         "type": {
@@ -973,7 +1016,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_7": {
+    "SlideCommand_8": {
       "type": "object",
       "properties": {
         "type": {
@@ -989,7 +1032,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_8": {
+    "SlideCommand_9": {
       "type": "object",
       "properties": {
         "type": {
@@ -1005,7 +1048,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_9": {
+    "SlideCommand_10": {
       "type": "object",
       "properties": {
         "type": {
@@ -1025,7 +1068,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_10": {
+    "SlideCommand_11": {
       "type": "object",
       "properties": {
         "type": {
@@ -1035,7 +1078,7 @@
           "type": "string"
         },
         "patch": {
-          "$ref": "#/$defs/SlideCommand_10_patch"
+          "$ref": "#/$defs/SlideCommand_11_patch"
         }
       },
       "required": [
@@ -1045,7 +1088,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_10_patch": {
+    "SlideCommand_11_patch": {
       "type": "object",
       "properties": {
         "background": {
@@ -1060,7 +1103,7 @@
       },
       "additionalProperties": false
     },
-    "SlideCommand_11": {
+    "SlideCommand_12": {
       "type": "object",
       "properties": {
         "type": {
@@ -1070,7 +1113,7 @@
           "type": "string"
         },
         "elements": {
-          "$ref": "#/$defs/SlideCommand_11_elements"
+          "$ref": "#/$defs/SlideCommand_12_elements"
         },
         "name": {
           "type": "string"
@@ -1082,7 +1125,7 @@
           "type": "string"
         },
         "animations": {
-          "$ref": "#/$defs/SlideCommand_4_slide_animations"
+          "$ref": "#/$defs/SlideCommand_5_slide_animations"
         }
       },
       "required": [
@@ -1092,7 +1135,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_11_elements": {
+    "SlideCommand_12_elements": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/SlideElementInput"
@@ -1386,7 +1429,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_12": {
+    "SlideCommand_13": {
       "type": "object",
       "properties": {
         "type": {
@@ -1396,7 +1439,7 @@
           "type": "string"
         },
         "animations": {
-          "$ref": "#/$defs/SlideCommand_4_slide_animations"
+          "$ref": "#/$defs/SlideCommand_5_slide_animations"
         }
       },
       "required": [
@@ -1406,7 +1449,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_13": {
+    "SlideCommand_14": {
       "type": "object",
       "properties": {
         "type": {
@@ -1426,7 +1469,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_14": {
+    "SlideCommand_15": {
       "type": "object",
       "properties": {
         "type": {
@@ -1471,7 +1514,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_15": {
+    "SlideCommand_16": {
       "type": "object",
       "properties": {
         "type": {
@@ -1506,7 +1549,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_16": {
+    "SlideCommand_17": {
       "type": "object",
       "properties": {
         "type": {
@@ -1526,7 +1569,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_17": {
+    "SlideCommand_18": {
       "type": "object",
       "properties": {
         "type": {
@@ -1753,7 +1796,7 @@
       },
       "additionalProperties": false
     },
-    "SlideCommand_18": {
+    "SlideCommand_19": {
       "type": "object",
       "properties": {
         "type": {
@@ -1763,7 +1806,7 @@
           "type": "string"
         },
         "elementIds": {
-          "$ref": "#/$defs/SlideCommand_18_elementIds"
+          "$ref": "#/$defs/SlideCommand_19_elementIds"
         }
       },
       "required": [
@@ -1773,13 +1816,13 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_18_elementIds": {
+    "SlideCommand_19_elementIds": {
       "type": "array",
       "items": {
         "type": "string"
       }
     },
-    "SlideCommand_19": {
+    "SlideCommand_20": {
       "type": "object",
       "properties": {
         "type": {
@@ -1789,7 +1832,7 @@
           "type": "string"
         },
         "elementIds": {
-          "$ref": "#/$defs/SlideCommand_18_elementIds"
+          "$ref": "#/$defs/SlideCommand_19_elementIds"
         }
       },
       "required": [
@@ -1799,7 +1842,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_20": {
+    "SlideCommand_21": {
       "type": "object",
       "properties": {
         "type": {
@@ -1809,10 +1852,10 @@
           "type": "string"
         },
         "elementIds": {
-          "$ref": "#/$defs/SlideCommand_18_elementIds"
+          "$ref": "#/$defs/SlideCommand_19_elementIds"
         },
         "direction": {
-          "$ref": "#/$defs/SlideCommand_20_direction"
+          "$ref": "#/$defs/SlideCommand_21_direction"
         }
       },
       "required": [
@@ -1823,7 +1866,7 @@
       ],
       "additionalProperties": false
     },
-    "SlideCommand_20_direction": {
+    "SlideCommand_21_direction": {
       "enum": [
         "front",
         "back",

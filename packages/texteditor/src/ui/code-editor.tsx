@@ -201,10 +201,12 @@ export function CodeEditor({ ref, ...props }: CodeEditorProps) {
         EditorState.transactionFilter.of(transaction => transaction.docChanged && transaction.startState.readOnly && !transaction.annotation(externalChange) ? [] : transaction),
         EditorView.updateListener.of(update => {
           notifySearch(update.view);
-          if (update.docChanged) latest.current.onDisplayTextChange?.(update.state.sliceDoc());
+          // One copy of the document per change serves both the display and the edit.
+          const text = update.docChanged ? update.state.sliceDoc() : "";
+          if (update.docChanged) latest.current.onDisplayTextChange?.(text);
           if (update.selectionSet || update.docChanged) latest.current.onSelectionChange?.(codeSelectionToSource(update.state));
           if (update.docChanged && !update.transactions.some(transaction => transaction.annotation(externalChange))) {
-            pending.queued = update.state.sliceDoc();
+            pending.queued = text;
             notifyPending(true);
             flush();
           }

@@ -149,4 +149,6 @@ JSON内のアニメーションは宣言的データであり、JavaScriptや数
 
 ページの `layoutId` がレイアウトを指す。`inheritBackground` がtrueなら共通背景を使い、`showMasterShapes: false` はマスターの装飾を非表示にする。ページ自身の欄は普通の要素に `layoutPlaceholderId` を付けて保持する。旧来のカタログなしSLONは変更不要で、parse/serializeは存在しないカタログを勝手に追加しない。必ず参照と上限を検証する公開APIを通す。
 
+`deck.applyMaster` / `applySlideMaster` / Reactの `initialMaster` は、この既存カタログとページ参照へ一括適用する入口。保存形式に `initialMaster` や `layoutsBySlideId` を追加しない。`library` を渡すと取り込み元レイアウトIDを新IDへ変換し、指定した `layoutId` を各ページへ設定する。`layoutsBySlideId` の別レイアウトはそのページを上書きし、`null` は既存参照・本文を保持する。初期適用されたカタログ・ページ参照も、通常のSLON／PPTX出力に含まれる。
+
 リボン表示モードはホストUIの設定で、SLONには含めません。`expanded` / `tabs` / `autoHide` / `hidden` の切り替えはReactのprops/refで行い、資料の検証・履歴・PPTX入出力を変更しません。

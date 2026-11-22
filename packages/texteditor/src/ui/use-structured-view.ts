@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { formatTextEditorSource } from "../model/index";
 import type { TextEditorMode } from "../model/types";
 import type { TextEditorFormattingOptions, TextEditorViewMode } from "../props";
+import { useSettledText } from "./use-settled-text";
 
 type Session = {
   key: string;
@@ -35,11 +36,14 @@ export function useStructuredView(options: {
   const [stored, setStored] = useState<Session>({ key: "", view: null, literal: false, pendingText: null });
   const session: Session = stored.key === key ? stored : { key, view: null, literal: false, pendingText: null };
   const preserveInput = session.literal || session.pendingText !== null && session.pendingText === options.text;
+  // In the source view the projection only tells whether a formatted view exists, so a long
+  // source is formatted once typing pauses. The formatted view always uses the current text.
+  const settled = useSettledText(options.text, key), source = session.view === "source" ? settled : options.text;
   const projection = useMemo(() => {
-    if (!enabled || preserveInput) return { text: options.text, changed: false };
-    try { return formatTextEditorSource(options.text, { mode: options.mode, indent: config.indent }); }
-    catch { return { text: options.text, changed: false }; }
-  }, [options.text, options.mode, config.indent, enabled, preserveInput]);
+    if (!enabled || preserveInput) return { text: source, changed: false };
+    try { return formatTextEditorSource(source, { mode: options.mode, indent: config.indent }); }
+    catch { return { text: source, changed: false }; }
+  }, [source, options.mode, config.indent, enabled, preserveInput]);
   const view = session.view ?? (enabled && projection.changed && options.initialViewMode !== "source" ? "formatted" : "source");
   if (stored.key !== key || stored.view === null) setStored({ ...session, view });
   const showingFormatted = enabled && view === "formatted";

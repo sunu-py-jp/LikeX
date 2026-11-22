@@ -7,12 +7,13 @@ import { findTextEditorMatches, decodeTextEditorBytes, resolveTextEditorMode, va
 import { TEXT_EDITOR_ACTIONS } from "../actions";
 import type { EditorAdapterHandle, TextEditorAction, TextEditorSelection, TextEditorSearchQuery, TextEditorSearchDisplay, TextEditorSearchState, TextEditorPanel } from "../editor-adapter";
 import type { TextEditorHeaderActionsContext, TextEditorProps, TextEditorImportOptions, TextEditorExport, TextEditorViewMode, TextEditorReplaceOptions } from "../props";
-import type { TextEditorCommand, TextEditorModel } from "../model/types";
+import type { TextEditorCommand, TextEditorDiagnostic, TextEditorMode, TextEditorModel } from "../model/types";
 import { record } from "../model/validation";
 import { createTextEditorSearchQuery } from "./search-panel";
 import { useTextEditor } from "../state/use-text-editor";
 import { CodeEditor } from "./code-editor";
 import { useStructuredView } from "./use-structured-view";
+import { useSettledText } from "./use-settled-text";
 import { MarkdownEditor } from "./markdown-editor";
 import { useTextEditorSearch } from "../state/use-text-editor-search";
 import { ExternalSearchPanel } from "./external-search-panel";
@@ -26,6 +27,11 @@ function HeaderActions({ render, context }: {
 }
 function SearchPanelContent({ render, context }: { render: TextEditorProps["renderSearch"]; context: TextEditorSearchRenderContext }) {
   return render ? render(context) : <ExternalSearchPanel context={context} />;
+}
+function sourceDiagnostics(text: string, mode: TextEditorMode, enabled: boolean): readonly TextEditorDiagnostic[] {
+  if (!enabled) return [];
+  try { return validateTextEditorSource(text, { mode }); }
+  catch { return []; } // Oversized drafts are rejected by the normal edit path, not during rendering.
 }
 function commandAllowed(command: TextEditorAction, features: ReturnType<typeof useTextEditor>["snapshot"]["features"], showingSource: boolean) {
   if (["find", "replace", "findNext", "findPrevious", "replaceNext", "replaceAll", "selectSearchMatches"].includes(command) && !features.search) return false;
@@ -63,13 +69,11 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
   const codeIdentity = JSON.stringify([model.id, mode, viewMode, editorEpoch]);
   const [visibleCode, setVisibleCode] = useState<{ key: string; text: string } | null>(null);
   const visibleText = visibleCode?.key === codeIdentity ? visibleCode.text : displayedText;
-  const diagnostics = useMemo(() => {
-    if (!features.validation) return [];
-    try { return validateTextEditorSource(visibleText, { mode }); }
-    catch { return []; } // Oversized drafts are rejected by the normal edit path, not during rendering.
-  }, [visibleText, mode, features.validation]);
-  const live = useRef({ props, mode, showingSource, viewMode, structured, diagnostics });
-  useLayoutEffect(() => { live.current = { props, mode, showingSource, viewMode, structured, diagnostics }; });
+  // Parsing a long JSON/XML/YAML source on every keystroke stalls typing; it is checked once input pauses.
+  const checkedSource = useSettledText(visibleText, codeIdentity);
+  const diagnostics = useMemo(() => sourceDiagnostics(checkedSource, mode, features.validation), [checkedSource, mode, features.validation]);
+  const live = useRef({ props, mode, showingSource, viewMode, structured, diagnostics, visibleText, checkedSource });
+  useLayoutEffect(() => { live.current = { props, mode, showingSource, viewMode, structured, diagnostics, visibleText, checkedSource }; });
   const canEdit = snapshot.editable && features.editing;
   const hasUnsavedChanges = snapshot.dirty || pendingInput;
   const search = useTextEditorSearch({ ...props, document: model, enabled: features.search, onNavigate: (result, context) => withSource(editor => {
@@ -345,7 +349,9 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
         canSave: current.editable && current.features.save && current.dirty && !inputPending.current, canUndo: editable && current.features.history && current.canUndo,
         canRedo: editable && current.features.history && current.canRedo, features: current.features });
     },
-    getDiagnostics: () => live.current.diagnostics,
+    // Callers get diagnostics of the text as it is now, also while the on-screen ones wait for a pause.
+    getDiagnostics: () => live.current.checkedSource === live.current.visibleText ? live.current.diagnostics
+      : sourceDiagnostics(live.current.visibleText, live.current.mode, controller.getSnapshot().features.validation),
     execute, replace,
     find: options => controller.getSnapshot().features.search ? findTextEditorMatches(controller.getModel(), options) : [],
     runCommand, focus: () => adapter.current?.focus(), getSelection: () => {

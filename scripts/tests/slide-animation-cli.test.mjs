@@ -113,6 +113,42 @@ test('imported layouts are discoverable and inherited decorations remain separat
   assert.equal((await query(['--layout-id', layoutId, '--include-animations'])).json.error.code, 'USAGE');
 });
 
+test('applyMaster CLI imports a catalog, resolves source layout IDs and preserves excluded pages atomically', async () => {
+  const deck = model.createSlideDeck({ slides: ['body', 'cover', 'unchanged'].map(id => ({
+    id, name: id, background: '#ffffff', notes: '', elements: [model.createSlideElement({ id: `${id}-content`, type: 'text', text: id })],
+  })) });
+  const application = { type: 'deck.applyMaster', layoutId: 'body-layout', layoutsBySlideId: { cover: 'cover-layout', unchanged: null }, library: {
+    width: 1280, height: 720,
+    masters: [{ id: 'brand', name: 'Brand', background: '#112233', elements: [model.createSlideElement({ id: 'logo', type: 'text', text: 'Logo' })] }],
+    layouts: ['body', 'cover'].map(kind => ({ id: `${kind}-layout`, masterId: 'brand', name: kind, elements: [], placeholders: [
+      { id: `${kind}-slot`, kind: kind === 'cover' ? 'title' : 'body', element: model.createSlideElement({ id: `${kind}-prototype`, type: 'text', text: '' }) },
+    ] })),
+  } };
+  const source = path.join(temporary, 'apply-master-source.slon'), commands = path.join(temporary, 'apply-master.json'), output = path.join(temporary, 'apply-master.slon');
+  const before = model.serializeSlideDeck(deck);
+  await writeFile(source, before);
+  await writeFile(commands, JSON.stringify([application]));
+  const result = await run(['apply', '--input', source, '--commands', commands, '--output', output]);
+  assert.equal(result.status, 0, JSON.stringify(result.json));
+  const saved = await readFile(output, 'utf8'), applied = model.parseSlideDeck(saved);
+  const layouts = model.getSlideLayouts(applied), masters = model.getSlideMasters(applied);
+  assert.equal(masters.length, 1); assert.equal(masters[0].elements[0].text, 'Logo'); assert.equal(layouts.length, 2);
+  for (const kind of ['body', 'cover']) {
+    const layout = layouts.find(item => item.name === kind), page = applied.slides.find(item => item.id === kind);
+    assert.notEqual(layout.id, `${kind}-layout`); assert.equal(layout.masterId, masters[0].id);
+    assert.equal(page.layoutId, layout.id); assert.equal(page.inheritBackground, true);
+    assert.equal(model.resolveSlideAppearance(applied, page).background, '#112233');
+    assert.ok(page.elements.some(item => item.layoutPlaceholderId === layout.placeholders[0].id));
+    assert.ok(page.elements.some(item => item.id === `${kind}-content` && item.text === kind));
+  }
+  assert.deepEqual(applied.slides[2], deck.slides[2]);
+  await writeFile(commands, JSON.stringify([{ ...application, layoutsBySlideId: { cover: 'missing-layout' } }]));
+  const invalid = await run(['apply', '--input', source, '--commands', commands, '--output', output]);
+  assert.equal(invalid.status, 1); assert.ok(invalid.json.error);
+  assert.equal(await readFile(output, 'utf8'), saved);
+  assert.equal(await readFile(source, 'utf8'), before);
+});
+
 test('image inspection deduplicates bytes, preserves placements and never returns image payloads', async () => {
   const src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6xkAAAAASUVORK5CYII=';
   const bytes = Buffer.from(src.split(',')[1], 'base64'), imageId = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;

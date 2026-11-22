@@ -49,6 +49,7 @@ Coreへの参照は `slide/core.ts` に集約されています。`browser.ts`�
 | プロパティ | 型 | 省略した場合 |
 | --- | --- | --- |
 | `initialDeck` | `SlideDeck` | 空のスライド1枚 |
+| `initialMaster` | `SlideMasterApplication` | 初期マスター適用なし。全ページへの初期適用とページ別の例外を指定（[マスター](masters.md#初期表示から全ページに適用する)） |
 | `initialPageNumber` / `initialSlideId` | `number` / `string` | 先頭ページ。初回のみ適用し、両方指定すると一致を検証 |
 | `initialSearchOpen` / `initialSearchQuery` | `boolean` / `string` | 検索欄は閉じた状態・空文字。初回のみ適用（[検索](search.md)） |
 | `onSave` | `(deck) => void または Promise<void / SlideDeck>` | 読み取り専用 |
@@ -67,12 +68,14 @@ Coreへの参照は `slide/core.ts` に集約されています。`browser.ts`�
 
 `features` のキーは `addSlides`、`deleteSlides`、`reorderSlides`、`text`、`shapes`、`images`、`formatting`、`masters`、`animations`、`notes`、`import`、`export`、`presentation`、`history`、`search` です。`false` の機能は画面から隠し、対応する操作も受け付けません。
 
+「デザイン」ではPPTX／POTXからマスターだけを取り込めます。「ホーム」の「レイアウト」では、マスター名ごとのサムネイル一覧からクリックして選択ページへ適用します。「新しいスライド」横の▼からは、レイアウトを選んでページを追加できます。画面とAPIの手順は[スライドマスターの取り込みと利用](masters.md)を参照してください。
+
 ```tsx
 <LikeSlide initialDeck={deck} onSave={saveDeck}
   features={{ import: false, images: false }} style={{ height: 720 }} />
 ```
 
-`initialDeck` は初回のみ読み込みます。別の資料に切り替えるときは `<LikeSlide key={documentId} ... />` とします。認証・保存先・共同編集の競合解決は親アプリの責務です。
+`initialDeck` / `initialMaster` は初回のみ読み込みます。`initialMaster` は適用後の資料を編集・保存の初期状態とし、読み取り専用でも使えます。別の資料に切り替えるときは `<LikeSlide key={documentId} ... />` とします。認証・保存先・共同編集の競合解決は親アプリの責務です。
 
 ## スマートフォン・狭い領域での表示
 

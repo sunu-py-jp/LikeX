@@ -2,8 +2,12 @@ import { Fragment, Schema, type Node as MarkdownNode, type NodeSpec, type MarkSp
 import { AllSelection, EditorState, Selection, TextSelection, type Command, type Transaction } from "prosemirror-state";
 import { lift, setBlockType, toggleMark, wrapIn } from "prosemirror-commands";
 import { liftListItem, sinkListItem, wrapInList } from "prosemirror-schema-list";
-import { defaultMarkdownParser, defaultMarkdownSerializer, MarkdownParser, MarkdownSerializer, schema } from "prosemirror-markdown";
+import { defaultMarkdownParser, MarkdownParser, schema } from "prosemirror-markdown";
 import { checkedOffset, checkedText, record } from "../model/validation";
+import { getMarkdownCompatibilityWarnings } from "./compatibility";
+import { serializeMarkdownBlocks } from "./serializer";
+
+export { getMarkdownCompatibilityWarnings };
 
 export type MarkdownAction = "markdown.paragraph" | "markdown.heading1" | "markdown.heading2" | "markdown.heading3"
   | "markdown.bulletList" | "markdown.orderedList" | "markdown.taskList" | "markdown.quote" | "markdown.codeBlock"
@@ -79,10 +83,6 @@ const parser = new MarkdownParser(markdownSchema, defaultMarkdownParser.tokenize
     return { checked: match ? match[1] !== " " : null };
   } },
 });
-const serializer = new MarkdownSerializer({ ...defaultMarkdownSerializer.nodes,
-  list_item(state, node) { if (node.attrs.checked !== null) state.write(node.attrs.checked ? "[x] " : "[ ] "); state.renderContent(node); },
-}, defaultMarkdownSerializer.marks);
-
 function recognizeTasks(node: MarkdownNode): MarkdownNode {
   if (node.isLeaf) return node;
   const children: MarkdownNode[] = []; node.forEach(child => children.push(recognizeTasks(child)));
@@ -102,49 +102,7 @@ export function parseMarkdownDocument(source: string): MarkdownNode {
 }
 export function serializeMarkdownDocument(document: MarkdownNode): string {
   document.check();
-  return checkedText(serializer.serialize(document), "Markdown");
-}
-
-/** Extensions outside this editor's CommonMark scope remain editable in source mode. */
-export function getMarkdownCompatibilityWarnings(source: string): string[] {
-  const warnings = new Set<string>();
-  // Tokenization distinguishes code fences/inline code from extension-like text.
-  const tokens = defaultMarkdownParser.tokenizer.parse(checkedText(source, "Markdown"), {});
-  for (const token of tokens) {
-    if (token.type !== "inline") continue;
-    const text = maskInlineLiterals(token.content);
-    if (hasHtmlTag(text)) warnings.add("HTML");
-    if (/~~[^~]+~~/.test(text)) warnings.add("取り消し線");
-    if (/(?:^|\n)\s*\|?\s*:?-{3,}:?\s*\|[| :\-]*$/.test(text)
-      || /(?:^|\n)\s*\|?\s*:?-{3,}:?\s*\|(?:\s*:?-{3,}:?\s*\|?)+/m.test(text)) warnings.add("表");
-  }
-  return [...warnings];
-}
-
-function maskInlineLiterals(source: string): string {
-  let output = "";
-  for (let index = 0; index < source.length;) {
-    if (source[index] === "\\") { output += " "; index += 2; continue; }
-    if (source[index] === "`") {
-      let end = index + 1; while (source[end] === "`") end++;
-      const delimiter = source.slice(index, end), close = source.indexOf(delimiter, end);
-      if (close >= 0) { output += " "; index = close + delimiter.length; continue; }
-      output += delimiter; index = end; continue;
-    }
-    output += source[index++];
-  }
-  return output;
-}
-function hasHtmlTag(source: string): boolean {
-  for (let index = source.indexOf("<"); index >= 0; index = source.indexOf("<", index + 1)) {
-    if (!/[a-z/!]/i.test(source[index + 1] ?? "")) continue;
-    const end = source.indexOf(">", index + 1);
-    if (end < 0) return false;
-    // CommonMark autolinks remain supported; active/raw HTML stays in source mode.
-    if (!/^<(?:https?:\/\/|[a-z\d.!#$%&'*+/=?^_`{|}~-]+@)/i.test(source.slice(index, end + 1))) return true;
-    index = end;
-  }
-  return false;
+  return checkedText(serializeMarkdownBlocks(document).text, "Markdown");
 }
 
 function ancestorPosition(state: EditorState, name: string): number | undefined {
@@ -265,9 +223,17 @@ export function richSelectionCommand(action: "selectAll" | "selectLine" | "inden
   };
 }
 
+/** Replace the document, keeping unchanged leading and trailing blocks as the same nodes so views and caches only touch what changed. */
 export function markdownSelectionAfterReplace(state: EditorState, document: MarkdownNode): Transaction {
-  const transaction = state.tr.replaceWith(0, state.doc.content.size, document.content);
-  const from = Math.min(state.selection.from, transaction.doc.content.size), to = Math.min(state.selection.to, transaction.doc.content.size);
-  transaction.setSelection(TextSelection.between(transaction.doc.resolve(from), transaction.doc.resolve(to)));
+  const before = state.doc, transaction = state.tr, shared = Math.min(before.childCount, document.childCount);
+  let start = 0, from = 0;
+  while (start < shared && before.child(start).eq(document.child(start))) from += before.child(start++).nodeSize;
+  let end = 0, to = before.content.size, until = document.content.size;
+  while (end < shared - start && before.child(before.childCount - 1 - end).eq(document.child(document.childCount - 1 - end))) {
+    const size = before.child(before.childCount - 1 - end++).nodeSize; to -= size; until -= size;
+  }
+  if (from < to || from < until) transaction.replaceWith(from, to, document.content.cut(from, until));
+  const anchor = Math.min(state.selection.from, transaction.doc.content.size), head = Math.min(state.selection.to, transaction.doc.content.size);
+  transaction.setSelection(TextSelection.between(transaction.doc.resolve(anchor), transaction.doc.resolve(head)));
   return transaction;
 }

@@ -20,6 +20,19 @@ const library = () => ({ width: 1280, height: 720,
   layouts: [{ id: 'layout', masterId: 'master', name: 'Title', elements: [element('layout-decor', 'FOOTER')], placeholders: [{ id: 'title-slot', kind: 'title', element: element('title-prototype', 'Do not render this sample') }] },
     { id: 'body-layout', masterId: 'master', name: 'Body', elements: [], placeholders: [{ id: 'body-slot', kind: 'title', element: element('body-prototype') }] }] });
 const fixture = (catalog = false) => m.createSlideDeck({ ...(catalog ? library() : {}), slides: ['one', 'two', 'three'].map(id => ({ id, name: id, background: '#ffffff', notes: '', elements: [element(`local-${id}`, id)] })) });
+const multipleMasters = () => {
+  const deck = fixture(true);
+  return m.createSlideDeck({ ...deck,
+    masters: [...deck.masters,
+      { id: 'alternate-master', name: 'Alternate', background: '#563411', elements: [element('alternate-brand', 'ALTERNATE BRAND')] },
+      { id: 'empty-master', name: 'No layouts', background: '#ffffff', elements: [] }],
+    layouts: [...deck.layouts,
+      { id: 'alternate-title', masterId: 'alternate-master', name: 'Alternate title', elements: [element('alternate-footer', 'ALTERNATE FOOTER')],
+        placeholders: [{ id: 'alternate-title-slot', kind: 'title', element: element('alternate-title-prototype', 'ALTERNATE TITLE EXAMPLE') }] },
+      { id: 'alternate-body', masterId: 'alternate-master', name: 'Alternate body', elements: [],
+        placeholders: [{ id: 'alternate-body-slot', kind: 'body', element: element('alternate-body-prototype', 'ALTERNATE BODY EXAMPLE') }] }],
+  });
+};
 const decoded = () => ({ library: library(), warnings: [], diagnostics: [] });
 async function mount(t, supplied = {}, view = 'ribbon') {
   let editor, renderer, closed = false, props = { initialDeck: fixture(), onSave() {}, ...supplied };
@@ -111,40 +124,179 @@ test('cancelling an import waiting for edit permission frees the editor without 
   await change(() => wait.resolve(true)); assert.equal(app.editor.canUndo, false);
 });
 
-test('Design controls group layouts, apply selected pages atomically, detach and add from the chosen/current layout', async t => {
-  const app = await mount(t, { initialDeck: fixture(true) }); await design(app);
-  assert.deepEqual(app.renderer.root.findAllByType('optgroup').map(group => group.props.label), ['Corporate']);
-  await change(() => button(app, 'マスターを読み込む').props.onClick()); assert.equal(app.imported, 1);
+const home = app => change(() => app.renderer.root.findAllByProps({ role: 'tab' }).find(node => node.children.includes('ホーム')).props.onClick());
+const thumbnail = (app, id) => app.renderer.root.findByProps({ 'data-slide-layout-id': id });
+const galleries = app => app.renderer.root.findAll(node => node.props.role === 'dialog' && typeof node.props['aria-label'] === 'string' && node.props['aria-label'].endsWith('レイアウトを選択'));
+const openGallery = (app, mode = 'apply') => change(() => button(app, mode === 'apply' ? 'レイアウト' : '新しいスライドのレイアウト').props.onClick());
+const selectLayout = async (app, id, mode = 'apply') => { await openGallery(app, mode); await change(() => thumbnail(app, id).props.onClick()); };
+
+test('Home and Design galleries immediately apply or insert the pictured layout with atomic undo and retained selection', async t => {
+  const app = await mount(t, { initialDeck: fixture(true) });
   await change(() => app.ref.current.select({ slideId: 'two', slideIds: ['one', 'two'], elementIds: [] }));
-  await change(() => button(app, '選択したスライドにレイアウトを適用').props.onClick());
+  const before = app.ref.current.getDeck();
+  await selectLayout(app, 'layout');
   assert.deepEqual(app.ref.current.getDeck().slides.map(slide => slide.layoutId), ['layout', 'layout', undefined]);
   assert.deepEqual(app.ref.current.getSelection().slideIds, ['one', 'two']);
-  await change(() => app.ref.current.undo()); assert.equal(app.ref.current.getDeck().slides[0].layoutId, undefined);
+  assert.equal(galleries(app).length, 0);
+  await change(() => app.ref.current.undo()); assert.deepEqual(app.ref.current.getDeck(), before);
   await change(() => app.ref.current.redo());
+  await design(app);
+  await change(() => button(app, 'マスターを読み込む').props.onClick()); assert.equal(app.imported, 1);
   await change(() => button(app, 'レイアウトの継承を解除').props.onClick());
   assert.equal(app.ref.current.getDeck().slides[0].layoutId, undefined);
   assert.ok(app.ref.current.getDeck().slides[0].elements.some(element => element.text === 'BRAND'));
-  await change(() => button(app, 'スライドのレイアウト').props.onChange({ target: { value: 'body-layout' } }));
-  await change(() => button(app, 'このレイアウトで新しいスライド').props.onClick());
+  await selectLayout(app, 'body-layout', 'add');
   const current = app.ref.current.getSelection().slideId;
   assert.equal(app.ref.current.getSlide(current).layoutId, 'body-layout');
-  await change(() => app.renderer.root.findAllByProps({ role: 'tab' }).find(node => node.children.includes('ホーム')).props.onClick());
+  assert.equal(app.ref.current.getSlides().length, 4);
+  assert.equal(galleries(app).length, 0);
+  await home(app);
   await change(() => button(app, '新しいスライド').props.onClick());
   assert.equal(app.ref.current.getSlide(app.ref.current.getSelection().slideId).layoutId, 'body-layout');
 });
 
-test('layout selection remains informative without a catalog and obeys feature/readonly controls', async t => {
-  const app = await mount(t); await design(app);
-  assert.equal(button(app, 'スライドのレイアウト').props.disabled, true);
-  assert.match(app.renderer.root.findByProps({ className: 'lxp-layout-empty' }).children.join(''), /PPTX \/ POTX/);
-  await app.update({ features: { masters: false } });
-  assert.equal(app.renderer.root.findAllByProps({ 'aria-label': 'スライドのレイアウト' }).length, 0);
-  const catalog = await mount(t, { initialDeck: fixture(true), features: { formatting: false, addSlides: false } }); await design(catalog);
-  assert.equal(button(catalog, 'スライドのレイアウト').props.disabled, true);
-  assert.equal(catalog.renderer.root.findAllByProps({ 'aria-label': '選択したスライドにレイアウトを適用' }).length, 0);
-  await catalog.update({ readOnly: true, features: {} });
-  assert.equal(button(catalog, '選択したスライドにレイアウトを適用').props.disabled, true);
-  assert.equal(catalog.renderer.root.findAllByProps({ 'aria-label': 'マスターを読み込む' }).length, 0);
+test('gallery previews all masters and layout placeholders only while open, without changing data or edit state', async t => {
+  let requests = 0;
+  const events = [], app = await mount(t, { initialDeck: multipleMasters(), onEvent: event => events.push(event), onEditRequest: () => { requests++; return true; } });
+  const before = app.ref.current.getDeck(), selection = app.ref.current.getSelection();
+  assert.equal(app.renderer.root.findAllByProps({ className: 'lxp-artwork' }).length, 0);
+  await openGallery(app);
+  assert.equal(galleries(app).length, 1);
+  assert.deepEqual(app.renderer.root.findAll(node => node.props['data-slide-layout-id']).map(node => node.props['data-slide-layout-id']),
+    ['layout', 'body-layout', 'alternate-title', 'alternate-body']);
+  assert.equal(thumbnail(app, 'layout').props['aria-label'], 'Corporate / Title');
+  const preview = thumbnail(app, 'alternate-title');
+  assert.equal(preview.props['aria-label'], 'Alternate / Alternate title');
+  assert.equal(preview.findByProps({ className: 'lxp-artwork' }).props.style.background, '#563411');
+  assert.deepEqual(preview.findAllByProps({ className: 'lxp-element-text' }).map(node => node.children.join('')),
+    ['ALTERNATE BRAND', 'ALTERNATE FOOTER', 'ALTERNATE TITLE EXAMPLE']);
+  assert.deepEqual(app.ref.current.getDeck(), before);
+  assert.deepEqual(app.ref.current.getSelection(), selection);
+  assert.equal(app.editor.dirty, false); assert.equal(app.editor.canUndo, false);
+  assert.equal(requests, 0);
+  assert.equal(events.filter(event => event.type === 'change').length, 0);
+  await openGallery(app);
+  assert.equal(galleries(app).length, 0);
+  assert.equal(app.renderer.root.findAllByProps({ className: 'lxp-artwork' }).length, 0);
+});
+
+test('thumbnail selection distinguishes matching layout names across masters and never inserts sample text', async t => {
+  const deck = multipleMasters();
+  const initialDeck = m.createSlideDeck({ ...deck, layouts: deck.layouts.map(layout => layout.id === 'alternate-title' ? { ...layout, name: 'Title' } : layout) });
+  const app = await mount(t, { initialDeck });
+  await change(() => app.ref.current.select({ slideId: 'two', slideIds: ['one', 'two'], elementIds: [] }));
+  await openGallery(app);
+  assert.equal(thumbnail(app, 'layout').props['aria-label'], 'Corporate / Title');
+  assert.equal(thumbnail(app, 'alternate-title').props['aria-label'], 'Alternate / Title');
+  await change(() => thumbnail(app, 'alternate-title').props.onClick());
+  assert.deepEqual(app.ref.current.getSlides().map(slide => slide.layoutId), ['alternate-title', 'alternate-title', undefined]);
+  assert.deepEqual(app.ref.current.getSelection().slideIds, ['one', 'two']);
+  assert.ok(app.ref.current.getSlide('one').elements.some(item => item.id === 'local-one' && item.text === 'one'));
+  assert.equal(app.ref.current.getSlide('one').elements.find(item => item.layoutPlaceholderId).text, '', 'thumbnail prompt is never page content');
+  await change(() => app.ref.current.undo()); assert.deepEqual(app.ref.current.getDeck(), initialDeck);
+  await change(() => app.ref.current.redo());
+  await openGallery(app);
+  assert.equal(thumbnail(app, 'alternate-title').props['aria-pressed'], true);
+  assert.equal(thumbnail(app, 'layout').props['aria-pressed'], false);
+});
+
+test('applied-layout highlight follows all selected pages and galleries close when the target or layout changes', async t => {
+  const initialDeck = m.applySlideCommands(multipleMasters(), [
+    { type: 'slide.applyLayout', slideId: 'one', layoutId: 'alternate-title' },
+    { type: 'slide.applyLayout', slideId: 'two', layoutId: 'body-layout' },
+  ]).deck;
+  const app = await mount(t, { initialDeck });
+  await openGallery(app);
+  assert.equal(thumbnail(app, 'alternate-title').props['aria-pressed'], true);
+  const staleSelect = thumbnail(app, 'alternate-body').props.onClick;
+  await change(() => app.ref.current.select({ slideId: 'two', elementIds: [] }));
+  assert.equal(galleries(app).length, 0);
+  await change(staleSelect);
+  assert.deepEqual(app.ref.current.getDeck(), initialDeck, 'a dismissed gallery cannot edit a newly selected page');
+  await openGallery(app);
+  assert.equal(thumbnail(app, 'body-layout').props['aria-pressed'], true);
+  await change(() => app.ref.current.select({ slideId: 'two', slideIds: ['one', 'two'], elementIds: [] }));
+  assert.equal(galleries(app).length, 0);
+  await openGallery(app);
+  assert.equal(app.renderer.root.findAll(node => node.props['data-slide-layout-id'] && node.props['aria-pressed']).length, 0);
+  await change(() => app.ref.current.execute({ type: 'slide.applyLayout', slideId: 'two', layoutId: 'alternate-title' }));
+  assert.equal(galleries(app).length, 0);
+  await openGallery(app);
+  assert.equal(thumbnail(app, 'alternate-title').props['aria-pressed'], true);
+});
+
+test('undoing a catalog import closes its gallery and cannot apply a removed thumbnail', async t => {
+  const app = await mount(t, { initialDeck: fixture(true) }); let imported;
+  await change(async () => { imported = await app.ref.current.execute({ type: 'masters.import', library: library() }); });
+  await openGallery(app);
+  const staleSelect = thumbnail(app, imported.layoutIds[0]).props.onClick;
+  await change(() => app.ref.current.undo());
+  assert.equal(galleries(app).length, 0);
+  await change(staleSelect);
+  assert.equal(app.editor.canUndo, false);
+  assert.equal(app.ref.current.getSlides().some(slide => slide.layoutId), false);
+  await openGallery(app);
+  assert.deepEqual(app.renderer.root.findAll(node => node.props['data-slide-layout-id']).map(node => node.props['data-slide-layout-id']), ['layout', 'body-layout']);
+});
+
+test('empty catalogs and masters remain informative without offering invalid layout actions', async t => {
+  const empty = await mount(t); await design(empty);
+  assert.match(JSON.stringify(empty.renderer.toJSON()), /PPTX|POTX/);
+  for (const name of ['レイアウト', '新しいスライドのレイアウト']) {
+    const triggers = empty.renderer.root.findAllByProps({ 'aria-label': name });
+    for (const trigger of triggers) assert.equal(trigger.props.disabled, true);
+  }
+  const app = await mount(t, { initialDeck: multipleMasters() });
+  await openGallery(app);
+  assert.match(JSON.stringify(app.renderer.toJSON()), /No layouts/);
+  assert.equal(app.renderer.root.findAll(node => node.props['data-slide-layout-id']).length, 4);
+  await design(app);
+  assert.equal(galleries(app).length, 0);
+});
+
+test('readonly, feature and in-progress changes revoke layout actions including stale callbacks', async t => {
+  for (const [mode, feature] of [['apply', 'formatting'], ['add', 'addSlides']]) {
+    const app = await mount(t, { initialDeck: fixture(true) });
+    await openGallery(app, mode);
+    const staleSelect = thumbnail(app, 'layout').props.onClick, before = app.ref.current.getDeck();
+    await app.update({ features: { [feature]: false } });
+    assert.equal(galleries(app).length, 0);
+    await change(staleSelect); assert.deepEqual(app.ref.current.getDeck(), before);
+  }
+  for (const patch of [{ readOnly: true }, { features: { masters: false } }]) {
+    const app = await mount(t, { initialDeck: fixture(true) });
+    await openGallery(app);
+    const staleSelect = thumbnail(app, 'layout').props.onClick, before = app.ref.current.getDeck();
+    await app.update(patch);
+    assert.equal(galleries(app).length, 0);
+    await change(staleSelect); assert.deepEqual(app.ref.current.getDeck(), before);
+    await design(app);
+    for (const trigger of app.renderer.root.findAllByProps({ 'aria-label': 'レイアウト' })) assert.equal(trigger.props.disabled, true);
+    assert.equal(app.renderer.root.findAllByProps({ 'aria-label': 'マスターを読み込む' }).length, 0);
+  }
+  const wait = deferred(), app = await mount(t, { initialDeck: fixture(true) }); let pending;
+  globalThis.__slideMasterDecoder = async () => { await wait.promise; return decoded(); };
+  await openGallery(app);
+  const staleSelect = thumbnail(app, 'layout').props.onClick;
+  await change(() => { pending = app.ref.current.importPptxMasters(new Uint8Array()); });
+  assert.equal(galleries(app).length, 0);
+  await change(staleSelect); assert.equal(app.ref.current.getSlides().some(slide => slide.layoutId), false);
+  await change(async () => { wait.resolve(); await pending; });
+});
+
+test('new-slide gallery cancels insertion when the active page changes while edit permission is pending', async t => {
+  const permission = deferred();
+  const app = await mount(t, { initialDeck: fixture(true), onEditRequest: () => permission.promise });
+  const before = app.ref.current.getDeck();
+  await openGallery(app, 'add');
+  await change(() => thumbnail(app, 'body-layout').props.onClick());
+  assert.equal(galleries(app).length, 0);
+  assert.equal(app.editor.requesting, true);
+  await change(() => app.ref.current.select({ slideId: 'two', elementIds: [] }));
+  await change(() => permission.resolve(true));
+  assert.deepEqual(app.ref.current.getDeck(), before);
+  assert.equal(app.ref.current.getSelection().slideId, 'two');
+  assert.equal(app.editor.canUndo, false);
 });
 
 test('layout application rejects a selection changed during permission and obeys API feature guards', async t => {

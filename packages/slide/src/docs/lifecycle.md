@@ -24,6 +24,8 @@ import { serializeSlideDeck } from "@likex/slide/model";
 
 `onEditRequest` は最初の変更前に呼びます。省略すると許可します。`false` が返った場合は変更しません。サーバー上のロック解除・有効期限・保存時のバージョン検証は親アプリで管理してください。
 
+`initialMaster` は `initialDeck` と同じく初期データの指定です。適用後の資料を保存・未保存判定の基準にし、初期適用だけでは `onEditRequest`・`onChange`・Undo履歴を発生させません。表示中に全ページへ適用する `deck.applyMaster` は通常の編集として許可・通知・履歴の経路を通ります。[初期マスターの指定](masters.md#初期表示から全ページに適用する)を参照してください。
+
 ## コールバック
 
 | プロパティ | 受け取る値 | 用途 |

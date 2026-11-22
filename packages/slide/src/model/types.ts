@@ -109,6 +109,14 @@ export type SlideLayoutPlaceholder = { id: string; kind: string; element: SlideE
 export type SlideLayout = { id: string; masterId: string; name: string; background?: string; elements: SlideElement[];
   placeholders: SlideLayoutPlaceholder[]; showMasterShapes?: boolean };
 export type SlideMasterLibrary = { width: number; height: number; masters: SlideMaster[]; layouts: SlideLayout[] };
+/** Apply one default layout to every current page, with explicit per-page exceptions.
+ * With library, layout IDs refer to that source library and are remapped on import. */
+export type SlideMasterApplication = {
+  library?: SlideMasterLibrary;
+  layoutId: string;
+  /** Page IDs belong to the destination deck. null leaves that page unchanged. */
+  layoutsBySlideId?: Record<string, string | null>;
+};
 export type SlideAppearance = { background: string; inheritedElements: SlideElement[]; localElements: SlideElement[] };
 export type SlideDeck = {
   /** Optional for programmatic runtime input; normalized output and native files always include it. */
@@ -132,6 +140,7 @@ export type SlideElementPatch =
   | Partial<Omit<SlideShapeElement, "id" | "type">>
   | Partial<Omit<SlideImageElement, "id" | "type">>;
 export type SlideCommand =
+  | ({ type: "deck.applyMaster" } & SlideMasterApplication)
   | { type: "deck.rename"; title: string }
   | { type: "deck.resize"; width: number; height: number }
   | { type: "masters.import"; library: SlideMasterLibrary }

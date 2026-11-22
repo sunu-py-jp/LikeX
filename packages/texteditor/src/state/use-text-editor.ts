@@ -1,13 +1,22 @@
 "use client";
 import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react";
 import { createModelEditorController, type ModelEditorAdapter } from "../core";
-import { createTextEditorModel, normalizeTextEditorModel, serializeTextEditorModel, executeTextEditorCommands } from "../model/index";
+import { createTextEditorModel, normalizeTextEditorModel, executeTextEditorCommands } from "../model/index";
 import type { TextEditorModel, TextEditorCommand } from "../model/types";
 import type { TextEditorProps, TextEditorFeature } from "../props";
 
+/**
+ * The controller only compares this value to detect changes and unsaved state. Escaping the
+ * whole text into JSON on every edit is the slow part for a large file, so the text is kept
+ * as is after one line that holds the other fields.
+ */
+function textEditorIdentity(input: TextEditorModel): string {
+  const model = normalizeTextEditorModel(input);
+  return `${JSON.stringify([model.id, model.title, model.mode])}\n${model.text}`;
+}
 export const textEditorAdapter: ModelEditorAdapter<TextEditorModel, TextEditorCommand, TextEditorFeature> = {
   normalize: normalizeTextEditorModel,
-  serialize: serializeTextEditorModel,
+  serialize: textEditorIdentity,
   execute: executeTextEditorCommands,
   features: ["editing", "history", "import", "export", "search", "replace", "formatting", "validation", "save", "refresh"],
   getCommandFeatures: command => {

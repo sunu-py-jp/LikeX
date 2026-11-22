@@ -4,6 +4,7 @@ import "./styles.css";
 const demos = {
   mobile: lazy(() => import("./mobile-demo")),
   texteditor: lazy(() => import("./texteditor-demo")),
+  "texteditor/large": lazy(() => import("./texteditor-large-demo")),
   "external-search": lazy(() => import("./external-search-demo")),
   thumbnails: lazy(() => import("./thumbnails-demo")),
   explorer: lazy(() => import("./explorer-demo")),

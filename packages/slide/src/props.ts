@@ -1,7 +1,7 @@
 import type { CSSProperties, Ref } from "react";
 import type { MaybePromise, OperationContext, SaveHandler, RibbonDisplayMode, SearchPanelHandle, SearchPanelInitialState, ExternalSearchOptions, ResponsiveLayout } from "./core";
 export type { ResponsiveLayout } from "./core";
-import type { Slide, SlideElement, SlideCommand, SlideCommandResult, SlideDeck, SlideMaster, SlideLayout } from "./model/types";
+import type { Slide, SlideElement, SlideCommand, SlideCommandResult, SlideDeck, SlideMaster, SlideLayout, SlideMasterApplication } from "./model/types";
 import type { SlideAnimationStep, SlideQueryOptions } from "./model";
 import type { SlideConditionalEdit, SlideConditionalEditResult, SlideMutationSnapshot, SlideMutationToken } from "./model";
 import type { SlidePptxImportOptions } from "./import/import-pptx";
@@ -86,6 +86,10 @@ export type SlideHandle = SearchPanelHandle & {
 export type SlideProps = SearchPanelInitialState & {
   ref?: Ref<SlideHandle>;
   initialDeck?: SlideDeck;
+  /** Apply a master/layout to the initial pages once, before rendering. The result is
+   * the saved baseline (also in readOnly mode), not a visual overlay. Invalid options
+   * retain the original deck and show an error. Later prop changes are ignored. */
+  initialMaster?: SlideMasterApplication;
   /** Host-ranked results for this deck; list text is not run as a local search. */
   externalSearch?: ExternalSearchOptions<SlideExternalSearchTarget>;
   /** One-based initial page, read once at mount. Invalid targets show a notice and use page one. */

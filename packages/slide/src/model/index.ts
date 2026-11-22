@@ -13,6 +13,8 @@ export type { SlideTextMeasureStyle, SlideTextMeasure, SlideTextLayout, SlideLay
 
 export { isSlideLine, getSlideLineEndpoints, getSlideLineRoute, getSlideConnectorOutline } from "./lines";
 export { getSlideMasters, getSlideLayouts, getSlideLayout, resolveSlideAppearance } from "./layouts";
+export { applySlideMaster } from "./master-application";
+export type { SlideMasterApplicationResult } from "./master-application";
 export { createSlideSvgSource } from "./svg-source";
 export { collectSlideImages } from "./image-collection";
 export type { SlideImageAsset, SlideImagePlacement, SlideImageCollection, SlideImageCollectionOptions } from "./image-collection";

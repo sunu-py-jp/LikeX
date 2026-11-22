@@ -712,3 +712,39 @@ test('structured formatting supports XML and YAML projections and mounted text.f
   await act(async () => { assert.ok(await ui.ref.current.execute({ type: 'text.format', indent: 4 })); });
   assert.equal(ui.ref.current.getText(), '{\n    "a": 1\n}');
 });
+
+test('a long source is checked and formatted once typing pauses; the API and unsaved state stay current', async t => {
+  const pause = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 360)); });
+  const data = { items: Array.from({ length: 4000 }, (_, index) => ({ id: index, name: `item ${index}` })) };
+  const valid = JSON.stringify(data, null, 2), broken = valid.slice(0, -1);
+  assert.ok(valid.length > 50_000);
+  const ui = await mount(t, { initialText: valid, mode: 'json', formatting: { indent: 2 } });
+  const shown = () => ui.renderer.root.findAllByProps({ className: 'lxte-diagnostic' }).length;
+  assert.equal(ui.ref.current.getState().viewMode, 'source');
+  assert.deepEqual(ui.ref.current.getDiagnostics(), []);
+
+  assert.equal(await ui.type(broken), true);
+  assert.equal(shown(), 0, 'the status bar keeps the last result while input continues');
+  assert.ok(ui.ref.current.getDiagnostics().length, 'callers always get diagnostics of the current text');
+  assert.equal(ui.ref.current.getState().dirty, true);
+  await pause();
+  assert.equal(shown(), 1);
+
+  assert.equal(await ui.type(valid), true);
+  assert.equal(ui.ref.current.getState().dirty, false, 'typing the saved text back is not an unsaved change');
+  assert.deepEqual(ui.ref.current.getDiagnostics(), []);
+  await pause();
+  assert.equal(shown(), 0);
+
+  assert.equal(ui.button('整形表示'), undefined, 'already formatted: no formatted view is offered');
+  assert.equal(await ui.type(JSON.stringify(data)), true);
+  assert.equal(ui.button('整形表示'), undefined, 'a long source is not reformatted on every keystroke');
+  await pause();
+  assert.ok(ui.button('整形表示'));
+  await ui.click('整形表示');
+  assert.equal(ui.editor.props.value, valid, 'the formatted view is built from the current text');
+
+  const short = await mount(t, { initialText: '{"a":1}', mode: 'json' });
+  assert.equal(await short.type('{"a":'), true);
+  assert.equal(short.renderer.root.findAllByProps({ className: 'lxte-diagnostic' }).length, 1, 'short sources are checked immediately');
+});

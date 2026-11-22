@@ -48,7 +48,7 @@ export function createSlideSession(initialDeck?: SlideDeck): SlideSession {
     if (past.length > SLIDE_LIMITS.history) past.shift();
     future.length = 0;
   };
-  const structuralCommands = new Set(["masters.import", "slide.add", "slide.delete", "slide.duplicate", "slide.move", "slide.applyLayout", "slide.detachLayout", "slide.replaceContent", "element.add", "element.delete", "element.duplicate", "element.order", "line.add"]);
+  const structuralCommands = new Set(["deck.applyMaster", "masters.import", "slide.add", "slide.delete", "slide.duplicate", "slide.move", "slide.applyLayout", "slide.detachLayout", "slide.replaceContent", "element.add", "element.delete", "element.duplicate", "element.order", "line.add"]);
   const markStructuralCommands = (commands: SlideCommand | readonly SlideCommand[]) => {
     if ((Array.isArray(commands) ? commands : [commands]).some(command => structuralCommands.has(command.type))) structureRevision++;
   };

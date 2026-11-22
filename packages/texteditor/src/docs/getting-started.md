@@ -144,6 +144,8 @@ JSONは数値や文字列の記法とキーの順序を維持し、XMLは混在�
 
 JSON・XML・YAMLの構文エラーは、整形表示の設定にかかわらず、下部へ赤字の説明と行・列を表示します。これは入力途中の本文を拒否する機能ではありません。診断を無効にする場合は `features={{ validation: false }}`、診断を取得する場合は `ref.getDiagnostics()` を使います。JSON SchemaやXML Schemaなどに基づく意味検証は行いません。
 
+本文が5万文字以上の場合、構文エラーの表示と整形表示の有無の判定は、入力が約0.3秒止まってから更新します。入力のたびに全文を解析して操作が止まるのを避けるためで、`getDiagnostics()` は常に現在の本文の結果を返します。大きなファイルの扱いは[サイズ](commands.md#サイズ)にまとめています。
+
 画面なしでは `formatTextEditorSource` と `validateTextEditorSource`、保存対象の整形は `text.format` コマンドを利用できます。[モデルAPI](commands.md)と[表示中の制御](ref-api.md#整形表示と診断の取得)に利用例を掲載しています。
 
 ## ソースコピーとNext.js
