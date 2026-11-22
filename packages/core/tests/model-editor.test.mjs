@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 const bundle = await build({ entryPoints: [new URL('../src/editor/create-model-editor-controller.ts', import.meta.url).pathname], bundle: true, write: false, format: 'esm', platform: 'node' });
-const { createModelEditorController } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
+const { createModelEditorController, MODEL_EDITOR_HISTORY_LIMITS: historyLimits } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
 const seed = () => ({ title: 'Original', value: 0, items: [] });
 const adapter = {
   normalize(input) { if (!input || typeof input.title !== 'string' || !Number.isFinite(input.value) || !Array.isArray(input.items)) throw new Error('Invalid model'); return { title: input.title, value: input.value, items: [...input.items] }; },
@@ -205,4 +205,119 @@ test('synchronous cancellation from lifecycle observers prevents host dispatch',
   await c.execute(edit(1)); assert.equal(await c.save(), false); assert.equal(saves, 0);
   assert.equal(await c.refresh({ discardChanges: true }), false); assert.equal(refreshes, 0);
   assert.equal(c.getModel().value, 1); assert.equal(c.getSnapshot().dirty, true); assert.equal(c.getSnapshot().busy, null);
+});
+
+// Every edit without a history group is its own undo step. `value` counts the edits, so it also tells which step is current.
+const weighted = getHistoryWeight => createModelEditorController({ ...adapter, getHistoryWeight }, seed(), { onSave() {} });
+async function editTimes(controller, count, from = 1) { for (let value = from; value < from + count; value++) await controller.execute(edit(value)); }
+async function undoAll(controller) { let steps = 0; while (await controller.undo()) steps++; return steps; }
+async function redoAll(controller) { let steps = 0; while (await controller.redo()) steps++; return steps; }
+
+test('history without a weight hook keeps the latest 100 steps', async () => {
+  assert.deepEqual(historyLimits, { entries: 100, weight: 64 * 1024 * 1024, protectedEntries: 5 }); assert.ok(Object.isFrozen(historyLimits));
+  const c = editor(); await editTimes(c, 130);
+  assert.equal(await undoAll(c), 100); assert.equal(c.getModel().value, 30); assert.equal(c.getSnapshot().canUndo, false);
+  assert.equal(await redoAll(c), 100); assert.equal(c.getModel().value, 130);
+});
+
+test('light weighted models and invalid weights keep the same 100 steps', async () => {
+  const light = Math.floor(historyLimits.weight / 101);
+  for (const weight of [() => light, () => 0, () => -5, () => NaN, () => Infinity, () => '900000000', () => undefined]) {
+    const c = weighted(weight); await editTimes(c, 130);
+    assert.equal(await undoAll(c), 100); assert.equal(c.getModel().value, 30);
+  }
+});
+
+test('weighted history drops the oldest steps first and keeps redo intact', async () => {
+  const calls = [], tenth = Math.floor(historyLimits.weight / 10);
+  const c = weighted(model => { calls.push(model.value); return tenth; });
+  await editTimes(c, 30);
+  // The current model and nine earlier ones fill the budget.
+  assert.equal(c.getSnapshot().canUndo, true);
+  assert.equal(await undoAll(c), 9); assert.equal(c.getModel().value, 21); assert.equal(c.getSnapshot().canUndo, false);
+  assert.equal(await redoAll(c), 9); assert.equal(c.getModel().value, 30); assert.equal(c.getSnapshot().canRedo, false);
+  // Undo and redo move the same models around, so they never drop a step.
+  assert.equal(await undoAll(c), 9); assert.equal(await redoAll(c), 9);
+  assert.equal(await c.undo(), true); assert.equal(c.getModel().value, 29);
+  // Each model is weighed once, when it becomes the current model.
+  assert.deepEqual(calls, Array.from({ length: 31 }, (_unused, value) => value));
+});
+
+test('models that fill the budget exactly are all kept', async () => {
+  const c = weighted(() => historyLimits.weight / 8); await editTimes(c, 20);
+  assert.equal(await undoAll(c), 7); assert.equal(c.getModel().value, 13);
+});
+
+test('the latest steps stay even when a single model exceeds the budget', async () => {
+  const c = weighted(() => historyLimits.weight * 2); await editTimes(c, 12);
+  assert.equal(await undoAll(c), historyLimits.protectedEntries); assert.equal(c.getModel().value, 12 - historyLimits.protectedEntries);
+  assert.equal(await redoAll(c), historyLimits.protectedEntries);
+});
+
+test('a model that grows heavy trims older steps, and lighter models fill the history again', async () => {
+  const heavy = historyLimits.weight / 8 - 1000, c = weighted(model => model.value >= 50 && model.value <= 58 ? heavy : 1);
+  await editTimes(c, 49); assert.equal(await undoAll(c), 49); await redoAll(c);
+  // Eight heavy models (50..57) and the 50 light ones before them fit the budget.
+  await editTimes(c, 8, 50); assert.equal(await undoAll(c), 57); await redoAll(c);
+  // The ninth does not: the light steps and the oldest heavy one go, the newest eight models stay.
+  await editTimes(c, 1, 58); assert.equal(await undoAll(c), 7); assert.equal(c.getModel().value, 51); await redoAll(c);
+  // Light edits continue. The heavy steps fit beside them, so only the count limit removes steps now.
+  await editTimes(c, 200, 59); assert.equal(await undoAll(c), 100); assert.equal(c.getModel().value, 158);
+});
+
+test('grouped edits are weighed by their latest model and keep their undo step', async () => {
+  const half = historyLimits.weight / 2 - 1000, c = weighted(model => model.value >= 100 ? half : 1);
+  await editTimes(c, 20);
+  // One group: a light model, then two heavy ones. Each replaces the current model without adding a step.
+  for (const value of [21, 100, 101]) await c.execute(edit(value), { historyGroup: 'typing' });
+  assert.equal(await undoAll(c), 21); assert.equal(c.getModel().value, 0); await redoAll(c); assert.equal(c.getModel().value, 101);
+  // A second heavy model still fits. The third does not, so older steps go and the protected ones stay.
+  await c.execute(edit(102)); assert.equal(await undoAll(c), 22); await redoAll(c);
+  await c.execute(edit(103)); assert.equal(await undoAll(c), historyLimits.protectedEntries); assert.equal(c.getModel().value, 18);
+  // A group whose current model outgrows the budget drops old steps without adding one, and keeps the step it started from.
+  const grown = weighted(model => model.value >= 100 ? historyLimits.weight : 1); await editTimes(grown, 20);
+  for (const value of [21, 100]) await grown.execute(edit(value), { historyGroup: 'typing' });
+  assert.equal(await grown.undo(), true); assert.equal(grown.getModel().value, 20);
+  assert.equal(await undoAll(grown), historyLimits.protectedEntries - 1); assert.equal(grown.getModel().value, 16);
+});
+
+test('refresh, discard and save keep the current weight in step with the current model', async () => {
+  const getHistoryWeight = model => model.value >= 1000 ? historyLimits.weight : 1, heavy = { ...seed(), value: 1000 };
+  const create = (initial, options = {}) => createModelEditorController({ ...adapter, getHistoryWeight }, initial, { onSave() {}, ...options });
+  // Ten light edits keep ten steps when they start from a light model. A heavy starting model is the
+  // oldest step and leaves once more than the protected steps exist, which leaves nine.
+  const stepsAfter = async controller => { await editTimes(controller, 10); return undoAll(controller); };
+
+  const refreshedToLight = create(heavy, { onRefresh: () => seed() });
+  assert.equal(await refreshedToLight.refresh(), true); assert.equal(await stepsAfter(refreshedToLight), 10); assert.equal(refreshedToLight.getModel().value, 0);
+
+  const refreshedToHeavy = create(seed(), { onRefresh: () => heavy });
+  assert.equal(await refreshedToHeavy.refresh(), true); await refreshedToHeavy.execute(edit(5)); assert.equal(refreshedToHeavy.discard(), true);
+  assert.equal(refreshedToHeavy.getModel().value, 1000); assert.equal(await stepsAfter(refreshedToHeavy), 9); assert.equal(refreshedToHeavy.getModel().value, 1);
+
+  const discardedToLight = create(seed());
+  await discardedToLight.execute(edit(1000)); assert.equal(discardedToLight.discard(), true);
+  assert.equal(await stepsAfter(discardedToLight), 10); assert.equal(discardedToLight.getModel().value, 0);
+
+  // Saving makes the heavy model the baseline, with or without a reconciled result from the host.
+  for (const [first, onSave] of [[1000, () => {}], [1, model => ({ ...model, value: model.value + 1000 })]]) {
+    const saved = create(seed(), { onSave });
+    await saved.execute(edit(first)); assert.equal(await saved.save(), true);
+    await saved.execute(edit(5)); assert.equal(saved.discard(), true); assert.ok(saved.getModel().value >= 1000);
+    assert.equal(await stepsAfter(saved), 9); assert.equal(saved.getModel().value, 1);
+  }
+});
+
+test('weight trimming keeps the feature requirements of the remaining steps', async () => {
+  const c = weighted(() => historyLimits.weight / 10); await editTimes(c, 20); await c.execute({ type: 'item', value: 'a' }); await editTimes(c, 3, 21);
+  c.configure({ onSave() {}, features: { structure: false } });
+  assert.equal(await undoAll(c), 3); assert.equal(c.getSnapshot().canUndo, false); assert.deepEqual(c.getModel().items, ['a']);
+  c.configure({ onSave() {} }); assert.equal(await undoAll(c), 6); assert.deepEqual(c.getModel().items, []);
+});
+
+test('a failing weight hook rejects the edit without leaving a partial change', async () => {
+  let fail = false; const c = weighted(() => { if (fail) throw new Error('Weight failed'); return 1; });
+  await editTimes(c, 2); fail = true;
+  assert.equal(await c.execute(edit(3)), null); assert.equal(c.getModel().value, 2); assert.match(c.getSnapshot().notice.text, /Weight failed/);
+  fail = false; assert.equal(await undoAll(c), 2); assert.equal(await redoAll(c), 2); assert.equal(c.getSnapshot().busy, null);
 });

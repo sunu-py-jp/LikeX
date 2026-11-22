@@ -5480,6 +5480,11 @@
         "depth": 2
       },
       {
+        "id": "履歴の上限",
+        "title": "履歴の上限",
+        "depth": 3
+      },
+      {
         "id": "jsonxmlyamlのモデル作成",
         "title": "JSON・XML・YAMLのモデル作成",
         "depth": 3
@@ -5749,6 +5754,11 @@
       {
         "id": "非同期処理",
         "title": "非同期処理",
+        "depth": 2
+      },
+      {
+        "id": "履歴の上限",
+        "title": "履歴の上限",
         "depth": 2
       }
     ]

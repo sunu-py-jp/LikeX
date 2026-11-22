@@ -46,7 +46,7 @@ const features = resolveFeatureFlags({ download: true, edit: true }, { edit: fal
 
 `createUnsavedChangesGuard()` は登録されたWindowの `beforeunload` をdirty時だけ有効にします。ネイティブ確認文言はブラウザが決めます。SPA内の遷移確認・サーバーロック・認証・永続化自体は扱いません。
 
-`createModelEditorController(adapter, initialModel, options)` はJSON編集コンポーネント向けの履歴・未保存状態・編集許可・保存を共有します。`requestEdit()` / `cancelEditRequest()` / `endEdit()` / `getEditState()` で `view / requesting / edit` を制御できます。`endEdit()` は未保存変更や実行中の処理がある場合に `false` を返し、変更を消しません。`discard()` は保存済みの状態へ戻し履歴を消します。`save()` は `onBeforeSave(model, context)` と `onSave(model, context)` に同じ `OperationContext` を渡します。キャンセルや編集可否の変更後に返った結果は反映しません。
+`createModelEditorController(adapter, initialModel, options)` はJSON編集コンポーネント向けの履歴・未保存状態・編集許可・保存を共有します。`requestEdit()` / `cancelEditRequest()` / `endEdit()` / `getEditState()` で `view / requesting / edit` を制御できます。`endEdit()` は未保存変更や実行中の処理がある場合に `false` を返し、変更を消しません。`discard()` は保存済みの状態へ戻し履歴を消します。履歴は最大100回分です。adapterが任意の `getHistoryWeight(model)` でモデルのおおよそのバイト数を返す場合は、現在のモデルと履歴の合計が `MODEL_EDITOR_HISTORY_LIMITS.weight`（64 MiB）を超える編集で古い履歴から削除し、直近5回分は保持します。`save()` は `onBeforeSave(model, context)` と `onSave(model, context)` に同じ `OperationContext` を渡します。キャンセルや編集可否の変更後に返った結果は反映しません。
 
 同コントローラーの `refresh({ discardChanges?: boolean })` は `onRefresh(context)` から文書を取得し、検証できた場合だけ現在の文書と保存済みの基準を置き換えて履歴を消します。閲覧専用でも使えます。未保存変更がある場合は既定で拒否し、明示的な `discardChanges: true` が必要です。読み込み失敗時は変更も履歴も保持します。`onEvent` は `save` / `refresh` の `start / success / cancelled / error` と、`change` の `refresh` 発生元を通知します。`save` / `refresh` / `editing` がアダプターの機能一覧に登録されている場合は、それぞれの機能フラグも確認します。画面に入力途中の文字が残っている場合の保護やページ離脱確認はUI層で接続します。
 

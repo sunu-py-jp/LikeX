@@ -2,14 +2,22 @@ import type { OperationContext } from "../contracts";
 import type { ModelEditorAdapter, ModelEditorEvent, ModelEditorExecuteOptions, ModelEditorNotice, ModelEditorOptions, ModelEditorSnapshot, ModelEditorTaskContext } from "./types";
 
 type Operation = OperationContext & { token: number; epoch: number };
+/**
+ * Undo history keeps at most `entries` steps. When the adapter reports a weight for its models, the
+ * current model and every kept step together also stay within `weight` bytes: the oldest steps are
+ * dropped first, and the latest `protectedEntries` steps always remain.
+ */
+export const MODEL_EDITOR_HISTORY_LIMITS = Object.freeze({ entries: 100, weight: 64 * 1024 * 1024, protectedEntries: 5 });
 /** Shared, React-free host coordination for independent JSON editors. */
 export function createModelEditorController<M, C, F extends string>(adapter: ModelEditorAdapter<M, C, F>, initialModel: M, initialOptions: ModelEditorOptions<M, F> = {}) {
   let options = initialOptions, model = freeze(initialModel), modelJson = adapter.serialize(model), baseline = modelJson;
   let baselineModel = model, alive = true, epoch = 0, token = 0, abort = new AbortController();
   let busy: ModelEditorSnapshot<M, F>["busy"] = null, editMode: ModelEditorSnapshot<M, F>["editMode"] = "view", notice: ModelEditorNotice | null = null;
   let lastGroup: string | undefined, lastTime = 0;
-  type HistoryEntry = { model: M; features: readonly F[] };
+  type HistoryEntry = { model: M; features: readonly F[]; weight: number };
   const past: HistoryEntry[] = [], future: HistoryEntry[] = [], listeners = new Set<() => void>();
+  // Models are frozen, so a weight is measured once and travels with its model through undo and redo.
+  let modelWeight = weigh(model), baselineWeight = modelWeight;
   let flags = resolve(), readonly = isReadOnly();
   let snapshot = makeSnapshot();
   function freeze(value: M): M {
@@ -17,6 +25,16 @@ export function createModelEditorController<M, C, F extends string>(adapter: Mod
     const copy = adapter.normalize(structuredClone(value));
     function visit(input: unknown) { if (input !== null && typeof input === "object") { for (const child of Object.values(input)) visit(child); Object.freeze(input); } }
     visit(copy); return copy;
+  }
+  /** Adapters without the hook, and invalid results, weigh nothing: only the step count limits them. */
+  function weigh(value: M) { const weight = adapter.getHistoryWeight?.(value); return typeof weight === "number" && Number.isFinite(weight) && weight > 0 ? weight : 0; }
+  /**
+   * Undo and redo only move models between the current position and the two lists, so the total
+   * changes only when an edit brings in a new model. Redo steps are cleared by then.
+   */
+  function trimHistory() {
+    let total = modelWeight; for (const entry of past) total += entry.weight;
+    while (past.length > MODEL_EDITOR_HISTORY_LIMITS.protectedEntries && total > MODEL_EDITOR_HISTORY_LIMITS.weight) total -= past.shift()!.weight;
   }
   function resolve() { return Object.freeze(Object.fromEntries(adapter.features.map(key => [key, options.features?.[key] !== false]))) as Readonly<Record<F, boolean>>; }
   function isReadOnly() { return options.readOnly === true || typeof options.onSave !== "function"; }
@@ -39,10 +57,11 @@ export function createModelEditorController<M, C, F extends string>(adapter: Mod
   function change(next: M, source: Extract<ModelEditorEvent<M>, { type: "change" }>["source"], group?: string, requirements: readonly F[] = []) {
     const nextJson = adapter.serialize(next);
     if (nextJson === modelJson) return null;
-    const now = Date.now();
-    if (!group || group !== lastGroup || !group.startsWith("task:") && now - lastTime > 1000) { past.push({ model, features: [...new Set(requirements)] }); if (past.length > 100) past.shift(); }
+    const now = Date.now(), nextWeight = weigh(next);
+    if (!group || group !== lastGroup || !group.startsWith("task:") && now - lastTime > 1000) { past.push({ model, features: [...new Set(requirements)], weight: modelWeight }); if (past.length > MODEL_EDITOR_HISTORY_LIMITS.entries) past.shift(); }
     else if (past.length) { const entry = past.at(-1)!; entry.features = [...new Set([...entry.features, ...requirements])]; }
-    lastGroup = group; lastTime = now; future.length = 0; model = next; modelJson = nextJson; notice = null;
+    lastGroup = group; lastTime = now; future.length = 0; model = next; modelJson = nextJson; modelWeight = nextWeight; notice = null;
+    trimHistory();
     publish(); safely(() => options.onChange?.(model)); emit({ type: "change", source, model }); return model;
   }
   function reserve(kind: NonNullable<typeof busy>): Operation { busy = kind; const operation = { token: ++token, epoch, requestId: crypto.randomUUID(), signal: abort.signal }; publish(); return operation; }
@@ -144,7 +163,7 @@ export function createModelEditorController<M, C, F extends string>(adapter: Mod
     return permitted(() => {
       if (epoch !== beforeEpoch || !enabled("history") || source.at(-1)?.features.some(feature => !enabled(feature))) return false;
       const next = source.pop(); if (!next) return false;
-      destination.push({ model, features: next.features }); model = next.model; modelJson = adapter.serialize(model); lastGroup = undefined; notice = null;
+      destination.push({ model, features: next.features, weight: modelWeight }); model = next.model; modelWeight = next.weight; modelJson = adapter.serialize(model); lastGroup = undefined; notice = null;
       publish(); safely(() => options.onChange?.(model)); emit({ type: "change", source: direction, model }); return true;
     }, false);
   }
@@ -160,7 +179,7 @@ export function createModelEditorController<M, C, F extends string>(adapter: Mod
       const result = await handler(saved, operation);
       if (!current(operation) || !writable() || !enabled("save")) return false;
       if (result !== undefined) change(freeze(result), "save");
-      baseline = modelJson; baselineModel = model; lastGroup = undefined; finishEdit();
+      baseline = modelJson; baselineModel = model; baselineWeight = modelWeight; lastGroup = undefined; finishEdit();
       notice = { kind: "success", text: "保存しました。" }; publish(); emit({ type: "save", phase: "success" }); return true;
     } catch (cause) { if (current(operation)) { report(cause); emit({ type: "save", phase: "error", error: cause instanceof Error ? cause.message : "保存に失敗しました。" }); } return false; }
     finally { release(operation); }
@@ -176,8 +195,8 @@ export function createModelEditorController<M, C, F extends string>(adapter: Mod
       if (!current(operation) || !enabled("refresh") || options.onRefresh !== handler) return false;
       const result = await handler(operation);
       if (!current(operation) || model !== before || !enabled("refresh") || options.onRefresh !== handler) return false;
-      const next = freeze(result), nextJson = adapter.serialize(next), changed = nextJson !== modelJson;
-      model = next; modelJson = nextJson; baseline = nextJson; baselineModel = next;
+      const next = freeze(result), nextJson = adapter.serialize(next), nextWeight = weigh(next), changed = nextJson !== modelJson;
+      model = next; modelJson = nextJson; baseline = nextJson; baselineModel = next; modelWeight = baselineWeight = nextWeight;
       past.length = 0; future.length = 0; lastGroup = undefined; finishEdit(); notice = null; publish();
       if (changed) { safely(() => options.onChange?.(model)); emit({ type: "change", source: "refresh", model }); }
       emit({ type: "refresh", phase: "success" }); return true;
@@ -189,7 +208,7 @@ export function createModelEditorController<M, C, F extends string>(adapter: Mod
   function discard(): boolean {
     if (!writable() || busy && busy !== "permission") return false;
     cancelPending(); const changed = model !== baselineModel;
-    model = baselineModel; modelJson = baseline; past.length = 0; future.length = 0;
+    model = baselineModel; modelJson = baseline; modelWeight = baselineWeight; past.length = 0; future.length = 0;
     finishEdit(); notice = null; publish();
     if (changed) { safely(() => options.onChange?.(model)); emit({ type: "change", source: "discard", model }); }
     return true;

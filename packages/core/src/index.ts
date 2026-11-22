@@ -28,7 +28,7 @@ export type { ZipArchiveContent, ZipArchiveEntry, ZipArchiveOptions } from "./zi
 
 export * from "./ooxml";
 
-export { createModelEditorController } from "./editor/create-model-editor-controller";
+export { createModelEditorController, MODEL_EDITOR_HISTORY_LIMITS } from "./editor/create-model-editor-controller";
 export type { ModelEditorController } from "./editor/create-model-editor-controller";
 export type { ModelEditorAdapter, ModelEditorOptions, ModelEditorSnapshot, ModelEditorEvent, ModelEditorNotice, ModelEditorExecuteOptions, ModelEditorTaskContext } from "./editor/types";
 export { inspectEmbeddedImage } from "./embedded-image";

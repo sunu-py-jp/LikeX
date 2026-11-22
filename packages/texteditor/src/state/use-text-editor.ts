@@ -25,6 +25,9 @@ export const textEditorAdapter: ModelEditorAdapter<TextEditorModel, TextEditorCo
     if (command.type === "text.replaceAll") return ["search", "replace", "editing"];
     return ["editing"];
   },
+  // Every undo step keeps its own copy of the text, and a string takes up to two bytes per UTF-16
+  // unit. Reporting that size lets the controller drop old steps of a large document.
+  getHistoryWeight: model => model.text.length * 2,
 };
 export function useTextEditor(props: TextEditorProps) {
   const [controller] = useState(() => createModelEditorController(textEditorAdapter,

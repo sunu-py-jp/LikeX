@@ -25,6 +25,12 @@ export type ModelEditorAdapter<M, C, F extends string = string> = {
   features: readonly F[];
   /** Every feature required by this command. Return all applicable keys for compound operations. */
   getCommandFeatures(command: C): readonly F[];
+  /**
+   * Optional. Approximate bytes that one kept copy of this model occupies. When provided, undo history
+   * is also limited by total size (see MODEL_EDITOR_HISTORY_LIMITS); without it only the step count
+   * applies. Return a finite number of 0 or more that depends only on the model.
+   */
+  getHistoryWeight?(model: M): number;
 };
 export type ModelEditorSnapshot<M, F extends string = string> = Readonly<{
   model: M; dirty: boolean; canUndo: boolean; canRedo: boolean;
