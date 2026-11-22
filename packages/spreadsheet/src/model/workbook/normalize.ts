@@ -16,7 +16,7 @@ import { canonicalCellAddress, fail, normalizeCellFormat, normalizeSheetName, no
 export function normalizeWorkbook(input?: SpreadsheetWorkbook): SpreadsheetWorkbook {
   if (input === undefined) return createWorkbook();
   if (!input || !Array.isArray(input.sheets) || input.sheets.length < 1 || input.sheets.length > SPREADSHEET_LIMITS.sheets)
-    return fail("ブックには1〜100枚のシートが必要です");
+    return fail("ブックには1〜1,000枚のシートが必要です");
   if (input.format !== undefined && input.format !== SPREADSHEET_FORMAT) return fail("スプレッドシートのファイル形式ではありません");
   if (input.schemaVersion !== undefined && input.schemaVersion !== 1) return fail("未対応のブック形式です");
   const resources = normalizeResources(input.resources);

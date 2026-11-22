@@ -19,7 +19,7 @@ import { worksheetDefaultSizes } from "./worksheet-shared";
 import { isExcelRangeOutsideModel } from "./worksheet-address";
 import { prepareColumnWidthMeasurement } from "./column-width-measurement";
 import { readWorksheetXml } from "./worksheet-stream";
-import { resolveXlsxImportLimits, type ImportContext, type SpreadsheetExcelImportInput, type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult, type SpreadsheetExcelImportWarning } from "./types";
+import { resolveXlsxImportLimits, yieldToHost, type ImportContext, type SpreadsheetExcelImportInput, type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult, type SpreadsheetExcelImportWarning } from "./types";
 
 const workbookType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml";
 const fail = (message: string): never => { throw new Error(`Excelファイルを読み込めません: ${message}`); };
@@ -121,7 +121,7 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
       continue;
     }
     if (!relation.type.endsWith("/worksheet")) return fail("ワークシートの種類に対応していません");
-    if (sheets.length >= SPREADSHEET_LIMITS.sheets) return fail("ワークシート数が100枚を超えています");
+    if (sheets.length >= SPREADSHEET_LIMITS.sheets) return fail("ワークシート数が1,000枚を超えています");
     paths.add(relation.target);
     const originalName = spreadsheetText(sheetNode.attributes.name ?? ""), name = originalName.trim(), sheetId = sheetNode.attributes.sheetId;
     if (name !== originalName) context.warn({ code: "adjusted", message: "シート名の前後の空白を除き、数式の参照先を更新しました", sheetName: name });
@@ -149,7 +149,7 @@ export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, 
     worksheetParts.push({ root, path: relation.target });
     // Trim optional empty formatting per sheet instead of accumulating all source metadata.
     sheets.push(retainCellData(sheet, context));
-    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    await yieldToHost(context);
   }
   if (!sheets.length) return fail("取り込めるワークシートがありません");
   const definitions = children(child(workbook, "definedNames"), "definedName");

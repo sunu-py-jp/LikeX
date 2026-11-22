@@ -1,5 +1,5 @@
 import { SPREADSHEET_LIMITS, type SpreadsheetCellFormat, type SpreadsheetSheet } from "../model/types";
-import type { ImportContext } from "./types";
+import { yieldToHost, type ImportContext } from "./types";
 
 type MutableRange = { range: { top: number; left: number; bottom: number | "end"; right: number | "end" }; format: SpreadsheetCellFormat };
 type Run = { top: number; bottom: number; left: number; right: number; format: SpreadsheetCellFormat; key: string };
@@ -58,8 +58,10 @@ export function createImportFormatRanges(context: ImportContext, name: string) {
           const last = previous.get(key); if (last && last.range.bottom === row) last.range.bottom = "end";
         }
       };
-      for (let row = 0; row < rowCount; row++) {
-        if ((row & 127) === 127) { await new Promise<void>(resolve => setTimeout(resolve, 0)); context.signal?.throwIfAborted(); }
+      // A sheet without empty-cell, row or column formatting has nothing to merge into ranges.
+      const unformatted = !byTop.length && !rowStyles.size && !columnStyles.size;
+      for (let row = 0; !unformatted && row < rowCount; row++) {
+        if ((row & 127) === 127) await yieldToHost(context);
         while (cursor < byTop.length && byTop[cursor].top === row) active.add(byTop[cursor++]);
         for (const run of active) if (run.bottom < row) active.delete(run);
         const rowFormat = rowStyles.get(row);

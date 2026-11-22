@@ -75,14 +75,29 @@ export type ImportContext = {
   tableCount?: number;
   tableNames?: Set<string>;
   sheetNames?: ReadonlyMap<string, string>;
+  /** Time of the last yield to the host, shared by every step of one import. */
+  lastYield?: number;
   /** Hidden source rows are compared with retained filter criteria after workbook calculation. */
   sourceHiddenRows?: Map<string, Set<number>>;
   warn(warning: SpreadsheetExcelImportWarning): void;
 };
 
+/**
+ * Let the host run between steps and observe cancellation, at most once per frame-sized slice.
+ * Browsers delay each nested timer by several milliseconds, so yielding after every small sheet
+ * would make a workbook with many sheets wait far longer than it works.
+ */
+export async function yieldToHost(context: Pick<ImportContext, "signal" | "lastYield">): Promise<void> {
+  context.signal?.throwIfAborted();
+  if (context.lastYield !== undefined && performance.now() - context.lastYield < 12) return;
+  await new Promise<void>(resolve => setTimeout(resolve, 0));
+  context.lastYield = performance.now();
+  context.signal?.throwIfAborted();
+}
+
 /** Structural budgets stay bounded independently of configurable archive capacity. */
 export const XLSX_IMPORT_LIMITS = Object.freeze({
-  inputBytes: 128 * 1024 * 1024, entries: 4096,
+  inputBytes: 128 * 1024 * 1024, entries: 16_384,
   entryBytes: 640 * 1024 * 1024, totalBytes: 640 * 1024 * 1024,
   xmlBytes: 16 * 1024 * 1024, xmlDepth: 64, xmlNodes: 600_000,
   xmlText: 16 * 1024 * 1024,

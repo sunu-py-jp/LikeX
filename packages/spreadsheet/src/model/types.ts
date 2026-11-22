@@ -204,7 +204,7 @@ export type SpreadsheetMoveTarget = { sheetId: string; row: number; column: numb
 
 /** `cells` and `evaluationSteps` are limits of one sheet; the other counts without a per-item note apply to the whole workbook. */
 export const SPREADSHEET_LIMITS = Object.freeze({ rows: 10_000, columns: 1_000, cells: 100_000,
-  sheets: 100, cellLength: 100_000, formulaLength: 4_096, formulaTokens: 2_048,
+  sheets: 1_000, cellLength: 100_000, formulaLength: 4_096, formulaTokens: 2_048,
   rangeCells: 10_000, evaluationSteps: 200_000, referenceDepth: 128,
   clipboardCharacters: 10 * 1024 * 1024, clipboardCells: 10_000,
   imageBytes: 5 * 1024 * 1024, totalImageBytes: 20 * 1024 * 1024,
