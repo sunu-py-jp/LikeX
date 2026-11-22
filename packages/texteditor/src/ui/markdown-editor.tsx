@@ -14,7 +14,13 @@ import { serializeMarkdownBlocks } from "../markdown/serializer";
 import { checkedText } from "../model/validation";
 import { createMarkdownViewport, type MarkdownViewport } from "./markdown-viewport";
 
-export type MarkdownEditorProps = EditorAdapterProps & { onSourceMode?(): void; formatting?: boolean };
+export type MarkdownEditorProps = EditorAdapterProps & { onSourceMode?(): void; formatting?: boolean;
+  /**
+   * False when the document cannot be edited at all (read-only, or editing turned off). The notice
+   * that sends the user to the source editor is then hidden. Unlike `editable`, this stays the same
+   * while a save or a permission request is running. Defaults to true.
+   */
+  editingAvailable?: boolean };
 const blocks = [
   { action: "markdown.paragraph", title: "本文", description: "普通のテキスト", keywords: "text paragraph", Icon: Pilcrow },
   { action: "markdown.heading1", title: "見出し 1", description: "大きな見出し", keywords: "h1 heading", Icon: Heading1 },
@@ -311,7 +317,7 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     // into the menu. Keep browser/editor cursor movement from scrolling below it.
     if ((event.target as HTMLElement).closest?.(".lxte-rich-document, .lxte-slash-menu") && handleMenuKey(event.nativeEvent)) { event.preventDefault(); event.stopPropagation(); }
   }}>
-    {warnings.length > 0 && <div className="lxte-rich-compatibility" role="status"><span>{warnings.join("・")}を含む文書です。内容を保つためソースで編集できます。</span>{onSourceMode && <button type="button" onClick={onSourceMode}><FileCode2 size={15} />ソースで編集</button>}</div>}
+    {warnings.length > 0 && props.editingAvailable !== false && <div className="lxte-rich-compatibility" role="status"><span>{warnings.join("・")}を含む文書です。内容を保つためソースで編集できます。</span>{onSourceMode && <button type="button" onClick={onSourceMode}><FileCode2 size={15} />ソースで編集</button>}</div>}
     {formatting !== false && props.formattingEnabled !== false && <div className="lxte-format-toolbar" role="toolbar" aria-label="Markdownの書式">
       <span className="lxte-block-picker"><select aria-label="ブロックの種類" disabled={!canEdit} value="" onChange={event => { run(event.target.value as MarkdownAction); }}><option value="">ブロック</option>{blocks.map(item => <option key={item.action} value={item.action}>{item.title}</option>)}</select></span>
       {([

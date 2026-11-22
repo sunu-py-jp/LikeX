@@ -191,6 +191,23 @@ test('unsupported HTML and tables retain source and request the source editor', 
   assert.deepEqual(editor.changes, []);
 });
 
+test('the source-editor notice is hidden while editing is unavailable and the content stays protected', async t => {
+  const notices = editor => editor.renderer.root.findAllByProps({ className: 'lxte-rich-compatibility' });
+  const source = '| A | B |\n| --- | --- |\n| 1 | 2 |';
+  const editor = await mount(t, { value: source, editable: false, editingAvailable: false, onSourceMode() {} });
+  assert.equal(notices(editor).length, 0); assert.equal(editor.view.props.editable(), false);
+  // Becoming editable shows the notice; a save or permission check in progress (editable: false) keeps it.
+  await editor.update({ editable: true, editingAvailable: true });
+  assert.equal(notices(editor).length, 1); assert.match(notices(editor)[0].findByType('span').children.join(''), /ソースで編集できます/);
+  assert.equal(editor.view.props.editable(), false, 'unsupported syntax still blocks rich edits');
+  await editor.update({ editable: false }); assert.equal(notices(editor).length, 1);
+  await editor.update({ editingAvailable: false }); assert.equal(notices(editor).length, 0);
+  // Without the prop the notice is shown, as before. Supported Markdown never shows it.
+  const standalone = await mount(t, { value: source }); assert.equal(notices(standalone).length, 1);
+  const plain = await mount(t, { value: 'Plain text', editingAvailable: true }); assert.equal(notices(plain).length, 0);
+  assert.deepEqual([...editor.changes, ...standalone.changes, ...plain.changes], []);
+});
+
 test('slash menu supports keyboard navigation and inserts a heading in one change', async t => {
   const editor = await mount(t, { value: '' });
   await act(() => editor.view.dispatch(editor.view.state.tr.insertText('/h1', 1)));

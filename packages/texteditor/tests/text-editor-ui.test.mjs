@@ -37,7 +37,7 @@ const result = await build({
             getSearch() { return search.current; },
             goToLine(line,column=1) { globalThis.__lxteTestAdapterCalls.push({type:'line',kind,line,column}); return line > 0; }
           }));
-          return createElement('textarea',{ 'data-test-adapter':kind, value:props.value, readOnly:!props.editable,
+          return createElement('textarea',{ 'data-test-adapter':kind, 'data-editing-available':props.editingAvailable, value:props.value, readOnly:!props.editable,
             onChange:event=>{ selection.current = {coordinateSpace:kind,ranges:[{anchor:event.target.value.length,head:event.target.value.length}],mainIndex:0};
               props.onSelectionChange?.(selection.current); return props.onChange(event.target.value); },
             onPendingChange:props.onPendingChange,onUndo:props.onUndo,onRedo:props.onRedo,onCommandPalette:props.onCommandPalette });
@@ -82,6 +82,22 @@ test('missing onSave is read-only while search and select-all remain available',
   await act(async () => { void ui.ref.current.runCommand('find'); });
   assert.equal(ui.ref.current.getSearch().open, true);
   assert.equal(ui.ref.current.getText(), 'first\nsecond');
+});
+
+test('the Markdown view is told when editing is unavailable, and stays told so while a save is running', async t => {
+  const available = ui => ui.editor.props['data-editing-available'];
+  for (const options of [{ onSave: undefined }, { readOnly: true }, { features: { editing: false } }]) {
+    const ui = await mount(t, { mode: 'markdown', ...options });
+    assert.equal(ui.editor.props['data-test-adapter'], 'rich'); assert.equal(available(ui), false, JSON.stringify(options));
+  }
+  let finish; const ui = await mount(t, { mode: 'markdown', onSave: () => new Promise(resolve => { finish = resolve; }) });
+  assert.equal(available(ui), true);
+  assert.equal(await ui.type('changed'), true);
+  let saving; await act(async () => { saving = ui.ref.current.save(); });
+  assert.equal(ui.editor.props.readOnly, true, 'input is paused during the save'); assert.equal(available(ui), true);
+  await act(async () => { finish(); await saving; });
+  assert.equal(ui.editor.props.readOnly, false);
+  await ui.update({ readOnly: true }); assert.equal(available(ui), false);
 });
 
 test('auto detects structured languages from metadata without making a read-only document dirty', async t => {

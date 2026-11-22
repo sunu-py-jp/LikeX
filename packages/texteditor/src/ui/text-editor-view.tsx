@@ -447,7 +447,7 @@ export function TextEditorView({ ref, ...props }: TextEditorProps) {
         if (file) void importFile(file);
       }} />
     </nav>}
-    <div className="lxte-workspace">{showingSource ? <CodeEditor key={`${viewMode}-${editorEpoch}`} {...editorProps} wordWrap={wordWrap} mode={mode} onToggleWordWrap={toggleWrap} /> : <MarkdownEditor key={`rich-${editorEpoch}`} {...editorProps} formatting={!snapshot.readOnly && features.editing && features.formatting} onSourceMode={() => void withView("source", () => true)} />}
+    <div className="lxte-workspace">{showingSource ? <CodeEditor key={`${viewMode}-${editorEpoch}`} {...editorProps} wordWrap={wordWrap} mode={mode} onToggleWordWrap={toggleWrap} /> : <MarkdownEditor key={`rich-${editorEpoch}`} {...editorProps} editingAvailable={!snapshot.readOnly && features.editing} formatting={!snapshot.readOnly && features.editing && features.formatting} onSourceMode={() => void withView("source", () => true)} />}
       {customSearch && <SearchPanelContent render={props.renderSearch} context={{ ...search.context, openSearch, openExternalSearch, close: closeSearch }} />}
     </div>
     <footer className="lxte-status">{showingSource && <span>{caretLine} 行、{caretColumn} 列{selection && selection.ranges.length > 1 && ` · ${selection.ranges.length} カーソル`}</span>}<span>{textStats.lines.toLocaleString()} 行 · {textStats.characters.toLocaleString()} 文字</span>{diagnostics[0] && <span className="lxte-diagnostic" role="status" title={diagnostics[0].message.slice(0, 1000)}>{diagnostics[0].line} 行、{diagnostics[0].column} 列: {diagnostics[0].message.slice(0, 1000)}</span>}</footer>
