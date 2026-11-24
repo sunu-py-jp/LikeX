@@ -79,7 +79,8 @@ function validDrawingAnchor(value: unknown): boolean {
 }
 function drawingAnchorFailure(commands: unknown, error: unknown): number | undefined {
   if (!(error instanceof AIToolError) || error.details.code !== "write_failed" || !Array.isArray(commands) ||
-    !/(?:^|: )描画オブジェクトの(?:サイズまたは位置が正しくありません|位置がシートの範囲外です)$/.test(error.message)) return;
+    // The model may name the field and its allowed range in parentheses after the size-or-position message.
+    !/(?:^|: )描画オブジェクトの(?:サイズまたは位置が正しくありません(?:（[^（）]*）)?|位置がシートの範囲外です)$/.test(error.message)) return;
   const location = /^commands\[(\d+)\]$/.exec(error.details.path ?? "");
   if (!location) return;
   const index = Number(location[1]), command = commands[index];

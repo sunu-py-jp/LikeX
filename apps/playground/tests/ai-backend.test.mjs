@@ -739,7 +739,10 @@ test("middleware returns NDJSON, releases concurrency slots, and aborts on respo
   } });
   const res = new MemoryResponse();
   const pending = middleware(httpRequest(), res, () => {});
-  const providerSignal = await ready;
+  // A request that ends without reaching the provider fails here; waiting for the call alone would never return.
+  let reached = false;
+  const providerSignal = await Promise.race([ready.then(signal => { reached = true; return signal; }),
+    pending.then(() => { if (!reached) throw new Error(`the request ended before the provider was called: ${res.text()}`); })]);
   res.destroyed = true; res.emit("close");
   await pending;
   assert.equal(providerSignal.aborted, true);
@@ -805,7 +808,10 @@ test("middleware admits only two requests and restores capacity after completion
     return response();
   } });
   const first = http(middleware, {}), second = http(middleware, {});
-  await bothEntered;
+  // Requests that end before both are inside the provider fail here instead of being waited for.
+  let inside = false;
+  await Promise.race([bothEntered.then(() => { inside = true; }),
+    Promise.all([first, second]).then(([one, two]) => { if (!inside) throw new Error(`the requests ended before both reached the provider: ${one.text()} ${two.text()}`); })]);
   assert.equal((await http(middleware, {})).statusCode, 429);
   release();
   assert.equal((await first).statusCode, 200);

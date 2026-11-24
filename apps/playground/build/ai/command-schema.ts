@@ -2,9 +2,14 @@ import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { invalidArgument } from "./tool-errors.ts";
 
+/**
+ * A boolean in place of a schema: `false` allows no value. The generator writes it for a property that
+ * must be absent (`name?: never`) and for the items after a closed tuple; `true` allows any value.
+ */
+export type JSONSchemaNode = JSONSchema | boolean;
 export type JSONSchema = {
   type?: string | string[]; const?: unknown; enum?: unknown[]; $ref?: string; $defs?: Record<string, JSONSchema>;
-  properties?: Record<string, JSONSchema>; required?: string[]; additionalProperties?: boolean | JSONSchema;
+  properties?: Record<string, JSONSchemaNode>; required?: string[]; additionalProperties?: boolean | JSONSchema;
   patternProperties?: Record<string, JSONSchema>; anyOf?: JSONSchema[]; items?: JSONSchema | false;
   prefixItems?: JSONSchema[]; minItems?: number; maxItems?: number; minimum?: number; maximum?: number;
   minLength?: number; maxLength?: number; pattern?: string; description?: string; [key: string]: unknown;
@@ -59,9 +64,11 @@ export function strictSchema(schema: JSONSchema, root = schema): JSONSchema {
     if (dictionary) return { type: "array", description: "Dictionary entries. Use unique keys (for cells.set.values: cell addresses such as A1; rowHeights: numeric row keys).", items: {
       type: "object", properties: { key: { type: "string" }, value: strictSchema(dictionary, root) }, required: ["key", "value"], additionalProperties: false,
     } };
-    result.properties = Object.fromEntries(Object.entries(schema.properties ?? {}).map(([key, value]) => {
-      const property = strictSchema(value, root);
-      return [key, schema.required?.includes(key) || acceptsNull(value, root) ? property : { anyOf: [property, { type: "null" }] }];
+    result.properties = Object.fromEntries(Object.entries(schema.properties ?? {}).flatMap(([key, node]) => {
+      // A property that must be absent is not offered; the closed object then has no place for it.
+      if (node === false) return [];
+      const value = node === true ? {} : node, property = strictSchema(value, root);
+      return [[key, schema.required?.includes(key) || acceptsNull(value, root) ? property : { anyOf: [property, { type: "null" }] }]];
     }));
     result.required = Object.keys(result.properties);
     result.additionalProperties = false;
@@ -73,10 +80,17 @@ function branch(schema: JSONSchema, value: unknown, root: JSONSchema): JSONSchem
   const choices = schema.anyOf!.map(item => dereference(item, root));
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const input = value as Record<string, unknown>;
-    const discriminated = choices.filter(item => Object.entries(item.properties ?? {}).some(([key, property]) => "const" in dereference(property, root) && dereference(property, root).const === input[key]));
+    const discriminated = choices.filter(item => Object.entries(item.properties ?? {}).some(([key, node]) => {
+      const property = typeof node === "object" ? dereference(node, root) : undefined;
+      return !!property && "const" in property && property.const === input[key];
+    }));
     if (discriminated.length === 1) return discriminated[0];
-    const compatible = choices.filter(item => item.type === "object" && Object.keys(input).every(key => key in (item.properties ?? {}) || mapValue(item)));
+    // Forms of one command share their discriminator and differ in which properties they allow.
+    const allows = (item: JSONSchema, key: string) => item.properties && Object.hasOwn(item.properties, key) ? item.properties[key] !== false : !!mapValue(item);
+    const compatible = choices.filter(item => item.type === "object" && Object.keys(input).every(key => allows(item, key)));
     if (compatible.length) return compatible[0];
+    // No form allows every property: report against a form of the named command, not an unrelated one.
+    if (discriminated.length) return discriminated[0];
   }
   return choices.find(item => "const" in item && item.const === value) ?? choices.find(item => item.type === kind(value) || item.type === "number" && typeof value === "number") ?? choices[0];
 }
@@ -98,7 +112,9 @@ export function normalizeCommandValue(value: unknown, schema: JSONSchema, root: 
       return output;
     }
     if (!Array.isArray(value)) return Object.fromEntries(Object.entries(value).flatMap(([key, item]) => {
-      const property = target.properties?.[key] ?? dictionary;
+      // A value for a property that must be absent is kept as it is, for validation to refuse.
+      const known = target.properties && Object.hasOwn(target.properties, key) ? target.properties[key] : undefined;
+      const property = typeof known === "object" ? known : known === undefined ? dictionary : undefined;
       if (property && item === null && !target.required?.includes(key) && !dictionary && !acceptsNull(property, root)) return [];
       return [[key, property ? normalizeCommandValue(item, property, root, `${location}.${key}`) : item]];
     }));
@@ -107,8 +123,10 @@ export function normalizeCommandValue(value: unknown, schema: JSONSchema, root: 
   return value;
 }
 /** Validate generated structural constraints before spawning the CLI; model semantics remain authoritative. */
-export function validateSchema(value: unknown, schema: JSONSchema, root = schema, location = "commands"): void {
-  const target = dereference(schema, root);
+export function validateSchema(value: unknown, schema: JSONSchemaNode, root: JSONSchema = schema === true || schema === false ? {} : schema, location = "commands"): void {
+  if (schema === true) return;
+  if (schema === false) invalidArgument(location, "no value: omit it", value);
+  const target = dereference(schema as JSONSchema, root);
   if (target.anyOf) {
     const selected = branch(target, value, root);
     // Unions with the same scalar type (e.g. tuple lengths) must try all alternatives.
@@ -132,14 +150,16 @@ export function validateSchema(value: unknown, schema: JSONSchema, root = schema
   if (typeof value === "string" && (target.minLength !== undefined && value.length < target.minLength || target.maxLength !== undefined && value.length > target.maxLength || target.pattern && !new RegExp(target.pattern).test(value))) invalidArgument(location, "valid string length/pattern", value);
   if (Array.isArray(value)) {
     if (target.minItems !== undefined && value.length < target.minItems || target.maxItems !== undefined && value.length > target.maxItems) invalidArgument(location, `array length ${target.minItems ?? 0}…${target.maxItems ?? "∞"}`, value.length);
-    value.forEach((item, index) => validateSchema(item, target.prefixItems?.[index] ?? (target.items || {}), root, `${location}[${index}]`));
+    value.forEach((item, index) => validateSchema(item, target.prefixItems?.[index] ?? target.items ?? {}, root, `${location}[${index}]`));
   } else if (value && typeof value === "object") {
     const input = value as Record<string, unknown>;
     for (const key of target.required ?? []) if (!Object.hasOwn(input, key)) invalidArgument(`${location}.${key}`, "required property", undefined);
     for (const [key, item] of Object.entries(input)) {
-      const property = target.properties?.[key] ?? Object.entries(target.patternProperties ?? {}).find(([pattern]) => new RegExp(pattern).test(key))?.[1] ?? (typeof target.additionalProperties === "object" ? target.additionalProperties : undefined);
-      if (property) validateSchema(item, property, root, `${location}.${key}`);
-      else if (target.additionalProperties === false) invalidArgument(`${location}.${key}`, `known property (${Object.keys(target.properties ?? {}).join(", ")})`, item);
+      const known = target.properties && Object.hasOwn(target.properties, key) ? target.properties[key] : undefined;
+      const property = known ?? Object.entries(target.patternProperties ?? {}).find(([pattern]) => new RegExp(pattern).test(key))?.[1] ?? (typeof target.additionalProperties === "object" ? target.additionalProperties : undefined);
+      // A `false` property is known and refuses every value, also in an object that is otherwise open.
+      if (property !== undefined) validateSchema(item, property, root, `${location}.${key}`);
+      else if (target.additionalProperties === false) invalidArgument(`${location}.${key}`, `known property (${Object.entries(target.properties ?? {}).filter(([, node]) => node !== false).map(([name]) => name).join(", ")})`, item);
     }
   }
 }

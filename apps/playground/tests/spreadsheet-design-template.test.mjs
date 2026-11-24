@@ -12,7 +12,7 @@ const output = await build({ stdin: { contents: `
 const model = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 const { createDesignTemplateWorkbook, isDesignTemplateWorkbook, DESIGN_TEMPLATE_PROMPT,
   normalizeWorkbook, serializeWorkbook, parseWorkbook, calculateWorkbook, applySpreadsheetCommands,
-  exportSpreadsheetXlsx, importSpreadsheetXlsx } = model;
+  exportSpreadsheetXlsx, importSpreadsheetXlsx, getFormattedCell } = model;
 const sheetByName = (workbook, name) => workbook.sheets.find(sheet => sheet.name === name);
 const expectedNames = ['表紙・変更履歴', '画面レイアウト', '画面項目一覧', 'チェック一覧', '処理仕様', '処理フロー', '参照マスタ', '要件資料'];
 
@@ -106,8 +106,12 @@ test('XLSX export and import retain usable scaffold cells, formats, dimensions a
   assert.equal(isDesignTemplateWorkbook(imported), true);
   const before = sheetByName(workbook, '画面項目一覧'), after = sheetByName(imported, '画面項目一覧');
   assert.equal(after.cells.A6.value, 'H01');
-  assert.equal(after.cells.C6.value, '');
-  assert.equal(after.cells.C6.format.borders.bottom.style, 'solid');
+  // An empty cell that only carries formatting is imported as part of a format range, not as a stored
+  // cell; C6 (row 5, column 2) is read the way the grid shows it.
+  assert.equal(after.cells.C6, undefined);
+  const blank = getFormattedCell(after, 5, 2);
+  assert.equal(blank.value, '');
+  assert.equal(blank.format.borders.bottom.style, 'solid');
   assert.equal(after.cells.C5.format.background.toLowerCase(), '#127c80');
   assert.ok(Math.abs(after.columnWidths[9] - before.columnWidths[9]) < 2);
   assert.ok(Math.abs(after.rowHeights[5] - before.rowHeights[5]) < 1);
