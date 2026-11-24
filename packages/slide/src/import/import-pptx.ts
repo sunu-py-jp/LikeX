@@ -1,4 +1,4 @@
-import type { OfficePackageInput, OfficePackageSignal } from "../ooxml";
+import type { OfficePackageArchive, OfficePackageInput, OfficePackageSignal } from "../ooxml";
 import { normalizeSlideDeck } from "../model";
 import { SLIDE_LIMITS } from "../model/limits";
 import type { Slide, SlideDeck } from "../model/types";
@@ -7,7 +7,7 @@ import { readElement } from "./pptx-elements";
 import { readSlideAnimations } from "./pptx-animations";
 import { resolvePptxConnections, type PptxConnectionSource } from "./pptx-connectors";
 import type { SlidePptxDiagnostic } from "../office/types";
-import { openPptxPresentation } from "./pptx-package";
+import { openPptxPresentation, openPptxPresentationPackage, type PptxPresentationPackage } from "./pptx-package";
 import { readPptxMasterLibrary, placeholderIndex, masterPlaceholder, placeholderDefaults, pptxColorMapping, pptxBackground } from "./pptx-masters";
 
 export type SlidePptxImportOptions = {
@@ -20,8 +20,15 @@ const fail = (message: string): never => { throw new Error(`PowerPointを読み�
 
 /** Reads a bounded PresentationML package without DOM parsing, external fetching, or macro execution. */
 export async function importSlidePptx(input: OfficePackageInput, options: SlidePptxImportOptions = {}): Promise<SlidePptxImportResult> {
+  return readPptxDeck(await openPptxPresentation(input, options), options);
+}
+/** Imports an already opened PresentationML package; see openPptxPresentationPackage. */
+export async function importSlidePptxPackage(archive: OfficePackageArchive, options: SlidePptxImportOptions = {}): Promise<SlidePptxImportResult> {
+  return readPptxDeck(await openPptxPresentationPackage(archive, options), options);
+}
+async function readPptxDeck(source: PptxPresentationPackage, options: SlidePptxImportOptions): Promise<SlidePptxImportResult> {
   const { signal } = options;
-  const { context, archive, presentation, presentationLinks, width, height, title } = await openPptxPresentation(input, options);
+  const { context, archive, presentation, presentationLinks, width, height, title } = source;
   const { library, sources } = await readPptxMasterLibrary(context, presentation, presentationLinks, width, height);
   const slideNodes = children(child(presentation, "sldIdLst"), "sldId");
   if (!slideNodes.length || slideNodes.length > SLIDE_LIMITS.slides) return fail("スライド数は1〜500枚にしてください");

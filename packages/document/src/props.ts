@@ -10,7 +10,8 @@ export type DocumentFeatures = Partial<Record<"text" | "formatting" | "lists" | 
 export type DocumentEvent =
   | { type: "change"; source: "command" | "import" | "undo" | "redo" | "save"; document: DocumentModel }
   | { type: "save"; phase: "start" | "success" | "error" | "cancelled"; error?: string }
-  | { type: "import" | "export"; format: "dcon" | "docx"; warnings: readonly string[] }
+  | { type: "import"; format: "dcon" | "docx" | "doc"; warnings: readonly string[] }
+  | { type: "export"; format: "dcon" | "docx"; warnings: readonly string[] }
   | { type: "edit-mode"; mode: "view" | "requesting" | "edit" };
 /** Stable target in the loaded DocumentModel, independent of Word's printed page numbers. */
 export type DocumentExternalSearchTarget = {
@@ -40,6 +41,8 @@ export type DocumentHandle = SearchPanelHandle & {
   importNative(input: string | Blob, options?: DocumentImportOptions): Promise<void>;
   exportNative(): Promise<Blob>;
   importDocx(input: Blob | ArrayBuffer | Uint8Array, options?: DocumentImportOptions): Promise<void>;
+  /** Replaces the draft with a Word 97–2003 (.doc) document. Import only: there is no .doc export. */
+  importDoc(input: Blob | ArrayBuffer | Uint8Array, options?: DocumentImportOptions): Promise<void>;
   exportDocx(): Promise<Blob>;
 };
 export type DocumentProps = SearchPanelInitialState & {

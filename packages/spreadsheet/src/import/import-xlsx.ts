@@ -7,7 +7,8 @@ import { calculateWorkbook } from "../model/formula";
 import { getSpreadsheetFilteredRows } from "../model/filters";
 import { dataValidationError } from "../model/data-validation";
 import { SPREADSHEET_LIMITS, type SpreadsheetCell, type SpreadsheetNamedRange, type SpreadsheetSheet } from "../model/types";
-import { openXlsxStreamingArchive } from "./zip";
+import { openXlsxStreamingArchive, xlsxArchive } from "./zip";
+import type { OfficePackageStreamingArchive } from "../ooxml";
 import { attribute, child, children, localName, parseXml, spreadsheetText, textContent, type XmlNode } from "./xml";
 import { readImportRelationships, resolvePart, type XlsxRelationship } from "./relationships";
 import { readXlsxStyles } from "./styles";
@@ -19,19 +20,34 @@ import { worksheetDefaultSizes } from "./worksheet-shared";
 import { isExcelRangeOutsideModel } from "./worksheet-address";
 import { prepareColumnWidthMeasurement } from "./column-width-measurement";
 import { readWorksheetXml } from "./worksheet-stream";
-import { resolveXlsxImportLimits, yieldToHost, type ImportContext, type SpreadsheetExcelImportInput, type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult, type SpreadsheetExcelImportWarning } from "./types";
+import { resolveXlsxImportLimits, yieldToHost, type ImportContext, type ResolvedXlsxImportLimits, type SpreadsheetExcelImportInput, type SpreadsheetExcelImportOptions, type SpreadsheetExcelImportResult, type SpreadsheetExcelImportWarning } from "./types";
 
 const workbookType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml";
 const fail = (message: string): never => { throw new Error(`Excelファイルを読み込めません: ${message}`); };
 const relationFor = (relations: ReadonlyMap<string, XlsxRelationship>, kind: string) => [...relations.values()].find(item => item.type.endsWith(`/${kind}`) && !item.external);
-/** Import an isolated XLSX snapshot. No persistence, remote requests, DOM, or script execution. */
-export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, options: SpreadsheetExcelImportOptions = {}): Promise<SpreadsheetExcelImportResult> {
+/** Option checks shared by every entry, in the order callers have always observed them. */
+function resolveImportLimits(options: SpreadsheetExcelImportOptions): ResolvedXlsxImportLimits {
   const { signal, emptyCellFormatting = "preserve" } = options;
   if (emptyCellFormatting !== "preserve" && emptyCellFormatting !== "omit")
     return fail("emptyCellFormatting は preserve または omit を指定してください");
   signal?.throwIfAborted();
-  const limits = resolveXlsxImportLimits(options.limits);
-  const archive = await openXlsxStreamingArchive(input, signal, limits);
+  return resolveXlsxImportLimits(options.limits);
+}
+/** Import an isolated XLSX snapshot. No persistence, remote requests, DOM, or script execution. */
+export async function importSpreadsheetXlsx(input: SpreadsheetExcelImportInput, options: SpreadsheetExcelImportOptions = {}): Promise<SpreadsheetExcelImportResult> {
+  const limits = resolveImportLimits(options);
+  return readXlsxPackage(await openXlsxStreamingArchive(input, options.signal, limits), options, limits);
+}
+/**
+ * Imports an already opened SpreadsheetML package. Converters that synthesize a package in
+ * memory enter here, so every source shares one set of limits, recovery rules and warnings.
+ */
+export async function importSpreadsheetXlsxPackage(archive: OfficePackageStreamingArchive, options: SpreadsheetExcelImportOptions = {}): Promise<SpreadsheetExcelImportResult> {
+  const limits = resolveImportLimits(options);
+  return readXlsxPackage(xlsxArchive(archive), options, limits);
+}
+async function readXlsxPackage(archive: OfficePackageStreamingArchive, options: SpreadsheetExcelImportOptions, limits: ResolvedXlsxImportLimits): Promise<SpreadsheetExcelImportResult> {
+  const { signal, emptyCellFormatting = "preserve" } = options;
   const warnings: SpreadsheetExcelImportWarning[] = [], warningsByKey = new Map<string, number>();
   const context: ImportContext = { archive, limits, warnings, signal, resources: Object.create(null), warn(warning) {
     let key = `${warning.code}\0${warning.sheetName ?? ""}\0${warning.message}`;

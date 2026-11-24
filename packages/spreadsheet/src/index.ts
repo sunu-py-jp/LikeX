@@ -65,10 +65,12 @@ export type { SpreadsheetFilterCommand } from "./api/filter-commands";
 export type { SpreadsheetFilterViewApi } from "./api/filter-view";
 export type { SpreadsheetWriteReport } from "./commands/types";
 export { importSpreadsheetXlsx } from "./state/import-xlsx";
+export { importSpreadsheetXls, importSpreadsheetExcel } from "./state/import-excel";
+export type { SpreadsheetExcelImportFormat } from "./import/excel-format";
 export { createSpreadsheetExcelFontMeasurer } from "./state/excel-font-measurer";
 export type { SpreadsheetExcelImportInput, SpreadsheetExcelImportSignal, SpreadsheetExcelImportOptions, SpreadsheetExcelImportLimits, SpreadsheetExcelImportResult, SpreadsheetNativeImportResult, SpreadsheetExcelImportWarning,
   SpreadsheetExcelColumnWidthFont, SpreadsheetExcelColumnWidthMetrics, SpreadsheetExcelColumnWidthMeasurer } from "./import/types";
-export type { SpreadsheetImportExcelOptions, SpreadsheetImportNativeOptions } from "./api/lifecycle";
+export type { SpreadsheetImportExcelOptions, SpreadsheetImportNativeOptions, SpreadsheetImportFormat } from "./api/lifecycle";
 
 export type { SpreadsheetSearchScope, SpreadsheetSearchSettings, SpreadsheetSearchRequest, SpreadsheetSearchHandler, SpreadsheetSearchRenderContext,
   SpreadsheetExternalSearchTarget, SpreadsheetExternalSearchResult, SpreadsheetExternalSearchOptions } from "./api/search";

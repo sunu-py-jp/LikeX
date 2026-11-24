@@ -127,7 +127,7 @@ export function DocumentRibbon({ editor, surface, onImport, onExport, onImage, o
         {tab === "file" && <>
           {features.import && !editor.readOnly && <Group title="開く"><Action label="DCONを開く" icon={<FileJson size={23} />} big disabled={disabled} onClick={() => onImport("dcon")} /><Action label="Wordを開く" icon={<Upload size={23} />} big disabled={disabled} onClick={() => onImport("docx")} /></Group>}
           {features.export && <Group title="書き出し"><Action label="DCON" icon={<FileJson size={23} />} big disabled={!!editor.busy} onClick={() => onExport("dcon")} /><Action label="Word (.docx)" icon={<Download size={23} />} big disabled={!!editor.busy} onClick={() => onExport("docx")} /></Group>}
-          <Group title="ファイル形式"><span className="lxd-ribbon-hint">標準形式は .dcon<br />Word文書は .docx</span></Group>
+          <Group title="ファイル形式"><span className="lxd-ribbon-hint">標準形式は .dcon<br />Word文書は .docx（.doc は読み込みのみ）</span></Group>
         </>}
         {tab === "home" && <>
           {features.search && <Group title="検索"><Action label="検索" icon={<Search size={23} />} big active={editor.search.open} onClick={() => editor.search.openSearch()} /></Group>}

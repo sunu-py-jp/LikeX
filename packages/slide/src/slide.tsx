@@ -9,6 +9,7 @@ import type { SlideProps } from "./props";
 import { createSlideElement, SLIDE_LIMITS } from "./model/index";
 import type { SlideDeck } from "./model/types";
 import { useSlideEditor } from "./state/use-slide-editor";
+import { POWERPOINT_IMPORT_ACCEPT } from "./import/import-powerpoint";
 import { useSlideTheme } from "./state/use-slide-theme";
 import { useSlideInputTracking } from "./state/use-slide-input-tracking";
 import { SlideCanvas } from "./ui/slide-canvas";
@@ -213,7 +214,7 @@ export default function LikeSlide(props: SlideProps) {
       void editor.prepareCommands(async () => { const image = await imageData(file, ownerDocument); const scale = Math.min(1, deckWidth * .7 / image.width, deckHeight * .7 / image.height); const width = image.width * scale, height = image.height * scale;
         return { type: "element.add", slideId, element: { type: "image", name: file.name, src: image.src, alt: file.name, x: (deckWidth - width) / 2, y: (deckHeight - height) / 2, width, height } }; }, target);
     }} />
-    <input ref={pptxInput} hidden type="file" accept=".pptx" aria-label="読み込むPowerPointファイル" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void editor.importPptx(file); }} />
+    <input ref={pptxInput} hidden type="file" accept={POWERPOINT_IMPORT_ACCEPT} aria-label="読み込むPowerPointファイル" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void editor.importPowerPoint(file); }} />
     <input ref={masterInput} hidden type="file" accept=".pptx,.potx" aria-label="マスターを読み込むPowerPointまたはテンプレート" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void editor.importPptxMasters(file); }} />
     <input ref={nativeInput} hidden type="file" accept=".slon,.json,application/json" aria-label="読み込むLikeSlideファイル" onChange={event => {
       const file = event.target.files?.[0]; event.target.value = "";

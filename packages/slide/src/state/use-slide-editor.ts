@@ -534,6 +534,17 @@ export function useSlideEditor(props: SlideProps) {
   const importPptx = useCallback(async (input: Blob | ArrayBuffer | Uint8Array, target?: SlidePageTarget) => {
     await importDeck(async () => (await import("../import/import-pptx")).importSlidePptx(input), target);
   }, [importDeck]);
+  const importPpt = useCallback(async (input: Blob | ArrayBuffer | Uint8Array, target?: SlidePageTarget) => {
+    await importDeck(async () => (await import("../import/legacy/import-ppt")).importSlidePpt(input), target);
+  }, [importDeck]);
+  /** File picker entry: accepts either PowerPoint format and reads the one the content is. */
+  const importPowerPoint = useCallback(async (input: Blob | ArrayBuffer | Uint8Array, target?: SlidePageTarget) => {
+    await importDeck(async () => {
+      const { importSlidePowerPoint, isPowerPointImportFileName, POWERPOINT_IMPORT_FILE_MESSAGE } = await import("../import/import-powerpoint");
+      if ("name" in input && typeof input.name === "string" && !isPowerPointImportFileName(input.name)) throw new Error(POWERPOINT_IMPORT_FILE_MESSAGE);
+      return importSlidePowerPoint(input);
+    }, target);
+  }, [importDeck]);
   const cancelMasterImport = useCallback(() => { masterImport.current?.abort(); }, []);
   const importPptxMasters = useCallback(async (input: Blob | ArrayBuffer | Uint8Array, options: SlidePptxImportOptions = {}) => {
     const enabled = () => propsRef.current.features?.import !== false && propsRef.current.features?.masters !== false;
@@ -712,10 +723,10 @@ export function useSlideEditor(props: SlideProps) {
     getMutationSnapshot: () => copy(session.getMutationSnapshot()),
     execute: command => execute(command), executeConditional,
     undo: () => history("undo"), redo: () => history("redo"), save, discard,
-    getSelection: () => copy(selectionRef.current), select, deleteSelection, importNative, exportNative, importPptx, importPptxMasters, cancelMasterImport, exportPptx, exportImage, exportImages,
-  }), [getRibbonDisplayMode, setRibbonDisplayMode, openSearch, openExternalSearch, closeSearch, goToPage, discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPptxMasters, cancelMasterImport, save, select, session]);
+    getSelection: () => copy(selectionRef.current), select, deleteSelection, importNative, exportNative, importPptx, importPpt, importPptxMasters, cancelMasterImport, exportPptx, exportImage, exportImages,
+  }), [getRibbonDisplayMode, setRibbonDisplayMode, openSearch, openExternalSearch, closeSearch, goToPage, discard, execute, executeConditional, deleteSelection, exportNative, exportPptx, exportImage, exportImages, history, importNative, importPptx, importPpt, importPptxMasters, cancelMasterImport, save, select, session]);
 
-  return { ...snapshot, ...ribbon, dirty, selection, select, goToPage, search, searchMatch, externalSearch, openSearch, openExternalSearch, closeSearch, setSearchPageTab, setSearchQuery, selectSearchMatch, highlightSearchMatch, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
+  return { ...snapshot, ...ribbon, dirty, selection, select, goToPage, search, searchMatch, externalSearch, openSearch, openExternalSearch, closeSearch, setSearchPageTab, setSearchQuery, selectSearchMatch, highlightSearchMatch, deleteSelection, execute, executeConditional, getMutationSnapshot: session.getMutationSnapshot, applyLayout, save, discard, history, importPptx, importPpt, importPowerPoint, importPptxMasters, cancelMasterImport, importingMasters, importNative, exportImage, exportImages, download,
     copyElements, pasteElements, canPasteElements, prepareCommands, registerInputFlush, refreshPendingInput, notice, setNotice, conversionReport, reportError, features, readOnly, busy, requesting,
     editable: !readOnly && !busy && !requesting };
 }

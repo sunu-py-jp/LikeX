@@ -379,4 +379,4 @@ await ref.current?.importPptx(pptx, { slideId: "architecture" });
 
 `initialPageNumber` / `initialSlideId` は初回だけ読み、後のprops変更は無視します。初期指定が不正ならエラー通知を表示して先頭ページを開きます。表示先は保存内容・未保存状態・Undo履歴に影響しません。`goToPage` は移動を受け付けると `true`、無効番号・同じページ・アンマウント後・入出力処理中・未確定入力がある場合は `false` です。移動は既存の `select` と同じ選択通知を通ります。ID指定で後から移動する場合は `select({ slideId, elementIds: [] })` が使えます。
 
-`SlidePageTarget` は `{ pageNumber?: number; slideId?: string }` です。`importNative` / `importPptx` の第2引数に指定すると、読み込み後の資料に対して検証してから一括で置き換えます。指定が不正なら元の資料と選択を維持し、画面へエラーを通知します。両方を渡した場合は同じページである必要があります。インポート本来の編集許可・読み取り専用・Undoの規約は変わりません。省略時は従来どおり先頭ページです。
+`SlidePageTarget` は `{ pageNumber?: number; slideId?: string }` です。`importNative` / `importPptx` / `importPpt`（PowerPoint 97–2003の `.ppt`、[読み込みのみ](powerpoint.md#powerpoint-972003pptを読み込む)）の第2引数に指定すると、読み込み後の資料に対して検証してから一括で置き換えます。指定が不正なら元の資料と選択を維持し、画面へエラーを通知します。両方を渡した場合は同じページである必要があります。インポート本来の編集許可・読み取り専用・Undoの規約は変わりません。省略時は従来どおり先頭ページです。

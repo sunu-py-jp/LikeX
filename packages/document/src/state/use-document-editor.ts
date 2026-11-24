@@ -6,7 +6,8 @@ import type { DocumentEvent, DocumentImportOptions, DocumentProps, DocumentSelec
 import { DOCUMENT_LIMITS, executeDocumentCommands, getDocumentPage, normalizeDocument, parseDocument, serializeDocument } from "../model/index";
 import { record } from "../model/validation";
 import { createDocumentSession } from "../session/create-document-session";
-import { importDocumentDocx, exportDocumentDocx } from "../io/index";
+import { importDocumentDoc, importDocumentDocx, exportDocumentDocx } from "../io/index";
+import { WORD_IMPORT_FILE_MESSAGE, guessWordImportFormat, importDocumentWord, isWordImportFileName } from "../io/import-word";
 import { assertDocumentFeatures, resolveDocumentFeatures } from "./document-features";
 
 import { useDocumentSearch } from "./use-document-search";
@@ -155,14 +156,26 @@ export function useDocumentEditor(props: DocumentProps) {
     invalidate(); session.discard(); setNotice(null);
     if (changed) notifyChange("command");
   }
-  async function importFile(input: string | Blob | ArrayBuffer | Uint8Array, format: "dcon" | "docx", options: DocumentImportOptions = {}) {
+  /** "word" is the file picker entry: it accepts either Word format and reads the one the content is. */
+  async function importFile(input: string | Blob | ArrayBuffer | Uint8Array, format: "dcon" | "docx" | "doc" | "word", options: DocumentImportOptions = {}) {
     if (!writable() || control.current.busy || !resolveDocumentFeatures(latest.current.features).import) return;
     const operation = reserve("import"), before = session.getSnapshot().document;
     try {
       const requestedPage = record(options, "Document import options", ["pageNumber"]).pageNumber;
       if (requestedPage !== undefined && (typeof requestedPage !== "number" || !Number.isSafeInteger(requestedPage) || requestedPage < 1)) throw new Error("ページ番号は1以上の整数を指定してください。");
       let document: DocumentModel, warnings: readonly string[] = [];
-      if (format === "docx") { const result = await importDocumentDocx(input as Blob | ArrayBuffer | Uint8Array, { signal: operation.signal }); document = result.document; warnings = result.warnings; }
+      let imported: "dcon" | "docx" | "doc" = format === "word" ? "docx" : format;
+      if (format !== "dcon") {
+        const source = input as Blob | ArrayBuffer | Uint8Array;
+        if (format === "word") {
+          if ("name" in source && typeof source.name === "string" && !isWordImportFileName(source.name)) throw new Error(WORD_IMPORT_FILE_MESSAGE);
+          imported = guessWordImportFormat(source);
+        }
+        const result = format === "word" ? await importDocumentWord(source, { signal: operation.signal })
+          : format === "doc" ? await importDocumentDoc(source, { signal: operation.signal })
+            : await importDocumentDocx(source, { signal: operation.signal });
+        document = result.document; warnings = result.warnings;
+      }
       else {
         if (typeof input !== "string" && (!(input instanceof Blob) || input.size > DOCUMENT_LIMITS.jsonLength)) throw new Error("40 MiB以下のDCONファイルを選択してください。");
         document = parseDocument(typeof input === "string" ? input : await input.text());
@@ -187,7 +200,7 @@ export function useDocumentEditor(props: DocumentProps) {
         setPageReveal({ document: after.document, position }); setNotice(null);
       }
       if (result && control.current.mounted && writable() && resolveDocumentFeatures(latest.current.features).import) {
-        setNotice({ kind: warnings.length ? "info" : "success", text: warnings.length ? warnings.join("\n") : "文書を読み込みました。" }); emit({ type: "import", format, warnings });
+        setNotice({ kind: warnings.length ? "info" : "success", text: warnings.length ? warnings.join("\n") : "文書を読み込みました。" }); emit({ type: "import", format: imported, warnings });
       }
     } catch (cause) { if (current(operation)) error(cause); }
     finally { release(operation); }
@@ -218,7 +231,7 @@ export function useDocumentEditor(props: DocumentProps) {
     setPageReveal({ document: session.getSnapshot().document, position: location.match.from });
   }, props);
   useImperativeHandle(props.ref, () => ({ openSearch: search.openSearch, openExternalSearch: search.openExternalSearch, closeSearch: search.closeSearch, getRibbonDisplayMode: ribbon.getRibbonDisplayMode, setRibbonDisplayMode: ribbon.setRibbonDisplayMode, getDocument: () => session.getSnapshot().document, getSelection: () => ({ ...session.getSnapshot().selection }), select, goToPage, execute, undo: () => history("undo"), redo: () => history("redo"), save, discard,
-    importNative: (input, options) => importFile(input, "dcon", options), importDocx: (input, options) => importFile(input, "docx", options), exportNative: () => exportFile("dcon"), exportDocx: () => exportFile("docx"),
+    importNative: (input, options) => importFile(input, "dcon", options), importDocx: (input, options) => importFile(input, "docx", options), importDoc: (input, options) => importFile(input, "doc", options), exportNative: () => exportFile("dcon"), exportDocx: () => exportFile("docx"),
   }));
   return { ...snapshot, ...ribbon, search, session, features, readOnly, editable: !readOnly && !busy, busy, notice, setNotice, error, execute, select, goToPage, pageReveal, history, save, discard, importFile, exportFile };
 }

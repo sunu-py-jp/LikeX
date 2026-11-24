@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ExplorerPreviewError } from "@likex/explorer";
-import Spreadsheet, { importSpreadsheetXlsx, type SpreadsheetWorkbook } from "@likex/spreadsheet";
+import Spreadsheet, { importSpreadsheetExcel, type SpreadsheetWorkbook } from "@likex/spreadsheet";
 import "../../../../packages/spreadsheet/src/styles.css";
 
 /** The host owns file loading and keeps the original exception for diagnostics. */
@@ -8,7 +8,8 @@ export function ExcelPreviewExample({ file, name }: { file: Blob; name: string }
   const [result, setResult] = useState<{ file: Blob; workbook?: SpreadsheetWorkbook; error?: unknown }>();
   useEffect(() => {
     const abort = new AbortController();
-    void importSpreadsheetXlsx(file, { signal: abort.signal }).then(({ workbook }) => {
+    // Either Excel format: the content decides between .xlsx and the 97–2003 .xls reader.
+    void importSpreadsheetExcel(file, { signal: abort.signal }).then(({ workbook }) => {
       if (!abort.signal.aborted) setResult({ file, workbook });
     }).catch((error: unknown) => {
       if (!abort.signal.aborted) setResult({ file, error });

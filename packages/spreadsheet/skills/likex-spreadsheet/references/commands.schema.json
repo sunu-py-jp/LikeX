@@ -3106,29 +3106,29 @@
         "leftArrow",
         "parallelogram",
         "trapezoid",
-        "upArrow",
-        "downArrow",
-        "leftRightArrow",
-        "upDownArrow",
-        "bentArrow",
-        "bentUpArrow",
-        "uturnArrow",
-        "leftUpArrow",
-        "leftRightUpArrow",
-        "quadArrow",
-        "chevron",
-        "homePlate",
-        "pentagon",
         "hexagon",
         "octagon",
-        "star5",
         "plus",
+        "star5",
+        "homePlate",
+        "chevron",
+        "pentagon",
+        "downArrow",
+        "upArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "quadArrow",
+        "leftUpArrow",
+        "bentUpArrow",
+        "bentArrow",
+        "uturnArrow",
         "flowChartInputOutput",
         "flowChartDocument",
         "flowChartMultidocument",
         "flowChartManualInput",
         "flowChartManualOperation",
         "flowChartMerge",
+        "leftRightUpArrow",
         "rectangle",
         "arrow",
         "roundedRectangle",
@@ -3365,6 +3365,9 @@
           "maximum": 0.5,
           "description": "Rounded rectangle radius as a fraction of its shorter side. Omitted uses 0.16667."
         },
+        "shape": {
+          "$ref": "#/$defs/SpreadsheetShapeKind"
+        },
         "strokeWidth": {
           "type": "number",
           "minimum": 0,
@@ -3413,9 +3416,6 @@
           "maximum": 10,
           "description": "Line height as a font-size multiple."
         },
-        "shape": {
-          "$ref": "#/$defs/SpreadsheetShapeKind"
-        },
         "startArrow": {
           "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_startArrow",
           "description": "End markers. Legacy shape:arrow defaults its end to triangle; otherwise none."
@@ -3434,8 +3434,8 @@
         "id",
         "height",
         "stroke",
-        "strokeWidth",
         "shape",
+        "strokeWidth",
         "anchor"
       ],
       "additionalProperties": false
@@ -4062,6 +4062,9 @@
           "maximum": 0.5,
           "description": "Rounded rectangle radius as a fraction of its shorter side. Omitted uses 0.16667."
         },
+        "shape": {
+          "$ref": "#/$defs/SpreadsheetCommand_49_patch_shape"
+        },
         "strokeWidth": {
           "type": "number",
           "minimum": 0,
@@ -4109,9 +4112,6 @@
           "minimum": 0.1,
           "maximum": 10,
           "description": "Line height as a font-size multiple."
-        },
-        "shape": {
-          "$ref": "#/$defs/SpreadsheetCommand_49_patch_shape"
         },
         "startArrow": {
           "$ref": "#/$defs/SpreadsheetCommand_44_payload_drawing_1_startArrow",
@@ -4197,6 +4197,51 @@
       ],
       "additionalProperties": false
     },
+    "SpreadsheetCommand_49_patch_shape": {
+      "enum": [
+        "triangle",
+        "diamond",
+        "line",
+        "ellipse",
+        "flowChartProcess",
+        "flowChartDecision",
+        "flowChartTerminator",
+        "flowChartPredefinedProcess",
+        "flowChartPreparation",
+        "flowChartDelay",
+        "rightArrow",
+        "leftArrow",
+        "parallelogram",
+        "trapezoid",
+        "hexagon",
+        "octagon",
+        "plus",
+        "star5",
+        "homePlate",
+        "chevron",
+        "pentagon",
+        "downArrow",
+        "upArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "quadArrow",
+        "leftUpArrow",
+        "bentUpArrow",
+        "bentArrow",
+        "uturnArrow",
+        "flowChartInputOutput",
+        "flowChartDocument",
+        "flowChartMultidocument",
+        "flowChartManualInput",
+        "flowChartManualOperation",
+        "flowChartMerge",
+        "leftRightUpArrow",
+        "rectangle",
+        "arrow",
+        "roundedRectangle",
+        "rightTriangle"
+      ]
+    },
     "SpreadsheetCommand_49_patch_textInsets": {
       "type": "object",
       "properties": {
@@ -4220,51 +4265,6 @@
         "bottom"
       ],
       "additionalProperties": false
-    },
-    "SpreadsheetCommand_49_patch_shape": {
-      "enum": [
-        "triangle",
-        "diamond",
-        "line",
-        "ellipse",
-        "flowChartProcess",
-        "flowChartDecision",
-        "flowChartTerminator",
-        "flowChartPredefinedProcess",
-        "flowChartPreparation",
-        "flowChartDelay",
-        "rightArrow",
-        "leftArrow",
-        "parallelogram",
-        "trapezoid",
-        "upArrow",
-        "downArrow",
-        "leftRightArrow",
-        "upDownArrow",
-        "bentArrow",
-        "bentUpArrow",
-        "uturnArrow",
-        "leftUpArrow",
-        "leftRightUpArrow",
-        "quadArrow",
-        "chevron",
-        "homePlate",
-        "pentagon",
-        "hexagon",
-        "octagon",
-        "star5",
-        "plus",
-        "flowChartInputOutput",
-        "flowChartDocument",
-        "flowChartMultidocument",
-        "flowChartManualInput",
-        "flowChartManualOperation",
-        "flowChartMerge",
-        "rectangle",
-        "arrow",
-        "roundedRectangle",
-        "rightTriangle"
-      ]
     },
     "SpreadsheetCommand_50": {
       "type": "object",

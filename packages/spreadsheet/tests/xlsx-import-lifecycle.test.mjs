@@ -294,7 +294,7 @@ test('File ribbon contains import/export, preserves quick save/history, and conf
   assert.equal(filePanel.findAllByProps({ className: 'lxs-save' }).length, 0);
   await act(async () => ui.ref.current.execute(set('local')));
   globalThis[decoderKey] = async () => { reads++; return decoded([{ code: 'unsupported', message: 'グラフは取り込めません', sheetName: 'Main' }]); };
-  const fileInput = ui.root.findByProps({ 'aria-label': '取り込むExcelファイル' }); assert.equal(fileInput.props.accept, '.xlsx');
+  const fileInput = ui.root.findByProps({ 'aria-label': '取り込むExcelファイル' }); assert.equal(fileInput.props.accept, '.xlsx,.xls');
   const target = { files: [input()], value: 'example.xlsx' };
   await act(async () => fileInput.props.onChange({ currentTarget: target }));
   assert.equal(target.value, ''); assert.equal(reads, 0);

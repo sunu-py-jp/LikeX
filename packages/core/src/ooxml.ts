@@ -2,6 +2,10 @@ export { openOfficePackage, openOfficePackageMetadata } from "./ooxml/zip-reader
 export type { OfficePackageArchive } from "./ooxml/zip-reader";
 export { openOfficePackageReader } from "./ooxml/zip-stream-reader";
 export type { OfficePackageReadLimits, OfficePackageStreamingArchive } from "./ooxml/zip-stream-reader";
+export { createOfficePackageFromParts } from "./ooxml/memory-package";
+export type { OfficePackageParts, OfficePackageFromPartsOptions } from "./ooxml/memory-package";
+export { detectOfficeContainer, detectOfficeContainerBytes } from "./ooxml/container";
+export type { OfficeContainerKind } from "./ooxml/container";
 export { parseXmlStream } from "./ooxml/xml-stream";
 export type { XmlStreamOptions } from "./ooxml/xml-stream";
 export { OFFICE_PACKAGE_LIMITS, OFFICE_PACKAGE_METADATA_LIMITS } from "./ooxml/types";

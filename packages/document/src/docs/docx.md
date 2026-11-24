@@ -1,6 +1,6 @@
 # DOCXの読み込み・出力
 
-Wordとの受け渡しには `.docx` を使います。標準の保存形式は `.dcon` で、DOCXは文書モデルとの変換です。対応範囲外の内容は警告で確認し、必要な文書では変換後に本文・書式・ページを見直してください。
+Wordとの受け渡しには `.docx` を使います。Word 97–2003形式の `.doc` は[読み込みのみ](#word-972003docを読み込む)対応します。標準の保存形式は `.dcon` で、DOCXは文書モデルとの変換です。対応範囲外の内容は警告で確認し、必要な文書では変換後に本文・書式・ページを見直してください。
 
 ## 画面なしで変換する
 
@@ -76,9 +76,49 @@ const exportWarnings = exported.warnings;
 
 モデル上は表の `attrs.width` / `layout` / `cellMargins`、セルの `attrs.preferredWidth` / `margins` / `noWrap` / `fitText` で指定できます。幅は `{ unit: "px" | "percent", value: number }`、余白は `{ top?, right?, bottom?, left? }`（px）です。未指定の従来DCONは既存の表示既定を保ちます。追加属性はversion 1の拡張で、古いライブラリで新属性を含むDCONを読む場合はライブラリを更新してください。
 
+## Word 97–2003（.doc）を読み込む
+
+Word 97–2003のバイナリ形式を読み取り、同じ内容のDOCX相当のデータへ置き換えてから、DOCXと同じ処理で検証・変換します。そのため、上限・警告と、取り込める内容の範囲は `.docx` と共通です。**読み込み専用**で、`.doc` への出力はありません。
+
+```ts
+import { importDocumentWord, importDocumentDoc } from "@likex/document/model";
+
+// 内容から .docx / .doc を判定して読み込みます。
+const { document, warnings } = await importDocumentWord(file);
+
+// .doc だけを受け付ける場合
+const legacy = await importDocumentDoc(file, { signal });
+```
+
+| API | 受け付ける形式 |
+| --- | --- |
+| `importDocumentDocx(input, options?)` | `.docx` のみ（従来どおり） |
+| `importDocumentDoc(input, options?)` | Word 97–2003の `.doc` のみ |
+| `importDocumentWord(input, options?)` | どちらも。内容で判定します |
+
+形式はファイル先頭の署名で判定し、複合ファイル形式（`.doc`）だけを旧形式の読み取りへ回します。名前が `.docx` のファイルと、どちらの形式でもない入力は従来のDOCX読み込みが処理します。
+
+画面の「Wordを開く」は `.docx,.doc` を選択でき、内容で判定して読み込みます。refには `importDoc(input, { pageNumber? })` を追加しました。`importDocx` は従来どおり `.docx` 専用です。機能フラグは `features.import` を共用します。
+
+| 内容 | `.doc` での扱い |
+| --- | --- |
+| 段落・見出し・改行・タブ | 本文を再構成して取り込みます。見出しは組み込みの見出しスタイルとアウトラインレベルから判定します |
+| 文字書式 | 太字・斜体・下線・取り消し線・フォント・サイズ・文字色・蛍光ペン・網かけ。段落スタイル・文字スタイルの継承を解決して反映します |
+| 揃え・リスト | 左右中央・両端揃え、箇条書き・番号付きリスト（開始番号とレベル）。番号書式は `.docx` と同じ規則で標準表示へ変換します |
+| 表 | 列幅・横方向と縦方向の結合・背景色・見出し行・入れ子の表。罫線は `.docx` と同じく標準の罫線で表示します。行ごとに左右の端やセル数が食い違う表は、すべての行が同じ列幅に収まるよう端のセルを広げ、列を持てない文字は隣のセルへまとめます |
+| 画像 | 本文中のPNG・JPEG。表示サイズを保持します |
+| 用紙・改ページ | 用紙サイズ・余白・手動改ページ・段落前改ページ・セクション区切り。`.docx` と同じく最後のセクションの用紙設定に統一します。文書モデルで表せない用紙（25〜1,200 mmの範囲外、余白が500 mm超、本文幅が10 mm未満）は既定の用紙に置き換えます |
+| リンク・フィールド | ハイパーリンクはリンクとして、その他のフィールドは保存済みの表示文字列として取り込みます。リンクの中にあるリンクは外側のリンクにまとめます |
+| 変更履歴 | 承認後の本文に相当する内容を取り込みます |
+| ヘッダー・フッター・脚注・コメント・図形・埋め込みオブジェクト・WMF/EMF画像 | `.docx` と同じ警告で省略します |
+
+`.doc` には保存時の自動改ページ位置の記録がありません。そのため、ページ番号（`pageNumber`、検索結果のページ、サムネイル）は手動改ページとセクション区切りだけで決まり、Wordの表示ページと一致しないことがあります。
+
+マクロは読み込まず実行もしません（「マクロを読み込まずに省略しました」と警告します）。パスワード付き・暗号化された文書と、Word 95以前の形式は読み込みを中止します。入力は32 MiBまでです。DOCXの上限（本文と表のセルを合わせて20,000要素、1項目16 MiBなど）を超える文書は、変換の途中で読み込みを中止します。浮動配置の図形や画像は `.docx` の旧形式の描画と同じ扱いで省略します。
+
 ## 表示中コンポーネントとの連携
 
-refの `importDocx(input, { pageNumber? })` は表示中の編集許可を通して下書きを置き換え、`exportDocx()` はBlobを返します。警告は `onEvent` の `{ type: "import" | "export", format: "docx", warnings }` で受け取れます。純粋な `exportDocumentDocx` は `{ blob, warnings }` を返し、refはBlobを返す点に注意してください。
+refの `importDocx(input, { pageNumber? })` は表示中の編集許可を通して下書きを置き換え、`exportDocx()` はBlobを返します。警告は `onEvent` の `{ type: "import" | "export", format: "docx", warnings }` で受け取れます（`.doc` の読み込みは `{ type: "import", format: "doc", warnings }`）。純粋な `exportDocumentDocx` は `{ blob, warnings }` を返し、refはBlobを返す点に注意してください。
 
 図形は `wps:wsp` と `a:prstGeom` を使い、画像化しません。Wordの `mc:AlternateContent` は対応するDrawingMLの分岐だけを読み、VMLの代替表示を重複して取り込みません。テーマ色は同梱テーマのRGBへ解決し、色の濃淡・透明度の変換やテーマ未解決も警告します。Officeの整数単位への変換により、寸法・線幅・角度は微小に丸められます。図形内の文字サイズはWordの0.5 pt単位です。
 

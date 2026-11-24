@@ -113,7 +113,7 @@ const { document, dirty, canUndo } = session.getSnapshot();
 
 `initialPageNumber` はマウント時だけ読み取り、`goToPage(pageNumber)` は `getDocumentPage` と同じ境界で区切るページへ移動します。移動は選択位置とスクロールを更新し、フォーカスを奪わず、読み取り専用でも使えます。文書・履歴・未保存状態・編集許可は変更しません。無効な番号や存在しないページは通知して `false`、移動を受け付けた場合は `true` を返します。通常表示は保存された境界に用紙間の余白を置きますが、表内の境界も数えるこのページ番号は画面の用紙枚数やWordの印刷ページを表すものではありません。
 
-`save` / `discard` は保存状態を操作します。`importNative` / `exportNative` はDCON、`importDocx` / `exportDocx` はDOCX入出力です。純粋なDOCX APIとrefの戻り値は異なるため、[DOCX入出力](docx.md)も確認してください。
+`save` / `discard` は保存状態を操作します。`importNative` / `exportNative` はDCON、`importDocx` / `exportDocx` はDOCX入出力、`importDoc` はWord 97–2003（`.doc`）の読み込みです。純粋なDOCX APIとrefの戻り値は異なるため、[DOCX入出力](docx.md)も確認してください。
 
 読み込みと同時に移動する場合は `DocumentImportOptions` の `pageNumber` を渡します。
 

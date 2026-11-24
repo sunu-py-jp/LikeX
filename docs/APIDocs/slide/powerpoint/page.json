@@ -1,6 +1,6 @@
 {
   "title": "PowerPoint・JSONの入出力",
-  "summary": "PPTXの読み込みと出力、アニメーション変換、対象箇所付きの診断。",
+  "summary": "PPTXの読み込みと出力、.pptの読み込み、アニメーション変換、対象箇所付きの診断。",
   "source": "packages/slide/src/docs/powerpoint.md",
   "order": 40,
   "section": "読み込みと出力",
@@ -14,7 +14,11 @@
     "SlidePptxDiagnostic",
     "onDiagnostic",
     "getPptxDiagnostics",
-    "conversion"
+    "conversion",
+    "importSlidePpt",
+    "importSlidePowerPoint",
+    "ppt",
+    "PowerPoint 97-2003"
   ],
   "screenshots": [
     {

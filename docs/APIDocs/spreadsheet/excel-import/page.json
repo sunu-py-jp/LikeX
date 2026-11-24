@@ -1,6 +1,6 @@
 {
   "title": "Excel取り込み",
-  "summary": ".xlsxを下書きへ取り込み、警告の確認・編集許可・Undoにつなげます。画面なしのJSON変換にも対応します。",
+  "summary": ".xlsx・.xlsを下書きへ取り込み、警告の確認・編集許可・Undoにつなげます。画面なしのJSON変換にも対応します。",
   "source": "packages/spreadsheet/src/docs/excel-import.md",
   "order": 165,
   "section": "親アプリとの連携",
@@ -18,7 +18,11 @@
     "640 MiB",
     "limits",
     "SpreadsheetExcelImportLimits",
-    "formatRanges"
+    "formatRanges",
+    "importSpreadsheetXls",
+    "importSpreadsheetExcel",
+    "xls",
+    "Excel 97-2003"
   ],
   "screenshots": [
     {

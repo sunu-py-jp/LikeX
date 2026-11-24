@@ -1,6 +1,6 @@
-export { openOfficePackage, openOfficePackageMetadata, OFFICE_PACKAGE_LIMITS, OFFICE_PACKAGE_METADATA_LIMITS,
+export { openOfficePackage, openOfficePackageMetadata, createOfficePackageFromParts, detectOfficeContainer, OFFICE_PACKAGE_LIMITS, OFFICE_PACKAGE_METADATA_LIMITS,
   officeXml, readOfficeRelationships, resolveOfficePart, createOfficeConnectorGeometry,
   readOfficeConnectorShapeTag, getOfficePresetConnectorPort, createOfficeElbowConnectorGeometry,
   readOfficeElbowConnectorEndpoints } from "./core";
-export type { OfficePackageArchive, OfficePackageInput, OfficePackageMetadataInput, OfficePackageSignal,
+export type { OfficePackageArchive, OfficePackageParts, OfficeContainerKind, OfficePackageInput, OfficePackageMetadataInput, OfficePackageSignal,
   OfficePackageBlob, OfficeXmlNode, OfficeRelationship } from "./core";

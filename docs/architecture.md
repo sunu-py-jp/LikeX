@@ -55,6 +55,8 @@ Explorerでは `.spon` を緑の表計算アイコン、`.slon` をオレンジ�
 
 読み込み時は拡張子やMIMEタイプだけで内容を判断せず、各モジュールのparse APIで形式・バージョン・データを検証します。独自拡張子のOS関連付けやエディタのJSON認識は利用環境での設定が必要です。Excel・PowerPointとの受け渡しには、それぞれXLSX・PPTXの入出力を使います。
 
+Office 97–2003形式（`.xls`・`.doc`・`.ppt`）は取り込みだけに対応します。各モジュールの `legacy/` がバイナリを読み、XLSX・DOCX・PPTX相当のパーツをメモリ上に組み立てて、既存の取り込み処理（`import…Package`）へ渡します。このため入力の上限・回復・警告はX形式と共通です。複合ファイルの読み取り・バイト列の境界チェック・図形レコード・旧文字コードは `core` の `legacy-office` が受け持ち、形式の判定は拡張子ではなく先頭の署名（`detectOfficeContainer`）で行います。公開入口は形式ごとの関数（`importSpreadsheetXls` など）と、内容で振り分ける関数（`importSpreadsheetExcel`・`importDocumentWord`・`importSlidePowerPoint`）です。マクロは読み込まず、暗号化されたファイルは拒否します。
+
 ## パッケージとコピーで原本を共用する
 
 配布用にもう一つ実装を持ちません。`src/` から `dist/` のESMと型宣言を生成し、`src/README.md` と `src/docs/` の利用ガイドを同じ配置で配布物へ同梱します。READMEは導入と詳細への入口、`docs/` は責務ごとの詳細です。

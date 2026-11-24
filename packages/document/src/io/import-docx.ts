@@ -1,7 +1,7 @@
 import { readDocxCanvas } from "./docx-canvas";
 import { readDocxShape } from "./docx-shapes";
 import { normalizeDocument } from "../model/document";
-import { openOfficePackage, officeXml, readOfficeRelationships, resolveOfficePart, type OfficePackageInput } from "../ooxml";
+import { openOfficePackage, officeXml, readOfficeRelationships, resolveOfficePart, type OfficePackageArchive, type OfficePackageInput } from "../ooxml";
 import { millimetres } from "./docx-xml";
 import { createDocxTableReader } from "./docx-tables";
 import { createDocxPageBreakReader, readDocxSections } from "./docx-page-breaks";
@@ -10,12 +10,25 @@ import type { DocumentDocxImportResult, DocumentDocxOptions } from "./types";
 
 const fail = (message: string): never => { throw new Error(`Word文書を読み込めません: ${message}`); };
 const mainType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml";
+/** Block-level elements read from the body and all table cells of one document. */
+export const DOCX_BLOCK_ELEMENT_LIMIT = 20_000;
 
 /** Bounded, headless DOCX reader. Never executes fields/macros or fetches external resources. */
 export async function importDocumentDocx(input: OfficePackageInput, options: DocumentDocxOptions = {}): Promise<DocumentDocxImportResult> {
   const { signal } = options; signal?.throwIfAborted();
   if (input && typeof input === "object" && "name" in input && typeof input.name === "string" && !/\.docx$/i.test(input.name)) return fail(".docx形式を指定してください");
-  const archive = await openOfficePackage(input, signal), warnings = new Set<string>();
+  return readDocxPackage(await openOfficePackage(input, signal), options);
+}
+/**
+ * Imports an already opened WordprocessingML package. Converters that synthesize a package in
+ * memory enter here, so every source shares one set of limits, checks and warnings.
+ */
+export async function importDocumentDocxPackage(archive: OfficePackageArchive, options: DocumentDocxOptions = {}): Promise<DocumentDocxImportResult> {
+  options.signal?.throwIfAborted();
+  return readDocxPackage(archive, options);
+}
+async function readDocxPackage(archive: OfficePackageArchive, options: DocumentDocxOptions): Promise<DocumentDocxImportResult> {
+  const { signal } = options, warnings = new Set<string>();
   const warn = (message: string) => { warnings.add(message); };
   const root = async (path: string) => { signal?.throwIfAborted(); return officeXml.parseXml(await archive.read(path)); };
   const typesRoot = await root("[Content_Types].xml");
@@ -195,7 +208,7 @@ export async function importDocumentDocx(input: OfficePackageInput, options: Doc
   async function blocks(source: XmlNode): Promise<Node[]> {
     const result: ListedBlock[] = [];
     for (const item of source.children) {
-      if (++elements > 20000) return fail("文書の要素数が読み込み上限を超えています");
+      if (++elements > DOCX_BLOCK_ELEMENT_LIMIT) return fail("文書の要素数が読み込み上限を超えています");
       if (elements % 64 === 0) { await new Promise<void>(resolve => setTimeout(resolve, 0)); signal?.throwIfAborted(); }
       const tag = localName(item.name);
       if (tag === "p") {

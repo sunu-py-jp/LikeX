@@ -14,9 +14,8 @@ async function excelErrorContext<T>(operation: () => Promise<T>): Promise<T> {
   }
 }
 
-/** The importer streams worksheets and verifies all remaining members before committing. */
-export async function openXlsxStreamingArchive(input: OfficePackageInput, signal?: OfficePackageSignal, limits: ResolvedXlsxImportLimits = XLSX_IMPORT_LIMITS): Promise<OfficePackageStreamingArchive> {
-  const archive = await excelErrorContext(() => openOfficePackageReader(input, signal, limits));
+/** Applies the Excel error context and the metadata read budget to an opened package, whatever produced it. */
+export function xlsxArchive(archive: OfficePackageStreamingArchive): OfficePackageStreamingArchive {
   return {
     paths: archive.paths, has: path => archive.has(path),
     // Metadata and images retain their smaller allocation budget; only worksheets stream larger parts.
@@ -27,4 +26,9 @@ export async function openXlsxStreamingArchive(input: OfficePackageInput, signal
     },
     validate: () => excelErrorContext(() => archive.validate()),
   };
+}
+
+/** The importer streams worksheets and verifies all remaining members before committing. */
+export async function openXlsxStreamingArchive(input: OfficePackageInput, signal?: OfficePackageSignal, limits: ResolvedXlsxImportLimits = XLSX_IMPORT_LIMITS): Promise<OfficePackageStreamingArchive> {
+  return xlsxArchive(await excelErrorContext(() => openOfficePackageReader(input, signal, limits)));
 }

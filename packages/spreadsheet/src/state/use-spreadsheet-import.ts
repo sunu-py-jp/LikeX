@@ -2,7 +2,8 @@
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { SpreadsheetImportExcelOptions, SpreadsheetImportNativeOptions } from "../api/lifecycle";
-import type { SpreadsheetExcelImportResult } from "../import/types";
+import type { SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult } from "../import/types";
+import { EXCEL_IMPORT_FILE_MESSAGE, guessExcelImportFormat, isExcelImportFileName } from "../import/excel-format";
 import { normalizeWorkbook, parseWorkbook, SPREADSHEET_LIMITS } from "../model";
 import type { DraftSelection, Workbook } from "./types";
 import type { useWorkbookDraft } from "./use-workbook-draft";
@@ -15,6 +16,15 @@ type ImportView = DraftSelection & {
   isExporting: () => boolean;
 };
 const cancelled = (message = "取り込みをキャンセルしました") => new DOMException(message, "AbortError");
+/**
+ * A .xlsx file keeps its established loader and timing; anything else is routed by content,
+ * which reads the first bytes before choosing between the XLSX and the Excel 97–2003 reader.
+ */
+function importExcelFile(input: Blob | ArrayBuffer | Uint8Array, options: SpreadsheetExcelImportOptions): Promise<SpreadsheetExcelImportResult> {
+  const name = "name" in input && typeof input.name === "string" ? input.name : "";
+  if (/\.xlsx$/i.test(name)) return import("./import-xlsx").then(({ importSpreadsheetXlsx }) => importSpreadsheetXlsx(input, options));
+  return import("./import-excel").then(({ importSpreadsheetExcel }) => importSpreadsheetExcel(input, options));
+}
 
 /** Parsing and review retain the old draft; the existing transaction publishes exactly once. */
 export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>, view: ImportView) {
@@ -53,7 +63,8 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
     options.signal?.throwIfAborted();
     const controller = new AbortController(), requestId = crypto.randomUUID();
     const fileName = typeof input === "object" && input !== null && "name" in input && typeof input.name === "string" ? input.name : undefined;
-    const eventBase = { type: "import" as const, format, requestId, ...(fileName ? { fileName } : {}) };
+    // "xlsx" names the Excel entry; the event states which of its two file formats is being read.
+    const eventBase = { type: "import" as const, format: format === "xlsx" ? guessExcelImportFormat(input) : format, requestId, ...(fileName ? { fileName } : {}) };
     const workbook = current.workbookRef.current, revision = current.revisionRef.current;
     const pendingUnchanged = currentView.capturePendingEdits();
     let permissionId: string | null = null;
@@ -81,10 +92,10 @@ export function useSpreadsheetImport(draft: ReturnType<typeof useWorkbookDraft>,
     current.emitEvent({ ...eventBase, status: "start" });
     try {
       ensureCurrent();
-      if (format === "xlsx" && fileName && !/\.xlsx$/i.test(fileName)) throw new Error(".xlsx 形式のExcelファイルを選択してください");
+      if (format === "xlsx" && fileName && !isExcelImportFileName(fileName)) throw new Error(EXCEL_IMPORT_FILE_MESSAGE);
       const parsed = format === "xlsx"
-        ? await wait(import("./import-xlsx").then(({ importSpreadsheetXlsx }) => importSpreadsheetXlsx(input, {
-          signal: controller.signal, columnWidthMeasurement, emptyCellFormatting, limits })))
+        ? await wait(importExcelFile(input, {
+          signal: controller.signal, columnWidthMeasurement, emptyCellFormatting, limits }))
         : await wait((async () => {
           if (!input || typeof input !== "object" || !("text" in input) || typeof input.text !== "function" || !("size" in input))
             throw new Error("SPONファイルはBlobで指定してください");

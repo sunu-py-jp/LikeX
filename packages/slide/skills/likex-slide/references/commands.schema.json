@@ -402,29 +402,29 @@
         "rtTriangle",
         "parallelogram",
         "trapezoid",
-        "upArrow",
-        "downArrow",
-        "leftRightArrow",
-        "upDownArrow",
-        "bentArrow",
-        "bentUpArrow",
-        "uturnArrow",
-        "leftUpArrow",
-        "leftRightUpArrow",
-        "quadArrow",
-        "chevron",
-        "homePlate",
-        "pentagon",
         "hexagon",
         "octagon",
-        "star5",
         "plus",
+        "star5",
+        "homePlate",
+        "chevron",
+        "pentagon",
+        "downArrow",
+        "upArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "quadArrow",
+        "leftUpArrow",
+        "bentUpArrow",
+        "bentArrow",
+        "uturnArrow",
         "flowChartInputOutput",
         "flowChartDocument",
         "flowChartMultidocument",
         "flowChartManualInput",
         "flowChartManualOperation",
         "flowChartMerge",
+        "leftRightUpArrow",
         "arrow"
       ]
     },
@@ -1297,13 +1297,13 @@
           "maximum": 0.5,
           "description": "Rounded rectangle radius as a fraction of its shorter side; only roundRect. Omitted keeps the legacy 0.12 radius."
         },
+        "shape": {
+          "$ref": "#/$defs/SlideElementInput_2_shape"
+        },
         "strokeWidth": {
           "type": "number",
           "minimum": 0,
           "maximum": 100
-        },
-        "shape": {
-          "$ref": "#/$defs/SlideElementInput_2_shape"
         },
         "startArrow": {
           "$ref": "#/$defs/SlideShapeElement_startArrow",
@@ -1351,29 +1351,29 @@
         "rtTriangle",
         "parallelogram",
         "trapezoid",
-        "upArrow",
-        "downArrow",
-        "leftRightArrow",
-        "upDownArrow",
-        "bentArrow",
-        "bentUpArrow",
-        "uturnArrow",
-        "leftUpArrow",
-        "leftRightUpArrow",
-        "quadArrow",
-        "chevron",
-        "homePlate",
-        "pentagon",
         "hexagon",
         "octagon",
-        "star5",
         "plus",
+        "star5",
+        "homePlate",
+        "chevron",
+        "pentagon",
+        "downArrow",
+        "upArrow",
+        "leftRightArrow",
+        "upDownArrow",
+        "quadArrow",
+        "leftUpArrow",
+        "bentUpArrow",
+        "bentArrow",
+        "uturnArrow",
         "flowChartInputOutput",
         "flowChartDocument",
         "flowChartMultidocument",
         "flowChartManualInput",
         "flowChartManualOperation",
         "flowChartMerge",
+        "leftRightUpArrow",
         "arrow"
       ]
     },
@@ -1720,13 +1720,13 @@
           "maximum": 0.5,
           "description": "Rounded rectangle radius as a fraction of its shorter side; only roundRect. Omitted keeps the legacy 0.12 radius."
         },
+        "shape": {
+          "$ref": "#/$defs/SlideElementInput_2_shape"
+        },
         "strokeWidth": {
           "type": "number",
           "minimum": 0,
           "maximum": 100
-        },
-        "shape": {
-          "$ref": "#/$defs/SlideElementInput_2_shape"
         },
         "startArrow": {
           "$ref": "#/$defs/SlideShapeElement_startArrow",

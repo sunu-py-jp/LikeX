@@ -73,6 +73,8 @@ export type SlideHandle = SearchPanelHandle & {
   /** Flush pending input and return current .slon JSON without marking the draft saved. */
   exportNative(): Promise<Blob>;
   importPptx(input: Blob | ArrayBuffer | Uint8Array, target?: SlidePageTarget): Promise<void>;
+  /** Load a PowerPoint 97–2003 (.ppt) presentation as an undoable draft. Import only: there is no .ppt export. */
+  importPpt(input: Blob | ArrayBuffer | Uint8Array, target?: SlidePageTarget): Promise<void>;
   /** Import PPTX/POTX master/layout definitions as one undoable edit without replacing pages or selection. */
   importPptxMasters(input: Blob | ArrayBuffer | Uint8Array, options?: SlidePptxImportOptions): Promise<void>;
   /** Cancel a pending master import, including an outstanding edit-permission request. */

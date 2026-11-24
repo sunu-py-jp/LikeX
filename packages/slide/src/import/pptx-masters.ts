@@ -1,11 +1,11 @@
-import type { OfficePackageInput } from "../ooxml";
+import type { OfficePackageArchive, OfficePackageInput } from "../ooxml";
 import { normalizeSlideMasterLibrary } from "../model";
 import type { SlideLayout, SlideMaster, SlideMasterLibrary } from "../model/types";
 import { SLIDE_LIMITS } from "../model/limits";
 import { child, children, localName, shapes, placeholder, readTheme, readFill, color, relationship, type Node, type PptxContext, type Relations, type Theme } from "./pptx-reader";
 import { readElement } from "./pptx-elements";
 import { resolvePptxConnections, type PptxConnectionSource } from "./pptx-connectors";
-import { openPptxPresentation } from "./pptx-package";
+import { openPptxPresentation, openPptxPresentationPackage, type PptxPresentationPackage } from "./pptx-package";
 import type { SlidePptxImportOptions } from "./import-pptx";
 import type { SlidePptxDiagnostic } from "../office/types";
 
@@ -102,7 +102,14 @@ export async function readPptxMasterLibrary(context: PptxContext, presentation: 
 }
 /** Read every registered master/layout, including unused layouts and zero-slide POTX templates. */
 export async function importSlidePptxMasters(input: OfficePackageInput, options: SlidePptxImportOptions = {}): Promise<SlidePptxMastersImportResult> {
-  const { context, presentation, presentationLinks, width, height } = await openPptxPresentation(input, options);
+  return readPptxMasters(await openPptxPresentation(input, options), options);
+}
+/** Reads masters from an already opened PresentationML package; see openPptxPresentationPackage. */
+export async function importSlidePptxMastersPackage(archive: OfficePackageArchive, options: SlidePptxImportOptions = {}): Promise<SlidePptxMastersImportResult> {
+  return readPptxMasters(await openPptxPresentationPackage(archive, options), options);
+}
+async function readPptxMasters(source: PptxPresentationPackage, options: SlidePptxImportOptions): Promise<SlidePptxMastersImportResult> {
+  const { context, presentation, presentationLinks, width, height } = source;
   const { library } = await readPptxMasterLibrary(context, presentation, presentationLinks, width, height);
   const normalized = normalizeSlideMasterLibrary(library);
   const diagnostics = Object.freeze(context.diagnostics.map(item => Object.freeze({ ...item })));

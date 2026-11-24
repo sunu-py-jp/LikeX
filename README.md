@@ -8,9 +8,9 @@
 | --- | --- | --- |
 | `@likex/core` | 保存・編集許可・通知・機能設定の共通型とヘルパー | [共通基盤](packages/core/README.md) |
 | `@likex/explorer` | ファイル・フォルダの表示と編集 | [Explorer](packages/explorer/README.md) |
-| `@likex/spreadsheet` | Excel風のセル編集・基本数式・複数シート | [Spreadsheet](packages/spreadsheet/README.md) |
-| `@likex/slide` | PowerPoint風のスライド編集・発表・PPTX入出力 | [LikeSlide](packages/slide/README.md) |
-| `@likex/document` | Word風の文書編集・段落・表・画像・DOCX入出力 | [LikeDocument](packages/document/README.md) |
+| `@likex/spreadsheet` | Excel風のセル編集・基本数式・複数シート・XLSX入出力（XLSは読み込み） | [Spreadsheet](packages/spreadsheet/README.md) |
+| `@likex/slide` | PowerPoint風のスライド編集・発表・PPTX入出力（PPTは読み込み） | [LikeSlide](packages/slide/README.md) |
+| `@likex/document` | Word風の文書編集・段落・表・画像・DOCX入出力（DOCは読み込み） | [LikeDocument](packages/document/README.md) |
 | `@likex/board` | カードとタスクのかんばん | [LikeBoard](packages/board/README.md) |
 | `@likex/diagram` | ノード・接続線の図 | [LikeDiagram](packages/diagram/README.md) |
 | `@likex/calendar` | 月・週・日の予定管理 | [LikeCalendar](packages/calendar/README.md) |

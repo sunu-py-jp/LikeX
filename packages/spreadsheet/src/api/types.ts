@@ -49,7 +49,7 @@ export type SpreadsheetHandle = SearchPanelHandle & SpreadsheetReadApi & Spreads
   save(): Promise<boolean>;
   /** Generates an XLSX Blob from the committed draft without saving or downloading it. Rejects unfinished edits. */
   exportExcel(options?: SpreadsheetExcelExportOptions): Promise<Blob>;
-  /** Replaces the draft as one undoable edit; never saves. Dirty/pending input requires explicit consent. */
+  /** Replaces the draft with an .xlsx or Excel 97–2003 .xls workbook as one undoable edit; never saves. Dirty/pending input requires explicit consent. */
   importExcel(input: Blob | ArrayBuffer | Uint8Array, options?: SpreadsheetImportExcelOptions): Promise<SpreadsheetExcelImportResult>;
   /** Generates a self-contained .spon JSON Blob; does not save or download. */
   exportNative(options?: SpreadsheetNativeExportOptions): Promise<Blob>;

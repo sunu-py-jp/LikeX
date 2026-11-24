@@ -65,7 +65,7 @@ export type SpreadsheetFeatures = Readonly<{
   refresh?: boolean;
   /** Excel output is available even in read-only mode. */
   exportExcel?: boolean;
-  /** Imports .xlsx files into the editable draft as one undoable change. */
+  /** Imports .xlsx and Excel 97–2003 .xls files into the editable draft as one undoable change. */
   importExcel?: boolean;
   /** Imports native SPON v1 JSON into the draft as one undoable change. */
   importNative?: boolean;

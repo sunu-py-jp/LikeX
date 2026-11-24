@@ -110,8 +110,8 @@
     },
     "ChatConversationKind": {
       "enum": [
-        "space",
         "group",
+        "space",
         "direct"
       ]
     },

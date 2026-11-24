@@ -31,6 +31,8 @@ export type SpreadsheetRefreshHandler = (context: OperationContext) => MaybeProm
 /** Explicit consent to replace both committed changes and unfinished input. */
 export type SpreadsheetDiscardOptions = Readonly<{ discardChanges?: boolean }>;
 /** Import replaces the draft only. Saving remains an explicit host-owned operation. */
+/** File format of an import: either Excel format, or native SPON. */
+export type SpreadsheetImportFormat = "xlsx" | "xls" | "spon";
 export type SpreadsheetImportExcelOptions = SpreadsheetExcelImportOptions & SpreadsheetDiscardOptions & Readonly<{
   /** Initial imported view. Both exact selectors must identify the same sheet; invalid targets reject before publication. */
   sheetId?: string;
@@ -63,9 +65,9 @@ export type SpreadsheetEvent =
   | Readonly<{ type: "export"; format: "xlsx" | "spon"; status: "success"; requestId: string; size: number }>
   | Readonly<{ type: "export"; format: "xlsx" | "spon"; status: "error"; requestId: string; message: string }>
   | Readonly<{ type: "export"; format: "xlsx" | "spon"; status: "cancelled"; requestId: string }>
-  | Readonly<{ type: "import"; format: "xlsx" | "spon"; status: "start" | "cancelled"; requestId: string; fileName?: string }>
-  | Readonly<{ type: "import"; format: "xlsx" | "spon"; status: "success"; requestId: string; fileName?: string; workbook: SpreadsheetWorkbookSnapshot; warnings: readonly SpreadsheetExcelImportWarning[] }>
-  | Readonly<{ type: "import"; format: "xlsx" | "spon"; status: "error"; requestId: string; fileName?: string; message: string }>
+  | Readonly<{ type: "import"; format: SpreadsheetImportFormat; status: "start" | "cancelled"; requestId: string; fileName?: string }>
+  | Readonly<{ type: "import"; format: SpreadsheetImportFormat; status: "success"; requestId: string; fileName?: string; workbook: SpreadsheetWorkbookSnapshot; warnings: readonly SpreadsheetExcelImportWarning[] }>
+  | Readonly<{ type: "import"; format: SpreadsheetImportFormat; status: "error"; requestId: string; fileName?: string; message: string }>
   | Readonly<{ type: "edit-mode"; mode: EditMode; reason: "request" | "granted" | "denied" | "error" | EditEndReason; requestId: string; request: SpreadsheetEditRequest; message?: string }>
   | Readonly<{ type: "selection"; selection: SpreadsheetSelection }>
   | Readonly<{ type: "drawing-selection"; sheetId: string; drawingId: string | null }>

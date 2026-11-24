@@ -12,6 +12,6 @@ Documentの `--images` は他の取得セレクター、`--include-data`、`--of
 
 ホストが画像本体を取得する場合は `await collectDocumentImages(document, { signal? })` を使う。戻り値の `images` には `src` も含まれるので、画像ごとに1回だけ解析し、結果を `imageId` で全配置へ対応付ける。キャッシュは画像IDと解析モデル・版・プロンプト・オプションを含め、利用者のアクセス範囲ごとに分ける。周囲の文章も使う解析ではその文脈も条件へ含める。
 
-対応画像はLikeDocumentモデルと同じPNG・JPEG。DOCXからは先に `importDocumentDocx` で取り込み、変換警告を確認する。ヘッダー・フッター、外部参照、未対応形式など、取込で省略された画像は収集されない。同じ絵でも再圧縮・元画像リサイズ・形式変換・メタデータ変更でバイト列が変われば別IDになる。類似画像判定や外部API送信は収集APIに含まれない。
+対応画像はLikeDocumentモデルと同じPNG・JPEG。DOCXからは先に `importDocumentDocx`（`.doc` は `importDocumentDoc`）で取り込み、変換警告を確認する。ヘッダー・フッター、外部参照、未対応形式など、取込で省略された画像は収集されない。同じ絵でも再圧縮・元画像リサイズ・形式変換・メタデータ変更でバイト列が変われば別IDになる。類似画像判定や外部API送信は収集APIに含まれない。
 
 型、Web Cryptoの要件、DOCXの変換範囲、ホスト解析例は[画像の収集と重複判定](../../../src/docs/image-analysis.md)を参照する。画像IDは読み取り結果だけで、DCON/DOCXへ自動保存されない。

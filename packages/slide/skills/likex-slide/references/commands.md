@@ -181,7 +181,7 @@ CLIは処理概要のJSONを標準出力へ返す。共通情報は `ok`, `kind`
 
 ## 入出力APIと表示中の下書き
 
-`@likex/slide/model` は `parseSlideDeck` / `serializeSlideDeck` に加え、`importSlidePptx` / `exportSlidePptx` をReactなしで公開する。PPTX読み込みは `{ deck, warnings, diagnostics }` を返す。省略・簡略化の `warnings` と、対象箇所付きの `diagnostics` を確認する。第2引数の `onDiagnostic` は検証成功後に各診断を受け取る。出力は実体がBlobで、DOM型のない環境では `SlidePptxExportBlob` の `size` / `type` / `arrayBuffer()` / `text()` を使う。Office変換はコマンドやCLIサブコマンドではなく、公開関数を直接呼ぶ。
+`@likex/slide/model` は `parseSlideDeck` / `serializeSlideDeck` に加え、`importSlidePptx` / `exportSlidePptx` をReactなしで公開する。PPTX読み込みは `{ deck, warnings, diagnostics }` を返す。PowerPoint 97–2003の `.ppt` は `importSlidePpt`（`.pptx` と両対応なら `importSlidePowerPoint`）で同じ形の結果を得られる。`.ppt` は読み込み専用で、アニメーションは変換せず `warnings` に「アニメーションを省略しました」を返す。省略・簡略化の `warnings` と、対象箇所付きの `diagnostics` を確認する。第2引数の `onDiagnostic` は検証成功後に各診断を受け取る。出力は実体がBlobで、DOM型のない環境では `SlidePptxExportBlob` の `size` / `type` / `arrayBuffer()` / `text()` を使う。Office変換はコマンドやCLIサブコマンドではなく、公開関数を直接呼ぶ。
 
 表示中のLikeSlideに反映する場合はホストが保持する `SlideHandle` を使う。`importNative(input: string | Blob): Promise<void>` は現在のSLONを読み、編集許可・機能設定・検証を通してUndo可能な下書きとして置き換える。失敗は元の資料を保って画面通知へ出し、拒否時も戻り値はvoidなので、完了だけを成功とみなさず `import` / `change` イベントや `getDeck()` で結果を確認する。ref呼び出し自体は確認ダイアログを出さない。
 

@@ -2,6 +2,7 @@
 
 import { Fragment, useLayoutEffect, useRef, useState } from "react";
 import type { SpreadsheetExcelImportOptions, SpreadsheetExcelImportResult } from "../import/types";
+import { EXCEL_IMPORT_ACCEPT, EXCEL_IMPORT_FILE_MESSAGE, isExcelImportFileName } from "../import/excel-format";
 import type { SpreadsheetController } from "../state/use-spreadsheet";
 import { Command, Icon } from "./spreadsheet-controls";
 import { SpreadsheetConfirmDialog } from "./spreadsheet-confirm-dialog";
@@ -66,10 +67,10 @@ export function SpreadsheetFileControls({ controller: c, active, panelId, tabId 
             const label = format === "xlsx" ? "Excel" : "SPON";
             return <Fragment key={format}>
               <input ref={element => { inputs.current[format] = element; }} type="file"
-                accept={format === "xlsx" ? ".xlsx" : ".spon,.json,application/json"} aria-label={`取り込む${label}ファイル`} hidden onChange={event => {
+                accept={format === "xlsx" ? EXCEL_IMPORT_ACCEPT : ".spon,.json,application/json"} aria-label={`取り込む${label}ファイル`} hidden onChange={event => {
                   const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
                   if (!file || busy) return;
-                  if (format === "xlsx" && !/\.xlsx$/i.test(file.name)) { c.reportError(new Error(".xlsx 形式のExcelファイルを選択してください")); return; }
+                  if (format === "xlsx" && !isExcelImportFileName(file.name)) { c.reportError(new Error(EXCEL_IMPORT_FILE_MESSAGE)); return; }
                   const item = { file, format, ...(format === "xlsx" ? { emptyCellFormatting, limits: { ...c.excelImportOptions?.limits } } : {}) };
                   if (c.hasUnsavedChanges || c.editing || c.pendingObjectEdit) setPendingFile(item);
                   else void start(item);

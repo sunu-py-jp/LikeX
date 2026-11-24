@@ -27,6 +27,7 @@ export { createZipArchive } from "./zip";
 export type { ZipArchiveContent, ZipArchiveEntry, ZipArchiveOptions } from "./zip";
 
 export * from "./ooxml";
+export * from "./legacy-office";
 
 export { createModelEditorController, MODEL_EDITOR_HISTORY_LIMITS } from "./editor/create-model-editor-controller";
 export type { ModelEditorController } from "./editor/create-model-editor-controller";

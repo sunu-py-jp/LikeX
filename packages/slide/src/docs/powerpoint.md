@@ -1,6 +1,6 @@
 # PowerPointの読み込みと出力
 
-ファイルタブにPowerPoint（`.pptx`）とLikeSlide（`.slon`）の読み込み・出力をまとめています。`.slon` の中身は保存用の `SlideFile`（version 1）のJSONです。[ネイティブ形式の仕様](commands.md)も参照してください。古い `.ppt`、マクロを含む形式、暗号化されたファイルには対応しません。
+ファイルタブにPowerPoint（`.pptx`）とLikeSlide（`.slon`）の読み込み・出力をまとめています。`.slon` の中身は保存用の `SlideFile`（version 1）のJSONです。[ネイティブ形式の仕様](commands.md)も参照してください。PowerPoint 97–2003形式の `.ppt` は[読み込みのみ](#powerpoint-972003pptを読み込む)対応します。マクロを含むOOXML形式（`.pptm`）と暗号化されたファイルには対応しません。
 
 ## APIから使う
 
@@ -30,6 +30,45 @@ import { exportSlidePptx } from "@likex/slide";
   if (!response.ok) throw new Error("保存できませんでした");
 }} />
 ```
+
+## PowerPoint 97–2003（.ppt）を読み込む
+
+PowerPoint 97–2003のバイナリ形式を読み取り、同じ内容のPPTX相当のデータへ置き換えてから、PPTXと同じ処理で検証・変換します。そのため、上限・警告と、取り込める要素の範囲は `.pptx` と共通です。**読み込み専用**で、`.ppt` への出力はありません。
+
+```ts
+import { importSlidePowerPoint, importSlidePpt } from "@likex/slide/model";
+
+// 内容から .pptx / .ppt を判定して読み込みます。
+const { deck, warnings, diagnostics } = await importSlidePowerPoint(file);
+
+// .ppt だけを受け付ける場合
+const legacy = await importSlidePpt(file, { signal });
+```
+
+| API | 受け付ける形式 |
+| --- | --- |
+| `importSlidePptx(input, options?)` | `.pptx` / `.potx` のみ（従来どおり） |
+| `importSlidePpt(input, options?)` | PowerPoint 97–2003の `.ppt` のみ |
+| `importSlidePowerPoint(input, options?)` | どちらも。内容で判定します |
+
+引数・オプション・戻り値は3つとも `importSlidePptx` と同じです。形式はファイル先頭の署名で判定し、複合ファイル形式（`.ppt`）だけを旧形式の読み取りへ回します。名前が `.pptx` / `.potx` のファイルと、どちらの形式でもない入力は従来のPPTX読み込みが処理します。
+
+ファイルタブの「PowerPoint」は `.pptx,.ppt` を選択でき、内容で判定して読み込みます。refには `importPpt(input, target?)` を追加しました。`importPptx` は従来どおり `.pptx` 専用です。機能フラグは `features.import` を共用します。マスターだけを取り込む `importSlidePptxMasters` は `.pptx` / `.potx` のみ対応します。
+
+| 内容 | `.ppt` での扱い |
+| --- | --- |
+| スライドの順序・サイズ・背景 | 読み込みます。スライド固有の背景と配色も反映します |
+| テキスト | プレースホルダーとテキストボックスの本文、フォント・サイズ・色・太字・斜体、左右中央揃え、上下の配置。マスターの文字スタイルと配色を解決して固定値にします。縦書き用フォント名の先頭の `@` は外し、保存できない記号を含むフォント名はマスターのフォントに任せます。750ptを超える文字サイズは750ptにします |
+| 図形・線・画像 | 対応図形、塗りと線、回転、線端の矢印と接続、内包されたPNG・JPEG。`.pptx` と同じ規則で変換・近似します。75ptを超える線の太さは75ptにします |
+| マスター | メインマスターをマスター1つ＋レイアウト1つとして取り込みます。タイトルマスターは同じマスターの追加レイアウトになります |
+| 発表者ノート | 本文をテキストとして保持します |
+| グループ・表・グラフ・埋め込みオブジェクト・非表示の図形 | `.pptx` と同じ警告で省略します |
+| 画面切り替え・非表示スライド | `.pptx` と同じ警告で省略・表示状態にします |
+| **アニメーション** | **変換しません**。アニメーションを含む資料は「アニメーションを省略しました」と警告して読み込みます |
+
+マクロは読み込まず実行もしません（「マクロを読み込まずに省略しました」と警告します）。パスワード付き・暗号化されたファイルは読み込みを中止します。入力は32 MiBまでです。[読み込みの上限](#読み込みの上限)を超えるテキストやデータは、変換の途中で読み込みを中止します。PowerPointは保存のたびにファイルへ追記するため、最新の保存内容だけを採用します。
+
+実際のPowerPointで作成された多様なファイルでの検証は限定的です。読み込み後は警告と表示を確認してください。
 
 ## 対応範囲
 

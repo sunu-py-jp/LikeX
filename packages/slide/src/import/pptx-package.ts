@@ -16,6 +16,14 @@ export async function openPptxPresentation(input: OfficePackageInput, options: {
   try { archive = await openOfficePackage(input, signal); }
   catch (cause) { if (signal?.aborted || cause instanceof Error && cause.name === "AbortError") throw cause;
     return fail(`暗号化されていない.pptx または .potx形式を指定してください（古い.pptは未対応）。${cause instanceof Error ? cause.message : "不正なファイルです"}`); }
+  return openPptxPresentationPackage(archive, options);
+}
+/**
+ * Validates an already opened PresentationML package. Converters that synthesize a package in
+ * memory enter here, so every source shares one set of limits, checks and warnings.
+ */
+export async function openPptxPresentationPackage(archive: OfficePackageArchive, options: { signal?: OfficePackageSignal } = {}): Promise<PptxPresentationPackage> {
+  const signal = options.signal; signal?.throwIfAborted();
   const context = createContext(archive, signal), content = await context.root("[Content_Types].xml"), contentTypes = new Map<string, string>();
   if (localName(content.name) !== "Types") return fail("Officeパッケージの構造が不正です");
   for (const entry of content.children) {

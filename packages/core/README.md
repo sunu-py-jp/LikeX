@@ -6,6 +6,10 @@ LikeXコンポーネントの保存・編集許可・通知・機能設定に使
 
 `readOfficeRelationships(archive, part, { onMissingTarget? })` は、通常の入口と `@likex/core/ooxml` から使えます。既定では参照先の欠損をエラーにします。任意の補助データを回復して読む場合は `onMissingTarget(relationship)` で欠損を通知し、その参照だけを省略できます。必須の参照はコールバックからthrowして停止できます。パス・重複ID・XMLの検証は常に実行し、外部参照の取得は行いません。SpreadsheetのXLSX取り込みはこのオプションを使い、欠損した補助データを警告付きで省略します。LikeSlide・LikeDocumentの既定動作は変わりません。
 
+`createOfficePackageFromParts(parts, { signal?, limits? })` は、メモリ上のパーツ（パスとバイト列の組）から `openOfficePackageReader` と同じ契約の読み取り元を作ります。パスの検証・重複の拒否・件数とサイズの上限はZIPと同じ規則です。ZIPを経由せずに組み立てたパッケージを各モジュールの取り込み処理へ渡す用途で、Office 97–2003形式の取り込みが使います。`detectOfficeContainer(input, signal?)` / `detectOfficeContainerBytes(bytes)` は先頭の署名から `"zip"`（OOXML）・`"cfb"`（97–2003形式の複合ファイル）・`"unknown"` を返します。`File` / `Blob` は先頭8バイトだけを読み、ファイル名や拡張子は判定に使いません。
+
+Office 97–2003形式（`.xls`・`.doc`・`.ppt`）に共通の読み取りも通常の入口から公開します。`openCompoundFile(input, signal?, limits?)` は複合ファイルを開き、`paths` / `has` / `size` / `read` でストリームを返します。開く時点でセクターの連鎖をすべて解決し、循環・共有・範囲外・宣言サイズの不足を拒否します。既定の上限は入力32 MiB・エントリ16,384件です。`ByteReader` は境界チェック付きのリトルエンディアン読み取り、`decodeCodePage(bytes, codePage)` は旧文字コードの変換、`readCompoundFileTitle(file)` は文書タイトルの取得、`officeArtRecords` / `officeArtRecordAt` / `readOfficeArtDrawing` / `readOfficeArtImages` などは図形・画像レコードの読み取りです。いずれも読み取り専用で、内容を実行・取得しません。
+
 `openOfficePackageReader(input, signal?, limits?)` は通常の入口と `@likex/core/ooxml` から使える逐次展開用のZIP読み取りAPIです。`limits` は `inputBytes` / `entries` / `entryBytes` / `totalBytes` の部分指定で、未指定は従来の32 MiB入力・4,096項目・1項目16 MiB・合計64 MiBです。ZIPの構造と宣言サイズを先に検証し、展開後のデータは内部にキャッシュしません。`stream(path)` は最大64 KiBずつ返し、最後まで読むと実際のサイズとCRCを確認します。`read(path, maxBytes?)` は1項目を配列で返し、`maxBytes` でメタデータ用の低い上限も指定できます。取り込み成功を確定する前に **`await archive.validate()` を必ず呼び**、未読・途中で読むのをやめた項目もCRCを確認してください。キャンセルは入力取得・展開・検証に共通で適用します。既存の `openOfficePackage` / `openOfficePackageMetadata` の契約・上限は変更しません。
 
 `parseXmlStream(chunks, { signal?, limits?, onElement? })` はバイト列を順次解析してXMLツリーを返します。`onElement(node, parent)` が `false` を返すと、閉じた要素をツリーに保持しません。省略する要素も構文・深さ・入力ノード数などの検証を通ります。入力全体の上限と保持するノード数の上限を分け、大量の空セルなどを完全なツリーにする前に省略できます。宣言・実際のサイズやCRCはZIP側、XMLの妥当性はこのAPIで検証します。

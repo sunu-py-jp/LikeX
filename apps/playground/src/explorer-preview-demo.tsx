@@ -124,7 +124,7 @@ function PreviewWorkspace({ workspace }: { workspace: Workspace }) {
           <label><input type="checkbox" checked={showInfo} onChange={event => setShowInfo(event.target.checked)} /> プレビューに原本情報を追加</label>
           <label><input type="checkbox" checked={newTab} onChange={event => setNewTab(event.target.checked)} /> テキストを別タブで開く</label>
           {textUrl && <a href={textUrl} target="_blank" rel="noopener noreferrer">ガイドを別タブで開く</a>}
-          <label>Excelを確認 <input type="file" accept=".xlsx" aria-label="確認するExcelファイル"
+          <label>Excelを確認 <input type="file" accept=".xlsx,.xls" aria-label="確認するExcelファイル"
             onChange={event => { const file = event.currentTarget.files?.[0]; if (file) setDiagnosticFile(file); event.currentTarget.value = ""; }} /></label>
           {diagnosticFile && <button type="button" onClick={() => setDiagnosticFile(null)}>Excelの確認を終了</button>}
         </div>

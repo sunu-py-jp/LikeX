@@ -3226,7 +3226,11 @@
       "640 MiB",
       "limits",
       "SpreadsheetExcelImportLimits",
-      "formatRanges"
+      "formatRanges",
+      "importSpreadsheetXls",
+      "importSpreadsheetExcel",
+      "xls",
+      "Excel 97-2003"
     ],
     "headings": [
       {
@@ -3253,6 +3257,21 @@
         "id": "列幅の計測関数を指定する",
         "title": "列幅の計測関数を指定する",
         "depth": 2
+      },
+      {
+        "id": "excel-972003xlsを取り込む",
+        "title": "Excel 97–2003（.xls）を取り込む",
+        "depth": 2
+      },
+      {
+        "id": "xlsから読み取る内容",
+        "title": ".xlsから読み取る内容",
+        "depth": 3
+      },
+      {
+        "id": "xls固有の扱い",
+        "title": ".xls固有の扱い",
+        "depth": 3
       },
       {
         "id": "表示中のブックへ取り込む",
@@ -3822,12 +3841,21 @@
       "SlidePptxDiagnostic",
       "onDiagnostic",
       "getPptxDiagnostics",
-      "conversion"
+      "conversion",
+      "importSlidePpt",
+      "importSlidePowerPoint",
+      "ppt",
+      "PowerPoint 97-2003"
     ],
     "headings": [
       {
         "id": "apiから使う",
         "title": "APIから使う",
+        "depth": 2
+      },
+      {
+        "id": "powerpoint-972003pptを読み込む",
+        "title": "PowerPoint 97–2003（.ppt）を読み込む",
         "depth": 2
       },
       {
@@ -4422,7 +4450,11 @@
       "Word",
       "importDocumentDocx",
       "exportDocumentDocx",
-      "warnings"
+      "warnings",
+      "importDocumentDoc",
+      "importDocumentWord",
+      "doc",
+      "Word 97-2003"
     ],
     "headings": [
       {
@@ -4443,6 +4475,11 @@
       {
         "id": "表の幅とセル内の表示",
         "title": "表の幅とセル内の表示",
+        "depth": 2
+      },
+      {
+        "id": "word-972003docを読み込む",
+        "title": "Word 97–2003（.doc）を読み込む",
         "depth": 2
       },
       {

@@ -6,6 +6,7 @@ import { toggleMark } from "prosemirror-commands";
 import type { DocumentProps } from "./props";
 import { getBlocks, getDocumentText, inspectDocumentImage, DOCUMENT_LIMITS } from "./model/index";
 import { useDocumentEditor } from "./state/use-document-editor";
+import { WORD_IMPORT_ACCEPT } from "./io/import-word";
 import { useDocumentTheme } from "./state/use-document-theme";
 import { DocumentSurface, type DocumentSurfaceHandle } from "./ui/document-surface";
 import { DocumentSearchPanel } from "./ui/document-search-panel";
@@ -143,7 +144,7 @@ export default function LikeDocument(props: DocumentProps) {
       <div className="lxd-zoom"><button type="button" aria-label="縮小" onClick={() => changeZoom(displayZoom - 10)}><Minus size={14} /></button><input aria-label="ズーム" type="range" min={minimumZoom} max={200} step={responsive.mobile ? 1 : 5} value={displayZoom} onChange={event => changeZoom(Number(event.target.value))} /><button type="button" aria-label="拡大" onClick={() => changeZoom(displayZoom + 10)}><Plus size={14} /></button><button type="button" aria-label="100%に戻す" onClick={() => changeZoom(100)}>{displayZoom}%</button></div>
     </footer>
     <input ref={nativeInput} hidden type="file" accept=".dcon,application/json" aria-label="DCONファイルを選択" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void editor.importFile(file, "dcon"); }} />
-    <input ref={docxInput} hidden type="file" accept=".docx" aria-label="Wordファイルを選択" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void editor.importFile(file, "docx"); }} />
+    <input ref={docxInput} hidden type="file" accept={WORD_IMPORT_ACCEPT} aria-label="Wordファイルを選択" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void editor.importFile(file, "word"); }} />
     <input ref={imageInput} hidden type="file" accept="image/png,image/jpeg" aria-label="挿入する画像を選択" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void insertImage(file); }} />
     {dialog && <DocumentDialog title={dialog === "table" ? "表の挿入" : "リンクの挿入"} onClose={() => setDialog(null)} onSubmit={data => {
       if (dialog === "table") void editor.execute({ type: "table.insert", at: editor.selection.to, rows: Number(data.get("rows")), columns: Number(data.get("columns")), header: data.get("header") === "on" });
