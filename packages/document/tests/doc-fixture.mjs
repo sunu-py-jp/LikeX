@@ -1,6 +1,7 @@
 // Test-only writer for Word 97–2003 documents ([MS-DOC]). It lays out the minimum a reader
 // needs: FIB, text, piece table, formatting pages, and the optional tables a case asks for.
 import { createCompoundFile } from '../../core/tests/cfb-fixture.mjs';
+import { artContainer, artRecord, blipEntry, groupBounds, shapeHeader, SHAPE } from '../../core/tests/office-art-fixture.mjs';
 
 export const u8 = value => [value & 255];
 export const u16 = value => [value & 255, (value >>> 8) & 255];
@@ -77,9 +78,14 @@ function formattingPages(runs, paragraph, firstPage) {
  * @param {{ sprms?: number[] }[]} [document.sections] one per section; a paragraph mark of '\f' ends a section
  * @param {number[]} [document.headerPositions] character positions of the header stories
  * @param {Uint8Array} [document.data] the Data stream (pictures)
+ * @param {object} [document.floating] drawing-layer content: shapes anchored at the 0x08 characters of the text
+ * @param {{ cp: number, spid: number, bounds: number[], flags?: number }[]} document.floating.anchors bounds are left, top, right, bottom in twips
+ * @param {Uint8Array[]} [document.floating.blips] pictures of the store, kept in the main stream unless `embedded`
+ * @param {{ header?: boolean, shapes: Uint8Array[] }[]} [document.floating.drawings] shape (or group) containers per drawing
+ * @param {{ spid: number, text: string }[]} [document.floating.textboxes] text of the shapes that hold text
  */
 export function docStreams({ paragraphs, styles, fonts = ['Times New Roman'], lists = [], listOverrides = [], sections = [{}], headerPositions, data, compressed = false,
-  version = 0x00c1, encrypted = false, extraText = '' }) {
+  version = 0x00c1, encrypted = false, extraText = '', floating }) {
   const TEXT = 0x600, width = compressed ? 1 : 2, characters = [], paragraphRuns = [], sectionEnds = [];
   let text = '';
   for (const paragraph of paragraphs) {
@@ -96,6 +102,10 @@ export function docStreams({ paragraphs, styles, fonts = ['Times New Roman'], li
   }
   const mainTextLength = text.length;
   text += extraText;
+  // The textbox document follows the other parts; each text ends with a paragraph mark, and a spare entry closes the list.
+  const textboxes = floating?.textboxes ?? [], textboxPositions = [0];
+  for (const item of textboxes) { text += `${item.text}\r`; textboxPositions.push(textboxPositions.at(-1) + item.text.length + 1); }
+  if (textboxes.length) { text += '\r'; textboxPositions.push(textboxPositions.at(-1) + 1); }
   const textBytes = compressed ? [...text].map(character => character.charCodeAt(0) & 255) : utf16(text);
   const firstPage = Math.ceil((TEXT + textBytes.length) / 512);
   const characterPages = formattingPages(characters, false, firstPage), paragraphPages = formattingPages(paragraphRuns, true, firstPage + characterPages.pages.length);
@@ -103,10 +113,13 @@ export function docStreams({ paragraphs, styles, fonts = ['Times New Roman'], li
   // Section property lists live in the main stream, after the formatting pages.
   let cursor = pagesEnd;
   const sectionBytes = [], sectionOffsets = sections.map(section => { const grpprl = section.sprms ?? []; if (!grpprl.length) return -1; const at = cursor; sectionBytes.push(...u16(grpprl.length), ...grpprl); cursor += 2 + grpprl.length; return at; });
+  // Pictures of the drawing layer are kept in this stream; their store entries point here.
+  const blipOffsets = floating?.embedded ? [] : (floating?.blips ?? []).map(blip => { const at = cursor; cursor += blip.length; return at; });
   const main = new Uint8Array(cursor), mainView = new DataView(main.buffer);
   main.set(textBytes, TEXT);
   [...characterPages.pages, ...paragraphPages.pages].forEach((page, index) => main.set(page, (firstPage + index) * 512));
   main.set(sectionBytes, pagesEnd);
+  blipOffsets.forEach((at, index) => main.set(floating.blips[index], at));
 
   const table = [], pairs = new Map(), add = (index, bytes) => { if (bytes.length) pairs.set(index, [table.length, bytes.length]); table.push(...bytes); };
   const xstz = name => [...u16(name.length), ...utf16(name), 0, 0];
@@ -134,10 +147,23 @@ export function docStreams({ paragraphs, styles, fonts = ['Times New Roman'], li
     add(73, [...u16(lists.length), ...headers, ...levels]);
     add(74, [...u32(listOverrides.length), ...listOverrides.flatMap(id => [...u32(id), ...u32(0), ...u32(0), 0, 0, 0, 0])]);
   }
+  if (floating) {
+    const anchors = floating.anchors ?? [];
+    add(40, floating.anchorTable ?? [...anchors.flatMap(anchor => u32(anchor.cp)), ...u32(mainTextLength),
+      ...anchors.flatMap(anchor => [...u32(anchor.spid), ...anchor.bounds.flatMap(u32), ...u16(anchor.flags ?? 0), ...u32(0)])]);
+    const entries = (floating.blips ?? []).map((blip, index) => floating.embedded ? blipEntry({ embedded: blip }) : blipEntry({ size: blip.length, delayOffset: blipOffsets[index] }));
+    const group = artContainer(0xf000, artRecord(0, 0, 0xf006, u32(2048), u32(2), u32(1), u32(1)), ...(entries.length ? [artContainer(0xf001, ...entries)] : []));
+    const drawings = (floating.drawings ?? []).flatMap((drawing, index) => [drawing.header ? 1 : 0, ...artContainer(0xf002, artRecord(0, index + 1, 0xf008, u32(drawing.shapes.length + 1), u32(1024 * (index + 1))),
+      artContainer(0xf003, artContainer(0xf004, groupBounds(0, 0, 0, 0), shapeHeader(1024 * (index + 1), 0, SHAPE.group | SHAPE.patriarch)), ...drawing.shapes))]);
+    add(50, floating.drawingData ?? [...group, ...drawings]);
+    if (textboxes.length) add(56, [...textboxPositions.flatMap(u32),
+      ...[...textboxes, undefined].flatMap(item => [...u32(1), ...u32(0), ...u16(item ? 0 : 1), ...u32(0), ...u32(item?.spid ?? 0), ...u32(0)])]);
+  }
   main.set([0xec, 0xa5, ...u16(version), 0, 0, ...u16(0x0411), 0, 0, ...u16(0x0200 | (encrypted ? 0x0100 : 0))], 0);
   mainView.setUint16(32, 14, true); mainView.setUint16(62, 22, true); mainView.setUint16(152, 93, true);
   mainView.setInt32(64, main.length, true); mainView.setInt32(64 + 3 * 4, mainTextLength, true);
   if (headerPositions) mainView.setInt32(64 + 5 * 4, extraText.length, true);
+  if (textboxes.length) mainView.setInt32(64 + 9 * 4, textboxPositions.at(-1), true);
   for (const [index, [offset, length]] of pairs) { mainView.setUint32(154 + index * 8, offset, true); mainView.setUint32(158 + index * 8, length, true); }
   return { main, table: Uint8Array.from(table), data };
 }

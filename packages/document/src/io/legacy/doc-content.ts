@@ -5,7 +5,8 @@ import { DEFAULT_CHARACTER, DEFAULT_PARAGRAPH, applyCharacterSprms, applyParagra
   type CharacterProperties, type DocStyle, type DocStyleSheet, type ParagraphProperties, type SectionProperties, type TableRow } from "./doc-properties";
 
 /** The main text of a document as paragraphs, tables and sections, with all style inheritance resolved. */
-export type DocTextRun = { text: string; properties: CharacterProperties };
+/** `cp` is the character position of the run's first character, by which anchored objects are found. */
+export type DocTextRun = { text: string; properties: CharacterProperties; cp: number };
 export type DocParagraph = { kind: "paragraph"; runs: DocTextRun[]; properties: ParagraphProperties; heading: number; section?: SectionProperties };
 export type DocTable = { kind: "table"; rows: { description: TableRow | undefined; cells: DocBlock[][] }[] };
 export type DocBlock = DocParagraph | DocTable;
@@ -44,6 +45,20 @@ function createStyleResolver({ styles, defaultFont, defaultEastAsianFont }: DocS
   return { paragraph, character };
 }
 
+/** Characters of a range of character positions, in any part of the document. Pieces are in position order. */
+export function readDocText(file: DocFile, start: number, end: number): string {
+  const { pieces } = file, wide = new TextDecoder("utf-16le");
+  let low = 0, high = pieces.length;
+  while (low < high) { const middle = (low + high) >>> 1; if (pieces[middle].cpEnd <= start) low = middle + 1; else high = middle; }
+  let result = "";
+  for (let index = low; index < pieces.length && pieces[index].cpStart < end; index++) {
+    const piece = pieces[index], from = Math.max(start, piece.cpStart) - piece.cpStart, to = Math.min(end, piece.cpEnd) - piece.cpStart, width = piece.compressed ? 1 : 2;
+    const bytes = file.main.subarray(piece.offset + from * width, piece.offset + to * width);
+    result += piece.compressed ? decodeCodePage(bytes, 1252) : wide.decode(bytes);
+  }
+  return result;
+}
+
 /**
  * Splits the main text into paragraphs by their end marks and attaches the formatting that
  * applies to each run. Paragraph formatting is that of the run of offsets holding the end mark.
@@ -51,18 +66,18 @@ function createStyleResolver({ styles, defaultFont, defaultEastAsianFont }: DocS
 function readParagraphs(file: DocFile, styles: DocStyleSheet, sectionEnds: ReadonlyMap<number, SectionProperties>): SourceParagraph[] {
   const resolver = createStyleResolver(styles), paragraphs: SourceParagraph[] = [], limit = file.counts.text;
   const wide = new TextDecoder("utf-16le");
-  let pending: { text: string; run: DocRun | undefined }[] = [], units = 0, elements = 0;
+  let pending: { text: string; run: DocRun | undefined; cp: number }[] = [], units = 0, elements = 0;
   // Every paragraph and run becomes at least one XML element, and every paragraph that does not end a
   // table row one block element. Past what the DOCX reader accepts, nothing more is held in memory.
   const counted = (limit: number, value: number) => { if (value > limit) fail("文書の要素数が読み込み上限を超えています"); };
-  const add = (text: string, run: DocRun | undefined) => { counted(OFFICE_PACKAGE_LIMITS.xmlNodes, ++units); pending.push({ text, run }); };
+  const add = (text: string, run: DocRun | undefined, cp: number) => { counted(OFFICE_PACKAGE_LIMITS.xmlNodes, ++units); pending.push({ text, run, cp }); };
   const finish = (mark: number, offset: number, cp: number) => {
     const exception = runAt(file.paragraphs, offset), style = resolver.paragraph(exception?.istd ?? 0), properties = { ...style.paragraph };
     if (exception) applyParagraphSprms(exception.grpprl, properties);
     counted(OFFICE_PACKAGE_LIMITS.xmlNodes, ++units);
     if (!properties.rowEnd && !properties.innerRowEnd) counted(DOCX_BLOCK_ELEMENT_LIMIT, ++elements);
     const formatted = new Map<DocRun | undefined, CharacterProperties>();
-    const runs = pending.filter(item => item.text).map(({ text, run }) => {
+    const runs = pending.filter(item => item.text).map(({ text, run, cp }) => {
       let character = formatted.get(run);
       if (!character) {
         character = { ...style.character };
@@ -75,7 +90,7 @@ function readParagraphs(file: DocFile, styles: DocStyleSheet, sectionEnds: Reado
         }
         formatted.set(run, character);
       }
-      return { text, properties: character };
+      return { text, properties: character, cp };
     });
     const heading = style.heading || (properties.outline < 9 ? properties.outline + 1 : 0);
     paragraphs.push({ kind: "paragraph", runs, properties, heading, mark, rowDescription: exception?.grpprl ?? new Uint8Array(), ...(sectionEnds.has(cp + 1) ? { section: sectionEnds.get(cp + 1) } : {}) });
@@ -92,11 +107,11 @@ function readParagraphs(file: DocFile, styles: DocStyleSheet, sectionEnds: Reado
       if (!run) while (end < length && !runAt(file.characters, piece.offset + end * width)) end++;
       PARAGRAPH_END.lastIndex = index;
       const match = PARAGRAPH_END.exec(text), stop = match && match.index < end ? match.index : -1;
-      if (stop < 0) { add(text.slice(index, end), run); index = end; continue; }
+      if (stop < 0) { add(text.slice(index, end), run, piece.cpStart + index); index = end; continue; }
       const mark = text.charCodeAt(stop), cp = piece.cpStart + stop;
       // A form feed ends a paragraph only where a section ends; elsewhere it is a page break inside one.
-      if (mark === 0x0c && !sectionEnds.has(cp + 1)) { add(text.slice(index, stop + 1), run); index = stop + 1; continue; }
-      add(text.slice(index, stop), run);
+      if (mark === 0x0c && !sectionEnds.has(cp + 1)) { add(text.slice(index, stop + 1), run, piece.cpStart + index); index = stop + 1; continue; }
+      add(text.slice(index, stop), run, piece.cpStart + index);
       finish(mark, piece.offset + stop * width, cp);
       index = stop + 1;
     }

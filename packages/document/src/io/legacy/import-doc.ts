@@ -1,14 +1,14 @@
-import { ByteReader, createOfficePackageFromParts, officeArtRecords, openCompoundFile, readCompoundFileTitle, readOfficeArtImage } from "../../core";
+import { ByteReader, convertDibToPng, createOfficePackageFromParts, officeArtRecords, openCompoundFile, readCompoundFileTitle, readOfficeArtImage } from "../../core";
+import { DOCUMENT_LIMITS } from "../../model/validation";
 import type { OfficePackageInput } from "../../ooxml";
 import { importDocumentDocxPackage } from "../import-docx";
 import type { DocumentDocxImportResult, DocumentDocxOptions } from "../types";
 import { readDocContent } from "./doc-content";
 import { writeDocPackage, type DocImage } from "./doc-docx";
+import { docImageData, readDocDrawings } from "./doc-drawings";
 import { fail, openDocFile, type DocFile } from "./doc-file";
 import { readFonts, readLists, readStyles } from "./doc-properties";
 
-const PICTURE_TYPES: Readonly<Record<string, [type: string, extension: string]>> = { png: ["image/png", "png"], jpeg: ["image/jpeg", "jpeg"], dib: ["image/bmp", "bmp"],
-  emf: ["image/x-emf", "emf"], wmf: ["image/x-wmf", "wmf"], pict: ["image/x-pict", "pict"], tiff: ["image/tiff", "tiff"] };
 const TWIP_EMU = 635;
 
 /** Keep the Word wording for failures of the shared container reader. */
@@ -33,8 +33,7 @@ function readPicture(file: DocFile, offset: number): DocImage | undefined {
     for (const record of officeArtRecords(data, start, Math.min(data.length, offset + size))) {
       const image = readOfficeArtImage(data, record);
       if (!image) continue;
-      const [type, extension] = PICTURE_TYPES[image.format];
-      return { type, extension, data: image.data, width: Math.round(width * scaleX / 1000 * TWIP_EMU), height: Math.round(height * scaleY / 1000 * TWIP_EMU) };
+      return { ...docImageData(image), width: Math.round(width * scaleX / 1000 * TWIP_EMU), height: Math.round(height * scaleY / 1000 * TWIP_EMU) };
     }
   } catch { /* A damaged picture is reported like any other unsupported drawing. */ }
   return undefined;
@@ -55,7 +54,18 @@ export async function importDocumentDoc(input: OfficePackageInput, options: Docu
     if (file.has("EncryptedPackage") || file.has("EncryptionInfo")) return fail("パスワードで保護または暗号化された文書には対応していません");
     const source = openDocFile(file), styles = readStyles(source), content = readDocContent(source, styles);
     signal?.throwIfAborted();
-    const parts = writeDocPackage({ content, fonts: readFonts(source), lists: readLists(source), title: readCompoundFileTitle(file), picture: offset => readPicture(source, offset) });
+    const { parts, bitmaps } = writeDocPackage({ content, fonts: readFonts(source), lists: readLists(source), title: readCompoundFileTitle(file), picture: offset => readPicture(source, offset), floating: readDocDrawings(source) });
+    // Bitmaps are rewritten as PNG in place, within the pixels a document may hold. One that cannot be
+    // read, or would be too large, keeps its data, which the reader then leaves out as unreadable.
+    let pixels: number = DOCUMENT_LIMITS.imagePixels;
+    for (const index of bitmaps) {
+      signal?.throwIfAborted();
+      const png = pixels > 0 ? await convertDibToPng(parts[index][1], { dimension: DOCUMENT_LIMITS.imageDimension, pixels }) : undefined;
+      if (!png) continue;
+      const size = new DataView(png.buffer, png.byteOffset, png.byteLength);
+      pixels -= size.getUint32(16) * size.getUint32(20);
+      if (png.length <= DOCUMENT_LIMITS.imageBytes) parts[index][1] = png;
+    }
     return { archive: createOfficePackageFromParts(parts, { signal }), macros: file.paths.some(path => /^Macros\//i.test(path)) };
   });
   const result = await importDocumentDocxPackage(archive, options);

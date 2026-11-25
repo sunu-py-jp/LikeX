@@ -1,16 +1,22 @@
 import type { DocBlock, DocContent, DocParagraph, DocTable, DocTextRun } from "./doc-content";
 import { OFFICE_PACKAGE_LIMITS } from "../../core";
 import { fail } from "./doc-file";
+import type { DocFloating, DocImageData } from "./doc-drawings";
 import { HIGHLIGHT_NAMES, type CharacterProperties, type DocList, type SectionProperties, type TableCell } from "./doc-properties";
 
 /** Writes the WordprocessingML package that states the same content as the binary document. */
-export type DocImage = { type: string; extension: string; data: Uint8Array; width: number; height: number };
+export type DocImage = DocImageData & { width: number; height: number };
+/** `bitmaps` are the indexes of the parts whose data is still a bitmap to be rewritten as PNG. */
+export type DocPackage = { parts: [string, Uint8Array][]; bitmaps: number[] };
 export type DocPackageInput = {
   content: DocContent; fonts: readonly string[]; lists: readonly (DocList | undefined)[]; title: string | undefined;
   /** Resolves an inline picture by its offset in the Data stream. */
   picture(offset: number): DocImage | undefined;
+  /** Resolves the object of the drawing layer that is anchored at a character position. */
+  floating(cp: number): DocFloating | undefined;
 };
 const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+const PICTURE = "http://schemas.openxmlformats.org/drawingml/2006/picture", SHAPE = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape";
 const PACKAGE_RELATIONSHIPS = "http://schemas.openxmlformats.org/package/2006/relationships";
 const XML_HEADER = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`;
 const ALIGNMENTS = ["left", "center", "right", "both", "distribute"], SECTION_STARTS = ["continuous", "nextColumn", "nextPage", "evenPage", "oddPage"];
@@ -43,9 +49,9 @@ function hyperlinkTarget(instruction: string): { url?: string; anchor?: string }
   return url ? { url: local ? `${url}#${local}` : url } : local ? { anchor: local } : undefined;
 }
 
-export function writeDocPackage(input: DocPackageInput): [string, Uint8Array][] {
-  const { content, fonts, lists } = input, parts: [string, Uint8Array][] = [], relationships: string[] = [], extensions = new Map<string, string>();
-  const formatted = new Map<CharacterProperties, string>(), pictures = new Map<number, string | undefined>();
+export function writeDocPackage(input: DocPackageInput): DocPackage {
+  const { content, fonts, lists } = input, parts: [string, Uint8Array][] = [], bitmaps: number[] = [], relationships: string[] = [], extensions = new Map<string, string>();
+  const formatted = new Map<CharacterProperties, string>(), pictures = new Map<string, string>();
   let relation = 0, drawing = 0, emitted = 0;
   /** The body is one part of the package; past the size a part may have, nothing more is built. */
   const bounded = (xml: string) => { if ((emitted += xml.length) > OFFICE_PACKAGE_LIMITS.entryBytes) fail("変換後のデータのサイズが上限を超えています"); return xml; };
@@ -53,22 +59,54 @@ export function writeDocPackage(input: DocPackageInput): [string, Uint8Array][] 
   /** Fields may start in one paragraph and end in another, so their state outlives a paragraph. */
   const fields: { instruction: string; result: boolean; link?: string; inner?: boolean }[] = [];
 
-  function pictureXml(offset: number): string {
-    let relationId = pictures.get(offset);
-    const image = input.picture(offset);
-    if (!image) return "<w:pict/>";
-    if (!pictures.has(offset)) {
+  /** Stores a picture once per key and returns its relationship; anchors of one picture share the part. */
+  function imageRelation(key: string, image: DocImageData): string {
+    let relationId = pictures.get(key);
+    if (!relationId) {
       relationId = `rId${++relation}`;
       const path = `media/image${relation}.${image.extension}`;
+      if (image.bitmap) bitmaps.push(parts.length);
       parts.push([`word/${path}`, image.data]);
       extensions.set(image.extension, image.type);
       relationships.push(`<Relationship Id="${relationId}" Type="${R}/image" Target="${path}"/>`);
-      pictures.set(offset, relationId);
+      pictures.set(key, relationId);
     }
-    const id = ++drawing;
-    return `<w:drawing><wp:inline><wp:extent cx="${image.width}" cy="${image.height}"/><wp:docPr id="${id}" name="Picture ${id}"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
-      `<pic:pic><pic:nvPicPr><pic:cNvPr id="${id}" name="Picture ${id}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
-      `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${image.width}" cy="${image.height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`;
+    return relationId;
+  }
+  /** `adjusted` states a crop, so that the reader reports the crop, rotation or flip it does not apply. */
+  const pictureGraphic = (relationId: string, id: number, width: number, height: number, adjusted = false) => `<a:graphic><a:graphicData uri="${PICTURE}">` +
+    `<pic:pic><pic:nvPicPr><pic:cNvPr id="${id}" name="Picture ${id}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationId}"/>${adjusted ? `<a:srcRect t="1"/>` : ""}<a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
+    `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic>`;
+  function pictureXml(offset: number): string {
+    const image = input.picture(offset);
+    if (!image) return "<w:pict/>";
+    const relationId = imageRelation(`inline ${offset}`, image), id = ++drawing;
+    return `<w:drawing><wp:inline><wp:extent cx="${image.width}" cy="${image.height}"/><wp:docPr id="${id}" name="Picture ${id}"/>${pictureGraphic(relationId, id, image.width, image.height)}</wp:inline></w:drawing>`;
+  }
+  /**
+   * An object of the drawing layer becomes an anchored drawing, which the reader places in the text as it
+   * does for DOCX: pictures as pictures, text boxes and outline shapes as shapes. What has no counterpart
+   * is written so that the reader names it when it leaves it out.
+   */
+  function floatingXml(cp: number): string {
+    const object = input.floating(cp);
+    if (!object) return "<w:pict/>";
+    const id = ++drawing, { width, height } = object;
+    let graphic: string;
+    if (object.kind === "picture") graphic = pictureGraphic(imageRelation(`store ${object.store}`, object.image), id, width, height, object.adjusted);
+    else {
+      const geometry = object.kind === "group" ? "<a:grpSp/>" : object.preset ? `<a:prstGeom prst="${attribute(object.preset)}"><a:avLst/></a:prstGeom>` : "<a:custGeom/>";
+      const shape = object.kind === "shape" ? object : undefined, lines = shape?.text ? shape.text.split("\n") : [];
+      const paint = (colour: string | undefined) => colour ? `<a:solidFill><a:srgbClr val="${colour}"/></a:solidFill>` : "<a:noFill/>";
+      // The text of a text box starts at its top left; the reader centres it and says so.
+      graphic = `<a:graphic><a:graphicData uri="${SHAPE}"><wps:wsp><wps:cNvSpPr/><wps:spPr><a:xfrm rot="${Math.round((shape?.rotation ?? 0) * 60_000)}" flipH="${shape?.flipHorizontal ? 1 : 0}" flipV="${shape?.flipVertical ? 1 : 0}">` +
+        `<a:off x="0" y="0"/><a:ext cx="${width}" cy="${height}"/></a:xfrm>${geometry}${paint(shape?.fill)}<a:ln w="${shape?.lineWidth ?? 9525}">${paint(shape?.line)}</a:ln></wps:spPr>` +
+        `<wps:txbx><w:txbxContent>${lines.map(line => `<w:p><w:pPr><w:jc w:val="left"/></w:pPr><w:r><w:t xml:space="preserve">${text(line)}</w:t></w:r></w:p>`).join("") || "<w:p/>"}</w:txbxContent></wps:txbx>` +
+        `<wps:bodyPr${lines.length ? ' anchor="t"' : ""}/></wps:wsp></a:graphicData></a:graphic>`;
+    }
+    return `<w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="${id}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/>` +
+      `<wp:positionH relativeFrom="column"><wp:posOffset>0</wp:posOffset></wp:positionH><wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV><wp:extent cx="${width}" cy="${height}"/>` +
+      `<wp:wrapSquare wrapText="bothSides"/><wp:docPr id="${id}" name="${attribute(object.name || `Object ${id}`)}"${object.description ? ` descr="${attribute(object.description)}"` : ""}/>${graphic}</wp:anchor></w:drawing>`;
   }
   function linkOpen(target: { url?: string; anchor?: string }): string {
     if (target.anchor !== undefined) return `<w:hyperlink w:anchor="${attribute(target.anchor)}">`;
@@ -80,7 +118,7 @@ export function writeDocPackage(input: DocPackageInput): [string, Uint8Array][] 
     // A link that spans paragraphs is closed at each paragraph end and reopened in the next.
     const open = fields.find(field => field.link && field.result)?.link;
     if (open) output.push(open);
-    for (const { text: source, properties } of runs) {
+    for (const { text: source, properties, cp } of runs) {
       const style = format(properties), wrap = properties.deleted ? ["<w:del>", "</w:del>"] : properties.inserted ? ["<w:ins>", "</w:ins>"] : ["", ""];
       const literal = properties.deleted ? "w:delText" : "w:t";
       let buffer = "";
@@ -113,7 +151,7 @@ export function writeDocPackage(input: DocPackageInput): [string, Uint8Array][] 
         else if (code === 0x0e) element(`<w:br w:type="column"/>`);
         else if (code === 0x1e) buffer += "‑";
         else if (properties.special && code === 0x01) element(properties.pictureOffset !== undefined && !properties.embedded ? pictureXml(properties.pictureOffset) : "<w:object/>");
-        else if (properties.special && code === 0x08) element("<w:pict/>");
+        else if (properties.special && code === 0x08) element(floatingXml(cp + index));
         else if (properties.special && code === 0x02) element(`<w:footnoteReference w:id="1"/>`);
         else if (properties.special && code === 0x05) element(`<w:commentReference w:id="0"/>`);
       }
@@ -186,7 +224,7 @@ export function writeDocPackage(input: DocPackageInput): [string, Uint8Array][] 
   if (content.hasHeaders) relationships.push(`<Relationship Id="rIdHeader" Type="${R}/header" Target="header1.xml"/>`);
   if (numbering) relationships.push(`<Relationship Id="rIdNumbering" Type="${R}/numbering" Target="numbering.xml"/>`);
   part("word/document.xml", `${XML_HEADER}<w:document xmlns:w="${W}" xmlns:r="${R}" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" ` +
-    `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>${body}${sectionXml(content.lastSection, content.hasHeaders)}</w:body></w:document>`);
+    `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="${PICTURE}" xmlns:wps="${SHAPE}"><w:body>${body}${sectionXml(content.lastSection, content.hasHeaders)}</w:body></w:document>`);
   if (content.hasHeaders) part("word/header1.xml", `${XML_HEADER}<w:hdr xmlns:w="${W}"><w:p/></w:hdr>`);
   if (numbering) part("word/numbering.xml", `${XML_HEADER}<w:numbering xmlns:w="${W}">${numbering}</w:numbering>`);
   part("word/_rels/document.xml.rels", `${XML_HEADER}<Relationships xmlns="${PACKAGE_RELATIONSHIPS}">${relationships.join("")}</Relationships>`);
@@ -198,5 +236,5 @@ export function writeDocPackage(input: DocPackageInput): [string, Uint8Array][] 
     `<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>` +
     `${numbering ? `<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>` : ""}` +
     `${content.hasHeaders ? `<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>` : ""}</Types>`);
-  return parts;
+  return { parts, bitmaps };
 }

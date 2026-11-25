@@ -7,3 +7,4 @@ export { readCompoundFileTitle } from "./legacy-office/summary";
 export { OFFICE_ART, OFFICE_ART_PROPERTY, officeArtRecords, officeArtRecordAt, officeArtPreset, readOfficeArtImage, readOfficeArtImages, readOfficeArtShape, readOfficeArtGroup,
   readOfficeArtDrawing, officeArtFlag, officeArtColor, officeArtString } from "./legacy-office/office-art";
 export type { OfficeArtRecord, OfficeArtImage, OfficeArtProperty, OfficeArtBounds, OfficeArtShape, OfficeArtColor } from "./legacy-office/office-art";
+export { convertDibToPng, DIB_LIMITS } from "./legacy-office/dib";

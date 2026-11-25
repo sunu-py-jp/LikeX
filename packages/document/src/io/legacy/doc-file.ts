@@ -15,7 +15,7 @@ export type DocFile = {
 };
 /** Indexes of the FIB offset pairs used by the importer. */
 export const FIB = Object.freeze({ styles: 1, sections: 6, headers: 11, characterPages: 12, paragraphPages: 13, fonts: 15, fields: 16, pieceTable: 33,
-  shapes: 40, drawings: 50, lists: 73, listOverrides: 74 });
+  shapes: 40, drawings: 50, textboxes: 56, lists: 73, listOverrides: 74 });
 const PAGE_BYTES = 512, MAX_PIECES = 1_000_000;
 
 function readPieces(table: Uint8Array, offset: number, length: number, mainLength: number): DocPiece[] {
