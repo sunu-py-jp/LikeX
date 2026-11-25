@@ -265,6 +265,10 @@ test('shape text and visual edits honor their respective feature flags through c
   await change(async () => assert.ok(await noFormat.editor.execute({ type: 'shape.insert', at: 0, preset: 'bentArrow', text: 'Allowed text' })));
   const node = noFormat.editor.document.content.content.find(node => node.type === 'shape');
   await change(async () => assert.ok(await noFormat.editor.execute({ type: 'shape.update', id: node.attrs.id, text: 'Updated text' })));
+  // A place on the page is part of the appearance of a shape.
+  const position = { horizontal: { from: 'page', offset: 10 }, vertical: { from: 'paragraph', offset: 0 } };
+  await change(async () => assert.equal(await noFormat.editor.execute({ type: 'shape.update', id: node.attrs.id, position }), null));
+  await change(async () => assert.equal(await noFormat.editor.execute({ type: 'shape.insert', at: 0, preset: 'bentArrow', position }), null));
 });
 
 const paged = () => createDocument({ title: 'Two pages', content: { type: 'doc', content: [

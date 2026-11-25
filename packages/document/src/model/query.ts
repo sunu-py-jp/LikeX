@@ -1,5 +1,6 @@
 import { documentSchema } from "./schema";
 import { normalizeDocument } from "./document";
+import { omitTextPosition } from "./position";
 import type { DocumentBlockInfo, DocumentImageNode, DocumentShapeNode, DocumentCanvasNode, DocumentModel } from "./types";
 
 /** Plain text follows document order, with newlines between text blocks. */
@@ -13,7 +14,7 @@ export function getBlocks(document: DocumentModel): DocumentBlockInfo[] {
   const result: DocumentBlockInfo[] = [];
   doc.descendants((node, from) => {
     if (!node.attrs.id) return;
-    result.push({ id: node.attrs.id, node: structuredClone(node.toJSON()), from, to: from + node.nodeSize, contentFrom: node.isLeaf ? from : from + 1, contentTo: node.isLeaf ? from + node.nodeSize : from + node.nodeSize - 1 });
+    result.push({ id: node.attrs.id, node: omitTextPosition(structuredClone(node.toJSON())), from, to: from + node.nodeSize, contentFrom: node.isLeaf ? from : from + 1, contentTo: node.isLeaf ? from + node.nodeSize : from + node.nodeSize - 1 });
   });
   return result;
 }

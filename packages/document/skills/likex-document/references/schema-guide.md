@@ -39,6 +39,8 @@
 
 図形は `{ "type": "shape", "attrs": { "preset": "bentArrow", "text": "承認", "width": 240, "height": 140 } }`。`content` を持たず、安定IDを `attrs.id` に保持する。`fill` / `stroke` はRGBまたはnull、`strokeWidth` はpx、`rotation` は度、`flipH` / `flipV` はboolean、`color` は文字色、`fontSize` はpt。未指定属性は既定値を補う。既存version 1への追加ノードで、図形非対応の旧版へ渡す場合は利用側の更新が必要。
 
+画像と図形の `attrs.position` は任意で、`{ "horizontal": { "from": "page" | "margin", "offset": 15 }, "vertical": { "from": "page" | "margin" | "paragraph", "offset": 5 } }`（オフセットはmm、-1200〜1200）。指定したブロックは本文の流れから外れ、ページ上の位置に表示される。本文の高さを取らず、文字は回り込まない。本文直下のブロックだけに使い、表・箇条書きの中とキャンバス内の図形には指定しない。本文中のブロックには `position` を書かない（nullも保存しない）ので、位置を使わない文書の保存結果は従来と変わらない。version 1への追加属性で、`position` を持つファイルを非対応の旧版へ渡す場合はライブラリ更新が必要。
+
 
 描画キャンバスは `{ "type": "drawing_canvas", "attrs": { "id": "canvas-1", "width": 600, "height": 360, "shapes": [], "connectors": [] } }`。本文中のatomブロックで `content` は持たない。`shapes` は通常図形の属性にキャンバス内の `id` / `x` / `y` を加えた配列。`connectors` は `id`、`start` / `end` の `{x,y,binding?}`、`routing`、線色・幅・矢印を保存する。`binding` は同じキャンバス内の図形IDと接続点を参照する。折れ線の頂点自体は保存せず、現在の図形の位置から共通ルーターで再計算する。既存のインライン `shape` は従来通り使える。version 1への追加であり、キャンバス非対応の旧版には利用側の更新が必要。
 

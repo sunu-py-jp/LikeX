@@ -197,3 +197,17 @@ test('controlled page changes preserve title on invalid targets and recover with
     assert.equal(instance.host.textContent, 'First'); assert.equal(instance.renderer.root.findAllByProps({ role: 'status' }).length, 0);
   } finally { await act(async () => instance.renderer.unmount()); }
 });
+
+test('a block placed on the page does not end the page for the text beside it', () => {
+  const { host, loaded } = surface(100), element = Object.getPrototypeOf(host), height = element.height, bounds = element.getBoundingClientRect;
+  // A placed block takes no room in the text, while its own box reaches far down the page.
+  element.height = function () { return this.attrs['data-lxd-float-h'] ? 0 : height.call(this); };
+  element.getBoundingClientRect = function () { const box = bounds.call(this); return this.attrs['data-lxd-float-h'] ? { ...box, bottom: box.top + 400, height: 400 } : box; };
+  const position = { horizontal: { from: 'page', offset: 10 }, vertical: { from: 'paragraph', offset: 0 } };
+  renderDocumentThumbnail(host, documentThumbnailContent(model([{ type: 'image', attrs: { src: png, width: 300, height: 400, position } }, paragraph('Beside'), paragraph('Below')])), 0, 'preview');
+  assert.deepEqual(host.children.map(child => child.tag), ['img', 'p', 'p']);
+  assert.equal(host.children[0].attrs['data-lxd-float-h'], 'page'); assert.deepEqual(loaded, [png]);
+  // In the text the same picture fills the page, as before.
+  renderDocumentThumbnail(host, documentThumbnailContent(model([{ type: 'image', attrs: { src: png, width: 300, height: 400 } }, paragraph('Below')])), 0, 'preview');
+  assert.deepEqual(host.children.map(child => child.tag), ['img']);
+});

@@ -49,6 +49,7 @@ node "$skill_dir/scripts/document.mjs" validate --project "$project_dir" --input
 - 位置はProseMirrorの位置で、最初の段落の先頭文字が `1`。ブロック境界も数えるため、本文の文字数だけから推測しない。後続コマンドは前の変更後の位置を使う。
 - ブロックのIDは `attrs.id`。文字は `text`、書式は `marks`。用紙と余白はmm、文字サイズはpt、画像寸法はpx。
 - GUIの右クリックと同じ画像複製は `getImage` で取得した画像の `src`・`alt`・`width`・`height` を `image.insert` に渡し、元画像の `to` へ挿入する。サイズ変更は `image.update`、画像・表全体の削除は `block.delete`。操作後は新しい位置とIDを取得する。
+- 画像と図形は通常は本文中のブロック。余白などページ上の位置に置く場合だけ `position`（mm、基準は `page` / `margin` / `paragraph`）を指定し、`position: null` で本文中へ戻す。Wordから読み込んだ余白の図は `position` を持つので、不要に消さない。
 - 図形は `shape.insert` / `shape.update`。カギ矢印は `preset: "bentArrow"`、Uターンは `"uturnArrow"`。`getShapes` / `getShape` で取得し、`block.delete` で削除する。本文中の編集可能な図形で、寸法・線幅はpx、文字サイズはpt。図形内のテキストも文書データとして扱う。
 - 接続線付きフロー図は `canvas.insert` と `canvas.shape.*` / `canvas.connector.*` を使う。`getCanvases` / `getCanvas` で取得し、接続先の `binding.targetId` は同じキャンバスの図形IDに限定する。`routing: "elbow"` の線は図形移動に追従する。既存の本文中の図形どうしを直接結線しない。
 - ファイルを直接組み立てる場合だけ [DCONの構造](references/schema-guide.md) と [DCON JSON Schema](references/dcon.schema.json) を読む。全コマンド型は [commands JSON Schema](references/commands.schema.json)。通常の編集は専用コマンドを使い、低水準の `transaction.apply` はProseMirrorのStepが必要な場合に限る。

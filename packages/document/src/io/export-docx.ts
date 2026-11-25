@@ -1,8 +1,9 @@
 import { writeDocxCanvas } from "./docx-canvas";
 import { writeDocxShape } from "./docx-shapes";
+import { writeDocxAnchoredRun } from "./docx-position";
 import { createZipArchive, type ZipArchiveEntry } from "../core";
 import { normalizeDocument } from "../model/document";
-import type { DocumentModel, DocumentTableMargins, DocumentTableWidth } from "../model/types";
+import type { DocumentBlockPosition, DocumentModel, DocumentTableMargins, DocumentTableWidth } from "../model/types";
 import { documentTableGrid } from "../model/table";
 import { writeDocxTableMargins, writeDocxTableWidth } from "./docx-tables";
 import { OFFICE_PACKAGE_LIMITS } from "../ooxml";
@@ -57,10 +58,11 @@ export async function exportDocumentDocx(input: DocumentModel, options: Document
     return `<w:hyperlink r:id="${id}"${link.attrs.title ? ` w:tooltip="${xml(str(link.attrs.title))}"` : ""}>${output}</w:hyperlink>`;
   }
 
-  function paragraph(node: Node, list?: { id: number; level: number }): string {
+  /** `anchored` holds the drawings placed on the page that stand before this paragraph. */
+  function paragraph(node: Node, list?: { id: number; level: number }, anchored = ""): string {
     const attrs = node.attrs ?? {}, alignment = attrs.align === "justify" ? "both" : str(attrs.align) || "left";
     const properties = `${node.type === "heading" ? `<w:pStyle w:val="Heading${Number(attrs.level)}"/>` : ""}<w:jc w:val="${alignment}"/>${list ? `<w:numPr><w:ilvl w:val="${Math.min(list.level, 8)}"/><w:numId w:val="${list.id}"/></w:numPr>` : ""}`;
-    return `<w:p><w:pPr>${properties}</w:pPr>${(node.content ?? []).map(run).join("")}</w:p>`;
+    return `<w:p><w:pPr>${properties}</w:pPr>${anchored}${(node.content ?? []).map(run).join("")}</w:p>`;
   }
 
   function image(node: Node): string {
@@ -133,7 +135,17 @@ export async function exportDocumentDocx(input: DocumentModel, options: Document
     throw new Error(`DOCX出力に対応していない要素です: ${node.type}`);
   }
 
-  const content = (document.content.content as Node[]).map(node => block(node)).join("");
+  // A block placed on the page is anchored in the paragraph that follows it, as Word keeps it. Only blocks
+  // of the body are placed; in a list or a table the block is written in the text, where it is shown.
+  let content = "", anchored = "";
+  for (const node of document.content.content as Node[]) {
+    const position = node.type === "image" || node.type === "shape" ? node.attrs?.position as DocumentBlockPosition | null | undefined : undefined;
+    if (position) { anchored += writeDocxAnchoredRun(block(node), position, drawingId); continue; }
+    if (anchored && (node.type === "paragraph" || node.type === "heading")) content += paragraph(node, undefined, anchored);
+    else content += `${anchored ? `<w:p>${anchored}</w:p>` : ""}${block(node)}`;
+    anchored = "";
+  }
+  if (anchored) content += `<w:p>${anchored}</w:p>`;
   const { width, height, margins } = document.page;
   const section = `<w:sectPr><w:pgSz w:w="${twips(width)}" w:h="${twips(height)}"${width > height ? ' w:orient="landscape"' : ""}/><w:pgMar w:top="${twips(margins.top)}" w:right="${twips(margins.right)}" w:bottom="${twips(margins.bottom)}" w:left="${twips(margins.left)}" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr>`;
   add("word/document.xml", "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml", `${header}<w:document ${namespaces}><w:body>${content}${section}</w:body></w:document>`);

@@ -195,6 +195,15 @@
 .lxd-root .lxd-canvas-properties input[type=number] { width: 76px; }
 .lxd-root .lxd-drawing-canvas { margin: 12px 0; user-select: none; }
 
+/* A block placed on the page takes no room in the text. Only blocks of the body are placed; in a list or a table they stay in the text.
+   From the top of a page the first page is placed here; the pagination moves the blocks of later pages. */
+.lxd-root .lxd-editor > [data-lxd-float-h] { position:absolute; margin:0; max-width:none; }
+.lxd-root .lxd-editor > [data-lxd-float-h=page] { left:var(--lxd-float-x); }
+.lxd-root .lxd-editor > [data-lxd-float-h=margin] { left:calc(var(--lxd-margin-left) + var(--lxd-float-x)); }
+.lxd-root .lxd-editor > [data-lxd-float-v=paragraph] { margin-top:var(--lxd-float-y); }
+.lxd-root .lxd-editor > [data-lxd-float-v=page] { top:var(--lxd-float-y); }
+.lxd-root .lxd-editor > [data-lxd-float-v=margin] { top:calc(var(--lxd-margin-top) + var(--lxd-float-y)); }
+
 /* Static first-page previews share document typography without mounting an editor. */
 .lxd-root.lxd-thumbnail { height:280px; min-height:0; }
 .lxd-thumbnail-viewport { display:flex; flex:1; min-height:0; min-width:0; align-items:center; justify-content:center; overflow:hidden; background:var(--lxd-canvas); }

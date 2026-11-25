@@ -102,3 +102,46 @@ test('damaged drawing tables lose the drawn objects, not the text', async () => 
     assert.deepEqual(result.warnings, [OMITTED]);
   }
 });
+
+// A3 landscape with the text in a column on the right, as manuals keep a screen beside its explanation.
+const SIDE_BY_SIDE = [{ sprms: [...S.pageWidth(23811), ...S.pageHeight(16838), ...S.marginLeft(15000), ...S.marginRight(850)] }];
+/** Anchor flags: the origins of the box (1 margin, page or column; 2 margin, page or paragraph), how text passes it, and whether it lies behind the text. */
+const flags = ({ horizontal = 0, vertical = 0, wrap = 0, behind = false }) => horizontal << 1 | vertical << 3 | wrap << 5 | (behind ? 0x4000 : 0);
+const mm = twips => twips * 25.4 / 1440;
+const placed = (actual, expected) => { for (const axis of ['horizontal', 'vertical']) { assert.equal(actual[axis].from, expected[axis].from); assert.ok(Math.abs(actual[axis].offset - expected[axis].offset) < .02, `${actual[axis].offset} ≈ ${expected[axis].offset}`); } };
+
+test('objects that stand beside the text keep their place on the page', async () => {
+  const result = await importDocumentDoc(doc({ sections: SIDE_BY_SIDE, paragraphs: [anchored('', 'Title'), anchored('Body'), anchored('More'), { text: 'End' }], floating: {
+    anchors: [
+      // Measured from the column, to its left: the usual anchor of a picture dragged into the margin.
+      { cp: 0, spid: 1025, bounds: [-14000, 300, -500, 7000], flags: flags({ horizontal: 2, vertical: 2 }) },
+      { cp: 11, spid: 1026, bounds: [600, 9000, 3600, 11000], flags: flags({ horizontal: 1, vertical: 1, wrap: 1 }) },
+      // The shape states its own origins and an alignment, which replace those of the anchor.
+      { cp: 17, spid: 1027, bounds: [9999, 9999, 12999, 10999], flags: flags({ wrap: 4 }) },
+    ], blips: [pngBlip(PNG)],
+    drawings: [{ shapes: [picture(1025, 1, [[P.description, utf16('Order entry screen')]]), shape(1026, 202), shape(1027, 1, [[0x038f, 1], [0x0390, 1], [0x0391, 3], [0x0392, 0]])] }],
+    textboxes: [{ spid: 1026, text: 'Lookup\rItem code' }] } }));
+  // Each object stands before its paragraph, which it does not divide; nothing is reported as moved into the text.
+  assert.deepEqual(kinds(result), ['image', 'Title', 'shape', 'Body', 'shape', 'More', 'End']);
+  assert.deepEqual(result.warnings.filter(warning => warning.includes('浮動配置')), []);
+  const [image] = nodes(result, 'image'), [box, rectangle] = nodes(result, 'shape');
+  placed(image.attrs.position, { horizontal: { from: 'margin', offset: mm(-14000) }, vertical: { from: 'paragraph', offset: mm(300) } });
+  assert.deepEqual([image.attrs.width, image.attrs.height, image.attrs.alt], [900, 6700 / 15, 'Order entry screen']);
+  placed(box.attrs.position, { horizontal: { from: 'page', offset: mm(600) }, vertical: { from: 'page', offset: mm(9000) } });
+  assert.equal(box.attrs.text, 'Lookup\nItem code');
+  // Left of the page, bottom of the text area: 16838 − 1440 − 1440 twips of text, less the height of the shape.
+  placed(rectangle.attrs.position, { horizontal: { from: 'page', offset: 0 }, vertical: { from: 'margin', offset: mm(16838 - 2880 - 1000) } });
+});
+
+test('over the text an object keeps its place only in front of it', async () => {
+  const over = (wrap, behind) => importDocumentDoc(doc({ paragraphs: [anchored('Text', 'more')], floating: {
+    anchors: [{ cp: 4, spid: 1025, bounds: [720, 1440, 2160, 2160], flags: flags({ horizontal: 2, vertical: 2, wrap, behind }) }], blips: [pngBlip(PNG)], drawings: [{ shapes: [picture(1025, 1)] }] } }));
+  const front = await over(3, false);
+  assert.deepEqual(kinds(front), ['image', 'Textmore']); assert.deepEqual(front.warnings, []);
+  placed(nodes(front, 'image')[0].attrs.position, { horizontal: { from: 'margin', offset: mm(720) }, vertical: { from: 'paragraph', offset: mm(1440) } });
+  // Behind the text, or with the text wrapped around it, it is a block of the text as before.
+  for (const result of [await over(3, true), await over(0, false), await over(2, false), await over(4, false), await over(5, false), await over(1, false)]) {
+    assert.deepEqual(kinds(result), ['Text', 'image', 'more']); assert.deepEqual(result.warnings, [FLOATING_PICTURE]);
+    assert.equal('position' in nodes(result, 'image')[0].attrs, false);
+  }
+});

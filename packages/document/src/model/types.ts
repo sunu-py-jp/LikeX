@@ -51,19 +51,29 @@ export type DocumentTableCellNode = {
 export type DocumentTableRowNode = { type: "table_row"; attrs?: { id?: string | null }; content: DocumentTableCellNode[] };
 export type DocumentTableNode = { type: "table"; attrs?: { id?: string | null; width?: DocumentTableWidth | null;
   layout?: "fixed" | "auto" | null; cellMargins?: DocumentTableMargins | null }; content: DocumentTableRowNode[] };
+/**
+ * Where a block stands on the page when it is taken out of the text. It then takes no room in the text and
+ * text does not flow around it. Offsets use mm: horizontally from the left edge of the page or of the text
+ * area, vertically from the top edge of the page or of the text area, or from the block's place in the text.
+ * Only blocks of the body are placed; inside a list or a table the block stays in the text.
+ */
+export type DocumentBlockPosition = {
+  horizontal: { from: "page" | "margin"; offset: number };
+  vertical: { from: "page" | "margin" | "paragraph"; offset: number };
+};
 export type DocumentImageNode = {
   type: "image";
-  attrs: { id?: string | null; src: string; alt?: string; width?: number; height?: number };
+  attrs: { id?: string | null; src: string; alt?: string; width?: number; height?: number; position?: DocumentBlockPosition | null };
 };
 /** Editable Office preset shape. Dimensions and stroke width use pixels; rotation uses degrees. */
 export type DocumentShapeAttributes = {
   id?: string | null; preset: OfficeShapePreset; text?: string; width?: number; height?: number;
   fill?: string | null; stroke?: string | null; strokeWidth?: number; rotation?: number;
-  flipH?: boolean; flipV?: boolean; color?: string; fontSize?: number;
+  flipH?: boolean; flipV?: boolean; color?: string; fontSize?: number; position?: DocumentBlockPosition | null;
 };
 export type DocumentShapeNode = { type: "shape"; attrs: DocumentShapeAttributes };
 /** Canvas coordinates use pixels. Bindings always reference a shape in the same canvas. */
-export type DocumentCanvasShape = Omit<DocumentShapeAttributes, "id"> & { id: string; x: number; y: number };
+export type DocumentCanvasShape = Omit<DocumentShapeAttributes, "id" | "position"> & { id: string; x: number; y: number };
 export type DocumentCanvasConnector = { id: string; start: ConnectorEndpoint; end: ConnectorEndpoint;
   routing?: "straight" | "elbow"; stroke?: string; strokeWidth?: number; startArrow?: ConnectorArrowhead; endArrow?: ConnectorArrowhead };
 export type DocumentCanvasAttributes = { id?: string | null; width?: number; height?: number;
@@ -103,8 +113,8 @@ export type DocumentCommand =
   | { type: "paragraph.set"; from: number; to: number; nodeType?: "paragraph" | "heading"; level?: number; align?: DocumentAlignment }
   | { type: "list.set"; from: number; to: number; kind: "bullet" | "ordered" | "none" }
   | { type: "table.insert"; at: number; rows: number; columns: number; header?: boolean }
-  | { type: "image.insert"; at: number; src: string; alt?: string; width?: number; height?: number }
-  | { type: "image.update"; id: string; src?: string; alt?: string; width?: number; height?: number }
+  | { type: "image.insert"; at: number; src: string; alt?: string; width?: number; height?: number; position?: DocumentBlockPosition | null }
+  | { type: "image.update"; id: string; src?: string; alt?: string; width?: number; height?: number; position?: DocumentBlockPosition | null }
   | ({ type: "shape.insert"; at: number } & Omit<DocumentShapeAttributes, "id">)
   | ({ type: "shape.update"; id: string } & Partial<Omit<DocumentShapeAttributes, "id">>)
   | { type: "pageBreak.insert"; at: number }

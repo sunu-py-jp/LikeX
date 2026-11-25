@@ -104,9 +104,12 @@ export function writeDocPackage(input: DocPackageInput): DocPackage {
         `<wps:txbx><w:txbxContent>${lines.map(line => `<w:p><w:pPr><w:jc w:val="left"/></w:pPr><w:r><w:t xml:space="preserve">${text(line)}</w:t></w:r></w:p>`).join("") || "<w:p/>"}</w:txbxContent></wps:txbx>` +
         `<wps:bodyPr${lines.length ? ' anchor="t"' : ""}/></wps:wsp></a:graphicData></a:graphic>`;
     }
-    return `<w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="${id}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/>` +
-      `<wp:positionH relativeFrom="column"><wp:posOffset>0</wp:posOffset></wp:positionH><wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV><wp:extent cx="${width}" cy="${height}"/>` +
-      `<wp:wrapSquare wrapText="bothSides"/><wp:docPr id="${id}" name="${attribute(object.name || `Object ${id}`)}"${object.description ? ` descr="${attribute(object.description)}"` : ""}/>${graphic}</wp:anchor></w:drawing>`;
+    // The anchor keeps where the object stood and how text passed it; the reader decides whether it can show it there.
+    const { place } = object, axis = (side: string | undefined, offset: number) => side ? `<wp:align>${side}</wp:align>` : `<wp:posOffset>${offset}</wp:posOffset>`;
+    const wrap = place.wrap === "none" ? "<wp:wrapNone/>" : place.wrap === "topAndBottom" ? "<wp:wrapTopAndBottom/>" : `<wp:wrap${place.wrap === "square" ? "Square" : place.wrap === "tight" ? "Tight" : "Through"} wrapText="bothSides"/>`;
+    return `<w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="${id}" behindDoc="${place.behind ? 1 : 0}" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/>` +
+      `<wp:positionH relativeFrom="${place.horizontal}">${axis(place.alignHorizontal, place.left)}</wp:positionH><wp:positionV relativeFrom="${place.vertical}">${axis(place.alignVertical, place.top)}</wp:positionV><wp:extent cx="${width}" cy="${height}"/>` +
+      `${wrap}<wp:docPr id="${id}" name="${attribute(object.name || `Object ${id}`)}"${object.description ? ` descr="${attribute(object.description)}"` : ""}/>${graphic}</wp:anchor></w:drawing>`;
   }
   function linkOpen(target: { url?: string; anchor?: string }): string {
     if (target.anchor !== undefined) return `<w:hyperlink w:anchor="${attribute(target.anchor)}">`;

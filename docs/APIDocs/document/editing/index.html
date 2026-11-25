@@ -33,6 +33,7 @@
 <h2 id="右クリック">右クリック<a class="heading-link" href="#%E5%8F%B3%E3%82%AF%E3%83%AA%E3%83%83%E3%82%AF" aria-label="この見出しへのリンク">#</a></h2>
 <p>画像では選択・複製・縦横比を保つ縮小（80%）と拡大（125%）・削除、表の枠やセルの余白では表全体の選択・削除ができます。文書の余白では本文全体のコピー・選択とUndo/Redoを使えます。表内も含め、本文の通常の右クリックはブラウザーのメニューを使い、スペルチェックや標準のコピー・貼り付けを維持します。</p>
 <p>余白にフォーカスするか、画像・表全体を選択した状態でShift+F10またはメニューキーを押しても開けます。無効な機能は表示せず、読み取り専用では変更操作を表示しません。文書・選択・編集可否が変わった場合は古いメニューを閉じ、編集許可を待つ間の変更も確認してから反映します。コピーにはブラウザーのクリップボード権限が必要です。</p>
+<p>ページ上の位置に置かれた画像・図形（Wordから読み込んだ余白の図など）では「本文中に配置」も選べます。本文の流れに戻すと、ほかの画像・図形と同じようにドラッグで移動できます。図形の複製は本文中に作ります。位置の指定と変更は <code>image.update</code> / <code>shape.update</code> の <code>position</code> で行います（<a href="../headless/index.html#%E7%94%BB%E5%83%8F%E5%9B%B3%E5%BD%A2%E3%82%92%E3%83%9A%E3%83%BC%E3%82%B8%E4%B8%8A%E3%81%AE%E4%BD%8D%E7%BD%AE%E3%81%AB%E7%BD%AE%E3%81%8F">モデルAPI</a>）。</p>
 <p>画像の複製は <code>image.insert</code>、サイズ変更は <code>image.update</code>、画像・表の削除は <code>block.delete</code> と同じ操作です。表の行列変更・複製の専用メニューはありません。保存構造とDOCXの変換範囲は変わりません。</p>
 <h2 id="機能を無効にする">機能を無効にする<a class="heading-link" href="#%E6%A9%9F%E8%83%BD%E3%82%92%E7%84%A1%E5%8A%B9%E3%81%AB%E3%81%99%E3%82%8B" aria-label="この見出しへのリンク">#</a></h2>
 <div class="code-example"><div class="code-toolbar"><span>tsx</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>&lt;LikeDocument initialDocument={document} onSave={saveDocument}

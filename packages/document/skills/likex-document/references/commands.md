@@ -31,6 +31,8 @@
 
 `table.insert` は `at`、`rows`、`columns` と `header` で作る。セルの本文は作成後のブロック位置から編集する。画像の `image.insert` は `at` とPNG／JPEGの `src`、必要なら `alt`・`width`・`height` を指定する。作成した画像のIDをinspectで取得し、`image.update` に `id` と変更属性を渡す。`pageBreak.insert` は指定位置に明示的な `page_break` を挿入する。DOCXの保存済み自動改ページ位置の `rendered_page_break` をこのコマンドで置き換えない。
 
+画像と図形は `position` でページ上の位置に置ける。`{ "horizontal": { "from": "page" | "margin", "offset": mm }, "vertical": { "from": "page" | "margin" | "paragraph", "offset": mm } }` を `image.insert` / `image.update` / `shape.insert` / `shape.update` に渡す。置いたブロックは本文の高さを取らず、文字は回り込まない。`position: null` で本文中へ戻し、省略すると現在の位置を保つ。使えるのは本文直下のブロックだけで、表・箇条書きの中とキャンバス内の図形では使わない。
+
 画像を複製する場合は `getImage(document, id)` の `to` を挿入位置とし、画像の `src`・`alt`・`width`・`height` を `image.insert` に渡す。新しいIDは実行後に取得する。`image.update` に幅だけ渡すと現在の縦横比を維持するため、GUIの縮小・拡大と同様に現在の幅へ0.8または1.25を掛けられる。表全体・画像の削除は `block.delete` を使う。表の行列変更・複製の専用コマンドはない。
 
 ```json
@@ -68,7 +70,7 @@
 
 新しいIDは適用後のinspectまたは `getShapes` で取得する。`shape.update` は `id` で指定した図形の属性だけを変更する。幅・高さ・線幅はpx、回転は度、`fontSize` はpt。塗りつぶしと線の非表示は `fill: null` / `stroke: null`、反転は `flipH` / `flipV`。`getShape(document,id)` は図形と現在位置を返す。複製は取得したattrsからidを除いて `shape.insert`、削除は `block.delete`。
 
-DOCXではWord 2010の編集可能なDrawingMLプリセットへ変換する。浮動配置はインライン化、調整値・複雑な書式は標準化、自由図形・入れ子グループは省略の警告が出るため、import/exportの `warnings` を確認する。
+DOCXではWord 2010の編集可能なDrawingMLプリセットへ変換する。浮動配置は、余白にあるものと「前面」のものだけ `position` に保持し、それ以外はインライン化、調整値・複雑な書式は標準化、自由図形・入れ子グループは省略の警告が出るため、import/exportの `warnings` を確認する。
 
 ## キャンバス内の図形と接続線
 

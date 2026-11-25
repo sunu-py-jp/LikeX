@@ -1,5 +1,6 @@
 import { readOfficeConnectorShapeTag } from "../ooxml";
 import { isOfficeShapePreset } from "../model/core-office-shapes";
+import type { DocumentBlockPosition } from "../model/types";
 import { child, children, attr, descendants, textContent, runStyle, type XmlNode, type Node } from "./docx-reader";
 import { xml, WPS } from "./docx-xml";
 
@@ -15,7 +16,8 @@ export function writeDocxShape(attrs: Record<string, unknown>, id: number): stri
 }
 
 /** Unsupported floating flow and geometry adjustments are reported rather than silently retained as something else. */
-export function readDocxShape(source: XmlNode, warn: (message: string) => void, theme: ReadonlyMap<string, string>): Node | undefined {
+export function readDocxShape(source: XmlNode, warn: (message: string) => void, theme: ReadonlyMap<string, string>,
+  place?: (source: XmlNode, width: number, height: number) => DocumentBlockPosition | undefined): Node | undefined {
   if (descendants(source, "wgp").length || descendants(source, "grpSp").length) { warn("グループ化された図形は未対応のため省略しました"); return; }
   const shapes = descendants(source, "wsp");
   if (shapes.length !== 1) { warn("未対応の図形・グラフ・SmartArtを省略しました"); return; }
@@ -24,7 +26,8 @@ export function readDocxShape(source: XmlNode, warn: (message: string) => void, 
   const transform = child(props, "xfrm"), extent = child(transform, "ext") ?? descendants(source, "extent")[0];
   const width = Number(attr(extent, "cx")) / 9525, height = Number(attr(extent, "cy")) / 9525;
   if (![width, height].every(value => Number.isFinite(value) && value >= 1 && value <= 16384)) { warn("寸法が不正または大きすぎる図形を省略しました"); return; }
-  if (descendants(source, "anchor").length) warn("浮動配置の図形は本文中の図形として読み込みました（重なり・回り込み・ページ上の位置は保持しません）");
+  const position = place?.(source, width, height);
+  if (!position && descendants(source, "anchor").length) warn("浮動配置の図形は本文中の図形として読み込みました（重なり・回り込み・ページ上の位置は保持しません）");
   if (children(child(geometry, "avLst"), "gd").length) warn("図形の調整ハンドル値は既定値に戻して読み込みました");
   if (descendants(props ?? shape, "effectLst").some(item => item.children.length) || child(props, "scene3d") || child(props, "sp3d") || child(props, "effectDag")) warn("図形の影・立体・視覚効果を省略しました");
   function color(node: XmlNode | undefined, fallback: string): string {
@@ -71,5 +74,5 @@ export function readDocxShape(source: XmlNode, warn: (message: string) => void, 
   rotation %= 360;
   const strokeWidth = Number(attr(line, "w") ?? 14287.5) / 9525;
   if (!Number.isFinite(strokeWidth) || strokeWidth < 0 || strokeWidth > 100) warn("図形の線幅を既定値に変換しました");
-  return { type: "shape", attrs: { preset, width, height, text, fill: paint(props, "#dbeafe", child(style, "fillRef")), stroke: paint(line, "#2563eb", child(style, "lnRef")), strokeWidth: Number.isFinite(strokeWidth) && strokeWidth >= 0 && strokeWidth <= 100 ? strokeWidth : 1.5, rotation, flipH: ["1", "true"].includes(attr(transform, "flipH") ?? ""), flipV: ["1", "true"].includes(attr(transform, "flipV") ?? ""), color: textStyle.color ?? "#172554", fontSize: textStyle.fontSize ?? 14 } };
+  return { type: "shape", attrs: { preset, width, height, text, fill: paint(props, "#dbeafe", child(style, "fillRef")), stroke: paint(line, "#2563eb", child(style, "lnRef")), strokeWidth: Number.isFinite(strokeWidth) && strokeWidth >= 0 && strokeWidth <= 100 ? strokeWidth : 1.5, rotation, flipH: ["1", "true"].includes(attr(transform, "flipH") ?? ""), flipV: ["1", "true"].includes(attr(transform, "flipV") ?? ""), color: textStyle.color ?? "#172554", fontSize: textStyle.fontSize ?? 14, ...(position ? { position } : {}) } };
 }

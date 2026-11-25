@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 
 const output = await build({ stdin: { contents: `export * from './src/ui/document-pagination';`, resolveDir: new URL('../', import.meta.url).pathname }, bundle: true, platform: 'node', format: 'esm', write: false });
-const { calculateDocumentPagination, createDocumentPagination, createPageBreakNodeView } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
+const { calculateDocumentPagination, createDocumentPagination, createPageBreakNodeView, placedPageTop } = await import(`data:text/javascript;base64,${Buffer.from(output.outputFiles[0].text).toString('base64')}`);
 
 test('stored boundaries provide paper margins and gaps without inventing breaks', () => {
   const plan = calculateDocumentPagination([200, 400], 600, 1000, 75, 75);
@@ -33,11 +33,12 @@ class Element extends EventTarget {
   setAttribute(name, value) { this.attributes.set(name, value); }
   removeAttribute(name) { this.attributes.delete(name); }
   hasAttribute(name) { return this.attributes.has(name); }
+  getAttribute(name) { return this.attributes.get(name) ?? null; }
   appendChild(child) { this.children.push(child); child.parentElement = this; }
   remove() { if (this.parentElement) this.parentElement.children = this.parentElement.children.filter(child => child !== this); }
 }
 
-function fixture({ offsets = [200], height = 400, scale = 1, table = false } = {}) {
+function fixture({ offsets = [200], height = 400, scale = 1, table = false, placed = [] } = {}) {
   const win = new EventTarget(), frames = new Map(), observers = [], attributeObservers = [];
   let serial = 0, measured = 0, completed = 0, naturalHeight = height, zoom = scale;
   let maxScroll = 0, scrollTop = 0, scrollLeft = 0, clamped = 0;
@@ -79,7 +80,16 @@ function fixture({ offsets = [200], height = 400, scale = 1, table = false } = {
   });
   const added = () => markers.reduce((sum, marker) => sum + (marker.inTable ? 0 : parseFloat(marker.style.height) || 0), 0);
   root.closest = () => viewport;
-  root.querySelectorAll = () => markers;
+  // Blocks placed from the top of their page stand in the text at `offset`, below the spacers of earlier boundaries.
+  const blocks = placed.map(item => {
+    const element = new Element(doc); element.setAttribute('data-lxd-float-v', item.from);
+    element.getBoundingClientRect = () => {
+      assert.equal(element.style.top, 'auto', 'the place in the text is read with the block returned to it');
+      return { top: 50 - scrollTop + zoom * (item.offset + markers.reduce((sum, marker, index) => sum + (!marker.inTable && offsets[index] <= item.offset ? parseFloat(marker.style.height) || 0 : 0), 0)) };
+    };
+    return element;
+  });
+  root.querySelectorAll = selector => selector.includes('data-lxd-float-v') ? blocks : markers;
   root.getBoundingClientRect = () => {
     measured++;
     const height = Math.max(parseFloat(root.style.minHeight) || 0, naturalHeight + added()) * zoom;
@@ -90,7 +100,7 @@ function fixture({ offsets = [200], height = 400, scale = 1, table = false } = {
   block.getBoundingClientRect = () => ({ width: 650 * zoom, height: (naturalHeight + added() - 150) * zoom });
   layer.getBoundingClientRect = () => ({ top: 50 - scrollTop });
   const pagination = createDocumentPagination(view, layer, () => page, () => { completed++; scrollAtLayout.push({ top: scrollTop, left: scrollLeft }); });
-  return { root, layer, markers, frames, observers, attributeObservers, win, fonts, pagination, viewport, scrollAtLayout,
+  return { root, layer, markers, blocks, frames, observers, attributeObservers, win, fonts, pagination, viewport, scrollAtLayout,
     get clamped() { return clamped; },
     get measured() { return measured; }, get completed() { return completed; },
     replace(nextHeight) { naturalHeight = nextHeight; model = {}; },
@@ -169,4 +179,26 @@ test('boundary node views isolate layout mutations but preserve selection handli
     assert.equal(nodeView.dom.attributes.get('data-document-id'), 'updated');
     assert.equal(nodeView.update({ type: { name: 'paragraph' }, attrs: {} }), false);
   }
+});
+
+test('a block placed from the top of a page follows the paper on which it stands in the text', () => {
+  const papers = [{ top: 0, height: 1000 }, { top: 1024, height: 1000 }];
+  assert.equal(placedPageTop(papers, 300, 1000, 75, 75), 0);
+  assert.equal(placedPageTop(papers, 1010, 1000, 75, 75), 0, 'the gap after a paper still belongs to it');
+  assert.equal(placedPageTop(papers, 1200, 1000, 75, 75), 1024);
+  assert.equal(placedPageTop(papers, 9000, 1000, 75, 75), 1024, 'past the last paper the last one is used');
+  assert.equal(placedPageTop([], 10, 1000, 75, 75), 0);
+  // A paper that grew to three page heights of text: each page height of text counts as one page.
+  const grown = [{ top: 0, height: 2700 }];
+  assert.equal(placedPageTop(grown, 100, 1000, 75, 75), 0);
+  assert.equal(placedPageTop(grown, 75 + 850, 1000, 75, 75), 850);
+  assert.equal(placedPageTop(grown, 75 + 850 * 2 + 10, 1000, 75, 75), 1700);
+  assert.equal(placedPageTop(grown, 2690, 1000, 75, 75), 1700, 'never below the last page of the paper');
+
+  const f = fixture({ offsets: [200], scale: 1.5, placed: [{ offset: 120, from: 'page' }, { offset: 260, from: 'margin' }] });
+  f.pagination.update();
+  // The first block stands on the first paper; the second after the boundary, on the paper that starts at 1024.
+  assert.equal(f.blocks[0].style.top, 'calc(0px + var(--lxd-float-y))');
+  assert.equal(f.blocks[1].style.top, 'calc(1099px + var(--lxd-float-y))');
+  f.pagination.destroy();
 });

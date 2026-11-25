@@ -27,7 +27,8 @@ export const OFFICE_ART = Object.freeze({ drawingGroup: 0xf000, blipStore: 0xf00
 /** Property identifiers used by the importers. */
 export const OFFICE_ART_PROPERTY = Object.freeze({ rotation: 0x0004, textLeft: 0x0081, textTop: 0x0082, textRight: 0x0083, textBottom: 0x0084, textAnchor: 0x0087,
   cropTop: 0x0100, cropBottom: 0x0101, cropLeft: 0x0102, cropRight: 0x0103, picture: 0x0104, adjust: 0x0147, fillType: 0x0180, fillColor: 0x0181, fillOpacity: 0x0182,
-  fillFlags: 0x01bf, lineColor: 0x01c0, lineWidth: 0x01cb, lineDash: 0x01ce, lineStart: 0x01d0, lineEnd: 0x01d1, lineFlags: 0x01ff, name: 0x0380, description: 0x0381, groupFlags: 0x03bf });
+  fillFlags: 0x01bf, lineColor: 0x01c0, lineWidth: 0x01cb, lineDash: 0x01ce, lineStart: 0x01d0, lineEnd: 0x01d1, lineFlags: 0x01ff, name: 0x0380, description: 0x0381,
+  alignHorizontal: 0x038f, originHorizontal: 0x0390, alignVertical: 0x0391, originVertical: 0x0392, groupFlags: 0x03bf });
 const MAX_RECORDS = 200_000, MAX_DEPTH = 32;
 const IMAGE_FORMATS: Readonly<Record<number, OfficeArtImage["format"]>> = { 0xf01a: "emf", 0xf01b: "wmf", 0xf01c: "pict", 0xf01d: "jpeg", 0xf02a: "jpeg", 0xf01e: "png", 0xf01f: "dib", 0xf029: "tiff" };
 /** Shape types that have a DrawingML preset of the same outline. Unlisted types have no direct equivalent. */

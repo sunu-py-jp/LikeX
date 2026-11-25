@@ -82,6 +82,8 @@ export function renderDocumentThumbnail(host: HTMLElement, content: DocumentRoot
     const rendered: { dom: HTMLElement | Text; contentDOM?: HTMLElement } = shell ? DOMSerializer.renderSpec(ownerDocument, model.type.spec.toDOM!(model) as DOMOutputSpec) : { dom: serializer.serializeNode(model, { document: ownerDocument }) };
     target.appendChild(rendered.dom);
     const element = rendered.dom as HTMLElement;
+    // A block placed on the page takes no room in the text, so it does not tell how far the text reaches.
+    if (target === host && (node as { attrs?: { position?: unknown } }).attrs?.position) return;
     if (element.getBoundingClientRect().top >= bottom()) {
       element.remove(); full = true; return;
     }

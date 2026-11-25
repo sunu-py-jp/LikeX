@@ -1,5 +1,6 @@
 import { normalizeCanvasAttributes } from "./canvas";
 import { canvasDom } from "./canvas-dom";
+import { blockPositionDom, normalizeBlockPosition, parseBlockPositionDom } from "./position";
 import { normalizeShapeAttributes } from "./shape-attributes";
 import { shapeDom } from "./shape-dom";
 import { inspectDocumentImage } from "./image-source";
@@ -31,23 +32,27 @@ const nodes: Record<string, NodeSpec> = {
   table: { content: "table_row+", group: "block", isolating: true, attrs: { id, width: { default: null }, layout: { default: null }, cellMargins: { default: null } }, parseDOM: [{ tag: "table", getAttrs: parseTableDom }], toDOM: tableDom },
   table_row: { content: "(table_cell | table_header)*", attrs: { id }, parseDOM: [{ tag: "tr" }], toDOM: node => ["tr", { "data-document-id": node.attrs.id }, 0] },
   table_cell: cellSpec("td"), table_header: cellSpec("th"),
-  image: { group: "block", atom: true, draggable: true, attrs: { id, src: {}, alt: { default: "" }, width: { default: 320 }, height: { default: 200 } }, parseDOM: [{ tag: "img[src]", getAttrs: node => {
+  image: { group: "block", atom: true, draggable: true, attrs: { id, src: {}, alt: { default: "" }, width: { default: 320 }, height: { default: 200 }, position: { default: null } }, parseDOM: [{ tag: "img[src]", getAttrs: node => {
     try {
       const image = inspectDocumentImage(node.getAttribute("src"));
       const specifiedWidth = node.getAttribute("width"), specifiedHeight = node.getAttribute("height");
       const width = specifiedWidth ? Number(specifiedWidth) : specifiedHeight ? Number(specifiedHeight) * image.width / image.height : Math.min(image.width, 480);
       const height = specifiedHeight ? Number(specifiedHeight) : width * image.height / image.width;
-      return { src: image.src, alt: node.getAttribute("alt") || "", width, height };
+      const position = parseBlockPositionDom(node);
+      return { src: image.src, alt: node.getAttribute("alt") || "", width, height, ...(position ? { position } : {}) };
     } catch { return false; }
-  } }], toDOM: node => ["img", { ...node.attrs, id: undefined, "data-document-id": node.attrs.id }] },
+  } }], toDOM: node => ["img", { ...node.attrs, id: undefined, position: undefined, "data-document-id": node.attrs.id, ...blockPositionDom(node.attrs.position) }] },
   drawing_canvas: { group: "block", atom: true, draggable: true, attrs: { id, width: { default: 600 }, height: { default: 360 }, shapes: { default: [] }, connectors: { default: [] } },
     parseDOM: [{ tag: "div[data-document-canvas]", getAttrs: node => { try { return normalizeCanvasAttributes(JSON.parse(node.getAttribute("data-canvas-attrs") ?? "null")); } catch { return false; } } }], toDOM: node => canvasDom(node.attrs) },
   shape: { group: "block", atom: true, draggable: true, attrs: {
     id, preset: {}, text: { default: "" }, width: { default: 240 }, height: { default: 140 },
     fill: { default: "#dbeafe" }, stroke: { default: "#2563eb" }, strokeWidth: { default: 1.5 },
-    rotation: { default: 0 }, flipH: { default: false }, flipV: { default: false }, color: { default: "#172554" }, fontSize: { default: 14 },
+    rotation: { default: 0 }, flipH: { default: false }, flipV: { default: false }, color: { default: "#172554" }, fontSize: { default: 14 }, position: { default: null },
   }, parseDOM: [{ tag: "div[data-document-shape]", getAttrs: node => {
-    try { return normalizeShapeAttributes(JSON.parse(node.getAttribute("data-shape-attrs") ?? "null")); } catch { return false; }
+    try {
+      const { position, ...attrs } = JSON.parse(node.getAttribute("data-shape-attrs") ?? "null"), placed = normalizeBlockPosition(position);
+      return { ...normalizeShapeAttributes(attrs), ...(placed ? { position: placed } : {}) };
+    } catch { return false; }
   } }], toDOM: node => shapeDom(node.attrs) },
   page_break: { group: "block", atom: true, attrs: { id }, parseDOM: [{ tag: "div[data-page-break]" }], toDOM: node => ["div", { "data-page-break": "true", "data-document-id": node.attrs.id, contenteditable: "false" }] },
 };

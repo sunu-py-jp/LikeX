@@ -1,6 +1,8 @@
 import { readDocxCanvas } from "./docx-canvas";
 import { readDocxShape } from "./docx-shapes";
+import { readDocxPosition } from "./docx-position";
 import { normalizeDocument } from "../model/document";
+import type { DocumentBlockPosition, DocumentPage } from "../model/types";
 import { openOfficePackage, officeXml, readOfficeRelationships, resolveOfficePart, type OfficePackageArchive, type OfficePackageInput } from "../ooxml";
 import { millimetres } from "./docx-xml";
 import { createDocxTableReader } from "./docx-tables";
@@ -70,8 +72,15 @@ async function readDocxPackage(archive: OfficePackageArchive, options: DocumentD
   }
   const embedded = new Map<string, string>();
   let elements = 0;
+  const section = sections.at(-1), size = child(section, "pgSz"), margin = child(section, "pgMar");
+  const page: DocumentPage = { width: millimetres(attr(size, "w"), 210), height: millimetres(attr(size, "h"), 297),
+    margins: { top: millimetres(attr(margin, "top"), 20), right: millimetres(attr(margin, "right"), 20), bottom: millimetres(attr(margin, "bottom"), 20), left: millimetres(attr(margin, "left"), 20) } };
+  /** The place on the page of an anchored drawing of the body, for a size in pixels. In a table the drawing stays in the text. */
+  type Place = (source: XmlNode, width: number, height: number) => DocumentBlockPosition | undefined;
+  const placeOnPage: Place = (source, width, height) => readDocxPosition(descendants(source, "anchor")[0], page, width * 25.4 / 96, height * 25.4 / 96);
+  const placeInText: Place = () => undefined;
 
-  async function readImage(source: XmlNode): Promise<Node | undefined> {
+  async function readImage(source: XmlNode, place: Place): Promise<Node | undefined> {
     const blip = descendants(source, "blip")[0], id = attr(blip, "embed"), link = links.get(id ?? "");
     if (!link || link.external || !link.type.endsWith("/image")) { warn("参照できない画像・外部画像を省略しました"); return undefined; }
     const type = types.get(link.target) ?? defaults.get(link.target.split(".").at(-1)?.toLowerCase() ?? "");
@@ -87,12 +96,13 @@ async function readDocxPackage(archive: OfficePackageArchive, options: DocumentD
     const extent = descendants(source, "extent")[0] ?? descendants(source, "ext")[0], width = Number(attr(extent, "cx")) / 9525, height = Number(attr(extent, "cy")) / 9525;
     if (![width, height].every(value => Number.isFinite(value) && value >= 1 && value <= 16384)) { warn("寸法が不正または大きすぎる画像を省略しました"); return undefined; }
     const properties = descendants(source, "docPr")[0] ?? descendants(source, "cNvPr")[0];
-    if (descendants(source, "anchor").length) warn("浮動配置の画像は本文中の画像として読み込みました");
+    const position = place(source, width, height);
+    if (!position && descendants(source, "anchor").length) warn("浮動配置の画像は本文中の画像として読み込みました");
     if (descendants(source, "srcRect").some(rect => Object.values(rect.attributes).some(value => Number(value) !== 0)) || descendants(source, "xfrm").some(transform => ["rot", "flipH", "flipV"].some(name => Number(attr(transform, name) ?? 0) !== 0))) warn("画像の回転・反転・切り抜きを省略しました");
-    return { type: "image", attrs: { src: data, width, height, alt: attr(properties, "descr") ?? attr(properties, "title") ?? "" } };
+    return { type: "image", attrs: { src: data, width, height, alt: attr(properties, "descr") ?? attr(properties, "title") ?? "", ...(position ? { position } : {}) } };
   }
 
-  async function paragraph(source: XmlNode): Promise<ListedBlock[]> {
+  async function paragraph(source: XmlNode, place: Place): Promise<ListedBlock[]> {
     const properties = child(source, "pPr"), id = attr(child(properties, "pStyle"), "val");
     const style = { ...styles.paragraph(id), ...paragraphStyle(properties) };
     const heading = /^(?:heading|見出し)\s*([1-6])$/i.exec(id ?? "");
@@ -121,8 +131,9 @@ async function readDocxPackage(archive: OfficePackageArchive, options: DocumentD
       }
       if (name === "pict" || name === "object") { warn("旧形式の図形・埋め込みオブジェクトを省略しました"); return; }
       if (name === "drawing") {
-        flush();
-        const drawing = descendants(node, "wgp").length ? readDocxCanvas(node, warn, theme) : descendants(node, "wsp").length ? readDocxShape(node, warn, theme) : descendants(node, "pic").length ? await readImage(node) : undefined;
+        const drawing = descendants(node, "wgp").length ? readDocxCanvas(node, warn, theme) : descendants(node, "wsp").length ? readDocxShape(node, warn, theme, place) : descendants(node, "pic").length ? await readImage(node, place) : undefined;
+        // A drawing placed on the page stands before the text of its paragraph, which it does not divide.
+        if (!drawing?.attrs?.position) flush();
         if (drawing) result.push({ node: drawing }); else warn("未対応の図形・グラフ・SmartArtなどの描画要素を省略しました");
         return;
       }
@@ -158,7 +169,9 @@ async function readDocxPackage(archive: OfficePackageArchive, options: DocumentD
       for (const item of node.children) await visit(item, extraMarks);
     }
     for (const item of source.children) await visit(item);
-    flush(result.length === 0 || !!style.pageBreakBefore && result.length === 1 && result[0].node.type === "page_break");
+    // The paragraph of a placed drawing remains, also when it holds nothing else.
+    const inText = result.filter(item => !item.node.attrs?.position);
+    flush(inText.length === 0 || !!style.pageBreakBefore && inText.length === 1 && inText[0].node.type === "page_break");
     return result;
   }
 
@@ -192,7 +205,7 @@ async function readDocxPackage(archive: OfficePackageArchive, options: DocumentD
           if (remaining >= 1 && remaining <= 5000) widths.forEach((width, offset) => { if (width == null) widths[offset] = remaining; });
         }
         const node: Node = { type: onProperty(child(row, "trPr"), "tblHeader") ? "table_header" : "table_cell", attrs: { colspan: span, rowspan: 1, ...cellFormat,
-          ...(widths.every(width => width != null && width >= 1 && width <= 5000) ? { colwidth: widths } : {}), ...(background && /^[\da-f]{6}$/i.test(background) ? { backgroundColor: `#${background.toUpperCase()}` } : {}) }, content: await blocks(cell) };
+          ...(widths.every(width => width != null && width >= 1 && width <= 5000) ? { colwidth: widths } : {}), ...(background && /^[\da-f]{6}$/i.test(background) ? { backgroundColor: `#${background.toUpperCase()}` } : {}) }, content: await blocks(cell, placeInText) };
         if (!node.content?.length) node.content = [{ type: "paragraph" }];
         cells.push(node); if (merge) spans.set(col, node); col += span;
       }
@@ -205,34 +218,31 @@ async function readDocxPackage(archive: OfficePackageArchive, options: DocumentD
     return { type: "table", attrs: format.attrs, content: rows };
   }
 
-  async function blocks(source: XmlNode): Promise<Node[]> {
+  async function blocks(source: XmlNode, place: Place): Promise<Node[]> {
     const result: ListedBlock[] = [];
     for (const item of source.children) {
       if (++elements > DOCX_BLOCK_ELEMENT_LIMIT) return fail("文書の要素数が読み込み上限を超えています");
       if (elements % 64 === 0) { await new Promise<void>(resolve => setTimeout(resolve, 0)); signal?.throwIfAborted(); }
       const tag = localName(item.name);
       if (tag === "p") {
-        result.push(...await paragraph(item));
+        result.push(...await paragraph(item, place));
         const boundary = pageBreaks.sectionBreak(sectionBreaks.get(item));
         if (boundary) result.push({ node: boundary });
       }
       else if (tag === "tbl") result.push({ node: await table(item) });
-      else if (tag === "sdt") { const content = child(item, "sdtContent"); if (content) result.push(...(await blocks(content)).map(node => ({ node }))); warn("コンテンツコントロールは通常の本文として読み込みました"); }
+      else if (tag === "sdt") { const content = child(item, "sdtContent"); if (content) result.push(...(await blocks(content, place)).map(node => ({ node }))); warn("コンテンツコントロールは通常の本文として読み込みました"); }
       else if (tag === "altChunk") warn("外部形式の埋め込み本文を省略しました");
-      else if (tag === "customXml" || tag === "ins") { result.push(...(await blocks(item)).map(node => ({ node }))); }
+      else if (tag === "customXml" || tag === "ins") { result.push(...(await blocks(item, place)).map(node => ({ node }))); }
     }
     return groupLists(result, numbering);
   }
 
-  const content = pageBreaks.finish(await blocks(body)), section = sections.at(-1);
+  const content = pageBreaks.finish(await blocks(body, placeOnPage));
   if (sections.length > 1) warn("複数セクションの用紙設定は最後のセクションに統一しました");
   if (sections.some(item => children(item, "headerReference").length || children(item, "footerReference").length)) warn("ヘッダー・フッターを省略しました");
   if (sections.some(item => Number(attr(child(item, "cols"), "num") ?? 1) > 1)) warn("段組みは1段に変換しました");
-  const size = child(section, "pgSz"), margin = child(section, "pgMar");
-  const width = millimetres(attr(size, "w"), 210), height = millimetres(attr(size, "h"), 297);
-  const margins = { top: millimetres(attr(margin, "top"), 20), right: millimetres(attr(margin, "right"), 20), bottom: millimetres(attr(margin, "bottom"), 20), left: millimetres(attr(margin, "left"), 20) };
   signal?.throwIfAborted();
-  const model = normalizeDocument({ format: "likex.document", version: 1, id: "docx-document", title: title || "取り込んだ文書", page: { width, height, margins }, content: { type: "doc", content: content.length ? content : [{ type: "paragraph" }] } });
+  const model = normalizeDocument({ format: "likex.document", version: 1, id: "docx-document", title: title || "取り込んだ文書", page, content: { type: "doc", content: content.length ? content : [{ type: "paragraph" }] } });
   return { document: model, warnings: [...warnings] };
 }
 

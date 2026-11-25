@@ -746,12 +746,86 @@
         },
         "height": {
           "type": "number"
+        },
+        "position": {
+          "$ref": "#/$defs/DocumentImageNode_attrs_position"
         }
       },
       "required": [
         "src"
       ],
       "additionalProperties": false
+    },
+    "DocumentImageNode_attrs_position": {
+      "anyOf": [
+        {
+          "const": null
+        },
+        {
+          "$ref": "#/$defs/DocumentBlockPosition"
+        }
+      ]
+    },
+    "DocumentBlockPosition": {
+      "type": "object",
+      "properties": {
+        "horizontal": {
+          "$ref": "#/$defs/DocumentBlockPosition_horizontal"
+        },
+        "vertical": {
+          "$ref": "#/$defs/DocumentBlockPosition_vertical"
+        }
+      },
+      "required": [
+        "horizontal",
+        "vertical"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentBlockPosition_horizontal": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/DocumentBlockPosition_horizontal_from"
+        },
+        "offset": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "from",
+        "offset"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentBlockPosition_horizontal_from": {
+      "enum": [
+        "page",
+        "margin"
+      ]
+    },
+    "DocumentBlockPosition_vertical": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/DocumentBlockPosition_vertical_from"
+        },
+        "offset": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "from",
+        "offset"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentBlockPosition_vertical_from": {
+      "enum": [
+        "paragraph",
+        "page",
+        "margin"
+      ]
     },
     "DocumentShapeNode": {
       "type": "object",
@@ -810,6 +884,9 @@
         },
         "fontSize": {
           "type": "number"
+        },
+        "position": {
+          "$ref": "#/$defs/DocumentImageNode_attrs_position"
         }
       },
       "required": [

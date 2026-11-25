@@ -54,8 +54,14 @@ export function createDocumentContextMenuItems(getEditor: () => DocumentEditor, 
     }
   }
   if (block.node.type === "shape") {
-    const attrs = { ...block.node.attrs }; delete attrs.id;
+    // A copy at the same place on the page would hide its original, so it is put in the text.
+    const attrs = { ...block.node.attrs }; delete attrs.id; delete attrs.position;
     add("shape-duplicate", "図形を複製", () => execute({ type: "shape.insert", at: block.to, ...attrs }), { write: true });
+  }
+  // A block placed on the page can be returned to the text, where it is moved and resized like any other.
+  if ((block.node.type === "image" || block.node.type === "shape") && block.node.attrs.position) {
+    const type = block.node.type === "image" ? "image.update" : "shape.update";
+    add(`${target.kind}-inline`, `${name}を本文中に配置`, () => execute({ type, id: block.id, position: null }), { write: true });
   }
   add(`${target.kind}-delete`, `${name}を削除`, () => execute({ type: "block.delete", id: block.id }), { write: true, danger: true, separatorBefore: true });
   return items;

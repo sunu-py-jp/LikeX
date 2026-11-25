@@ -176,3 +176,24 @@ test('image scaling cannot exceed public model dimensions', async t => {
   const action = item(app, 'image', 'picture', 'image-enlarge'); assert.equal(action.disabled, true);
   await action.onSelect(); assert.equal(app.editor.document, document);
 });
+
+test('a block placed on the page can be returned to the text, and a copy is put in the text', async t => {
+  const position = { horizontal: { from: 'page', offset: 10 }, vertical: { from: 'paragraph', offset: 5 } };
+  const app = await mount(t, { initialDocument: createDocument({ content: { type: 'doc', content: [
+    { type: 'image', attrs: { id: 'placed', src: pixel, width: 200, height: 100, position } }, { type: 'image', attrs: { id: 'plain', src: pixel, width: 200, height: 100 } },
+    { type: 'shape', attrs: { id: 'note', preset: 'rect', text: 'Note', position } }, paragraph('Text')] } }) });
+  assert.equal(item(app, 'image', 'plain', 'image-inline'), undefined, 'a block of the text has nothing to return from');
+  assert.equal(item(app, 'image', 'placed', 'image-inline').label, '画像を本文中に配置');
+  await change(() => item(app, 'shape', 'note', 'shape-duplicate').onSelect());
+  const shapes = getBlocks(app.editor.document).filter(block => block.node.type === 'shape');
+  assert.deepEqual(shapes.map(block => block.node.attrs.position), [position, undefined]);
+  await change(() => item(app, 'image', 'placed', 'image-inline').onSelect());
+  await change(() => item(app, 'shape', 'note', 'shape-inline').onSelect());
+  assert.equal(getBlocks(app.editor.document).some(block => block.node.attrs?.position), false);
+  assert.equal(getImages(app.editor.document)[0].node.attrs.width, 200);
+  await change(() => app.editor.history('undo'));
+  assert.deepEqual(getBlocks(app.editor.document).find(block => block.id === 'note').node.attrs.position, position, 'one step of the history brings the place back');
+  // A read-only document offers no way to move the block.
+  const fixed = await mount(t, { readOnly: true, initialDocument: app.editor.document });
+  assert.equal(item(fixed, 'shape', 'note', 'shape-inline'), undefined);
+});

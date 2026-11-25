@@ -61,7 +61,7 @@ console.log(warnings);
 <h2 id="入力形式と限界">入力形式と限界<a class="heading-link" href="#%E5%85%A5%E5%8A%9B%E5%BD%A2%E5%BC%8F%E3%81%A8%E9%99%90%E7%95%8C" aria-label="この見出しへのリンク">#</a></h2>
 <p>LikeDocumentが保持できる画像は埋め込みPNG・JPEGです。リモートURL・Blob URL・SVG・GIF・WebPは受け付けず、既存の画像ヘッダー・寸法・サイズ・文書構造の検証に従います。1画像8 MiB、合計24 MiB、各辺16,384px、64,000,000画素までです。同一画像の配置をまとめても、保存モデルの画像サイズ上限は従来どおりです。</p>
 <p>同じ絵でも、元ファイルをリサイズ・再圧縮・別形式へ変換した場合やメタデータが違う場合は別IDです。知覚ハッシュによる類似画像判定や、ページ全体のレンダリングは行いません。Web CryptoのSHA-256を使うため、ブラウザーではHTTPS等のセキュアコンテキスト、Node.jsでは22.13以降を使います。</p>
-<p>DOCXの取込で保持された本文画像が対象です。既存のDOCX変換はヘッダー・フッター、外部参照画像、PNG・JPEG以外の画像を省略して警告します。浮動画像は本文ブロックになり、切り抜き・回転・反転は省略されます。収集APIは取込で失われた画像を復元しません。<a href="../docx/index.html">DOCX入出力の対応範囲</a>と変換時の <code>warnings</code> を確認してください。DOCXの往復では元のブロックIDを保持する契約はないため、取り込み後の <code>blockId</code> と位置を使います。</p>
+<p>DOCXの取込で保持された本文画像が対象です。既存のDOCX変換はヘッダー・フッター、外部参照画像、PNG・JPEG以外の画像を省略して警告します。浮動画像は本文直下のブロックになり（余白にある画像などは <code>position</code> でページ上の位置を保持します）、切り抜き・回転・反転は省略されます。収集APIは取込で失われた画像を復元しません。<a href="../docx/index.html">DOCX入出力の対応範囲</a>と変換時の <code>warnings</code> を確認してください。DOCXの往復では元のブロックIDを保持する契約はないため、取り込み後の <code>blockId</code> と位置を使います。</p>
 <h2 id="cliで画像一覧を読む">CLIで画像一覧を読む<a class="heading-link" href="#cli%E3%81%A7%E7%94%BB%E5%83%8F%E4%B8%80%E8%A6%A7%E3%82%92%E8%AA%AD%E3%82%80" aria-label="この見出しへのリンク">#</a></h2>
 <div class="code-example"><div class="code-toolbar"><span>bash</span><button type="button" data-copy-code aria-label="コードをコピー">コピー</button></div><pre tabindex="0"><code>node &quot;$skill_dir/scripts/document.mjs&quot; inspect --project &quot;$project_dir&quot; \
   --input document.dcon --images</code></pre></div>

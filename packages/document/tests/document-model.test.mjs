@@ -201,3 +201,63 @@ test('shape clipboard attributes validate before rendering and use a new block I
   const attrs = parse(element({ id: 'old', preset: 'bentArrow', text: 'Safe' }));
   assert.equal(attrs.preset, 'bentArrow'); assert.equal(attrs.id, undefined);
 });
+
+test('images and shapes can be placed on the page, and return to the text', () => {
+  const position = { horizontal: { from: 'page', offset: 12.5 }, vertical: { from: 'paragraph', offset: -3 } };
+  const original = book(), untouched = serializeDocument(original);
+  const placed = execute(original, [
+    { type: 'image.insert', at: 0, src: pixel, width: 200, alt: 'Screen', position },
+    { type: 'shape.insert', at: 0, preset: 'rect', text: 'Note', position: { horizontal: { from: 'margin', offset: -40 }, vertical: { from: 'margin', offset: 120 } } },
+  ]).document;
+  const image = getImages(placed)[0], shape = api.getShapes(placed)[0];
+  assert.deepEqual(image.node.attrs.position, position);
+  assert.deepEqual(shape.node.attrs.position, { horizontal: { from: 'margin', offset: -40 }, vertical: { from: 'margin', offset: 120 } });
+  assert.equal(serializeDocument(original), untouched, 'commands never change their input');
+  // Saved and read back unchanged; a block in the text states no position at all.
+  assert.deepEqual(parseDocument(serializeDocument(placed)), placed);
+  assert.equal(serializeDocument(original).includes('position'), false);
+  const inText = execute(original, { type: 'image.insert', at: 0, src: pixel }).document;
+  assert.equal('position' in getImages(inText)[0].node.attrs, false);
+  assert.equal(serializeDocument(inText).includes('position'), false);
+  assert.deepEqual(normalizeDocument(JSON.parse(JSON.stringify(inText).replace('"alt":""', '"alt":"","position":null'))), inText, 'an explicit null is the same as no position');
+
+  // Moving, resizing and returning to the text use the ordinary update commands.
+  const moved = execute(placed, { type: 'image.update', id: image.id, width: 100, position: { ...position, vertical: { from: 'page', offset: 40 } } }).document;
+  assert.deepEqual(getImage(moved, image.id).node.attrs.position.vertical, { from: 'page', offset: 40 });
+  assert.equal(getImage(moved, image.id).node.attrs.width, 100);
+  assert.deepEqual(getImage(execute(moved, { type: 'image.update', id: image.id, alt: 'x' }).document, image.id).node.attrs.position, getImage(moved, image.id).node.attrs.position, 'an update that names no position keeps it');
+  const returned = execute(moved, [{ type: 'image.update', id: image.id, position: null }, { type: 'shape.update', id: shape.id, position: null }]).document;
+  assert.equal('position' in getImage(returned, image.id).node.attrs, false);
+  assert.equal('position' in api.getShape(returned, shape.id).node.attrs, false);
+
+  for (const bad of [{}, { horizontal: position.horizontal }, { ...position, vertical: { from: 'line', offset: 0 } }, { ...position, horizontal: { from: 'page', offset: 5000 } },
+    { ...position, horizontal: { from: 'page', offset: '1' } }, { ...position, extra: 1 }, 'page', [position]]) {
+    assert.throws(() => execute(placed, { type: 'image.update', id: image.id, position: bad }));
+    assert.throws(() => execute(placed, { type: 'shape.update', id: shape.id, position: bad }));
+  }
+  assert.deepEqual(getImage(placed, image.id).node.attrs.position, position, 'a refused update leaves the document as it was');
+  // Shapes of a drawing canvas have their own coordinates and take no place on the page.
+  assert.throws(() => execute(original, { type: 'canvas.insert', at: 0, shapes: [{ id: 's', preset: 'rect', x: 0, y: 0, position }] }));
+});
+
+test('a placed block states its place in the DOM, and a copied one keeps it', () => {
+  const position = { horizontal: { from: 'margin', offset: -20 }, vertical: { from: 'page', offset: 30 } };
+  const image = documentSchema.nodes.image.create({ id: 'i', src: pixel, width: 10, height: 10, position });
+  const [, attrs] = documentSchema.nodes.image.spec.toDOM(image);
+  assert.deepEqual([attrs['data-lxd-float-h'], attrs['data-lxd-float-v'], attrs.style], ['margin', 'page', '--lxd-float-x:-20mm;--lxd-float-y:30mm']);
+  assert.equal(attrs.position, undefined, 'the object itself is never written as an attribute');
+  const values = { src: pixel, width: '10', 'data-document-position': attrs['data-document-position'] };
+  assert.deepEqual(documentSchema.nodes.image.spec.parseDOM[0].getAttrs({ getAttribute: name => values[name] ?? null }).position, position);
+  // A position that does not validate is dropped; the picture itself is still pasted.
+  assert.equal('position' in documentSchema.nodes.image.spec.parseDOM[0].getAttrs({ getAttribute: name => ({ src: pixel, 'data-document-position': '{"horizontal":1}' })[name] ?? null }), false);
+  const unplaced = documentSchema.nodes.image.spec.toDOM(documentSchema.nodes.image.create({ src: pixel }))[1];
+  assert.equal('data-lxd-float-h' in unplaced || 'style' in unplaced, false);
+
+  const shape = documentSchema.nodes.shape.create({ id: 's', preset: 'rect', width: 120, height: 60, position });
+  const [, shapeAttrs] = documentSchema.nodes.shape.spec.toDOM(shape);
+  assert.equal(shapeAttrs.style, 'width:120px;height:60px;--lxd-float-x:-20mm;--lxd-float-y:30mm');
+  assert.equal(shapeAttrs['data-lxd-float-v'], 'page');
+  const parsed = documentSchema.nodes.shape.spec.parseDOM[0].getAttrs({ getAttribute: () => shapeAttrs['data-shape-attrs'] });
+  assert.deepEqual(parsed.position, position); assert.equal(parsed.id, undefined);
+  assert.equal(documentSchema.nodes.shape.spec.parseDOM[0].getAttrs({ getAttribute: () => JSON.stringify({ preset: 'rect', position: { horizontal: 1 } }) }), false);
+});

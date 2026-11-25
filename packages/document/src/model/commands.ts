@@ -16,9 +16,9 @@ const keys: Record<DocumentCommand["type"], readonly string[]> = {
   "mark.set": ["type", "from", "to", "mark", "attrs", "enabled"],
   "paragraph.set": ["type", "from", "to", "nodeType", "level", "align"],
   "list.set": ["type", "from", "to", "kind"], "table.insert": ["type", "at", "rows", "columns", "header"],
-  "image.insert": ["type", "at", "src", "alt", "width", "height"], "image.update": ["type", "id", "src", "alt", "width", "height"],
-  "shape.insert": ["type", "at", "preset", "text", "width", "height", "fill", "stroke", "strokeWidth", "rotation", "flipH", "flipV", "color", "fontSize"],
-  "shape.update": ["type", "id", "preset", "text", "width", "height", "fill", "stroke", "strokeWidth", "rotation", "flipH", "flipV", "color", "fontSize"],
+  "image.insert": ["type", "at", "src", "alt", "width", "height", "position"], "image.update": ["type", "id", "src", "alt", "width", "height", "position"],
+  "shape.insert": ["type", "at", "preset", "text", "width", "height", "fill", "stroke", "strokeWidth", "rotation", "flipH", "flipV", "color", "fontSize", "position"],
+  "shape.update": ["type", "id", "preset", "text", "width", "height", "fill", "stroke", "strokeWidth", "rotation", "flipH", "flipV", "color", "fontSize", "position"],
   "pageBreak.insert": ["type", "at"], "block.delete": ["type", "id"],
   "document.update": ["type", "title", "page"], "document.replace": ["type", "document"],
   "transaction.apply": ["type", "steps", "selection"],
@@ -138,14 +138,14 @@ function applyOne(current: DocumentModel, command: DocumentCommand): DocumentCom
     case "image.insert": {
       const at = position(doc, command.at);
       // Normalize first to derive the natural aspect ratio when a dimension is omitted.
-      const image = normalizeDocument({ ...current, content: { type: "doc", content: [{ type: "image", attrs: { src: command.src, alt: command.alt, width: command.width, height: command.height } }] } }).content.content[0];
+      const image = normalizeDocument({ ...current, content: { type: "doc", content: [{ type: "image", attrs: { src: command.src, alt: command.alt, width: command.width, height: command.height, position: command.position } }] } }).content.content[0];
       transaction = stateAt(doc).tr.replaceRangeWith(at, at, documentSchema.nodeFromJSON(image));
       break;
     }
     case "image.update": {
       const found = findNode(doc, identifier(command.id));
       if (found.node.type.name !== "image") throw new Error("The selected block is not an image.");
-      const attrs = { ...found.node.attrs, ...(command.src !== undefined ? { src: command.src } : {}), ...(command.alt !== undefined ? { alt: command.alt } : {}), ...(command.width !== undefined ? { width: command.width } : {}), ...(command.height !== undefined ? { height: command.height } : {}) };
+      const attrs = { ...found.node.attrs, ...(command.src !== undefined ? { src: command.src } : {}), ...(command.alt !== undefined ? { alt: command.alt } : {}), ...(command.width !== undefined ? { width: command.width } : {}), ...(command.height !== undefined ? { height: command.height } : {}), ...(command.position !== undefined ? { position: command.position } : {}) };
       if (command.width !== undefined && command.height === undefined) attrs.height = command.width * found.node.attrs.height / found.node.attrs.width;
       if (command.height !== undefined && command.width === undefined) attrs.width = command.height * found.node.attrs.width / found.node.attrs.height;
       transaction = stateAt(doc).tr.setNodeMarkup(found.pos, undefined, attrs);

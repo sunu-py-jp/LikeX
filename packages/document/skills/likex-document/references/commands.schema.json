@@ -947,6 +947,9 @@
         },
         "height": {
           "type": "number"
+        },
+        "position": {
+          "$ref": "#/$defs/DocumentCommand_15_position"
         }
       },
       "required": [
@@ -955,6 +958,77 @@
         "src"
       ],
       "additionalProperties": false
+    },
+    "DocumentCommand_15_position": {
+      "anyOf": [
+        {
+          "const": null
+        },
+        {
+          "$ref": "#/$defs/DocumentBlockPosition"
+        }
+      ]
+    },
+    "DocumentBlockPosition": {
+      "type": "object",
+      "properties": {
+        "horizontal": {
+          "$ref": "#/$defs/DocumentBlockPosition_horizontal"
+        },
+        "vertical": {
+          "$ref": "#/$defs/DocumentBlockPosition_vertical"
+        }
+      },
+      "required": [
+        "horizontal",
+        "vertical"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentBlockPosition_horizontal": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/DocumentBlockPosition_horizontal_from"
+        },
+        "offset": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "from",
+        "offset"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentBlockPosition_horizontal_from": {
+      "enum": [
+        "page",
+        "margin"
+      ]
+    },
+    "DocumentBlockPosition_vertical": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/DocumentBlockPosition_vertical_from"
+        },
+        "offset": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "from",
+        "offset"
+      ],
+      "additionalProperties": false
+    },
+    "DocumentBlockPosition_vertical_from": {
+      "enum": [
+        "paragraph",
+        "page",
+        "margin"
+      ]
     },
     "DocumentCommand_16": {
       "type": "object",
@@ -976,6 +1050,9 @@
         },
         "height": {
           "type": "number"
+        },
+        "position": {
+          "$ref": "#/$defs/DocumentCommand_15_position"
         }
       },
       "required": [
@@ -1022,6 +1099,9 @@
         },
         "strokeWidth": {
           "type": "number"
+        },
+        "position": {
+          "$ref": "#/$defs/DocumentCommand_15_position"
         },
         "flipH": {
           "$ref": "#/$defs/DocumentCanvasShape_flipH"
@@ -1075,6 +1155,9 @@
         },
         "strokeWidth": {
           "type": "number"
+        },
+        "position": {
+          "$ref": "#/$defs/DocumentCommand_15_position"
         },
         "flipH": {
           "$ref": "#/$defs/DocumentCanvasShape_flipH"
@@ -1884,6 +1967,9 @@
         },
         "height": {
           "type": "number"
+        },
+        "position": {
+          "$ref": "#/$defs/DocumentCommand_15_position"
         }
       },
       "required": [
@@ -1948,6 +2034,9 @@
         },
         "fontSize": {
           "type": "number"
+        },
+        "position": {
+          "$ref": "#/$defs/DocumentCommand_15_position"
         }
       },
       "required": [

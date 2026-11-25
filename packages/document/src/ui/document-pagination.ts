@@ -5,7 +5,21 @@ const millimetres = 96 / 25.4;
 const gap = 24;
 const measuringHeight = 1;
 const boundarySelector = "[data-lxd-page-boundary]";
+/** Blocks of the body that are placed from the top of their page or of its text area. */
+const placedSelector = ':scope > [data-lxd-float-v="page"], :scope > [data-lxd-float-v="margin"]';
 type Paper = { top: number; height: number };
+
+/**
+ * The top of the page on which a placed block stands, from where it stands in the text. A paper that grew
+ * past one page has no boundaries of its own, so each page height of its text counts as one more page;
+ * blocks then stay near their text instead of gathering at the top of the paper.
+ */
+export function placedPageTop(papers: readonly Paper[], offset: number, pageHeight: number, marginTop: number, marginBottom: number): number {
+  const paper = papers.find(paper => offset < paper.top + paper.height + gap) ?? papers[papers.length - 1];
+  if (!paper) return 0;
+  const body = Math.max(1, pageHeight - marginTop - marginBottom), last = Math.max(0, Math.ceil((paper.height - marginTop - marginBottom) / body) - 1);
+  return paper.top + Math.min(last, Math.max(0, Math.floor((offset - paper.top - marginTop) / body))) * body;
+}
 
 /** Offsets describe natural flow with the display-only spacers collapsed. */
 export function calculateDocumentPagination(offsets: readonly number[], contentHeight: number, pageHeight: number, marginTop: number, marginBottom: number) {
@@ -115,6 +129,16 @@ export function createDocumentPagination(view: EditorView, layer: HTMLElement, g
       element.setAttribute("data-lxd-display-page", String(index + 1));
       setStyle(element, "top", pixels(origin + paper.top)); setStyle(element, "height", pixels(paper.height));
     });
+    const placed = Array.from(root.querySelectorAll<HTMLElement>(placedSelector));
+    if (placed.length) {
+      // Where each block stands in the text, read together before any of them is moved.
+      for (const element of placed) setStyle(element, "top", "auto");
+      const start = root.getBoundingClientRect().top, offsets = placed.map(element => (element.getBoundingClientRect().top - start) / scale);
+      placed.forEach((element, index) => {
+        const top = placedPageTop(plan.papers, offsets[index], page.height * millimetres, page.margins.top * millimetres, page.margins.bottom * millimetres);
+        setStyle(element, "top", `calc(${pixels(top + (element.getAttribute("data-lxd-float-v") === "margin" ? page.margins.top * millimetres : 0))} + var(--lxd-float-y))`);
+      });
+    }
     refreshObserved(); rememberSizes();
     // Measuring collapsed spacers can temporarily shrink the scroll range and
     // trigger clamping/anchoring. Final geometry has now been read; restore the

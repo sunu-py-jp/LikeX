@@ -27,8 +27,8 @@ const json = serializeDocument(result.document);
 | `paragraph.set` | 段落・見出し・揃えを変更 |
 | `list.set` | 箇条書き・番号付きリスト・通常段落を切り替え |
 | `table.insert` | 行数・列数を指定して表を挿入 |
-| `image.insert` / `image.update` | 埋め込み画像を追加・更新 |
-| `shape.insert` / `shape.update` | Officeプリセット図形を追加・更新 |
+| `image.insert` / `image.update` | 埋め込み画像を追加・更新。`position` でページ上の位置に置く |
+| `shape.insert` / `shape.update` | Officeプリセット図形を追加・更新。`position` でページ上の位置に置く |
 | `canvas.insert` / `canvas.update` | 描画キャンバスの追加・寸法変更 |
 | `canvas.shape.insert` / `canvas.shape.update` / `canvas.shape.delete` | キャンバス内の図形を追加・変更・削除 |
 | `canvas.connector.insert` / `canvas.connector.update` / `canvas.connector.delete` | キャンバス内の接続線を追加・変更・削除 |
@@ -138,6 +138,30 @@ const edited = executeDocumentCommands(result.document, {
 ```
 
 `preset` は `OfficeShapePreset` の39種。`@likex/core/office-shapes` の `OFFICE_SHAPE_PRESETS` からラベル付き一覧を取得できます。寸法と線幅はpx、回転は度、文字サイズはpt。塗りと線を消す場合は `fill: null` / `stroke: null`。`shape.update` は指定した属性だけを変更します。幅だけの変更で高さは変えません。挿入結果の `selection` は新しい図形を選択し、図形の削除は `block.delete` を使います。
+
+## 画像・図形をページ上の位置に置く
+
+画像と図形は通常、本文の流れの中のブロックです。`position` を指定すると本文の流れから外れ、ページ上の位置に表示されます。置いたブロックは本文の高さを取らず、文字は回り込みません。余白に置く画面の図や注記に使います。
+
+```ts
+const placed = executeDocumentCommands(document, {
+  type: "image.update", id: image.id,
+  position: { horizontal: { from: "page", offset: 15 }, vertical: { from: "paragraph", offset: 5 } },
+});
+const inText = executeDocumentCommands(placed.document, { type: "image.update", id: image.id, position: null });
+```
+
+| 項目 | 値 |
+| --- | --- |
+| `horizontal.from` | `"page"`（ページの左端）または `"margin"`（本文領域の左端） |
+| `vertical.from` | `"page"`（ページの上端）、`"margin"`（本文領域の上端）、`"paragraph"`（ブロックが本文中にある位置。直後の段落の上端にあたります） |
+| `offset` | 基準からの距離（mm、-1200〜1200）。負の値は左・上方向です |
+
+`position: null` は本文中へ戻します。`image.update` / `shape.update` で `position` を省略すると現在の位置を保ちます。本文中のブロックは保存データに `position` を持ちません（`null` は書き出しません）。
+
+位置を使うのは本文直下のブロックだけです。表のセルや箇条書きの中では、`position` があっても本文中に表示します。描画キャンバスとキャンバス内の図形は `position` を持てません。`vertical.from` が `"page"` / `"margin"` のページは、`getDocumentPage` と同じく手動改ページと保存済みの自動改ページ位置で決まります。
+
+`features.formatting: false` のとき、図形の `position` の変更は図形の書式変更として拒否します。Wordとの変換は[DOCXの対応範囲](docx.md#ページ上の位置浮動配置)を参照してください。
 
 ## 描画キャンバスと自動直交コネクタ
 

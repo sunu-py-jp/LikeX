@@ -10,11 +10,21 @@ import { FIB, type DocFile } from "./doc-file";
  */
 /** `bitmap` marks data still in the bitmap format of Office 97, which is rewritten as PNG once the package is laid out. */
 export type DocImageData = { type: string; extension: string; data: Uint8Array; bitmap?: boolean };
-export type DocFloating = { /** Size in EMU. */ width: number; height: number; name: string; description: string } & (
+export type DocFloating = { /** Size in EMU. */ width: number; height: number; name: string; description: string; place: DocPlace } & (
   | { kind: "picture"; image: DocImageData; /** Index in the picture store; anchors of one picture share its data. */ store: number; adjusted: boolean }
   | { kind: "shape"; preset: string | undefined; text: string; fill: string | undefined; line: string | undefined; lineWidth: number;
     rotation: number; flipHorizontal: boolean; flipVertical: boolean }
   | { kind: "group" });
+
+/**
+ * Where an object stands on the page, in the terms of an anchored drawing: the offsets in EMU from an origin,
+ * or the side of that origin it is aligned to, and how text passes it.
+ */
+export type DocPlace = { left: number; top: number; horizontal: string; vertical: string; alignHorizontal?: string; alignVertical?: string;
+  wrap: "square" | "topAndBottom" | "none" | "tight" | "through"; behind: boolean };
+const HORIZONTAL_ORIGINS = ["margin", "page", "column", "character"], VERTICAL_ORIGINS = ["margin", "page", "paragraph", "line"];
+const HORIZONTAL_SIDES = [undefined, "left", "center", "right", "inside", "outside"], VERTICAL_SIDES = [undefined, "top", "center", "bottom", "inside", "outside"];
+const WRAPS = ["square", "topAndBottom", "square", "none", "tight", "through"] as const;
 
 const PICTURE_TYPES: Readonly<Record<OfficeArtImage["format"], [type: string, extension: string]>> = { png: ["image/png", "png"], jpeg: ["image/jpeg", "jpeg"], dib: ["image/png", "png"],
   emf: ["image/x-emf", "emf"], wmf: ["image/x-wmf", "wmf"], pict: ["image/x-pict", "pict"], tiff: ["image/tiff", "tiff"] };
@@ -51,7 +61,7 @@ function plainText(source: string): string {
 
 /** Returns the lookup from the character position of an anchor to its drawn object. Damaged tables lose their objects. */
 export function readDocDrawings(file: DocFile): (cp: number) => DocFloating | undefined {
-  const anchors = new Map<number, { shape: number; width: number; height: number }>(), shapes = new Map<number, OfficeArtShape>();
+  const anchors = new Map<number, { shape: number; left: number; top: number; width: number; height: number; flags: number }>(), shapes = new Map<number, OfficeArtShape>();
   const ranges = new Map<number, [start: number, end: number]>(), texts = new Map<number, string>();
   let images: (OfficeArtImage | undefined)[] = [];
   try {
@@ -60,9 +70,9 @@ export function readDocDrawings(file: DocFile): (cp: number) => DocFloating | un
       const positions = new ByteReader(file.table, offset, offset + (count + 1) * 4), entries = new ByteReader(file.table, offset + (count + 1) * 4, offset + length);
       for (let index = 0; index < count; index++) {
         const cp = positions.u32(), shape = entries.u32(), left = entries.i32(), top = entries.i32(), right = entries.i32(), bottom = entries.i32();
-        // Wrapping and the reference point of the box are not kept: the object is placed in the text.
-        entries.skip(6);
-        anchors.set(cp, { shape, width: (right - left) * TWIP_EMU, height: (bottom - top) * TWIP_EMU });
+        const flags = entries.u16();
+        entries.skip(4);
+        anchors.set(cp, { shape, left: left * TWIP_EMU, top: top * TWIP_EMU, width: (right - left) * TWIP_EMU, height: (bottom - top) * TWIP_EMU, flags });
       }
     }
   } catch { /* The anchors read before the damage are kept. */ }
@@ -113,9 +123,16 @@ export function readDocDrawings(file: DocFile): (cp: number) => DocFloating | un
   return cp => {
     const anchor = anchors.get(cp), shape = anchor && shapes.get(anchor.shape);
     if (!anchor || !shape || !(anchor.width > 0 && anchor.height > 0)) return undefined;
-    const base = { width: anchor.width, height: anchor.height, name: officeArtString(shape, P.name) ?? "", description: officeArtString(shape, P.description) ?? "" };
+    const value = (id: number) => shape.properties.get(id)?.value, { flags } = anchor;
+    // The anchor names the origins of its box (bits 1–2 and 3–4), how text passes it (5–8) and whether it lies behind the text (14).
+    // A shape that states its own origins or an alignment overrides the anchor.
+    const place: DocPlace = { left: anchor.left, top: anchor.top,
+      horizontal: HORIZONTAL_ORIGINS[value(P.originHorizontal) ?? (flags >> 1) & 3] ?? "column", vertical: VERTICAL_ORIGINS[value(P.originVertical) ?? (flags >> 3) & 3] ?? "paragraph",
+      alignHorizontal: HORIZONTAL_SIDES[value(P.alignHorizontal) ?? 0], alignVertical: VERTICAL_SIDES[value(P.alignVertical) ?? 0],
+      wrap: WRAPS[(flags >> 5) & 15] ?? "square", behind: (flags & 0x4000) !== 0 };
+    const base = { width: anchor.width, height: anchor.height, name: officeArtString(shape, P.name) ?? "", description: officeArtString(shape, P.description) ?? "", place };
     if (shape.group) return { ...base, kind: "group" };
-    const value = (id: number) => shape.properties.get(id)?.value, store = value(P.picture);
+    const store = value(P.picture);
     if (store) {
       const image = images[store - 1];
       if (!image) return undefined;

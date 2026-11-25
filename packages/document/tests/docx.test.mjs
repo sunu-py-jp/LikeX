@@ -152,7 +152,7 @@ test('all Office preset shapes round-trip as editable DrawingML with text, paint
   }
 });
 
-test('external Word anchor/AlternateContent shape imports once, retains editing data and warns about floating placement', async () => {
+test('external Word anchor/AlternateContent shape imports once, retains editing data and its place in front of the text', async () => {
   const fixture = await readFile(new URL('fixtures/word-bent-arrow.xml', import.meta.url), 'utf8');
   const initial = (await exportDocumentDocx(createDocument())).blob;
   const source = await changed(initial, entries => replace(entries, 'word/document.xml', xml => xml.replace('<w:body>', `<w:body>${fixture}`)));
@@ -160,7 +160,13 @@ test('external Word anchor/AlternateContent shape imports once, retains editing 
   assert.equal(shapes.length, 1); const attrs = shapes[0].attrs;
   assert.equal(attrs.preset, 'bentArrow'); assert.equal(attrs.text, '審査から承認'); assert.equal(attrs.width, 240); assert.equal(attrs.height, 120);
   assert.equal(attrs.rotation, 30); assert.equal(attrs.flipH, true); assert.equal(attrs.fill, '#19a18c'); assert.equal(attrs.stroke, '#173d50'); assert.equal(attrs.strokeWidth, 2); assert.equal(attrs.fontSize, 18); assert.equal(attrs.color, '#ffffff');
-  assert.ok(imported.warnings.some(item => item.includes('浮動配置の図形'))); assert.ok(!JSON.stringify(imported.document).includes('DO NOT DUPLICATE'));
+  // In front of the text the shape lies over it without moving it, which a placed block does as well.
+  assert.equal(attrs.position.horizontal.from, 'margin'); close(attrs.position.horizontal.offset, 95250 / 36000);
+  assert.equal(attrs.position.vertical.from, 'paragraph'); close(attrs.position.vertical.offset, 190500 / 36000);
+  assert.ok(!imported.warnings.some(item => item.includes('浮動配置の図形'))); assert.ok(!JSON.stringify(imported.document).includes('DO NOT DUPLICATE'));
+  // With text wrapped around it, it stays in the text and says so.
+  const wrapped = await importDocumentDocx(await changed(initial, entries => replace(entries, 'word/document.xml', xml => xml.replace('<w:body>', `<w:body>${fixture.replaceAll('<wp:wrapNone/>', '<wp:wrapSquare wrapText="bothSides"/>')}`))));
+  assert.ok(wrapped.warnings.some(item => item.includes('浮動配置の図形'))); assert.equal('position' in wrapped.document.content.content.find(node => node.type === 'shape').attrs, false);
   const reimported = await importDocumentDocx((await exportDocumentDocx(imported.document)).blob);
   const a = { ...reimported.document.content.content.find(node => node.type === 'shape').attrs }, b = { ...attrs }; delete a.id; delete b.id; assert.deepEqual(a, b);
   assert.deepEqual(reimported.warnings, []);
@@ -181,4 +187,99 @@ test('shape textbox tables and content controls retain their text when flattened
   const result = await importDocumentDocx(source), shape = result.document.content.content.find(node => node.type === 'shape');
   assert.equal(shape.attrs.text, 'Customer essential details\n¥120,000\nApproval owner\n');
   assert.ok(result.warnings.some(message => message.includes('通常の文字に変換')));
+});
+
+const FLOATING_PICTURE = '浮動配置の画像は本文中の画像として読み込みました';
+const documentXml = async blob => new TextDecoder().decode((await parts(blob)).get('word/document.xml'));
+// A wide left margin with the text on the right, as manuals keep their screenshots beside the text.
+const sideBySide = content => createDocument({ page: { width: 420, height: 297, margins: { top: 20, right: 15, bottom: 20, left: 260 } }, content: { type: 'doc', content } });
+
+test('blocks placed on the page are anchored in the paragraph that follows and read back in place', async () => {
+  const screen = { horizontal: { from: 'page', offset: 12 }, vertical: { from: 'paragraph', offset: 5 } }, note = { horizontal: { from: 'margin', offset: -230 }, vertical: { from: 'margin', offset: 150 } };
+  const last = { horizontal: { from: 'page', offset: 20 }, vertical: { from: 'page', offset: 250 } };
+  const source = sideBySide([
+    { type: 'image', attrs: { src: png, width: 400, height: 200, alt: 'Screen', position: screen } },
+    { type: 'shape', attrs: { preset: 'rect', text: 'Note', width: 120, height: 60, position: note } },
+    { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Title' }] }, p('Body'),
+    { type: 'table', content: [{ type: 'table_row', content: [{ type: 'table_cell', content: [{ type: 'image', attrs: { src: png, width: 40, height: 20, position: screen } }] }] }] },
+    { type: 'image', attrs: { src: png, width: 100, height: 50, position: last } },
+  ]);
+  const exported = await exportDocumentDocx(source), xml = await documentXml(exported.blob);
+  assert.deepEqual(exported.warnings, []); assert.ok(officeXml.parseXml(new TextEncoder().encode(xml)));
+  // Both drawings stand in the heading that follows them, so Word shows no empty line for them.
+  assert.match(xml, /<w:body><w:p><w:pPr><w:pStyle w:val="Heading1"\/><w:jc w:val="left"\/><\/w:pPr><w:r><w:drawing><wp:anchor [^>]*behindDoc="0"[^>]*><wp:simplePos x="0" y="0"\/><wp:positionH relativeFrom="page"><wp:posOffset>432000<\/wp:posOffset><\/wp:positionH><wp:positionV relativeFrom="paragraph"><wp:posOffset>180000<\/wp:posOffset><\/wp:positionV><wp:extent cx="3810000" cy="1905000"\/><wp:wrapNone\/><wp:docPr /);
+  assert.match(xml, /<\/wp:anchor><\/w:drawing><\/w:r><w:r><w:drawing><wp:anchor [^>]*><wp:simplePos x="0" y="0"\/><wp:positionH relativeFrom="margin"><wp:posOffset>-8280000<\/wp:posOffset><\/wp:positionH><wp:positionV relativeFrom="margin"><wp:posOffset>5400000<\/wp:posOffset>.*?<\/wp:anchor><\/w:drawing><\/w:r><w:r><w:t xml:space="preserve">Title<\/w:t>/);
+  assert.equal(xml.match(/<wp:anchor /g).length, 3); assert.equal(xml.match(/<wp:inline /g).length, 1, 'in a table the block is written in the text, where it is shown');
+  assert.match(xml, /<w:p><w:r><w:drawing><wp:anchor [^>]*>.*?<\/wp:anchor><\/w:drawing><\/w:r><\/w:p><w:sectPr>/, 'without a paragraph after it, the drawing gets one of its own');
+
+  const result = await importDocumentDocx(exported.blob), blocks = result.document.content.content;
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(blocks.map(block => block.type), ['image', 'shape', 'heading', 'paragraph', 'table', 'image', 'paragraph']);
+  assert.deepEqual([blocks[0].attrs.position, blocks[1].attrs.position, blocks[5].attrs.position], [screen, note, last]);
+  assert.deepEqual([blocks[0].attrs.width, blocks[0].attrs.alt, blocks[1].attrs.text, text(blocks[2])], [400, 'Screen', 'Note', 'Title']);
+  assert.equal('position' in blocks[4].content[0].content[0].content[0].attrs, false);
+  // A second round changes nothing more.
+  const again = await importDocumentDocx((await exportDocumentDocx(result.document)).blob);
+  assert.deepEqual(again.document.content.content.map(block => [block.type, block.attrs?.position]), blocks.map(block => [block.type, block.attrs?.position]));
+});
+
+test('an anchored drawing keeps its place only where the page can show it there', async () => {
+  const position = { horizontal: { from: 'page', offset: 12 }, vertical: { from: 'paragraph', offset: 5 } };
+  const base = await exportDocumentDocx(sideBySide([{ type: 'image', attrs: { src: png, width: 400, height: 200, position } }, p('Text')]));
+  const H = '<wp:positionH relativeFrom="page"><wp:posOffset>432000</wp:posOffset></wp:positionH>', V = '<wp:positionV relativeFrom="paragraph"><wp:posOffset>180000</wp:posOffset></wp:positionV>';
+  const read = async (...changes) => {
+    const result = await importDocumentDocx(await changed(base.blob, entries => replace(entries, 'word/document.xml', xml => changes.reduce((value, [from, to]) => { assert.ok(value.includes(from), from); return value.replace(from, to); }, xml))));
+    return { warnings: result.warnings, kinds: result.document.content.content.map(block => block.type), position: result.document.content.content.find(block => block.type === 'image').attrs.position };
+  };
+  const mm = (actual, expected) => { for (const axis of ['horizontal', 'vertical']) { assert.equal(actual[axis].from, expected[axis].from); close(actual[axis].offset, expected[axis].offset); } };
+  const square = ['<wp:wrapNone/>', '<wp:wrapSquare wrapText="bothSides"/>'];
+
+  // Clear of the text area, the wrapping does not matter: nothing is beside the drawing to wrap.
+  assert.deepEqual(await read(square), { warnings: [], kinds: ['image', 'paragraph'], position });
+  assert.deepEqual((await read(['<wp:wrapNone/>', '<wp:wrapTopAndBottom/>'], ['behindDoc="0"', 'behindDoc="1"'])).position, position);
+  // In the text area with wrapped text, or behind the text, it stays a block of the text and says so.
+  const inText = ['<wp:posOffset>432000</wp:posOffset>', '<wp:posOffset>9000000</wp:posOffset>'];
+  assert.deepEqual(await read(square, inText), { warnings: [FLOATING_PICTURE], kinds: ['image', 'paragraph'], position: undefined });
+  assert.deepEqual((await read(inText, ['behindDoc="0"', 'behindDoc="1"'])).warnings, [FLOATING_PICTURE]);
+  // In front of the text it lies over it, as Word shows it.
+  mm((await read(inText)).position, { horizontal: { from: 'page', offset: 250 }, vertical: position.vertical });
+  // The right margin is clear of the text as well.
+  mm((await read(square, [H, '<wp:positionH relativeFrom="rightMargin"><wp:posOffset>36000</wp:posOffset></wp:positionH>'], ['cx="3810000" cy="1905000"/><wp:wrap', 'cx="360000" cy="180000"/><wp:wrap'])).position,
+    { horizontal: { from: 'page', offset: 406 }, vertical: position.vertical });
+
+  // Origins and alignments are resolved against the page; the column is the text area.
+  mm((await read([H, '<wp:positionH relativeFrom="column"><wp:posOffset>-8928000</wp:posOffset></wp:positionH>'], [V, '<wp:positionV relativeFrom="line"><wp:posOffset>-36000</wp:posOffset></wp:positionV>'])).position,
+    { horizontal: { from: 'margin', offset: -248 }, vertical: { from: 'paragraph', offset: -1 } });
+  mm((await read([H, '<wp:positionH relativeFrom="leftMargin"><wp:align>center</wp:align></wp:positionH>'], [V, '<wp:positionV relativeFrom="margin"><wp:align>bottom</wp:align></wp:positionV>'])).position,
+    { horizontal: { from: 'page', offset: (260 - 400 * 25.4 / 96) / 2 }, vertical: { from: 'margin', offset: 257 - 200 * 25.4 / 96 } });
+  mm((await read([H, '<wp:positionH relativeFrom="page"><wp:align>left</wp:align></wp:positionH>'], [V, '<wp:positionV relativeFrom="topMargin"><wp:posOffset>72000</wp:posOffset></wp:positionV>'])).position,
+    { horizontal: { from: 'page', offset: 0 }, vertical: { from: 'page', offset: 2 } });
+  // In the margin above or below the text area nothing is beside the drawing either.
+  mm((await read(square, inText, [V, '<wp:positionV relativeFrom="page"><wp:posOffset>36000</wp:posOffset></wp:positionV>'], ['cx="3810000" cy="1905000"/><wp:wrap', 'cx="3810000" cy="360000"/><wp:wrap'])).position,
+    { horizontal: { from: 'page', offset: 250 }, vertical: { from: 'page', offset: 1 } });
+  assert.deepEqual((await read(square, inText, [V, '<wp:positionV relativeFrom="page"><wp:posOffset>720000</wp:posOffset></wp:positionV>'])).warnings, [FLOATING_PICTURE]);
+  mm((await read(['simplePos="0"', 'simplePos="1"'], ['<wp:simplePos x="0" y="0"/>', '<wp:simplePos x="720000" y="1080000"/>'])).position, { horizontal: { from: 'page', offset: 20 }, vertical: { from: 'page', offset: 30 } });
+
+  // What the page has no origin for stays in the text.
+  for (const change of [[H, '<wp:positionH relativeFrom="character"><wp:posOffset>0</wp:posOffset></wp:positionH>'], [V, '<wp:positionV relativeFrom="paragraph"><wp:align>top</wp:align></wp:positionV>'],
+    [H, '<wp:positionH relativeFrom="page"><wp:posOffset>x</wp:posOffset></wp:positionH>'], [H, '<wp:positionH relativeFrom="page"><wp:posOffset>-99999999999</wp:posOffset></wp:positionH>'], [V, '']])
+    assert.deepEqual(await read(change), { warnings: [FLOATING_PICTURE], kinds: ['image', 'paragraph'], position: undefined });
+});
+
+test('a placed drawing stands before its paragraph without dividing it, and its paragraph remains', async () => {
+  const position = { horizontal: { from: 'page', offset: 12 }, vertical: { from: 'paragraph', offset: 5 } };
+  const base = await exportDocumentDocx(sideBySide([p('Before after'), { type: 'image', attrs: { src: png, width: 400, height: 200, position } }]));
+  const run = /<w:p>(<w:r><w:drawing><wp:anchor .*?<\/wp:anchor><\/w:drawing><\/w:r>)<\/w:p>/;
+  // The anchor moves between two runs of the first paragraph; its own paragraph stays behind, empty.
+  const middle = await importDocumentDocx(await changed(base.blob, entries => replace(entries, 'word/document.xml', xml => {
+    const anchor = run.exec(xml)[1];
+    return xml.replace(run, '<w:p/>').replace('<w:t xml:space="preserve">Before after</w:t></w:r>', `<w:t xml:space="preserve">Before </w:t></w:r>${anchor}<w:r><w:t xml:space="preserve">after</w:t></w:r>`);
+  })));
+  assert.deepEqual(middle.document.content.content.map(block => block.type === 'paragraph' ? text(block) : block.type), ['image', 'Before after', '']);
+  assert.deepEqual(middle.document.content.content[0].attrs.position, position); assert.deepEqual(middle.warnings, []);
+  // In a table the drawing stays in the text of its cell, where the page shows it.
+  const cell = await importDocumentDocx(await changed(base.blob, entries => replace(entries, 'word/document.xml', xml => xml.replace(run, (_all, anchor) => `<w:tbl><w:tblGrid><w:gridCol w:w="2000"/></w:tblGrid><w:tr><w:tc><w:p>${anchor}</w:p></w:tc></w:tr></w:tbl>`))));
+  const inner = cell.document.content.content.find(block => block.type === 'table').content[0].content[0].content;
+  assert.deepEqual(inner.map(block => block.type), ['image']); assert.equal('position' in inner[0].attrs, false);
+  assert.deepEqual(cell.warnings, [FLOATING_PICTURE]);
 });

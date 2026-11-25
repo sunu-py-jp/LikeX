@@ -105,7 +105,8 @@ export function assertDocumentFeatures(before: DocumentModel, after: DocumentMod
       if (node.type.name !== "shape") return;
       // A blank shape may be inserted with its standard appearance. Explicit
       // styling, including raw ProseMirror steps, obeys the formatting flag.
-      const baseline = previous.get(node.attrs.id) ?? visual(normalizeShapeAttributes({ preset: node.attrs.preset }));
+      // A new shape stands in the text; a place on the page is part of its appearance.
+      const baseline = previous.get(node.attrs.id) ?? visual({ ...normalizeShapeAttributes({ preset: node.attrs.preset }), position: null });
       if (visual(node.attrs) !== baseline) throw new Error("図形の書式変更は無効です。");
     });
   }

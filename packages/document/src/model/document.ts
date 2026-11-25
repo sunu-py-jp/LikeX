@@ -1,4 +1,5 @@
 import { canvasAttributeKeys, normalizeCanvasAttributes } from "./canvas";
+import { normalizeBlockPosition, omitTextPosition } from "./position";
 import { normalizeShapeAttributes, shapeAttributeKeys } from "./shape-attributes";
 import { documentSchema } from "./schema";
 import { inspectDocumentImage } from "./image-source";
@@ -65,7 +66,7 @@ export function normalizeDocumentMark(input: unknown): DocumentMark {
   return { type };
 }
 const attrKeys: Record<string, string[]> = {
-  paragraph: ["id", "align"], heading: ["id", "align", "level"], bullet_list: ["id"], ordered_list: ["id", "order"], list_item: ["id"], table: ["id", "width", "layout", "cellMargins"], table_row: ["id"], table_cell: ["id", "colspan", "rowspan", "colwidth", "backgroundColor", "preferredWidth", "margins", "noWrap", "fitText"], table_header: ["id", "colspan", "rowspan", "colwidth", "backgroundColor", "preferredWidth", "margins", "noWrap", "fitText"], image: ["id", "src", "alt", "width", "height"], shape: shapeAttributeKeys, drawing_canvas: canvasAttributeKeys, page_break: ["id"], hard_break: [], rendered_page_break: [], text: [], doc: [],
+  paragraph: ["id", "align"], heading: ["id", "align", "level"], bullet_list: ["id"], ordered_list: ["id", "order"], list_item: ["id"], table: ["id", "width", "layout", "cellMargins"], table_row: ["id"], table_cell: ["id", "colspan", "rowspan", "colwidth", "backgroundColor", "preferredWidth", "margins", "noWrap", "fitText"], table_header: ["id", "colspan", "rowspan", "colwidth", "backgroundColor", "preferredWidth", "margins", "noWrap", "fitText"], image: ["id", "src", "alt", "width", "height", "position"], shape: [...shapeAttributeKeys, "position"], drawing_canvas: canvasAttributeKeys, page_break: ["id"], hard_break: [], rendered_page_break: [], text: [], doc: [],
 };
 function normalizeContent(input: unknown): DocumentRootNode {
   const ids = new Set<string>();
@@ -109,10 +110,11 @@ function normalizeContent(input: unknown): DocumentRootNode {
       if (imageBytes > DOCUMENT_LIMITS.totalImageBytes) throw new Error("Embedded images exceed the document size limit.");
       const width = originalAttrs.width == null ? originalAttrs.height == null ? Math.min(image.width, 480) : number(originalAttrs.height, "Image height", 1, 16_384) * image.width / image.height : number(originalAttrs.width, "Image width", 1, 16_384);
       const height = originalAttrs.height == null ? width * image.height / image.width : number(originalAttrs.height, "Image height", 1, 16_384);
-      Object.assign(attrs, { src: image.src, alt: text(originalAttrs.alt ?? "", "Image alternative text", 4000), width: number(width, "Image width", 1, 16_384), height: number(height, "Image height", 1, 16_384) });
+      Object.assign(attrs, { src: image.src, alt: text(originalAttrs.alt ?? "", "Image alternative text", 4000), width: number(width, "Image width", 1, 16_384), height: number(height, "Image height", 1, 16_384), position: normalizeBlockPosition(originalAttrs.position) });
     }
     if (type === "shape") {
-      Object.assign(attrs, normalizeShapeAttributes(originalAttrs));
+      const { position, ...shape } = originalAttrs;
+      Object.assign(attrs, normalizeShapeAttributes(shape), { position: normalizeBlockPosition(position) });
       textLength += (attrs.text as string).length;
       if (textLength > DOCUMENT_LIMITS.textLength) throw new Error("Document text exceeds the size limit.");
     }
@@ -179,7 +181,7 @@ function normalizeContent(input: unknown): DocumentRootNode {
     if ("content" in node) node.content?.forEach(restoreEmptyRows);
   };
   restoreEmptyRows(json);
-  return json;
+  return omitTextPosition(json);
 }
 /** Validate and clone a document, assigning IDs only to new or duplicated blocks. */
 export function normalizeDocument(input: unknown): DocumentModel {
